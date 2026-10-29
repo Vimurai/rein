@@ -3781,3 +3781,31 @@ Re-pin to the old sha with the old bytes; the diff is the token substitution in 
 Each fix is a small commit in the same PR; E-393 is one PR; the migration order is text.
 
 ---
+
+## D-132 addendum 5 — The installer's "projects to sync" list is derived from Claude Code's per-project session directories, read-only and bounded, because Rein keeps no project registry
+
+**Date**: 2026-10-29
+**Task**: E-391 (F1, installer half)
+**Decision**: Addendum 4 r2 said "each project the registry knows"; there is no such registry (`registry.json` holds roles and MCP servers; launch records are per live pid and pruned), and one written by `rein sync` from now on would miss exactly the un-synced projects the list exists for. The Engineer's derivation is ruled in, with constraints, as the one-time migration aid it is; the per-project `rein doctor` check (addendum 4 r2) stays the authority.
+
+### Rulings
+1. **Sources**: `~/.claude/projects/*/` and, for each account in `~/.rein/accounts.json` (a file Rein already reads), `<config_dir>/projects/*/`. Nothing else.
+2. **Read discipline**: per directory, the newest `*.jsonl` by mtime only; at most its first 50 lines; each line parsed as JSON; the first record with a string `cwd` wins; every other field is discarded on the spot — never stored, logged, sent to telemetry or printed. Any unreadable directory, file or line is skipped silently.
+3. **Candidate filter**: a `cwd` qualifies when it exists, is a directory, and holds `.ai/` and `.claude/settings.json`; the git toplevel of a qualifying `cwd` is added when it qualifies too; the clone being installed is added. De-duplicated and sorted.
+4. **What is printed**: only candidates whose settings name a missing Rein hook path (addendum 4 r2's check applied to each), one path per line with `run: rein sync`, printed with `printf '%s'` — a path is data; the installer never `cd`s into a candidate, executes anything there, or passes the string to a shell. A crafted transcript line can therefore inject at most a path that fails the filter or is printed.
+5. **Fail open, say so**: the list may be incomplete; its heading says "projects found with a stale hook path (others may exist — run `rein doctor` in each project you use)". `REIN_NO_PROJECT_SCAN=1` skips the scan. The scan runs only in `install-rein.sh`'s final report.
+6. **Tests** (named, in the installer suite): a fixture projects dir whose newest transcript lacks `cwd` in its first record and has it in a later one; a `cwd` without `.ai/` excluded; a candidate with a missing hook path listed; an unreadable directory skipped; the env switch honoured. `THREAT_MODEL.md` T-RENAME-001 gains the transcript-read note.
+7. **A Rein-owned project registry is not added now** (hard-cut scope); if a later migration needs the list again, `rein init`/`rein sync` recording the project path is the first thing to add.
+
+### Alternatives considered
+1. **Drop the installer list; doctor per project plus the operator list** — rejected as the only aid: the operator must remember every project, and a forgotten one is a project with its gate off.
+2. **Decode the project path from Claude Code's directory names** — rejected: the encoding is lossy (`-` for `/` and for `-`), so it guesses where the `cwd` field states.
+3. **Scan the filesystem for `.ai/` directories** — rejected: unbounded, slow on a home directory, and reads far more than the session dirs.
+
+### Impact
+- Unlocks: E-391 F1 complete. Risk if wrong: Claude Code changes its transcript layout and the list goes empty — fail open with the "others may exist" line; the doctor check still catches each project when it is opened.
+
+### Rollback
+Delete the scan from the installer's final report; nothing else depends on it.
+
+---

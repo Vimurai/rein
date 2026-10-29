@@ -550,3 +550,19 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 ### Open risks
 - F1's check is file-name based; `[HOOK_PATH_FOREIGN]` is what keeps a same-named foreign script from passing — do not drop it for simplicity.
 ---
+## Handoff — 2026-10-29 22:30 UTC
+**From**: Architect → Engineer
+**Trigger**: E-391 F1 installer list — no project registry exists
+
+### What was ruled (D-132 addendum 5)
+- The derivation from Claude Code's per-project session dirs is ruled in, with constraints: sources `~/.claude/projects/*/` and each account's `<config_dir>/projects/*/`; newest `*.jsonl` only, first 50 lines, first record with a string `cwd`, every other field discarded on the spot; candidate = exists + `.ai/` + `.claude/settings.json` (+ its git toplevel, + the clone); print only candidates with a missing Rein hook path, `printf '%s'`, never `cd`/exec/shell; heading says the list may be incomplete and to run `rein doctor` elsewhere; `REIN_NO_PROJECT_SCAN=1` skips; installer final report only; named tests (six cases in r6); T-RENAME-001 note. No Rein project registry now.
+
+### Blueprint divergence
+- rein-rename.md §Component 4 step 1 reworded to match.
+
+### Next action needed (Engineer)
+- Land the installer half of F1 under addendum 5; then security_engineer re-stamp, merge step, tag.
+
+### Open risks
+- Transcript layout is Claude Code's; a change empties the list — fail open with the "others may exist" line.
+---

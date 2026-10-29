@@ -96,8 +96,10 @@ because its settings register the hooks by the old absolute path and a hook that
 is not a block). No code prints the old name; the installer and doctor name only what is
 missing (addendum 4 r2):
 1. `bash install-rein.sh` from the merged `main` (installs `~/.rein/bin/rein`; prints that
-   the command is `rein`; then lists every registered project whose settings name a missing
-   Rein hook path, each with `run: rein sync`).
+   the command is `rein`; then lists every project it can find whose settings name a missing
+   Rein hook path, each with `run: rein sync` — found through Claude Code's per-project
+   session directories, read-only and bounded per D-132 addendum 5; the list may be
+   incomplete and says so, so run `rein doctor` in any project it does not name).
 2. `rein sync` in every project on that list (and any other): rulefiles, hook paths, merge
    driver and settings re-render from the templates; a Rein-named hook entry with a missing
    path is rewritten to the install path.

@@ -278,7 +278,7 @@ _doc="$(_ai doctor)"
 assert_not_contains "E-391.03i: a project hook in Claude Code's documented form is not MISSING" "[HOOK_PATH_MISSING]" "$_doc"
 assert_rc 0 "E-391.03j: …and neither entry fails doctor" doctor
 _ai sync >/dev/null
-assert_contains "E-391.03k: sync keeps the project's own hook" '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh' "$(cat "${PROJ}/.claude/settings.json")"
+assert_status 0 "E-391.03k: sync keeps the project's own hook" python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert any(h.get("command") == "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh" for e in d["hooks"].get("SessionStart", []) for h in e.get("hooks", []))' "${PROJ}/.claude/settings.json"
 assert_contains "E-391.03l: sync keeps an entry that only names a Rein hook as an argument" "myaudit --note /nope/stop-hook.sh" "$(cat "${PROJ}/.claude/settings.json")"
 # N2: the gate counts only as it ships — exec form, under a matcher that covers Bash.
 _gate_variant() {  # <python expression for the PreToolUse list, with G = the gate path>

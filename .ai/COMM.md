@@ -516,3 +516,19 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 - Between the required-checks update and the merge no other PR can go green — do both in one sitting.
 - The Windows leg's WSL version is unknown until the first run; r10 names the fallback and the wording that goes with it.
 ---
+## Handoff — 2026-10-29 21:24 UTC
+**From**: Architect → Engineer
+**Trigger**: E-391 ruling on the byte-pinned fixture tables (Engineer's question of 21:2x UTC)
+
+### What was ruled
+- **D-132 addendum 3**: option A. `arch-write-cases.json` takes the two-line `rein add-task` change and re-pins (D-056 now pins the Rein form). The `gate-self-disable-cases.json` and `role-verdict-cases.json` re-pins are ratified on two conditions: the PR description lists each table's old and new sha with equal row counts, and each table's diff shows only renamed tokens and paths — any verdict or label change beyond the token is reverted. The gate-guard token fix is accepted and must be named in the PR and the handover as a finding with the row that caught it. `rename-map.json` gains a `kind: "pin"` row per re-pinned table so the gate verifies every `*-cases.json` either has no old token or is listed with its re-pin.
+
+### Blueprint divergence
+- NONE beyond the pin rows added to the rename map (Data Model `kind` list gains `pin`).
+
+### Next action needed (Engineer)
+- Continue E-391 with the three tables renamed and re-pinned; include the pin rows; proceed to the merge step as planned.
+
+### Open risks
+- Condition 2b is the only check that a substitution did not also flip a verdict — do the per-table diff read before requesting review.
+---

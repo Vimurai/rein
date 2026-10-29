@@ -3730,3 +3730,27 @@ One pull request; `git revert` restores the previous README and removes `docs/` 
 Revert the PR before the tag; after `v0.4.0` a revert is a re-rename, not planned (as D-132). The required-checks list is restored by the same `gh api` call with the old names.
 
 ---
+
+## D-132 addendum 3 — The byte-pinned fixture tables follow the rename: `arch-write-cases.json` (D-056), `gate-self-disable-cases.json` (D-089 r5) and `role-verdict-cases.json` (D-113) change their command tokens and re-pin under this ruling
+
+**Date**: 2026-10-29
+**Task**: E-391
+**Decision**: Option A. A pinned table changes bytes only under a ruling (D-056, D-097 r4, D-101 alternative 1: "the ruling is the change"); this is that ruling. The three tables are rewritten by the same substitution as the rest of the tree — the command token `ai` → `rein`, and the old home path and installer name where a row names them — and re-pinned in the same commit. No row's verdict changes, no row is added or removed, and a row that existed to prove a tamper form is blocked must still prove it under the new token. Option B (list the tables as frozen records in `rename-exclusions.json`) is rejected: a fixture that tests `ai add-task` after the command is `rein` tests a command nobody runs, and §Component 3 lists records of what was done, not tests of what the gate does today.
+
+### Rulings
+1. **`arch-write-cases.json`**: the one row whose label and `cmd` read `ai add-task E-999 …` becomes `rein add-task E-999 …` (two lines); the D-056 pin moves to the new sha. D-089 r5's "byte-identical, so D-056 is untouched" described the gate widening, not the rename; D-056 now pins the Rein form.
+2. **`gate-self-disable-cases.json`** (D-089 r5) and **`role-verdict-cases.json`** (D-113): the re-pins the Engineer made during the substitution and the hard cut are ratified on two conditions, checked in review: (a) the PR description lists each table with its old and new sha and the row count before and after (equal); (b) `git diff` of each table shows only the renamed tokens and paths — a row whose expected verdict or label changed beyond the token is a defect, not a rename, and is reverted. The reported `gate-self-disable` pin `63c2cac9…` and the `role-verdict` pin named in the next handoff are the values under this ruling.
+3. **The gate-guard token fix is accepted and named**: the `ai` token regex in gate-guard and the hook's fallback grep let an agent's `rein gate off` through until the fixture rows caught it. That is the fail-open-by-token risk D-132 addendum 2 named (Impact; §Component 6); the fixture tables are the mechanism that caught it, which is why they follow the rename instead of freezing. The fix is listed in the PR description and the E-391 handover as a finding, with the row that caught it.
+4. **Going forward**: a pinned table's pin is part of the rename map (`kind: "pin"` row in `rename-map.json`, old and new sha) so the gate can verify that every pinned table in `tests/fixtures/*-cases.json` either contains no old token or is listed in the map with its re-pin.
+
+### Alternatives considered
+1. **Option B — freeze the three tables as records** — rejected above: tests are not records, and the frozen rows would assert the wrong command.
+2. **Drop the pins for the rename PR and re-pin at the tag** — rejected: an unpinned window is what the pins exist to prevent, and the tag is the same PR.
+
+### Impact
+- Unlocks: E-391's gate suites and the grep gate on the three tables. Risk if wrong: a token substitution that also changed a verdict would be ratified blind — condition 2b exists for this.
+
+### Rollback
+Re-pin to the old sha with the old bytes; the diff is the token substitution in reverse.
+
+---

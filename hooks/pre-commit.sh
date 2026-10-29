@@ -22,7 +22,7 @@ trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-commit interrupted by a si
 # variables). See src/shared/toolchain-pin.sh.
 unset -f $(compgen -A function) 2>/dev/null
 for _v in $(compgen -e); do
-  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
+  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|AI_OS_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac  # rename:legacy-fallback (E-383: no pre-rename var reaches a hook)
 done
 PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin"
 for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
@@ -67,7 +67,7 @@ fi
 
 AI_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.ai"
 
-# Not an Rein project — skip gate entirely
+# Not a Rein project — skip gate entirely
 [[ -d "$AI_DIR" ]] || exit 0
 
 # ── E-329 (D-102 §Component 6): a [CRITIC_STAMP] is bound to a commit ───────────────────

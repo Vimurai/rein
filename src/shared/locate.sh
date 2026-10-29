@@ -158,3 +158,26 @@ ai_os_locate() {
   done
   return 1
 }
+
+# ── E-383 (D-132 r4): the pre-rename env fallback ────────────────────────────
+# Twin of src/shared/env.mjs — same rule: AI_OS_<X> (and AIOS_WORKSPACE) is copied to the  (rename:legacy-fallback)
+# REIN_ name only when that is UNSET, so an old variable never overrides a new one; the
+# trust-bearing names (*_TC_*, *_LOCATE_*, CALLER_ROLE, PANE_ROLE) are never mapped. `ai`
+# calls this once at startup; the hooks never do (they drop every AI_OS_*). Removed in 0.5.  (rename:legacy-fallback)
+# Sets REIN_LEGACY_ENV_SEEN (unexported): one "OLD NEW applied|ignored" entry per old
+# variable, for `ai doctor`'s [LEGACY_ENV] lines. Called as a plain command, never in $( ).
+rein_legacy_env_apply() {
+  local _old _new
+  REIN_LEGACY_ENV_SEEN=()
+  for _old in $(compgen -e); do
+    case "$_old" in
+      AIOS_WORKSPACE) _new="REIN_WORKSPACE" ;;  # rename:legacy-fallback
+      AI_OS_*)        _new="REIN_${_old#AI_OS_}" ;;  # rename:legacy-fallback
+      *) continue ;;
+    esac
+    case "$_new" in REIN_TC_*|REIN_LOCATE_*|REIN_CALLER_ROLE|REIN_PANE_ROLE) continue ;; esac
+    if [[ -n "${!_new+x}" ]]; then REIN_LEGACY_ENV_SEEN+=("${_old} ${_new} ignored"); continue; fi
+    export "${_new}=${!_old}"
+    REIN_LEGACY_ENV_SEEN+=("${_old} ${_new} applied")
+  done
+}

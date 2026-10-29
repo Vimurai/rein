@@ -56,6 +56,11 @@ _authored() { ( cd "${PROJ}/.ai" && cksum BRIEF.md RULES.md SEED.md DIGEST.md TA
 # From a NEUTRAL cwd: the installer ends with `ai install`, which regenerates the .mcp.json
 # of the project it is run in. Run from the repo root, it rewrote THIS repository's
 # .mcp.json with the fixture HOME's paths (found by the first run of this suite, E-240).
+# E-383 (D-132 r3, rein-rename.md §Component 6): this first install is also the rename's
+# install proof — the fixture home is seeded under the pre-rename name, so the installer
+# must move it to ~/.rein once and leave a symlink (no extra install run).
+mv "${FAKE_HOME}/.rein" "${FAKE_HOME}/.ai-os"  # rename:legacy-fallback
+echo seeded > "${FAKE_HOME}/.ai-os/seed-marker"  # rename:legacy-fallback
 _inst="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"
 _irc=$?
 if [[ "$_irc" -ne 0 ]]; then
@@ -64,6 +69,21 @@ if [[ "$_irc" -ne 0 ]]; then
   assert_summary; exit 1
 fi
 _pass "E-270.01a: the installer runs in a fixture HOME"
+assert_status 0 "E-383.01a: the pre-rename home moved to ~/.rein with its contents" \
+  test "$(cat "${FAKE_HOME}/.rein/seed-marker" 2>/dev/null)" = seeded
+assert_status 0 "E-383.01b: the pre-rename home is now a symlink to ~/.rein" \
+  test "$(readlink "${FAKE_HOME}/.ai-os")" = "${FAKE_HOME}/.rein"  # rename:legacy-fallback
+assert_contains "E-383.01c: doctor reports the link" "[LEGACY_HOME_LINK]" "$(_ai doctor)"
+_inst2="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 | grep -F 'Moved' )"
+assert_status 0 "E-383.01d: a re-install leaves the symlink alone (the move happens once)" test -z "$_inst2"
+CONFLICT_HOME="$(test_tmpdir upg-conflict)"
+mkdir -p "${CONFLICT_HOME}/.ai-os" "${CONFLICT_HOME}/.rein"  # rename:legacy-fallback
+_conf="$( cd "$FAKE_TMP" && HOME="$CONFLICT_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"
+_crc=$?
+assert_status 0 "E-383.01e: a real pre-rename dir beside ~/.rein is refused with exit 2 (got ${_crc})" test "$_crc" -eq 2
+assert_contains "E-383.01e2: the refusal names the conflict" "[LEGACY_HOME_CONFLICT]" "$_conf"
+assert_status 0 "E-383.01f: the refused install touched neither directory" \
+  test -d "${CONFLICT_HOME}/.ai-os" -a ! -L "${CONFLICT_HOME}/.ai-os" -a -z "$(command ls -A "${CONFLICT_HOME}/.rein")"  # rename:legacy-fallback
 assert_status 0 "E-270.01b: ~/.rein/VERSION equals package.json (${PKG_VERSION})" \
   test "$(cat "${FAKE_HOME}/.rein/VERSION")" = "$PKG_VERSION"
 assert_contains "E-270.01c: the installer banner prints the package.json version" \
@@ -205,6 +225,19 @@ printf '#!/bin/sh\necho shadow\n' > "${SHADOW}/ai"; chmod +x "${SHADOW}/ai"
 _shadowed="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="${SHADOW}:${BASE_PATH}" bash "$AI_BIN" doctor 2>&1 )"
 assert_contains "E-270.05d: doctor: another ai earlier on PATH is reported as shadowing" \
   "(shadowed by ${SHADOW}/ai)" "$(_path_line "$_shadowed")"
+
+# ── E-383.2: doctor names what still carries the old name ────────────────────
+_legacy_env="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" AI_OS_E383_PROBE=1 bash "$AI_BIN" doctor 2>&1 )"  # rename:legacy-fallback
+assert_contains "E-383.02a: doctor reports an old-prefix variable" \
+  "[LEGACY_ENV] AI_OS_E383_PROBE → REIN_E383_PROBE" "$_legacy_env"  # rename:legacy-fallback
+_shadowed_env="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" AI_OS_E383_PROBE=1 REIN_E383_PROBE=2 bash "$AI_BIN" doctor 2>&1 )"  # rename:legacy-fallback
+assert_contains "E-383.02b: an old variable beside the new one is reported as ignored" \
+  "(ignored: REIN_E383_PROBE is set)" "$_shadowed_env"
+assert_not_contains "E-383.02c: a project ai init just provisioned has nothing pending" "[RENAME_PENDING]" "$(_ai doctor)"
+( cd "$PROJ" && git config merge.aios-record.driver true )  # rename:legacy-fallback
+assert_contains "E-383.02d: the pre-rename merge driver is pending until ai sync" \
+  "[RENAME_PENDING] .git/config merge driver" "$(_ai doctor)"
+( cd "$PROJ" && git config --remove-section merge.aios-record )  # rename:legacy-fallback
 
 # ── E-270.6: the suite left the repository alone ─────────────────────────────
 # E-364: .mcp.json is generated and untracked, so a clean checkout may have none (grep would

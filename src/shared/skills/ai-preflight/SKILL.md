@@ -1,6 +1,6 @@
 ---
 name: ai-preflight
-description: Use this skill at the start of every session in an Rein project. Executes the DIGEST-first read order (DIGEST → TASKS.md → architect.md if needed) and stamps SESSION.md.
+description: Use this skill at the start of every session in a Rein project. Executes the DIGEST-first read order (DIGEST → TASKS.md → architect.md if needed) and stamps SESSION.md.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Glob, Bash, mcp__task-synchronizer-mcp__verify_markdown_sync

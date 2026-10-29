@@ -150,7 +150,7 @@ rm -rf "$_p"
 # ── E-227.5: refusals ──────────────────────────────────────────────────────
 _d="$(mktemp -d)"
 ( cd "$_d" && bash "$AI" start --dry-run >/dev/null 2>&1 )
-assert_status 0 "E-227.05a: outside an Rein project → exit 2" bash -c "[[ $? -eq 2 ]]"
+assert_status 0 "E-227.05a: outside a Rein project → exit 2" bash -c "[[ $? -eq 2 ]]"
 rm -rf "$_d"
 _p="$(_proj 0 1)"
 ( cd "$_p" && bash "$AI" start --bogus >/dev/null 2>&1 )

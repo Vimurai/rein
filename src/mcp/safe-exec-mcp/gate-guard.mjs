@@ -35,9 +35,14 @@ const CMD_HEAD =
 // The `ai` token, allowing the quoting and escaping a shell removes ("ai", 'a'i, a\i).
 const AI_TOKEN = "(?:\\S*/)?[\"']?a[\"'\\\\]?i[\"']?";
 const AI_GATE = new RegExp(CMD_HEAD + AI_TOKEN + "\\s+[\"']?gate\\b", "i");
+// The mirror's directory name. E-383 (D-132 r3): until 0.5 the installer leaves the
+// pre-rename name as a symlink to ~/.rein, so a write through it reaches the same hooks —
+// both names are the mirror. A machine that has not run the new installer yet still has
+// the old name as a real directory, which is the install the gate is protecting.
+const MIRROR = String.raw`\.(?:rein|ai-os)`; // rename:legacy-fallback
 // The mirror, spelled the ways a shell command spells it.
 // A quoted home (`"$HOME"/.rein`, critic_security P2) is the same path.
-const REIN_PATH = String.raw`["']?(?:~|\$HOME|\$\{HOME\}|${escapeRe(homedir())})["']?/\.rein(?:/|\b)`;
+const REIN_PATH = String.raw`["']?(?:~|\$HOME|\$\{HOME\}|${escapeRe(homedir())})["']?/` + MIRROR + String.raw`(?:/|\b)`;
 const REDIRECT_INTO = new RegExp(String.raw`(?:^|[^<])>{1,2}\|?\s*["']?` + REIN_PATH);
 const WRITE_VERB = new RegExp(
   CMD_HEAD +
@@ -67,12 +72,12 @@ const CD_HOME = new RegExp(
 // The mirror named relative to HOME: `.rein` after whitespace, a quote, `=`, a redirection, a
 // paren or a `/` (so `././.rein`, `x/../.rein`), as a whole name — `.rein-cache` and
 // `.rein.txt` are other files.
-const REL_REIN = /(?:^|[\s"'=<>(/])\.rein(?:\/|["'\s]|$)/;
+const REL_REIN = new RegExp(String.raw`(?:^|[\s"'=<>(/])` + MIRROR + String.raw`(?:\/|["'\s]|$)`);
 // Named from ABOVE home without entering it: `../../.rein` from anywhere under HOME, or
 // `<home's basename>/.rein` (`cd /Users && rm <you>/.rein/…`).
 const PARENT_REIN = new RegExp(
-  String.raw`(?:^|[\s"'=<>(])(?:\.\.\/)+\.rein(?:\/|["'\s]|$)|(?:^|[\s"'=<>(/])` +
-    escapeRe(basename(homedir())) + String.raw`\/\.rein(?:\/|["'\s]|$)`
+  String.raw`(?:^|[\s"'=<>(])(?:\.\.\/)+` + MIRROR + String.raw`(?:\/|["'\s]|$)|(?:^|[\s"'=<>(/])` +
+    escapeRe(basename(homedir())) + String.raw`\/` + MIRROR + String.raw`(?:\/|["'\s]|$)`
 );
 // `find … -delete` / `-exec` is a write; an inline interpreter after entering HOME is a write
 // (os.remove / fs.rmSync never spell the mirror from HOME).
@@ -148,8 +153,12 @@ function resolveDeep(p) {
 export function isUnderAiOs(target, home = homedir()) {
   if (!target) return false;
   const t = isAbsolute(target) ? target : resolve(process.cwd(), target);
-  let root = join(home, ".rein");
-  try { root = realpathSync(root); } catch { /* not installed: compare lexically */ }
   const r = resolveDeep(t);
-  return r === root || r.startsWith(root + sep);
+  // E-383: the pre-rename name too — a real directory on a machine not yet migrated, a
+  // symlink (which realpath folds into ~/.rein) after.
+  return [".rein", ".ai-os"].some((name) => { // rename:legacy-fallback
+    let root = join(home, name);
+    try { root = realpathSync(root); } catch { /* not installed: compare lexically */ }
+    return r === root || r.startsWith(root + sep);
+  });
 }

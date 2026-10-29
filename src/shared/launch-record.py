@@ -457,7 +457,7 @@ def main(argv):
         role = argv[3] if len(argv) > 3 else ""
         project = project_root()
         if role not in ROLES or project is None:
-            print("refused: role must be architect|engineer inside an Rein project", file=sys.stderr)
+            print("refused: role must be architect|engineer inside a Rein project", file=sys.stderr)
             return 2
         print("WROTE\t%s" % write(pid, role, project))
         return 0

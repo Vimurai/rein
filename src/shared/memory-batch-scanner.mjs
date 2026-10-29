@@ -64,7 +64,7 @@ export const DEFAULT_MAX_BYTES  = 5 * 1024 * 1024;
 // for observability. The blueprint mandates that every reject carries a
 // reason code so the curator can log it; silent pruning would defeat that.
 const SKIP_DIR_EXACT = new Set([
-  "node_modules", ".git", ".rein",
+  "node_modules", ".git", ".rein", ".ai-os", // rename:legacy-fallback (E-383: the pre-rename mirror)
   ".npm", ".yarn", ".cache",
 ]);
 

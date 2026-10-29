@@ -323,7 +323,7 @@ do_account() {
       local name="${1:-}" ai_dir
       [[ -n "$name" && $# -le 1 ]] || { echo "usage: ai account use <name|default>" >&2; return 2; }
       ai_dir="$(_find_ai_dir)"
-      [[ -d "$ai_dir" ]] || { echo "ai account use: not inside an Rein project (no .ai/)" >&2; return 2; }
+      [[ -d "$ai_dir" ]] || { echo "ai account use: not inside a Rein project (no .ai/)" >&2; return 2; }
       _account_dir "$name" >/dev/null || return 2
       _start_account_set "$ai_dir" "$name" keep start.local.json || { echo "ai account use: could not write .ai/start.local.json" >&2; return 2; }
       echo "ai account use: this checkout launches under '${name}' (.ai/start.local.json — gitignored, yours only)"

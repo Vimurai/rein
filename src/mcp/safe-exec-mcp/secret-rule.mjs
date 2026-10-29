@@ -80,7 +80,10 @@ const ASSIGN = new RegExp(
 const PEM_PRIVATE = /-----\s*BEGIN\s+(?:[A-Z0-9]+\s+)*PRIVATE\s+KEY\s*-----/i;
 const ED25519_PKCS8 = /MC4CAQAwBQYDK2VwBCIEI[A-Za-z0-9+/]{20,}|302e020100300506032b657004220420[0-9a-f]{20,}/i;
 const SIGNING_KEY = /(?<![A-Za-z0-9_-])license-sign/i;
-const SECRETS_DIR = /\.rein\/secrets(?=[/*\s"'}]|$)|\.rein\/?["']?\s+["']?secrets\b/;   // also `-C ~/.rein secrets`
+// E-383 (D-132 r3): the mirror by either name — the pre-rename one is a symlink to it until 0.5.
+const MIRROR = String.raw`\.(?:rein|ai-os)`; // rename:legacy-fallback
+const SECRETS_DIR = new RegExp(MIRROR + String.raw`\/secrets(?=[/*\s"'}]|$)|` + MIRROR + String.raw`\/?["']?\s+["']?secrets\b`);   // also `-C ~/.rein secrets`
+const MIRROR_GLOB = new RegExp(MIRROR + String.raw`\/[?*[]`);
 const TEXT_ONLY = /^(?:grep|egrep|fgrep|rg|git\s+(?:commit|log|show|grep|diff))\b/;
 const LISTS = /^(?:ls|stat)\b/;
 
@@ -91,7 +94,7 @@ function _signingKeyPath(text) {
     const cmd = seg.trim().replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:sudo\s+)?/, "");
     // The secrets directory, or a glob straight under ~/.rein/, blocks in EVERY segment —
     // searching (`grep -r . ~/.rein/secrets`) or writing (`git log > …/secrets/y`) included.
-    if ((SECRETS_DIR.test(cmd) || /\.rein\/[?*[]/.test(cmd)) && !LISTS.test(cmd)) return true;
+    if ((SECRETS_DIR.test(cmd) || MIRROR_GLOB.test(cmd)) && !LISTS.test(cmd)) return true;
     // A search or a commit message may NAME the key file; not when it hides a substitution.
     if (TEXT_ONLY.test(cmd) && !/\$\(|`/.test(cmd)) continue;
     if (SIGNING_KEY.test(cmd)) return true;

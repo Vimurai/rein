@@ -383,7 +383,7 @@ _gate_fixture() {   # <mirror-matches: yes|no> → project dir, with $HOME/.rein
 _gate_verdict() {   # <matches> → the update_task_status result text
   local pair; pair="$(_gate_fixture "$1")"
   local d="${pair%%|*}" h="${pair##*|}"
-  # E-236 / the E-248 tail: `REIN_WORKSPACE` is EXPORTED into an Rein shell and points at
+  # E-236 / the E-248 tail: `REIN_WORKSPACE` is EXPORTED into a Rein shell and points at
   # the real framework clone. isFrameworkClone() consults it before falling back to
   # package.json, so an inherited value makes every fixture below read as "not the
   # framework" and the gate never fires — the assertions would pass only in the direction
@@ -578,7 +578,7 @@ test_secret_pattern "api_key= detected" \
 
 # privacy:allow-fake-token (an invented test input)
 test_secret_pattern "apikey= detected (no separator)" \
-  '+  apikey = "AKIREINFODNN7EXAMPLE"' \
+  '+  apikey = "AKIAIOSFODNN7EXAMPLE"' \
   'match'
 
 test_secret_pattern "secret= detected" \

@@ -27,7 +27,7 @@ trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-push interrupted by a sign
 # variables). See src/shared/toolchain-pin.sh.
 unset -f $(compgen -A function) 2>/dev/null
 for _v in $(compgen -e); do
-  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
+  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|AI_OS_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac  # rename:legacy-fallback (E-383: no pre-rename var reaches a hook)
 done
 PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin"
 for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
@@ -50,7 +50,7 @@ ZERO_SHA="0000000000000000000000000000000000000000"
 ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" || exit 0
 AI_DIR="${ROOT}/.ai"
 
-# Not an Rein project: nothing to enforce.
+# Not a Rein project: nothing to enforce.
 [[ -d "$AI_DIR" ]] || exit 0
 
 # Fail CLOSED from here on: a gate that silently lets everything through when its helper

@@ -377,3 +377,30 @@ The commit metadata is noreply and unsigned, with tz +0100.
 Unit run: `node --test tests/unit/publish-scan.test.mjs` → 53/53.
 Gating: EXPLOITED rows block Tier 3 sign-off for E-378. The P0s (tag tagger identity, stale snapshot
 without the gate, CLI fail-open) must be fixed before the first push.
+
+## E-383 / D-132 — rename compatibility layer (security_engineer, 2026-10-29)
+
+Scope: the env resolver (env.mjs, `rein_legacy_env_apply`), the hook scrub, the installer move,
+the gate MIRROR, settings/sync and legacy key reads. Threat entry: THREAT_MODEL.md T-RENAME-001.
+Findings: P1 secret-rule.mjs SECRETS_DIR matches only the new name. P2 the pre-tool-use.sh:360
+fallback grep and classifier-backstop.py RULE name only the new path. P2 src/bin/ai
+CI_ENV_RESERVED_* dropped the old-prefix reservation HEAD had. P3 the installer's `mv` has no `-T`.
+
+### Pen-Test Results
+
+Harness: a mktemp HOME, `env -i`, `ulimit -t 5 -f 10240`. `ulimit -u 64` was dropped for node:
+RLIMIT_NPROC counts every process the user owns, so V8 could not start its worker threads (RC 134).
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | gate-guard selfDisableHits | redirect / `rm -rf` / `cp` / `sed -i` into the old path's hooks | RESISTED | 0 | the old path is a symlink to ~/.rein |
+| A01 | gate-guard relative / cd / -C / parent | `cd ~ && rm <old>/run/x`, `cd <old> && echo >…`, `../..$HOME/<old>/…` | RESISTED | 0 | |
+| A01 | isUnderAiOs | `<old>/hooks/x.sh`, `<old>/new/f` (not yet created) | RESISTED | 0 | realpath folds the path onto ~/.rein |
+| A01 | secret-rule containsSecret | `cat <old>/secrets/role-token.key` | EXPLOITED | 0 | the same command with `.rein` is blocked, so the role-token key can be read through the old name |
+| A01 | secret-rule containsSecret | `base64 <old>/secrets/*` | EXPLOITED | 0 | |
+| A05 | rein_legacy_env_apply | old TC_NODE, LOCATE_DEV, LOCATE_UNTRUSTED_ENV, CALLER_ROLE, PANE_ROLE | RESISTED | 0 | never mapped |
+| A05 | rein_legacy_env_apply | old WORKSPACE=/decoy while REIN_WORKSPACE is set but empty | RESISTED | 0 | the new name wins even when empty |
+| A05 | rein_legacy_env_apply | old HOME, old CLAIM_GATE=0 | RESISTED | 0 | mapped, but this reaches only what setting the new name reaches |
+| A05 | `_ci_local_env` reservation | old-name WORKSPACE in .ai/ci.local.json | EXPLOITED | n/a | found by reading the code, not run: only REIN_* is reserved now |
+
+Gating: the A01 EXPLOITED rows block Tier 3 sign-off for E-383 until SECRETS_DIR covers both names.

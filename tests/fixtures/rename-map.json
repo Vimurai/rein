@@ -1,0 +1,77 @@
+[
+  {
+    "old": "~/.ai-os",
+    "new": "~/.rein",
+    "kind": "path"
+  },
+  {
+    "old": "AI_OS_<X>",
+    "new": "REIN_<X>",
+    "kind": "env"
+  },
+  {
+    "old": "AIOS_WORKSPACE",
+    "new": "REIN_WORKSPACE",
+    "kind": "env"
+  },
+  {
+    "old": "AI_OS_HOME",
+    "new": "REIN_HOME",
+    "kind": "env"
+  },
+  {
+    "old": "[AI_OS_ROLE]",
+    "new": "[REIN_ROLE]",
+    "kind": "tag"
+  },
+  {
+    "old": "install-ai-os.sh",
+    "new": "install-rein.sh",
+    "kind": "file"
+  },
+  {
+    "old": "aios-record",
+    "new": "rein-record",
+    "kind": "id"
+  },
+  {
+    "old": "project.aios_version",
+    "new": "project.rein_version",
+    "kind": "id"
+  },
+  {
+    "old": "ci.aios_source",
+    "new": "ci.rein_source",
+    "kind": "id"
+  },
+  {
+    "old": "aios",
+    "new": "rein",
+    "kind": "id"
+  },
+  {
+    "old": "AIOS",
+    "new": "REIN",
+    "kind": "id"
+  },
+  {
+    "old": "ai-os-v2",
+    "new": "@vimurai/rein",
+    "kind": "id"
+  },
+  {
+    "old": "AI-OS",
+    "new": "Rein",
+    "kind": "prose"
+  },
+  {
+    "old": "ai-os",
+    "new": "rein",
+    "kind": "prose"
+  },
+  {
+    "old": "plans/native-vs-aios-audit.md",
+    "new": "plans/native-vs-rein-audit.md",
+    "kind": "file"
+  }
+]

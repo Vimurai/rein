@@ -517,7 +517,7 @@ test("a member's pulled PASS record lets another clone mark DONE and push the sh
   assert.equal(w.written, true, w.reason);
   const rec = JSON.parse(readFileSync(join(b.ai, "ci", `${x}.json`), "utf8"));
   assert.deepEqual(Object.keys(rec).sort(),
-    ["rein_version", "finished", "host", "runner", "schema", "sha", "started", "suites", "tests", "verdict"]);
+    ["finished", "host", "rein_version", "runner", "schema", "sha", "started", "suites", "tests", "verdict"]);
   assert.deepEqual({ verdict: rec.verdict, runner: rec.runner, suites: rec.suites, tests: rec.tests },
     { verdict: "PASS", runner: "b@x.test", suites: 146, tests: { passed: 5732, failed: 0, skipped: 3 } });
   b.g("add", "-A"); b.g("commit", "-q", "-m", "chore(.ai): ci record"); b.g("push", "-q", "origin", "HEAD:master");

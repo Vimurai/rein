@@ -61,11 +61,14 @@ REIN_LOCATE_UNTRUSTED_ENV=1
 # `ai_os_locate` satisfies `declare -f`, the safe inline fallback is never installed, and
 # the attacker's function IS the resolver — reachable on a partial or mid-upgrade install
 # missing shared/locate.sh, which is exactly the degraded state the fallback exists for.
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
+unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone rein_legacy_env_apply 2>/dev/null || true
 for _l in "${REIN}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
 done
+# E-383 (D-132 r4): AI_OS_<X> → REIN_<X> when the new name is unset (locate.sh); every  (rename:legacy-fallback)
+# child `ai` spawns inherits the result. Without locate.sh there is no fallback, only new names.
+if declare -f rein_legacy_env_apply >/dev/null 2>&1; then rein_legacy_env_apply; fi
 if ! declare -f ai_os_locate >/dev/null 2>&1; then
   ai_os_locate() { local _c="${REIN}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
@@ -1224,9 +1227,9 @@ for ev, lst in (d.get("hooks") or {}).items():
         for h in e.get("hooks") or []:
             args = [str(a) for a in (h.get("args") or [])]
             text = " ".join([str(h.get("command") or "")] + args)
-            m = re.search(r"(\S*\.rein/hooks/[\w.-]+\.sh)", text)
+            m = re.search(r"(\S*\.(?:rein|ai-os)/hooks/[\w.-]+\.sh)", text)  # rename:legacy-fallback
             if not m:
-                continue                      # not an Rein hook — the user's own entry
+                continue                      # not a Rein hook — the user's own entry
             ok = (h.get("command") == "/bin/bash" and args[:1] == ["-p"] and len(args) >= 2
                   and os.path.isabs(args[1]) and os.path.dirname(args[1]) == want_dir)
             if not ok:
@@ -1261,6 +1264,41 @@ _doctor_hook_form_report() {
     [[ -f "${gd}/${stub}" ]] && _is_rein_stub "${gd}/${stub}" || continue
     head -1 "${gd}/${stub}" | grep -qx '#!/bin/bash -p' || echo "  ✗ git ${stub} stub predates E-290 (not #!/bin/bash -p) — run: ai sync"
   done
+  return 0
+}
+
+# E-383 (D-132 r3-4, rein-rename.md §Component 4): what still carries the old name.
+#   [LEGACY_HOME_LINK]  ~/.ai-os is the symlink the installer left  (rename:legacy-fallback)
+#   [LEGACY_ENV]        an AI_OS_<X> variable in the environment `ai` was started with  (rename:legacy-fallback)
+#   [RENAME_PENDING]    a project file `ai sync` rewrites (settings hook paths and env keys,
+#                       .ai/.gitattributes, .ai/.gitignore, the merge driver, the state key)
+_doctor_rename_report() {
+  local n=0 e old new how f
+  if [[ -L "${HOME}/.ai-os" ]]; then  # rename:legacy-fallback
+    echo "  [LEGACY_HOME_LINK] ~/.ai-os → $(readlink "${HOME}/.ai-os") (remove after 0.5)"; n=$((n+1))  # rename:legacy-fallback
+  fi
+  for e in "${REIN_LEGACY_ENV_SEEN[@]+"${REIN_LEGACY_ENV_SEEN[@]}"}"; do
+    read -r old new how <<< "$e"
+    if [[ "$how" == "ignored" ]]; then
+      echo "  [LEGACY_ENV] ${old} → ${new} (ignored: ${new} is set) — unset ${old}"
+    else
+      echo "  [LEGACY_ENV] ${old} → ${new} — rename it in your shell profile"
+    fi
+    n=$((n+1))
+  done
+  if [[ -d .ai ]]; then
+    f=".claude/settings.json"
+    if [[ -f "$f" ]] && grep -qE '\.ai-os/hooks/|"AI_OS_[A-Z_]+"|"AIOS_WORKSPACE"' "$f" 2>/dev/null; then  # rename:legacy-fallback
+      echo "  [RENAME_PENDING] ${f} — run: ai sync"; n=$((n+1))
+    fi
+    while IFS=$'\t' read -r e f how; do
+      [[ "$e" == "pending" ]] && { echo "  [RENAME_PENDING] ${f} — run: ai sync"; n=$((n+1)); }
+    done < <(_upgrade_records rename --check)
+    if git config --get merge.aios-record.driver >/dev/null 2>&1; then  # rename:legacy-fallback
+      echo "  [RENAME_PENDING] .git/config merge driver — run: ai sync"; n=$((n+1))
+    fi
+  fi
+  [[ "$n" -eq 0 ]] && echo "  ✓ nothing carries the old name"
   return 0
 }
 
@@ -1370,7 +1408,7 @@ ensure_ai_templates() {
       merged) UPGRADE_MERGED+=("${_f}: ${_d}"); echo "Merged ${_f}: ${_d}" ;;
       error)  echo "  ⚠  ${_f}: ${_d}" ;;
     esac
-  done < <(_upgrade_records merge)
+  done < <(_upgrade_records merge; _upgrade_records rename)
 
   # .gitignore for sensitive .ai/ files
   if [[ ! -f ".ai/.gitignore" ]]; then
@@ -1474,6 +1512,7 @@ for role, cfg in roles.items():
     env = data.setdefault("env", {})
     # Authoritative (not setdefault) so a stale/forged role can never linger.
     env["REIN_CALLER_ROLE"] = role
+    env.pop("AI_OS_CALLER_ROLE", None)  # rename:legacy-fallback (E-383: the pre-rename key)
     # NEVER register hooks here — see the comment above _write_role_settings_overlays.
     data.pop("hooks", None)
 
@@ -1585,6 +1624,9 @@ if _rein_ws:
 # (anti-impersonation). This is Claude's project → engineer. Set authoritatively
 # (not setdefault) so a stale/forged value can never linger.
 env["REIN_CALLER_ROLE"] = "engineer"
+# E-383: the pre-rename keys this writer once set; the new ones above replace them.
+for _old in ("AI_OS_CALLER_ROLE", "AIOS_WORKSPACE"):  # rename:legacy-fallback
+    env.pop(_old, None)
 
 # Permissions: registry-driven MCP tools.
 # E-213/E-254: the legacy v3 vendor-CLI shell grants are DROPPED and actively stripped from
@@ -1713,7 +1755,9 @@ def _is_rein_hook(h, script):
     # Same reach as the `ai doctor` scanner (critic_security P2): a quoted path or one
     # followed by a separator is still ours — otherwise doctor reports a stale entry that
     # sync never removes.
-    return _re.search(r"\.rein/hooks/" + _re.escape(script) + r"(?=[\s\"';|&)]|$)", text) is not None
+    # E-383: an entry written before the rename points under ~/.ai-os — ours too, so it is  (rename:legacy-fallback)
+    # replaced rather than left beside the new one.
+    return _re.search(r"\.(?:rein|ai-os)/hooks/" + _re.escape(script) + r"(?=[\s\"';|&)]|$)", text) is not None  # rename:legacy-fallback
 for _event, _matcher, _script, _extra in _SPECS:
     _want = {"type": "command", "command": "/bin/bash",
              "args": ["-p", os.path.join(_HOOKS_DIR, _script)] + _extra, "timeout": 30}
@@ -2023,14 +2067,17 @@ if stale:
 # is recognised as a current-format stub by _is_rein_stub / the do_sync
 # upgrader. Legacy copies of pre-commit.sh do NOT carry it.
 REIN_STUB_MARKER="# Rein Execution Stub (E-41)"
+# E-383: stubs written before the rename carry the old marker; they count as ours so the
+# refresh rewrites them instead of chaining them as a user hook. Removed in 0.5.
+REIN_LEGACY_STUB_MARKER="# AI-OS Execution Stub (E-41)"  # rename:legacy-fallback
 
-# Returns 0 when $1 is an Rein execution stub (current format), 1 otherwise.
+# Returns 0 when $1 is a Rein execution stub (current format), 1 otherwise.
 # Callers that want to distinguish "legacy Rein copy" from "third-party hook"
 # should also test for the canonical "Rein Gate 2" / "TASKS.md Auto-Sync"
 # headers that appear inside the original copied scripts.
 _is_rein_stub() {
   local f="$1"
-  [[ -f "$f" ]] && grep -qF "$REIN_STUB_MARKER" "$f" 2>/dev/null
+  [[ -f "$f" ]] && grep -qF -e "$REIN_STUB_MARKER" -e "$REIN_LEGACY_STUB_MARKER" "$f" 2>/dev/null
 }
 
 # Writes a pre-commit execution stub. Fails closed: if the canonical hook is
@@ -2202,6 +2249,7 @@ _install_record_merge_driver() {
     echo "  ⚠  not configuring the rein-record merge driver: install path ${REIN} is not a plain absolute path"; return 0
   fi
   [[ -f "$cs" ]] || { echo "  ⚠  cli-state.mjs not found at ${cs} — run: ai install"; return 0; }
+  git config --remove-section merge.aios-record 2>/dev/null || true  # rename:legacy-fallback (E-383: the pre-rename driver)
   git config merge.rein-record.name "Rein team record (D-102 policy)" || return 0
   git config merge.rein-record.driver "node --no-warnings '${cs}' state merge-driver %O %A %B %P" || return 0
   echo "  ✓ Configured the rein-record merge driver (team record files)"
@@ -2238,7 +2286,7 @@ install_git_hooks() {
       else
         echo "  ✓ pre-commit stub already installed (Gate 2)"
       fi
-    elif grep -q "Rein Gate 2" "$HOOK_DST" 2>/dev/null; then
+    elif grep -qE "(Rein|AI-OS) Gate 2" "$HOOK_DST" 2>/dev/null; then  # rename:legacy-fallback
       # Legacy copy — upgrade in place to a stub.
       _write_pre_commit_stub "$HOOK_DST"
       echo "  ✓ Upgraded legacy pre-commit copy → execution stub (Gate 2)"
@@ -2341,7 +2389,7 @@ _upgrade_legacy_git_hooks() {
 
   local pc="${HOOKS_DIR}/pre-commit"
   if [[ -f "$pc" ]] && ! _is_rein_stub "$pc" \
-       && grep -q "Rein Gate 2" "$pc" 2>/dev/null; then
+       && grep -qE "(Rein|AI-OS) Gate 2" "$pc" 2>/dev/null; then  # rename:legacy-fallback
     _write_pre_commit_stub "$pc"
     echo "  ✓ Upgraded .git/hooks/pre-commit → stub (E-41)"
   fi
@@ -2405,7 +2453,7 @@ _project_version() {
   node "${_CI_NODE_FLAGS[@]}" "$h" version --ai-dir .ai 2>/dev/null || true
 }
 
-# _upgrade_records <merge|stamp> [--check] — TAB records on stdout (kind, file, detail).
+# _upgrade_records <merge|stamp|rename> [--check] — TAB records on stdout (kind, file, detail).
 _upgrade_records() {
   local sub="$1"; shift
   local h; h="$(_upgrade_helper || true)"
@@ -2502,7 +2550,7 @@ _init_check() {
       pending) pending+=("merge    ${file}: ${detail}") ;;
       error)   echo "  ⚠  ${file}: ${detail}" ;;
     esac
-  done < <(_upgrade_records merge --check; _upgrade_records stamp --check)
+  done < <(_upgrade_records merge --check; _upgrade_records rename --check; _upgrade_records stamp --check)
 
   local scratch; scratch="$(mktemp -d "${TMPDIR:-/tmp}/rein-init-check.XXXXXX")"
   mkdir -p "${scratch}/.ai"
@@ -3019,7 +3067,7 @@ do_sync_github() {
   fi
 
   if [[ ! -d ".ai" ]]; then
-    echo "✗ Not in an Rein project — run: ai init"
+    echo "✗ Not in a Rein project — run: ai init"
     return 1
   fi
 
@@ -3389,6 +3437,19 @@ _sync_stamp_version() {
   return "$rc"
 }
 
+# E-383 (D-132 r4, rein-rename.md §Component 4): the pre-rename lines in .ai/.gitattributes
+# and .ai/.gitignore, one `merged` line per file. Silent when nothing carries the old name.
+_sync_rename_legacy() {
+  local k f d rc=0
+  while IFS=$'\t' read -r k f d; do
+    case "$k" in
+      merged) echo "  Merged ${f}: ${d}" ;;
+      error)  echo "  ⚠  ${f}: ${d}"; rc=1 ;;
+    esac
+  done < <(_upgrade_records rename)
+  return "$rc"
+}
+
 # _sync_reap_moved <json> — the number of entries `ai-clean.mjs apply --json` moved.
 # E-346 (D-109 r3): both reapers parsed this with `|| echo 0`, so a crashing reaper counted as
 # ok. Output that is not the helper's JSON object is "[REAP_BAD_OUTPUT] <first 200 chars>"
@@ -3553,6 +3614,7 @@ do_sync() {
     _sync_step blueprint_index _regenerate_blueprints_index
     _sync_step wal             _wal_checkpoint_state_db
     _sync_step state_import    _sync_state_import         # E-342 (D-106 r2): before anything writes a view
+    _sync_step rename_legacy   _sync_rename_legacy        # E-383 (D-132 r4): until 0.5
     _sync_step version_stamp   _sync_stamp_version
     _sync_step run_reap        _sync_reap_run_records
     _sync_step watcher_reap    _sync_reap_watcher_state
@@ -3589,7 +3651,7 @@ do_sync() {
     [[ "$_SYNC_STEPS_FAILED" -gt 0 ]] && return 1
     return 0
   else
-    echo "  Not in an Rein project (.ai/ not found) — nothing to sync."
+    echo "  Not in a Rein project (.ai/ not found) — nothing to sync."
     echo "  Run 'ai init' first to scaffold .ai/ and .claude/."
     exit 0
   fi
@@ -3872,6 +3934,10 @@ doctor() {
   _doctor_gate_report
   echo ""
 
+  echo "Rename to Rein (E-383 — old names work until 0.5):"
+  _doctor_rename_report
+  echo ""
+
   # E-272 (D-074 §Component 6): what earlier versions left behind.
   echo "Legacy artefacts (ai clean):"
   _report_legacy_artefacts
@@ -3970,7 +4036,7 @@ doctor() {
     # E-41: match the installer's detection — the current execution stub
     # carries the REIN_STUB_MARKER, while legacy copies carry "Rein Gate 2".
     # Accept either so a correctly-installed stub is not reported missing.
-    if [[ -f "$pc_hook" ]] && { _is_rein_stub "$pc_hook" || grep -q "Rein Gate 2" "$pc_hook" 2>/dev/null; }; then
+    if [[ -f "$pc_hook" ]] && { _is_rein_stub "$pc_hook" || grep -qE "(Rein|AI-OS) Gate 2" "$pc_hook" 2>/dev/null; }; then  # rename:legacy-fallback
       echo "  ✓ .git/hooks/pre-commit: Gate 2 installed"
     else
       echo "  ✗ .git/hooks/pre-commit: Gate 2 NOT installed — run: ai init"
@@ -4367,7 +4433,7 @@ _run_env_diagnostics() {
         echo "  [FAIL] ${d} not read/writable (permission bits)"; fail=1
       fi
     elif [[ "$d" == ".ai" ]]; then
-      echo "  [WARN] ${d} not present (not inside an Rein project dir)"
+      echo "  [WARN] ${d} not present (not inside a Rein project dir)"
     else
       echo "  [FAIL] ${d} missing — run: ai install"; fail=1
     fi
@@ -4461,7 +4527,7 @@ search_paths = [
     Path(rein) / "claude" / "skills",
     Path(rein) / "shared" / "skills",
 ]
-# Also scan project-local if we're in an Rein project
+# Also scan project-local if we're in a Rein project
 if Path(".ai").exists():
     search_paths += [
         Path("src/claude/agents"),
@@ -4977,7 +5043,7 @@ do_start() {
 
   local ai_dir; ai_dir="$(_find_ai_dir)"
   if [[ ! -d "$ai_dir" ]]; then
-    echo "ai start: not inside an Rein project (.ai/ not found). Run 'ai init' first." >&2
+    echo "ai start: not inside a Rein project (.ai/ not found). Run 'ai init' first." >&2
     return 2
   fi
 
@@ -5480,7 +5546,7 @@ do_pane() {
 
   local ai_dir; ai_dir="$(_find_ai_dir)"
   if [[ ! -d "$ai_dir" ]]; then
-    echo "ai pane: not inside an Rein project (.ai/ not found). Run 'ai init' first." >&2
+    echo "ai pane: not inside a Rein project (.ai/ not found). Run 'ai init' first." >&2
     return 2
   fi
   # E-327 (D-102 §3): the planner rule is enforced by add_task; this is the one-line notice.
@@ -5942,7 +6008,7 @@ _ci_wall_hints() {
 # a plain command (it sets state — D-064 §2). The reserved names mirror tests/lib/launch-vars.sh
 # LAUNCH_VARS (E-264); ai_ci_test.sh fails when the two lists drift.
 CI_ENV_RESERVED_NAMES="PATH HOME TMPDIR SHELL TERM USER LOGNAME LANG CI TMUX REIN_PANE_ROLE REIN_CALLER_ROLE REIN_WORKSPACE CLAUDE_CONFIG_DIR"
-CI_ENV_RESERVED_PREFIXES="REIN_ npm_config_ PLAYWRIGHT_"
+CI_ENV_RESERVED_PREFIXES="REIN_ AI_OS_ AIOS_ npm_config_ PLAYWRIGHT_"  # rename:legacy-fallback (E-383: `ai` maps the old names onto REIN_)
 _ci_local_env() {
   CI_LOCAL_ENV=(); CI_LOCAL_NOTE=""; CI_LOCAL_ERR=""
   local file="${1}/.ai/ci.local.json" kind name val
@@ -6321,7 +6387,7 @@ _ci_run() {
 
   # ── secrets ── the workflow's .gitignore check, unchanged.
   local secrets_status="PASS"
-  # E-343: an Rein project's .ai/ci.local.json may carry literal values (ports, tokens) — never
+  # E-343: a Rein project's .ai/ci.local.json may carry literal values (ports, tokens) — never
   # committed. A repository without .ai/ has no such file to cover.
   local _sec=".env and node_modules" _ci_local_ok=0
   if [[ -d "${CI_WT}/.ai" ]]; then

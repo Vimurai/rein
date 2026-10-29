@@ -89,7 +89,7 @@ following is true:
 
 A task is **project-level** (`is_framework_task` omitted/false) if it
 touches `<project>/src/**`, application code, or anything outside the
-framework clone — even if it imports an Rein skill or MCP.
+framework clone — even if it imports a Rein skill or MCP.
 
 **Ambiguous?** Default to project-level and note the ambiguity in the
 description. Mis-routing a project task into the framework workspace is a

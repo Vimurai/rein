@@ -5,7 +5,7 @@
 **Architecture**: Transition from a "copy-by-value" hook installation model to a "call-by-reference" (execution stub) model.
 
 ## Core Concept
-When a user initializes an Rein project (`ai init`), the system currently copies the canonical hook scripts (e.g., `~/.rein/hooks/pre-commit.sh`) into the local `.git/hooks/` directory. This creates split-brain drift when the canonical scripts are updated. The core concept is to replace copied files with permanent execution stubs that dynamically invoke the canonical scripts.
+When a user initializes a Rein project (`ai init`), the system currently copies the canonical hook scripts (e.g., `~/.rein/hooks/pre-commit.sh`) into the local `.git/hooks/` directory. This creates split-brain drift when the canonical scripts are updated. The core concept is to replace copied files with permanent execution stubs that dynamically invoke the canonical scripts.
 
 ## Components
 1. **`install_git_hooks` (Installer in `src/bin/ai`)**

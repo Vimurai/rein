@@ -8,7 +8,7 @@
 # the claude process; here, THIS script's process). So a fixture that wants a role does what
 # production does instead of exporting a variable:
 #   1. <architect|engineer>: write a launch record for this pid (src/shared/launch-record.py —
-#      the cwd must be inside an Rein project, i.e. under a directory holding .ai/);
+#      the cwd must be inside a Rein project, i.e. under a directory holding .ai/);
 #      `none` writes no record — the plain-launch default, engineer / launch: unverified;
 #   2. mint <session_id>'s token bound to this pid (safe-exec --mint-token, no role in argv);
 #   3. run <command> as a DIRECT CHILD, with this script's stdin (a hook's JSON event) — so a hook's own PPID is this pid (the --session-pid hot

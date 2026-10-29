@@ -14,6 +14,8 @@
 //   stamp   — project.rein_version / provisioned_at, written through state-db (state.json
 //             is a view of state.sqlite; a hand edit would be overwritten).
 //   version — the stamped version, read without side effects (doctor, the init banner).
+//   rename  — E-383: the pre-rename lines in .ai/.gitattributes and .ai/.gitignore, and the old
+//             keys in .ai/project.json and .ai/team.json (until 0.5).
 //
 // Output is one TAB-separated record per line so the CLI can count and print them:
 //   merged|pending|stamped|skipped|error <TAB> <file> <TAB> <detail>
@@ -163,14 +165,17 @@ export function runMerge({ aiDir, templatesDir, legacyPath, version, check = fal
 export function readProjectVersion(aiDir) {
   try {
     const s = _readJson(join(aiDir, "state.json"));
-    if (s?.project?.rein_version) return s.project.rein_version;
+    const v = s?.project?.rein_version ?? s?.project?.aios_version; // rename:legacy-fallback (E-383, until 0.5)
+    if (v) return v;
   } catch { /* fall through */ }
   const dbPath = join(aiDir, "state.sqlite");
   if (!existsSync(dbPath)) return null;
   let db;
   try {
     db = new DatabaseSync(dbPath, { readOnly: true });
-    const r = db.prepare("SELECT value FROM project WHERE key = 'rein_version'").get();
+    // A store not yet opened read-write since the rename still holds the old row name.
+    const r = db.prepare("SELECT value FROM project WHERE key = 'rein_version'").get()
+      ?? db.prepare("SELECT value FROM project WHERE key = 'aios_version'").get(); // rename:legacy-fallback
     return r?.value ?? null;
   } catch {
     return null;
@@ -206,6 +211,94 @@ export async function runStamp({ aiDir, version, check = false }) {
   return res.changed
     ? [{ kind: "stamped", file: ".ai/state.json", detail: `project.rein_version ${res.previous ?? "(unstamped)"} → ${version}` }]
     : [];
+}
+
+// E-383 (D-132 r4, rein-rename.md §Component 4): the two .ai/ files `ai state migrate
+// --team` wrote under the old name. Each old line is rewritten in place (a hand-added line
+// is never touched); everything else in the file is kept. Removed in 0.5.
+const LEGACY_LINES = { // rename:legacy-fallback
+  ".gitattributes": [
+    ["# AI-OS team records (D-102): both-sides changes resolve by the DONE > IN_PROGRESS > OPEN policy", "ATTRIBUTES_HEADER"], // rename:legacy-fallback
+    [/ merge=aios-record$/, " merge=rein-record"], // rename:legacy-fallback
+  ],
+  ".gitignore": [
+    ["# AI-OS team views (D-102): generated from the record files, never tracked", "IGNORE_BEGIN"], // rename:legacy-fallback
+  ],
+};
+
+/** Files under aiDir that still carry a pre-rename line, rewritten unless --check. */
+export async function runRename({ aiDir, check = false }) {
+  const { ATTRIBUTES, IGNORE_BEGIN } = await import("../mcp/shared/record-migrate.mjs");
+  const named = { ATTRIBUTES_HEADER: ATTRIBUTES.split("\n")[0], IGNORE_BEGIN };
+  const records = [];
+  for (const [file, rules] of Object.entries(LEGACY_LINES)) {
+    const p = join(aiDir, file);
+    if (!existsSync(p)) continue;
+    const before = readFileSync(p, "utf8");
+    let n = 0;
+    const after = before.split("\n").map((line) => {
+      for (const [from, to] of rules) {
+        if (typeof from === "string" ? line === from : from.test(line)) {
+          n++;
+          return typeof from === "string" ? named[to] : line.replace(from, to);
+        }
+      }
+      return line;
+    }).join("\n");
+    if (n === 0) continue;
+    const detail = `${n} pre-rename line(s) rewritten (AI-OS → Rein, aios-record → rein-record)`; // rename:legacy-fallback
+    if (check) { records.push({ kind: "pending", file: `.ai/${file}`, detail }); continue; }
+    _writeAtomic(p, after);
+    records.push({ kind: "merged", file: `.ai/${file}`, detail });
+  }
+  const keyDetail = (old, now) => `key ${old} → ${now}`;
+  // state.json is a view: opening the store renames the row (state-db), rendering the view
+  // drops the old key. A project E-382 stamped 0.4.0 under the old key is never restamped,
+  // so the stamp alone would leave it.
+  let view = null;
+  try { view = existsSync(join(aiDir, "state.json")) ? _readJson(join(aiDir, "state.json")) : null; } catch { view = null; }
+  if (view?.project && "aios_version" in view.project && view.version === "1.0") { // rename:legacy-fallback
+    const detail = keyDetail("project.aios_version", "project.rein_version"); // rename:legacy-fallback
+    if (check) records.push({ kind: "pending", file: ".ai/state.json", detail });
+    else {
+      const { getDbSeeded } = await import("../mcp/shared/state-db.js");
+      const { renderStateJson } = await import("../mcp/shared/record-store.mjs");
+      renderStateJson(aiDir, getDbSeeded(aiDir));
+      records.push({ kind: "merged", file: ".ai/state.json", detail });
+    }
+  }
+  // The two tracked JSON files that name an old key, rewritten through their own writers.
+  const projectPath = join(aiDir, "project.json");
+  if (existsSync(projectPath)) {
+    const { readRecord, writeRecord, legacyProjectKeys } = await import("../mcp/shared/record-store.mjs");
+    const rec = readRecord(aiDir, "project", null);
+    if (rec && "aios_version" in rec) { // rename:legacy-fallback
+      const detail = keyDetail("aios_version", "rein_version"); // rename:legacy-fallback
+      if (check) records.push({ kind: "pending", file: ".ai/project.json", detail });
+      else {
+        const { rev, updated_at, origin, ...body } = legacyProjectKeys(rec);
+        writeRecord(aiDir, "project", null, body);
+        records.push({ kind: "merged", file: ".ai/project.json", detail });
+      }
+    }
+  }
+  const teamPath = join(aiDir, "team.json");
+  let rawTeam = null;
+  try { rawTeam = existsSync(teamPath) ? _readJson(teamPath) : null; } catch { rawTeam = null; }
+  if (rawTeam?.ci && typeof rawTeam.ci === "object" && "aios_source" in rawTeam.ci) { // rename:legacy-fallback
+    const detail = keyDetail("ci.aios_source", "ci.rein_source"); // rename:legacy-fallback
+    if (check) records.push({ kind: "pending", file: ".ai/team.json", detail });
+    else {
+      const { readTeam, writeTeam } = await import("../mcp/shared/team.mjs");
+      try {
+        writeTeam(aiDir, readTeam(aiDir));
+        records.push({ kind: "merged", file: ".ai/team.json", detail });
+      } catch (e) {
+        records.push({ kind: "error", file: ".ai/team.json", detail: `${e.message} — left untouched` });
+      }
+    }
+  }
+  return records;
 }
 
 function _parseArgs(argv) {
@@ -253,8 +346,12 @@ async function main() {
       _emit(await runStamp({ aiDir, version: o.version, check: o.check }));
       return 0;
     }
+    case "rename": {
+      _emit(await runRename({ aiDir, check: o.check }));
+      return 0;
+    }
     default:
-      process.stderr.write("usage: project-upgrade.mjs <merge|stamp|version> …\n");
+      process.stderr.write("usage: project-upgrade.mjs <merge|stamp|rename|version> …\n");
       return 2;
   }
 }

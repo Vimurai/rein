@@ -36,5 +36,8 @@
 {"label":"E-291: ~/.rein/** is BLOCKED for the architect","role":"architect","path":"<home>/.rein/hooks-x.sh","want":"BLOCK"},
 {"label":"E-291: the install root itself is BLOCKED","role":"engineer","path":"<home>/.rein","want":"BLOCK"},
 {"label":"E-291: a sibling of ~/.rein is not the install","role":"engineer","path":"<home>/.rein-notes.md","want":"pass"},
-{"label":"E-291: a relative name that is not ~/.rein is not the install","role":"engineer","path":"x","want":"pass"}
+{"label":"E-291: a relative name that is not ~/.rein is not the install","role":"engineer","path":"x","want":"pass"},
+{"label":"E-383: the pre-rename install root stays BLOCKED for the union until 0.5 (rename:legacy-fallback)","role":"none","path":"<home>/.ai-os/shared/x.mjs","want":"BLOCK"},
+{"label":"E-383: the pre-rename install root stays BLOCKED for the engineer until 0.5 (rename:legacy-fallback)","role":"engineer","path":"<home>/.ai-os/hooks/pre-tool-use.sh","want":"BLOCK"},
+{"label":"E-383: a sibling of the pre-rename root is not the install (rename:legacy-fallback)","role":"engineer","path":"<home>/.ai-os-notes.md","want":"pass"}
 ]

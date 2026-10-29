@@ -385,6 +385,14 @@ export function insertStamp(aiDir, db, stamp) {
     .run(stamp.type, stamp.agent ?? null, stamp.task_id ?? null, stamp.timestamp, stamp.summary ?? null, sha, author);
 }
 
+// E-383 (D-132 r4): a project.json written before the rename names the stamp `aios_version`.  (rename:legacy-fallback)
+// Read it as `rein_version` when that is absent (new wins); the next write drops the old key.
+export function legacyProjectKeys(project) {
+  if (!("aios_version" in project)) return project; // rename:legacy-fallback
+  const { aios_version: old, ...rest } = project; // rename:legacy-fallback
+  return "rein_version" in rest ? rest : { ...rest, rein_version: old };
+}
+
 /** Set project fields (focus, current_tier, …): project.json, then the project table. */
 export function setProject(aiDir, db, fields) {
   // E-379 (D-130, security P1-2): focus and release_verdict are free text bound for state.json.
@@ -393,7 +401,7 @@ export function setProject(aiDir, db, fields) {
   const keys = Object.keys(fields).filter((k) => PROJECT_KEYS.includes(k));
   if (keys.length === 0) return;
   if (isRecordStore(aiDir)) {
-    const body = { ...(readRecord(aiDir, "project", null) || { schema: PROJECT_SCHEMA }) };
+    const body = legacyProjectKeys({ ...(readRecord(aiDir, "project", null) || { schema: PROJECT_SCHEMA }) });
     delete body.rev; delete body.updated_at; delete body.origin;
     for (const k of keys) body[k] = k === "current_tier" && fields[k] != null ? Number(fields[k]) : fields[k] ?? null;
     writeRecord(aiDir, "project", null, body);
@@ -496,7 +504,7 @@ export function rebuildIndex(aiDir, db) {
   const ordered = (kind) => orderRecords(listRecords(aiDir, kind).map((e) => ({ rec: e.record, name: e.id }))).map((x) => x.rec);
   const tasks  = ordered("task");
   const stamps = ordered("stamp");
-  const project = readRecord(aiDir, "project", null) || {};
+  const project = legacyProjectKeys(readRecord(aiDir, "project", null) || {});
 
   withTransaction(db, (d) => {
     d.exec("DELETE FROM tasks");

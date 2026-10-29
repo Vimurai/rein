@@ -346,7 +346,7 @@
       "kind": "dir",
       "class": "not-ours",
       "since": "*",
-      "note": "Antigravity's own user data, including OAuth credentials. NOT an Rein artefact: printed so the operator can decide, never touched by any flag."
+      "note": "Antigravity's own user data, including OAuth credentials. NOT a Rein artefact: printed so the operator can decide, never touched by any flag."
     }
   ]
 }

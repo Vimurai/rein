@@ -125,6 +125,29 @@ if ! { [[ -f "$_HOOK_BASH" && -x "$_HOOK_BASH" ]] \
   echo "[HOOK_BASH_MISSING] ${_HOOK_BASH} not found, not executable, or rejects -p — Rein hooks NOT installed (no PATH fallback, D-081/D-083). On NixOS link /bin/bash (e.g. a systemd tmpfile or environment.binsh) and re-run: bash install-rein.sh" >&2
 fi
 
+# ── 0) E-383 (D-132 r3): the one-time move from the pre-rename home ──────────
+# A real ~/.ai-os directory moves to ~/.rein and leaves a symlink behind, so hook lines,  (rename:legacy-fallback)
+# PATH entries and running sessions that still name the old path keep resolving. A symlink
+# is left alone (never followed); a real directory beside an existing ~/.rein is refused
+# rather than merged. The 0.5 installer removes the symlink (docs/upgrading.md).
+LEGACY_HOME="${HOME}/.ai-os"  # rename:legacy-fallback
+if [[ -d "$LEGACY_HOME" && ! -L "$LEGACY_HOME" ]]; then
+  if [[ -e "$REIN" || -L "$REIN" ]]; then
+    echo "[LEGACY_HOME_CONFLICT] ${LEGACY_HOME} is a real directory and ${REIN} already exists — keep one: move what you need into ${REIN}, remove ${LEGACY_HOME}, then re-run: bash install-rein.sh" >&2
+    exit 2
+  fi
+  # -T: never move INTO a ~/.rein that appeared after the check above (security_engineer
+  # P3); the target must still not exist. BSD mv has no -T, so it re-checks instead. The
+  # old path is missing for the instant between mv and ln: a hook called in that window
+  # fails to start for that one call.
+  if mv -T "$LEGACY_HOME" "$REIN" 2>/dev/null; then :
+  elif [[ ! -e "$REIN" && ! -L "$REIN" ]]; then mv "$LEGACY_HOME" "$REIN"
+  else echo "[LEGACY_HOME_CONFLICT] ${REIN} appeared during the move — nothing moved; re-run: bash install-rein.sh" >&2; exit 2
+  fi
+  ln -s "$REIN" "$LEGACY_HOME"
+  echo "✓ Moved ${LEGACY_HOME} → ${REIN} (symlink left at ${LEGACY_HOME}, removed in 0.5)"
+fi
+
 # ── 1) Copy src tree to ~/.rein ─────────────────────────────────────────────
 
 mkdir -p "${REIN}"
@@ -366,7 +389,7 @@ _record_hook_toolchain() {
   # shellcheck source=src/shared/toolchain-record.sh
   . "${REPO_DIR}/src/shared/toolchain-record.sh" || return 1
   # Project roots: the framework clone, the git toplevel of the cwd, and the cwd only when
-  # it IS an Rein project — an installer run from $HOME must not refuse ~/.nvm's node.
+  # it IS a Rein project — an installer run from $HOME must not refuse ~/.nvm's node.
   local -a roots=("$REPO_DIR")
   local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" && roots+=("$top")
   [[ -d .ai ]] && roots+=("$(pwd -P)")
@@ -406,7 +429,7 @@ ensure_path_line() {
 
 # E-50: restore native terminal scrollback for tmux users by disabling
 # Claude Code's TUI alternate-screen mode at the shell level. This ensures
-# `claude` invoked outside an Rein project still inherits the flag. Per
+# `claude` invoked outside a Rein project still inherits the flag. Per
 # claude-obsidian-optimizations §Rollback: comment the export out if a
 # specific OS shows rendering bugs.
 ensure_env_line() {

@@ -217,7 +217,7 @@ terminal for `ai sync`, `ai doctor` and git.
 
 </details>
 
-More: [docs/getting-started.md](docs/getting-started.md) (tmux layout, accounts, upgrading from v3).
+More: [docs/getting-started.md](docs/getting-started.md) (tmux layout, accounts, upgrading from v3); [docs/upgrading.md](docs/upgrading.md) (from AI-OS to Rein). <!-- rename:legacy-fallback -->
 
 ---
 
@@ -387,7 +387,7 @@ More: [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Where this comes from
 
-Rein is the successor of a private repository, Rein, developed over 678 commits in 2025–2026.
+Rein is the successor of a private repository, AI-OS, developed over 678 commits in 2025–2026.
 That history stays private because it carries the author's personal data; this repository
 starts from a scrubbed snapshot of it and is developed in public from its first commit. Review
 stamps carry the project's noreply identity, and personal names, addresses and paths in the

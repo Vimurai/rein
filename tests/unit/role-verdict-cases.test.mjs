@@ -20,7 +20,9 @@ import { join, resolve } from "node:path";
 import { repo } from "../lib/check-table.mjs";
 
 const FILE = resolve(repo, "tests/fixtures/role-verdict-cases.json");
-const SHA256 = "34182edf23ab0cfeb61c596f88625145786d6ce949f213d076905eaca5333d54";
+// E-383 (D-132): re-pinned for the rename (rows name the new install root; pre-rename rows
+// added). The D-113 pin moves only by ruling — the D-ruling that closes E-383 ratifies it.
+const SHA256 = "d1b352c1a2c25c8fa2291b0ef959ce9c21bf581de2dc323d28c843d4c15bbcff";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-rv-")));
 const proj = join(root, "proj"), home = join(root, "home"), outside = join(root, "outside");

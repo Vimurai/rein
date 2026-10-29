@@ -836,7 +836,7 @@ printf '#!/bin/bash\necho "user post-merge ran"\n' > "${PROJECT}/.git/hooks/post
 chmod +x "${PROJECT}/.git/hooks/post-merge"
 ( cd "$PROJECT" && install_git_hooks >/dev/null 2>&1 )
 for h in post-merge post-checkout post-rewrite; do
-  assert_status 0 "E-326.01 ${h} is an Rein stub" grep -q "Rein Execution Stub (E-41)" "${PROJECT}/.git/hooks/${h}"
+  assert_status 0 "E-326.01 ${h} is a Rein stub" grep -q "Rein Execution Stub (E-41)" "${PROJECT}/.git/hooks/${h}"
   assert_contains "E-326.02 ${h} runs the canonical with its own name and git's args" \
     "canonical state-import ran: ${h} x y" "$(HOME="$TMP" bash "${PROJECT}/.git/hooks/${h}" x y 2>&1)"
 done

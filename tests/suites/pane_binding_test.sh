@@ -241,10 +241,10 @@ echo '{"account":"work"}' > "$AC_PROJ/.ai/start.json"
 python3 - "${REPO_ROOT}/.ai/DECISIONS.md" "${AC_HOME}/.claude-work/settings.json" <<'PY'
 import json, re, sys
 t = open(sys.argv[1], encoding="utf-8").read()
-rule = re.search(r"^> (Rein Gate Tamper \(D-097\): .*)$", t[t.index("## D-097"):], re.M).group(1)
+rule = re.search(r"^> (AI-OS Gate Tamper \(D-097\): .*)$", t[t.index("## D-097"):], re.M).group(1)  # rename:legacy-fallback (D-097 is quoted as ruled)
 json.dump({"autoMode": {"hard_deny": ["$defaults", rule]}}, open(sys.argv[2], "w"), indent=2)
 PY
-assert_contains "E-324.P05f: the fixture carries the D-097 label" "Rein Gate Tamper (D-097)" "$(cat "${AC_HOME}/.claude-work/settings.json")"
+assert_contains "E-324.P05f: the fixture carries the D-097 label" "AI-OS Gate Tamper (D-097)" "$(cat "${AC_HOME}/.claude-work/settings.json")"  # rename:legacy-fallback
 _ac_out="$(_ac_pane engineer)"
 assert_contains "E-315.P05a: an OUTDATED (D-097) account backstop refuses with exit 2" "RC:2" "$_ac_out"
 assert_contains "E-315.P05b: …naming ai sync" "run: ai sync" "$_ac_out"
@@ -557,9 +557,9 @@ echo "  [E-208.9] launcher error paths"
 # un-installed HOME now refuses before these checks run), and the [PANE_NESTED] check must not
 # see a launch record on the operator's own process chain.
 
-# Outside an Rein project: must refuse, not launch anything.
+# Outside a Rein project: must refuse, not launch anything.
 OUTSIDE="$(mktemp -d)"
-assert_status 2 "E-208.09a: refuses to bind outside an Rein project" \
+assert_status 2 "E-208.09a: refuses to bind outside a Rein project" \
   bash -c "cd '$OUTSIDE' && HOME='$PB_HOME' bash '$AI_BIN' pane architect 2>/dev/null"
 assert_contains "E-208.09b: the message names the missing .ai/ and the fix" "ai init" \
   "$(cd "$OUTSIDE" && HOME="$PB_HOME" bash "$AI_BIN" pane architect 2>&1)"

@@ -55,6 +55,12 @@ export function readTeam(aiDir) {
   if (!existsSync(p)) return null;
   let t;
   try { t = JSON.parse(readFileSync(p, "utf8")); } catch { throw new TeamError("TEAM_INVALID", ".ai/team.json is not valid JSON (a merge conflict?)"); }
+  // E-383 (D-132 r4): ci.aios_source is the pre-rename name of ci.rein_source; read as it  (rename:legacy-fallback)
+  // when the new key is absent (new wins), and the next writeTeam drops it. Removed in 0.5.
+  if (t?.ci && typeof t.ci === "object" && "aios_source" in t.ci) { // rename:legacy-fallback
+    const { aios_source: old, ...ci } = t.ci; // rename:legacy-fallback
+    t = { ...t, ci: "rein_source" in ci ? ci : { ...ci, rein_source: old } };
+  }
   validateTeam(t);
   return t;
 }

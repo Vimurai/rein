@@ -48,7 +48,7 @@
 {"mode":"--check","input":"./admin --password Tr0ub4dorFAKE99","verdict":"BLOCK","class":"table","from":["safe_exec"]},
 {"mode":"--check","input":"./charge --verbose sk_live_FAKEfakeFAKEfake0000","verdict":"BLOCK","class":"table","from":["safe_exec"]},
 {"mode":"--check","input":"./cli --api-key <your-key>","verdict":"pass","class":"table","from":["safe_exec"]},
-{"mode":"--check","input":"./deploy.sh api_key=AKIREINFODNN7EXAMPLE","verdict":"BLOCK","class":"table","from":["safe_exec"]},
+{"mode":"--check","input":"./deploy.sh api_key=AKIAIOSFODNN7EXAMPLE","verdict":"BLOCK","class":"table","from":["safe_exec"]},
 {"mode":"--check","input":"./publish.sh --verbose ghp_FAKE00000000000000000000000000","verdict":"BLOCK","class":"table","from":["safe_exec"]},
 {"mode":"--check","input":"./pull --verbose hf_FAKEfakeFAKEfakeFAKEfakeFAKEfake00","verdict":"BLOCK","class":"table","from":["safe_exec"]},
 {"mode":"--check","input":"./x --password=changeme","verdict":"pass","class":"table","from":["safe_exec"]},

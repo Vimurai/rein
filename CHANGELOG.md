@@ -1,12 +1,12 @@
 # Changelog
 
-All notable changes to **ai-os-v2** are documented here.
+All notable changes to **@vimurai/rein** are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.4.0] — First public release
 
 The first release of **Rein** in its public repository. The version line restarts at
-0.4.0 (D-131): the private predecessor AI-OS shipped 2.0.0 to 4.0.0, listed below under
+0.4.0 (D-131): the private predecessor Rein shipped 2.0.0 to 4.0.0, listed below under
 "Private predecessor", and a project stamped `4.0.0` is restamped `4.0.0 → 0.4.0` by
 `ai sync` like any other version change.
 
@@ -36,7 +36,7 @@ The first release of **Rein** in its public repository. The version line restart
   `privacy scan` job runs the same scan on every push and pull request. Both are required
   for merge on `main`, beside `ai ci run`.
 - **Hosted CI for `master` (E-332, D-102 §5b, D-103).** `.github/workflows/ci.yml` runs on
-  pull requests to `master`: it installs AI-OS from the merge commit and runs `ai ci run` —
+  pull requests to `master`: it installs Rein from the merge commit and runs `ai ci run` —
   the local recipe, not a copy of it (`tests/unit/hosted-ci-workflow.test.mjs` refuses a
   copied step). Read-only token, no secrets, log and `.ai/ci/*.json` uploaded on every
   outcome. **Partial reversal of D-072:** hosted CI returns for `master` only; branches stay
@@ -45,8 +45,8 @@ The first release of **Rein** in its public repository. The version line restart
 - **`ai ci hosted [<provider>] [--check] [--force]` (E-335, D-103).** Renders the hosted
   check for the provider from `src/templates/ci/` — the provider is the argument, else
   `.ai/team.json` `ci`, else the `origin` host (an unrecognised host is never guessed:
-  `[CI_PROVIDER_UNKNOWN]`). In the AI-OS repository the bootstrap is `install-ai-os.sh` from
-  the commit; in any other project it clones the AI-OS tag the project pins. `--check` exits
+  `[CI_PROVIDER_UNKNOWN]`). In the Rein repository the bootstrap is `install-rein.sh` from
+  the commit; in any other project it clones the Rein tag the project pins. `--check` exits
   1 when the file is not the current rendering, a differing file needs `--force`
   (`[WRAPPER_DIFFERS]`), and the planner's run records `team.json` `ci`. It prints the branch
   policy: required for merge, pushes left open for claims. `ai doctor` reports the wrapper.
@@ -60,7 +60,7 @@ The first release of **Rein** in its public repository. The version line restart
   Azure Repos the merge gate is a required Build Validation branch policy, which the command
   prints. It also prints `[CI_PROVIDER_UNVERIFIED]` until a documented run on a real Azure
   DevOps project is recorded (DEVOPS-011). Under Azure (`TF_BUILD=True`) `ai ci run` sets
-  `AI_OS_CI_LOG_DIR` for the artefact step, since a task input cannot expand `$HOME`.
+  `REIN_CI_LOG_DIR` for the artefact step, since a task input cannot expand `$HOME`.
 - **Per-developer account and the shared log (E-333, D-102 §8).** A gitignored
   `.ai/start.local.json` (`{"account": …}` only) overrides `start.json`'s account for this
   checkout; `ai account use <name|default>` writes it, and in a team project `ai start

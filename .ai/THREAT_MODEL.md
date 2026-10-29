@@ -1051,6 +1051,17 @@ effectively permanent. Proof-of-concept (invented values, harness E-278; SECURIT
 Mitigations: SECURITY.md §E-378 recommendations; server-side GitHub "block command line pushes that
 expose my email"; a CI identity/message check; a sentinel line for both CLIs.
 
+### T-RENAME-001 — one install, two spellings during the 0.4 transition (security_engineer, E-383 review, 2026-10-29)
+
+Until 0.5 the old home path is a symlink to `~/.rein` and every `AI_OS_<X>` env name falls back to <!-- rename:legacy-fallback -->
+`REIN_<X>`. Any guard that matches the install by NAME (a regex or grep, not a realpath) must cover
+both spellings, or the old one walks around it. Found in E-383: secret-rule.mjs SECRETS_DIR (the
+role-token key is readable through the old path's `secrets/`), the pre-tool-use no-verdict
+fallback grep, the classifier backstop RULE text, and the `_ci_local_env` reservation list.
+Mitigation: one shared MIRROR pattern used by every name-based guard, and one test row per guard
+with the old spelling. Guards resolved by realpath (isUnderAiOs) are unaffected. The env fallback
+grants only what the new name already grants, except where the new name has a reservation.
+
 ## New Integration Checklist
 
 When a new external integration is added to Rein v2, create a new T-### entry in this file covering:

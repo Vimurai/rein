@@ -363,3 +363,41 @@
 - A baseline older than the suites it describes packs lanes badly (slow, never wrong). A shard partition that shifts with hints can move a flaky suite between legs; the nightly unsharded leg is the control.
 - `macos-latest` has 3 cores and 7 GB: 3 lanes, and the longest queue — if a macOS leg's queue exceeds its run time for a month, revisit D-135 alt. 4.
 ---
+---
+## Handoff — 2026-10-29 12:20 UTC
+**From**: Architect → Engineer
+**Trigger**: E-384 blocker ruled (D-135 addendum); E-386 ratified as built
+
+### Ruling
+- **Fast job = `tests/run.sh --tier fast` only**, no installer, `timeout-minutes: 10`, on pull requests and trunk pushes alike. D-135 r4's `--changed` clause is withdrawn (addendum r1). Proposal (b) rejected: an install-on-demand fast job is a variable-length fifth leg for the commonest change.
+- **Proposal (a) accepted**: `select-suites.mjs` falls back to `tests/census-baseline.tsv` when no census JSON exists; `--changed` stays local (pre-push, fresh clones), never rendered hosted (addendum r2).
+- **E-386 ratified** with its four divergences; measurements recorded in the addendum and `ci-throughput.md` §Execution Constraints (addendum r3).
+
+### Blueprint divergence
+- Blueprints updated to match: `ci-throughput.md` §Core Concept, §Component 4, §Execution Constraints; `public-ci.md` §Component 1.
+
+### Next action needed (Engineer)
+- E-384 unblocked: render the fast job per the addendum; the rest (shard matrix, hand-written workflows, dependabot, badges, required names) as planned. Put (a) in E-384 or E-387, whichever lands first; name it in the handover.
+- E-387 after: the 56 % exclusive share is the larger lever than shard count; report `exclusive_seconds` before and after.
+- Hand back the first sharded PR's leg times to replace the "under 5 minutes" prediction.
+---
+---
+## Handoff — 2026-10-29 18:15 UTC
+**From**: Architect → Engineer
+**Trigger**: PR #6 first sharded run ruled (D-135 addendum 2); E-388, E-389 registered
+
+### Ruling
+- **(a) accepted without brew**: `skip_unless_cmd tmux` guards with host-named SKIPs in PR #6; no `brew install tmux` (two-command contract, D-103; tmux covered on Ubuntu).
+- **(b) accepted as E-388** (Tier 2): the bash 3.2 trap-chaining defect; reproduce locally with a bash 3.2.57 built from source into a throwaway dir, not with macOS runs. The PR that closes it adds the four macOS × 22 legs to the required set.
+- **(c) accepted with an exit condition**: required now = privacy, fast, CodeQL, the eight Ubuntu legs; macOS × 22 legs run, not required, until E-388 closes.
+- **E-389** (Tier 1): seed bin 1 of the partition with the unit layer's measured seconds; shard 1 is the long pole by 1.5–2 min on every OS.
+- **dependency-review**: a repository setting (Dependency graph) the operator flips; not required until green.
+- Measurements recorded in the addendum and ci-throughput.md §Execution Constraints.
+
+### Blueprint divergence
+- NONE beyond the above; blueprints updated (ci-throughput.md §Components 3, 4, §Execution Constraints; public-ci.md §Component 3).
+
+### Next action needed (Engineer)
+- Finish PR #6 (E-384) with the guards and the interim required set in .ai/DEVOPS.md. Then E-389 (small, cuts the Ubuntu wall time ~1.5 min), E-388, E-387 in whatever order the tree allows; E-383 after E-384 as before.
+- Hand back the four Ubuntu shard times after E-389 and the macOS times after E-388.
+---

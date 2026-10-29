@@ -21,9 +21,11 @@ Four independent levers, each a flag or a default, each rolled back alone:
   committed with the code, read when no log exists.
 - **Shards** — `tests/run.sh --shard i/N` partitions the suites deterministically by the same
   hints; `ai ci run --shard i/N` carries it; the renderer emits N legs.
-- **Fast job with change selection** — the no-install job runs `--changed origin/<trunk>` on
-  a pull request (fast tier plus the suites whose footprint touches a changed file, E-298) and
-  `--tier fast` on a trunk push.
+- **Fast job** — the no-install job runs `--tier fast` on pull requests and trunk pushes
+  alike (D-135 addendum r1: a suite beyond the fast tier needs the installed mirror,
+  DEVOPS-002, and `--changed` needs a census a fresh runner never has). Change selection
+  (`--changed`, E-298) stays a local tool and falls back to the committed baseline
+  (addendum r2).
 
 ## Components
 
@@ -53,7 +55,9 @@ Four independent levers, each a flag or a default, each rolled back alone:
 - `tests/run.sh --shard i/N` (`AIOS_TEST_SHARD=i/N`; `1 ≤ i ≤ N`, else exit 2). Partition:
   shared suites sorted by hint descending then name, assigned greedily to the lightest of N
   bins; exclusive suites the same, separately; a suite with no hint counts as the median.
-  The node unit layer and the fast-tier timing belong to shard 1. The run prints
+  The node unit layer and the fast-tier timing belong to shard 1, and bin 1 is seeded with
+  the unit layer's measured seconds before suites are assigned (D-135 addendum 2 r4, E-389),
+  so shard 1 is not the long pole. The run prints
   `Shard i/N: <k> shared, <m> exclusive (est. <s> s)`. `--lanes` applies inside a shard.
   `--shard` with `--tier fast` or `--changed` is refused (exit 2): the fast job is one leg.
 - `ai ci run --shard i/N` passes it through, records `shard` in the `ci_runs` row and the
@@ -68,9 +72,9 @@ Four independent levers, each a flag or a default, each rolled back alone:
 - Detection: `--tier` and `--shard` are grepped from the project's `tests/run.sh` exactly as
   `ai ci run` greps `--tier` today. No `tests/run.sh` → the single job as today.
 - Jobs rendered for GitHub (every profile):
-  - `fast` (when `--tier` is advertised): checkout full history, Node 22, no installer,
-    `bash tests/run.sh --changed origin/<trunk>` on `pull_request`, `--tier fast` on `push`;
-    `timeout-minutes: 10`.
+  - `fast` (when `--tier` is advertised): checkout, Node 22, no installer,
+    `bash tests/run.sh --tier fast` on `pull_request` and `push` alike; `timeout-minutes: 10`
+    (D-135 addendum r1).
   - `ai ci run (<os>, node <v>, <i>/<N>)`: the matrix; N = `team.json` `ci.shards`, default
     4, `1` renders the single-leg name `ai ci run (<os>, node <v>)`; `--shard` not advertised
     → N forced to 1. Team profile: `ubuntu-latest × 22`. Public profile (D-133):
@@ -78,6 +82,10 @@ Four independent levers, each a flag or a default, each rolled back alone:
     `macos-latest × 24` and one unsharded `ubuntu-latest × 22` leg (D-135 r5).
 - `REQUIRED_CHECK` becomes `requiredChecks(root)` returning the list; `ai ci hosted` prints
   the policy line with every name; `.ai/DEVOPS.md` records the set per project.
+- macOS legs (D-135 addendum 2): no `brew install tmux` — the contract stays two commands;
+  tmux paths are covered on Ubuntu; tmux-dependent assertions `skip_unless_cmd tmux` with a
+  host-named SKIP (harness rule 1, E-332). The macOS × 22 legs run on every pull request and
+  join the required set in the pull request that closes E-388 (the bash 3.2 trap defect).
 - Azure (E-336) gets Component 1 for free; its shard matrix and the GitLab/Bitbucket wrappers
   land with E-337 and follow the same names.
 
@@ -136,9 +144,14 @@ Required checks (team):       fast, ai ci run (ubuntu-latest, node 22, i/N)
   same partition on every leg (asserted by a unit test over a synthetic census).
 - Baseline read adds one file read; the pre-push staleness check counts `ci_runs` rows — under
   10 ms, no network.
-- Expected on Rein: a leg under 5 minutes with 4 shards × 4 lanes; the fast job under 2
-  minutes on a pull request. `ai ci status` reports the measurements; the nightly drift line
-  (D-118 r1) reports the unsharded `full_seconds`.
+- Measured on Rein (E-386, hosted, unsharded): 914 s with four lanes and no baseline
+  (13 exclusive suites, 508 s tail); 736 s with the baseline (9 exclusive, 300 s tail); local
+  exclusive share 56 %. First sharded run (E-384, run 40906294420): `fast` 1m22s; Ubuntu
+  shards 4m36s–7m07s (shard 1 the long pole, E-389); macOS shards 4m11s–13m44s with two red
+  from the tmux and bash 3.2 defects (E-388); Ubuntu PR wall time ~7 min against 15.5 on
+  the single job. Next levers: E-389 (shard 1 seed), E-387 (the 56 % exclusive tail).
+  `ai ci status` reports the measurements; the nightly drift line (D-118 r1) reports the
+  unsharded `full_seconds`.
 - Private runners: four shards cost about four extra install minutes per run; `ci.shards: 1`
   restores one leg.
 

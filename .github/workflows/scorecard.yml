@@ -1,0 +1,48 @@
+# OpenSSF Scorecard — supply-chain posture, published to the security tab and the public
+# Scorecard API (the README badge reads it). E-384, D-133, public-ci.md §Component 2.
+# Hand-written; actions pinned to commit SHAs. Rollback: delete this file and the badge.
+name: Scorecard
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '41 5 * * 2'   # weekly, Tuesday 05:41 UTC
+  branch_protection_rule:
+
+permissions: read-all
+
+jobs:
+  analysis:
+    name: Scorecard
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      security-events: write   # upload SARIF to the security tab
+      id-token: write          # publish_results: signs the result for the public API
+      contents: read
+      actions: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@fa7117db83c52d787ae5a89f350999701505d78e   # v2.5.0
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Keep the results
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
+        with:
+          name: scorecard-sarif
+          path: scorecard.sarif
+          retention-days: 14
+
+      - name: Upload to the security tab
+        uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370   # v4.39.1
+        with:
+          sarif_file: scorecard.sarif

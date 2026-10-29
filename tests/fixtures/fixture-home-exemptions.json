@@ -18,6 +18,12 @@
     ],
     "reason": "E-225.01f runs the preflight line with HOME=/nonexistent on purpose (a degraded install must fail closed)"
   },
+  "select-suites.test.mjs": {
+    "rules": [
+      "FIXTURE_HOME_NO_RECORD"
+    ],
+    "reason": "E-384: the temp HOME only guarantees no ~/.ai-os/ci census, so --changed reads the committed baseline; the one process it runs is the select-suites node CLI — no hook, no ai"
+  },
   "census.test.mjs": {
     "rules": [
       "FIXTURE_HOME_NO_RECORD"

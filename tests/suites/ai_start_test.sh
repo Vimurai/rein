@@ -41,53 +41,58 @@ EOF
 }
 _dry() { ( cd "$1" && shift && bash "$AI" start --dry-run "$@" 2>&1 ); }
 
-# ── E-227.1: pane order follows pane_identifier, in BOTH directions ─────────
-# The role with the lower pane_identifier takes the lower pane position, so E-209's
-# ordinal fallback and the visible layout agree by construction rather than by luck.
-_p="$(_proj 0 1)"; _out="$(_dry "$_p")"
-assert_match "E-227.01a: engineer=0 → first pane" \
-  'send-keys -t pane0 ai.\ pane.\ engineer' "$_out"
-assert_match "E-227.01b: architect=1 → second pane" \
-  'send-keys -t pane1 ai.\ pane.\ architect' "$_out"
-# D-099 (E-322): no watcher pane — two panes, the right column is never split again.
-assert_not_contains "E-227.01c: no third pane is addressed" "pane2" "$_out"
-assert_not_contains "E-227.01g: no watcher command is sent" "ai watch" "$_out"
-assert_not_contains "E-227.01h: the right column is not split for a watcher" "split-window -v" "$_out"
-rm -rf "$_p"
+# E-384 (D-135 addendum 2, harness rule 1): `ai start` — dry run included — needs tmux to
+# plan panes; without it it prints the manual recipe (E-227.7). A host without tmux (the
+# macOS runner image) records ONE skip per section instead of failing each assertion.
+if skip_unless_cmd tmux "E-227.01–02, E-269.S: ai start --dry-run plans tmux panes"; then
+  # ── E-227.1: pane order follows pane_identifier, in BOTH directions ─────────
+  # The role with the lower pane_identifier takes the lower pane position, so E-209's
+  # ordinal fallback and the visible layout agree by construction rather than by luck.
+  _p="$(_proj 0 1)"; _out="$(_dry "$_p")"
+  assert_match "E-227.01a: engineer=0 → first pane" \
+    'send-keys -t pane0 ai.\ pane.\ engineer' "$_out"
+  assert_match "E-227.01b: architect=1 → second pane" \
+    'send-keys -t pane1 ai.\ pane.\ architect' "$_out"
+  # D-099 (E-322): no watcher pane — two panes, the right column is never split again.
+  assert_not_contains "E-227.01c: no third pane is addressed" "pane2" "$_out"
+  assert_not_contains "E-227.01g: no watcher command is sent" "ai watch" "$_out"
+  assert_not_contains "E-227.01h: the right column is not split for a watcher" "split-window -v" "$_out"
+  rm -rf "$_p"
 
-_p="$(_proj 1 0)"; _out="$(_dry "$_p")"
-assert_match "E-227.01d: REVERSED — architect=0 → first pane" \
-  'send-keys -t pane0 ai.\ pane.\ architect' "$_out"
-assert_match "E-227.01e: REVERSED — engineer=1 → second pane" \
-  'send-keys -t pane1 ai.\ pane.\ engineer' "$_out"
-assert_match "E-227.01f: titles are pinned in the same order" \
-  'select-pane -t pane0 -T architect' "$_out"
-# E-269 (D-073): the role binding is a TARGETED pane option, set before the cosmetic title.
-assert_match "E-269.S1: the re-pin sets @ai_os_role on the targeted pane" \
-  'set-option -p -t pane0 @ai_os_role architect' "$_out"
-assert_match "E-269.S2: and on the second pane" 'set-option -p -t pane1 @ai_os_role engineer' "$_out"
-assert_status 1 "E-269.S3: no untargeted select-pane -T remains" \
-  bash -c "printf '%s\n' \"\$1\" | grep -E 'select-pane -T'" _ "$_out"
-rm -rf "$_p"
+  _p="$(_proj 1 0)"; _out="$(_dry "$_p")"
+  assert_match "E-227.01d: REVERSED — architect=0 → first pane" \
+    'send-keys -t pane0 ai.\ pane.\ architect' "$_out"
+  assert_match "E-227.01e: REVERSED — engineer=1 → second pane" \
+    'send-keys -t pane1 ai.\ pane.\ engineer' "$_out"
+  assert_match "E-227.01f: titles are pinned in the same order" \
+    'select-pane -t pane0 -T architect' "$_out"
+  # E-269 (D-073): the role binding is a TARGETED pane option, set before the cosmetic title.
+  assert_match "E-269.S1: the re-pin sets @ai_os_role on the targeted pane" \
+    'set-option -p -t pane0 @ai_os_role architect' "$_out"
+  assert_match "E-269.S2: and on the second pane" 'set-option -p -t pane1 @ai_os_role engineer' "$_out"
+  assert_status 1 "E-269.S3: no untargeted select-pane -T remains" \
+    bash -c "printf '%s\n' \"\$1\" | grep -E 'select-pane -T'" _ "$_out"
+  rm -rf "$_p"
 
-# ── E-227.2: composition only — never a provider, never a project script ───
-_p="$(_proj 0 1)"; _out="$(_dry "$_p")"
-# Tightened by E-242: the intent is "ai start COMPOSES `ai pane`, it never execs a provider
-# itself". Testing that by the bare substring `claude` also matches the DIRECTORY `.claude/`,
-# which the overlay pre-check legitimately names — so the assertion failed on a path, not on
-# a launch. Match an invocation instead: the provider in command position.
-assert_status 1 "E-227.02a: no provider binary is launched directly" \
-  bash -c "printf '%s' \"\$_out\" | grep -qE '(^|[;&|]|send-keys .)[[:space:]]*claude[[:space:]]'"
-# The dry run prints commands through `printf %q`, so the sent string appears as
-# `ai\ pane\ engineer`. An assertion written against a literal space silently matched
-# nothing and passed for the wrong reason.
-assert_status 0 "E-227.02b: every send-keys carries only 'ai pane'" \
-  python3 -c "
+  # ── E-227.2: composition only — never a provider, never a project script ───
+  _p="$(_proj 0 1)"; _out="$(_dry "$_p")"
+  # Tightened by E-242: the intent is "ai start COMPOSES `ai pane`, it never execs a provider
+  # itself". Testing that by the bare substring `claude` also matches the DIRECTORY `.claude/`,
+  # which the overlay pre-check legitimately names — so the assertion failed on a path, not on
+  # a launch. Match an invocation instead: the provider in command position.
+  assert_status 1 "E-227.02a: no provider binary is launched directly" \
+    bash -c "printf '%s' \"\$_out\" | grep -qE '(^|[;&|]|send-keys .)[[:space:]]*claude[[:space:]]'"
+  # The dry run prints commands through `printf %q`, so the sent string appears as
+  # `ai\ pane\ engineer`. An assertion written against a literal space silently matched
+  # nothing and passed for the wrong reason.
+  assert_status 0 "E-227.02b: every send-keys carries only 'ai pane'" \
+    python3 -c "
 import re, sys
 sent = [l for l in sys.argv[1].splitlines() if 'send-keys' in l]
 sys.exit(0 if sent and all(re.search(r'ai\\\\? pane', l) for l in sent) else 1)
 " "$_out"
-rm -rf "$_p"
+  rm -rf "$_p"
+fi
 
 # ── E-227.3: --no-watch is gone with the watcher (D-099) ───────────────────
 _p="$(_proj 0 1)"
@@ -126,6 +131,7 @@ non-object top level|[]
 CASES
 
 # A VALID config must still be honoured, or the validation is just a wall.
+if skip_unless_cmd tmux "E-227.04v–y: a valid start.json reaches the tmux plan"; then
 _p="$(_proj 0 1 '{"session":"proj","sizes":{"main":40,"top":70}}')"
 _out="$(_dry "$_p")"
 assert_contains "E-227.04v: a valid session is used"      "-s proj" "$_out"
@@ -138,6 +144,7 @@ assert_contains "E-227.04w: a valid main size is applied" "-l 60%" "$_out"
 _w="$(_dry "$(_proj 0 1 '{"watch":false,"sizes":{"top":70}}')")"
 assert_contains "E-227.04x: a legacy watch/sizes.top start.json is still accepted" "split-window -h" "$_w"
 assert_not_contains "E-227.04y: …and adds no watcher pane" "split-window -v" "$_w"
+fi
 rm -rf "$_p"
 
 # ── E-227.5: refusals ──────────────────────────────────────────────────────
@@ -276,6 +283,7 @@ assert_contains "E-252.01f: AI_OS_SHARED_SESSION=1 restores the single shared se
   "aios" "$(AI_OS_SHARED_SESSION=1 _sname_direct /tmp/my.app)"
 
 # The dry run shows the two commands that make a session a project's own.
+if skip_unless_cmd tmux "E-252.02: the dry run's session commands"; then
 _p="$(_proj 0 1)"
 _out="$(_dry "$_p")"
 _derived="$(_sname_direct "$_p")"
@@ -286,6 +294,7 @@ assert_contains "E-252.02b: and stamps it with the project path" \
 assert_status 1 "E-252.02c: select-window is no longer composed (it moves OTHER clients)" \
   bash -c "printf '%s' \"\$_out\" | grep -q 'select-window'"
 rm -rf "$_p"
+fi
 
 # ── E-252 LIVE: the properties that only a real server can show ────────────
 if skip_unless_cmd tmux "E-252 live session-isolation layer"; then
@@ -445,8 +454,10 @@ assert_status 0 "E-315.S01a: --dry-run --account leaves start.json byte-identica
   cmp -s "$_p/.ai/start.json" "$_p/.ai/start.json.before"
 assert_contains "E-315.S01b: …and says what it would bind" "would bind account 'work'" "$_out"
 assert_contains "E-315.S01c: the banner names the account and its dir" "account work (~/.claude-work)" "$_out"
-assert_contains "E-315.S01d: the pane option carries the account" "@ai_os_account work" "$_out"
-assert_contains "E-315.S01e: the title reads <role> · <account>" '-T engineer\ ·\ work' "$_out"
+if skip_unless_cmd tmux "E-315.S01d–e: the account in the planned tmux panes"; then
+  assert_contains "E-315.S01d: the pane option carries the account" "@ai_os_account work" "$_out"
+  assert_contains "E-315.S01e: the title reads <role> · <account>" '-T engineer\ ·\ work' "$_out"
+fi
 
 _out="$(_ast "$_p" "$_notmux" --account work)"
 assert_contains "E-315.S02a: --account work writes the key" '"account": "work"' "$(cat "$_p/.ai/start.json")"
@@ -542,15 +553,17 @@ rm -rf "$_p"
 # "Nothing is up" is a true answer to a status question. A non-zero exit would force every
 # caller to write `|| true`, which is how a status command stops being usable in scripts.
 _p="$(_sf_proj)"
+_said="not running"
 if command -v tmux >/dev/null 2>&1; then
   _ns="$(_nosrv_shim)"
   _out="$( cd "$_p" && PATH="$_ns:$PATH" bash "$AI" start --status 2>&1 )"; _rc=$?
   rm -rf "$_ns"
 else
   _out="$( cd "$_p" && bash "$AI" start --status 2>&1 )"; _rc=$?
+  _said="tmux is not installed"   # E-384: the no-tmux answer (src/bin/ai _start_status)
 fi
 assert_status 0 "E-228.02a: --status exits 0 when nothing is running (rc=${_rc})" bash -c "[[ $_rc -eq 0 ]]"
-assert_contains "E-228.02b: it says so rather than printing nothing" "not running" "$_out"
+assert_contains "E-228.02b: it says so rather than printing nothing" "$_said" "$_out"
 assert_not_contains "E-228.02c: and reports no watcher (D-099 removed it)" "watcher" "$_out"
 rm -rf "$_p"
 

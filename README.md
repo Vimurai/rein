@@ -3,10 +3,13 @@
   <p><b>Rein in your agents.</b></p>
   <p>Claude Code as a small engineering team that plans, builds, reviews and remembers.</p>
 
-  [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
   [![CI][ci-badge]][ci]
+  [![Privacy][privacy-badge]][privacy]
+  [![CodeQL][codeql-badge]][codeql]
+  [![OpenSSF Scorecard][scorecard-badge]][scorecard]
+  [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+  [![Version][version-badge]](CHANGELOG.md)
   [![Sponsor][sponsor-badge]][sponsor]
-  [![Version](https://img.shields.io/badge/version-v0.4.0-blue.svg)](CHANGELOG.md)
 </div>
 
 Rein runs two Claude Code sessions side by side — an **Architect** that plans and an
@@ -418,5 +421,12 @@ grammars are MIT-licensed; their notices are in `NOTICE`.
 
 [ci]: https://github.com/Vimurai/rein/actions/workflows/ci.yml
 [ci-badge]: https://github.com/Vimurai/rein/actions/workflows/ci.yml/badge.svg
+[privacy]: https://github.com/Vimurai/rein/actions/workflows/privacy.yml
+[privacy-badge]: https://github.com/Vimurai/rein/actions/workflows/privacy.yml/badge.svg
+[codeql]: https://github.com/Vimurai/rein/actions/workflows/codeql.yml
+[codeql-badge]: https://github.com/Vimurai/rein/actions/workflows/codeql.yml/badge.svg
+[scorecard]: https://securityscorecards.dev/viewer/?uri=github.com/Vimurai/rein
+[scorecard-badge]: https://api.securityscorecards.dev/projects/github.com/Vimurai/rein/badge
+[version-badge]: https://img.shields.io/github/v/tag/Vimurai/rein?label=version&sort=semver
 [sponsor]: https://github.com/sponsors/Vimurai
 [sponsor-badge]: https://img.shields.io/badge/sponsor-%E2%9D%A4-ea4aaa.svg

@@ -1,0 +1,51 @@
+# Release — a `v*` tag runs the full matrix on the tag, then publishes a GitHub release whose
+# notes are that version's CHANGELOG section plus the sha256 of the install script (E-384,
+# D-133, public-ci.md §Component 2). Hand-written; actions pinned to commit SHAs.
+# Rollback: delete this file; a release can be deleted with `gh release delete <tag>`.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  matrix:
+    name: Full matrix
+    uses: ./.github/workflows/ci.yml
+    with:
+      full: true
+
+  release:
+    name: GitHub release
+    needs: matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # create the release
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          persist-credentials: false
+
+      # The tag arrives as an environment variable, never interpolated into the script.
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          awk -v h="## [${version}]" 'index($0, h) == 1 {on = 1; next} on && /^## / {exit} on {print}' CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "no CHANGELOG section '## [${version}]' — refusing to publish an empty release" >&2
+            exit 1
+          fi
+          installer=install-rein.sh
+          [ -f "$installer" ] || installer=install-ai-os.sh   # until E-383 renames it
+          printf '\n---\n\n`%s` sha256: `%s`\n' "$installer" "$(sha256sum "$installer" | cut -d' ' -f1)" >> notes.md
+          gh release create "$TAG" --verify-tag --title "Rein ${TAG}" --notes-file notes.md
+          echo "Release: $(gh release view "$TAG" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"

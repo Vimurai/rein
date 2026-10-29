@@ -3612,3 +3612,44 @@ A 15-minute signal trains people to stop pushing; D-133 multiplies that single j
 Per ruling: ruling 1 is the one default expression; ruling 2 deletes the file and the fallback branch; ruling 3 is `--shard` unused and `ci.shards: 1`; rulings 4–5 are the renderer's job list; ruling 7 restores the single name. Each is independent of the others.
 
 ---
+
+## D-135 addendum — The fast job is the fast tier, with no installer and a time bound; change selection stays local; E-386 as built ratified
+
+**Date**: 2026-10-29
+**Task**: E-384 (unblocked), E-386 (ratified as built: PR #4 a1ae799, PR #5 491de58), E-387
+**Decision**: The Engineer verified that D-135 r4 cannot run as written on a fresh runner: `--changed` selects from the census JSON under `~/.ai-os/ci/`, which a fresh runner never has, and every suite beyond the fast tier asserts against the installed mirror (DEVOPS-002), so a selected suite fails without `bash install-ai-os.sh`. The proposed fix (install only when selection reaches beyond the fast tier) makes the fast job's length depend on the change; a change to `src/bin/ai`, the commonest change in Rein, would pull in the large suites and turn the fast job into a fifth, unsharded, slower leg of the matrix it is meant to precede. Rulings:
+
+1. **The fast job runs `tests/run.sh --tier fast` only**, on pull requests and on trunk pushes alike, with no installer and `timeout-minutes: 10`. Its value is a time bound, not coverage: the sharded matrix is the targeted signal and arrives a few minutes later. D-135 r4's `--changed` clause is withdrawn.
+2. **Change selection stays a local tool.** `select-suites.mjs` falls back to `tests/census-baseline.tsv` when no census JSON exists (the Engineer's proposal (a), accepted), so `--changed` works on a fresh clone and in the pre-push hook; it is not rendered into any hosted job.
+3. **E-386 as built is ratified**, with the four divergences the handover lists. Measured on hosted runners, unsharded: 914 s with four lanes and no baseline (13 exclusive, 508 s tail); 736 s with the baseline (9 exclusive, 300 s tail). The local exclusive share is 56 %, which makes E-387 the larger lever than shard count; shards still split the exclusive tail across legs (r3).
+4. **The fast job's 2-minute figure** in `ci-throughput.md` is now a bound on the fast tier's 60 s budget plus checkout; the matrix leg's figure stays a prediction until the first sharded run is measured.
+
+### Alternatives considered
+1. **Install when selection reaches beyond the fast tier** (proposal (b)) — rejected: variable length, and for the common change it duplicates a matrix leg without shards.
+2. **Run `--changed` inside the shards instead of the full suite** — rejected: the matrix is the merge gate and must be census-blind (D-135 alt. 5).
+
+### Rollback
+Ruling 1 is one line in the renderer's job list; ruling 2 is the fallback branch in `select-suites.mjs`.
+
+---
+
+## D-135 addendum 2 — First sharded run measured; macOS legs: no tmux install, guards under harness rule 1, the bash 3.2 trap defect is its own task, macOS joins the required set when it closes
+
+**Date**: 2026-10-29
+**Task**: E-384 (PR #6, run 40906294420), E-388, E-389, E-387
+**Decision**: The first sharded hosted run replaces the predictions. `fast` 1m22s; Ubuntu × 22 shards 6m12s / 4m47s / 4m55s / 5m15s; Ubuntu × 24 shards 7m07s / 4m36s / 4m43s / 5m04s; macOS × 22 shards 13m44s FAIL / 7m46s / 4m11s FAIL / 8m35s; CodeQL 1m06s; privacy under 10 s. The Ubuntu pull-request wall time is about 7 minutes against 15.5 on the single job; the macOS shards set the total at about 14 minutes. The two red macOS shards are pre-existing defects the macOS image exposed, not E-384: `macos-latest` ships no tmux, and its `/bin/bash` is 3.2. Rulings:
+
+1. **No `brew install tmux` on the macOS legs.** The hosted contract stays two commands (D-103). The tmux paths are covered on the Ubuntu legs, which have tmux; the macOS leg exists for what only macOS can show: bash 3.2, BSD tools and the installer's directory move (D-132). The 19 tmux assertions that fail instead of skipping are a harness bug under rule 1 (an optional need is `skip_unless_cmd`): fixed in PR #6 with host-named SKIP lines (E-332 pattern). Proposal (a) accepted without brew.
+2. **The bash 3.2 trap-chaining defect is E-388** (Tier 2): a subshell EXIT trap does not fire through `assert.sh`'s trap-chaining wrapper under bash 3.2 (E-241.02a/b, E-239.05a–f). Reproduce locally under `bug-reproducer` by building bash 3.2.57 from the GNU source into a throwaway directory and running the two suites with that interpreter; a macOS run is the confirmation, not the loop. Proposal (b) accepted.
+3. **Required set until E-388 closes**: `privacy`, `fast`, `CodeQL`, the eight Ubuntu legs. The macOS × 22 legs run on every pull request and are not yet required; the pull request that closes E-388 adds them, as E-388's acceptance. This is not a drop under D-133 r3, which forbids removing a required check to go green; the macOS legs were never required. Proposal (c) accepted with the exit condition.
+4. **Shard 1 is the long pole** by 1.5–2 minutes on every OS because it carries the node unit layer and the budget step (r3). E-389 (Tier 1): the partition seeds bin 1 with the unit layer's measured seconds (from the census or the baseline) before assigning suites, so the shared suites fill the other bins first. Expected: the Ubuntu wall time from ~7 to ~5.5 minutes.
+5. **`dependency-review.yml`** needs the repository's Dependency graph enabled (a GitHub setting the operator must flip; not a workflow change). It is not in the required set until it runs green.
+
+### Alternatives considered
+1. **`brew install tmux` on macOS** — rejected: a third command in the contract; tmux is already covered on Linux; brew adds a minute and a network dependency to the longest leg.
+2. **Require the macOS legs now, red** — rejected: nothing merges. **Drop macOS from the matrix** — rejected: D-135 alt. 4 stands; the exit condition is concrete.
+
+### Rollback
+Ruling 3 is the branch-policy list; ruling 4 is one seed value in the partition.
+
+---

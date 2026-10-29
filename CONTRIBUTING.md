@@ -63,15 +63,16 @@ A pull request whose commits are not all signed off is asked to add the sign-off
 
 ### Install from source
 ```bash
-git clone <repository-url> ai-os
-cd ai-os
-bash install-ai-os.sh
-source ~/.zshrc
-ai doctor   # verify all MCP servers are healthy
+git clone https://github.com/Vimurai/rein.git && cd rein
+npm ci                  # the clone's own dependencies: inside this repository the gate runs from src/
+bash install-ai-os.sh   # copies src/ to ~/.ai-os and adds it to PATH
+exec "$SHELL"
+ai install && ai sync
+ai doctor               # every gate line ✓ (a ✗ safe-exec gate line here means `npm ci` was skipped)
 ```
 
 ### Recommended dev environment — tmux
-Contributors are strongly encouraged to develop with `brew install tmux` (or apt) and then simply run **`ai start`** in the project — it builds the two-pane Triad layout, binds each pane to its role from `.ai/roles.json`, idempotently. Use `ai start --status` to see what is running and `ai start --kill` to tear it down. `ai doctor` tells you whether the launcher can work on this host (tmux present, roles mapped, providers on `PATH`). The layout it produces, and the manual fallback for hosts without tmux, are described in the [README](README.md#recommended-workflow--tmux-split-panes): Architect ⬌ Engineer — by default both agent panes are Claude Code (Architect on `fable`, Engineer on `opus`, D-066). The Triad is designed for concurrent agent work — tmux keeps the Architect's blueprint pane visible while the Engineer is implementing in the next pane, which makes hand-offs cheap and reduces stale-context bugs.
+Contributors are strongly encouraged to develop with `brew install tmux` (or apt) and then simply run **`ai start`** in the project — it builds the two-pane Triad layout, binds each pane to its role from `.ai/roles.json`, idempotently. Use `ai start --status` to see what is running and `ai start --kill` to tear it down. `ai doctor` tells you whether the launcher can work on this host (tmux present, roles mapped, providers on `PATH`). The layout it produces, and the manual fallback for hosts without tmux, are described in the [README](README.md#starting-a-session): Architect ⬌ Engineer — by default both agent panes are Claude Code (Architect on `fable`, Engineer on `opus`, D-066). The Triad is designed for concurrent agent work — tmux keeps the Architect's blueprint pane visible while the Engineer is implementing in the next pane, which makes hand-offs cheap and reduces stale-context bugs.
 
 ### Run the test suite
 ```bash

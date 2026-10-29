@@ -442,8 +442,8 @@ test("E-370: no exported file speaks of the withdrawn licensing terms", () => {
 // E-374: the README and docs/ are the front door — every relative link and #anchor resolves.
 const _slug = (h) => h.trim().toLowerCase().replace(/[^\p{L}\p{N} _-]/gu, "").replace(/ /g, "-");
 const _anchors = (md) => new Set([...md.replace(/```[\s\S]*?```/g, "").matchAll(/^#{1,6}\s+(.+)$/gm)].map((m) => _slug(m[1])));
-test("E-374: every relative link and anchor in README.md and docs/ resolves", () => {
-  const pages = ["README.md", ...tracked().filter((f) => /^docs\/.*\.md$/.test(f))];
+test("E-374: every relative link and anchor in README, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT and docs/ resolves", () => {
+  const pages = ["README.md", "CONTRIBUTING.md", "SECURITY.md", "CODE_OF_CONDUCT.md", ...tracked().filter((f) => /^docs\/.*\.md$/.test(f))];
   for (const f of ["docs/README.md", "docs/getting-started.md", "docs/how-it-works.md"]) assert.ok(pages.includes(f) || existsSync(_resolve(REPO, f)), f);
   const all = [...new Set([...pages, ...["docs/README.md", "docs/getting-started.md", "docs/how-it-works.md", "docs/gates-and-review.md",
     "docs/local-ci.md", "docs/team-mode.md", "docs/agents-and-skills.md", "docs/mcp-servers.md", "docs/configuration.md", "docs/troubleshooting.md"]])];

@@ -9,13 +9,11 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
-// The mirror's names, assembled so this file's text names no write into either. E-383: the
-// pre-rename name stays protected while the installer's symlink to ~/.rein can exist.
-const MIRRORS = [".re" + "in", ".ai-" + "os"];
+const M = ".re" + "in"; // the mirror's name, assembled so this file's text names no write into it
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-ggh-")));
 const deep = join(home, "a", "b", "c");
-for (const M of MIRRORS) mkdirSync(join(home, M), { recursive: true });
+mkdirSync(join(home, M), { recursive: true });
 mkdirSync(deep, { recursive: true });
 const savedHome = process.env.HOME;
 const savedCwd = process.cwd();
@@ -30,28 +28,26 @@ test.after(() => {
   rmSync(home, { recursive: true, force: true });
 });
 
-for (const M of MIRRORS) {
-  test(`${M}: cd .. chain that resolves to HOME, then a relative write → BLOCK`, () => {
-    assert.equal(blocks(`cd ../../.. && rm ${M}/run/launch/1.json`), true);
-  });
+test("cd .. chain that resolves to HOME, then a relative write → BLOCK", () => {
+  assert.equal(blocks(`cd ../../.. && rm ${M}/run/launch/1.json`), true);
+});
 
-  test(`${M}: cd to HOME's parent, then <home basename>/<mirror> → BLOCK`, () => {
-    assert.equal(blocks(`cd ${dirname(home)} && rm ${basename(home)}/${M}/run/launch/1.json`), true);
-  });
+test("cd to HOME's parent, then <home basename>/<mirror> → BLOCK", () => {
+  assert.equal(blocks(`cd ${dirname(home)} && rm ${basename(home)}/${M}/run/launch/1.json`), true);
+});
 
-  test(`${M}: ../../.. relative path with no cd at all → BLOCK`, () => {
-    assert.equal(blocks(`rm ../../../${M}/run/launch/1.json`), true);
-  });
+test("../../.. relative path with no cd at all → BLOCK", () => {
+  assert.equal(blocks(`rm ../../../${M}/run/launch/1.json`), true);
+});
 
-  test(`${M}: cd .. chain that stops SHORT of HOME → pass (another directory)`, () => {
-    assert.equal(blocks(`cd ../.. && rm ${M}/x`), false);
-  });
+test("cd .. chain that stops SHORT of HOME → pass (another directory)", () => {
+  assert.equal(blocks(`cd ../.. && rm ${M}/x`), false);
+});
 
-  test(`${M}: a read after resolving to HOME → pass`, () => {
-    assert.equal(blocks(`cd ../../.. && cat ${M}/VERSION`), false);
-  });
+test("a read after resolving to HOME → pass", () => {
+  assert.equal(blocks(`cd ../../.. && cat ${M}/VERSION`), false);
+});
 
-  test(`${M}: a cd that resolves to HOME, then a sibling with a longer name → pass`, () => {
-    assert.equal(blocks(`cd ../../.. && rm ${M}-cache/x`), false);
-  });
-}
+test("a cd that resolves to HOME, then a sibling with a longer name → pass", () => {
+  assert.equal(blocks(`cd ../../.. && rm ${M}-cache/x`), false);
+});

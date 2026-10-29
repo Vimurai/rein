@@ -21,7 +21,7 @@ export const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..")
 
 export async function gateInProcess() {
   const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-ctab-")));
-  mkdirSync(join(home, ".ai-" + "os"), { recursive: true });
+  mkdirSync(join(home, ".re" + "in"), { recursive: true });
   const saved = { home: process.env.HOME, cwd: process.cwd() };
   process.env.HOME = home;
   process.chdir(repo);

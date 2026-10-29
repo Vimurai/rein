@@ -217,7 +217,7 @@ terminal for `ai sync`, `ai doctor` and git.
 
 </details>
 
-More: [docs/getting-started.md](docs/getting-started.md) (tmux layout, accounts, upgrading from v3); [docs/upgrading.md](docs/upgrading.md) (from AI-OS to Rein). <!-- rename:legacy-fallback -->
+More: [docs/getting-started.md](docs/getting-started.md) (tmux layout, accounts, upgrading from v3).
 
 ---
 

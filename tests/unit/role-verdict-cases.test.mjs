@@ -22,7 +22,7 @@ import { repo } from "../lib/check-table.mjs";
 const FILE = resolve(repo, "tests/fixtures/role-verdict-cases.json");
 // E-383 (D-132): re-pinned for the rename (rows name the new install root; pre-rename rows
 // added). The D-113 pin moves only by ruling — the D-ruling that closes E-383 ratifies it.
-const SHA256 = "d1b352c1a2c25c8fa2291b0ef959ce9c21bf581de2dc323d28c843d4c15bbcff";
+const SHA256 = "e36ccfd88db91766c41b34a0c5c930e85d57b08d7fc956b70a7db3eac0a042da";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-rv-")));
 const proj = join(root, "proj"), home = join(root, "home"), outside = join(root, "outside");
@@ -36,7 +36,7 @@ test.after(() => {
 // fixture-home census reads the literal path as a loader, so it is spelt as segments).
 const BIN = join("src", "bin", "ai");
 for (const d of [".ai/blueprints", "plans", "src/bin", "src/__e208_deep", "tests"]) mkdirSync(join(proj, d), { recursive: true });
-mkdirSync(join(home, ".ai-" + "os", "shared"), { recursive: true });
+mkdirSync(join(home, ".re" + "in", "shared"), { recursive: true });
 mkdirSync(outside);
 for (const f of [BIN, "tests/run.sh", "ENGINEER.md", ".ai/DECISIONS.md"]) writeFileSync(join(proj, f), "x\n");
 symlinkSync(join(proj, BIN), join(proj, ".ai/__e208_seclink"));

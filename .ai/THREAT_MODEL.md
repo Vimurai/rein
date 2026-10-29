@@ -1051,16 +1051,16 @@ effectively permanent. Proof-of-concept (invented values, harness E-278; SECURIT
 Mitigations: SECURITY.md §E-378 recommendations; server-side GitHub "block command line pushes that
 expose my email"; a CI identity/message check; a sentinel line for both CLIs.
 
-### T-RENAME-001 — one install, two spellings during the 0.4 transition (security_engineer, E-383 review, 2026-10-29)
+### T-RENAME-001 — the pre-rename home path after the hard cut (security_engineer E-383 review, 2026-10-29; D-132 addendum 2)
 
-Until 0.5 the old home path is a symlink to `~/.rein` and every `AI_OS_<X>` env name falls back to <!-- rename:legacy-fallback -->
-`REIN_<X>`. Any guard that matches the install by NAME (a regex or grep, not a realpath) must cover
-both spellings, or the old one walks around it. Found in E-383: secret-rule.mjs SECRETS_DIR (the
-role-token key is readable through the old path's `secrets/`), the pre-tool-use no-verdict
-fallback grep, the classifier backstop RULE text, and the `_ci_local_env` reservation list.
-Mitigation: one shared MIRROR pattern used by every name-based guard, and one test row per guard
-with the old spelling. Guards resolved by realpath (isUnderRein) are unaffected. The env fallback
-grants only what the new name already grants, except where the new name has a reservation.
+The rename is a hard cut: nothing reads the old env names, the old state keys or the old home
+path, and no guard names the old path. Guards that match the install by NAME (secret-rule
+SECRETS_DIR, the gate-guard path patterns, the pre-tool-use no-verdict fallback grep, the
+classifier backstop RULE) cover `~/.rein` only; isUnderRein resolves by realpath. Residual: a
+`~/.ai-os` symlink left by an earlier install reaches the same files under a name no
+name-based guard matches (the role-token key under `secrets/` included). Mitigation: the
+operator removes it by hand (`rm ~/.ai-os`, rein-rename.md §Component 4 step 2); it is the only
+install. A fresh install never creates it.
 
 ## New Integration Checklist
 

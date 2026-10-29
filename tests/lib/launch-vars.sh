@@ -30,9 +30,7 @@
 #
 # Rollback: REIN_TEST_KEEP_LAUNCH_ENV=1 skips the strip.
 
-# E-383: `ai` maps the pre-rename workspace name onto REIN_WORKSPACE (src/shared/env.mjs), so an
-# inherited one is a launch variable too. The old role names are never mapped (hooks drop them).
-LAUNCH_VARS=(REIN_PANE_ROLE REIN_CALLER_ROLE REIN_WORKSPACE CLAUDE_CONFIG_DIR AIOS_WORKSPACE)  # rename:legacy-fallback
+LAUNCH_VARS=(REIN_PANE_ROLE REIN_CALLER_ROLE REIN_WORKSPACE CLAUDE_CONFIG_DIR)
 
 # strip_launch_vars — unset every LAUNCH_VARS entry in THIS shell (state, no output: it must
 # run in the caller's shell, never in a $(…) subshell — review question #4).

@@ -140,7 +140,6 @@ export function getDb(aiDir) {
   // E-342 (D-106 r3): a legacy task write records when it happened, so an import can tell
   // which side of a record present on two machines is newer.
   _migrateTaskUpdatedAt(db);
-  _migrateProjectVersionKey(db);
 
   _dbCache.set(dbPath, db);
   return db;
@@ -211,8 +210,7 @@ export function importStateJson(jsonPath, db, { warn = () => {}, info = () => {}
   setProj.run("release_verdict", proj.release_verdict ?? null);
   setProj.run("focus",           proj.focus          ?? null);
   // E-270: the provisioning stamp survives a re-import.
-  const reinVersion = proj.rein_version ?? proj.aios_version; // rename:legacy-fallback (E-383, until 0.5)
-  if (reinVersion         != null) setProj.run("rein_version",   String(reinVersion));
+  if (proj.rein_version   != null) setProj.run("rein_version",   String(proj.rein_version));
   if (proj.provisioned_at != null) setProj.run("provisioned_at", String(proj.provisioned_at));
 
   const insertTask = db.prepare(`
@@ -292,13 +290,6 @@ function _migrateTaskClaims(db) {
     try { db.exec(`ALTER TABLE tasks ADD COLUMN ${col} TEXT`); }
     catch (e) { if (!/duplicate column/i.test(String(e.message))) throw e; }
   }
-}
-
-// E-383 (D-132 r4): the provisioning stamp was `aios_version` before the rename. The row is  (rename:legacy-fallback)
-// renamed once on open, unless a `rein_version` row already exists (new wins). Removed in 0.5.
-function _migrateProjectVersionKey(db) {
-  db.exec(`UPDATE OR IGNORE project SET key = 'rein_version' WHERE key = 'aios_version'`); // rename:legacy-fallback
-  db.exec(`DELETE FROM project WHERE key = 'aios_version'`); // rename:legacy-fallback
 }
 
 function _migrateTaskUpdatedAt(db) {

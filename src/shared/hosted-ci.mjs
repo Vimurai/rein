@@ -181,8 +181,7 @@ export function isReinRepo(root) {
 
 /** The Rein version a project pins: project.json (team record store), else state.json. */
 export function pinnedVersion(root) {
-  // E-383: `aios_version` is the pre-rename name of the stamp, read until 0.5.  (rename:legacy-fallback)
-  for (const [file, pick] of [["project.json", (d) => d.rein_version ?? d.aios_version], ["state.json", (d) => d.project?.rein_version ?? d.project?.aios_version]]) { // rename:legacy-fallback
+  for (const [file, pick] of [["project.json", (d) => d.rein_version], ["state.json", (d) => d.project?.rein_version]]) {
     try {
       const v = pick(JSON.parse(readFileSync(join(root, ".ai", file), "utf8")));
       if (v != null) return String(v);

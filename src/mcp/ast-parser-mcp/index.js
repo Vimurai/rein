@@ -41,8 +41,7 @@ const ALWAYS_SKIP_DIRS = new Set(["node_modules", ".git"]);
 /** Build an ignore predicate from .gitignore + .reinignore (pragmatic glob). */
 function buildIgnore(rootDir) {
   const patterns = [];
-  // E-383: a project's ignore file had the pre-rename name; both are read until 0.5.
-  for (const f of [".gitignore", ".reinignore", ".ai-osignore"]) { // rename:legacy-fallback
+  for (const f of [".gitignore", ".reinignore"]) {
     const p = resolve(rootDir, f);
     if (!existsSync(p)) continue;
     for (const raw of readFileSync(p, "utf8").split("\n")) {

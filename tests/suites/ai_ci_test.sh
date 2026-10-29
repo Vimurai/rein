@@ -312,8 +312,7 @@ assert_contains "E-343.02a: an unset bare NAME is skipped with a note" "(BAR uns
 assert_contains "E-343.02b: and does not reach the run" "BAR=unset" "$OUT"
 
 for _bad in '{"env":["HOME=/x"]}|HOME' '{"env":["REIN_CI=hosted"]}|REIN_CI' '{"env":["npm_config_cache"]}|npm_config_cache' \
-            '{"env":["PLAYWRIGHT_BROWSERS_PATH=/x"]}|PLAYWRIGHT_BROWSERS_PATH' '{"env":["REIN_WORKSPACE"]}|REIN_WORKSPACE' \
-            '{"env":["AIOS_WORKSPACE=/decoy"]}|AIOS_WORKSPACE' '{"env":["AI_OS_CLAIM_GATE=0"]}|AI_OS_CLAIM_GATE'; do  # rename:legacy-fallback (E-383)
+            '{"env":["PLAYWRIGHT_BROWSERS_PATH=/x"]}|PLAYWRIGHT_BROWSERS_PATH' '{"env":["REIN_WORKSPACE"]}|REIN_WORKSPACE'; do
   printf '%s\n' "${_bad%|*}" > "${EREPO}/.ai/ci.local.json"
   OUT="$(_eci)"; RC=$?
   assert_status 0 "E-343.03a: ${_bad##*|} is reserved — the run is ERROR (exit 2)" test "$RC" -eq 2
@@ -343,11 +342,8 @@ assert_contains "E-343.05b: …and names the file" "must cover .env, node_module
 # The reserved names carry every E-264 launch variable; adding one there without here fails.
 source "${REPO_ROOT}/tests/lib/launch-vars.sh"
 _reserved="$(sed -n 's/^CI_ENV_RESERVED_NAMES="\(.*\)"$/\1/p' "$AI")"
-# E-383: a name may be reserved by a reserved prefix instead (the pre-rename workspace name).
-_reserved_pfx="$(sed -n 's/^CI_ENV_RESERVED_PREFIXES="\([^"]*\)".*$/\1/p' "$AI")"
 for _lv in "${LAUNCH_VARS[@]}"; do
-  _by=" ${_reserved} "; for _p in $_reserved_pfx; do [[ "$_lv" == "$_p"* ]] && _by=" ${_lv} "; done
-  assert_contains "E-343.06: launch variable ${_lv} is reserved for ai ci run" " ${_lv} " "$_by"
+  assert_contains "E-343.06: launch variable ${_lv} is reserved for ai ci run" " ${_lv} " " ${_reserved} "
 done
 
 echo ""
@@ -859,8 +855,7 @@ assert_status 0 "E-268.01c: .github survives (copilot-instructions.md lives ther
 # squashed commit) records this as a skip, as the other history-pinned rows do.
 # The public line's root is the bootstrap snapshot, whose subject names the private predecessor.
 _e268_root="$(git -C "$REPO_ROOT" rev-list --max-parents=0 HEAD 2>/dev/null | head -1)"
-_e268_subject="Rein — successor of the private ai-os repository"  # rename:legacy-fallback (the root commit's subject, as committed)
-if [[ -n "$_e268_root" && "$(git -C "$REPO_ROOT" log -1 --format=%s "$_e268_root")" != "$_e268_subject"* ]] \
+if [[ -n "$_e268_root" && "$(git -C "$REPO_ROOT" log -1 --format=%s "$_e268_root")" != "Rein — successor of the private "* ]] \
    && [[ "$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null)" -gt 1 ]]; then
   assert_status 0 "E-268.01d: the workflow is still in git history — that is the rollback" \
     bash -c "cd '$REPO_ROOT' && git log --oneline -1 -- .github/workflows/test.yml | grep -q ."

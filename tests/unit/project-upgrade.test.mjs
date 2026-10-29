@@ -19,10 +19,9 @@ import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, existsSync
 import { execFileSync, spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { DatabaseSync } from "node:sqlite";
 
 import {
-  mergeRoles, mergeProviders, retiredProviders, runMerge, runStamp, runRename, readProjectVersion,
+  mergeRoles, mergeProviders, retiredProviders, runMerge, runStamp, readProjectVersion,
 } from "../../src/shared/project-upgrade.mjs";
 import { getDb, getDbSeeded, stampProvisioning, readState } from "../../src/mcp/shared/state-db.js";
 import { tcFixtureHome } from "../lib/toolchain-fixture.mjs";
@@ -378,57 +377,4 @@ test("doctor: [COMM_IGNORED] with the pattern, [COMM_UNCOMMITTED] when dirty, no
     writeFileSync(join(f.dir, ".ai", ".gitignore"), "COMM.md\n");
     assert.equal(probe(), "IGNORED");
   } finally { f.cleanup(); t.done(); }
-});
-
-// ── E-383 (D-132 r4, rein-rename.md §Component 4): the rename pass `ai sync` runs ─────────
-// Extends this suite (the data half of init/sync); the tree-wide gate is rename-gate.test.mjs.
-
-test("rename: old .ai/.gitattributes and .ai/.gitignore lines are rewritten, other lines kept, a re-run is silent", async () => {
-  const { d, done } = tmp("ren");
-  try {
-    const ai = join(d, ".ai"); mkdirSync(ai);
-    writeFileSync(join(ai, ".gitattributes"), "# AI-OS team records (D-102): both-sides changes resolve by the DONE > IN_PROGRESS > OPEN policy\ntasks/**/*.json merge=aios-record\nmine.txt merge=union\n"); // rename:legacy-fallback
-    writeFileSync(join(ai, ".gitignore"), "x\n\n# AI-OS team views (D-102): generated from the record files, never tracked\nstate.json\n"); // rename:legacy-fallback
-    const check = await runRename({ aiDir: ai, check: true });
-    assert.deepEqual(check.map((r) => [r.kind, r.file]), [["pending", ".ai/.gitattributes"], ["pending", ".ai/.gitignore"]]);
-    assert.match(readFileSync(join(ai, ".gitattributes"), "utf8"), /aios-record/, "--check wrote nothing"); // rename:legacy-fallback
-    const recs = await runRename({ aiDir: ai });
-    assert.deepEqual(recs.map((r) => r.kind), ["merged", "merged"]);
-    const { ATTRIBUTES, IGNORE_BEGIN } = await import("../../src/mcp/shared/record-migrate.mjs");
-    assert.equal(readFileSync(join(ai, ".gitattributes"), "utf8"), `${ATTRIBUTES.split("\n")[0]}\ntasks/**/*.json merge=rein-record\nmine.txt merge=union\n`);
-    assert.equal(readFileSync(join(ai, ".gitignore"), "utf8"), `x\n\n${IGNORE_BEGIN}\nstate.json\n`);
-    assert.deepEqual(await runRename({ aiDir: ai }), []);
-  } finally { done(); }
-});
-
-test("rename: the old version key is read, restamped under the new name, and dropped from the view and team.json", async () => {
-  const { d, done } = tmp("renkey");
-  try {
-    const ai = join(d, ".ai"); mkdirSync(ai);
-    writeJson(join(ai, "state.json"), { version: "1.0", project: { focus: null, current_tier: null, release_verdict: null, aios_version: "0.4.0", provisioned_at: "2026-01-01T00:00:00Z" }, tasks: [], stamps: [], deltas: [] }); // rename:legacy-fallback
-    writeJson(join(ai, "team.json"), { schema: 1, planner: "a@example.com", claim_ttl_days: 7, shared_log: false, members: {}, ci: { provider: "github", required_check: "ci", aios_source: "https://example.com/x/y" } }); // rename:legacy-fallback
-    assert.equal(readProjectVersion(ai), "0.4.0");
-    const recs = await runRename({ aiDir: ai });
-    assert.deepEqual(recs.map((r) => [r.kind, r.file]), [["merged", ".ai/state.json"], ["merged", ".ai/team.json"]]);
-    const view = readJson(join(ai, "state.json")).project;
-    assert.equal(view.rein_version, "0.4.0");
-    assert.ok(!("aios_version" in view)); // rename:legacy-fallback
-    assert.deepEqual(readJson(join(ai, "team.json")).ci, { provider: "github", required_check: "ci", rein_source: "https://example.com/x/y" });
-    assert.deepEqual(await runStamp({ aiDir: ai, version: "0.4.0" }), [], "already current under the new key");
-    assert.deepEqual(await runRename({ aiDir: ai, check: true }), []);
-  } finally { done(); }
-});
-
-test("rename: a store holding both rows keeps the new one (new wins)", () => {
-  const { d, done } = tmp("renboth");
-  try {
-    const ai = join(d, ".ai"); mkdirSync(ai);
-    const db0 = new DatabaseSync(join(ai, "state.sqlite"));
-    db0.exec("CREATE TABLE project (key TEXT PRIMARY KEY, value TEXT)");
-    db0.prepare("INSERT INTO project VALUES (?, ?)").run("aios_version", "4.0.0"); // rename:legacy-fallback
-    db0.prepare("INSERT INTO project VALUES (?, ?)").run("rein_version", "0.4.0");
-    db0.close();
-    const rows = getDb(ai).prepare("SELECT key, value FROM project WHERE key LIKE '%_version'").all().map((r) => [r.key, r.value]);
-    assert.deepEqual(rows, [["rein_version", "0.4.0"]]);
-  } finally { done(); }
 });

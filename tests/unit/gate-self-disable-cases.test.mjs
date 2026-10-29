@@ -18,10 +18,10 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const TABLE = resolve(repo, "tests/fixtures/gate-self-disable-cases.json");
 // E-383 (D-132): re-pinned for the rename (rows name the new install root; pre-rename rows
 // added). The D-089 r5 pin moves only by ruling — the D-ruling that closes E-383 ratifies it.
-const SHA256 = "91998fd4e5710d6134aab14634b02439f1e8d134d1b9903273f06971ce0800b7";
+const SHA256 = "119d359d34e5f650e3c7dbe759c54b9c12382064ab45f893976dd49b5c4c14a0";
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-gsd-")));
-mkdirSync(join(home, ".ai-" + "os", "hooks"), { recursive: true });
+mkdirSync(join(home, ".re" + "in", "hooks"), { recursive: true });
 mkdirSync(join(home, "proj"), { recursive: true });
 const savedHome = process.env.HOME;
 const savedCwd = process.cwd();

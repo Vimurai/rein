@@ -125,29 +125,6 @@ if ! { [[ -f "$_HOOK_BASH" && -x "$_HOOK_BASH" ]] \
   echo "[HOOK_BASH_MISSING] ${_HOOK_BASH} not found, not executable, or rejects -p — Rein hooks NOT installed (no PATH fallback, D-081/D-083). On NixOS link /bin/bash (e.g. a systemd tmpfile or environment.binsh) and re-run: bash install-rein.sh" >&2
 fi
 
-# ── 0) E-383 (D-132 r3): the one-time move from the pre-rename home ──────────
-# A real ~/.ai-os directory moves to ~/.rein and leaves a symlink behind, so hook lines,  (rename:legacy-fallback)
-# PATH entries and running sessions that still name the old path keep resolving. A symlink
-# is left alone (never followed); a real directory beside an existing ~/.rein is refused
-# rather than merged. The 0.5 installer removes the symlink (docs/upgrading.md).
-LEGACY_HOME="${HOME}/.ai-os"  # rename:legacy-fallback
-if [[ -d "$LEGACY_HOME" && ! -L "$LEGACY_HOME" ]]; then
-  if [[ -e "$REIN" || -L "$REIN" ]]; then
-    echo "[LEGACY_HOME_CONFLICT] ${LEGACY_HOME} is a real directory and ${REIN} already exists — keep one: move what you need into ${REIN}, remove ${LEGACY_HOME}, then re-run: bash install-rein.sh" >&2
-    exit 2
-  fi
-  # -T: never move INTO a ~/.rein that appeared after the check above (security_engineer
-  # P3); the target must still not exist. BSD mv has no -T, so it re-checks instead. The
-  # old path is missing for the instant between mv and ln: a hook called in that window
-  # fails to start for that one call.
-  if mv -T "$LEGACY_HOME" "$REIN" 2>/dev/null; then :
-  elif [[ ! -e "$REIN" && ! -L "$REIN" ]]; then mv "$LEGACY_HOME" "$REIN"
-  else echo "[LEGACY_HOME_CONFLICT] ${REIN} appeared during the move — nothing moved; re-run: bash install-rein.sh" >&2; exit 2
-  fi
-  ln -s "$REIN" "$LEGACY_HOME"
-  echo "✓ Moved ${LEGACY_HOME} → ${REIN} (symlink left at ${LEGACY_HOME}, removed in 0.5)"
-fi
-
 # ── 1) Copy src tree to ~/.rein ─────────────────────────────────────────────
 
 mkdir -p "${REIN}"

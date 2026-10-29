@@ -1505,7 +1505,7 @@ assert_status 1 "E-235.06d: no workflow installs browsers itself" \
 assert_status 0 "E-235.07a: DEVOPS-006 exists" \
   grep -q 'DEVOPS-006' "${REPO_ROOT}/.ai/DEVOPS.md"
 assert_status 0 "E-235.07b: with a rollback plan" \
-  bash -c "grep -A4 'Rollback plan' '${REPO_ROOT}/.ai/DEVOPS.md' | grep -qE '(REIN|AI_OS)_INSTALL_BROWSERS=1'"  # rename:legacy-fallback (DEVOPS.md is a history record, excluded from the rename)
+  bash -c "grep -A4 'Rollback plan' '${REPO_ROOT}/.ai/DEVOPS.md' | grep -q '_INSTALL_BROWSERS=1'"  # DEVOPS.md is a record: the variable keeps the name it had when DEVOPS-006 was written
 
 echo ""
 

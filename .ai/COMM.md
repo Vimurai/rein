@@ -265,3 +265,73 @@
 ### Open risks
 - The operator's pane may prompt for `gh repo create` and the push; that is their own permission prompt.
 ---
+
+---
+## Handoff — 2026-10-29 09:50 UTC
+**From**: Architect → Engineer
+**Trigger**: E-378 step 7 published; operator requests (v0.4, complete rename) ruled — D-131, D-132, E-382, E-383
+
+### What was decided
+- **D-131 — public line starts at v0.4.0.** The tag deletion is ratified. Code version `0.4.0`; CHANGELOG `[0.4.0]` on top, the 4.0.0/3.1.0/2.0.0 entries under "Private predecessor (AI-OS, 2025–2026)"; project stamps restamp `4.0.0 → 0.4.0` through the existing unordered stamp (no refusal, no downgrade warning, no epoch); the private tag stays in ai-os-dev; the first public tag is `v0.4.0` after the rename.
+- **D-132 — complete rename** (supersedes D-125 r1/r3). Asked the operator: the command `ai` and `.ai/` STAY; everything else spelled ai-os/AI-OS/AI_OS_/aios/AIOS becomes the Rein form (name map in `.ai/blueprints/rein-rename.md` §Component 2). History is not rewritten (§Component 3 exclusions). Compatibility for one release: `~/.ai-os` moved to `~/.rein` with a symlink; env resolver REIN_X then AI_OS_X, new wins; `ai sync` rewrites settings hook paths, merge driver, rulefiles, state key. Live blueprints and architect.md: you apply the mechanical substitution in one separate commit — a ruled §35 exception.
+- **Sequence (D-132 r7):** step 8 now (ci.yml for `main`; protection: privacy + `ai ci run` + DCO required, no force-push) → fresh-clone scan → step 9 (clone switch; the operator runs `bash install-ai-os.sh && ai sync` from the public clone — the last time under that name) → **E-382** (version, Tier 2, one PR: proves the public PR flow) → **E-383** (rename, Tier 3, one PR; tag `v0.4.0` on merge) → archive ai-os-dev after E-382 merges (the passing ping-pong).
+- Fake vendor keys are assembled at runtime, never whole in a tracked file (108b5e7) — a standing rule, recorded in the blueprint's Published paragraph.
+
+### Blueprint divergence
+- NONE — the blueprints were written from the as-built state.
+
+### Next action needed (Engineer)
+- Finish E-378 steps 8–9 and the fresh-clone scan; hand back the repository URL, first commit sha, CI run ids, protection settings for P-48.
+- Then execute E-382, then E-383, in the public clone under the gates. Commit everything after the switch in the public clone only; the private clone receives nothing more.
+
+### Open risks
+- Branch protection with required PRs applies to the Triad's own commits: branch + PR + merge via gh after checks. If a required check cannot be satisfied by a PR from the same account, report it; do not weaken protection.
+- The operator's reinstall under the new name (`install-rein.sh`) is the E-383 acceptance step and needs them at the keyboard.
+---
+
+---
+## Handoff — 2026-10-29 09:59 UTC
+**From**: Architect → Engineer
+**Trigger**: operator request — full GitHub CI for the public repository (D-133, E-384)
+
+### What was decided
+- **D-133 — public CI on GitHub Actions** (free, unlimited minutes on standard runners for a public repo; larger runners never). Blueprint `.ai/blueprints/public-ci.md`.
+  - `ci.yml` stays RENDERED by `ai ci hosted github`: a new `public` profile (selected when `.ai/publish.json` exists) emits a `fast` job (`tests/run.sh --tier fast`, no install) and a full matrix ubuntu-latest + macos-latest × Node 22, 24 with `ai ci run --lanes <cores>`; SHA-pinned actions; `--check` keeps guarding; the team rendering stays byte-identical.
+  - Hand-written beside it: codeql.yml, scorecard.yml, dependency-review.yml, nightly.yml (full matrix + npm audit + drift summary; one create-or-update issue labelled nightly), release.yml (v* tag → matrix → GitHub release from the CHANGELOG section with the install script's sha256), .github/dependabot.yml. privacy.yml unchanged.
+  - Required on main: privacy, fast, all four matrix legs, CodeQL — never dropped to go green. No Windows leg (unsupported).
+  - README badge row replaced (CI, privacy, CodeQL, Scorecard, licence, version from the latest tag, sponsors).
+- **Sequence now:** E-378 steps 8–9 → **E-382** (version) → **E-384** (public CI) → **E-383** (rename, so its installer move is checked on macOS and both Node lines) → tag v0.4.0 → archive ai-os-dev. E-383's "depends on E-382" text stands; this handoff fixes the order.
+- `ci_gate` skill before E-384; `.ai/DEVOPS.md` records the workflows, the required set and the rollback.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Unchanged for E-378: finish steps 8–9 and the fresh-clone scan, hand back for P-48. In step 8, set the required checks you can now (privacy, ai ci run, DCO); E-384 extends the set.
+- Then E-382 → E-384 → E-383 in the public clone, each as one PR.
+
+### Open risks
+- macOS runners queue longer; the fast job is the early signal. A flaky leg is an E-## task, not an exemption.
+- The CHANGELOG section parser for release.yml needs the E-382 structure (the [0.4.0] entry on top) — another reason E-382 goes first.
+---
+
+---
+## Handoff — 2026-10-29 10:11 UTC
+**From**: Architect → Engineer
+**Trigger**: the Rein mark designed (D-134, E-385); porting rule for the Architect's post-pin commits
+
+### What was decided
+- **D-134 — the Rein mark**: concept A "Taut" (two reins drawn toward the bit ring). Sources in `plans/rein-icon/svg/` (static + animated, light + dark); canvas https://claude.ai/artifact/PC1BkyJHukNMKBW2mu79qV. README header through a `<picture>` with the animated SVG (dark source + light img); static mark for favicon and social card. No GIF.
+- **E-385** (Tier 1): copy the four SVGs to `docs/assets/`, favicon.svg, rein-social.png 1280×640 (set as the GitHub social preview), README header. One PR after E-382; independent of E-384/E-383.
+- **Porting rule (step 9, part of E-378):** the snapshot is pinned at 108b5e7, so every Architect commit after it exists only in the private clone: d12e20b, 57964b7, 8e5cf40, 850cb6b, 7929ea2 and this handoff's commit. They touch `.ai/` and `plans/` only and carry no personal data, but their author is the operator's personal identity, so a cherry-pick is refused by the identity gate. Port them as the FIRST PR in the public clone: `git format-patch` from the private clone, `git am` with the noreply identity (`--committer-date-is-author-date` not needed; reset the author to the noreply identity), scan green, merge. From that PR on, the Architect works in the public clone too — tell the operator to relaunch the Architect pane there (`ai pane architect` in the public clone) when you hand back after step 9.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- E-378 steps 8–9 as planned, plus the porting PR above; hand back with the URL, first sha, CI run ids, protection settings and the porting PR number for P-48.
+- Then E-382 → E-384 → E-383, with E-385 any time after E-382.
+
+### Open risks
+- Until the Architect pane moves, every further Architect commit here widens the port; keep step 9 short.
+---

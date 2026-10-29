@@ -3462,3 +3462,117 @@ Residuals (security, non-blocking) become **E-380** (Tier 2, before the first pu
 Delete `Vimurai/rein` before it is cloned; publish a corrected snapshot. The private repository is untouched.
 
 ---
+
+## D-131 — The public line starts at v0.4.0; versions 2.0.0 to 4.0.0 are the private predecessor's history
+
+**Date**: 2026-10-29
+**Task**: E-378, E-382, P-48
+**Decision**: The operator rejected `v4.0.0` for the first public release ("it should be v0.4") and chose `0.4.0` as the code version (semver needs three parts; prose says v0.4). The Engineer deleted the minutes-old public tag with the operator's intent — ratified; `Vimurai/rein` has no tag until E-383 merges. Rein's public version line is `0.x` until the CLI, the hook contract and the `.ai/` schema are declared stable, then `1.0.0`. The CHANGELOG keeps the `[4.0.0]`, `[3.1.0]` and `[2.0.0]` entries under a heading "Private predecessor (AI-OS, 2025–2026)" and adds `[0.4.0]` on top; nothing is renumbered.
+
+### Rulings
+1. **Sources of the version**: root `package.json` `0.4.0`; `ai version` reads it; the README badge follows the tag; the CHANGELOG entry `[0.4.0]` lists the rename (D-132) and the open-source release (D-123 to D-130) as its content.
+2. **Project stamps (`project.aios_version`, soon `rein_version` — D-132)**: `project-upgrade.mjs` already restamps `previous → version` without ordering and keeps `.pre-<version>.json` copies, so a project stamped `4.0.0` becomes `0.4.0` on the next `ai sync` with the ordinary `stamped` line. No refusal, no "downgrade" warning, no epoch field: the version-lifecycle blueprint gets one sentence saying the public line restarts at 0.4.0 and 2.x–4.x are the predecessor's numbers. The doctor's version line prints the stamp as is.
+3. **The private tag `v4.0.0`** stays in `ai-os-dev` (archived with it). The public tag `v0.4.0` is created by E-383 after the rename merges, so the first public tag already carries the new names. Later releases follow the release-manager skill unchanged.
+4. **Semver under 0.x**: a minor bump may break; the rename is such a break and lands in 0.4.0 itself. `1.0.0` is a separate decision.
+
+### Alternatives considered
+1. **Keep 4.0.0** — rejected by the operator; a fourth major on day one promises a stability the public project has not earned.
+2. **0.1.0** — rejected: four private majors of work deserve more than a first minor; 0.4 also keeps the "4" the private line reached, which helps anyone comparing the CHANGELOGs.
+3. **An epoch or a special downgrade path in the lifecycle** — rejected: the restamp is already unordered; adding machinery for a one-time event is cost without a user.
+
+### Impact
+- Unlocks: E-382 (the version change), E-383 (the tag).
+- Risk if wrong: an operator with projects stamped 4.0.0 sees `4.0.0 → 0.4.0` once; the line is self-explanatory.
+
+### Rollback
+Bump to the next minor; versions never go backwards again.
+
+---
+
+## D-132 — The rename is complete: `~/.rein`, `REIN_*`, `install-rein.sh`, `[REIN_ROLE]`, `rein-record`, `rein_version` and all prose; the command `ai` and the directory `.ai/` stay (supersedes D-125 rulings 1 and 3)
+
+**Date**: 2026-10-29
+**Task**: E-378, E-383, P-48
+**Decision**: The operator, seeing `ai-os` throughout the published files ("it should all be renamed to rein"), reversed D-125's "identifiers stay". Asked whether the command and the memory directory change too, the operator chose to keep `ai` and `.ai/` (they do not contain the old name, and D-125's reasons for them hold). Every spelling of the old name — `ai-os`, `.ai-os`, `AI-OS`, `AI_OS_`, `aios`, `AIOS` — becomes the Rein form, with a one-release compatibility layer so existing installs and projects migrate on `ai sync` without a manual step. Blueprint: `.ai/blueprints/rein-rename.md`.
+
+### Rulings
+1. **Name map** (exhaustive; the blueprint carries the table): `~/.ai-os` → `~/.rein`; `AI_OS_<X>` → `REIN_<X>`; `AIOS_WORKSPACE` → `REIN_WORKSPACE`; `AI_OS_HOME` → `REIN_HOME`; `[AI_OS_ROLE]` → `[REIN_ROLE]`; `install-ai-os.sh` → `install-rein.sh`; the `aios-record` merge driver → `rein-record`; `project.aios_version` → `project.rein_version`; `aios`/`AIOS` prefixes in identifiers, temp-dir prefixes and test names → `rein`/`REIN`; package names containing `ai-os` → `rein` (root package `@vimurai/rein`); prose `AI-OS` → `Rein`. Unchanged: `ai` (command and bin), `.ai/`, `ai-*` skill names (`ai-preflight`, `ai-task`, …: the prefix is the command, not the brand), the hook file names, the MCP server names.
+2. **History is not rewritten**: `.ai/DECISIONS.md`, `.ai/COMM.md`, `.ai/LOG.md`, `.ai/archive/**`, the CHANGELOG's predecessor entries, the README's "Where this comes from" sentence (it names AI-OS as the predecessor on purpose) and git history keep the old name. Everything else in the tree is renamed, including the live blueprints and `architect.md`: the Engineer applies the mechanical substitution there as a ruled exception to §35 (one commit, string replacement only, no sentence changed), because the Architect cannot write 59 files by hand and the text's meaning does not change.
+3. **Install directory migration**: `install-rein.sh` creates `~/.rein`; if `~/.ai-os` exists and `~/.rein` does not, it moves the directory (telemetry, incidents, insights, memory palace, registry, the installed mirror) and leaves `~/.ai-os` as a symlink to `~/.rein`; the doctor prints `[LEGACY_HOME_LINK] ~/.ai-os → ~/.rein (remove after 0.5)`. The symlink is removed by the 0.5 installer. A `~/.ai-os` that is already a symlink is left alone.
+4. **Environment migration**: one resolver (`src/shared/env.mjs` + the `locate.sh` equivalent) reads `REIN_<X>`, then `AI_OS_<X>`; when only the old one is set it is honoured and the doctor prints `[LEGACY_ENV] AI_OS_<X> → REIN_<X>` once. Removed in 0.5. The hooks' `AI_OS_LOCATE_UNTRUSTED_ENV` guard is renamed with the same fallback.
+5. **Project migration on `ai sync`**: rewrite `.claude/settings.json` hook paths `~/.ai-os/hooks/…` → `~/.rein/hooks/…`; `.gitattributes` and `.git/config` merge-driver entries `aios-record` → `rein-record`; `ARCHITECT.md`/`ENGINEER.md`/`CLAUDE.md` re-rendered from the templates; `state.json`/`state.sqlite` key `aios_version` → `rein_version` through `record-migrate` (reading the old key for one release). Each rewrite prints the ordinary `merged`/`stamped` line; `ai doctor` reports `[RENAME_PENDING] <file>` for a project not yet synced. Because of ruling 3's symlink, an un-synced project keeps working.
+6. **Contract tables and tests**: the hook-surface, doctor and installer tables rename their expected tags in the same commit as the hooks; no suite is skipped or deleted; the test temp prefixes change with the identifiers. A test that pins the old tag deliberately (the legacy fallbacks of rulings 3–5) says so in its name.
+7. **Where**: in the public clone, on a branch, as one PR under the privacy gates, after E-378 steps 8 and 9 and after E-382; tagged `v0.4.0` on merge (D-131). The private clone receives nothing.
+8. **The published first commit** keeps the old names; that is history too.
+
+### Alternatives considered
+1. **Prose and filenames only (D-125 as it stood)** — rejected by the operator: the published tree shows `ai-os` in 250 files and the brand must be consistent.
+2. **Rename `ai` → `rein` and `.ai/` → `.rein/` as well** — offered, declined by the operator: no brand string in them, and `.ai/` moving would touch every project directory.
+3. **No compatibility layer** — rejected: the operator's own projects and every `.claude/settings.json` on this machine point at `~/.ai-os/hooks`; a hard cut would break the Triad that performs the rename.
+
+### Impact
+- Unlocks: E-383; the `v0.4.0` tag; P-48 records the completed rename.
+- Risk if wrong: a missed spelling in a hook path breaks a hook silently — mitigated by the grep gate in the blueprint (zero matches of the old spellings outside the history exclusions is a CI assertion).
+
+### Rollback
+Revert the PR before 0.5 removes the compatibility layer; the symlink and the env fallback make the revert symmetric.
+
+---
+
+## D-133 — Public CI on GitHub Actions: a matrix, a fast job, nightly, CodeQL, Scorecard, Dependabot and a release workflow, free for a public repository
+
+**Date**: 2026-10-29
+**Task**: E-384, P-48
+**Decision**: The operator asked to use GitHub's CI fully now that the repository is public ("we have unlimited everything"). GitHub Actions is free with no minute limit for public repositories on the standard hosted runners (Linux, macOS, Windows); larger runners are not free and are never used. The public CI grows from one Ubuntu job into: a `fast` job (`tests/run.sh --tier fast`, no install, under three minutes), a full matrix (`ubuntu-latest`, `macos-latest` × Node 22, 24, `ai ci run --lanes <cores>` with the install step), a nightly full run on `main` with `npm audit` and the budget drift report, CodeQL, the OpenSSF Scorecard, Dependabot for npm and actions, a dependency-review check on PRs, and a release workflow on `v*` tags. Blueprint: `.ai/blueprints/public-ci.md`.
+
+### Rulings
+1. **`ci.yml` stays rendered** by `ai ci hosted github` (D-103): the renderer gains a `public` profile, selected when `.ai/publish.json` is present (the same marker as the privacy gate), that emits the fast job and the matrix with actions pinned to commit SHAs. `--check` keeps guarding against hand edits. A rendering for a private team project is unchanged.
+2. **Hand-written workflows beside it**: `codeql.yml`, `scorecard.yml`, `nightly.yml`, `release.yml`, `dependency-review.yml` and `dependabot.yml` are ordinary files, SHA-pinned, `permissions` minimal per job, each with a header comment naming this decision. `privacy.yml` (E-378) is unchanged and stays its own required check.
+3. **Required checks on `main`**: privacy, fast, every full-matrix leg, CodeQL. A flaky leg becomes an E-## task; it is never dropped from the required list to go green.
+4. **No Windows leg**: Rein runs on macOS and Linux (WSL on Windows); a Windows job would test an unsupported path. Revisit with a "refuses cleanly" smoke if Windows users appear.
+5. **Nightly** (03:00 UTC, `main`): the full matrix plus `npm audit --audit-level=high` and the D-118 r1 drift line as a job summary; a failure opens or updates ONE issue labelled `nightly` (never one per run). Not cancelled by concurrency; PR runs are.
+6. **Release** (`v*` tag): the full matrix must pass on the tagged commit; then a GitHub release is created from the CHANGELOG section for that version, with the sha256 of `install-rein.sh` in the notes. No npm publish (D-125 addendum: a package only if ever needed).
+7. **Badges** in the README: CI, privacy, CodeQL, Scorecard, licence, version from the latest tag, sponsors.
+8. **Budget discipline**: standard runners only; `timeout-minutes` on every job; artefact retention 14 days; caches keyed on the lockfiles; cancel-in-progress on PR groups. The fast job is the developer's signal; the matrix is the merge gate.
+9. **Sequence**: E-384 lands after E-382 and before E-383, so the rename PR (which moves the install directory) is checked on macOS and both Node lines; E-383 renames the paths inside the renderer like any other file.
+
+### Alternatives considered
+1. **Hand-write `ci.yml`** — rejected: `ai ci hosted --check` would fail forever and the team-project rendering would diverge from the public one.
+2. **One Ubuntu leg only** — rejected: the README promises macOS, and the installer's directory move (D-132) is exactly what macOS should check.
+3. **Larger runners or Windows** — rejected: not free, and not supported, respectively.
+
+### Impact
+- Unlocks: E-384; E-383 runs on the matrix; P-48 records the required-check set.
+- Risk if wrong: macOS runners queue longer and slow merges; mitigated by the fast job's early signal and by cancel-in-progress.
+
+### Rollback
+Delete the added workflows and set the renderer profile back to the single job; the required-check list shrinks to privacy + `ai ci run`.
+
+---
+
+## D-134 — The Rein mark: two reins drawn toward the bit ring; animated SVG in the README, static SVG everywhere else
+
+**Date**: 2026-10-29
+**Task**: E-385, P-48
+**Decision**: Rein's mark is concept A, "Taut": two stroke-drawn reins converging toward a ring (the bit), ink `#1b1d1f` with the ring in saddle `#c2612e` on light, bone `#f2ede4` with `#e0783d` on dark. Sources: `plans/rein-icon/svg/` (static light/dark, animated light/dark, 64-unit viewBox, stroke 5, round caps) and the design canvas https://claude.ai/artifact/PC1BkyJHukNMKBW2mu79qV (concepts B "Loop R" and C "Bridle" shown as alternatives). The README header shows the animated mark through a `<picture>` with a `prefers-color-scheme: dark` source; everything else (favicon, social card, docs) uses the static mark. The animation draws the reins once, then loops a slow tension every 3.2 s, and is disabled under `prefers-reduced-motion`.
+
+### Rulings
+1. **Files in the repository**: `docs/assets/rein-mark.svg`, `rein-mark-dark.svg`, `rein-mark-animated.svg`, `rein-mark-animated-dark.svg` (copied from `plans/rein-icon/svg/` byte-for-byte); `docs/assets/rein-social.png` 1280×640 rendered from the static mark + wordmark on the dark ground for the GitHub social preview; `docs/assets/favicon.svg` = the static light mark.
+2. **Animated SVG, not GIF**: an SVG with CSS animation plays inside a README `<img>` on GitHub, stays crisp at any size, weighs under 2 KB and respects reduced motion; a GIF is 100× larger, dithers, and cannot follow the theme. No JavaScript, no external fonts, no `<foreignObject>` in any mark file (GitHub's image proxy strips scripts; the privacy gate and the SVG rule of D-129 addendum apply).
+3. **README header**: the mark (120 px) centred above the `Rein` title and the tagline, the badge row below; the wordmark is the title text in the README's own typography, not an image, so it stays searchable and translatable. The `<picture>` element: `<source media="(prefers-color-scheme: dark)" srcset="docs/assets/rein-mark-animated-dark.svg">` then `<img src="docs/assets/rein-mark-animated.svg" width="120" alt="Rein">`.
+4. **Colour**: one accent only; the reins take the text colour of their context. The accent is a lever (`data-props` on the canvas) until the operator fixes it; the four options on the canvas are saddle, teal, brass and ink.
+5. **Not now**: a wordmark file, app icons for stores, a `rein` npm logo. Added when needed.
+
+### Alternatives considered
+1. **B "Loop R" monogram** — kept as the avatar fallback if A proves unreadable as a 32 px GitHub avatar; it has less story.
+2. **C "Bridle"** — symmetric and calm, but reads as a pendant at small sizes.
+3. **Lottie / GIF / video** — rejected for the README (ruling 2).
+
+### Impact
+- Unlocks: E-385; the README badge row from E-384 sits under the mark.
+- Risk if wrong: a mark nobody likes is one file swap; nothing depends on its geometry.
+
+### Rollback
+Replace the four SVGs; the README markup does not change.
+
+---

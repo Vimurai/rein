@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rein mark, animated</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+a{color:#9a9890}a:hover{color:#f2ede4}
+@keyframes rein-draw { from { stroke-dashoffset: 80; } to { stroke-dashoffset: 0; } }
+@keyframes rein-ring { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes rein-tension { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(1.2px, 1.2px); } }
+@keyframes rein-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.rein-a { stroke-dasharray: 80; animation: rein-draw 0.9s cubic-bezier(.4,0,.2,1) 0.1s both, rein-tension 3.2s ease-in-out 1.4s infinite; }
+.rein-b { stroke-dasharray: 80; animation: rein-draw 0.9s cubic-bezier(.4,0,.2,1) 0.3s both, rein-tension 3.2s ease-in-out 1.4s infinite; }
+.rein-ring { transform-origin: 46px 46px; animation: rein-ring 0.6s cubic-bezier(.2,.8,.2,1) 0.9s both, rein-pulse 3.2s ease-in-out 1.5s infinite; }
+@media (prefers-reduced-motion: reduce) { .rein-a, .rein-b, .rein-ring { animation: none; } }
+</style>
+</helmet>
+<div style="width: 560px; height: 560px; box-sizing: border-box; padding: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; background: #0f1113; color: #f2ede4; font-family: system-ui, sans-serif;">
+  <svg viewBox="0 0 64 64" width="320" height="320" role="img" aria-label="Rein: two reins drawn toward a ring, animated" style="color: #f2ede4;">
+    <path class="rein-a" d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+    <path class="rein-b" d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+    <circle class="rein-ring" cx="46" cy="46" r="8" fill="none" stroke="{{accent}}" stroke-width="5"></circle>
+  </svg>
+  <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
+    <div style="font-size: 15px; color: #9a9890;">Draw once (1.5 s), then a slow tension loop every 3.2 s.</div>
+    <div style="font-size: 13px; color: #6f6e68;">Honours prefers-reduced-motion: static when the viewer asks.</div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#e0783d","options":["#e0783d","#4fa39d","#d4a04a","#f2ede4"]},"$preview":{"width":560,"height":560}}'>
+class Component extends DCLogic {
+renderVals() {
+return { accent: this.props.accent ?? '#e0783d' };
+}
+}
+</script>
+</body>
+</html>

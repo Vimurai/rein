@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>README header with the animated mark</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#58a6ff}a:hover{color:#79b8ff}
+@keyframes rein-draw { from { stroke-dashoffset: 80; } to { stroke-dashoffset: 0; } }
+@keyframes rein-ring { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes rein-tension { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(1.2px, 1.2px); } }
+@keyframes rein-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+.rein-a { stroke-dasharray: 80; animation: rein-draw 0.9s cubic-bezier(.4,0,.2,1) 0.1s both, rein-tension 3.2s ease-in-out 1.4s infinite; }
+.rein-b { stroke-dasharray: 80; animation: rein-draw 0.9s cubic-bezier(.4,0,.2,1) 0.3s both, rein-tension 3.2s ease-in-out 1.4s infinite; }
+.rein-ring { transform-origin: 46px 46px; animation: rein-ring 0.6s cubic-bezier(.2,.8,.2,1) 0.9s both, rein-pulse 3.2s ease-in-out 1.5s infinite; }
+@media (prefers-reduced-motion: reduce) { .rein-a, .rein-b, .rein-ring { animation: none; } }
+</style>
+</helmet>
+<div style="width: 1200px; height: 600px; box-sizing: border-box; padding: 0; display: flex; flex-direction: column; background: #0d1117; color: #e6edf3; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;">
+  <div style="display: flex; align-items: center; gap: 16px; padding: 14px 24px; border-bottom: 1px solid #30363d; font-size: 14px; color: #8b949e;">
+    <span style="color: #e6edf3; font-weight: 600;">Vimurai / rein</span>
+    <span>Public</span>
+    <span style="margin-left: auto;">README.md</span>
+  </div>
+  <div style="padding: 48px 80px; display: flex; flex-direction: column; align-items: center; gap: 22px; text-align: center;">
+    <svg viewBox="0 0 64 64" width="120" height="120" role="img" aria-label="Rein mark, animated" style="color: #f2ede4;">
+      <path class="rein-a" d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+      <path class="rein-b" d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+      <circle class="rein-ring" cx="46" cy="46" r="8" fill="none" stroke="#e0783d" stroke-width="5"></circle>
+    </svg>
+    <h1 style="margin: 0; font-family: Sora, system-ui, sans-serif; font-size: 44px; font-weight: 700; letter-spacing: -0.02em;">Rein</h1>
+    <p style="margin: 0; font-size: 20px; color: #8b949e;">Rein in your agents. An Architect and an Engineer, one shared memory, every gate enforced.</p>
+    <div style="display: flex; gap: 8px; margin-top: 6px;">
+      <span style="font-size: 12px; padding: 4px 10px; border-radius: 4px; background: #238636; color: #ffffff;">CI passing</span>
+      <span style="font-size: 12px; padding: 4px 10px; border-radius: 4px; background: #238636; color: #ffffff;">privacy passing</span>
+      <span style="font-size: 12px; padding: 4px 10px; border-radius: 4px; background: #1f6feb; color: #ffffff;">Apache-2.0</span>
+      <span style="font-size: 12px; padding: 4px 10px; border-radius: 4px; background: #30363d; color: #e6edf3;">v0.4.0</span>
+      <span style="font-size: 12px; padding: 4px 10px; border-radius: 4px; background: #db61a2; color: #ffffff;">sponsor</span>
+    </div>
+    <div style="margin-top: 18px; width: 640px; text-align: left; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; line-height: 1.7; padding: 16px 20px; background: #161b22; border: 1px solid #30363d; border-radius: 8px; color: #e6edf3;">
+      <div><span style="color: #8b949e;">$</span> bash install-rein.sh</div>
+      <div><span style="color: #8b949e;">$</span> ai init</div>
+      <div><span style="color: #8b949e;">$</span> ai pane architect</div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":600}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

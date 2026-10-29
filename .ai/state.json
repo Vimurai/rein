@@ -2959,6 +2959,15 @@
       "summary": "[TIER_2] Blueprint aligned",
       "sha": "c910083fc30a8eff067d077a1dabb05af812c904",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-389",
+      "timestamp": "2026-10-29T19:19:02.479Z",
+      "summary": "[TIER_1] E-389 seed shard 1 with the unit layer's hint — partition unchanged without hints; seeded test extends E-386's",
+      "sha": "887b366dbdb145aff13562d81f813ea24c00c2d6",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

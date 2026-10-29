@@ -17,6 +17,10 @@ import { join } from "node:path";
 
 import { resolve as resolveEnv, legacyVars, applyLegacyEnv, newNameOf } from "../../src/shared/env.mjs";
 
+const isIgnored = (p) => {
+  try { execFileSync("git", ["check-ignore", "-q", "--no-index", p], { cwd: ROOT, stdio: "ignore" }); return true; } catch { return false; }
+};
+
 const ROOT = process.cwd();
 const OLD = /ai-os|AI-OS|AI_OS_|aios|AIOS/;
 // AWS's documented example access-key id spells AIOS by accident; the secret fixtures need it
@@ -75,7 +79,8 @@ test("the gate pattern covers every old name in the map, and every exclusion nam
   const reasons = { ...EXCL.files, ...EXCL.prefixes, ...Object.fromEntries(Object.entries(EXCL.sections).map(([k, v]) => [k, v.why])) };
   for (const [k, why] of Object.entries(reasons)) {
     assert.ok(typeof why === "string" && why.length > 10, `exclusion ${k} has no reason`);
-    assert.ok(existsSync(join(ROOT, k)), `exclusion ${k} names a missing path`);
+    // A gitignored record (.ai/LOG.md) is absent from a clean checkout — the CI worktree.
+    assert.ok(existsSync(join(ROOT, k)) || isIgnored(k), `exclusion ${k} names a missing path`);
   }
   for (const [f, { from }] of Object.entries(EXCL.sections)) {
     assert.ok(readFileSync(join(ROOT, f), "utf8").split("\n").includes(from), `${f}: section heading "${from}" not found — the exclusion would cover nothing`);

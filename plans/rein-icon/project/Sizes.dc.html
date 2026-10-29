@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rein mark at every size</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#5a5a55}a:hover{color:#1b1d1f}
+</style>
+</helmet>
+<div style="width: 1200px; height: 420px; box-sizing: border-box; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); font-family: Sora, system-ui, sans-serif;">
+  <div style="padding: 44px 48px; display: flex; flex-direction: column; gap: 28px; background: #f6f5f0; color: #1b1d1f;">
+    <div style="font-size: 14px; color: #5a5a55;">Light — ink on paper</div>
+    <div style="display: flex; align-items: flex-end; gap: 36px;">
+      <svg viewBox="0 0 64 64" width="16" height="16" aria-hidden="true" style="color: #1b1d1f;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#c2612e" stroke-width="6"></circle></svg>
+      <svg viewBox="0 0 64 64" width="24" height="24" aria-hidden="true" style="color: #1b1d1f;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#c2612e" stroke-width="5.5"></circle></svg>
+      <svg viewBox="0 0 64 64" width="32" height="32" aria-hidden="true" style="color: #1b1d1f;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#c2612e" stroke-width="5"></circle></svg>
+      <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true" style="color: #1b1d1f;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#c2612e" stroke-width="5"></circle></svg>
+      <svg viewBox="0 0 64 64" width="128" height="128" aria-hidden="true" style="color: #1b1d1f;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#c2612e" stroke-width="5"></circle></svg>
+    </div>
+    <div style="display: flex; gap: 36px; font-size: 12px; color: #5a5a55;"><span>16</span><span style="margin-left: 8px;">24</span><span style="margin-left: 14px;">32</span><span style="margin-left: 44px;">64</span><span style="margin-left: 104px;">128</span></div>
+    <div style="display: flex; align-items: center; gap: 14px; margin-top: 4px;">
+      <svg viewBox="0 0 64 64" width="40" height="40" aria-hidden="true" style="color: #1b1d1f;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#c2612e" stroke-width="5"></circle></svg>
+      <span style="font-size: 34px; font-weight: 700; letter-spacing: -0.02em;">Rein</span>
+    </div>
+  </div>
+  <div style="padding: 44px 48px; display: flex; flex-direction: column; gap: 28px; background: #0f1113; color: #f2ede4;">
+    <div style="font-size: 14px; color: #9a9890;">Dark — bone on slate (GitHub dark, terminals)</div>
+    <div style="display: flex; align-items: flex-end; gap: 36px;">
+      <svg viewBox="0 0 64 64" width="16" height="16" aria-hidden="true" style="color: #f2ede4;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#e0783d" stroke-width="6"></circle></svg>
+      <svg viewBox="0 0 64 64" width="24" height="24" aria-hidden="true" style="color: #f2ede4;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#e0783d" stroke-width="5.5"></circle></svg>
+      <svg viewBox="0 0 64 64" width="32" height="32" aria-hidden="true" style="color: #f2ede4;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#e0783d" stroke-width="5"></circle></svg>
+      <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true" style="color: #f2ede4;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#e0783d" stroke-width="5"></circle></svg>
+      <svg viewBox="0 0 64 64" width="128" height="128" aria-hidden="true" style="color: #f2ede4;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#e0783d" stroke-width="5"></circle></svg>
+    </div>
+    <div style="display: flex; gap: 36px; font-size: 12px; color: #9a9890;"><span>16</span><span style="margin-left: 8px;">24</span><span style="margin-left: 14px;">32</span><span style="margin-left: 44px;">64</span><span style="margin-left: 104px;">128</span></div>
+    <div style="display: flex; align-items: center; gap: 14px; margin-top: 4px;">
+      <svg viewBox="0 0 64 64" width="40" height="40" aria-hidden="true" style="color: #f2ede4;"><path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path><circle cx="46" cy="46" r="8" fill="none" stroke="#e0783d" stroke-width="5"></circle></svg>
+      <span style="font-size: 34px; font-weight: 700; letter-spacing: -0.02em;">Rein</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1200,"height":420}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

@@ -3549,3 +3549,30 @@ Revert the PR before 0.5 removes the compatibility layer; the symlink and the en
 Delete the added workflows and set the renderer profile back to the single job; the required-check list shrinks to privacy + `ai ci run`.
 
 ---
+
+## D-134 — The Rein mark: two reins drawn toward the bit ring; animated SVG in the README, static SVG everywhere else
+
+**Date**: 2026-10-29
+**Task**: E-385, P-48
+**Decision**: Rein's mark is concept A, "Taut": two stroke-drawn reins converging toward a ring (the bit), ink `#1b1d1f` with the ring in saddle `#c2612e` on light, bone `#f2ede4` with `#e0783d` on dark. Sources: `plans/rein-icon/svg/` (static light/dark, animated light/dark, 64-unit viewBox, stroke 5, round caps) and the design canvas https://claude.ai/artifact/PC1BkyJHukNMKBW2mu79qV (concepts B "Loop R" and C "Bridle" shown as alternatives). The README header shows the animated mark through a `<picture>` with a `prefers-color-scheme: dark` source; everything else (favicon, social card, docs) uses the static mark. The animation draws the reins once, then loops a slow tension every 3.2 s, and is disabled under `prefers-reduced-motion`.
+
+### Rulings
+1. **Files in the repository**: `docs/assets/rein-mark.svg`, `rein-mark-dark.svg`, `rein-mark-animated.svg`, `rein-mark-animated-dark.svg` (copied from `plans/rein-icon/svg/` byte-for-byte); `docs/assets/rein-social.png` 1280×640 rendered from the static mark + wordmark on the dark ground for the GitHub social preview; `docs/assets/favicon.svg` = the static light mark.
+2. **Animated SVG, not GIF**: an SVG with CSS animation plays inside a README `<img>` on GitHub, stays crisp at any size, weighs under 2 KB and respects reduced motion; a GIF is 100× larger, dithers, and cannot follow the theme. No JavaScript, no external fonts, no `<foreignObject>` in any mark file (GitHub's image proxy strips scripts; the privacy gate and the SVG rule of D-129 addendum apply).
+3. **README header**: the mark (120 px) centred above the `Rein` title and the tagline, the badge row below; the wordmark is the title text in the README's own typography, not an image, so it stays searchable and translatable. The `<picture>` element: `<source media="(prefers-color-scheme: dark)" srcset="docs/assets/rein-mark-animated-dark.svg">` then `<img src="docs/assets/rein-mark-animated.svg" width="120" alt="Rein">`.
+4. **Colour**: one accent only; the reins take the text colour of their context. The accent is a lever (`data-props` on the canvas) until the operator fixes it; the four options on the canvas are saddle, teal, brass and ink.
+5. **Not now**: a wordmark file, app icons for stores, a `rein` npm logo. Added when needed.
+
+### Alternatives considered
+1. **B "Loop R" monogram** — kept as the avatar fallback if A proves unreadable as a 32 px GitHub avatar; it has less story.
+2. **C "Bridle"** — symmetric and calm, but reads as a pendant at small sizes.
+3. **Lottie / GIF / video** — rejected for the README (ruling 2).
+
+### Impact
+- Unlocks: E-385; the README badge row from E-384 sits under the mark.
+- Risk if wrong: a mark nobody likes is one file swap; nothing depends on its geometry.
+
+### Rollback
+Replace the four SVGs; the README markup does not change.
+
+---

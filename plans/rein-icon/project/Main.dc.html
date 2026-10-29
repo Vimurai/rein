@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Rein icon concepts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#5a5a55}a:hover{color:#1b1d1f}
+</style>
+</helmet>
+<div style="width: 1200px; height: 560px; box-sizing: border-box; padding: 48px 56px; display: flex; flex-direction: column; gap: 36px; background: #f6f5f0; color: #1b1d1f; font-family: Sora, system-ui, sans-serif;">
+  <div style="display: flex; flex-direction: column; gap: 8px;">
+    <h1 style="margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -0.01em;">Three marks for Rein</h1>
+    <p style="margin: 0; font-size: 15px; color: #5a5a55; max-width: 760px;">Stroke-built, one colour plus one accent, drawn to read at 16 px. The ring is the bit — the one point where the reins meet the horse.</p>
+  </div>
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px;">
+    <div style="display: flex; flex-direction: column; gap: 18px; padding: 28px; background: #ffffff; border: 1px solid #e3e1da; border-radius: 16px;">
+      <svg viewBox="0 0 64 64" width="160" height="160" role="img" aria-label="Concept A, Taut: two reins drawn toward a ring" style="color: #1b1d1f;">
+        <path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+        <path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+        <circle cx="46" cy="46" r="8" fill="none" stroke="{{accent}}" stroke-width="5"></circle>
+      </svg>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 18px; font-weight: 600;">A — Taut</div>
+        <div style="font-size: 14px; color: #5a5a55; line-height: 1.45;">Two reins pulled in toward the bit ring. The whole product in one gesture. Recommended.</div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 18px; padding: 28px; background: #ffffff; border: 1px solid #e3e1da; border-radius: 16px;">
+      <svg viewBox="0 0 64 64" width="160" height="160" role="img" aria-label="Concept B, Loop R: a letter R whose leg ends in a ring" style="color: #1b1d1f;">
+        <path d="M18 54 V 10 H 34 A 12 12 0 0 1 34 34 H 18" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"></path>
+        <path d="M30 34 L 44 50" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+        <circle cx="48" cy="54" r="5" fill="{{accent}}"></circle>
+      </svg>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 18px; font-weight: 600;">B — Loop R</div>
+        <div style="font-size: 14px; color: #5a5a55; line-height: 1.45;">A monogram: the R's leg is the rein, ending in the ring. Safest as an avatar; least story.</div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 18px; padding: 28px; background: #ffffff; border: 1px solid #e3e1da; border-radius: 16px;">
+      <svg viewBox="0 0 64 64" width="160" height="160" role="img" aria-label="Concept C, Bridle: a ring hanging from two reins" style="color: #1b1d1f;">
+        <path d="M22 30 C 14 20, 10 14, 8 8" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+        <path d="M42 30 C 50 20, 54 14, 56 8" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round"></path>
+        <circle cx="32" cy="40" r="13" fill="none" stroke="{{accent}}" stroke-width="5"></circle>
+      </svg>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <div style="font-size: 18px; font-weight: 600;">C — Bridle</div>
+        <div style="font-size: 14px; color: #5a5a55; line-height: 1.45;">The bit ring held from above by two reins. Symmetric, calm; can read as a pendant.</div>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#c2612e","options":["#c2612e","#2e6f6b","#b8863a","#1b1d1f"]},"$preview":{"width":1200,"height":560}}'>
+class Component extends DCLogic {
+renderVals() {
+return { accent: this.props.accent ?? '#c2612e' };
+}
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-labelledby="t">
+  <title id="t">Rein</title>
+  <path d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="#1b1d1f" stroke-width="5" stroke-linecap="round"/>
+  <path d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="#1b1d1f" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="46" cy="46" r="8" fill="none" stroke="#c2612e" stroke-width="5"/>
+</svg>

@@ -16,6 +16,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PROVIDERS, render, renderable, bootstrapFor, SELF_BOOTSTRAP } from "../../src/shared/hosted-ci.mjs";
+import { resolveTrunk } from "../../src/mcp/shared/trunk.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const AI = readFileSync(join(REPO, "src/bin/ai"), "utf8");
@@ -215,5 +216,13 @@ for (const [provider, p] of Object.entries(PROVIDERS).filter(([k]) => renderable
   });
 }
 test("this repository's .github/workflows/ci.yml is the current github rendering, byte for byte", () => {
-  assert.equal(readFileSync(join(REPO, PROVIDERS.github.path), "utf8"), render("github", bootstrapFor(REPO), "master"));
+  // E-378 (D-129): the public repository's trunk is main. The file names the trunk it was rendered
+  // for; it must be that rendering byte for byte, and that trunk must be the repository's own
+  // whenever one resolves (a checkout without a remote — a CI worktree — resolves none).
+  const text = readFileSync(join(REPO, PROVIDERS.github.path), "utf8");
+  const trunk = (/^\s+branches: \[([^\]]+)\]$/m.exec(text) || [])[1];
+  assert.ok(trunk, "the workflow names its trunk");
+  assert.equal(text, render("github", bootstrapFor(REPO), trunk));
+  const resolved = resolveTrunk(REPO);
+  if (resolved) assert.equal(trunk, resolved.name, `rendered for ${trunk}, the trunk is ${resolved.name}`);
 });

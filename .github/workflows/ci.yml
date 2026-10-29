@@ -1,27 +1,27 @@
-# Hosted master check — rendered by `ai ci hosted github` (D-103, team-collaboration.md
+# Hosted main check — rendered by `ai ci hosted github` (D-103, team-collaboration.md
 # §Component 5b). Do not edit by hand: `ai ci hosted --check` fails when this file is not
 # the current rendering, and `ai ci hosted --force` rewrites it.
 #
-# The contract: on a pull request into master, run exactly two commands — bootstrap AI-OS,
+# The contract: on a pull request into main, run exactly two commands — bootstrap AI-OS,
 # then `ai ci run` on the merge result — and keep the log and .ai/ci/*.json as artefacts.
 # Branches stay local-first (D-072): `ai ci run` before pushing is the developer's gate;
-# this is the one authority for "nobody merges red into master", made required by the
-# branch policy. A push to master outside .ai/** gets an audit run that gates nothing.
+# this is the one authority for "nobody merges red into main", made required by the
+# branch policy. A push to main outside .ai/** gets an audit run that gates nothing.
 # Rollback: delete this file AND the required check in the branch policy.
-name: master CI
+name: main CI
 
 on:
   pull_request:
-    branches: [master]
+    branches: [main]
   push:
-    branches: [master]
+    branches: [main]
     paths-ignore: ['.ai/**']
 
 permissions:
   contents: read
 
 concurrency:
-  group: master-ci-${{ github.event.pull_request.number || github.sha }}
+  group: main-ci-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: true
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      # The merge result — exactly what master becomes. `ai ci run` tests HEAD. Full
+      # The merge result — exactly what main becomes. `ai ci run` tests HEAD. Full
       # history, as a local `ai ci run` worktree has it (suites pin files to past commits).
       - name: Checkout
         uses: actions/checkout@v5

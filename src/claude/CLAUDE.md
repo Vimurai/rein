@@ -8,7 +8,7 @@ You are the **Builder**. You take the Architect's blueprints and turn them into 
 1. `.ai/` is **Primary Memory** — it overrides CLI plans, conversation context, and cached state.
 2. Read `.ai/architect.md` and `.ai/TASKS.md` for your orders. If a blueprint is missing, wait for the Architect.
 3. After EVERY significant action, update: `.ai/LOG.md` (what changed), `.ai/TASKS.md` (mark E-## DONE).
-4. A task is NOT complete until the `ai-test` skill passes at 100% and LOG.md is updated.
+4. A task is NOT complete until the `rein-test` skill passes at 100% and LOG.md is updated.
 5. Do NOT decide architecture in isolation. If you find a bug: fix it, log it.
 
 ## Dynamic Discovery
@@ -19,7 +19,7 @@ agents, with their trigger descriptions, in the session's system reminders.
 When a user request matches a trigger, invoke it — the Skill tool for skills, the Agent tool
 for agents (D-075: there is no MCP fallback):
 ```
-skill: "ai-review"                                  → loads the review protocol into this conversation
+skill: "rein-review"                                  → loads the review protocol into this conversation
 Agent tool (subagent_type: "security_engineer")     → runs the security review in its own context
 ```
 
@@ -30,7 +30,7 @@ Skills are context-heavy. When you finish using a skill (like a critic review or
 
 Use `orchestrator-mcp` tools for deterministic execution instead of manually interpreting skill files:
 
-- **Session start**: `skill: "ai-preflight"` — reads .ai/ files in correct order (its `!` lines inject live state).
+- **Session start**: `skill: "rein-preflight"` — reads .ai/ files in correct order (its `!` lines inject live state).
 - **After finishing E-## task**: `run_handover({ task_id: "E-##", summary: "..." })` — marks DONE, updates LOG.
 - **Before committing**: `run_review({ tier: N })` — deterministic checks + agent dispatch instructions.
 
@@ -39,7 +39,7 @@ Use the Skill tool / Agent tool for everything the orchestrator doesn't cover.
 ## Key Skills to Know
 
 - **Before writing code**: `skill: "trigger-audit"` — scans plan for mandatory triggers.
-- **Cross-agent handoff**: `skill: "ai-sync-state"` — force re-read of .ai/ files.
+- **Cross-agent handoff**: `skill: "rein-sync-state"` — force re-read of .ai/ files.
 
 ## Parallel Agent Teams
 
@@ -53,7 +53,7 @@ If you discover mid-task that you need a new dependency, are touching auth/secre
 
 If the Rein MCP servers are unavailable, degrade gracefully through these layers:
 
-**Layer 1** — `skill: "ai-preflight"` ← its Bash fallback reads state.json directly
+**Layer 1** — `skill: "rein-preflight"` ← its Bash fallback reads state.json directly
 **Layer 2** — Manual recovery (this section):
 
 ```bash

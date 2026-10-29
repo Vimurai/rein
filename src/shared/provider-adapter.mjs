@@ -29,7 +29,7 @@ export const DEFAULT_ROLE_PROVIDERS = { architect: "claude", engineer: "claude",
 // provider has no use for a claude model name.
 export const DEFAULT_ROLE_MODELS = { architect: "fable", engineer: "opus", tester: "sonnet" };
 // Roles that are headless when roles.json does not say otherwise. A headless role is
-// dispatched as a subagent (the Tester via skill: ai-test) and is never laid out as a
+// dispatched as a subagent (the Tester via skill: rein-test) and is never laid out as a
 // pane, never bound by `rein pane`, and never minted a role token (claude-native-consolidation.md §Security).
 export const DEFAULT_HEADLESS_ROLES = new Set(["tester"]);
 

@@ -25,7 +25,7 @@ in `.ai/state.sqlite`; logs are in `~/.rein/ci/logs/`. `rein doctor` prints the 
 
 "CI green" means a non-dirty PASS for that exact commit.
 
-- **Closing a task.** `ai-task` (and `rein task done`) refuse until HEAD — or an ancestor that
+- **Closing a task.** `rein-task` (and `rein task done`) refuse until HEAD — or an ancestor that
   differs only in `.ai/` — is green. `REIN_CI_GATE=0` disables this; say so when you use it.
 - **Pushing.** The `pre-push` hook refuses an untested tip.
 

@@ -173,11 +173,11 @@ Commands:
 
 Removed — use the agent skill instead (see .ai/blueprints/cli-collapse.md):
   update / onboard → Run 'rein start', type the planning request in the Architect pane
-  preflight        → skill: ai-preflight  (auto-runs at session start)
-  digest           → skill: ai-digest
-  archive          → skill: ai-archive
-  review           → skill: ai-review (Engineer) / skill: arch-review (Architect)
-  test [--vibe]    → skill: ai-test  (--generate | --fast | --vibe)
+  preflight        → skill: rein-preflight  (auto-runs at session start)
+  digest           → skill: rein-digest
+  archive          → skill: rein-archive
+  review           → skill: rein-review (Engineer) / skill: arch-review (Architect)
+  test [--vibe]    → skill: rein-test  (--generate | --fast | --vibe)
   provider         → removed in v4; providers are configured in .ai/providers.json
   where            → echo \$REIN  (now stored as ~/.rein)
 
@@ -640,14 +640,14 @@ _provider_source_dirs() {
 # an empty list, which is a NORMAL state, so this is the common path, not an edge case.
 # _sync_skills_no_clobber <src_dir> <dst_dir> <label> — E-212 collision guard.
 #
-# WHY: two roles can ship DIFFERENT skills under the SAME name. `ai-task` is the live
-# case — src/shared/skills/ai-task manages the Engineer's E-## lifecycle, while
-# src/agents/skills/ai-task manages the Architect's P-## lifecycle and hands off to
+# WHY: two roles can ship DIFFERENT skills under the SAME name. `rein-task` is the live
+# case — src/shared/skills/rein-task manages the Engineer's E-## lifecycle, while
+# src/agents/skills/rein-task manages the Architect's P-## lifecycle and hands off to
 # Claude. (`repo-oracle` is the second.)
 #
 # THE OVERRIDE RULE DEPENDS ON HOW MANY ROLES THE WORKSPACE SERVES:
 #   - SINGLE-role workspace: a role skill legitimately OVERRIDES the shared baseline.
-#     That is the historical behaviour (an Architect pane gets the Architect's ai-task)
+#     That is the historical behaviour (an Architect pane gets the Architect's rein-task)
 #     and it is preserved exactly — changing it would regress every split Triad.
 #   - MULTI-role workspace (the D-054 same-provider case): the "override" is no longer
 #     meaningful, because the shared copy is what the OTHER role in the same directory
@@ -679,7 +679,7 @@ _sync_skills_no_clobber() {
         # a warning. The Architect ruled the resolution is renaming (arch-task /
         # arch-oracle), so a remaining collision means a skill was added without one —
         # and silently keeping the older copy is exactly how the Engineer pane ended up
-        # loading the Architect's ai-task. Single-role workspaces never reach here:
+        # loading the Architect's rein-task. Single-role workspaces never reach here:
         # they keep the historical role-overrides-shared behaviour.
         echo "  ✗ COLLISION: '${name}' from ${label} differs from the copy already in ${dst_dir}." >&2
         echo "    A multi-role workspace cannot hold two different skills under one name." >&2
@@ -783,7 +783,7 @@ _provision_workspace() {
 
 # ── E-220 (D-056 R2): manifest-scoped pruning ────────────────────────────────
 # `rein sync` has always been additive, which is safe but leaky: after the E-217 rename
-# the old `ai-task` / `repo-oracle` directories survived in every workspace forever.
+# the old `rein-task` / `repo-oracle` directories survived in every workspace forever.
 # The obvious fix — delete anything not in the source — is the dangerous one, because a
 # user's own skill is exactly "not in the source". So a path is removed only when sync
 # WROTE it (manifest), NOBODY HAS EDITED IT SINCE (hash), and it is GONE UPSTREAM.
@@ -2640,7 +2640,7 @@ do_init() {
   echo "2) Fill in .ai/DIGEST.md — Include Triad Health (Planning/Execution/Testing)"
   echo "3) Define the initial vision in .ai/architect.md (Template provided)"
   echo "4) Fill in .github/copilot-instructions.md (project-specific context)"
-  echo "5) Open a provider CLI in this repo — the bootloader auto-runs ai-preflight"
+  echo "5) Open a provider CLI in this repo — the bootloader auto-runs rein-preflight"
   echo ""
   # E-228 (D-059): name the one command that does step 5 for you. Without this the
   # launcher exists but is only discoverable by reading the README.
@@ -2656,7 +2656,7 @@ do_init() {
   printf '  Architect %-18s → Writes to architect.md / blueprints\n' "(${_arch_label})"
   printf '  Engineer  %-18s → Implements code based on blueprints\n' "(${_eng_label})"
   # E-255: the Tester is a headless Claude role — its label is derived like the other two.
-  printf '  Tester    %-18s → Quality gate via skill: ai-test (headless)\n' "(${_tst_label})"
+  printf '  Tester    %-18s → Quality gate via skill: rein-test (headless)\n' "(${_tst_label})"
   echo ""
   echo "MCP servers enabled in .mcp.json (filesystem + memory)."
 }
@@ -2899,7 +2899,7 @@ PY
   echo "[MIGRATE-STATE] Migration complete."
   printf "  Tasks seeded to state.json: %s\n" "$TASK_COUNT"
   echo "  state.sqlite: seeded from state.json by its next opener (an empty index counts as unseeded — D-108)"
-  echo "  To verify: open Claude Code and run skill: ai-test"
+  echo "  To verify: open Claude Code and run skill: rein-test"
 }
 
 
@@ -5464,7 +5464,7 @@ do_pane() {
     architect|engineer) ;;
     tester)
       # E-255 (D-069): the Tester is headless — dispatched as a subagent, never a pane.
-      echo "rein pane: tester is headless; run skill: ai-test" >&2
+      echo "rein pane: tester is headless; run skill: rein-test" >&2
       return 2 ;;
     ""|-h|--help)
       echo "Usage: rein pane <architect|engineer> [-- <extra provider args>]"
@@ -6610,11 +6610,11 @@ case "$cmd" in
 
   # Deprecated user surface — removed, see .ai/blueprints/cli-collapse.md
   update|onboard) _show_deprecated "$cmd" "Run 'rein start' and type the planning request in the Architect pane." ;;
-  preflight)     _show_deprecated "preflight" "skill: ai-preflight  (auto-runs at every session start)" ;;
-  digest)        _show_deprecated "digest" "skill: ai-digest" ;;
-  archive)       _show_deprecated "archive" "skill: ai-archive" ;;
-  review)        _show_deprecated "review" "skill: arch-review  (Architect codebase audit; ai-review was renamed in E-147)" ;;
-  test)          _show_deprecated "test" "skill: ai-test  (use --vibe arg inside the skill for chaos audit)" ;;
+  preflight)     _show_deprecated "preflight" "skill: rein-preflight  (auto-runs at every session start)" ;;
+  digest)        _show_deprecated "digest" "skill: rein-digest" ;;
+  archive)       _show_deprecated "archive" "skill: rein-archive" ;;
+  review)        _show_deprecated "review" "skill: arch-review  (Architect codebase audit; the old review skill was renamed in E-147)" ;;
+  test)          _show_deprecated "test" "skill: rein-test  (use --vibe arg inside the skill for chaos audit)" ;;
   where)         _show_deprecated "where" "echo \"\$HOME/.rein\"  (install root is fixed)" ;;
 
   # Recovery helpers — documented under "Recovery" in usage(); also called by the

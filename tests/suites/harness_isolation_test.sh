@@ -596,9 +596,9 @@ done
 assert_status 0 "E-240.07a: critic_tests asks what a halfway failure leaves behind" \
   grep -q 'What does this test leave behind when an assertion fails HALFWAY' \
     "${REPO_ROOT}/src/claude/agents/critic_tests.md"
-assert_status 0 "E-240.07b: ai-review asks it too" \
+assert_status 0 "E-240.07b: rein-review asks it too" \
   grep -q 'What does this test leave behind when an assertion fails HALFWAY' \
-    "${REPO_ROOT}/src/claude/skills/ai-review/SKILL.md"
+    "${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md"
 assert_status 0 "E-240.07c: it insists cleanup is registered BEFORE the state exists" \
   grep -q 'registered before' "${REPO_ROOT}/src/claude/agents/critic_tests.md"
 
@@ -707,8 +707,8 @@ assert_status 0 "E-241.04c: and is registered" \
   grep -q 'no_raw_exit_trap_in_tests' "${REPO_ROOT}/src/shared/standards.json"
 assert_status 0 "E-241.05a: review question #4 is in critic_tests" \
   grep -q 'called inside a command substitution' "${REPO_ROOT}/src/claude/agents/critic_tests.md"
-assert_status 0 "E-241.05b: and in ai-debug" \
-  grep -q 'called inside a command substitution' "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md"
+assert_status 0 "E-241.05b: and in rein-debug" \
+  grep -q 'called inside a command substitution' "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
 
 echo ""
 
@@ -756,14 +756,14 @@ done
 
 # ── E-264.4: standing review question #7 ───────────────────────────────────
 echo "  [E-264.4] review question #7"
-for f in src/claude/agents/critic_tests.md src/claude/skills/ai-review/SKILL.md; do
+for f in src/claude/agents/critic_tests.md src/claude/skills/rein-review/SKILL.md; do
   assert_status 0 "E-264.04a: review question #7 is in ${f}" \
     grep -q 'review question #7 — E-264' "${REPO_ROOT}/${f}"
 done
 assert_mirror_if_present "E-264.04b: critic_tests mirror matches" \
   "${REPO_ROOT}/src/claude/agents/critic_tests.md" "${REPO_ROOT}/.claude/agents/critic_tests.md"
-assert_mirror_if_present "E-264.04c: ai-review mirror matches" \
-  "${REPO_ROOT}/src/claude/skills/ai-review/SKILL.md" "${REPO_ROOT}/.claude/skills/ai-review/SKILL.md"
+assert_mirror_if_present "E-264.04c: rein-review mirror matches" \
+  "${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-review/SKILL.md"
 
 echo ""
 
@@ -844,9 +844,9 @@ rm -f "$_f"
 assert_status 0 "E-236.06a: critic_tests asks the environment-dependence question" \
   grep -q "Does this assertion depend on what the running machine happens to have" \
     "${REPO_ROOT}/src/claude/agents/critic_tests.md"
-assert_status 0 "E-236.06b: ai-review asks it too" \
+assert_status 0 "E-236.06b: rein-review asks it too" \
   grep -q "Does this assertion depend on what the running machine happens to have" \
-    "${REPO_ROOT}/src/claude/skills/ai-review/SKILL.md"
+    "${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md"
 # The question is only useful with the two remedies attached: supply the dependency when it
 # is accidental, skip when it is genuinely optional. Naming one without the other is how a
 # reviewer reaches for skip_unless on a test that should have supplied a scratch HOME.
@@ -969,13 +969,13 @@ assert_status 0 "E-257.03h: --reset never moves the file AI_TELEMETRY_DB_PATH na
   test -f "$OVR" -a "$(_count "$OVR")" = "$_before_ovr" -a ! -e "${OVR}.$(date -u +%Y-%m-%d).bak"
 
 # ── E-257.4: review question #6 ────────────────────────────────────────────────
-for f in src/claude/agents/critic_tests.md src/claude/skills/ai-review/SKILL.md; do
+for f in src/claude/agents/critic_tests.md src/claude/skills/rein-review/SKILL.md; do
   assert_status 0 "E-257.04: review question #6 is in ${f}" grep -q 'review question #6 — E-257' "${TI_ROOT}/${f}"
 done
 assert_mirror_if_present "E-257.04c: critic_tests mirror matches" \
   "${TI_ROOT}/src/claude/agents/critic_tests.md" "${TI_ROOT}/.claude/agents/critic_tests.md"
-assert_mirror_if_present "E-257.04d: ai-review mirror matches" \
-  "${TI_ROOT}/src/claude/skills/ai-review/SKILL.md" "${TI_ROOT}/.claude/skills/ai-review/SKILL.md"
+assert_mirror_if_present "E-257.04d: rein-review mirror matches" \
+  "${TI_ROOT}/src/claude/skills/rein-review/SKILL.md" "${TI_ROOT}/.claude/skills/rein-review/SKILL.md"
 
 # ── E-239 (from perf_budget_test — E-302, D-062 §2): a perf budget measures the CODE, not the host ──
 # Both properties are pinned: a REAL regression must still fail, and the SAME code on a slow host

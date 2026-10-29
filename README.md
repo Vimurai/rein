@@ -250,13 +250,13 @@ Inside Claude Code, the commonly used skills are:
 
 | Skill | When |
 | :--- | :--- |
-| `ai-preflight` | Runs at every session start: snapshot, open tasks, state checks. |
-| `ai-task` | After a task: mark it done (CI must be green), hand over, show the next one. |
-| `ai-handoff` | Write the COMM.md note and wake the other pane. |
-| `ai-test` | Run your tests; `--generate` dispatches the Tester to write new ones. |
-| `ai-review` | Tier-aware review: critics in parallel for risky changes. |
-| `ai-debug` | Hypothesis → test → observe loop; commits stay locked until green. |
-| `ai-digest`, `ai-archive` | Refresh the project snapshot; rotate long logs. |
+| `rein-preflight` | Runs at every session start: snapshot, open tasks, state checks. |
+| `rein-task` | After a task: mark it done (CI must be green), hand over, show the next one. |
+| `rein-handoff` | Write the COMM.md note and wake the other pane. |
+| `rein-test` | Run your tests; `--generate` dispatches the Tester to write new ones. |
+| `rein-review` | Tier-aware review: critics in parallel for risky changes. |
+| `rein-debug` | Hypothesis → test → observe loop; commits stay locked until green. |
+| `rein-digest`, `rein-archive` | Refresh the project snapshot; rotate long logs. |
 
 The full list is in [docs/agents-and-skills.md](docs/agents-and-skills.md).
 
@@ -310,7 +310,7 @@ rein ci budget              # the test budget the next run is held to
 ```
 
 "CI green" means a non-dirty PASS for that exact commit. Two things read it: closing a task
-(`ai-task` refuses until HEAD is green) and the `pre-push` hook, which refuses to push an untested
+(`rein-task` refuses until HEAD is green) and the `pre-push` hook, which refuses to push an untested
 tip. A commit that only adds `.ai/` bookkeeping on top of a tested one needs no new run. To push in
 an emergency, skip once — it is recorded, and a reason is mandatory:
 
@@ -376,7 +376,7 @@ More questions: [docs/troubleshooting.md](docs/troubleshooting.md#faq).
 | `ai: command not found` | Is `~/.rein/bin` on `PATH`? | Open a new shell; `rein doctor` prints the export line. |
 | MCP servers fail to start | `node --version` is 22.5+? | `rein mcp-setup`, then `rein doctor --env`. |
 | A pane opens and then fails | `rein doctor` — is `claude` on PATH, are roles mapped? | `rein start --status`. |
-| Commit refused by the pre-commit gate | Was the change reviewed? | Run `skill: ai-review` in the Engineer pane. |
+| Commit refused by the pre-commit gate | Was the change reviewed? | Run `skill: rein-review` in the Engineer pane. |
 | Push refused | `rein ci status --short` | `rein ci run`, fix what fails, push again. |
 | Tasks differ between machines | `rein doctor` state health | `rein state import`. |
 | The other pane never wakes | Is it open? A closed pane gets "not reachable". | Relaunch it with `rein start` or `rein pane <role>`. |

@@ -340,7 +340,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 `advisor-mcp could not reach the Architect via provider "${failedProvider}" ` +
                 "(resolved from .ai/roles.json). Check that the provider CLI is installed and " +
                 "signed in (check ~/.claude). " +
-                "Proceed with your best judgement or hand off to the Architect via `skill: ai-handoff` (SendMessage) for an async ruling.",
+                "Proceed with your best judgement or hand off to the Architect via `skill: rein-handoff` (SendMessage) for an async ruling.",
             },
             null,
             2

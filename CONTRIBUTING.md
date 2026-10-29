@@ -231,7 +231,7 @@ Do **not** use `--no-verify` to bypass — fix the underlying issue.
 
 ### Before merging
 1. `bash tests/run.sh` — all tests must pass
-2. `skill: "ai-review"` — run tier-appropriate critic review
+2. `skill: "rein-review"` — run tier-appropriate critic review
 3. `skill: "commit-crafter"` — format the commit message
 
 ---

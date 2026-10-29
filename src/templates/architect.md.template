@@ -36,12 +36,12 @@
 ## 7. Development Cycle (Plan-Build-Test)
 1. **Plan**: Architects the vision in `architect.md` (Architect). Mandatory: Ask questions to clarify ambiguities before finalizing the plan. Do not be lazy.
 2. **Build**: Implements the technical logic (Engineer).
-3. **Test**: Verifies quality and performance (Tester — headless Claude role via `skill: ai-test`).
+3. **Test**: Verifies quality and performance (Tester — headless Claude role via `skill: rein-test`).
 
 ## 30. Bootloader Resilience
 - **Concept**: Ensure the Triad maintains operational context even if the Rein MCP servers are unavailable.
 - **Execution Flow**:
-  1. Agent invokes the `ai-preflight` skill (the only preflight path since D-075).
+  1. Agent invokes the `rein-preflight` skill (the only preflight path since D-075).
   2. If its MCP call fails: the skill's Bash fallback reads `state.json` directly.
   3. If that fails: Agent reads the "Emergency Recovery" section in `ENGINEER.md` (the canonical Engineer rulefile; `CLAUDE.md` is a shim that imports it).
 - **Error Handling**: Graceful degradation to manual `cat .ai/TASKS.md` if all tools fail.
@@ -51,7 +51,7 @@
 - **Concept**: A centralized RAG service (`memory-manager-mcp`) that allows multiple projects to share high-level architectural signatures.
 - **Data Model**: `Signature: { project_name, tag, summary, architect_v, timestamp }`. Storage: `~/.rein/memory/signatures.json`.
 - **API Contract**:
-  - `export_signature(summary, tags)`: Called by `skill: ai-archive` when archiving completes.
+  - `export_signature(summary, tags)`: Called by `skill: rein-archive` when archiving completes.
   - `query_signatures(tags)`: Called during `rein init` to suggest patterns.
 - **Security**: Signatures must NOT contain secrets, PII, or internal logic. Only high-level "Lore" and "Patterns".
 
@@ -73,4 +73,4 @@
 - **Pattern**: `architect.md` becomes a lightweight index/router (~30 lines). Detailed content moves to `.ai/blueprints/<domain>.md`.
 - **Standard domains**: `core.md`, `security.md`, `agents.md`, `mcp.md`, `governance.md` (adapt to project needs).
 - **JIT Protocol**: Agents read the index first, then load only the relevant domain blueprint. Never load all blueprints at once.
-- **Preflight update**: `ai-preflight` points to the index; domain blueprints are loaded on demand.
+- **Preflight update**: `rein-preflight` points to the index; domain blueprints are loaded on demand.

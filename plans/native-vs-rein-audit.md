@@ -18,7 +18,7 @@
 | CI | worktrees exist, no CI runner | `rein ci run` in a detached worktree + throwaway HOME (D-072) |
 | Cross-session wake | `SendMessage` to other local sessions (unverified as a wake primitive) | `ai handoff` → `signal.json` → `ai-watch` idle-detect + `tmux send-keys` |
 | Observability | `/usage`, `/insights`, `/skill-doctor`, OTEL export (all per-session / per-user) | cross-project `telemetry.sqlite` → `meta_analyst` → INSIGHTS.md → proposed skills (HITL) |
-| Orchestration | Workflow tool (JS scripts, `parallel`/`pipeline`), agent hooks | orchestrator-mcp scripted workflows, critic agents dispatched by `ai-review` |
+| Orchestration | Workflow tool (JS scripts, `parallel`/`pipeline`), agent hooks | orchestrator-mcp scripted workflows, critic agents dispatched by `rein-review` |
 
 **The one-sentence diff:** Claude Code gives a single agent excellent primitives. Rein is a
 governance layer for **several agents sharing one repo over weeks**: enforced roles, durable
@@ -53,7 +53,7 @@ since closed.
 |---|---|---|---|---|
 | `mcp-router` (list_domains, activate_domain, proxy_call) | 568 | "23+ tool schema bloat" (E-40) | Deferred tools + `ToolSearch` — every Rein MCP tool is *already* deferred in this session | `activate_domain` is the top genuine ERROR source, 20% (E-260) |
 | `context-invoker-mcp` (activate_skill/agent) | 323 | agy did not expose Skill/Agent tools | Skill tool + Agent tool, always present under Claude | rulefile "ladder" Steps 2–3 exist only for this |
-| `orchestrator-mcp::run_preflight` (keep the other 4) | ~120 | MCP fallback for agy | `ai-preflight` skill with `!`-injection is the native path | ENGINEER/ARCHITECT.md Step 2 |
+| `orchestrator-mcp::run_preflight` (keep the other 4) | ~120 | MCP fallback for agy | `rein-preflight` skill with `!`-injection is the native path | ENGINEER/ARCHITECT.md Step 2 |
 | `lsp-mcp` (TS only) | 339 | no code intelligence | Code Intelligence plugins (LSP, auto-diagnostics post-edit) | — |
 | `github-bridge-mcp` | 386 | wrap `gh` | `gh` via Bash + `Bash(gh pr *)` allow rule; keep `create_intent_from_issues` as a `rein` subcommand | — |
 | `computer-use-mcp` (display :99) | 458 | visual QA of native windows | native computer use (desktop app) + claude-in-chrome; `vibe-check-mcp` stays for Playwright | — |
@@ -78,9 +78,9 @@ sections. 9 skill/agent files reference the removal candidates and need edits.
    Native prompt caching is applied regardless, so the "cache" server is really a context
    assembler — rename or fold into the hook.
 3. **Skill frontmatter we are not using:** `context: fork` + `agent:` (run `arch-review`,
-   `ai-review` critics without polluting the caller), `hooks:` scoped to a skill (the AQG
-   test-on-edit hook could be scoped to `ai-task` instead of firing on every PostToolUse),
-   `arguments:` (named args for `ai-task E-256`), `paths:` (skills that only make sense in
+   `rein-review` critics without polluting the caller), `hooks:` scoped to a skill (the AQG
+   test-on-edit hook could be scoped to `rein-task` instead of firing on every PostToolUse),
+   `arguments:` (named args for `rein-task E-256`), `paths:` (skills that only make sense in
    `tests/**`), `${CLAUDE_SESSION_ID}` substitution.
 4. **Hook types `agent` / `mcp` / `prompt` and the `PermissionRequest` / `PermissionDenied`
    events.** An `mcp` hook can call `task-synchronizer` directly instead of shelling to node;
@@ -91,7 +91,7 @@ sections. 9 skill/agent files reference the removal candidates and need edits.
    `memory: project` for `meta_analyst`, `background: true` for `memory_curator`.
 6. **`claude plugin eval`.** Rein has 5k assertions on its *code* and zero on whether its
    50 skills produce the right behaviour. Package Rein as a plugin (it has been one before)
-   and write evals for `ai-preflight`, `ai-task`, `ai-handoff`, `task-planner`. Graders
+   and write evals for `rein-preflight`, `rein-task`, `rein-handoff`, `task-planner`. Graders
    `tool_used`/`tool_order` map directly onto our "never skip gates" rules.
 7. **`/skill-doctor` once, then prune.** Descriptions of all 50 skills load at every session
    start. The report lists 7-day tokens/uses and never-invoked skills — that is the prune list.
@@ -107,7 +107,7 @@ sections. 9 skill/agent files reference the removal candidates and need edits.
    `signal.json` stays as the audit record either way.
 10. **`--bare` and `--json-schema`** for headless child invocations (`advisor-mcp`'s
     `claude -p`, future `rein ci` Tester runs): faster startup, typed output.
-11. **Workflow tool** for `ai-review` Tier 3 (`parallel()` critics with `schema`). Low
+11. **Workflow tool** for `rein-review` Tier 3 (`parallel()` critics with `schema`). Low
     priority: requires user opt-in per run.
 
 ## 5. What NOT to touch

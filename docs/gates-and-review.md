@@ -14,7 +14,7 @@ message):
 | 2 | Ordinary code | Blueprint alignment (`blueprint-aligner-mcp`) |
 | 3 | Security, auth, secrets, state, hooks, removals of a protection | `critic_arch`, `critic_security` and `critic_tests` in parallel; `security_engineer` when auth or secrets are touched |
 
-`skill: ai-review` picks the tier and runs what it requires.
+`skill: rein-review` picks the tier and runs what it requires.
 
 ## The three gates
 
@@ -72,7 +72,7 @@ The Engineer's rulefile names skills that must run when a change touches certain
 | auth, secrets, capabilities | `security_engineer` agent | Threat model updated before the change lands |
 | a new dependency | `dependency_gate` skill | Justification, alternatives and licence recorded |
 | CI/CD configuration | `ci_gate` skill | Change and rollback plan recorded |
-| a failing test | `ai-debug` skill | Commits stay locked until green |
+| a failing test | `rein-debug` skill | Commits stay locked until green |
 | existing code | `repo-oracle` skill | History read before the edit |
 
 ## Test economics and the budget

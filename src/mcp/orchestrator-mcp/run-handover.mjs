@@ -111,7 +111,7 @@ export function runHandover(cwd, args, gateOpts = {}, env = process.env) {
     `Task ${taskId} is complete. DIGEST.md is now stale.\n\n` +
     "**Action required**: Run the digest_updater agent to refresh DIGEST.md:\n" +
     "  skill: 'digest_updater'\n\n" +
-    "Or use the skill: `skill: \"ai-digest\"`"
+    "Or use the skill: `skill: \"rein-digest\"`"
   );
 
   return { content: [{ type: "text", text: results.join("\n") }] };

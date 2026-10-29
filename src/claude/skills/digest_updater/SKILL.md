@@ -93,7 +93,7 @@ Required sections (in order):
 ## Triad Health
 - Architect: <status> — last <action> <date>; <open P-## count> open
 - Engineer: <status> — last completed <E-##> (<description>, <date>); <open E-## count> open
-- Tester (headless, skill: ai-test): <status> — <last test result>
+- Tester (headless, skill: rein-test): <status> — <last test result>
 
 ## Current Focus
 - <E-##>: <description> [OPEN]

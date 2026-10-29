@@ -156,7 +156,7 @@ if [[ -f "$DIGEST_FILE" ]]; then
     fi
     # Never pollute DIGEST's curated "Recent Changes" with the generic placeholder
     # (no real session summary AND no LOG-derived note). The curated section is
-    # maintained by digest_updater / ai-digest; the stale-warning below prompts a
+    # maintained by digest_updater / rein-digest; the stale-warning below prompts a
     # proper regen. Writing "auto-stamped by Stop hook" here was a recurring junk
     # line that had to be hand-reverted before every commit.
     if [[ "$DIGEST_NOTE" != "auto-stamped by Stop hook" ]]; then
@@ -198,7 +198,7 @@ if [[ -n "$STALE_REASON" ]]; then
 ║  Reason: ${STALE_REASON}
 ║                                                              ║
 ║  Regenerate DIGEST.md before the next session:              ║
-║    skill: "ai-digest"                                        ║
+║    skill: "rein-digest"                                        ║
 ║    or: skill: "digest_updater"                               ║
 ╚══════════════════════════════════════════════════════════════╝
 

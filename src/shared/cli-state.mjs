@@ -21,7 +21,7 @@
 // Usage: node cli-state.mjs state migrate --team [--trunk <name>] | --legacy
 //        node cli-state.mjs state import [--dry-run] [--force] [--hook <name>]
 //        node cli-state.mjs state parity
-//        node cli-state.mjs state health [--repair] [--short]     (E-344: rein doctor / ai-preflight)
+//        node cli-state.mjs state health [--repair] [--short]     (E-344: rein doctor / rein-preflight)
 //        node cli-state.mjs state merge-driver <base> <ours> <theirs> [<path>]
 //        node cli-state.mjs task done <id> [--summary <text>]
 //        node cli-state.mjs team add <email> --range <P>:<from>-<to>
@@ -31,7 +31,7 @@
 // E-327: `rein team` edits .ai/team.json, the per-developer id ranges and the planner (D-102 §3).
 //        node cli-state.mjs trunk [--doctor]
 // E-331: `rein task claim|release` publish a claim on origin/<trunk> (task-claims.mjs, D-102 §4);
-// `rein task claims` lists the IN_PROGRESS tasks there (session start and ai-preflight).
+// `rein task claims` lists the IN_PROGRESS tasks there (session start and rein-preflight).
 // E-341 (D-105 r2): `rein trunk` prints the resolved trunk, so skills and agents say $(rein trunk)
 // instead of a literal; `--doctor` is the [TRUNK_UNSET]/[TRUNK_MISMATCH] check `rein doctor` runs.
 // Exit: 0 done or nothing to do; 1 refused or failed; 2 usage.
@@ -136,7 +136,7 @@ export function runStateImport(aiDir, { dryRun = false, force = false, hook = nu
 
 /**
  * E-344 (D-108 r8): rein doctor's State Health. Observes without seeding; --repair runs the
- * import (never the lossy migrate-state). --short prints only the verdict line (ai-preflight).
+ * import (never the lossy migrate-state). --short prints only the verdict line (rein-preflight).
  * @returns {{code:0, out:string}}
  */
 export function runStateHealth(aiDir, { repair = false, short = false } = {}) {
@@ -229,8 +229,8 @@ export function main(argv, cwd = process.cwd()) {
   // build-stamp.mjs reads its switch from process.env directly, so both go from there too.
   for (const k of GATE_ROLLBACK_VARS) delete process.env[k];
   const aiDir = findAiDir(cwd);
-  // E-333 (D-102 §8): where a LOG entry goes (the ai-log skill appends there), and the newest
-  // entries across every developer's file when team.json shared_log is true (ai-preflight).
+  // E-333 (D-102 §8): where a LOG entry goes (the rein-log skill appends there), and the newest
+  // entries across every developer's file when team.json shared_log is true (rein-preflight).
   if (group === "log" && verb === "path" && rest.length === 0) return { code: 0, out: logPath(aiDir) };
   if (group === "log" && verb === "recent" && (rest.length === 0 || (rest.length === 2 && rest[0] === "-n" && /^\d{1,3}$/.test(rest[1])))) {
     return { code: 0, out: recentLog(aiDir, rest.length ? Number(rest[1]) : 5).join("\n") };

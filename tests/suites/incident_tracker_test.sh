@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # incident_tracker_test.sh — the incident tracker (incident-tracker.md): the append helper and
-# ai-incident skill (E-65), and the aggregator plus its ai-preflight wiring (E-66, E-67, from
+# rein-incident skill (E-65), and the aggregator plus its rein-preflight wiring (E-66, E-67, from
 # incident_aggregator — E-302).
 #
-# E-65 — verifies the incident-append.mjs helper + ai-incident skill contract:
+# E-65 — verifies the incident-append.mjs helper + rein-incident skill contract:
 #   • Helper rejects malformed payloads (missing field / non-JSON / wrong shape)
 #   • Helper sanitises PII (HOME paths → ~, emails → [email], tokens → [token])
 #   • Required-field defaults (timestamp injected, source_agent normalised)
@@ -18,8 +18,8 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HELPER="${REPO_ROOT}/src/shared/incident-append.mjs"
-SKILL="${REPO_ROOT}/src/shared/skills/ai-incident/SKILL.md"
-SKILL_MIRROR="${HOME}/.rein/shared/skills/ai-incident/SKILL.md"
+SKILL="${REPO_ROOT}/src/shared/skills/rein-incident/SKILL.md"
+SKILL_MIRROR="${HOME}/.rein/shared/skills/rein-incident/SKILL.md"
 HELPER_MIRROR="${HOME}/.rein/shared/incident-append.mjs"
 
 echo "── Suite: incident_tracker_test ─────────────────────────────────────"
@@ -175,12 +175,12 @@ rm -rf "$SBOX3"
 
 # ── T-IN-S10: skill contract ────────────────────────────────────────────────
 echo ""
-echo "  [T-IN-S10] ai-incident SKILL.md publishes the contract"
+echo "  [T-IN-S10] rein-incident SKILL.md publishes the contract"
 
 assert_status 0 "skill file exists" \
   test -f "$SKILL"
-assert_status 0 "frontmatter has name: ai-incident" \
-  grep -q '^name: ai-incident' "$SKILL"
+assert_status 0 "frontmatter has name: rein-incident" \
+  grep -q '^name: rein-incident' "$SKILL"
 assert_status 0 "skill names the NDJSON path" \
   grep -q 'incidents.ndjson' "$SKILL"
 assert_status 0 "skill enumerates incident_type values" \
@@ -209,13 +209,13 @@ fi
 #
 # E-66: incident-aggregate.mjs reads ~/.rein/incidents.ndjson, groups by
 #       stack_signature, surfaces THRESHOLD_REACHED at >=3 occurrences.
-# E-67: ai-preflight SKILL.md wires the aggregator and emits the
+# E-67: rein-preflight SKILL.md wires the aggregator and emits the
 #       [INCIDENT_THRESHOLD_REACHED] context block when the threshold trips.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 AGGR="${REPO_ROOT}/src/shared/incident-aggregate.mjs"
 APPEND="${REPO_ROOT}/src/shared/incident-append.mjs"
-PREFLIGHT_SKILL="${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
-PREFLIGHT_SKILL_MIRROR="${HOME}/.rein/shared/skills/ai-preflight/SKILL.md"
+PREFLIGHT_SKILL="${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
+PREFLIGHT_SKILL_MIRROR="${HOME}/.rein/shared/skills/rein-preflight/SKILL.md"
 AGGR_MIRROR="${HOME}/.rein/shared/incident-aggregate.mjs"
 
 
@@ -323,9 +323,9 @@ ELAPSED_MS=$(( (END_NS - START_NS) / 1000000 ))
 assert_perf "aggregator on a 100-record log" "$ELAPSED_MS" 200 "$(perf_baseline_node)"
 rm -rf "$AGG_SBOX2"
 
-# ── T-AG-S09: ai-preflight SKILL.md wires the aggregator (E-67) ─────────────
+# ── T-AG-S09: rein-preflight SKILL.md wires the aggregator (E-67) ─────────────
 echo ""
-echo "  [T-AG-S09] ai-preflight skill consumes the aggregator"
+echo "  [T-AG-S09] rein-preflight skill consumes the aggregator"
 
 assert_status 0 "skill names incident-aggregate.mjs in locator chain" \
   grep -q 'incident-aggregate.mjs' "$PREFLIGHT_SKILL"
@@ -350,7 +350,7 @@ echo ""
 echo "  [T-AG-S10] ~/.rein/ mirrors track src/ verbatim"
 
 if [[ -f "$PREFLIGHT_SKILL_MIRROR" ]]; then
-  assert_status 0 "ai-preflight skill mirror identical" \
+  assert_status 0 "rein-preflight skill mirror identical" \
     cmp -s "$PREFLIGHT_SKILL" "$PREFLIGHT_SKILL_MIRROR"
 fi
 if [[ -f "$AGGR_MIRROR" ]]; then

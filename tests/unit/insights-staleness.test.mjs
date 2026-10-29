@@ -4,7 +4,7 @@
 // REPLACES the probe rows of insights_staleness_test.sh (T-INS-S01 source contract, S03..S07
 // the EMPTY / FRESH / STALE envelope) — E-302, D-088 r2. EXTENDS the staleness case in
 // tests/unit/telemetry-naming.test.mjs (E-261: tool rows only). The CLI rows (S02 rollback
-// flags, S08 envelope + --quiet), the ai-preflight Step 7 wiring and the mirrors stay in
+// flags, S08 envelope + --quiet), the rein-preflight Step 7 wiring and the mirrors stay in
 // tests/suites/meta_cognition_test.sh. Labels are the bash assertions' own; every store is a
 // temp db_path, never ~/.rein. Run standalone:  node --test tests/unit/insights-staleness.test.mjs
 

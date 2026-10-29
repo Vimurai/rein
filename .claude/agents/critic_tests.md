@@ -184,7 +184,7 @@ that never RAN (E-241).
 The sixth variety is the inverse of the other five: not the test measuring something else,
 but the PRODUCTION INSTRUMENT measuring the test. Every MCP call the suite made was
 telemetered into the operator's `~/.rein/telemetry.sqlite`; on 2026-09-11, 47,391 of
-51,382 in-window rows were fixtures, and two `ai-insights` reports recommended skills for
+51,382 in-window rows were fixtures, and two `rein-insights` reports recommended skills for
 behaviour that was the test suite's.
 
 `tests/run.sh` now points the whole run at a temp store (`AI_TELEMETRY_DB_PATH`), gives

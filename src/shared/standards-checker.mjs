@@ -508,8 +508,8 @@ export const RULE_REGISTRY = {
    * before the operator has been asked. Such a line may therefore inspect, but must never
    * EXECUTE a program the visited project supplies.
    *
-   * `ai-debug` opened with `!bash tests/run.sh`, so merely loading the debugging skill ran
-   * the visited project's test script. `ai-upgrade` did the same with `!npm run test`,
+   * `rein-debug` opened with `!bash tests/run.sh`, so merely loading the debugging skill ran
+   * the visited project's test script. `rein-upgrade` did the same with `!npm run test`,
    * which the threat model had recorded as "agent-initiated" — it is not; it is a `!`-line.
    *
    * The test is EXECUTION, not mention. `npm outdated` and `npm audit` stay allowed: they
@@ -944,7 +944,7 @@ export function validateFiles(filePaths, rules, opts = {}) {
 }
 
 /**
- * Pre-format a ComplianceReport set for the ai-review synthesizer
+ * Pre-format a ComplianceReport set for the rein-review synthesizer
  * (per blueprint §API reportDrift). Returns a structured object the
  * caller can serialize / surface to a human or stamp into REVIEWS.md.
  */

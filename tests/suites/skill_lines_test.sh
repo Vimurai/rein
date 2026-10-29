@@ -8,7 +8,7 @@
 # Four of them resolved framework helpers cwd-relative — `for c in
 # src/shared/incident-aggregate.mjs ...` — so running a session inside ANY project that
 # planted that file executed THAT file. Worse than the hook form E-223 fixed: no git repo
-# is needed, and `ai-preflight` runs at the start of every single session.
+# is needed, and `rein-preflight` runs at the start of every single session.
 #
 # The assertions are on EXECUTION, not on the text of the SKILL.md. A grep would pass
 # against any rewrite that still resolved cwd-relative by another route.
@@ -24,9 +24,9 @@ STD_MJS="${REPO_ROOT}/src/shared/standards-checker.mjs"
 echo "── Suite: skill_lines_test (E-225, E-232) ───────────────────────────"
 
 SKILLS=(
-  "${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
-  "${REPO_ROOT}/src/shared/skills/ai-insights/SKILL.md"
-  "${REPO_ROOT}/src/shared/skills/ai-review-proposed-skills/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-insights/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-review-proposed-skills/SKILL.md"
 )
 
 # ── E-225.1: THE CANARY — no skill executes a decoy project's helper ────────
@@ -45,7 +45,7 @@ if [[ -n "$_out" ]]; then echo "    executed: $(printf '%s' "$_out" | tr '\n' ' 
 # A test that asserts "the old code was broken" has to carry the old code.
 _old="$(mktemp -d)"; mkdir -p "$_old/prefix"
 cat > "$_old/prefix/SKILL.md" <<'PREFIX'
-# Pre-fix ai-preflight (verbatim shape of the E-225 defect)
+# Pre-fix rein-preflight (verbatim shape of the E-225 defect)
 
 Incident status: !for c in src/shared/incident-aggregate.mjs "${HOME}/.rein/shared/incident-aggregate.mjs"; do [ -f "$c" ] && node "$c" 2>/dev/null && break; done 2>/dev/null || echo "(aggregator unavailable)"
 
@@ -70,7 +70,7 @@ rm -rf "$_old"
 # the fix works. With locate.sh unreachable AND an inherited exported `rein_locate`, the
 # first cut executed the decoy — `declare -f` is satisfied by an environment-supplied
 # function, which is exactly what E-223 F13 fixed for the hooks and E-225 did not port.
-_line="$(grep -m1 '^Incident status:' "${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md" | sed 's/^[^!]*!//')"
+_line="$(grep -m1 '^Incident status:' "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md" | sed 's/^[^!]*!//')"
 _d="$(mktemp -d)"; mkdir -p "$_d/src/shared"
 printf 'console.log(%s);\n' "'{\"status\":\"PWNED\"}'" > "$_d/src/shared/incident-aggregate.mjs"
 _got="$( cd "$_d" && env "BASH_FUNC_rein_locate%%=() { printf '%s' \"\$PWD/src/shared/incident-aggregate.mjs\"; }" \
@@ -208,7 +208,7 @@ _probe clean 'A: !test -f src/claude/agents/x.md'
 _probe clean 'A: !bash tests/run.sh'
 _probe clean 'A: !bash tests/suites/x.sh'
 _probe clean 'A: !npm run test'
-# A path-shaped DATA string is not an execution: ai-incident passes a stack signature to
+# A path-shaped DATA string is not an execution: rein-incident passes a stack signature to
 # jq, and the rule flagged a string being recorded rather than a file being run.
 _probe clean '--arg s "task-synchronizer-mcp/index.js:add_task"'
 
@@ -270,7 +270,7 @@ _probe clean 'A: !bash tests/suites/<failing_suite>.sh 2>&1'
 
 # ── Round-4 audit shapes. Each passed the round-3 rule. ────────────────────
 # A `--flag=value` the flags group could not consume ENDED the scan for the whole line,
-# and the pattern is live at ai-review-proposed-skills:40,69 — the rule was blind on a
+# and the pattern is live at rein-review-proposed-skills:40,69 — the rule was blind on a
 # line of a skill E-225 itself rewrote.
 _probe FLAGGED 'A: !node --input-type=module src/bin/rein'
 _probe FLAGGED 'A: !node --input-type=module -e "0" src/bin/rein'
@@ -344,7 +344,7 @@ rm -rf "$_mm"
 
 # ── E-225.5: mirrors carry the fix ─────────────────────────────────────────
 # A fix that lives only in src/ is not deployed: the harness loads .claude/skills.
-for m in ".claude/skills/ai-preflight/SKILL.md" ".agents/skills/ai-preflight/SKILL.md"; do
+for m in ".claude/skills/rein-preflight/SKILL.md" ".agents/skills/rein-preflight/SKILL.md"; do
   if [[ -f "${REPO_ROOT}/$m" ]]; then
     assert_status 0 "E-225.05 $m carries the resolver" \
       grep -q 'rein_locate shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
@@ -355,7 +355,7 @@ done
 
 # ── E-232 (from skill_consent — E-301; D-060 §3): a `!`-line may inspect, never execute ──
 # A `!`-line runs the moment the file LOADS — before the agent has decided anything and before
-# the operator has been asked. `ai-debug` opened with `!bash tests/run.sh`, so loading the
+# the operator has been asked. `rein-debug` opened with `!bash tests/run.sh`, so loading the
 # debugging skill executed the VISITED project's test script. The rule is a DENYLIST of
 # execution shapes; each catch case is paired with cases that must NOT fire (over-blocking
 # would reject every ordinary git/grep inspection line). `npm outdated` / `npm audit` run none
@@ -467,23 +467,23 @@ assert_contains "E-232.03c: the scanner read the whole corpus (${_corpus_n} file
 
 # ── E-232.4: the three converted skills kept their capability, as STEPS ────
 # Removing the `!` line must not remove the ability — otherwise this "fix" is a deletion.
-for f in src/shared/skills/ai-debug/SKILL.md \
+for f in src/shared/skills/rein-debug/SKILL.md \
          src/claude/skills/bug-reproducer/SKILL.md \
-         src/shared/skills/ai-upgrade/SKILL.md; do
+         src/shared/skills/rein-upgrade/SKILL.md; do
   assert_status 0 "E-232.04: ${f##*/} ($(dirname "$f" | xargs basename)) still instructs the agent to run the suite" \
     grep -q "Step 0" "${REPO_ROOT}/$f"
 done
-assert_status 0 "E-232.04b: ai-debug still names the project's test command" \
-  grep -q "tests/run.sh" "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md"
-assert_status 0 "E-232.04c: ai-upgrade still names npm run test" \
-  grep -q "npm run test" "${REPO_ROOT}/src/shared/skills/ai-upgrade/SKILL.md"
+assert_status 0 "E-232.04b: rein-debug still names the project's test command" \
+  grep -q "tests/run.sh" "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
+assert_status 0 "E-232.04c: rein-upgrade still names npm run test" \
+  grep -q "npm run test" "${REPO_ROOT}/src/shared/skills/rein-upgrade/SKILL.md"
 
 # ── E-232.5: mirrors are byte-identical ────────────────────────────────────
-assert_status 0 "E-232.05a: ai-debug .claude mirror matches src" \
-  diff -q "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md" "${REPO_ROOT}/.claude/skills/ai-debug/SKILL.md"
-assert_mirror_if_present "E-232.05b: ai-debug .agents mirror matches src" "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md" "${REPO_ROOT}/.agents/skills/ai-debug/SKILL.md"
-assert_status 0 "E-232.05c: ai-upgrade .claude mirror matches src" \
-  diff -q "${REPO_ROOT}/src/shared/skills/ai-upgrade/SKILL.md" "${REPO_ROOT}/.claude/skills/ai-upgrade/SKILL.md"
+assert_status 0 "E-232.05a: rein-debug .claude mirror matches src" \
+  diff -q "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-debug/SKILL.md"
+assert_mirror_if_present "E-232.05b: rein-debug .agents mirror matches src" "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" "${REPO_ROOT}/.agents/skills/rein-debug/SKILL.md"
+assert_status 0 "E-232.05c: rein-upgrade .claude mirror matches src" \
+  diff -q "${REPO_ROOT}/src/shared/skills/rein-upgrade/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-upgrade/SKILL.md"
 assert_status 0 "E-232.05d: bug-reproducer .claude mirror matches src" \
   diff -q "${REPO_ROOT}/src/claude/skills/bug-reproducer/SKILL.md" "${REPO_ROOT}/.claude/skills/bug-reproducer/SKILL.md"
 

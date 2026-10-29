@@ -780,13 +780,13 @@ OUT="$( cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" add_task '
 assert_contains "E-267.08h: a project that never ran rein ci is not gated" "E-1 → DONE" "$OUT"
 
 # ── E-267.9: the consumers ───────────────────────────────────────────────
-TASK_SKILL="${REPO_ROOT}/src/shared/skills/ai-task/SKILL.md"
+TASK_SKILL="${REPO_ROOT}/src/shared/skills/rein-task/SKILL.md"
 # The needles below are REGEXES ('gh +run'), not the literal phrase, so E-268's repo-wide
 # "nothing names the hosted runner any more" grep is not tripped by its own negative tests.
-assert_status 1 "E-267.09a: ai-task no longer reads the hosted runner" grep -qE 'gh +run' "$TASK_SKILL"
-assert_status 1 "E-267.09b: ai-task's injection no longer shells out to python3" grep -q '^Local CI.*python3' "$TASK_SKILL"
+assert_status 1 "E-267.09a: rein-task no longer reads the hosted runner" grep -qE 'gh +run' "$TASK_SKILL"
+assert_status 1 "E-267.09b: rein-task's injection no longer shells out to python3" grep -q '^Local CI.*python3' "$TASK_SKILL"
 INJ="$(sed -n 's/^Local CI (HEAD): !//p' "$TASK_SKILL")"
-assert_contains "E-267.09c: ai-task injects rein ci status --short" "rein ci status --ref HEAD --short" "$INJ"
+assert_contains "E-267.09c: rein-task injects rein ci status --short" "rein ci status --ref HEAD --short" "$INJ"
 # Run the injection line itself against a fixture, with a `rein` on PATH that is this tree.
 BIN="$(test_tmpdir cigate-bin)"
 printf '#!/usr/bin/env bash\nexec bash "%s" "$@"\n' "$AI" > "${BIN}/rein"; chmod +x "${BIN}/rein"
@@ -804,7 +804,7 @@ assert_status 0 "E-267.09g: the tests/** rule triages with rein ci log --failed"
 for f in ENGINEER.md src/templates/ENGINEER.md src/claude/rules/test-harness.md; do
   assert_status 1 "E-267.09h: ${f} no longer names the hosted runner" grep -qE 'gh +run +view' "${REPO_ROOT}/${f}"
 done
-for f in src/claude/agents/critic_tests.md src/claude/skills/ai-review/SKILL.md; do
+for f in src/claude/agents/critic_tests.md src/claude/skills/rein-review/SKILL.md; do
   assert_status 0 "E-267.09i: ${f} says 'under \`rein ci\`'" grep -q 'under `rein ci`' "${REPO_ROOT}/${f}"
   assert_status 1 "E-267.09j: ${f} no longer says 'fails the run on CI'" grep -q 'fails the run on CI' "${REPO_ROOT}/${f}"
 done
@@ -814,8 +814,8 @@ assert_status 0 "E-267.09l: install_git_hooks installs the pre-push stub" \
   grep -q '_write_pre_push_stub "\$PP_DST"' "$AI"
 assert_status 0 "E-267.09m: uninstall tells the operator to remove it" \
   grep -q 'rm .git/hooks/pre-push' "$AI"
-for m in .claude/skills/ai-task/SKILL.md:src/shared/skills/ai-task/SKILL.md \
-         .claude/skills/ai-review/SKILL.md:src/claude/skills/ai-review/SKILL.md \
+for m in .claude/skills/rein-task/SKILL.md:src/shared/skills/rein-task/SKILL.md \
+         .claude/skills/rein-review/SKILL.md:src/claude/skills/rein-review/SKILL.md \
          .claude/skills/ci_gate/SKILL.md:src/claude/skills/ci_gate/SKILL.md \
          .claude/agents/critic_tests.md:src/claude/agents/critic_tests.md; do
   assert_mirror_if_present "E-267.09n: ${m%%:*} mirrors ${m##*:}" "${REPO_ROOT}/${m##*:}" "${REPO_ROOT}/${m%%:*}"

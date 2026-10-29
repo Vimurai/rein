@@ -258,12 +258,12 @@ test("an unstamped project's view has no stamp keys (the view shape is unchanged
 // under a fixture HOME so nothing reaches ~/.rein.
 
 const SKILLS_WITH_HANDOFF = [
-  ".claude/skills/ai-handoff/SKILL.md", ".claude/skills/ai-task/SKILL.md",
+  ".claude/skills/rein-handoff/SKILL.md", ".claude/skills/rein-task/SKILL.md",
   ".claude/skills/arch-task/SKILL.md", ".claude/skills/task-planner/SKILL.md",
-  ".claude/skills/ai-archive/SKILL.md",
-  "src/shared/skills/ai-handoff/SKILL.md", "src/shared/skills/ai-task/SKILL.md",
+  ".claude/skills/rein-archive/SKILL.md",
+  "src/shared/skills/rein-handoff/SKILL.md", "src/shared/skills/rein-task/SKILL.md",
   "src/claude/skills/arch-task/SKILL.md", "src/claude/skills/task-planner/SKILL.md",
-  "src/shared/skills/ai-archive/SKILL.md",
+  "src/shared/skills/rein-archive/SKILL.md",
 ];
 
 function fixtureRepo(t) {
@@ -327,7 +327,7 @@ test("every handoff-writing skill commits COMM.md with --only (both copies)", ()
   assert.ok(!existsSync(join(ROOT, ".ai", "COMM_APPEND.md")), "the June orphan is deleted");
 });
 
-test("the ai-handoff commit step commits COMM.md alone and passes the real pre-commit with no stamp", () => {
+test("the rein-handoff commit step commits COMM.md alone and passes the real pre-commit with no stamp", () => {
   const t = tmp("comm-commit");
   const f = fixtureRepo(t);
   try {
@@ -342,7 +342,7 @@ test("the ai-handoff commit step commits COMM.md alone and passes the real pre-c
     // An Engineer mid-task: source staged, then a handoff entry written.
     writeFileSync(join(f.dir, "src", "a.js"), "x\ny\n"); f.git("add", "src/a.js");
     writeFileSync(join(f.dir, ".ai", "COMM.md"), "# COMM\n---\n## Handoff — 2026-10-23 14:00 UTC\n");
-    const skill = readFileSync(join(ROOT, ".claude/skills/ai-handoff/SKILL.md"), "utf8");
+    const skill = readFileSync(join(ROOT, ".claude/skills/rein-handoff/SKILL.md"), "utf8");
     const cmd = skill.split("\n").find((l) => l.startsWith("git add -- .ai/COMM.md && git commit --only .ai/COMM.md"));
     assert.ok(cmd, "the skill's commit line");
     const r = f.bash(cmd.replace("<YYYY-MM-DD HH:MM UTC>", "2026-10-23 14:00 UTC").replace("<Role>", "Engineer"));

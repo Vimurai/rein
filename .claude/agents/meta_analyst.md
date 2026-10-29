@@ -1,6 +1,6 @@
 ---
 name: meta_analyst
-description: "Meta-Cognition Pipeline analyst (E-85, enhanced E-93). Reads ~/.rein/telemetry.sqlite via SQL aggregates only and writes actionable optimization suggestions to ~/.rein/INSIGHTS.md per .ai/blueprints/meta-cognition.md §Components 2. Off-band Instinct-Extraction mode (ecc-integrations.md §Components 1-2) clusters recurring successful patterns into PROPOSED Claude skills (staged under .claude/skills/proposed) via src/shared/instinct-stager.mjs (staged inert, HITL-gated by approval-mcp in E-94). Does NOT write source code; does NOT activate skills. Invoked by the `ai-insights` skill or on demand."
+description: "Meta-Cognition Pipeline analyst (E-85, enhanced E-93). Reads ~/.rein/telemetry.sqlite via SQL aggregates only and writes actionable optimization suggestions to ~/.rein/INSIGHTS.md per .ai/blueprints/meta-cognition.md §Components 2. Off-band Instinct-Extraction mode (ecc-integrations.md §Components 1-2) clusters recurring successful patterns into PROPOSED Claude skills (staged under .claude/skills/proposed) via src/shared/instinct-stager.mjs (staged inert, HITL-gated by approval-mcp in E-94). Does NOT write source code; does NOT activate skills. Invoked by the `rein-insights` skill or on demand."
 disable-model-invocation: false
 user-invocable: false
 tools: Read, Grep, Glob, Bash, Write, mcp__task-synchronizer-mcp__add_stamp
@@ -238,7 +238,7 @@ Source:    ~/.rein/telemetry.sqlite (E-84)
 
 ---
 Next refresh recommended: when telemetry grows by >= 200 new rows
-since this report (the ai-preflight staleness check enforces this).
+since this report (the rein-preflight staleness check enforces this).
 ```
 
 If the analysis yielded no recommendations, replace the four candidate
@@ -256,14 +256,14 @@ After writing `INSIGHTS.md`, append a single stamp via
 }
 ```
 
-Then exit. Do NOT loop — the caller (`ai-insights` skill) controls
+Then exit. Do NOT loop — the caller (`rein-insights` skill) controls
 cadence, and a re-trigger inside the same session would duplicate the
 stamp.
 
 ## Instinct Extraction Mode (E-93 — ecc-integrations.md §Components 1 & 2)
 
 This is a SEPARATE, off-band mode from the INSIGHTS report above. It runs
-only on explicit invocation or during `skill: ai-archive` (blueprint
+only on explicit invocation or during `skill: rein-archive` (blueprint
 §Execution Constraints — never in the hot planning loop, to avoid token
 burn). The goal: turn recurring *successful* behaviour into reusable
 Skills, gated by a human.
@@ -372,7 +372,7 @@ that skips the approval gate and the content re-scan.
 ## Rollback
 
 - Run `rm ~/.rein/INSIGHTS.md` to wipe the report; the next
-  `ai-insights` invocation regenerates it.
+  `rein-insights` invocation regenerates it.
 - Set `AI_TELEMETRY_DISABLE=1` (E-84 escape hatch) to stop further
   data collection; the meta_analyst then reports `[INSIGHTS_PAUSED]`
   on its next run.
@@ -383,5 +383,5 @@ that skips the approval gate and the content re-scan.
 - Not a task planner — it does NOT call `add_task`. Recommendations
   are prose; the human/Architect decides whether to convert any to a
   P-## blueprint.
-- Not a real-time monitor — it runs on demand (skill: `ai-insights`)
+- Not a real-time monitor — it runs on demand (skill: `rein-insights`)
   or via preflight staleness prompts (E-86), never as a hot loop.

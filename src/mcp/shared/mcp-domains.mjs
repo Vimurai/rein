@@ -43,7 +43,7 @@ export const DOMAINS = {
     ],
   },
   Quality: {
-    description: "Visual audit (tests run headless via skill: ai-test, E-255).",
+    description: "Visual audit (tests run headless via skill: rein-test, E-255).",
     servers: ["vibe-check-mcp"],
   },
   Interop: {

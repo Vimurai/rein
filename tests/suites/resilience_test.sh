@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # resilience_test.sh — Bootloader Resilience Validation Suite (E-113 / P-52 §34)
-# Validates: 3-layer bootloader fallback (orchestrator-mcp → ai-preflight → CLAUDE.md),
+# Validates: 3-layer bootloader fallback (orchestrator-mcp → rein-preflight → CLAUDE.md),
 # the state.json import's version/corruption guard, and state corruption recovery.
 set -euo pipefail
 
@@ -10,7 +10,7 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="${SCRIPT_DIR}/../.."
 ORCH_MCP="${REPO_ROOT}/src/mcp/orchestrator-mcp/index.js"
 SHARED_STATE="${REPO_ROOT}/src/mcp/shared/state-db.js"
-PREFLIGHT_SKILL="${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
+PREFLIGHT_SKILL="${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
 # E-183/D-050: Emergency Recovery (Layer 3) lives in the canonical ENGINEER.md bootloader;
 # CLAUDE.md is now a thin @import shim that re-exports it.
 CLAUDE_MD_TEMPLATE="${REPO_ROOT}/src/templates/ENGINEER.md"
@@ -26,19 +26,19 @@ assert_status 0 "T-RES-01: orchestrator-mcp syntax OK" \
 # T-RES-02: Layer 2 fallback skill exists and is non-empty
 assert_exists "$PREFLIGHT_SKILL"
 
-# T-RES-03: ai-preflight skill has valid YAML frontmatter
+# T-RES-03: rein-preflight skill has valid YAML frontmatter
 preflight_name=$(grep "^name:" "$PREFLIGHT_SKILL" | awk '{print $2}')
-assert_contains "T-RES-03: ai-preflight skill has correct name" "ai-preflight" "$preflight_name"
+assert_contains "T-RES-03: rein-preflight skill has correct name" "rein-preflight" "$preflight_name"
 
-# T-RES-04: ai-preflight skill contains bash fallback read instructions
-assert_status 0 "T-RES-04: ai-preflight contains bash jq fallback" \
+# T-RES-04: rein-preflight skill contains bash fallback read instructions
+assert_status 0 "T-RES-04: rein-preflight contains bash jq fallback" \
   grep -q "state.json\|jq\|grep" "$PREFLIGHT_SKILL"
 
 # T-RES-05: Layer 3 — global CLAUDE.md has Emergency Recovery section
 assert_status 0 "T-RES-05: global CLAUDE.md has Emergency Recovery section (Layer 3)" \
   grep -q "Emergency Recovery\|Bootloader Resilience\|Layer 3\|Absolute last resort" "$CLAUDE_MD_TEMPLATE"
 
-# ── Scenario B: Layer 2 Failure (ai-preflight skill missing) ─────────────────
+# ── Scenario B: Layer 2 Failure (rein-preflight skill missing) ─────────────────
 
 # T-RES-06: global CLAUDE.md contains manual recovery bash commands
 assert_status 0 "T-RES-06: global CLAUDE.md manual recovery has 'grep TASKS.md' fallback" \

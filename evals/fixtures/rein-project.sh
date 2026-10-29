@@ -3,7 +3,7 @@
 # `claude plugin eval --scaffold` runs this in the case's empty workspace. It writes a small,
 # self-consistent .ai/ (DIGEST, TASKS, architect.md, COMM, DECISIONS, state.json) and one git
 # commit, so the skills' own reads and `!`-lines see a real project. architect.md carries a
-# sentinel the ai-preflight case asserts is never read.
+# sentinel the rein-preflight case asserts is never read.
 set -euo pipefail
 
 # This checkout: the script lives at <repo>/evals/fixtures/.
@@ -69,7 +69,7 @@ git init -q
 git -c user.name=eval -c user.email=eval@example.invalid add -A
 git -c user.name=eval -c user.email=eval@example.invalid commit -qm "fixture: greeter"
 
-# --e900-done: the ai-task case's starting point. E-900's work is COMMITTED with its test, and
+# --e900-done: the rein-task case's starting point. E-900's work is COMMITTED with its test, and
 # HEAD carries a PASS ci_runs row recorded by the repo's own ci-record.mjs — so the skill's
 # CI step sees a green HEAD, and a refusal would be a real finding, not a fixture gap.
 if [[ " $* " == *" --e900-done "* ]]; then
@@ -92,7 +92,7 @@ JS
   # The log stays inside the workspace: `rein ci log` reads it, and a missing log reads as pruned.
 fi
 
-# --queue-done: the ai-handoff case's starting point. Both Engineer tasks are DONE — the code
+# --queue-done: the rein-handoff case's starting point. Both Engineer tasks are DONE — the code
 # for each is committed — and E-901's delta is unread, so "the queue is exhausted" is TRUE in
 # every file and commit the skill reads.
 if [[ " $* " == *" --queue-done "* ]]; then

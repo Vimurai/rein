@@ -6,7 +6,7 @@ paths:
 # Test harness rules (tests/)
 
 Source: `.ai/blueprints/test-harness-isolation.md` (D-061…D-071). Each rule is a standing
-review question for `critic_tests` and `ai-review`.
+review question for `critic_tests` and `rein-review`.
 
 1. **What the machine has (E-236)**: every assertion states what it needs from the host. An
    optional need is a recorded SKIP via `skip_unless_cmd` / `skip_unless_env` — never a

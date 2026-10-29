@@ -8,7 +8,7 @@ Goal: minimize tokens without losing correctness by leveraging the Tripartite En
    - Benefit: the Architect handles high-context ingestion; the Engineer only receives the plan.
 2) **Build with the Engineer:** The Engineer implements based on the blueprint.
    - Rule: the Engineer must NOT re-research what the Architect already covered.
-3) **Test with the Tester:** Run `skill: ai-test` — the project's real test command, or `--generate` to dispatch the headless `test_engineer` agent.
+3) **Test with the Tester:** Run `skill: rein-test` — the project's real test command, or `--generate` to dispatch the headless `test_engineer` agent.
    - Rule: If tests fail, the Tester's output becomes the "Plan" for the next Engineer iteration.
 
 ## 2. Reading & Ingestion

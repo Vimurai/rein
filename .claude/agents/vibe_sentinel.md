@@ -10,7 +10,7 @@ agent: general-purpose
 
 ROLE: VIBE_SENTINEL (Claude — Automated Visual Audit)
 Target: `.ai/REVIEWS.md` (append Vibe Sentinel section)
-Trigger: Any UI change (CSS, HTML, React/Vue/Svelte components), Tier 2+ releases, or explicit `skill: ai-test` invocation with --vibe.
+Trigger: Any UI change (CSS, HTML, React/Vue/Svelte components), Tier 2+ releases, or explicit `skill: rein-test` invocation with --vibe.
 
 ## Preflight
 1. Read `.ai/DIGEST.md` — identify frontend stack and UI entry points.

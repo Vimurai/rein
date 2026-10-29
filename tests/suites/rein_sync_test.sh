@@ -280,7 +280,7 @@ echo ""
 unset REIN_DISABLE_REPO_MAP
 # E-220 (D-056 R2): manifest-scoped pruning in `rein sync`.
 #
-# `rein sync` was purely additive: after the E-217 rename the old `ai-task` directories
+# `rein sync` was purely additive: after the E-217 rename the old `rein-task` directories
 # survived in every workspace forever. The obvious fix — "delete anything not in the
 # source" — is the dangerous one, because a user's own skill is exactly "not in the
 # source". So a path is deleted ONLY when all three hold: sync wrote it (manifest),
@@ -365,17 +365,17 @@ assert_status 0 "E-220.04a: an edited synced skill survives" test -d "$D3/gone"
 assert_contains "E-220.04b: the edit is the stated reason" "modified since sync wrote it" "$_o"
 
 # ── E-220.5: --prune-known removes ONLY a byte-identical leftover ────────────
-# The E-217 shape specifically: a workspace's `skills/ai-task` holding an exact copy of a
+# The E-217 shape specifically: a workspace's `skills/rein-task` holding an exact copy of a
 # skill that now lives under another name. Identity is the evidence — a byte-for-byte
 # match with a CURRENT canonical skill carries nothing a user could lose.
 T4="$(mktemp -d)"; S4="$T4/src"; D4="$T4/dst"; mkdir -p "$S4" "$D4"
 _mkskill "$S4" arch-task "TASKBODY"
 _mkskill "$D4" arch-task "TASKBODY"
-cp -R "$D4/arch-task" "$D4/ai-task"          # a true copy, as a rename leaves behind
+cp -R "$D4/arch-task" "$D4/rein-task"          # a true copy, as a rename leaves behind
 _mkskill "$D4" genuinely-mine "DIFFERENT"
 printf '["arch-task"]' > "$T4/names.json"; printf '["%s"]' "$S4" > "$T4/canon.json"
 _o="$(_sm apply "$D4" "$T4/names.json" --prune-known --canon "$T4/canon.json")"
-assert_status 1 "E-220.05a: the byte-identical leftover is removed" test -d "$D4/ai-task"
+assert_status 1 "E-220.05a: the byte-identical leftover is removed" test -d "$D4/rein-task"
 assert_status 0 "E-220.05b: a DIFFERENT orphan is kept"             test -d "$D4/genuinely-mine"
 assert_status 0 "E-220.05c: the canonical skill itself is kept"     test -d "$D4/arch-task"
 assert_contains "E-220.05d: identity is the stated ground" "byte-identical" "$_o"
@@ -384,10 +384,10 @@ assert_contains "E-220.05d: identity is the stated ground" "byte-identical" "$_o
 # difference, so a default-on regression fails here.
 T5="$(mktemp -d)"; S5="$T5/src"; D5="$T5/dst"; mkdir -p "$S5" "$D5"
 _mkskill "$S5" arch-task "TASKBODY"; _mkskill "$D5" arch-task "TASKBODY"
-cp -R "$D5/arch-task" "$D5/ai-task"
+cp -R "$D5/arch-task" "$D5/rein-task"
 printf '["arch-task"]' > "$T5/names.json"; printf '["%s"]' "$S5" > "$T5/canon.json"
 _sm apply "$D5" "$T5/names.json" --canon "$T5/canon.json" >/dev/null
-assert_status 0 "E-220.05e: WITHOUT --prune-known the identical leftover stays" test -d "$D5/ai-task"
+assert_status 0 "E-220.05e: WITHOUT --prune-known the identical leftover stays" test -d "$D5/rein-task"
 
 # ── E-220.6: refuse to prune when the source list is unusable ────────────────
 # An empty source set makes every entry look "gone upstream". Exiting non-zero rather
@@ -1114,7 +1114,7 @@ assert_contains "E-98: registry lists archive_done_tasks" "archive_done_tasks" "
 #     the names may appear are the legacy registry (which must, so `rein clean` can remove
 #     the provisioned copies), .ai/archive, CHANGELOG and this suite;
 #   * each has a legacy-registry entry that is safe ONLY by hash (known_hashes present);
-#   * ai-archive carries the SESSION.md distillation ai-compact used to own, and the
+#   * rein-archive carries the SESSION.md distillation ai-compact used to own, and the
 #     rulefiles point at /compact and at the context-health tool directly.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
@@ -1139,7 +1139,7 @@ assert_status 0 "E-283.03: no file outside the registry, .ai/, plans/ and CHANGE
   test -z "$_hits"
 # …and the grep itself saw the tree (a git grep that failed would also return nothing).
 assert_status 0 "E-283.03b: the reference scan read the tree" \
-  bash -c "cd '$REPO_ROOT' && git grep -l 'ai-archive' -- src | grep -q ."
+  bash -c "cd '$REPO_ROOT' && git grep -l 'rein-archive' -- src | grep -q ."
 
 REG="${REPO_ROOT}/src/config/legacy-artefacts.json"
 for n in "${RETIRED[@]}"; do
@@ -1152,9 +1152,9 @@ done
 assert_status 0 "E-283.04b: the registry still loads" \
   node --no-warnings -e "import('${REPO_ROOT}/src/shared/legacy-registry.mjs').then(m=>m.loadRegistry('${REG}'))"
 
-ARCHIVE="${REPO_ROOT}/src/shared/skills/ai-archive/SKILL.md"
-assert_contains "E-283.05a: ai-archive distills SESSION.md before moving it" "SESSION.md only — distill before moving" "$(cat "$ARCHIVE")"
-assert_mirror_if_present "E-283.05b: ai-archive mirror matches" "$ARCHIVE" "${REPO_ROOT}/.claude/skills/ai-archive/SKILL.md"
+ARCHIVE="${REPO_ROOT}/src/shared/skills/rein-archive/SKILL.md"
+assert_contains "E-283.05a: rein-archive distills SESSION.md before moving it" "SESSION.md only — distill before moving" "$(cat "$ARCHIVE")"
+assert_mirror_if_present "E-283.05b: rein-archive mirror matches" "$ARCHIVE" "${REPO_ROOT}/.claude/skills/rein-archive/SKILL.md"
 for f in ENGINEER.md src/templates/ENGINEER.md; do
   assert_status 0 "E-283.06: ${f} calls the context-health tool directly" \
     grep -qF 'mcp__archive-manager-mcp__check_context_health' "${REPO_ROOT}/${f}"

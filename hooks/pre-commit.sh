@@ -714,7 +714,7 @@ check_architect_git_lane() {
       printf '%s' "$out_of_scope"
       echo ""
       echo "The Architect designs; the Engineer implements (§35 ANTI-DRIFT, D-054)."
-      echo "Hand the change list to the Engineer:  skill: ai-handoff (wakes it with SendMessage, D-099)"
+      echo "Hand the change list to the Engineer:  skill: rein-handoff (wakes it with SendMessage, D-099)"
       echo "Then unstage the out-of-scope paths:   git restore --staged <path>"
       echo ""
       echo "Rollback (only if you are certain): REIN_SKIP_GIT_LANE=1 git commit ..."

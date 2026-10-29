@@ -1,6 +1,6 @@
 ---
 name: arch-task
-description: Architect task lifecycle — mark P-## tasks DONE, log completion, and trigger ai-handoff to the Engineer. Use after completing any planning or blueprint session. Never leave P-## tasks open without closure.
+description: Architect task lifecycle — mark P-## tasks DONE, log completion, and trigger rein-handoff to the Engineer. Use after completing any planning or blueprint session. Never leave P-## tasks open without closure.
 disable-model-invocation: false
 user-invocable: true
 context: default
@@ -53,10 +53,10 @@ YYYY-MM-DD | Architect | P-## | <summary of what was blueprinted>
 After all P-## tasks are closed you MUST hand control to the Engineer at session
 completion — this is **non-optional** (D-099, native-first.md §Component 9). Run:
 ```
-skill: "ai-handoff"
+skill: "rein-handoff"
 ```
 
-ai-handoff writes `.ai/COMM.md`, commits it (D-104 — if you write the entry yourself, run
+rein-handoff writes `.ai/COMM.md`, commits it (D-104 — if you write the entry yourself, run
 `git add -- .ai/COMM.md && git commit --only .ai/COMM.md -m "chore(.ai): COMM handoff <YYYY-MM-DD HH:MM UTC> (<Role>)"` right after the write), **and**, as the LAST action of the turn, wakes the
 Engineer with `SendMessage` (load it with `ToolSearch select:SendMessage` first) to
 `<project dir basename> · Engineer` as `ListAgents` lists it — first line "Planned

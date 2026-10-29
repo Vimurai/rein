@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// E-66/E-67: incident-aggregate.mjs — JIT aggregator for ai-preflight.
+// E-66/E-67: incident-aggregate.mjs — JIT aggregator for rein-preflight.
 //
 // Reads ~/.rein/incidents.ndjson (E-65), groups by stack_signature, and
-// emits a single JSON block to stdout. The ai-preflight skill formats
+// emits a single JSON block to stdout. The rein-preflight skill formats
 // the result for the active agent; if any signature has reached the
 // threshold (>= INCIDENT_THRESHOLD, default 3) the output carries
 // status:"THRESHOLD_REACHED", which the skill turns into an

@@ -703,7 +703,7 @@ if (_checkPathIdx !== -1) {
       `Path: ${target}\n` +
       `Reason: ${verdict.reason}.\n\n` +
       "The Architect designs; the Engineer implements (§35 ANTI-DRIFT, D-054).\n" +
-      "Write the blueprint under .ai/ and hand the change-list to the Engineer via `skill: ai-handoff` (SendMessage).\n"
+      "Write the blueprint under .ai/ and hand the change-list to the Engineer via `skill: rein-handoff` (SendMessage).\n"
     );
     process.exit(2);
   }

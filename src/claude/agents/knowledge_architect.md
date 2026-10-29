@@ -96,7 +96,7 @@ filter results. Never inline raw image bytes — always return a path
 reference; the caller fetches the artefact if needed.
 
 ## Memory Palace Maintenance
-After each project reaches a stable state (`skill: ai-archive` run), index it:
+After each project reaches a stable state (`skill: rein-archive` run), index it:
 - Extract successful patterns into a local `~/.rein/memory-palace.md` cache.
 - Trigger `memory_curator` (background) to refresh the artefact hash index.
 - Prune entries older than 12 months with no reuse.

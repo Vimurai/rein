@@ -6,7 +6,7 @@
  * Tools:
  *   check_context_health()   → line + token health report; needs_archive: boolean
  *   execute_archive()        → SQLite-aware state rotation (DONE tasks + stamps);
- *                              points to `skill: ai-archive` for log-file rotation
+ *                              points to `skill: rein-archive` for log-file rotation
  */
 
 import { isMainModule } from "../shared/is-main.mjs";
@@ -71,7 +71,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "Rotates SQLite state out of the hot path: archives old DONE tasks and audit " +
         "stamps to .ai/archive/*.json (ACID-safe, via the shared state-db owner) and " +
         "returns { archived_tasks, archived_stamps }. For destructive log-file rotation " +
-        "(LOG.md/COMM.md/SESSION.md) run `skill: ai-archive`. " +
+        "(LOG.md/COMM.md/SESSION.md) run `skill: rein-archive`. " +
         "Call after check_context_health returns needs_archive: true.",
       inputSchema: { type: "object", properties: {} },
     },
@@ -179,10 +179,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     lines.push(`  ${JSON.stringify({ archived_tasks, archived_stamps })}`);
     // Log-file rotation (LOG.md/COMM.md/SESSION.md → .ai/archive/) is a
-    // destructive, HITL-gated operation owned by the ai-archive skill — a bash
+    // destructive, HITL-gated operation owned by the rein-archive skill — a bash
     // MCP cannot invoke a skill, so we point the operator to it rather than
     // shelling the removed `rein archive` verb.
-    lines.push("  For log-file rotation (LOG.md/COMM.md/SESSION.md) run: skill: ai-archive");
+    lines.push("  For log-file rotation (LOG.md/COMM.md/SESSION.md) run: skill: rein-archive");
 
     return { content: [{ type: "text", text: lines.join("\n") }] };
   }

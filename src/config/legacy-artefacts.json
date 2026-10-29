@@ -131,7 +131,7 @@
         "cf8daac51c61254a586eb84d794158ad248bfaaecf1231f112ed3d82b362fd93",
         "db5bf113b301fabce3f60f963b31292f016c1660c43e9db127819fb6a74a57c7"
       ],
-      "note": "E-283 (D-075): the ai-compact skill is retired — Claude Code /compact and auto-compact; SESSION.md carry-over folded into ai-archive. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+      "note": "E-283 (D-075): the ai-compact skill is retired — Claude Code /compact and auto-compact; SESSION.md carry-over folded into rein-archive. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
     },
     {
       "id": "retired-skill-ai-analyze",

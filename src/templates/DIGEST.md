@@ -21,4 +21,4 @@ An empty DIGEST defeats the token-saver strategy.
 <!-- Stop hook appends here automatically after each session -->
 
 ---
-DIGEST must be accurate or flagged as stale. If stale, invoke `skill: ai-digest`.
+DIGEST must be accurate or flagged as stale. If stale, invoke `skill: rein-digest`.

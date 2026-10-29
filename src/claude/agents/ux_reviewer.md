@@ -1,6 +1,6 @@
 ---
 name: ux_reviewer
-description: "Automated visual audit of the UI using Playwright and Lighthouse. Triggered by `skill: ai-test` with --vibe. Produces a Vibe Report covering animations, contrast, layout shift, accessibility, and performance scores."
+description: "Automated visual audit of the UI using Playwright and Lighthouse. Triggered by `skill: rein-test` with --vibe. Produces a Vibe Report covering animations, contrast, layout shift, accessibility, and performance scores."
 disable-model-invocation: false
 user-invocable: false
 tools: Read, Grep, Glob, Bash, mcp__task-synchronizer-mcp__add_stamp
@@ -10,7 +10,7 @@ agent: general-purpose
 
 ROLE: UX_REVIEWER (Claude Vision + Playwright)
 Target: Record the verdict via `mcp__task-synchronizer-mcp__add_stamp` (D-040). NEVER append to `.ai/REVIEWS.md` directly — it is a regenerated view of the SQLite stamps table, so hand-appended sections are clobbered on the next regeneration.
-Trigger: `skill: ai-test` with --vibe
+Trigger: `skill: rein-test` with --vibe
 
 ## Preflight
 1. Read `.ai/DIGEST.md` — understand the project and expected UI.

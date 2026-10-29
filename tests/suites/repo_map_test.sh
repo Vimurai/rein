@@ -3,7 +3,7 @@
 # extraction (E-95), centrality ranking (E-96), REPO_MAP.md serialisation (E-97) and the wiring
 # below (E-98); E-302 merged the four suites into this one.
 #
-# E-98 wiring (§Components 3): --generate-map CLI, the `rein sync` hook, ai-preflight Step 8,
+# E-98 wiring (§Components 3): --generate-map CLI, the `rein sync` hook, rein-preflight Step 8,
 # vendored grammars, and the lazy-SDK invariant that keeps the CLI path
 # self-contained for the installed ~/.rein server.
 set -euo pipefail
@@ -15,7 +15,7 @@ source "${SCRIPT_DIR}/../lib/mcp-client.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SERVER="${REPO_ROOT}/src/mcp/ast-parser-mcp/index.js"
 AI_BIN="${REPO_ROOT}/src/bin/rein"
-PREFLIGHT="${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
+PREFLIGHT="${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
 PKG="${REPO_ROOT}/src/mcp/ast-parser-mcp/package.json"
 EXTRACTOR="${REPO_ROOT}/src/mcp/ast-parser-mcp/extractor.mjs"
 
@@ -44,15 +44,15 @@ assert_contains "T-98.03b: helper invoked inside do_sync"     "  _generate_repo_
 assert_contains "T-98.04: hook honors REIN_DISABLE_REPO_MAP" "REIN_DISABLE_REPO_MAP" "$ai_src"
 assert_contains "T-98.04b: hook fail-open on missing node"    "node not found — skipping REPO_MAP" "$ai_src"
 
-# ── T-98.05: ai-preflight Step 8 documents REPO_MAP loading ──────────────────
+# ── T-98.05: rein-preflight Step 8 documents REPO_MAP loading ──────────────────
 pf=$(cat "${PREFLIGHT}")
 assert_contains "T-98.05: Step 8 present"             "### 8. Load REPO_MAP.md" "$pf"
 assert_contains "T-98.05b: names E-98"               "E-98" "$pf"
 assert_contains "T-98.05c: names blueprint"          "ast-repository-map" "$pf"
 assert_contains "T-98.05d: documents rollback flag"  "REIN_DISABLE_REPO_MAP" "$pf"
 
-# ── T-98.06: ai-preflight SKILL mirrors are byte-identical ───────────────────
-assert_status 0 "T-98.06a: .claude mirror identical" diff -q "${PREFLIGHT}" "${REPO_ROOT}/.claude/skills/ai-preflight/SKILL.md"
+# ── T-98.06: rein-preflight SKILL mirrors are byte-identical ───────────────────
+assert_status 0 "T-98.06a: .claude mirror identical" diff -q "${PREFLIGHT}" "${REPO_ROOT}/.claude/skills/rein-preflight/SKILL.md"
 
 # ── T-98.07: grammars are vendored, tree-sitter-wasms is NOT a runtime dep ───
 ext=$(cat "${EXTRACTOR}")

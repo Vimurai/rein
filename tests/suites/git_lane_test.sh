@@ -95,7 +95,7 @@ _run "$R2" architect
 assert_contains "E-214.02a: a single src/ path blocks the whole commit (rc 1)" "1" "$_RC"
 assert_contains "E-214.02b: the block is labelled [SOVEREIGNTY_BLOCK]" "SOVEREIGNTY_BLOCK" "$_OUT"
 assert_contains "E-214.02c: the offending path is named" "src/impl.js" "$_OUT"
-assert_contains "E-214.02d: the hint routes work to the Engineer" "skill: ai-handoff" "$_OUT"
+assert_contains "E-214.02d: the hint routes work to the Engineer" "skill: rein-handoff" "$_OUT"
 assert_contains "E-214.02e: the hint says how to unstage" "git restore --staged" "$_OUT"
 # Mixed staging must not be partially accepted — .ai/ok.md is in scope but the commit
 # is atomic, so the whole thing is refused.

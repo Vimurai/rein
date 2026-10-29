@@ -66,8 +66,8 @@ The first release of **Rein** in its public repository. The version line restart
   checkout; `rein account use <name|default>` writes it, and in a team project `rein start
   --account` and its first-run pick write it too (a single-operator project still writes
   `start.json`). `rein init` / `rein sync` add `.ai/start.local.json` to `.gitignore`. With
-  `team.json` `shared_log: true`, `skill: ai-log` and `run_handover` append to the tracked
-  `.ai/log/<email-localpart>.md`, and `ai-preflight` shows the newest entries across every
+  `team.json` `shared_log: true`, `skill: rein-log` and `run_handover` append to the tracked
+  `.ai/log/<email-localpart>.md`, and `rein-preflight` shows the newest entries across every
   developer's file (`rein log path|recent`); the default stays `LOG.md`.
 
 ## Private predecessor (AI-OS, 2025–2026)

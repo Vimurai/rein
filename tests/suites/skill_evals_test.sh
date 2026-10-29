@@ -6,7 +6,7 @@
 #
 # Two layers:
 #   1. static — the plugin manifest and the eval tree are well-formed. Needs only node.
-#   2. live   — run the four cases (ai-preflight, ai-task, ai-handoff, task-planner) against
+#   2. live   — run the four cases (rein-preflight, rein-task, rein-handoff, task-planner) against
 #               the real model, every grader must pass. Needs an AUTHENTICATED `claude` on
 #               PATH; anything less is a recorded SKIP (E-236), never a fabricated result.
 #               Under `rein ci run` the HOME is a throwaway, so `claude` is never logged in
@@ -23,7 +23,7 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 MANIFEST="${REPO_ROOT}/.claude-plugin/plugin.json"
 EVALS="${REPO_ROOT}/evals"
-CASES=(ai-preflight ai-task ai-handoff task-planner)
+CASES=(rein-preflight rein-task rein-handoff task-planner)
 
 echo "── Suite: skill_evals_test ──────────────────────────────────────────"
 

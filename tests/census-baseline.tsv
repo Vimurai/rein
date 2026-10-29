@@ -10,7 +10,7 @@ CENSUS_FP	advisor_mcp_test.sh	3	python3	-c
 CENSUS_SUITE	agent_contracts_test.sh	7955	191	0	0	0
 CENSUS_FP	agent_contracts_test.sh	2	bash	-c
 CENSUS_FP	agent_contracts_test.sh	6	bash	-c:src/claude/agents/critic_clean_code.md
-CENSUS_FP	agent_contracts_test.sh	5	bash	-c:src/claude/skills/ai-review/SKILL.md
+CENSUS_FP	agent_contracts_test.sh	5	bash	-c:src/claude/skills/rein-review/SKILL.md
 CENSUS_FP	agent_contracts_test.sh	1	bash	src/bin/rein
 CENSUS_SUITE	rein_ci_test.sh	38785	243	0	1	0
 CENSUS_FP	rein_ci_test.sh	17	bash	-c
@@ -225,7 +225,7 @@ CENSUS_SUITE	meta_cognition_test.sh	518	93	0	0	0
 CENSUS_FP	meta_cognition_test.sh	3	bash	-c
 CENSUS_FP	meta_cognition_test.sh	5	bash	-c:src/claude/agents/meta_analyst.md
 CENSUS_FP	meta_cognition_test.sh	2	bash	-c:src/shared/insights-staleness.mjs
-CENSUS_FP	meta_cognition_test.sh	2	bash	-c:src/shared/skills/ai-insights/SKILL.md
+CENSUS_FP	meta_cognition_test.sh	2	bash	-c:src/shared/skills/rein-insights/SKILL.md
 CENSUS_FP	meta_cognition_test.sh	4	node	src/shared/insights-staleness.mjs
 CENSUS_FP	meta_cognition_test.sh	3	node	src/shared/telemetry.mjs
 CENSUS_SUITE	mirror_hygiene_test.sh	95853	55	0	0	0
@@ -369,9 +369,9 @@ CENSUS_FP	skill_evals_test.sh	1	bash	evals/fixtures/rein-project.sh
 CENSUS_FP	skill_evals_test.sh	1	node	-e
 CENSUS_SUITE	skill_lines_test.sh	10145	207	0	1	0
 CENSUS_FP	skill_lines_test.sh	4	bash	-c
-CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/ai-insights/SKILL.md
-CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/ai-preflight/SKILL.md
-CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/ai-review-proposed-skills/SKILL.md
+CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/rein-insights/SKILL.md
+CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/rein-preflight/SKILL.md
+CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/rein-review-proposed-skills/SKILL.md
 CENSUS_FP	skill_lines_test.sh	2	bash	-c:src/shared/standards-checker.mjs
 CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/standards.json
 CENSUS_FP	skill_lines_test.sh	2	bash	tests/lib/skill-exec-driver.sh

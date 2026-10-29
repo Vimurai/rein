@@ -46,7 +46,7 @@ node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mcp/shared/
 r=$(callam execute_archive "{}")
 assert_contains "E-111.01: reports archived_stamps"        '"archived_stamps"' "$r"
 assert_contains "E-111.01b: 50 stamps rotated (60-10)"     "50 stamps"         "$r"
-assert_contains "E-111.02: points to skill: ai-archive for logs" "skill: ai-archive" "$r"
+assert_contains "E-111.02: points to skill: rein-archive for logs" "skill: rein-archive" "$r"
 # Archive file is dated by the current month (rotation stamp), not the row timestamp.
 YM="$(date -u +%Y-%m)"
 assert_exists "${PROJECT}/.ai/archive/stamps-${YM}.json"

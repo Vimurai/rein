@@ -311,10 +311,10 @@ assert_status 0 "E-249.02d: --stale-json is machine-readable" \
 # assert is that the scan is actually reached from all five surfaces named in D-067 §3.
 assert_status 0 "E-249.03a: verify_markdown_sync calls the scan" \
   grep -q 'staleServerReport()' "${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
-# E-276 (D-075) retired orchestrator::run_preflight; the ai-preflight skill's `!` injection
+# E-276 (D-075) retired orchestrator::run_preflight; the rein-preflight skill's `!` injection
 # is the preflight path now, and it runs the same scan through the CLI.
-assert_status 0 "E-249.03b: the ai-preflight skill runs the scan" \
-  grep -q 'build-stamp.mjs 2>/dev/null)"; r=""; \[ -n "\$c" \] && r="\$(node --no-warnings "\$c" --stale' "${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
+assert_status 0 "E-249.03b: the rein-preflight skill runs the scan" \
+  grep -q 'build-stamp.mjs 2>/dev/null)"; r=""; \[ -n "\$c" \] && r="\$(node --no-warnings "\$c" --stale' "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
 assert_status 0 "E-249.03c: rein sync runs it as a fail-open step" \
   grep -qE '_sync_step +stale_servers +_report_stale_servers' "$AI"
 assert_status 0 "E-249.03d: rein doctor reports it" grep -q '_stale_server_lines' "$AI"
@@ -354,7 +354,7 @@ assert_status 0 "E-249.04b: the refusal is recorded where the mechanism lives" \
 
 # ── §5: the completion gate, BOTH WAYS, through the real tool ────────────────
 #
-# The gate lives in update_task_status because that is what `skill: ai-task` calls; a
+# The gate lives in update_task_status because that is what `skill: rein-task` calls; a
 # markdown skill cannot refuse anything. Driving the real tool is what proves the gate is
 # reachable from the path the Engineer actually uses.
 #
@@ -1597,7 +1597,7 @@ assert_not_contains "P-9: diff.split no longer used for added lines" \
 
 # ── P-10/P-11: retired with run_preflight (E-276, D-075) ──────────────────────
 # readBoundedLines and the blueprints pointer existed only for orchestrator::run_preflight.
-# The ai-preflight skill (with its `!` injection) is the only preflight path now; what is
+# The rein-preflight skill (with its `!` injection) is the only preflight path now; what is
 # asserted here is that the tool is really gone, not merely unlisted.
 
 assert_exists "$ORCH_MCP"

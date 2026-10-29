@@ -393,7 +393,7 @@ const ANCESTOR_SEARCH_ROWS = 50;
  *      certifies, a FAIL or SKIPPED record never does;
  *   3. otherwise the newest non-dirty PASS row — or PASS record — for an ANCESTOR counts
  *      when every path that differs between the two is under .ai/ — the bookkeeping commits
- *      ai-task makes after a DONE, and a merge commit whose tree equals the tested tip, are
+ *      rein-task makes after a DONE, and a merge commit whose tree equals the tested tip, are
  *      never CI'd on their own and must not block (local-ci.md §Components 5b).
  *
  * A local row outranks a record for the same sha: this machine's own newest verdict is the

@@ -400,35 +400,35 @@ JS
 RC=$?
 assert_status 0 "schema migrated, legacy row preserved, idempotent" bash -c "[[ $RC -eq 0 ]]"
 
-# ── T-SES-S04: ai-log skill documents the contract ──────────────────────────
+# ── T-SES-S04: rein-log skill documents the contract ──────────────────────────
 echo ""
-echo "  [T-SES-S04] ai-log skill body"
+echo "  [T-SES-S04] rein-log skill body"
 
 # The canonical source plus the Claude workspace copy — the only workspace in v4 (E-254).
 _AI_LOG_COPIES=(
-  "${REPO_ROOT}/src/shared/skills/ai-log/SKILL.md"
-  "${REPO_ROOT}/.claude/skills/ai-log/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-log/SKILL.md"
+  "${REPO_ROOT}/.claude/skills/rein-log/SKILL.md"
 )
 for f in "${_AI_LOG_COPIES[@]}"; do
 
   assert_status 0 "${f#${REPO_ROOT}/} exists" test -f "$f"
   # E-284 (D-075 §5): the session id comes from the native ${CLAUDE_SESSION_ID} skill
   # substitution, not an environment read inside the skill body.
-  assert_status 0 "${f##*/skills/ai-log/} uses the \${CLAUDE_SESSION_ID} substitution" \
+  assert_status 0 "${f##*/skills/rein-log/} uses the \${CLAUDE_SESSION_ID} substitution" \
     grep -qF '${CLAUDE_SESSION_ID}' "$f"
-  assert_status 1 "${f##*/skills/ai-log/} no longer reads CLAUDE_CODE_SESSION_ID" \
+  assert_status 1 "${f##*/skills/rein-log/} no longer reads CLAUDE_CODE_SESSION_ID" \
     grep -q 'CLAUDE_CODE_SESSION_ID' "$f"
-  assert_status 0 "${f##*/skills/ai-log/} documents the session= tag format" \
+  assert_status 0 "${f##*/skills/rein-log/} documents the session= tag format" \
     grep -qE 'session=' "$f"
-  assert_status 0 "${f##*/skills/ai-log/} documents the bounded regex" \
+  assert_status 0 "${f##*/skills/rein-log/} documents the bounded regex" \
     grep -qE '\[A-Za-z0-9-\]\{1,64\}' "$f"
-  assert_status 0 "${f##*/skills/ai-log/} documents the 'session=invalid' fallback" \
+  assert_status 0 "${f##*/skills/rein-log/} documents the 'session=invalid' fallback" \
     grep -q 'session=invalid' "$f"
 done
 
 # Mirror identity.
-SRC_HASH="$(md5sum "${REPO_ROOT}/src/shared/skills/ai-log/SKILL.md" | awk '{print $1}')"
-CLA_HASH="$(md5sum "${REPO_ROOT}/.claude/skills/ai-log/SKILL.md"     | awk '{print $1}')"
+SRC_HASH="$(md5sum "${REPO_ROOT}/src/shared/skills/rein-log/SKILL.md" | awk '{print $1}')"
+CLA_HASH="$(md5sum "${REPO_ROOT}/.claude/skills/rein-log/SKILL.md"     | awk '{print $1}')"
 assert_status 0 ".claude mirror = src" bash -c "[[ '$SRC_HASH' == '$CLA_HASH' ]]"
 set -e
 

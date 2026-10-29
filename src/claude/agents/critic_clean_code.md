@@ -77,7 +77,7 @@ Severity ladder (matches `SEVERITY_ORDER` in `standards-checker.mjs`):
 | 0             | ≥ 1          | `CLEAN_WARN` |
 | ≥ 1           | any          | `CLEAN_FAIL` |
 
-`CLEAN_WARN` does NOT block the commit by itself — it surfaces drift for the ai-review synthesizer to weigh against other signals. `CLEAN_FAIL` blocks.
+`CLEAN_WARN` does NOT block the commit by itself — it surfaces drift for the rein-review synthesizer to weigh against other signals. `CLEAN_FAIL` blocks.
 
 ## Step 4 — Record the stamp
 

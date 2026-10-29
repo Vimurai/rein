@@ -130,7 +130,7 @@ for a in critic_arch critic_clean_code critic_security critic_tests test_enginee
 done
 assert_contains "E-284.04d: meta_analyst keeps project memory" "memory: project" "$(_fm "${AGENTS}/meta_analyst.md")"
 assert_contains "E-284.04e: memory_curator runs in the background" "background: true" "$(_fm "${AGENTS}/memory_curator.md")"
-for s in ai-review arch-review; do
+for s in rein-review arch-review; do
   assert_contains "E-284.04f: ${s} runs forked (review output stays out of the caller)" "context: fork" \
     "$(_fm "${REPO_ROOT}/src/claude/skills/${s}/SKILL.md")"
 done

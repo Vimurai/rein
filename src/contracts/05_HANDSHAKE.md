@@ -3,7 +3,7 @@
 HARD RULES:
 1) Every session begins with PREFLIGHT via the skill:
    ```
-   skill: "ai-preflight"
+   skill: "rein-preflight"
    ```
    Its `!` lines inject DIGEST freshness, open tasks and live status; it then
    verifies TASKS.md against state.sqlite and surfaces unread deltas.

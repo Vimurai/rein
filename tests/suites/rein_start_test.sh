@@ -50,9 +50,9 @@ if skip_unless_cmd tmux "E-227.01–02, E-269.S: rein start --dry-run plans tmux
   # ordinal fallback and the visible layout agree by construction rather than by luck.
   _p="$(_proj 0 1)"; _out="$(_dry "$_p")"
   assert_match "E-227.01a: engineer=0 → first pane" \
-    'send-keys -t pane0 ai.\ pane.\ engineer' "$_out"
+    'send-keys -t pane0 rein.\ pane.\ engineer' "$_out"
   assert_match "E-227.01b: architect=1 → second pane" \
-    'send-keys -t pane1 ai.\ pane.\ architect' "$_out"
+    'send-keys -t pane1 rein.\ pane.\ architect' "$_out"
   # D-099 (E-322): no watcher pane — two panes, the right column is never split again.
   assert_not_contains "E-227.01c: no third pane is addressed" "pane2" "$_out"
   assert_not_contains "E-227.01g: no watcher command is sent" "ai watch" "$_out"
@@ -61,9 +61,9 @@ if skip_unless_cmd tmux "E-227.01–02, E-269.S: rein start --dry-run plans tmux
 
   _p="$(_proj 1 0)"; _out="$(_dry "$_p")"
   assert_match "E-227.01d: REVERSED — architect=0 → first pane" \
-    'send-keys -t pane0 ai.\ pane.\ architect' "$_out"
+    'send-keys -t pane0 rein.\ pane.\ architect' "$_out"
   assert_match "E-227.01e: REVERSED — engineer=1 → second pane" \
-    'send-keys -t pane1 ai.\ pane.\ engineer' "$_out"
+    'send-keys -t pane1 rein.\ pane.\ engineer' "$_out"
   assert_match "E-227.01f: titles are pinned in the same order" \
     'select-pane -t pane0 -T architect' "$_out"
   # E-269 (D-073): the role binding is a TARGETED pane option, set before the cosmetic title.

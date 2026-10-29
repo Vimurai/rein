@@ -2,7 +2,7 @@
 # Rein pre-push — Local CI gate (E-267, D-072, local-ci.md §Components 5b)
 # Logic: every pushed tip needs a green, non-dirty `rein ci run` row in the project's
 #        .ai/state.sqlite — or a green row for an ancestor that differs from the tip only
-#        under .ai/ (the bookkeeping commits ai-task makes after a DONE). In a team project
+#        under .ai/ (the bookkeeping commits rein-task makes after a DONE). In a team project
 #        (.ai/team.json, E-328 / D-102 §5a) a member's PASS record .ai/ci/<sha>.json counts
 #        the same way, so the local sqlite row is not required; ci-record.mjs gate decides.
 # Bypass: REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="<why>" git push — ONE push; the skip is

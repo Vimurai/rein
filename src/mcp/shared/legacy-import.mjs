@@ -290,7 +290,7 @@ function _importLegacy(aiDir, db, { force = false, dryRun = false, render = null
   return { status: "OK", lines, changed };
 }
 
-// ── E-344 (D-108 r8): the State Health verdict for rein doctor and ai-preflight ──────────────
+// ── E-344 (D-108 r8): the State Health verdict for rein doctor and rein-preflight ──────────────
 
 const _count = (doc) => (doc && Array.isArray(doc.tasks) ? doc.tasks.length : 0);
 

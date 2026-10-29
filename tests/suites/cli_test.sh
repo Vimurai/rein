@@ -38,11 +38,11 @@ assert_contains "rein review prints deprecation pointer to skill" "skill: arch-r
 assert_status 1 "rein review exits 1 (deprecated)" "$AI_BIN" review
 
 out=$("$AI_BIN" test 2>&1 || true)
-assert_contains "rein test prints deprecation pointer to skill" "skill: ai-test" "$out"
+assert_contains "rein test prints deprecation pointer to skill" "skill: rein-test" "$out"
 assert_status 1 "rein test exits 1 (deprecated)" "$AI_BIN" test
 
 out=$("$AI_BIN" preflight 2>&1 || true)
-assert_contains "rein preflight prints deprecation pointer" "skill: ai-preflight" "$out"
+assert_contains "rein preflight prints deprecation pointer" "skill: rein-preflight" "$out"
 assert_status 1 "rein preflight exits 1 (deprecated)" "$AI_BIN" preflight
 
 out=$("$AI_BIN" where 2>&1 || true)

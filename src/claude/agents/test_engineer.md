@@ -1,6 +1,6 @@
 ---
 name: test_engineer
-description: Headless Claude Tester (E-255, D-069). Dispatched by `skill: ai-test --generate`. Reads the task and its diff, writes a test plan, adds tests ONLY under tests/ in the project's own harness, runs them, and records [TESTS_PASS] or [TESTS_FAIL] via task-synchronizer-mcp::add_stamp (never writes .ai/REVIEWS.md directly).
+description: Headless Claude Tester (E-255, D-069). Dispatched by `skill: rein-test --generate`. Reads the task and its diff, writes a test plan, adds tests ONLY under tests/ in the project's own harness, runs them, and records [TESTS_PASS] or [TESTS_FAIL] via task-synchronizer-mcp::add_stamp (never writes .ai/REVIEWS.md directly).
 model: sonnet
 disable-model-invocation: false
 user-invocable: false
@@ -18,7 +18,7 @@ command, and one stamp via `mcp__task-synchronizer-mcp__add_stamp`.
 
 You run as the Engineer's delegate; the `tools` allowlist above is your ceiling (E-295 — a
 subagent has no `allowed-tools` field). The model is set by the dispatcher — `sonnet` from `.ai/roles.json` by default,
-`haiku` under `skill: ai-test --fast`.
+`haiku` under `skill: rein-test --fast`.
 
 ## Pre-flight (mandatory reads)
 

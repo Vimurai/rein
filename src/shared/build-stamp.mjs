@@ -28,7 +28,7 @@
 // same-second rewrites, which is the exact `rein sync` case.
 //
 // HOW A SEPARATE PROCESS FINDS OUT. Each server writes ~/.rein/run/build-<server>.json at
-// startup. `verify_markdown_sync`, the `ai-preflight` skill, `rein doctor`, `rein sync` and
+// startup. `verify_markdown_sync`, the `rein-preflight` skill, `rein doctor`, `rein sync` and
 // `install-rein.sh` read that directory, drop records whose pid is gone, recompute the
 // stamp from the SAME paths the record names, and report every mismatch. Comparing
 // booted-against-current-at-the-same-path is what makes the check correct for a server

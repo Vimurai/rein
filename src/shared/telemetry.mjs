@@ -275,7 +275,7 @@ function _ensureVelocityColumns(db) {
 }
 
 /**
- * E-259 down-migration (skill: ai-migration): drop the four task_velocity columns from the
+ * E-259 down-migration (skill: rein-migration): drop the four task_velocity columns from the
  * store at `dbPath` (SQLite >= 3.35). Operator-only — stop the MCP servers first, or a
  * running one re-adds them on its next open. Returns { ok, dropped } and never throws.
  */
@@ -538,7 +538,7 @@ export function recordTaskVelocity(payload, opts) {
 }
 
 // Read-side: SQL aggregates for the meta_analyst agent (E-85) and the
-// ai-preflight staleness check (E-86). Returns counts + last-write
+// rein-preflight staleness check (E-86). Returns counts + last-write
 // timestamps. Bounded by the optional `since_iso` window.
 export function getTelemetryStats(opts = {}) {
   const path = opts.db_path || TELEMETRY_DB_PATH;

@@ -12,14 +12,14 @@ binaries, permissions, live MCP connectivity); `rein doctor --repair` fixes what
 | Servers answer with old behaviour after an upgrade | Preflight's "stale MCP servers" line | Restart both Claude Code panes. |
 | A pane opens and fails at the first keystroke | `rein doctor`: is `claude` on PATH, are the roles mapped? | `rein start --status`; relaunch with `rein start`. |
 | The other pane never wakes | Is it open? A closed pane gets "not reachable". | Relaunch it; the handoff note is in `.ai/COMM.md`. |
-| Commit refused: no review stamp | Was the change reviewed? | `skill: ai-review` in the Engineer pane. |
+| Commit refused: no review stamp | Was the change reviewed? | `skill: rein-review` in the Engineer pane. |
 | Commit refused: ghost tool | `rein doctor --compliance` | Fix `allowed-tools`/`tools` in the named agent or skill. |
 | Push refused | `rein ci status --short` | `rein ci run`; `rein ci log --failed`; fix and push again. |
 | `[BUDGET_REGRESSION]` | Which field? `rein ci budget` | Make the tests cheaper, or record a decision and `rein ci budget set`. |
 | Task will not close: `[CI_GATE]` | `rein ci status --short` | Wait for or run `rein ci run` on HEAD. |
 | Tasks differ between machines | `rein doctor` state health | `rein state import` (lossless). Avoid `rein migrate-state`: it rebuilds from `TASKS.md` and drops summaries. |
 | A command was refused by the gate | The refusal names the rule | Rephrase, or — for you, in your terminal — `rein gate off --minutes 15 --reason "…"`. |
-| `DIGEST.md` feels stale | Its first line has the date | `skill: ai-digest`. |
+| `DIGEST.md` feels stale | Its first line has the date | `skill: rein-digest`. |
 | Pre-commit hook missing | `.git/hooks/pre-commit` exists? | `rein init` reinstalls it. |
 
 ## FAQ
@@ -45,7 +45,7 @@ Yes: you get memory, gates, critics and CI, and you do the planning yourself. Ad
 `rein add-task`.
 
 **Is it only for JavaScript?**
-No. The framework runs on Node, but your project can be anything. `skill: ai-test` runs your
+No. The framework runs on Node, but your project can be anything. `skill: rein-test` runs your
 project's own test command; the code map understands JavaScript and TypeScript best.
 
 **Why so many rules?**

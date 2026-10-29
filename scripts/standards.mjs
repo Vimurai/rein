@@ -253,7 +253,7 @@ async function main() {
 
     _emit(envelope, asJson);
 
-    // Surface drift to ai-review consumers via stderr JSON line. This is the
+    // Surface drift to rein-review consumers via stderr JSON line. This is the
     // §API reportDrift surface — not the human report on stdout.
     const drift = reportDrift(envelope.reports);
     if (drift.drift_count > 0) {

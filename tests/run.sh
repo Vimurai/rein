@@ -169,7 +169,7 @@ export REIN_TEST_TMPDIR="$TEST_TMPDIR"
 # ── E-257 (D-070 §1): the suite must not be recorded as operator behaviour ────
 # Every MCP call a suite makes used to be telemetered into the operator's
 # ~/.rein/telemetry.sqlite: 47,391 of 51,382 in-window rows were fixtures on 2026-09-11,
-# and two ai-insights reports read them as the operator's habits. The whole run writes to
+# and two rein-insights reports read them as the operator's habits. The whole run writes to
 # a per-run temp store instead (telemetry.mjs honours AI_TELEMETRY_DB_PATH; the
 # interceptor and the post-tool-use hook both go through it). AI_TELEMETRY_DISABLE=1 is
 # the other accepted form and is left alone.

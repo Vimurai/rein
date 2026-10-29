@@ -20,17 +20,22 @@ SHAs and declare minimal `permissions` per job.
 
 ### Component 1 — The `public` rendering profile (`src/shared/hosted-ci.mjs`)
 - Selected when `.ai/publish.json` exists in the root (the privacy gate's marker).
-- Jobs:
-  - `fast`: `ubuntu-latest`, Node 22, `bash tests/run.sh --tier fast` without the installer;
-    `timeout-minutes: 10`; the first check to report.
-  - `ai ci run (${os}, node ${v})`: matrix `os: [ubuntu-latest, macos-latest]`,
-    `node: [22, 24]`, `fail-fast: false`; checkout with full history; the cache keyed on the
-    lockfiles; install from the checked-out commit; `ai ci run --lanes $(nproc || sysctl -n hw.ncpu)`;
-    `timeout-minutes: 60`; artefacts (log + `.ai/ci/*.json`) kept 14 days on failure and
-    success.
+- Jobs (amended by D-135, `.ai/blueprints/ci-throughput.md` §Component 4 is the contract):
+  - `fast`: `ubuntu-latest`, Node 22, no installer; `bash tests/run.sh --changed origin/main`
+    on a pull request (fast tier plus the suites whose census footprint touches a changed
+    file), `--tier fast` on a trunk push; `timeout-minutes: 10`; the first check to report.
+    Rendered in every profile, not only the public one (D-135 r4).
+  - `ai ci run (${os}, node ${v}, ${i}/${N})`: on a pull request `ubuntu-latest × {22, 24}`
+    and `macos-latest × 22`, each in N shards (`team.json` `ci.shards`, default 4), `fail-fast:
+    false`; checkout with full history; the cache keyed on the lockfiles; install from the
+    checked-out commit; `ai ci run --shard ${i}/${N}` (no `--lanes`: a hosted run defaults
+    to every core, D-135 r1); `timeout-minutes: 60`; artefacts (log + `.ai/ci/*.json`) kept
+    14 days on failure and success. `macos-latest × 24` and one unsharded `ubuntu-latest × 22`
+    leg run in the nightly only (D-135 r5).
 - Triggers: `pull_request` into the trunk, `push` to the trunk ignoring `.ai/**`.
 - Concurrency group per PR with cancel-in-progress; the trunk push group never cancels.
-- The private/team rendering (no marker) is byte-identical to today's.
+- The private/team rendering (no marker) gains the same `fast` job and shards on one OS and
+  Node line; everything else in it is unchanged.
 
 ### Component 2 — Hand-written workflows (`.github/workflows/`)
 | File | Trigger | Job |
@@ -45,7 +50,8 @@ SHAs and declare minimal `permissions` per job.
   `github-actions` (weekly). Dependabot PRs run the full CI like any PR.
 
 ### Component 3 — Branch policy and badges
-- Required checks on `main`: `privacy`, `fast`, every `ai ci run (…)` leg, `CodeQL`.
+- Required checks on `main`: `privacy`, `fast`, every pull-request `ai ci run (…, i/N)` leg
+  (twelve with four shards; the nightly-only legs are not required), `CodeQL` (D-135 r7).
   Linear history, no force-push, PRs required, conversation resolution not required.
 - README badge row: CI (`ci.yml`), privacy, CodeQL, Scorecard, licence, version (latest tag
   via shields `github/v/tag`), sponsors. The hard-coded version badge is replaced.
@@ -61,8 +67,10 @@ macOS and both Node lines, which is the point of the ordering.
 .ai/publish.json present            → renderer profile = "public"
 .github/workflows/{ci,privacy,codeql,scorecard,dependency-review,nightly,release}.yml
 .github/dependabot.yml
-Required checks: ["privacy", "fast", "ai ci run (ubuntu-latest, node 22)", "ai ci run (ubuntu-latest, node 24)",
-                  "ai ci run (macos-latest, node 22)", "ai ci run (macos-latest, node 24)", "CodeQL"]
+Required checks: ["privacy", "fast", "CodeQL",
+                  "ai ci run (ubuntu-latest, node 22, i/4)", "ai ci run (ubuntu-latest, node 24, i/4)",
+                  "ai ci run (macos-latest, node 22, i/4)"]           for i in 1..4   (D-135 r5, r7)
+Nightly-only legs: "ai ci run (macos-latest, node 24, i/4)", "ai ci run (ubuntu-latest, node 22)" (unsharded)
 Nightly issue: label "nightly", title "Nightly failed on <date>", body = run link + summary; updated, never duplicated
 ```
 
@@ -70,7 +78,8 @@ Nightly issue: label "nightly", title "Nightly failed on <date>", body = run lin
 - `ai ci hosted github` — renders the public profile when the marker exists; `--check` exit 1
   on mismatch as today; `ai doctor` line `[HOSTED_CI_OK] github (public)` / `[WRAPPER_DIFFERS]`.
 - `tests/run.sh --tier fast` — exit code is the fast job's verdict; budget 60 s remains.
-- `ai ci run --lanes N` — unchanged; the matrix passes the runner's core count.
+- `ai ci run --shard i/N` — the matrix leg's command; lanes default to every core on a hosted
+  runner (D-135 r1, `.ai/blueprints/ci-throughput.md`); `--lanes` is not passed.
 - `release.yml` inputs: the tag; outputs: the release URL in the job summary.
 
 ## Security
@@ -86,8 +95,9 @@ Nightly issue: label "nightly", title "Nightly failed on <date>", body = run lin
 ## Execution Constraints
 - Standard runners only; `timeout-minutes` on every job; artefacts 14 days; caches keyed on
   `package-lock.json` and `src/mcp/*/package.json`.
-- The fast job reports in under 3 minutes on a cold cache; a full leg under 20 minutes
-  (the local run is 12–13 minutes serial; lanes bring it down).
+- The fast job reports in under 2 minutes on a pull request; a sharded leg under 5 minutes
+  with four shards and four lanes (D-135: the hosted run was 15.5 minutes on two lanes plus
+  a serial tail of 13 suites). Measured, not promised: `ai ci status` reports the values.
 - PR concurrency cancels superseded runs; nightly and release never cancel.
 - The one-commit-checkout skips (D-129 addendum r5) apply to the first weeks' runs and shrink
   as history grows; the nightly summary lists the skip count.
@@ -100,4 +110,6 @@ job (the profile switch is one condition); shrink the required-check set to `pri
 ## E-## Task Breakdown
 | Task | Tier | Scope | Depends on |
 |---|---|---|---|
-| E-384 | 2 | Components 1–3: the public renderer profile, the six hand-written files, Dependabot, badges, required checks, DEVOPS.md | E-382 |
+| E-384 | 2 | Components 1–3: the public renderer profile (fast job with `--changed`, shard matrix, required names per D-135), the six hand-written files, Dependabot, badges, required checks, DEVOPS.md | E-382, E-386 |
+| E-386 | 2 | `.ai/blueprints/ci-throughput.md` §Components 1–3, 5: lane default by host, census baseline, `--shard`, `exclusive_seconds` | E-382 |
+| E-387 | 2 | `.ai/blueprints/ci-throughput.md` §Component 5: Rein's exclusive tail under 25 % | E-386 |

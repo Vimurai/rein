@@ -3576,3 +3576,39 @@ Delete the added workflows and set the renderer profile back to the single job; 
 Replace the four SVGs; the README markup does not change.
 
 ---
+
+## D-135 — Hosted CI runs at the runner's width: every core is a lane, the census travels with the repository, the matrix is sharded, the fast job is change-selected, and the exclusive tail shrinks — for every Rein project and for Rein itself
+
+**Date**: 2026-10-29
+**Task**: P-49 (this ruling), E-386, E-387, E-384 (rescoped), E-337 (inherits)
+**Decision**: The hosted `main CI` run takes 15.5 minutes of which 50 seconds are setup. The runner has four cores; `ai ci run` uses two lanes (the laptop default, cores/2) and then runs 13 suites serially, five of them serial only because a fresh runner has no census log to prove their installer footprint stays in a lane. The operator asked for every known remedy, applied once in Rein's shared code so that every project `ai ci hosted` renders for gets them, Rein included. Blueprint: `.ai/blueprints/ci-throughput.md`. This amends D-133 r1, r3 and D-091/D-093's lane default on hosted runners only.
+
+### Why needed
+A 15-minute signal trains people to stop pushing; D-133 multiplies that single job into a matrix. The remedies the industry uses (a fast signal first, sharding across machines, change-based selection, warm caches, hunting the serial tail) are each one flag away in this harness, except sharding, which does not exist yet. Nothing here is Rein-specific, so nothing is allowed to live only in Rein's workflow file.
+
+### Rulings
+1. **Lanes on a hosted runner default to every core.** `ai ci run` detects a hosted run (`GITHUB_ACTIONS`, `TF_BUILD`, `GITLAB_CI`, `BITBUCKET_BUILD_NUMBER`, else `CI=true`) and defaults `--lanes` to the core count, still clamped by the measured memory cap (D-093 r3). A laptop keeps `min(4, cores/2)`. An explicit `--lanes N` is unchanged. This lives in `ai ci run`, so every project gets it with no workflow change; the renderer stops passing `--lanes` at all.
+2. **The census baseline is committed.** `tests/run.sh` takes its wall hints and installer footprints from the newest local log as today, and when there is none, from `tests/census-baseline.tsv` (the `CENSUS_SUITE` and `CENSUS_FP` rows of the newest full PASS, one file, tab-separated). `ai ci run` writes the baseline into the project tree beside the E-328 record after a full unsharded PASS; it is committed like the record and the pre-push hook warns when it is older than 30 full runs. A fresh runner then packs lanes by measured time and lets installer-subject suites into the lanes under the D-093 r2 rule. A project without `tests/tools/census.mjs` has no baseline and nothing changes.
+3. **Shards.** `tests/run.sh --shard i/N` (also `AIOS_TEST_SHARD=i/N`) splits the suites deterministically: shared and exclusive suites each sorted by wall hint descending then name, each assigned to the lightest of N bins; the node unit layer runs in shard 1 only. `ai ci run --shard i/N` passes it through, records `shard: "i/N"` in the run row and the E-328 record, and a shard never certifies a commit on its own (`ai ci status` treats it like `--dirty`); the budget step (E-303) runs on shard 1 only (the inventory is static and the fast tier is timed alone, D-118 r1). Without `--shard` nothing changes. The renderer emits shards only when the project's `tests/run.sh` advertises `--shard` (the same grep that gates the fast tier), N from `team.json` `ci.shards`, default 4.
+4. **The fast job in every rendering.** Any project whose `tests/run.sh` advertises `--tier` gets the `fast` job (no installer, Node 22, `timeout-minutes: 10`) in every provider's rendering, not only the public profile (amends D-133 r1). On a pull request it runs `tests/run.sh --changed origin/<trunk>` (the fast tier plus every suite whose census footprint touches a changed file — E-298); on a trunk push it runs `--tier fast`. With no census the harness already falls back to the full matrix and says so.
+5. **The public matrix on a pull request** is `ubuntu-latest × Node {22, 24} × N shards` and `macos-latest × Node 22 × N shards`; macOS on Node 24 moves to the nightly (amends D-133 r3: the required legs are the pull-request legs). The nightly runs the full matrix including macOS 24 and ONE unsharded `ubuntu-latest` Node 22 run, which is the run whose `full_seconds` the drift line reports.
+6. **The exclusive tail is a measured target.** The `[ci] resources` line gains `exclusive_seconds=` and `ai ci status` prints the exclusive share. Rein's own tail: the five "no measured installer footprint" suites join the lanes through ruling 2; the remaining eight are reviewed one by one in E-387 and each keeps its `# AIOS_EXCLUSIVE:` reason or loses the status. Target for Rein: the exclusive phase under 25 % of a leg's suite seconds; a team project is told its share, not held to it.
+7. **Required checks.** `REQUIRED_CHECK` becomes a list the renderer prints with the policy line: `fast`, each `ai ci run (<os>, node <v>, <i>/<N>)` leg, and for Rein also `privacy` and `CodeQL`. A flaky shard becomes an E-## task; it is never dropped to go green (D-133 r3 stands).
+8. **Sequence.** E-386 (harness and `ai ci run`) lands after E-382 and before E-384; E-384 renders what E-386 built; E-387 (Rein's tail) after E-386, any time. E-337's GitLab and Bitbucket wrappers inherit rulings 1–4 when they land. E-383 renames inside these files like any other.
+
+### Alternatives considered
+1. **Pass `--lanes 4` from the workflow** — rejected: only the projects whose workflow is re-rendered benefit; the default belongs where the cores are counted.
+2. **Shard by suite name hash** — rejected: name order ignores the measured times; the two longest suites in one shard is the long pole again. Bin-packing on hints is deterministic once the baseline is committed.
+3. **Keep macOS × Node 24 on every PR** — rejected: macOS runners queue longest; Node 24 on macOS exercises nothing that Node 24 on Linux plus Node 22 on macOS do not, and the nightly keeps it.
+4. **Drop macOS from PRs entirely** — rejected for now: D-132's installer move is exactly what macOS should check on the rename PR. Revisit if the queue exceeds the leg's run time for a month.
+5. **Make the fast job the merge gate and the matrix optional** — rejected: the fast tier has no census-blind safety net; the matrix is the gate, the fast job is the signal (D-133 r8 stands).
+
+### Impact
+- Unlocks: E-386, E-387; E-384 rescoped; E-337 inherits.
+- Expected: setup unchanged; the long pole on Rein from about 15 minutes to under 5 per leg with four shards and four lanes; the pull-request signal under 2 minutes. These are predictions; `ai ci status` reports the measured values.
+- Risk if wrong: a stale baseline packs lanes badly (slow, never wrong); a shard partition that changes when hints change can move a flaky suite between legs and hide it (the nightly's unsharded run is the control).
+
+### Rollback
+Per ruling: ruling 1 is the one default expression; ruling 2 deletes the file and the fallback branch; ruling 3 is `--shard` unused and `ci.shards: 1`; rulings 4–5 are the renderer's job list; ruling 7 restores the single name. Each is independent of the others.
+
+---

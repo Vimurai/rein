@@ -265,3 +265,26 @@
 ### Open risks
 - The operator's pane may prompt for `gh repo create` and the push; that is their own permission prompt.
 ---
+
+---
+## Handoff — 2026-10-29 09:50 UTC
+**From**: Architect → Engineer
+**Trigger**: E-378 step 7 published; operator requests (v0.4, complete rename) ruled — D-131, D-132, E-382, E-383
+
+### What was decided
+- **D-131 — public line starts at v0.4.0.** The tag deletion is ratified. Code version `0.4.0`; CHANGELOG `[0.4.0]` on top, the 4.0.0/3.1.0/2.0.0 entries under "Private predecessor (AI-OS, 2025–2026)"; project stamps restamp `4.0.0 → 0.4.0` through the existing unordered stamp (no refusal, no downgrade warning, no epoch); the private tag stays in ai-os-dev; the first public tag is `v0.4.0` after the rename.
+- **D-132 — complete rename** (supersedes D-125 r1/r3). Asked the operator: the command `ai` and `.ai/` STAY; everything else spelled ai-os/AI-OS/AI_OS_/aios/AIOS becomes the Rein form (name map in `.ai/blueprints/rein-rename.md` §Component 2). History is not rewritten (§Component 3 exclusions). Compatibility for one release: `~/.ai-os` moved to `~/.rein` with a symlink; env resolver REIN_X then AI_OS_X, new wins; `ai sync` rewrites settings hook paths, merge driver, rulefiles, state key. Live blueprints and architect.md: you apply the mechanical substitution in one separate commit — a ruled §35 exception.
+- **Sequence (D-132 r7):** step 8 now (ci.yml for `main`; protection: privacy + `ai ci run` + DCO required, no force-push) → fresh-clone scan → step 9 (clone switch; the operator runs `bash install-ai-os.sh && ai sync` from the public clone — the last time under that name) → **E-382** (version, Tier 2, one PR: proves the public PR flow) → **E-383** (rename, Tier 3, one PR; tag `v0.4.0` on merge) → archive ai-os-dev after E-382 merges (the passing ping-pong).
+- Fake vendor keys are assembled at runtime, never whole in a tracked file (108b5e7) — a standing rule, recorded in the blueprint's Published paragraph.
+
+### Blueprint divergence
+- NONE — the blueprints were written from the as-built state.
+
+### Next action needed (Engineer)
+- Finish E-378 steps 8–9 and the fresh-clone scan; hand back the repository URL, first commit sha, CI run ids, protection settings for P-48.
+- Then execute E-382, then E-383, in the public clone under the gates. Commit everything after the switch in the public clone only; the private clone receives nothing more.
+
+### Open risks
+- Branch protection with required PRs applies to the Triad's own commits: branch + PR + merge via gh after checks. If a required check cannot be satisfied by a PR from the same account, report it; do not weaken protection.
+- The operator's reinstall under the new name (`install-rein.sh`) is the E-383 acceptance step and needs them at the keyboard.
+---

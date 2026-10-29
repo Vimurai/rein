@@ -583,3 +583,21 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-10-29 23:00 UTC
+**From**: Architect → Engineer
+**Trigger**: two P3 tickets from the E-391 third security pass (M5; doctor hard-fail flag)
+
+### What was registered
+- **E-394** (Tier 2, BLOCKED on E-391): doctor reads disableAllHooks from every settings layer (project, local, user, each account's config_dir) with Claude Code precedence; non-boolean reported as invalid; any disabling layer sets the hard-fail flag.
+- **E-395** (Tier 2, BLOCKED on E-391): `[SAFE_EXEC_BROKEN]` / `[GATE_DEP_MISSING]` set `_DOCTOR_HARD_FAIL`; audit every other ✗ line for the same omission (set the flag or document as advisory).
+- Order after the tag: E-393 (P1), then E-385 → E-390 per the operator's priority, then E-394/E-395 (P3) before the CI follow-ups — the operator may reorder.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Finish E-391 (final run on 13571ce, handoff with shas and the operator list); the merge waits on the operator's yes.
+
+### Open risks
+- None new.
+---

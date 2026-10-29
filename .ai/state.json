@@ -3,7 +3,7 @@
   "project": {
     "current_tier": 3,
     "release_verdict": null,
-    "focus": "E-391 (hard-cut rename: command rein, skills rein-*, no compatibility layer, classifier v5; same PR as E-383, before v0.4.0) → tag → E-385 → E-390 → E-392 (Windows WSL2 leg) → E-389/E-388/E-387",
+    "focus": "E-391 (hard-cut rename, final run, merge on operator's yes) → tag v0.4.0 → E-393 (CLI_GATE bypasses, P1) → E-385 → E-390 → E-394/E-395 (doctor P3) → E-392 (Windows WSL2 leg) → E-388/E-387",
     "rein_version": "0.4.0",
     "provisioned_at": "2026-10-29T14:38:17.775Z"
   },
@@ -1270,6 +1270,42 @@
         "E-391"
       ],
       "updated_at": "2026-10-29T22:14:28.017Z"
+    },
+    {
+      "id": "E-394",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 2,
+      "description": "Make `rein doctor` read disableAllHooks from every settings layer per .ai/SECURITY.md \"E-391 / D-132 addendum 2–3\" finding M5 (P3, after E-391; behind E-393 and the identity tasks unless the operator reorders): today the doctor reads disableAllHooks only from the project's .claude/settings.json. Extend the check to .claude/settings.local.json, the user-level ~/.claude/settings.json and every registered account's <config_dir>/settings.json (the config_dir entries in ~/.rein/accounts.json), applying Claude Code's precedence so the effective value is what is reported; a non-boolean value (string \"true\", 1, null) is reported as `[HOOKS_DISABLED_INVALID] <file>` rather than treated as false; any layer that disables hooks is `✗ [HOOKS_DISABLED] <file>` and sets the doctor's hard-fail flag. Reuse the settings reader the classifier refresh already uses for the account directories (engineering-standards: no second reader). Extend the doctor suite (named) with one row per layer and one for the non-boolean value. Acceptance: each layer's disableAllHooks is detected in a throwaway HOME; the effective value follows precedence; doctor exit non-zero when any layer disables hooks; full rein ci run green.",
+      "created_at": "2026-10-29T22:59:43.479Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-391"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-391"
+      ],
+      "updated_at": "2026-10-29T22:59:43.483Z"
+    },
+    {
+      "id": "E-395",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 2,
+      "description": "Make `rein doctor` exit non-zero on [SAFE_EXEC_BROKEN] and [GATE_DEP_MISSING] per the security_engineer's E-391 third pass (P3, after E-391): src/bin/rein's _doctor_gate_report prints both lines but never sets _DOCTOR_HARD_FAIL (the flag E-391 added under D-132 addendum 4 r2), so a doctor run whose gate cannot execute still exits 0 and a scripted check (CI install proof, the operator's migration step 3) reads it as healthy. Set the flag for both lines, and audit every other `✗` line the doctor prints for the same omission — each ✗ either sets the flag or is documented in the doctor's help text as advisory, with a reason; list the audit in the handover. Extend the doctor suite (named): a HOME whose safe-exec dependency is missing → exit non-zero with [GATE_DEP_MISSING]; a broken gate script → exit non-zero with [SAFE_EXEC_BROKEN]; the advisory lines keep exit 0. Acceptance: both lines fail the doctor; the ✗ audit table is in the handover; the CI install proof asserts doctor exit 0 still passes on a healthy install; full rein ci run green.",
+      "created_at": "2026-10-29T22:59:50.395Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-391"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-391"
+      ],
+      "updated_at": "2026-10-29T22:59:50.395Z"
     }
   ],
   "stamps": [
@@ -3192,6 +3228,96 @@
       "timestamp": "2026-10-29T22:00:52.152Z",
       "summary": "E-391 step (g): command + skill substitution over the live .ai/ docs (40+31 files, 698 replacements; records and history excluded), the Architect's public-ci.md rewording, T-RENAME-001 residual reworded without the old path. Rename gate 7/0 — zero old spellings outside §Component 3.",
       "sha": "6a9cf09f79dc604c768e0302b80d6d90f94d5d81",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:18:36.143Z",
+      "summary": "E-391 F2 (D-132 addendum 4 r3): classifier OURS = the ruled opening \"<Word> Gate Tamper (D-nnn): Never disable, bypass or weaken the <Word> safe-exec gate\" (matches D-086..D-132); a user's own \"… Gate Tamper\" rule is neither replaced nor removed (E-391.02a/b). classifier_backstop 141/0.",
+      "sha": "4a66ceb6234a90a523263ad45ca53a9f77bc80ff",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:19:24.380Z",
+      "summary": "E-391 F3 (D-132 addendum 4 r4): doctor PATH shadow uses `type -ap rein`, lines read \"rein on PATH\"; gate gains the lookup pattern (type/which/hash/command -v + the old command as last word) with self-test rows; rein_ci_test E-268.02a/b no longer trip on the gate file / the predecessor CHANGELOG (243/0); SECURITY.md E-391 section worded without old literals. Gate 7/0.",
+      "sha": "bcb10395803ab82d15ffe6f3d090e00d8150e264",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:20:05.568Z",
+      "summary": "E-391 F4+F6 (D-132 addendum 4 r5): installer refuses a symlinked ~/.rein/bin (exit 3, [INSTALL_BIN_SYMLINK]) before rsync --delete and the prune; the prune skips directories; post-tool-log resolves the install's own rein first. Test E-391.01e–g.",
+      "sha": "2ddcf2e80e3b06061f50bc34f3676080c0b80152",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:24:06.072Z",
+      "summary": "E-391 F1 (D-132 addenda 4 r2, 5): shared/hook-paths.py — Rein hooks recognised by file name; doctor [HOOK_PATH_MISSING]/[GATE_UNREGISTERED] (exit 1) and [HOOK_PATH_FOREIGN]; sync replaces only install-dir or missing-path entries; installer lists projects with a stale hook path from Claude Code session dirs (bounded, read-only, printf, REIN_NO_PROJECT_SCAN). Tests E-391.03a–h, 04a–g.",
+      "sha": "bf92152be3751778a4b8477f23ded420da0e3d81",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:25:37.322Z",
+      "summary": "E-391: THREAT_MODEL T-RENAME-001 — F1 resolution and the addendum 5 r6 transcript-read note (docs only).",
+      "sha": "62213b0a071d11cd195dfe3357fb3e39ca5da811",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:38:52.802Z",
+      "summary": "E-391 re-review N1–N5: hook-paths.py classifies only the script an entry runs ($HOME, ~, $CLAUDE_PROJECT_DIR expanded; else unknown — never MISSING/ours); gate counts only exec-form under a Bash-covering matcher; [HOOKS_DISABLED]; empty hooks dir = UNREGISTERED; transcript read capped per line and file; control/bidi cwd dropped; toplevel by directory walk (no git). Tests E-391.03i–p, 04h–i.",
+      "sha": "8868099f390bb27367fd4354c1079d93d574a859",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:40:33.945Z",
+      "summary": "E-391 test fix: E-391.03k checks the kept hook through parsed JSON (settings.json escapes the quotes).",
+      "sha": "5378b9e493a35ea98a21bc4aee0cb4af59999a14",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:57:16.174Z",
+      "summary": "E-391 security third pass M1–M4, M6, M7: shell operators/-c/option args/$HOMEDIR make the script unknown (sync keeps the entry and names any it replaces); gate needs a JS-safe matcher covering all five tools, type command, timeout ≥30; check output sanitised; install-path entry ours for sync (no duplicate gates); sync helper writes no bytecode. 17 probes + E-391.03q–s.",
+      "sha": "d55bcfe47eb7ef62b450d6304131815b5a9898b5",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:59:02.569Z",
+      "summary": "E-391: security_engineer's second and third pass write-ups (SECURITY.md, THREAT_MODEL.md) — docs only; rename gate 7/0.",
+      "sha": "22d9e3052f91a35b688b8b59d19ecb7f9c2c4bcb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:59:13.971Z",
+      "summary": "E-391: .gitignore ignores Python bytecode (__pycache__/, *.pyc).",
+      "sha": "14fcf105da4cbd6180ab725b0c5a8f5796848ee8",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

@@ -209,7 +209,7 @@ _fh="$_fc/home"
 REIN_TEST_EMPTY_FALLBACK=1 tc_fixture_home "$_fh"
 _pin_node() { HOME="$_fh" bash -c '. "$HOME/.rein/shared/toolchain-pin.sh"; printf "%s" "${REIN_TC_NODE:-none}"'; }
 assert_contains "E-345.02a: the record names this host's node (its realpath, as the install records it)" \
-  "$(. "${REPO_ROOT}/src/shared/toolchain-record.sh"; ai_os_tc_realpath "$(command -v node)")" "$(_pin_node)"
+  "$(. "${REPO_ROOT}/src/shared/toolchain-record.sh"; rein_tc_realpath "$(command -v node)")" "$(_pin_node)"
 mv "$_fh/.rein/shared/toolchain.sh" "$_fc/record.moved"
 assert_contains "E-345.02b: with the fallback emptied and no record there is no node (the switch is not vacuous)" "none" "$(_pin_node)"
 

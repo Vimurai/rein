@@ -37,7 +37,7 @@ UPGRADE_MERGED=()   # E-270: filled by ensure_ai_templates, counted by do_init
 # DEVIATION FROM D-057 §3, flagged for the Architect: the ruling names REIN_LOCATE_DEV=1
 # as the dev-tree rollback. An env var cannot be the rollback channel here, because the
 # env is the attack channel. The same capability is `--dev-tree`, which a settings.json
-# cannot supply — and it is turned on by CALLING ai_os_locate_enable_dev_tree below, not by
+# cannot supply — and it is turned on by CALLING rein_locate_enable_dev_tree below, not by
 # setting a variable, so the guarantee does not depend on every caller remembering to reset
 # one (my first attempt did exactly that, and the hooks that forgot re-opened the hole).
 #
@@ -58,10 +58,10 @@ REIN_LOCATE_UNTRUSTED_ENV=1
 # script-relative, so locating the resolver cannot itself consult the visited repo.
 # ── F13: the guard must mean "my source SUCCEEDED", not "a name is defined" ──
 # bash imports exported functions from the environment at startup, so an inherited
-# `ai_os_locate` satisfies `declare -f`, the safe inline fallback is never installed, and
+# `rein_locate` satisfies `declare -f`, the safe inline fallback is never installed, and
 # the attacker's function IS the resolver — reachable on a partial or mid-upgrade install
 # missing shared/locate.sh, which is exactly the degraded state the fallback exists for.
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone rein_legacy_env_apply 2>/dev/null || true
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone rein_legacy_env_apply 2>/dev/null || true
 for _l in "${REIN}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
@@ -69,17 +69,17 @@ done
 # E-383 (D-132 r4): AI_OS_<X> → REIN_<X> when the new name is unset (locate.sh); every  (rename:legacy-fallback)
 # child `ai` spawns inherits the result. Without locate.sh there is no fallback, only new names.
 if declare -f rein_legacy_env_apply >/dev/null 2>&1; then rein_legacy_env_apply; fi
-if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${REIN}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+if ! declare -f rein_locate >/dev/null 2>&1; then
+  rein_locate() { local _c="${REIN}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
-# _ai_os_helper <logical-path> — every helper lookup in this file goes through here.
+# _rein_helper <logical-path> — every helper lookup in this file goes through here.
 # D-057 §3 names src/bin/ai, and the first pass converted only the three _locate_* wrappers
 # while EIGHT other chains kept their own order — four of them cwd-relative FIRST, which is
 # the defect in a more direct form than the original: no git repo is needed at all, so a
 # `src/shared/memory-batch-scanner.mjs` in any directory `ai sync` runs from was executed.
-_ai_os_helper() {
+_rein_helper() {
   local logical="$1" p
-  p="$(ai_os_locate "$logical" 2>/dev/null || true)"
+  p="$(rein_locate "$logical" 2>/dev/null || true)"
   [[ -n "$p" ]] && { printf '%s' "$p"; return 0; }
   # Script-relative sibling last: the install mirror still wins, and this only prevents
   # version skew between this script and the helper it drives (see _locate_* above).
@@ -93,8 +93,8 @@ _ai_os_helper() {
 }
 
 # Only now, after argv has been read and the resolver sourced.
-if [[ "$_REIN_WANT_DEV_TREE" == "1" ]] && declare -f ai_os_locate_enable_dev_tree >/dev/null 2>&1; then
-  ai_os_locate_enable_dev_tree
+if [[ "$_REIN_WANT_DEV_TREE" == "1" ]] && declare -f rein_locate_enable_dev_tree >/dev/null 2>&1; then
+  rein_locate_enable_dev_tree
 fi
 
 usage() {
@@ -227,7 +227,7 @@ _regenerate_mcp_docs() {
     return 2
   fi
   local SCRIPT=""
-  SCRIPT="$(_ai_os_helper scripts/generate_mcp_docs.mjs || true)"
+  SCRIPT="$(_rein_helper scripts/generate_mcp_docs.mjs || true)"
   if [[ -z "$SCRIPT" ]]; then
     echo "  ⚠ generate_mcp_docs.mjs not found — skipping mcp.md regeneration" >&2
     return 2
@@ -245,7 +245,7 @@ _regenerate_blueprints_index() {
     return 2
   fi
   local SCRIPT=""
-  SCRIPT="$(_ai_os_helper scripts/generate_blueprints_index.mjs || true)"
+  SCRIPT="$(_rein_helper scripts/generate_blueprints_index.mjs || true)"
   if [[ -z "$SCRIPT" ]]; then
     echo "  ⚠ generate_blueprints_index.mjs not found — skipping _INDEX.md regeneration" >&2
     return 2
@@ -273,7 +273,7 @@ _wal_checkpoint_state_db() {
   # started cwd-relative, so running `ai sync` in any directory containing
   # src/shared/wal-flusher.mjs handed THAT file to node.
   local SCRIPT=""
-  SCRIPT="$(_ai_os_helper shared/wal-flusher.mjs || true)"
+  SCRIPT="$(_rein_helper shared/wal-flusher.mjs || true)"
   if [[ -z "$SCRIPT" ]]; then
     echo "  ⚠ wal-flusher.mjs not found — skipping WAL checkpoint" >&2
     return 2
@@ -314,7 +314,7 @@ _generate_memory_palace() {
   [[ "${REIN_DISABLE_MEMORY_PALACE:-}" == "1" ]] && { echo "  ⚠ Memory Palace index skipped (REIN_DISABLE_MEMORY_PALACE=1)"; return 2; }
   command -v node >/dev/null 2>&1 || { echo "  ⚠ node not found — skipping Memory Palace index" >&2; return 2; }
   local scanner=""
-  scanner="$(_ai_os_helper shared/memory-batch-scanner.mjs || true)"
+  scanner="$(_rein_helper shared/memory-batch-scanner.mjs || true)"
   [[ -z "$scanner" ]] && { echo "  ⚠ memory-batch-scanner.mjs not found — skipping Memory Palace index" >&2; return 2; }
   # Every command below is guarded so a filesystem error can NEVER abort do_sync
   # under `set -euo pipefail` (fail-open is the load-bearing invariant — E-145 W5-T1).
@@ -603,7 +603,7 @@ PY
 # Locate the role-manifest resolver (dev tree first, then the install mirror).
 _locate_role_manifest() {
   local c
-  ai_os_locate "shared/role-manifest.mjs" && return 0
+  rein_locate "shared/role-manifest.mjs" && return 0
   # F3: keep the script-relative sibling as a LAST candidate. The shared resolver drops
   # the dev tree outside the recorded workspace, so a git worktree or a second framework
   # clone would exec a helper from a DIFFERENT version than the `ai` script that was
@@ -797,7 +797,7 @@ _provision_workspace() {
 # a later run can prune once the flag is removed).
 _locate_sync_manifest() {
   local c
-  ai_os_locate "shared/sync-manifest.mjs" && return 0
+  rein_locate "shared/sync-manifest.mjs" && return 0
   # F3: keep the script-relative sibling as a LAST candidate. The shared resolver drops
   # the dev tree outside the recorded workspace, so a git worktree or a second framework
   # clone would exec a helper from a DIFFERENT version than the `ai` script that was
@@ -869,7 +869,7 @@ _prune_workspace_dir() {
 # Provisioning now follows the binding; the directories stay vendor-named and the
 # the single src/claude adapter is untouched.
 _locate_provider_workspace() {
-  ai_os_locate "shared/provider-workspace.mjs" && return 0
+  rein_locate "shared/provider-workspace.mjs" && return 0
   local _sd; _sd="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
   local _sib="${_sd%/*}/shared/provider-workspace.mjs"
   [[ -f "$_sib" ]] && { printf '%s' "$_sib"; return 0; }
@@ -1146,7 +1146,7 @@ _provision_rules() {
 # hard max 60 (clamped, with a notice). The catastrophic set and the self-disable guard
 # still block under an override, and every bypassed call is loud (systemMessage + telemetry).
 # Run it in YOUR terminal: the analyzer blocks `ai gate` for every agent role (GATE_SELF_DISABLE).
-_gate_py() { ai_os_locate shared/gate-override.py 2>/dev/null || printf '%s' "${REIN}/shared/gate-override.py"; }
+_gate_py() { rein_locate shared/gate-override.py 2>/dev/null || printf '%s' "${REIN}/shared/gate-override.py"; }
 
 do_gate() {
   local sub="${1:-status}"; shift || true
@@ -1307,13 +1307,13 @@ _doctor_rename_report() {
 # so the message says so instead of implying sync will overwrite it.
 _doctor_gate_report() {
   local gp st
-  gp="$(_ai_os_helper shared/gate-probe.sh || true)"
+  gp="$(_rein_helper shared/gate-probe.sh || true)"
   if [[ -z "$gp" ]]; then
     echo "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — run: bash install-rein.sh"; return 0
   fi
   # shellcheck source=src/shared/gate-probe.sh
   . "$gp"
-  if st="$(ai_os_gate_probe)"; then
+  if st="$(rein_gate_probe)"; then
     echo "  ✓ safe-exec gate: ${st}"
   else
     echo "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — run: bash install-rein.sh"
@@ -1324,11 +1324,11 @@ _doctor_gate_report() {
 # does not. Neither finding is fatal.
 _doctor_comm_report() {
   local cs st
-  cs="$(ai_os_locate shared/comm-status.sh 2>/dev/null || true)"
+  cs="$(rein_locate shared/comm-status.sh 2>/dev/null || true)"
   [[ -n "$cs" ]] || { echo "  ! comm-status probe not installed — run: bash install-rein.sh"; return 0; }
   # shellcheck source=src/shared/comm-status.sh
   . "$cs"
-  st="$(ai_os_comm_status .)"
+  st="$(rein_comm_status .)"
   case "$st" in
     IGNORED)       echo "  [COMM_IGNORED] .ai/COMM.md is gitignored — run: ai sync" ;;
     UNCOMMITTED*)  echo "  [COMM_UNCOMMITTED] .ai/COMM.md has uncommitted changes — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;;
@@ -1855,7 +1855,7 @@ install_global() {
 # configured gate in front of the safe-exec gate. All reading/writing is
 # src/shared/classifier-backstop.py; `ai install` OFFERS it (y/N, default N) and never writes
 # without a TTY or under CI; `ai doctor` reports it.
-_cb_py() { ai_os_locate shared/classifier-backstop.py 2>/dev/null || printf '%s' "${REIN}/shared/classifier-backstop.py"; }
+_cb_py() { rein_locate shared/classifier-backstop.py 2>/dev/null || printf '%s' "${REIN}/shared/classifier-backstop.py"; }
 _cb_settings() { printf '%s' "${HOME}/.claude/settings.json"; }
 
 _classifier_offer() {
@@ -1990,7 +1990,7 @@ _classifier_report_one() {  # <settings.json> <account name, "" = default>
 # it could only loosen a session. Reports this pane's live record and the pre-E-294 (v1)
 # tokens, which never verify: those sessions run in the union until relaunched.
 _launch_record_prune() {  # quiet: prints the module's JSON counts or nothing
-  local lr; lr="$(ai_os_locate shared/launch-record.py || true)"
+  local lr; lr="$(rein_locate shared/launch-record.py || true)"
   [[ -n "$lr" ]] && command -v python3 >/dev/null 2>&1 || return 0
   python3 -I "$lr" prune 2>/dev/null || true
 }
@@ -1998,7 +1998,7 @@ _launch_record_prune() {  # quiet: prints the module's JSON counts or nothing
 # E-305: the gate path's pinned dependencies, and whether the mirror holds exactly them.
 _gate_pins_report() {
   local gp out rc=0
-  gp="$(ai_os_locate shared/gate-pins.mjs 2>/dev/null || true)"
+  gp="$(rein_locate shared/gate-pins.mjs 2>/dev/null || true)"
   [[ -n "$gp" ]] && command -v node >/dev/null 2>&1 || { echo "  ⚠ gate dependencies: cannot check (gate-pins.mjs or node missing)"; return 0; }
   out="$(node --no-warnings "$gp" check "${REIN}/mcp" 2>&1)" || rc=$?
   if [[ "$rc" -eq 0 ]]; then
@@ -2034,7 +2034,7 @@ else:
 
 _launch_record_report() {
   local lr out
-  lr="$(ai_os_locate shared/launch-record.py || true)"
+  lr="$(rein_locate shared/launch-record.py || true)"
   if [[ -z "$lr" ]] || ! command -v python3 >/dev/null 2>&1; then
     echo "  ⚠ launch records: cannot check (launch-record.py or python3 missing — run: bash install-rein.sh)"
     return 0
@@ -2444,7 +2444,7 @@ PY
 # architect.md, blueprints) is never written — ensure_ai_templates only creates those
 # when missing — and removal stays with `ai clean`.
 
-_upgrade_helper() { _ai_os_helper shared/project-upgrade.mjs; }
+_upgrade_helper() { _rein_helper shared/project-upgrade.mjs; }
 
 # The stamped version of the project in the cwd, or nothing. No side effects.
 _project_version() {
@@ -2523,7 +2523,7 @@ _refresh_stub() {  # <writer> <stub> — rewrite in place when stale; 0 = refres
 
 # Count of actionable legacy findings (safe + prompt) for the upgrade summary.
 _legacy_count() {
-  local h root; h="$(_ai_os_helper shared/ai-clean.mjs || true)"
+  local h root; h="$(_rein_helper shared/ai-clean.mjs || true)"
   [[ -n "$h" ]] && command -v node >/dev/null 2>&1 || { echo "?"; return 0; }
   root="$(git rev-parse --show-toplevel 2>/dev/null || pwd -P)"
   # plan --json exits 1 WITH findings (E-272): read the output, never the status.
@@ -2895,7 +2895,7 @@ PY
   echo "[MIGRATE-STATE] Writing ${TASK_COUNT} tasks to ${STATE_FILE}..."
 
   # E-325: state.json has one writer, record-store.mjs writeStateFile.
-  local _rs; _rs="$(_ai_os_helper mcp/shared/record-store.mjs || true)"
+  local _rs; _rs="$(_rein_helper mcp/shared/record-store.mjs || true)"
   if [[ -z "$_rs" ]]; then
     echo "✗ record-store.mjs not found (run: bash install-rein.sh)"
     rm -rf "$PARSED_TMPDIR"
@@ -3288,7 +3288,7 @@ PY
 # was `2>/dev/null || true` and a crashed scan printed "every server booted the build".
 _stale_server_lines() {
   command -v node >/dev/null 2>&1 || return 2
-  local probe; probe="$(ai_os_locate shared/build-stamp.mjs 2>/dev/null || true)"
+  local probe; probe="$(rein_locate shared/build-stamp.mjs 2>/dev/null || true)"
   [[ -n "${probe:-}" && -f "$probe" ]] || return 2
   local out; out="$(node --no-warnings "$probe" --stale)" || return 1
   [[ -z "$out" ]] && return 0
@@ -3399,11 +3399,11 @@ _sync_reap_step_logs() {
 # (shared/gate-probe.sh). Never repairs: reinstalling the gate is the operator's action.
 _sync_gate_check() {
   local gp st
-  gp="$(_ai_os_helper shared/gate-probe.sh || true)"
+  gp="$(_rein_helper shared/gate-probe.sh || true)"
   [[ -n "$gp" ]] || { echo "[SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — run: bash install-rein.sh" >&2; return 1; }
   # shellcheck source=src/shared/gate-probe.sh
   . "$gp"
-  if st="$(ai_os_gate_probe)"; then
+  if st="$(rein_gate_probe)"; then
     echo "  ✓ safe-exec gate: ${st}"
     return 0
   fi
@@ -3417,7 +3417,7 @@ _sync_gate_check() {
 _sync_state_import() {
   local cs out
   [[ -d .ai ]] || return 2
-  cs="$(_ai_os_helper shared/cli-state.mjs || true)"
+  cs="$(_rein_helper shared/cli-state.mjs || true)"
   [[ -n "$cs" ]] && command -v node >/dev/null 2>&1 || return 2
   out="$(node --no-warnings "$cs" state import)" || return 1
   [[ -n "$out" ]] && printf '%s\n' "$out" | sed 's/^/  /'
@@ -3482,7 +3482,7 @@ _sync_reap_failure() {
 # install keeps all three until it exits.
 _sync_reap_watcher_state() {
   local h out n
-  h="$(_ai_os_helper shared/ai-clean.mjs || true)"
+  h="$(_rein_helper shared/ai-clean.mjs || true)"
   [[ -n "$h" ]] && command -v node >/dev/null 2>&1 || return 2
   [[ "${REIN_CLEAN_DISABLE:-0}" == "1" ]] && return 2
   [[ -d .ai ]] || return 0
@@ -3501,7 +3501,7 @@ _sync_reap_watcher_state() {
 # a sync must not append to the project's LOG.md for housekeeping in HOME.
 _sync_reap_run_records() {
   local h out n
-  h="$(_ai_os_helper shared/ai-clean.mjs || true)"
+  h="$(_rein_helper shared/ai-clean.mjs || true)"
   [[ -n "$h" ]] && command -v node >/dev/null 2>&1 || return 2
   [[ "${REIN_CLEAN_DISABLE:-0}" == "1" ]] && return 2
   out="$(node "${_CI_NODE_FLAGS[@]}" "$h" apply --only dead-role-lock,dead-build-record --json)" \
@@ -3756,7 +3756,7 @@ _CI_NODE_FLAGS=(--disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning
 _report_local_ci() {
   local sha helper line
   sha="$(git rev-parse --verify --quiet HEAD 2>/dev/null)" || { echo "  - not a git repository"; return 0; }
-  helper="$(_ai_os_helper shared/ci-record.mjs || true)"
+  helper="$(_rein_helper shared/ci-record.mjs || true)"
   if [[ -z "$helper" ]] || ! command -v node >/dev/null 2>&1; then
     echo "  ✗ local CI: ci-record.mjs or node unavailable — run: ai install"; return 0
   fi
@@ -3787,7 +3787,7 @@ _report_local_ci() {
 _report_hosted_ci() {
   local root helper
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || return 0
-  helper="$(_ai_os_helper shared/hosted-ci.mjs || true)"
+  helper="$(_rein_helper shared/hosted-ci.mjs || true)"
   [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || { echo "  ✗ hosted check: hosted-ci.mjs or node unavailable — run: ai install"; return 0; }
   node --no-warnings "$helper" --root "$root" --doctor 2>/dev/null || echo "  ✗ hosted check: could not evaluate"
 }
@@ -3797,7 +3797,7 @@ _report_hosted_ci() {
 # project, and the count is the only reason an operator would think to run `ai clean`.
 _report_legacy_artefacts() {
   local helper root=""
-  helper="$(_ai_os_helper shared/ai-clean.mjs || true)"
+  helper="$(_rein_helper shared/ai-clean.mjs || true)"
   if [[ -z "$helper" ]] || ! command -v node >/dev/null 2>&1; then
     echo "  ✗ legacy artefacts: ai-clean.mjs or node unavailable — run: ai install"; return 0
   fi
@@ -3962,7 +3962,7 @@ doctor() {
     # structural classes still apply — and stays a refusal at commit time.
     if [[ -d .ai ]]; then
       echo "Privacy:"
-      _h="$(_ai_os_helper shared/publish-scan.mjs || true)"
+      _h="$(_rein_helper shared/publish-scan.mjs || true)"
       if [[ -z "$_h" ]]; then echo "  ✗ publish-scan.mjs not found — run: ai install"
       else
         echo "  $(node "${_CI_NODE_FLAGS[@]}" "$_h" privacy 2>&1 | head -1)"
@@ -4326,7 +4326,7 @@ PY
   # tasks; migrate-state only when the view is all there is. --repair runs the import.
   echo "State Health (.ai/state.sqlite):"
   local _sh
-  _sh="$(_ai_os_helper shared/cli-state.mjs || true)"
+  _sh="$(_rein_helper shared/cli-state.mjs || true)"
   if [[ -d ".ai" ]] && [[ -n "$_sh" ]] && command -v node &>/dev/null; then
     node --no-warnings "$_sh" state health $( [[ "$REPAIR" -eq 1 ]] && printf -- '--repair' ) 2>&1 \
       || echo "  ✗ state health check failed"
@@ -4338,7 +4338,7 @@ PY
   # E-341 (D-105 r1, r4): a team project's trunk — advisory, never edits the tracked team.json.
   if [[ -f ".ai/team.json" ]] && command -v node &>/dev/null; then
     local _tr _trl
-    _tr="$(_ai_os_helper shared/cli-state.mjs || true)"
+    _tr="$(_rein_helper shared/cli-state.mjs || true)"
     if [[ -n "$_tr" ]]; then
       echo ""
       echo "Team trunk (.ai/team.json):"
@@ -4454,7 +4454,7 @@ _run_env_diagnostics() {
   echo "MCP connectivity (tools/list handshake):"
   local tester="" self_dir
   self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  tester="$(_ai_os_helper shared/mcp-tester.mjs || true)"
+  tester="$(_rein_helper shared/mcp-tester.mjs || true)"
   if [[ -n "$tester" ]] && [[ -f ".mcp.json" ]] && command -v node >/dev/null 2>&1; then
     node "$tester" --config .mcp.json --timeout 2000 || fail=1
   else
@@ -4741,7 +4741,7 @@ for name, info in d.get('mcp_servers', {}).items():
   # E-305 (D-089 r3): a gate path's dependencies must be EXACTLY the pinned versions — a parser
   # is the gate's input model (shell-quote 1.12 changed what `&>` parses to, b36a818). A
   # mismatch is the moved-interpreter class: refuse, like [TOOLCHAIN_STALE].
-  local _gp; _gp="$(ai_os_locate shared/gate-pins.mjs 2>/dev/null || true)"
+  local _gp; _gp="$(rein_locate shared/gate-pins.mjs 2>/dev/null || true)"
   if [[ -n "$_gp" ]] && command -v node >/dev/null 2>&1; then
     local _gp_out _gp_rc=0
     _gp_out="$(node --no-warnings "$_gp" check "$MCP_DIR" 2>&1)" || _gp_rc=$?
@@ -4823,7 +4823,7 @@ do_add_task() {
   # not enforced by the Gate-2 pre-commit hook.)
   local self_dir; self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   local script=""
-  script="$(_ai_os_helper shared/cli-add-task.mjs || true)"
+  script="$(_rein_helper shared/cli-add-task.mjs || true)"
   if [[ -z "$script" ]]; then
     echo "ai add-task: cli-add-task.mjs not found (run: ai install)." >&2
     return 1
@@ -4864,7 +4864,7 @@ fi
 #   2. builds the provider's `launch` argv from .ai/providers.json
 #   3. exports REIN_PANE_ROLE + REIN_CALLER_ROLE into the launch environment
 #      (session-start.sh mints the E-129 token from REIN_PANE_ROLE)
-#   4. sets the pane's @ai_os_role option and pins its title to the role (E-209), so
+#   4. sets the pane's @rein_role option and pins its title to the role (E-209), so
 #      `ai start --status` reports it instead of a drifting summary title
 #
 # Usage: ai pane <architect|engineer> [-- <extra provider args>]
@@ -5277,12 +5277,12 @@ do_start() {
   done
 
   # Re-pin the role binding on every run, including an idempotent re-run over live panes.
-  # E-269 (D-073): the @ai_os_role option is the pane's role; the title is cosmetic.
+  # E-269 (D-073): the @rein_role option is the pane's role; the title is cosmetic.
   # E-315: the account option and title are for humans and --status; routing stays on the role.
   idx=0
   for r in "${roles[@]}"; do
-    _run set-option -p -t "$(_pane_at "$idx")" @ai_os_role "$r"
-    _run set-option -p -t "$(_pane_at "$idx")" @ai_os_account "${account:-default}"
+    _run set-option -p -t "$(_pane_at "$idx")" @rein_role "$r"
+    _run set-option -p -t "$(_pane_at "$idx")" @rein_account "${account:-default}"
     _run select-pane -t "$(_pane_at "$idx")" -T "${r}${account:+ · ${account}}"
     idx=$((idx + 1))
   done
@@ -5462,14 +5462,14 @@ _start_status() {  # <session> <window> <project> [origin]
     # one answer, and an operator debugging a cross-project collision needs to know whether
     # they are looking at an owned session or a leftover shared one.
     echo "ai start --status: ${session}:${window} (${wid}) [${origin}]"
-    # E-269 (D-073): the role column is the @ai_os_role option `ai pane` sets, not the
+    # E-269 (D-073): the role column is the @rein_role option `ai pane` sets, not the
     # title (Claude Code overwrites titles with its conversation summary).
-    # E-315: the account column is the @ai_os_account option `ai pane` / `ai start` set.
+    # E-315: the account column is the @rein_account option `ai pane` / `ai start` set.
     local idx role acct cmd
     while IFS='|' read -r idx role acct cmd; do
       [[ -z "$idx" ]] && continue
       printf '  pane %-3s %-12s %-12s %s\n' "$idx" "${role:-(no role)}" "${acct:-default}" "${cmd:-(no command)}"
-    done < <(tmux list-panes -t "$wid" -F '#{pane_index}|#{@ai_os_role}|#{@ai_os_account}|#{pane_current_command}' 2>/dev/null | sort -n || true)
+    done < <(tmux list-panes -t "$wid" -F '#{pane_index}|#{@rein_role}|#{@rein_account}|#{pane_current_command}' 2>/dev/null | sort -n || true)
   fi
 
   return 0
@@ -5551,7 +5551,7 @@ do_pane() {
   fi
   # E-327 (D-102 §3): the planner rule is enforced by add_task; this is the one-line notice.
   if [[ "$role" == "architect" && -f "${ai_dir}/team.json" ]] && command -v node >/dev/null 2>&1; then
-    local _tc; _tc="$(_ai_os_helper shared/cli-state.mjs || true)"
+    local _tc; _tc="$(_rein_helper shared/cli-state.mjs || true)"
     [[ -n "$_tc" ]] && ( cd "${ai_dir%/.ai}" && node --no-warnings "$_tc" team planner-check ) >&2 2>&1 || true
   fi
 
@@ -5561,7 +5561,7 @@ do_pane() {
   # record: a nested `ai pane engineer` under an Architect session would otherwise mint a less
   # restricted role. Called DIRECTLY (never in $(…) or a pipeline): the module accepts only
   # its parent's pid, and a subshell's pid is not $$ (bash 3.2 has no BASHPID).
-  local _lr; _lr="$(ai_os_locate shared/launch-record.py || true)"
+  local _lr; _lr="$(rein_locate shared/launch-record.py || true)"
   if [[ -z "$_lr" ]] || ! command -v python3 >/dev/null 2>&1; then
     echo "ai pane: launch-record.py or python3 not found — refusing to launch an unbound pane (run: ai install)." >&2
     return 2
@@ -5669,9 +5669,9 @@ do_pane() {
   # anyway; the option survives that.
   # No-op outside tmux; never fatal.
   if [[ -n "${TMUX:-}" && -n "${TMUX_PANE:-}" ]] && command -v tmux >/dev/null 2>&1; then
-    tmux set-option -p -t "$TMUX_PANE" @ai_os_role "$role" 2>/dev/null || true
+    tmux set-option -p -t "$TMUX_PANE" @rein_role "$role" 2>/dev/null || true
     local _acct_label=default; [[ -n "$_acct_dir" ]] && _acct_label="$_acct"
-    tmux set-option -p -t "$TMUX_PANE" @ai_os_account "$_acct_label" 2>/dev/null || true
+    tmux set-option -p -t "$TMUX_PANE" @rein_account "$_acct_label" 2>/dev/null || true
     tmux select-pane -t "$TMUX_PANE" -T "${role}${_acct_dir:+ · ${_acct}}" 2>/dev/null || true
     tmux set -w -t "$TMUX_PANE" allow-rename off 2>/dev/null || true
   fi
@@ -5733,7 +5733,7 @@ _find_ai_dir() {
 _locate_resolve_launch() {
   local c
   # The heaviest of the three: its stdout decides which BINARY `ai pane` execs.
-  ai_os_locate "shared/resolve-launch.mjs" && return 0
+  rein_locate "shared/resolve-launch.mjs" && return 0
   # F3: keep the script-relative sibling as a LAST candidate. The shared resolver drops
   # the dev tree outside the recorded workspace, so a git worktree or a second framework
   # clone would exec a helper from a DIFFERENT version than the `ai` script that was
@@ -5835,7 +5835,7 @@ do_ci() {
 _ci_budget() {
   local root helper
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "ai ci budget: not inside a git repository" >&2; return 2; }
-  helper="$(_ai_os_helper shared/ci-record.mjs || true)"
+  helper="$(_rein_helper shared/ci-record.mjs || true)"
   [[ -n "$helper" ]] || { echo "ai ci: ci-record.mjs not found (run: ai install)" >&2; return 2; }
   case "${1:-}" in
     "") node "${_CI_NODE_FLAGS[@]}" "$helper" budget --ai-dir "${root}/.ai" ;;
@@ -5885,7 +5885,7 @@ _ci_evals() {
 _ci_hosted() {
   local root helper
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "ai ci hosted: not inside a git repository" >&2; return 2; }
-  helper="$(_ai_os_helper shared/hosted-ci.mjs || true)"
+  helper="$(_rein_helper shared/hosted-ci.mjs || true)"
   [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || {
     echo "ai ci hosted: hosted-ci.mjs or node unavailable — run: bash install-rein.sh" >&2; return 2; }
   node --no-warnings "$helper" --root "$root" "$@"
@@ -5975,7 +5975,7 @@ _ci_host_class() {
 # every run would leave the tree dirty and each commit of it would need a run of its own.
 _ci_baseline() {
   local sha="$1" helper age out
-  helper="$(_ai_os_helper shared/ci-record.mjs || true)"
+  helper="$(_rein_helper shared/ci-record.mjs || true)"
   [[ -n "$helper" && -d "${CI_ROOT}/.ai" && -d "${CI_ROOT}/tests" ]] || return 0
   age="$(node "${_CI_NODE_FLAGS[@]}" "$helper" census-stale --ai-dir "${CI_ROOT}/.ai" --sha "$sha" 2>/dev/null || true)"
   case "$age" in
@@ -6294,7 +6294,7 @@ _ci_run() {
     # read from the suite section only. A mirror that predates ci-summary.mjs falls back to
     # the Rein line, as before.
     local runner="rein" sumhelper totals
-    sumhelper="$(_ai_os_helper shared/ci-summary.mjs || true)"
+    sumhelper="$(_rein_helper shared/ci-summary.mjs || true)"
     if [[ -n "$sumhelper" ]] && command -v node >/dev/null 2>&1; then
       totals="$(node --no-warnings "$sumhelper" "$CI_LOG" --after "[ci] ── suite:" 2>/dev/null || true)"
       runner="$(sed -nE 's/^runner=([^ ]+) .*/\1/p' <<< "$totals")"
@@ -6368,7 +6368,7 @@ _ci_run() {
       "$(cut -d' ' -f1 <<< "${_inv:--}")" "$(cut -d' ' -f2 <<< "${_inv:-- -}")" "$fast_s" \
       "$([[ -n "$shard" ]] && echo - || echo "${suite_seconds:--}")" "$([[ -n "$shard" ]] && echo - || echo "${peak_rss:--}")" \
       "$([[ -n "$shard" ]] && echo - || { sed -nE 's/^\[run\] peak_sum_rss_mb=([0-9]+).*/\1/p' "$CI_LOG" | tail -1 | grep . || echo -; })" >> "$CI_LOG"
-    budget_helper="$(_ai_os_helper shared/ci-record.mjs || true)"
+    budget_helper="$(_rein_helper shared/ci-record.mjs || true)"
     local _bout _brc=0
     if [[ "$_fast_rc" -ne 0 ]]; then
       status="FAIL"; _ci_step budget FAIL "the fast tier failed on its own (rc=${_fast_rc}) — see the fast tier section of the log"
@@ -6437,7 +6437,7 @@ _ci_record() {
     echo "ai ci: not recorded — ${CI_ROOT} has no .ai/ (run: ai init)" >&2
     return 0
   fi
-  helper="$(_ai_os_helper shared/ci-record.mjs || true)"
+  helper="$(_rein_helper shared/ci-record.mjs || true)"
   if [[ -z "$helper" ]] || ! command -v node >/dev/null 2>&1; then
     echo "ai ci: not recorded — ci-record.mjs or node unavailable (run: ai install)" >&2
     return 0
@@ -6468,7 +6468,7 @@ _ci_read() {
   done
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
     echo "ai ci ${sub}: not inside a git repository" >&2; return 2; }
-  helper="$(_ai_os_helper shared/ci-record.mjs || true)"
+  helper="$(_rein_helper shared/ci-record.mjs || true)"
   [[ -n "$helper" ]] || { echo "ai ci: ci-record.mjs not found (run: ai install)" >&2; return 2; }
   if [[ "$sub" == "list" ]]; then
     node "${_CI_NODE_FLAGS[@]}" "$helper" list --ai-dir "${root}/.ai" -n "$n"; return
@@ -6555,7 +6555,7 @@ do_clean() {
   fi
 
   local helper
-  helper="$(_ai_os_helper shared/ai-clean.mjs || true)"
+  helper="$(_rein_helper shared/ai-clean.mjs || true)"
   if [[ -z "$helper" ]] || ! command -v node >/dev/null 2>&1; then
     echo "ai clean: ai-clean.mjs or node unavailable — run: ai install" >&2; return 2
   fi
@@ -6643,7 +6643,7 @@ case "$cmd" in
   # E-333: `ai log path|recent` — the LOG file (shared per developer when team.json says so).
   # E-341 (D-105 r2): `ai trunk` — the project's trunk (team.json → origin/HEAD → main|master).
   state|task|team|log|trunk)
-    _st="$(_ai_os_helper shared/cli-state.mjs || true)"
+    _st="$(_rein_helper shared/cli-state.mjs || true)"
     [[ -n "$_st" ]] || { echo "ai ${cmd}: cli-state.mjs not found (run: bash install-rein.sh)" >&2; exit 1; }
     command -v node >/dev/null 2>&1 || { echo "ai ${cmd}: node not found" >&2; exit 1; }
     node --no-warnings "$_st" "$cmd" "${@:2}" ;;

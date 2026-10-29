@@ -40,10 +40,10 @@ unset _v _p
 # script-relative fallback — a missing mirror fails this gate closed below anyway.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null || true
 [[ -f "${_REIN_HOME_DIR}/shared/locate.sh" ]] && . "${_REIN_HOME_DIR}/shared/locate.sh"
-if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+if ! declare -f rein_locate >/dev/null 2>&1; then
+  rein_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 
 ZERO_SHA="0000000000000000000000000000000000000000"
@@ -55,7 +55,7 @@ AI_DIR="${ROOT}/.ai"
 
 # Fail CLOSED from here on: a gate that silently lets everything through when its helper
 # is missing is the pre-D-060 state with a hook that looks authoritative.
-HELPER="$(ai_os_locate shared/ci-record.mjs 2>/dev/null || true)"
+HELPER="$(rein_locate shared/ci-record.mjs 2>/dev/null || true)"
 if [[ -z "$HELPER" ]] || ! command -v node >/dev/null 2>&1; then
   echo "[CI_GATE] pre-push: ci-record.mjs or node unavailable — run: bash install-rein.sh" >&2
   exit 1

@@ -16,7 +16,7 @@
 //       names the path. Reading ~/.rein (cat, ls, node ~/.rein/shared/x.mjs) stays allowed.
 //     The ONLY writers of ~/.rein are the literal allowlist: `bash install-rein.sh`,
 //     `ai install`, `ai sync`, `ai doctor` — none of which names the path, so none trips this.
-//   isUnderAiOs(target, home) → true when a Write/Edit target resolves inside ~/.rein/
+//   isUnderRein(target, home) → true when a Write/Edit target resolves inside ~/.rein/
 //     (realpath of the deepest existing ancestor, so a not-yet-created file and a symlink
 //     into the mirror are both caught).
 
@@ -150,7 +150,7 @@ function resolveDeep(p) {
   return tail.length ? join(real, ...tail) : real;
 }
 
-export function isUnderAiOs(target, home = homedir()) {
+export function isUnderRein(target, home = homedir()) {
   if (!target) return false;
   const t = isAbsolute(target) ? target : resolve(process.cwd(), target);
   const r = resolveDeep(t);

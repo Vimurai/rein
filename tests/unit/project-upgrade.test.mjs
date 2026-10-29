@@ -289,7 +289,7 @@ const liftFn = (name) => {
   return m[0];
 };
 const PROBE = `. '${join(ROOT, "src", "shared", "comm-status.sh")}'`;
-const LOCATE_STUB = `ai_os_locate() { printf '%s' '${join(ROOT, "src")}'/"$1"; }`;
+const LOCATE_STUB = `rein_locate() { printf '%s' '${join(ROOT, "src")}'/"$1"; }`;
 
 test("the template .gitignore does not ignore .ai/COMM.md (this repo and an ai init fixture)", () => {
   const t = tmp("comm-tpl");
@@ -360,7 +360,7 @@ test("doctor: [COMM_IGNORED] with the pattern, [COMM_UNCOMMITTED] when dirty, no
   const f = fixtureRepo(t);
   try {
     const doctor = () => f.bash(`${LOCATE_STUB}\n${liftFn("_doctor_comm_report")}\n_doctor_comm_report`).stdout;
-    const probe = () => f.bash(`${PROBE}; ai_os_comm_status .`).stdout.trim();
+    const probe = () => f.bash(`${PROBE}; rein_comm_status .`).stdout.trim();
     assert.equal(probe(), "absent");
     writeFileSync(join(f.dir, ".ai", ".gitignore"), "COMM.md\n");
     writeFileSync(join(f.dir, ".ai", "COMM.md"), "a\n");

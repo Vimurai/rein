@@ -15,12 +15,12 @@ Project root: !pwd
 Rein project: !test -d .ai && echo "YES — .ai/ found" || echo "NO — run: ai init"
 DIGEST freshness: !head -2 .ai/DIGEST.md 2>/dev/null || echo "(DIGEST.md missing — run skill: ai-digest)"
 Recent log (E-333 — every developer's .ai/log/*.md when team.json shared_log is true): !ai log recent -n 5 2>/dev/null || tail -5 .ai/LOG.md 2>/dev/null || echo "(no log)"
-COMM.md (D-104): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/comm-status.sh 2>/dev/null)"; [ -n "$c" ] && . "$c" && s="$(ai_os_comm_status .)" && case "$s" in UNCOMMITTED*) echo "UNCOMMITTED (${s#UNCOMMITTED } lines) — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;; IGNORED) echo "IGNORED — run: ai sync" ;; *) echo "$s" ;; esac || echo "(comm-status probe unavailable)"
+COMM.md (D-104): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/comm-status.sh 2>/dev/null)"; [ -n "$c" ] && . "$c" && s="$(rein_comm_status .)" && case "$s" in UNCOMMITTED*) echo "UNCOMMITTED (${s#UNCOMMITTED } lines) — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;; IGNORED) echo "IGNORED — run: ai sync" ;; *) echo "$s" ;; esac || echo "(comm-status probe unavailable)"
 Open tasks: !grep "^- \[ \]" .ai/TASKS.md 2>/dev/null | head -5 || echo "(none)"
-State index (E-344, D-108): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/cli-state.mjs 2>/dev/null)"; [ -n "$c" ] && node --no-warnings "$c" state health --short 2>/dev/null || echo "(state health unavailable)"
+State index (E-344, D-108): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/cli-state.mjs 2>/dev/null)"; [ -n "$c" ] && node --no-warnings "$c" state health --short 2>/dev/null || echo "(state health unavailable)"
 Claims on the trunk (E-331, E-341): !test -f .ai/team.json && { ai task claims 2>/dev/null || echo "(ai task claims unavailable)"; } || echo "(single-operator project — no claims)"
-Incident status: !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/incident-aggregate.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null | grep -m1 '"status"' | sed -E 's/.*"status": *"([^"]+)".*/\1/' || echo "(aggregator unavailable)"
-Stale MCP servers (E-249): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/build-stamp.mjs 2>/dev/null)"; r=""; [ -n "$c" ] && r="$(node --no-warnings "$c" --stale 2>/dev/null)"; [ -n "$r" ] && printf '%s — restart the MCP servers before trusting their answers\n' "$r" || echo "none"
+Incident status: !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/incident-aggregate.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null | grep -m1 '"status"' | sed -E 's/.*"status": *"([^"]+)".*/\1/' || echo "(aggregator unavailable)"
+Stale MCP servers (E-249): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/build-stamp.mjs 2>/dev/null)"; r=""; [ -n "$c" ] && r="$(node --no-warnings "$c" --stale 2>/dev/null)"; [ -n "$r" ] && printf '%s — restart the MCP servers before trusting their answers\n' "$r" || echo "none"
 
 ## Preflight Read Order (DIGEST-First)
 
@@ -90,7 +90,7 @@ aggregator reads `~/.rein/incidents.ndjson`, groups records by
 single linear pass.
 
 **Locator chain** (mirrors E-58 / E-65 fail-open patterns):
-1. the install mirror via `ai_os_locate shared/incident-aggregate.mjs` (E-225)
+1. the install mirror via `rein_locate shared/incident-aggregate.mjs` (E-225)
 2. `${HOME}/.rein/shared/incident-aggregate.mjs` (installed mirror)
 
 **Invocation** (run silently, parse the JSON):
@@ -138,7 +138,7 @@ cross-project meta-cognition report (E-85). The helper compares
 SQLite COUNT() with optional `since_iso` clause.
 
 **Locator chain** (mirrors E-58 / E-65 / E-75 / E-83):
-1. the install mirror via `ai_os_locate shared/insights-staleness.mjs` (E-225)
+1. the install mirror via `rein_locate shared/insights-staleness.mjs` (E-225)
 2. `${HOME}/.rein/shared/insights-staleness.mjs` (installed mirror)
 
 **Invocation** (run silently, parse the JSON envelope):
@@ -149,13 +149,13 @@ SQLite COUNT() with optional `since_iso` clause.
 REIN_LOCATE_UNTRUSTED_ENV=1
 # `declare -f` inside locate.sh's own fallback asks whether a NAME is defined, and bash
 # imports EXPORTED functions from the environment at startup — so without this unset an
-# inherited `ai_os_locate` is the resolver whenever locate.sh is unreachable. The hooks
+# inherited `rein_locate` is the resolver whenever locate.sh is unreachable. The hooks
 # carry this guard (E-223 F13); the first cut of E-225 ported the pattern and not the
 # guard, and a decoy executed at session start. Sourcing is gated on the FILE so a missing
 # resolver fails CLOSED — skills may, unlike the hooks, simply report "unavailable".
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null
 [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"
-PROBE="$(ai_os_locate shared/insights-staleness.mjs 2>/dev/null)"
+PROBE="$(rein_locate shared/insights-staleness.mjs 2>/dev/null)"
 [ -n "${PROBE:-}" ] && node "${PROBE}" 2>/dev/null || echo '{"status":"UNAVAILABLE"}'
 ```
 

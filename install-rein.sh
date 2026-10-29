@@ -396,10 +396,10 @@ _record_hook_toolchain() {
   local n p nc rn rp rnc ok=1
   n="$(command -v node 2>/dev/null)"; p="$(command -v python3 2>/dev/null)"
   nc="$(command -v nice 2>/dev/null)"; [[ -n "$nc" ]] || nc=/usr/bin/nice
-  rn="$(ai_os_tc_check "$n" "${roots[@]}")"   || { echo "✗ hook toolchain: node not recorded (${n:-not found})" >&2; ok=0; }
-  rp="$(ai_os_tc_check "$p" "${roots[@]}")"   || { echo "✗ hook toolchain: python3 not recorded (${p:-not found})" >&2; ok=0; }
-  rnc="$(ai_os_tc_check "$nc" "${roots[@]}")" || { echo "✗ hook toolchain: nice not recorded (${nc})" >&2; ok=0; }
-  if [[ "$ok" -eq 1 ]] && ai_os_tc_write "${REIN}/shared/toolchain.sh" "$rn" "$rp" "$rnc"; then
+  rn="$(rein_tc_check "$n" "${roots[@]}")"   || { echo "✗ hook toolchain: node not recorded (${n:-not found})" >&2; ok=0; }
+  rp="$(rein_tc_check "$p" "${roots[@]}")"   || { echo "✗ hook toolchain: python3 not recorded (${p:-not found})" >&2; ok=0; }
+  rnc="$(rein_tc_check "$nc" "${roots[@]}")" || { echo "✗ hook toolchain: nice not recorded (${nc})" >&2; ok=0; }
+  if [[ "$ok" -eq 1 ]] && rein_tc_write "${REIN}/shared/toolchain.sh" "$rn" "$rp" "$rnc"; then
     echo "✓ Hook toolchain pinned: node ${rn} · python3 ${rp}"
     # E-305 (D-089 r3): the gate path's pinned dependencies, recorded beside the interpreters
     # (readers skip any line they do not recognise; `ai doctor` prints the set).

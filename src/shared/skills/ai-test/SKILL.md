@@ -14,16 +14,16 @@ The Tester is the third Claude role (D-069): `tester` in `.ai/roles.json`, `head
 model `sonnet`. It has no pane — `ai pane tester` exits 2 and points here.
 
 ## Dynamic Context Injection
-Test command: !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/test-command.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null || echo '{"command":null,"note":"helper unavailable — reinstall Rein"}'
+Test command: !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/test-command.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null || echo '{"command":null,"note":"helper unavailable — reinstall Rein"}'
 Open tasks requiring tests: !grep -n "E-[0-9]" .ai/TASKS.md 2>/dev/null | grep -v "\[x\]" | head -5 || echo "(all tasks complete)"
 
 ## Resolve the command and the model
 
 ```bash
 REIN_LOCATE_UNTRUSTED_ENV=1
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null
 [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"
-HELPER="$(ai_os_locate shared/test-command.mjs 2>/dev/null)"
+HELPER="$(rein_locate shared/test-command.mjs 2>/dev/null)"
 node "$HELPER"           # default:  {"command":"npm test","source":"package.json","model":"sonnet"}
 node "$HELPER" --fast    # --fast:   same command, "model":"haiku"
 ```

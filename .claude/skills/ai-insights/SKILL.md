@@ -11,9 +11,9 @@ agent: meta_analyst
 # AI-Insights — Meta-Cognition Report Generator
 
 ## Dynamic Context Injection
-Telemetry path:   !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; h="$(ai_os_locate shared/telemetry.mjs 2>/dev/null)"; [ -n "$h" ] && node -e "import(process.argv[1]).then(m => process.stdout.write(m.TELEMETRY_DB_PATH))" "$h" 2>/dev/null || echo "(helper unavailable)"
+Telemetry path:   !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; h="$(rein_locate shared/telemetry.mjs 2>/dev/null)"; [ -n "$h" ] && node -e "import(process.argv[1]).then(m => process.stdout.write(m.TELEMETRY_DB_PATH))" "$h" 2>/dev/null || echo "(helper unavailable)"
 Insights freshness: !test -f ~/.rein/INSIGHTS.md && head -3 ~/.rein/INSIGHTS.md || echo "(INSIGHTS.md absent — first run)"
-Telemetry stats:  !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; h="$(ai_os_locate shared/telemetry.mjs 2>/dev/null)"; [ -n "$h" ] && node -e "import(process.argv[1]).then(m => process.stdout.write(JSON.stringify(m.getTelemetryStats())))" "$h" 2>/dev/null || echo "(stats unavailable)"
+Telemetry stats:  !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; h="$(rein_locate shared/telemetry.mjs 2>/dev/null)"; [ -n "$h" ] && node -e "import(process.argv[1]).then(m => process.stdout.write(JSON.stringify(m.getTelemetryStats())))" "$h" 2>/dev/null || echo "(stats unavailable)"
 
 ## Why this skill exists
 
@@ -53,13 +53,13 @@ Before invoking `meta_analyst`, run the helper's `--stats` smoke:
 REIN_LOCATE_UNTRUSTED_ENV=1
 # `declare -f` inside locate.sh's own fallback asks whether a NAME is defined, and bash
 # imports EXPORTED functions from the environment at startup — so without this unset an
-# inherited `ai_os_locate` is the resolver whenever locate.sh is unreachable. The hooks
+# inherited `rein_locate` is the resolver whenever locate.sh is unreachable. The hooks
 # carry this guard (E-223 F13); the first cut of E-225 ported the pattern and not the
 # guard, and a decoy executed at session start. Sourcing is gated on the FILE so a missing
 # resolver fails CLOSED — skills may, unlike the hooks, simply report "unavailable".
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null
 [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"
-HELPER="$(ai_os_locate shared/telemetry.mjs 2>/dev/null)"
+HELPER="$(rein_locate shared/telemetry.mjs 2>/dev/null)"
 [ -n "${HELPER:-}" ] || { echo "[INSIGHTS_NO_HELPER] telemetry.mjs not found"; exit 1; }
 
 node "$HELPER" --stats

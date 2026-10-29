@@ -73,5 +73,10 @@
     "old": "plans/native-vs-aios-audit.md",
     "new": "plans/native-vs-rein-audit.md",
     "kind": "file"
+  },
+  {
+    "old": "ai_os_<x>",
+    "new": "rein_<x>",
+    "kind": "id"
   }
 ]

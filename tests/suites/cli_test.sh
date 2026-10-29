@@ -111,7 +111,7 @@ assert_status 0 "helper guards on node availability" \
   grep -q 'node not found — skipping _INDEX.md' "$BIN_AI"
 # E-223: install-first via the shared helper (was cwd-relative first).
 assert_status 0 "helper resolves the generator via the shared install-first locator" \
-  grep -q '_ai_os_helper scripts/generate_blueprints_index.mjs' "$BIN_AI"
+  grep -q '_rein_helper scripts/generate_blueprints_index.mjs' "$BIN_AI"
 
 # ── T-BPI-S05: fail-open — no .ai/blueprints → exit 0, no file written ────────
 SANDBOX="$(mktemp -d)"

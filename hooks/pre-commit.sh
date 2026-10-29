@@ -48,12 +48,12 @@ unset _v _p
 # the same judgement rather than defaulting back to trusting the environment.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
-# The guard below asks `declare -f ai_os_locate`, which means "is a name defined", NOT
+# The guard below asks `declare -f rein_locate`, which means "is a name defined", NOT
 # "did my source succeed". bash imports exported functions from the environment at
-# startup, so an inherited `ai_os_locate` satisfies it, the safe inline fallback is never
+# startup, so an inherited `rein_locate` satisfies it, the safe inline fallback is never
 # installed, and the attacker's function IS the resolver — reachable whenever
 # shared/locate.sh is absent, i.e. exactly the degraded install the fallback exists for.
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null || true
 for _l in "${_REIN_HOME_DIR}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../src/shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
@@ -61,8 +61,8 @@ done
 # Fail-open: these hooks must still run without the resolver (a missing helper is a
 # degraded gate, an aborted hook is a broken session). The fallback is the install
 # mirror alone — it never falls back to the visited repo.
-if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+if ! declare -f rein_locate >/dev/null 2>&1; then
+  rein_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 
 AI_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.ai"
@@ -95,7 +95,7 @@ check_critic_stamp_for_head() {
     GATE2_WHY="[GATE2] HEAD is not a commit in a repository that has history (an orphan branch?) — a review cannot be bound to it"
     return 1
   fi
-  helper="$(ai_os_locate shared/stamp-gate.mjs 2>/dev/null || true)"
+  helper="$(rein_locate shared/stamp-gate.mjs 2>/dev/null || true)"
   if [[ -z "$helper" ]] || ! command -v node >/dev/null 2>&1; then
     GATE2_WHY="shared/stamp-gate.mjs or node unavailable — run: bash install-rein.sh"
     return 1
@@ -238,7 +238,7 @@ fi
 # Active when the work tree, the index or HEAD carries the marker: deleting it from the work
 # tree does not turn the gate off, and staging its deletion is refused by the gate itself.
 if [[ -f "${AI_DIR}/publish.json" ]] || git cat-file -e :.ai/publish.json 2>/dev/null || git cat-file -e HEAD:.ai/publish.json 2>/dev/null; then
-  _e378_ps="$(ai_os_locate shared/publish-scan.mjs 2>/dev/null || true)"
+  _e378_ps="$(rein_locate shared/publish-scan.mjs 2>/dev/null || true)"
   if [[ -z "$_e378_ps" ]] || ! command -v node >/dev/null 2>&1; then
     echo "[COMMIT_BLOCKED] [PUBLISH_GATE] shared/publish-scan.mjs or node unavailable — run: bash install-rein.sh" >&2
     exit 1
@@ -260,7 +260,7 @@ fi
 # installed, REIN_STATE_IMPORT=0) the commit stops and names the one command that fixes it.
 check_record_parity() {
   local cs out
-  cs="$(ai_os_locate shared/cli-state.mjs || true)"
+  cs="$(rein_locate shared/cli-state.mjs || true)"
   if [[ -z "$cs" ]] || ! command -v node >/dev/null 2>&1; then
     echo "[Rein GATE 2] team project but cli-state.mjs (or node) is missing — run: bash install-rein.sh" >&2
     exit 1   # fail closed: a gate whose helper is missing does not wave commits through
@@ -594,7 +594,7 @@ _resolve_commit_role() {
 
   local se sid role lr walk
   sid="${CLAUDE_CODE_SESSION_ID:-}"
-  se="$(ai_os_locate mcp/safe-exec-mcp/index.js || true)"
+  se="$(rein_locate mcp/safe-exec-mcp/index.js || true)"
   # 1. Verified session token — the ONLY source that may unlock the stamp waiver.
   if [[ -n "$sid" && -n "$se" && -f "$se" ]] && command -v node >/dev/null 2>&1; then
     role="$(node --no-warnings "$se" --verify-role "$sid" 2>/dev/null)" && [[ -n "$role" ]] && {
@@ -602,7 +602,7 @@ _resolve_commit_role() {
   fi
 
   # 2. A live launch record on this process chain — most restricted wins, restrict-only.
-  lr="$(ai_os_locate shared/launch-record.py || true)"
+  lr="$(rein_locate shared/launch-record.py || true)"
   if [[ -n "$lr" ]] && command -v python3 >/dev/null 2>&1; then
     walk="$(python3 -I "$lr" walk 2>/dev/null)"
     case "$walk" in

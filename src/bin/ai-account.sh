@@ -210,9 +210,9 @@ _account_launch_check() {
   esac
 }
 
-_acct_in_use() {  # <name> → 0 when a tmux pane is running under it (@ai_os_account, E-315)
+_acct_in_use() {  # <name> → 0 when a tmux pane is running under it (@rein_account, E-315)
   command -v tmux >/dev/null 2>&1 || return 1
-  tmux list-panes -a -F '#{@ai_os_account}' 2>/dev/null | grep -qxF "$1"
+  tmux list-panes -a -F '#{@rein_account}' 2>/dev/null | grep -qxF "$1"
 }
 
 do_account() {

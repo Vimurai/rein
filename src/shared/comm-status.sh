@@ -5,7 +5,7 @@
 # injection line and the Stop hook. Sourced, never executed; it defines one function and
 # changes nothing.
 #
-#   ai_os_comm_status [root]   → prints exactly one of
+#   rein_comm_status [root]   → prints exactly one of
 #       tracked            committed and clean
 #       IGNORED            a .gitignore rule matches it (checked with --no-index, so a rule
 #                          still counts when the file is already tracked)
@@ -15,7 +15,7 @@
 #
 # DATA on stdout, no state in the caller (D-064 §2), always returns 0.
 
-ai_os_comm_status() {
+rein_comm_status() {
   local root="${1:-.}" f=".ai/COMM.md" n
   git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo nogit; return 0; }
   if git -C "$root" check-ignore -q --no-index -- "$f" 2>/dev/null; then

@@ -67,13 +67,13 @@ rm -rf "$_old"
 
 # ── E-225.1b: the DEGRADED-INSTALL branch (audit F1) ───────────────────────
 # The canary above runs with a healthy HOME, so it only ever exercised the branch where
-# the fix works. With locate.sh unreachable AND an inherited exported `ai_os_locate`, the
+# the fix works. With locate.sh unreachable AND an inherited exported `rein_locate`, the
 # first cut executed the decoy — `declare -f` is satisfied by an environment-supplied
 # function, which is exactly what E-223 F13 fixed for the hooks and E-225 did not port.
 _line="$(grep -m1 '^Incident status:' "${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md" | sed 's/^[^!]*!//')"
 _d="$(mktemp -d)"; mkdir -p "$_d/src/shared"
 printf 'console.log(%s);\n' "'{\"status\":\"PWNED\"}'" > "$_d/src/shared/incident-aggregate.mjs"
-_got="$( cd "$_d" && env "BASH_FUNC_ai_os_locate%%=() { printf '%s' \"\$PWD/src/shared/incident-aggregate.mjs\"; }" \
+_got="$( cd "$_d" && env "BASH_FUNC_rein_locate%%=() { printf '%s' \"\$PWD/src/shared/incident-aggregate.mjs\"; }" \
           HOME=/nonexistent bash -c "$_line" 2>/dev/null )"
 assert_not_contains "E-225.01f: a forged resolver cannot run the decoy (degraded install)" \
   "PWNED" "$_got"
@@ -86,15 +86,15 @@ for s in "${SKILLS[@]}"; do
   _n="$(basename "$(dirname "$s")")"
   assert_status 0 "E-225.02 $_n sources the install-rooted locator" \
     grep -q 'HOME}/.rein/shared/locate.sh' "$s"
-  assert_status 0 "E-225.02 $_n resolves via ai_os_locate" \
-    grep -q 'ai_os_locate shared/' "$s"
+  assert_status 0 "E-225.02 $_n resolves via rein_locate" \
+    grep -q 'rein_locate shared/' "$s"
   assert_status 0 "E-225.02 $_n declares its environment untrusted" \
     grep -q 'REIN_LOCATE_UNTRUSTED_ENV=1' "$s"
   # F1: the hooks' guard, which the first cut of E-225 omitted. `declare -f` is satisfied
   # by an inherited EXPORTED bash function, so without this an attacker-supplied
-  # ai_os_locate IS the resolver whenever locate.sh is unreachable.
+  # rein_locate IS the resolver whenever locate.sh is unreachable.
   assert_status 0 "E-225.02 $_n unsets inherited resolver functions" \
-    grep -q 'unset -f ai_os_locate' "$s"
+    grep -q 'unset -f rein_locate' "$s"
   assert_status 0 "E-225.02 $_n gates the source on the file existing" \
     grep -q '\[ -f "\${HOME}/.rein/shared/locate.sh" \]' "$s"
   # F5: ORDER is load-bearing — locate.sh fixes its install root at source time, so the
@@ -114,7 +114,7 @@ while True:
     if i == -1:
         break
     window = t[max(0, i - 500):i]
-    if 'REIN_LOCATE_UNTRUSTED_ENV=1' not in window or 'unset -f ai_os_locate' not in window:
+    if 'REIN_LOCATE_UNTRUSTED_ENV=1' not in window or 'unset -f rein_locate' not in window:
         ok = False
         break
     i += 1
@@ -130,7 +130,7 @@ done
 _t="$(mktemp -d)"; mkdir -p "$_t/src/shared/skills/bad" "$_t/src/shared/skills/good"
 printf 'S: !for c in src/shared/x.mjs "${HOME}/.rein/shared/x.mjs"; do [ -f "$c" ] && node "$c"; done\n' \
   > "$_t/src/shared/skills/bad/SKILL.md"
-printf 'S: !. "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"\n' \
+printf 'S: !. "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/x.mjs)"; node "$c"\n' \
   > "$_t/src/shared/skills/good/SKILL.md"
 printf 'A: !cat src/db/schema.sql\nB: !grep -r foo src/\nC: !test -f src/claude/agents/x.md\nD: !node -p "require(%s./package.json%s).version"\n' "'" "'" \
   > "$_t/src/shared/skills/good/DATA.md"
@@ -199,7 +199,7 @@ _probe FLAGGED 'A: !node lib/x.mjs'
 _probe FLAGGED 'A: !python3 tools/x.py'
 # Legitimate shapes. Over-blocking here would be the same defect this sprint keeps
 # removing, one layer up — a gate that fires on correct code gets routed around.
-_probe clean 'A: !. "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"'
+_probe clean 'A: !. "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/x.mjs)"; node "$c"'
 _probe clean 'A: !node /abs/x.mjs'
 _probe clean 'A: !node "${HOME}/.rein/shared/x.mjs"'
 _probe clean 'A: !cat src/db/schema.sql'
@@ -229,9 +229,9 @@ _probe FLAGGED 'A: !node helper.mjs'
 _probe FLAGGED 'A: !bash setup.sh'
 _probe FLAGGED 'A: !cd src/shared && node evil.mjs'
 _probe FLAGGED 'A: !perl src/shared/evil.pl'
-# Laundering a real path through the resolver's exemption. Inert at runtime (ai_os_locate
+# Laundering a real path through the resolver's exemption. Inert at runtime (rein_locate
 # joins onto the install root) but the rule should still say so.
-_probe FLAGGED 'A: !x=$(ai_os_locate src/shared/evil.mjs); node "$x"'
+_probe FLAGGED 'A: !x=$(rein_locate src/shared/evil.mjs); node "$x"'
 
 # Inline CODE is not a path. `-c` / `-e` / `--input-type=module` invocations flagged four
 # real skills once the rule was broadened, because an unparsed flag became the "path".
@@ -307,7 +307,7 @@ _probe FLAGGED 'A: !node "$HELPER" src/bin/ai'
 # …but STOP at a command terminator. Without that the walk ran past
 # `. "${HOME}/…/locate.sh";` into the next command and read the resolver's own logical
 # argument as a path — an over-block on the exact line this task ships.
-_probe clean 'A: !. "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"'
+_probe clean 'A: !. "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/x.mjs)"; node "$c"'
 _probe clean 'A: !bash tests/run.sh; node "$c"'
 
 
@@ -347,7 +347,7 @@ rm -rf "$_mm"
 for m in ".claude/skills/ai-preflight/SKILL.md" ".agents/skills/ai-preflight/SKILL.md"; do
   if [[ -f "${REPO_ROOT}/$m" ]]; then
     assert_status 0 "E-225.05 $m carries the resolver" \
-      grep -q 'ai_os_locate shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
+      grep -q 'rein_locate shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
     assert_status 1 "E-225.05 $m has no cwd-relative chain left" \
       grep -q 'for c in src/shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
   fi

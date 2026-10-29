@@ -183,7 +183,7 @@ source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 _S05="$(mktemp -d)"; on_exit "rm -rf '$_S05'"
 tc_overlay_home "$_S05/home" "$_S05/bin" --no-pin
 ( . "${SCRIPT_DIR}/../../src/shared/toolchain-record.sh"
-  ai_os_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/gone/node" "$_S05/bin/python3" /usr/bin/nice )
+  rein_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/gone/node" "$_S05/bin/python3" /usr/bin/nice )
 _S05_HOOK="$(tc_stale_tree "$_S05/tree" "$SSC_HOOK")"
 if [[ -x /usr/bin/env && -x "$_S05/bin/python3" ]]; then
   assert_status 0 "S05: no node → hook exits 0 (fail-open)" bash -c \
@@ -199,7 +199,7 @@ if [[ -x /usr/bin/env && -x "$_S05/bin/python3" ]]; then
   # Non-vacuity: the same tree WITH node recorded does emit the cache blob, so the
   # suppression above is caused by the missing node and nothing else.
   ( . "${SCRIPT_DIR}/../../src/shared/toolchain-record.sh"
-    ai_os_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/bin/node" "$_S05/bin/python3" /usr/bin/nice )
+    rein_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/bin/node" "$_S05/bin/python3" /usr/bin/nice )
   assert_status 0 "S05: (non-vacuity) with node recorded the same tree emits the blob" bash -c \
     "cd '${REPO_ROOT:-$PWD}' && HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
 else
@@ -460,7 +460,7 @@ assert_status 0 "hook honors REIN_DISABLE_CACHE rollback" \
 # still reach the installed server) and follows the code to where that is now decided,
 # rather than pinning a literal the implementation has moved past.
 assert_status 0 "hook resolves cache-manager via the shared install-first locator" \
-  grep -qF 'ai_os_locate mcp/cache-manager-mcp/index.js' "$PTU_HOOK"
+  grep -qF 'rein_locate mcp/cache-manager-mcp/index.js' "$PTU_HOOK"
 assert_status 0 "the resolver it bootstraps prefers the ~/.rein mirror" \
   grep -qF 'shared/locate.sh' "$PTU_HOOK"
 

@@ -37,7 +37,7 @@ const RUNS_LOADER = new RegExp([
 ].join("|"), "m");
 const HELPER      = /\btc_fixture_home\b|\btc_link_shared\b|\btc_overlay_home\b|\btcFixtureHome\b/;
 // A suite writing a toolchain record itself bypasses the one writer.
-const WRITES_TC   = /\bai_os_tc_write\b|>\s*["']?[^\s"'|;]*toolchain\.sh\b/;
+const WRITES_TC   = /\brein_tc_write\b|>\s*["']?[^\s"'|;]*toolchain\.sh\b/;
 
 export const RULES = ["FIXTURE_HOME_NO_RECORD", "TOOLCHAIN_WRITE"];
 

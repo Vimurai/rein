@@ -693,11 +693,11 @@ JSON
     "PATH='${BIN}':\$PATH HOME='${E269_HOME}' bash '${AI}' pane engineer" C-m
 
   _opt=""
-  _po_role() { _opt="$("$T" -L "$SOCK" show-options -p -v -t "$AGENT" @ai_os_role 2>/dev/null || true)"; [[ -n "$_opt" ]]; }
+  _po_role() { _opt="$("$T" -L "$SOCK" show-options -p -v -t "$AGENT" @rein_role 2>/dev/null || true)"; [[ -n "$_opt" ]]; }
   wait_for _po_role 6000 100 || true
-  assert_contains "E-269.L1: ai pane sets @ai_os_role on the pane that ran it" "engineer" "$_opt"
+  assert_contains "E-269.L1: ai pane sets @rein_role on the pane that ran it" "engineer" "$_opt"
   assert_status 0 "E-269.L2: the ACTIVE (other) pane carries no role option" \
-    test -z "$("$T" -L "$SOCK" show-options -p -v -t "$OTHER" @ai_os_role 2>/dev/null)"
+    test -z "$("$T" -L "$SOCK" show-options -p -v -t "$OTHER" @rein_role 2>/dev/null)"
   # ai pane sets the option and the title in two tmux calls (option first), so waiting for the
   # option above does not mean the title has landed yet; under host load it read stale (E-263).
   _title=""
@@ -710,13 +710,13 @@ JSON
   # Claude Code retitles its pane; the option must survive that.
   "$T" -L "$SOCK" select-pane -t "$AGENT" -T "✳ Summarise the diff"
   assert_contains "E-269.L7: the option survives a retitle" "engineer" \
-    "$("$T" -L "$SOCK" show-options -p -v -t "$AGENT" @ai_os_role 2>/dev/null)"
+    "$("$T" -L "$SOCK" show-options -p -v -t "$AGENT" @rein_role 2>/dev/null)"
 
   # `ai start --status` reports the role from the option, not the title. (Its live output
   # is covered by ai_start_test's session; here the format string is pinned. E-315 added the
-  # @ai_os_account column between them.)
-  assert_status 0 "E-269.L8: --status reads @ai_os_role" \
-    grep -q "#{pane_index}|#{@ai_os_role}|#{@ai_os_account}|#{pane_current_command}" "$AI"
+  # @rein_account column between them.)
+  assert_status 0 "E-269.L8: --status reads @rein_role" \
+    grep -q "#{pane_index}|#{@rein_role}|#{@rein_account}|#{pane_current_command}" "$AI"
 fi
 
 echo ""

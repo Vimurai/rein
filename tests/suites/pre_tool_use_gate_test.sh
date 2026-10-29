@@ -411,8 +411,8 @@ REC="${REPO_ROOT}/src/shared/toolchain-record.sh"
 # The hook as it was before E-286 (master at the E-264 merge): the fixture must FAIL on it.
 PRE_E286_REF="59b0148"
 
-REAL_NODE="$(. "$REC"; ai_os_tc_realpath "$(command -v node)")"
-REAL_PY="$(. "$REC"; ai_os_tc_realpath "$(command -v python3)")"
+REAL_NODE="$(. "$REC"; rein_tc_realpath "$(command -v node)")"
+REAL_PY="$(. "$REC"; rein_tc_realpath "$(command -v python3)")"
 
 W="$(test_tmpdir hooktc)"
 W="$(cd -P "$W" && pwd -P)"
@@ -435,7 +435,7 @@ _mkhome() {
   [[ "${2:-}" == "--no-pin" ]] || cp "$PIN" "$1/.rein/shared/toolchain-pin.sh"
 }
 TH="$W/home"; _mkhome "$TH"
-( . "$REC"; ai_os_tc_write "$TH/.rein/shared/toolchain.sh" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
+( . "$REC"; rein_tc_write "$TH/.rein/shared/toolchain.sh" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
 # The hook resolves safe-exec from the install mirror first, then its own tree — so with
 # this HOME it uses the checkout's analyzer, which is what we are testing.
 # Only the ANALYZER blocks this (DROP_TABLE); the no-node backstop would let it through.
@@ -502,7 +502,7 @@ assert_status 0 "E-286.03d: the toolchain file is PARSED, never sourced" test "$
 
 # ── E-286.4: stale recorded interpreter — fail-closed and fail-open hooks ────
 TS="$W/home-stale"; _mkhome "$TS"
-( . "$REC"; ai_os_tc_write "$TS/.rein/shared/toolchain.sh" "$W/gone/node" "$W/gone/python3" /usr/bin/nice )
+( . "$REC"; rein_tc_write "$TS/.rein/shared/toolchain.sh" "$W/gone/node" "$W/gone/python3" /usr/bin/nice )
 _clear; rc="$(_trun "$HOOK" "$BLK" HOME="$TS" PATH="$DECOY:$PATH")"
 assert_status 0 "E-286.04a: fail-closed gate with a stale record never uses the decoy PATH and still blocks (rc=${rc})" \
   test "$(_markers)" -eq 0 -a "$rc" -eq 2
@@ -518,11 +518,11 @@ ST="$W/stale-tree"; tc_stale_tree "$ST" "$HOOK" >/dev/null
 assert_status 0 "E-286.05a: the stale-tree pin really has no fallback dirs (fixture check)" \
   grep -q "for d in ${ST}/empty-fallback; do" "$ST/src/shared/toolchain-pin.sh"
 TE="$W/home-empty"; _mkhome "$TE" --no-pin
-( . "$REC"; ai_os_tc_write "$TE/.rein/shared/toolchain.sh" "$W/gone/node" "$REAL_PY" /usr/bin/nice )
+( . "$REC"; rein_tc_write "$TE/.rein/shared/toolchain.sh" "$W/gone/node" "$REAL_PY" /usr/bin/nice )
 rc="$(_trun "$ST/hooks/pre-tool-use.sh" "$OK" HOME="$TE")"
 assert_status 0 "E-286.05b: no node anywhere → the gate blocks even a harmless command (rc=${rc})" test "$rc" -eq 2
 assert_contains "E-286.05c: …with [TOOLCHAIN_STALE] naming node and the fix" "[TOOLCHAIN_STALE] node missing — run: bash install-rein.sh" "$(cat "$W/stderr")"
-( . "$REC"; ai_os_tc_write "$TE/.rein/shared/toolchain.sh" "$REAL_NODE" "$W/gone/python3" /usr/bin/nice )
+( . "$REC"; rein_tc_write "$TE/.rein/shared/toolchain.sh" "$REAL_NODE" "$W/gone/python3" /usr/bin/nice )
 rc="$(_trun "$ST/hooks/pre-tool-use.sh" "$OK" HOME="$TE")"
 assert_status 0 "E-286.05d: no python3 anywhere → no parser, no verdict, a block (rc=${rc})" test "$rc" -eq 2
 assert_contains "E-286.05e: …naming python3" "[TOOLCHAIN_STALE] python3 missing" "$(cat "$W/stderr")"
@@ -546,7 +546,7 @@ assert_status 0 "E-286.05j: ONE predicate decides the exemption, inline in the g
   bash -c "grep -q '^_is_repair_cmd()' '$HOOK' && ! grep -q 'is_repair_cmd' '$PIN'"
 
 # ── E-286.6: the recorder refuses unsafe interpreters ───────────────────────
-_chk() { ( . "$REC"; ai_os_tc_check "$@" ) >/dev/null 2>&1; echo $?; }
+_chk() { ( . "$REC"; rein_tc_check "$@" ) >/dev/null 2>&1; echo $?; }
 R="$W/rec"; mkdir -p "$R/ok" "$R/ww" "$R/wwp/child" "$R/grp" "$R/proj/bin" "$R/proj2/bin"
 for d in ok ww wwp/child grp proj/bin proj2/bin; do printf '#!/bin/sh\n' > "$R/$d/tool"; chmod 755 "$R/$d/tool"; done
 chmod 755 "$R" "$R/ok"
@@ -556,7 +556,7 @@ chmod 777 "$R/ww"; chmod 777 "$R/wwp"; chmod 755 "$R/wwp/child"
 # root is under /tmp (1777), which the recorder refuses — a property of where this host keeps
 # temp files, not of the cases (E-236: record a SKIP). 06g/06h still run on every host.
 _unsafe_anc="$( . "$REC"; p="$(cd -P "$W" && pwd -P)"; while [[ -n "$p" ]]; do
-  _ai_os_tc_safe_node "$p" 2>/dev/null || { echo "$p"; break; }; [[ "$p" == / ]] && break
+  _rein_tc_safe_node "$p" 2>/dev/null || { echo "$p"; break; }; [[ "$p" == / ]] && break
   p="${p%/*}"; [[ -z "$p" ]] && p=/; done )"
 if [[ -n "$_unsafe_anc" ]]; then
   _skip "E-286.06a-06f: the fixture's ancestor ${_unsafe_anc} is group/world-writable on this host"
@@ -583,7 +583,7 @@ else
   _skip "E-286.06j: this user is not in the admin group (gid 80)"
 fi
 ln -s "$R/elsewhere" "$W/tc-link"
-( . "$REC"; ai_os_tc_write "$W/tc-link" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
+( . "$REC"; rein_tc_write "$W/tc-link" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
 assert_status 0 "E-286.06k: the write replaces a symlink instead of following it" test -f "$W/tc-link" -a ! -L "$W/tc-link" -a ! -e "$R/elsewhere"
 _mode="$(file_mode "$W/tc-link")"
 assert_status 0 "E-286.06l: the toolchain file is written 0644 (got ${_mode})" test "$_mode" = "644"
@@ -603,7 +603,7 @@ done
 DH="$W/doctor-home"; mkdir -p "$DH/.rein/shared"
 _d="$(cd "$W" && HOME="$DH" bash "$AI_BIN" doctor 2>&1)"
 assert_contains "E-286.08a: doctor names a missing toolchain file and the fix" "hook toolchain: ${DH}/.rein/shared/toolchain.sh missing — run: bash install-rein.sh" "$_d"
-( . "$REC"; ai_os_tc_write "$DH/.rein/shared/toolchain.sh" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
+( . "$REC"; rein_tc_write "$DH/.rein/shared/toolchain.sh" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
 _d="$(cd "$W" && HOME="$DH" bash "$AI_BIN" doctor 2>&1)"
 assert_contains "E-286.08b: doctor reports the pinned versions" "✓ hook toolchain: node v" "$_d"
 

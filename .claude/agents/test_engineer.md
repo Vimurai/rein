@@ -26,7 +26,7 @@ subagent has no `allowed-tools` field). The model is set by the dispatcher — `
    read that task's line from `.ai/TASKS.md`.
 2. The diff under test: `git diff --name-only "$(ai trunk)"...HEAD` plus `git diff` for unstaged work.
 3. The project's harness. Resolve the test command with
-   `node "$(ai_os_locate shared/test-command.mjs)"` from the project root (or the dispatcher's value) and read
+   `node "$(rein_locate shared/test-command.mjs)"` from the project root (or the dispatcher's value) and read
    how that harness is laid out — in Rein itself: `tests/run.sh`, `tests/lib/`,
    `tests/suites/*.sh` and `tests/unit/*.test.mjs`.
 

@@ -17,11 +17,11 @@
 # environment (REIN_PANE_ROLE) used to decide the role here, and a project's settings `env`
 # could set it — the T-LOCATOR-001 class this closes.
 # ── E-292 (D-082 r2): a FAIL-OPEN hook that aborts on its own bug still exits 0 ──────
-# (it never blocks the session) but leaves ONE incident record via ai_os_hook_incident
+# (it never blocks the session) but leaves ONE incident record via rein_hook_incident
 # (src/shared/toolchain-pin.sh; absent before the pin loads → nothing recorded). Inline
 # string on the first executable line, builtins only. A deliberate exit keeps its code.
 # The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; ai_os_hook_incident session-start "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; rein_hook_incident session-start "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -57,12 +57,12 @@ unset _v _p
 # the same judgement rather than defaulting back to trusting the environment.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
-# The guard below asks `declare -f ai_os_locate`, which means "is a name defined", NOT
+# The guard below asks `declare -f rein_locate`, which means "is a name defined", NOT
 # "did my source succeed". bash imports exported functions from the environment at
-# startup, so an inherited `ai_os_locate` satisfies it, the safe inline fallback is never
+# startup, so an inherited `rein_locate` satisfies it, the safe inline fallback is never
 # installed, and the attacker's function IS the resolver — reachable whenever
 # shared/locate.sh is absent, i.e. exactly the degraded install the fallback exists for.
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null || true
 for _l in "${_REIN_HOME_DIR}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../src/shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
@@ -70,8 +70,8 @@ done
 # Fail-open: these hooks must still run without the resolver (a missing helper is a
 # degraded gate, an aborted hook is a broken session). The fallback is the install
 # mirror alone — it never falls back to the visited repo.
-if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+if ! declare -f rein_locate >/dev/null 2>&1; then
+  rein_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 
 set -uo pipefail
@@ -99,7 +99,7 @@ if command -v node >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
   _SID="$(printf '%s' "$PAYLOAD" | python3 -c 'import json,sys
 try: print(json.load(sys.stdin).get("session_id","") or "")
 except Exception: pass' 2>/dev/null)"
-  _s="$(ai_os_locate mcp/safe-exec-mcp/index.js || true)"
+  _s="$(rein_locate mcp/safe-exec-mcp/index.js || true)"
   if [[ -n "$_SID" && -n "$_s" ]]; then
     IFS=$'\t' read -r ROLE ROLE_LAUNCH < <(node --no-warnings "$_s" --mint-token "$_SID" "$PPID" 2>/dev/null) || true
     if [[ -z "$ROLE" ]]; then
@@ -134,7 +134,7 @@ command -v python3 >/dev/null 2>&1 || exit 0
 
 # E-291 (D-083 r7): an active operator override is announced at session start, beside the
 # role stamp, so neither the operator nor the agent can miss that the gate is lifted.
-_GO_PY="$(ai_os_locate shared/gate-override.py || true)"
+_GO_PY="$(rein_locate shared/gate-override.py || true)"
 if [[ -n "$_GO_PY" ]] && [[ -e "${HOME}/.rein/gate-override.json" || -L "${HOME}/.rein/gate-override.json" ]]; then
   _GO_OUT="$(python3 -I "$_GO_PY" check "${HOME}/.rein/gate-override.json" 2>/dev/null)" && {
     IFS=$'\t' read -r _ _GO_UNTIL _GO_REASON <<< "$_GO_OUT"
@@ -157,7 +157,7 @@ elif [[ -d ".ai" ]]; then
   [[ -n "$_IMP_BLOB" && "$_IMP_BLOB" != "$_IMP_LAST" ]] && _IMP_RUN=1
 fi
 if [[ "$_IMP_RUN" == "1" ]] && command -v node >/dev/null 2>&1; then
-  _CS="$(ai_os_locate shared/cli-state.mjs || true)"
+  _CS="$(rein_locate shared/cli-state.mjs || true)"
   if [[ -n "$_CS" ]]; then
     _IMP="$(node --no-warnings "$_CS" state import --hook session-start 2>&1 || true)"
     [[ -n "$_IMP" ]] && ROLE_STAMP="${ROLE_STAMP}
@@ -169,7 +169,7 @@ fi
 # git's own failure) so the claim gate and the banner below see teammates' claims, and lists
 # the IN_PROGRESS tasks there with their holders. No team.json: no fetch, no node.
 if [[ -f ".ai/team.json" ]] && command -v node >/dev/null 2>&1; then
-  _CS="$(ai_os_locate shared/cli-state.mjs || true)"
+  _CS="$(rein_locate shared/cli-state.mjs || true)"
   if [[ -n "$_CS" ]]; then
     _CLM="$(node --no-warnings "$_CS" task claims --fetch 2>/dev/null || true)"
     [[ -n "$_CLM" ]] && ROLE_STAMP="${ROLE_STAMP}
@@ -180,7 +180,7 @@ fi
 BLOB=""
 if [[ "${REIN_DISABLE_CACHE:-0}" != "1" ]] && command -v node >/dev/null 2>&1; then
   CM=""
-  CM="$(ai_os_locate mcp/cache-manager-mcp/index.js || true)"
+  CM="$(rein_locate mcp/cache-manager-mcp/index.js || true)"
   [[ -n "$CM" ]] && BLOB="$(node --no-warnings "$CM" --emit-context 2>/dev/null)"
 fi
 

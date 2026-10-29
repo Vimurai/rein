@@ -219,7 +219,7 @@ assert_contains "E-346.02e: counted FAILED" "failed=1" "$_mout"
 assert_status 1 "E-346.02f: and the step is not run without a log" test -e "$_lt/ran"
 
 # ── E-346 (D-109 r3): a reaper that crashes has FAILED ──────────────────────────
-# The fixture ai-clean.mjs sits in the HOME's install mirror, which ai_os_locate resolves
+# The fixture ai-clean.mjs sits in the HOME's install mirror, which rein_locate resolves
 # first for a project that is not the framework clone.
 _rh="$(test_tmpdir e346home)"
 tc_fixture_home "$_rh"   # E-345 (D-109 r1)
@@ -263,7 +263,7 @@ assert_contains "E-346.03i: and the caller survives a step that failed with no s
 
 # ── E-346 (D-109 r3): the audited steps keep their exit status ──────────────────
 printf '%s\n' 'process.stderr.write("probe crashed\n"); process.exit(3);' > "$_rh/probe.mjs"
-_sl="$( cd "$_pl" && bash -c "source '$AI' >/dev/null 2>&1; ai_os_locate() { printf %s '$_rh/probe.mjs'; }; _sync_step stale_servers _report_stale_servers; echo failed=\$_SYNC_STEPS_FAILED" 2>&1 )"
+_sl="$( cd "$_pl" && bash -c "source '$AI' >/dev/null 2>&1; rein_locate() { printf %s '$_rh/probe.mjs'; }; _sync_step stale_servers _report_stale_servers; echo failed=\$_SYNC_STEPS_FAILED" 2>&1 )"
 assert_match "E-346.04a: a crashing build-stamp probe is ✗ stale_servers, not 'no stale servers'" \
   '✗ stale_servers: probe crashed' "$_sl"
 _cp="$(test_tmpdir e346cb)/cb.py"
@@ -947,7 +947,7 @@ assert_status 0 "_regenerate_mcp_docs guards on node availability" \
 
 # E-223: install-first via the shared helper (was cwd-relative first).
 assert_status 0 "helper resolves the generator via the shared install-first locator" \
-  grep -q '_ai_os_helper scripts/generate_mcp_docs.mjs' "$BIN_AI"
+  grep -q '_rein_helper scripts/generate_mcp_docs.mjs' "$BIN_AI"
 
 # ── T-MCPDOC-S04: install-rein.sh ships scripts/ ────────────────────────────
 echo ""

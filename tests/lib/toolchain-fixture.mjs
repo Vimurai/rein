@@ -24,7 +24,7 @@ export function recordToolchain(home) {
   const shared = join(home, ".rein", "shared");
   mkdirSync(shared, { recursive: true });
   const py = execFileSync("bash", ["-c", "command -v python3 || true"], { encoding: "utf8" }).trim();
-  execFileSync("bash", ["-c", '. "$1"; ai_os_tc_write "$2" "$3" "$4" /usr/bin/nice', "_",
+  execFileSync("bash", ["-c", '. "$1"; rein_tc_write "$2" "$3" "$4" /usr/bin/nice', "_",
     join(REPO, "src", "shared", "toolchain-record.sh"), join(shared, "toolchain.sh"),
     realpathSync(process.execPath), py ? realpathSync(py) : ""]);
 }

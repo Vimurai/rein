@@ -8,11 +8,11 @@
 # Installed to ~/.rein/hooks/post-tool-use.sh
 
 # ── E-292 (D-082 r2): a FAIL-OPEN hook that aborts on its own bug still exits 0 ──────
-# (it never blocks the session) but leaves ONE incident record via ai_os_hook_incident
+# (it never blocks the session) but leaves ONE incident record via rein_hook_incident
 # (src/shared/toolchain-pin.sh; absent before the pin loads → nothing recorded). Inline
 # string on the first executable line, builtins only. A deliberate exit keeps its code (post-tool-use: `exit 1` is the deliberate test-failure lock).
 # The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|1:exit|1:exit[[:space:]]*) exit "$_rein_rc" ;; esac; ai_os_hook_incident post-tool-use "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|1:exit|1:exit[[:space:]]*) exit "$_rein_rc" ;; esac; rein_hook_incident post-tool-use "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -48,12 +48,12 @@ unset _v _p
 # the same judgement rather than defaulting back to trusting the environment.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
-# The guard below asks `declare -f ai_os_locate`, which means "is a name defined", NOT
+# The guard below asks `declare -f rein_locate`, which means "is a name defined", NOT
 # "did my source succeed". bash imports exported functions from the environment at
-# startup, so an inherited `ai_os_locate` satisfies it, the safe inline fallback is never
+# startup, so an inherited `rein_locate` satisfies it, the safe inline fallback is never
 # installed, and the attacker's function IS the resolver — reachable whenever
 # shared/locate.sh is absent, i.e. exactly the degraded install the fallback exists for.
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null || true
 for _l in "${_REIN_HOME_DIR}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../src/shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
@@ -61,14 +61,14 @@ done
 # Fail-open: these hooks must still run without the resolver (a missing helper is a
 # degraded gate, an aborted hook is a broken session). The fallback is the install
 # mirror alone — it never falls back to the visited repo.
-if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+if ! declare -f rein_locate >/dev/null 2>&1; then
+  rein_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 
 INPUT=$(cat)
 
 # ── Universal Telemetry (E-105) ──────────────────────────────────────────────
-# Background-record every tool execution. Resolution is install-first via ai_os_locate
+# Background-record every tool execution. Resolution is install-first via rein_locate
 # (E-223): the ~/.rein mirror, with the dev tree consulted only inside the framework
 # clone. The order used to be the reverse — ${PROJECT_ROOT}/src/... first — which meant
 # any visited repo could supply this helper.
@@ -77,7 +77,7 @@ INPUT=$(cat)
 # detached subshell — only the cheap helper-locator runs on the hot path.
 {
   TELEMETRY_HELPER=""
-  TELEMETRY_HELPER="$(ai_os_locate shared/telemetry.mjs || true)"
+  TELEMETRY_HELPER="$(rein_locate shared/telemetry.mjs || true)"
   if [[ -n "$TELEMETRY_HELPER" ]] && command -v node >/dev/null 2>&1; then
     (
       # Translate Claude Code PostToolUse schema → blueprint flat schema
@@ -133,7 +133,7 @@ PY
 if [[ "$INPUT" == *'mcp__task-synchronizer-mcp__update_task_status'* \
       && "${REIN_TASK_USAGE:-1}" != "0" && "${AI_TELEMETRY_DISABLE:-0}" != "1" ]]; then
   {
-    TASK_USAGE_HELPER="$(ai_os_locate shared/task-usage.mjs || true)"
+    TASK_USAGE_HELPER="$(rein_locate shared/task-usage.mjs || true)"
     if [[ -n "$TASK_USAGE_HELPER" ]] && command -v node >/dev/null 2>&1; then
       (
         TU_JSON="$(HOOK_INPUT="$INPUT" python3 - <<'PY' 2>/dev/null
@@ -186,7 +186,7 @@ PY
 )"
   if [[ "$CACHE_TRIGGER" == "REBUILD" && "${REIN_DISABLE_CACHE:-}" != "1" ]]; then
     CACHE_SERVER=""
-    CACHE_SERVER="$(ai_os_locate mcp/cache-manager-mcp/index.js || true)"
+    CACHE_SERVER="$(rein_locate mcp/cache-manager-mcp/index.js || true)"
     if [[ -n "$CACHE_SERVER" ]] && command -v node >/dev/null 2>&1; then
       ( node "$CACHE_SERVER" --build >/dev/null 2>&1 ) &
       disown 2>/dev/null || true

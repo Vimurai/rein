@@ -3,11 +3,11 @@
 # Installed to ~/.rein/hooks/stop-hook.sh and referenced in .claude/settings.json
 
 # ── E-292 (D-082 r2): a FAIL-OPEN hook that aborts on its own bug still exits 0 ──────
-# (it never blocks the session) but leaves ONE incident record via ai_os_hook_incident
+# (it never blocks the session) but leaves ONE incident record via rein_hook_incident
 # (src/shared/toolchain-pin.sh; absent before the pin loads → nothing recorded). Inline
 # string on the first executable line, builtins only. A deliberate exit keeps its code.
 # The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; ai_os_hook_incident stop-hook "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; rein_hook_incident stop-hook "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -43,12 +43,12 @@ unset _v _p
 # the same judgement rather than defaulting back to trusting the environment.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
-# The guard below asks `declare -f ai_os_locate`, which means "is a name defined", NOT
+# The guard below asks `declare -f rein_locate`, which means "is a name defined", NOT
 # "did my source succeed". bash imports exported functions from the environment at
-# startup, so an inherited `ai_os_locate` satisfies it, the safe inline fallback is never
+# startup, so an inherited `rein_locate` satisfies it, the safe inline fallback is never
 # installed, and the attacker's function IS the resolver — reachable whenever
 # shared/locate.sh is absent, i.e. exactly the degraded install the fallback exists for.
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null || true
 for _l in "${_REIN_HOME_DIR}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../src/shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
@@ -56,8 +56,8 @@ done
 # Fail-open: these hooks must still run without the resolver (a missing helper is a
 # degraded gate, an aborted hook is a broken session). The fallback is the install
 # mirror alone — it never falls back to the visited repo.
-if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+if ! declare -f rein_locate >/dev/null 2>&1; then
+  rein_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 
 AI_DIR="$(pwd)/.ai"
@@ -99,7 +99,7 @@ fi
 # written at all — the placeholder below never reaches DIGEST.md.
 if [[ "$SUMMARY" != "auto-stamped by Stop hook" ]]; then
   _E379_RED=""
-  _E379_PS="$(ai_os_locate shared/publish-scan.mjs || true)"
+  _E379_PS="$(rein_locate shared/publish-scan.mjs || true)"
   if [[ -n "$_E379_PS" ]] && command -v node >/dev/null 2>&1; then
     _E379_RED="$(printf '%s' "$SUMMARY" | node --no-warnings "$_E379_PS" redact ".ai/DIGEST.md" "$(pwd)" 2>/dev/null || true)"
   fi
@@ -116,7 +116,7 @@ ACTOR="Claude"
 _E213_ROLE="${REIN_PANE_ROLE:-${REIN_CALLER_ROLE:-engineer}}"
 case "$_E213_ROLE" in architect|engineer) ;; *) _E213_ROLE="engineer" ;; esac
 if command -v node >/dev/null 2>&1; then
-  for _pa in "$(ai_os_locate shared/provider-adapter.mjs || true)"; do
+  for _pa in "$(rein_locate shared/provider-adapter.mjs || true)"; do
     if [[ -n "$_pa" && -f "$_pa" ]]; then
       _E213_PROV="$(node --no-warnings -e '
 const { pathToFileURL } = require("node:url");
@@ -180,10 +180,10 @@ fi
 # E-338 (D-104 r4c): a handoff written and not committed is invisible to the other clone.
 # Report it once per stop; never commit — the hook has no role for the message and the
 # index may hold half a task (the reason the skills use `git commit --only`).
-_COMM_PROBE="$(ai_os_locate shared/comm-status.sh 2>/dev/null || true)"
+_COMM_PROBE="$(rein_locate shared/comm-status.sh 2>/dev/null || true)"
 if [[ -n "$_COMM_PROBE" ]]; then
   . "$_COMM_PROBE"
-  _COMM_ST="$(ai_os_comm_status "$(pwd)")"
+  _COMM_ST="$(rein_comm_status "$(pwd)")"
   if [[ "$_COMM_ST" == UNCOMMITTED* ]]; then
     echo "[COMM_UNCOMMITTED] .ai/COMM.md has uncommitted changes — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" >&2
   fi

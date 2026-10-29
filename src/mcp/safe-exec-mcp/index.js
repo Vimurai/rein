@@ -29,7 +29,7 @@ import {
   analyzeArchitectWrites,
 } from "./architect-writes.mjs";
 import { containsSecret } from "./secret-rule.mjs";
-import { selfDisableHits, isUnderAiOs } from "./gate-guard.mjs";
+import { selfDisableHits, isUnderRein } from "./gate-guard.mjs";
 import { stripInertHeredocs } from "./heredoc.mjs";
 import { codeStrings } from "./code-strings.mjs";
 import { gitRedirectHits } from "./git-redirect.mjs";
@@ -584,9 +584,9 @@ function _gateFlags(fromIdx) {
 export function pathAnalysis(target, role, { projectRoot = findProjectRootFrom(process.cwd()), home } = {}) {
   // E-291 (D-083 r6): ~/.rein/** (hooks, gate, secrets, the override file) is protected
   // for EVERY role — the Write/Edit tools are the other way an agent could disable the gate.
-  let underAiOs = false;
-  try { underAiOs = isUnderAiOs(target, home); } catch { underAiOs = true; }   // fail closed
-  if (underAiOs) return { blocked: true, id: "GATE_SELF_DISABLE", reason: "inside ~/.rein/" };
+  let underRein = false;
+  try { underRein = isUnderRein(target, home); } catch { underRein = true; }   // fail closed
+  if (underRein) return { blocked: true, id: "GATE_SELF_DISABLE", reason: "inside ~/.rein/" };
   if (role !== ARCHITECT) return { blocked: false };
   const v = architectPathVerdict(target, projectRoot);
   return v.blocked ? { blocked: true, id: "ARCH_WRITE_OUTSIDE_SCOPE", reason: v.reason } : { blocked: false };

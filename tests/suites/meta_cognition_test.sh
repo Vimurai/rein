@@ -170,7 +170,7 @@ assert_status 0 "skill references telemetry.mjs locator chain" \
 # is install-first by policy. Same INTENT (the installed helper is reachable), asserted
 # where the code now decides it.
 assert_status 0 "skill resolves telemetry via the shared install-first locator" \
-  grep -q 'ai_os_locate shared/telemetry.mjs' "$SKILL_SRC"
+  grep -q 'rein_locate shared/telemetry.mjs' "$SKILL_SRC"
 
 # Skill respects AI_TELEMETRY_DISABLE rollback wiring.
 assert_status 0 "skill documents AI_TELEMETRY_DISABLE rollback" \
@@ -301,7 +301,7 @@ assert_status 0 "Step 7 references blueprint"          \
 # rewritten to the policy that replaced it rather than relaxed — pinning the old text
 # would have been pinning the bug.
 assert_status 0 "Step 7 resolves the probe via the shared install-first locator" \
-  grep -q 'ai_os_locate shared/insights-staleness.mjs' "$PREFLIGHT_SKILL_SRC"
+  grep -q 'rein_locate shared/insights-staleness.mjs' "$PREFLIGHT_SKILL_SRC"
 assert_status 1 "Step 7 no longer names a cwd-relative candidate" \
   grep -qE 'for c in src/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
 assert_status 0 "Step 7 names locator chain (installed)" \

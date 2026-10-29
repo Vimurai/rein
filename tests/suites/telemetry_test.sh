@@ -174,7 +174,7 @@ assert_status 0 "hook references --record-tool" \
 # hook. Resolution is now install-first through the shared resolver, and the dev tree is
 # reachable only inside the framework clone.
 assert_status 0 "hook resolves telemetry via the shared install-first locator" \
-  grep -qE 'ai_os_locate shared/telemetry\.mjs' "$HOOK"
+  grep -qE 'rein_locate shared/telemetry\.mjs' "$HOOK"
 assert_status 1 "hook no longer prefers the visited repo's own src/shared copy" \
   bash -c "sed 's/[[:space:]]*#.*\$//' '$HOOK' | grep -qE 'show-toplevel.*src/shared/telemetry'"
 
@@ -361,7 +361,7 @@ echo "  [E-259.1] static contract"
 assert_status 1 "E-259.01a: the E-155 aggregator is gone from telemetry.mjs and task-synchronizer" \
   grep -qE 'recordTaskVelocityForTask|usage\.sqlite' "$TELEMETRY" "$SYNC"
 assert_status 0 "E-259.01b: the hook locates the reader install-first" \
-  grep -qF 'ai_os_locate shared/task-usage.mjs' "$HOOK"
+  grep -qF 'rein_locate shared/task-usage.mjs' "$HOOK"
 assert_status 0 "E-259.01c: the hook feeds the reader on stdin, not argv" \
   grep -qE 'printf .%s. "\$TU_JSON" \| "\$\{REIN_TC_NICE:-nice\}" -n 10 "\$\{REIN_TC_NODE:-node\}" "\$TASK_USAGE_HELPER" --record' "$HOOK"
 # E-286: nice re-resolves its target through PATH, so both are named by absolute path.

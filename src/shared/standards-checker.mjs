@@ -424,8 +424,8 @@ export const RULE_REGISTRY = {
 
       if (!bad && invokes) {
         const scrubbed = line.replace(
-          /ai_os_locate\s+(["'`]?)([\w@-]+\/[\w.@-]+)\1/g,
-          "ai_os_locate _",
+          /rein_locate\s+(["'`]?)([\w@-]+\/[\w.@-]+)\1/g,
+          "rein_locate _",
         );
         const bare = BARE_EXEC_PATH.exec(scrubbed);
         if (bare && isProjectControlled(bare[2]) && !isAccepted(bare[2])) bad = bare[2];
@@ -436,7 +436,7 @@ export const RULE_REGISTRY = {
         rule_id: ctx.rule.rule_id,
         severity: "error",
         line: num,
-        detail: `executable markdown hands an interpreter a project-controlled path ('${bad}') — resolve it with ai_os_locate: ${line.trim().slice(0, 70)}`,
+        detail: `executable markdown hands an interpreter a project-controlled path ('${bad}') — resolve it with rein_locate: ${line.trim().slice(0, 70)}`,
       });
     }
     return out.length ? out : null;

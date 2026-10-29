@@ -16,7 +16,7 @@
 #   tc_fixture_home <home>
 #       E-345 (D-109 r1): THE way to make a fixture HOME that a hook, `ai`, or a pin-loading
 #       script runs under. Writes <home>/.rein/shared/toolchain.sh through the installer's
-#       own ai_os_tc_write with the host's resolved node, python3 and nice — the values
+#       own rein_tc_write with the host's resolved node, python3 and nice — the values
 #       install-rein.sh records — and puts this tree's toolchain-pin.sh beside it, as the
 #       install does. The hooks' fallback dir list is never the answer (D-109 r1).
 #       REIN_TEST_EMPTY_FALLBACK=1 (a harness switch, never read by production code) writes
@@ -59,12 +59,12 @@ tc_overlay_home() {
     cp "${_TC_FIX_REPO}/src/shared/toolchain-pin.sh" "$fh/.rein/shared/"
   fi
   local rn rp
-  rn="$(. "${_TC_FIX_REPO}/src/shared/toolchain-record.sh"; ai_os_tc_realpath "$(command -v node)")"
-  rp="$(. "${_TC_FIX_REPO}/src/shared/toolchain-record.sh"; ai_os_tc_realpath "$(command -v python3)")"
+  rn="$(. "${_TC_FIX_REPO}/src/shared/toolchain-record.sh"; rein_tc_realpath "$(command -v node)")"
+  rp="$(. "${_TC_FIX_REPO}/src/shared/toolchain-record.sh"; rein_tc_realpath "$(command -v python3)")"
   [[ -n "$rn" ]] && ln -sf "$rn" "$bin/node"
   [[ -n "$rp" ]] && ln -sf "$rp" "$bin/python3"
   ( . "${_TC_FIX_REPO}/src/shared/toolchain-record.sh"
-    ai_os_tc_write "$fh/.rein/shared/toolchain.sh" "$bin/node" "$bin/python3" /usr/bin/nice )
+    rein_tc_write "$fh/.rein/shared/toolchain.sh" "$bin/node" "$bin/python3" /usr/bin/nice )
 }
 
 # _tc_pin_emptied <src-pin> <dest-pin> <empty-dir> — the pin with both fallback halves emptied.
@@ -97,10 +97,10 @@ tc_fixture_home() {
     cp "$pin" "$fh/.rein/shared/toolchain-pin.sh"
   fi
   ( . "${_TC_FIX_REPO}/src/shared/toolchain-record.sh"
-    rn="$(ai_os_tc_realpath "$(command -v node)")" || exit 1
-    rp="$(ai_os_tc_realpath "$(command -v python3)")" || rp=""
-    rc="$(ai_os_tc_realpath "$(command -v nice)")" || rc=/usr/bin/nice
-    ai_os_tc_write "$fh/.rein/shared/toolchain.sh" "$rn" "$rp" "$rc" ) \
+    rn="$(rein_tc_realpath "$(command -v node)")" || exit 1
+    rp="$(rein_tc_realpath "$(command -v python3)")" || rp=""
+    rc="$(rein_tc_realpath "$(command -v nice)")" || rc=/usr/bin/nice
+    rein_tc_write "$fh/.rein/shared/toolchain.sh" "$rn" "$rp" "$rc" ) \
     || _tc_fixture_fail "could not record this host's node/python3 for $fh"
 }
 

@@ -67,9 +67,9 @@ if skip_unless_cmd tmux "E-227.01–02, E-269.S: ai start --dry-run plans tmux p
   assert_match "E-227.01f: titles are pinned in the same order" \
     'select-pane -t pane0 -T architect' "$_out"
   # E-269 (D-073): the role binding is a TARGETED pane option, set before the cosmetic title.
-  assert_match "E-269.S1: the re-pin sets @ai_os_role on the targeted pane" \
-    'set-option -p -t pane0 @ai_os_role architect' "$_out"
-  assert_match "E-269.S2: and on the second pane" 'set-option -p -t pane1 @ai_os_role engineer' "$_out"
+  assert_match "E-269.S1: the re-pin sets @rein_role on the targeted pane" \
+    'set-option -p -t pane0 @rein_role architect' "$_out"
+  assert_match "E-269.S2: and on the second pane" 'set-option -p -t pane1 @rein_role engineer' "$_out"
   assert_status 1 "E-269.S3: no untargeted select-pane -T remains" \
     bash -c "printf '%s\n' \"\$1\" | grep -E 'select-pane -T'" _ "$_out"
   rm -rf "$_p"
@@ -346,7 +346,7 @@ if skip_unless_cmd tmux "E-252 live session-isolation layer"; then
   # --status and --kill find the session BY STAMP and say how they found it.
   _st="$( cd "$_pA" && PATH="$_shim2:$PATH" bash "$AI" start --status 2>&1 )"
   assert_contains "E-252.04a: --status names the owned session" "$_sA" "$_st"
-  # E-315: the account column, read from the @ai_os_account option the re-pin sets.
+  # E-315: the account column, read from the @rein_account option the re-pin sets.
   assert_match "E-315.S07: --status prints an account column per pane" 'engineer +default ' "$_st"
   assert_contains "E-252.04b: and reports how it was found" "[owned]" "$_st"
 
@@ -455,7 +455,7 @@ assert_status 0 "E-315.S01a: --dry-run --account leaves start.json byte-identica
 assert_contains "E-315.S01b: …and says what it would bind" "would bind account 'work'" "$_out"
 assert_contains "E-315.S01c: the banner names the account and its dir" "account work (~/.claude-work)" "$_out"
 if skip_unless_cmd tmux "E-315.S01d–e: the account in the planned tmux panes"; then
-  assert_contains "E-315.S01d: the pane option carries the account" "@ai_os_account work" "$_out"
+  assert_contains "E-315.S01d: the pane option carries the account" "@rein_account work" "$_out"
   assert_contains "E-315.S01e: the title reads <role> · <account>" '-T engineer\ ·\ work' "$_out"
 fi
 

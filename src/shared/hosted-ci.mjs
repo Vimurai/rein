@@ -174,7 +174,7 @@ export function detectProvider(url) {
 }
 
 /** Is <root> the Rein repository itself? Its installer at the root and its package name. */
-export function isAiOsRepo(root) {
+export function isReinRepo(root) {
   if (!existsSync(join(root, "install-rein.sh"))) return false;
   try { return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).name === "@vimurai/rein"; } catch { return false; }
 }
@@ -196,7 +196,7 @@ export function pinnedVersion(root) {
  * project has no pinned version, or a pinned value / source falls outside the plain charset.
  */
 export function bootstrapFor(root, { reinSource } = {}) {
-  if (isAiOsRepo(root)) {
+  if (isReinRepo(root)) {
     return { variant: "self", command: SELF_BOOTSTRAP,
       note: "This IS the Rein repository: install from the checked-out commit — the code under test." };
   }

@@ -47,7 +47,7 @@
 {"label":"E-231.02 allows: bash -c npm query","rule":"skill_locator_install_first","line":"Check: !bash -c \"npm outdated\"","want":"MISS"},
 {"label":"E-231.02 allows: bash -c absolute path","rule":"skill_locator_install_first","line":"Check: !bash -c \"node /usr/local/bin/tool.mjs\"","want":"MISS"},
 {"label":"E-231.02 allows: bash -c home-anchored path","rule":"skill_locator_install_first","line":"Check: !bash -c \"node ~/.rein/shared/x.mjs\"","want":"MISS"},
-{"label":"E-231.02 allows: bash -c resolver call","rule":"skill_locator_install_first","line":"Check: !bash -c \"ai_os_locate shared/incident.mjs\"","want":"MISS"},
+{"label":"E-231.02 allows: bash -c resolver call","rule":"skill_locator_install_first","line":"Check: !bash -c \"rein_locate shared/incident.mjs\"","want":"MISS"},
 {"label":"E-231.02 allows: bash -c allowlisted suite","rule":"skill_locator_install_first","line":"Check: !bash -c \"bash tests/run.sh\"","want":"MISS"},
 {"label":"E-231.02 allows: bash -c variable operand","rule":"skill_locator_install_first","line":"Check: !bash -c \"node \\\"$HELPER\\\"\"","want":"MISS"},
 {"label":"E-231.02 allows: eval of a command substitution","rule":"skill_locator_install_first","line":"Check: !eval \"$(command -v node)\"","want":"MISS"},

@@ -80,7 +80,7 @@
       "rule_id": "skill_locator_install_first",
       "severity": "error",
       "threshold": 0,
-      "description": "An EXECUTABLE markdown line (a `!`-prefixed line in a skill/agent file, or a line inside a bash/js/python fence) must not execute a helper by a cwd- or repo-relative path. `!`-lines are auto-executed at session start, so a chain beginning src/shared/x.mjs runs the VISITED project's copy — T-LOCATOR-001. Resolve through `ai_os_locate` after sourcing ${HOME}/.rein/shared/locate.sh. Only paths with an EXECUTABLE extension count: reading the project's own src/db/schema.sql or grepping src/ is legitimate and must not be flagged. Bypass: REIN_STANDARDS_SKIP=skill-locator.",
+      "description": "An EXECUTABLE markdown line (a `!`-prefixed line in a skill/agent file, or a line inside a bash/js/python fence) must not execute a helper by a cwd- or repo-relative path. `!`-lines are auto-executed at session start, so a chain beginning src/shared/x.mjs runs the VISITED project's copy — T-LOCATOR-001. Resolve through `rein_locate` after sourcing ${HOME}/.rein/shared/locate.sh. Only paths with an EXECUTABLE extension count: reading the project's own src/db/schema.sql or grepping src/ is legitimate and must not be flagged. Bypass: REIN_STANDARDS_SKIP=skill-locator.",
       "auto_fix_available": false,
       "applies_to": [
         "src/**/SKILL.md",

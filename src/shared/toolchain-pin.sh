@@ -22,7 +22,7 @@
 
 REIN_TC_FALLBACK_PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin"
 
-_ai_os_tc_load() {
+_rein_tc_load() {
   local file="${HOME}/.rein/shared/toolchain.sh" line key val
   local re='^(REIN_TC_NODE|REIN_TC_PYTHON3|REIN_TC_NICE|REIN_TC_RECORDED)=([A-Za-z0-9._/@+:-]+)$'
   REIN_TC_NODE=""; REIN_TC_PYTHON3=""; REIN_TC_NICE=""; REIN_TC_RECORDED=""; REIN_TC_STALE=0
@@ -58,30 +58,30 @@ _ai_os_tc_load() {
   export PATH
 }
 
-_ai_os_tc_load
+_rein_tc_load
 
 if [[ -n "$REIN_TC_NODE" ]]; then node() { "$REIN_TC_NODE" "$@"; }; fi
 if [[ -n "$REIN_TC_PYTHON3" ]]; then python3() { "$REIN_TC_PYTHON3" -I "$@"; }; fi
 
-# ai_os_tc_missing → the first interpreter a fail-closed gate cannot run, or nothing.
-ai_os_tc_missing() {
+# rein_tc_missing → the first interpreter a fail-closed gate cannot run, or nothing.
+rein_tc_missing() {
   [[ -n "$REIN_TC_NODE" ]] || { printf 'node'; return 0; }
   [[ -n "$REIN_TC_PYTHON3" ]] || { printf 'python3'; return 0; }
   return 1
 }
 
-# ai_os_hook_incident <hook> <rc> <line> — E-292 (D-082 r2): a FAIL-OPEN hook that aborted on
+# rein_hook_incident <hook> <rc> <line> — E-292 (D-082 r2): a FAIL-OPEN hook that aborted on
 # its own bug still exits 0 but leaves ONE incident record (~/.rein/incidents.ndjson via
 # incident-append.mjs). Fixed fields only — never the payload, the command or stderr. Detached
 # with every stream closed, so neither the hook's latency budget nor Claude Code's wait on the
 # hook's pipes is touched. The tracker's env opt-out is dropped for this one write: a project's
 # settings `env` reaches hooks and must not be able to hide a hook's own failure.
-ai_os_hook_incident() {
+rein_hook_incident() {
   [[ -n "$REIN_TC_NODE" && "$1" =~ ^[a-z-]+$ && "$2" =~ ^[0-9]+$ && "$3" =~ ^[0-9]+$ ]] || return 0
-  # Install-first like ai_os_locate; a hook that aborts BEFORE sourcing locate.sh (most source
+  # Install-first like rein_locate; a hook that aborts BEFORE sourcing locate.sh (most source
   # it after this pin) still reaches the install mirror.
   local w=""
-  declare -f ai_os_locate >/dev/null 2>&1 && w="$(ai_os_locate shared/incident-append.mjs 2>/dev/null)"
+  declare -f rein_locate >/dev/null 2>&1 && w="$(rein_locate shared/incident-append.mjs 2>/dev/null)"
   [[ -n "$w" ]] || w="${HOME}/.rein/shared/incident-append.mjs"
   [[ -f "$w" ]] || return 0
   ( unset AI_INCIDENT_TRACKER_DISABLE INCIDENT_ROTATE_LINES

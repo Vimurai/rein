@@ -67,10 +67,10 @@ fi
 _REIN_LOCATE_DEV_TREE=0
 
 # Call AFTER parsing argv, only for an explicit user-supplied flag.
-ai_os_locate_enable_dev_tree() { _REIN_LOCATE_DEV_TREE=1; }
+rein_locate_enable_dev_tree() { _REIN_LOCATE_DEV_TREE=1; }
 
-# ai_os_is_framework_clone — 0 when the current git toplevel is the Rein framework clone.
-ai_os_is_framework_clone() {
+# rein_is_framework_clone — 0 when the current git toplevel is the Rein framework clone.
+rein_is_framework_clone() {
   local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" || return 1
   [[ -n "$top" ]] || return 1
 
@@ -120,8 +120,8 @@ except Exception:
   [[ "$name" == "@vimurai/rein" ]]
 }
 
-# ai_os_locate <logical-path> — print the resolved absolute path, or return 1.
-ai_os_locate() {
+# rein_locate <logical-path> — print the resolved absolute path, or return 1.
+rein_locate() {
   local logical="${1:-}"
   [[ -n "$logical" ]] || return 1
 
@@ -140,12 +140,12 @@ ai_os_locate() {
   # REIN_LOCATE_DEV bypasses the framework-clone test entirely, so it is honoured only
   # when the environment is trusted. Under an untrusted env it is ignored outright.
   # The dev tree is reachable two ways: REIN_LOCATE_DEV in a TRUSTED env, or an explicit
-  # `ai_os_locate_enable_dev_tree` call (i.e. `ai --dev-tree`), which is honoured under an
+  # `rein_locate_enable_dev_tree` call (i.e. `ai --dev-tree`), which is honoured under an
   # untrusted env because a function call is not an environment value.
   if [[ ( "${REIN_LOCATE_DEV:-0}" == "1" && "${REIN_LOCATE_UNTRUSTED_ENV:-0}" != "1" ) \
         || "${_REIN_LOCATE_DEV_TREE}" == "1" ]] && [[ -n "$dev" ]]; then
     candidates=("$dev" "$dev_alt" "$install")
-  elif [[ -n "$dev" ]] && ai_os_is_framework_clone; then
+  elif [[ -n "$dev" ]] && rein_is_framework_clone; then
     candidates=("$dev" "$dev_alt" "$install")
   else
     # The security-relevant branch: a downstream project's own src/ is NOT a candidate.

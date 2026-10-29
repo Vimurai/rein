@@ -7,11 +7,11 @@
 # the gate the hook runs has a verdict, and the two cannot drift apart. Before this file the
 # hook held the only copy and a sync could leave it broken while reporting "13 ok".
 #
-#   ai_os_gate_bounded_node <args…>        node under a 10 s wall clock (perl alarm)
-#   ai_os_gate_analyze <se> <cmd> [flags…]  report on stdout, the analyzer's rc (142 → 4)
-#   ai_os_gate_analyze_path <se> <path> [flags…]   the same for --check-path
-#   ai_os_gate_has_verdict <report>         0 when the report carries a `Verdict:` line
-#   ai_os_gate_probe                        runs `true` through the mirror's analyzer;
+#   rein_gate_bounded_node <args…>        node under a 10 s wall clock (perl alarm)
+#   rein_gate_analyze <se> <cmd> [flags…]  report on stdout, the analyzer's rc (142 → 4)
+#   rein_gate_analyze_path <se> <path> [flags…]   the same for --check-path
+#   rein_gate_has_verdict <report>         0 when the report carries a `Verdict:` line
+#   rein_gate_probe                        runs `true` through the mirror's analyzer;
 #                                           prints PASS, or the reason there is no verdict
 #
 # DATA on stdout and the status as the return code; no state is set in the caller (D-064 §2).
@@ -25,7 +25,7 @@
 # perl can only exec a FILE, and after the pin `node` is a shell function — so the analyzer
 # is named by its absolute path (the pin's record, else a PATH search on the fixed PATH).
 # The hook's prologue drops PERL* (PERL5OPT/PERL5LIB would load a project's code into the gate).
-ai_os_gate_bounded_node() {
+rein_gate_bounded_node() {
   local n="${REIN_TC_NODE:-}"
   [[ -n "$n" ]] || n="$(type -P node 2>/dev/null || true)"
   [[ -n "$n" ]] || return 127
@@ -33,35 +33,35 @@ ai_os_gate_bounded_node() {
   else "$n" "$@"; fi
 }
 
-ai_os_gate_analyze() {
+rein_gate_analyze() {
   local se="$1" cmd="$2" rc=0
   shift 2
-  ai_os_gate_bounded_node --no-warnings "$se" --check "$cmd" "$@" || rc=$?
+  rein_gate_bounded_node --no-warnings "$se" --check "$cmd" "$@" || rc=$?
   [[ "$rc" -eq 142 ]] && rc=4   # the wall clock fired = TIMEOUT (no verdict)
   return "$rc"
 }
 
-ai_os_gate_analyze_path() {
+rein_gate_analyze_path() {
   local se="$1" path="$2" rc=0
   shift 2
-  ai_os_gate_bounded_node --no-warnings "$se" --check-path "$path" "$@" || rc=$?
+  rein_gate_bounded_node --no-warnings "$se" --check-path "$path" "$@" || rc=$?
   [[ "$rc" -eq 142 ]] && rc=4
   return "$rc"
 }
 
 # rc 0 with no `Verdict:` line is no verdict either (critic_security P2, E-289): an index.js
 # older than E-125 has no --check mode, starts its stdio server on a drained stdin, exits 0.
-ai_os_gate_has_verdict() { [[ "$1" == *"Verdict:"* ]]; }
+rein_gate_has_verdict() { [[ "$1" == *"Verdict:"* ]]; }
 
-ai_os_gate_probe() {
+rein_gate_probe() {
   local se report rc=0 errf err
-  se="$(ai_os_locate mcp/safe-exec-mcp/index.js 2>/dev/null || true)"
+  se="$(rein_locate mcp/safe-exec-mcp/index.js 2>/dev/null || true)"
   [[ -n "$se" ]] || { echo "safe-exec analyzer not installed (mcp/safe-exec-mcp/index.js)"; return 1; }
   errf="$(mktemp "${TMPDIR:-/tmp}/ai-gate-probe.XXXXXX")" || { echo "cannot create a temp file"; return 1; }
-  report="$(ai_os_gate_analyze "$se" true 2>"$errf")" || rc=$?
+  report="$(rein_gate_analyze "$se" true 2>"$errf")" || rc=$?
   err="$(grep -v '^[[:space:]]*$' "$errf" 2>/dev/null | tail -1 | cut -c1-200)"
   rm -f "$errf"
-  if [[ "$rc" -eq 0 ]] && ai_os_gate_has_verdict "$report"; then
+  if [[ "$rc" -eq 0 ]] && rein_gate_has_verdict "$report"; then
     echo PASS; return 0
   fi
   case "$rc" in

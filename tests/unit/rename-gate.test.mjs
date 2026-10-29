@@ -22,7 +22,8 @@ const isIgnored = (p) => {
 };
 
 const ROOT = process.cwd();
-const OLD = /ai-os|AI-OS|AI_OS_|aios|AIOS/;
+// Case-insensitive: the case-sensitive first cut missed every lowercase `ai_os_*` shell function.
+const OLD = /ai[-_]os|aios/i;
 // AWS's documented example access-key id spells AIOS by accident; the secret fixtures need it
 // verbatim (the mechanical map broke it once). Assembled so this file does not carry it.
 const NOT_OURS = new RegExp("AKI" + "A" + "IOSFODNN7EXAMPLE", "g");

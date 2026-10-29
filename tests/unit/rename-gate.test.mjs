@@ -42,7 +42,7 @@ export function subcommands(cli = readFileSync(join(ROOT, "src/bin/rein"), "utf8
   const body = cli.slice(cli.indexOf('case "$cmd" in'));
   const table = body.slice(0, body.indexOf("\nesac"));
   const out = new Set();
-  for (const m of table.matchAll(/^ {2}([a-z|-]+(?:\|[a-z|-]+)*)\)/gm)) {
+  for (const m of table.matchAll(/^ {2}([a-z|-]+)\)/gm)) {
     for (const s of m[1].split("|")) if (/^[a-z][a-z-]*$/.test(s)) out.add(s);
   }
   return [...out].sort();

@@ -363,3 +363,21 @@
 - A baseline older than the suites it describes packs lanes badly (slow, never wrong). A shard partition that shifts with hints can move a flaky suite between legs; the nightly unsharded leg is the control.
 - `macos-latest` has 3 cores and 7 GB: 3 lanes, and the longest queue — if a macOS leg's queue exceeds its run time for a month, revisit D-135 alt. 4.
 ---
+---
+## Handoff — 2026-10-29 12:20 UTC
+**From**: Architect → Engineer
+**Trigger**: E-384 blocker ruled (D-135 addendum); E-386 ratified as built
+
+### Ruling
+- **Fast job = `tests/run.sh --tier fast` only**, no installer, `timeout-minutes: 10`, on pull requests and trunk pushes alike. D-135 r4's `--changed` clause is withdrawn (addendum r1). Proposal (b) rejected: an install-on-demand fast job is a variable-length fifth leg for the commonest change.
+- **Proposal (a) accepted**: `select-suites.mjs` falls back to `tests/census-baseline.tsv` when no census JSON exists; `--changed` stays local (pre-push, fresh clones), never rendered hosted (addendum r2).
+- **E-386 ratified** with its four divergences; measurements recorded in the addendum and `ci-throughput.md` §Execution Constraints (addendum r3).
+
+### Blueprint divergence
+- Blueprints updated to match: `ci-throughput.md` §Core Concept, §Component 4, §Execution Constraints; `public-ci.md` §Component 1.
+
+### Next action needed (Engineer)
+- E-384 unblocked: render the fast job per the addendum; the rest (shard matrix, hand-written workflows, dependabot, badges, required names) as planned. Put (a) in E-384 or E-387, whichever lands first; name it in the handover.
+- E-387 after: the 56 % exclusive share is the larger lever than shard count; report `exclusive_seconds` before and after.
+- Hand back the first sharded PR's leg times to replace the "under 5 minutes" prediction.
+---

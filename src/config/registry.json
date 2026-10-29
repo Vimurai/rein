@@ -79,7 +79,7 @@
       ],
       "disable-model-invocation": false,
       "_note": "Exclusive State Mutator (P-39): manages .ai/state.json, regenerates TASKS.md and REVIEWS.md as views",
-      "_mandate": "v3.1 (P-44): state.json is the exclusive write target. TASKS.md and REVIEWS.md are generated views only. Write tools reject calls when state.json is absent — run: ai migrate-state to seed it."
+      "_mandate": "v3.1 (P-44): state.json is the exclusive write target. TASKS.md and REVIEWS.md are generated views only. Write tools reject calls when state.json is absent — run: rein migrate-state to seed it."
     },
     "safe-exec-mcp": {
       "path": "src/mcp/safe-exec-mcp/index.js",
@@ -120,7 +120,7 @@
         "get_tier_actions"
       ],
       "disable-model-invocation": false,
-      "_note": "TSRT classifier — invoked automatically by ai update and ai review"
+      "_note": "TSRT classifier — invoked automatically by rein update and rein review"
     },
     "archive-manager-mcp": {
       "path": "src/mcp/archive-manager-mcp/index.js",

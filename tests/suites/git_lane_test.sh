@@ -61,7 +61,7 @@ _seed_stamp() {  # <sha> <iso time> → .ai/state.json with one CRITIC_STAMP for
 # never reach the parent and every exit-code assertion would silently read a stale
 # value. Call this directly and read _OUT/_RC.
 # E-236 (environment dependence): REIN_PANE_ROLE is stripped from every hook invocation
-# below. `ai pane <role>` EXPORTS it, so a suite run from inside an Engineer pane inherited
+# below. `rein pane <role>` EXPORTS it, so a suite run from inside an Engineer pane inherited
 # REIN_PANE_ROLE=engineer — and the hook's resolver ranks the pane role ABOVE
 # REIN_CALLER_ROLE, so the role this suite sets was silently overridden and the whole
 # Architect lane never activated. It passed on CI (no pane) and failed on a real Triad
@@ -371,7 +371,7 @@ assert_contains "E-294.03c: a plain launch (no record → engineer token) commit
   "$(_e218_as "$(_src)" none e218-n1 CLAUDE_CODE_SESSION_ID=e218-n1)"
 
 # ── Row 2: a live launch record on the commit's process chain (no session id) ──
-# Restrict-only and env-free: clearing the session id no longer drops an `ai pane` session
+# Restrict-only and env-free: clearing the session id no longer drops a `rein pane` session
 # out of its lane — and it never waives.
 assert_contains "E-294.R2a: architect record on the chain, session id cleared → path-restricted" "BLOCK" \
   "$(_e218_as "$(_src)" architect e294-r2a CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer)"
@@ -474,7 +474,7 @@ S2="$(_mkrepo)"; _seed_state "$S2" 1
 _run "$S2" engineer
 assert_status 0 "E-326.g2: a team record the index lacks blocks the commit (rc 1)" test "$_RC" -eq 1
 assert_contains "E-326.g2b: …naming the record" "E-900 has a record file but no index row" "$_OUT"
-assert_contains "E-326.g2c: …and the one command that fixes it" "fix: ai state import" "$_OUT"
+assert_contains "E-326.g2c: …and the one command that fixes it" "fix: rein state import" "$_OUT"
 ( cd "$S2" && HOME="$GH" node --no-warnings "${REPO_ROOT}/src/shared/cli-state.mjs" state import >/dev/null )
 _run "$S2" engineer
 assert_status 0 "E-326.g3: after the import the same commit passes (rc 0)" test "$_RC" -eq 0
@@ -577,7 +577,7 @@ assert_contains "E-329.07b: …and names what is missing" "stamp-gate.mjs or nod
 # install_git_hooks emits a stub instead of a full copy of pre-commit.sh / post-commit.sh; the
 # chained-hook path still preserves a user's pre-existing hook; do_sync upgrades legacy copies
 # in place; and the stub fails closed when the canonical script is missing (Gate 2 contract).
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 
 # ── Sandbox setup ─────────────────────────────────────────────────────────────
 # Create a throwaway git repo and a fake REIN install directory under it so
@@ -614,7 +614,7 @@ IMP
 mkdir -p "${FAKE_REIN}/shared" && : > "${FAKE_REIN}/shared/cli-state.mjs"
 chmod +x "${FAKE_REIN}/hooks/"*.sh
 
-# Source only the helpers we need from src/bin/ai. The bin guards its
+# Source only the helpers we need from src/bin/rein. The bin guards its
 # dispatcher behind argv parsing, so sourcing it without args is safe.
 # To keep the test fast and side-effect free we extract the functions via
 # a tiny shim that defines REIN, HOME, then pulls in the function bodies.
@@ -854,14 +854,14 @@ mv "${FAKE_REIN}/hooks/state-import.sh.away" "${FAKE_REIN}/hooks/state-import.sh
 CANON_IMPORT="${REPO_ROOT}/hooks/state-import.sh"
 SI="$(mktemp -d -t rein-si-XXXXXX)"; on_exit "rm -rf '$SI'"
 mkdir -p "$SI/home/.rein/bin" "$SI/team/.ai" "$SI/legacy/.ai"
-printf '#!/bin/bash\nprintf "%%s|" "$@" >> "%s/calls"; printf "\\n" >> "%s/calls"\n' "$SI" "$SI" > "$SI/home/.rein/bin/ai"
-chmod +x "$SI/home/.rein/bin/ai"
+printf '#!/bin/bash\nprintf "%%s|" "$@" >> "%s/calls"; printf "\\n" >> "%s/calls"\n' "$SI" "$SI" > "$SI/home/.rein/bin/rein"
+chmod +x "$SI/home/.rein/bin/rein"
 tc_fixture_home "$SI/home"   # E-345 (D-109 r1): the toolchain record the hooks pin ($SI/nohome stays bare: no mirror at all)
 git -C "$SI/team" init -q; git -C "$SI/legacy" init -q
 printf '{"schema":2}\n' > "$SI/team/.ai/project.json"
 _si() { ( cd "$SI/$1" && HOME="${2:-$SI/home}" /bin/bash -p "$CANON_IMPORT" "${@:3}" ) 2>&1; }
 _si team "" post-merge 0 >/dev/null
-assert_contains "E-326.08 post-merge in a team project runs the mirror's ai state import" "state|import|--hook|post-merge|" "$(cat "$SI/calls" 2>/dev/null)"
+assert_contains "E-326.08 post-merge in a team project runs the mirror's rein state import" "state|import|--hook|post-merge|" "$(cat "$SI/calls" 2>/dev/null)"
 : > "$SI/calls"; _si team "" post-checkout old new 0 >/dev/null
 assert_status 1 "E-326.09 post-checkout of a FILE (flag 0) imports nothing" test -s "$SI/calls"
 _si team "" post-checkout old new 1 >/dev/null

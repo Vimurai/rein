@@ -3,12 +3,12 @@
 #
 #   1. hooks/permission-denied.sh books exactly ONE REJECTED row with source=hook for a
 #      denied built-in tool, none for mcp__* (the interceptor owns those), fail-open, fast.
-#   2. `ai sync` registers it on the PermissionDenied event.
+#   2. `rein sync` registers it on the PermissionDenied event.
 #   3. verify_compliance — through the REAL MCP tool, not a pasted copy — passes for every
 #      shipped agent and FAILS an agent that names a tool outside its mcpServers scope.
 #   4. The native frontmatter fields are present where the blueprint puts them.
 #
-# E-302 folds in the other hooks `ai sync` wires: the SessionStart cache prefix (E-126), the
+# E-302 folds in the other hooks `rein sync` wires: the SessionStart cache prefix (E-126), the
 # Stop hook's DIGEST hygiene, the telemetry edge hook's ".*" matcher (E-105, T-HM-01..04)
 # and the post-write cache rebuild (E-112).
 set -uo pipefail
@@ -18,7 +18,7 @@ source "${SCRIPT_DIR}/../lib/mcp-client.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HOOK="${REPO_ROOT}/hooks/permission-denied.sh"
 VERIFY="${REPO_ROOT}/src/mcp/verification-mcp/index.js"
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 AGENTS="${REPO_ROOT}/src/claude/agents"
 
 echo "── Suite: hooks_surface_test (E-284) ────────────────────────────────"
@@ -81,7 +81,7 @@ PY
 base="$(_ms - "$DB")"; el="$(_ms "$HOOK" "$DB")"
 assert_perf "E-284.01f: PermissionDenied hook foreground latency" "$el" 20 "$base" 2 30
 
-# ── E-284.2: ai sync registers the hook ─────────────────────────────────────
+# ── E-284.2: rein sync registers the hook ─────────────────────────────────────
 TA="$T/proj"; mkdir -p "$TA/.ai"
 printf '{ "roles": { "engineer": {"provider":"claude","pane_identifier":"0","model":"opus"} } }\n' > "$TA/.ai/roles.json"
 ( cd "$TA" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
@@ -90,7 +90,7 @@ import json,sys
 d=json.load(open(sys.argv[1]))
 for e in d.get("hooks",{}).get("PermissionDenied",[]):
     for h in e.get("hooks",[]): print(e.get("matcher"), h.get("command"), " ".join(h.get("args") or []))' "$TA/.claude/settings.json" 2>/dev/null)"
-assert_contains "E-284.02a: ai sync registers permission-denied.sh on PermissionDenied" "permission-denied.sh" "$_reg"
+assert_contains "E-284.02a: rein sync registers permission-denied.sh on PermissionDenied" "permission-denied.sh" "$_reg"
 ( cd "$TA" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
 _n="$(python3 -c '
 import json,sys
@@ -206,14 +206,14 @@ else
   _skip "S05: fail-open without node — the fixture could not record a python3 to keep"
 fi
 
-# ── S06: `ai install` registers the SessionStart hook (canonical wiring) ──────
-assert_status 0 "S06: ai install registers SessionStart"   grep -qF 'SessionStart' "$AI_BIN"
+# ── S06: `rein install` registers the SessionStart hook (canonical wiring) ──────
+assert_status 0 "S06: rein install registers SessionStart"   grep -qF 'SessionStart' "$AI_BIN"
 assert_status 0 "S06: registers session-start.sh"          grep -qF 'session-start.sh' "$AI_BIN"
 assert_status 0 "S06: matcher covers startup|resume"       grep -qF 'startup|resume' "$AI_BIN"
 # E-294 (D-087 r2): SessionStart re-fires on resume, clear AND compact — the mint table's
 # row 2 makes the re-fire a no-op — and the entry carries NO role argument (the role is the
 # launch-record walk's; the old positional "engineer" became an env-free default the mint
-# no longer accepts). Asserted on the settings `ai sync` actually generates.
+# no longer accepts). Asserted on the settings `rein sync` actually generates.
 source "${SCRIPT_DIR}/../lib/generated-settings.sh"
 _S06G="$(test_tmpdir ssgen)"
 _S06SET="$(gen_project_settings "$_S06G/proj")"
@@ -360,7 +360,7 @@ fi
 # ── E-105 (from telemetry_hook_matcher_test — E-302, universal-telemetry.md §Components 2): T-HM-01..04 ──
 # post-tool-use.sh is registered with matcher ".*" so it captures 100% of tool invocations, not just
 # Write|Edit; the sibling logger (post-tool-log.sh) stays on Write|Edit. Drives the SHIPPED generator
-# (_configure_project_claude_settings in src/bin/ai) by extracting its embedded Python at runtime.
+# (_configure_project_claude_settings in src/bin/rein) by extracting its embedded Python at runtime.
 REGISTRY="${REPO_ROOT}/src/config/registry.json"
 SANDBOX="$(mktemp -d -t rein-hookmatch-XXXXXX)"
 on_exit 'rm -rf "$SANDBOX"'
@@ -432,7 +432,7 @@ assert_contains "T-HM-03: exactly one telemetry hook after re-run" "1" "$COUNT"
 
 # ── T-HM-04: generator source appends agq_cmd with the ".*" matcher ──────────
 # E-290: registration is the exec-form _SPECS table.
-assert_status 0 "T-HM-04: src/bin/ai registers post-tool-use.sh at matcher .*" \
+assert_status 0 "T-HM-04: src/bin/rein registers post-tool-use.sh at matcher .*" \
   grep -qF '("PostToolUse", ".*", "post-tool-use.sh", [])' "$AI_BIN"
 
 # ── E-112 (from cache_wiring_test — E-302, caching.md §3.1): cache-manager-mcp wired via a post-write hook ──

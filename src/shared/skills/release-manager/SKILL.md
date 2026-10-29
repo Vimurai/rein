@@ -110,7 +110,7 @@ If `.ai/` logs are bloated (LOG.md > 200 lines), invoke the archive skill:
 ```
 skill: "ai-archive"
 ```
-(The previous `ai archive` shell command was removed in E-34.)
+(The previous `rein archive` shell command was removed in E-34.)
 
 ## Step 8 — Report
 

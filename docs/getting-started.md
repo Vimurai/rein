@@ -10,8 +10,8 @@
 | `sqlite3` CLI | The hooks read `.ai/state.sqlite`. |
 | `git` | Everything is git-aware: gates are git hooks, CI tests commits. |
 | **Claude Code** (`claude`) | Runs every role. One login is enough. |
-| `tmux` | Recommended: `ai start` builds the two-pane layout in it. |
-| `gh` | Optional: GitHub issue ingestion (`ai sync --github`). |
+| `tmux` | Recommended: `rein start` builds the two-pane layout in it. |
+| `gh` | Optional: GitHub issue ingestion (`rein sync --github`). |
 
 ```bash
 # macOS
@@ -26,12 +26,12 @@ sudo apt install tmux sqlite3 python3   # and Node 22.5+ from nodejs.org or your
 git clone https://github.com/Vimurai/rein.git && cd rein
 bash install-rein.sh     # copies src/ → ~/.rein, installs the MCP servers' dependencies, adds the PATH line
 exec "$SHELL"             # pick up PATH=~/.rein/bin
-ai install                # Claude Code settings and hooks under ~/.claude
-ai doctor                 # each ✗ prints its fix
+rein install                # Claude Code settings and hooks under ~/.claude
+rein doctor                 # each ✗ prints its fix
 ```
 
-`ai doctor` also reports optional tools: the GitHub Copilot CLI (`gh copilot`, for the `copilot`
-skill) and the Playwright Chromium browser (for the UI audits; `ai mcp-setup --browsers`). A ✗
+`rein doctor` also reports optional tools: the GitHub Copilot CLI (`gh copilot`, for the `copilot`
+skill) and the Playwright Chromium browser (for the UI audits; `rein mcp-setup --browsers`). A ✗
 on those only disables what they power.
 
 The install lives in `~/.rein` (the directory name predates the product name and is kept so
@@ -41,10 +41,10 @@ existing installs keep working). Nothing is installed system-wide.
 
 ```bash
 cd ~/code/my-project
-ai init
+rein init
 ```
 
-`ai init` creates:
+`rein init` creates:
 
 - `.ai/` — the project memory (see [How it works](how-it-works.md#the-ai-directory));
 - `.claude/` — agents, skills and the per-role settings overlays;
@@ -53,7 +53,7 @@ ai init
 - the git hooks (`pre-commit`, `pre-push`, `post-commit`).
 
 It never overwrites `BRIEF.md`, `TASKS.md`, `LOG.md`, `DIGEST.md`, `architect.md` or your
-blueprints, so it is safe on an existing project and safe to run again. `ai init --check` lists
+blueprints, so it is safe on an existing project and safe to run again. `rein init --check` lists
 what it would change.
 
 **New project:** fill in `.ai/BRIEF.md` (goals and non-goals) in a sentence or two, then ask the
@@ -79,27 +79,27 @@ files."*
 
 ```bash
 cd /path/to/your-project
-ai start
+rein start
 ```
 
-`ai start` creates or reuses one tmux session per project (named after the project directory),
+`rein start` creates or reuses one tmux session per project (named after the project directory),
 orders the panes by `pane_identifier` in `.ai/roles.json`, binds each to its role and launches
 Claude Code. It is idempotent: rerunning it re-pins the pane titles and attaches.
 
 ```bash
-ai start --status        # which panes exist and what each is running
-ai start --kill          # tear the project window down (asks first)
-ai start --kill --yes    # same, without the prompt
-ai start --detach        # build the layout without attaching
-ai start --dry-run       # print the tmux commands instead of running them
+rein start --status        # which panes exist and what each is running
+rein start --kill          # tear the project window down (asks first)
+rein start --kill --yes    # same, without the prompt
+rein start --detach        # build the layout without attaching
+rein start --dry-run       # print the tmux commands instead of running them
 ```
 
-Without tmux, `ai start` exits 2 and prints the manual recipe: open two terminals and run
-`ai pane engineer` in one and `ai pane architect` in the other. Each pane keeps its shell when
-Claude Code exits, so you can relaunch with the same command. Use a third terminal for `ai sync`,
-`ai doctor` and git.
+Without tmux, `rein start` exits 2 and prints the manual recipe: open two terminals and run
+`rein pane engineer` in one and `rein pane architect` in the other. Each pane keeps its shell when
+Claude Code exits, so you can relaunch with the same command. Use a third terminal for `rein sync`,
+`rein doctor` and git.
 
-`ai doctor` checks that the launcher can work: tmux present, roles mapped, and each role's
+`rein doctor` checks that the launcher can work: tmux present, roles mapped, and each role's
 provider on `PATH`. A missing provider gives a pane that opens and fails at the first keystroke,
 so check there first.
 
@@ -108,12 +108,12 @@ so check there first.
 Each Claude Code login is its own config directory. To keep one project on another subscription:
 
 ```bash
-ai account add work          # creates ~/.claude-work, copies your settings, prompts /login
-ai start --account work      # binds this project (.ai/start.json "account": "work")
-ai start                     # both panes now run under the work login
+rein account add work          # creates ~/.claude-work, copies your settings, prompts /login
+rein start --account work      # binds this project (.ai/start.json "account": "work")
+rein start                     # both panes now run under the work login
 ```
 
-`ai start --account default` unbinds it. `ai account list | remove <name> | sync <name>` manage
+`rein start --account default` unbinds it. `rein account list | remove <name> | sync <name>` manage
 the registered accounts. A pane whose account does not resolve refuses to start rather than
 falling back to the default login.
 
@@ -122,15 +122,15 @@ falling back to the default login.
 ```bash
 cd rein && git pull
 bash install-rein.sh          # refresh ~/.rein
-ai install                     # optional: refresh ~/.claude settings and hooks
+rein install                     # optional: refresh ~/.claude settings and hooks
 
 cd ~/code/my-project
-ai init                        # upgrade the project to the installed version
-ai sync                        # regenerate .mcp.json, .claude/, rulefiles, hooks
-ai doctor
+rein init                        # upgrade the project to the installed version
+rein sync                        # regenerate .mcp.json, .claude/, rulefiles, hooks
+rein doctor
 ```
 
-What `ai sync` does:
+What `rein sync` does:
 
 - updates `ENGINEER.md`, `ARCHITECT.md` and the `CLAUDE.md` shim;
 - regenerates `.mcp.json` — servers you added yourself are kept, retired ones removed;
@@ -138,14 +138,14 @@ What `ai sync` does:
 - reinstalls the git hooks;
 - never touches `architect.md`, `BRIEF.md`, `TASKS.md`, `DIGEST.md` or anything else you wrote.
 
-Older versions leave things behind (retired servers, old hooks, stale locks). `ai clean` lists
-them; `ai clean --apply` moves them to `~/.rein/trash/<date>/`, and `ai clean --restore <date>`
+Older versions leave things behind (retired servers, old hooks, stale locks). `rein clean` lists
+them; `rein clean --apply` moves them to `~/.rein/trash/<date>/`, and `rein clean --restore <date>`
 puts them back.
 
 ## Uninstalling
 
 ```bash
-ai uninstall      # removes ~/.rein after you type "uninstall"
+rein uninstall      # removes ~/.rein after you type "uninstall"
 ```
 
 Left for you to remove by hand: each project's `.ai/`, `.mcp.json`, `.claude/` and git hooks;

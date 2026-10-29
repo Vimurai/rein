@@ -38,7 +38,7 @@ echo "  [T-MM-S01] Agent files exist with valid YAML frontmatter"
 
 for f in "${CURATOR_FILES[@]}" "${ARCHITECT_FILES[@]}"; do
   assert_status 0 "exists: ${f#${REPO_ROOT}/}" test -f "$f"
-  # Description containing colons (e.g. "Trigger on ai sync: ...") was the
+  # Description containing colons (e.g. "Trigger on rein sync: ...") was the
   # exact failure mode that broke ux_reviewer (commit 84288ce). Detect any
   # unquoted-colon regression by re-parsing the frontmatter via a tiny
   # Python YAML-lite scanner.

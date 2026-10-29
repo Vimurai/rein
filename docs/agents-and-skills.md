@@ -1,6 +1,6 @@
 # Agents and skills
 
-Both are plain Claude Code files, copied into the project's `.claude/` by `ai sync` — there is no
+Both are plain Claude Code files, copied into the project's `.claude/` by `rein sync` — there is no
 plugin to install.
 
 - A **skill** is a procedure the current session carries out itself (`skill: ai-task`). Only its

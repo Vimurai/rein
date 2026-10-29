@@ -439,8 +439,8 @@
     "want": "pass"
   },
   {
-    "label": "ai add-task with a multi-line description",
-    "cmd": "ai add-task E-999 \"plan\nroute: Architect -> Engineer\"",
+    "label": "rein add-task with a multi-line description",
+    "cmd": "rein add-task E-999 \"plan\nroute: Architect -> Engineer\"",
     "want": "pass"
   },
   {

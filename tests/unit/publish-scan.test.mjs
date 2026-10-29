@@ -109,7 +109,7 @@ test("E-365: an empty client list refuses like a missing one", () => {
 });
 
 test("E-365: the export list follows §Component 8 as amended by D-118 r3 and D-123", () => {
-  for (const f of ["src/bin/ai", "scripts/standards.mjs", "package.json", "package-lock.json", ".gitignore", "CHANGELOG.md",
+  for (const f of ["src/bin/rein", "scripts/standards.mjs", "package.json", "package-lock.json", ".gitignore", "CHANGELOG.md",
     "CONTRIBUTING.md", "README.md", "LICENSE", "NOTICE", ".ai/blueprints/open-source-release.md", ".claude/rules/x.md"]) {
     assert.ok(isExported(f), `${f} is exported`);
   }

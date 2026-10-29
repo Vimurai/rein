@@ -306,9 +306,9 @@ function repoMirrorFixture() {
   const mirror = tmp("e249-mirror");
   for (const [dir, file, body] of [
     [join(repo, "src", "mcp", "srv"), "index.js", "// server v1\n"],
-    [join(repo, "src", "bin"), "ai", "#!/usr/bin/env bash\n"],
+    [join(repo, "src", "bin"), "rein", "#!/usr/bin/env bash\n"],
     [join(mirror, "mcp", "srv"), "index.js", "// server v1\n"],
-    [join(mirror, "bin"), "ai", "#!/usr/bin/env bash\n"],
+    [join(mirror, "bin"), "rein", "#!/usr/bin/env bash\n"],
   ]) {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, file), body);
@@ -342,11 +342,11 @@ test("gate BLOCKS when src/mcp/ has not been installed to the mirror", () => {
 
 test("gate BLOCKS on src/bin/ too, and on a file the mirror lacks entirely", () => {
   const { repo, mirror } = repoMirrorFixture();
-  writeFileSync(join(repo, "src", "bin", "ai"), "#!/usr/bin/env bash\n# new\n");
-  writeFileSync(join(repo, "src", "bin", "ai-brand-new"), "#!/usr/bin/env bash\n");
+  writeFileSync(join(repo, "src", "bin", "rein"), "#!/usr/bin/env bash\n# new\n");
+  writeFileSync(join(repo, "src", "bin", "rein-brand-new"), "#!/usr/bin/env bash\n");
   const d = mirrorDrift({ repoRoot: repo, mirrorRoot: mirror, frameworkOnly: false });
-  assert.ok(d.drift.includes("src/bin/ai"));
-  assert.ok(d.drift.includes("src/bin/ai-brand-new"), "a file absent from the mirror is drift");
+  assert.ok(d.drift.includes("src/bin/rein"));
+  assert.ok(d.drift.includes("src/bin/rein-brand-new"), "a file absent from the mirror is drift");
 });
 
 test("gate BLOCKS when the mirror is current but a running server booted an older build", () => {
@@ -365,7 +365,7 @@ test("gate BLOCKS when the mirror is current but a running server booted an olde
 });
 
 test("lockfiles and node_modules are never drift", () => {
-  // `ai mcp-setup` runs npm install INSIDE the mirror, so every lockfile there differs
+  // `rein mcp-setup` runs npm install INSIDE the mirror, so every lockfile there differs
   // from src/ permanently and by design. A gate that can never be satisfied is one the
   // operator turns off.
   const { repo, mirror } = repoMirrorFixture();
@@ -381,7 +381,7 @@ test("a project that is not the framework clone is never gated", () => {
   // A downstream repo with its own src/bin/ would otherwise be compared against
   // ~/.rein/bin and told all of its own files had drifted.
   const { repo, mirror } = repoMirrorFixture();
-  writeFileSync(join(repo, "src", "bin", "ai"), "# a downstream project's own script\n");
+  writeFileSync(join(repo, "src", "bin", "rein"), "# a downstream project's own script\n");
   const d = mirrorDrift({ repoRoot: repo, mirrorRoot: mirror });   // frameworkOnly defaults true
   assert.equal(d.installed, false);
   assert.deepEqual(d.drift, []);

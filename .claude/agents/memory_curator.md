@@ -1,6 +1,6 @@
 ---
 name: memory_curator
-description: "Trigger on ai install, ai sync (background), or monthly. Builds and maintains the cross-project Memory Palace at ~/.rein/memory-palace.md — a text index of local DIGEST.md/DECISIONS.md patterns plus a SHA-256 hash index of eligible media artefacts (PNG/SVG/PDF) tagged with department metadata (Architecture | UX). No embedding provider is configured, so multimodal retrieval is deferred. Excludes anything matched by .gitignore, .env*, and .ssh paths. Runs as a background job — never on synchronous ai init. Rule-matcher (D-110 r1): pinned to sonnet — it applies written rules and makes no design judgment."
+description: "Trigger on rein install, rein sync (background), or monthly. Builds and maintains the cross-project Memory Palace at ~/.rein/memory-palace.md — a text index of local DIGEST.md/DECISIONS.md patterns plus a SHA-256 hash index of eligible media artefacts (PNG/SVG/PDF) tagged with department metadata (Architecture | UX). No embedding provider is configured, so multimodal retrieval is deferred. Excludes anything matched by .gitignore, .env*, and .ssh paths. Runs as a background job — never on synchronous rein init. Rule-matcher (D-110 r1): pinned to sonnet — it applies written rules and makes no design judgment."
 model: sonnet
 disable-model-invocation: false
 user-invocable: false
@@ -24,7 +24,7 @@ Target: ~/.rein/memory-palace.md (text index) + ~/.rein/memory-palace.embeddings
 - Do NOT write source code.
 - Do NOT modify any project's `.ai/` files — read-only access to all projects.
 - Do NOT index secrets, credentials, or PII.
-- Do NOT run synchronously inside `ai init` — see Execution Constraints below.
+- Do NOT run synchronously inside `rein init` — see Execution Constraints below.
 
 ## Preflight
 1. Read ~/.rein/memory-palace.md (if exists) — note existing entries and their last-used dates.
@@ -159,7 +159,7 @@ reads each entry's `id` as the dedup key; `vector` is absent until a provider is
 }
 ```
 
-## Step 6 — Seed Current Project (only if explicitly invoked, never inside ai init)
+## Step 6 — Seed Current Project (only if explicitly invoked, never inside rein init)
 
 If invoked with `--seed`, find top-3 highest-scoring text patterns relevant to
 the current project's stack and append a Knowledge Transfer block to
@@ -170,9 +170,9 @@ not through SEED.md (mockups don't fit the seed budget).
 - **Background only.** Scanning and hashing large trees is slow, and embedding
   (once a provider exists) is slower still. The curator must run from one of:
     1. The post-commit hook (advisory; degrades gracefully when no embedding provider is configured).
-    2. An explicit `ai sync --memory` flag (interactive opt-in).
+    2. An explicit `rein sync --memory` flag (interactive opt-in).
     3. A monthly cron cooked by the user.
-  Never block `ai init` on this work.
+  Never block `rein init` on this work.
 - **Concurrency (E-76):** bounded worker pool with default 3 in-flight
   embedding requests. Override via `AI_EMBEDDING_CONCURRENCY` env var
   (set to `1` to fall back to fully serial dispatch).

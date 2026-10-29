@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # locate.sh — the ONE helper resolver (E-223, D-057 §3). Sourceable by the hooks and by
-# `ai`; `locate.mjs` is its twin for node callers.
+# `rein`; `locate.mjs` is its twin for node callers.
 #
 # WHY THIS EXISTS:
-#   Every hook and half of `ai` carried its own locator chain shaped like
+#   Every hook and half of `rein` carried its own locator chain shaped like
 #       "$(git rev-parse --show-toplevel 2>/dev/null || pwd)/src/mcp/<server>/index.js"
 #   then the install mirror. `git rev-parse --show-toplevel` names the USER's repository,
 #   not the Rein install. So any project that happened to contain
@@ -33,7 +33,7 @@
 #
 # This exists because the first cut of E-223 was defeated by three env vars, all settable
 # from a file the untrusted repo SHIPS: a project's `.claude/settings.json` carries an
-# `env` block that the CLI applies to the session, and hooks inherit it. `ai init` writes
+# `env` block that the CLI applies to the session, and hooks inherit it. `rein init` writes
 # that key, so it is the normal shape, not a suspicious one. Proven against the hooks:
 #   REIN_LOCATE_DEV=1     → dev-first, no framework check at all → decoy executed
 #   REIN_WORKSPACE=<decoy> → the decoy reads as the framework clone → decoy executed
@@ -56,7 +56,7 @@ fi
 # ── The dev-tree override is a FUNCTION, not a variable ──────────────────────
 # Round 3 of the E-223 audit: I first implemented "argv-only" as another env var
 # (`_REIN_LOCATE_DEV_ARGV`) that each caller promised to reset before reading argv. That
-# is the same channel wearing a different name. `bin/ai` did reset it; the five hooks never
+# is the same channel wearing a different name. `bin/rein` did reset it; the five hooks never
 # mentioned it — so supplying it through a project's `.claude/settings.json` env block made
 # a hook resolve the visited repo's own safe-exec analyzer AND the gate then allowed
 # everything. The original vulnerability, restored in full by the fix for it.

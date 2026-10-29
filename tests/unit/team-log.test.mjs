@@ -3,7 +3,7 @@
 //
 // New behaviour of team.mjs with no unit file of its own (E-327's team.json rules are the
 // tests/fixtures/team-cases.json table); the ai-log / ai-preflight skills reach it through
-// `ai log path|recent` (cli-state.mjs), exercised at the end.
+// `rein log path|recent` (cli-state.mjs), exercised at the end.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -71,7 +71,7 @@ test("a broken team.json never makes a log line fail: it falls back to LOG.md", 
   assert.equal(logPath(ai, A), join(ai, "LOG.md"));
 });
 
-test("ai log path | recent — the CLI the ai-log and ai-preflight skills call", (t) => {
+test("rein log path | recent — the CLI the ai-log and ai-preflight skills call", (t) => {
   const ai = project(t, true);
   const root = join(ai, "..");
   appendLog(ai, "2026-10-22 | Claude | E-6 | b second", B);

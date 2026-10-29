@@ -1,11 +1,17 @@
-// tests/unit/rename-gate.test.mjs — the rename's grep gate (E-383, D-132, rein-rename.md
-// §Component 6) and the env resolver it leaves room for (§Component 4).
+// tests/unit/rename-gate.test.mjs — the rename's grep gate (E-383, E-391; D-132 and its
+// addendum 2; rein-rename.md §Component 6).
 //
 // New file: nothing tested the product name before. The gate reads every tracked (and
-// untracked, not ignored) file and fails on an old spelling outside the history exclusions
-// in tests/fixtures/rename-exclusions.json and outside lines carrying the marker
-// `rename:legacy-fallback`. The project-file rewrite `ai sync` performs is tested where the
-// rest of sync's data half is: tests/unit/project-upgrade.test.mjs.
+// untracked, not ignored) file and fails on an old spelling outside the history and record
+// exclusions in tests/fixtures/rename-exclusions.json. The rename is a hard cut: no line is
+// exempt by a marker. Three families:
+//   the brand    — ai-os / ai_os / aios, any case;
+//   the command  — `ai <subcommand>`, the subcommands read from src/bin/rein's dispatch table,
+//                  never preceded by a letter, digit, `_`, `.`, `/`, `@` or `-` (so `.ai/` and
+//                  paths ending in `ai` cannot match);
+//   the skills   — `ai-<name>` for the 18 skills renamed to `rein-<name>`;
+// plus the literals the command left in file names and CI: bin/ai, ai-exec, ai-account,
+// ai-ci-run, `ai ci run (`, and `ai` in backticks.
 //
 //   node --test tests/unit/rename-gate.test.mjs
 
@@ -13,21 +19,51 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { join } from "node:path";
 
-import { resolve as resolveEnv, legacyVars, applyLegacyEnv, newNameOf } from "../../src/shared/env.mjs";
+const ROOT = process.cwd();
 
 const isIgnored = (p) => {
   try { execFileSync("git", ["check-ignore", "-q", "--no-index", p], { cwd: ROOT, stdio: "ignore" }); return true; } catch { return false; }
 };
 
-const ROOT = process.cwd();
 // Case-insensitive: the case-sensitive first cut missed every lowercase `ai_os_*` shell function.
-const OLD = /ai[-_]os|aios/i;
+const BRAND = /ai[-_]os|aios/i;
 // AWS's documented example access-key id spells AIOS by accident; the secret fixtures need it
 // verbatim (the mechanical map broke it once). Assembled so this file does not carry it.
 const NOT_OURS = new RegExp("AKI" + "A" + "IOSFODNN7EXAMPLE", "g");
-const MARKER = "rename:legacy-fallback";
+
+export const SKILLS = ["archive", "debug", "digest", "handoff", "incident", "insights", "log", "migration",
+  "preflight", "profile", "review", "review-proposed-skills", "seo", "sync-state", "task", "test", "triage", "upgrade"];
+
+// The subcommands, from the dispatch table: every label of `case "$cmd" in … esac`.
+export function subcommands(cli = readFileSync(join(ROOT, "src/bin/rein"), "utf8")) {
+  const body = cli.slice(cli.indexOf('case "$cmd" in'));
+  const table = body.slice(0, body.indexOf("\nesac"));
+  const out = new Set();
+  for (const m of table.matchAll(/^ {2}([a-z|-]+(?:\|[a-z|-]+)*)\)/gm)) {
+    for (const s of m[1].split("|")) if (/^[a-z][a-z-]*$/.test(s)) out.add(s);
+  }
+  return [...out].sort();
+}
+
+// Not after a letter, digit, `_`, `.`, `/`, `@` or `-` — except the letter of a `\t`, `\n` or
+// `\r` escape inside a string literal (a census line "\tai init" is the command).
+const NOT_BEFORE = String.raw`(?:(?<![A-Za-z0-9_./@-])|(?<=\\[tnr]))`;
+// A path segment named for the product or the command. ai-bookkeeping.md is named for the
+// .ai/ directory (the one survivor), not for the product.
+const OLD_PATH = /(?:^|\/)ai[-_](?!bookkeeping\.md$)/;
+export function patterns(subs = subcommands()) {
+  const skillNames = [...SKILLS].sort((a, b) => b.length - a.length).join("|");
+  return [
+    ["brand", BRAND],
+    ["command", new RegExp(NOT_BEFORE + String.raw`ai (?:${subs.join("|")})(?![A-Za-z0-9_-])`)],
+    ["skill", new RegExp(NOT_BEFORE + String.raw`ai-(?:${skillNames})(?![A-Za-z0-9_-])`)],
+    ["literal", new RegExp(String.raw`bin/ai(?![A-Za-z0-9_-])|ai-exec|ai-account|ai-ci-run|ai ci run \(|` + "`ai`")],
+  ];
+}
+
 const EXCL = JSON.parse(readFileSync(join(ROOT, "tests/fixtures/rename-exclusions.json"), "utf8"));
 const MAP = JSON.parse(readFileSync(join(ROOT, "tests/fixtures/rename-map.json"), "utf8"));
 
@@ -53,29 +89,59 @@ function files() {
 
 const wholeFile = (f) => f in EXCL.files || Object.keys(EXCL.prefixes || {}).some((p) => f.startsWith(p));
 
-test("no old spelling of the product name outside the exclusions and marked legacy fallbacks", () => {
+test("no old spelling of the product, the command or a skill outside the exclusions", () => {
+  const pats = patterns();
   const hits = [];
   for (const f of files()) {
     if (wholeFile(f)) continue;
     const p = join(ROOT, f);
     if (!existsSync(p) || !statSync(p).isFile()) continue;
-    if (OLD.test(f)) hits.push(`${f} (path)`);
+    for (const [kind, re] of pats) if (re.test(f)) hits.push(`${f} (path, ${kind})`);
+    if (OLD_PATH.test(f)) hits.push(`${f} (path, name)`);
     const buf = readFileSync(p);
     if (buf.includes(0)) continue;               // binary
     const lines = buf.toString("utf8").split("\n");
     const skip = excludedLines(f, lines);
     lines.forEach((line, i) => {
-      if (OLD.test(line.replace(NOT_OURS, "")) && !line.includes(MARKER) && !skip.has(i)) hits.push(`${f}:${i + 1}: ${line.trim().slice(0, 120)}`);
+      if (skip.has(i)) return;
+      const l = line.replace(NOT_OURS, "");
+      for (const [kind, re] of pats) {
+        if (re.test(l)) { hits.push(`${f}:${i + 1} [${kind}]: ${line.trim().slice(0, 120)}`); break; }
+      }
     });
   }
-  assert.deepEqual(hits, [], `old spellings left (${hits.length}):\n${hits.slice(0, 40).join("\n")}`);
+  assert.deepEqual(hits, [], `old spellings left (${hits.length}):\n${hits.slice(0, 60).join("\n")}`);
 });
 
-test("the gate pattern covers every old name in the map, and every exclusion names a reason", () => {
-  for (const { old, new: now, kind } of MAP) {
-    assert.match(old, OLD, `map entry ${old} is not caught by the gate`);
-    assert.doesNotMatch(now, OLD, `map entry ${old} → ${now} still spells the old name`);
-    assert.ok(["env", "path", "tag", "id", "prose", "file"].includes(kind), `${old}: unknown kind ${kind}`);
+test("the patterns catch the old forms and never the new ones or the .ai/ directory", () => {
+  const pats = patterns(["ci", "sync", "pane", "doctor"]);
+  const hit = (s) => pats.some(([, re]) => re.test(s));
+  for (const s of ["run: ai sync", "`ai ci run --dirty`", "skill: ai-preflight", "ai-review-proposed-skills",
+    "src/bin/ai", "src/bin/ai-exec", "ai-account.sh", "job ai-ci-run", "ai ci run (ubuntu-latest", "the `ai` command",
+    "ai_os_locate", "~/.ai-os/hooks", "AI_OS_HOME", "AIOS_WORKSPACE", "\\tai sync\\trun", "\\nai ci run"]) assert.ok(hit(s), `missed: ${s}`);
+  for (const s of ["rein sync", "rein ci run", "skill: rein-preflight", "src/bin/rein", "rein-ci-run", ".ai/TASKS.md",
+    "cat .ai/ci.local.json", "~/.ai/sync", "openai sync", "the AI review", "arch-review", "chaos", "repo/ai pane",
+    "rein-review-proposed-skills", "\\trein init", "maintain sync"]) assert.ok(!hit(s), `false positive: ${s}`);
+});
+
+test("a path segment named ai-/ai_ fails, except the .ai/ bookkeeping rule", () => {
+  for (const p of ["src/shared/ai-clean.mjs", "tests/suites/ai_ci_test.sh", ".claude/skills/ai-task/SKILL.md"]) assert.ok(OLD_PATH.test(p), p);
+  for (const p of [".claude/rules/ai-bookkeeping.md", ".ai/TASKS.md", "src/shared/rein-clean.mjs", "docs/maid-notes.md"]) assert.ok(!OLD_PATH.test(p), p);
+});
+
+test("the subcommand list comes from the dispatch table", () => {
+  const subs = subcommands();
+  for (const s of ["ci", "sync", "init", "doctor", "pane", "start", "task", "gate"]) assert.ok(subs.includes(s), s);
+  assert.deepEqual(subcommands('cmd="$1"\ncase "$cmd" in\n  a|b-c)  x ;;\n  -v|--version) y ;;\n  *) z ;;\nesac\n'), ["a", "b-c"]);
+});
+
+test("every old name in the map is caught, every exclusion names a reason and exists", () => {
+  const pats = patterns();
+  const concrete = (s) => s.replace("<subcommand>", "sync");
+  for (const { old, new: now, kind } of MAP.filter((r) => r.kind !== "pin")) {
+    assert.ok(pats.some(([, re]) => re.test(concrete(old))), `map entry ${old} is not caught by the gate`);
+    assert.ok(!pats.some(([, re]) => re.test(concrete(now))), `map entry ${old} → ${now} still spells an old name`);
+    assert.ok(["env", "path", "tag", "id", "prose", "file", "command", "skill", "pin"].includes(kind), `${old}: unknown kind ${kind}`);
   }
   const reasons = { ...EXCL.files, ...EXCL.prefixes, ...Object.fromEntries(Object.entries(EXCL.sections).map(([k, v]) => [k, v.why])) };
   for (const [k, why] of Object.entries(reasons)) {
@@ -88,41 +154,20 @@ test("the gate pattern covers every old name in the map, and every exclusion nam
   }
 });
 
+// D-132 addendum 3: the pinned tables took the token rename and were re-pinned; each table now
+// hashes to its new pin and its old pin is gone from every test.
+test("every re-pinned table hashes to its new pin, and no test still names the old one", () => {
+  const pins = MAP.filter((r) => r.kind === "pin");
+  assert.ok(pins.length >= 3, "the three D-132 addendum 3 tables");
+  const tests = files().filter((f) => f.startsWith("tests/") && f.endsWith(".mjs"));
+  for (const { old, new: now, table } of pins) {
+    assert.equal(createHash("sha256").update(readFileSync(join(ROOT, table))).digest("hex"), now, table);
+    for (const f of tests) assert.ok(!readFileSync(join(ROOT, f), "utf8").includes(old), `${f} still pins ${table} at ${old.slice(0, 8)}`);
+  }
+});
+
 test("a section exclusion ends at the next `until` line, or runs to the end of the file", () => {
   const lines = ["## A", "ai-os", "## Where this comes from", "AI-OS", "### sub", "## B", "AIOS"];
   assert.deepEqual([...excludedLines("X.md", lines, { "X.md": { from: "## Where this comes from", until: "## " } })], [2, 3, 4]);
   assert.deepEqual([...excludedLines("X.md", lines, { "X.md": { from: "## Where this comes from", until: null } })], [2, 3, 4, 5, 6]);
-});
-
-// ── env resolver (src/shared/env.mjs; its shell twin is rein_legacy_env_apply in locate.sh) ──
-
-test("env: the new name wins, the old one is read only when the new one is unset", () => {
-  assert.deepEqual(resolveEnv("REIN_FOO", { REIN_FOO: "new", AI_OS_FOO: "old" }), { value: "new", legacy: false });
-  assert.deepEqual(resolveEnv("REIN_FOO", { AI_OS_FOO: "old" }), { value: "old", legacy: true });
-  assert.deepEqual(resolveEnv("REIN_FOO", { REIN_FOO: "" , AI_OS_FOO: "old" }), { value: "", legacy: false });
-  assert.deepEqual(resolveEnv("REIN_WORKSPACE", { AIOS_WORKSPACE: "/w" }), { value: "/w", legacy: true });
-  assert.deepEqual(resolveEnv("REIN_FOO", {}), { value: undefined, legacy: false });
-});
-
-test("env: the trust-bearing names are never mapped", () => {
-  for (const x of ["TC_NODE", "LOCATE_DEV", "LOCATE_UNTRUSTED_ENV", "CALLER_ROLE", "PANE_ROLE"]) {
-    assert.equal(newNameOf(`AI_OS_${x}`), null, x);
-    assert.deepEqual(resolveEnv(`REIN_${x}`, { [`AI_OS_${x}`]: "architect" }), { value: undefined, legacy: false }, x);
-  }
-});
-
-test("env: applyLegacyEnv sets only unshadowed names; the shell twin agrees", () => {
-  const input = { AI_OS_FOO: "1", AI_OS_BAR: "old", REIN_BAR: "new", AI_OS_CALLER_ROLE: "architect", AIOS_WORKSPACE: "/w", OTHER: "x" };
-  const env = { ...input };
-  assert.deepEqual(applyLegacyEnv(env).sort(), ["REIN_FOO", "REIN_WORKSPACE"]);
-  assert.equal(env.REIN_BAR, "new");
-  assert.equal(env.REIN_CALLER_ROLE, undefined);
-  assert.deepEqual(legacyVars(input).map((v) => [v.old, v.shadowed]),
-    [["AIOS_WORKSPACE", false], ["AI_OS_BAR", true], ["AI_OS_FOO", false]]);
-
-  const sh = execFileSync("/bin/bash", ["-c", `. "${join(ROOT, "src/shared/locate.sh")}"; rein_legacy_env_apply; env | grep '^REIN_' | sort; printf '%s\\n' "\${REIN_LEGACY_ENV_SEEN[@]}"`],
-    { env: { PATH: process.env.PATH, HOME: process.env.HOME, ...input }, encoding: "utf8" });
-  const set = sh.split("\n").filter((l) => /^REIN_(FOO|BAR|WORKSPACE|CALLER_ROLE)=/.test(l));
-  assert.deepEqual(set, ["REIN_BAR=new", "REIN_FOO=1", "REIN_WORKSPACE=/w"]);
-  assert.match(sh, /^AI_OS_BAR REIN_BAR ignored$/m);
 });

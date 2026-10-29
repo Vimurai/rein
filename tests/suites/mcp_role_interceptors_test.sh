@@ -87,9 +87,9 @@ const results = {
   aiAllowed:       g(undefined, cwd + "/.ai/TASKS.md"),
   plansAllowed:    g(undefined, cwd + "/plans/foo.md"),
   // THE REGRESSION: omitting the role no longer buys unrestricted access.
-  omittedBlocked:  g(undefined, cwd + "/src/bin/ai"),
+  omittedBlocked:  g(undefined, cwd + "/src/bin/rein"),
   // A volunteered engineer cannot lift the derived architect restriction.
-  claimedEngineer: g("engineer", cwd + "/src/bin/ai"),
+  claimedEngineer: g("engineer", cwd + "/src/bin/rein"),
 };
 
 const ok =

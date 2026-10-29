@@ -183,7 +183,7 @@ export function nextTeamId(aiDir, db, team, prefix, email = gitEmail(aiDir)) {
   const ranges = team.members[email]?.ranges?.[prefix];
   if (!ranges || ranges.length === 0) {
     throw new TeamError("ID_RANGE_MISSING",
-      `${email} has no ${prefix} range in .ai/team.json — ask the planner (${team.planner}): ai team add ${email} --range ${prefix}:<from>-<to>`);
+      `${email} has no ${prefix} range in .ai/team.json — ask the planner (${team.planner}): rein team add ${email} --range ${prefix}:<from>-<to>`);
   }
   const taken = _takenIds(aiDir, db, prefix);
   for (const [from, to] of ranges) {
@@ -194,7 +194,7 @@ export function nextTeamId(aiDir, db, team, prefix, email = gitEmail(aiDir)) {
     `${email}'s ${prefix} ranges are used up (last used ${prefix}-${last}) — ask the planner (${team.planner}) for another range`);
 }
 
-/** The ranges and their use, for `ai team show`. */
+/** The ranges and their use, for `rein team show`. */
 export function describeTeam(aiDir, db, team) {
   const lines = [`planner: ${team.planner}   claim_ttl_days: ${team.claim_ttl_days}   shared_log: ${team.shared_log}`];
   for (const [email, m] of Object.entries(team.members)) {

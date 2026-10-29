@@ -1,12 +1,12 @@
 # shellcheck shell=bash
-# ai-account.sh — E-314 (D-095, accounts.md §Components 1 and 4): Claude accounts.
+# rein-account.sh — E-314 (D-095, accounts.md §Components 1 and 4): Claude accounts.
 #
-# Sourced by src/bin/ai (never executed: it has no top level beyond definitions). One account
+# Sourced by src/bin/rein (never executed: it has no top level beyond definitions). One account
 # = one Claude Code config directory = one claude.ai login. The project will name an account
 # (E-315); the operator's registry ${REIN}/accounts.json maps the name to the directory; every
 # read and every validation goes through src/shared/accounts.py, resolved beside this file
-# (bin/ → shared/, the same layout in the clone and in ~/.rein), so `ai account`, `ai pane`,
-# `ai start` and `ai doctor` share one resolver.
+# (bin/ → shared/, the same layout in the clone and in ~/.rein), so `rein account`, `rein pane`,
+# `rein start` and `rein doctor` share one resolver.
 #
 # "default" is reserved: it is ~/.claude with CLAUDE_CONFIG_DIR left as the operator's shell
 # has it. Proven on 2.1.296 (E-314 probe): exporting CLAUDE_CONFIG_DIR=~/.claude EXPLICITLY
@@ -27,22 +27,22 @@ _account_dir() {
   local name="${1:-}" out rc
   [[ -z "$name" || "$name" == "default" ]] && return 0
   if ! command -v python3 >/dev/null 2>&1; then
-    echo "ai: account '${name}': python3 is required to read $(_acct_registry)" >&2; return 7
+    echo "rein: account '${name}': python3 is required to read $(_acct_registry)" >&2; return 7
   fi
   # stdout only: the result is a path a caller exports (E-315) — stderr noise must never join it.
   out="$(python3 -I "$(_acct_py)" resolve "$(_acct_registry)" "$HOME" "$name" 2>/dev/null)" && rc=0 || rc=$?
   case "$rc" in
     0) printf '%s\n' "$out" ;;
-    4) echo "ai: account '${name}' is not registered — run: ai account add ${name}" >&2 ;;
-    6) echo "ai: account '${name}': its directory ${out#MISSING$'\t'} is missing — run: ai account remove ${name} && ai account add ${name}" >&2 ;;
-    3) echo "ai: $(_acct_registry) is unreadable (${out#UNPARSABLE$'\t'}) — fix or remove it" >&2 ;;
-    *) echo "ai: account '${name}': ${out#*$'\t'}" >&2 ;;
+    4) echo "rein: account '${name}' is not registered — run: rein account add ${name}" >&2 ;;
+    6) echo "rein: account '${name}': its directory ${out#MISSING$'\t'} is missing — run: rein account remove ${name} && rein account add ${name}" >&2 ;;
+    3) echo "rein: $(_acct_registry) is unreadable (${out#UNPARSABLE$'\t'}) — fix or remove it" >&2 ;;
+    *) echo "rein: account '${name}': ${out#*$'\t'}" >&2 ;;
   esac
   return "$rc"
 }
 
 # _account_rows → "<name>\t<dir>\t<added>" per registered account (data only). A registry the
-# resolver refuses prints nothing here; `ai account list` and the doctor report it themselves.
+# resolver refuses prints nothing here; `rein account list` and the doctor report it themselves.
 _account_rows() {
   command -v python3 >/dev/null 2>&1 || return 0
   python3 -I "$(_acct_py)" list "$(_acct_registry)" "$HOME" 2>/dev/null || true
@@ -99,7 +99,7 @@ _acct_seed() {
     src="${HOME}/.claude/${f}"
     [[ -f "$src" ]] || continue
     # `|| true`: EXISTS is exit 1, and under the caller's `set -e` a bare assignment would end
-    # `ai account add` silently before the registry write (seeding a directory that exists).
+    # `rein account add` silently before the registry write (seeding a directory that exists).
     out="$(python3 -I "$(_acct_py)" copy "$src" "${dir}/${f}" 2>&1)" || true
     case "$out" in
       COPIED) echo "  ✓ ${f}: copied from ~/.claude" ;;
@@ -156,10 +156,10 @@ _start_account_pick() {
   rows="$(_account_rows)"
   [[ -n "$rows" ]] || return 0
   if [[ ! -t 0 ]]; then
-    echo "ai start: no account bound for this project — using default (bind one: ai start --account <name>)"
+    echo "rein start: no account bound for this project — using default (bind one: rein start --account <name>)"
     return 0
   fi
-  echo "ai start: which Claude account should this project use?"
+  echo "rein start: which Claude account should this project use?"
   echo "  1) default ($(_acct_tilde "${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"))"
   while IFS=$'\t' read -r name dir _rest; do
     [[ -n "$name" ]] || continue
@@ -167,45 +167,45 @@ _start_account_pick() {
     echo "  ${i}) ${name} ($(_acct_tilde "$dir"))"
   done <<< "$rows"
   if [[ "$dry" -eq 1 ]]; then
-    echo "ai start: (dry run) a real run asks here and writes the choice to .ai/$(_start_account_file "$ai_dir")"
+    echo "rein start: (dry run) a real run asks here and writes the choice to .ai/$(_start_account_file "$ai_dir")"
     return 0
   fi
   printf 'choice [1]: '
   read -r choice || choice=""
   choice="${choice:-1}"
   if ! [[ "$choice" =~ ^[0-9]+$ ]] || (( choice < 1 || choice > ${#names[@]} )); then
-    echo "ai start: '${choice}' is not one of 1-${#names[@]} — nothing written" >&2
+    echo "rein start: '${choice}' is not one of 1-${#names[@]} — nothing written" >&2
     return 2
   fi
   # The pick writes "default" explicitly (unlike --account default, which removes the key), so
   # an operator who chose default is not asked again on every start.
   local _f; _f="$(_start_account_file "$ai_dir")"
   _start_account_set "$ai_dir" "${names[$((choice - 1))]}" keep "$_f" || return 2
-  echo "ai start: bound this project to account '${names[$((choice - 1))]}' (.ai/${_f})"
+  echo "rein start: bound this project to account '${names[$((choice - 1))]}' (.ai/${_f})"
 }
 
 # _account_launch_check <name> <dir> — the account's user-level copy, checked at launch
-# (D-097, accounts.md §3): OUTDATED backstop → refuse naming `ai sync` (a stale copy only Rein
-# refreshes); settings.json missing or unparsable → refuse naming `ai account sync <name>`;
+# (D-097, accounts.md §3): OUTDATED backstop → refuse naming `rein sync` (a stale copy only Rein
+# refreshes); settings.json missing or unparsable → refuse naming `rein account sync <name>`;
 # ABSENT → the doctor's notice, then continue (the backstop is the operator's y/N choice).
 _account_launch_check() {
   local name="$1" dir="$2" py out
   py="$(_cb_py 2>/dev/null)"
   if [[ ! -f "$py" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "ai pane: account '${name}': cannot check ${dir}/settings.json (helper or python3 missing — run: bash install-rein.sh)" >&2
+    echo "rein pane: account '${name}': cannot check ${dir}/settings.json (helper or python3 missing — run: bash install-rein.sh)" >&2
     return 2
   fi
   out="$(python3 -I "$py" status "${dir}/settings.json" 2>/dev/null | sed -n '1p')"
   case "$out" in
     PRESENT) return 0 ;;
     ABSENT)
-      echo "ai pane: ○ classifier backstop [account ${name}]: not configured in $(_acct_tilde "$dir")/settings.json — run: ai account sync ${name} (copies ~/.claude/settings.json)" >&2
+      echo "rein pane: ○ classifier backstop [account ${name}]: not configured in $(_acct_tilde "$dir")/settings.json — run: rein account sync ${name} (copies ~/.claude/settings.json)" >&2
       return 0 ;;
     OUTDATED*)
-      echo "ai pane: account '${name}': the classifier backstop in $(_acct_tilde "$dir")/settings.json is outdated — run: ai sync" >&2
+      echo "rein pane: account '${name}': the classifier backstop in $(_acct_tilde "$dir")/settings.json is outdated — run: rein sync" >&2
       return 2 ;;
     *)
-      echo "ai pane: account '${name}': $(_acct_tilde "$dir")/settings.json is missing or unreadable (${out:-no answer}) — run: ai account sync ${name}" >&2
+      echo "rein pane: account '${name}': $(_acct_tilde "$dir")/settings.json is missing or unreadable (${out:-no answer}) — run: rein account sync ${name}" >&2
       return 2 ;;
   esac
 }
@@ -218,7 +218,7 @@ _acct_in_use() {  # <name> → 0 when a tmux pane is running under it (@rein_acc
 do_account() {
   local sub="${1:-list}"; shift || true
   if ! command -v python3 >/dev/null 2>&1; then
-    echo "ai account: python3 is required" >&2; return 2
+    echo "rein account: python3 is required" >&2; return 2
   fi
   local py reg out rc
   py="$(_acct_py)"; reg="$(_acct_registry)"
@@ -226,7 +226,7 @@ do_account() {
     list)
       out="$(python3 -I "$py" list "$reg" "$HOME" 2>&1)" && rc=0 || rc=$?
       if [[ "$rc" -ne 0 ]]; then
-        echo "ai account: ${reg} is unreadable (${out#*$'\t'}) — fix or remove it" >&2; return 2
+        echo "rein account: ${reg} is unreadable (${out#*$'\t'}) — fix or remove it" >&2; return 2
       fi
       printf '%-12s %-36s %-7s %-28s %s\n' NAME DIR EXISTS LOGIN SETTINGS
       local ddir="${CLAUDE_CONFIG_DIR:-${HOME}/.claude}" ex
@@ -244,29 +244,29 @@ do_account() {
       local name="${1:-}" dir=""; shift || true
       while [[ $# -gt 0 ]]; do
         case "$1" in
-          --dir) dir="${2:-}"; shift 2 || { echo "ai account add: --dir needs a path" >&2; return 2; } ;;
-          *) echo "ai account add: unexpected argument '$1'" >&2; return 2 ;;
+          --dir) dir="${2:-}"; shift 2 || { echo "rein account add: --dir needs a path" >&2; return 2; } ;;
+          *) echo "rein account add: unexpected argument '$1'" >&2; return 2 ;;
         esac
       done
-      [[ -n "$name" ]] || { echo "usage: ai account add <name> [--dir <path>]" >&2; return 2; }
+      [[ -n "$name" ]] || { echo "usage: rein account add <name> [--dir <path>]" >&2; return 2; }
       dir="${dir:-${HOME}/.claude-${name}}"
       out="$(python3 -I "$py" check "$HOME" "$name" "$dir" 2>&1)" && rc=0 || rc=$?
-      [[ "$rc" -eq 0 ]] || { echo "ai account add: ${out#*$'\t'}" >&2; return 2; }
+      [[ "$rc" -eq 0 ]] || { echo "rein account add: ${out#*$'\t'}" >&2; return 2; }
       dir="$out"
       out="$(python3 -I "$py" list "$reg" "$HOME" 2>&1)" && rc=0 || rc=$?
-      [[ "$rc" -eq 0 ]] || { echo "ai account add: ${reg} is unreadable (${out#*$'\t'}) — fix or remove it" >&2; return 2; }
+      [[ "$rc" -eq 0 ]] || { echo "rein account add: ${reg} is unreadable (${out#*$'\t'}) — fix or remove it" >&2; return 2; }
       if printf '%s\n' "$out" | cut -f1 | grep -qxF "$name"; then
-        echo "ai account add: '${name}' is already registered — see: ai account list" >&2; return 2
+        echo "rein account add: '${name}' is already registered — see: rein account list" >&2; return 2
       fi
-      mkdir -p "$dir" 2>/dev/null && [[ -d "$dir" ]] || { echo "ai account add: could not create ${dir}" >&2; return 3; }
+      mkdir -p "$dir" 2>/dev/null && [[ -d "$dir" ]] || { echo "rein account add: could not create ${dir}" >&2; return 3; }
       chmod 700 "$dir" 2>/dev/null || true
       # Again on the directory that now exists: owner, mode and where it really resolves to.
       out="$(python3 -I "$py" check "$HOME" "$name" "$dir" 2>&1)" && rc=0 || rc=$?
-      [[ "$rc" -eq 0 ]] || { echo "ai account add: ${out#*$'\t'} — nothing seeded or registered" >&2; return 2; }
-      echo "ai account add: ${name} → $(_acct_tilde "$dir")"
+      [[ "$rc" -eq 0 ]] || { echo "rein account add: ${out#*$'\t'} — nothing seeded or registered" >&2; return 2; }
+      echo "rein account add: ${name} → $(_acct_tilde "$dir")"
       _acct_seed "$dir"
       out="$(python3 -I "$py" add "$reg" "$HOME" "$name" "$dir" "$(_acct_today)" 2>&1)" && rc=0 || rc=$?
-      [[ "$rc" -eq 0 ]] || { echo "ai account add: not registered — ${out#*$'\t'}" >&2; return 2; }
+      [[ "$rc" -eq 0 ]] || { echo "rein account add: not registered — ${out#*$'\t'}" >&2; return 2; }
       echo "  ✓ registered in $(_acct_tilde "$reg")"
       # E-318 (D-097): the seeded copy may carry an outdated backstop label — replace it in place.
       declare -F _classifier_refresh_one >/dev/null && _classifier_refresh_one "${dir}/settings.json" "$name"
@@ -288,23 +288,23 @@ do_account() {
       ;;
     remove)
       local name="${1:-}"
-      [[ -n "$name" ]] || { echo "usage: ai account remove <name>" >&2; return 2; }
+      [[ -n "$name" ]] || { echo "usage: rein account remove <name>" >&2; return 2; }
       out="$(python3 -I "$py" list "$reg" "$HOME" 2>&1)" && rc=0 || rc=$?
-      [[ "$rc" -eq 0 ]] || { echo "ai account remove: ${reg} is unreadable (${out#*$'\t'})" >&2; return 2; }
+      [[ "$rc" -eq 0 ]] || { echo "rein account remove: ${reg} is unreadable (${out#*$'\t'})" >&2; return 2; }
       printf '%s\n' "$out" | cut -f1 | grep -qxF "$name" \
-        || { echo "ai account remove: '${name}' is not registered" >&2; return 2; }
+        || { echo "rein account remove: '${name}' is not registered" >&2; return 2; }
       if _acct_in_use "$name"; then
-        echo "ai account remove: '${name}' is in use by a running pane — exit it first" >&2; return 3
+        echo "rein account remove: '${name}' is in use by a running pane — exit it first" >&2; return 3
       fi
       out="$(python3 -I "$py" remove "$reg" "$HOME" "$name" 2>&1)" && rc=0 || rc=$?
-      [[ "$rc" -eq 0 ]] || { echo "ai account remove: ${out#*$'\t'}" >&2; return 2; }
-      echo "ai account remove: '${name}' unregistered; ${out#REMOVED$'\t'} and its login are kept"
+      [[ "$rc" -eq 0 ]] || { echo "rein account remove: ${out#*$'\t'}" >&2; return 2; }
+      echo "rein account remove: '${name}' unregistered; ${out#REMOVED$'\t'} and its login are kept"
       ;;
     sync)
       local name="${1:-}" dir f
-      [[ -n "$name" ]] || { echo "usage: ai account sync <name>" >&2; return 2; }
+      [[ -n "$name" ]] || { echo "usage: rein account sync <name>" >&2; return 2; }
       dir="$(_account_dir "$name")" || return 2
-      [[ -n "$dir" ]] || { echo "ai account sync: 'default' is ~/.claude itself" >&2; return 2; }
+      [[ -n "$dir" ]] || { echo "rein account sync: 'default' is ~/.claude itself" >&2; return 2; }
       for f in settings.json keybindings.json; do
         if [[ -f "${HOME}/.claude/${f}" ]]; then
           if [[ "$(python3 -I "$(_acct_py)" copy "${HOME}/.claude/${f}" "${dir}/${f}" --replace 2>&1)" == COPIED ]]; then
@@ -319,18 +319,18 @@ do_account() {
       ;;
     use)
       # E-333 (D-102 §8): this developer's account for THIS project — the gitignored
-      # .ai/start.local.json, read before the committed start.json by ai pane / ai start.
+      # .ai/start.local.json, read before the committed start.json by rein pane / rein start.
       local name="${1:-}" ai_dir
-      [[ -n "$name" && $# -le 1 ]] || { echo "usage: ai account use <name|default>" >&2; return 2; }
+      [[ -n "$name" && $# -le 1 ]] || { echo "usage: rein account use <name|default>" >&2; return 2; }
       ai_dir="$(_find_ai_dir)"
-      [[ -d "$ai_dir" ]] || { echo "ai account use: not inside a Rein project (no .ai/)" >&2; return 2; }
+      [[ -d "$ai_dir" ]] || { echo "rein account use: not inside a Rein project (no .ai/)" >&2; return 2; }
       _account_dir "$name" >/dev/null || return 2
-      _start_account_set "$ai_dir" "$name" keep start.local.json || { echo "ai account use: could not write .ai/start.local.json" >&2; return 2; }
-      echo "ai account use: this checkout launches under '${name}' (.ai/start.local.json — gitignored, yours only)"
+      _start_account_set "$ai_dir" "$name" keep start.local.json || { echo "rein account use: could not write .ai/start.local.json" >&2; return 2; }
+      echo "rein account use: this checkout launches under '${name}' (.ai/start.local.json — gitignored, yours only)"
       ;;
     -h|--help|help)
-      echo "usage: ai account list | add <name> [--dir <path>] | remove <name> | sync <name> | use <name|default>"
+      echo "usage: rein account list | add <name> [--dir <path>] | remove <name> | sync <name> | use <name|default>"
       ;;
-    *) echo "ai account: unknown subcommand '${sub}' — list | add | remove | sync | use" >&2; return 2 ;;
+    *) echo "rein account: unknown subcommand '${sub}' — list | add | remove | sync | use" >&2; return 2 ;;
   esac
 }

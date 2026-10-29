@@ -10,7 +10,7 @@
 | **Engineer** | `ENGINEER.md` | `opus`, pane 0 | `src/`, `tests/`, implementation tasks, commits | rewrite the blueprint |
 | **Tester** | `test_engineer` agent | `sonnet`, headless | tests under `tests/`, test stamps | write outside `tests/` |
 
-`ai pane <role>` launches Claude Code with the role's model and permission overlay
+`rein pane <role>` launches Claude Code with the role's model and permission overlay
 (`.claude/settings.<role>.json`) and stamps the session with its role. The SessionStart hook reads
 that stamp, so the right rulefile governs even though `CLAUDE.md` statically imports the Engineer
 one. The Tester has no pane: the Engineer dispatches it with `skill: ai-test --generate`.
@@ -27,7 +27,7 @@ you ──"plan X"──▶ Architect ── blueprint + E-## tasks ──▶ .a
             ▼
    implement ─▶ tests ─▶ critics (by risk tier) ─▶ commit (pre-commit gate)
             │                                          │
-            │                                    ai ci run (clean worktree)
+            │                                    rein ci run (clean worktree)
             ▼                                          │
    ai-task: mark DONE (needs green CI) ─▶ handover ─▶ next task, or wake the Architect
 ```
@@ -41,7 +41,7 @@ you ──"plan X"──▶ Architect ── blueprint + E-## tasks ──▶ .a
 3. **Validate.** `skill: ai-test` runs the project's own test command; `--generate` has the Tester
    write missing tests.
 4. **Review.** `skill: ai-review` classifies the change's risk tier and runs the matching critics.
-5. **Commit.** The pre-commit gate checks for a review stamp; `ai ci run` tests the commit in a
+5. **Commit.** The pre-commit gate checks for a review stamp; `rein ci run` tests the commit in a
    clean worktree.
 6. **Close.** `skill: ai-task` marks the task done — refused until CI is green — records the
    delta for the Architect, and moves on. When the queue is empty, it wakes the Architect.
@@ -81,7 +81,7 @@ action of the turn — calls Claude Code's `SendMessage` to the other pane's ses
 ```
 
 `TASKS.md` and `REVIEWS.md` are regenerated from the store: change tasks through the agents'
-tools or `ai add-task` / `ai task done`, never by hand. `.ai/` is primary memory — when the chat
+tools or `rein add-task` / `rein task done`, never by hand. `.ai/` is primary memory — when the chat
 and the files disagree, the files win.
 
 ## Context economy

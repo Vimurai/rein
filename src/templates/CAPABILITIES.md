@@ -1,5 +1,5 @@
 # CAPABILITIES (Declarative Capability Schema)
-# Source of truth for ai-exec and .mcp.json enforcement.
+# Source of truth for rein-exec and .mcp.json enforcement.
 # Edit this file to define what AI agents are allowed to do in THIS project.
 
 ## filesystem.read
@@ -17,7 +17,7 @@
 - ~/.rein/memory/**
 
 ## filesystem.write
-# Allowed path patterns for WRITE operations (requires --allow-write in ai-exec).
+# Allowed path patterns for WRITE operations (requires --allow-write in rein-exec).
 - src/**
 - .ai/**
 - tests/**
@@ -41,7 +41,7 @@
 # never typed by the agent. `git fetch origin <trunk>`, plumbing on a private index
 # (hash-object, read-tree, update-index, write-tree, commit-tree) and a fast-forward-only
 # `git push origin <sha>:refs/heads/<trunk>` of ONE commit touching .ai/tasks/<id>.json.
-# <trunk> is `ai trunk` (E-341, D-105): team.json "trunk", else origin/HEAD, else main|master.
+# <trunk> is `rein trunk` (E-341, D-105): team.json "trunk", else origin/HEAD, else main|master.
 # claim, release and DONE each push one such commit; the pre-push CI gate still runs.
 - git fetch origin <trunk> (claims)
 - git push origin <sha>:refs/heads/<trunk> (claim/release/done bookkeeping commit)

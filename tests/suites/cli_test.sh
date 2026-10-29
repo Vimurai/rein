@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# cli_test.sh — Core `ai` CLI command tests (E-34 — collapsed surface)
+# cli_test.sh — Core `rein` CLI command tests (E-34 — collapsed surface)
 # After the cli-collapse, the only user-facing commands are: install, init,
 # sync, doctor, uninstall, version, help. Removed commands (update, preflight,
 # review, test, archive, digest, where, onboard) emit a deprecation message
@@ -10,15 +10,15 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 
-AI_BIN="${SCRIPT_DIR}/../../src/bin/ai"
+AI_BIN="${SCRIPT_DIR}/../../src/bin/rein"
 
 echo "── Suite: cli_test ──────────────────────────────────────────────────"
 
-# ai version exits 0 and prints a semver. The value follows the installed ~/.rein/VERSION
+# rein version exits 0 and prints a semver. The value follows the installed ~/.rein/VERSION
 # (E-270), which init_upgrade_test pins; a literal major here broke on the 4.0.0 bump (E-263).
 out=$("$AI_BIN" version 2>&1)
-assert_status 0 "ai version exits 0" "$AI_BIN" version
-assert_match "ai version contains version number" '^rein [0-9]+\.[0-9]+\.[0-9]+' "$out"
+assert_status 0 "rein version exits 0" "$AI_BIN" version
+assert_match "rein version contains version number" '^rein [0-9]+\.[0-9]+\.[0-9]+' "$out"
 
 # Usage lists the kept commands (install / init / sync / doctor / uninstall)
 out=$("$AI_BIN" 2>&1 || true)
@@ -34,20 +34,20 @@ assert_contains "usage references removed 'test' (migration map)" "test" "$out"
 
 # Removed commands emit a deprecation message and exit 1
 out=$("$AI_BIN" review 2>&1 || true)
-assert_contains "ai review prints deprecation pointer to skill" "skill: arch-review" "$out"
-assert_status 1 "ai review exits 1 (deprecated)" "$AI_BIN" review
+assert_contains "rein review prints deprecation pointer to skill" "skill: arch-review" "$out"
+assert_status 1 "rein review exits 1 (deprecated)" "$AI_BIN" review
 
 out=$("$AI_BIN" test 2>&1 || true)
-assert_contains "ai test prints deprecation pointer to skill" "skill: ai-test" "$out"
-assert_status 1 "ai test exits 1 (deprecated)" "$AI_BIN" test
+assert_contains "rein test prints deprecation pointer to skill" "skill: ai-test" "$out"
+assert_status 1 "rein test exits 1 (deprecated)" "$AI_BIN" test
 
 out=$("$AI_BIN" preflight 2>&1 || true)
-assert_contains "ai preflight prints deprecation pointer" "skill: ai-preflight" "$out"
-assert_status 1 "ai preflight exits 1 (deprecated)" "$AI_BIN" preflight
+assert_contains "rein preflight prints deprecation pointer" "skill: ai-preflight" "$out"
+assert_status 1 "rein preflight exits 1 (deprecated)" "$AI_BIN" preflight
 
 out=$("$AI_BIN" where 2>&1 || true)
-assert_contains "ai where prints deprecation message" "removed" "$out"
-assert_status 1 "ai where exits 1 (deprecated)" "$AI_BIN" where
+assert_contains "rein where prints deprecation message" "removed" "$out"
+assert_status 1 "rein where exits 1 (deprecated)" "$AI_BIN" where
 
 # Unknown subcommand exits 1
 assert_status 1 "unknown subcommand exits 1" "$AI_BIN" __nonexistent_command__
@@ -61,12 +61,12 @@ assert_status 1 "unknown subcommand exits 1" "$AI_BIN" __nonexistent_command__
 #   • scripts/generate_blueprints_index.mjs exists, deterministic, --check mode.
 #   • committed .ai/blueprints/_INDEX.md is byte-identical to a fresh run (CI gate).
 #   • every .ai/blueprints/*.md appears in the index.
-#   • bin/ai do_sync() invokes _regenerate_blueprints_index (node-guarded, mirror fallback).
+#   • bin/rein do_sync() invokes _regenerate_blueprints_index (node-guarded, mirror fallback).
 #   • generator is fail-open (missing dir → exit 0, no output file).
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 GEN="${REPO_ROOT}/scripts/generate_blueprints_index.mjs"
 INDEX_MD="${REPO_ROOT}/.ai/blueprints/_INDEX.md"
-BIN_AI="${REPO_ROOT}/src/bin/ai"
+BIN_AI="${REPO_ROOT}/src/bin/rein"
 
 
 # ── T-BPI-S01: generator present + valid ─────────────────────────────────────
@@ -103,7 +103,7 @@ assert_contains "index footer reports the on-disk count" "${DISK_N} blueprints i
 rm -f "$TMP_OUT2"
 
 # ── T-BPI-S04: do_sync() wires the regenerator (node-guarded, mirror fallback) ─
-assert_status 0 "bin/ai defines _regenerate_blueprints_index()" \
+assert_status 0 "bin/rein defines _regenerate_blueprints_index()" \
   grep -qE '^_regenerate_blueprints_index\(\)' "$BIN_AI"
 assert_status 0 "do_sync() invokes _regenerate_blueprints_index" \
   python3 -c "import re,sys; s=open('${BIN_AI}').read(); m=re.search(r'^do_sync\(\)\s*\{(.*?)^\}', s, re.S|re.M); sys.exit(0 if m and '_regenerate_blueprints_index' in m.group(1) else 1)"
@@ -123,15 +123,15 @@ assert_status 1 "no _INDEX.md created in a non-Rein dir" \
 rm -rf "$SANDBOX" "$TMP_OUT"
 
 
-# ── E-175 (from doctor_env — E-302): ai doctor --env deep diagnostics ──
+# ── E-175 (from doctor_env — E-302): rein doctor --env deep diagnostics ──
 # E-175 (doctor-and-cache-optimizations.md §Components 1)
 #
-# `ai doctor --env` performs deep environment + connectivity diagnostics:
+# `rein doctor --env` performs deep environment + connectivity diagnostics:
 # Node 22+, essential binaries, Docker, read/write bits on ~/.rein & .ai, and a
 # live MCP connectivity probe (E-176 mcp-tester). Exits 1 on critical failure.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 LOCAL_SERVER="${REPO_ROOT}/src/mcp/cache-manager-mcp/index.js"
 
 
@@ -203,9 +203,9 @@ echo ""
 #     mention fails, and so does a listed file that no longer mentions anything (equality,
 #     not subset, or the list rots into a standing permission);
 #   * each entry pins the exact number of matching lines, so a new mention inside an
-#     already-listed file (src/bin/ai is 5k lines) is an explicit fixture edit in the diff;
+#     already-listed file (src/bin/rein is 5k lines) is an explicit fixture edit in the diff;
 #   * entries are only `removal` or `absence-test`, and user-facing text (help is in
-#     src/bin/ai and is covered by its count; README, CONTRIBUTING, the rulefiles,
+#     src/bin/rein and is covered by its count; README, CONTRIBUTING, the rulefiles,
 #     templates, contracts) can never be listed.
 #
 # Mentions are written PLAINLY. Splitting a literal to dodge the grep hides the mention,
@@ -226,7 +226,7 @@ _hits() {
   local dir="$1"; shift
   ( cd "$dir" || exit 1
     local list
-    # node_modules is excluded: `ai ci run` installs dependencies, and third-party
+    # node_modules is excluded: `rein ci run` installs dependencies, and third-party
     # packages are neither ours to allowlist nor ours to fix.
     list="$(corpus_or_fail "${MIN_CORPUS:-1}" "$@" -- -type f -not -path '*/node_modules/*')" || exit 1
     printf '%s\n' "$list" | tr '\n' '\0' \
@@ -288,7 +288,7 @@ echo ""
 # E-274 (D-074, version-lifecycle.md §Components 2): the
 # ".mcp.json is generated but partly user-owned" rule.
 #
-# generate_mcp_json rebuilt {mcpServers} from registry.json on every ai init / ai sync and
+# generate_mcp_json rebuilt {mcpServers} from registry.json on every rein init / rein sync and
 # dropped any server the user had added, and any env they set — while the comment at its
 # call site said it preserved them. The rule now:
 #
@@ -298,10 +298,10 @@ echo ""
 #   * a user `env` block on an owned server → carried over (user keys win).
 #
 # The function is exercised directly (sourced) against a fixture HOME whose mirror config
-# is this checkout's own; the ai init / ai sync end-to-end cases live in
+# is this checkout's own; the rein init / rein sync end-to-end cases live in
 # tests/suites/init_upgrade_test.sh (E-274 block), which already pays for a real install.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd -P)"
-AI="${REPO_ROOT}/src/bin/ai"
+AI="${REPO_ROOT}/src/bin/rein"
 
 
 if skip_unless_cmd python3 "E-274 generate_mcp_json"; then
@@ -385,15 +385,15 @@ assert_status 0 "E-274.05a: a user server under a custom key survives" \
   python3 -c 'import json,sys;d=json.load(open(sys.argv[1]));assert d["mcp_servers"]["theirs"]=={"command":"x"}' "${PROJ}/alt.json"
 
 # ── E-274.6: the call-site comment no longer claims what the code did not do ──
-assert_status 1 "E-274.06a: no 'preserves user env values' claim left in src/bin/ai" \
+assert_status 1 "E-274.06a: no 'preserves user env values' claim left in src/bin/rein" \
   grep -q "preserves user env values" "$AI"
 fi
 
 # ── T-01 (from agent_logic — E-302): intent_gate() behaviour ──
 # Rein Agent Logic Validation (T-01)
 # Re-implemented by Claude (E-59) — tests actual intent_gate() behaviour.
-# ── Harness: load intent_gate() from src/bin/ai without executing main ────────
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+# ── Harness: load intent_gate() from src/bin/rein without executing main ────────
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 # Source only the function definitions — guard against the main dispatch block
 source <(sed -n '/^intent_gate()/,/^}/p' "$AI_BIN") 2>/dev/null || true
 # If the function wasn't extracted cleanly, define a stub that always passes
@@ -615,8 +615,8 @@ check_tier3_security() {
 }
 
 # T-01.14.1: diff without TASKS.md → rule does not fire
-DIFF_NO_TASKS="--- a/src/bin/ai
-+++ b/src/bin/ai
+DIFF_NO_TASKS="--- a/src/bin/rein
++++ b/src/bin/rein
 @@ -1 +1 @@
 -old line
 +new line"
@@ -648,8 +648,8 @@ assert_status 0 "TIER3_NO_SECURITY_REVIEW: [x] checkbox form Tier 3, no log evid
   bash -c "$(declare -f check_tier3_security); check_tier3_security '$DIFF_CHECKBOX' '2026-03-15 | devops_engineer | pipeline configured'"
 
 
-# ── T-1 (from idempotency — E-302): ai init / ai sync always rewrite the rulefiles ──
-# Idempotency tests for `ai init` and `ai sync` (T-1)
+# ── T-1 (from idempotency — E-302): rein init / rein sync always rewrite the rulefiles ──
+# Idempotency tests for `rein init` and `rein sync` (T-1)
 #
 # Verifies that CLAUDE.md, ENGINEER.md, ARCHITECT.md and .mcp.json are ALWAYS overwritten by
 # ensure_ai_templates() (called by do_init and do_sync), even when the files
@@ -657,7 +657,7 @@ assert_status 0 "TIER3_NO_SECURITY_REVIEW: [x] checkbox form Tier 3, no log evid
 #
 # Coverage gap flagged in [TESTS_WARN] 2026-03-23.
 REPO_ROOT="${SCRIPT_DIR}/../.."
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 
 
 # ── Setup: create a temporary Rein project directory ────────────────────────
@@ -692,7 +692,7 @@ run_init() {
 mkdir -p "$PROJECT_DIR/.ai"
 
 # Check: bootloader templates exist in src. E-183/D-050: ENGINEER.md/ARCHITECT.md are the
-# canonical rulefiles; CLAUDE.md is the @import shim. All three are synced by `ai sync`.
+# canonical rulefiles; CLAUDE.md is the @import shim. All three are synced by `rein sync`.
 assert_exists "${REIN}/templates/CLAUDE.md"
 assert_exists "${REIN}/templates/ENGINEER.md"
 assert_exists "${REIN}/templates/ARCHITECT.md"
@@ -819,9 +819,9 @@ fi
 for _bl in CLAUDE.md ENGINEER.md ARCHITECT.md; do
   _n=$(grep -cE "cp -f .*\"${_bl}\"" "${AI_BIN}" 2>/dev/null || true)
   if [[ "${_n:-0}" -ge 2 ]]; then
-    _pass "src/bin/ai uses 'cp -f' for ${_bl} in init and sync (force overwrite enforced)"
+    _pass "src/bin/rein uses 'cp -f' for ${_bl} in init and sync (force overwrite enforced)"
   else
-    _fail "src/bin/ai has ${_n:-0} 'cp -f' sites for ${_bl} (want >= 2) — idempotency not enforced in source"
+    _fail "src/bin/rein has ${_n:-0} 'cp -f' sites for ${_bl} (want >= 2) — idempotency not enforced in source"
   fi
 done
 
@@ -831,7 +831,7 @@ SYNC_CP_F=$(sed -n '/^do_sync()/,/^}/p' "${AI_BIN}" | grep -E 'cp -f .*"CLAUDE.m
 if echo "$SYNC_CP_F" | grep -q 'cp -f'; then
   _pass "do_sync section also contains 'cp -f' bootloader overwrites"
 else
-  _fail "do_sync does not contain 'cp -f' bootloader overwrites — ai sync may leave stale files"
+  _fail "do_sync does not contain 'cp -f' bootloader overwrites — rein sync may leave stale files"
 fi
 
 # ── Test 8: ANTI-DRIFT PROTOCOL header survives template overwrite ────────────

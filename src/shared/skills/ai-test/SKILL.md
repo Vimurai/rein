@@ -11,7 +11,7 @@ agent: default
 # Rein Test — the headless Tester
 
 The Tester is the third Claude role (D-069): `tester` in `.ai/roles.json`, `headless: true`,
-model `sonnet`. It has no pane — `ai pane tester` exits 2 and points here.
+model `sonnet`. It has no pane — `rein pane tester` exits 2 and points here.
 
 ## Dynamic Context Injection
 Test command: !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/test-command.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null || echo '{"command":null,"note":"helper unavailable — reinstall Rein"}'
@@ -46,7 +46,7 @@ before proceeding.
 
 **In a review** (critic_tests, ai-review) the Rein runner is invoked as
 `bash tests/run.sh --tier fast --changed <base>` — the unit layer, every contract table, and the
-suites whose census footprint the change touches (E-298, D-088). The full matrix is `ai ci run`'s
+suites whose census footprint the change touches (E-298, D-088). The full matrix is `rein ci run`'s
 and pre-push's job, not a review's.
 
 ## --generate — dispatch the Tester

@@ -12,7 +12,7 @@
 # from the harness payload, never the env (no circularity).
 #
 # E-294 (D-083 r9, D-087): the role comes from a LAUNCH RECORD, never from the environment.
-# `ai pane <role>` writes ~/.rein/run/launch/<pid>.json before exec'ing the provider; the
+# `rein pane <role>` writes ~/.rein/run/launch/<pid>.json before exec'ing the provider; the
 # mint walks this process chain and the most restricted live record wins. The launch
 # environment (REIN_PANE_ROLE) used to decide the role here, and a project's settings `env`
 # could set it — the T-LOCATOR-001 class this closes.
@@ -53,7 +53,7 @@ unset _v _p
 # pointing it at a decoy made this bootstrap SOURCE the decoy's own locate.sh, i.e.
 # arbitrary shell inside a fail-closed gate. Assigned here, in the hook's own text, so it
 # overrides anything inherited.
-# Exported so a child process — an `ai` subcommand spawned from this hook — inherits
+# Exported so a child process — a `rein` subcommand spawned from this hook — inherits
 # the same judgement rather than defaulting back to trusting the environment.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
@@ -124,10 +124,10 @@ case "$ROLE" in architect|engineer) : ;; *) ROLE="" ;; esac
 if [[ -n "$ROLE" ]]; then
   ROLE_STAMP="[REIN_ROLE] ${ROLE}"
   [[ "$ROLE_LAUNCH" == "unverified" ]] && ROLE_STAMP="${ROLE_STAMP}
-[REIN_LAUNCH] unverified — no launch record on this process chain (plain launch); \`ai pane <role>\` binds one"
+[REIN_LAUNCH] unverified — no launch record on this process chain (plain launch); \`rein pane <role>\` binds one"
 else
   ROLE_STAMP="[REIN_ROLE] unverified
-[ROLE_UNVERIFIED] no verified role token for this session — every role's blocks apply. run: ai pane <role>"
+[ROLE_UNVERIFIED] no verified role token for this session — every role's blocks apply. run: rein pane <role>"
 fi
 
 command -v python3 >/dev/null 2>&1 || exit 0

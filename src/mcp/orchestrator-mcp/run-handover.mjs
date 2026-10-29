@@ -47,7 +47,7 @@ export function runHandover(cwd, args, gateOpts = {}, env = process.env) {
   // Unified transaction: task DONE + implementation delta + meta (P-26)
   const dbPath = resolve(ai, "state.sqlite");
   if (!existsSync(dbPath)) {
-    results.push(`⚠ state.sqlite missing — run: ai init`);
+    results.push(`⚠ state.sqlite missing — run: rein init`);
   } else {
     try {
       const db  = getDbSeeded(ai);

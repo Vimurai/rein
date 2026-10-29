@@ -29,7 +29,7 @@
 # interactive editors are NOT covered. Strong defence in depth; not airtight. The Git
 # Lane (E-214) remains the last checkpoint before anything reaches history.
 #
-# Operator escape (E-291, D-081 r2 / D-083): `ai gate off [--minutes N] [--reason …]` in the
+# Operator escape (E-291, D-081 r2 / D-083): `rein gate off [--minutes N] [--reason …]` in the
 # operator's own terminal writes a time-boxed ~/.rein/gate-override.json; there is NO
 # environment rollback (a project's settings `env` could set one). Under an override the
 # catastrophic set and the self-disable guard still block, and every bypassed call is loud.
@@ -44,8 +44,8 @@
 # shell without running EXIT, so they block too. SIGKILL and Claude Code's own hook timeout
 # are the accepted residual (THREAT_MODEL T-HOOKABORT-001). This is the hook's ONLY EXIT
 # trap (nothing it sources sets one — pinned by a test); a later one must chain to it.
-trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|2:exit|2:exit[[:space:]]*) exit "$_rein_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-tool-use aborted (rc %s near line %s) — run: ai doctor\n" "$_rein_rc" "$LINENO" >&2; exit 2' EXIT
-trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-tool-use interrupted by a signal — run: ai doctor\n" >&2; exit 2' TERM HUP INT PIPE
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|2:exit|2:exit[[:space:]]*) exit "$_rein_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-tool-use aborted (rc %s near line %s) — run: rein doctor\n" "$_rein_rc" "$LINENO" >&2; exit 2' EXIT
+trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-tool-use interrupted by a signal — run: rein doctor\n" >&2; exit 2' TERM HUP INT PIPE
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -77,7 +77,7 @@ unset _v _p
 # pointing it at a decoy made this bootstrap SOURCE the decoy's own locate.sh, i.e.
 # arbitrary shell inside a fail-closed gate. Assigned here, in the hook's own text, so it
 # overrides anything inherited.
-# Exported so a child process — an `ai` subcommand spawned from this hook — inherits
+# Exported so a child process — a `rein` subcommand spawned from this hook — inherits
 # the same judgement rather than defaulting back to trusting the environment.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
@@ -141,7 +141,7 @@ _catastrophic() {
 }
 
 # E-339 (D-107 r3): the analyzer invocation — the E-292 wall clock, the flags, the verdict
-# parse — lives in shared/gate-probe.sh, which `ai sync` (gate_check) and `ai doctor` source
+# parse — lives in shared/gate-probe.sh, which `rein sync` (gate_check) and `rein doctor` source
 # too, so the probe they run cannot drift from this gate. Install mirror only (E-223). When
 # the file is missing the functions are undefined, the call exits 127 = no verdict, and both
 # branches below block (fail closed) — the repair command stays exempt as before.
@@ -227,7 +227,7 @@ _FP_B64="$(printf '%s\n' "$PARSED" | sed -n '4p')"
 FILE_PATH="$(printf '%s' "$_FP_B64" | base64 --decode 2>/dev/null)"
 if [[ "$_P_RC" -ne 0 || "$(printf '%s\n' "$PARSED" | sed -n '5p')" != "OK" || -z "$TOOL" \
       || ( -n "$_CMD_B64" && -z "$CMD" ) || ( -n "$_FP_B64" && -z "$FILE_PATH" ) ]]; then
-  echo "[GATE_INTERNAL_ERROR] pre-tool-use could not parse the tool call (rc ${_P_RC}) — blocked; run: ai doctor" >&2
+  echo "[GATE_INTERNAL_ERROR] pre-tool-use could not parse the tool call (rc ${_P_RC}) — blocked; run: rein doctor" >&2
   exit 2
 fi
 unset _CMD_B64 _FP_B64
@@ -239,7 +239,7 @@ unset _CMD_B64 _FP_B64
 # one stderr notice and the gate runs as if it were absent — never "allow on error".
 # Under an active override the analyzer still runs, in --override mode: the catastrophic
 # set and the self-disable guard keep blocking (r8), so an override cannot extend itself.
-_ESCAPE="Operator escape — in YOUR terminal, not through the agent: ai gate off"
+_ESCAPE="Operator escape — in YOUR terminal, not through the agent: rein gate off"
 _GO_FILE="${HOME}/.rein/gate-override.json"
 _GO_ACTIVE=0; _GO_UNTIL=""; _GO_REASON=""
 if [[ -e "$_GO_FILE" || -L "$_GO_FILE" ]]; then
@@ -257,7 +257,7 @@ fi
 # A call let through ONLY because of the override is LOUD (D-083 r7): a user-visible
 # systemMessage on stdout (stderr is not shown on exit 0) plus one telemetry BYPASS row.
 _go_bypass() {
-  printf '{"systemMessage":"[GATE_OVERRIDE] safe-exec bypassed until %s (%s) — operator: ai gate on"}\n' \
+  printf '{"systemMessage":"[GATE_OVERRIDE] safe-exec bypassed until %s (%s) — operator: rein gate on"}\n' \
     "$_GO_UNTIL" "$_GO_REASON"
   (
     _th="$(rein_locate shared/telemetry.mjs || true)"
@@ -356,8 +356,8 @@ if [[ -n "$SE" ]] && command -v node >/dev/null 2>&1; then
       fi
       # critic_security P1-1: a command padded past ARG_MAX makes node exit 126 with no
       # verdict, so GATE_SELF_DISABLE never ran. Without the analyzer, err BROAD: anything
-      # naming `ai gate`, the override file or the mirror is refused here.
-      if grep -qE "a[\"'\\\\]?i[\"']?[[:space:]]+[\"']?gate|gate-override\.json|\.rein" <<< "$CMD"; then
+      # naming `rein gate`, the override file or the mirror is refused here.
+      if grep -qE "r[\"'\\\\]?e[\"'\\\\]?i[\"'\\\\]?n[\"']?[[:space:]]+[\"']?gate|gate-override\.json|\.rein" <<< "$CMD"; then
         echo "[SAFE_EXEC_BLOCK] no analyzer verdict and the command touches the gate or ~/.rein — blocked even under the operator override (E-291)." >&2
         exit 2
       fi

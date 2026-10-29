@@ -82,7 +82,7 @@ rc="$(_run "$T/new-unbound.sh" "ls -la")"
 assert_status 0 "E-292.01d: the new hook BLOCKS it (rc=${rc})" test "$rc" -eq 2
 assert_contains "E-292.01e: with the GATE_INTERNAL_ERROR line naming rc 1" \
   "[GATE_INTERNAL_ERROR] pre-tool-use aborted (rc 1 near line" "$(cat "$T/err")"
-assert_contains "E-292.01f: …and the repair hint" "— run: ai doctor" "$(cat "$T/err")"
+assert_contains "E-292.01f: …and the repair hint" "— run: rein doctor" "$(cat "$T/err")"
 _line="$(sed -n 's/.*near line \([0-9]*\)).*/\1/p' "$T/err")"
 _want="$(grep -nxF ': "${E292_UNSET_VAR}"' "$T/new-unbound.sh" | cut -d: -f1)"
 if [[ "$_TRAP_LINE" == 4 ]]; then
@@ -282,7 +282,7 @@ for s in locate.sh toolchain-pin.sh; do
     bash -c "! grep -qE '^[[:space:]]*trap[[:space:]]' '${REPO_ROOT}/src/shared/${s}'"
 done
 assert_contains "E-292.10d: generated hook entries carry an explicit 30 s timeout" \
-  '"timeout": 30}' "$(grep -F '"args": ["-p", os.path.join(_HOOKS_DIR' "${REPO_ROOT}/src/bin/ai")"
+  '"timeout": 30}' "$(grep -F '"args": ["-p", os.path.join(_HOOKS_DIR' "${REPO_ROOT}/src/bin/rein")"
 
 # ── E-292.11: normal exit paths unchanged — the frozen contracts ─────────────────────
 # A table may gain rows after E-292 (E-355 added secret rows); every row it had then must

@@ -1,6 +1,6 @@
 ---
 name: ai-review
-description: Run a tier-aware critic review before committing. Tier 1 skips review. Tier 2 runs blueprint-aligner only. Tier 3 runs full parallel critics (arch + security + tests) plus security_engineer and UACS verification. Replaces the removed `ai review claude` shell command (E-34).
+description: Run a tier-aware critic review before committing. Tier 1 skips review. Tier 2 runs blueprint-aligner only. Tier 3 runs full parallel critics (arch + security + tests) plus security_engineer and UACS verification. Replaces the removed `rein review claude` shell command (E-34).
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Grep, Glob, Bash
@@ -86,7 +86,7 @@ Commit (only after PASS): `git commit -m "[TIER_2] <description>"`
 > `~/.rein` mirror, an inherited environment variable.
 
 If yes, the test is not measuring the code — it is measuring the host, and it will pass on
-a developer machine and fail under `ai ci` (or, far worse, pass under `ai ci` while asserting
+a developer machine and fail under `rein ci` (or, far worse, pass under `rein ci` while asserting
 nothing).
 
 Five defects in the 2026-09-09 sprint were exactly this, and each was invisible locally:
@@ -126,7 +126,7 @@ the state exists**: tmux servers, background processes, temp dirs outside the sa
 `.ai/` lock dirs and `~/.rein` writes.
 
 Required shape: `register_cleanup "…"` FIRST, then create; names from `mktemp` entropy,
-**never `$$`**. `tests/run.sh` reports `LEAKED n <kind>` per suite and fails the run under `ai ci`
+**never `$$`**. `tests/run.sh` reports `LEAKED n <kind>` per suite and fails the run under `rein ci`
 (`REIN_CI=local`), as on any hosted CI.
 
 This is the third variety of environment dependence, alongside "what the machine has"
@@ -204,7 +204,7 @@ row carrying that marker reaches the live store. `tests/lib/assert.sh` does the 
 redirect for a suite run on its own. That covers telemetry — it does not cover a test that
 writes some OTHER file under `~/.rein/` (the trash, `run/`, `ci/`, the mirror itself).
 
-Look for: a suite that runs `ai`, a hook, an MCP server or `install-rein.sh` without a
+Look for: a suite that runs `rein`, a hook, an MCP server or `install-rein.sh` without a
 fixture `HOME`; a subprocess started with `env -i` or a hand-built environment (which
 drops `AI_TELEMETRY_DB_PATH`); any literal `~/.rein` / `$HOME/.rein` a test writes to.
 The remedy is a fixture HOME (`test_tmpdir`) or the per-run temp path — never a cleanup
@@ -215,7 +215,7 @@ step that deletes from the operator's real directory afterwards.
 > **Does this test drive a hook or resolver that ranks an inherited launch variable above the
 > test's own inputs — and is that variable stripped?**
 
-`ai pane <role>` exports `REIN_PANE_ROLE` and `REIN_CALLER_ROLE`; the Rein shell exports
+`rein pane <role>` exports `REIN_PANE_ROLE` and `REIN_CALLER_ROLE`; the Rein shell exports
 `REIN_WORKSPACE`. The hooks rank them ABOVE a test's own inputs, deliberately — that is the
 D-054 per-pane binding. So a suite run from a bound pane obeyed the pane: `git_lane_test` lost
 its whole Architect lane, `role_token_test` minted the wrong role while its "one was minted"

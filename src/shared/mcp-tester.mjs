@@ -5,7 +5,7 @@
  * Programmatically launches each MCP server declared in the active config
  * (`.mcp.json` by default), performs the minimum JSON-RPC stdio handshake to
  * reach `tools/list`, and reports per-server connectivity. Used by
- * `ai doctor --env` to surface servers that fail to boot or never answer.
+ * `rein doctor --env` to surface servers that fail to boot or never answer.
  *
  * SECURITY (blueprint §Security):
  *   - Each child is spawned with a CURATED env — only PATH + HOME plus the

@@ -233,7 +233,7 @@ export function verifyToken(sid, { sessionPid = null } = {}) {
   }
   // Off the hot path: the token's session process must be an ANCESTOR of this process with the
   // recorded start time, AND the role is the more restrictive of the token's and the walk from
-  // here (critic_security P2-1): an `ai pane architect` started inside a plain session sits
+  // here (critic_security P2-1): a `rein pane architect` started inside a plain session sits
   // BETWEEN the plain session's token and this process, and must win. A union walk → no role.
   const r2 = launchRecord(["verify-context", String(t.pid), t.started]);
   let ctx;
@@ -245,4 +245,4 @@ export function verifyToken(sid, { sessionPid = null } = {}) {
 }
 
 export const ROLE_UNVERIFIED_LINE =
-  "[ROLE_UNVERIFIED] no verified role token for this session — every role's blocks apply. run: ai pane <role>";
+  "[ROLE_UNVERIFIED] no verified role token for this session — every role's blocks apply. run: rein pane <role>";

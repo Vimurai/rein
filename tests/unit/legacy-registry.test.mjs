@@ -3,12 +3,12 @@
 //
 // The registry is DATA, so the things that can go wrong with it are data faults: a `safe`
 // entry with no evidence behind it, a rule name nothing implements, a glob in a mid-path
-// segment that matches nothing forever. Each of those would make `ai clean` either
+// segment that matches nothing forever. Each of those would make `rein clean` either
 // dangerous or a permanent silent no-op, and neither shows up in an end-to-end run — the
 // command would simply report less than the operator believes. They are pinned here.
 //
 // The end-to-end layer (fixture HOME + project, apply, restore, exit codes) is
-// tests/suites/ai_clean_test.sh.
+// tests/suites/rein_clean_test.sh.
 //
 //   node --test tests/unit/legacy-registry.test.mjs
 
@@ -325,7 +325,7 @@ test("a symlink is reported as not-ours and never followed", () => {
 
 // Extends the case above to a symlinked PARENT: lstat sees only the last segment, so a
 // project whose `.ai/` links elsewhere looked like an ordinary file under the project and
-// `ai sync`'s watcher reap (D-099, E-322) would have moved it out of the link's target.
+// `rein sync`'s watcher reap (D-099, E-322) would have moved it out of the link's target.
 test("a file under a symlinked parent directory is reported, never moved", () => {
   const f = fixture();
   const outside = join(f.d, "outside-ai");
@@ -386,13 +386,13 @@ test("a retired server's allow is flagged; a user-added server's is kept", () =>
     class: "prompt", since: "*", rule: "not-in-registry",
   }));
   assert.equal(findings.length, 1);
-  // Report only: `ai clean` moves paths, and a JSON key is not a path.
+  // Report only: `rein clean` moves paths, and a JSON key is not a path.
   assert.equal(findings[0].action, "report");
   assert.equal(summarize(findings).actionable, 0);
   f.done();
 });
 
-test("summarize separates what ai clean could act on from what it only reports", () => {
+test("summarize separates what rein clean could act on from what it only reports", () => {
   const c = summarize([
     { class: "safe", action: "trash" },
     { class: "prompt", action: "trash" },

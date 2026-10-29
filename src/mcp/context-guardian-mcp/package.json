@@ -2,7 +2,7 @@
   "name": "context-guardian-mcp",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "Rein UACS: Guards ai archive and git commit by checking for unresolved TODO/FIXME/Pending markers",
+  "description": "Rein UACS: Guards rein archive and git commit by checking for unresolved TODO/FIXME/Pending markers",
   "type": "module",
   "main": "index.js",
   "scripts": {

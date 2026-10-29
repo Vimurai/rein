@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HOOK="${REPO_ROOT}/hooks/pre-tool-use.sh"
 SS_HOOK="${REPO_ROOT}/hooks/session-start.sh"
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 V_GATE="REIN_SAFE""_EXEC_GATE"; V_TOKEN="REIN_ROLE""_TOKEN"
 PRE_E291_REF="bba0150"   # E-290 tip: the last hook with the env opt-outs
 
@@ -91,7 +91,7 @@ assert_status 0 "E-291.02e: each bypassed call books one BYPASS telemetry row (g
 # ── E-291.3: the backstop and the self-disable guard hold UNDER the override ──
 rc="$(_hook "$HOOK" Bash "rm -rf /" "$SID_A")"
 assert_status 0 "E-291.03a: rm -rf / is BLOCKED even with an active override (r8; rc=${rc})" test "$rc" -eq 2
-rc="$(_hook "$HOOK" Bash "ai gate off --minutes 60" "$SID_A")"
+rc="$(_hook "$HOOK" Bash "rein gate off --minutes 60" "$SID_A")"
 assert_status 0 "E-291.03b: the agent cannot extend the override (rc=${rc})" test "$rc" -eq 2
 rc="$(_hook "$HOOK" Write "$M/hooks-x.sh" "$SID_A")"
 assert_status 0 "E-291.03c: a Write under ~/.rein/ is BLOCKED even with an override (rc=${rc})" test "$rc" -eq 2
@@ -99,7 +99,7 @@ assert_status 0 "E-291.03c: a Write under ~/.rein/ is BLOCKED even with an overr
 # critic_security P1-1: a command padded past ARG_MAX makes node exit 126 (no verdict); under
 # an override that path must still refuse anything touching the gate.
 _pad="$(python3 -c 'print("A" * 1200000)')"
-rc="$(_hook "$HOOK" Bash "ai gate off --minutes 60 #${_pad}" "$SID_A")"
+rc="$(_hook "$HOOK" Bash "rein gate off --minutes 60 #${_pad}" "$SID_A")"
 assert_status 0 "E-291.03d: an ARG_MAX-padded self-disable is BLOCKED under the override (rc=${rc})" test "$rc" -eq 2
 rc="$(_hook "$HOOK" Bash "echo ok #${_pad}" "$SID_A")"
 assert_status 0 "E-291.03e: …while a padded harmless command passes loudly (the no-verdict path ran; rc=${rc})" test "$rc" -eq 0
@@ -133,7 +133,7 @@ else
 fi
 rm -f "$GO"
 
-# ── E-291.5: `ai gate` — clamp, on, status; the analyzer refuses it to the agent ─
+# ── E-291.5: `rein gate` — clamp, on, status; the analyzer refuses it to the agent ─
 out="$(HOME="$H" bash "$AI_BIN" gate off --minutes 90 --reason "e291 clamp" 2>&1)"
 assert_contains "E-291.05a: --minutes 90 is clamped to 60, with a notice" "clamped to 60" "$out"
 assert_status 0 "E-291.05b: the file is 0600" test "$(python3 -c 'import os,sys; print(oct(os.stat(sys.argv[1]).st_mode & 0o777)[2:])' "$GO")" = "600"
@@ -143,7 +143,7 @@ for bad in 0 -5 1e9 '15;id'; do
   assert_status 0 "E-291.05d: --minutes '${bad}' is rejected" test "$rc" -ne 0
 done
 HOME="$H" bash "$AI_BIN" gate on >/dev/null 2>&1
-assert_status 1 "E-291.05e: ai gate on removes the file" test -e "$GO"
+assert_status 1 "E-291.05e: rein gate on removes the file" test -e "$GO"
 # E-291.05f/g (the analyzer's GATE_SELF_DISABLE verdicts for the Engineer, 29 forms) are rows of
 # the gate-self-disable contract table in the unit layer (E-301, D-088); the spawn path is probed
 # once for it in safe_exec_test. What stays here needs the hook, a live session or the override.
@@ -154,7 +154,7 @@ assert_status 0 "E-291.05h: the write gate blocks ~/.rein/** for the ENGINEER to
 _override 15 "e291 loud"
 ss="$(printf '{"session_id":"e291ss"}' | ( cd "$T/proj" && HOME="$H" /bin/bash "$SS_HOOK" engineer 2>/dev/null ))"
 assert_contains "E-291.06a: session start announces the active override" "[GATE_OVERRIDE] the operator lifted the safe-exec policy gate" "$ss"
-assert_contains "E-291.06b: ai doctor reports it" "override ACTIVE" "$( cd "$T/proj" && HOME="$H" bash "$AI_BIN" doctor 2>&1 )"
+assert_contains "E-291.06b: rein doctor reports it" "override ACTIVE" "$( cd "$T/proj" && HOME="$H" bash "$AI_BIN" doctor 2>&1 )"
 rm -f "$GO"
 
 # ── E-291.7: telemetry — a pre-E-291 store accepts BYPASS after opening ─────

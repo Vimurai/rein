@@ -2,8 +2,8 @@
 # Rein Gate 2 — Quality Gate (pre-commit hook)
 # Logic: Block git commit unless a [CRITIC_STAMP] exists for the commit's parent HEAD (E-329);
 #        a bookkeeping-only commit (every staged path on the .ai/ bookkeeping allowlist) needs none.
-# Action: Print the 'ai review claude' critic prompt and exit 1.
-# Install: ai init copies this to .git/hooks/pre-commit in the project repo.
+# Action: Print the 'rein review claude' critic prompt and exit 1.
+# Install: rein init copies this to .git/hooks/pre-commit in the project repo.
 
 # ── E-292 (D-082 r2): an ABORTED gate is a BLOCKED call ─────────────────────────────
 # git blocks on any non-zero exit, but an abort (unbound variable = 1, syntax error = 258)
@@ -11,8 +11,8 @@
 # executable line (builtins only; the prologue's `unset -f` cannot delete it). A deliberate
 # exit is `exit` with this hook's own codes (0 allow, 1 block); anything else is an abort and
 # exits 2 with one line. The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|1:exit|1:exit[[:space:]]*) exit "$_rein_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-commit aborted (rc %s near line %s) — run: ai doctor\n" "$_rein_rc" "$LINENO" >&2; exit 2' EXIT
-trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-commit interrupted by a signal — run: ai doctor\n" >&2; exit 2' TERM HUP INT PIPE
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|1:exit|1:exit[[:space:]]*) exit "$_rein_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-commit aborted (rc %s near line %s) — run: rein doctor\n" "$_rein_rc" "$LINENO" >&2; exit 2' EXIT
+trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-commit interrupted by a signal — run: rein doctor\n" >&2; exit 2' TERM HUP INT PIPE
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -44,7 +44,7 @@ unset _v _p
 # pointing it at a decoy made this bootstrap SOURCE the decoy's own locate.sh, i.e.
 # arbitrary shell inside a fail-closed gate. Assigned here, in the hook's own text, so it
 # overrides anything inherited.
-# Exported so a child process — an `ai` subcommand spawned from this hook — inherits
+# Exported so a child process — a `rein` subcommand spawned from this hook — inherits
 # the same judgement rather than defaulting back to trusting the environment.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
@@ -288,7 +288,7 @@ check_markdown_sync() {
 ║  TASKS.md is missing the generated header.                              ║
 ║  It may have been hand-edited, violating the Read-Only contract.        ║
 ║                                                                          ║
-║  Fix: run `ai migrate-state --force` to regenerate TASKS.md from        ║
+║  Fix: run `rein migrate-state --force` to regenerate TASKS.md from        ║
 ║       state.json, then re-stage and commit.                              ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
@@ -317,7 +317,7 @@ SYNC_BLOCK
 ║  REVIEWS.md may have been hand-edited, violating the Read-Only contract.║
 ║                                                                          ║
 ║  Fix: regenerate REVIEWS.md via task-synchronizer-mcp::writeState, or   ║
-║       run `ai migrate-state --force` to resync, then re-stage + commit. ║
+║       run `rein migrate-state --force` to resync, then re-stage + commit. ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
 REVIEWS_BLOCK
@@ -335,7 +335,7 @@ REVIEWS_BLOCK
 ║  REVIEWS.md has manually-appended sections (## headings detected).      ║
 ║  D-001: REVIEWS.md is a generated view — direct edits are forbidden.   ║
 ║                                                                          ║
-║  Fix: run `ai migrate-state --force` to regenerate REVIEWS.md from      ║
+║  Fix: run `rein migrate-state --force` to regenerate REVIEWS.md from      ║
 ║       state.json and remove hand-appended content. Then re-stage.       ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
@@ -385,7 +385,7 @@ check_architect_src_comodification
 
 # ── E-33: Registry drift guard ───────────────────────────────────────────────
 # Root cause of 2026-04-27 audit: src/config/registry.json gained a new MCP but
-# ~/.rein/config/registry.json was never refreshed, so `ai sync` regenerated
+# ~/.rein/config/registry.json was never refreshed, so `rein sync` regenerated
 # .mcp.json from a stale registry and silently dropped the server.
 # Run the targeted drift suite only when registry-relevant files are staged.
 check_registry_sync() {
@@ -395,7 +395,7 @@ check_registry_sync() {
   local touches_registry=0
   while IFS= read -r f; do
     case "$f" in
-      src/config/registry.json|src/templates/.mcp.json|install-rein.sh|src/bin/ai)
+      src/config/registry.json|src/templates/.mcp.json|install-rein.sh|src/bin/rein)
         touches_registry=1
         ;;
     esac
@@ -406,7 +406,7 @@ check_registry_sync() {
   local repo_root
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   # E-302: the drift checks moved from tests/suites/registry_sync_test.sh into one file the
-  # hook runs and ai_sync_test sources. A project that is not Rein itself has neither.
+  # hook runs and rein_sync_test sources. A project that is not Rein itself has neither.
   local suite="${repo_root}/tests/tools/registry-drift.sh"
   [[ -f "$suite" ]] || return 0  # checker missing — nothing to enforce
 
@@ -565,7 +565,7 @@ check_standards_gate
 #      (CLAUDE_CODE_SESSION_ID=<theirs> git commit) verifies nothing (T-GITLANE-001 r2, closed).
 #   2. A live launch record on THIS process's ancestor chain (launch-record.py walk) →
 #      `chain:<most restricted role>`. Restrict-only, and it needs no environment at all, so
-#      clearing the session id no longer drops an `ai pane` session out of its lane.
+#      clearing the session id no longer drops a `rein pane` session out of its lane.
 #   3. A session id that is present but does not verify → `union:architect` — the lane
 #      restriction applies, no waiver.
 #   4. The advisory env (restrict-only), then `engineer` — the operator's own terminal (no
@@ -735,7 +735,7 @@ check_architect_git_lane() {
     echo "  from the environment rather than a verified session record, so no waiver: the" >&2
     echo "  [CRITIC_STAMP] requirement still applies to a plans/ path (D-055 R4); a commit of .ai/" >&2
     echo "  alone is bookkeeping (E-329). The path restriction was enforced either way." >&2
-    echo "  Start the pane with \`ai pane architect\` so the role is minted and verifiable." >&2
+    echo "  Start the pane with \`rein pane architect\` so the role is minted and verifiable." >&2
   fi
 }
 

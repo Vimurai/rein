@@ -3,8 +3,8 @@
 
 A project names an ACCOUNT; the operator's registry ~/.rein/accounts.json maps the name to a
 Claude Code config directory (the directory holds that account's login). This module is the ONE
-reader/writer of the registry and the ONE validator of names and directories, so `ai account`,
-`ai pane`, `ai start` and `ai doctor` cannot disagree about what an account is.
+reader/writer of the registry and the ONE validator of names and directories, so `rein account`,
+`rein pane`, `rein start` and `rein doctor` cannot disagree about what an account is.
 
   registry := {"accounts": {"<name>": {"config_dir": "<abs dir>", "added": "YYYY-MM-DD"}}}
   name     := ^[a-z][a-z0-9-]{0,23}$ ; "default" is reserved (= ~/.claude, inherited) and never stored

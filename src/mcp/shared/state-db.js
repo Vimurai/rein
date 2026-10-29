@@ -149,7 +149,7 @@ export function getDb(aiDir) {
  * getDb + the one-time state.json → state.sqlite import on first open.
  *
  * Moved here from task-synchronizer-mcp (E-270) so every caller that may be the FIRST to
- * open a project's store — the MCP server, and `ai init`'s version stamp — seeds it the
+ * open a project's store — the MCP server, and `rein init`'s version stamp — seeds it the
  * same way. Opening a fresh store WITHOUT the import and then regenerating views would
  * rewrite state.json from an empty database.
  *
@@ -182,7 +182,7 @@ function _neverWritten(db) {
   return db.prepare("SELECT value FROM project WHERE key = 'last_import_blob'").get()?.value == null;
 }
 
-/** E-344: the index for an observer (ai doctor) — null when state.sqlite does not exist, never seeded. */
+/** E-344: the index for an observer (rein doctor) — null when state.sqlite does not exist, never seeded. */
 export function openIndexIfExists(aiDir) {
   return existsSync(resolve(aiDir, "state.sqlite")) ? getDb(aiDir) : null;
 }
@@ -316,7 +316,7 @@ function _migratePatchProjectRoot(db) {
   // Each ALTER is guarded individually. table_info is read ONCE, but 25 MCP servers can
   // call getDb() concurrently on a pre-migration DB: the loser of the race throws
   // "duplicate column name", which propagates out of getDb, and propose-patch's bare
-  // catch turns that into "state.sqlite not found — run: ai init". Fail-closed, but
+  // catch turns that into "state.sqlite not found — run: rein init". Fail-closed, but
   // diagnosed as a missing database when the real cause is a concurrent migration.
   for (const col of ["project_root", "rel_path"]) {
     if (cols.some((c) => c.name === col)) continue;
@@ -681,7 +681,7 @@ export function recordIdHighWater(db, id) {
 
 // ── Task creation (E-198: single-source write path) ─────────────────────────
 // The one place a task row is created. Both task-synchronizer-mcp::add_task AND
-// the shell-native `ai add-task` CLI (E-198, Ruling A / pending D-053) route
+// the shell-native `rein add-task` CLI (E-198, Ruling A / pending D-053) route
 // through this, so state.sqlite stays the single writer and the two callers can
 // never drift (the src/shared-reuse discipline). The sequence mirrors the historical add_task
 // handler exactly: nextId → DAG validate → derive OPEN/BLOCKED → INSERT →
@@ -759,7 +759,7 @@ export function addTask(aiDir, db, { owner, description, tier = null, prefix = "
   return { ok: true, task };
 }
 
-// ── Task completion (E-325: one path for update_task_status and `ai task done`) ──
+// ── Task completion (E-325: one path for update_task_status and `rein task done`) ──
 // Marks `id` DONE with its summary, then runs the E-91 unblock cascade: every BLOCKED task
 // whose whole depends_on set is now DONE becomes OPEN. The completion GATES are the
 // caller's (src/shared/completion-gates.mjs) and must pass before this is called; views
@@ -783,7 +783,7 @@ export function completeTask(aiDir, db, id, summary = null) {
 }
 
 // ── E-270 (D-074 §Components 1): the provisioning stamp ──────────────────────
-// `ai init` and `ai sync` record which framework version provisioned the project. It is
+// `rein init` and `rein sync` record which framework version provisioned the project. It is
 // written here, through the same handle and view regeneration as every other state
 // mutation, because state.json is a VIEW of state.sqlite: an edit to state.json would be
 // overwritten by the next regenerateViews.
@@ -796,14 +796,14 @@ export function stampProvisioning(aiDir, db, { version, at = new Date().toISOStr
   }
   const prev = db.prepare("SELECT value FROM project WHERE key = 'rein_version'").get();
   // Idempotent: re-provisioning with the same version keeps the original provisioned_at,
-  // so a second `ai init` writes nothing (its --check must then report no changes).
+  // so a second `rein init` writes nothing (its --check must then report no changes).
   if (prev?.value === version) {
     const at0 = db.prepare("SELECT value FROM project WHERE key = 'provisioned_at'").get();
     return { ok: true, changed: false, previous: version, version, provisioned_at: at0?.value ?? null };
   }
   withTransaction(db, (d) => setProject(aiDir, d, { rein_version: version, provisioned_at: at }));
   // Only the state.json view carries project.* — TASKS.md and REVIEWS.md are left exactly
-  // as they were, so `ai init` never rewrites them as a side effect of the stamp.
+  // as they were, so `rein init` never rewrites them as a side effect of the stamp.
   renderStateJson(aiDir, db);
   return { ok: true, changed: true, previous: prev?.value ?? null, version, provisioned_at: at };
 }

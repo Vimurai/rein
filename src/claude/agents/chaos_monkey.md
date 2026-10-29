@@ -73,7 +73,7 @@ Append to `.ai/REVIEWS.md`:
 - **FAIL** (`[CHAOS_BLOCKED]`): P0 issues found. Block release and tag LOG.md with `[CHAOS_BLOCKED] YYYY-MM-DD | <P0 summary>`.
 
 ## Rules
-- Run in isolation — use `ai-exec` worktree for any destructive chaos scripts.
+- Run in isolation — use `rein-exec` worktree for any destructive chaos scripts.
 - Never run chaos tests against production endpoints.
 - Always restore system state after tests (clean up test data, stop dev servers).
 - If Playwright is not available, perform manual inspection steps and document gaps.

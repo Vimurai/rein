@@ -89,7 +89,7 @@ JS
     "[ci] result status=PASS suite=PASS pass=1 fail=0 skip=0 leaked=0 unit=PASS secrets=PASS" \
     "[ci] finished status=PASS duration_ms=1000 finished_at=${now}" > "$log"
   node --no-warnings "${repo}/src/shared/ci-record.mjs" record --ai-dir .ai --log "$log" >/dev/null
-  # The log stays inside the workspace: `ai ci log` reads it, and a missing log reads as pruned.
+  # The log stays inside the workspace: `rein ci log` reads it, and a missing log reads as pruned.
 fi
 
 # --queue-done: the ai-handoff case's starting point. Both Engineer tasks are DONE — the code

@@ -9,13 +9,13 @@
 // cannot reach.
 //
 //   selfDisableHits(raw) → [{id, message}] for a Bash command (every role):
-//     - `ai gate …` at command position (off, on, status — the agent has no business here);
+//     - `rein gate …` at command position (off, on, status — the agent has no business here);
 //     - any mention of `gate-override.json` (the override FILE — not the stem, which names
 //       the gate-override.py module and is fine to stage, grep or edit);
 //     - a write into ~/.rein/ — redirection, a write verb, or an inline interpreter that
 //       names the path. Reading ~/.rein (cat, ls, node ~/.rein/shared/x.mjs) stays allowed.
 //     The ONLY writers of ~/.rein are the literal allowlist: `bash install-rein.sh`,
-//     `ai install`, `ai sync`, `ai doctor` — none of which names the path, so none trips this.
+//     `rein install`, `rein sync`, `rein doctor` — none of which names the path, so none trips this.
 //   isUnderRein(target, home) → true when a Write/Edit target resolves inside ~/.rein/
 //     (realpath of the deepest existing ancestor, so a not-yet-created file and a symlink
 //     into the mirror are both caught).
@@ -26,15 +26,16 @@ import { homedir } from "node:os";
 
 // Command position: start, a separator or grouping char, a shell keyword or a prefix that
 // runs its argument, `VAR=value` assignments, or the program string of `sh -c` / `bash -c`
-// (critic_security P1-2: `X=1 ai gate`, `{ ai gate;}`, `if/eval/timeout/! ai gate`,
-// `bash -c 'ai gate'` all slipped the narrower head).
+// (critic_security P1-2: `X=1 rein gate`, `{ rein gate;}`, `if/eval/timeout/! rein gate`,
+// `bash -c 'rein gate'` all slipped the narrower head).
 const CMD_HEAD =
   "(?:^|[;&|\\n`({!]|\\b(?:sudo|env|nohup|time|command|exec|xargs|then|do|else|if|while|until|eval|nice)\\s+" +
   "|\\btimeout\\s+\\S+\\s+|\\b(?:ba|z|da|k)?sh\\s+-c\\s+['\"]?)" +
   "\\s*(?:[A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)*";
-// The `ai` token, allowing the quoting and escaping a shell removes ("ai", 'a'i, a\i).
-const AI_TOKEN = "(?:\\S*/)?[\"']?a[\"'\\\\]?i[\"']?";
-const AI_GATE = new RegExp(CMD_HEAD + AI_TOKEN + "\\s+[\"']?gate\\b", "i");
+// The `rein` token, allowing the quoting and escaping a shell removes ("rein", 're'in, r\ein):
+// an optional quote or backslash may sit between any two of its letters.
+const CLI_WORD = "(?:\\S*/)?[\"']?" + "rein".split("").join("[\"'\\\\]?") + "[\"']?";
+const CLI_GATE = new RegExp(CMD_HEAD + CLI_WORD + "\\s+[\"']?gate\\b", "i");
 // The mirror, spelled the ways a shell command spells it.
 // A quoted home (`"$HOME"/.rein`, critic_security P2) is the same path.
 const REIN_PATH = String.raw`["']?(?:~|\$HOME|\$\{HOME\}|${escapeRe(homedir())})["']?/\.rein(?:/|\b)`;
@@ -105,13 +106,13 @@ function escapeRe(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const MSG_ESCAPE = "Operator escape — in YOUR terminal, not through the agent: ai gate off";
+const MSG_ESCAPE = "Operator escape — in YOUR terminal, not through the agent: rein gate off";
 
 export function selfDisableHits(raw) {
   const s = String(raw ?? "");
   const hits = [];
-  if (AI_GATE.test(s)) {
-    hits.push({ id: "GATE_SELF_DISABLE", message: `\`ai gate\` is operator-only — BLOCKED for every role. ${MSG_ESCAPE}` });
+  if (CLI_GATE.test(s)) {
+    hits.push({ id: "GATE_SELF_DISABLE", message: `\`rein gate\` is operator-only — BLOCKED for every role. ${MSG_ESCAPE}` });
   } else if (/gate-override\.json/i.test(s)) {
     // The FILE name only. The bare stem over-blocked ordinary work — a branch named
     // engineer/e291-gate-override and `git add src/shared/gate-override.py` (recorded in
@@ -124,7 +125,7 @@ export function selfDisableHits(raw) {
     hits.push({
       id: "GATE_SELF_DISABLE",
       message: "writes under ~/.rein/ (the Rein install: hooks, gate, secrets) are BLOCKED for every role — " +
-        "only `bash install-rein.sh`, `ai install`, `ai sync` and `ai doctor` write there",
+        "only `bash install-rein.sh`, `rein install`, `rein sync` and `rein doctor` write there",
     });
   }
   return hits;

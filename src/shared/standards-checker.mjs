@@ -177,14 +177,14 @@ export const RULE_REGISTRY = {
     // stops reporting needs a way back to the louder behaviour if that proves wrong.
     const PROGRAM_POSITION = process.env.REIN_STANDARDS_SKIP !== "program-position";
     // Wrappers that RESTART program position: what follows them is a program again.
-    // Without this, `env FOO=1 node src/bin/ai` and `command node src/bin/ai` would read
+    // Without this, `env FOO=1 node src/bin/rein` and `command node src/bin/rein` would read
     // as "a wrapper with arguments" and the real interpreter would never be reached.
     const POSITION_RESTARTERS = new Set([
       "env", "sudo", "nohup", "time", "command", "exec", "xargs", "eval",
     ]);
     // Flags whose OPERAND is code, not a path.
     const INLINE_CODE_FLAG = /^-{1,2}(e|c|p|eval|print|exec|X)$/;
-    // Shell keywords that introduce command position, so `then . src/bin/ai` is a source.
+    // Shell keywords that introduce command position, so `then . src/bin/rein` is a source.
     const CMD_KEYWORDS = new Set(["then", "do", "else", "elif", "in", "{", "!", "&&", "||", ";", "|", "("]);
 
     /**
@@ -281,11 +281,11 @@ export const RULE_REGISTRY = {
     // E-231 (D-060 §2). Two indirections put a project path beyond the operand walk, and
     // both were recorded as KNOWN UNCAUGHT rather than left to be re-found later as bugs:
     //
-    //   bash -c "node src/bin/ai"   the interpreter is INSIDE a quoted operand
-    //   cat src/bin/ai | bash       the program arrives on stdin, left of the pipe
+    //   bash -c "node src/bin/rein"   the interpreter is INSIDE a quoted operand
+    //   cat src/bin/rein | bash       the program arrives on stdin, left of the pipe
     //
     // Note what kept them invisible: an .mjs/.sh target is still caught by the second
-    // signal below, so ONLY an extension-less target such as `src/bin/ai` slipped through.
+    // signal below, so ONLY an extension-less target such as `src/bin/rein` slipped through.
     // That is why the shipped corpus contains none of these shapes.
     // Strip the wrapping quotes AND un-escape the inner ones. Inside `bash -c "..."` a
     // nested quote is written as an escaped quote, so the operand token arrives beginning
@@ -329,7 +329,7 @@ export const RULE_REGISTRY = {
             if (INLINE_CODE_FLAG.test(t.split("=")[0])) {
               // E-231: this operand is CODE, and code is exactly where the interpreter
               // was hiding. It used to be skipped wholesale, so `bash -c "node
-              // src/bin/ai"` read as "bash, with one operand we ignore".
+              // src/bin/rein"` read as "bash, with one operand we ignore".
               const inner = toks[++j];
               if (inner !== undefined && depth < 1) {
                 const r = walk(tokenise(stripOuterQuotes(inner)), depth + 1);
@@ -358,7 +358,7 @@ export const RULE_REGISTRY = {
           // It deliberately stays OPEN for two kinds of operand, because neither tells us
           // what actually runs: a variable this rule cannot read (`node "$HELPER" …`), and
           // an allowlisted entrypoint (`bash tests/run.sh …`). D-061 keeps both of those
-          // walking, so `bash tests/run.sh src/bin/ai` is still caught. Anything else —
+          // walking, so `bash tests/run.sh src/bin/rein` is still caught. Anything else —
           // an absolute path, a home-anchored path, a plain word — RESOLVES the program,
           // and every token after it is an argument.
           if (PROGRAM_POSITION && !POSITION_RESTARTERS.has(trimOperand(t))) {
@@ -369,7 +369,7 @@ export const RULE_REGISTRY = {
           // Keep walking — but only within THIS command. Breaking unconditionally after
           // the first non-flag token stopped the scan on an operand that was merely
           // REJECTED ("a variable we cannot read") or ACCEPTED (allowlisted), so
-          // `node "$HELPER" src/bin/ai` and `bash tests/run.sh src/bin/ai` went clean.
+          // `node "$HELPER" src/bin/rein` and `bash tests/run.sh src/bin/rein` went clean.
           //
           // A token ENDING in a terminator ends the command, and that matters: without
           // it the walk ran on past `. "${HOME}/…/locate.sh";` into the NEXT command and
@@ -385,8 +385,8 @@ export const RULE_REGISTRY = {
     /**
      * A pipeline whose SINK is an interpreter is handed its program on STDIN, so the path
      * sits to the LEFT of the pipe and never appears as an operand of anything.
-     * `cat src/bin/ai | bash` runs the visited project's file just as surely as
-     * `bash src/bin/ai` does.
+     * `cat src/bin/rein | bash` runs the visited project's file just as surely as
+     * `bash src/bin/rein` does.
      */
     const pipeFed = (toks) => {
       for (let i = 1; i < toks.length; i++) {

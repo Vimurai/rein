@@ -1,7 +1,7 @@
 # tests/tools — measurement tools for the test suite (D-088)
 
 Tools that measure the suite rather than test the product. None of them runs as part of
-`ai ci run`.
+`rein ci run`.
 
 | Tool | Task | What it answers |
 |---|---|---|

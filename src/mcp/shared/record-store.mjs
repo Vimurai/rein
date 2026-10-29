@@ -2,7 +2,7 @@
  * record-store.mjs — the single writer of project state (E-325, D-102 §Component 1)
  *
  * Every mutation of a task, a stamp or the project fields goes through this file. In a
- * TEAM project (`.ai/project.json`, created by `ai state migrate --team`)
+ * TEAM project (`.ai/project.json`, created by `rein state migrate --team`)
  * the record FILE is the truth: it is written first (temp-then-rename, rev+1, updated_at,
  * origin), then the sqlite row, which is only an index. A crash between the two leaves a
  * file the row does not reflect yet, and rebuildIndex() repairs it from the files.
@@ -34,7 +34,7 @@ const STAMP_ID_RE = /^\d{4}-\d{2}\/[0-9a-f]{7}-[A-Za-z0-9_]{1,40}-\d+$/;
 export const PROJECT_KEYS = ["focus", "current_tier", "release_verdict", "rein_version", "provisioned_at"];
 
 /**
- * A team project: migrated with `ai state migrate --team`, which writes project.json last.
+ * A team project: migrated with `rein state migrate --team`, which writes project.json last.
  * project.json alone is the marker — git does not carry an empty .ai/tasks/, so a fresh
  * clone of a project with no tasks yet has none.
  */
@@ -529,7 +529,7 @@ export function rebuildIndex(aiDir, db) {
 
 /**
  * The one writer of `.ai/state.json`. Everything that produces the file — the views below and
- * the TASKS.md recovery of `ai migrate-state` — calls this.
+ * the TASKS.md recovery of `rein migrate-state` — calls this.
  */
 export function writeStateFile(aiDir, state) {
   writeFileSync(resolve(aiDir, "state.json"), JSON.stringify(state, null, 2) + "\n", "utf8");

@@ -10,7 +10,7 @@
 //
 // WHAT THIS IS NOT. It never deletes and never signals. It answers one question —
 // "what, on this machine, matches the registry right now, and why?" — and hands the
-// findings to ai-clean.mjs, which is the only writer. Keeping the two apart is what makes
+// findings to rein-clean.mjs, which is the only writer. Keeping the two apart is what makes
 // the dry run trustworthy: the scan cannot have side effects because it has no code for
 // them.
 //
@@ -266,7 +266,7 @@ function pidCwd(pid) {
  * Every process whose command line names the entry's script, split live / orphaned.
  *
  * Orphaned = working in the TEMP ROOT and not the recorded holder of the watcher lock in
- * its own project. Both halves matter: `ai start` runs a watcher from a real project, so
+ * its own project. Both halves matter: `rein start` runs a watcher from a real project, so
  * a cwd under $TMPDIR means a test fixture, and the lock is what a watcher the operator
  * is USING holds — a housekeeping command must never take that one.
  *
@@ -308,8 +308,8 @@ export function scanProcesses(entry, ctx) {
 
 /**
  * `mcp__<server>__*` allow entries for a server registry.json no longer lists. Reported,
- * never rewritten: `ai clean` moves paths to the trash, and a JSON key is not a path.
- * `ai init`/`ai sync` own this file (E-273). settings.local.json is user-owned and is
+ * never rewritten: `rein clean` moves paths to the trash, and a JSON key is not a path.
+ * `rein init`/`rein sync` own this file (E-273). settings.local.json is user-owned and is
  * only ever printed.
  */
 export function scanSettingAllows(p, ctx) {
@@ -482,7 +482,7 @@ export function scan(opts) {
   return { findings, notes, registry };
 }
 
-/** Counts by class, plus how many findings `ai clean` could actually act on. */
+/** Counts by class, plus how many findings `rein clean` could actually act on. */
 export function summarize(findings) {
   const c = { safe: 0, prompt: 0, "not-ours": 0, actionable: 0, report_only: 0 };
   for (const f of findings) {

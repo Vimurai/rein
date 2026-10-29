@@ -84,7 +84,7 @@ following is true:
 - It edits `.ai/blueprints/*.md` *for the framework itself* — i.e. the
   blueprint sits inside the Rein clone, not the consuming project.
 - The task description names a framework component without a project-
-  specific feature (e.g. "Update task-synchronizer-mcp", "Fix bin/ai
+  specific feature (e.g. "Update task-synchronizer-mcp", "Fix bin/rein
   locator chain", "Add new skill to shared/skills").
 
 A task is **project-level** (`is_framework_task` omitted/false) if it
@@ -153,7 +153,7 @@ git add -- .ai/COMM.md && git commit --only .ai/COMM.md -m "chore(.ai): COMM han
 never rides a bookkeeping commit (no critic stamp needed — `.ai/COMM.md` is bookkeeping).
 The commit stays on the current branch and is not pushed here. If `git add` refuses
 because `.ai/COMM.md` is still gitignored (an un-synced clone), print that one line and
-skip the commit — never `git add -f`; `ai sync` removes the pattern and `ai doctor`
+skip the commit — never `git add -f`; `rein sync` removes the pattern and `rein doctor`
 reports `[COMM_IGNORED]` (D-104 r2/r4).
 
 Then wake the Engineer with `SendMessage` (D-099). It is a deferred tool — load it first:

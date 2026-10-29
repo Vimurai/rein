@@ -17,7 +17,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const { classifyTraversal } = await import(resolve(repo, "src/shared/traversal-policy.mjs"));
 const POLICY = readFileSync(resolve(repo, "src/shared/traversal-policy.mjs"), "utf8");
 const ORCH = readFileSync(resolve(repo, "src/mcp/orchestrator-mcp/index.js"), "utf8");
-const AI_BIN = readFileSync(resolve(repo, "src/bin/ai"), "utf8");
+const AI_BIN = readFileSync(resolve(repo, "src/bin/rein"), "utf8");
 
 const grade = (line, strict = false) => classifyTraversal(line, { strict })?.severity ?? "none";
 
@@ -46,8 +46,8 @@ test("E-222.07a: a P1 traversal is emitted as a WARN row", () =>
 test("E-222.07b: the report names the anchor that excused it", () => assert.match(ORCH, /anchored to /));
 
 // ── E-222.8: the real diff that motivated this passes ──
-test("E-222.08a: src/bin/ai's own locator bootstrap is not P0", () => {
+test("E-222.08a: src/bin/rein's own locator bootstrap is not P0", () => {
   const real = AI_BIN.split("\n").find((l) => l.includes("shared/locate.sh"));
-  assert.ok(real, "src/bin/ai names shared/locate.sh");
+  assert.ok(real, "src/bin/rein names shared/locate.sh");
   assert.notEqual(grade(`+${real}`), "P0");
 });

@@ -3,8 +3,8 @@
 //
 // Extends tests/unit/record-store.test.mjs (the writer and the migration) to the other side of
 // git: two clones of one team project, the real hooks/state-import.sh run as git's post-merge
-// hook, and the `rein-record` merge driver configured as `ai sync` configures it. HOME is a
-// fixture directory whose .rein/bin/ai runs this tree's src/bin/ai, so nothing reaches the
+// hook, and the `rein-record` merge driver configured as `rein sync` configures it. HOME is a
+// fixture directory whose .rein/bin/rein runs this tree's src/bin/rein, so nothing reaches the
 // real ~/.rein.
 
 import { test } from "node:test";
@@ -33,13 +33,13 @@ function tmp(t, tag) {
   return d;
 }
 
-// A fixture HOME whose `ai` is this tree's, so the hook's install-mirror-only lookup
-// (${HOME}/.rein/bin/ai) finds the code under test.
+// A fixture HOME whose `rein` is this tree's, so the hook's install-mirror-only lookup
+// (${HOME}/.rein/bin/rein) finds the code under test.
 function fixtureHome(t) {
   const home = tmp(t, "home");
   mkdirSync(join(home, ".rein/bin"), { recursive: true });
-  writeFileSync(join(home, ".rein/bin/ai"), `#!/bin/bash\nexec bash '${join(REPO, "src/bin/ai")}' "$@"\n`);
-  chmodSync(join(home, ".rein/bin/ai"), 0o755);
+  writeFileSync(join(home, ".rein/bin/rein"), `#!/bin/bash\nexec bash '${join(REPO, "src/bin/rein")}' "$@"\n`);
+  chmodSync(join(home, ".rein/bin/rein"), 0o755);
   tcFixtureHome(home);   // the hook pins PATH; node may live outside its fixed fallback dirs
   return home;
 }
@@ -49,7 +49,7 @@ function gitIn(home) {
   return (cwd, ...args) => execFileSync("git", args, { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 
-// Wire a clone as `ai sync` does: the post-merge hook and the record merge driver.
+// Wire a clone as `rein sync` does: the post-merge hook and the record merge driver.
 function wireClone(git, dir, email) {
   git(dir, "config", "user.email", email);
   git(dir, "config", "user.name", email);
@@ -257,7 +257,7 @@ test("a CLI reached through a symlinked directory still runs (isMainModule compa
   symlinkSync(join(REPO, "src/shared"), link);
   const r = spawnSync(process.execPath, ["--no-warnings", join(link, "cli-state.mjs"), "state", "bogus"], { encoding: "utf8" });
   assert.equal(r.status, 2, "usage exit — the entry point ran");
-  assert.match(r.stderr, /usage: ai state/);
+  assert.match(r.stderr, /usage: rein state/);
 });
 
 // ── critic_security P1 (E-326): pulled text in the conflict path ─────────────
@@ -335,7 +335,7 @@ test("two clones with their own ranges each add five tasks and merge with no add
   assert.match(full.error, /last used E-204/);
 });
 
-test("only the planner adds P tasks; ai pane architect warns anyone else", (t) => {
+test("only the planner adds P tasks; rein pane architect warns anyone else", (t) => {
   const { git, a, b, aAi, bAi } = team(t, "planner");
   assert.equal(addTask(aAi, getDbSeeded(aAi), { owner: "Architect (Claude)", description: "plan", prefix: "P" }).task.id, "P-1");
   runTeamAdd(aAi, "dev-b@example.com", "P:50-60");
@@ -347,7 +347,7 @@ test("only the planner adds P tasks; ai pane architect warns anyone else", (t) =
   assert.equal(runPlannerCheck(aAi).out, "");
 });
 
-test("ai team add refuses an overlap naming the clashing member, and show reports use", (t) => {
+test("rein team add refuses an overlap naming the clashing member, and show reports use", (t) => {
   const { aAi } = team(t, "overlap");
   assert.equal(runTeamAdd(aAi, "dev-b@example.com", "E:200-299").code, 0);
   const clash = runTeamAdd(aAi, "dev-c@example.com", "E:250-260");
@@ -394,7 +394,7 @@ test("team allocation never re-issues an id at or below this machine's high-wate
   assert.equal(addTask(aAi, db, { owner: "Engineer (Claude)", description: "x" }).task.id, "E-11");
 });
 
-test("ai team add in a team project without team.json says who just became the planner", (t) => {
+test("rein team add in a team project without team.json says who just became the planner", (t) => {
   const { aAi } = team(t, "bridge");
   rmSync(join(aAi, "team.json"));
   assert.match(runTeamAdd(aAi, "dev-b@example.com", "E:200-209").out, /created \.ai\/team\.json with YOU \(dev-a@example\.com\) as the planner/);
@@ -545,11 +545,11 @@ test("archiving a DONE row whose live record file is missing still writes it to 
 // ── E-342 (D-106): a legacy project imports HEAD's tracked state.json ────────
 
 // origin + two legacy clones (no team.json): A seeded with E-1..E-2 and a stamp, B cloned.
-// HOME's `ai` logs each start, so a test can tell whether the hook reached node at all.
+// HOME's `rein` logs each start, so a test can tell whether the hook reached node at all.
 function legacyPair(t, tag) {
   const home = fixtureHome(t);
-  const calls = join(home, "ai-calls.log");
-  writeFileSync(join(home, ".rein/bin/ai"), `#!/bin/bash\necho "$*" >> '${calls}'\nexec bash '${join(REPO, "src/bin/ai")}' "$@"\n`);
+  const calls = join(home, "rein-calls.log");
+  writeFileSync(join(home, ".rein/bin/rein"), `#!/bin/bash\necho "$*" >> '${calls}'\nexec bash '${join(REPO, "src/bin/rein")}' "$@"\n`);
   const git = gitIn(home);
   const base = tmp(t, tag);
   const origin = join(base, "origin.git"), a = join(base, "a"), b = join(base, "b");
@@ -584,7 +584,7 @@ function bAdvances(git, b, bAi) {
 
 const ids = (ai) => getDbSeeded(ai).prepare("SELECT id FROM tasks ORDER BY rowid").all().map((r) => r.id);
 
-test("finding 5: a pull the index missed is refused by every view writer until ai state import merges it", (t) => {
+test("finding 5: a pull the index missed is refused by every view writer until rein state import merges it", (t) => {
   const { git, a, b, aAi, bAi } = legacyPair(t, "lg-f5");
   bAdvances(git, b, bAi);
   const adb = getDbSeeded(aAi);
@@ -596,7 +596,7 @@ test("finding 5: a pull the index missed is refused by every view writer until a
   const tasksMd = readFileSync(join(aAi, "TASKS.md"), "utf8");
 
   const line = checkBehindHead(aAi, adb);
-  assert.equal(line, "[STATE_BEHIND_HEAD] HEAD has E-3..E-5 the index lacks — run: ai state import");
+  assert.equal(line, "[STATE_BEHIND_HEAD] HEAD has E-3..E-5 the index lacks — run: rein state import");
   assert.throws(() => regenerateViews(aAi, adb), (e) => e instanceof StateBehindHeadError && e.message === line);
   assert.equal(addTask(aAi, adb, { owner: "Engineer (Claude)", description: "x" }).code, "STATE_BEHIND_HEAD", "no id is minted while behind");
   assert.equal(ids(aAi).includes("E-3"), false);
@@ -604,7 +604,7 @@ test("finding 5: a pull the index missed is refused by every view writer until a
 
   const out = runStateImport(aAi).out;
   assert.match(out, /^\[STATE_IMPORT\] legacy: \+3 tasks \(E-3\.\.E-5\), ~0 updated, \+1 stamps from HEAD [0-9a-f]{7}$/m);
-  assert.match(out, /^\[STATE_DIVERGED\] .*consider: ai state migrate --team$/m, "local-only work next to pulled tasks is reported");
+  assert.match(out, /^\[STATE_DIVERGED\] .*consider: rein state migrate --team$/m, "local-only work next to pulled tasks is reported");
   for (const id of ["E-1", "E-2", "E-3", "E-4", "E-5", "P-1"]) assert.ok(ids(aAi).includes(id), `${id} present`);
   const stamps = adb.prepare("SELECT type FROM stamps").all().map((r) => r.type);
   assert.ok(stamps.includes("LOCAL") && stamps.includes("TESTS_PASS") && stamps.filter((s) => s === "ARCH_PASS").length === 1);

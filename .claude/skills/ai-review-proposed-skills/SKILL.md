@@ -32,7 +32,7 @@ REIN_LOCATE_UNTRUSTED_ENV=1
 unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null
 [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"
 PROMOTER="$(rein_locate shared/skill-promoter.mjs 2>/dev/null)"
-[ -z "$PROMOTER" ] && { echo "skill-promoter.mjs not found — run: ai install"; exit 1; }
+[ -z "$PROMOTER" ] && { echo "skill-promoter.mjs not found — run: rein install"; exit 1; }
 ```
 
 ## Step 1 — Enumerate proposals

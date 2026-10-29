@@ -1,4 +1,4 @@
-// gate-self-disable-cases.test.mjs — GATE_SELF_DISABLE (`ai gate`, the override file, a write
+// gate-self-disable-cases.test.mjs — GATE_SELF_DISABLE (`rein gate`, the override file, a write
 // under the install root) as one contract table, run in process (E-301, D-088, test-economics.md
 // §Consolidation Map). The rows were gate_override's E-291.05f/g loops, one `--check` spawn each;
 // the spawn path is probed once for this table in safe_exec_test. Extends gate-guard-home.test.mjs
@@ -18,7 +18,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const TABLE = resolve(repo, "tests/fixtures/gate-self-disable-cases.json");
 // E-383 (D-132): re-pinned for the rename (rows name the new install root; pre-rename rows
 // added). The D-089 r5 pin moves only by ruling — the D-ruling that closes E-383 ratifies it.
-const SHA256 = "119d359d34e5f650e3c7dbe759c54b9c12382064ab45f893976dd49b5c4c14a0";
+const SHA256 = "63c2cac95f95e30149119f6296417a547bb4afd9eb93d056385285121d3b2968";
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-gsd-")));
 mkdirSync(join(home, ".re" + "in", "hooks"), { recursive: true });

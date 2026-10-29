@@ -39,7 +39,7 @@ REIN="${HOME}/.rein"
 # E-69: Fail-closed Node.js availability check (system-hardening-phase3.md §Security).
 # Runs BEFORE any file copy or env-line append. Node 22+ is required by:
 #   - src/shared/wal-flusher.mjs       (node:sqlite, prevents WAL bloat)
-#   - scripts/generate_mcp_docs.mjs    (regenerates .ai/blueprints/mcp.md on `ai sync`)
+#   - scripts/generate_mcp_docs.mjs    (regenerates .ai/blueprints/mcp.md on `rein sync`)
 #   - src/shared/incident-append.mjs   (PII-sanitised telemetry)
 #   - src/shared/incident-aggregate.mjs (preflight aggregator)
 # Skipping this check on degraded systems risks silent WAL bloat (gigabytes)
@@ -63,9 +63,9 @@ if [[ "${REIN_SKIP_NODE_CHECK:-0}" != "1" ]]; then
 fi
 
 # E-270 (D-074 §Components 1): package.json is the ONLY place the version is typed. It
-# used to be repeated here and in src/bin/ai, and the three copies drifted; now the
-# installer reads it and records it as ~/.rein/VERSION, which `ai --version`, `ai init`
-# and `ai doctor` read. Unreadable → refuse: an install that cannot say what it is would
+# used to be repeated here and in src/bin/rein, and the three copies drifted; now the
+# installer reads it and records it as ~/.rein/VERSION, which `ai --version`, `rein init`
+# and `rein doctor` read. Unreadable → refuse: an install that cannot say what it is would
 # stamp every project it provisions with nothing.
 REIN_VERSION="$(sed -nE 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "${REPO_DIR}/package.json" 2>/dev/null | head -1)"
 if [[ ! "${REIN_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
@@ -82,7 +82,7 @@ echo ""
 # On 2026-10-04 uncommitted gate code went live machine-wide twice. The installer refuses a
 # working tree with uncommitted changes under the gate paths, naming them; --allow-dirty is the
 # one override — it prints a loud banner and records dirty=true in the install stamp, so
-# `ai doctor` keeps saying "installed from an uncommitted tree" until a clean reinstall.
+# `rein doctor` keeps saying "installed from an uncommitted tree" until a clean reinstall.
 _REIN_ALLOW_DIRTY=0
 for _a in "$@"; do [[ "$_a" == "--allow-dirty" ]] && _REIN_ALLOW_DIRTY=1; done
 _REIN_COMMIT=""; _REIN_DIRTY=0
@@ -92,7 +92,7 @@ if git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       hooks src/mcp src/shared src/bin install-rein.sh 2>/dev/null \
       | grep -vE '/node_modules/|/package-lock\.json$|/__pycache__/' || true)"
   # npm's own artifacts (an `npm install` in a server dir writes node_modules/ and an untracked
-  # package-lock.json — `ai ci run` does exactly that) and Python's bytecode cache are not
+  # package-lock.json — `rein ci run` does exactly that) and Python's bytecode cache are not
   # source. Untracked SOURCE still counts: on 2026-10-04 launch-record.py was untracked.
   if [[ -n "$_rein_dirty_files" ]]; then
     _REIN_DIRTY=1
@@ -105,7 +105,7 @@ if git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
     echo "  ⚠ --allow-dirty: installing UNCOMMITTED gate code from ${REPO_DIR}"
     printf '%s\n' "$_rein_dirty_files" | sed 's/^/    /'
-    echo "  ai doctor will report this install as dirty until a clean reinstall."
+    echo "  rein doctor will report this install as dirty until a clean reinstall."
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
   fi
 fi
@@ -175,7 +175,7 @@ for _t in "${_REIN_TREES[@]}"; do _stage_one "${REPO_DIR}/src/${_t}" "${_STAGE}/
 
 _verify_stage() {  # → 0 when the staged tree is complete and parses; prints what is wrong
   local bad=0 f
-  for f in bin/ai bin/ai-account.sh shared/accounts.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/gate-probe.sh \
+  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/gate-probe.sh \
            mcp/safe-exec-mcp/index.js mcp/safe-exec-mcp/role-token.mjs mcp/safe-exec-mcp/gate-guard.mjs; do
     [[ -f "${_STAGE}/${f}" ]] || { echo "  missing: ${f}"; bad=1; }
   done
@@ -184,7 +184,7 @@ _verify_stage() {  # → 0 when the staged tree is complete and parses; prints w
       [[ -f "${_STAGE}/hooks/${f}" ]] || { echo "  missing: hooks/${f}"; bad=1; }
     done
   fi
-  for f in "${_STAGE}"/hooks/*.sh "${_STAGE}/bin/ai" "${_STAGE}/bin/ai-account.sh"; do
+  for f in "${_STAGE}"/hooks/*.sh "${_STAGE}/bin/rein" "${_STAGE}/bin/rein-account.sh"; do
     [[ -f "$f" ]] || continue
     bash -n "$f" 2>/dev/null || { echo "  does not parse (bash): ${f#${_STAGE}/}"; bad=1; }
   done
@@ -234,10 +234,17 @@ _live_one mcp --filter='P node_modules/' --filter='P package-lock.json'
 printf '%s\n' "${REIN_VERSION}" > "${REIN}/VERSION.tmp.$$" && mv -f "${REIN}/VERSION.tmp.$$" "${REIN}/VERSION"
 echo "✓ Recorded version ${REIN_VERSION} → ${REIN}/VERSION"
 
-chmod +x "${REIN}/bin/ai"
+chmod +x "${REIN}/bin/rein"
 chmod +x "${REIN}/hooks/"*.sh 2>/dev/null || true
+# E-391 (D-132 addendum 2 r1): bin/ holds exactly what the source ships — the rsync path
+# deletes the rest already, the cp fallback does not, so an entry from an earlier install
+# (the pre-rename command) is removed here on both paths.
+for _b in "${REIN}/bin/"*; do
+  [[ -e "${_STAGE}/bin/${_b##*/}" ]] || rm -f -- "$_b"
+done
+echo "✓ The command is rein (${REIN}/bin/rein)"
 
-# E-62: Persist canonical Rein clone path so bin/ai can recover the
+# E-62: Persist canonical Rein clone path so bin/rein can recover the
 # framework workspace without relying on shell env (e.g. when invoked
 # from a non-interactive process). Pure path persistence — no path
 # traversal validation here; consumers (task-synchronizer-mcp) enforce
@@ -246,7 +253,7 @@ mkdir -p "${REIN}/config"
 printf "%s\n" "${REPO_DIR}" > "${REIN}/config/rein-workspace.txt"
 echo "✓ Recorded REIN_WORKSPACE=${REPO_DIR}"
 
-# E-304: the install stamp — which tree, which commit, and whether it was dirty. `ai doctor`
+# E-304: the install stamp — which tree, which commit, and whether it was dirty. `rein doctor`
 # reads it ("installed from an uncommitted tree"). tmp + rename: a reader sees old or new.
 python3 - "${REIN}/config/install-stamp.json" "$REPO_DIR" "$_REIN_COMMIT" "$_REIN_DIRTY" "$REIN_VERSION" <<'PYSTAMP' || true
 import json, os, sys, time
@@ -379,7 +386,7 @@ _record_hook_toolchain() {
   if [[ "$ok" -eq 1 ]] && rein_tc_write "${REIN}/shared/toolchain.sh" "$rn" "$rp" "$rnc"; then
     echo "✓ Hook toolchain pinned: node ${rn} · python3 ${rp}"
     # E-305 (D-089 r3): the gate path's pinned dependencies, recorded beside the interpreters
-    # (readers skip any line they do not recognise; `ai doctor` prints the set).
+    # (readers skip any line they do not recognise; `rein doctor` prints the set).
     if command -v node >/dev/null 2>&1 && [[ -f "${REIN}/shared/gate-pins.mjs" ]]; then
       node --no-warnings "${REIN}/shared/gate-pins.mjs" list "${REIN}/mcp" 2>/dev/null \
         | sed 's/^/REIN_TC_GATEDEP=/' >> "${REIN}/shared/toolchain.sh" || true
@@ -430,9 +437,9 @@ ensure_env_line "${HOME}/.zshrc"    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" "1"
 ensure_env_line "${HOME}/.bashrc"   "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" "1"
 
 # E-304 (D-089 r2): the installer no longer exports REIN_WORKSPACE from shell profiles. The
-# persisted ~/.rein/config/rein-workspace.txt is the record (`ai` reads it first, and `ai sync`
+# persisted ~/.rein/config/rein-workspace.txt is the record (`rein` reads it first, and `rein sync`
 # writes it into each project's settings env for the MCP servers); an exported copy in a profile
-# outlived reinstalls and pointed `ai sync` at a developer's working tree (2026-10-04).
+# outlived reinstalls and pointed `rein sync` at a developer's working tree (2026-10-04).
 # Lines an EARLIER install wrote are offered for removal (y/N, terminal only, never under CI) —
 # only lines of exactly that shape, `export REIN_WORKSPACE="…"`; anything else is left alone.
 # _rein_remove_workspace_export <rc-file> — drop ONLY lines of the exact shape earlier installs
@@ -458,7 +465,7 @@ if [[ "${#_rein_rc_with_export[@]}" -gt 0 ]]; then
         _rein_remove_workspace_export "$_rc" && echo "✓ Removed the REIN_WORKSPACE export from ${_rc}"
       done
     else
-      echo "  Kept the REIN_WORKSPACE export (the installed record still wins; ai doctor warns if they disagree)."
+      echo "  Kept the REIN_WORKSPACE export (the installed record still wins; rein doctor warns if they disagree)."
     fi
   else
     echo "  ○ ${_rein_rc_with_export[*]} still export REIN_WORKSPACE — run the installer in a terminal to remove it"
@@ -468,8 +475,8 @@ fi
 # ── 4) Install global configs + hooks + fix settings.json ────────────────────
 
 echo ""
-echo "Running: ai install (global configs + hooks + settings.json) ..."
-"${REIN}/bin/ai" install
+echo "Running: rein install (global configs + hooks + settings.json) ..."
+"${REIN}/bin/rein" install
 
 # ── E-249 (D-067 §3): stale running servers ───────────────────────────────────
 #
@@ -508,21 +515,21 @@ Next steps:
    source ~/.zprofile && source ~/.zshrc
 
 2) Verify everything:
-   ai doctor
+   rein doctor
 
 3) In any project repo:
-   ai init       — scaffold .ai/, or upgrade it to this version (ai init --check: dry run)
-   ai start      — open the Triad (Architect + Engineer panes)
+   rein init       — scaffold .ai/, or upgrade it to this version (rein init --check: dry run)
+   rein start      — open the Triad (Architect + Engineer panes)
 
 4) MCP servers (auto-configured — requires Node.js):
-   ai mcp-setup   ← installs deps + regenerates .mcp.json with absolute paths
-   ai doctor      ← verify per-server health
+   rein mcp-setup   ← installs deps + regenerates .mcp.json with absolute paths
+   rein doctor      ← verify per-server health
 
 5) Relaunch every running Claude pane (E-294, D-087):
    role tokens are now bound to the session process and minted from launch records.
    A session started before this install holds an old token that never verifies, so its
-   gate applies EVERY role's blocks until it is relaunched with: ai pane <role>
-   (then ai sync in each project, so SessionStart also fires on /clear and /compact)
+   gate applies EVERY role's blocks until it is relaunched with: rein pane <role>
+   (then rein sync in each project, so SessionStart also fires on /clear and /compact)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EOF

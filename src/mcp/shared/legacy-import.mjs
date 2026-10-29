@@ -143,11 +143,11 @@ export function checkBehindHead(aiDir, db) {
   const have = new Set(db.prepare("SELECT id FROM tasks").all().map((r) => r.id));
   const archived = head.ids.some((id) => !have.has(id)) ? _localArchive(aiDir).tasks : new Set();
   const missing = head.ids.filter((id) => !have.has(id) && !archived.has(id)).sort(_byId);
-  if (missing.length) return `[STATE_BEHIND_HEAD] HEAD has ${_range(missing)} the index lacks — run: ai state import`;
+  if (missing.length) return `[STATE_BEHIND_HEAD] HEAD has ${_range(missing)} the index lacks — run: rein state import`;
   // An imported blob's stamps are in the index (or archived here): only the task check applies.
   if (blob === last || !head.maxStamp) return null;
   const idxMax = db.prepare("SELECT MAX(timestamp) AS t FROM stamps").get()?.t || "";
-  if (head.maxStamp > idxMax) return `[STATE_BEHIND_HEAD] HEAD has stamps newer than the index (${head.maxStamp.slice(0, 19)}Z) — run: ai state import`;
+  if (head.maxStamp > idxMax) return `[STATE_BEHIND_HEAD] HEAD has stamps newer than the index (${head.maxStamp.slice(0, 19)}Z) — run: rein state import`;
   return null;
 }
 
@@ -256,7 +256,7 @@ function _importLegacy(aiDir, db, { force = false, dryRun = false, render = null
   }
   if (keptLocal.length || (inserts.length && localOnly.length)) {
     const kept = keptLocal.map((t) => t.id).sort(_byId);
-    lines.push(`[STATE_DIVERGED] this index and HEAD both changed records (${kept.length ? `kept local: ${kept.join(", ")}` : `local-only: ${localOnly.sort(_byId).join(", ")}`}) — consider: ai state migrate --team`);
+    lines.push(`[STATE_DIVERGED] this index and HEAD both changed records (${kept.length ? `kept local: ${kept.join(", ")}` : `local-only: ${localOnly.sort(_byId).join(", ")}`}) — consider: rein state migrate --team`);
   }
   if (dryRun) return { status: "DRY_RUN", lines, changed };
 
@@ -290,7 +290,7 @@ function _importLegacy(aiDir, db, { force = false, dryRun = false, render = null
   return { status: "OK", lines, changed };
 }
 
-// ── E-344 (D-108 r8): the State Health verdict for ai doctor and ai-preflight ──────────────
+// ── E-344 (D-108 r8): the State Health verdict for rein doctor and ai-preflight ──────────────
 
 const _count = (doc) => (doc && Array.isArray(doc.tasks) ? doc.tasks.length : 0);
 
@@ -302,7 +302,7 @@ const _count = (doc) => (doc && Array.isArray(doc.tasks) ? doc.tasks.length : 0)
  *   lossy TASKS.md migration only when the view is all there is.
  */
 export function stateHealth(aiDir, db) {
-  if (isRecordStore(aiDir)) return { lines: ["  team project — the record files are the truth (check: ai state parity)"], action: null };
+  if (isRecordStore(aiDir)) return { lines: ["  team project — the record files are the truth (check: rein state parity)"], action: null };
   const blob = headBlob(aiDir);
   const head = blob ? _count(_headDoc(aiDir, blob)) : null;
   let working = 0;
@@ -313,7 +313,7 @@ export function stateHealth(aiDir, db) {
   const stamps = db ? db.prepare("SELECT COUNT(*) AS n FROM stamps").get().n : 0;
   const lines = [`  index: ${idx == null ? "absent" : `tasks=${idx}, stamps=${stamps}`} · HEAD state.json: ${head == null ? "not committed" : `tasks=${head}`} · working state.json: tasks=${working} · TASKS.md: ${listed} listed`];
   if (!idx && (head || working)) {
-    lines.push(`  WARN: the index is ${idx == null ? "absent" : "empty"} but ${head ? `HEAD has ${head}` : `the working state.json has ${working}`} task(s) — run: ai state import`);
+    lines.push(`  WARN: the index is ${idx == null ? "absent" : "empty"} but ${head ? `HEAD has ${head}` : `the working state.json has ${working}`} task(s) — run: rein state import`);
     return { lines, action: "import" };
   }
   const behind = db ? checkBehindHead(aiDir, db) : null;
@@ -322,7 +322,7 @@ export function stateHealth(aiDir, db) {
     return { lines, action: "import" };
   }
   if (!idx && listed > 0) {
-    lines.push(`  WARN: no state source holds tasks but TASKS.md lists ${listed} — run: ai migrate-state (rebuilds from the view; lossy)`);
+    lines.push(`  WARN: no state source holds tasks but TASKS.md lists ${listed} — run: rein migrate-state (rebuilds from the view; lossy)`);
     return { lines, action: "migrate" };
   }
   lines.push(idx ? "  OK — the index is in step with HEAD" : "  index, state.json and TASKS.md all empty (clean slate)");

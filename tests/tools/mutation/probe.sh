@@ -11,7 +11,7 @@
 #
 # Every test process runs with a throwaway HOME (rule 6). Needs @stryker-mutator/core and
 # @stryker-mutator/tap-runner installed (dev dependencies — see tests/tools/README.md).
-# Never wired into `ai ci run`: a run takes hours.
+# Never wired into `rein ci run`: a run takes hours.
 set -euo pipefail
 _mut_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"; _repo="${_mut_dir%/tests/tools/mutation}"
 _here="${_repo}/tests/tools/mutation"

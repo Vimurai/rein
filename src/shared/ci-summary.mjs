@@ -1,12 +1,12 @@
 // ci-summary.mjs — read a test runner's own summary out of a suite step's output (E-310,
-// D-091, test-economics.md §CI Resources Component 11). `ai ci run` used to read only the
+// D-091, test-economics.md §CI Resources Component 11). `rein ci run` used to read only the
 // Rein runner's `Total: N passed, M failed` line, so a downstream project whose
 // tests/run.sh drives vitest (a downstream project) recorded pass=0 on every green run.
 //
 //   node ci-summary.mjs <log> [--after "<marker line prefix>"]
 //     → `runner=<r> pass=<n> fail=<n> skip=<n>` on stdout; `runner=none pass=0 fail=0 skip=0`
 //       when nothing matched. Only the text after the LAST line starting with the marker is
-//       read (ai ci passes its "[ci] ── suite:" header). The log is read as text and never
+//       read (rein ci passes its "[ci] ── suite:" header). The log is read as text and never
 //       executed.
 //
 // Precedence: the Rein line, when present, IS the run's total (its runner already folds

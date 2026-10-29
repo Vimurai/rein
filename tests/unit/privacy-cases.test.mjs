@@ -65,7 +65,7 @@ test("E-379: long input stays linear (security P2-1: the address pattern, repeat
   assert.ok(ms < 2000, `took ${ms} ms`);
 });
 
-test("E-379: a redaction logs one [PRIVACY_REDACTED] line per class and counts for ai doctor", () => {
+test("E-379: a redaction logs one [PRIVACY_REDACTED] line per class and counts for rein doctor", () => {
   const before = redactedToday(HOME), lines = [];
   redact(`cd ${CAROL}; cd ${DAVE}; mail ${JANE}`, { file: ".ai/x", lists, log: (l) => lines.push(l) });
   assert.deepEqual(lines.sort(), ["[PRIVACY_REDACTED] home_path .ai/x", "[PRIVACY_REDACTED] personal_email .ai/x"]);
@@ -166,7 +166,7 @@ const WRITERS = {
     git(root, "update-ref", "refs/remotes/origin/main", "HEAD");
     writeFileSync(join(ai, "state.json"), JSON.stringify({ project: { rein_version: "4.0.0" }, tasks: [] }));
     writeTeam(ai, { ...newTeam("dev-a@example.com", { E: [[1, 99]] }, "main"),
-      ci: { provider: "github", required_check: "ai ci run", rein_source: "https://git.example.com/Fabrikam/rein.git" } });
+      ci: { provider: "github", required_check: "rein ci run", rein_source: "https://git.example.com/Fabrikam/rein.git" } });
     const first = hosted(root, { provider: "github" });
     assert.equal(first.code, 0, first.out);
     const wrapper = read(root, PROVIDERS.github.path);
@@ -187,7 +187,7 @@ const WRITERS = {
     assert.match(read(REPO, "src/mcp/advisor-mcp/index.js"), /appendFileSync\(LOG_MD, redact\(line,/);
   },
   ai_clean_log() {
-    assert.match(read(REPO, "src/shared/ai-clean.mjs"), /appendFileSync\(projLog, redact\(/);
+    assert.match(read(REPO, "src/shared/rein-clean.mjs"), /appendFileSync\(projLog, redact\(/);
   },
   instinct_stager(t) {
     const { root } = project(t);
@@ -207,7 +207,7 @@ for (const r of ROWS.filter((x) => x.kind === "writer")) {
   });
 }
 
-test("E-379: every writer row has a runner and ai doctor counts the wrapped writers", () => {
+test("E-379: every writer row has a runner and rein doctor counts the wrapped writers", () => {
   const rows = ROWS.filter((x) => x.kind === "writer").map((x) => x.writer);
   assert.deepEqual(rows.filter((w) => w !== "stop_hook").sort(), Object.keys(WRITERS).sort());
   assert.equal(REDACT_WRITERS.length, 12);

@@ -3,7 +3,7 @@
 // §Component 2; the drift rule is D-118 r1, ci-budget.js budgetDrift — reused, not copied).
 //
 //   node .github/scripts/nightly-summary.mjs <logs dir> <history file>
-// Reads every `ai ci run` log under <logs dir> (the matrix artefacts), takes the UNSHARDED
+// Reads every `rein ci run` log under <logs dir> (the matrix artefacts), takes the UNSHARDED
 // leg's `[ci] budget` line (a shard's budget has no full_seconds), compares it with the last
 // five lines in <history file> and prints markdown on stdout; then appends the line to the
 // history, keeping five. Information only: exit 0 whatever it finds.

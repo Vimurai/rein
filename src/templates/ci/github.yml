@@ -1,13 +1,13 @@
-# Hosted {{TRUNK}} check — rendered by `ai ci hosted github` (D-103, team-collaboration.md
+# Hosted {{TRUNK}} check — rendered by `rein ci hosted github` (D-103, team-collaboration.md
 # §Component 5b; jobs per D-135, .ai/blueprints/ci-throughput.md §Component 4). Do not edit
-# by hand: `ai ci hosted --check` fails when this file is not the current rendering, and
-# `ai ci hosted --force` rewrites it.
+# by hand: `rein ci hosted --check` fails when this file is not the current rendering, and
+# `rein ci hosted --force` rewrites it.
 #
-# The contract: on a pull request into {{TRUNK}}, every `ai ci run` leg runs exactly two
-# commands — bootstrap Rein, then `ai ci run` on the merge result — and keeps the log and
+# The contract: on a pull request into {{TRUNK}}, every `rein ci run` leg runs exactly two
+# commands — bootstrap Rein, then `rein ci run` on the merge result — and keeps the log and
 # .ai/ci/*.json as artefacts. The `fast` job (when the project's runner has a fast tier) is
 # the first signal: dependencies and `tests/run.sh --tier fast`, no installer. Branches stay
-# local-first (D-072): `ai ci run` before pushing is the developer's gate; this is the one
+# local-first (D-072): `rein ci run` before pushing is the developer's gate; this is the one
 # authority for "nobody merges red into {{TRUNK}}", made required by the branch policy. A
 # push to {{TRUNK}} outside .ai/** gets an audit run that gates nothing. A caller
 # (nightly, release) runs the full matrix through workflow_call with `full: true`.
@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
 {{FAST_JOB}}  ai-ci-run:
-    name: ai ci run (${{ matrix.os }}, node ${{ matrix.node }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
+    name: rein ci run (${{ matrix.os }}, node ${{ matrix.node }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -45,8 +45,8 @@ jobs:
       matrix:
 {{MATRIX}}
     steps:
-      # The merge result — exactly what {{TRUNK}} becomes. `ai ci run` tests HEAD. Full
-      # history, as a local `ai ci run` worktree has it (suites pin files to past commits).
+      # The merge result — exactly what {{TRUNK}} becomes. `rein ci run` tests HEAD. Full
+      # history, as a local `rein ci run` worktree has it (suites pin files to past commits).
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
         with:
@@ -60,7 +60,7 @@ jobs:
           node-version: ${{ matrix.node }}
 
       # The recipe's npm and Playwright caches live under ~/.rein/ci/cache.
-      - name: Cache ai ci downloads
+      - name: Cache rein ci downloads
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9   # v6.1.0
         with:
           path: ~/.rein/ci/cache
@@ -71,12 +71,12 @@ jobs:
       - name: Install Rein
         run: {{BOOTSTRAP}}
 
-      # `ai ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check. On a
+      # `rein ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check. On a
       # hosted runner it uses every core as a lane (D-135 r1); a shard runs one part of the suite.
-      - name: ai ci run
+      - name: rein ci run
         shell: bash
         run: |
-          "$HOME/.rein/bin/ai" ci run${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}
+          "$HOME/.rein/bin/rein" ci run${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}
 
       # Kept on failure — a red run is the one worth reading. .ai/ci/<sha>.json exists only
       # in a team project; the runner is not a team member, so it is reviewer evidence, not

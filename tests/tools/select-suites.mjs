@@ -46,7 +46,7 @@ export function selectSuites({ suites, tier = "full", changed = null, census = n
     return { selected: pool.map((s) => s.name), notes };
   }
   if (!census || !Array.isArray(census.suites)) {
-    notes.push("--changed: no census file — running the FULL matrix (run `node tests/tools/census.mjs` after an `ai ci run`)");
+    notes.push("--changed: no census file — running the FULL matrix (run `node tests/tools/census.mjs` after a `rein ci run`)");
     return { selected: pool.map((s) => s.name), notes };
   }
   const fp = new Map();

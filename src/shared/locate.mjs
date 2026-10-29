@@ -96,7 +96,7 @@ export function locate(logical, cwd = process.cwd()) {
 // Used by the cross-implementation parity test and by shell callers that already have node.
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 if (isMainModule(import.meta.url)) {
-  // Position-anchored, like bin/ai: only argv[2], never a later occurrence, so a literal
+  // Position-anchored, like bin/rein: only argv[2], never a later occurrence, so a literal
   // "--dev-tree" arriving as data cannot steer resolution.
   const args = process.argv.slice(2);
   if (args[0] === "--dev-tree") { enableDevTree(); args.shift(); }

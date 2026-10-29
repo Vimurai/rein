@@ -79,7 +79,7 @@ Status: CLEAN (no open tasks) | ACTIVE (<N> open tasks)
 
 If any file is missing or unreadable:
 ```
-[SYNC-STATE] WARNING — <filename> not found. Run: ai init
+[SYNC-STATE] WARNING — <filename> not found. Run: rein init
 ```
 
 ---

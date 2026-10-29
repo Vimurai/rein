@@ -81,9 +81,9 @@ assert_contains "E-127: caller_role arg honoured by the advisory tool" "[SOVEREI
   "$(unset REIN_CALLER_ROLE; verdict 'git push origin main' architect)"
 assert_status 1 "E-294: safe-exec reads no REIN_CALLER_ROLE / REIN_PANE_ROLE" \
   grep -qE 'process\.env\.REIN_(CALLER|PANE)_ROLE' "$SE_SERVER" "${REPO_ROOT}/src/mcp/safe-exec-mcp/role-token.mjs"
-assert_status 0 "E-127: claude bootloader injects role=engineer" grep -qF 'env["REIN_CALLER_ROLE"] = "engineer"' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "E-127: claude bootloader injects role=engineer" grep -qF 'env["REIN_CALLER_ROLE"] = "engineer"' "${REPO_ROOT}/src/bin/rein"
 # E-254: the Architect is a Claude pane too — its role arrives via the per-role settings
 # overlay (settings.<role>.json), which stamps the bound role name authoritatively.
-assert_status 0 "E-127: role overlay injects the bound role (architect pane)" grep -qF 'env["REIN_CALLER_ROLE"] = role' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "E-127: role overlay injects the bound role (architect pane)" grep -qF 'env["REIN_CALLER_ROLE"] = role' "${REPO_ROOT}/src/bin/rein"
 
 assert_summary

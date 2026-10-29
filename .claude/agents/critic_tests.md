@@ -21,10 +21,10 @@ Target: Stamp via `mcp__task-synchronizer-mcp__add_stamp` (never write `.ai/REVI
 1. Read `tests/run.sh` — understand the test runner and suite structure.
 2. List files in `tests/suites/` — know what test suites exist.
 3. Run `git diff HEAD --name-only` (or `--staged --name-only`) to get the list of modified files.
-4. Run `bash tests/run.sh --tier fast --changed "$(git merge-base HEAD "$(ai trunk)")"` to get the
+4. Run `bash tests/run.sh --tier fast --changed "$(git merge-base HEAD "$(rein trunk)")"` to get the
    pass/fail count for what the diff can affect (the unit layer, every contract table, and every
    suite whose census footprint the diff touches — E-298, D-088). Never the full matrix in a
-   review: `ai ci run` and pre-push run that.
+   review: `rein ci run` and pre-push run that.
 
 ## Checklist (evaluate each)
 
@@ -61,7 +61,7 @@ If new tests were added in this diff:
 > `~/.rein` mirror, an inherited environment variable.
 
 If yes, the test is not measuring the code — it is measuring the host, and it will pass on
-a developer machine and fail under `ai ci` (or, far worse, pass under `ai ci` while asserting
+a developer machine and fail under `rein ci` (or, far worse, pass under `rein ci` while asserting
 nothing).
 
 Five defects in the 2026-09-09 sprint were exactly this, and each was invisible locally:
@@ -96,7 +96,7 @@ on that laptop once 54 leaked tmux servers and a wedged download were cleared. I
 tracking machine load the entire time.
 
 Required shape: `assert_perf <label> <elapsed> <absolute> <baseline>` — absolute enforced
-where the hardware is known (`CI=true` or `REIN_PERF_ABSOLUTE=1`; `ai ci` stays relative), `elapsed <= k*baseline + slack` elsewhere, and **both
+where the hardware is known (`CI=true` or `REIN_PERF_ABSOLUTE=1`; `rein ci` stays relative), `elapsed <= k*baseline + slack` elsewhere, and **both
 numbers printed every run**. A perf assertion that prints only a verdict cannot distinguish
 "the code got slower" from "the machine is busy", which is the whole question.
 
@@ -116,7 +116,7 @@ the state exists**: tmux servers, background processes, temp dirs outside the sa
 `.ai/` lock dirs and `~/.rein` writes.
 
 Required shape: `register_cleanup "…"` FIRST, then create; names from `mktemp` entropy,
-**never `$$`**. `tests/run.sh` reports `LEAKED n <kind>` per suite and fails the run under `ai ci`
+**never `$$`**. `tests/run.sh` reports `LEAKED n <kind>` per suite and fails the run under `rein ci`
 (`REIN_CI=local`), as on any hosted CI.
 
 This is the third variety of environment dependence, alongside "what the machine has"
@@ -193,7 +193,7 @@ row carrying that marker reaches the live store. `tests/lib/assert.sh` does the 
 redirect for a suite run on its own. That covers telemetry — it does not cover a test that
 writes some OTHER file under `~/.rein/` (the trash, `run/`, `ci/`, the mirror itself).
 
-Look for: a suite that runs `ai`, a hook, an MCP server or `install-rein.sh` without a
+Look for: a suite that runs `rein`, a hook, an MCP server or `install-rein.sh` without a
 fixture `HOME`; a subprocess started with `env -i` or a hand-built environment (which
 drops `AI_TELEMETRY_DB_PATH`); any literal `~/.rein` / `$HOME/.rein` a test writes to.
 The remedy is a fixture HOME (`test_tmpdir`) or the per-run temp path — never a cleanup
@@ -204,7 +204,7 @@ step that deletes from the operator's real directory afterwards.
 > **Does this test drive a hook or resolver that ranks an inherited launch variable above the
 > test's own inputs — and is that variable stripped?**
 
-`ai pane <role>` exports `REIN_PANE_ROLE` and `REIN_CALLER_ROLE`; the Rein shell exports
+`rein pane <role>` exports `REIN_PANE_ROLE` and `REIN_CALLER_ROLE`; the Rein shell exports
 `REIN_WORKSPACE`. The hooks rank them ABOVE a test's own inputs, deliberately — that is the
 D-054 per-pane binding. So a suite run from a bound pane obeyed the pane: `git_lane_test` lost
 its whole Architect lane, `role_token_test` minted the wrong role while its "one was minted"

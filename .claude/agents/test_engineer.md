@@ -24,7 +24,7 @@ subagent has no `allowed-tools` field). The model is set by the dispatcher — `
 
 1. The task you were given (its E-## id and acceptance criteria). If only an id was passed,
    read that task's line from `.ai/TASKS.md`.
-2. The diff under test: `git diff --name-only "$(ai trunk)"...HEAD` plus `git diff` for unstaged work.
+2. The diff under test: `git diff --name-only "$(rein trunk)"...HEAD` plus `git diff` for unstaged work.
 3. The project's harness. Resolve the test command with
    `node "$(rein_locate shared/test-command.mjs)"` from the project root (or the dispatcher's value) and read
    how that harness is laid out — in Rein itself: `tests/run.sh`, `tests/lib/`,

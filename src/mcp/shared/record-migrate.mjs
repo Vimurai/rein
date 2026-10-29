@@ -1,5 +1,5 @@
 /**
- * record-migrate.mjs — `ai state migrate --team | --legacy` (E-325, D-102 §Component 1)
+ * record-migrate.mjs — `rein state migrate --team | --legacy` (E-325, D-102 §Component 1)
  *
  * --team explodes the single-operator store (state.sqlite, seeded from state.json when
  * absent) into one tracked record file per task and stamp plus `.ai/project.json`,
@@ -27,7 +27,7 @@ import {
 
 export const VIEW_FILES   = ["state.json", "TASKS.md", "REVIEWS.md"];
 // E-326: record files merge through the `rein-record` driver (record-import.mjs mergeRecord,
-// configured per clone by `ai sync`); a clone without it falls back to git's text merge.
+// configured per clone by `rein sync`); a clone without it falls back to git's text merge.
 export const ATTRIBUTES = [
   "# Rein team records (D-102): both-sides changes resolve by the DONE > IN_PROGRESS > OPEN policy",
   "tasks/**/*.json merge=rein-record",
@@ -210,7 +210,7 @@ export function migrateTeam(aiDir, { trunk: trunkFlag = null } = {}) {
     const first = (prefix, size) => { const n = Number(nextId(db, prefix, aiDir).split("-")[1]); return [[n, n + size - 1]]; };
     const ranges = { E: first("E", 100), P: first("P", 20) };
     writeTeam(aiDir, newTeam(planner, ranges, trunk.name));
-    teamNote = `  .ai/team.json: planner ${planner}, ranges E:${ranges.E[0].join("-")} P:${ranges.P[0].join("-")}, trunk ${trunk.name} (from ${trunk.source}) — add teammates with: ai team add <email> --range E:<from>-<to>`;
+    teamNote = `  .ai/team.json: planner ${planner}, ranges E:${ranges.E[0].join("-")} P:${ranges.P[0].join("-")}, trunk ${trunk.name} (from ${trunk.source}) — add teammates with: rein team add <email> --range E:<from>-<to>`;
   }
   _git(root, ["rm", "--cached", "--quiet", "--ignore-unmatch", ...VIEW_FILES.map((f) => `.ai/${f}`)]);
 

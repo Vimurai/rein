@@ -19,7 +19,7 @@ Goal: minimize tokens without losing correctness by leveraging the Tripartite En
 
 ## 3. Maintenance
 1) DIGEST as cache: after each run, the Stop hook auto-appends a short update.
-2) Archive old LOG/COMM/REVIEWS entries when they exceed 200 lines (run `ai archive`).
+2) Archive old LOG/COMM/REVIEWS entries when they exceed 200 lines (run `rein archive`).
 
 ## 4. Model selection (Auto-Switching)
 - **Haiku:** Preflight, command execution, log updates, simple edits.

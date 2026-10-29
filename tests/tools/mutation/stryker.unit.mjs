@@ -1,5 +1,5 @@
 // E-300 (D-088 §Component 5): the one-off mutation probe, pass A — the node unit layer.
-// Run through tests/tools/mutation/probe.sh, never directly and never from `ai ci run`.
+// Run through tests/tools/mutation/probe.sh, never directly and never from `rein ci run`.
 // The tap runner treats each tests/unit/*.test.mjs FILE as one test, so killedBy in the
 // JSON report names the test file that detected a mutant (per-test attribution).
 import os from "node:os";

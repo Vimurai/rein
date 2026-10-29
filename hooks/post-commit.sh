@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Rein post-commit Hook — "Fixes E-##" closes the task through `ai task done` (E-325, D-102)
-# Parses the latest commit message for task IDs and marks each DONE with `ai task done`, which
+# Rein post-commit Hook — "Fixes E-##" closes the task through `rein task done` (E-325, D-102)
+# Parses the latest commit message for task IDs and marks each DONE with `rein task done`, which
 # writes through the same library and the same completion gates as task-synchronizer-mcp. The
 # hook used to rewrite state.json and TASKS.md itself — a second writer that bypassed the gates
 # and whose state.json write the next regeneration from state.sqlite discarded anyway.
@@ -45,14 +45,14 @@ IDS=$(printf '%s' "$COMMIT_MSG" \
 
 [[ -z "$IDS" ]] && exit 0
 
-# Install mirror only (E-223): never an `ai` resolved from the visited repo or its env.
-AI_BIN="${HOME}/.rein/bin/ai"
+# Install mirror only (E-223): never a `rein` resolved from the visited repo or its env.
+AI_BIN="${HOME}/.rein/bin/rein"
 if [[ ! -x "$AI_BIN" ]]; then
   printf "[TASK-SYNC] WARN: %s not found — run: bash install-rein.sh. Not closing: %s\n" "$AI_BIN" "$(tr '\n' ' ' <<< "$IDS")" >&2
   exit 0
 fi
 
-# The gates' env rollbacks never reach `ai task done` (it drops them as well).
+# The gates' env rollbacks never reach `rein task done` (it drops them as well).
 unset REIN_CI_GATE REIN_BUILD_STAMP
 SHA7=$(git rev-parse --short HEAD 2>/dev/null || true)
 for ID in $IDS; do

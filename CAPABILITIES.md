@@ -1,5 +1,5 @@
 # CAPABILITIES (Declarative Capability Schema)
-# Source of truth for ai-exec and .mcp.json enforcement.
+# Source of truth for rein-exec and .mcp.json enforcement.
 # Edit this file to define what AI agents are allowed to do in THIS project.
 
 ## filesystem.read
@@ -18,7 +18,7 @@
 - ~/.rein/*.sqlite
 
 ## filesystem.write
-# Allowed path patterns for WRITE operations (requires --allow-write in ai-exec).
+# Allowed path patterns for WRITE operations (requires --allow-write in rein-exec).
 - src/**
 - .ai/**
 - tests/**
@@ -34,7 +34,7 @@
 - git add
 - git status
 - git diff
-- ai test
+- rein test
 - npx tsc --noEmit
 - delta
 - diff -u

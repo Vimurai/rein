@@ -228,7 +228,7 @@ export function identityProblem({ author, committer }, identity) {
   return null;
 }
 
-/** The `ai doctor` line: [PUBLISH_SCAN_OK] classes=5 lists=client:N,operator:N, or the missing line. */
+/** The `rein doctor` line: [PUBLISH_SCAN_OK] classes=5 lists=client:N,operator:N, or the missing line. */
 export function doctorLine(aiDir) {
   try {
     const c = loadScanConfig(aiDir);
@@ -250,13 +250,13 @@ export function doctorLine(aiDir) {
 // so an env switch is the project's switch (E-291's rule; security P1-3). What lives under the install directory (telemetry,
 // incidents, insights, the memory palace) stays on the operator's machine and is not redacted.
 
-/** The writers that call redact(); `ai doctor` counts them. */
+/** The writers that call redact(); `rein doctor` counts them. */
 export const REDACT_WRITERS = [
   "task description and summary (record-store insertTask/updateTask)", "stamp summary (record-store insertStamp)",
   "handover delta (run-handover)", "log line (team appendLog)", "repository map (ast-parser generate_map)",
   "CI evidence (ci-evidence writeCiRecord)", "hosted CI wrapper (hosted-ci)", "proposed skill (instinct-stager)",
   "digest line (stop hook)", "project focus and verdict (record-store setProject)",
-  "advisor ruling (advisor-mcp logRuling)", "ai clean entry (ai-clean logApply)",
+  "advisor ruling (advisor-mcp logRuling)", "rein clean entry (rein-clean logApply)",
 ];
 
 const _lists = new Map();   // aiDir → { mtime, lists }
@@ -274,7 +274,7 @@ export function redactLists(aiDir) {
       const j = JSON.parse(readFileSync(p, "utf8"));
       const strs = (v) => [].concat(v || []).filter((n) => typeof n === "string" && n.trim());
       lists = { clientNames: strs(j.client_names), operatorNames: strs(j.operator_names), allowEmails: strs(j.allow_emails) };
-    } catch { /* unreadable: structural only; ai doctor reports it */ }
+    } catch { /* unreadable: structural only; rein doctor reports it */ }
   }
   _lists.set(aiDir, { mtime, lists });
   return lists;
@@ -291,7 +291,7 @@ function _count(n) {
   } catch { /* a counter must never break a writer */ }
 }
 
-/** Today's redaction count (`ai doctor`). */
+/** Today's redaction count (`rein doctor`). */
 export function redactedToday(home = homedir()) {
   try { return Number(readFileSync(_counterFile(home), "utf8")) || 0; } catch { return 0; }
 }

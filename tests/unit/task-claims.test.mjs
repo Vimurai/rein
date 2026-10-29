@@ -179,7 +179,7 @@ test("the claim gate: engineer/e<N>-* needs E-<N> claimed by this user; other br
   const blocked = claimGate(a);
   assert.equal(blocked.code, "CLAIM_REQUIRED");
   assert.equal(blocked.message,
-    "[CLAIM_REQUIRED] E-900 — branch engineer/e900-thing writes source for E-900, which is not claimed by dev-a@example.com on origin/master. Claim it first: ai task claim E-900");
+    "[CLAIM_REQUIRED] E-900 — branch engineer/e900-thing writes source for E-900, which is not claimed by dev-a@example.com on origin/master. Claim it first: rein task claim E-900");
   // A hand-written local IN_PROGRESS record (writes under .ai/ are open) does not open the gate.
   writeRecord(aAi, "task", "E-900", taskRecord(task("E-900", { status: "IN_PROGRESS", assignee: A, claimed_at: new Date().toISOString(), claim_sha: "a".repeat(40) })));
   assert.equal(claimGate(a).code, "CLAIM_REQUIRED", "only origin/master's record counts");
@@ -248,7 +248,7 @@ test("an ambiguous trunk refuses on every path with [NO_TRUNK] TRUNK_AMBIGUOUS",
   assert.match(gate.message, /no claim can be checked: \[NO_TRUNK\] TRUNK_AMBIGUOUS: /, "the lock says why");
 });
 
-test("ai task done clears the claim on origin/master through the CLI path too", (t) => {
+test("rein task done clears the claim on origin/master through the CLI path too", (t) => {
   const { a, b, aAi } = project(t, "cli");
   assert.equal(claimTask(aAi, "E-900").ok, true);
   git(a, "pull", "-q", "--no-rebase", "origin", "master");

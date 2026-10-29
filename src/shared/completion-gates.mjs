@@ -9,7 +9,7 @@
 //   1. E-249 (D-067 §3) the build gate — src/mcp/** and src/bin/** must be in the install mirror
 //      and every running server must have booted the current build (checkCompletionBuildGate).
 //   2. E-267 (D-072 §5a) the CI gate — a green local CI run for HEAD, or a tested ancestor that
-//      differs only in .ai/ (checkCiDoneGate; inactive until the project has run `ai ci`,
+//      differs only in .ai/ (checkCiDoneGate; inactive until the project has run `rein ci`,
 //      REIN_CI_GATE=0 disables it).
 //
 // The texts stay where they are defined (build-stamp.mjs, ci-runs.js); a refusal is returned as

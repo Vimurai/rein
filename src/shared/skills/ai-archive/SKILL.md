@@ -54,7 +54,7 @@ instinct extraction must NEVER block or fail the archive.
 
 ## Archive Steps
 
-This skill performs the archive operation directly (the previous `ai archive`
+This skill performs the archive operation directly (the previous `rein archive`
 shell command was removed in E-34). Steps:
 
 1. Scan `.ai/` for non-empty content files: `LOG.md`, `COMM.md`, `REVIEWS.md`, `SESSION.md`

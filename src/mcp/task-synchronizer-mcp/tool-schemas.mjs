@@ -54,7 +54,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
     },
     {
       name: "claim_task",
-      description: "E-331 (D-102 §4): claim a task in a team project — fetches the trunk (origin/<trunk>: team.json trunk, else origin/HEAD, else main|master — see `ai trunk`) and pushes one bookkeeping commit there setting the task IN_PROGRESS with you (git user.email) as assignee. Refuses [CLAIM_HELD] when someone else holds a claim younger than team.json claim_ttl_days; [CLAIM_LOST] when another push won the race; [OFFLINE] when origin is unreachable (the claim is pending: nothing published, the claim gate is not satisfied); [CLAIM_PENDING] when the push is refused. Required before writing source on an engineer/e<N>-* branch.",
+      description: "E-331 (D-102 §4): claim a task in a team project — fetches the trunk (origin/<trunk>: team.json trunk, else origin/HEAD, else main|master — see `rein trunk`) and pushes one bookkeeping commit there setting the task IN_PROGRESS with you (git user.email) as assignee. Refuses [CLAIM_HELD] when someone else holds a claim younger than team.json claim_ttl_days; [CLAIM_LOST] when another push won the race; [OFFLINE] when origin is unreachable (the claim is pending: nothing published, the claim gate is not satisfied); [CLAIM_PENDING] when the push is refused. Required before writing source on an engineer/e<N>-* branch.",
       inputSchema: {
         type: "object",
         properties: { id: { type: "string", description: "Task ID (e.g. 'E-331')" } },
@@ -108,7 +108,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
     // Call add_task instead.
     {
       name: "get_ci_status",
-      description: "E-266 (D-072): the newest local CI run (ai ci run) recorded for a commit — default HEAD. Returns the ci_runs row plus `verdict` (PASS|FAIL|ERROR|SKIPPED|DIRTY|SHARD|NONE; only a non-dirty, unsharded PASS certifies a commit) and a one-line `summary`, or { status: \"NONE\" }. Read-only.",
+      description: "E-266 (D-072): the newest local CI run (rein ci run) recorded for a commit — default HEAD. Returns the ci_runs row plus `verdict` (PASS|FAIL|ERROR|SKIPPED|DIRTY|SHARD|NONE; only a non-dirty, unsharded PASS certifies a commit) and a one-line `summary`, or { status: \"NONE\" }. Read-only.",
       inputSchema: {
         type: "object",
         properties: {

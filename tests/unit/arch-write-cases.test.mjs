@@ -10,7 +10,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { gateInProcess, repo, tableTests } from "../lib/check-table.mjs";
 
-const SHA256 = "05cfb166cb87386a816d82c4fb5a4aadb0f5c3be34ae8b89e5cfee1661d0a716";
+const SHA256 = "26f7da12faaf12c305b284e3af99b4dd41115d6ad3ba760b3ef6705d444f0a77";
 
 test("arch-write-cases.json is byte-identical to the E-216 contract (D-056)", () => {
   const bytes = readFileSync(resolve(repo, "tests/fixtures/arch-write-cases.json"));

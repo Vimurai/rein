@@ -1,7 +1,7 @@
 # shellcheck shell=bash
 # src/shared/comm-status.sh — is .ai/COMM.md tracked and committed? (E-338, D-104 r4)
 #
-# One probe for the three detectors D-104 ruling 4 names: `ai doctor`, the ai-preflight
+# One probe for the three detectors D-104 ruling 4 names: `rein doctor`, the ai-preflight
 # injection line and the Stop hook. Sourced, never executed; it defines one function and
 # changes nothing.
 #

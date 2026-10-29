@@ -1,6 +1,6 @@
 # MCP servers
 
-Rein ships 16 local MCP servers and wires two third-party ones. `ai sync` writes them into the
+Rein ships 16 local MCP servers and wires two third-party ones. `rein sync` writes them into the
 project's `.mcp.json` from `~/.rein/config/registry.json`; servers you add yourself are kept.
 They run as local processes over stdio — nothing listens on a port.
 
@@ -42,7 +42,7 @@ They run as local processes over stdio — nothing listens on a port.
 | `memory-manager-mcp` | Higher-level queries and signature export over the graph. |
 | `vibe-check-mcp` | Headless Playwright: screenshots, layout shift, accessibility. |
 
-`ast-parser-mcp` is not in the registry: `ai sync` uses it to build `.ai/REPO_MAP.md` with
+`ast-parser-mcp` is not in the registry: `rein sync` uses it to build `.ai/REPO_MAP.md` with
 tree-sitter grammars (see `NOTICE`).
 
 Test generation has no server — the `test_engineer` subagent writes tests in the project's own
@@ -50,6 +50,6 @@ harness.
 
 ## When a server misbehaves
 
-`ai doctor --env` checks Node, the binaries and live connectivity to each server. `ai mcp-setup`
+`rein doctor --env` checks Node, the binaries and live connectivity to each server. `rein mcp-setup`
 reinstalls their npm dependencies. After upgrading Rein, restart the Claude Code panes so they
 start the new server code; preflight warns when a running server is older than the installed one.

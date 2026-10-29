@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # propose_patch_test.sh — the propose→confirm patch path and the write tools around it:
 # propose-patch-mcp (E-141) and GitHub issue ingestion (E-142; E-279 (D-075) retired
-# github-bridge-mcp: `ai sync --github` calls gh directly, tested here against a stubbed gh),
+# github-bridge-mcp: `rein sync --github` calls gh directly, tested here against a stubbed gh),
 # then — merged here by E-302 — confirm_patch apply semantics, the read-only tools' project
 # scope (E-226), the propose→confirm project boundary (E-221) and patch-mcp (E-137).
 # Was e140_e141_e142_test (misnamed for its tasks); its token-budget-mcp section moved to
@@ -20,7 +20,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # `architect`, which refuses every write to this fixture project. So the section below re-runs
 # THIS file as a child of as-session.sh (none → engineer, launch unverified) in a throwaway
 # HOME, and the child runs only these cases — never the caller's shell, whose own session
-# would otherwise decide the outcome (it passed locally and failed under `ai ci run`).
+# would otherwise decide the outcome (it passed locally and failed under `rein ci run`).
 if [[ "${1:-}" == "--apply-in-session" ]]; then
 source "${SCRIPT_DIR}/../lib/mcp-client.sh"
 PP_SERVER="${REPO_ROOT}/src/mcp/propose-patch-mcp/index.js"
@@ -132,7 +132,7 @@ assert_not_contains "propose-patch-mcp: no auto-apply on propose" "writeFileSync
 # delta fallback chain present
 assert_contains "propose-patch-mcp: delta formatter attempted" "delta" "$PP_CONTENT"
 
-# ── E-142 → E-279: `ai sync --github` produces intents from a stubbed gh ─────────
+# ── E-142 → E-279: `rein sync --github` produces intents from a stubbed gh ─────────
 # The stub records its argv and answers `auth status` / `issue list` like gh would.
 GH_STUB_DIR="$(test_tmpdir gh-stub)"; GH_PROJ="$(test_tmpdir gh-proj)"
 mkdir -p "${GH_PROJ}/.ai"
@@ -147,7 +147,7 @@ case "\$1 \$2" in
 esac
 STUB
 chmod +x "${GH_STUB_DIR}/gh"
-GH_OUT="$(cd "$GH_PROJ" && PATH="${GH_STUB_DIR}:$PATH" bash "${REPO_ROOT}/src/bin/ai" sync --github --repo o/r --limit 5 2>&1)"
+GH_OUT="$(cd "$GH_PROJ" && PATH="${GH_STUB_DIR}:$PATH" bash "${REPO_ROOT}/src/bin/rein" sync --github --repo o/r --limit 5 2>&1)"
 GH_ARGV="$(cat "${GH_STUB_DIR}/argv.log" 2>/dev/null)"
 assert_contains "sync --github: header"                  "## GitHub Issues — imported"         "$GH_OUT"
 assert_contains "sync --github: first issue block"       "### Issue #7: Fix the parser"       "$GH_OUT"
@@ -172,7 +172,7 @@ assert_status 0 "sync --github: every fence is closed" \
 # close, delete or publish without a prompt.
 GH_SET="$(test_tmpdir gh-settings)"
 printf '%s\n' '{"permissions":{"allow":["Bash(gh *)","Bash(gh:*)","Bash(gh pr *)","Bash(gh pr:*)","Bash(gh issue:*)","Bash(gh auth status *)","Bash(gh auth status:*)","Bash(ls:*)"]}}' > "${GH_SET}/settings.json"
-bash -c "source '${REPO_ROOT}/src/bin/ai' 2>/dev/null; REIN=\"\$HOME/.rein\"; _configure_project_claude_settings '${GH_SET}'" >/dev/null 2>&1
+bash -c "source '${REPO_ROOT}/src/bin/rein' 2>/dev/null; REIN=\"\$HOME/.rein\"; _configure_project_claude_settings '${GH_SET}'" >/dev/null 2>&1
 GH_ALLOW="$(python3 -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))["permissions"]["allow"]))' "${GH_SET}/settings.json" 2>/dev/null)"
 for rule in "Bash(gh pr view *)" "Bash(gh pr list *)" "Bash(gh pr checks *)" "Bash(gh issue view *)" "Bash(gh issue list *)"; do
   assert_contains "gh read grant present: ${rule}" "$rule" "$GH_ALLOW"
@@ -192,17 +192,17 @@ for rule in "Bash(gh * --jq*)" "Bash(gh * -q*)" "Bash(gh * --template*)" "Bash(g
   assert_status 0 "gh env-reading flag stays on the prompt: ${rule}" grep -qxF "$rule" <<< "$GH_ASK"
 done
 
-# ── ai sync --github wiring ───────────────────────────────────────────────────
+# ── rein sync --github wiring ───────────────────────────────────────────────────
 
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 BIN_CONTENT=$(cat "$AI_BIN")
 
-assert_contains "ai sync --github: do_sync_github function exists" "do_sync_github" "$BIN_CONTENT"
-assert_contains "ai sync --github: --github flag detected in do_sync" '"--github"' "$BIN_CONTENT"
-assert_contains "ai sync --github: usage line updated" "sync --github" "$BIN_CONTENT"
-assert_contains "ai sync --github: gh auth check present" "gh auth status" "$BIN_CONTENT"
-assert_contains "ai sync --github: --repo flag supported" "--repo" "$BIN_CONTENT"
-assert_contains "ai sync --github: --limit flag supported" "--limit" "$BIN_CONTENT"
+assert_contains "rein sync --github: do_sync_github function exists" "do_sync_github" "$BIN_CONTENT"
+assert_contains "rein sync --github: --github flag detected in do_sync" '"--github"' "$BIN_CONTENT"
+assert_contains "rein sync --github: usage line updated" "sync --github" "$BIN_CONTENT"
+assert_contains "rein sync --github: gh auth check present" "gh auth status" "$BIN_CONTENT"
+assert_contains "rein sync --github: --repo flag supported" "--repo" "$BIN_CONTENT"
+assert_contains "rein sync --github: --limit flag supported" "--limit" "$BIN_CONTENT"
 
 # ── Registry: all 3 new servers registered ───────────────────────────────────
 

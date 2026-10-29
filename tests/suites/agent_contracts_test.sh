@@ -304,7 +304,7 @@ assert_status 0 ".claude mirror matches src" \
 
 echo ""
 echo "  [T-SECENG-S11] settings.json no longer grants the retired sandbox tool (E-278)"
-# E-290: .claude/settings.json is generated (gitignored) — read the one `ai sync` writes.
+# E-290: .claude/settings.json is generated (gitignored) — read the one `rein sync` writes.
 source "${SCRIPT_DIR}/../lib/generated-settings.sh"
 _GEN_DIR="$(mktemp -d)"; on_exit "rm -rf '$_GEN_DIR'"
 GEN_SETTINGS="$(gen_project_settings "$_GEN_DIR/proj")"

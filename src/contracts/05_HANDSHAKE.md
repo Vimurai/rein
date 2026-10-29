@@ -18,4 +18,4 @@ HARD RULES:
    - After completing: run_handover({ task_id: "E-##", summary: "..." })
    - Record architectural decisions in .ai/DECISIONS.md.
 
-4) If .ai/ is missing or incomplete: stop and run `ai init` — do not guess.
+4) If .ai/ is missing or incomplete: stop and run `rein init` — do not guess.

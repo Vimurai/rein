@@ -69,7 +69,7 @@ test("validateTeam: trunk must be a plain branch name (r1)", () => {
   }
 });
 
-// discoverTrunk is the operator path `ai state migrate --team` takes for a NEW team.json: it may
+// discoverTrunk is the operator path `rein state migrate --team` takes for a NEW team.json: it may
 // ask origin once (ls-remote), never set-head. The fixture is a real bare origin whose HEAD
 // names main, cloned, with the clone's origin/HEAD removed so only ls-remote can answer.
 test("discoverTrunk: --trunk, else origin/HEAD, else ls-remote; refuses with the flag named", (t) => {

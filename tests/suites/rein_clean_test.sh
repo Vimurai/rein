@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ai_clean_test.sh — E-272 (D-074, version-lifecycle.md §Components 3-4): `ai clean`.
+# rein_clean_test.sh — E-272 (D-074, version-lifecycle.md §Components 3-4): `rein clean`.
 #
 # The end-to-end layer for the one command in Rein that REMOVES things. The registry's
 # data faults are pinned in tests/unit/legacy-registry.test.mjs; what has to be proved
@@ -21,9 +21,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AI="${REPO_ROOT}/src/bin/ai"
+AI="${REPO_ROOT}/src/bin/rein"
 
-echo "── Suite: ai_clean_test (E-272) ─────────────────────────────────────"
+echo "── Suite: rein_clean_test (E-272) ─────────────────────────────────────"
 
 FAKE_HOME="$(test_tmpdir clean-home)"
 tc_fixture_home "$FAKE_HOME"   # E-345 (D-109 r1): the toolchain record the hooks pin
@@ -31,10 +31,10 @@ PROJ="$(test_tmpdir clean-proj)"
 FAKE_TMP="$(test_tmpdir clean-tmp)"
 TODAY="$(date -u +%Y-%m-%d)"
 
-# `ai clean` with the fixture HOME/TMPDIR, run from inside the fixture project.
+# `rein clean` with the fixture HOME/TMPDIR, run from inside the fixture project.
 _clean() { ( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" bash "$AI" clean "$@" ) 2>&1; }
 _rc() { _clean "$@" >/dev/null 2>&1; echo $?; }
-# assert_rc <expected> <label> [ai clean args…] — grade `ai clean`'s OWN exit code.
+# assert_rc <expected> <label> [rein clean args…] — grade `rein clean`'s OWN exit code.
 # assert_status grades the command IT runs, so `assert_status 2 … test "$(_rc)" -eq 2`
 # asserts that `test` exited 2, which it never does.
 assert_rc() {
@@ -75,7 +75,7 @@ echo 'oauth' > "${FAKE_HOME}/.gemini/credentials.json"
 # the project log the apply must annotate
 printf '# LOG\n' > "${PROJ}/.ai/LOG.md"
 
-# safe · file · known_hashes: the exact bytes `ai sync` shipped as the GEMINI.md shim.
+# safe · file · known_hashes: the exact bytes `rein sync` shipped as the GEMINI.md shim.
 # 343cd5b is the E-254 commit that deleted the template; its parent holds the last
 # version. Recorded as a skip rather than a failure if history is unavailable (a shallow
 # clone), because the hash mechanism itself is unit-tested.
@@ -154,7 +154,7 @@ GEMINI_PROJ_SHA=""
 APPLY="$(_clean --apply)"
 TRASH="${FAKE_HOME}/.rein/trash/${TODAY}"
 assert_contains "E-272.06a: the apply reports where each item went" "moved" "$APPLY"
-assert_contains "E-272.06b: the apply prints the undo command" "ai clean --restore ${TODAY}" "$APPLY"
+assert_contains "E-272.06b: the apply prints the undo command" "rein clean --restore ${TODAY}" "$APPLY"
 assert_status 0 "E-272.06c: the stale role lock is gone from the mirror" \
   test ! -e "${FAKE_HOME}/.rein/run/role-stale.lock"
 assert_status 0 "E-272.06d: the dead build record is gone" \
@@ -189,7 +189,7 @@ assert 'dead-role-lock' in ids and 'dead-build-record' in ids and 'mirror-orphan
 assert_status 0 "E-272.06o: one clean.log line per apply" \
   test "$(grep -c 'apply' "${FAKE_HOME}/.rein/clean.log")" -eq 1
 assert_status 0 "E-272.06p: one LOG.md line per apply" \
-  test "$(grep -c '| ai clean |' "${PROJ}/.ai/LOG.md")" -eq 1
+  test "$(grep -c '| rein clean |' "${PROJ}/.ai/LOG.md")" -eq 1
 
 # ── E-272.7: --apply --all --yes moves the prompt class ───────────────────────
 ALL="$(_clean --apply --all --yes)"
@@ -293,7 +293,7 @@ DOC="$( ( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" bash "$AI" doctor )
 assert_contains "E-272.11a: doctor carries the legacy-artefact line" "legacy artefacts:" "$DOC"
 assert_contains "E-272.11b: doctor carries the watcher census" "watchers:" "$DOC"
 # D-099 (E-322): the handoff-bridge queue line went with the watcher; only the legacy census
-# above (leftover processes for `ai clean`) still names watchers.
+# above (leftover processes for `rein clean`) still names watchers.
 assert_not_contains "E-322.D1: doctor prints no handoff-bridge queue line" "Handoff bridge" "$DOC"
 assert_not_contains "E-322.D2: …and no queued-handoff count" "queued:" "$DOC"
 
@@ -303,10 +303,10 @@ assert_not_contains "E-322.D2: …and no queued-handoff count" "queued:" "$DOC"
 # budget moves with it rather than reporting a regression that is not one.
 BASE_MS="$(perf_time_ms node -e '')"
 DRY_MS="$(perf_time_ms bash -c "cd '$PROJ' && HOME='$FAKE_HOME' TMPDIR='$FAKE_TMP' bash '$AI' clean")"
-assert_perf "E-272.12a: ai clean dry run" "$DRY_MS" 3000 "$BASE_MS" 30 1500
+assert_perf "E-272.12a: rein clean dry run" "$DRY_MS" 3000 "$BASE_MS" 30 1500
 
 # ── E-346 (D-109 r3): concurrent reapers ──────────────────────────────────────
-# Every `ai sync` reaps dead ~/.rein/run/ records, and four CI lanes share one HOME. A record
+# Every `rein sync` reaps dead ~/.rein/run/ records, and four CI lanes share one HOME. A record
 # another reaper moved between this one's scan and its move is gone, not failed: four racing
 # over 300 dead build records all exit 0 and move each exactly once. Before, the losers
 # reported "already exists in today's trash" / ENOENT and exited 2 (reliably at this size).
@@ -314,7 +314,7 @@ RACE_HOME="$(test_tmpdir clean-race)"
 mkdir -p "$RACE_HOME/.rein/run"
 for i in $(seq 1 300); do printf '{"pid":999999%d}' "$i" > "$RACE_HOME/.rein/run/build-$i.json"; done
 for k in 1 2 3 4; do
-  ( HOME="$RACE_HOME" node "${REPO_ROOT}/src/shared/ai-clean.mjs" apply --only dead-build-record --json \
+  ( HOME="$RACE_HOME" node "${REPO_ROOT}/src/shared/rein-clean.mjs" apply --only dead-build-record --json \
       > "$RACE_HOME/out$k" 2>&1; echo $? > "$RACE_HOME/rc$k" ) &
 done
 wait
@@ -338,7 +338,7 @@ _sdir="$STALE_HOME/.rein/trash/$(date -u +%Y-%m-%d)"
 mkdir -p "$STALE_HOME/.rein/run" "$_sdir/manifest.json.lock"
 touch -d '2 minutes ago' "$_sdir/manifest.json.lock"
 printf '{"pid":99999901}' > "$STALE_HOME/.rein/run/build-s.json"
-_stale="$(HOME="$STALE_HOME" node "${REPO_ROOT}/src/shared/ai-clean.mjs" apply --only dead-build-record --json 2>&1 >/dev/null; echo "rc=$?")"
+_stale="$(HOME="$STALE_HOME" node "${REPO_ROOT}/src/shared/rein-clean.mjs" apply --only dead-build-record --json 2>&1 >/dev/null; echo "rc=$?")"
 assert_contains "E-352.03: a stale lock is taken over and the apply exits 0" "rc=0" "$_stale"
 _n="$(grep -c 'stale lock' <<<"$_stale")"
 assert_status 0 "E-352.04: …reported once (got ${_n})" test "$_n" = 1
@@ -346,21 +346,21 @@ assert_status 0 "E-352.05: …and the move is in the manifest, the lock gone" \
   bash -c "grep -q build-s.json '$_sdir/manifest.json' && [[ ! -e '$_sdir/manifest.json.lock' ]]"
 
 # A build record is named per server, so the same path dies again the same day (every MCP
-# restart). The second reap found today's trash slot taken and FAILED — every later `ai sync`
+# restart). The second reap found today's trash slot taken and FAILED — every later `rein sync`
 # that day exited 1 (CI: E-212.06e2 / E-220.09a). It moves beside the first copy instead,
 # never over it, and --restore puts back one copy and keeps the other.
 AGAIN_HOME="$(test_tmpdir clean-again)"
 mkdir -p "$AGAIN_HOME/.rein/run"
 _again() {
   printf '{"pid":9999990%s}' "$1" > "$AGAIN_HOME/.rein/run/build-x-mcp.json"
-  HOME="$AGAIN_HOME" node "${REPO_ROOT}/src/shared/ai-clean.mjs" apply --only dead-build-record --json \
+  HOME="$AGAIN_HOME" node "${REPO_ROOT}/src/shared/rein-clean.mjs" apply --only dead-build-record --json \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log(`moved=${j.moved.length} failures=${j.failures.length}`)})'
 }
 _a1="$(_again 1)"; _a2="$(_again 2)"
 _slots="$(find "$AGAIN_HOME/.rein/trash" -name 'build-x-mcp.json*' -type f | wc -l | tr -d ' ')"
 assert_contains "E-346.R2: a record reaped twice in one day moves both times, no failure" \
   "1:moved=1 failures=0 2:moved=1 failures=0 slots=2" "1:${_a1} 2:${_a2} slots=${_slots}"
-_r="$(HOME="$AGAIN_HOME" node "${REPO_ROOT}/src/shared/ai-clean.mjs" restore --date "$(date -u +%Y-%m-%d)" 2>&1)"
+_r="$(HOME="$AGAIN_HOME" node "${REPO_ROOT}/src/shared/rein-clean.mjs" restore --date "$(date -u +%Y-%m-%d)" 2>&1)"
 assert_contains "E-346.R2b: --restore puts one copy back" "restored ${AGAIN_HOME}/.rein/run/build-x-mcp.json" "$_r"
 assert_contains "E-346.R2c: …and keeps the other, never overwriting" "exists again" "$_r"
 

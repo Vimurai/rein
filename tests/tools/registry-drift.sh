@@ -3,7 +3,7 @@
 # rows, kept as ONE copy by E-302).
 #
 # Catches the failure class diagnosed in the 2026-04-27 audit: the project registry adds a new
-# MCP, but ~/.rein/config/registry.json is never refreshed, so `ai sync` regenerates .mcp.json
+# MCP, but ~/.rein/config/registry.json is never refreshed, so `rein sync` regenerates .mcp.json
 # from a stale registry and silently drops the new server. Detect the divergence early so the
 # contributor remembers to re-run install-rein.sh.
 #
@@ -11,7 +11,7 @@
 #   - hooks/pre-commit.sh (check_registry_sync) RUNS it on a commit that touches the registry:
 #     standalone, it sources assert.sh itself, runs from the repository root and exits non-zero
 #     on any failed check (assert_summary);
-#   - tests/suites/ai_sync_test.sh SOURCES it, so the checks count as that suite's assertions.
+#   - tests/suites/rein_sync_test.sh SOURCES it, so the checks count as that suite's assertions.
 # Paths are relative to the repository root; the standalone run cds there.
 _rd_standalone=0
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
@@ -76,12 +76,12 @@ reg = json.load(open('$REG_LOCAL')).get('mcp_servers', {})
 expected = {n for n, info in reg.items() if 'path' in info}
 active   = set(json.load(open('.mcp.json')).get('mcpServers', {}).keys())
 missing  = expected - active
-sys.exit(0 if not missing else (sys.stderr.write(f'.mcp.json missing: {sorted(missing)} — run: ai sync\n') or 1))
+sys.exit(0 if not missing else (sys.stderr.write(f'.mcp.json missing: {sorted(missing)} — run: rein sync\n') or 1))
 PY"
 fi
 
 # 5. E-38: Sandbox env propagation. If a registry entry declares an `env` block, the generated
-#    .mcp.json must carry every key/value verbatim. Catches the D-002 regression where `ai sync`
+#    .mcp.json must carry every key/value verbatim. Catches the D-002 regression where `rein sync`
 #    silently stripped a server's declared sandbox env (the original case, the GUI server, was
 #    retired by E-279; the mechanism stays for any server that declares env).
 if [[ -f .mcp.json ]]; then

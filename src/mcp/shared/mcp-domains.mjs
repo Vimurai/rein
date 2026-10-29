@@ -6,7 +6,7 @@
  * E-277 / D-075.)
  *
  * Update this map whenever a new server is added to src/config/registry.json.
- * The CI test tests/suites/ai_sync_test.sh fails if mcp.md falls out of
+ * The CI test tests/suites/rein_sync_test.sh fails if mcp.md falls out of
  * sync with the generator output, so any change here must be paired with a
  * regenerated mcp.md commit.
  */

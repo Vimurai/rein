@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 # launch-vars.sh — E-264 (D-071 §4, test-harness-isolation.md §Inherited Launch Variables).
 #
-# Variables `ai pane`, `ai start` or the Rein shell EXPORT that a hook or resolver ranks
+# Variables `rein pane`, `rein start` or the Rein shell EXPORT that a hook or resolver ranks
 # ABOVE its own inputs. A suite run from a bound pane inherits them, and the hook obeys the
 # pane instead of the test:
-#   REIN_PANE_ROLE    `ai pane <role>`   — pre-commit.sh's advisory row 4 (restrict-only) and
+#   REIN_PANE_ROLE    `rein pane <role>`   — pre-commit.sh's advisory row 4 (restrict-only) and
 #                                            stop-hook.sh's actor label read it (git_lane_test
 #                                            once lost its whole Architect lane to it). Since
 #                                            E-294 (D-087 r3) no GATE takes a role from it.
-#   REIN_CALLER_ROLE  `ai pane <role>`   — the same advisory row 4, plus prompts / routing
-#                                            (`ai add-task`, handoff)
+#   REIN_CALLER_ROLE  `rein pane <role>`   — the same advisory row 4, plus prompts / routing
+#                                            (`rein add-task`, handoff)
 #
 # NOT listed: CLAUDE_CODE_SESSION_ID. Since E-294 pre-commit treats a session id that does not
 # verify as the union (row 3), but tests/run.sh deliberately exports a synthetic one (the
@@ -17,7 +17,7 @@
 # the marker. A suite that drives pre-commit sets CLAUDE_CODE_SESSION_ID explicitly instead.
 #   REIN_WORKSPACE     shell rc + .mcp.json env (E-62) — isFrameworkClone() consults it before
 #                                            the package.json fallback (the E-249 gate never fired)
-#   CLAUDE_CONFIG_DIR  `ai pane <role>` on a project bound to an account (E-315) — `ai account`,
+#   CLAUDE_CONFIG_DIR  `rein pane <role>` on a project bound to an account (E-315) — `rein account`,
 #                                            the backstop and doctor default to it, so a suite run
 #                                            from an account-bound pane would read that account
 #

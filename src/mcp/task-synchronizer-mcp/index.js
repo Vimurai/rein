@@ -61,7 +61,7 @@ const logger = createLogger("task-synchronizer-mcp");
 // ── SQLite Setup (delegated to state-db.js, P-15) ────────────────────────────
 
 // E-270: the first-run state.json → state.sqlite import moved to state-db.js
-// (getDbSeeded) so `ai init`'s version stamp seeds a project exactly as this server does.
+// (getDbSeeded) so `rein init`'s version stamp seeds a project exactly as this server does.
 function _getDb(aiDir) {
   return getDbSeeded(aiDir, {
     warn: (msg, meta) => logger.warn("migrate", msg, meta),
@@ -116,7 +116,7 @@ function _scheduleCloudSync(targetAiDir) {
 
 // ── Error messages ────────────────────────────────────────────────────────────
 
-const STATE_MISSING_ERR = "✗ state.sqlite not found — run: ai init";
+const STATE_MISSING_ERR = "✗ state.sqlite not found — run: rein init";
 const DB_ERR = "✗ state.sqlite could not be opened";
 
 // ── E-63: Framework workspace routing (task-routing.md) ──────────────────────
@@ -155,7 +155,7 @@ function _resolveFrameworkAiDir() {
   if (!existsSync(candidate)) {
     return {
       error: `[WORKSPACE_NOT_FOUND] REIN_WORKSPACE='${ws}' has no .ai/ directory. ` +
-             `Run 'ai init' inside the framework clone before routing framework tasks.`,
+             `Run 'rein init' inside the framework clone before routing framework tasks.`,
     };
   }
   return { aiDir: candidate };
@@ -178,7 +178,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const aiDir = resolve(process.cwd(), ".ai");
 
   if (!existsSync(aiDir)) {
-    return { content: [{ type: "text", text: "✗ No .ai/ directory found. Run: ai init" }], isError: true };
+    return { content: [{ type: "text", text: "✗ No .ai/ directory found. Run: rein init" }], isError: true };
   }
 
   let db;
@@ -314,7 +314,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // E-198: the create sequence (nextId → DAG validate → OPEN/BLOCKED →
       // INSERT → id high-water → regenerate views) now lives in the shared
-      // state-db::addTask so the shell-native `ai add-task` CLI writes through
+      // state-db::addTask so the shell-native `rein add-task` CLI writes through
       // the EXACT same path. Framework-workspace routing is resolved above; we
       // pass the resolved {targetAiDir, targetDb} in.
       const _res = _addTask(targetAiDir, targetDb, {
@@ -373,7 +373,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       // E-331 (D-102 §4): in a team project IN_PROGRESS means "claimed on origin/<trunk>" (E-341).
       if (args.status === "IN_PROGRESS" && existsSync(resolve(aiDir, "team.json"))) {
-        return rejection(`✗ [CLAIM_VIA_TOOL] ${args.id}: in a team project IN_PROGRESS is set by claim_task, which publishes the claim on the trunk (origin/<trunk> — see: ai trunk).`);
+        return rejection(`✗ [CLAIM_VIA_TOOL] ${args.id}: in a team project IN_PROGRESS is set by claim_task, which publishes the claim on the trunk (origin/<trunk> — see: rein trunk).`);
       }
 
       // E-91: optional dependency revision — validate the new edge set
@@ -398,7 +398,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // E-91: a DONE transition runs the DAG unblock cascade (BLOCKED tasks whose whole
-      // depends_on set is now DONE become OPEN). E-325: shared with `ai task done` in
+      // depends_on set is now DONE become OPEN). E-325: shared with `rein task done` in
       // state-db::completeTask. E-259 (D-077): task_velocity is not written here; it comes
       // from the transcript, via hooks/post-tool-use.sh → src/shared/task-usage.mjs.
       let unblocked = [];
@@ -559,7 +559,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       let refuse = _checkBehindHead(aiDir, db);
       if (!refuse && db.prepare("SELECT COUNT(*) AS n FROM tasks").get().n === 0 && existsSync(resolve(aiDir, "TASKS.md"))) {
         const listed = (readFileSync(resolve(aiDir, "TASKS.md"), "utf8").match(/^- \[[ xX]\] [A-Z]+-\d+:/gm) || []).length;
-        if (listed > 0) refuse = `[EMPTY_STATE_DB] index has 0 tasks, TASKS.md lists ${listed} — run: ai state import`;
+        if (listed > 0) refuse = `[EMPTY_STATE_DB] index has 0 tasks, TASKS.md lists ${listed} — run: rein state import`;
       }
       if (refuse) {
         return { content: [{ type: "text", text: [

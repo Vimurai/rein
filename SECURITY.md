@@ -24,7 +24,7 @@ you wish, credited in the release notes.
 
 ## Scope
 
-In scope: the code in this repository — the `ai` CLI, the installer, the hooks and gates, the MCP
+In scope: the code in this repository — the `rein` CLI, the installer, the hooks and gates, the MCP
 servers, the agents and skills. Especially welcome: ways to get past the tool-call gate, the
 pre-commit or pre-push gates, the secret rule or the role boundaries, and anything that could leak
 a user's code or data off their machine.

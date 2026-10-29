@@ -105,7 +105,7 @@ assert_contains "E-294.S05e: an event with no session id gets the union ('git pu
 
 # ── S06: the removed env switch no longer bypasses the gate (E-291, D-081 r2) ──
 # It reversed: before E-291 this variable let even 'rm -rf /' through. The operator's escape
-# is now the `ai gate off` file — and even under it the catastrophic set blocks (D-083 r8,
+# is now the `rein gate off` file — and even under it the catastrophic set blocks (D-083 r8,
 # covered in gate_override_test with a fixture HOME).
 _V_GATE="REIN_SAFE""_EXEC_GATE"
 roll_rc() { _hook_as none "$1" "${_V_GATE}=0"; }
@@ -135,18 +135,18 @@ else
   echo "  (S09 backstop test skipped — could not construct a node-free PATH with python3)"
 fi
 
-# ── S10: `ai install` registers the PreToolUse gate (canonical wiring) ────────
+# ── S10: `rein install` registers the PreToolUse gate (canonical wiring) ────────
 # The live .claude/settings.json is the agent's startup config (only the user
-# activates it via `ai install`); the deliverable is the idempotent registration
-# code in src/bin/ai. Verify that, and behaviourally confirm it wires correctly.
-AI_BIN="${REPO_ROOT}/src/bin/ai"
-assert_status 0 "S10: ai install registers a PreToolUse hook"  grep -qF 'PreToolUse' "$AI_BIN"
+# activates it via `rein install`); the deliverable is the idempotent registration
+# code in src/bin/rein. Verify that, and behaviourally confirm it wires correctly.
+AI_BIN="${REPO_ROOT}/src/bin/rein"
+assert_status 0 "S10: rein install registers a PreToolUse hook"  grep -qF 'PreToolUse' "$AI_BIN"
 assert_status 0 "S10: gate command is pre-tool-use.sh"        grep -qF 'pre-tool-use.sh' "$AI_BIN"
 # E-208 (D-054): the matcher covers the WRITE tools too, so an architect-bound pane
 # cannot write outside .ai//plans/. Bash gating is unchanged — it is now one arm of
 # an alternation rather than the whole matcher.
 # E-290 (D-083): registration is a table of exec-form entries; drive the REAL generator
-# (`ai sync` in a fixture project) rather than a pasted copy of an older registration.
+# (`rein sync` in a fixture project) rather than a pasted copy of an older registration.
 source "${SCRIPT_DIR}/../lib/generated-settings.sh"
 S10_DIR="$(test_tmpdir ptus10)"
 S10_SET="$(gen_project_settings "$S10_DIR/proj")"
@@ -182,7 +182,7 @@ assert_contains "S11: injected crash → hook BLOCKS (exit 2)" "2" \
 # ── S12 (E-331, D-102 §4): the Engineer claim gate ───────────────────────────
 # Extends S03/S05: in a team project (.ai/team.json) an engineer session on engineer/e<N>-*
 # may not write outside .ai/ (Write tool or shell) until E-<N> is claimed on origin/master;
-# the identical write passes after `ai task claim`. Fixture: a bare origin and one clone.
+# the identical write passes after `rein task claim`. Fixture: a bare origin and one clone.
 S12="$(test_tmpdir claimgate)"
 git init -q --bare -b master "$S12/origin.git"
 git clone -q "$S12/origin.git" "$S12/c" 2>/dev/null
@@ -210,21 +210,21 @@ git -C "$S12C" checkout -q -b engineer/e900-thing
 _r="$(_claim_hook "$(mkwrite "$S12C/src/x.js")")"
 assert_contains "E-331.S12b: unclaimed — a source Write on engineer/e900-* is blocked" "2 " "$_r"
 assert_contains "E-331.S12b: … with [CLAIM_REQUIRED] E-900 and the fix" "[CLAIM_REQUIRED] E-900" "$_r"
-assert_contains "E-331.S12b: … naming the command that fixes it" "ai task claim E-900" "$_r"
+assert_contains "E-331.S12b: … naming the command that fixes it" "rein task claim E-900" "$_r"
 assert_contains "E-331.S12c: unclaimed — a shell write to src/ is blocked" "2 " "$(_claim_hook "$(mkbash 'echo x > src/y.js')")"
 assert_contains "E-331.S12d: unclaimed — a write under .ai/ stays open" "0 " "$(_claim_hook "$(mkwrite "$S12C/.ai/notes.md")")"
 assert_contains "E-331.S12d: unclaimed — a read-only command stays open" "0 " "$(_claim_hook "$(mkbash 'ls src')")"
 assert_contains "E-331.S12e: REIN_CLAIM_GATE=0 lifts it" "0 " \
   "$(_claim_hook "$(mkwrite "$S12C/src/x.js")" REIN_CLAIM_GATE=0 AI_TELEMETRY_DISABLE=1)"
 _cl="$(cd "$S12C" && HOME="$PTU_HOME" node --no-warnings "${REPO_ROOT}/src/shared/cli-state.mjs" task claim E-900 2>&1)"
-assert_contains "E-331.S12f: ai task claim E-900 publishes the claim" "E-900 claimed by dev-a@example.com" "$_cl"
+assert_contains "E-331.S12f: rein task claim E-900 publishes the claim" "E-900 claimed by dev-a@example.com" "$_cl"
 assert_contains "E-331.S12f: claimed — the identical Write now passes" "0 " "$(_claim_hook "$(mkwrite "$S12C/src/x.js")")"
 assert_contains "E-331.S12f: claimed — the identical shell write now passes" "0 " "$(_claim_hook "$(mkbash 'echo x > src/y.js')")"
 
 # ── S13 (E-216, from architect_write_gate — E-301): the Architect write gate's process half ──
 # The shell write forms (E-216.01–.06, .09, .10) are rows of the operand-scope table and the
 # round-3 regressions the byte-pinned arch-write table, both in the unit layer (D-088). What
-# stays needs a process: the overlay `ai` writes, the comment sites, and an env or a pid that
+# stays needs a process: the overlay `rein` writes, the comment sites, and an env or a pid that
 # must not change a live session's verdict.
 _OV="$(test_tmpdir awgov)/.claude"; mkdir -p "$_OV"
 _AID="$(test_tmpdir awgaid)"
@@ -244,7 +244,7 @@ assert_not_contains "E-216.07h: the engineer overlay has no deny list" '"deny"' 
 assert_not_contains "E-216.07i: the overlay still registers NO hooks (E-208 double-mint guard)" '"hooks"' "$_ARCH"
 # E-216 denied the forwarding router by name; E-277 (D-075) retired it with its deny entry.
 assert_not_contains "E-277.09h: no deny entry for the retired mcp-router" "mcp__mcp-router__proxy_call" "$_ARCH"
-# E-279 retired computer-use, but the deny STAYS until `ai clean` removes its mirror copy.
+# E-279 retired computer-use, but the deny STAYS until `rein clean` removes its mirror copy.
 assert_contains "E-216.09i: computer-use type_text is denied (GUI-editor channel)" "mcp__computer-use-mcp__type_text" "$_ARCH"
 assert_contains "E-216.09j: computer-use key_press is denied" "mcp__computer-use-mcp__key_press" "$_ARCH"
 
@@ -599,7 +599,7 @@ for h in pre-tool-use post-tool-use post-tool-log session-start stop-hook pre-co
   assert_status 0 "E-286.07: ${h}.sh starts with the toolchain prologue (only E-292 trap lines before it)" test -n "$pin" -a "${pin:-0}" = "${first:-x}"
 done
 
-# ── E-286.8: ai doctor reports both branches ────────────────────────────────
+# ── E-286.8: rein doctor reports both branches ────────────────────────────────
 DH="$W/doctor-home"; mkdir -p "$DH/.rein/shared"
 _d="$(cd "$W" && HOME="$DH" bash "$AI_BIN" doctor 2>&1)"
 assert_contains "E-286.08a: doctor names a missing toolchain file and the fix" "hook toolchain: ${DH}/.rein/shared/toolchain.sh missing — run: bash install-rein.sh" "$_d"

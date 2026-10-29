@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 # src/shared/gate-probe.sh — the ONE safe-exec analyzer invocation (E-339, D-107 r3)
 #
-# Sourced by hooks/pre-tool-use.sh (install mirror only, E-223) and, through src/bin/ai, by
-# the `gate_check` sync step and `ai doctor`. The hook and the probe call the analyzer the
+# Sourced by hooks/pre-tool-use.sh (install mirror only, E-223) and, through src/bin/rein, by
+# the `gate_check` sync step and `rein doctor`. The hook and the probe call the analyzer the
 # same way — interpreter, wall clock, flags, verdict parse — so a probe that says PASS means
 # the gate the hook runs has a verdict, and the two cannot drift apart. Before this file the
 # hook held the only copy and a sync could leave it broken while reporting "13 ok".

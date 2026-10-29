@@ -19,11 +19,11 @@ paths:
   or a pull, running servers are stale until the session restarts; `build-stamp.mjs` announces
   it. Never hot-reload the write path — only the pure policy modules in E-237's set may reload.
 - **Retiring a server** removes its `registry.json`, `.mcp.json`, settings-allow and
-  `mcp-domains.mjs` entries, and adds a `src/config/legacy-artefacts.json` entry so `ai clean`
+  `mcp-domains.mjs` entries, and adds a `src/config/legacy-artefacts.json` entry so `rein clean`
   removes the mirror (D-074).
 - **Gate-path dependencies are pinned EXACTLY (E-305, D-089 r3).** A package imported on a gate
   path (safe-exec-mcp's `shell-quote`, `@modelcontextprotocol/sdk`) carries an exact version, no
-  `^`/`~`; `ai install` refuses when the mirror holds anything else (`shared/gate-pins.mjs`). A
+  `^`/`~`; `rein install` refuses when the mirror holds anything else (`shared/gate-pins.mjs`). A
   parser IS the gate's input model, so a bump goes through `skill: dependency_gate` and must run
   every contract table (`arch-write-cases`, `pipe-shell-cases`, `secret-cases`,
   `gate-relative-home-cases`, and the E-301 tables) against the new version first.

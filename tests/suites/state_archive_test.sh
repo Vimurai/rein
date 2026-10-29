@@ -7,7 +7,7 @@
 #
 # ── E-111 (from archive_manager_state): archive-manager execute_archive rotates
 # SQLite state (DONE tasks + audit stamps) through the shared, ACID-safe owner
-# instead of shelling the removed `ai archive` verb or writing the regenerated
+# instead of shelling the removed `rein archive` verb or writing the regenerated
 # state.json view.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,8 +20,8 @@ AM="${REPO_ROOT}/src/mcp/archive-manager-mcp/index.js"
 
 echo "── Suite: state_archive_test ───────────────────────────────────────"
 
-# ── Source contract: no removed `ai archive` shell-out, no state.json view write ─
-assert_status 1 "execute_archive no longer shells 'ai archive'" \
+# ── Source contract: no removed `rein archive` shell-out, no state.json view write ─
+assert_status 1 "execute_archive no longer shells 'rein archive'" \
   grep -qE 'spawnSync|aiBin|"archive"\]' "$AM"
 assert_status 1 "no archiveStateDoneTasks function remains" \
   grep -qE '^function archiveStateDoneTasks' "$AM"
@@ -182,7 +182,7 @@ TEMPLATE="${REPO_ROOT}/src/templates/state.json"
 DONE_THRESHOLD=50
 DONE_KEEP=10
 # UTC, like the archiver (state-db.js archiveDoneTasks: new Date().toISOString()). A local
-# month made this fail for the first hours of every month east of UTC (ai ci run e1ff248,
+# month made this fail for the first hours of every month east of UTC (rein ci run e1ff248,
 # 2026-10-01 00:10 CEST = 2026-09-30 22:10 UTC).
 YM=$(date -u '+%Y-%m')
 
@@ -300,21 +300,21 @@ rm -rf "$VALID_DIR"
 # Tests for E-53 SQLite WAL flush hook.
 #
 # Verifies the contract demanded by drift-resolution-2026.md §State Singularity:
-#   • src/bin/ai defines _wal_checkpoint_state_db() with a hardcoded path.
+#   • src/bin/rein defines _wal_checkpoint_state_db() with a hardcoded path.
 #   • do_sync() invokes it at the end of the sync cycle.
 #   • doctor() invokes it during the project-scoped diagnostics block.
 #   • Behaviour: when sqlite3 is on PATH and .ai/state.sqlite exists with a
 #     WAL, calling the helper truncates the WAL.
-#   • Fail-open: missing sqlite3 CLI does not crash bin/ai.
+#   • Fail-open: missing sqlite3 CLI does not crash bin/rein.
 #   • Path is hardcoded — never derived from $1 / $PWD-injection / env.
 set +e   # this section ran under its own suite's error mode
-BIN_AI="${REPO_ROOT}/src/bin/ai"
+BIN_AI="${REPO_ROOT}/src/bin/rein"
 
 # ── T-WAL-S01: helper exists with hardcoded path ─────────────────────────────
 echo ""
 echo "  [T-WAL-S01] _wal_checkpoint_state_db helper present + hardcoded path"
 
-assert_status 0 "bin/ai defines _wal_checkpoint_state_db()" \
+assert_status 0 "bin/rein defines _wal_checkpoint_state_db()" \
   grep -qE '^_wal_checkpoint_state_db\(\)' "$BIN_AI"
 
 # Path must be the literal '.ai/state.sqlite'. Reject any user-input forms.
@@ -338,7 +338,7 @@ assert_status 0 "wal-flusher.mjs calls PRAGMA wal_checkpoint(TRUNCATE)" \
 assert_status 0 "helper guards on node availability (fail-open)" \
   grep -qE 'command -v node' "$BIN_AI"
 
-# E-223 REVERSED this order: the chain used to start cwd-relative, so running `ai sync`
+# E-223 REVERSED this order: the chain used to start cwd-relative, so running `rein sync`
 # in any directory containing src/shared/wal-flusher.mjs handed THAT file to node.
 # Resolution now goes through the shared install-first helper.
 assert_status 0 "helper resolves wal-flusher via the shared install-first locator" \
@@ -368,13 +368,13 @@ sys.exit(0 if m and '_wal_checkpoint_state_db' in m.group(1) else 1)
 
 # ── T-WAL-S03: dispatch guard lets the file be sourced ───────────────────────
 echo ""
-echo "  [T-WAL-S03] sourcing bin/ai loads helpers without invoking usage()"
+echo "  [T-WAL-S03] sourcing bin/rein loads helpers without invoking usage()"
 
-# When sourced, bin/ai must short-circuit before running the dispatch case.
+# When sourced, bin/rein must short-circuit before running the dispatch case.
 # Validate by sourcing in a subshell and checking that _wal_checkpoint_state_db
 # is callable while no usage banner has been printed to stdout.
 SOURCE_OUT="$(bash -c "source '$BIN_AI' >/dev/null 2>&1; type -t _wal_checkpoint_state_db")"
-assert_status 0 "helper is loaded as a bash function after sourcing bin/ai" \
+assert_status 0 "helper is loaded as a bash function after sourcing bin/rein" \
   test "$SOURCE_OUT" = "function"
 
 # ── T-WAL-S04: behavioural — helper runs cleanly against a WAL-mode DB ──────
@@ -420,7 +420,7 @@ mkdir -p "$SBOX2/.ai"
 : > "$SBOX2/.ai/state.sqlite"
 
 EMPTY_PATH="$(mktemp -d)"
-# A node-free PATH, not an empty one: sourcing bin/ai runs dirname/tr/head under set -e, and
+# A node-free PATH, not an empty one: sourcing bin/rein runs dirname/tr/head under set -e, and
 # with none of them the source itself exited 1 before the helper was ever called.
 for _c in dirname tr head; do ln -s "$(command -v "$_c")" "$EMPTY_PATH/$_c"; done
 assert_status 2 "helper exits 2 (skipped) when node is not on PATH" \

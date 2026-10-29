@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * context-guardian-mcp — Rein UACS MCP Server
- * Guards ai archive and git commit by detecting unresolved markers in the workspace.
+ * Guards rein archive and git commit by detecting unresolved markers in the workspace.
  *
  * Tools:
  *   check_workspace(strict?) → scans TASKS.md + architect.md + src/ for Pending/TODO/FIXME
@@ -122,7 +122,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
   if (!existsSync(aiDir)) {
     return {
-      content: [{ type: "text", text: "✗ No .ai/ directory found. Run: ai init" }],
+      content: [{ type: "text", text: "✗ No .ai/ directory found. Run: rein init" }],
       isError: true,
     };
   }
@@ -270,7 +270,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
 
     if (hasDirty) {
-      lines.push("✗ DIRTY workspace — ai archive and git commit are BLOCKED.");
+      lines.push("✗ DIRTY workspace — rein archive and git commit are BLOCKED.");
       lines.push("Resolve open tasks before archiving or committing.");
     } else {
       lines.push("⚠ Warnings found — review before proceeding.");

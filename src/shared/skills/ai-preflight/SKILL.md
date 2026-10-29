@@ -12,13 +12,13 @@ agent: default
 
 ## Dynamic Context Injection
 Project root: !pwd
-Rein project: !test -d .ai && echo "YES — .ai/ found" || echo "NO — run: ai init"
+Rein project: !test -d .ai && echo "YES — .ai/ found" || echo "NO — run: rein init"
 DIGEST freshness: !head -2 .ai/DIGEST.md 2>/dev/null || echo "(DIGEST.md missing — run skill: ai-digest)"
-Recent log (E-333 — every developer's .ai/log/*.md when team.json shared_log is true): !ai log recent -n 5 2>/dev/null || tail -5 .ai/LOG.md 2>/dev/null || echo "(no log)"
-COMM.md (D-104): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/comm-status.sh 2>/dev/null)"; [ -n "$c" ] && . "$c" && s="$(rein_comm_status .)" && case "$s" in UNCOMMITTED*) echo "UNCOMMITTED (${s#UNCOMMITTED } lines) — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;; IGNORED) echo "IGNORED — run: ai sync" ;; *) echo "$s" ;; esac || echo "(comm-status probe unavailable)"
+Recent log (E-333 — every developer's .ai/log/*.md when team.json shared_log is true): !rein log recent -n 5 2>/dev/null || tail -5 .ai/LOG.md 2>/dev/null || echo "(no log)"
+COMM.md (D-104): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/comm-status.sh 2>/dev/null)"; [ -n "$c" ] && . "$c" && s="$(rein_comm_status .)" && case "$s" in UNCOMMITTED*) echo "UNCOMMITTED (${s#UNCOMMITTED } lines) — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;; IGNORED) echo "IGNORED — run: rein sync" ;; *) echo "$s" ;; esac || echo "(comm-status probe unavailable)"
 Open tasks: !grep "^- \[ \]" .ai/TASKS.md 2>/dev/null | head -5 || echo "(none)"
 State index (E-344, D-108): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/cli-state.mjs 2>/dev/null)"; [ -n "$c" ] && node --no-warnings "$c" state health --short 2>/dev/null || echo "(state health unavailable)"
-Claims on the trunk (E-331, E-341): !test -f .ai/team.json && { ai task claims 2>/dev/null || echo "(ai task claims unavailable)"; } || echo "(single-operator project — no claims)"
+Claims on the trunk (E-331, E-341): !test -f .ai/team.json && { rein task claims 2>/dev/null || echo "(rein task claims unavailable)"; } || echo "(single-operator project — no claims)"
 Incident status: !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/incident-aggregate.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null | grep -m1 '"status"' | sed -E 's/.*"status": *"([^"]+)".*/\1/' || echo "(aggregator unavailable)"
 Stale MCP servers (E-249): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/build-stamp.mjs 2>/dev/null)"; r=""; [ -n "$c" ] && r="$(node --no-warnings "$c" --stale 2>/dev/null)"; [ -n "$r" ] && printf '%s — restart the MCP servers before trusting their answers\n' "$r" || echo "none"
 
@@ -47,8 +47,8 @@ mcp__task-synchronizer-mcp__verify_markdown_sync()
 
 - `[SYNC_PASS]` — proceed normally.
 - `[SYNC_FAIL] … [STATE_BEHIND_HEAD]` or `[EMPTY_STATE_DB]` (E-342/E-344, D-106/D-108) — this
-  machine's index is behind what HEAD tracks, or empty. Run `ai state import` (lossless) and
-  verify again. Never `ai migrate-state` here: it rebuilds from TASKS.md and drops summaries,
+  machine's index is behind what HEAD tracks, or empty. Run `rein state import` (lossless) and
+  verify again. Never `rein migrate-state` here: it rebuilds from TASKS.md and drops summaries,
   stamps and dependencies. The `State index` line above carries the same verdict.
 - `[SYNC_FAIL]` — read the listed anomalies. The most common failure is a
   task you completed last session that you forgot to mark `DONE`. If you
@@ -61,7 +61,7 @@ mcp__task-synchronizer-mcp__verify_markdown_sync()
 
 ### 4b. Claims ← TEAM PROJECTS ONLY (E-331, D-102 §4)
 The `Claims on the trunk` line above lists every IN_PROGRESS task with its holder (from the
-trunk — `origin/<trunk>`, see `ai trunk`; `master` in this repository — that the SessionStart
+trunk — `origin/<trunk>`, see `rein trunk`; `master` in this repository — that the SessionStart
 hook fetched). A `[NO_TRUNK]` line there means no claim can be checked: report it, and the
 operator sets `"trunk"` in `.ai/team.json`. Report them. Never start a task someone
 else holds; a `[CLAIM_TAKEN_OVER]` line means your expired claim now belongs to a teammate —
@@ -75,7 +75,7 @@ Read .ai/state.json → look for entries in "deltas" array where "read" is false
 If unread deltas exist, display them prominently:
 ```
 ## Unread Implementation Deltas
-- E-78: Created state.json schema | Files: src/templates/state.json, src/bin/ai
+- E-78: Created state.json schema | Files: src/templates/state.json, src/bin/rein
 - E-79: task-synchronizer-mcp v2.0 | Files: src/mcp/task-synchronizer-mcp/index.js
 ```
 After reading, mark them as read (set `"read": true`) so they don't repeat.
@@ -197,13 +197,13 @@ re-evaluates from the telemetry DB.
 After the staleness checks, load the AST Repository Map **if it exists**:
 
 ```bash
-test -f .ai/REPO_MAP.md && cat .ai/REPO_MAP.md || echo "(no REPO_MAP.md — run: ai sync)"
+test -f .ai/REPO_MAP.md && cat .ai/REPO_MAP.md || echo "(no REPO_MAP.md — run: rein sync)"
 ```
 
 `.ai/REPO_MAP.md` is a token-compressed skeleton of the codebase —
 the most central files (PageRank over the import graph) with their
 exports, class/method **signatures** (bodies elided with `⋮`), and
-imports. It is regenerated by `ai sync` via `ast-parser-mcp generate_map`
+imports. It is regenerated by `rein sync` via `ast-parser-mcp generate_map`
 (E-95/E-96/E-97) within a strict token budget (default 2048).
 
 - **If present**: read it for immediate architectural orientation —
@@ -211,11 +211,11 @@ imports. It is regenerated by `ai sync` via `ast-parser-mcp generate_map`
   symbol lives. It is a *map*, not the source of truth; open the real
   file before editing.
 - **If absent**: it has not been generated yet (fresh clone, or
-  `REIN_DISABLE_REPO_MAP=1`). Run `ai sync` to build it, or fall back
+  `REIN_DISABLE_REPO_MAP=1`). Run `rein sync` to build it, or fall back
   to `grep`/`list_directory`.
 
 **Rollback**: `REIN_DISABLE_REPO_MAP=1` stops regeneration; deleting
-`.ai/REPO_MAP.md` is safe — the next `ai sync` rebuilds it.
+`.ai/REPO_MAP.md` is safe — the next `rein sync` rebuilds it.
 
 ### Open Only When Task Touches That Domain
 - `.ai/BRIEF.md` — Project rules & lore (read if onboarding or task touches product goals)

@@ -112,8 +112,8 @@ export function boundedRel(rawPath, projectRoot) {
 /**
  * HARDLINK check — the one place path resolution genuinely cannot help. A hardlink is
  * not a REFERENCE to a file, it IS the file under a second equally canonical name, so
- * realpath has nothing to see through: `ln src/bin/ai .ai/h` then `Write .ai/h` writes
- * src/bin/ai, and every path-based check agrees the target is inside .ai/. Only an inode
+ * realpath has nothing to see through: `ln src/bin/rein .ai/h` then `Write .ai/h` writes
+ * src/bin/rein, and every path-based check agrees the target is inside .ai/. Only an inode
  * property distinguishes it. One lstat, and it can only ever ADD restriction to a write
  * we were about to allow. Directories legitimately carry nlink > 1 (subdirectory
  * back-references), so this is restricted to regular files. A missing target is not yet
@@ -199,7 +199,7 @@ export function findProjectRootFrom(start) {
 
 // ── E-216 (D-055 R1): Architect shell write policy ───────────────────────────
 // The E-208 gate covers the NATIVE write tools; this closes the shell channel that
-// audit left open (`echo pwned > src/bin/ai` wrote real bytes to a real source file).
+// audit left open (`echo pwned > src/bin/rein` wrote real bytes to a real source file).
 //
 // REDIRECTS ARE READ STRUCTURALLY, from shell-quote's parse output, never from the raw
 // string. The first cut used a raw regex and was wrong in both directions: it missed

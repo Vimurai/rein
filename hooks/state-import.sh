@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Rein state import hook — post-merge / post-checkout / post-rewrite (E-326, D-102 §Component 2)
 # A pull, checkout or rebase changes the tracked record files of a team project — or, in a
-# legacy project, the tracked state.json (E-342) — and this runs `ai state import` so
+# legacy project, the tracked state.json (E-342) — and this runs `rein state import` so
 # state.sqlite and the views follow them without a manual step.
 # Usage (from the git stubs): state-import.sh <post-merge|post-checkout|post-rewrite> [git args…]
 # Fail-open: it never blocks git. REIN_STATE_IMPORT=0 makes it a no-op with a telemetry row.
@@ -48,10 +48,10 @@ if [[ ! -f "${REPO_ROOT}/.ai/project.json" ]]; then
   [[ "$_blob" == "$_last" ]] && exit 0
 fi
 
-# Install mirror only (E-223): never an `ai` resolved from the visited repo or its env.
-AI_BIN="${HOME}/.rein/bin/ai"
+# Install mirror only (E-223): never a `rein` resolved from the visited repo or its env.
+AI_BIN="${HOME}/.rein/bin/rein"
 if [[ ! -x "$AI_BIN" ]]; then
-  printf "[STATE_IMPORT] WARN: %s not found — run: bash install-rein.sh, then: ai state import\n" "$AI_BIN" >&2
+  printf "[STATE_IMPORT] WARN: %s not found — run: bash install-rein.sh, then: rein state import\n" "$AI_BIN" >&2
   exit 0
 fi
 

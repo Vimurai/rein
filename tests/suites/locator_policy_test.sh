@@ -19,7 +19,7 @@ source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 LOC_SH="${REPO_ROOT}/src/shared/locate.sh"
 LOC_MJS="${REPO_ROOT}/src/shared/locate.mjs"
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 
 echo "── Suite: locator_policy_test (E-223) ───────────────────────────────"
 
@@ -84,7 +84,7 @@ _run_hooks_in() {
 _run_hooks_in "$_D"
 assert_status 1 "E-223.04a: NO hook executed the decoy repo's helpers" test -f "$_D/CANARY_EXECUTED"
 
-# ── E-223.5: THE CANARY — no `ai` subcommand executes them either ───────────
+# ── E-223.5: THE CANARY — no `rein` subcommand executes them either ───────────
 ( cd "$_D" && bash "$AI_BIN" sync   >/dev/null 2>&1; bash "$AI_BIN" doctor >/dev/null 2>&1 ) || true
 assert_status 1 "E-223.05a: NO ai subcommand executed the decoy repo's helpers" \
   test -f "$_D/CANARY_EXECUTED"
@@ -103,7 +103,7 @@ _no_locator_idiom() {  # <file...>
 }
 assert_status 0 "E-223.06a: no hook locates a framework helper via the visited repo" \
   _no_locator_idiom ${REPO_ROOT}/hooks/*.sh
-assert_status 0 "E-223.06b: nor does src/bin/ai" \
+assert_status 0 "E-223.06b: nor does src/bin/rein" \
   _no_locator_idiom "$AI_BIN"
 assert_status 0 "E-223.06c: pre-commit still finds the PROJECT's .ai/ via git toplevel" \
   bash -c "grep -q 'AI_DIR=\"\\\$(git rev-parse --show-toplevel' '${REPO_ROOT}/hooks/pre-commit.sh'"
@@ -112,7 +112,7 @@ assert_status 0 "E-223.06d: post-tool-use still runs the PROJECT's own test runn
 
 # ── E-223.8: env a visited repo controls must not re-open the boundary ──────
 # A project's own `.claude/settings.json` carries an `env` block that the CLI applies to
-# the session, and hooks inherit it — `ai init` writes that key, so it is the NORMAL shape.
+# the session, and hooks inherit it — `rein init` writes that key, so it is the NORMAL shape.
 # The first cut of E-223 was defeated by three vars settable from that file, and the worst
 # of them was one E-223 itself introduced: pre-E-223 hooks hardcoded ${HOME}/.rein and
 # never read REIN_HOME. Cloning a repo was still enough; it just needed one more file.
@@ -181,11 +181,11 @@ assert_status 1 "E-223.09c: the name is parsed, not substring-matched" \
   bash -c "grep -q 'grep -qE .\"name\"' '$LOC_SH'"
 rm -rf "$_SB"
 
-# ── E-223.10: `ai` is subject to the same untrusted env as the hooks ────────
-# `ai` is invoked through Bash from inside the project being worked on, so it inherits the
+# ── E-223.10: `rein` is subject to the same untrusted env as the hooks ────────
+# `rein` is invoked through Bash from inside the project being worked on, so it inherits the
 # same repo-chosen session env. Hardening only the hooks left REIN_HOME and
 # REIN_LOCATE_DEV honoured here — and `_locate_resolve_launch`'s stdout decides which
-# BINARY `ai pane` execs. The bootstrap is EXTRACTED from the shipped script rather than
+# BINARY `rein pane` execs. The bootstrap is EXTRACTED from the shipped script rather than
 # retyped: a hand-copied bootstrap is how the first version of this probe kept
 # "reproducing" a bug that was already fixed.
 _SB2="$(mktemp -d)"; _DEC="$_SB2/decoy"
@@ -210,7 +210,7 @@ assert_not_contains "E-223.10a: ai baseline resolves the install mirror" "$_DEC"
 assert_not_contains "E-223.10b: REIN_LOCATE_DEV cannot redirect ai"     "$_DEC" "$(_ai_boot_resolves REIN_LOCATE_DEV=1)"
 assert_not_contains "E-223.10c: REIN_HOME cannot redirect ai"           "$_DEC" "$(_ai_boot_resolves REIN_HOME="$_DEC")"
 assert_not_contains "E-223.10d: REIN_WORKSPACE cannot redirect ai"       "$_DEC" "$(_ai_boot_resolves REIN_WORKSPACE="$_DEC")"
-# The argv override must be argv-ONLY: bin/ai resets it before reading argv, so an
+# The argv override must be argv-ONLY: bin/rein resets it before reading argv, so an
 # inherited value cannot pre-set it. Without that reset the fix would just rename the hole.
 assert_not_contains "E-223.10e: the argv override cannot be forged through the env" "$_DEC" \
   "$(_ai_boot_resolves _REIN_LOCATE_DEV_ARGV=1)"
@@ -236,7 +236,7 @@ for _ev in "REIN_LOCATE_DEV=1" "REIN_HOME=$_DEC" "REIN_WORKSPACE=$_DEC"; do
 done
 # ── E-223.12: the dev-tree override cannot come from the environment ────────
 # The fix for F1 introduced this bug: "argv-only" implemented as another env var that each
-# caller resets. bin/ai reset it; the five hooks never mentioned it, so a settings.json env
+# caller resets. bin/rein reset it; the five hooks never mentioned it, so a settings.json env
 # block made a hook resolve the VISITED repo's own safe-exec analyzer — and the gate then
 # allowed everything. It is a function call now, with the state reset at source time, so no
 # variable of any name can turn it on.
@@ -291,11 +291,11 @@ assert_status 0 "E-223.11h: hooks EXPORT the flag so children inherit it" \
              grep -q 'export REIN_LOCATE_UNTRUSTED_ENV=1' '${REPO_ROOT}/hooks/'\$h'.sh' || exit 1; done"
 rm -rf "$_SB2"
 
-# ── E-223.14: EVERY helper lookup in src/bin/ai goes through the resolver ───
-# D-057 §3 names src/bin/ai, and the first pass converted only the three _locate_*
+# ── E-223.14: EVERY helper lookup in src/bin/rein goes through the resolver ───
+# D-057 §3 names src/bin/rein, and the first pass converted only the three _locate_*
 # wrappers. Eight other chains kept their own order and FOUR were cwd-relative FIRST —
 # the defect in a more direct form than the original, since no git repo is needed: a
-# `src/shared/memory-batch-scanner.mjs` in any directory `ai sync` ran from was handed to
+# `src/shared/memory-batch-scanner.mjs` in any directory `rein sync` ran from was handed to
 # node, and that one runs inside do_sync.
 _D2="$(mktemp -d)"
 mkdir -p "$_D2/src/shared" "$_D2/scripts"
@@ -308,7 +308,7 @@ for _h in shared/memory-batch-scanner.mjs shared/wal-flusher.mjs shared/cli-add-
   _r="$( cd "$_D2" && bash -c "set -- sync; source '$_SB2/boot.sh' >/dev/null 2>&1; _rein_helper $_h" 2>/dev/null )"
   assert_not_contains "E-223.14 ${_h#shared/} does not resolve the visited repo" "$_D2" "$_r"
 done
-assert_status 1 "E-223.14g: no cwd-relative helper chain survives in src/bin/ai" \
+assert_status 1 "E-223.14g: no cwd-relative helper chain survives in src/bin/rein" \
   bash -c "sed 's/[[:space:]]*#.*\$//' '$AI_BIN' | grep -qE 'for (c|candidate) in \"?(src|scripts)/'"
 assert_status 0 "E-223.14h: helper lookups share one function" \
   bash -c "test \$(grep -c '_rein_helper ' '$AI_BIN') -ge 8"
@@ -339,7 +339,7 @@ assert_not_contains "E-223.15b: and when it is present" \
 # testing nothing. A guard whose removal changes no outcome is not a guard.
 assert_contains "E-223.15c: without the guard the forged resolver IS used (non-vacuity)" \
   "FORGED-RESOLVER-USED" "$(_forge_run "$_SB3/boot_unguarded.sh" no)"
-assert_status 0 "E-223.15d: all five hooks and src/bin/ai carry the guard" \
+assert_status 0 "E-223.15d: all five hooks and src/bin/rein carry the guard" \
   bash -c "c=0; for h in pre-tool-use session-start pre-commit post-tool-use stop-hook; do
              grep -q 'unset -f rein_locate' '${REPO_ROOT}/hooks/'\$h'.sh' && c=\$((c+1)); done
            grep -q 'unset -f rein_locate' '$AI_BIN' && c=\$((c+1)); test \$c -eq 6"

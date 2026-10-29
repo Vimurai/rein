@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# ai_start_test.sh — E-227 (D-059, cli-collapse.md §`ai start`): the Triad launcher.
+# rein_start_test.sh — E-227 (D-059, cli-collapse.md §`rein start`): the Triad launcher.
 #
-# `ai start` COMPOSES one command it does not own — `ai pane <role>` (D-099 removed the
+# `rein start` COMPOSES one command it does not own — `rein pane <role>` (D-099 removed the
 # watcher pane and `ai watch`). The
 # properties worth pinning are therefore about composition: which command reaches which
 # pane, in what order, and what the launcher refuses to do.
@@ -15,16 +15,16 @@
 #     because tmux rejects `@window.0` as a pane target at all.
 #
 # E-302 also folds in the launcher's surface (--status/--kill, doctor, docs — E-228) and the
-# two env injections `ai sync` / the installer make for every pane: E-50's
+# two env injections `rein sync` / the installer make for every pane: E-50's
 # CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN and E-62's REIN_WORKSPACE.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AI="${REPO_ROOT}/src/bin/ai"
+AI="${REPO_ROOT}/src/bin/rein"
 
-echo "── Suite: ai_start_test (E-227) ─────────────────────────────────────"
+echo "── Suite: rein_start_test (E-227) ─────────────────────────────────────"
 
 # _proj <engineer_pane> <architect_pane> [start.json] → project dir
 # E-255: every fixture carries the headless tester, as the v4 template does — the layout
@@ -41,10 +41,10 @@ EOF
 }
 _dry() { ( cd "$1" && shift && bash "$AI" start --dry-run "$@" 2>&1 ); }
 
-# E-384 (D-135 addendum 2, harness rule 1): `ai start` — dry run included — needs tmux to
+# E-384 (D-135 addendum 2, harness rule 1): `rein start` — dry run included — needs tmux to
 # plan panes; without it it prints the manual recipe (E-227.7). A host without tmux (the
 # macOS runner image) records ONE skip per section instead of failing each assertion.
-if skip_unless_cmd tmux "E-227.01–02, E-269.S: ai start --dry-run plans tmux panes"; then
+if skip_unless_cmd tmux "E-227.01–02, E-269.S: rein start --dry-run plans tmux panes"; then
   # ── E-227.1: pane order follows pane_identifier, in BOTH directions ─────────
   # The role with the lower pane_identifier takes the lower pane position, so E-209's
   # ordinal fallback and the visible layout agree by construction rather than by luck.
@@ -76,7 +76,7 @@ if skip_unless_cmd tmux "E-227.01–02, E-269.S: ai start --dry-run plans tmux p
 
   # ── E-227.2: composition only — never a provider, never a project script ───
   _p="$(_proj 0 1)"; _out="$(_dry "$_p")"
-  # Tightened by E-242: the intent is "ai start COMPOSES `ai pane`, it never execs a provider
+  # Tightened by E-242: the intent is "rein start COMPOSES `rein pane`, it never execs a provider
   # itself". Testing that by the bare substring `claude` also matches the DIRECTORY `.claude/`,
   # which the overlay pre-check legitimately names — so the assertion failed on a path, not on
   # a launch. Match an invocation instead: the provider in command position.
@@ -85,11 +85,11 @@ if skip_unless_cmd tmux "E-227.01–02, E-269.S: ai start --dry-run plans tmux p
   # The dry run prints commands through `printf %q`, so the sent string appears as
   # `ai\ pane\ engineer`. An assertion written against a literal space silently matched
   # nothing and passed for the wrong reason.
-  assert_status 0 "E-227.02b: every send-keys carries only 'ai pane'" \
+  assert_status 0 "E-227.02b: every send-keys carries only 'rein pane'" \
     python3 -c "
 import re, sys
 sent = [l for l in sys.argv[1].splitlines() if 'send-keys' in l]
-sys.exit(0 if sent and all(re.search(r'ai\\\\? pane', l) for l in sent) else 1)
+sys.exit(0 if sent and all(re.search(r'rein\\\\? pane', l) for l in sent) else 1)
 " "$_out"
   rm -rf "$_p"
 fi
@@ -101,7 +101,7 @@ assert_status 0 "E-227.03a: --no-watch is now an unknown option (exit 2, rc=${_n
 assert_contains "E-227.03b: …and the error names it" "unknown option '--no-watch'" "$_nw"
 for _verb in watch handoff; do
   _vo="$( cd "$_p" && bash "$AI" "$_verb" engineer hi 2>&1 )"; _vrc=$?
-  assert_status 0 "E-322.C1: 'ai ${_verb}' is gone — a non-zero exit (rc=${_vrc})" test "$_vrc" -ne 0
+  assert_status 0 "E-322.C1: 'rein ${_verb}' is gone — a non-zero exit (rc=${_vrc})" test "$_vrc" -ne 0
   assert_not_contains "E-322.C2: …and it emits no handoff" "HANDOFF" "$_vo"
 done
 rm -rf "$_p"
@@ -140,7 +140,7 @@ assert_contains "E-227.04v: a valid session is used"      "-s proj" "$_out"
 # fallback for tmux older than 3.1 and never appears in a dry run.
 assert_contains "E-227.04w: a valid main size is applied" "-l 60%" "$_out"
 # D-099: `watch` and `sizes.top` configured the removed watcher; a file written before it
-# still carries them, so they are accepted and ignored rather than stopping `ai start`.
+# still carries them, so they are accepted and ignored rather than stopping `rein start`.
 _w="$(_dry "$(_proj 0 1 '{"watch":false,"sizes":{"top":70}}')")"
 assert_contains "E-227.04x: a legacy watch/sizes.top start.json is still accepted" "split-window -h" "$_w"
 assert_not_contains "E-227.04y: …and adds no watcher pane" "split-window -v" "$_w"
@@ -169,7 +169,7 @@ if command -v tmux >/dev/null 2>&1; then
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$_tb" "$_sock" > "$_shim/tmux"
   chmod +x "$_shim/tmux"
   _lp="$(_proj 0 1)"
-  # Keep `ai start`'s own output. Discarding it meant that when only one pane appeared on
+  # Keep `rein start`'s own output. Discarding it meant that when only one pane appeared on
   # CI, the suite could say the pane count was wrong but not what the launcher had said
   # about it — which is the only thing that explains a tmux-version difference.
   _startout="$( cd "$_lp" && PATH="$_shim:$PATH" bash "$AI" start --detach 2>&1 )"
@@ -194,7 +194,7 @@ if command -v tmux >/dev/null 2>&1; then
   assert_contains "E-227.06b: two panes were created, no watcher pane (${_tmuxv}; wid=${_wid}; panes=[${_panes//$'\n'/,}]; windows=[${_wins}]; start said: ${_startout//$'\n'/ | })" \
     "2" "$_npanes"
 
-  assert_status 1 "E-322.L1: ai start takes no watcher lock in the project" test -e "${_lp}/.ai/.ai-watch.lock"
+  assert_status 1 "E-322.L1: rein start takes no watcher lock in the project" test -e "${_lp}/.ai/.ai-watch.lock"
   assert_status 1 "E-322.L1b: …and writes no signal queue" test -e "${_lp}/.ai/signal.json"
   _titles="$("$_tb" -L "$_sock" list-panes -t "$_wid" -F '#{pane_title}' 2>/dev/null | tr '\n' ' ')"
   assert_contains "E-227.06c: pane 0 titled engineer"  "engineer"  "$_titles"
@@ -202,13 +202,13 @@ if command -v tmux >/dev/null 2>&1; then
 
   # Each pane received ITS command — the composition property, verified against real tmux.
   _i=0
-  for _want in "ai pane engineer" "ai pane architect"; do
+  for _want in "rein pane engineer" "rein pane architect"; do
     _pid="$(printf '%s\n' "$_panes" | sed -n "$((_i + 1))p")"
     # Polled: send-keys returns before the pane's shell has echoed the line, so a capture
     # taken at once intermittently sees an empty screen (1 of ~5 full runs).
     _as_recv() {
       # -J joins wrapped lines. The panes are ~40 columns, so a long prompt (macOS bash 3.2's
-      # under `ai ci run`) wrapped "ai pane engineer" across two lines and the match missed it.
+      # under `rein ci run`) wrapped "rein pane engineer" across two lines and the match missed it.
       # -S - reads from the start of the scrollback, in case a long startup line scrolled
       # the typed command off the visible screen before this capture.
       _body="$("$_tb" -L "$_sock" capture-pane -p -J -S - -t "$_pid" 2>/dev/null || true)"
@@ -245,7 +245,7 @@ fi
 
 # ── E-252 (D-068): one tmux session per project ────────────────────────────
 #
-# `ai start` used to put every project into ONE shared `rein` session. A tmux session has
+# `rein start` used to put every project into ONE shared `rein` session. A tmux session has
 # a single CURRENT WINDOW shared by every attached client, so starting project B flipped
 # the terminal showing project A; and the project window was found by NAME ONLY, so two
 # checkouts with the same basename shared one window.
@@ -258,7 +258,7 @@ fi
 # server — the cases that matter (a dot, a leading dash, non-ASCII, over-length) are
 # exactly the ones that are awkward to create as real directories on every platform.
 _sname_direct() {
-  # `ai` is a command script, not a library: sourcing it runs main. The function is
+  # `rein` is a command script, not a library: sourcing it runs main. The function is
   # extracted and run in a subshell instead — which also keeps this honest about testing
   # the SHIPPED definition rather than a copy of it drifting in the test file.
   awk '/^_start_session_name\(\) \{/,/^\}$/' "$AI" > "${_E252_FN:?}"
@@ -382,7 +382,7 @@ if skip_unless_cmd tmux "E-252 live session-isolation layer"; then
   assert_contains "E-252.06a: the legacy window is adopted, not duplicated (${_wL_before}→${_wL_after})" \
     "$_wL_before" "$_wL_after"
   assert_contains "E-252.06b: and the migration path is printed once" "reusing legacy shared window" "$_outL"
-  assert_contains "E-252.06c: naming the session it would move to" "ai start --kill" "$_outL"
+  assert_contains "E-252.06c: naming the session it would move to" "rein start --kill" "$_outL"
 
   _t2 kill-server 2>/dev/null || true
   rm -rf "$_pA" "$_pB" "$_pC" "$_pL"
@@ -432,8 +432,8 @@ assert_status 0 "E-227.07pre2: but coreutils are still reachable (guards the gua
   bash -c "PATH='$_notmux' command -v python3 >/dev/null && PATH='$_notmux' command -v basename >/dev/null"
 _out="$( cd "$_p" && PATH="$_notmux" bash "$AI" start 2>&1 )"; _rc=$?
 assert_status 0 "E-227.07a: no tmux → exit 2 (rc=$_rc)" bash -c "[[ $_rc -eq 2 ]]"
-assert_contains "E-227.07b: the recipe names ai pane engineer"  "ai pane engineer"  "$_out"
-assert_contains "E-227.07c: the recipe names ai pane architect" "ai pane architect" "$_out"
+assert_contains "E-227.07b: the recipe names rein pane engineer"  "rein pane engineer"  "$_out"
+assert_contains "E-227.07c: the recipe names rein pane architect" "rein pane architect" "$_out"
 assert_not_contains "E-227.07d: the recipe no longer names ai watch (D-099)" "ai watch" "$_out"
 # ── E-315 (D-095, accounts.md §2): binding a project to a Claude account ─────────────
 # Own HOME holding the registry (one account, work). Writes run on the no-tmux PATH, so the
@@ -471,7 +471,7 @@ assert_contains "E-315.S03b: …and keeps the rest" '"main": 40' "$(cat "$_p/.ai
 cp "$_p/.ai/start.json" "$_p/.ai/start.json.before"
 _out="$(_ast "$_p" "$_notmux" --account nope)"
 assert_contains "E-315.S04a: an unregistered --account exits 2" "RC:2" "$_out"
-assert_contains "E-315.S04b: …naming ai account add" "ai account add nope" "$_out"
+assert_contains "E-315.S04b: …naming rein account add" "rein account add nope" "$_out"
 assert_status 0 "E-315.S04c: …and writes nothing" cmp -s "$_p/.ai/start.json" "$_p/.ai/start.json.before"
 printf '{"account":"nope"}' > "$_p/.ai/start.json"
 _out="$(_ast "$_p" "$PATH" --dry-run)"
@@ -527,7 +527,7 @@ JSON
 # A tmux shim bound to a socket with NO SERVER on it. The "nothing is running" cases below
 # must test exactly that, and they cannot be left to the ambient host: on a developer
 # machine a tmux server is usually already up, so those assertions passed locally while
-# `ai start --status` was exiting 1 and printing nothing on CI, which has no server. A test
+# `rein start --status` was exiting 1 and printing nothing on CI, which has no server. A test
 # whose subject depends on whether the machine happens to be running tmux is not a test of
 # the code.
 _nosrv_shim() {  # → dir containing a `tmux` that talks to an empty socket
@@ -560,7 +560,7 @@ if command -v tmux >/dev/null 2>&1; then
   rm -rf "$_ns"
 else
   _out="$( cd "$_p" && bash "$AI" start --status 2>&1 )"; _rc=$?
-  _said="tmux is not installed"   # E-384: the no-tmux answer (src/bin/ai _start_status)
+  _said="tmux is not installed"   # E-384: the no-tmux answer (src/bin/rein _start_status)
 fi
 assert_status 0 "E-228.02a: --status exits 0 when nothing is running (rc=${_rc})" bash -c "[[ $_rc -eq 0 ]]"
 assert_contains "E-228.02b: it says so rather than printing nothing" "$_said" "$_out"
@@ -646,11 +646,11 @@ assert_contains "E-228.05c: it reports roles"  "roles mapped" "$_doc"
 assert_contains "E-228.05d: and each role's provider" "engineer →" "$_doc"
 
 # ── E-228.6: the docs point at the launcher, and keep the fallback ────────
-assert_status 0 "E-228.06a: README documents ai start"        grep -q '^ai start$' "${REPO_ROOT}/README.md"
-assert_status 0 "E-228.06b: README documents --status"        grep -q 'ai start --status' "${REPO_ROOT}/README.md"
-assert_status 0 "E-228.06c: README documents --kill"          grep -q 'ai start --kill' "${REPO_ROOT}/README.md"
-# The manual recipe must SURVIVE: hosts without tmux still need it, and `ai start` exits 2
-# and prints it. Replacing the docs with "just run ai start" would strand those users.
+assert_status 0 "E-228.06a: README documents rein start"        grep -q '^rein start$' "${REPO_ROOT}/README.md"
+assert_status 0 "E-228.06b: README documents --status"        grep -q 'rein start --status' "${REPO_ROOT}/README.md"
+assert_status 0 "E-228.06c: README documents --kill"          grep -q 'rein start --kill' "${REPO_ROOT}/README.md"
+# The manual recipe must SURVIVE: hosts without tmux still need it, and `rein start` exits 2
+# and prints it. Replacing the docs with "just run rein start" would strand those users.
 assert_status 0 "E-228.06d: README keeps the manual fallback" \
   grep -q 'Manual fallback' "${REPO_ROOT}/README.md"
 # E-252 (D-068): the recipe is now PER PROJECT. It used to read `tmux new-session -s
@@ -664,49 +664,49 @@ assert_status 0 "E-252.07a: and the recipe is per-project, not one shared sessio
   grep -q 'tmux new-session -s "\$(basename "\$PWD")"' "${REPO_ROOT}/README.md"
 assert_status 1 "E-252.07b: the shared 'rein' session name is gone from the recipe" \
   grep -q 'new-session -s rein' "${REPO_ROOT}/README.md"
-assert_status 0 "E-228.06f: CONTRIBUTING points at ai start" \
-  grep -q 'ai start' "${REPO_ROOT}/CONTRIBUTING.md"
-# E-256 (D-069): the manual recipe binds each pane through `ai pane <role>`, as `ai start`
+assert_status 0 "E-228.06f: CONTRIBUTING points at rein start" \
+  grep -q 'rein start' "${REPO_ROOT}/CONTRIBUTING.md"
+# E-256 (D-069): the manual recipe binds each pane through `rein pane <role>`, as `rein start`
 # does. It used to send a bare one-word CLI name to each pane, which launches an UNBOUND
 # session: no role token, no model, no permission overlay — the recipe that tmux-less hosts
 # depend on would have produced a Triad with no roles in it.
 _recipe="$(sed -n '/Manual fallback/,/<\/details>/p' "${REPO_ROOT}/README.md")"
-assert_contains "E-256.01a: the recipe binds the Engineer pane" "ai pane engineer" "$_recipe"
-assert_contains "E-256.01b: the recipe binds the Architect pane" "ai pane architect" "$_recipe"
+assert_contains "E-256.01a: the recipe binds the Engineer pane" "rein pane engineer" "$_recipe"
+assert_contains "E-256.01b: the recipe binds the Architect pane" "rein pane architect" "$_recipe"
 # D-099 (E-323): the watcher is removed — the recipe is two panes and must not start it.
 assert_not_contains "E-256.01c: the recipe does not start the removed watcher" "ai watch" "$_recipe"
 assert_status 1 "E-256.01d: no pane is sent a bare CLI name" \
   bash -c "printf '%s\n' \"\$1\" | grep -qE \"send-keys( -t [0-9]+)? '[a-z]+'\"" _ "$_recipe"
-assert_status 0 "E-256.01e: ai --help lists ai start and ai pane" \
-  bash -c "'$AI' --help | grep -q '^  ai start' && '$AI' --help | grep -q '^  ai pane'"
+assert_status 0 "E-256.01e: ai --help lists rein start and rein pane" \
+  bash -c "'$AI' --help | grep -q '^  rein start' && '$AI' --help | grep -q '^  rein pane'"
 
 # ── E-228.7: init/sync surface the launcher ───────────────────────────────
-assert_status 0 "E-228.07a: ai init prints an 'ai start' hint" \
-  grep -q 'Or let the launcher do it:  ai start' "$AI"
+assert_status 0 "E-228.07a: rein init prints an 'rein start' hint" \
+  grep -q 'Or let the launcher do it:  rein start' "$AI"
 assert_status 0 "E-228.07b: the sync tail hints too, only when tmux exists" \
-  grep -q "Tip: 'ai start' opens the Triad layout" "$AI"
+  grep -q "Tip: 'rein start' opens the Triad layout" "$AI"
 
 echo ""
 
 # ── E-50 (from alternate_screen_env_test — E-302): CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 ──
-# propagates through bin/ai _configure_project_claude_settings (.claude/settings.json env)
+# propagates through bin/rein _configure_project_claude_settings (.claude/settings.json env)
 # and install-rein.sh (shell rc files) without clobbering pre-existing user values.
-# ── T-ALT-S01: bin/ai injects the env into project settings.json ──────────────
+# ── T-ALT-S01: bin/rein injects the env into project settings.json ──────────────
 echo ""
-echo "  [T-ALT-S01] bin/ai injects via _configure_project_claude_settings"
+echo "  [T-ALT-S01] bin/rein injects via _configure_project_claude_settings"
 
-assert_status 0 "bin/ai sets CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" \
-  grep -q 'CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "bin/rein sets CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" \
+  grep -q 'CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN' "${REPO_ROOT}/src/bin/rein"
 
-# Use setdefault so user-set values are preserved across `ai sync` runs.
-assert_status 0 "bin/ai uses setdefault (preserves user override)" \
-  grep -qE 'env.setdefault\(\s*["\x27]CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN' "${REPO_ROOT}/src/bin/ai"
+# Use setdefault so user-set values are preserved across `rein sync` runs.
+assert_status 0 "bin/rein uses setdefault (preserves user override)" \
+  grep -qE 'env.setdefault\(\s*["\x27]CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN' "${REPO_ROOT}/src/bin/rein"
 
 # ── T-ALT-S02: Active .claude/settings.json carries the flag ─────────────────
 echo ""
 echo "  [T-ALT-S02] Active .claude/settings.json reflects the pin"
 
-# E-290: .claude/settings.json is generated (gitignored) — read the one `ai sync` writes.
+# E-290: .claude/settings.json is generated (gitignored) — read the one `rein sync` writes.
 source "${SCRIPT_DIR}/../lib/generated-settings.sh"
 _GEN_DIR="$(mktemp -d)"; on_exit "rm -rf '$_GEN_DIR'"
 GEN_SETTINGS="$(gen_project_settings "$_GEN_DIR/proj")"
@@ -718,7 +718,7 @@ const s = JSON.parse(readFileSync('${GEN_SETTINGS}', 'utf8'));
 if (s?.env?.CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN !== '1') process.exit(1);
 JS
 else
-  _fail "T-ALT-S02: ai sync did not generate .claude/settings.json"
+  _fail "T-ALT-S02: rein sync did not generate .claude/settings.json"
 fi
 
 # ── T-ALT-S03: install-rein.sh exports the env via shell rc ─────────────────
@@ -785,36 +785,36 @@ assert_status 0 "user override is preserved"      bash -c "[[ '$RES3' == 'kept' 
 assert_status 0 "value still '0' (not clobbered)" grep -q 'CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN="0"' "$RC"
 
 # ── E-62 (from rein_workspace_env_test — E-302): REIN_WORKSPACE injection ──
-# install-rein.sh persists the workspace to config/rein-workspace.txt; bin/ai resolves
+# install-rein.sh persists the workspace to config/rein-workspace.txt; bin/rein resolves
 # env > persisted file > "" and threads it into settings.json env via setdefault.
-# ── T-WS-S01: bin/ai defines _resolve_rein_workspace ──────────────────────────
+# ── T-WS-S01: bin/rein defines _resolve_rein_workspace ──────────────────────────
 echo ""
-echo "  [T-WS-S01] bin/ai exposes _resolve_rein_workspace helper"
+echo "  [T-WS-S01] bin/rein exposes _resolve_rein_workspace helper"
 
-assert_status 0 "bin/ai defines _resolve_rein_workspace()" \
-  grep -q '^_resolve_rein_workspace()' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "bin/rein defines _resolve_rein_workspace()" \
+  grep -q '^_resolve_rein_workspace()' "${REPO_ROOT}/src/bin/rein"
 
 # Order: env first, then persisted file, then empty.
 assert_status 0 "resolver reads \$REIN_WORKSPACE first" \
-  grep -q 'REIN_WORKSPACE:-' "${REPO_ROOT}/src/bin/ai"
+  grep -q 'REIN_WORKSPACE:-' "${REPO_ROOT}/src/bin/rein"
 
 assert_status 0 "resolver falls back to config/rein-workspace.txt" \
-  grep -q 'rein-workspace.txt' "${REPO_ROOT}/src/bin/ai"
+  grep -q 'rein-workspace.txt' "${REPO_ROOT}/src/bin/rein"
 
 # ── T-WS-S02: _configure_project_claude_settings propagates REIN_WORKSPACE ───
 echo ""
 echo "  [T-WS-S02] settings.json env carries REIN_WORKSPACE via setdefault"
 
-assert_status 0 "bin/ai uses setdefault for REIN_WORKSPACE (preserves override)" \
-  grep -qE 'env\.setdefault\(\s*["\x27]REIN_WORKSPACE' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "bin/rein uses setdefault for REIN_WORKSPACE (preserves override)" \
+  grep -qE 'env\.setdefault\(\s*["\x27]REIN_WORKSPACE' "${REPO_ROOT}/src/bin/rein"
 
-assert_status 0 "bin/ai threads REIN_WORKSPACE through to python heredoc" \
-  grep -q 'REIN_WORKSPACE="\${REIN_WORKSPACE_VALUE}" python3' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "bin/rein threads REIN_WORKSPACE through to python heredoc" \
+  grep -q 'REIN_WORKSPACE="\${REIN_WORKSPACE_VALUE}" python3' "${REPO_ROOT}/src/bin/rein"
 
 WS_INSTALL="${REPO_ROOT}/install-rein.sh"
 # ── T-WS-S03 (E-304, D-089 r2): the installer NO LONGER exports REIN_WORKSPACE from profiles ──
 # The persisted ~/.rein/config/rein-workspace.txt is the record; an exported copy in a profile
-# outlived reinstalls and pointed `ai sync` at a working tree (2026-10-04).
+# outlived reinstalls and pointed `rein sync` at a working tree (2026-10-04).
 echo "  [T-WS-S03] install-rein.sh writes no REIN_WORKSPACE export; offers to remove old ones"
 assert_status 1 "install never invokes ensure_env_line for REIN_WORKSPACE (E-304)" \
   grep -qE 'ensure_env_line[[:space:]]+".*"[[:space:]]+"REIN_WORKSPACE"' "$WS_INSTALL"

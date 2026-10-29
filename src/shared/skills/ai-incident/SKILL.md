@@ -34,7 +34,7 @@ when a threshold is exceeded.
 - `verify_markdown_sync` returns SYNC_FAIL with the same anomaly class
   across multiple sessions
 - A hook (`pre-commit`, `stop-hook`, `post-tool-log`) silently fails
-- `ai sync` overwrites a per-project skill mirror in a way the user did
+- `rein sync` overwrites a per-project skill mirror in a way the user did
   not expect (drift between a source skill and its installed mirror)
 - Any task is filed into the wrong workspace (project vs framework)
 - A deterministic test starts producing flaky results
@@ -103,7 +103,7 @@ Where `_resolve_incident_helper` is the same locator chain used by the
 WAL flusher (E-58):
 
 1. `src/shared/incident-append.mjs` (in-repo dev tree)
-2. `${SELF_DIR}/../shared/incident-append.mjs` (relative to bin/ai)
+2. `${SELF_DIR}/../shared/incident-append.mjs` (relative to bin/rein)
 3. `${HOME}/.rein/shared/incident-append.mjs` (installed mirror)
 
 If `node` is unavailable or none of the candidates exist, log a warning

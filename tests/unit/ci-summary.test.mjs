@@ -2,8 +2,8 @@
 //
 // One runner over the contract table tests/fixtures/ci-summary-cases.json: one row per
 // summary shape (Rein, vitest, node --test TAP and spec, pytest, jest), including the
-// downstream-project vitest log shape that `ai ci run` recorded as pass=0 before E-310. Extends nothing:
-// the old parser was a bash sed in src/bin/ai with no test of its own.
+// downstream-project vitest log shape that `rein ci run` recorded as pass=0 before E-310. Extends nothing:
+// the old parser was a bash sed in src/bin/rein with no test of its own.
 //
 // Run standalone: node --test tests/unit/ci-summary.test.mjs
 

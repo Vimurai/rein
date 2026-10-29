@@ -6,7 +6,7 @@
 # environment or argv input; it is the most restricted live launch record on the process chain,
 # minted into an HMAC token bound to the session process (pid + start time), and verified only
 # for a descendant of that process. Every case builds a REAL process chain — `bash -c` processes
-# write records for their own pid and mint for their own pid, exactly as `ai pane` and the
+# write records for their own pid and mint for their own pid, exactly as `rein pane` and the
 # SessionStart hook do — in a hermetic HOME (rule 6). The hooks run from the repo, the framework
 # clone, so the locator resolves the dev tree's safe-exec.
 set -uo pipefail
@@ -18,7 +18,7 @@ export SE="${REPO_ROOT}/src/mcp/safe-exec-mcp/index.js"
 export LR="${REPO_ROOT}/src/shared/launch-record.py"
 export SSH_HOOK="${REPO_ROOT}/hooks/session-start.sh"
 export PTU="${REPO_ROOT}/hooks/pre-tool-use.sh"
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 _T="$(test_tmpdir roletok)"
 export HOME="${_T}/home"; mkdir -p "${HOME}/.rein"; chmod 755 "${HOME}/.rein"
 tc_fixture_home "$HOME"   # E-345 (D-109 r1): the toolchain record the hooks pin
@@ -186,7 +186,7 @@ _o="$(SS="$_ss" W="$_w" B="$_b" bash -c 'python3 -I "$LR" write $$ architect >/d
   printf "%s" "$SS" | bash "$SSH_HOOK" engineer
   echo; printf "%s" "$W" | bash "$PTU" >/dev/null 2>&1; echo "write=$?"
   printf "%s" "$B" | bash "$PTU" >/dev/null 2>&1; echo "push=$?"' 2>/dev/null)"
-assert_contains "R09: an ai-pane-architect launch with engineer env claims still stamps architect" "[REIN_ROLE] architect" "$_o"
+assert_contains "R09: a rein-pane-architect launch with engineer env claims still stamps architect" "[REIN_ROLE] architect" "$_o"
 assert_contains "R09: …and blocks a src/ write" "write=2" "$_o"
 assert_contains "R09: …and blocks git push" "push=2" "$_o"
 _ss='{"session_id":"rt-plainhk","source":"startup"}'
@@ -243,7 +243,7 @@ _o="$(bash "${_T}/p11b.sh" 2>/dev/null)"
 assert_contains "R11 P1-1b: an empty process snapshot makes prune refuse (any host)" "prune=1" "$_o"
 assert_contains "R11 P1-1b: …the live architect record survives" "record=kept" "$_o"
 assert_contains "R11 P1-1b: …and the walk is the union" '"result": "union"' "$_o"
-# P2-1: an `ai pane architect` started inside a PLAIN session sits between that session's token
+# P2-1: a `rein pane architect` started inside a PLAIN session sits between that session's token
 # and the verifier; borrowing the plain session's id must not yield engineer there.
 _o="$(bash -c 'node --no-warnings "$SE" --mint-token rt-plainparent $$ >/dev/null 2>&1
   bash -c "python3 -I \"\$LR\" write \$\$ architect >/dev/null; node --no-warnings \"\$SE\" --verify-role rt-plainparent"' 2>/dev/null)"

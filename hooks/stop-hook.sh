@@ -39,7 +39,7 @@ unset _v _p
 # pointing it at a decoy made this bootstrap SOURCE the decoy's own locate.sh, i.e.
 # arbitrary shell inside a fail-closed gate. Assigned here, in the hook's own text, so it
 # overrides anything inherited.
-# Exported so a child process — an `ai` subcommand spawned from this hook — inherits
+# Exported so a child process — a `rein` subcommand spawned from this hook — inherits
 # the same judgement rather than defaulting back to trusting the environment.
 export REIN_LOCATE_UNTRUSTED_ENV=1
 _REIN_HOME_DIR="${HOME}/.rein"
@@ -110,7 +110,7 @@ SUMMARY="${SUMMARY:0:100}"
 # E-213 (§Components 4): stamp WHICH provider ran WHICH role, instead of a hardcoded
 # "Claude". Under a same-provider Triad both panes are Claude, so the provider alone no
 # longer identifies the session. Role comes from the launch-time pane role (set by
-# `ai pane`) or the advisory env; provider from .ai/roles.json. Fails soft to "Claude"
+# `rein pane`) or the advisory env; provider from .ai/roles.json. Fails soft to "Claude"
 # — a session stamp must never break the Stop hook.
 ACTOR="Claude"
 _E213_ROLE="${REIN_PANE_ROLE:-${REIN_CALLER_ROLE:-engineer}}"

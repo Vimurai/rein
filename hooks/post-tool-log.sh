@@ -151,13 +151,13 @@ if (( LOG_LINE_COUNT >= ARCHIVE_THRESHOLD )); then
     # Workspace CLEAN — trigger archive automatically
     printf "[AUTO-ARCHIVE] LOG.md reached %d lines — archiving .ai/ logs...\n" "$LOG_LINE_COUNT" >&2
     AI_BIN=""
-    for _p in "/usr/local/bin/ai" "${HOME}/.rein/bin/ai"; do
+    for _p in "/usr/local/bin/rein" "${HOME}/.rein/bin/rein"; do
       [[ -x "$_p" ]] && AI_BIN="$_p" && break
     done
     if [[ -n "$AI_BIN" ]]; then
-      bash "$AI_BIN" archive >/dev/null 2>&1 || printf "[AUTO-ARCHIVE] Archive command failed — run: ai archive\n" >&2
+      bash "$AI_BIN" archive >/dev/null 2>&1 || printf "[AUTO-ARCHIVE] Archive command failed — run: rein archive\n" >&2
     else
-      printf "[AUTO-ARCHIVE] 'ai' binary not found — run: ai archive manually\n" >&2
+      printf "[AUTO-ARCHIVE] 'rein' binary not found — run: rein archive manually\n" >&2
     fi
   elif (( OPEN_TASKS > 0 )); then
     # Workspace DIRTY — open tasks remain

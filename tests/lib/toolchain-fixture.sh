@@ -14,7 +14,7 @@
 #       is what the hook runs. --no-pin also omits shared/toolchain-pin.sh, so a hook run
 #       from a tree copy loads that tree's own pin (see tc_stale_tree).
 #   tc_fixture_home <home>
-#       E-345 (D-109 r1): THE way to make a fixture HOME that a hook, `ai`, or a pin-loading
+#       E-345 (D-109 r1): THE way to make a fixture HOME that a hook, `rein`, or a pin-loading
 #       script runs under. Writes <home>/.rein/shared/toolchain.sh through the installer's
 #       own rein_tc_write with the host's resolved node, python3 and nice — the values
 #       install-rein.sh records — and puts this tree's toolchain-pin.sh beside it, as the
@@ -23,7 +23,7 @@
 #       the pin with its fallback list emptied, as tc_stale_tree does: a suite that passes
 #       under it finds node through the record alone, on any host.
 #       tests/tools/fixture-home-census.mjs fails a run whose suite sets a HOME and runs a
-#       hook or `ai` without calling this (or tc_overlay_home).
+#       hook or `rein` without calling this (or tc_overlay_home).
 #   tc_link_shared <home> [<src-shared>]
 #       tc_fixture_home plus every other entry of <src-shared> (default src/shared) linked
 #       into the fixture's REAL shared/ — for a mirror that points at the code under test.

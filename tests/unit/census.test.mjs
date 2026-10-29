@@ -43,8 +43,8 @@ function put(root, rel, text) {
 // gamma        node c.mjs, never failed                                   → delete:table
 // flaky        node d.mjs, FAILED in CI                                   → paid rent: no delete
 // e123_widget  bash hooks/h.sh                                            → misnamed
-// hub1..hub5   ai <subcommand> only — src/bin/ai is a HUB                 → nothing
-// installer    alpha_twin: declared subject with 2 runs; hub1: an UNDECLARED ai init; beta: declared, none measured
+// hub1..hub5   ai <subcommand> only — src/bin/rein is a HUB                 → nothing
+// installer    alpha_twin: declared subject with 2 runs; hub1: an UNDECLARED rein init; beta: declared, none measured
 const SUITES = {
   alpha: 'source tests/lib/assert.sh\nassert_contains "E-1.01a: a" x "$(node src/shared/a.mjs)"\nassert_status 0 "E-1.01b: b" true\n',
   alpha_twin: '# REIN_INSTALLER_SUBJECT\nassert_contains "abef" x "$(cat src/shared/a.mjs src/shared/b.mjs src/shared/e.mjs src/shared/f.mjs)"\n',
@@ -69,12 +69,12 @@ function censusInput(root) {
     ["gamma", "node", "src/shared/c.mjs"],
     ["flaky", "node", `${root}/src/shared/d.mjs`],      // an absolute path the recorder could not strip
     ["e123_widget", "bash", "hooks/h.sh"],
-    ["hub1", "ai", "one"], ["hub2", "ai", "two"], ["hub3", "ai", "three"], ["hub4", "ai", "four"], ["hub5", "ai", "five"],
-    // E-311: installer lines — alpha_twin is a declared subject, hub1 runs `ai init` undeclared.
+    ["hub1", "rein", "one"], ["hub2", "rein", "two"], ["hub3", "rein", "three"], ["hub4", "rein", "four"], ["hub5", "rein", "five"],
+    // E-311: installer lines — alpha_twin is a declared subject, hub1 runs `rein init` undeclared.
     // E-312: …each with its spawn's HOME class: alpha_twin's own temp HOME and run HOME (shared
     // lane), hub1's foreign one (exclusive).
-    ["alpha_twin", "installer", "install-rein.sh\ttmp"], ["alpha_twin", "installer", "ai init\trun"],
-    ["hub1", "installer", "ai init\tforeign:/srv/shared"],
+    ["alpha_twin", "installer", "install-rein.sh\ttmp"], ["alpha_twin", "installer", "rein init\trun"],
+    ["hub1", "installer", "rein init\tforeign:/srv/shared"],
   ];
   const lines = ["CENSUS_RUN\t2026-10-04T10:00:00Z\tabc\t*_test.sh"];
   for (const s of Object.keys(SUITES)) lines.push(`CENSUS_SUITE\t${s}_test.sh\t${s === "alpha" ? 2500 : 100}\t2\t0\t0\t0`);
@@ -85,7 +85,7 @@ function censusInput(root) {
 
 function ciLog(root, { sha, started, dirty = 0, failed = [], passed = [], census = "" }) {
   return [
-    "[ci] ai ci run — Rein 3.1.0",
+    "[ci] rein ci run — Rein 3.1.0",
     `[ci] sha=${sha} ref=HEAD dirty=${dirty} started_at=${started}`,
     `[ci] repo=${root}`,
     "[ci] ── suite: /bin/bash tests/run.sh",
@@ -102,7 +102,7 @@ function fixtureRepo() {
   const t = tmp("repo");
   const r = t.d;
   for (const f of ["a", "b", "c", "d", "e", "f"]) put(r, `src/shared/${f}.mjs`, `export const ${f} = 1;\n`);
-  put(r, "src/bin/ai", "#!/usr/bin/env bash\necho ai\n");
+  put(r, "src/bin/rein", "#!/usr/bin/env bash\necho ai\n");
   put(r, "hooks/h.sh", "#!/usr/bin/env bash\nexit 0\n");
   put(r, "hooks/h2.sh", "#!/usr/bin/env bash\nexit 0\n");
   put(r, "src/README.md", "not code\n");
@@ -128,8 +128,8 @@ test("inventory: suites, unit files, and line totals (src counts code only)", ()
     const inv = inventory(f.r);
     assert.equal(inv.suites.length, Object.keys(SUITES).length);
     assert.equal(inv.unitFiles.length, 1);
-    assert.equal(inv.srcLines, 6 + 2 + 2 + 2, "6 one-line modules + src/bin/ai + two hooks; README excluded");
-    assert.ok(inv.srcSet.has("hooks/h.sh") && inv.srcSet.has("src/bin/ai"));
+    assert.equal(inv.srcLines, 6 + 2 + 2 + 2, "6 one-line modules + src/bin/rein + two hooks; README excluded");
+    assert.ok(inv.srcSet.has("hooks/h.sh") && inv.srcSet.has("src/bin/rein"));
   } finally { f.done(); }
 });
 
@@ -161,7 +161,7 @@ test("misnamed: the blueprint's task-id pattern", () => {
 
 // ── dynamic footprint ────────────────────────────────────────────────────────
 test("resolveTarget: repo-relative, CI worktree, installed mirror, inline programs, ai", () => {
-  const s = new Set(["src/shared/a.mjs", "src/bin/ai", "hooks/h.sh", "src/mcp/x-mcp/index.js"]);
+  const s = new Set(["src/shared/a.mjs", "src/bin/rein", "hooks/h.sh", "src/mcp/x-mcp/index.js"]);
   assert.equal(resolveTarget("node", "src/shared/a.mjs", s), "src/shared/a.mjs");
   assert.equal(resolveTarget("node", "./src/shared/a.mjs", s), "src/shared/a.mjs");
   assert.equal(resolveTarget("node", "/private/var/T/rein-ci.X/wt/src/shared/a.mjs", s), "src/shared/a.mjs");
@@ -169,19 +169,19 @@ test("resolveTarget: repo-relative, CI worktree, installed mirror, inline progra
   assert.equal(resolveTarget("bash", "/tmp/sbx/.rein/hooks/h.sh", s), "hooks/h.sh");
   assert.equal(resolveTarget("node", "/x/mcp/x-mcp/index.js", s), "src/mcp/x-mcp/index.js");
   assert.equal(resolveTarget("node", "-e:src/shared/a.mjs", s), "src/shared/a.mjs");
-  assert.equal(resolveTarget("bash", "-c:src/bin/ai", s), "src/bin/ai");
-  assert.equal(resolveTarget("ai", "status", s), "src/bin/ai");
+  assert.equal(resolveTarget("bash", "-c:src/bin/rein", s), "src/bin/rein");
+  assert.equal(resolveTarget("rein", "status", s), "src/bin/rein");
   for (const a of ["-e", "-c", "-", "-m json.tool", "<inline>", "/tmp/fixture.sh", "tests/lib/assert.sh"]) {
     assert.equal(resolveTarget("node", a, s), null, a);
   }
 });
 
 test("spawnShape: pure-node only when EVERY spawn is node <src module>", () => {
-  const s = new Set(["src/shared/a.mjs", "hooks/h.sh", "src/bin/ai"]);
+  const s = new Set(["src/shared/a.mjs", "hooks/h.sh", "src/bin/rein"]);
   const n = (arg) => ({ cmd: "node", arg, count: 1 });
   assert.equal(spawnShape([n("src/shared/a.mjs"), n("-e:src/shared/a.mjs")], s), "pure-node");
   assert.equal(spawnShape([n("src/shared/a.mjs"), n("-e")], s), "mixed", "an inline program with no src module is a process");
-  assert.equal(spawnShape([{ cmd: "bash", arg: "hooks/h.sh", count: 1 }, { cmd: "ai", arg: "x", count: 1 }], s), "process");
+  assert.equal(spawnShape([{ cmd: "bash", arg: "hooks/h.sh", count: 1 }, { cmd: "rein", arg: "x", count: 1 }], s), "process");
   assert.equal(spawnShape([], s), "none");
   assert.equal(spawnShape(null, s), null, "no dynamic data = unknown, not 'none'");
 });
@@ -372,7 +372,7 @@ test("baselineFromLog: the suite step's rows, header first; worktree paths relat
     "CENSUS_FP\tcli_test.sh\t2\tnode\t-e:src/shared/a.mjs",
     "CENSUS_FP\tgate_test.sh\t1\tpython3\t/tmp/rein-ci.R2zF/tmp/tmp.X/home/.rein/shared/g.py",
     "CENSUS_FP\tinst_test.sh\t1\tinstaller\tinstall-rein.sh\tforeign:/tmp/rein-ci.R2zF/tmp/tmp.Y/home",
-    "CENSUS_FP\tinit_test.sh\t12\tinstaller\tai init\ttmp",
+    "CENSUS_FP\tinit_test.sh\t12\tinstaller\trein init\ttmp",
     "CENSUS_TOTAL\t46\t6921\t0\t25",
     "",
     "━━ Results ━━",
@@ -387,7 +387,7 @@ test("baselineFromLog: the suite step's rows, header first; worktree paths relat
     "CENSUS_FP\tcli_test.sh\t4\tnode\tscripts/generate_blueprints_index.mjs",
     "CENSUS_FP\tcli_test.sh\t2\tnode\t-e:src/shared/a.mjs",
     "CENSUS_FP\tinst_test.sh\t1\tinstaller\tinstall-rein.sh\tforeign",
-    "CENSUS_FP\tinit_test.sh\t12\tinstaller\tai init\ttmp",
+    "CENSUS_FP\tinit_test.sh\t12\tinstaller\trein init\ttmp",
   ].join("\n") + "\n");
   assert.equal(baselineFromLog("[ci] ── suite: x\n(no census)"), null, "no suite census → no baseline");
 });

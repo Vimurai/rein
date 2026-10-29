@@ -41,7 +41,7 @@ const SHA = "a".repeat(40);
 const base = (over = {}) => ({ sha: SHA, ref: "HEAD", status: "PASS", started_at: "2026-09-17T10:00:00Z", ...over });
 
 const LOG = [
-  "[ci] ai ci run — Rein 3.1.0",
+  "[ci] rein ci run — Rein 3.1.0",
   `[ci] sha=${SHA} ref=HEAD dirty=0 started_at=2026-09-17T10:00:00Z`,
   "[ci] repo=/r",
   "[ci] branch=engineer/x",
@@ -175,7 +175,7 @@ test("recordCiRunFromLog: every column populated; a truncated log records ERROR"
   try {
     const p = join(d, "run.log");
     // E-303: the runner writes a budget line too; budget_ruling, like skip_reason, is set only
-    // by a ruling (`ai ci budget set`), never by a run; shard (E-386) is NULL on a full run.
+    // by a ruling (`rein ci budget set`), never by a run; shard (E-386) is NULL on a full run.
     writeFileSync(p, `${LOG}\n[ci] budget suites=45 test_lines=39444 fast_tier_seconds=37 full_seconds=418 peak_rss_mb=247 peak_sum_rss_mb=2140\n`);
     const row = db.prepare("SELECT * FROM ci_runs WHERE id = ?").get(recordCiRunFromLog(db, p));
     const empty = Object.entries(row).filter(([k, v]) => v === null && k !== "skip_reason" && k !== "budget_ruling" && k !== "shard").map(([k]) => k);
@@ -231,8 +231,8 @@ test("shortLine: PASS, FAIL, DIRTY, NONE and SKIPPED", () => {
   const row = base({ suite_pass: 4744, suite_fail: 0, suite_skip: 2, unit_status: "PASS", leaked: 0 });
   assert.equal(shortLine({ kind: "PASS", row }, SHA, now), "PASS aaaaaaa 7m ago (suite 4744/0/2, unit PASS, leaked 0)");
   assert.match(shortLine({ kind: "FAIL", row: { ...row, status: "FAIL" } }, SHA, now), /^FAIL aaaaaaa 7m ago/);
-  assert.match(shortLine({ kind: "DIRTY", row: { ...row, dirty: 1 } }, SHA, now), /^DIRTY .*not a certification; run: ai ci run$/);
-  assert.equal(shortLine({ kind: "NONE", row: null }, SHA, now), "NONE aaaaaaa — no local CI run; run: ai ci run");
+  assert.match(shortLine({ kind: "DIRTY", row: { ...row, dirty: 1 } }, SHA, now), /^DIRTY .*not a certification; run: rein ci run$/);
+  assert.equal(shortLine({ kind: "NONE", row: null }, SHA, now), "NONE aaaaaaa — no local CI run; run: rein ci run");
   assert.match(shortLine({ kind: "SKIPPED", row: { ...row, status: "SKIPPED", skip_reason: "hotfix" } }, SHA, now),
     /skipped: hotfix$/);
   assert.equal(ageOf("2026-09-15T10:07:00Z", now), "2d ago");
@@ -362,7 +362,7 @@ test("a shard PASS never certifies: not its sha, not as an ancestor, never as a 
     const id = recordCiRun(db, parseCiLog(head.join("\n")));
     const v = ciVerdict(db, tested);
     assert.equal(v.kind, "SHARD");
-    assert.match(shortLine(v, tested), /^SHARD 2\/4 [0-9a-f]{7} .*shard run PASS, not a certification; run: ai ci run$/);
+    assert.match(shortLine(v, tested), /^SHARD 2\/4 [0-9a-f]{7} .*shard run PASS, not a certification; run: rein ci run$/);
     assert.equal(certifyingRunFor(db, d, tested).ok, false);
     assert.equal(certifyingRunFor(db, d, book).ok, false, "a shard PASS on the ancestor does not carry a bookkeeping commit");
     assert.equal(checkCiDoneGate(db, d, {}).ok, false);
@@ -432,7 +432,7 @@ test("checkCiDoneGate: adoption-off, REIN_CI_GATE=0, no-row, FAIL, dirty-only, P
     g = checkCiDoneGate(db, d, {});
     assert.equal(g.ok, false);
     assert.equal(g.message,
-      `[CI_GATE] no green local CI run for HEAD ${head.slice(0, 7)} (no run for it or for an ancestor that differs only in .ai/) — run: ai ci run (bypass: REIN_CI_GATE=0)`);
+      `[CI_GATE] no green local CI run for HEAD ${head.slice(0, 7)} (no run for it or for an ancestor that differs only in .ai/) — run: rein ci run (bypass: REIN_CI_GATE=0)`);
     assert.equal(checkCiDoneGate(db, d, { REIN_CI_GATE: "0" }).ok, true);
 
     recordCiRun(db, base({ sha: head, dirty: true }));
@@ -542,7 +542,7 @@ test("a member's pulled PASS record lets another clone mark DONE and push the sh
   assert.equal(r.code, 0, r.stderr);
   r = cli("gate", "--ai-dir", a.ai, "--sha", head);
   assert.equal(r.code, 0, r.stderr);
-  // `ai ci status <sha>` names the source.
+  // `rein ci status <sha>` names the source.
   r = cli("status", "--ai-dir", a.ai, "--sha", x);
   assert.equal(r.code, 0);
   assert.match(r.stdout, /certified by the team record \.ai\/ci\/[0-9a-f]{40}\.json\n {2}runner: {3}b@x\.test/);
@@ -636,7 +636,7 @@ test("without team.json: no record is written, read or counted (the E-266/E-267 
     const id = recordCiRun(db, base({ sha: head }));
     const w = writeCiRecord(join(d, ".ai"), db.prepare("SELECT * FROM ci_runs WHERE id = ?").get(id));
     assert.deepEqual({ written: w.written, reason: w.reason }, { written: false, reason: "not a team project" });
-    // `record` through the CLI, as `ai ci run` calls it: the row only.
+    // `record` through the CLI, as `rein ci run` calls it: the row only.
     const other = sha40("e");
     const log = join(d, "run.log");
     writeFileSync(log, LOG.replaceAll(SHA, other));

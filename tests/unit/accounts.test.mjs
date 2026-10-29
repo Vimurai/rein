@@ -1,7 +1,7 @@
 // tests/unit/accounts.test.mjs — the Claude account registry (E-314, D-095, accounts.md §1 and §4)
 //
 // src/shared/accounts.py is the one resolver and validator of account names and config
-// directories; src/bin/ai-account.sh is the `ai account` glue around it. The resolver is a
+// directories; src/bin/rein-account.sh is the `rein account` glue around it. The resolver is a
 // table (name/dir → exit code + first token); the glue is a process boundary (a throwaway
 // HOME, a stub `claude` on PATH), so both are driven from node:test rather than a bash suite.
 // Nothing here reads or writes the operator's ~/.claude, ~/.rein or Keychain.
@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PY = join(REPO, "src", "shared", "accounts.py");
-const AI = join(REPO, "src", "bin", "ai");
+const AI = join(REPO, "src", "bin", "rein");
 
 function fixtureHome() {
   const h = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-acct-")));
@@ -111,7 +111,7 @@ test("resolver table: names, directories, registration (accounts.py)", () => {
   } finally { done(); }
 });
 
-test("ai account add: creates, seeds by copy, registers; ~/.claude untouched, nothing private copied", () => {
+test("rein account add: creates, seeds by copy, registers; ~/.claude untouched, nothing private copied", () => {
   const { h, done } = fixtureHome();
   try {
     stubClaude(h);
@@ -150,7 +150,7 @@ test("ai account add: creates, seeds by copy, registers; ~/.claude untouched, no
   } finally { done(); }
 });
 
-test("ai account list: default first, login from claude auth status, MISMATCH when it reports another dir", () => {
+test("rein account list: default first, login from claude auth status, MISMATCH when it reports another dir", () => {
   const { h, done } = fixtureHome();
   try {
     stubClaude(h);
@@ -192,15 +192,15 @@ test("copy never writes through a link at the destination (seeding and sync)", (
 test("an exported bash function cannot stand in for the account library (E-223 class)", () => {
   const { h, done } = fixtureHome();
   try {
-    // A copy of ai WITHOUT ai-account.sh beside it — the partial install the guard exists for.
+    // A copy of ai WITHOUT rein-account.sh beside it — the partial install the guard exists for.
     mkdirSync(join(h, "bin"));
-    copyFileSync(AI, join(h, "bin", "ai"));
-    const r = spawnSync("/bin/bash", [join(h, "bin", "ai"), "account", "list"], {
+    copyFileSync(AI, join(h, "bin", "rein"));
+    const r = spawnSync("/bin/bash", [join(h, "bin", "rein"), "account", "list"], {
       encoding: "utf8", input: "",
       env: { HOME: h, PATH: "/usr/bin:/bin", "BASH_FUNC_do_account%%": "() {  echo PWNED; }" },
     });
     assert.doesNotMatch(r.stdout + r.stderr, /PWNED/);
     assert.equal(r.status, 2);
-    assert.match(r.stderr, /ai-account\.sh is missing/);
+    assert.match(r.stderr, /rein-account\.sh is missing/);
   } finally { done(); }
 });

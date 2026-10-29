@@ -54,7 +54,7 @@ Structure:
 
 Rules:
 - Subject line ≤ 72 characters including `(E-##)` suffix.
-- Scope = affected component (e.g. `ai-exec`, `hooks`, `skills`, `mcp`).
+- Scope = affected component (e.g. `rein-exec`, `hooks`, `skills`, `mcp`).
 - Always append the E-## task ID(s) in the subject.
 - If multiple tasks: list them `(E-129, E-130)`.
 - If a `[TIER_N]` tag is required (Tier 2+), include it in the body, not the subject.

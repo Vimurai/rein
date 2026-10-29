@@ -155,7 +155,7 @@ assert_status 0 "E-307.F6: grep finds no unmarked fixed sleep in tests/suites" \
 
 # ── A private socket does not isolate the CONFIG ─────────────────────────────
 # The operator's ~/.tmux.conf (tmux-continuum auto-restore) put their saved sessions into
-# ai_start_test's server. assert.sh now shims `tmux` with `-f /dev/null`; prove it against a
+# rein_start_test's server. assert.sh now shims `tmux` with `-f /dev/null`; prove it against a
 # fixture HOME whose config sets a marker option, and prove the fixture itself would load.
 if skip_unless_cmd tmux "tmux config isolation"; then
   _cf_home="$(mktemp -d)"; register_cleanup "rm -rf '${_cf_home}'"
@@ -335,7 +335,7 @@ assert_status 0 "E-240.05f: the sweep re-checks the prefix before killing" \
 # ── E-265: a leak FAILS a local CI run (REIN_CI=local) too ─────────────
 # Behavioural, not a grep: a copy of the real runner drives one suite that leaks a
 # test-prefixed temp dir. Without a CI flag the run passes and offers --sweep; under
-# REIN_CI=local (what `ai ci run` sets) the same leak fails the run.
+# REIN_CI=local (what `rein ci run` sets) the same leak fails the run.
 _LK="$(test_tmpdir leakrun)"
 mkdir -p "${_LK}/tests/suites" "${_LK}/tmp"
 cp "$RUNNER" "${_LK}/tests/run.sh"
@@ -446,7 +446,7 @@ assert_status 0 "E-309.L8: --lanes 1 and --lanes 2 give the same suite results a
 _ln_cap="$(_ln_run REIN_TEST_LANES=3)"; _ln_crc=$?
 assert_contains "E-309.L9: a request above the memory cap is refused with the cap on one line" "--lanes 3 refused — memory cap is 2 lane(s) (4096 MB free / 1536 MB per lane)" "$_ln_cap"
 assert_status 0 "E-309.L9b: …exit 2 (rc=${_ln_crc})" test "$_ln_crc" -eq 2
-# E-332 found it: `ai ci run` passes an EMPTY hint when no log of the project is left, and the
+# E-332 found it: `rein ci run` passes an EMPTY hint when no log of the project is left, and the
 # runner's own fallback search over ~/.rein/ci/logs found none with CENSUS lines either — the
 # search's failed last grep killed run.sh under set -e with no message, 0 suites run. A missing
 # hint is not an error (E-309).
@@ -464,7 +464,7 @@ rm -f "${_LN}/tests/suites/"*_test.sh
 for _s in d_own e_foreign f_unmeasured; do
   printf '#!/usr/bin/env bash\n# REIN_INSTALLER_SUBJECT: fixture\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/${_s}_test.sh"
 done
-printf 'CENSUS_SUITE\td_own_test.sh\t100\t1\t0\t0\t0\nCENSUS_FP\td_own_test.sh\t2\tinstaller\tai init\ttmp\nCENSUS_FP\te_foreign_test.sh\t1\tinstaller\tinstall-rein.sh\tforeign:/srv/shared\n' > "${_LN}/hints.log"
+printf 'CENSUS_SUITE\td_own_test.sh\t100\t1\t0\t0\t0\nCENSUS_FP\td_own_test.sh\t2\tinstaller\trein init\ttmp\nCENSUS_FP\te_foreign_test.sh\t1\tinstaller\tinstall-rein.sh\tforeign:/srv/shared\n' > "${_LN}/hints.log"
 _ln_cls="$(env -u CI -u REIN_TEST_NO_SWEEP HOME="${_LN}/home" REIN_TEST_WALL_HINTS="${_LN}/hints.log" REIN_TEST_FREE_MB=4096 \
   REIN_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
 assert_contains "E-312.H1: a suite whose installer spawns all had a temp HOME shares a lane" "Lane: d_own_test.sh shared" "$_ln_cls"
@@ -583,13 +583,13 @@ _pp="$(_perf_probe 0 8 500 20)"
 assert_not_contains "E-296.02d: without overload there is NO retry (the first measurement decides)" "RETRY" "$_pp"
 
 # ── E-240.6: the previously-leaking suites are converted ──────────────────
-# E-302: ai_start_surface_test merged into ai_start_test — the second pair pins that suite's
+# E-302: ai_start_surface_test merged into rein_start_test — the second pair pins that suite's
 # E-228 section (its live tmux layer, socket e228) in its new home.
-for _ls in "ai_start_test|test_tmux_socket" "ai_start_test (E-228 section)|test_tmux_socket e228"; do
+for _ls in "rein_start_test|test_tmux_socket" "rein_start_test (E-228 section)|test_tmux_socket e228"; do
   assert_status 0 "E-240.06: ${_ls%%|*} uses test_tmux_socket" \
-    grep -q "${_ls#*|}" "${REPO_ROOT}/tests/suites/ai_start_test.sh"
+    grep -q "${_ls#*|}" "${REPO_ROOT}/tests/suites/rein_start_test.sh"
   assert_status 1 "E-240.06: ${_ls%%|*} no longer names a socket with \$\$" \
-    grep -q 'rein-e22[78]-\$\$' "${REPO_ROOT}/tests/suites/ai_start_test.sh"
+    grep -q 'rein-e22[78]-\$\$' "${REPO_ROOT}/tests/suites/rein_start_test.sh"
 done
 
 # ── E-240.7: review question #3 is recorded ──────────────────────────────
@@ -713,7 +713,7 @@ assert_status 0 "E-241.05b: and in ai-debug" \
 echo ""
 
 # ── E-264 (from launch_vars_test — E-302, D-071 §4): inherited launch variables ──
-# The harness strips the variables `ai pane`, `ai start` and the Rein shell export, because the
+# The harness strips the variables `rein pane`, `rein start` and the Rein shell export, because the
 # hooks rank them above a test's own inputs. Pins: no dead LAUNCH_VARS entries; the strip and its
 # REIN_TEST_KEEP_LAUNCH_ENV=1 rollback; the harness started from a bound Architect pane.
 LV="${REPO_ROOT}/tests/lib/launch-vars.sh"
@@ -741,7 +741,7 @@ assert_status 0 "E-264.02c: the strip returns STATE, not data (prints nothing)" 
 
 # ── E-264.3: acceptance — the harness under a hostile launch environment ───
 echo "  [E-264.3] tests/run.sh started from a bound Architect pane"
-# Local mode explicitly: the outer run may be `ai ci run`. No sweep: the outer run owns it.
+# Local mode explicitly: the outer run may be `rein ci run`. No sweep: the outer run owns it.
 _hostile() {
   ( cd "$REPO_ROOT" && env -u REIN_CI -u CI REIN_PANE_ROLE=architect REIN_CALLER_ROLE=architect \
       REIN_WORKSPACE=/nonexistent REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1
@@ -918,7 +918,7 @@ printf '{"tool_name":"Bash","execution_time_ms":1,"status":"SUCCESS"}' | env -u 
 _pass "leaky fixture wrote to the live store"
 assert_summary
 EOF
-# Local mode explicitly (the outer run may be `ai ci run`, which sets REIN_CI=local and
+# Local mode explicitly (the outer run may be `rein ci run`, which sets REIN_CI=local and
 # switches the gate to the growth rule); the CI mode is driven separately below.
 _run() { ( cd "$TI_ROOT" && env -u REIN_CI -u CI HOME="$FAKE_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
 _run_ci() { ( cd "$TI_ROOT" && env -u CI REIN_CI=local HOME="$FAKE_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
@@ -1061,7 +1061,7 @@ assert_status 0 "E-239.06e: the baseline is a MEDIAN, not a mean" \
   grep -q 'runs\[len(runs) // 2\]' "${REPO_ROOT}/tests/lib/assert.sh"
 
 # ── E-265: a local CI run (REIN_CI=local) stays host-relative ───────────
-# `ai ci run` unsets CI and sets REIN_CI=local. This host is not the ubuntu reference
+# `rein ci run` unsets CI and sets REIN_CI=local. This host is not the ubuntu reference
 # machine the absolute budgets were calibrated on, so the incident case must still PASS.
 assert_contains "E-265.P1: REIN_CI=local keeps the relative budget (the 381ms incident passes)" \
   "PASS" "$(_verdict 'CI=; REIN_CI=local' 381 200 197)"

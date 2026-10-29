@@ -170,7 +170,7 @@ export function withTelemetry(serverName, handler, opts = {}) {
  */
 export function instrument(server, serverName, callToolSchema, opts = {}) {
   // E-249: record the booted build NOW, at startup, not on the first tool call. A server
-  // that is never called still needs to appear in `ai doctor`'s stale list — a stale
+  // that is never called still needs to appear in `rein doctor`'s stale list — a stale
   // server nobody has invoked yet is exactly the one about to serve a wrong answer.
   try { bootedBuild(serverName); } catch { /* startup must survive a read-only HOME */ }
 

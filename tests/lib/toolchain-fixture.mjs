@@ -3,7 +3,7 @@
 // A hook ASSIGNS its PATH (E-286) and finds node through the install-time record
 // ~/.rein/shared/toolchain.sh, falling back to a FIXED dir list (/usr/bin, /bin,
 // /usr/local/bin, /opt/homebrew/bin). A fixture HOME has no record, so on a host whose node
-// lives anywhere else (Linuxbrew, nvm, fnm) every hook-driven `ai` call reported "node not
+// lives anywhere else (Linuxbrew, nvm, fnm) every hook-driven `rein` call reported "node not
 // found" and the test failed for a reason that has nothing to do with what it tests. The
 // record is written by the installer's own writer, with the interpreters running this test.
 //

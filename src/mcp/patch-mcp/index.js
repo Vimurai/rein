@@ -158,7 +158,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 instrument(server, "patch-mcp", CallToolRequestSchema);
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  await refreshPolicies();   // E-237: pick up a policy `ai sync` refreshed under us
+  await refreshPolicies();   // E-237: pick up a policy `rein sync` refreshed under us
   const { name, arguments: args } = request.params;
   const cwd = process.cwd();
 

@@ -21,7 +21,7 @@ Single Writer Principle: one file = one owner. If you don't own it, you do NOT m
 - `.ai/SESSION.md` — stamped by Stop hook
 - `.ai/LOG.md` — appended by PostToolUse hook
 
-## Human-fills (templates — fill in once after ai init):
+## Human-fills (templates — fill in once after rein init):
 - `.ai/BRIEF.md`, `.ai/DIGEST.md`, `.ai/CAPABILITIES.md`
 
 ## Rules:

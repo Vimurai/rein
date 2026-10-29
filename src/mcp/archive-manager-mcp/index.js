@@ -89,7 +89,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (!existsSync(aiDir)) {
       return {
-        content: [{ type: "text", text: JSON.stringify({ error: "No .ai/ directory found. Run: ai init", needs_archive: false }) }],
+        content: [{ type: "text", text: JSON.stringify({ error: "No .ai/ directory found. Run: rein init", needs_archive: false }) }],
         isError: true,
       };
     }
@@ -148,11 +148,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const aiDir = resolve(cwd, ".ai");
 
     if (!existsSync(aiDir)) {
-      return { content: [{ type: "text", text: "✗ No .ai/ directory found. Run: ai init" }], isError: true };
+      return { content: [{ type: "text", text: "✗ No .ai/ directory found. Run: rein init" }], isError: true };
     }
 
     // E-111: rotate SQLite state (DONE tasks + audit stamps) through the shared,
-    // ACID-safe owner. Previously this shelled the removed `ai archive` verb
+    // ACID-safe owner. Previously this shelled the removed `rein archive` verb
     // (always exit 1) and wrote the regenerated state.json view (clobbered).
     let taskResult = null;
     let stampResult = null;
@@ -181,7 +181,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     // Log-file rotation (LOG.md/COMM.md/SESSION.md → .ai/archive/) is a
     // destructive, HITL-gated operation owned by the ai-archive skill — a bash
     // MCP cannot invoke a skill, so we point the operator to it rather than
-    // shelling the removed `ai archive` verb.
+    // shelling the removed `rein archive` verb.
     lines.push("  For log-file rotation (LOG.md/COMM.md/SESSION.md) run: skill: ai-archive");
 
     return { content: [{ type: "text", text: lines.join("\n") }] };

@@ -3,7 +3,7 @@
 #
 # Sourced by tests/lib/assert.sh, so every suite has it. It answers "which src/ and hooks/
 # files did this suite actually RUN" — not which ones it mentions — by recording every
-# `node`, `bash`, `python3` and `ai` the suite's shell spawns. tests/tools/census.mjs reads
+# `node`, `bash`, `python3` and `rein` the suite's shell spawns. tests/tools/census.mjs reads
 # the result.
 #
 # HOW: four shell FUNCTIONS shadow the commands. Each appends one tab-separated line
@@ -26,7 +26,7 @@
 # WHAT IT DOES NOT SEE (documented, accepted):
 #   - `exec node …`, `env node …`, `xargs node`, `timeout node`, `nohup node`: those resolve
 #     the binary themselves, never through a shell function;
-#   - a script run by path (`"$REPO/src/bin/ai" …`, `./hook.sh`): not a command word we own
+#   - a script run by path (`"$REPO/src/bin/rein" …`, `./hook.sh`): not a command word we own
 #     — the census adds the suite's STATIC src/ and hooks/ references for exactly this;
 #   - spawns made by a child process (functions are not exported, deliberately: exporting
 #     them would change what a hook under test runs).
@@ -53,14 +53,14 @@ _REIN_FP_HOME0="${HOME:-}"   # E-312: the HOME this suite was started with (in a
 _REIN_FP_RE='(src|hooks)/[A-Za-z0-9_./-]+'
 # E-311: an installer run inside a `bash -c` program — only in COMMAND POSITION (start of the
 # program or after ; & | ( or a newline, past any VAR=value prefixes and an optional `env …`),
-# so `echo "run: bash install-rein.sh"` or `grep -q 'ai init'` is not a run (ai_ci_gate's
+# so `echo "run: bash install-rein.sh"` or `grep -q 'rein init'` is not a run (ai_ci_gate's
 # pasted stub prints the former).
 _REIN_FP_CMD='(^|[;&|(]|'$'\n'')[[:space:]]*([A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+)*'
 _REIN_FP_INST_RE="${_REIN_FP_CMD}(env[[:space:]]+([^;&|]*[[:space:]])?)?(bash|sh)[[:space:]][^;&|]*install-rein\.sh"
 # E-312: a `HOME=<value>` assignment in a -c program (bare, "double" or 'single' quoted).
 _REIN_FP_HOME_RE='(^|[[:space:];&|(])HOME=("[^"]*"|'"'"'[^'"'"']*'"'"'|[^[:space:];&|]+)'
-_REIN_FP_INIT_RE="${_REIN_FP_CMD}((env|bash)[[:space:]]+([^;&|]*[[:space:]])?)?['\"]?[^[:space:];&|'\"]*ai['\"]?[[:space:]]+init([[:space:];&|>)]|\$)"
-# _rein_fp_home_class <path> → where an installer / `ai init` spawn's HOME lives (E-312, D-093):
+_REIN_FP_INIT_RE="${_REIN_FP_CMD}((env|bash)[[:space:]]+([^;&|]*[[:space:]])?)?['\"]?[^[:space:];&|'\"]*rein['\"]?[[:space:]]+init([[:space:];&|>)]|\$)"
+# _rein_fp_home_class <path> → where an installer / `rein init` spawn's HOME lives (E-312, D-093):
 #   tmp      a temp dir carrying the harness prefix (test_tmpdir, mktemp …rein-t-…) — one per
 #            suite, so lanes never share it
 #   run      the HOME the suite started with — a lane's own clone under CI, shared otherwise
@@ -117,7 +117,7 @@ _rein_fp_record() {
   fi
   # E-311 (D-092): an installer run gets its own "installer" line, whichever way it was spawned
   # — `bash <path>/install-rein.sh`, `bash "$AI_BIN" init`, or inside a `bash -c` program —
-  # so the census lists every suite that runs the installer or `ai init`, not only the ones a
+  # so the census lists every suite that runs the installer or `rein init`, not only the ones a
   # path-shaped target happens to reveal. $1 is the argument after the target here.
   local _inst=""
   if [[ -n "$_code" ]]; then
@@ -126,15 +126,15 @@ _rein_fp_record() {
         *install-rein.sh*) [[ "$_code" =~ $_REIN_FP_INST_RE ]] && _inst="install-rein.sh" ;;
       esac
       case "$_code" in
-        *init*) [[ -z "$_inst" && "$_code" =~ $_REIN_FP_INIT_RE ]] && _inst="ai init" ;;
+        *init*) [[ -z "$_inst" && "$_code" =~ $_REIN_FP_INIT_RE ]] && _inst="rein init" ;;
       esac
     fi
   else
     case "$_a" in
       *install-rein.sh) _inst="install-rein.sh" ;;
-      ai|*/ai) [[ "${1-}" == init ]] && _inst="ai init" ;;
+      rein|*/rein) [[ "${1-}" == init ]] && _inst="rein init" ;;
     esac
-    [[ "$_c" == ai && "$_a" == init ]] && _inst="ai init"
+    [[ "$_c" == rein && "$_a" == init ]] && _inst="rein init"
   fi
   # One line per spawn: a tab or newline inside the target would forge a second field/line.
   case "$_a" in *$'\t'*|*$'\n'*) _a="<inline>" ;; esac
@@ -170,7 +170,7 @@ _rein_fp_env() {
     esac
   done
   case "${1-}" in
-    node|*/node|bash|*/bash|python3|*/python3|ai|*/ai)
+    node|*/node|bash|*/bash|python3|*/python3|rein|*/rein)
       local _w="${1##*/}"; shift; _rein_fp_record "$_w" "$@" ;;
   esac
   return 0
@@ -180,7 +180,7 @@ _rein_fp_def_wrappers() {
   node()    { _rein_fp_record node "$@";    command node "$@"; }
   bash()    { _rein_fp_record bash "$@";    command bash "$@"; }
   python3() { _rein_fp_record python3 "$@"; command python3 "$@"; }
-  ai()      { _rein_fp_record ai "$@";      command ai "$@"; }
+  rein()    { _rein_fp_record rein "$@";    command rein "$@"; }
   env()     { _rein_fp_env "$@";            command env "$@"; }
 }
 

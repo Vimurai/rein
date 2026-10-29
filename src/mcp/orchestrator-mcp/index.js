@@ -17,7 +17,7 @@ import { instrument } from "../../shared/mcp-telemetry.mjs";
 import { runHandover, getDiff, today } from "./run-handover.mjs";
 // E-237 (D-061 §5): the traversal POLICY is loaded per request, not once at spawn.
 // This server lives for the whole session and ESM caches a module by URL forever, so a
-// policy refreshed by `ai sync` never reached the running process. Throughout the
+// policy refreshed by `rein sync` never reached the running process. Throughout the
 // 2026-09-09 sprint this reported a P0 PATH_TRAVERSAL on a line the on-disk module graded
 // P1 — every review had to be adjudicated by hand. A gate that cries wolf is worse than
 // one that is merely wrong, because people learn to wave it through.

@@ -1,7 +1,7 @@
 /**
  * ci-evidence.mjs — portable CI evidence (E-328, D-102 §Component 5a)
  *
- * In a team project (`.ai/team.json`) `ai ci run` writes a tracked `.ai/ci/<sha>.json` beside
+ * In a team project (`.ai/team.json`) `rein ci run` writes a tracked `.ai/ci/<sha>.json` beside
  * its ci_runs row, so a run on one machine certifies the commit on every clone that pulls it:
  *
  *   { schema, sha, verdict: PASS|FAIL|SKIPPED, suites, tests: {passed, failed, skipped},
@@ -11,7 +11,7 @@
  * a filename that is not its own sha, a verdict outside the enum, a runner who is not a
  * member of team.json, a symlinked path or an oversized file is IGNORED with a warning (it
  * certifies nothing). Without team.json nothing here is read or written, so a single-operator
- * project's `ai ci` behaves exactly as before.
+ * project's `rein ci` behaves exactly as before.
  *
  * One file per sha: two members who run the same commit write the same path. preferRecord()
  * decides which one stays, both for a local overwrite and in the rein-record merge driver —

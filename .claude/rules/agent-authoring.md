@@ -19,5 +19,5 @@ docs). `verify_compliance` enforces these; template: `src/templates/AGENT.md`.
   `disallowedTools: mcp__*` is not scoping; it deletes the server `tools` asked for.
 - **A reviewer never writes**: every `critic_*` carries `disallowedTools: Write, Edit, NotebookEdit`.
 - **Scoped agents** (`critic_*`, `test_engineer`, any agent with `mcpServers:`) MUST carry `tools`.
-- Keep `src/claude/agents/<name>.md` and its `.claude/agents/` mirror byte-identical (`ai sync`
+- Keep `src/claude/agents/<name>.md` and its `.claude/agents/` mirror byte-identical (`rein sync`
   provisions it).

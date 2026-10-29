@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# REIN_INSTALLER_SUBJECT: the installer's mirror and ai init's provisioning (E-311, D-092)
+# REIN_INSTALLER_SUBJECT: the installer's mirror and rein init's provisioning (E-311, D-092)
 # REIN_SUITE_TIMEOUT=300   (E-307: ~140 s on an idle host; the 180 s default leaves too little headroom)
 # mirror_hygiene_test.sh — E-273 (D-074, version-lifecycle.md §Component 5): the install
 # mirror and project provisioning under the same hygiene as everything else.
@@ -7,16 +7,16 @@
 #   * the installer mirrors src/mcp and hooks/ with --delete: an orphaned server dir and an
 #     orphaned hook are removed, while npm's node_modules/ and package-lock.json inside a
 #     LIVE server survive, and so does config/rein-workspace.txt (installer-written);
-#     `ai doctor` reported the orphans beforehand; REIN_INSTALL_NO_DELETE=1 keeps them;
+#     `rein doctor` reported the orphans beforehand; REIN_INSTALL_NO_DELETE=1 keeps them;
 #   * the installer's "Next steps" no longer names deprecated commands;
 #   * .claude/agents is pruned by the E-220 evidence rule: an agent sync wrote and the
 #     manifest no longer provides goes, an agent the user added stays;
 #   * settings.json loses mcp__<server>__* allows for a server in registry_history but not
 #     registry.json, and keeps allows for a server name never shipped (the user's own);
-#   * `ai sync` reaps dead-pid build records and week-old role locks, keeping live ones.
+#   * `rein sync` reaps dead-pid build records and week-old role locks, keeping live ones.
 #
 # Fixture HOME installed by the real installer from a neutral cwd (E-270's lesson: from the
-# repo root, `ai install` rewrote this repository's .mcp.json); `npm` stubbed (no network).
+# repo root, `rein install` rewrote this repository's .mcp.json); `npm` stubbed (no network).
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
@@ -34,7 +34,7 @@ PROJ="$(test_tmpdir hyg-proj)"
 STUBS="$(test_tmpdir hyg-stubs)"
 printf '#!/bin/sh\nexit 0\n' > "${STUBS}/npm"; chmod +x "${STUBS}/npm"
 M="${FAKE_HOME}/.rein"
-AI_BIN="${M}/bin/ai"
+AI_BIN="${M}/bin/rein"
 BASE_PATH="${STUBS}:${M}/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")"
 
 _install() { ( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" "$@" bash "${REPO_ROOT}/install-rein.sh" ) 2>&1; }
@@ -43,8 +43,8 @@ _ai() { ( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" b
 # ── E-273.1: the installer's mirror hygiene ───────────────────────────────────
 _i1="$(_install env)"
 assert_contains "E-273.01a: a first install into a fixture HOME succeeds" "installed at" "$_i1"
-assert_not_contains "E-273.01b: Next steps no longer name 'ai preflight'" "ai preflight" "$_i1"
-assert_not_contains "E-273.01c: …nor 'ai update'" "ai update" "$_i1"
+assert_not_contains "E-273.01b: Next steps no longer name 'rein preflight'" "rein preflight" "$_i1"
+assert_not_contains "E-273.01c: …nor 'rein update'" "rein update" "$_i1"
 
 # Litter the mirror the way earlier versions did, and give a live server npm's files.
 mkdir -p "${M}/mcp/retired-mcp/node_modules/dep" "${M}/mcp/task-synchronizer-mcp/node_modules/dep"
@@ -59,7 +59,7 @@ mkdir -p "${M}/shared/nested"; echo x > "${M}/shared/nested/orphan.mjs"
 _ai init >/dev/null
 _doc="$(_ai doctor)"
 assert_match "E-273.01d: doctor reports the mirror orphans before the install" \
-  'mirror orphans: [1-9][0-9]* — run: ai clean' "$_doc"
+  'mirror orphans: [1-9][0-9]* — run: rein clean' "$_doc"
 
 _i_keep="$(_install env REIN_INSTALL_NO_DELETE=1)"
 assert_status 0 "E-273.01e: REIN_INSTALL_NO_DELETE=1 keeps the orphans (rollback)" \
@@ -116,7 +116,7 @@ assert_contains "E-273.03e: a live server's allows are kept" "mcp__task-synchron
 assert_contains "E-273.03f: settings.local.json is never edited" "mcp__mcp-router__activate_domain" \
   "$(cat "${PROJ}/.claude/settings.local.json")"
 
-# ── E-273.4: ai sync reaps dead ~/.rein/run/ records ──────────────────────────
+# ── E-273.4: rein sync reaps dead ~/.rein/run/ records ──────────────────────────
 mkdir -p "${M}/run"
 printf '{"server":"x","pid":2147480000}' > "${M}/run/build-dead.json"
 printf '{"server":"y","pid":%s}' "$$" > "${M}/run/build-live.json"
@@ -154,27 +154,27 @@ assert_status 0 "E-273.06e: nor does a MISSING src/mcp" test -f "${FX}/mirror/li
 
 # `--only` present but empty must match nothing, never widen to the whole registry.
 printf '{"server":"x","pid":2147480000}' > "${M}/run/build-dead2.json"
-( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" node "${M}/shared/ai-clean.mjs" apply --only "" --json ) >/dev/null 2>&1
+( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" node "${M}/shared/rein-clean.mjs" apply --only "" --json ) >/dev/null 2>&1
 assert_status 0 "E-273.06f: --only \"\" moves nothing" test -f "${M}/run/build-dead2.json"
-( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" node "${M}/shared/ai-clean.mjs" apply --json --only ) >/dev/null 2>&1
+( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" node "${M}/shared/rein-clean.mjs" apply --json --only ) >/dev/null 2>&1
 assert_status 0 "E-273.06g: a trailing --only with no value moves nothing" test -f "${M}/run/build-dead2.json"
 
 # ── E-304 (D-089 r2): the installer is the one installer ─────────────────────────────────
-# (a) `ai sync` writes nothing into the installed code trees (it still reaps run records, E-273).
+# (a) `rein sync` writes nothing into the installed code trees (it still reaps run records, E-273).
 _code_sum() { ( cd "$M" && find hooks bin mcp shared claude config contracts templates scripts \
     -type f -not -path '*/node_modules/*' -not -name 'package-lock.json' 2>/dev/null | sort | xargs shasum 2>/dev/null | shasum ); }
 _before="$(_code_sum)"; _ai sync >/dev/null; _after="$(_code_sum)"
-assert_status 0 "E-304.01a: ai sync changes nothing under the installed code trees (checksum before == after)" test "$_before" = "$_after"
-assert_status 1 "E-304.01b: ai sync no longer carries a hook-propagation step" grep -q 'Hooks propagated from framework workspace' "$AI_BIN"
+assert_status 0 "E-304.01a: rein sync changes nothing under the installed code trees (checksum before == after)" test "$_before" = "$_after"
+assert_status 1 "E-304.01b: rein sync no longer carries a hook-propagation step" grep -q 'Hooks propagated from framework workspace' "$AI_BIN"
 
 # (c) the persisted record beats an exported REIN_WORKSPACE.
 printf '%s\n' "${PROJ}" > "${M}/config/rein-workspace.txt"
-_ws="$( eval "$(sed -n '/^_resolve_rein_workspace() {/,/^}/p' "${REPO_ROOT}/src/bin/ai")"; REIN="$M" REIN_WORKSPACE=/nonexistent/env-path _resolve_rein_workspace )"
+_ws="$( eval "$(sed -n '/^_resolve_rein_workspace() {/,/^}/p' "${REPO_ROOT}/src/bin/rein")"; REIN="$M" REIN_WORKSPACE=/nonexistent/env-path _resolve_rein_workspace )"
 assert_status 0 "E-304.02a: with both set to different paths, the file wins (got ${_ws})" test "$_ws" = "$PROJ"
-_ws="$( eval "$(sed -n '/^_resolve_rein_workspace() {/,/^}/p' "${REPO_ROOT}/src/bin/ai")"; REIN="${FAKE_TMP}/no-such-rein" REIN_WORKSPACE=/env/only _resolve_rein_workspace )"
+_ws="$( eval "$(sed -n '/^_resolve_rein_workspace() {/,/^}/p' "${REPO_ROOT}/src/bin/rein")"; REIN="${FAKE_TMP}/no-such-rein" REIN_WORKSPACE=/env/only _resolve_rein_workspace )"
 assert_status 0 "E-304.02b: with no file, the exported value is honoured" test "$_ws" = "/env/only"
 _dw="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" REIN_WORKSPACE=/elsewhere bash "$AI_BIN" doctor 2>&1 )"
-assert_contains "E-304.02c: ai doctor warns when the export and the record disagree" "disagrees with the installed record" "$_dw"
+assert_contains "E-304.02c: rein doctor warns when the export and the record disagree" "disagrees with the installed record" "$_dw"
 
 # The rc cleanup removes ONLY the exact lines an earlier install wrote, and is idempotent.
 RC="${FAKE_TMP}/rc"
@@ -191,7 +191,7 @@ DW="$(test_tmpdir hyg-dirty)"; rmdir "$DW"
 git -C "$REPO_ROOT" worktree add -q --detach "$DW" HEAD 2>/dev/null
 register_cleanup "git -C '${REPO_ROOT}' worktree remove --force '${DW}' 2>/dev/null || true"
 if [[ -d "$DW/hooks" ]]; then
-  # npm artifacts are NOT dirt (`ai ci run` installs server deps before the installer runs).
+  # npm artifacts are NOT dirt (`rein ci run` installs server deps before the installer runs).
   mkdir -p "$DW/src/mcp/safe-exec-mcp/node_modules/x"; echo '{}' > "$DW/src/mcp/safe-exec-mcp/package-lock.json"
   echo x > "$DW/src/mcp/safe-exec-mcp/node_modules/x/i.js"
   DH0="$(test_tmpdir hyg-npm-home)"
@@ -203,13 +203,13 @@ if [[ -d "$DW/hooks" ]]; then
   assert_status 0 "E-304.04a: a dirty hooks/ makes the installer exit non-zero (rc=${_drc})" test "$_drc" -ne 0
   assert_contains "E-304.04b: …naming the refusal" "[INSTALL_DIRTY_TREE]" "$_dout"
   assert_contains "E-304.04c: …and the file" "hooks/stop-hook.sh" "$_dout"
-  assert_status 1 "E-304.04d: …and nothing was installed" test -e "${DH}/.rein/bin/ai"
+  assert_status 1 "E-304.04d: …and nothing was installed" test -e "${DH}/.rein/bin/rein"
   _aout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" --allow-dirty 2>&1 )"
   assert_contains "E-304.04e: --allow-dirty installs with a loud banner" "--allow-dirty: installing UNCOMMITTED gate code" "$_aout"
   assert_status 0 "E-304.04f: …and records dirty=true in the install stamp" \
     python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["dirty"] is True' "${DH}/.rein/config/install-stamp.json"
-  _dd="$( cd "$PROJ" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="${STUBS}:${DH}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" bash "${DH}/.rein/bin/ai" doctor 2>&1 )"
-  assert_contains "E-304.04g: ai doctor reports the uncommitted install" "installed from an UNCOMMITTED tree" "$_dd"
+  _dd="$( cd "$PROJ" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="${STUBS}:${DH}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" bash "${DH}/.rein/bin/rein" doctor 2>&1 )"
+  assert_contains "E-304.04g: rein doctor reports the uncommitted install" "installed from an UNCOMMITTED tree" "$_dd"
 else
   _skip "E-304.04: could not create a scratch worktree of HEAD"
 fi

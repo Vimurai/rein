@@ -15,7 +15,7 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 source "${SCRIPT_DIR}/../lib/generated-settings.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 INSTALL="${REPO_ROOT}/install-rein.sh"
 
 echo "── Suite: exec_form_hooks_test (E-290) ──────────────────────────────"

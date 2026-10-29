@@ -83,13 +83,13 @@ assert_contains "T-RES-11: missing state.json seeds an empty store" "tasks=0" "$
 
 # ── Scenario D: Simulated Node Failure (E-2 / bootloader.md §3) ──────────────
 
-AI_EXEC="${REPO_ROOT}/src/bin/ai-exec"
+AI_EXEC="${REPO_ROOT}/src/bin/rein-exec"
 STATE_SQLITE="${REPO_ROOT}/.ai/state.sqlite"
 STATE_JSON="${REPO_ROOT}/.ai/state.json"
 
-# T-RES-12: ai-exec binary exists and is executable (secondary fallback layer)
+# T-RES-12: rein-exec binary exists and is executable (secondary fallback layer)
 assert_exists "$AI_EXEC"
-assert_status 0 "T-RES-12: ai-exec is executable" \
+assert_status 0 "T-RES-12: rein-exec is executable" \
   test -x "$AI_EXEC"
 
 # T-RES-13: Simulated node failure — chmod orchestrator-mcp to non-executable,

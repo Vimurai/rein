@@ -52,9 +52,9 @@ export function browserMissingMessage(status) {
   return [
     `${BROWSER_MISSING} Playwright's Chromium is not installed.`,
     "",
-    "  run: ai mcp-setup --browsers",
+    "  run: rein mcp-setup --browsers",
     "",
-    "Browsers are no longer downloaded during `ai install` (E-235 / D-061 §3): it is an",
+    "Browsers are no longer downloaded during `rein install` (E-235 / D-061 §3): it is an",
     "unbounded ~150MB fetch that once ran for over an hour inside the installer, and every",
     "install and CI run sits behind that path.",
     status?.reason ? `\nDetail: ${status.reason}` : "",

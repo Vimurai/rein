@@ -28,7 +28,7 @@ paths:
 - **Parse the payload once** (python3, base64 for free text) so newlines and quotes survive.
 - **No environment rollback for a gate** (E-291, D-081 r2): a project's settings `env` can
   set any variable, so an env switch is an attacker's switch. The operator's escape is
-  `ai gate off` (a time-boxed, owner-checked file). Block messages say "Operator escape —
+  `rein gate off` (a time-boxed, owner-checked file). Block messages say "Operator escape —
   in YOUR terminal, not through the agent" and never tell the model to run it.
 - **Hooks run as exec-form `/bin/bash -p <absolute path>`** (E-290) and stay within their
   latency budget (PermissionDenied/telemetry < 20 ms).

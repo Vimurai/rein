@@ -198,7 +198,7 @@ function _teamOrRefusal(aiDir) {
   return { team, email, trunk };
 }
 
-/** `ai task claim <id>` / claim_task. */
+/** `rein task claim <id>` / claim_task. */
 export function claimTask(aiDir, id, { now = () => new Date() } = {}) {
   if (!TASK_ID_RE.test(id || "")) return { ok: false, code: "BAD_ID", message: `invalid task id ${JSON.stringify(id)}` };
   const { team, email, trunk, refusal } = _teamOrRefusal(aiDir);
@@ -221,7 +221,7 @@ export function claimTask(aiDir, id, { now = () => new Date() } = {}) {
   return { ...res, message: `✓ ${id} claimed by ${email} on origin/${trunk.name}${over} — the claim gate now lets you write source on engineer/e${id.split("-")[1]}-*` };
 }
 
-/** `ai task release <id> [reason]` / release_task. Only the holder releases; an expired claim is taken over instead. */
+/** `rein task release <id> [reason]` / release_task. Only the holder releases; an expired claim is taken over instead. */
 export function releaseTask(aiDir, id, reason = null) {
   if (!TASK_ID_RE.test(id || "")) return { ok: false, code: "BAD_ID", message: `invalid task id ${JSON.stringify(id)}` };
   const { email, trunk, refusal } = _teamOrRefusal(aiDir);
@@ -264,7 +264,7 @@ export function publishDone(aiDir, id) {
   }, `chore(.ai): done ${id}`);
   if (res.ok) return { ...res, message: `claim on origin/${trunk.name} cleared (${id} DONE there)` };
   if (res.code === "NOT_HOLDER") return null;
-  return { ...res, message: `${res.message} — origin/${trunk.name} still shows your claim; run: ai task release ${id}` };
+  return { ...res, message: `${res.message} — origin/${trunk.name} still shows your claim; run: rein task release ${id}` };
 }
 
 /**
@@ -300,7 +300,7 @@ export function claimGate(root) {
   const holder = _held(seen) ? `; held by ${_who(seen)}` : "";
   return {
     code: "CLAIM_REQUIRED",
-    message: `${required}, which is not claimed by ${email} on origin/${trunk.name}${holder}. Claim it first: ai task claim ${id}`,
+    message: `${required}, which is not claimed by ${email} on origin/${trunk.name}${holder}. Claim it first: rein task claim ${id}`,
   };
 }
 

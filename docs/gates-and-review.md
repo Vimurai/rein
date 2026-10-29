@@ -31,7 +31,7 @@ Runs before every tool call in either pane.
   command line is refused, as is reading from the secrets directory.
 - **Scope.** Writes outside the project and the agent's allowed paths are refused.
 
-`ai gate off --minutes 15 --reason "…"` is the operator's escape, time-boxed (at most 60
+`rein gate off --minutes 15 --reason "…"` is the operator's escape, time-boxed (at most 60
 minutes). Catastrophic commands still block, and each bypassed call is announced. Run it in
 your own terminal — an agent cannot switch the gate off.
 
@@ -40,12 +40,12 @@ your own terminal — an agent cannot switch the gate off.
 - The commit needs a review stamp bound to its parent commit. Commits that only touch `.ai/`
   bookkeeping (state, tasks, reviews, log, handoff notes) are exempt.
 - No conflict markers anywhere staged; every staged `.ai/*.json` must parse.
-- Agent and skill frontmatter may not name tools that do not exist ("ghost tools"); `ai doctor
+- Agent and skill frontmatter may not name tools that do not exist ("ghost tools"); `rein doctor
   --compliance` audits it on demand.
 
 ### 3. Pre-push gate (git hook)
 
-The tip must have a green, non-dirty `ai ci run`. A tip that only adds `.ai/` bookkeeping on top
+The tip must have a green, non-dirty `rein ci run`. A tip that only adds `.ai/` bookkeeping on top
 of a tested commit passes. A recorded skip is possible, with a mandatory reason — see
 [Local CI](local-ci.md#skipping-once).
 
@@ -82,4 +82,4 @@ Tests are kept cheap on purpose. Behaviour is expressed as rows in contract tabl
 what only a real process boundary can show. Every green CI run records the number of suites, test
 lines and fast-tier seconds; the next run fails if one grows past its slack (suites +0, test lines
 +2 %, fast-tier time +10 %). The numbers only go down. Raising one is a recorded decision:
-`ai ci budget set --ruling D-### <field>=<n>`. See [Local CI](local-ci.md#the-test-budget).
+`rein ci budget set --ruling D-### <field>=<n>`. See [Local CI](local-ci.md#the-test-budget).

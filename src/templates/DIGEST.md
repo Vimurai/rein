@@ -8,7 +8,7 @@
 Purpose: Single file that replaces most per-session reads.
 **Strict Limit**: Keep 20–50 lines max. Bullets only. Auto-updated by Stop hook.
 
-FILL THIS IN after `ai init` — Claude reads it first every session.
+FILL THIS IN after `rein init` — Claude reads it first every session.
 An empty DIGEST defeats the token-saver strategy.
 
 ## Current snapshot

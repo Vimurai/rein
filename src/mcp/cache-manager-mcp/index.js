@@ -594,7 +594,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
 // E-112 (caching.md §3.1): `--build` CLI mode — build/persist the System Context
 // cache for the current project and exit, WITHOUT starting the stdio server.
-// `ai sync` invokes this after regenerating blueprint-derived docs so the cache
+// `rein sync` invokes this after regenerating blueprint-derived docs so the cache
 // is actually exercised in a live flow (it was built but never invoked). The
 // downstream prompt-prefix injection (§3.2/§3.3) is a runtime/harness concern
 // beyond this MCP. Fail-open: any error warns to stderr and exits 0 so a sync

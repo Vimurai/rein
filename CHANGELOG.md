@@ -8,7 +8,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); this project adh
 The first release of **Rein** in its public repository. The version line restarts at
 0.4.0 (D-131): the private predecessor Rein shipped 2.0.0 to 4.0.0, listed below under
 "Private predecessor", and a project stamped `4.0.0` is restamped `4.0.0 → 0.4.0` by
-`ai sync` like any other version change.
+`rein sync` like any other version change.
 
 ### Changed
 
@@ -23,7 +23,7 @@ The first release of **Rein** in its public repository. The version line restart
   D-126..D-128 were cancelled before they were built.
 - **The product is named Rein (D-125 addendum, D-132).** Every spelling of the old name
   becomes the Rein form, with a one-release compatibility layer so existing installs and
-  projects migrate on `ai sync`; the command `ai` and the `.ai/` directory keep their names.
+  projects migrate on `rein sync`; the command `rein` and the `.ai/` directory keep their names.
 
 ### Added
 
@@ -34,41 +34,41 @@ The first release of **Rein** in its public repository. The version line restart
 - **Privacy gates (D-129, D-130).** The pre-commit hook refuses a commit whose author is not
   the public identity in `.ai/publish.json` and a staged file the five-class scan flags; the
   `privacy scan` job runs the same scan on every push and pull request. Both are required
-  for merge on `main`, beside `ai ci run`.
+  for merge on `main`, beside `rein ci run`.
 - **Hosted CI for `master` (E-332, D-102 §5b, D-103).** `.github/workflows/ci.yml` runs on
-  pull requests to `master`: it installs Rein from the merge commit and runs `ai ci run` —
+  pull requests to `master`: it installs Rein from the merge commit and runs `rein ci run` —
   the local recipe, not a copy of it (`tests/unit/hosted-ci-workflow.test.mjs` refuses a
   copied step). Read-only token, no secrets, log and `.ai/ci/*.json` uploaded on every
   outcome. **Partial reversal of D-072:** hosted CI returns for `master` only; branches stay
-  local-first and `ai ci run` remains the pre-push gate. Other providers follow via
-  `ai ci hosted` (D-103).
-- **`ai ci hosted [<provider>] [--check] [--force]` (E-335, D-103).** Renders the hosted
+  local-first and `rein ci run` remains the pre-push gate. Other providers follow via
+  `rein ci hosted` (D-103).
+- **`rein ci hosted [<provider>] [--check] [--force]` (E-335, D-103).** Renders the hosted
   check for the provider from `src/templates/ci/` — the provider is the argument, else
   `.ai/team.json` `ci`, else the `origin` host (an unrecognised host is never guessed:
   `[CI_PROVIDER_UNKNOWN]`). In the Rein repository the bootstrap is `install-rein.sh` from
   the commit; in any other project it clones the Rein tag the project pins. `--check` exits
   1 when the file is not the current rendering, a differing file needs `--force`
   (`[WRAPPER_DIFFERS]`), and the planner's run records `team.json` `ci`. It prints the branch
-  policy: required for merge, pushes left open for claims. `ai doctor` reports the wrapper.
+  policy: required for merge, pushes left open for claims. `rein doctor` reports the wrapper.
   GitHub ships now; Azure DevOps (E-336), GitLab and Bitbucket (E-337) are
   `[CI_PROVIDER_PLANNED]`. `.github/workflows/ci.yml` is regenerated from the template and
   gains the contract's audit run on pushes to `master` outside `.ai/**`.
-- **Azure Pipelines wrapper — UNVERIFIED (E-336, D-103).** `ai ci hosted azure` (or no
+- **Azure Pipelines wrapper — UNVERIFIED (E-336, D-103).** `rein ci hosted azure` (or no
   argument on a `dev.azure.com` / `*.visualstudio.com` origin) renders `azure-pipelines.yml`:
   the same two commands, `pr:`/`trigger:` on `master` (the audit run excludes `.ai/*`),
   ubuntu + Node 22, and the run log and `.ai/ci` published with `condition: always()`. On
   Azure Repos the merge gate is a required Build Validation branch policy, which the command
   prints. It also prints `[CI_PROVIDER_UNVERIFIED]` until a documented run on a real Azure
-  DevOps project is recorded (DEVOPS-011). Under Azure (`TF_BUILD=True`) `ai ci run` sets
+  DevOps project is recorded (DEVOPS-011). Under Azure (`TF_BUILD=True`) `rein ci run` sets
   `REIN_CI_LOG_DIR` for the artefact step, since a task input cannot expand `$HOME`.
 - **Per-developer account and the shared log (E-333, D-102 §8).** A gitignored
   `.ai/start.local.json` (`{"account": …}` only) overrides `start.json`'s account for this
-  checkout; `ai account use <name|default>` writes it, and in a team project `ai start
+  checkout; `rein account use <name|default>` writes it, and in a team project `rein start
   --account` and its first-run pick write it too (a single-operator project still writes
-  `start.json`). `ai init` / `ai sync` add `.ai/start.local.json` to `.gitignore`. With
+  `start.json`). `rein init` / `rein sync` add `.ai/start.local.json` to `.gitignore`. With
   `team.json` `shared_log: true`, `skill: ai-log` and `run_handover` append to the tracked
   `.ai/log/<email-localpart>.md`, and `ai-preflight` shows the newest entries across every
-  developer's file (`ai log path|recent`); the default stays `LOG.md`.
+  developer's file (`rein log path|recent`); the default stays `LOG.md`.
 
 ## Private predecessor (AI-OS, 2025–2026)
 

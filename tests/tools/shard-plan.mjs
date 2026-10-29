@@ -15,7 +15,7 @@
 // A suite with no hint counts as the median of the known hints (30 s when none is known). A
 // pinned suite (the node unit layer) goes to shard 1 before the greedy pass, in its own class.
 // E-389 (D-135 addendum 2 r4): --seed <suite> starts bin 1's shared load at that suite's hint —
-// `ai ci run` runs the unit layer once more on shard 1 (its coverage step), serially, so the
+// `rein ci run` runs the unit layer once more on shard 1 (its coverage step), serially, so the
 // greedy pass must see shard 1 as already that much heavier. With no hint known at all the
 // seed is 0 and the partition is exactly the unseeded one.
 import { readFileSync } from "node:fs";

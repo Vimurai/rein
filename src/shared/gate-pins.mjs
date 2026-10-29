@@ -73,7 +73,7 @@ function main(argv) {
     if (r.ok) continue;
     if (r.installed === null) {
       missing++;
-      process.stdout.write(`[GATE_DEP_MISSING] ${r.pkg} not installed (pinned ${r.pinned}) — run: ai mcp-setup\n`);
+      process.stdout.write(`[GATE_DEP_MISSING] ${r.pkg} not installed (pinned ${r.pinned}) — run: rein mcp-setup\n`);
     } else {
       drift++;
       process.stdout.write(`[TOOLCHAIN_STALE] ${r.pkg} ${r.installed} != ${r.pinned} — run: bash install-rein.sh\n`);

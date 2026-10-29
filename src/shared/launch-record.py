@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """launch-record.py — E-294 (D-083 r9, D-087; sovereignty-hardening.md Component 8a): the ONE
 implementation of the launch record, the process start-time read, the file discipline and the
-ancestry walk. `ai pane` (writer), the safe-exec mint and verifier, `pre-commit` and `ai doctor`
+ancestry walk. `rein pane` (writer), the safe-exec mint and verifier, `pre-commit` and `rein doctor`
 all call it, so they cannot disagree about which record is live.
 
 Invariant (D-087): a role may only move toward restriction. The walk is exhaustive and the most
-restricted live record anywhere on the process chain wins; a nested `ai pane` is refused.
+restricted live record anywhere on the process chain wins; a nested `rein pane` is refused.
 
 Record: <root>/run/launch/<pid>.json = {"role", "project", "started"}; root = $HOME/.rein, the
 gate stack's one root (D-087 r7). Discipline on every read:

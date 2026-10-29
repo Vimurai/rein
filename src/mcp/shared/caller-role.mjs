@@ -8,7 +8,7 @@
 //   and could write anywhere. That was the only barrier left in any session started
 //   without the `.claude/settings.<role>.json` overlay — and an overlay is settings-file
 //   config, so it is precisely the layer most likely to be absent (a fresh clone before
-//   `ai sync`, a different host, a session launched without `ai pane`).
+//   `rein sync`, a different host, a session launched without `rein pane`).
 //
 //   The E-216 deny list closes the named route (`mcp__patch-mcp__patch_file`), but a
 //   deny list matches TOOL NAMES; it cannot help when the overlay is not loaded at all.
@@ -141,7 +141,7 @@ export function effectiveRequestRole(volunteered, cwd = process.cwd()) {
  * Delegates to architectPathVerdict — the SAME predicate the Write/Edit gate and the
  * shell gate use. The first cut of this module hand-rolled a prefix test, which
  * reintroduced exactly the normalise-only check E-216 spent seven audit rounds
- * replacing: `.ai/note.md -> ../src/bin/ai` is a symlink the Architect may legitimately
+ * replacing: `.ai/note.md -> ../src/bin/rein` is a symlink the Architect may legitimately
  * create inside its own scope, and a prefix test happily allows a write straight through
  * it. Hardlinks likewise (`ln src/app.js .ai/h`), which no path resolution can see and
  * which architectPathVerdict handles with an nlink check.
@@ -185,7 +185,7 @@ export function architectScopeGuard(volunteeredRole, absPath, cwd) {
           "The role is derived SERVER-SIDE (E-219, E-294): the HMAC-verified session token,\n" +
           "and `architect` when there is none — so an unidentified caller is confined rather\n" +
           "than trusted. A `caller_role` argument may only ADD restriction, never lift it.\n\n" +
-          "To modify src/, use the Engineer pane (`ai pane engineer`).",
+          "To modify src/, use the Engineer pane (`rein pane engineer`).",
       }],
       isError: true,
     };

@@ -554,13 +554,13 @@ const ALIGNMENT_RULES = [
     check: (diff, cwd) => {
       const statePath = resolve(cwd, ".ai/state.json");
       if (!existsSync(statePath)) {
-        return ["state.json missing — run: ai migrate-state before committing"];
+        return ["state.json missing — run: rein migrate-state before committing"];
       }
       let state;
       try {
         state = JSON.parse(readFileSafe(statePath));
       } catch {
-        return ["state.json is corrupt — run: ai migrate-state to rebuild"];
+        return ["state.json is corrupt — run: rein migrate-state to rebuild"];
       }
       const tier3Done = (state.tasks || []).some(t => t.tier === 3 && t.status === "DONE");
       if (!tier3Done) return [];

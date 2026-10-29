@@ -1,7 +1,7 @@
-// project-upgrade.mjs — the data half of `ai init` as an idempotent upgrade (E-270, D-074
+// project-upgrade.mjs — the data half of `rein init` as an idempotent upgrade (E-270, D-074
 // §Components 1-2, .ai/blueprints/version-lifecycle.md).
 //
-// `ai init` used to create only what was MISSING, so a project provisioned by 3.0 kept a
+// `rein init` used to create only what was MISSING, so a project provisioned by 3.0 kept a
 // roles.json without the `tester` role and a providers.json naming providers v4 removed,
 // forever. This helper owns the two things bash should not do by hand:
 //
@@ -115,7 +115,7 @@ export function runMerge({ aiDir, templatesDir, legacyPath, version, check = fal
     tplProviders = _readJson(tplProvidersPath);
     tplRoles = _readJson(tplRolesPath);
   } catch (e) {
-    return [{ kind: "error", file: "templates", detail: `unreadable template (${e.message}) — run: ai install` }];
+    return [{ kind: "error", file: "templates", detail: `unreadable template (${e.message}) — run: rein install` }];
   }
   try { if (legacyPath && existsSync(legacyPath)) legacy = _readJson(legacyPath); } catch { legacy = null; }
   const retired = retiredProviders(tplProviders.providers, legacy);

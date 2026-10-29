@@ -1,6 +1,6 @@
 // tests/unit/footprint-recorder.test.mjs — the dynamic footprint recorder (E-297, D-088)
 //
-// tests/lib/footprint.sh turns node/bash/python3/ai into recording shell functions inside
+// tests/lib/footprint.sh turns node/bash/python3/rein into recording shell functions inside
 // every suite. Its whole contract is that no suite can tell: exit status, stdin, stdout,
 // stderr, `set -e`, PIPESTATUS and `command -v` must be what they were. That is a process
 // boundary, so each case drives /bin/bash (3.2 on macOS — the shell the recorder must
@@ -103,20 +103,20 @@ node /tmp/elsewhere.mjs 2>/dev/null
 });
 
 // E-311 (D-092): extends the record test above — the two blind spots the installer survey hit.
-test("env … <cmd> is recorded as the command; every installer / ai init run gets an installer line", () => {
+test("env … <cmd> is recorded as the command; every installer / rein init run gets an installer line", () => {
   const t = tmp("inst");
   try {
-    // NEVER the real src/bin/ai: `ai init` has no --help and would initialise the cwd. A path
+    // NEVER the real src/bin/rein: `rein init` has no --help and would initialise the cwd. A path
     // that does not exist still exercises the recorder (it records before the binary runs).
-    const AI = "/nonexistent/src/bin/ai";
+    const AI = "/nonexistent/src/bin/rein";
     sh(`env -u CI HOME=/nonexistent FOO=1 bash -c 'exit 0'
 env HOME=/nonexistent bash /nonexistent/install-rein.sh 2>/dev/null
 bash /nonexistent/install-rein.sh 2>/dev/null
 bash '${AI}' init >/dev/null 2>&1 </dev/null
 bash -c "bash '${AI}' init >/dev/null 2>&1"
-bash -c "echo run | grep -q 'ai init'"
+bash -c "echo run | grep -q 'rein init'"
 bash -c "grep -q install-rein.sh /dev/null"
-bash -c 'echo "run: bash install-rein.sh"; echo "then: ai init"'
+bash -c 'echo "run: bash install-rein.sh"; echo "then: rein init"'
 bash -c "x=1; bash /nonexistent/install-rein.sh 2>/dev/null"
 bash -c "cd /nonexistent 2>/dev/null || FOO=1 '${AI}' init 2>/dev/null"
 env true
@@ -127,10 +127,10 @@ command -v env`, { rec: t.d });
       "probe_test.sh\tinstaller\tinstall-rein.sh\tforeign:/nonexistent",
       "probe_test.sh\tbash\t/nonexistent/install-rein.sh",
       "probe_test.sh\tinstaller\tinstall-rein.sh\trun",
-      "probe_test.sh\tbash\t/nonexistent/src/bin/ai",
-      "probe_test.sh\tinstaller\tai init\trun",
-      "probe_test.sh\tbash\t-c:src/bin/ai",
-      "probe_test.sh\tinstaller\tai init\trun",
+      "probe_test.sh\tbash\t/nonexistent/src/bin/rein",
+      "probe_test.sh\tinstaller\trein init\trun",
+      "probe_test.sh\tbash\t-c:src/bin/rein",
+      "probe_test.sh\tinstaller\trein init\trun",
       "probe_test.sh\tbash\t-c",
       "probe_test.sh\tbash\t-c",
       // A stub that only PRINTS the installer's command line is not a run (ai_ci_gate, the
@@ -138,8 +138,8 @@ command -v env`, { rec: t.d });
       "probe_test.sh\tbash\t-c",
       "probe_test.sh\tbash\t-c",
       "probe_test.sh\tinstaller\tinstall-rein.sh\trun",
-      "probe_test.sh\tbash\t-c:src/bin/ai",
-      "probe_test.sh\tinstaller\tai init\trun",
+      "probe_test.sh\tbash\t-c:src/bin/rein",
+      "probe_test.sh\tinstaller\trein init\trun",
     ], "a grep or echo of the name is not an installer run; `env true` records nothing");
     assert.match(sh("command -v env").out, /^\/.*\/env\n$/, "command -v env still prints the binary's path");
   } finally { t.done(); }
@@ -147,10 +147,10 @@ command -v env`, { rec: t.d });
 
 // E-312 (D-093): extends the installer test above — every installer line carries the HOME
 // class of its spawn, which decides whether the suite may share a lane.
-test("an installer / ai init line carries its spawn's HOME class: tmp, run, unknown or foreign:<path>", () => {
+test("an installer / rein init line carries its spawn's HOME class: tmp, run, unknown or foreign:<path>", () => {
   const t = tmp("home");
   try {
-    const AI = "/nonexistent/src/bin/ai";   // never the real binary (see the test above)
+    const AI = "/nonexistent/src/bin/rein";   // never the real binary (see the test above)
     const th = join(t.d, "rein-t-home-x");  // a harness temp dir, by its prefix
     sh(`HOME='${th}' bash /nonexistent/install-rein.sh 2>/dev/null
 env HOME='${th}' bash '${AI}' init >/dev/null 2>&1 </dev/null

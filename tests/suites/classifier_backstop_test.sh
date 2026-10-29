@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# classifier_backstop_test.sh — E-293 (D-083 r5(iii), D-086): `ai install` OFFERS one
-# autoMode.hard_deny rule in the operator's ~/.claude/settings.json; `ai doctor` reports it.
+# classifier_backstop_test.sh — E-293 (D-083 r5(iii), D-086): `rein install` OFFERS one
+# autoMode.hard_deny rule in the operator's ~/.claude/settings.json; `rein doctor` reports it.
 #
 # Every case runs against a throwaway HOME — never the operator's settings. The helper
 # (src/shared/classifier-backstop.py) is exercised directly for the JSON contract; the bash
-# glue (_classifier_offer / _classifier_report, sourced from src/bin/ai) under a pseudo-terminal
+# glue (_classifier_offer / _classifier_report, sourced from src/bin/rein) under a pseudo-terminal
 # from script(1), because the offer must never prompt without one.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -51,11 +51,11 @@ assert_status 0 "E-324.01b: D-101 = D-097 with exactly two changes: the label, a
 import sys
 old, new = sys.argv[1], sys.argv[2]
 assert "`ai watch`" in old and "`ai watch`" not in new
-assert old.replace("(D-097)", "(D-101)", 1).replace("`ai pane`, `ai watch`, ", "`ai pane`, ", 1) == new
+assert old.replace("(D-097)", "(D-101)", 1).replace("`rein pane`, `ai watch`, ", "`rein pane`, ", 1) == new
 PY
 assert_status 0 "E-318.01a: the superseded D-097 paragraph is still found (the refresh rows below need it)" test "${#D097}" -gt 500
 assert_contains "E-318.01b: D-101 names the account registry" '~/.ai-os/accounts.json' "$D101"  # D-101 as ruled (pre-rename path)
-assert_contains "E-318.01c: …and exempts ai account" '`ai account`' "$D101"
+assert_contains "E-318.01c: …and exempts rein account" '`rein account`' "$D101"
 assert_status 0 "E-306.01d: the superseded D-086 paragraph is still found (the replacement fixture below needs it)" test "${#D086}" -gt 500
 
 # ── E-293.02: no autoMode → exactly "$defaults" + the rule ────────────────────────────
@@ -222,7 +222,7 @@ assert_status 0 "E-293.06a: a concurrent write aborts the apply (rc 4, got ${rc}
 assert_status 0 "E-293.06b: …the other writer's content stands, no rule written, no temp left" \
   bash -c "! grep -q 'AI-OS Gate Tamper' '$S' && ! ls '$T/h/.claude/'.settings.*.tmp >/dev/null 2>&1"
 
-# ── E-293.07: the `ai install` offer (bash glue) ──────────────────────────────────────
+# ── E-293.07: the `rein install` offer (bash glue) ──────────────────────────────────────
 # The offer runs only with a terminal on stdin. Python's pty module gives it one, waits for
 # the [y/N] prompt to APPEAR before typing the answer, and reads until EOF — deterministic.
 # (A script(1) harness was tried first: it lost the session depending on how the suite's own
@@ -254,7 +254,7 @@ os.waitpid(pid, 0)
 sys.stdout.write(buf.decode("utf-8", "replace").replace("\r", ""))
 PY
 _pty() {  # <answer> — run _classifier_offer on a pty with HOME=$T/h, answer typed at the prompt
-  python3 -I "$T/pty-drive.py" "$1" "cd '$T' && unset CI REIN_CI && HOME='$T/h' bash -c 'source \"${REPO_ROOT}/src/bin/ai\" >/dev/null 2>&1; _cb_py() { printf %s \"${PY}\"; }; _classifier_offer; echo OFFER_DONE'"
+  python3 -I "$T/pty-drive.py" "$1" "cd '$T' && unset CI REIN_CI && HOME='$T/h' bash -c 'source \"${REPO_ROOT}/src/bin/rein\" >/dev/null 2>&1; _cb_py() { printf %s \"${PY}\"; }; _classifier_offer; echo OFFER_DONE'"
 }
 if true; then   # python3 (required above) provides the pty
   for ans in n "" maybe; do
@@ -284,32 +284,32 @@ if true; then   # python3 (required above) provides the pty
   assert_status 0 "E-293.07l: …and nothing is created" test ! -e "$T/h/.claude"
 fi
 assert_status 0 "E-293.07m: install_global calls _classifier_offer" \
-  bash -c "awk '/^install_global\\(\\) \\{/,/^}/' '${REPO_ROOT}/src/bin/ai' | grep -q '^  _classifier_offer$'"
+  bash -c "awk '/^install_global\\(\\) \\{/,/^}/' '${REPO_ROOT}/src/bin/rein' | grep -q '^  _classifier_offer$'"
 # Without a terminal / under CI: never prompts, never writes.
 for envset in "" "CI=1" "REIN_CI=local"; do
   _home; printf '{}\n' > "$S"; sha="$(_sha "$S")"
-  out="$(printf 'y\n' | env HOME="$T/h" ${envset:+"$envset"} bash -c "source '${REPO_ROOT}/src/bin/ai' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_offer" 2>&1)"
+  out="$(printf 'y\n' | env HOME="$T/h" ${envset:+"$envset"} bash -c "source '${REPO_ROOT}/src/bin/rein' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_offer" 2>&1)"
   assert_not_contains "E-293.07i: no terminal${envset:+ + ${envset}} → no prompt" "[y/N]" "$out"
   assert_status 0 "E-293.07j: no terminal${envset:+ + ${envset}} → file unchanged even with 'y' on stdin" test "$(_sha "$S")" = "$sha"
 done
 
-# ── E-293.08: ai doctor lines ──────────────────────────────────────────────────────
-_doctor() { env HOME="$T/h" bash -c "source '${REPO_ROOT}/src/bin/ai' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_report" 2>&1; }
+# ── E-293.08: rein doctor lines ──────────────────────────────────────────────────────
+_doctor() { env HOME="$T/h" bash -c "source '${REPO_ROOT}/src/bin/rein' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_report" 2>&1; }
 _home; printf '{}\n' > "$S"
-assert_contains "E-293.08a: not configured" "○ classifier backstop: not configured — ai install offers it" "$(_doctor)"
+assert_contains "E-293.08a: not configured" "○ classifier backstop: not configured — rein install offers it" "$(_doctor)"
 python3 -I "$PY" apply "$S" >/dev/null
 assert_contains "E-293.08b: present" "✓ classifier backstop: present" "$(_doctor)"
 assert_contains "E-293.08c: the effective default mode is reported" "default permission mode: default" "$(_doctor)"
 _home; printf '{\n  "a": 1,\n}\n' > "$S"
 assert_contains "E-293.08d: unparsable → Claude Code ignores it, no autoMode active" "NO autoMode rules are active" "$(_doctor)"
-_home; printf '{"permissions": {"allow": ["Bash(ai gate:*)"], "defaultMode": "auto"}, "autoMode": {"hard_deny": ["x"]}}\n' > "$S"
+_home; printf '{"permissions": {"allow": ["Bash(rein gate:*)"], "defaultMode": "auto"}, "autoMode": {"hard_deny": ["x"]}}\n' > "$S"
 out="$(_doctor)"
 assert_contains "E-293.08e: a Bash(ai… allow rule is warned about" "allow rules are resolved BEFORE the classifier" "$out"
 assert_contains "E-293.08f: a list without \$defaults is reported (D-086 r2)" 'hard_deny omits "$defaults"' "$out"
 assert_contains "E-293.08g: auto mode reported without the hook-only caveat" "default permission mode: auto" "$out"
 assert_not_contains "E-293.08h: …and no 'only gate' caveat in auto mode" "the hook is the only gate" "$out"
 _home; printf '{"autoMode": {"hard_deny": ["AI-OS Gate Tamper: older text"]}}\n' > "$S"
-assert_contains "E-293.08j: an outdated copy is reported" "outdated wording — ai install offers the current rule" "$(_doctor)"
+assert_contains "E-293.08j: an outdated copy is reported" "outdated wording — rein install offers the current rule" "$(_doctor)"
 
 # ── E-306: an installed older rule (D-086) is replaced IN PLACE by the current one — exactly one Rein rule ──
 _home
@@ -321,7 +321,7 @@ json.dump({"permissions": {"defaultMode": "auto"},
           open(sys.argv[1], "w"), indent=2, ensure_ascii=False)
 PY
 assert_contains "E-306.02a: an installed D-086 rule reads OUTDATED and names its ruling" $'OUTDATED\tD-086' "$(python3 -I "$PY" status "$S")"
-assert_contains "E-306.02b: ai doctor says 'outdated (D-086)'" "outdated (D-086) wording" "$(_doctor)"
+assert_contains "E-306.02b: rein doctor says 'outdated (D-086)'" "outdated (D-086) wording" "$(_doctor)"
 python3 -I "$PY" apply "$S" >/dev/null
 assert_status 0 "E-306.02c: after apply: exactly one Rein rule, the current one, in the D-086 one's place; every other entry untouched" python3 - "$S" "$D101" <<'PY'
 import json, sys
@@ -344,7 +344,7 @@ PY
 _home; printf '{}\n' > "$S"; chmod 000 "$S"
 out="$(_doctor)"; chmod 600 "$S"
 assert_contains "E-293.08k: an unreadable file → ✗ could not check (not 'not configured')" "✗ classifier backstop: could not check" "$out"
-assert_contains "E-293.08i: ai doctor calls the report" "_classifier_report" "$(grep -n '_classifier_report$' "${REPO_ROOT}/src/bin/ai")"
+assert_contains "E-293.08i: rein doctor calls the report" "_classifier_report" "$(grep -n '_classifier_report$' "${REPO_ROOT}/src/bin/rein")"
 
 # ── E-314 (D-095, accounts.md §4): the report covers every registered account's directory ──
 # A second config directory has its own settings.json, so a rule present in ~/.claude says
@@ -355,7 +355,7 @@ printf '{"accounts": {"work": {"config_dir": "%s", "added": "2026-10-13"}}}\n' "
 out="$(_doctor)"
 assert_contains "E-314.01a: the default directory is still reported" "✓ classifier backstop: present" "$out"
 assert_contains "E-314.01b: a registered account without the rule is reported, with the fix" \
-  "○ classifier backstop [account work]: not configured in ~/.claude-work/settings.json — run: ai account sync work" "$out"
+  "○ classifier backstop [account work]: not configured in ~/.claude-work/settings.json — run: rein account sync work" "$out"
 python3 -I "$PY" apply "$T/h/.claude-work/settings.json" >/dev/null
 assert_contains "E-314.01c: …and reads present once it has it" "✓ classifier backstop [account work]: present" "$(_doctor)"
 
@@ -364,7 +364,7 @@ assert_contains "E-314.01c: …and reads present once it has it" "✓ classifier
 # version D-101 superseded), account "none"
 # without the rule. The files are in Claude Code's own format, so a rewrite that changed
 # anything but the one entry would show in the bytes.
-_refresh() { env HOME="$T/h" bash -c "source '${REPO_ROOT}/src/bin/ai' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_refresh_all $*" 2>&1; }
+_refresh() { env HOME="$T/h" bash -c "source '${REPO_ROOT}/src/bin/rein' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_refresh_all $*" 2>&1; }
 _cc_json() {  # <path> <hard_deny JSON> — write a settings.json the way Claude Code does
   python3 - "$1" "$2" <<'PYW'
 import json, sys
@@ -403,23 +403,23 @@ printf '{\n  "a": 1,\n}\n' > "$T/h/.claude-old/settings.json"; sha_bad="$(_sha "
 out="$(_refresh)"
 assert_contains "E-318.02j: an unparsable account file is reported, not repaired" "✗ classifier backstop [account old]: ~/.claude-old/settings.json left untouched" "$out"
 assert_status 0 "E-318.02k: …byte-identical" test "$(_sha "$T/h/.claude-old/settings.json")" = "$sha_bad"
-# D-098: `ai install` refreshes ~/.claude too, before the y/N offer — so an install with no
+# D-098: `rein install` refreshes ~/.claude too, before the y/N offer — so an install with no
 # terminal (the offer declines to ask) still leaves no outdated copy behind.
 _cc_json "$S" "$(python3 -c 'import json,sys; print(json.dumps(["$defaults", "keep", sys.argv[1]]))' "$D097")"
-out="$(env HOME="$T/h" bash -c "source '${REPO_ROOT}/src/bin/ai' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_refresh_all; _classifier_offer" </dev/null 2>&1)"
+out="$(env HOME="$T/h" bash -c "source '${REPO_ROOT}/src/bin/rein' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_refresh_all; _classifier_offer" </dev/null 2>&1)"
 assert_contains "E-318.02l: a non-TTY install sequence replaces an outdated ~/.claude copy…" "AI-OS Gate Tamper (D-101)" "$(cat "$S")"
 assert_contains "E-318.02l2: …and the offer still declines to prompt without a terminal" "not offered (no terminal)" "$out"
 assert_status 0 "E-318.02l3: …the ABSENT account stays untouched" test "$(_sha "$T/h/.claude-none/settings.json")" = "$sha_none"
-assert_contains "E-318.02m: ai sync runs the refresh as a step" "_classifier_refresh_all" "$(grep -nE '_sync_step +classifier +_classifier_refresh_all' "${REPO_ROOT}/src/bin/ai")"
-assert_status 0 "E-318.02n: ai install runs the refresh immediately before the offer" \
-  bash -c "sed -n '/^install_global() {/,/^}/p' '${REPO_ROOT}/src/bin/ai' | grep -A3 -E '^  _classifier_refresh_all( \|\| :)?\$' | grep -qE '^  _classifier_offer\$'"
+assert_contains "E-318.02m: rein sync runs the refresh as a step" "_classifier_refresh_all" "$(grep -nE '_sync_step +classifier +_classifier_refresh_all' "${REPO_ROOT}/src/bin/rein")"
+assert_status 0 "E-318.02n: rein install runs the refresh immediately before the offer" \
+  bash -c "sed -n '/^install_global() {/,/^}/p' '${REPO_ROOT}/src/bin/rein' | grep -A3 -E '^  _classifier_refresh_all( \|\| :)?\$' | grep -qE '^  _classifier_offer\$'"
 
-# `ai account add` copies ~/.claude's settings, so an outdated label there would be seeded —
+# `rein account add` copies ~/.claude's settings, so an outdated label there would be seeded —
 # the new directory is refreshed after seeding.
 _home; rm -rf "$T/h/.rein" "$T/h/.claude-work"
 _cc_json "$S" "$(python3 -c 'import json,sys; print(json.dumps(["$defaults", sys.argv[1]]))' "$D097")"
-out="$(env HOME="$T/h" PATH="/usr/bin:/bin" bash -c "source '${REPO_ROOT}/src/bin/ai' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; do_account add work" </dev/null 2>&1)"
-assert_contains "E-318.03a: ai account add reports the refresh of the seeded copy" "✓ classifier backstop [account work]: outdated copy" "$out"
+out="$(env HOME="$T/h" PATH="/usr/bin:/bin" bash -c "source '${REPO_ROOT}/src/bin/rein' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; do_account add work" </dev/null 2>&1)"
+assert_contains "E-318.03a: rein account add reports the refresh of the seeded copy" "✓ classifier backstop [account work]: outdated copy" "$out"
 assert_contains "E-318.03b: …the new directory carries the D-101 text" "AI-OS Gate Tamper (D-101)" "$(cat "$T/h/.claude-work/settings.json" 2>/dev/null)"
 assert_not_contains "E-318.03c: …and ~/.claude keeps its own (outdated) copy for the offer" "AI-OS Gate Tamper (D-101)" "$(cat "$S")"
 

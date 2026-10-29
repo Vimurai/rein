@@ -13,14 +13,14 @@
  * per-file parse timeout + 1 MB size cap bound CPU (DoS).
  *
  * NOT DEAD CODE — intentionally absent from registry.json / .mcp.json. This is a
- * dual-mode binary: the `--generate-map` CLI path is invoked directly by `ai sync`
- * (src/bin/ai → `node ${REIN}/mcp/ast-parser-mcp/index.js --generate-map`) to build
+ * dual-mode binary: the `--generate-map` CLI path is invoked directly by `rein sync`
+ * (src/bin/rein → `node ${REIN}/mcp/ast-parser-mcp/index.js --generate-map`) to build
  * .ai/REPO_MAP.md. The MCP-server mode (parse_workspace) is reachable when the SDK
  * is present. Deleting this breaks REPO_MAP generation.
  */
 
 // E-98: the MCP SDK is imported lazily (server mode only) so the
-// `--generate-map` CLI path used by the `ai sync` hook stays dependency-light —
+// `--generate-map` CLI path used by the `rein sync` hook stays dependency-light —
 // it needs only web-tree-sitter + the vendored grammars, no SDK.
 import { isMainModule } from "../shared/is-main.mjs";
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -133,7 +133,7 @@ async function parseWorkspace(dirPath, maxFiles) {
 }
 
 // E-97/E-98: parse → rank → serialize → write .ai/REPO_MAP.md. Shared by the
-// generate_map MCP tool and the `--generate-map` CLI mode (ai sync hook).
+// generate_map MCP tool and the `--generate-map` CLI mode (rein sync hook).
 async function generateMap({ dirPath, maxFiles, maxTokens } = {}) {
   if (process.env.REIN_DISABLE_REPO_MAP === "1") return { disabled: true };
   const ws = await parseWorkspace(dirPath, maxFiles);
@@ -213,7 +213,7 @@ async function dispatchTool(name, args) {
 }
 
 // ── Entry point ──────────────────────────────────────────────────────────────
-// `--generate-map` (the ai sync hook) regenerates .ai/REPO_MAP.md and exits
+// `--generate-map` (the rein sync hook) regenerates .ai/REPO_MAP.md and exits
 // WITHOUT loading the SDK — fail-open. Otherwise start the stdio MCP server,
 // lazily importing the SDK so the CLI path stays self-contained.
 if (process.argv.includes("--generate-map")) {

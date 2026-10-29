@@ -1,11 +1,11 @@
 // ci-budget.js — the test budget ratchet (E-303, D-088, test-economics.md §Component 7).
 //
-// Every green, non-dirty `ai ci run` records a budget block in its ci_runs row (budget_json):
+// Every green, non-dirty `rein ci run` records a budget block in its ci_runs row (budget_json):
 //   { suites, test_lines, fast_tier_seconds, full_seconds, peak_rss_mb, peak_sum_rss_mb }
 // The BEST value of a field is the lowest one recorded since the latest ruling. A run FAILS
 // when a ratcheted field exceeds its best by more than its slack, so the numbers only move
 // down. Equal or lower passes and, once recorded, is the new best. No flag or env var lifts
-// it: raising a budget is a D-ruling, written into the record by `ai ci budget set --ruling
+// it: raising a budget is a D-ruling, written into the record by `rein ci budget set --ruling
 // D-###` (budgetSet), and the best is then computed from that row onward.
 //
 // Ratcheted (E-303's task text): suites +0, test_lines +2%, fast_tier_seconds +10%.
@@ -84,7 +84,7 @@ export function budgetCheck(best, measured) {
 
 /** The one line a regression prints: recorded, measured and slack together. */
 export function regressionLine(r) {
-  return `[BUDGET_REGRESSION] ${r.field}: recorded ${r.recorded}, measured ${r.measured}, slack ${r.slack} (limit ${r.limit}) — the budget only moves down; raising it is a D-ruling: ai ci budget set --ruling D-### ${r.field}=<n>`;
+  return `[BUDGET_REGRESSION] ${r.field}: recorded ${r.recorded}, measured ${r.measured}, slack ${r.slack} (limit ${r.limit}) — the budget only moves down; raising it is a D-ruling: rein ci budget set --ruling D-### ${r.field}=<n>`;
 }
 
 /**
@@ -103,7 +103,7 @@ export function budgetSet(db, ruling, values) {
   const row = db.prepare(
     "SELECT id, sha, budget_json FROM ci_runs WHERE status = 'PASS' AND dirty = 0 AND budget_json IS NOT NULL ORDER BY id DESC LIMIT 1",
   ).get();
-  if (!row) throw new Error("no green run with a budget is recorded yet — run: ai ci run");
+  if (!row) throw new Error("no green run with a budget is recorded yet — run: rein ci run");
   const merged = { ...(_parse(row.budget_json) || {}), ...values };
   db.prepare("UPDATE ci_runs SET budget_json = ?, budget_ruling = ? WHERE id = ?").run(JSON.stringify(merged), ruling, row.id);
   return { sha: row.sha, budget: merged };
@@ -138,7 +138,7 @@ export function budgetDrift(db) {
 /** `[BUDGET_DRIFT] <field> <latest> vs median-of-5 <value> (+N%)` */
 export const driftLine = (d) => `[BUDGET_DRIFT] ${d.field} ${d.latest} vs median-of-5 ${d.median} (+${d.pct}%)`;
 
-/** One human line for `ai ci status` / `ai doctor`. */
+/** One human line for `rein ci status` / `rein doctor`. */
 export function budgetSummary({ best, ruling, rulingSha, runs }) {
   if (!runs) return "no budget recorded yet";
   const parts = BUDGET_FIELDS.filter((f) => best[f] != null).map((f) => `${f} ${best[f]}${RATCHET[f] ? "" : " (recorded)"}`);

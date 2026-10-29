@@ -90,7 +90,7 @@ git add -- .ai/COMM.md && git commit --only .ai/COMM.md -m "chore(.ai): COMM han
 never rides a bookkeeping commit (no critic stamp needed — `.ai/COMM.md` is bookkeeping).
 The commit stays on the current branch and is not pushed here. If `git add` refuses
 because `.ai/COMM.md` is still gitignored (an un-synced clone), print that one line and
-skip the commit — never `git add -f`; `ai sync` removes the pattern and `ai doctor`
+skip the commit — never `git add -f`; `rein sync` removes the pattern and `rein doctor`
 reports `[COMM_IGNORED]` (D-104 r2/r4).
 
 ## Step 3 — Mark Deltas Read (Engineer→Architect only)

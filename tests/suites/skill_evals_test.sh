@@ -9,8 +9,8 @@
 #   2. live   — run the four cases (ai-preflight, ai-task, ai-handoff, task-planner) against
 #               the real model, every grader must pass. Needs an AUTHENTICATED `claude` on
 #               PATH; anything less is a recorded SKIP (E-236), never a fabricated result.
-#               Under `ai ci run` the HOME is a throwaway, so `claude` is never logged in
-#               there and this layer always SKIPs: `ai ci evals` runs it under the real HOME.
+#               Under `rein ci run` the HOME is a throwaway, so `claude` is never logged in
+#               there and this layer always SKIPs: `rein ci evals` runs it under the real HOME.
 #
 # REIN_SKILL_EVAL_REPORT=<path.json>  where the live layer writes the JSON report (default:
 #                                      a per-run temp path — rule 6, nothing under ~/.rein/)
@@ -39,12 +39,12 @@ for c in "${CASES[@]}"; do
   assert_exists "${REPO_ROOT}/.claude/skills/${c}/SKILL.md"
   n="$(find "${EVALS}/${c}/graders" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')"
   assert_status 0 "${c}: at least two graders (found ${n})" test "$n" -ge 2
-  assert_contains "${c}: scaffold seeds the shared fixture" "fixtures/ai-project.sh" "$(cat "${EVALS}/${c}/scaffold.sh")"
+  assert_contains "${c}: scaffold seeds the shared fixture" "fixtures/rein-project.sh" "$(cat "${EVALS}/${c}/scaffold.sh")"
 done
-assert_status 0 "fixture scaffold is valid bash" bash -n "${EVALS}/fixtures/ai-project.sh"
+assert_status 0 "fixture scaffold is valid bash" bash -n "${EVALS}/fixtures/rein-project.sh"
 # The preflight case's never-reads-architect grader only means something if the sentinel
 # it would see is really in the fixture's architect.md.
-assert_contains "fixture architect.md carries the sentinel" "ARCHITECT_SENTINEL_7f3a" "$(cat "${EVALS}/fixtures/ai-project.sh")"
+assert_contains "fixture architect.md carries the sentinel" "ARCHITECT_SENTINEL_7f3a" "$(cat "${EVALS}/fixtures/rein-project.sh")"
 
 # ── 2. live: the four cases against the model ─────────────────────────────────
 echo "  [skill-evals.live] 4 cases × ${REIN_SKILL_EVAL_RUNS:-2} runs, every grader passes"

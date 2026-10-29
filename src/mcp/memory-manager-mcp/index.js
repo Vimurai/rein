@@ -87,7 +87,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: "export_signature",
       description:
         "Exports the current project's architectural signature to the global memory store (~/.rein/memory/signatures.json). " +
-        "Called automatically by `ai archive`. Signatures contain ONLY high-level lore/patterns — no secrets, PII, or internal logic.",
+        "Called automatically by `rein archive`. Signatures contain ONLY high-level lore/patterns — no secrets, PII, or internal logic.",
       inputSchema: {
         type: "object",
         properties: {
@@ -112,7 +112,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       name: "query_signatures",
       description:
         "Queries the global memory store for project signatures matching the given tags. " +
-        "Useful during `ai init` to find similar architectural patterns from past projects.",
+        "Useful during `rein init` to find similar architectural patterns from past projects.",
       inputSchema: {
         type: "object",
         properties: {

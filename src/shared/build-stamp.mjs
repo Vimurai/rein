@@ -25,10 +25,10 @@
 // it would train the operator to ignore the notice. The mtime is carried anyway because
 // it is what the message quotes ("mirror changed <ts>"), and it is read in FLOAT
 // milliseconds: whole-second mtime made E-229's watcher re-exec mechanism inert for
-// same-second rewrites, which is the exact `ai sync` case.
+// same-second rewrites, which is the exact `rein sync` case.
 //
 // HOW A SEPARATE PROCESS FINDS OUT. Each server writes ~/.rein/run/build-<server>.json at
-// startup. `verify_markdown_sync`, the `ai-preflight` skill, `ai doctor`, `ai sync` and
+// startup. `verify_markdown_sync`, the `ai-preflight` skill, `rein doctor`, `rein sync` and
 // `install-rein.sh` read that directory, drop records whose pid is gone, recompute the
 // stamp from the SAME paths the record names, and report every mismatch. Comparing
 // booted-against-current-at-the-same-path is what makes the check correct for a server
@@ -243,7 +243,7 @@ export const GATED_ROOTS = ["mcp", "bin"];
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "__pycache__"]);
 
-// Files the INSTALL itself rewrites. `ai mcp-setup` runs `npm install` inside the mirror,
+// Files the INSTALL itself rewrites. `rein mcp-setup` runs `npm install` inside the mirror,
 // which regenerates every lockfile there — so a lockfile under the mirror differs from the
 // one in src/ permanently and by design (the repo pins `^1.0.0`, the installed tree
 // resolves `*`). Comparing them would make the gate fire on every task forever, and a gate
@@ -357,10 +357,10 @@ export function staleServerReport(opts = {}) {
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────────
-// `ai doctor`, `ai sync` and install-rein.sh are shell; they read this through the CLI
+// `rein doctor`, `rein sync` and install-rein.sh are shell; they read this through the CLI
 // rather than reimplementing the scan, so there is one definition of "stale" in the tree.
 // Exit code is ALWAYS 0: staleness is an announcement, not a failure, and a non-zero exit
-// here would abort `ai sync` under `set -e` — the exact class of defect E-247 just fixed.
+// here would abort `rein sync` under `set -e` — the exact class of defect E-247 just fixed.
 function main(argv) {
   const args = argv.slice(2);
   if (args.includes("--stale") || args.includes("--stale-json")) {

@@ -1,4 +1,4 @@
-// cli-add-task.mjs — the shell-native primitive behind `ai add-task` (E-198,
+// cli-add-task.mjs — the shell-native primitive behind `rein add-task` (E-198,
 // Architect Ruling A / pending D-053).
 //
 // WHY THIS EXISTS:
@@ -6,7 +6,7 @@
 //   the project MCP servers that hand-edits TASKS.md loses those rows: the next
 //   `verify_markdown_sync` regenerates TASKS.md from state.sqlite and DROPS the
 //   unpersisted rows (the "orphaned blueprint" incident). This helper is the
-//   deterministic shell primitive behind `ai add-task`.
+//   deterministic shell primitive behind `rein add-task`.
 //
 //   Both this CLI and task-synchronizer-mcp::add_task route through the SAME
 //   state-db::addTask(), so state.sqlite stays the single writer and the two callers
@@ -94,7 +94,7 @@ export function findAiDir(startDir) {
 }
 
 /**
- * Parse `ai add-task` argv (tokens AFTER the `add-task` subcommand). Supports
+ * Parse `rein add-task` argv (tokens AFTER the `add-task` subcommand). Supports
  * `--flag value` and `--flag=value`; every non-flag token is part of the description.
  * Recognised flags: --prefix, --owner, --role, --tier, --depends-on (comma-separated).
  * @returns {{prefix,owner,role,tier,depends_on:string[],description:string}}
@@ -146,18 +146,18 @@ export function runAddTask({ aiDir, description, owner, role, tier, prefix, depe
 }
 
 // ── CLI entrypoint ────────────────────────────────────────────────────────────
-// Invoked as: node cli-add-task.mjs <args…>  (from bin/ai `do_add_task`).
+// Invoked as: node cli-add-task.mjs <args…>  (from bin/rein `do_add_task`).
 function main() {
   const argv = process.argv.slice(2);
   const opts = parseArgs(argv);
   if (!opts.description) {
-    process.stderr.write("usage: ai add-task [--prefix E|P] [--owner <name>] [--role architect|engineer] [--tier N] [--depends-on E-1,E-2] <description>\n");
+    process.stderr.write("usage: rein add-task [--prefix E|P] [--owner <name>] [--role architect|engineer] [--tier N] [--depends-on E-1,E-2] <description>\n");
     process.exit(2);
   }
   const aiDir = findAiDir(process.cwd());
   const res = runAddTask({ aiDir, ...opts });
   if (!res.ok) {
-    process.stderr.write(`ai add-task: [${res.code}] ${res.error}\n`);
+    process.stderr.write(`rein add-task: [${res.code}] ${res.error}\n`);
     process.exit(1);
   }
   // stdout: the created id (scriptable) + a human line; full record to stderr for logs.

@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
 # Rein pre-push — Local CI gate (E-267, D-072, local-ci.md §Components 5b)
-# Logic: every pushed tip needs a green, non-dirty `ai ci run` row in the project's
+# Logic: every pushed tip needs a green, non-dirty `rein ci run` row in the project's
 #        .ai/state.sqlite — or a green row for an ancestor that differs from the tip only
 #        under .ai/ (the bookkeeping commits ai-task makes after a DONE). In a team project
 #        (.ai/team.json, E-328 / D-102 §5a) a member's PASS record .ai/ci/<sha>.json counts
 #        the same way, so the local sqlite row is not required; ci-record.mjs gate decides.
 # Bypass: REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="<why>" git push — ONE push; the skip is
 #         written to ci_runs as a SKIPPED row with the reason. No reason, no skip.
-# Install: `ai init` / `ai sync` write a stub to .git/hooks/pre-push that execs this file.
+# Install: `rein init` / `rein sync` write a stub to .git/hooks/pre-push that execs this file.
 # stdin (git): "<local ref> <local sha> <remote ref> <remote sha>" per pushed ref.
 
 # ── E-292 (D-082 r2): an ABORTED gate is a BLOCKED call ─────────────────────────────
@@ -16,8 +16,8 @@
 # executable line (builtins only; the prologue's `unset -f` cannot delete it). A deliberate
 # exit is `exit` with this hook's own codes (0 allow, 1 block); anything else is an abort and
 # exits 2 with one line. The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|1:exit|1:exit[[:space:]]*) exit "$_rein_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-push aborted (rc %s near line %s) — run: ai doctor\n" "$_rein_rc" "$LINENO" >&2; exit 2' EXIT
-trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-push interrupted by a signal — run: ai doctor\n" >&2; exit 2' TERM HUP INT PIPE
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|1:exit|1:exit[[:space:]]*) exit "$_rein_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-push aborted (rc %s near line %s) — run: rein doctor\n" "$_rein_rc" "$LINENO" >&2; exit 2' EXIT
+trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-push interrupted by a signal — run: rein doctor\n" >&2; exit 2' TERM HUP INT PIPE
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -81,6 +81,6 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   # E-386 (D-135 r2): a stale census baseline slows a fresh runner's lanes, it never changes a
   # verdict — so it is a warning, and the push goes on.
   _age="$(node "${NODE_FLAGS[@]}" "$HELPER" census-stale --ai-dir "$AI_DIR" --sha "$local_sha" 2>/dev/null || true)"
-  [[ "$_age" == STALE* ]] && echo "[CENSUS_BASELINE_STALE] ${_age#STALE } full runs since the baseline in ${local_sha:0:7} — the next ai ci run rewrites tests/census-baseline.tsv; commit it" >&2
+  [[ "$_age" == STALE* ]] && echo "[CENSUS_BASELINE_STALE] ${_age#STALE } full runs since the baseline in ${local_sha:0:7} — the next rein ci run rewrites tests/census-baseline.tsv; commit it" >&2
 done
 exit "$rc"

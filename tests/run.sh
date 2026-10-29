@@ -3,7 +3,7 @@
 # Usage: bash tests/run.sh [--sweep] [--tier fast|full] [--changed <ref>] [--lanes N] [--shard i/N] [suite_pattern]
 #   --lanes N (REIN_TEST_LANES, default 1): shared suites in N parallel lanes, exclusive ones
 #     after them serially (E-309, D-091); refused above free memory / 1.5 GB.
-#   --tier full (default): every suite — today's matrix; `ai ci run` and pre-push use it.
+#   --tier full (default): every suite — today's matrix; `rein ci run` and pre-push use it.
 #   --tier fast: the node unit layer + every contract-table suite (E-298, D-088; budget 60 s).
 #   --changed <ref>: fast + the suites whose census footprint touches a file changed since <ref>
 #     (tests/tools/select-suites.mjs); with no census it runs the full matrix and says so.
@@ -159,7 +159,7 @@ _rein_test_cleanup() {
 trap _rein_test_cleanup EXIT INT TERM
 
 # Base the test config on the current .mcp.json (a sandbox copy). Skip silently
-# when no production config exists yet (e.g. CI before `ai mcp-setup`).
+# when no production config exists yet (e.g. CI before `rein mcp-setup`).
 if [[ -f "${REPO_ROOT}/.mcp.json" ]]; then
   cp "${REPO_ROOT}/.mcp.json" "$MCP_TEST_CONFIG"
   export MCP_CONFIG_PATH="$MCP_TEST_CONFIG"
@@ -233,7 +233,7 @@ if [[ ${#SUITES[@]} -eq 0 ]]; then
 fi
 
 # ── E-345 (D-109 r1): every fixture HOME a hook runs under carries the toolchain record ──
-# A suite that sets HOME and runs a hook or `ai` without tc_fixture_home passes only on hosts
+# A suite that sets HOME and runs a hook or `rein` without tc_fixture_home passes only on hosts
 # whose node sits in the pin's fallback list. Static, before any suite starts; exemptions are
 # per rule, with a reason, in tests/fixtures/fixture-home-exemptions.json.
 # The node unit tests spawn hooks too (tcFixtureHome); they are scanned with the suites.
@@ -252,7 +252,7 @@ echo "   Suites found: ${#SUITES[@]}"
 echo ""
 
 # ── E-297 (D-088): census input — per-suite wall time, counts and footprint ──
-# tests/lib/footprint.sh appends one line per node/bash/python3/ai spawn to
+# tests/lib/footprint.sh appends one line per node/bash/python3/rein spawn to
 # ${TEST_TMPDIR}/footprint.log. After each suite the runner folds those lines into the census
 # input under THIS suite's name (exact attribution, whatever $0 the spawning script had),
 # with a count, and empties the log. tests/tools/census.mjs reads the result.
@@ -261,7 +261,7 @@ FOOTPRINT_LOG="${TEST_TMPDIR}/footprint.log"
 : > "$CENSUS_INPUT"; : > "$FOOTPRINT_LOG"
 printf 'CENSUS_RUN\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)" "$PATTERN" >> "$CENSUS_INPUT"
-# _now_ms → wall clock in ms. bash 5 has EPOCHREALTIME; /bin/bash 3.2 (what `ai ci run`
+# _now_ms → wall clock in ms. bash 5 has EPOCHREALTIME; /bin/bash 3.2 (what `rein ci run`
 # uses on macOS) does not, so perl (~3 ms, part of the base system) and, last, whole seconds.
 _now_ms() {
   if [[ -n "${EPOCHREALTIME:-}" ]]; then
@@ -274,7 +274,7 @@ _now_ms() {
 }
 
 # ── E-309 (D-091): lanes by resource class ───────────────────────────────────
-# A suite is EXCLUSIVE when it uses tmux, has the installer or `ai init` as its
+# A suite is EXCLUSIVE when it uses tmux, has the installer or `rein init` as its
 # subject (# REIN_INSTALLER_SUBJECT), binds a port, measures host-load-sensitive ratios
 # (assert_perf, E-239), or declares `# REIN_EXCLUSIVE: tmux|installer|port|perf` in its
 # first 10 lines. Exclusive suites run serially AFTER the shared lanes, under the run's
@@ -282,7 +282,7 @@ _now_ms() {
 # costs time; a false "shared" can leak across lanes, so the match is deliberately broad.
 # _lane_class <suite> → "shared" or "exclusive <reason>" (data on stdout, no state — D-064 §2).
 # E-312 (D-093): an installer-subject suite is no longer exclusive by its header alone. It
-# shares a lane when its last measured footprint shows every installer / `ai init` spawn with
+# shares a lane when its last measured footprint shows every installer / `rein init` spawn with
 # a HOME of its own — "tmp" (a harness temp dir), or "run" (the suite's starting HOME) when the
 # lanes clone HOME — the rule tests/tools/census.mjs installerLane() prints. `# REIN_EXCLUSIVE:`
 # and the tmux / port / perf rule still win.
@@ -423,7 +423,7 @@ _wall_hint() {
 # _lanes_run — run SUITES[] into $RUN_DIR: shared suites longest-first across REIN_LANES
 # workers, then the exclusive ones serially in this shell. Each lane owns its prefixes
 # (rein-test-L<n>-, rein-t-L<n>-), its REIN_TEST_TMPDIR (footprint log) and telemetry store,
-# and — under `ai ci run`, whose HOME is the run's throwaway one — a HOME clone.
+# and — under `rein ci run`, whose HOME is the run's throwaway one — a HOME clone.
 # _lane_clone_home_set — clone HOME per lane only under CI, and NEVER the account's real home
 # (the user record, not $HOME): a local `REIN_CI=local bash tests/run.sh --lanes 4` must not
 # copy it. Sets _lane_clone_home, which _lane_class reads (E-386: the shard pass classes too).
@@ -477,7 +477,7 @@ _lanes_run() {
         # The throwaway HOME, cloned (APFS clonefile when available) so lanes never share
         # ~/.rein/run tokens, locks or stores.
         cp -c -R "$HOME" "${ldir}/home" 2>/dev/null || cp -R "$HOME" "${ldir}/home"
-        # PHYSICAL, as ai ci run's own HOME is (E-265): TMPDIR ends in "/" on macOS, and a
+        # PHYSICAL, as rein ci run's own HOME is (E-265): TMPDIR ends in "/" on macOS, and a
         # "tmp//rein-test…" spelling is one node normalises and the shell does not.
         HOME="$(cd "${ldir}/home" && pwd -P)"; export HOME
       fi
@@ -497,7 +497,7 @@ _lanes_run() {
       REIN_LANE_TEL_GREW=$(( ${REIN_LANE_TEL_GREW:-0} + (n > 0 ? n : 0) ))
     done
   fi
-  # E-386 (D-135 r6): the serial tail, measured — `ai ci run` records it as exclusive_seconds.
+  # E-386 (D-135 r6): the serial tail, measured — `rein ci run` records it as exclusive_seconds.
   local _ex0; _ex0="$(_now_ms)"
   for i in "${excl[@]+"${excl[@]}"}"; do _run_suite "$i" "${SUITES[$i]}"; done
   echo "[run] exclusive_seconds=$(( ($(_now_ms) - _ex0) / 1000 )) exclusive_suites=${#excl[@]}"
@@ -635,7 +635,7 @@ _collect() {
 # ── E-386 (D-135 r3): one shard — the same lane classes, partitioned by wall hint ──
 # tests/tools/shard-plan.mjs is the pure partition (unit-tested): shared and exclusive suites
 # separately, hint descending then name, greedy to the lightest bin, unknown hint = median.
-# The node unit layer goes to shard 1, and shard 1 starts that much heavier (E-389: `ai ci
+# The node unit layer goes to shard 1, and shard 1 starts that much heavier (E-389: `rein ci
 # run` runs the unit layer again there, as its coverage step). Every shard of the same commit and baseline computes
 # the same partition, so shards 1..N together run every suite exactly once.
 if [[ -n "$REIN_SHARD" ]]; then
@@ -678,7 +678,7 @@ if [[ "$REIN_LANES" -gt 1 ]]; then
   [[ -n "${_cap:-}" ]] && echo "   Memory: ${_free_mb} MB available (${_mem_src}) / ${_per_mb} MB per lane (${_per_src}) → cap ${_cap} lane(s)"
   if [[ -n "${_cap:-}" && "$REIN_LANES" -gt "$_cap" ]]; then
     if [[ "${REIN_TEST_LANES_AUTO:-0}" == "1" ]]; then
-      # A DEFAULT lane count (ai ci run without --lanes) is clamped, never refused.
+      # A DEFAULT lane count (rein ci run without --lanes) is clamped, never refused.
       echo "   Lanes: ${REIN_LANES} requested by default, clamped to the memory cap ${_cap} (${_free_mb} MB free / ${_per_mb} MB per lane)"
       REIN_LANES="$_cap"
     else
@@ -708,17 +708,17 @@ else
 fi
 touch "$_rss_stop"; wait "$REIN_RSS_SAMPLER_PID" 2>/dev/null || true; REIN_RSS_SAMPLER_PID=""
 read -r _rss_kb _rss_n _rss_cpu < "$_rss_out" 2>/dev/null || { _rss_kb=0; _rss_n=0; _rss_cpu=0; }
-# E-313: the concurrent peak, beside the totals (ai ci run records it as peak_sum_rss_mb).
+# E-313: the concurrent peak, beside the totals (rein ci run records it as peak_sum_rss_mb).
 echo "[run] peak_sum_rss_mb=$(( ${_rss_kb:-0} / 1024 )) samples=${_rss_n:-0} sampler_cpu_ms=${_rss_cpu:-0}"
 
 # ── E-297: publish the census input (TEST_TMPDIR is deleted on exit) ─────────
 # Two copies, because the two kinds of run keep different things:
-#  - `ai ci run` (REIN_CI=local / CI=true) runs under a throwaway HOME and TMPDIR that are
+#  - `rein ci run` (REIN_CI=local / CI=true) runs under a throwaway HOME and TMPDIR that are
 #    deleted with its worktree, and this runner may not write ~/.rein (rule 6). What it
 #    KEEPS is this run's stdout, tee'd into ~/.rein/ci/logs/<sha>-<started>.log — so the
 #    census lines go into the log, beside the run they describe. They are printed BEFORE
-#    the Results block and start with CENSUS_, so `ai ci log --failed` (failedSections)
-#    never selects them and `ai ci run`'s Total: parse is untouched.
+#    the Results block and start with CENSUS_, so `rein ci log --failed` (failedSections)
+#    never selects them and `rein ci run`'s Total: parse is untouched.
 #  - every top-level run also leaves ${TMPDIR}/rein-census-<stamp>-XXXXXX.tsv (newest 5
 #    kept) and prints its path; census.mjs reads those for plain `bash tests/run.sh` runs.
 printf 'CENSUS_TOTAL\t%s\t%s\t%s\t%s\n' "${#SUITES[@]}" "$TOTAL_PASS" "$TOTAL_FAIL" "$TOTAL_SKIP" >> "$CENSUS_INPUT"
@@ -753,7 +753,7 @@ if [[ "${TOTAL_LEAKED:-0}" -gt 0 ]]; then
   echo ""
   echo "   LEAKED external state: ${TOTAL_LEAKED} item(s)"
   for _r in "${LEAK_REPORTS[@]}"; do echo "     - ${_r}"; done
-  # E-265 (D-072): `ai ci run` sets REIN_CI=local and has no operator to sweep either, so
+  # E-265 (D-072): `rein ci run` sets REIN_CI=local and has no operator to sweep either, so
   # a leak fails a local CI run exactly as it fails a hosted one.
   if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
     echo "   [LEAK_FAILED] a test run must leave nothing behind (E-240 / D-063 §2)"

@@ -67,12 +67,12 @@ git clone https://github.com/Vimurai/rein.git && cd rein
 npm ci                  # the clone's own dependencies: inside this repository the gate runs from src/
 bash install-rein.sh   # copies src/ to ~/.rein and adds it to PATH
 exec "$SHELL"
-ai install && ai sync
-ai doctor               # every gate line ✓ (a ✗ safe-exec gate line here means `npm ci` was skipped)
+rein install && rein sync
+rein doctor               # every gate line ✓ (a ✗ safe-exec gate line here means `npm ci` was skipped)
 ```
 
 ### Recommended dev environment — tmux
-Contributors are strongly encouraged to develop with `brew install tmux` (or apt) and then simply run **`ai start`** in the project — it builds the two-pane Triad layout, binds each pane to its role from `.ai/roles.json`, idempotently. Use `ai start --status` to see what is running and `ai start --kill` to tear it down. `ai doctor` tells you whether the launcher can work on this host (tmux present, roles mapped, providers on `PATH`). The layout it produces, and the manual fallback for hosts without tmux, are described in the [README](README.md#starting-a-session): Architect ⬌ Engineer — by default both agent panes are Claude Code (Architect on `fable`, Engineer on `opus`, D-066). The Triad is designed for concurrent agent work — tmux keeps the Architect's blueprint pane visible while the Engineer is implementing in the next pane, which makes hand-offs cheap and reduces stale-context bugs.
+Contributors are strongly encouraged to develop with `brew install tmux` (or apt) and then simply run **`rein start`** in the project — it builds the two-pane Triad layout, binds each pane to its role from `.ai/roles.json`, idempotently. Use `rein start --status` to see what is running and `rein start --kill` to tear it down. `rein doctor` tells you whether the launcher can work on this host (tmux present, roles mapped, providers on `PATH`). The layout it produces, and the manual fallback for hosts without tmux, are described in the [README](README.md#starting-a-session): Architect ⬌ Engineer — by default both agent panes are Claude Code (Architect on `fable`, Engineer on `opus`, D-066). The Triad is designed for concurrent agent work — tmux keeps the Architect's blueprint pane visible while the Engineer is implementing in the next pane, which makes hand-offs cheap and reduces stale-context bugs.
 
 ### Run the test suite
 ```bash
@@ -80,19 +80,19 @@ bash tests/run.sh         # full suite (should be 100% green)
 bash tests/suites/<name>_test.sh  # single suite
 ```
 
-### Local CI (`ai ci`) — what "green" means
+### Local CI (`rein ci`) — what "green" means
 
-There is no hosted pipeline (D-072). `ai ci run` tests a **committed** sha in a detached
+There is no hosted pipeline (D-072). `rein ci run` tests a **committed** sha in a detached
 worktree under a throwaway `HOME`, with the framework installed from that commit, and records
 the outcome in `.ai/state.sqlite`:
 
 ```bash
-ai ci run              # ~10-14 min; 0 PASS / 1 FAIL / 2 ERROR
-ai ci status --short   # the recorded verdict for HEAD
-ai ci log --failed     # the failing suites of the last run — read this BEFORE theorising
+rein ci run              # ~10-14 min; 0 PASS / 1 FAIL / 2 ERROR
+rein ci status --short   # the recorded verdict for HEAD
+rein ci log --failed     # the failing suites of the last run — read this BEFORE theorising
 ```
 
-A working-tree run is not evidence about a commit: `ai ci run` exists to exclude the
+A working-tree run is not evidence about a commit: `rein ci run` exists to exclude the
 machine's own mirror and whatever a previous run left behind. Every PR needs a non-dirty
 PASS row for its head commit; `update_task_status(DONE)` and the `pre-push` hook both refuse
 without one. A commit that only adds `.ai/` bookkeeping above a tested commit is accepted.
@@ -105,16 +105,16 @@ To bypass one push, `REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="<why>" git push` — re
 
 ```
 src/
-  bin/            # ai, ai-exec and ai-account.sh (the CLI and its helpers)
+  bin/            # ai, rein-exec and rein-account.sh (the CLI and its helpers)
   mcp/            # one dir per MCP server + shared/ helpers — 16 registered in .mcp.json,
-                  # plus ast-parser-mcp, which ai sync runs as a CLI to build REPO_MAP.md
+                  # plus ast-parser-mcp, which rein sync runs as a CLI to build REPO_MAP.md
   shared/         # skills/ for both roles + the shared .mjs helpers the hooks and CLI use
   claude/         # the Claude Code adapter: agents/ (subagents), skills/, the CLAUDE.md shim
-  config/         # registry.json (MCP servers, roles) + legacy-artefacts.json (ai clean)
+  config/         # registry.json (MCP servers, roles) + legacy-artefacts.json (rein clean)
   templates/      # ENGINEER.md, ARCHITECT.md, CLAUDE.md, roles.json, state.json and the .ai/ seeds
   contracts/      # Capability and security contracts
   copilot/        # GitHub Copilot CLI config (the copilot skill)
-.ai/              # Project memory (generated by ai init — do not hand-edit)
+.ai/              # Project memory (generated by rein init — do not hand-edit)
 tests/
   run.sh          # Test runner
   suites/         # One .sh file per test domain
@@ -127,7 +127,7 @@ hooks/            # Git and Claude Code hooks
 
 ## Authoring Skills
 
-Skills are Markdown files with YAML frontmatter. They live in `src/shared/skills/<name>/SKILL.md` or `src/claude/skills/<name>/SKILL.md`; `ai sync` provisions both trees into `.claude/skills/`, and both roles receive every skill (`registry.json → roles`, joined by `role-manifest.mjs`).
+Skills are Markdown files with YAML frontmatter. They live in `src/shared/skills/<name>/SKILL.md` or `src/claude/skills/<name>/SKILL.md`; `rein sync` provisions both trees into `.claude/skills/`, and both roles receive every skill (`registry.json → roles`, joined by `role-manifest.mjs`).
 
 ### Skill frontmatter
 
@@ -169,7 +169,7 @@ After creating a skill, add a one-line entry to the relevant index:
 - skill-name: <trigger description — when to invoke, what it does>
 ```
 
-The `ai sync` command auto-regenerates this index from frontmatter, but manual entries give more context.
+The `rein sync` command auto-regenerates this index from frontmatter, but manual entries give more context.
 
 ---
 
@@ -200,7 +200,7 @@ After adding a server, re-run the global installer to refresh the registry:
 ```bash
 cd ~/.rein && bash install-rein.sh
 ```
-Then run `ai sync` in any project to regenerate `.mcp.json`. (The previous `ai mcp-setup` shell command was removed in E-34; the install script does the same npm setup plus refreshes the global registry.)
+Then run `rein sync` in any project to regenerate `.mcp.json`. (The previous `rein mcp-setup` shell command was removed in E-34; the install script does the same npm setup plus refreshes the global registry.)
 
 ---
 

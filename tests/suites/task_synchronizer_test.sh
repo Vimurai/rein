@@ -113,8 +113,8 @@ export REIN_WORKSPACE="$EMPTY_DIR"
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "missing .ai/ rejected" \
   bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_NOT_FOUND'"
-assert_status 0 "error mentions ai init remediation" \
-  bash -c "echo \"$RESP\" | grep -q 'ai init'"
+assert_status 0 "error mentions rein init remediation" \
+  bash -c "echo \"$RESP\" | grep -q 'rein init'"
 unset REIN_WORKSPACE
 rm -rf "$EMPTY_DIR"
 

@@ -22,7 +22,7 @@ import { repo } from "../lib/check-table.mjs";
 const FILE = resolve(repo, "tests/fixtures/role-verdict-cases.json");
 // E-383 (D-132): re-pinned for the rename (rows name the new install root; pre-rename rows
 // added). The D-113 pin moves only by ruling — the D-ruling that closes E-383 ratifies it.
-const SHA256 = "e36ccfd88db91766c41b34a0c5c930e85d57b08d7fc956b70a7db3eac0a042da";
+const SHA256 = "047024f1110e5376bd26fb7855913b47e70526cfa7a1585ab8043ff31588cdab";
 
 const root = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-rv-")));
 const proj = join(root, "proj"), home = join(root, "home"), outside = join(root, "outside");
@@ -34,7 +34,7 @@ test.after(() => {
 });
 // The fixture's source file is a plain file named like the CLI; nothing here runs it (the
 // fixture-home census reads the literal path as a loader, so it is spelt as segments).
-const BIN = join("src", "bin", "ai");
+const BIN = join("src", "bin", "rein");
 for (const d of [".ai/blueprints", "plans", "src/bin", "src/__e208_deep", "tests"]) mkdirSync(join(proj, d), { recursive: true });
 mkdirSync(join(home, ".re" + "in", "shared"), { recursive: true });
 mkdirSync(outside);

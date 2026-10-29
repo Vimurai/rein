@@ -65,7 +65,7 @@
   <text class="s" x="48" y="448">git commit</text>
   <text class="s" x="48" y="470">pre-commit gate</text>
   <rect class="gate" x="345" y="420" width="190" height="64"/>
-  <text class="s" x="363" y="448">ai ci run</text>
+  <text class="s" x="363" y="448">rein ci run</text>
   <text class="s" x="363" y="470">clean worktree, budget</text>
   <rect class="gate" x="660" y="420" width="190" height="64"/>
   <text class="s" x="678" y="448">git push</text>

@@ -27,5 +27,5 @@ This plan defines the architectural specifications for Token Budgeting, GitHub I
 
 ## Implementation Tasks (Engineer - Claude)
 - **E-140**: Implement `token-budget-mcp` and initialize `usage.sqlite`.
-- **E-141**: Implement `github-bridge-mcp` and `ai sync --github` bash integration.
+- **E-141**: Implement `github-bridge-mcp` and `rein sync --github` bash integration.
 - **E-142**: Refactor `context-invoker-mcp` to support Level 2 (Metadata) discovery.

@@ -359,7 +359,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 instrument(server, "propose-patch-mcp", CallToolRequestSchema);
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  await refreshPolicies();   // E-237: pick up a policy `ai sync` refreshed under us
+  await refreshPolicies();   // E-237: pick up a policy `rein sync` refreshed under us
   const { name, arguments: args } = request.params;
   const cwd = process.cwd();
 
@@ -403,7 +403,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const db = _patchDb();
       if (!db) {
-        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: ai init" }], isError: true };
+        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: rein init" }], isError: true };
       }
 
       const id = newPatchId();
@@ -452,7 +452,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // stale ids + clean dry-run refusals) stops masquerading as a defect. Genuine apply/write
       // failures below stay UNMARKED → still ERROR.
       if (!db) {
-        return rejection("✗ state.sqlite not found — run: ai init");
+        return rejection("✗ state.sqlite not found — run: rein init");
       }
       const patch = db.prepare("SELECT * FROM patches WHERE id = ?").get(args.patch_id);
       if (!patch) {
@@ -651,7 +651,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "reject_patch": {
       const db = _patchDb();
       if (!db) {
-        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: ai init" }], isError: true };
+        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: rein init" }], isError: true };
       }
       const patch = db.prepare("SELECT id, path, description, project_root, rel_path FROM patches WHERE id = ?").get(args.patch_id);
       if (!patch) {
@@ -733,7 +733,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "preview_patch": {
       const db = _patchDb();
       if (!db) {
-        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: ai init" }], isError: true };
+        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: rein init" }], isError: true };
       }
       const patch = db.prepare("SELECT * FROM patches WHERE id = ?").get(args.patch_id);
       if (!patch) {

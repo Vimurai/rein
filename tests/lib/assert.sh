@@ -210,7 +210,7 @@ perf_time_ms() {
 # known and a real regression must not hide behind a slow runner.
 # Anywhere else → elapsed <= k*baseline + slack, which asks the question that actually
 # matters off CI: is this code slow RELATIVE to what this machine can do at all?
-# E-265 (D-072): REIN_CI=local (`ai ci run`) deliberately stays RELATIVE. The absolute
+# E-265 (D-072): REIN_CI=local (`rein ci run`) deliberately stays RELATIVE. The absolute
 # budgets were calibrated on the ubuntu runner, and a local CI host is not that machine;
 # the runner unsets CI, so only REIN_PERF_ABSOLUTE=1 switches a local run to absolute.
 # _host_load → "<load1 integer part> <ncpu>". A function, not an env var (E-296: no new env var),
@@ -442,7 +442,7 @@ test_tmux_socket() {
 
 # A private socket isolates the SERVER, not its CONFIG: every server a test starts still
 # reads the operator's ~/.tmux.conf. With tmux-continuum's `@continuum-restore 'on'`, that
-# restored the operator's saved sessions INTO the test server, so ai_start_test E-252.03e
+# restored the operator's saved sessions INTO the test server, so rein_start_test E-252.03e
 # counted five extra sessions and failed — on every Mac with that plugin, never on CI. It
 # is variety #1 again (what the machine has), and the restore also relaunches whatever the
 # saved panes were running, while continuum's autosave could overwrite the operator's save.
@@ -554,7 +554,7 @@ test_tmpdir() {
 # program, as it did before the recorder existed.
 test_bg() {
   case "${1-}" in
-    node|bash|python3|ai)
+    node|bash|python3|rein)
       _rein_fp_record "$@"
       exec "$@" >/dev/null 2>&1 & ;;
     *)
@@ -622,7 +622,7 @@ assert_match() {
 #
 # Many suites assert "the workspace copy of skill X is byte-identical to src/". That check
 # exists to catch an edit to src/ that was never synced — a real and recurring failure. But
-# `ai sync` provisions a provider's workspace only when a role in .ai/roles.json is bound
+# `rein sync` provisions a provider's workspace only when a role in .ai/roles.json is bound
 # to it, so a mirror directory may legitimately not exist. An unconditional assertion on an
 # absent mirror stops testing sync and starts testing whether a directory happens to be
 # there.
@@ -659,7 +659,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/launch-vars.sh"
 strip_launch_vars
 
 # ── E-297 (D-088): the dynamic footprint recorder ────────────────────────────
-# `node`/`bash`/`python3`/`ai` become recording pass-through functions; they write only
+# `node`/`bash`/`python3`/`rein` become recording pass-through functions; they write only
 # under REIN_TEST_TMPDIR (the runner's per-run temp path) and nowhere when it is unset.
 # See tests/lib/footprint.sh for the contract and what it cannot see.
 source "$(dirname "${BASH_SOURCE[0]}")/footprint.sh"

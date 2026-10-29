@@ -1,5 +1,5 @@
 // tests/unit/project-upgrade.test.mjs — node:test unit suite for E-270 (D-074,
-// version-lifecycle.md §Components 1-2): the template merge behind `ai init` as an upgrade,
+// version-lifecycle.md §Components 1-2): the template merge behind `rein init` as an upgrade,
 // the provisioning stamp, and the single version source.
 //
 // The merge decides what to DELETE from a user's project files, so the cases that matter
@@ -8,7 +8,7 @@
 // left missing; unknown keys and custom values survive; a re-run never overwrites the
 // pre-merge backup with an already-merged file.
 //
-// The end-to-end layer (installer into a fixture HOME, ai init/--check, doctor lines) is
+// The end-to-end layer (installer into a fixture HOME, rein init/--check, doctor lines) is
 // tests/suites/init_upgrade_test.sh.
 //
 //   node --test tests/unit/project-upgrade.test.mjs
@@ -69,10 +69,10 @@ test("package.json and the CHANGELOG's newest released entry name the same versi
   assert.equal(top[1], pkg);
 });
 
-test("no version literal remains in src/bin/ai or install-rein.sh", () => {
-  const ai = readFileSync(join(ROOT, "src", "bin", "ai"), "utf8");
+test("no version literal remains in src/bin/rein or install-rein.sh", () => {
+  const ai = readFileSync(join(ROOT, "src", "bin", "rein"), "utf8");
   const inst = readFileSync(join(ROOT, "install-rein.sh"), "utf8");
-  assert.doesNotMatch(ai, /^VERSION="\d+\.\d+\.\d+"/m, "src/bin/ai must not hard-code VERSION");
+  assert.doesNotMatch(ai, /^VERSION="\d+\.\d+\.\d+"/m, "src/bin/rein must not hard-code VERSION");
   assert.doesNotMatch(inst, /Rein v\d+\.\d+\.\d+/, "the installer must not print a typed version");
   assert.match(inst, /\$\{REIN\}\/VERSION/, "the installer writes ~/.rein/VERSION");
 });
@@ -280,17 +280,17 @@ function fixtureRepo(t) {
   return { dir, git, bash, env, cleanup: () => rmSync(home, { recursive: true, force: true }) };
 }
 
-// The function under test lives in src/bin/ai (a dispatcher that cannot be sourced): lift it.
+// The function under test lives in src/bin/rein (a dispatcher that cannot be sourced): lift it.
 const liftFn = (name) => {
-  const src = readFileSync(join(ROOT, "src", "bin", "ai"), "utf8");
+  const src = readFileSync(join(ROOT, "src", "bin", "rein"), "utf8");
   const m = src.match(new RegExp(`^${name}\\(\\) \\{[\\s\\S]*?^\\}`, "m"));
-  assert.ok(m, `${name} found in src/bin/ai`);
+  assert.ok(m, `${name} found in src/bin/rein`);
   return m[0];
 };
 const PROBE = `. '${join(ROOT, "src", "shared", "comm-status.sh")}'`;
 const LOCATE_STUB = `rein_locate() { printf '%s' '${join(ROOT, "src")}'/"$1"; }`;
 
-test("the template .gitignore does not ignore .ai/COMM.md (this repo and an ai init fixture)", () => {
+test("the template .gitignore does not ignore .ai/COMM.md (this repo and a rein init fixture)", () => {
   const t = tmp("comm-tpl");
   const f = fixtureRepo(t);
   try {
@@ -301,7 +301,7 @@ test("the template .gitignore does not ignore .ai/COMM.md (this repo and an ai i
   } finally { f.cleanup(); t.done(); }
 });
 
-test("ai sync removes only the COMM.md pattern from an old .ai/.gitignore", () => {
+test("rein sync removes only the COMM.md pattern from an old .ai/.gitignore", () => {
   const t = tmp("comm-sync");
   const f = fixtureRepo(t);
   try {

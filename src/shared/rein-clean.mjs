@@ -1,17 +1,17 @@
 #!/usr/bin/env node
-// ai-clean.mjs — the writer behind `ai clean` (E-272, D-074, version-lifecycle.md
+// rein-clean.mjs — the writer behind `rein clean` (E-272, D-074, version-lifecycle.md
 // §Component 4). The scan lives in legacy-registry.mjs and has no removal code at all;
 // this file is the only place that moves or signals anything.
 //
-//   node ai-clean.mjs plan    --project <root> [--scope all|project|home] [--json]
-//   node ai-clean.mjs apply   --project <root> [--all] [--scope …] [--json]
-//   node ai-clean.mjs restore --date <YYYY-MM-DD>
-//   node ai-clean.mjs purge   [--older-than 30d]
-//   node ai-clean.mjs doctor  --project <root>
+//   node rein-clean.mjs plan    --project <root> [--scope all|project|home] [--json]
+//   node rein-clean.mjs apply   --project <root> [--all] [--scope …] [--json]
+//   node rein-clean.mjs restore --date <YYYY-MM-DD>
+//   node rein-clean.mjs purge   [--older-than 30d]
+//   node rein-clean.mjs doctor  --project <root>
 //
 // Exit codes (§API): 0 nothing (more) to do, 1 findings remain, 2 a trash failure.
-// The interactive confirmation is NOT here: `ai clean` in src/bin/ai owns the terminal
-// and refuses on a non-interactive stdin without --yes, exactly as `ai start --kill`
+// The interactive confirmation is NOT here: `rein clean` in src/bin/rein owns the terminal
+// and refuses on a non-interactive stdin without --yes, exactly as `rein start --kill`
 // does. This process is therefore safe to drive from a script or a test.
 //
 // NOTHING IS DELETED. Every removal is a MOVE into ~/.rein/trash/<date>/ beside a
@@ -94,7 +94,7 @@ function writeManifest(dir, items) {
 }
 
 // E-352 (D-112 r6): every manifest read-modify-write runs under one lock. Concurrent reapers
-// (each `ai sync`, four CI lanes on one HOME) each read the manifest, appended their own moves
+// (each `rein sync`, four CI lanes on one HOME) each read the manifest, appended their own moves
 // and wrote it back — the last writer won, and the other moves lost the entry --restore needs.
 // The lock is an atomic mkdir beside the manifest. A holder killed outright leaves it behind,
 // so one older than 60 s is taken over (moved aside first, so two waiters cannot both take it)
@@ -118,7 +118,7 @@ function lockManifest(dir) {
     // A fresh lock can replace the stale one between our stat and our rename: give it back.
     if ((_ageMs(aside) ?? Infinity) <= LOCK_STALE_MS) { try { renameSync(aside, lock); } catch { /* retaken */ } continue; }
     rmSync(aside, { recursive: true, force: true });
-    process.stderr.write(`ai clean: took over a stale lock (held ${Math.round(age / 1000)} s): ${lock}\n`);
+    process.stderr.write(`rein clean: took over a stale lock (held ${Math.round(age / 1000)} s): ${lock}\n`);
   }
   const signals = ["SIGINT", "SIGTERM", "SIGHUP"];
   const onSignal = (sig) => { release(); process.exit(128 + ({ SIGHUP: 1, SIGINT: 2, SIGTERM: 15 })[sig]); };
@@ -162,7 +162,7 @@ function logApply({ home, project, action, ids, count }) {
     const d = ts.slice(0, 10);
     const t = ts.slice(11, 16);
     try {
-      appendFileSync(projLog, redact(`${d} ${t} | ai clean | ${action} | ${count} item(s): ${ids.join(", ")}\n`,
+      appendFileSync(projLog, redact(`${d} ${t} | rein clean | ${action} | ${count} item(s): ${ids.join(", ")}\n`,
         { file: ".ai/LOG.md", aiDir: join(project, ".ai") }));
     } catch { /* same */ }
   }
@@ -183,7 +183,7 @@ const SHOW_PER_ENTRY = 3;
 
 function render(findings, notes, { applied = [], disabled = false } = {}) {
   const out = [];
-  if (!findings.length) out.push("ai clean: no legacy artefacts found.");
+  if (!findings.length) out.push("rein clean: no legacy artefacts found.");
   for (const [cls, label] of GROUPS) {
     const rows = findings.filter((f) => f.class === cls);
     if (!rows.length) continue;
@@ -215,8 +215,8 @@ function render(findings, notes, { applied = [], disabled = false } = {}) {
 /**
  * Exit code for a set of remaining findings. `not-ours` and report-only findings are
  * PERMANENT by design (~/.gemini/ is not ours to remove, a settings allow is rewritten by
- * `ai init`), so counting them as "findings remain" would make the exit code a constant 1
- * on any real machine and therefore useless. Only findings `ai clean` could still act on
+ * `rein init`), so counting them as "findings remain" would make the exit code a constant 1
+ * on any real machine and therefore useless. Only findings `rein clean` could still act on
  * set exit 1.
  */
 function exitFor(findings) {
@@ -242,7 +242,7 @@ function scanFor(o) {
   // (the E-224 shape — a module specifier graded as code), and this file resolves nothing
   // the caller supplied, so there is no reason to argue the point in a waiver. The
   // scanner grades COMMENTS too, so this one says it in words.
-  //   …/<repo>/src/shared/ai-clean.mjs → …/<repo>
+  //   …/<repo>/src/shared/rein-clean.mjs → …/<repo>
   const selfRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
   if (existsSync(join(selfRoot, "src", "mcp")) && !srcRoots.includes(selfRoot)) srcRoots.push(selfRoot);
 
@@ -251,9 +251,9 @@ function scanFor(o) {
     scope: o.scope || "all",
     registryPath: o["registry"] || registryPath({ home, repoRoot: srcRoots[0] || null }),
   });
-  // E-273: `--only <id,id>` narrows every mode to the named registry entries. `ai sync`
+  // E-273: `--only <id,id>` narrows every mode to the named registry entries. `rein sync`
   // uses it to reap dead ~/.rein/run/ records on every run without also acting on the
-  // rest of the registry, which stays the operator's explicit `ai clean` decision.
+  // rest of the registry, which stays the operator's explicit `rein clean` decision.
   // Present-but-empty (`--only ""`, or `--only` as the last argument) matches NOTHING: a
   // narrowing flag that silently widened to the whole registry would be the worst reading.
   if ("only" in o) {
@@ -272,9 +272,9 @@ function cmdPlan(o) {
     process.stdout.write(render(findings, notes) + "\n");
     const c = summarize(findings);
     process.stdout.write(
-      `\nai clean (dry run): ${c.safe} safe, ${c.prompt} prompt, ${c["not-ours"]} not ours.\n` +
-      (c.safe ? "  remove the safe class with:   ai clean --apply\n" : "") +
-      (c.prompt ? "  include the prompt class with: ai clean --apply --all\n" : ""));
+      `\nrein clean (dry run): ${c.safe} safe, ${c.prompt} prompt, ${c["not-ours"]} not ours.\n` +
+      (c.safe ? "  remove the safe class with:   rein clean --apply\n" : "") +
+      (c.prompt ? "  include the prompt class with: rein clean --apply --all\n" : ""));
   }
   return exitFor(findings);
 }
@@ -286,7 +286,7 @@ function cmdApply(o) {
   const remaining = result.findings.filter((f) => !targets.includes(f));
 
   if (!targets.length) {
-    if (!o.json) process.stdout.write(render(result.findings, result.notes) + "\nai clean: nothing to remove in the selected classes.\n");
+    if (!o.json) process.stdout.write(render(result.findings, result.notes) + "\nrein clean: nothing to remove in the selected classes.\n");
     else process.stdout.write(JSON.stringify({ moved: [], signalled: [], remaining, counts: summarize(result.findings) }, null, 2) + "\n");
     return exitFor(result.findings);
   }
@@ -303,7 +303,7 @@ function applyLocked(o, { home, project, result, targets, remaining, date, dir }
   const moved = [];
   const signalled = [];
   const failures = [];
-  // E-346 (D-109 r3): concurrent reapers (every `ai sync`, four CI lanes sharing one HOME) scan
+  // E-346 (D-109 r3): concurrent reapers (every `rein sync`, four CI lanes sharing one HOME) scan
   // the same dead records. A target another one moved between our scan and our move is GONE —
   // the outcome apply wants — not a failure. It was one, swallowed by the sync step's
   // `|| true`; once sync stopped swallowing it, every concurrent sync reported FAILED.
@@ -357,9 +357,9 @@ function applyLocked(o, { home, project, result, targets, remaining, date, dir }
     for (const x of failures) lines.push(`  FAILED  ${x}`);
     process.stdout.write(render(remaining, result.notes, { applied: lines }) + "\n");
     process.stdout.write(
-      `\nai clean: ${moved.length} moved to ${dir}, ${signalled.length} process(es) signalled` +
+      `\nrein clean: ${moved.length} moved to ${dir}, ${signalled.length} process(es) signalled` +
       `${failures.length ? `, ${failures.length} failed` : ""}.\n` +
-      (moved.length ? `  undo with: ai clean --restore ${date}\n` : ""));
+      (moved.length ? `  undo with: rein clean --restore ${date}\n` : ""));
   }
   if (failures.length) return 2;
   return exitFor(remaining);
@@ -369,12 +369,12 @@ function cmdRestore(o) {
   const home = o.home ? resolve(o.home) : homedir();
   const date = String(o.date || "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    process.stderr.write("ai clean --restore: needs a date in YYYY-MM-DD form (see ~/.rein/trash/)\n");
+    process.stderr.write("rein clean --restore: needs a date in YYYY-MM-DD form (see ~/.rein/trash/)\n");
     return 2;
   }
   const dir = join(trashRoot(home), date);
   if (!existsSync(join(dir, "manifest.json"))) {
-    process.stderr.write(`ai clean --restore: nothing recorded for ${date} (${dir})\n`);
+    process.stderr.write(`rein clean --restore: nothing recorded for ${date} (${dir})\n`);
     return 2;
   }
   const release = lockManifest(dir);
@@ -385,7 +385,7 @@ function cmdRestore(o) {
 function restoreLocked(o, { home, date, dir }) {
   const manifest = readManifest(dir);
   if (!manifest.length) {
-    process.stderr.write(`ai clean --restore: nothing recorded for ${date} (${dir})\n`);
+    process.stderr.write(`rein clean --restore: nothing recorded for ${date} (${dir})\n`);
     return 2;
   }
   const kept = [];
@@ -415,7 +415,7 @@ function restoreLocked(o, { home, date, dir }) {
   }
   writeManifest(dir, kept);
   logApply({ home, project: o.project ? resolve(o.project) : null, action: `restore ${date}`, count: restored, ids: [...new Set(manifest.map((m) => m.entry_id))] });
-  process.stdout.write(`ai clean --restore ${date}: ${restored} restored, ${kept.length} left in the trash.\n`);
+  process.stdout.write(`rein clean --restore ${date}: ${restored} restored, ${kept.length} left in the trash.\n`);
   return kept.length ? 1 : 0;
 }
 
@@ -423,12 +423,12 @@ function cmdPurge(o) {
   const home = o.home ? resolve(o.home) : homedir();
   const m = String(o["older-than"] || `${DEFAULT_RETENTION_DAYS}d`).match(/^(\d+)d?$/);
   if (!m) {
-    process.stderr.write("ai clean --purge: --older-than takes a number of days, e.g. 30d\n");
+    process.stderr.write("rein clean --purge: --older-than takes a number of days, e.g. 30d\n");
     return 2;
   }
   const days = Number(m[1]);
   const root = trashRoot(home);
-  if (!existsSync(root)) { process.stdout.write("ai clean --purge: the trash is empty.\n"); return 0; }
+  if (!existsSync(root)) { process.stdout.write("rein clean --purge: the trash is empty.\n"); return 0; }
   const cutoff = Date.now() - days * 86400000;
   let n = 0;
   for (const name of readdirSync(root)) {
@@ -438,13 +438,13 @@ function cmdPurge(o) {
     try { rmSync(join(root, name), { recursive: true, force: true }); n += 1; process.stdout.write(`  purged ${name}\n`); }
     catch (e) { process.stdout.write(`  FAILED ${name}: ${e.message}\n`); }
   }
-  process.stdout.write(`ai clean --purge: ${n} day-folder(s) older than ${days}d removed.\n`);
+  process.stdout.write(`rein clean --purge: ${n} day-folder(s) older than ${days}d removed.\n`);
   return 0;
 }
 
 const MIRROR_ORPHAN_IDS = new Set(["mirror-orphan-mcp", "mirror-orphan-hook"]);
 
-/** The `ai doctor` lines (§Component 6). Never exits non-zero: doctor reports. */
+/** The `rein doctor` lines (§Component 6). Never exits non-zero: doctor reports. */
 function cmdDoctor(o) {
   const { result } = scanFor(o);
   const c = summarize(result.findings);
@@ -452,20 +452,20 @@ function cmdDoctor(o) {
   const total = c.safe + c.prompt;
   process.stdout.write(
     total
-      ? `  ✗ legacy artefacts: ${c.safe} safe / ${c.prompt} prompt — run: ai clean\n`
+      ? `  ✗ legacy artefacts: ${c.safe} safe / ${c.prompt} prompt — run: rein clean\n`
       : "  ✓ legacy artefacts: none\n");
   if (w) {
     process.stdout.write(
       Number(w[2]) > 0
-        ? `  ✗ watchers: ${w[1]} live, ${w[2]} orphaned — run: ai clean --apply\n`
+        ? `  ✗ watchers: ${w[1]} live, ${w[2]} orphaned — run: rein clean --apply\n`
         : `  ✓ watchers: ${w[1]} live, 0 orphaned\n`);
   }
-  if (c["not-ours"]) process.stdout.write(`  - ${c["not-ours"]} path(s) listed as not ours (never touched) — see: ai clean\n`);
+  if (c["not-ours"]) process.stdout.write(`  - ${c["not-ours"]} path(s) listed as not ours (never touched) — see: rein clean\n`);
   // E-273 (D-074 §Components 6): the install mirror's own orphans, on a line of their own —
   // a mirror that drifted from src/ is an install problem, not project litter.
   const mirror = result.findings.filter((f) => MIRROR_ORPHAN_IDS.has(f.entry_id)).length;
   process.stdout.write(mirror
-    ? `  ✗ mirror orphans: ${mirror} — run: ai clean\n`
+    ? `  ✗ mirror orphans: ${mirror} — run: rein clean\n`
     : "  ✓ mirror orphans: none\n");
   return 0;
 }
@@ -484,18 +484,18 @@ export function run(argv) {
         return rc;
       }
       return cmdApply(o);
-    case "restore": return disabled ? (process.stderr.write("ai clean: REIN_CLEAN_DISABLE=1 — restore is also disabled.\n"), 2) : cmdRestore(o);
-    case "purge": return disabled ? (process.stderr.write("ai clean: REIN_CLEAN_DISABLE=1 — purge is also disabled.\n"), 2) : cmdPurge(o);
+    case "restore": return disabled ? (process.stderr.write("rein clean: REIN_CLEAN_DISABLE=1 — restore is also disabled.\n"), 2) : cmdRestore(o);
+    case "purge": return disabled ? (process.stderr.write("rein clean: REIN_CLEAN_DISABLE=1 — purge is also disabled.\n"), 2) : cmdPurge(o);
     case "doctor": return cmdDoctor(o);
     default:
-      process.stderr.write("usage: ai-clean.mjs <plan|apply|restore|purge|doctor> --project <root> [--all] [--json] [--only <entry-id,…>]\n");
+      process.stderr.write("usage: rein-clean.mjs <plan|apply|restore|purge|doctor> --project <root> [--all] [--json] [--only <entry-id,…>]\n");
       return 2;
   }
 }
 
 // Main-module check on REAL paths: argv[1] may be spelled through a symlink (macOS
 // /var → /private/var) while import.meta.url is resolved — comparing raw spellings made
-// other helpers silently do nothing under `ai ci run` (E-265).
+// other helpers silently do nothing under `rein ci run` (E-265).
 function _isMain() {
   try {
     return !!process.argv[1] &&
@@ -507,7 +507,7 @@ if (_isMain()) {
   try {
     process.exitCode = run(process.argv.slice(2));
   } catch (e) {
-    process.stderr.write(`ai clean: ${e.message}\n`);
+    process.stderr.write(`rein clean: ${e.message}\n`);
     process.exitCode = 2;
   }
 }

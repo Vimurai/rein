@@ -123,12 +123,12 @@ const BLOCK_RULES = [
     message: "chmod 777 on system path — BLOCKED (privilege escalation vector)",
   },
   {
-    // E-291 (D-083 r5): the agent must not switch its own gate off — `ai gate`, the override
+    // E-291 (D-083 r5): the agent must not switch its own gate off — `rein gate`, the override
     // file, or a write into ~/.rein/. Every role. See gate-guard.mjs for the ceiling.
     id: "GATE_SELF_DISABLE",
     pattern: (tokens, raw) => selfDisableHits(raw).length > 0,
-    message: "agent self-disable of the safe-exec gate (`ai gate`, the override file, or a write under ~/.rein/) — " +
-      "BLOCKED for every role. Operator escape — in YOUR terminal, not through the agent: ai gate off",
+    message: "agent self-disable of the safe-exec gate (`rein gate`, the override file, or a write under ~/.rein/) — " +
+      "BLOCKED for every role. Operator escape — in YOUR terminal, not through the agent: rein gate off",
   },
   {
     id: "SECRET_IN_COMMAND",
@@ -678,7 +678,7 @@ if (_checkPathIdx !== -1) {
       "## safe-exec-mcp Path Analysis\nVerdict: ✗ BLOCK\n\n" +
       "### BLOCKED — GATE_SELF_DISABLE\n" +
       `Path: ${target}\nReason: inside ~/.rein/ (the Rein install: hooks, gate, secrets) — no role writes there; ` +
-      "only `bash install-rein.sh`, `ai install`, `ai sync` and `ai doctor` do.\n"
+      "only `bash install-rein.sh`, `rein install`, `rein sync` and `rein doctor` do.\n"
     );
     process.exit(2);
   }
@@ -740,7 +740,7 @@ if (_checkIdx !== -1) {
       "## safe-exec-mcp Analysis\nVerdict: ✗ BLOCK\n\n" +
       "### BLOCKED — analyzer error (fail-closed)\n" +
       "The safe-exec analyzer crashed; the command is blocked rather than allowed " +
-      "(fail-closed, T-HITL-004). Operator escape — in YOUR terminal, not through the agent: ai gate off\n"
+      "(fail-closed, T-HITL-004). Operator escape — in YOUR terminal, not through the agent: rein gate off\n"
     );
     process.exit(2);
   }

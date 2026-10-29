@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# ai-exec — Rein Execution Gate (E-01)
+# rein-exec — Rein Execution Gate (E-01)
 # Provides git worktree isolation for high-risk tasks.
 # Enforces capability isolation: READ (default), WRITE/EXECUTE (require explicit flags).
-# Installed to ~/.rein/bin/ai-exec
+# Installed to ~/.rein/bin/rein-exec
 
 set -euo pipefail
 
 REIN="${HOME}/.rein"
 VERSION="1.0"
-SCRIPT_NAME="ai-exec"
+SCRIPT_NAME="rein-exec"
 
 # ── ANSI colors ───────────────────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -22,7 +22,7 @@ usage() {
 ${SCRIPT_NAME} — Rein Execution Gate v${VERSION}
 
 Usage:
-  ai-exec [OPTIONS] <task-name> -- <command> [args...]
+  rein-exec [OPTIONS] <task-name> -- <command> [args...]
 
 Options:
   --allow-write     Grant WRITE capability (local file edits in worktree)
@@ -38,9 +38,9 @@ Capability tiers:
   EXECUTE — --allow-execute; shell commands; requires [SEC_CLEARED] in LOG.md
 
 Examples:
-  ai-exec my-task -- cat src/main.ts
-  ai-exec --allow-write refactor-auth -- bash scripts/refactor.sh
-  ai-exec --allow-execute --allow-write deploy-task -- npm run build
+  rein-exec my-task -- cat src/main.ts
+  rein-exec --allow-write refactor-auth -- bash scripts/refactor.sh
+  rein-exec --allow-execute --allow-write deploy-task -- npm run build
 
 Security:
   EXECUTE commands trigger Gate 3: LOG.md must contain [SEC_CLEARED] stamp.
@@ -57,7 +57,7 @@ log_security() {
   if [[ -f "$log_file" ]]; then
     local ts
     ts=$(date '+%Y-%m-%d %H:%M %Z')
-    printf "- %s | Claude | [SECURITY] ai-exec | %s\n" "$ts" "$msg" >> "$log_file"
+    printf "- %s | Claude | [SECURITY] rein-exec | %s\n" "$ts" "$msg" >> "$log_file"
   fi
 }
 
@@ -77,7 +77,7 @@ check_sec_cleared() {
     echo -e "${YELLOW}  To unblock EXECUTE:${RESET}"
     echo "  1. Run threat model (security_engineer agent)"
     echo "  2. Add to LOG.md: [SEC_CLEARED] <task-name> — <brief rationale>"
-    echo "  3. Re-run ai-exec"
+    echo "  3. Re-run rein-exec"
     return 1
   fi
   return 0
@@ -88,7 +88,7 @@ check_capabilities_md() {
   caps_file="$(pwd)/.ai/CAPABILITIES.md"
   if [[ ! -f "$caps_file" ]]; then
     echo -e "${YELLOW}⚠  No .ai/CAPABILITIES.md found — using permissive defaults.${RESET}"
-    echo "   Run: ai init (or copy ~/.rein/templates/CAPABILITIES.md to .ai/)"
+    echo "   Run: rein init (or copy ~/.rein/templates/CAPABILITIES.md to .ai/)"
     return 0
   fi
   echo -e "${CYAN}  CAPABILITIES.md present — enforcement active.${RESET}"
@@ -100,14 +100,14 @@ create_worktree() {
 
   # Ensure we're in a git repo
   if ! git rev-parse --git-dir &>/dev/null; then
-    echo -e "${RED}✗ Not a git repository. ai-exec requires git for worktree isolation.${RESET}"
+    echo -e "${RED}✗ Not a git repository. rein-exec requires git for worktree isolation.${RESET}"
     exit 1
   fi
 
   local worktree_path
-  worktree_path="/tmp/ai-exec-${task_name}-$(date '+%Y%m%d%H%M%S')"
+  worktree_path="/tmp/rein-exec-${task_name}-$(date '+%Y%m%d%H%M%S')"
 
-  local branch_name="ai-exec/${task_name}"
+  local branch_name="rein-exec/${task_name}"
 
   # Check if branch already exists; use a unique suffix if so
   if git branch --list "$branch_name" | grep -q .; then
@@ -183,7 +183,7 @@ fi
 if git rev-parse --git-dir &>/dev/null 2>&1; then
   git worktree prune 2>/dev/null || true
 fi
-for _orphan in /tmp/ai-exec-* .ai-worktree-*; do
+for _orphan in /tmp/rein-exec-* .ai-worktree-*; do
   [[ -d "$_orphan" ]] && rm -rf "$_orphan" 2>/dev/null || true
 done
 
@@ -222,7 +222,7 @@ if [[ $DRY_RUN -eq 1 ]]; then
   echo ""
   echo -e "${CYAN}  [DRY-RUN] Would execute: ${CMD_ARGS[*]}${RESET}"
   if [[ $NO_WORKTREE -eq 0 ]]; then
-    echo -e "${CYAN}  [DRY-RUN] Would create worktree at: /tmp/ai-exec-${TASK_NAME}-<timestamp>${RESET}"
+    echo -e "${CYAN}  [DRY-RUN] Would create worktree at: /tmp/rein-exec-${TASK_NAME}-<timestamp>${RESET}"
     echo -e "${CYAN}  [DRY-RUN] Would branch from: ${BASE_BRANCH}${RESET}"
   fi
   exit 0

@@ -3,7 +3,7 @@
 //
 // A hook ASSIGNS its PATH and finds node through ~/.rein/shared/toolchain.sh (E-286); without
 // the record it falls back to a fixed dir list. A suite that points HOME at a temp dir and then
-// runs a hook, `ai`, or the pin (src/shared/toolchain-pin.sh) therefore passes only on hosts whose node
+// runs a hook, `rein`, or the pin (src/shared/toolchain-pin.sh) therefore passes only on hosts whose node
 // sits in that list — 12 suites went red on 2026-10-23 when node moved to Linuxbrew. The record
 // is the contract, not the fallback: such a suite must create its HOME with tc_fixture_home
 // (tests/lib/toolchain-fixture.sh) or tc_overlay_home, and only those helpers write a
@@ -30,8 +30,8 @@ const RUNS_LOADER = new RegExp([
   String.raw`\$\{?HOOKS?_DIR\}?\/`,
   String.raw`\bcore\.hooksPath\b`,
   String.raw`["']hooks["']\s*,\s*["'][\w-]+\.sh["']`,   // node: join(REPO, "hooks", "x.sh")
-  String.raw`\bsrc\/bin\/ai\b`,
-  String.raw`\.rein\/bin\/ai\b`,
+  String.raw`\bsrc\/bin\/rein\b`,
+  String.raw`\.rein\/bin\/rein\b`,
   String.raw`(?:^|[\s;(&|"'\`])ai\s+(?:doctor|sync|init|install|pane|start|ci|task|state|trunk|gate|clean|log)\b`,
   String.raw`\bsrc\/shared\/toolchain-pin\.sh\b`,
 ].join("|"), "m");
@@ -41,7 +41,7 @@ const WRITES_TC   = /\brein_tc_write\b|>\s*["']?[^\s"'|;]*toolchain\.sh\b/;
 
 export const RULES = ["FIXTURE_HOME_NO_RECORD", "TOOLCHAIN_WRITE"];
 
-// Comment lines name hooks and `ai` verbs in prose; only code is evidence.
+// Comment lines name hooks and `rein` verbs in prose; only code is evidence.
 const _code = (text) => text.split("\n").filter((l) => !/^\s*(#|\/\/|\*)/.test(l)).join("\n");
 
 export function censusSuite(source, name, exemptions = {}) {

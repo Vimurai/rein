@@ -172,7 +172,7 @@ rm -rf "$_t2"
 # ── E-225.6: the rule's detection, both directions (audit F2) ──────────────
 # The first cut allowlisted two prefixes (`./`, `src/`) and required a known extension,
 # so it missed `node ../shared/x.mjs`, `bash scripts/helper.sh`, `node lib/x.mjs` and —
-# worst — `bash src/bin/ai`, the framework's own EXTENSION-LESS entrypoint. The test is
+# worst — `bash src/bin/rein`, the framework's own EXTENSION-LESS entrypoint. The test is
 # inverted now: does this line hand an interpreter a path the visited project controls?
 _m="$(mktemp -d)"; mkdir -p "$_m/src/shared/skills/x"
 # A CRASH must never read as a CATCH. The round-2 rewrite threw on an undefined constant,
@@ -193,7 +193,7 @@ _probe() {  # <want:FLAGGED|clean> <line>
 _probe FLAGGED 'A: !for c in src/shared/x.mjs; do node "$c"; done'
 _probe FLAGGED 'A: !PROBE=src/shared/y.mjs; node "$PROBE"'
 _probe FLAGGED 'A: !node ../shared/x.mjs'
-_probe FLAGGED 'A: !bash src/bin/ai sync'
+_probe FLAGGED 'A: !bash src/bin/rein sync'
 _probe FLAGGED 'A: !bash scripts/helper.sh'
 _probe FLAGGED 'A: !node lib/x.mjs'
 _probe FLAGGED 'A: !python3 tools/x.py'
@@ -247,19 +247,19 @@ _probe FLAGGED 'A: !bash repro.sh'
 
 # ── Round-3 audit shapes. Each passed the round-2 rule. ────────────────────
 # The inline-code skip abandoned the WHOLE match, so every later token went unexamined
-# and only an executable extension could rescue it — leaving `src/bin/ai`, the
+# and only an executable extension could rescue it — leaving `src/bin/rein`, the
 # framework's own extension-less entrypoint, invisible in the very idiom E-225 ships.
-_probe FLAGGED 'A: !node -e "import(process.argv[1])" src/bin/ai'
+_probe FLAGGED 'A: !node -e "import(process.argv[1])" src/bin/rein'
 _probe FLAGGED 'A: !python3 -c "import sys;exec(open(sys.argv[1]).read())" src/bin/tool'
 _probe FLAGGED 'A: !node -e "import(process.argv[1])" src/shared/evil.mjs'
 # `${PWD}` is the MORE idiomatic brace form and fell through as "a variable we cannot
 # read"; $OLDPWD is the same root under another name.
 _probe FLAGGED 'A: !node "${PWD}/src/shared/evil.mjs"'
-_probe FLAGGED 'A: !bash "${PWD}/src/bin/ai"'
+_probe FLAGGED 'A: !bash "${PWD}/src/bin/rein"'
 _probe FLAGGED 'A: !node "$OLDPWD/src/shared/evil.mjs"'
 # A `.` after a shell keyword is still command position — and because `invokes` derives
 # from the same matchers, missing it disabled the SECOND signal too.
-_probe FLAGGED 'A: !if true; then . src/bin/ai; fi'
+_probe FLAGGED 'A: !if true; then . src/bin/rein; fi'
 _probe FLAGGED 'A: !if true; then . src/shared/evil.sh; fi'
 # Regression guards for the two over-blocks the round-3 fixes introduced and removed:
 # a stripped inline-code line leaves `2>/dev/null` (a redirect, not a path), and
@@ -272,20 +272,20 @@ _probe clean 'A: !bash tests/suites/<failing_suite>.sh 2>&1'
 # A `--flag=value` the flags group could not consume ENDED the scan for the whole line,
 # and the pattern is live at ai-review-proposed-skills:40,69 — the rule was blind on a
 # line of a skill E-225 itself rewrote.
-_probe FLAGGED 'A: !node --input-type=module src/bin/ai'
-_probe FLAGGED 'A: !node --input-type=module -e "0" src/bin/ai'
+_probe FLAGGED 'A: !node --input-type=module src/bin/rein'
+_probe FLAGGED 'A: !node --input-type=module -e "0" src/bin/rein'
 _probe FLAGGED 'A: !python3 -X opt=1 src/bin/tool'
 # The inline-code strip required a plain quote, so unquoted code and ANSI-C `$'…'` both
 # re-entered the gap it was written to close.
 _probe FLAGGED 'A: !python3 -c print(1) src/bin/tool'
-_probe FLAGGED "A: !node -e \$'import(\"x\")' src/bin/ai"
+_probe FLAGGED "A: !node -e \$'import(\"x\")' src/bin/rein"
 # Backticks are the third spelling of the project root, after $(pwd) and ${PWD}.
 _probe FLAGGED 'A: !node `pwd`/src/shared/evil.mjs'
 
 # The invocation is TOKENISED rather than regex-matched — four rounds each found a new
 # hole in a single-pattern parser. These pin the tokeniser's own edges.
-_probe FLAGGED 'A: !node   src/bin/ai'
-_probe FLAGGED 'A: !bash "src/bin/ai"'
+_probe FLAGGED 'A: !node   src/bin/rein'
+_probe FLAGGED 'A: !bash "src/bin/rein"'
 _probe clean   'A: !node "$h"'
 _probe clean   'A: !echo "run node src/x.mjs to start"'
 
@@ -298,12 +298,12 @@ _probe clean 'A: !bash tests/run.sh; echo done'
 _probe clean 'A: !bash tests/run.sh | tail -5'
 _probe clean 'A: !bash tests/run.sh && echo ok'
 # P3 — an interpreter named by path is the same invocation.
-_probe FLAGGED 'A: !/usr/local/bin/node src/bin/ai'
-_probe FLAGGED 'A: !./node_modules/.bin/tsx src/bin/ai'
-_probe FLAGGED 'A: !/usr/bin/env node src/bin/ai'
+_probe FLAGGED 'A: !/usr/local/bin/node src/bin/rein'
+_probe FLAGGED 'A: !./node_modules/.bin/tsx src/bin/rein'
+_probe FLAGGED 'A: !/usr/bin/env node src/bin/rein'
 # Q2 — the walk must continue past an operand that was merely REJECTED or ACCEPTED…
-_probe FLAGGED 'A: !bash tests/run.sh src/bin/ai'
-_probe FLAGGED 'A: !node "$HELPER" src/bin/ai'
+_probe FLAGGED 'A: !bash tests/run.sh src/bin/rein'
+_probe FLAGGED 'A: !node "$HELPER" src/bin/rein'
 # …but STOP at a command terminator. Without that the walk ran past
 # `. "${HOME}/…/locate.sh";` into the next command and read the resolver's own logical
 # argument as a path — an over-block on the exact line this task ships.
@@ -390,7 +390,7 @@ make|Build: !make all
 npx|Lint: !npx eslint .
 ./relative script|Run: !./repro.sh
 scripts/ path|Setup: !scripts/setup.sh
-node on src/|Check: !node src/bin/ai doctor
+node on src/|Check: !node src/bin/rein doctor
 python3 on scripts/|Gen: !python3 scripts/gen.py
 hidden after a pipe|Tests: !git status | bash tests/run.sh
 hidden after &&|Tests: !git status && bash tests/run.sh

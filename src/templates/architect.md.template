@@ -52,13 +52,13 @@
 - **Data Model**: `Signature: { project_name, tag, summary, architect_v, timestamp }`. Storage: `~/.rein/memory/signatures.json`.
 - **API Contract**:
   - `export_signature(summary, tags)`: Called by `skill: ai-archive` when archiving completes.
-  - `query_signatures(tags)`: Called during `ai init` to suggest patterns.
+  - `query_signatures(tags)`: Called during `rein init` to suggest patterns.
 - **Security**: Signatures must NOT contain secrets, PII, or internal logic. Only high-level "Lore" and "Patterns".
 
 ## 32. Verification Audit
 - **Concept**: Automated system to verify that declared agent capabilities in YAML frontmatter match actual system configurations.
 - **API Contract**: `verify_compliance(agent_name?)`: Checks frontmatter against `registry.json` and MCP tool exports.
-- **Execution Flow**: `ai doctor --compliance` scans all agents in `src/**/agents/`, flags "Ghost Tools" as CRITICAL violations.
+- **Execution Flow**: `rein doctor --compliance` scans all agents in `src/**/agents/`, flags "Ghost Tools" as CRITICAL violations.
 - **Security**: Prevents agents from claiming tools they are not authorized to use via `registry.json`.
 
 ## 33. Token Economics — JIT Read Limits

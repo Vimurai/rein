@@ -3,7 +3,7 @@
 // should actually have, and which are left over from a provider nothing is bound to.
 //
 // WHY THIS EXISTS (E-244, D-066 §4):
-//   `ai sync` must only provision workspaces for providers a role is bound to, so a
+//   `rein sync` must only provision workspaces for providers a role is bound to, so a
 //   project never carries fully-populated workspaces for CLIs nothing will ever read.
 //   The only built-in provider is `claude`; a provider named in .ai/providers.json with
 //   a `workspace_dir` is classified the same way.

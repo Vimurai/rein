@@ -1,4 +1,4 @@
-// hosted-ci.test.mjs — `ai ci hosted`: provider detection, the bootstrap variant, --check /
+// hosted-ci.test.mjs — `rein ci hosted`: provider detection, the bootstrap variant, --check /
 // --force, team.json ci (E-335, D-103 rulings 2-5).
 //
 // New module, new file. The wrapper CONTENT (two run steps, no copied recipe command, the
@@ -104,7 +104,7 @@ test("--check passes on the rendering, fails on a hand edit; an edit needs --for
   writeFileSync(wrapper(d), readFileSync(wrapper(d), "utf8").replace("timeout-minutes: 60", "timeout-minutes: 5"));
   const chk = hosted(d, { check: true });
   assert.equal(chk.code, 1);
-  assert.match(chk.out, /differs from the current github rendering — run: ai ci hosted github --force/);
+  assert.match(chk.out, /differs from the current github rendering — run: rein ci hosted github --force/);
   const refused = hosted(d);
   assert.equal(refused.code, 1);
   assert.match(refused.out, /^\[WRAPPER_DIFFERS\]/);
@@ -118,7 +118,7 @@ test("an unrecognised host without an argument fails with [CI_PROVIDER_UNKNOWN] 
     const d = project(t, { origin });
     const r = hosted(d);
     assert.equal(r.code, 2);
-    assert.match(r.out, /^\[CI_PROVIDER_UNKNOWN\] .*name the provider: ai ci hosted </);
+    assert.match(r.out, /^\[CI_PROVIDER_UNKNOWN\] .*name the provider: rein ci hosted </);
     assert.equal(existsSync(wrapper(d)), false);
   }
   const named = project(t, { origin: "https://gitlab.example.com/a/b.git" });
@@ -139,7 +139,7 @@ test("team.json ci: the planner records it; anyone else renders but is told, and
   const d = project(t, { email: PLANNER });
   writeTeam(join(d, ".ai"), newTeam(PLANNER, { E: [[1, 99]] }));
   assert.match(hosted(d).out, /✓ \.ai\/team\.json ci = github/);
-  assert.deepEqual(readTeam(join(d, ".ai")).ci, { provider: "github", required_check: "ai ci run" });
+  assert.deepEqual(readTeam(join(d, ".ai")).ci, { provider: "github", required_check: "rein ci run" });
 
   const e = project(t, { email: OTHER });
   writeTeam(join(e, ".ai"), newTeam(PLANNER, { E: [[1, 99]] }));
@@ -153,12 +153,12 @@ test("team.json ci: the planner records it; anyone else renders but is told, and
 
 test("team.json ci.provider wins over the origin host; rein_source is held to a plain https URL", (t) => {
   const d = project(t, { origin: "https://gitlab.example.com/a/b.git" });
-  writeTeam(join(d, ".ai"), { ...newTeam(PLANNER, { E: [[1, 99]] }), ci: { provider: "github", required_check: "ai ci run", rein_source: "https://git.corp.example/mirror/rein.git" } });
+  writeTeam(join(d, ".ai"), { ...newTeam(PLANNER, { E: [[1, 99]] }), ci: { provider: "github", required_check: "rein ci run", rein_source: "https://git.corp.example/mirror/rein.git" } });
   const r = hosted(d);
   assert.equal(r.code, 0, r.out);
   assert.match(readFileSync(wrapper(d), "utf8"), / https:\/\/git\.corp\.example\/mirror\/rein\.git "/);
   for (const bad of ["http://plain.example/x.git", "https://x.example/a b.git", "https://x.example/a.git;id", "file:///etc/x"]) {
-    assert.throws(() => validateTeam({ ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "ai ci run", rein_source: bad } }), /rein_source/, bad);
+    assert.throws(() => validateTeam({ ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "rein ci run", rein_source: bad } }), /rein_source/, bad);
   }
   assert.throws(() => validateTeam({ ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "jenkins", required_check: "x" } }), /ci\.provider/);
   assert.throws(() => validateTeam({ ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "x\n- run: id" } }), /ci\.required_check/);
@@ -166,13 +166,13 @@ test("team.json ci.provider wins over the origin host; rein_source is held to a 
 
 test("doctor: none, current, differs, and an origin/team.json mismatch is a warning", (t) => {
   const d = project(t);
-  assert.equal(doctorLine(d), "  - hosted check: none (optional — ai ci hosted)");
+  assert.equal(doctorLine(d), "  - hosted check: none (optional — rein ci hosted)");
   hosted(d);
   assert.match(doctorLine(d), /^  ✓ hosted check: github — .* is the current github rendering/);
   writeFileSync(wrapper(d), "edited\n");
   assert.match(doctorLine(d), /^  ✗ hosted check: github — .* differs/);
   const m = project(t, { origin: "https://gitlab.com/o/r.git" });
-  writeTeam(join(m, ".ai"), { ...newTeam(PLANNER, { E: [[1, 99]] }), ci: { provider: "github", required_check: "ai ci run" } });
+  writeTeam(join(m, ".ai"), { ...newTeam(PLANNER, { E: [[1, 99]] }), ci: { provider: "github", required_check: "rein ci run" } });
   hosted(m);
   assert.match(doctorLine(m), /\(origin is gitlab, team\.json\.ci says github\)$/);
 });
@@ -209,7 +209,7 @@ test("azure: a dev.azure.com origin is detected, writes azure-pipelines.yml + te
   assert.match(r.out, /✓ azure-pipelines\.yml written \(azure, pinned bootstrap\)/);
   assert.match(r.out, /Branch policy \(D-103 r5\): Azure DevOps .*Build Validation .*Required.*Bypass policies when pushing/);
   assert.match(r.out, /\[CI_PROVIDER_UNVERIFIED\] the azure wrapper has not had a documented run/);
-  assert.deepEqual(readTeam(join(d, ".ai")).ci, { provider: "azure", required_check: "ai ci run" });
+  assert.deepEqual(readTeam(join(d, ".ai")).ci, { provider: "azure", required_check: "rein ci run" });
   const yml = readFileSync(join(d, "azure-pipelines.yml"), "utf8");
   assert.match(yml, /^  - bash: git clone --quiet --depth 1 --branch v4\.0\.0 /m);
   assert.equal(existsSync(wrapper(d)), false, "no GitHub workflow for an Azure project");
@@ -224,26 +224,26 @@ test("the matrix follows the project: --tier → a fast job, --shard → team.js
   mkdirSync(join(d, "tests"));
   writeFileSync(join(d, "tests", "run.sh"), "#!/usr/bin/env bash\n# no flags\n");
   assert.deepEqual(matrixFor(d, null), { fast: false, shards: 1, profile: "team" });
-  assert.deepEqual(requiredChecks(d, null), ["ai ci run (ubuntu-latest, node 22)"]);
+  assert.deepEqual(requiredChecks(d, null), ["rein ci run (ubuntu-latest, node 22)"]);
   writeFileSync(join(d, "tests", "run.sh"), "#!/usr/bin/env bash\n# --tier fast|full, --shard i/N\n");
   assert.deepEqual(matrixFor(d, null), { fast: true, shards: 4, profile: "team" });
-  const team = { ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "ai ci run", shards: 2 } };
-  assert.deepEqual(requiredChecks(d, team), ["fast", "ai ci run (ubuntu-latest, node 22, 1/2)", "ai ci run (ubuntu-latest, node 22, 2/2)"]);
+  const team = { ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "rein ci run", shards: 2 } };
+  assert.deepEqual(requiredChecks(d, team), ["fast", "rein ci run (ubuntu-latest, node 22, 1/2)", "rein ci run (ubuntu-latest, node 22, 2/2)"]);
   writeFileSync(join(d, ".ai", "publish.json"), "{}");
   assert.equal(profileFor(d), "public");
   const pub = requiredChecks(d, null);
   assert.equal(pub.length, 13, "fast + 3 PR legs × 4 shards (macOS × 24 is nightly-only)");
-  assert.ok(pub.includes("ai ci run (macos-latest, node 22, 4/4)") && !pub.some((n) => n.includes("macos-latest, node 24")));
+  assert.ok(pub.includes("rein ci run (macos-latest, node 22, 4/4)") && !pub.some((n) => n.includes("macos-latest, node 24")));
   const r = hosted(d, { provider: "github" });
   assert.equal(r.code, 0, r.out);
-  assert.match(r.out, /^Required checks \(D-135 r7, public profile\): "fast", "ai ci run \(ubuntu-latest, node 22, 1\/4\)", /m);
+  assert.match(r.out, /^Required checks \(D-135 r7, public profile\): "fast", "rein ci run \(ubuntu-latest, node 22, 1\/4\)", /m);
   assert.match(readFileSync(wrapper(d), "utf8"), /^  fast:\n    name: fast\n/m);
 });
 
 test("team.json ci.shards is a whole number 1..8", () => {
   const base = { ...newTeam(PLANNER, { E: [[1, 9]] }) };
-  for (const shards of [1, 4, 8]) validateTeam({ ...base, ci: { provider: "github", required_check: "ai ci run", shards } });
+  for (const shards of [1, 4, 8]) validateTeam({ ...base, ci: { provider: "github", required_check: "rein ci run", shards } });
   for (const shards of [0, 9, 2.5, "4"]) {
-    assert.throws(() => validateTeam({ ...base, ci: { provider: "github", required_check: "ai ci run", shards } }), /ci\.shards/, String(shards));
+    assert.throws(() => validateTeam({ ...base, ci: { provider: "github", required_check: "rein ci run", shards } }), /ci\.shards/, String(shards));
   }
 });

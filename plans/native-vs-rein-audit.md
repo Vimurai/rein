@@ -3,7 +3,7 @@
 > Architect assessment, not a ruling. Proposes D-075 ("Native-first: retire what the harness
 > now does itself"). Inputs: official Claude Code docs (code.claude.com/docs, verified live
 > 2026-09-28) and a repo inventory of Rein v3.1.0 (`src/` 21.3k LOC, 22 custom MCP servers,
-> 50 skills, 21 agents, 8 hooks, `ai` CLI 5.0k LOC, 143 bash suites / 5043 assertions).
+> 50 skills, 21 agents, 8 hooks, `rein` CLI 5.0k LOC, 143 bash suites / 5043 assertions).
 
 ## 1. What each thing IS
 
@@ -15,7 +15,7 @@
 | Roles | `permissionMode`, `tools:` per subagent, `--settings` per launch. Advisory to the model | **Enforced** sovereignty: HMAC role token minted at SessionStart, 3-layer fail-closed write gate |
 | Safety | permission allow/deny/ask, auto-mode NL classifier, sandbox | safe-exec PASS/WARN/BLOCK, TSRT tiers, approval-mcp, propose-patch HITL |
 | Git gates | none native (`/code-review`, `/security-review` are on-demand) | pre-commit needs a ≤7-day `[CRITIC_STAMP]`; pre-push needs a green local CI row |
-| CI | worktrees exist, no CI runner | `ai ci run` in a detached worktree + throwaway HOME (D-072) |
+| CI | worktrees exist, no CI runner | `rein ci run` in a detached worktree + throwaway HOME (D-072) |
 | Cross-session wake | `SendMessage` to other local sessions (unverified as a wake primitive) | `ai handoff` → `signal.json` → `ai-watch` idle-detect + `tmux send-keys` |
 | Observability | `/usage`, `/insights`, `/skill-doctor`, OTEL export (all per-session / per-user) | cross-project `telemetry.sqlite` → `meta_analyst` → INSIGHTS.md → proposed skills (HITL) |
 | Orchestration | Workflow tool (JS scripts, `parallel`/`pipeline`), agent hooks | orchestrator-mcp scripted workflows, critic agents dispatched by `ai-review` |
@@ -55,7 +55,7 @@ since closed.
 | `context-invoker-mcp` (activate_skill/agent) | 323 | agy did not expose Skill/Agent tools | Skill tool + Agent tool, always present under Claude | rulefile "ladder" Steps 2–3 exist only for this |
 | `orchestrator-mcp::run_preflight` (keep the other 4) | ~120 | MCP fallback for agy | `ai-preflight` skill with `!`-injection is the native path | ENGINEER/ARCHITECT.md Step 2 |
 | `lsp-mcp` (TS only) | 339 | no code intelligence | Code Intelligence plugins (LSP, auto-diagnostics post-edit) | — |
-| `github-bridge-mcp` | 386 | wrap `gh` | `gh` via Bash + `Bash(gh pr *)` allow rule; keep `create_intent_from_issues` as an `ai` subcommand | — |
+| `github-bridge-mcp` | 386 | wrap `gh` | `gh` via Bash + `Bash(gh pr *)` allow rule; keep `create_intent_from_issues` as a `rein` subcommand | — |
 | `computer-use-mcp` (display :99) | 458 | visual QA of native windows | native computer use (desktop app) + claude-in-chrome; `vibe-check-mcp` stays for Playwright | — |
 | `code-execution-mcp` | 397 | sandboxed REPL | nobody has Docker: REJECTED 935/935 (E-258); native Bash + auto-mode sandbox | E-258 is currently funded to *improve the error message* — retire instead |
 | `ai-compact` skill | — | agy had no `/compact` | `/compact` + auto-compact; keep only SESSION.md archival if wanted | skill says "Equivalent to running /compact" |
@@ -106,7 +106,7 @@ sections. 9 skill/agent files reference the removal candidates and need edits.
    Needs a spike: does it wake the Engineer, is delivery durable, does it survive `/clear`?
    `signal.json` stays as the audit record either way.
 10. **`--bare` and `--json-schema`** for headless child invocations (`advisor-mcp`'s
-    `claude -p`, future `ai ci` Tester runs): faster startup, typed output.
+    `claude -p`, future `rein ci` Tester runs): faster startup, typed output.
 11. **Workflow tool** for `ai-review` Tier 3 (`parallel()` critics with `schema`). Low
     priority: requires user opt-in per run.
 

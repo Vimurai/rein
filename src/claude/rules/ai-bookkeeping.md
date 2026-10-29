@@ -13,7 +13,7 @@ paths:
   paths — `git add -A` after a conflict is how markers reach a commit.
 - **`TASKS.md` and `REVIEWS.md` are generated views.** Change tasks through
   `task-synchronizer-mcp` (`add_task`, `update_task_status` via `skill: ai-task`) or
-  `ai add-task`, and stamps through `add_stamp` — a hand edit is overwritten by the next
+  `rein add-task`, and stamps through `add_stamp` — a hand edit is overwritten by the next
   regeneration.
 - **Read any `.ai/` file a handoff names before touching it** (D-065). Blueprints,
   `architect.md` and `DECISIONS.md` are Architect-owned.

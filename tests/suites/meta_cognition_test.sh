@@ -215,7 +215,7 @@ echo "  [T-META-S10] mirrors byte-identical"
 assert_status 0 "meta_analyst → .claude mirror"    diff -q "$AGENT_SRC" "$AGENT_CLAUDE"
 # E-248 (D-067 §2): the installed copy is canonical — byte identity, and the three
 # Claude agent-contract keys PRESENT.
-# E-236 (D-061 §4): the INSTALL is genuinely optional — a clone with no `ai install` has
+# E-236 (D-061 §4): the INSTALL is genuinely optional — a clone with no `rein install` has
 # no ~/.rein to compare against. Asserting unconditionally made the verdict depend on
 # whether this machine happened to be installed, which is the pattern this sprint kept
 # removing. Absent install → SKIP, counted separately; never a fabricated pass.

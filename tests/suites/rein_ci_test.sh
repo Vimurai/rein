@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# ai_ci_test.sh — local CI (D-072): `ai ci run` (E-265), the run record and its readers
+# rein_ci_test.sh — local CI (D-072): `rein ci run` (E-265), the run record and its readers
 # (E-266, from ai_ci_record), the push and DONE gates (E-267, from ai_ci_gate) and the
 # retired hosted CI (E-268, from actions_decommission) — merged in E-302.
 #
-# E-265 (local-ci.md §Components 1-2): `ai ci run`.
+# E-265 (local-ci.md §Components 1-2): `rein ci run`.
 #
 # A local CI run is only worth recording if it measures the COMMIT, not the laptop. The
 # assertions are weighted toward the three isolation properties the GitHub runner gave us
@@ -21,9 +21,9 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 source "${SCRIPT_DIR}/../lib/mcp-client.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AI="${REPO_ROOT}/src/bin/ai"
+AI="${REPO_ROOT}/src/bin/rein"
 
-echo "── Suite: ai_ci_test ───────────────────────────────────────────────"
+echo "── Suite: rein_ci_test ───────────────────────────────────────────────"
 
 FAKE_HOME="$(test_tmpdir ci-home)"
 tc_fixture_home "$FAKE_HOME"   # E-345 (D-109 r1): the toolchain record the hooks pin
@@ -69,7 +69,7 @@ STUB
   git -C "$d" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm fixture
 }
 
-# _ci <repo> <args...> — run `ai ci` from the repo under the fake HOME and private TMPDIR,
+# _ci <repo> <args...> — run `rein ci` from the repo under the fake HOME and private TMPDIR,
 # with the variables the runner must NOT pass through set in the caller.
 _ci() {
   local d="$1"; shift
@@ -102,7 +102,7 @@ assert_contains "E-265.01b: an uncommitted file is NOT visible to a non-dirty ru
   "PROBE_UNCOMMITTED=absent" "$OUT"
 assert_contains "E-265.01c: a file deleted only in the working tree is still present" \
   "PROBE_TRACKED=present" "$OUT"
-assert_contains "E-265.01d: the summary names PASS and the sha" "ai ci: PASS ${SHA:0:7}" "$OUT"
+assert_contains "E-265.01d: the summary names PASS and the sha" "rein ci: PASS ${SHA:0:7}" "$OUT"
 assert_contains "E-265.01e: the suite step parses the runner's totals" \
   "3 passed, 0 failed, 0 skipped, leaked 0" "$OUT"
 assert_contains "E-265.01f: a fixture with no package.json skips deps, not errors" \
@@ -171,7 +171,7 @@ echo 1 > "${FREPO}/stub_exit"
 git -C "$FREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qam fail
 OUT="$(_ci "$FREPO" run)"; RC=$?
 assert_status 0 "E-265.06a: a failing suite exits 1 (FAIL, not ERROR)" test "$RC" -eq 1
-assert_contains "E-265.06b: and says FAIL" "ai ci: FAIL" "$OUT"
+assert_contains "E-265.06b: and says FAIL" "rein ci: FAIL" "$OUT"
 
 NREPO="$(test_tmpdir ci-noignore)"
 _mk_repo "$NREPO" --no-gitignore
@@ -209,7 +209,7 @@ assert_status 1 "E-265.07e: and released afterwards" test -e "$LOCK"
 
 # ── E-265.8: --keep retains the work dir for debugging ───────────────────
 OUT="$(_ci "$REPO" run --keep)"; RC=$?
-KEPT="$(sed -nE 's/^ai ci: kept ([^ ]+) \(--keep\).*/\1/p' <<< "$OUT")"
+KEPT="$(sed -nE 's/^rein ci: kept ([^ ]+) \(--keep\).*/\1/p' <<< "$OUT")"
 assert_status 0 "E-265.08a: --keep reports the kept directory" test -n "$KEPT"
 assert_status 0 "E-265.08b: and the worktree is still there" test -f "${KEPT}/wt/tests/run.sh"
 git -C "$REPO" worktree remove --force "${KEPT}/wt" >/dev/null 2>&1
@@ -222,8 +222,8 @@ assert_status 0 "E-265.09b: the suite runs under /bin/bash, the shell users have
   grep -q '/bin/bash tests/run.sh' "$AI"
 assert_status 0 "E-265.09c: the caller's ~/.rein is stripped from PATH" \
   grep -q '_ci_clean_path' "$AI"
-assert_status 0 "E-265.09d: ai --help lists ai ci run" \
-  bash -c "HOME='$FAKE_HOME' bash '$AI' --help | grep -q 'ai ci run'"
+assert_status 0 "E-265.09d: ai --help lists rein ci run" \
+  bash -c "HOME='$FAKE_HOME' bash '$AI' --help | grep -q 'rein ci run'"
 assert_status 0 "E-265.09e: DEVOPS.md carries the ci_gate entry" \
   grep -q 'DEVOPS-007 — Local CI runner' "${REPO_ROOT}/.ai/DEVOPS.md"
 
@@ -264,7 +264,7 @@ assert_contains "E-309.C4: an explicit --lanes is passed as asked, not auto; a c
 assert_contains "E-309.C5: the hints are this project's newest census log" "PROBE_HINTS=${LLOG1}" "$OUT"
 # An .ai/ (untracked) makes the runs below RECORDED, so the row can be read back.
 _st="$(cd "$LREPO" && HOME="$FAKE_HOME" bash "$AI" ci status 2>&1)"
-assert_match "E-310.R2: ai ci status prints lanes, peak RSS, suite seconds and the runner" \
+assert_match "E-310.R2: rein ci status prints lanes, peak RSS, suite seconds and the runner" \
   "spent: +lanes 3, peak RSS [1-9][0-9]* MB \(largest process\), - \(concurrent sum\), suite [0-9]+s, runner rein" "$_st"
 assert_contains "E-310.R3: …and the slowest suites, from the census rows" "slowest:  stub 0s" "$_st"
 OUT="$(_ci "$LREPO" run --lanes 0)"; RC=$?
@@ -288,7 +288,7 @@ assert_status 0 "E-386.H4: …named hosted:github" grep -qE '^\[ci\] resources .
 
 echo ""
 # ── E-343 (D-108 r9): the per-machine env allow-list, .ai/ci.local.json ──
-# A Rein project (tracked .ai/) whose .gitignore covers the file, as `ai sync` leaves it.
+# A Rein project (tracked .ai/) whose .gitignore covers the file, as `rein sync` leaves it.
 EREPO="$(test_tmpdir ci-localenv)"
 _mk_repo "$EREPO"
 mkdir -p "${EREPO}/.ai"; echo keep > "${EREPO}/.ai/keep"
@@ -343,7 +343,7 @@ assert_contains "E-343.05b: …and names the file" "must cover .env, node_module
 source "${REPO_ROOT}/tests/lib/launch-vars.sh"
 _reserved="$(sed -n 's/^CI_ENV_RESERVED_NAMES="\(.*\)"$/\1/p' "$AI")"
 for _lv in "${LAUNCH_VARS[@]}"; do
-  assert_contains "E-343.06: launch variable ${_lv} is reserved for ai ci run" " ${_lv} " " ${_reserved} "
+  assert_contains "E-343.06: launch variable ${_lv} is reserved for rein ci run" " ${_lv} " " ${_reserved} "
 done
 
 echo ""
@@ -360,16 +360,16 @@ assert_contains "E-336.01b: under Azure the run sets REIN_CI_LOG_DIR to its log 
 # E-266 (D-072, local-ci.md §Components 3-4): the run record.
 #
 # From D-072 on, "CI green" is a fact in state.sqlite, not a badge: a NON-DIRTY ci_runs
-# row with status PASS for the commit. This suite drives the real `ai ci run` against a
-# fixture repo and then reads the record back through every reader — `ai ci status`
-# (both forms, all four outcomes), `ai ci list`, `ai ci log [--failed]`, the `ai doctor`
+# row with status PASS for the commit. This suite drives the real `rein ci run` against a
+# fixture repo and then reads the record back through every reader — `rein ci status`
+# (both forms, all four outcomes), `rein ci list`, `rein ci log [--failed]`, the `rein doctor`
 # line and the get_ci_status MCP tool — so a reader that disagrees with the writer fails
 # here rather than at a gate.
 #
 # The table, parser, verdict rules and retention are unit-tested in
 # tests/unit/ci-runs.test.mjs; this suite is the end-to-end layer.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AI="${REPO_ROOT}/src/bin/ai"
+AI="${REPO_ROOT}/src/bin/rein"
 SYNC_SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
 
@@ -465,7 +465,7 @@ _ci run --dirty >/dev/null
 OUT="$(_ci status --short)"; RC=$?
 assert_status 0 "E-266.05a: a dirty-only commit exits 2 (no certifying run)" test "$RC" -eq 2
 assert_match "E-266.05b: --short says DIRTY and why it does not count" \
-  "^DIRTY ${SHA_DIRTY:0:7} .*not a certification; run: ai ci run$" "$OUT"
+  "^DIRTY ${SHA_DIRTY:0:7} .*not a certification; run: rein ci run$" "$OUT"
 assert_status 0 "E-266.05c: the dirty row is marked dirty=1" \
   test "$(_sql "SELECT dirty FROM ci_runs WHERE sha='${SHA_DIRTY}'")" = "1"
 rm -f "${REPO}/scratch.txt"
@@ -476,7 +476,7 @@ SHA_NONE="$(git -C "$REPO" rev-parse HEAD)"
 OUT="$(_ci status --short)"; RC=$?
 assert_status 0 "E-266.06a: an untested commit exits 2" test "$RC" -eq 2
 assert_contains "E-266.06b: --short says NONE and what to run" \
-  "NONE ${SHA_NONE:0:7} — no local CI run; run: ai ci run" "$OUT"
+  "NONE ${SHA_NONE:0:7} — no local CI run; run: rein ci run" "$OUT"
 OUT="$(_ci log)"; RC=$?
 assert_status 0 "E-266.06c: log for an untested commit exits 2" test "$RC" -eq 2
 OUT="$(_ci status --ref nope)"; RC=$?
@@ -497,13 +497,13 @@ assert_status 0 "E-266.07e: -n with a non-number exits 2" test "$RC" -eq 2
 _doctor_line() { ( cd "$REPO" && HOME="$FAKE_HOME" bash "$AI" doctor 2>&1 ) | grep 'local CI:' | head -1; }
 OUT="$(_doctor_line)"
 assert_contains "E-266.08a: doctor reports ✗ with the command for an untested HEAD" \
-  "✗ local CI: no run for HEAD ${SHA_NONE:0:7} — run: ai ci run" "$OUT"
+  "✗ local CI: no run for HEAD ${SHA_NONE:0:7} — run: rein ci run" "$OUT"
 git -C "$REPO" checkout -q "$SHA_PASS"
 OUT="$(_doctor_line)"
 assert_match "E-266.08b: doctor reports ✓ for a green HEAD" "✓ local CI: HEAD ${SHA_PASS:0:7} PASS [0-9]+[smhd] ago" "$OUT"
 git -C "$REPO" checkout -q "$SHA_FAIL"
 OUT="$(_doctor_line)"
-assert_contains "E-266.08c: doctor points a red HEAD at log --failed" "run: ai ci log --failed" "$OUT"
+assert_contains "E-266.08c: doctor points a red HEAD at log --failed" "run: rein ci log --failed" "$OUT"
 git -C "$REPO" checkout -q main
 
 # ── E-266.9: get_ci_status (task-synchronizer-mcp) ───────────────────────
@@ -526,7 +526,7 @@ assert_contains "E-266.09e: get_ci_status is advertised" "get_ci_status" "$(mcp_
 # ── E-266.10: registration and the not-recorded path ─────────────────────
 assert_status 0 "E-266.10a: registry allows get_ci_status" \
   grep -q '"get_ci_status"' "${REPO_ROOT}/src/config/registry.json"
-# E-290: .claude/settings.json is generated (gitignored) — read the one `ai sync` writes.
+# E-290: .claude/settings.json is generated (gitignored) — read the one `rein sync` writes.
 source "${SCRIPT_DIR}/../lib/generated-settings.sh"
 _GEN_DIR="$(mktemp -d)"; on_exit "rm -rf '$_GEN_DIR'"
 GEN_SETTINGS="$(gen_project_settings "$_GEN_DIR/proj")"
@@ -547,7 +547,7 @@ echo ""
 
 # ── E-303 (D-088, test-economics.md §Component 7): the test budget ratchet, end to end ──
 # Extends the record rows above through the real CLI: a recorded budget holds the next run;
-# one more suite FAILS with recorded/measured/slack on one line; `ai ci budget set` refuses
+# one more suite FAILS with recorded/measured/slack on one line; `rein ci budget set` refuses
 # without a D-### ruling and writes the ruling into the record. The arithmetic and the
 # slacks are rows of tests/unit/ci-runs.test.mjs.
 CIREC="${REPO_ROOT}/src/shared/ci-record.mjs"
@@ -564,7 +564,7 @@ assert_contains "E-303.01b: …with recorded, measured and slack on one line" \
 OUT="$(node --no-warnings "$CIREC" budget-check --ai-dir "${REPO}/.ai" --log "${RUN_TMP}/b45.log" 2>&1)"; RC=$?
 assert_status 0 "E-303.01c: an equal measurement passes" test "$RC" -eq 0
 OUT="$(_ci budget)"
-assert_contains "E-303.02a: ai ci budget prints the current budget" "test budget: suites 45, test_lines 1000, fast_tier_seconds 30" "$OUT"
+assert_contains "E-303.02a: rein ci budget prints the current budget" "test budget: suites 45, test_lines 1000, fast_tier_seconds 30" "$OUT"
 OUT="$(_ci budget set suites=46)"; RC=$?
 assert_status 0 "E-303.02b: raising the budget without a ruling is refused (rc=${RC})" test "$RC" -eq 2
 assert_contains "E-303.02c: …and says a ruling is the way" "only by ruling: --ruling D-###" "$OUT"
@@ -574,7 +574,7 @@ assert_contains "E-303.02e: the ruling id is written into the record" "D-118" \
   "$(_sql "SELECT budget_ruling FROM ci_runs WHERE budget_ruling IS NOT NULL")"
 OUT="$(node --no-warnings "$CIREC" budget-check --ai-dir "${REPO}/.ai" --log "${RUN_TMP}/b46.log" 2>&1)"; RC=$?
 assert_status 0 "E-303.02f: the ruled budget admits the run it was raised for" test "$RC" -eq 0
-assert_contains "E-303.02g: ai ci budget names the ruling" "ruled by D-118" "$(_ci budget)"
+assert_contains "E-303.02g: rein ci budget names the ruling" "ruled by D-118" "$(_ci budget)"
 assert_status 1 "E-303.03: no env var or flag lifts the ratchet (none is read)" \
   grep -qE 'REIN_[A-Z_]*BUDGET|--no-budget' "$AI" "$CIREC" "${REPO_ROOT}/src/mcp/shared/ci-budget.js"
 
@@ -589,7 +589,7 @@ assert_status 1 "E-303.03: no env var or flag lifts the ratchet (none is read)" 
 # The certification rules themselves (self / bookkeeping ancestor / SKIPPED) are unit
 # tested in tests/unit/ci-runs.test.mjs; this suite proves the wiring carries them.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AI="${REPO_ROOT}/src/bin/ai"
+AI="${REPO_ROOT}/src/bin/rein"
 SYNC_SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
 
@@ -635,7 +635,7 @@ for row in sqlite3.connect(sys.argv[1]).execute(sys.argv[2]):
 PY
 }
 
-# Install the stub exactly as `ai init` does.
+# Install the stub exactly as `rein init` does.
 _hooks_out="$( cd "$REPO" && HOME="$FAKE_HOME" bash -c "
   REIN=\"\$HOME/.rein\"; REIN_STUB_MARKER='# Rein-STUB'
   $(awk '/^_write_pre_push_stub\(\) \{/,/^}$/' "$AI")
@@ -645,7 +645,7 @@ assert_contains "E-267.00: the pre-push stub is written" "written" "$_hooks_out"
 # ── E-267.1: adoption — no rows, the gate does not block ────────────────
 C1="$(_commit src/a.js 1 first)"
 _push
-assert_status 0 "E-267.01a: a project with no ai ci history can push" test "$PUSH_RC" -eq 0
+assert_status 0 "E-267.01a: a project with no rein ci history can push" test "$PUSH_RC" -eq 0
 assert_contains "E-267.01b: and is told the gate is not enforced yet" "not enforced" "$PUSH_OUT"
 
 # ── E-267.2: tip tested → push allowed ───────────────────────────────────
@@ -723,7 +723,7 @@ assert_status 0 "E-267.06g: a branch deletion is not gated" test "$rc" -eq 0
 CH="$(test_tmpdir cigate-chain)"
 printf '#!/usr/bin/env bash\ncat > "%s/seen"\nexit 0\n' "$CH" > "${REPO}/.git/hooks/pre-push.pre-rein"
 chmod +x "${REPO}/.git/hooks/pre-push.pre-rein"
-# E-290: the stub bakes in \${REIN} (the install path) at WRITE time, as src/bin/ai defines it.
+# E-290: the stub bakes in \${REIN} (the install path) at WRITE time, as src/bin/rein defines it.
 ( cd "$REPO" && HOME="$FAKE_HOME" bash -c "
   REIN_STUB_MARKER='# Rein-STUB'
   REIN='${FAKE_HOME}/.rein'
@@ -755,7 +755,7 @@ C8="$(_commit src/a.js 8 "eighth")"
 OUT="$(_done E-1)"
 assert_contains "E-267.08a: DONE is refused when HEAD has no run" \
   "[CI_GATE] no green local CI run for HEAD ${C8:0:7}" "$OUT"
-assert_contains "E-267.08b: the refusal names the command and the bypass" "run: ai ci run (bypass: REIN_CI_GATE=0)" "$OUT"
+assert_contains "E-267.08b: the refusal names the command and the bypass" "run: rein ci run (bypass: REIN_CI_GATE=0)" "$OUT"
 OUT="$(_done E-1 REIN_CI_GATE=0)"
 assert_contains "E-267.08c: REIN_CI_GATE=0 lets DONE through" "E-1 → DONE" "$OUT"
 _row "$C8" PASS true
@@ -777,7 +777,7 @@ git -C "$EMPTY" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit 
 OUT="$( cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" add_task '{"owner":"Engineer (Claude)","description":"Probe adoption off","prefix":"E"}' >/dev/null
         cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" update_task_status '{"id":"E-1","status":"DONE","summary":"x"}' \
           | python3 -c 'import json,sys; print((json.load(sys.stdin).get("content") or [{}])[0].get("text",""))' )"
-assert_contains "E-267.08h: a project that never ran ai ci is not gated" "E-1 → DONE" "$OUT"
+assert_contains "E-267.08h: a project that never ran rein ci is not gated" "E-1 → DONE" "$OUT"
 
 # ── E-267.9: the consumers ───────────────────────────────────────────────
 TASK_SKILL="${REPO_ROOT}/src/shared/skills/ai-task/SKILL.md"
@@ -786,30 +786,30 @@ TASK_SKILL="${REPO_ROOT}/src/shared/skills/ai-task/SKILL.md"
 assert_status 1 "E-267.09a: ai-task no longer reads the hosted runner" grep -qE 'gh +run' "$TASK_SKILL"
 assert_status 1 "E-267.09b: ai-task's injection no longer shells out to python3" grep -q '^Local CI.*python3' "$TASK_SKILL"
 INJ="$(sed -n 's/^Local CI (HEAD): !//p' "$TASK_SKILL")"
-assert_contains "E-267.09c: ai-task injects ai ci status --short" "ai ci status --ref HEAD --short" "$INJ"
-# Run the injection line itself against a fixture, with an `ai` on PATH that is this tree.
+assert_contains "E-267.09c: ai-task injects rein ci status --short" "rein ci status --ref HEAD --short" "$INJ"
+# Run the injection line itself against a fixture, with a `rein` on PATH that is this tree.
 BIN="$(test_tmpdir cigate-bin)"
-printf '#!/usr/bin/env bash\nexec bash "%s" "$@"\n' "$AI" > "${BIN}/ai"; chmod +x "${BIN}/ai"
+printf '#!/usr/bin/env bash\nexec bash "%s" "$@"\n' "$AI" > "${BIN}/rein"; chmod +x "${BIN}/rein"
 OUT="$( cd "$REPO" && git checkout -qf "$C8" && HOME="$FAKE_HOME" PATH="${BIN}:$PATH" bash -c "$INJ" 2>&1 )"
 assert_match "E-267.09d: the injected line reads PASS for a tested HEAD" "^PASS ${C8:0:7} " "$OUT"
 OUT="$( cd "$REPO" && git checkout -qf "$C1" && HOME="$FAKE_HOME" PATH="${BIN}:$PATH" bash -c "$INJ" 2>&1 )"
 assert_match "E-267.09e: and NONE for an untested one" "^NONE ${C1:0:7} " "$OUT"
 OUT="$( cd "$REPO" && HOME="$FAKE_HOME" PATH="/usr/bin:/bin" bash -c "$INJ" 2>&1 )"
-assert_contains "E-267.09f: and says unavailable when ai is not installed" "(ai ci unavailable" "$OUT"
+assert_contains "E-267.09f: and says unavailable when ai is not installed" "(rein ci unavailable" "$OUT"
 git -C "$REPO" checkout -qf main
 
 # E-282: the triage rule moved from ENGINEER.md to the tests/** path-scoped rule.
-assert_status 0 "E-267.09g: the tests/** rule triages with ai ci log --failed" \
-  grep -q 'ai ci log --failed' "${REPO_ROOT}/src/claude/rules/test-harness.md"
+assert_status 0 "E-267.09g: the tests/** rule triages with rein ci log --failed" \
+  grep -q 'rein ci log --failed' "${REPO_ROOT}/src/claude/rules/test-harness.md"
 for f in ENGINEER.md src/templates/ENGINEER.md src/claude/rules/test-harness.md; do
   assert_status 1 "E-267.09h: ${f} no longer names the hosted runner" grep -qE 'gh +run +view' "${REPO_ROOT}/${f}"
 done
 for f in src/claude/agents/critic_tests.md src/claude/skills/ai-review/SKILL.md; do
-  assert_status 0 "E-267.09i: ${f} says 'under \`ai ci\`'" grep -q 'under `ai ci`' "${REPO_ROOT}/${f}"
+  assert_status 0 "E-267.09i: ${f} says 'under \`rein ci\`'" grep -q 'under `rein ci`' "${REPO_ROOT}/${f}"
   assert_status 1 "E-267.09j: ${f} no longer says 'fails the run on CI'" grep -q 'fails the run on CI' "${REPO_ROOT}/${f}"
 done
-assert_status 0 "E-267.09k: ci_gate forbids pushing without a green ai ci run" \
-  grep -q 'without a green `ai ci run`' "${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
+assert_status 0 "E-267.09k: ci_gate forbids pushing without a green rein ci run" \
+  grep -q 'without a green `rein ci run`' "${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
 assert_status 0 "E-267.09l: install_git_hooks installs the pre-push stub" \
   grep -q '_write_pre_push_stub "\$PP_DST"' "$AI"
 assert_status 0 "E-267.09m: uninstall tells the operator to remove it" \
@@ -828,7 +828,7 @@ echo ""
 # E-268 (D-072, local-ci.md §Component 6b).
 #
 # GitHub Actions is retired: the workflow is deleted and every surface that told an operator
-# (or an agent) to look at a hosted run now points at `ai ci`. The assertions are the
+# (or an agent) to look at a hosted run now points at `rein ci`. The assertions are the
 # acceptance grep, kept executable — a future edit that reintroduces a hosted-CI instruction
 # fails here rather than sending someone to a pipeline that no longer runs.
 #
@@ -838,7 +838,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # ── E-268.1: the workflow is gone, history keeps it ───────────────────────
 # E-332 (D-102 §5b, D-103) brought back ONE workflow — the hosted master check, which runs
-# `ai ci run` and nothing else (tests/unit/hosted-ci-workflow.test.mjs). Any other is a regression.
+# `rein ci run` and nothing else (tests/unit/hosted-ci-workflow.test.mjs). Any other is a regression.
 # E-378 (D-129): the public repository adds ONE more, the privacy scan of the tracked tree
 # (publish-scan.mjs scan-tree) — present exactly where .ai/publish.json marks that repository.
 # E-384 (D-133 §Component 2): the public repository's CI is layered — the scanners, the
@@ -865,25 +865,25 @@ fi
 
 # ── E-268.2: nothing instructs anyone to read a hosted run ───────────────
 # One grep, the acceptance one. Written as regexes so this suite does not trip itself.
-# --exclude-dir=node_modules: `ai ci run` installs dependencies INSIDE the worktree it
+# --exclude-dir=node_modules: `rein ci run` installs dependencies INSIDE the worktree it
 # tests, and half of npm advertises its own GitHub Actions badge. Without this the assertion
 # measured what the machine happened to have installed (E-236) — it passed on a tree with no
 # vendored deps and failed under the runner, which is the wrong way round.
 _hits="$(cd "$REPO_ROOT" && grep -rnE --exclude-dir=node_modules --exclude-dir=.git \
   'gh +run|GITHUB_ACTIONS|actions/workflow|workflows/test\.yml|ubuntu-latest' \
   src tests hooks .claude README.md CONTRIBUTING.md ENGINEER.md ARCHITECT.md install-rein.sh 2>/dev/null \
-  | grep -vE '^tests/suites/ai_ci_test\.sh:' \
+  | grep -vE '^tests/suites/rein_ci_test\.sh:' \
   | grep -vE '^src/templates/ci/' \
   | grep -vE '^(src/shared/hosted-ci\.mjs|tests/unit/hosted-ci(-workflow)?\.test\.mjs):' \
   | grep -vE '^src/templates/public/privacy\.yml:' \
   | grep -vE '^README\.md:[0-9]+:\[ci(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/ci\.yml(/badge\.svg)?$' \
   | grep -vE '^README\.md:[0-9]+:\[privacy(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/privacy\.yml(/badge\.svg)?$' \
   | grep -vE '^README\.md:[0-9]+:\[codeql(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/codeql\.yml(/badge\.svg)?$' \
-  | grep -vE '^src/bin/ai:[0-9]+:  if \[\[ -n "\$\{GITHUB_ACTIONS:-\}" \]\]; then echo "hosted:github"$' \
+  | grep -vE '^src/bin/rein:[0-9]+:  if \[\[ -n "\$\{GITHUB_ACTIONS:-\}" \]\]; then echo "hosted:github"$' \
   || true)"   # E-335 (D-103): the rendered hosted-check templates ARE a hosted run.
 # E-384 (D-135 r5): so is the renderer that builds their matrix, and the two suites that pin it.
 # E-386 (D-135 r1): _ci_host_class reads the GitHub runner's marker to widen its lanes — the
-# one src/bin/ai line allowed to name it; detecting a runner is not an instruction to read one.
+# one src/bin/rein line allowed to name it; detecting a runner is not an instruction to read one.
 # E-374 (D-125, D-129): the public repo's live CI badge and its link are the two README lines
 # allowed to name a workflow — a status display, not an instruction to read a hosted run.
 # E-384 (D-133 §Component 3): likewise the privacy and CodeQL badges and their links, each
@@ -893,7 +893,7 @@ assert_status 0 "E-268.02a: no hosted-CI instruction remains under src/tests/hoo
 [[ -n "$_hits" ]] && printf '  ⓘ remaining hits:\n%s\n' "$_hits"
 # The permitted mentions: CHANGELOG history, DECISIONS, the archive.
 assert_status 0 "E-268.02b: the CHANGELOG records the removal for the release notes" \
-  grep -q 'GitHub Actions workflow removed; CI runs locally via `ai ci`' "${REPO_ROOT}/CHANGELOG.md"
+  grep -q 'GitHub Actions workflow removed; CI runs locally via `rein ci`' "${REPO_ROOT}/CHANGELOG.md"
 # E-382 (D-131): E-263 released it in [4.0.0], now under "Private predecessor"; no [Unreleased].
 assert_status 0 "E-268.02c: under the 4.0.0 BREAKING heading, where E-263 released it" \
   bash -c "sed -n '/^## \[4\.0\.0\]/,/^## \[3/p' '${REPO_ROOT}/CHANGELOG.md' | grep -q 'Changed — BREAKING'"
@@ -903,15 +903,15 @@ assert_status 0 "E-268.02c: under the 4.0.0 BREAKING heading, where E-263 releas
 # "tests passing" image is what E-268 removed, and stays gone.
 assert_status 1 "E-268.03a: no static tests-passing badge" grep -qiE 'img\.shields\.io/badge/tests|tests-passing' "${REPO_ROOT}/README.md"
 assert_status 0 "E-268.03b: a Local CI section documents the runner" \
-  grep -q '^## Local CI — `ai ci`' "${REPO_ROOT}/README.md"
-for needle in 'ai ci run' 'ai ci status' 'ai ci log --failed' 'REIN_CI_SKIP_REASON' 'pre-push'; do
+  grep -q '^## Local CI — `rein ci`' "${REPO_ROOT}/README.md"
+for needle in 'rein ci run' 'rein ci status' 'rein ci log --failed' 'REIN_CI_SKIP_REASON' 'pre-push'; do
   assert_status 0 "E-268.03c: README documents ${needle}" \
     bash -c "sed -n '/^## Local CI/,/^## Troubleshooting/p' '${REPO_ROOT}/README.md' | grep -qF '$needle'"
 done
 
 # ── E-268.4: CONTRIBUTING ────────────────────────────────────────────────
 assert_status 0 "E-268.04a: CONTRIBUTING has the Local CI section" \
-  grep -q 'Local CI (`ai ci`)' "${REPO_ROOT}/CONTRIBUTING.md"
+  grep -q 'Local CI (`rein ci`)' "${REPO_ROOT}/CONTRIBUTING.md"
 assert_status 0 "E-268.04b: and says what green means for a PR" \
   grep -q 'non-dirty' "${REPO_ROOT}/CONTRIBUTING.md"
 assert_status 0 "E-268.04c: and names the recorded bypass" \
@@ -922,11 +922,11 @@ CG="${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
 assert_status 0 "E-268.05a: ci_gate names the local config files it protects" \
   grep -q 'hooks/pre-push.sh' "$CG"
 assert_status 0 "E-268.05b: ci_gate injects the local CI verdict, not a workflow find" \
-  grep -q 'ai ci status --ref HEAD --short' "$CG"
+  grep -q 'rein ci status --ref HEAD --short' "$CG"
 assert_status 0 "E-268.05c: ci_gate enforces the step order of the runner" \
   grep -q 'worktree → env → deps' "$CG"
 assert_status 0 "E-268.05d: the DevOps contract says what CI means here" \
-  grep -q 'ai ci run` on the machine' "${REPO_ROOT}/src/contracts/40_DEVOPS.md"
+  grep -q 'rein ci run` on the machine' "${REPO_ROOT}/src/contracts/40_DEVOPS.md"
 assert_status 0 "E-268.05e: devops_engineer knows CI is local" \
   grep -q 'Rein itself runs CI locally' "${REPO_ROOT}/src/claude/agents/devops_engineer.md"
 assert_status 0 "E-268.05f: the copilot brief no longer offers CI triggers" \

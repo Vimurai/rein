@@ -3,7 +3,7 @@
 # extraction (E-95), centrality ranking (E-96), REPO_MAP.md serialisation (E-97) and the wiring
 # below (E-98); E-302 merged the four suites into this one.
 #
-# E-98 wiring (§Components 3): --generate-map CLI, the `ai sync` hook, ai-preflight Step 8,
+# E-98 wiring (§Components 3): --generate-map CLI, the `rein sync` hook, ai-preflight Step 8,
 # vendored grammars, and the lazy-SDK invariant that keeps the CLI path
 # self-contained for the installed ~/.rein server.
 set -euo pipefail
@@ -14,7 +14,7 @@ source "${SCRIPT_DIR}/../lib/mcp-client.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SERVER="${REPO_ROOT}/src/mcp/ast-parser-mcp/index.js"
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 PREFLIGHT="${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
 PKG="${REPO_ROOT}/src/mcp/ast-parser-mcp/package.json"
 EXTRACTOR="${REPO_ROOT}/src/mcp/ast-parser-mcp/extractor.mjs"
@@ -37,7 +37,7 @@ assert_contains "T-98.02: disabled flag short-circuits CLI" "REPO_MAP_DISABLED" 
 if [ -f "${TMP2}/.ai/REPO_MAP.md" ]; then _fail "T-98.02b: no REPO_MAP.md when disabled"; else _pass "T-98.02b: no REPO_MAP.md when disabled"; fi
 rm -rf "${TMP}" "${TMP2}"
 
-# ── T-98.03: ai sync wires the repo-map hook ─────────────────────────────────
+# ── T-98.03: rein sync wires the repo-map hook ─────────────────────────────────
 ai_src=$(cat "${AI_BIN}")
 assert_contains "T-98.03: _generate_repo_map helper defined" "_generate_repo_map()" "$ai_src"
 assert_contains "T-98.03b: helper invoked inside do_sync"     "  _generate_repo_map" "$ai_src"

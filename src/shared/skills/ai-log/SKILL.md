@@ -11,9 +11,9 @@ agent: default
 # AI-Log — LOG.md Maintenance
 
 ## Dynamic Context Injection
-Log file: !ai log path 2>/dev/null || echo ".ai/LOG.md"
-Log line count: !wc -l < "$(ai log path 2>/dev/null || echo .ai/LOG.md)" 2>/dev/null || echo "0"
-Last 3 entries: !ai log recent -n 3 2>/dev/null || tail -3 .ai/LOG.md 2>/dev/null || echo "(empty)"
+Log file: !rein log path 2>/dev/null || echo ".ai/LOG.md"
+Log line count: !wc -l < "$(rein log path 2>/dev/null || echo .ai/LOG.md)" 2>/dev/null || echo "0"
+Last 3 entries: !rein log recent -n 3 2>/dev/null || tail -3 .ai/LOG.md 2>/dev/null || echo "(empty)"
 Session id: ${CLAUDE_SESSION_ID}
 
 ## Role
@@ -64,14 +64,14 @@ else
 fi
 # E-333 (D-102 §8): with team.json shared_log true the entry goes to YOUR tracked
 # .ai/log/<email-localpart>.md (commit it); otherwise the gitignored .ai/LOG.md, as before.
-log="$(ai log path 2>/dev/null || echo .ai/LOG.md)"; mkdir -p "$(dirname "$log")"
+log="$(rein log path 2>/dev/null || echo .ai/LOG.md)"; mkdir -p "$(dirname "$log")"
 echo "$(date -u +%Y-%m-%d) | Actor | Task | Summary | ${tag}" >> "$log"
 ```
 
 ## Step 3 — Check Archive Threshold
 
 ```bash
-wc -l < "$(ai log path 2>/dev/null || echo .ai/LOG.md)"
+wc -l < "$(rein log path 2>/dev/null || echo .ai/LOG.md)"
 ```
 
 If line count ≥ 200:

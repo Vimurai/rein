@@ -26,7 +26,7 @@ Target: .ai/DEVOPS.md
   - install, dev, test, lint, typecheck, build, format
   - Run a single test file: <command>
   - Run tests matching pattern: <command>
-- **CI pipeline** (ordered steps). Rein itself runs CI locally (D-072): `ai ci run` does
+- **CI pipeline** (ordered steps). Rein itself runs CI locally (D-072): `rein ci run` does
   `worktree → env → deps → browsers → install → toolchain → suite → unit → secrets` and
   records the verdict for the commit. For a project with a hosted pipeline:
   1. lint → 2. typecheck → 3. test → 4. build
@@ -37,7 +37,7 @@ Target: .ai/DEVOPS.md
   - At least one metric for the critical path (latency, error rate).
   - Health check endpoint or CLI command.
 - **Environment parity**: local / CI / prod differences documented — including the host the
-  CI runner measures (`ai ci` records node, bash and OS per run).
+  CI runner measures (`rein ci` records node, bash and OS per run).
 - **Secret management**: how secrets reach each environment (never hardcoded).
 
 ## CI gate

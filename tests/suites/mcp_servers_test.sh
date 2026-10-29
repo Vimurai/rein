@@ -131,7 +131,7 @@ done
 # src/; neither reaches a server that is already running. The task synchroniser served the
 # pre-E-245 projector and stripped the archive pointer on every write; run_review reported
 # a P0 the shipped checker no longer emitted. Both times the gate was reporting on code
-AI="${REPO_ROOT}/src/bin/ai"
+AI="${REPO_ROOT}/src/bin/rein"
 INSTALLER="${REPO_ROOT}/install-rein.sh"
 STAMP="${REPO_ROOT}/src/shared/build-stamp.mjs"
 SYNCHRONIZER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
@@ -299,7 +299,7 @@ assert_status 1 "E-249.02b: REIN_BUILD_STAMP=0 silences it" \
       import(process.env.E249_MOD).then(m => console.log(m.staleServerReport({ runDir: process.env.E249_RUN }).join(\"\n\")));
     ' 2>/dev/null | grep -q STALE_SERVER"
 
-# The CLI must ALWAYS exit 0. `ai sync` runs under `set -euo pipefail`, and a non-zero exit
+# The CLI must ALWAYS exit 0. `rein sync` runs under `set -euo pipefail`, and a non-zero exit
 # from an advisory probe is the exact class of defect E-247 had just finished removing.
 node --no-warnings "$STAMP" --stale >/dev/null 2>&1
 assert_contains "E-249.02c: the CLI exits 0 even with nothing to report" "0" "$?"
@@ -315,9 +315,9 @@ assert_status 0 "E-249.03a: verify_markdown_sync calls the scan" \
 # is the preflight path now, and it runs the same scan through the CLI.
 assert_status 0 "E-249.03b: the ai-preflight skill runs the scan" \
   grep -q 'build-stamp.mjs 2>/dev/null)"; r=""; \[ -n "\$c" \] && r="\$(node --no-warnings "\$c" --stale' "${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
-assert_status 0 "E-249.03c: ai sync runs it as a fail-open step" \
+assert_status 0 "E-249.03c: rein sync runs it as a fail-open step" \
   grep -qE '_sync_step +stale_servers +_report_stale_servers' "$AI"
-assert_status 0 "E-249.03d: ai doctor reports it" grep -q '_stale_server_lines' "$AI"
+assert_status 0 "E-249.03d: rein doctor reports it" grep -q '_stale_server_lines' "$AI"
 assert_status 0 "E-249.03e: install-rein.sh reports it at the end" \
   grep -q 'build-stamp.mjs" --stale' "$INSTALLER"
 # Doctor prints the CLEAN case too — a diagnostic that is silent when healthy cannot be
@@ -336,7 +336,7 @@ _instrumented="$(grep -lE '^\s*instrument\(server' "${REPO_ROOT}"/src/mcp/*/inde
 # hard-coded floor of 20 failed the moment the count legitimately dropped below it. The
 # per-server check also lives in tests/unit/telemetry.test.mjs (E-277, the mcp_telemetry rows); >=10 guards a vacuous glob.
 # Every REGISTRY server must be instrumented; extras are fine (ast-parser-mcp is run as a
-# CLI by `ai sync` for REPO_MAP.md and is deliberately unregistered, yet instrumented).
+# CLI by `rein sync` for REPO_MAP.md and is deliberately unregistered, yet instrumented).
 _uninstrumented="$(node -e "const r=require(process.argv[1]); for (const [n,v] of Object.entries(r.mcp_servers)) if (v.path) console.log(n)" "${REPO_ROOT}/src/config/registry.json" \
   | while read -r _s; do grep -qE '^\s*instrument\(server' "${REPO_ROOT}/src/mcp/${_s}/index.js" 2>/dev/null || printf '%s ' "$_s"; done)"
 assert_status 0 "E-249.03i: every registry server is instrumented (${_instrumented} instrumented; missing: ${_uninstrumented:-none})" \
@@ -369,8 +369,8 @@ _gate_fixture() {   # <mirror-matches: yes|no> → project dir, with $HOME/.rein
   mkdir -p "$d/.ai" "$d/src/mcp/probe" "$d/src/bin" "$h/.rein/mcp/probe" "$h/.rein/bin"
   printf '{"name":"@vimurai/rein"}\n' > "$d/package.json"
   printf '// probe v1\n' > "$d/src/mcp/probe/index.js"
-  printf '#!/usr/bin/env bash\n' > "$d/src/bin/ai"
-  cp "$d/src/bin/ai" "$h/.rein/bin/ai"
+  printf '#!/usr/bin/env bash\n' > "$d/src/bin/rein"
+  cp "$d/src/bin/rein" "$h/.rein/bin/rein"
   if [[ "$matches" == "yes" ]]; then
     cp "$d/src/mcp/probe/index.js" "$h/.rein/mcp/probe/index.js"
   else
@@ -443,7 +443,7 @@ echo ""
 
 # ── E-237 (from policy_hot_reload_test — E-302): a long-running server must not serve a stale policy ──
 # An MCP server is spawned once and lives for the whole session, and ESM caches a module by
-# URL forever — so a policy refreshed by `ai sync` never reached the running process.
+# URL forever — so a policy refreshed by `rein sync` never reached the running process.
 # Throughout the 2026-09-09 sprint `run_review` reported a P0 PATH_TRAVERSAL on
 # `source "${SCRIPT_DIR}/../lib/assert.sh"` while the on-disk traversal-policy.mjs graded
 LOADER="${REPO_ROOT}/src/mcp/shared/load-policy.mjs"
@@ -479,7 +479,7 @@ _reload_probe() {  # <mode> → observed values, space separated
     const again = (await loadPolicy("e237-probe")).verdict;
     const countAfterSame = policyLoadCounts()["e237-probe"];
 
-    // Rewritten — the `ai sync` event. mtimeMs is sub-millisecond, but bump the clock a
+    // Rewritten — the `rein sync` event. mtimeMs is sub-millisecond, but bump the clock a
     // little so the test does not depend on filesystem timestamp granularity: a
     // whole-second stamp is exactly what made the E-229 re-exec inert.
     await new Promise((r) => setTimeout(r, 20));
@@ -524,9 +524,9 @@ assert_status 0 "E-237.04e: patch-mcp keeps the last good policy on a failed rel
 assert_status 0 "E-237.04f: and starts from the static import, never undefined" \
   grep -q '_staticScopeGuard' "${REPO_ROOT}/src/mcp/patch-mcp/index.js"
 
-# ── E-237.5: `ai sync` reports a running server on an older policy ────────
-assert_status 0 "E-237.05a: ai sync has the staleness notice" \
-  grep -q '_report_policy_staleness' "${REPO_ROOT}/src/bin/ai"
+# ── E-237.5: `rein sync` reports a running server on an older policy ────────
+assert_status 0 "E-237.05a: rein sync has the staleness notice" \
+  grep -q '_report_policy_staleness' "${REPO_ROOT}/src/bin/rein"
 
 # ── E-237.6: mirrors ─────────────────────────────────────────────────────
 if [[ -f "${HOME}/.rein/mcp/shared/load-policy.mjs" ]]; then
@@ -1405,19 +1405,19 @@ assert_contains "T-05.13e: a correct agent passes (parent-connected server, revi
 assert_contains "T-05.13f: a Ghost Tool in an agent's tools allowlist is detected" "Ghost Tool: 'GhostTool999'" "$r295"
 
 # ── E-235 (from browser_optin_test — E-302): the browser download is opt-in and bounded ──
-# `ai mcp-setup` ran `npx playwright install chromium` unconditionally, inside the path
+# `rein mcp-setup` ran `npx playwright install chromium` unconditionally, inside the path
 # that install-rein.sh — and so every user install and every CI run — depends on. It is an
 # unbounded ~150MB fetch, and on 2026-09-09 it ran for over an HOUR on a developer machine
 # without finishing.
 # The `|| true` that wrapped it was worthless: the failure mode is HANGING, not erroring,
 set +e
-AI_BO="${REPO_ROOT}/src/bin/ai"
+AI_BO="${REPO_ROOT}/src/bin/rein"
 VC="${REPO_ROOT}/src/mcp/vibe-check-mcp"
 
 
 # ── E-235.1: the default path no longer downloads ─────────────────────────
 assert_status 0 "E-235.01a: the default branch tells the operator how to opt in" \
-  grep -q "skipping Playwright browsers — run: ai mcp-setup --browsers" "$AI_BO"
+  grep -q "skipping Playwright browsers — run: rein mcp-setup --browsers" "$AI_BO"
 assert_status 0 "E-235.01b: the download is gated on WANT_BROWSERS" \
   grep -q 'if \[\[ "$WANT_BROWSERS" -eq 1 \]\]; then' "$AI_BO"
 # NON-VACUITY: the download must still EXIST — this task moves it, it does not delete the
@@ -1461,7 +1461,7 @@ assert_status 0 "E-235.04c: the rejection is machine-greppable" \
   grep -q 'BROWSER_MISSING' "${VC}/browser-check.mjs"
 # A diagnostic that does not tell you what to run is half a message.
 assert_status 0 "E-235.04d: and names the one command that fixes it" \
-  grep -q 'ai mcp-setup --browsers' "${VC}/browser-check.mjs"
+  grep -q 'rein mcp-setup --browsers' "${VC}/browser-check.mjs"
 
 # The helper's logic, exercised rather than grepped.
 _probe() {  # <mode> → ok|missing
@@ -1484,19 +1484,19 @@ assert_contains "E-235.04g: REIN_SKIP_BROWSER_CHECK=1 bypasses the probe" "ok" \
 assert_status 0 "E-235.05a: doctor has a browser section" \
   grep -q 'Vibe-check browsers' "$AI_BO"
 assert_status 0 "E-235.05b: and tells the operator how to fix it" \
-  bash -c "grep -A12 'Vibe-check browsers' '$AI_BO' | grep -q 'ai mcp-setup --browsers'"
+  bash -c "grep -A12 'Vibe-check browsers' '$AI_BO' | grep -q 'rein mcp-setup --browsers'"
 
 # ── E-235.6: CI installs them explicitly, and caches ──────────────────────
-# E-268 (D-072): the GitHub workflow that used to do this is gone — `ai ci run` is CI now,
+# E-268 (D-072): the GitHub workflow that used to do this is gone — `rein ci run` is CI now,
 # and its `browsers` step keeps the same two properties: explicit install, persistent cache.
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 assert_status 0 "E-235.06a: the local CI runner installs Chromium explicitly" \
   bash -c "sed -n '/── browsers ──/,/── install ──/p' '$AI_BIN' | grep -q 'playwright install chromium'"
 assert_status 0 "E-235.06b: cached under ~/.rein/ci, so it is a download once per version" \
   grep -q 'PLAYWRIGHT_BROWSERS_PATH=\${ci_home}/cache/ms-playwright' "$AI_BIN"
 assert_status 0 "E-235.06c: a cache hit is reported rather than silently re-downloaded" \
   bash -c "sed -n '/── browsers ──/,/── install ──/p' '$AI_BIN' | grep -q 'cache hit'"
-# E-332 (D-103): the hosted master check runs `ai ci run`, so the browsers step above is the
+# E-332 (D-103): the hosted master check runs `rein ci run`, so the browsers step above is the
 # only place Chromium is installed — no workflow downloads it on its own.
 assert_status 1 "E-235.06d: no workflow installs browsers itself" \
   grep -rqiE 'playwright +install' "${REPO_ROOT}/.github/workflows"
@@ -1549,12 +1549,12 @@ ORCH_MCP="${REPO_ROOT}/src/mcp/orchestrator-mcp/index.js"
 PATCH_MCP="${REPO_ROOT}/src/mcp/patch-mcp/index.js"
 
 
-# ── P-7: issue.body is bounded (E-279: now in `ai sync --github`) ─────────────
+# ── P-7: issue.body is bounded (E-279: now in `rein sync --github`) ─────────────
 # The GitHub MCP bridge that capped bodies at 5000 chars was retired (D-075); the only
-# issue-ingestion path left is `ai sync --github`, which caps each body at 800 chars.
+# issue-ingestion path left is `rein sync --github`, which caps each body at 800 chars.
 # Behavioural coverage (a stubbed gh, a 5000-char body) lives in propose_patch_test.sh.
-assert_contains "P-7: ai sync --github bounds issue bodies" \
-  '(issue.get("body") or "(no description)")[:800]' "$(cat "${REPO_ROOT}/src/bin/ai")"
+assert_contains "P-7: rein sync --github bounds issue bodies" \
+  '(issue.get("body") or "(no description)")[:800]' "$(cat "${REPO_ROOT}/src/bin/rein")"
 
 # ── P-8: readHead helper in memory-manager-mcp ────────────────────────────────
 

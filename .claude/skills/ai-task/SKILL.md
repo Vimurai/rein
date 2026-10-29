@@ -13,7 +13,7 @@ agent: default
 ## Dynamic Context Injection
 Open tasks: !grep "^- \[ \]" .ai/TASKS.md 2>/dev/null || echo "(none)"
 Recent stamps: !tail -3 .ai/LOG.md 2>/dev/null || echo "(no log)"
-Local CI (HEAD): !ai ci status --ref HEAD --short 2>/dev/null || echo "(ai ci unavailable — run: ai install)"
+Local CI (HEAD): !rein ci status --ref HEAD --short 2>/dev/null || echo "(rein ci unavailable — run: rein install)"
 
 ## Role
 
@@ -33,9 +33,9 @@ Only in a team project (`.ai/team.json` exists); a single-operator project skips
 
 - **Starting a task** — claim it FIRST, before the first source write:
   ```
-  mcp__task-synchronizer-mcp__claim_task({ id: "E-##" })   // or: ai task claim E-##
+  mcp__task-synchronizer-mcp__claim_task({ id: "E-##" })   // or: rein task claim E-##
   ```
-  The claim is a bookkeeping commit pushed to the trunk (`origin/<trunk>` — `ai trunk` prints
+  The claim is a bookkeeping commit pushed to the trunk (`origin/<trunk>` — `rein trunk` prints
   it; `master` in this repository). On a branch named
   `engineer/e<N>-*` the pre-tool-use claim gate refuses every write outside `.ai/` with
   `[CLAIM_REQUIRED] E-<N>` until E-<N> is claimed by you.
@@ -51,7 +51,7 @@ Only in a team project (`.ai/team.json` exists); a single-operator project skips
     stays closed and says why.
 - **Abandoning a task** — release it so a teammate can take it:
   ```
-  mcp__task-synchronizer-mcp__release_task({ id: "E-##", reason: "<why>" })   // or: ai task release E-## --reason "<why>"
+  mcp__task-synchronizer-mcp__release_task({ id: "E-##", reason: "<why>" })   // or: rein task release E-## --reason "<why>"
   ```
 - **DONE** (Step 2) clears your claim on `origin/<trunk>` by itself.
 
@@ -78,27 +78,27 @@ Do NOT mark DONE if:
 ## Step 2.5 — Check local CI BEFORE marking anything DONE (E-230 / D-060 §1, E-267 / D-072)
 
 The `Local CI (HEAD)` line above is injected on every invocation. Read it. CI runs on this
-machine now (D-072): `ai ci run` tests the committed HEAD in a clean worktree and records
+machine now (D-072): `rein ci run` tests the committed HEAD in a clean worktree and records
 the result; the line is that record.
 
 Master was RED for two days (2026-09-07 → 2026-09-09) while three sprints were asked to
 "verify on CI", because nobody looked and the README carried a hardcoded
 `tests-passing` badge. A suite that passed in the working tree is not evidence about the
 commit: the failures were a `~/.rein` mirror only a developer machine had, and state a
-previous run left behind — exactly what a clean `ai ci run` exists to exclude.
+previous run left behind — exactly what a clean `rein ci run` exists to exclude.
 
 - **`PASS <sha7> …`** — proceed.
 - **`FAIL`/`ERROR <sha7> …`** — do NOT report the task as DONE-and-verified. Read
-  `ai ci log --failed` before forming any theory, fix it, and run `ai ci run` again. Never
+  `rein ci log --failed` before forming any theory, fix it, and run `rein ci run` again. Never
   describe work as "verified" on the strength of a working-tree run alone.
-- **`NONE <sha7> …`** — HEAD has not been tested. Run `ai ci run` (it takes ~10–13 min)
+- **`NONE <sha7> …`** — HEAD has not been tested. Run `rein ci run` (it takes ~10–13 min)
   and wait for it; do not imply it passed. A HEAD that only adds `.ai/` bookkeeping on top
   of a tested commit is accepted by the DONE gate without a new run.
 - **`DIRTY <sha7> …`** — only a `--dirty` run exists. It does not certify the commit: run
-  `ai ci run` on the committed HEAD.
+  `rein ci run` on the committed HEAD.
 - **`SHARD i/N <sha7> …`** — only a `--shard` run exists (E-386). One shard tests part of the
-  suite and never certifies the commit: run `ai ci run` without `--shard`.
-- **`(ai ci unavailable …)`** — CI status is unknown. Unknown is not green.
+  suite and never certifies the commit: run `rein ci run` without `--shard`.
+- **`(rein ci unavailable …)`** — CI status is unknown. Unknown is not green.
 
 `update_task_status(DONE)` enforces the same rule: it refuses with `[CI_GATE]` when HEAD
 (or a tested ancestor that differs only in `.ai/`) has no green run. `REIN_CI_GATE=0`

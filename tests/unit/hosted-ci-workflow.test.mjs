@@ -2,8 +2,8 @@
 // E-335, D-103, team-collaboration.md §Component 5b).
 //
 // A wrapper must not be a second description of the pipeline (DEVOPS-009): it bootstraps
-// Rein and runs `ai ci run`. contractViolations() diffs a rendering's run steps against the
-// command list of _ci_run in src/bin/ai, and checks the rest of the D-103 r1 contract. It runs
+// Rein and runs `rein ci run`. contractViolations() diffs a rendering's run steps against the
+// command list of _ci_run in src/bin/rein, and checks the rest of the D-103 r1 contract. It runs
 // over EVERY template in src/templates/ci, in both bootstrap variants, and against mutated
 // renderings so the checker is shown to fail (E-335 acceptance).
 //
@@ -20,7 +20,7 @@ import { readTeam } from "../../src/mcp/shared/team.mjs";
 import { resolveTrunk } from "../../src/mcp/shared/trunk.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const AI = readFileSync(join(REPO, "src/bin/ai"), "utf8");
+const AI = readFileSync(join(REPO, "src/bin/rein"), "utf8");
 const TEMPLATE_DIR = join(REPO, "src/templates/ci");
 const PINNED = {   // a downstream project's bootstrap, as bootstrapFor() renders it
   variant: "pinned", note: "pinned fixture",
@@ -30,7 +30,7 @@ const PINNED = {   // a downstream project's bootstrap, as bootstrapFor() render
 // The body of _ci_run, up to the next top-level function.
 function recipeBody(src) {
   const start = src.indexOf("\n_ci_run() {");
-  assert.ok(start >= 0, "_ci_run not found in src/bin/ai");
+  assert.ok(start >= 0, "_ci_run not found in src/bin/rein");
   return src.slice(start, src.indexOf("\n}\n", start));
 }
 
@@ -66,7 +66,7 @@ function runLines(yml) {
 }
 
 const RECIPE = recipeCommands(recipeBody(AI));
-const AI_CI_RUN = '"$HOME/.rein/bin/ai" ci run';
+const AI_CI_RUN = '"$HOME/.rein/bin/rein" ci run';
 // E-384 (D-135 r3): a GitHub leg passes its shard, or nothing, to the same command.
 const AI_CI_RUN_LEG = `${AI_CI_RUN}\${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}`;
 // E-384 (D-135 addendum r1): the fast job's whole command list — dependencies, then the fast tier.
@@ -107,14 +107,14 @@ function contractViolations(provider, yml, boot, trunk = "master") {
   const v = [];
   // Checks read the CODE: a comment must never satisfy a clause (critic_tests P2).
   const code = yml.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
-  // E-384: on GitHub the two-command contract holds for every `ai ci run` leg; the fast job
+  // E-384: on GitHub the two-command contract holds for every `rein ci run` leg; the fast job
   // has its own clause below and is the one place the fast tier may be named.
   const jobs = provider === "github" ? jobBlocks(code) : null;
   const runs = runLines(jobs ? (jobs["ai-ci-run"] ?? "") : yml);
   const leg = provider === "github" ? AI_CI_RUN_LEG : AI_CI_RUN;
   if (runs.length !== 2) v.push(`expected two run commands, got ${runs.length}`);
   if (runs[0] !== boot.command) v.push("first run is not the bootstrap");
-  if (runs[1] !== leg) v.push("second run is not `ai ci run` from the installed mirror");
+  if (runs[1] !== leg) v.push("second run is not `rein ci run` from the installed mirror");
   if (boot.variant === "pinned" && !runs[0]?.endsWith(`&& bash "\${TMPDIR:-/tmp}/rein-src"/install-rein.sh`)) v.push("pinned bootstrap does not end in the clone's installer");
   const copied = RECIPE.filter((c) => c !== SELF_BOOTSTRAP)
     .filter((c) => runs.some((r) => r.includes(c.replace(/^\/usr\/bin\/env \S+ /, "").replace(/^\/bin\/bash /, ""))));
@@ -181,7 +181,7 @@ function contractViolations(provider, yml, boot, trunk = "master") {
     if (!/^  - task: PublishPipelineArtifact@1\n/.test(log ?? "") || !/targetPath: \$\(REIN_CI_LOG_DIR\)\n/.test(log ?? "") || /continueOnError/.test(log ?? "") ||
         !/^  - task: PublishPipelineArtifact@1\n/.test(rec ?? "") || !/targetPath: \.ai\/ci\n/.test(rec ?? "") ||
         JSON.stringify([conds(log), conds(rec)]) !== JSON.stringify([["always()"], ["always()"]])) v.push("no artefact step (always, log + .ai/ci)");
-    if (!/REIN_CI_LOG_DIR\]/.test(AI)) v.push("ai ci run does not set REIN_CI_LOG_DIR for the artefact step");
+    if (!/REIN_CI_LOG_DIR\]/.test(AI)) v.push("rein ci run does not set REIN_CI_LOG_DIR for the artefact step");
   } else {
     // A provider cannot become renderable with only the generic clauses (critic_tests P2):
     // E-337 adds GitLab's and Bitbucket's trigger, token and artefact checks here.
@@ -214,8 +214,8 @@ const MUTANTS = {
     ["PR trigger missing", good.replace(/^  pull_request:\n    branches: \[master\]\n/m, ""), "no pull_request trigger"],
     ["artefact step not always()", good.replace("        if: always()\n", ""), "no artefact step"],
     ["secrets referenced", good.replace("permissions:", "env:\n  T: ${{ secrets.X }}\npermissions:"), "references secrets"],
-    ["the check cannot fail", good.replace("      - name: ai ci run\n", "      - name: ai ci run\n        continue-on-error: true\n"), "the check cannot fail"],
-    ["the check skipped", good.replace("      - name: ai ci run\n", "      - name: ai ci run\n        if: false\n"), "the check cannot fail"],
+    ["the check cannot fail", good.replace("      - name: rein ci run\n", "      - name: rein ci run\n        continue-on-error: true\n"), "the check cannot fail"],
+    ["the check skipped", good.replace("      - name: rein ci run\n", "      - name: rein ci run\n        if: false\n"), "the check cannot fail"],
     ["an action by tag", good.replace(/actions\/cache@[0-9a-f]{40}/, "actions/cache@v6"), "action not pinned to a commit SHA"],
     ["the leg job skipped", good.replace("    timeout-minutes: 60\n", "    timeout-minutes: 60\n    if: false\n"), "the check cannot fail"],
   ],
@@ -224,11 +224,11 @@ const MUTANTS = {
     ["recipe command in the bootstrap", good.replace(`bash: ${boot.command}\n`, `bash: ${boot.command} && npm ci --ignore-scripts\n`), "recipe command copied"],
     ["PR trigger missing", good.replace(/^pr:\n  branches:\n    include: \[master\]\n/m, ""), "no pull_request trigger"],
     ["artefact step not always()", good.replace("    displayName: Upload run log\n    condition: always()\n", "    displayName: Upload run log\n"), "no artefact step"],
-    ["secrets referenced", good.replace(`    displayName: ai ci run\n`, `    displayName: ai ci run\n    env:\n      T: $(System.AccessToken)\n`), "references secrets"],
+    ["secrets referenced", good.replace(`    displayName: rein ci run\n`, `    displayName: rein ci run\n    env:\n      T: $(System.AccessToken)\n`), "references secrets"],
     ["secret variable macro", good.replace("targetPath: .ai/ci", "targetPath: $(MySecret)"), "references secrets"],
     ["run step may set any variable", good.replace("      settableVariables:\n        - REIN_CI_LOG_DIR\n", ""), "steps may set any pipeline variable"],
     ["a pwsh step", good.replace("  - task: PublishPipelineArtifact@1\n    displayName: Upload run log", "  - pwsh: bash tests/run.sh\n\n  - task: PublishPipelineArtifact@1\n    displayName: Upload run log"), "expected steps"],
-    ["the check cannot fail", good.replace("    displayName: ai ci run\n", "    displayName: ai ci run\n    continueOnError: true\n"), "the check cannot fail"],
+    ["the check cannot fail", good.replace("    displayName: rein ci run\n", "    displayName: rein ci run\n    continueOnError: true\n"), "the check cannot fail"],
     ["no trigger block", good.replace(/^trigger:\n(?:  .*\n)+/m, ""), "push trigger other than"],
     ["always() only in a comment", good.replace("    displayName: Upload run log\n    condition: always()\n", "    displayName: Upload run log\n    condition: succeeded() # condition: always()\n"), "no artefact step"],
     ["a variable group", good.replace("pool:", "variables:\n  - group: prod\n\npool:"), "references secrets"],

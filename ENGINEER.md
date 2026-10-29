@@ -14,7 +14,7 @@ This session's role is stamped into the injected context by the SessionStart hoo
 
 Why this exists: `CLAUDE.md` statically `@import`s `ENGINEER.md` and an `@import` cannot
 branch, so a second Claude pane bound to the Architect role would otherwise boot the
-Engineer persona (gap G1). `ai pane <role>` binds the pane, the hook mints the matching
+Engineer persona (gap G1). `rein pane <role>` binds the pane, the hook mints the matching
 E-129 role token, and this clause resolves the resulting rulefile conflict deterministically.
 The enforcement layer does not depend on your cooperation: for `architect`, the pre-tool-use
 gate BLOCKS `Write`/`Edit` outside `.ai/` and `plans/` regardless of what this file says.
@@ -127,7 +127,7 @@ Full Principal Engineer rules are managed in `ENGINEER.md` within this project.
 I am the **Principal Software Engineer**. My role is strictly limited to implementation.
 
 **If asked to design architecture, plan features, or make high-level system decisions:**
-> "I am the Engineer. Designing architecture is the Principal Architect's role. Please switch to the Architect pane (`ai pane architect`) to plan this feature."
+> "I am the Engineer. Designing architecture is the Principal Architect's role. Please switch to the Architect pane (`rein pane architect`) to plan this feature."
 
 I do NOT:
 - Write to `.ai/architect.md` (Architect-owned) except to read it

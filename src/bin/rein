@@ -1208,33 +1208,6 @@ _doctor_toolchain_report() {
   echo "  ✓ hook toolchain: node $("$node" --version 2>/dev/null) · python3 $("$py" -I -c 'import platform;print(platform.python_version())' 2>/dev/null)"
 }
 
-# The scanner lives in its own function: bash 3.2 mis-parses a heredoc inside $( ) whose
-# body carries an unbalanced quote, and fails at an unrelated later line.
-_doctor_hook_form_scan() {
-  REIN_HOOKS="$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" python3 - "$1" <<'PY' 2>/dev/null
-import json, os, re, sys
-want_dir = os.environ.get("REIN_HOOKS", "")
-try:
-    d = json.load(open(sys.argv[1]))
-except Exception:
-    print("unparseable"); sys.exit(0)
-bad = []
-for ev, lst in (d.get("hooks") or {}).items():
-    for e in lst or []:
-        for h in e.get("hooks") or []:
-            args = [str(a) for a in (h.get("args") or [])]
-            text = " ".join([str(h.get("command") or "")] + args)
-            m = re.search(r"(\S*\.rein/hooks/[\w.-]+\.sh)", text)
-            if not m:
-                continue                      # not a Rein hook — the user's own entry
-            ok = (h.get("command") == "/bin/bash" and args[:1] == ["-p"] and len(args) >= 2
-                  and os.path.isabs(args[1]) and os.path.dirname(args[1]) == want_dir)
-            if not ok:
-                bad.append(f"{ev}:{os.path.basename(m.group(1))}")
-print(" ".join(bad))
-PY
-}
-
 # E-290 (D-083 r2-4): `rein doctor` lines for the hook form. Since E-290 .claude/settings.json
 # is generated (absolute exec-form hook paths) and gitignored, so a project can be missing
 # it, still track it, or carry entries from before E-290 that keep the shell-form line
@@ -1244,12 +1217,29 @@ _doctor_hook_form_report() {
   if [[ ! -f "$f" ]]; then
     echo "  ✗ .claude/settings.json missing (generated since E-290) — run: rein sync"
   else
-    local stale
-    stale="$(_doctor_hook_form_scan "$f")"
-    if [[ -n "$stale" ]]; then
-      echo "  ✗ .claude/settings.json: stale Rein hook entries (not exec-form /bin/bash -p under ${REIN}/hooks): ${stale} — run: rein sync"
+    # E-391 (D-132 addendum 4 r2): Rein hooks are recognised by file name in any directory
+    # (shared/hook-paths.py, the rule sync and the installer use too). A missing script or an
+    # unregistered gate is a hard failure: the hook exits 127, which is not a block.
+    local hp findings kind ev p stale="" bad=0
+    hp="$(_rein_helper shared/hook-paths.py || true)"
+    if [[ -z "$hp" ]]; then
+      echo "  ✗ .claude/settings.json: shared/hook-paths.py not found — run: bash install-rein.sh"; _DOCTOR_HARD_FAIL=1
     else
-      echo "  ✓ .claude/settings.json: Rein hooks in exec form (/bin/bash -p, absolute path)"
+      findings="$(python3 -I "$hp" check "$f" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)"
+      while IFS=$'\t' read -r kind ev p; do
+        case "$kind" in
+          MISSING)      echo "  ✗ [HOOK_PATH_MISSING] ${p} (${ev}) — the hook cannot run; run: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
+          FOREIGN)      echo "  ✗ [HOOK_PATH_FOREIGN] ${p} (${ev}) — a Rein hook name outside ${REIN}/hooks; check it, then: rein sync"; bad=1 ;;
+          FORM)         stale="${stale:+${stale} }${ev}:${p}" ;;
+          UNREGISTERED) echo "  ✗ [GATE_UNREGISTERED] no PreToolUse entry runs ${REIN}/hooks/pre-tool-use.sh — run: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
+          UNPARSEABLE)  stale="unparseable" ;;
+        esac
+      done <<< "$findings"
+      if [[ -n "$stale" ]]; then
+        echo "  ✗ .claude/settings.json: stale Rein hook entries (not exec-form /bin/bash -p under ${REIN}/hooks): ${stale} — run: rein sync"
+      elif [[ "$bad" -eq 0 ]]; then
+        echo "  ✓ .claude/settings.json: Rein hooks in exec form (/bin/bash -p, absolute path)"
+      fi
     fi
     if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
       echo "  ! .claude/settings.json is tracked but machine-specific — run: git rm --cached .claude/settings.json"
@@ -1547,6 +1537,9 @@ _configure_project_claude_settings() {
   # without changing the heredoc's positional-arg contract.
   local REIN_WORKSPACE_VALUE
   REIN_WORKSPACE_VALUE="$(_resolve_rein_workspace)"
+  # E-391 (D-132 addendum 4 r2): the hook matcher is shared with doctor and the installer.
+  local _hook_paths; _hook_paths="$(_rein_helper shared/hook-paths.py || true)"
+  REIN_HOOK_PATHS_PY="${_hook_paths}" \
   REIN_WORKSPACE="${REIN_WORKSPACE_VALUE}" python3 - "$TARGET_DIR" "$REGISTRY" "${REIN}/config/legacy-artefacts.json" <<'PY'
 import json, os, sys
 
@@ -1708,11 +1701,25 @@ _SPECS = [  # (event, matcher, script, extra args)
     ("PostToolUse", ".*", "post-tool-use.sh", []),
     ("PermissionDenied", ".*", "permission-denied.sh", []),
 ]
+# E-391 (D-132 addendum 4 r2): an entry is ours by the hook's FILE NAME when its script is in
+# the install's hooks dir OR no longer exists (an earlier install's path) — the same rule
+# `rein doctor` reports with (shared/hook-paths.py). An existing script elsewhere is the
+# user's and is never touched; doctor names it [HOOK_PATH_FOREIGN].
+_hp_mod = None
+try:
+    import importlib.util as _ilu
+    _hp_path = os.environ.get("REIN_HOOK_PATHS_PY", "")
+    if _hp_path:
+        _spec = _ilu.spec_from_file_location("rein_hook_paths", _hp_path)
+        _hp_mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_hp_mod)
+except Exception:
+    _hp_mod = None
 def _is_rein_hook(h, script):
+    if _hp_mod is not None:
+        return _hp_mod.is_ours(h, script, _HOOKS_DIR)
+    # Helper unreadable: the install-path match alone (an older entry is then left beside
+    # the new one, and doctor reports it).
     text = " ".join([str(h.get("command") or "")] + [str(x) for x in (h.get("args") or [])])
-    # Same reach as the `rein doctor` scanner (critic_security P2): a quoted path or one
-    # followed by a separator is still ours — otherwise doctor reports a stale entry that
-    # sync never removes.
     return _re.search(r"\.rein/hooks/" + _re.escape(script) + r"(?=[\s\"';|&)]|$)", text) is not None
 for _event, _matcher, _script, _extra in _SPECS:
     _want = {"type": "command", "command": "/bin/bash",
@@ -3800,6 +3807,9 @@ _report_path_shadow() {
 }
 
 doctor() {
+  # E-391 (D-132 addendum 4 r2): a check that means "the gate cannot run here" sets this, and
+  # doctor then exits 1 — [HOOK_PATH_MISSING], [GATE_UNREGISTERED].
+  _DOCTOR_HARD_FAIL=0
   local REPAIR=0
   local COMPLIANCE=0
   local ENVCHECK=0
@@ -4318,6 +4328,7 @@ for name, info in d.get('mcp_servers', {}).items():
     echo ""
     echo "Repair complete. Run: rein doctor to verify."
   fi
+  [[ "${_DOCTOR_HARD_FAIL:-0}" -eq 0 ]]
 }
 
 # E-175: Deep environment & connectivity diagnostics (doctor-and-cache-optimizations.md

@@ -224,6 +224,65 @@ _shadowed="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="${SHADOW}
 assert_contains "E-270.05d: doctor: another rein earlier on PATH is reported as shadowing" \
   "(shadowed by ${SHADOW}/rein)" "$(_path_line "$_shadowed")"
 
+# ── E-391.03 (D-132 addendum 4 r2): doctor and sync know a Rein hook by its file name ──
+# A hook entry under a home directory that no longer exists (what removing an earlier
+# install's directory leaves) is reported, fails doctor, and is rewritten by sync; a script
+# with a Rein hook name elsewhere that DOES exist is the user's — reported, never touched.
+_HP="${FAKE_HOME}/.rein/shared/hook-paths.py"
+_set_hook() {  # <event> <script path> — add one exec-form entry to the fixture's settings
+  python3 - "${PROJ}/.claude/settings.json" "$1" "$2" <<'PY'
+import json, sys
+p, ev, script = sys.argv[1:4]
+d = json.load(open(p))
+d.setdefault("hooks", {}).setdefault(ev, []).append(
+    {"matcher": ".*", "hooks": [{"type": "command", "command": "/bin/bash", "args": ["-p", script], "timeout": 30}]})
+json.dump(d, open(p, "w"), indent=2)
+PY
+}
+_gone="${FAKE_TMP}/gone-home/.oldname/hooks"
+_set_hook PreToolUse "${_gone}/pre-tool-use.sh"
+_doc="$(_ai doctor)"
+assert_contains "E-391.03a: doctor reports a Rein hook whose script is gone" "[HOOK_PATH_MISSING] ${_gone}/pre-tool-use.sh" "$_doc"
+assert_rc 1 "E-391.03b: …and doctor exits non-zero" doctor
+_ai sync >/dev/null
+assert_not_contains "E-391.03c: sync rewrites the missing-path entry to the install path" "${_gone}" "$(cat "${PROJ}/.claude/settings.json")"
+assert_not_contains "E-391.03d: …and doctor is clean of it" "[HOOK_PATH_MISSING]" "$(_ai doctor)"
+_mine="$(test_tmpdir upg-own-hooks)"; printf '#!/bin/sh\nexit 0\n' > "${_mine}/post-tool-use.sh"
+_set_hook PostToolUse "${_mine}/post-tool-use.sh"
+assert_contains "E-391.03e: a Rein hook name outside the install dir is reported" "[HOOK_PATH_FOREIGN] ${_mine}/post-tool-use.sh" "$(_ai doctor)"
+_ai sync >/dev/null
+assert_contains "E-391.03f: …and sync leaves the user's own script registered" "${_mine}/post-tool-use.sh" "$(cat "${PROJ}/.claude/settings.json")"
+python3 - "${PROJ}/.claude/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d["hooks"].pop("PreToolUse", None); json.dump(d, open(p, "w"), indent=2)
+PY
+assert_contains "E-391.03g: no PreToolUse entry for the install's gate is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+assert_rc 1 "E-391.03h: …and doctor exits non-zero" doctor
+_ai sync >/dev/null
+
+# ── E-391.04 (D-132 addendum 5): the installer's "projects to sync" list ──────────────
+# Candidates come from Claude Code's per-project session dirs: the newest *.jsonl, its first
+# 50 lines, the first string `cwd`. The fixture HOME carries four session dirs.
+_cp="${FAKE_HOME}/.claude/projects"; mkdir -p "${_cp}/a" "${_cp}/b" "${_cp}/c" "${_cp}/locked"
+printf '%s\n' '{"type":"summary"}' "{\"type\":\"user\",\"cwd\":\"${PROJ}\"}" > "${_cp}/a/s1.jsonl"
+_plain="$(test_tmpdir upg-plain)"; mkdir -p "${_plain}/.claude"; printf '{}\n' > "${_plain}/.claude/settings.json"
+printf '%s\n' "{\"cwd\":\"${_plain}\"}" > "${_cp}/b/s1.jsonl"
+printf '%s\n' '{"cwd":"/nonexistent/project"}' > "${_cp}/c/s1.jsonl"
+printf '%s\n' "{\"cwd\":\"${PROJ}\"}" > "${_cp}/locked/s1.jsonl"; chmod 000 "${_cp}/locked"
+_set_hook PreToolUse "${_gone}/pre-tool-use.sh"
+_scan() { ( cd "$FAKE_TMP" && HOME="$FAKE_HOME" PATH="$BASE_PATH" "$@" python3 -I "$_HP" projects "$FAKE_TMP" "$(cd "${FAKE_HOME}/.rein/hooks" && pwd -P)" ) 2>&1; }
+_list="$(_scan env)"
+_projreal="$(cd "$PROJ" && pwd -P)"
+assert_contains "E-391.04a: a cwd found after the transcript's first record is listed (its hook path is missing)" "$_projreal" "$_list"
+assert_not_contains "E-391.04b: a cwd without .ai/ is not a candidate" "$_plain" "$_list"
+assert_not_contains "E-391.04c: a cwd that does not exist is not a candidate" "/nonexistent/project" "$_list"
+assert_status 0 "E-391.04d: an unreadable session dir is skipped, the scan still answers" test "$(printf '%s\n' "$_list" | grep -c .)" -eq 1
+assert_status 0 "E-391.04e: REIN_NO_PROJECT_SCAN=1 prints nothing" test -z "$(_scan env REIN_NO_PROJECT_SCAN=1)"
+_inst3="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"
+assert_contains "E-391.04f: the installer lists the project with run: rein sync" "${_projreal} — run: rein sync" "$_inst3"
+assert_contains "E-391.04g: …under a heading that says the list may be incomplete" "others may exist" "$_inst3"
+chmod 700 "${_cp}/locked"; _ai sync >/dev/null
+
 # ── E-270.6: the suite left the repository alone ─────────────────────────────
 # E-364: .mcp.json is generated and untracked, so a clean checkout may have none (grep would
 # then exit 2, not the 1 this row expects); it is searched when it exists.

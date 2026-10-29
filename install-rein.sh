@@ -175,7 +175,7 @@ for _t in "${_REIN_TREES[@]}"; do _stage_one "${REPO_DIR}/src/${_t}" "${_STAGE}/
 
 _verify_stage() {  # → 0 when the staged tree is complete and parses; prints what is wrong
   local bad=0 f
-  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/gate-probe.sh \
+  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/hook-paths.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/gate-probe.sh \
            mcp/safe-exec-mcp/index.js mcp/safe-exec-mcp/role-token.mjs mcp/safe-exec-mcp/gate-guard.mjs; do
     [[ -f "${_STAGE}/${f}" ]] || { echo "  missing: ${f}"; bad=1; }
   done
@@ -542,6 +542,22 @@ Next steps:
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 EOF
+
+# E-391 (D-132 addenda 4 r2 and 5): the projects whose settings run a Rein hook from a path
+# that no longer exists — their gate is off until `rein sync`. Rein keeps no project
+# registry, so the candidates come from Claude Code's per-project session directories (read
+# and bounded by shared/hook-paths.py); the list may be incomplete and says so. Each path is
+# printed as data — never cd'd into or run. REIN_NO_PROJECT_SCAN=1 skips the scan.
+if [[ "${REIN_NO_PROJECT_SCAN:-0}" != "1" ]] && command -v python3 >/dev/null 2>&1; then
+  _stale_projects="$(python3 -I "${REIN}/shared/hook-paths.py" projects "$REPO_DIR" \
+    "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null || true)"
+  if [[ -n "$_stale_projects" ]]; then
+    echo "Projects found with a stale hook path (others may exist — run \`rein doctor\` in each project you use):"
+    while IFS= read -r _sp; do printf '  %s — run: rein sync\n' "$_sp"; done <<< "$_stale_projects"
+  else
+    echo "✓ No project found with a stale hook path (others may exist — run \`rein doctor\` in each project you use)"
+  fi
+fi
 
 # E-290: the hooks were refused (no privileged /bin/bash) — say so last, and fail.
 if [[ "${_HOOKS_REFUSED:-0}" -eq 1 ]]; then

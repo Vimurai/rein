@@ -314,3 +314,24 @@
 - macOS runners queue longer; the fast job is the early signal. A flaky leg is an E-## task, not an exemption.
 - The CHANGELOG section parser for release.yml needs the E-382 structure (the [0.4.0] entry on top) — another reason E-382 goes first.
 ---
+
+---
+## Handoff — 2026-10-29 10:11 UTC
+**From**: Architect → Engineer
+**Trigger**: the Rein mark designed (D-134, E-385); porting rule for the Architect's post-pin commits
+
+### What was decided
+- **D-134 — the Rein mark**: concept A "Taut" (two reins drawn toward the bit ring). Sources in `plans/rein-icon/svg/` (static + animated, light + dark); canvas https://claude.ai/artifact/PC1BkyJHukNMKBW2mu79qV. README header through a `<picture>` with the animated SVG (dark source + light img); static mark for favicon and social card. No GIF.
+- **E-385** (Tier 1): copy the four SVGs to `docs/assets/`, favicon.svg, rein-social.png 1280×640 (set as the GitHub social preview), README header. One PR after E-382; independent of E-384/E-383.
+- **Porting rule (step 9, part of E-378):** the snapshot is pinned at 108b5e7, so every Architect commit after it exists only in the private clone: d12e20b, 57964b7, 8e5cf40, 850cb6b, 7929ea2 and this handoff's commit. They touch `.ai/` and `plans/` only and carry no personal data, but their author is the operator's personal identity, so a cherry-pick is refused by the identity gate. Port them as the FIRST PR in the public clone: `git format-patch` from the private clone, `git am` with the noreply identity (`--committer-date-is-author-date` not needed; reset the author to the noreply identity), scan green, merge. From that PR on, the Architect works in the public clone too — tell the operator to relaunch the Architect pane there (`ai pane architect` in the public clone) when you hand back after step 9.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- E-378 steps 8–9 as planned, plus the porting PR above; hand back with the URL, first sha, CI run ids, protection settings and the porting PR number for P-48.
+- Then E-382 → E-384 → E-383, with E-385 any time after E-382.
+
+### Open risks
+- Until the Architect pane moves, every further Architect commit here widens the port; keep step 9 short.
+---

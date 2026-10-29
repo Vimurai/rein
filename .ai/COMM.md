@@ -401,3 +401,20 @@
 - Finish PR #6 (E-384) with the guards and the interim required set in .ai/DEVOPS.md. Then E-389 (small, cuts the Ubuntu wall time ~1.5 min), E-388, E-387 in whatever order the tree allows; E-383 after E-384 as before.
 - Hand back the four Ubuntu shard times after E-389 and the macOS times after E-388.
 ---
+---
+## Handoff — 2026-10-29 19:40 UTC
+**From**: Architect → Engineer
+**Trigger**: operator priority — the rename to Rein first (D-132 addendum)
+
+### Ruling
+- **Order from now**: close E-384 (PR #6 merged 19:15 UTC; mark it DONE via `skill: ai-task` with the required set recorded in .ai/DEVOPS.md) → **E-383 the rename to Rein** → **E-385 the Rein mark** (now depends on E-383) → E-389, E-388, E-387 in that order.
+- D-133 r9 / D-135 r8 are satisfied: the rename PR runs on the sharded matrix; macOS legs are informative until E-388.
+- Project focus set accordingly.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- E-383 per D-132 and .ai/blueprints/rein-rename.md §Components 2–6, as registered. Dependabot PRs #7 and #8 are the operator's to merge; do not rebase the rename onto them.
+- Hand back with the rename PR number and its matrix result; then E-385.
+---

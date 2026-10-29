@@ -13,8 +13,10 @@
 //   fast           — the node unit layer (node_unit_test.sh) + every CONTRACT-TABLE suite, i.e.
 //                    a suite that drives a tests/fixtures/*-cases.json table.
 //   --changed <ref> — fast, PLUS every suite whose census footprint intersects the files changed
-//                    since <ref>, PLUS any suite file that itself changed. No census → the full
-//                    matrix, with a NOTE saying so. A suite with no footprint entry in the census
+//                    since <ref>, PLUS any suite file that itself changed. No census JSON → the
+//                    committed tests/census-baseline.tsv's footprints (E-384, D-135 addendum
+//                    r2 — a fresh clone has no ~/.ai-os/ci); neither → the full matrix, with a
+//                    NOTE saying so. A suite with no footprint entry in the census
 //                    is never selected by --changed (unknown footprint ⇒ it runs in full only).
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
@@ -84,7 +86,7 @@ function changedSince(ref, repo) {
   return [...new Set((out + "\n" + untracked).split("\n").map((l) => l.trim()).filter(Boolean))];
 }
 
-function main(argv) {
+async function main(argv) {
   const opt = { tier: "full", changed: null, census: null, repo: null, pattern: "*_test.sh", dir: null };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i], v = argv[i + 1];
@@ -108,10 +110,20 @@ function main(argv) {
   let census = null;
   const cfile = opt.census || (changed ? newestCensus() : null);
   if (cfile && existsSync(cfile)) { try { census = JSON.parse(readFileSync(cfile, "utf8")); } catch { census = null; } }
+  const pre = [];
+  const baseline = join(repo, "tests", "census-baseline.tsv");
+  if (changed && !census && existsSync(baseline)) {
+    try {
+      const { buildCensus } = await import("./census.mjs");
+      census = buildCensus({ repo, ciLogs: join(repo, ".no-ci-logs"), inputs: [baseline] });
+      pre.push("--changed: footprints from the committed tests/census-baseline.tsv (no local census)");
+    } catch { census = null; }
+  }
   const { selected, notes } = selectSuites({ suites, tier: opt.tier, changed, census, pattern: opt.pattern });
+  notes.unshift(...pre);
   for (const s of selected) process.stdout.write(join(opt.dir, s) + "\n");
   for (const n of notes) process.stdout.write(`#NOTE ${n}\n`);
   return 0;
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) process.exit(main(process.argv.slice(2)));
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main(process.argv.slice(2)).then((rc) => process.exit(rc));

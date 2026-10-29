@@ -15,7 +15,8 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { PROVIDERS, render, renderable, bootstrapFor, SELF_BOOTSTRAP } from "../../src/shared/hosted-ci.mjs";
+import { PROVIDERS, render, renderable, bootstrapFor, SELF_BOOTSTRAP, matrixFor } from "../../src/shared/hosted-ci.mjs";
+import { readTeam } from "../../src/mcp/shared/team.mjs";
 import { resolveTrunk } from "../../src/mcp/shared/trunk.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -66,6 +67,31 @@ function runLines(yml) {
 
 const RECIPE = recipeCommands(recipeBody(AI));
 const AI_CI_RUN = '"$HOME/.ai-os/bin/ai" ci run';
+// E-384 (D-135 r3): a GitHub leg passes its shard, or nothing, to the same command.
+const AI_CI_RUN_LEG = `${AI_CI_RUN}\${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}`;
+// E-384 (D-135 addendum r1): the fast job's whole command list — dependencies, then the fast tier.
+const FAST_RUNS = [
+  "if [ -f package-lock.json ]; then npm ci --ignore-scripts --no-audit --no-fund; fi",
+  'for d in src/mcp/*/; do if [ -f "${d}package.json" ]; then npm install --prefix "$d" --ignore-scripts --no-audit --no-fund; fi; done',
+  "bash tests/run.sh --tier fast",
+];
+const MATRICES = {   // the renderings every github clause runs over
+  team: { fast: false, shards: 1, profile: "team" },
+  "team, fast, 4 shards": { fast: true, shards: 4, profile: "team" },
+  public: { fast: true, shards: 4, profile: "public" },
+};
+
+// A GitHub workflow's job blocks under `jobs:` (comment lines already dropped), by job id.
+function jobBlocks(code) {
+  const at = code.search(/^jobs:\n/m);
+  if (at < 0) return {};
+  const out = {};
+  for (const b of code.slice(at).split("\n").slice(1).join("\n").split(/^(?=  [\w-]+:\n)/m)) {
+    const id = b.match(/^  ([\w-]+):\n/)?.[1];
+    if (id) out[id] = b;
+  }
+  return out;
+}
 
 // A wrapper's steps under its `steps:` key, comment lines dropped, one text block per item
 // (`item` is the item's indentation + "- ").
@@ -79,10 +105,16 @@ function stepBlocks(code, item) {
 /** Every D-103 r1 clause a rendering breaks, as short strings ([] = conforms). */
 function contractViolations(provider, yml, boot, trunk = "master") {
   const v = [];
-  const runs = runLines(yml);
+  // Checks read the CODE: a comment must never satisfy a clause (critic_tests P2).
+  const code = yml.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
+  // E-384: on GitHub the two-command contract holds for every `ai ci run` leg; the fast job
+  // has its own clause below and is the one place the fast tier may be named.
+  const jobs = provider === "github" ? jobBlocks(code) : null;
+  const runs = runLines(jobs ? (jobs["ai-ci-run"] ?? "") : yml);
+  const leg = provider === "github" ? AI_CI_RUN_LEG : AI_CI_RUN;
   if (runs.length !== 2) v.push(`expected two run commands, got ${runs.length}`);
   if (runs[0] !== boot.command) v.push("first run is not the bootstrap");
-  if (runs[1] !== AI_CI_RUN) v.push("second run is not `ai ci run` from the installed mirror");
+  if (runs[1] !== leg) v.push("second run is not `ai ci run` from the installed mirror");
   if (boot.variant === "pinned" && !runs[0]?.endsWith(`&& bash "\${TMPDIR:-/tmp}/ai-os-src"/install-ai-os.sh`)) v.push("pinned bootstrap does not end in the clone's installer");
   const copied = RECIPE.filter((c) => c !== SELF_BOOTSTRAP)
     .filter((c) => runs.some((r) => r.includes(c.replace(/^\/usr\/bin\/env \S+ /, "").replace(/^\/bin\/bash /, ""))));
@@ -90,23 +122,37 @@ function contractViolations(provider, yml, boot, trunk = "master") {
   if (/\{\{[A-Z_]+\}\}/.test(yml)) v.push("unrendered placeholder");
   if (/\bsecrets\b/.test(yml)) v.push("references secrets");
   if (/pull_request_target/.test(yml)) v.push("pull_request_target");
-  // Checks read the CODE: a comment must never satisfy a clause (critic_tests P2).
-  const code = yml.split("\n").filter((l) => !l.trim().startsWith("#")).join("\n");
   if (provider === "github") {
+    const extra = Object.keys(jobs).filter((j) => j !== "ai-ci-run" && j !== "fast");
+    if (extra.length || !jobs["ai-ci-run"]) v.push(`unexpected jobs: ${Object.keys(jobs).join(", ")}`);
+    if (jobs.fast) {
+      const f = runLines(jobs.fast);
+      if (JSON.stringify(f) !== JSON.stringify(FAST_RUNS)) v.push(`fast job runs other than dependencies + the fast tier: ${JSON.stringify(f)}`);
+      if (!/^    timeout-minutes: 10$/m.test(jobs.fast) || !/^    runs-on: ubuntu-latest$/m.test(jobs.fast) || !/persist-credentials: false/.test(jobs.fast)) v.push("fast job is not ubuntu, 10 minutes, read-only checkout");
+      const fu = [...jobs.fast.matchAll(/^\s*(?:- )?uses:\s*([^@\s]+)@/gm)].map((m) => m[1]);
+      if (JSON.stringify(fu) !== JSON.stringify(["actions/checkout", "actions/setup-node"])) v.push(`fast job uses unexpected actions: ${fu.join(", ")}`);
+      if (/^\s+(?:if|continue-on-error):/m.test(jobs.fast)) v.push("the check cannot fail (continue-on-error or a condition on a step)");
+    }
+    // E-384 (D-133 §Security): every action is pinned to a full commit SHA.
+    const loose = [...code.matchAll(/^\s*(?:- )?uses:\s*(\S+)/gm)].map((m) => m[1]).filter((u) => !/@[0-9a-f]{40}$/.test(u));
+    if (loose.length) v.push(`action not pinned to a commit SHA: ${loose.join(", ")}`);
     const on = code.match(/^on:\n((?:[ \t]+.*\n)+)/m)?.[1] ?? "";
     if (!on.includes(`\n  pull_request:\n    branches: [${trunk}]\n`) && !on.startsWith(`  pull_request:\n    branches: [${trunk}]\n`)) v.push(`no pull_request trigger on ${trunk}`);
     const push = on.match(/^  push:\n((?:    .*\n)+)/m)?.[1];
     if (push !== undefined && push !== `    branches: [${trunk}]\n    paths-ignore: ['.ai/**']\n`) v.push(`push trigger other than the ${trunk} audit run`);
     if (!/^permissions:\n  contents: read$/m.test(code)) v.push("token is not read-only");
-    const steps = stepBlocks(code, "      - ");
+    const steps = stepBlocks(jobs["ai-ci-run"] ?? "", "      - ");
     if (steps.length !== 6 || !steps.every((b) => /^\s+(?:- )?(?:uses|run):/m.test(b))) v.push(`expected six uses/run steps, got ${steps.length}`);
     if (!/persist-credentials: false/.test(steps[0] ?? "")) v.push("checkout persists credentials");
-    const uses = [...code.matchAll(/^\s*(?:- )?uses:\s*([^@\s]+)@/gm)].map((m) => m[1]);
+    const uses = [...(jobs["ai-ci-run"] ?? "").matchAll(/^\s*(?:- )?uses:\s*([^@\s]+)@/gm)].map((m) => m[1]);
     if (JSON.stringify(uses) !== JSON.stringify(["actions/checkout", "actions/setup-node", "actions/cache", "actions/upload-artifact"])) v.push(`unexpected actions: ${uses.join(", ")}`);
-    if (!/node-version: '22'/.test(code) || !/runs-on: ubuntu-/.test(code)) v.push("not Linux + Node 22");
+    // The matrix carries Linux and Node 22, AI-OS's floor, in every profile.
+    const legJob = jobs["ai-ci-run"] ?? "";
+    if (!/node-version: \$\{\{ matrix\.node \}\}/.test(legJob) || !/^        node: \[(?:'\d+', )*'22'/m.test(legJob) ||
+        !/^    runs-on: \$\{\{ matrix\.os \}\}$/m.test(legJob) || !/^        os: \[ubuntu-latest/m.test(legJob)) v.push("not Linux + Node 22");
     // The check must be able to fail: no step may continue on error, only the upload has an if:.
     const ifs = steps.map((b) => b.match(/^\s+if:\s*(.*)$/m)?.[1] ?? null);
-    if (/continue-on-error/.test(code) || ifs.slice(0, 5).some((x) => x !== null)) v.push("the check cannot fail (continue-on-error or a condition on a step)");
+    if (/continue-on-error/.test(code) || ifs.slice(0, 5).some((x) => x !== null) || /^    if:/m.test(legJob)) v.push("the check cannot fail (continue-on-error or a condition on a step)");
     const up = steps.find((b) => /uses: actions\/upload-artifact@/.test(b)) ?? "";
     if (ifs[5] !== "always()" || !/~\/\.ai-os\/ci\/logs\//.test(up) || !/\.ai\/ci\/\*\.json/.test(up) || !/retention-days: (1[4-9]|[2-9]\d)/.test(up)) v.push("no artefact step (always, log + .ai/ci, ≥ 14 days)");
   } else if (provider === "azure") {
@@ -170,6 +216,8 @@ const MUTANTS = {
     ["secrets referenced", good.replace("permissions:", "env:\n  T: ${{ secrets.X }}\npermissions:"), "references secrets"],
     ["the check cannot fail", good.replace("      - name: ai ci run\n", "      - name: ai ci run\n        continue-on-error: true\n"), "the check cannot fail"],
     ["the check skipped", good.replace("      - name: ai ci run\n", "      - name: ai ci run\n        if: false\n"), "the check cannot fail"],
+    ["an action by tag", good.replace(/actions\/cache@[0-9a-f]{40}/, "actions/cache@v6"), "action not pinned to a commit SHA"],
+    ["the leg job skipped", good.replace("    timeout-minutes: 60\n", "    timeout-minutes: 60\n    if: false\n"), "the check cannot fail"],
   ],
   azure: (good, boot) => [
     ["recipe command copied", good.replace(`bash: |\n      ${AI_CI_RUN}`, `bash: |\n      ${AI_CI_RUN}\n      bash tests/run.sh`), "recipe command copied"],
@@ -215,6 +263,43 @@ for (const [provider, p] of Object.entries(PROVIDERS).filter(([k]) => renderable
     }
   });
 }
+// E-384 (D-135): extends the contract tests above to the matrix renderings — the team profile
+// with a fast job and shards, and the public profile.
+for (const [label, m] of Object.entries(MATRICES)) {
+  for (const boot of [bootstrapFor(REPO), PINNED]) {
+    test(`github (${label}, ${boot.variant} bootstrap) meets the hosted-check contract`, () => {
+      assert.deepEqual(contractViolations("github", render("github", boot, "main", m), boot, "main"), []);
+    });
+  }
+}
+
+test("github: the checker fails a fast job that installs, runs more, or can be skipped (mutations)", () => {
+  const boot = bootstrapFor(REPO);
+  const good = render("github", boot, "main", MATRICES.public);
+  const muts = [
+    ["fast job installs", good.replace("        run: bash tests/run.sh --tier fast\n", "        run: bash install-ai-os.sh && bash tests/run.sh --tier fast\n"), "fast job runs other than"],
+    ["fast job runs the full suite", good.replace("run: bash tests/run.sh --tier fast", "run: bash tests/run.sh"), "fast job runs other than"],
+    ["fast job skipped", good.replace("    name: fast\n", "    name: fast\n    if: false\n"), "the check cannot fail"],
+    ["a third job", good.replace("  ai-ci-run:\n", "  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n\n  ai-ci-run:\n"), "unexpected jobs"],
+  ];
+  for (const [name, text, clause] of muts) {
+    assert.notEqual(text, good, `mutation '${name}' did not apply`);
+    const v = contractViolations("github", text, boot, "main");
+    assert.ok(v.some((x) => x.startsWith(clause)), `mutation '${name}': expected '${clause}', got ${JSON.stringify(v)}`);
+  }
+});
+
+test("github public profile: the PR legs are ubuntu × 22, 24 and macOS × 22 in four shards; full adds macOS × 24 and one unsharded leg", () => {
+  const yml = render("github", bootstrapFor(REPO), "main", MATRICES.public);
+  assert.match(yml, /^        os: \[ubuntu-latest, macos-latest\]\n        node: \['22', '24'\]\n        shard: \['1\/4', '2\/4', '3\/4', '4\/4'\]\n/m);
+  assert.match(yml, /exclude: \$\{\{ fromJSON\(inputs\.full && '\[\]' \|\| '\[\{"os":"macos-latest","node":"24"\}\]'\) \}\}/);
+  assert.match(yml, /include: \$\{\{ fromJSON\(inputs\.full && '\[\{"os":"ubuntu-latest","node":"22","shard":""\}\]' \|\| '\[\]'\) \}\}/);
+  assert.match(yml, /^  workflow_call:\n    inputs:\n      full:\n/m, "the nightly and the release call it with full: true");
+  const team = render("github", bootstrapFor(REPO), "main", MATRICES.team);
+  assert.match(team, /^        os: \[ubuntu-latest\]\n        node: \['22'\]\n    steps:/m, "team, one shard: a single leg");
+  assert.doesNotMatch(team, /^  fast:/m, "no --tier in the runner, no fast job");
+});
+
 test("this repository's .github/workflows/ci.yml is the current github rendering, byte for byte", () => {
   // E-378 (D-129): the public repository's trunk is main. The file names the trunk it was rendered
   // for; it must be that rendering byte for byte, and that trunk must be the repository's own
@@ -222,7 +307,9 @@ test("this repository's .github/workflows/ci.yml is the current github rendering
   const text = readFileSync(join(REPO, PROVIDERS.github.path), "utf8");
   const trunk = (/^\s+branches: \[([^\]]+)\]$/m.exec(text) || [])[1];
   assert.ok(trunk, "the workflow names its trunk");
-  assert.equal(text, render("github", bootstrapFor(REPO), trunk));
+  let team = null;
+  try { team = readTeam(join(REPO, ".ai")); } catch { /* no team: the default matrix */ }
+  assert.equal(text, render("github", bootstrapFor(REPO), trunk, matrixFor(REPO, team)));
   const resolved = resolveTrunk(REPO);
   if (resolved) assert.equal(trunk, resolved.name, `rendered for ${trunk}, the trunk is ${resolved.name}`);
 });

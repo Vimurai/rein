@@ -32,7 +32,17 @@ import { redact } from "./publish-scan.mjs"; // E-379 (D-130)
 const TEMPLATES = resolve(dirname(fileURLToPath(import.meta.url)), "../templates/ci");
 export const DEFAULT_AIOS_SOURCE = "https://github.com/Vimurai/ai-os.git";
 export const SELF_BOOTSTRAP = "bash install-ai-os.sh";
-export const REQUIRED_CHECK = "ai ci run";
+export const REQUIRED_CHECK = "ai ci run";   // team.json ci.required_check: the legs' common name
+// E-384 (D-135 r3, r5): the matrix. A shard count comes from team.json ci.shards (default 4);
+// a project whose tests/run.sh has no --shard runs one leg. The public profile (.ai/publish.json
+// — Rein itself) adds Node 24 and macOS; its nightly adds macOS × 24 and one unsharded leg.
+export const DEFAULT_SHARDS = 4;
+const PUBLIC_LEGS = [["ubuntu-latest", "22"], ["ubuntu-latest", "24"], ["macos-latest", "22"]];
+const TEAM_LEGS = [["ubuntu-latest", "22"]];
+const SHA = {
+  checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1",
+  setupNode: "actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0",
+};
 
 // D-103 r5: the check guards MERGES; pushes stay open to the team (claims ride on the trunk,
 // and the pre-push gate keeps those pushes to .ai/**). One line per provider, printed after
@@ -41,7 +51,7 @@ export const REQUIRED_CHECK = "ai ci run";
 export const PROVIDERS = {
   github: {
     status: "ready", template: "github.yml", path: ".github/workflows/ci.yml",
-    policy: "GitHub → Settings → Branches → {{TRUNK}}: require the status check \"ai ci run\"; do NOT restrict pushes (or list the team as bypass actors) — claims push .ai/** to {{TRUNK}}.",
+    policy: "GitHub → Settings → Branches → {{TRUNK}}: require the status checks listed below (every \"ai ci run\" leg, and \"fast\" when rendered); do NOT restrict pushes (or list the team as bypass actors) — claims push .ai/** to {{TRUNK}}.",
   },
   azure: {
     status: "unverified", template: "azure-pipelines.yml", path: "azure-pipelines.yml",
@@ -50,6 +60,82 @@ export const PROVIDERS = {
   gitlab: { status: "planned", task: "E-337", path: ".gitlab-ci.yml" },
   bitbucket: { status: "planned", task: "E-337", path: "bitbucket-pipelines.yml" },
 };
+
+/** "public" when .ai/publish.json marks the public repository (the privacy gate's marker), else "team". */
+export const profileFor = (root) => (existsSync(join(root, ".ai", "publish.json")) ? "public" : "team");
+
+// What the project's own runner advertises, grepped as `ai ci run` greps `--tier` (D-135 §4).
+function _runner(root) {
+  try { return readFileSync(join(root, "tests", "run.sh"), "utf8"); } catch { return ""; }
+}
+/** { fast, shards } — the fast job when the runner has --tier, N shards when it has --shard. */
+export function matrixFor(root, team) {
+  const run = _runner(root);
+  const shards = run.includes("--shard") ? (team?.ci?.shards ?? DEFAULT_SHARDS) : 1;
+  return { fast: run.includes("--tier"), shards, profile: profileFor(root) };
+}
+
+/** Every check name the rendered wrapper reports on a pull request — what the branch policy requires. */
+export function requiredChecks(root, team) {
+  const m = matrixFor(root, team);
+  const legs = m.profile === "public" ? PUBLIC_LEGS : TEAM_LEGS;
+  const names = m.fast ? ["fast"] : [];
+  for (const [os, node] of legs) {
+    if (m.shards === 1) names.push(`${REQUIRED_CHECK} (${os}, node ${node})`);
+    else for (let i = 1; i <= m.shards; i++) names.push(`${REQUIRED_CHECK} (${os}, node ${node}, ${i}/${m.shards})`);
+  }
+  return names;
+}
+
+function _matrixYaml(m) {
+  const pub = m.profile === "public";
+  const shards = Array.from({ length: m.shards }, (_, k) => `'${k + 1}/${m.shards}'`);
+  const out = [
+    `        os: [${pub ? "ubuntu-latest, macos-latest" : "ubuntu-latest"}]`,
+    `        node: [${pub ? "'22', '24'" : "'22'"}]`,
+  ];
+  if (m.shards > 1) out.push(`        shard: [${shards.join(", ")}]`);
+  if (pub) {
+    // macOS × 24 runs only with full (nightly, release); full also adds one unsharded leg.
+    out.push(`        exclude: \${{ fromJSON(inputs.full && '[]' || '[{"os":"macos-latest","node":"24"}]') }}`);
+    if (m.shards > 1) out.push(`        include: \${{ fromJSON(inputs.full && '[{"os":"ubuntu-latest","node":"22","shard":""}]' || '[]') }}`);
+  }
+  return out.join("\n");
+}
+
+function _fastJob(m) {
+  if (!m.fast) return "";
+  return [
+    "  # The first signal (D-135 addendum r1): the fast tier — the node unit layer and the",
+    "  # contract tables — on the dependencies alone. No installer: suites beyond the fast tier",
+    "  # need the installed mirror and run in the `ai ci run` legs.",
+    "  fast:",
+    "    name: fast",
+    "    runs-on: ubuntu-latest",
+    "    timeout-minutes: 10",
+    "    steps:",
+    "      - name: Checkout",
+    `        uses: ${SHA.checkout}`,
+    "        with:",
+    "          fetch-depth: 0",
+    "          persist-credentials: false",
+    "",
+    "      - name: Set up Node.js",
+    `        uses: ${SHA.setupNode}`,
+    "        with:",
+    "          node-version: '22'",
+    "",
+    "      - name: Dependencies",
+    "        run: |",
+    "          if [ -f package-lock.json ]; then npm ci --ignore-scripts --no-audit --no-fund; fi",
+    "          for d in src/mcp/*/; do if [ -f \"${d}package.json\" ]; then npm install --prefix \"$d\" --ignore-scripts --no-audit --no-fund; fi; done",
+    "",
+    "      - name: Fast tier",
+    "        run: bash tests/run.sh --tier fast",
+    "",
+    "",
+  ].join("\n");
+}
 
 // Plain charsets: these values are written into YAML and a shell line.
 const VERSION_RE = /^\d+\.\d+\.\d+$/;
@@ -130,12 +216,17 @@ export class HostedCiError extends Error {
   constructor(code, message) { super(message); this.code = code; }
 }
 
-/** The wrapper text for <provider> with a bootstrap from bootstrapFor() and a trunk from trunkFor(). */
-export function render(provider, boot, trunk) {
+/**
+ * The wrapper text for <provider> with a bootstrap from bootstrapFor(), a trunk from trunkFor()
+ * and (github) a matrix from matrixFor() — default: one leg, no fast job, the team profile.
+ */
+export function render(provider, boot, trunk, matrix = { fast: false, shards: 1, profile: "team" }) {
   const p = PROVIDERS[provider];
   if (!renderable(provider)) throw new HostedCiError("CI_PROVIDER_PLANNED", `${provider} has no wrapper yet`);
   return readFileSync(join(TEMPLATES, p.template), "utf8")
     // Replacer functions: a string replacement reads $&, $' and $` specially (critic_security P3).
+    .replaceAll("{{FAST_JOB}}", () => _fastJob(matrix))
+    .replaceAll("{{MATRIX}}", () => _matrixYaml(matrix))
     .replaceAll("{{BOOTSTRAP_NOTE}}", () => boot.note)
     .replaceAll("{{BOOTSTRAP}}", () => boot.command)
     .replaceAll("{{TRUNK}}", () => trunk);
@@ -190,7 +281,8 @@ export function hosted(root, { provider: arg = "", check = false, force = false 
     const boot = bootstrapFor(root, { aiosSource: team?.ci?.aios_source });
     const trunk = trunkFor(root, team);
     // E-379 (D-130): redacted before the comparison, so a redacted wrapper on disk is "current".
-    const want = redact(render(provider, boot, trunk), { file: p.path, aiDir: join(root, ".ai") });
+    const matrix = matrixFor(root, team);
+    const want = redact(render(provider, boot, trunk, matrix), { file: p.path, aiDir: join(root, ".ai") });
     const dest = join(root, p.path);
     const have = existsSync(dest) ? readFileSync(dest, "utf8") : null;
     const current = have !== null && sha256(have) === sha256(want);
@@ -218,6 +310,7 @@ export function hosted(root, { provider: arg = "", check = false, force = false 
       }
     }
     lines.push(`Branch policy (D-103 r5): ${policyFor(provider, trunk)}`);
+    if (provider === "github") lines.push(`Required checks (D-135 r7, ${matrix.profile} profile): ${requiredChecks(root, team).map((n) => `"${n}"`).join(", ")}`);
     if (p.status === "unverified") {
       lines.push(`[CI_PROVIDER_UNVERIFIED] the ${provider} wrapper has not had a documented run on a real ${provider} instance yet (D-103 r6) — run it once and report the pipeline URL; see .ai/DEVOPS.md DEVOPS-011.`);
     }

@@ -14,7 +14,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { detectProvider, remoteHost, hosted, doctorLine, bootstrapFor, PROVIDERS } from "../../src/shared/hosted-ci.mjs";
+import { detectProvider, remoteHost, hosted, doctorLine, bootstrapFor, PROVIDERS, matrixFor, requiredChecks, profileFor } from "../../src/shared/hosted-ci.mjs";
 import { newTeam, writeTeam, readTeam, validateTeam } from "../../src/mcp/shared/team.mjs";
 
 const PLANNER = "planner@example.com", OTHER = "dev@example.com";
@@ -215,4 +215,35 @@ test("azure: a dev.azure.com origin is detected, writes azure-pipelines.yml + te
   assert.equal(existsSync(wrapper(d)), false, "no GitHub workflow for an Azure project");
   assert.equal(hosted(d, { check: true }).code, 0);
   assert.match(doctorLine(d), /^  ✓ hosted check: azure — azure-pipelines\.yml is the current azure rendering/);
+});
+
+// E-384 (D-135 r3, r5, r7): extends the render tests above — what the project's runner
+// advertises and its marker decide the jobs, and the branch policy names every leg.
+test("the matrix follows the project: --tier → a fast job, --shard → team.json ci.shards (default 4), publish.json → the public legs", (t) => {
+  const d = project(t);
+  mkdirSync(join(d, "tests"));
+  writeFileSync(join(d, "tests", "run.sh"), "#!/usr/bin/env bash\n# no flags\n");
+  assert.deepEqual(matrixFor(d, null), { fast: false, shards: 1, profile: "team" });
+  assert.deepEqual(requiredChecks(d, null), ["ai ci run (ubuntu-latest, node 22)"]);
+  writeFileSync(join(d, "tests", "run.sh"), "#!/usr/bin/env bash\n# --tier fast|full, --shard i/N\n");
+  assert.deepEqual(matrixFor(d, null), { fast: true, shards: 4, profile: "team" });
+  const team = { ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "ai ci run", shards: 2 } };
+  assert.deepEqual(requiredChecks(d, team), ["fast", "ai ci run (ubuntu-latest, node 22, 1/2)", "ai ci run (ubuntu-latest, node 22, 2/2)"]);
+  writeFileSync(join(d, ".ai", "publish.json"), "{}");
+  assert.equal(profileFor(d), "public");
+  const pub = requiredChecks(d, null);
+  assert.equal(pub.length, 13, "fast + 3 PR legs × 4 shards (macOS × 24 is nightly-only)");
+  assert.ok(pub.includes("ai ci run (macos-latest, node 22, 4/4)") && !pub.some((n) => n.includes("macos-latest, node 24")));
+  const r = hosted(d, { provider: "github" });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /^Required checks \(D-135 r7, public profile\): "fast", "ai ci run \(ubuntu-latest, node 22, 1\/4\)", /m);
+  assert.match(readFileSync(wrapper(d), "utf8"), /^  fast:\n    name: fast\n/m);
+});
+
+test("team.json ci.shards is a whole number 1..8", () => {
+  const base = { ...newTeam(PLANNER, { E: [[1, 9]] }) };
+  for (const shards of [1, 4, 8]) validateTeam({ ...base, ci: { provider: "github", required_check: "ai ci run", shards } });
+  for (const shards of [0, 9, 2.5, "4"]) {
+    assert.throws(() => validateTeam({ ...base, ci: { provider: "github", required_check: "ai ci run", shards } }), /ci\.shards/, String(shards));
+  }
 });

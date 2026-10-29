@@ -841,8 +841,11 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # `ai ci run` and nothing else (tests/unit/hosted-ci-workflow.test.mjs). Any other is a regression.
 # E-378 (D-129): the public repository adds ONE more, the privacy scan of the tracked tree
 # (publish-scan.mjs scan-tree) — present exactly where .ai/publish.json marks that repository.
+# E-384 (D-133 §Component 2): the public repository's CI is layered — the scanners, the
+# dependency review, the nightly and the release workflow beside the rendered ci.yml. The list
+# is exact: a workflow nobody named here is still a regression.
 _e268_want="ci.yml"
-[[ -f "${REPO_ROOT}/.ai/publish.json" ]] && _e268_want="$(printf 'ci.yml\nprivacy.yml')"
+[[ -f "${REPO_ROOT}/.ai/publish.json" ]] && _e268_want="$(printf 'ci.yml\ncodeql.yml\ndependency-review.yml\nnightly.yml\nprivacy.yml\nrelease.yml\nscorecard.yml')"
 assert_status 0 "E-268.01a: the workflows are the hosted master check (D-103) and, in the public repository, the privacy scan" \
   bash -c '[[ "$(command ls -1A "$1" 2>/dev/null)" == "$2" ]]' _ "${REPO_ROOT}/.github/workflows" "$_e268_want"
 assert_status 1 "E-268.01b: and neither does the workflow file" test -e "${REPO_ROOT}/.github/workflows/test.yml"
@@ -871,14 +874,20 @@ _hits="$(cd "$REPO_ROOT" && grep -rnE --exclude-dir=node_modules --exclude-dir=.
   src tests hooks .claude README.md CONTRIBUTING.md ENGINEER.md ARCHITECT.md install-ai-os.sh 2>/dev/null \
   | grep -vE '^tests/suites/ai_ci_test\.sh:' \
   | grep -vE '^src/templates/ci/' \
+  | grep -vE '^(src/shared/hosted-ci\.mjs|tests/unit/hosted-ci(-workflow)?\.test\.mjs):' \
   | grep -vE '^src/templates/public/privacy\.yml:' \
   | grep -vE '^README\.md:[0-9]+:\[ci(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/ci\.yml(/badge\.svg)?$' \
+  | grep -vE '^README\.md:[0-9]+:\[privacy(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/privacy\.yml(/badge\.svg)?$' \
+  | grep -vE '^README\.md:[0-9]+:\[codeql(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/codeql\.yml(/badge\.svg)?$' \
   | grep -vE '^src/bin/ai:[0-9]+:  if \[\[ -n "\$\{GITHUB_ACTIONS:-\}" \]\]; then echo "hosted:github"$' \
   || true)"   # E-335 (D-103): the rendered hosted-check templates ARE a hosted run.
+# E-384 (D-135 r5): so is the renderer that builds their matrix, and the two suites that pin it.
 # E-386 (D-135 r1): _ci_host_class reads the GitHub runner's marker to widen its lanes — the
 # one src/bin/ai line allowed to name it; detecting a runner is not an instruction to read one.
 # E-374 (D-125, D-129): the public repo's live CI badge and its link are the two README lines
 # allowed to name a workflow — a status display, not an instruction to read a hosted run.
+# E-384 (D-133 §Component 3): likewise the privacy and CodeQL badges and their links, each
+# naming only its own workflow.
 assert_status 0 "E-268.02a: no hosted-CI instruction remains under src/tests/hooks/.claude/docs" \
   bash -c "[[ -z \"\$1\" ]]" _ "$_hits"
 [[ -n "$_hits" ]] && printf '  ⓘ remaining hits:\n%s\n' "$_hits"

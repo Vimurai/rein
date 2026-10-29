@@ -1,13 +1,17 @@
 # Hosted {{TRUNK}} check — rendered by `ai ci hosted github` (D-103, team-collaboration.md
-# §Component 5b). Do not edit by hand: `ai ci hosted --check` fails when this file is not
-# the current rendering, and `ai ci hosted --force` rewrites it.
+# §Component 5b; jobs per D-135, .ai/blueprints/ci-throughput.md §Component 4). Do not edit
+# by hand: `ai ci hosted --check` fails when this file is not the current rendering, and
+# `ai ci hosted --force` rewrites it.
 #
-# The contract: on a pull request into {{TRUNK}}, run exactly two commands — bootstrap AI-OS,
-# then `ai ci run` on the merge result — and keep the log and .ai/ci/*.json as artefacts.
-# Branches stay local-first (D-072): `ai ci run` before pushing is the developer's gate;
-# this is the one authority for "nobody merges red into {{TRUNK}}", made required by the
-# branch policy. A push to {{TRUNK}} outside .ai/** gets an audit run that gates nothing.
-# Rollback: delete this file AND the required check in the branch policy.
+# The contract: on a pull request into {{TRUNK}}, every `ai ci run` leg runs exactly two
+# commands — bootstrap AI-OS, then `ai ci run` on the merge result — and keeps the log and
+# .ai/ci/*.json as artefacts. The `fast` job (when the project's runner has a fast tier) is
+# the first signal: dependencies and `tests/run.sh --tier fast`, no installer. Branches stay
+# local-first (D-072): `ai ci run` before pushing is the developer's gate; this is the one
+# authority for "nobody merges red into {{TRUNK}}", made required by the branch policy. A
+# push to {{TRUNK}} outside .ai/** gets an audit run that gates nothing. A caller
+# (nightly, release) runs the full matrix through workflow_call with `full: true`.
+# Rollback: delete this file AND the required checks in the branch policy.
 name: {{TRUNK}} CI
 
 on:
@@ -16,60 +20,72 @@ on:
   push:
     branches: [{{TRUNK}}]
     paths-ignore: ['.ai/**']
+  workflow_call:
+    inputs:
+      full:
+        description: The nightly-only legs too (D-135 r5)
+        type: boolean
+        default: false
 
 permissions:
   contents: read
 
+# A superseded pull-request run is cancelled; a trunk push, nightly or release never is.
 concurrency:
-  group: {{TRUNK}}-ci-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
-  ai-ci-run:
-    name: ai ci run
-    runs-on: ubuntu-latest
+{{FAST_JOB}}  ai-ci-run:
+    name: ai ci run (${{ matrix.os }}, node ${{ matrix.node }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+{{MATRIX}}
     steps:
       # The merge result — exactly what {{TRUNK}} becomes. `ai ci run` tests HEAD. Full
       # history, as a local `ai ci run` worktree has it (suites pin files to past commits).
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
       # Node 22 is AI-OS's floor (node:sqlite).
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
         with:
-          node-version: '22'
+          node-version: ${{ matrix.node }}
 
       # The recipe's npm and Playwright caches live under ~/.ai-os/ci/cache.
       - name: Cache ai ci downloads
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9   # v6.1.0
         with:
           path: ~/.ai-os/ci/cache
-          key: ai-ci-${{ runner.os }}-${{ hashFiles('package-lock.json', 'src/mcp/*/package.json') }}
-          restore-keys: ai-ci-${{ runner.os }}-
+          key: ai-ci-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json', 'src/mcp/*/package.json') }}
+          restore-keys: ai-ci-${{ runner.os }}-node${{ matrix.node }}-
 
       # {{BOOTSTRAP_NOTE}}
       - name: Install AI-OS
         run: {{BOOTSTRAP}}
 
-      # `ai ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check.
+      # `ai ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check. On a
+      # hosted runner it uses every core as a lane (D-135 r1); a shard runs one part of the suite.
       - name: ai ci run
         shell: bash
         run: |
-          "$HOME/.ai-os/bin/ai" ci run
+          "$HOME/.ai-os/bin/ai" ci run${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}
 
       # Kept on failure — a red run is the one worth reading. .ai/ci/<sha>.json exists only
       # in a team project; the runner is not a team member, so it is reviewer evidence, not
       # a record teammates' gates accept (D-103 r1f).
       - name: Upload run log and CI record
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
         with:
-          name: ai-ci-run
+          name: ai-ci-run-${{ matrix.os }}-node${{ matrix.node }}-${{ strategy.job-index }}
           path: |
             ~/.ai-os/ci/logs/
             .ai/ci/*.json

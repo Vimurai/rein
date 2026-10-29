@@ -681,3 +681,53 @@ for N = 1..20, deterministic, unit layer pinned); `census.test.mjs` (baseline wr
 `ci-runs.test.mjs` (a shard never certifies — self, ancestor, team record; `census-stale`);
 `harness_isolation_test` E-386.B/S/X (hint sources, shards 1..3 = one full run's totals,
 refusals); `ai_ci_test` E-386.H (host lanes, `host=`); a real `ai ci run` on the branch tip.
+
+## DEVOPS-014 — Public CI on GitHub Actions: fast job, shard matrix, scanners, nightly, release (E-384, D-133, D-135) — 2026-10-29
+
+**What changes and why.** `Vimurai/rein` is public, so the standard hosted runners cost nothing.
+The single Ubuntu job becomes layered CI (`.ai/blueprints/public-ci.md` §Components 1–3,
+`ci-throughput.md` §Component 4, D-135 addendum):
+1. `ci.yml` stays RENDERED (`ai ci hosted github`). The renderer's profile is `public` where
+   `.ai/publish.json` exists, `team` elsewhere. Every profile gains the `fast` job when the
+   project's `tests/run.sh` has `--tier`: dependencies (`npm ci`, each server's `npm install`)
+   and `tests/run.sh --tier fast`, no installer, 10 min (addendum r1: suites beyond the fast tier
+   need the installed mirror). The `ai ci run (<os>, node <v>, <i>/<N>)` matrix runs N shards
+   (`team.json` `ci.shards`, default 4; 1 when the runner has no `--shard`): public = Ubuntu × Node
+   22, 24 and macOS × 22 on pull requests; `workflow_call` with `full: true` (nightly, release)
+   adds macOS × 24 and one unsharded Ubuntu × 22 leg. Team = Ubuntu × 22. No `--lanes`: a hosted
+   run uses every core (D-135 r1). `--check` still guards hand edits.
+2. Hand-written: `codeql.yml` (PR, push, weekly), `scorecard.yml` (weekly, push, published),
+   `dependency-review.yml` (PR; high severity or a licence outside the permissive allow-list
+   fails), `nightly.yml` (03:00 UTC + manual: full matrix, `npm audit --audit-level=high`, the
+   D-118 r1 drift line — the last five budget lines ride in the Actions cache because a hosted
+   runner has no `ci_runs` history; ONE `nightly` issue created or updated on failure),
+   `release.yml` (`v*`: full matrix, then a GitHub release from the CHANGELOG section with the
+   install script's sha256), `.github/dependabot.yml` (npm root + `src/mcp/*` and actions, weekly,
+   grouped). `.github/scripts/nightly-summary.mjs` reuses `ci-budget.js`'s drift fields.
+3. `--changed` (local only, addendum r2) falls back to the committed `tests/census-baseline.tsv`
+   when no census JSON exists.
+4. README badges: CI, privacy, CodeQL, Scorecard, licence, version from the latest tag, sponsors.
+
+**Required checks on `main` (D-135 r7).** `privacy scan`, `fast`, `CodeQL`, and the twelve PR legs:
+`ai ci run (ubuntu-latest, node 22, i/4)`, `ai ci run (ubuntu-latest, node 24, i/4)`,
+`ai ci run (macos-latest, node 22, i/4)` for i = 1..4. Not required: the nightly-only legs,
+Scorecard, dependency review (advisory). Never dropped to go green: a flaky leg is an E-## task.
+
+**Security implications.** No secrets: `GITHUB_TOKEN` only. Every action pinned to a full commit
+SHA with its version in a comment (the contract checker refuses a tag). `permissions: contents:
+read` at the top of each file; jobs raise only `security-events: write` (CodeQL, Scorecard +
+`id-token: write` to publish), `contents: write` (the release job), `issues: write` (the nightly
+report). `persist-credentials: false` on every checkout; no `pull_request_target`; fork PRs get
+the read-only token. The release tag reaches the script as an environment variable, never
+interpolated. The privacy job stays its own file.
+
+**Rollback.** Delete the hand-written workflows, `dependabot.yml` and `.github/scripts/`; render
+the single job (`team.json` `ci.shards: 1` and no `--tier` → one leg, or revert the template);
+shrink the required set back to `privacy scan` and the `ai ci run` leg. Nothing outside
+`.github/`, the renderer and the branch policy is touched.
+
+**Proof.** `hosted-ci-workflow.test.mjs` (the contract per job: two commands per leg, the fast
+job's exact list, SHA pins, mutants for an installing / skipped / extra job, the public and team
+matrices), `hosted-ci.test.mjs` (profile, shards, required names, `ci.shards` validation),
+`select-suites.test.mjs` (baseline fallback through the CLI), `ai_ci_test` E-268 (the exact
+workflow list, the badge exemptions), the PR's own hosted run: fast job, twelve legs, CodeQL.

@@ -1,0 +1,22 @@
+# Dependabot — weekly, grouped (E-384, D-133, public-ci.md §Component 2). Its pull requests
+# run the full CI like any other. A gate-path pin (shell-quote, @modelcontextprotocol/sdk —
+# E-305) still goes through `skill: dependency_gate` before it merges.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directories:
+      - "/"
+      - "/src/mcp/*"
+    schedule:
+      interval: weekly
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]

@@ -1097,7 +1097,7 @@
     {
       "id": "E-384",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 2,
       "description": "Build the public CI on GitHub Actions per D-133 and .ai/blueprints/public-ci.md §Components 1–3 (ci_gate skill first; .ai/DEVOPS.md updated): add a \"public\" profile to the ai ci hosted github renderer (src/shared/hosted-ci.mjs), selected when .ai/publish.json exists, that renders a fast job (ubuntu-latest, Node 22, tests/run.sh --tier fast, no install, timeout 10) and a full matrix (ubuntu-latest + macos-latest × Node 22, 24, fail-fast false, full-history checkout, lockfile-keyed cache, install from the checked-out commit, ai ci run --lanes <cores>, timeout 60, artefacts 14 days); actions pinned to commit SHAs; --check keeps guarding; the non-public rendering stays byte-identical. Add the hand-written workflows codeql.yml, scorecard.yml, dependency-review.yml, nightly.yml (03:00 UTC full matrix via workflow_call + npm audit --audit-level=high + the D-118 r1 drift line as a job summary; one create-or-update issue labelled nightly on failure), release.yml (v* tag: full matrix, then a GitHub release from the CHANGELOG section with the sha256 of the install script), and .github/dependabot.yml (npm root + src/mcp/*, grouped weekly; github-actions weekly). Minimal per-job permissions, persist-credentials false, no pull_request_target, standard runners only. Set the required checks on main to privacy, fast, every matrix leg and CodeQL (never dropped to go green). Replace the README badge row (CI, privacy, CodeQL, Scorecard, licence, version from the latest tag, sponsors). Work in the public clone as one PR after E-382 and BEFORE E-383 (D-133 r9). Acceptance: ai ci hosted github --check passes; the PR shows the fast job green under 3 minutes and all four matrix legs green; CodeQL and Scorecard runs appear in the security tab; a manual nightly run succeeds; the required-check set is recorded in .ai/DEVOPS.md. Depends on E-382.",
       "created_at": "2026-10-29T10:25:03.872Z",
@@ -1107,11 +1107,9 @@
         "E-382",
         "E-386"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-386"
-      ],
-      "updated_at": "2026-10-29T11:39:31.765Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-29T15:16:54.838Z"
     },
     {
       "id": "E-385",
@@ -1130,23 +1128,23 @@
     {
       "id": "E-386",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Raise hosted CI throughput in the shared harness per D-135 r1–r3, r6 and .ai/blueprints/ci-throughput.md §Components 1–3 and 5 (repo-oracle on tests/run.sh lanes E-309/E-312 and ai ci run first): (1) ai ci run defaults --lanes to the core count on a hosted runner (GITHUB_ACTIONS, TF_BUILD, GITLAB_CI, BITBUCKET_BUILD_NUMBER, else CI=true), still clamped by the measured memory cap; a laptop keeps min(4, cores/2); explicit --lanes unchanged; runner= names the host class. (2) tests/census-baseline.tsv: tests/run.sh takes wall hints and installer footprints from the newest local census log, else the baseline, else none, and the Lane: lines say which; ai ci run writes the baseline into the project tree after a full unsharded PASS beside the E-328 record, never from a shard, dirty or FAIL; the pre-push hook warns [CENSUS_BASELINE_STALE] past 30 full runs; commit Rein's first baseline from a full local PASS. (3) tests/run.sh --shard i/N (AIOS_TEST_SHARD): shared and exclusive suites partitioned separately, hint descending then name, greedy to the lightest bin, unknown hint = median, unit layer and fast-tier timing in shard 1, refused with --tier fast or --changed (exit 2); ai ci run --shard i/N records shard in ci_runs (nullable column — skill ai-migration) and the E-328 record, is non-certifying in ai ci status, runs the budget step on shard 1 only. (4) `[ci] resources` gains exclusive_seconds= and ai ci status prints the exclusive share. Tests (D-088): a node unit test over a synthetic census asserts a deterministic partition with every suite in exactly one shard; the E-309/E-310 suites extend (named) for the lane default and the new lines. Acceptance: local `ai ci run` unchanged; CI=true picks every core; no local log → `hints: baseline`; shards 1/4..4/4 together run every suite once with one full run's totals; ai ci budget suites +0; full ai ci run green; bash install-ai-os.sh. Before E-384 (D-135 r8).",
       "created_at": "2026-10-29T11:39:19.076Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-29T15:16:54.835Z",
+      "summary": "Hosted CI at the runner's width (D-135 r1-r3, r6): lanes by host, tests/census-baseline.tsv, --shard i/N (shard-plan.mjs), ci_runs.shard/exclusive_seconds, SHARD never certifies. PRs …[full in LOG.md]",
       "depends_on": [
         "E-382"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-29T11:45:02.476Z"
+      "updated_at": "2026-10-29T15:16:54.835Z"
     },
     {
       "id": "E-387",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 2,
       "description": "Shrink Rein's exclusive suite tail per D-135 r6 and .ai/blueprints/ci-throughput.md §Component 5 (after E-386, with tests/census-baseline.tsv committed): run `ai ci run` and list every suite the Lane: lines still mark exclusive with its reason; the five \"no measured installer footprint\" suites must now sit in the lanes through the baseline (if not, fix the baseline path, not the suites); for each remaining exclusive suite either verify and keep its `# AIOS_EXCLUSIVE: <reason>` header (tmux, installer, port, perf — the reason must be true today) or make it shared by removing the cause (a fixed port → an ephemeral one; a machine-wide path → the lane's HOME; a perf assertion → the E-239 assert_perf marker only where timing is the subject); split a suite only when its exclusive part is under a quarter of it, and name the suite it extends (D-088). No suite is named for this task. Acceptance: exclusive_seconds under 25 % of suite seconds in `ai ci status` after a full local run with --lanes 4; every remaining exclusive suite names its reason in its header; `ai ci budget` suites +0 or lower; full ai ci run green.",
       "created_at": "2026-10-29T11:39:27.333Z",
@@ -1155,11 +1153,9 @@
       "depends_on": [
         "E-386"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-386"
-      ],
-      "updated_at": "2026-10-29T11:39:27.334Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-29T15:16:54.840Z"
     },
     {
       "id": "P-49",
@@ -2898,6 +2894,24 @@
       "timestamp": "2026-10-29T14:52:12.795Z",
       "summary": "[TIER_1] E-386 census baseline data file — written by ai ci run on a full PASS; privacy scan clean, no host paths",
       "sha": "20f314791aad9168ce0fb5a309733ca0a0b8b056",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-384",
+      "timestamp": "2026-10-29T15:32:24.030Z",
+      "summary": "[TIER_2] Blueprint aligned — E-384 per public-ci.md §1–3 and the D-135 addendum; warnings advisory (deliberate ci-budget.js reuse, JSON-key false positive, gitignored LOG, files named by §Component 2)",
+      "sha": "1d610fe551b1ce566ee214807e83a3da26f1d9fd",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-384",
+      "timestamp": "2026-10-29T15:32:24.776Z",
+      "summary": "[TIER_2] Blueprint aligned",
+      "sha": "1d610fe551b1ce566ee214807e83a3da26f1d9fd",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

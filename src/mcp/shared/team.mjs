@@ -90,6 +90,8 @@ export function validateTeam(t) {
     if (!c || typeof c !== "object" || Array.isArray(c)) bad("ci must be an object");
     if (!["github", "azure", "gitlab", "bitbucket"].includes(c.provider)) bad("ci.provider must be github|azure|gitlab|bitbucket");
     if (typeof c.required_check !== "string" || !/^[\w .-]{1,64}$/.test(c.required_check)) bad("ci.required_check must be a short name");
+    // E-386/E-384 (D-135 r3): how many shards the rendered matrix runs (1 = one leg).
+    if (c.shards !== undefined && !(Number.isInteger(c.shards) && c.shards >= 1 && c.shards <= 8)) bad("ci.shards must be a whole number 1..8");
     if (c.aios_source !== undefined && !/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/[A-Za-z0-9._~-]+)+$/.test(c.aios_source)) bad("ci.aios_source must be a plain https git URL");
   }
 }

@@ -3,7 +3,7 @@
   "project": {
     "current_tier": 2,
     "release_verdict": null,
-    "focus": "E-181/E-182: README rewrite + CLI deprecation cleanup (src/bin/ai)",
+    "focus": "E-383 the rename to Rein (operator priority 2026-10-29), then E-385 the Rein mark; CI follow-ups E-389, E-388, E-387 after both. E-384 merged as PR #6 — close it via ai-task.",
     "aios_version": "0.4.0",
     "provisioned_at": "2026-10-29T14:38:17.775Z"
   },
@@ -1114,16 +1114,20 @@
     {
       "id": "E-385",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "BLOCKED",
       "tier": 1,
       "description": "Add the Rein mark to the repository and the README per D-134: copy plans/rein-icon/svg/{rein-mark,rein-mark-dark,rein-mark-animated,rein-mark-animated-dark}.svg byte-for-byte to docs/assets/; add docs/assets/favicon.svg (= the static light mark) and docs/assets/rein-social.png (1280×640, static mark + \"Rein\" wordmark on #0d1117, rendered with the Playwright already in the CI cache) and set it as the GitHub social preview (gh api, or tell the operator if the API does not allow it); in README.md put the animated mark above the title through a picture element (source media prefers-color-scheme: dark → rein-mark-animated-dark.svg; img src rein-mark-animated.svg width 120 alt \"Rein\"), the title and tagline as text, the badge row below (E-384's row when it exists, else the current one). No JavaScript, fonts or foreignObject in any mark file; the privacy scan runs on them like any file. Work in the public clone as one PR (after E-382; independent of E-384 and E-383 — the paths do not contain the old name). Acceptance: the README on GitHub shows the animated mark in light and dark themes and a static mark under reduced motion; the four SVGs are identical to plans/rein-icon/svg/; CI green.",
       "created_at": "2026-10-29T10:25:03.889Z",
       "completed_at": null,
       "summary": null,
-      "depends_on": [],
-      "ready": true,
-      "blocked_by": [],
-      "updated_at": "2026-10-29T10:25:03.890Z"
+      "depends_on": [
+        "E-383"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-383"
+      ],
+      "updated_at": "2026-10-29T19:23:00.409Z"
     },
     {
       "id": "E-386",

@@ -3653,3 +3653,17 @@ Ruling 1 is one line in the renderer's job list; ruling 2 is the fallback branch
 Ruling 3 is the branch-policy list; ruling 4 is one seed value in the partition.
 
 ---
+
+## D-132 addendum — The rename to Rein is next; the mark follows it; the CI follow-ups wait
+
+**Date**: 2026-10-29
+**Task**: E-383 (next), E-385 (after E-383), E-389, E-388, E-387 (after both)
+**Decision**: The operator set the priority: the product rename from AI-OS to Rein (E-383) is the next task, the Rein mark (E-385) follows it, and the remaining CI work (E-389 shard seed, E-388 bash 3.2 trap, E-387 exclusive tail) waits for both. D-133 r9 and D-135 r8 are satisfied: E-384 merged as PR #6 on 2026-10-29, so the rename pull request runs on the sharded matrix and the macOS legs (informative until E-388 makes them required). E-385 now depends on E-383 so the mark lands under the new name and paths. The partial macOS coverage is accepted: the rename's installer move is checked on the Ubuntu legs as the gate and on the macOS legs as evidence.
+
+### Alternatives considered
+1. **E-389 first** (one-line, cuts the Ubuntu wall time by ~1.5 min) — deferred: the operator's priority is the public identity; the CI is already under half its former time.
+
+### Rollback
+Sequence only; no file depends on it.
+
+---

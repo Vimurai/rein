@@ -481,3 +481,198 @@ runAnalysis imported read-only with HOME=$T (it only analyses strings).
 
 Gating: under the reporting rule, the P1 hook-registration row and the P2 classifier and doctor
 rows block Tier 3 sign-off for E-391. The pre-existing CLI_GATE rows are recorded for a separate task.
+
+### Re-review — F1–F6 fixes (D-132 addenda 4, 5; commits bcb1039..8868099; security_engineer, 2026-10-29)
+
+Scope: `git diff b5679d6..8868099 -- src hooks install-rein.sh tests`. Suites: init_upgrade_test
+PASS=67/0, classifier_backstop_test PASS=141/0, rename-gate.test.mjs 7/7.
+
+**Closed:** F1 core (a missing path → `[HOOK_PATH_MISSING]`, exit 1, sync rewrites it; no gate
+→ `[GATE_UNREGISTERED]`, exit 1; a foreign Rein-named script → `[HOOK_PATH_FOREIGN]`, kept by
+sync). Keeping it is right: Claude Code runs every matching hook and any exit 2 blocks, so an
+extra foreign entry cannot unblock, and deleting a script the user has is not sync's call. F2
+(OURS is the ruled opening only), F3 (`type -ap rein`; a planted stub is reported as
+shadowing), F4 (a symlinked bin/ is refused, exit 3, before anything goes live, and the target
+is untouched; a directory in bin/ no longer aborts the install), F6 (the install's own `rein`
+comes first). Addendum 5: metacharacter, `$(…)` and backtick cwds are printed as data and never
+run; newline and tab cwds are dropped; a cwd after line 50 is ignored; no other field reaches
+the output; a `*.jsonl` symlinked to `/proc/self/environ` is skipped; `git rev-parse` in a
+candidate with `core.fsmonitor` or `core.hooksPath` set runs neither.
+
+**New findings:**
+- **N1 (P2) — `is_ours` claims a user's existing hook (src/shared/hook-paths.py:51-68; used
+  at src/bin/rein:1719).** "Missing" is decided with `os.path.isfile` on the regex match, and the
+  match is any mention of a Rein hook name in `command`+`args`. (a) The form Claude Code
+  documents for project hooks, `"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh`, matches
+  as `/.claude/hooks/session-start.sh`: the `"` stops the match and the variable is never
+  expanded. The script exists, but the entry reads as MISSING, so doctor exits 1 for good and
+  `rein sync` DELETES the user's entry. (b) `/usr/local/bin/myaudit --note /nope/stop-hook.sh`
+  is deleted by sync too, because one argument names a missing path. A relative path depends on
+  sync's cwd. The common names (`session-start.sh`, `pre-tool-use.sh`) make (a) likely, and the
+  deleted entry can be the user's own guard. Fix: treat only the EXECUTED script as the entry's
+  path (`args[1]` of `/bin/bash -p`, or the first word of `command`, or the word after
+  bash/sh). Expand `$CLAUDE_PROJECT_DIR` / `"$CLAUDE_PROJECT_DIR"` to the project root. Make
+  any other `$`, quote residue or relative path "unknown": never MISSING, never ours. Add both
+  payloads as rows to E-391.03.
+- **N2 (P3) — the doctor exits 0 when the gate entry does not run the gate
+  (hook-paths.py:89-95, src/bin/rein:1233).** `command: "true <install>/hooks/pre-tool-use.sh"`
+  sets `gate=True`, and only a non-hard FORM ✗ line follows. A PreToolUse matcher that never
+  matches (`NoSuchTool`) gets a ✓. `disableAllHooks: true` in project settings is not checked.
+  Partly pre-existing; tampering is classifier-denied and sync repairs the FORM case. Fix: count
+  the gate only in the exec form with matcher `*`/`.*`/empty, and make FORM on PreToolUse
+  hard-fail. Report `disableAllHooks`.
+- **N3 (P3) — an empty hooks dir means cwd (hook-paths.py:57-60, 78).** When `${REIN}/hooks` is
+  absent, doctor passes `""`, and `realpath("")` is the project dir. A project-local
+  `pre-tool-use.sh` then counts as the registered gate (no UNREGISTERED). Fix: if hooks_dir is
+  empty or not absolute, emit UNREGISTERED and treat nothing as ours.
+- **N4 (P3) — the line read has no byte limit (hook-paths.py:121-122).** "First 50 lines" does
+  not cap bytes. One 1 GB line with no newline cost 2.1 GB RSS and 6.6 s; under a 512 MB cap a
+  MemoryError is swallowed and the dir is skipped. Real transcripts can open with large records.
+  Fix: `f.readline(1 << 20)` and skip anything longer; also cap total bytes per file.
+- **N5 (P3) — terminal escapes in the installer list (install-rein.sh:556).** A qualifying
+  directory whose name holds `ESC[2J ESC]0;… BEL` reaches the terminal raw. `printf '%s'` stops
+  shell injection, not control bytes. Fix: drop any cwd with a C0/C1 control or bidi character
+  in `projects` (the same place the newline filter sits).
+- Note: `git -C <candidate> rev-parse --show-toplevel` reads the candidate's `.git/config`, and
+  `core.worktree` there adds an arbitrary qualifying directory to the printed list. That only
+  prints, and nothing executed in the probes. It is the one place addendum 5 r4's "executes
+  nothing there" is loosened by r3; consider `GIT_CONFIG_NOSYSTEM=1` and
+  `-c core.fsmonitor= -c core.hooksPath=/dev/null` as belt.
+
+#### Pen-Test Results (re-review)
+
+Harness as above (`ulimit -u` 1200 for the same reason). hook-paths.py and the OURS regex ran
+as pasted copies. Doctor, sync and the installer ran end-to-end with `env -i HOME=$T`, against
+an install made by `install-rein.sh` into that mktemp HOME. Nothing touched the real HOME or
+~/.rein.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A04 | doctor / sync | `/bin/bash -p <gone home>/hooks/pre-tool-use.sh` | RESISTED | 0 | `[HOOK_PATH_MISSING]` rc=1; sync rewrites it |
+| A04 | doctor | no PreToolUse gate; lowercase `pretooluse` event | RESISTED | 0 | `[GATE_UNREGISTERED]` rc=1 |
+| A04 | doctor / sync | an existing `pre-tool-use.sh` outside the install dir | RESISTED | 0 | FOREIGN; sync keeps it; the gate is still appended |
+| A04 | sync is_ours | `"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh` (exists) | EXPLOITED | 0 | N1: doctor rc=1, and sync deleted the entry |
+| A04 | sync is_ours | `/usr/local/bin/myaudit --note /nope/stop-hook.sh` | EXPLOITED | 0 | N1: the entry deleted |
+| A04 | doctor | `true <install>/hooks/pre-tool-use.sh`; matcher `NoSuchTool` | EXPLOITED | 0 | N2: rc=0 (✗ FORM line / ✓) |
+| A05 | hook-paths check | hooks dir `""` + `<proj>/pre-tool-use.sh` | EXPLOITED | 0 | N3: no UNREGISTERED |
+| A03 | installer scan | cwd `x$(touch PWNED)` + backtick + `;touch` | RESISTED | 0 | printed as data; no canary created |
+| A03 | installer scan | cwd with `\n`, `\t` | RESISTED | 0 | dropped |
+| A03 | installer scan | cwd with `ESC[2J ESC]0;owned BEL` | EXPLOITED | 0 | N5: raw control bytes on the terminal |
+| A04 | installer scan | the candidate's .git `core.fsmonitor` / `core.hooksPath` | RESISTED | 0 | nothing executed |
+| A04 | installer scan | `core.worktree` → another qualifying dir | RESISTED | 0 | listed only (note) |
+| A04 | installer scan | a session dir symlinked out; `*.jsonl` → /proc/self/environ | RESISTED | 0 | skipped; secret field not printed |
+| A04 | installer scan | a cwd on line 56 | RESISTED | 0 | not listed (50-line bound) |
+| A04 | installer scan | a 1 GB first line, no newline | EXPLOITED | 0 | N4: 2.1 GB RSS uncapped; skipped under the 512 MB cap |
+| A04 | classifier OURS | `Acme Gate Tamper: …`, `Acme Gate Tamper (D-7): Never touch prod`, `Corp … the Rein safe-exec gate` | RESISTED | 0 | F2 closed; the current and predecessor texts still match |
+| A04 | doctor PATH | a planted `rein` earlier on PATH | RESISTED | 0 | F3: "shadowed by $T/sh/rein" |
+| A01 | installer | ~/.rein/bin → symlink to a victim dir | RESISTED | 3 | F4: `[INSTALL_BIN_SYMLINK]`; victim intact |
+| A05 | installer | a directory plus a stray file in bin/ | RESISTED | 0 | F4: install completes; bin/ is exactly the source set |
+
+Gating: the N1 rows (P2) block Tier 3 sign-off for E-391 until fixed and re-run. N2–N5 are P3
+and may be ticketed.
+
+### Third pass — N1–N5 fixes (commits 5378b9e, c57c1cf; security_engineer, 2026-10-29)
+
+Scope: `git diff 8868099..HEAD -- src tests` (src/shared/hook-paths.py, src/bin/rein, the suite).
+`bash tests/suites/init_upgrade_test.sh`: PASS=77 FAIL=0 SKIP=0.
+
+**Closed:** N1 (both payloads: the `"$CLAUDE_PROJECT_DIR"` entry is expanded, reads FOREIGN and is
+kept; the `myaudit --note …/stop-hook.sh` entry is unknown and is kept). N2 as specified: `true
+<gate>` and a `NoSuchTool` matcher now give `[GATE_UNREGISTERED]`, and `disableAllHooks: true`
+gives `[HOOKS_DISABLED]`. All three exit 1. N3 (an absent hooks dir → UNREGISTERED; `is_ours` is
+False). N4 (a 1 GiB first line: the installer's whole run peaked at 58 MB RSS in 2 s, and a 3 MiB
+line is skipped with the next line still read). N5 (ESC/OSC, U+202E and C1 directory names are
+dropped). Git-config note: the toplevel is found by walking directories, so `core.worktree` no
+longer adds a path, and `core.fsmonitor` cannot run.
+
+**New findings (all P3; none makes doctor pass on a shipped install or touches an install the
+user did not edit):**
+- **M1 — sync still deletes some user entries (hook-paths.py:86-96, 60-65).** After a shell,
+  `_runs` takes the first non-flag word whole. (a) A `-c` operand: `bash -c '/u/bin/myaudit;
+  /nope/stop-hook.sh'` ends in a Rein hook name, so the whole string becomes the "path". It is
+  never a file, so it reads MISSING: doctor exits 1 and sync DELETES the entry, without a word.
+  (b) An option's argument: `bash --rcfile /nope/session-start.sh /u/bin/myaudit` (also `-o`,
+  `-O`, `--init-file`). (c) shlex does not split operators, so `/nope/stop-hook.sh ||
+  /u/bin/fallback` is deleted together with the user's fallback. (d) `$HOME` is matched as a
+  prefix, so `$HOMEDIR/stop-hook.sh` becomes `<home>DIR/stop-hook.sh`, reads MISSING and is
+  deleted. This is the N1 consequence through narrower shapes. Fix: when the shell has `-c`,
+  shlex-split the operand and apply the first-word rule once. Treat any word holding whitespace
+  or a shell operator (`;` `&&` `||` `|` `&` `<` `>`) as unknown, and any shell flag other than
+  `-p -e -u -x -l --norc --noprofile` as unknown. Expand `$HOME` / `$CLAUDE_PROJECT_DIR` only
+  when `/` or the end of the word follows. Have sync print each entry it removes.
+- **M2 — the matcher is judged in Python's regex dialect (hook-paths.py:117-124).** Claude Code
+  evaluates the matcher in JavaScript. `(?i)bash` throws "Invalid group" in JS, and `\ABash\Z`
+  is false there, yet `re.fullmatch` accepts both. Doctor prints ✓ and exits 0 while the gate
+  never fires. Fix: count as the gate only an empty / `*` / `.*` matcher, or a plain
+  `^[A-Za-z0-9_|]+$` list split on `|` that contains `Bash`.
+- **M3 — "covers Bash" is not "covers what the gate guards" (hook-paths.py:164).** With matcher
+  `Bash`, doctor exits 0, but the gate no longer sees Write/Edit/MultiEdit/NotebookEdit (the
+  Architect write gate is in the same hook). Fix: require every tool in sync's shipped matcher.
+- **M4 — `type` and `timeout` are not checked (hook-paths.py:157-165).** `"type": "prompt"` or
+  `"timeout": 0.001` on the exec-form gate gives ✓ and exit 0. A timed-out hook is a non-blocking
+  error, so the gate fails open. Fix: require `type == "command"`, and a timeout that is absent
+  or ≥ the shipped 30.
+- **M5 — disableAllHooks is read from one file only (hook-paths.py:140).** Setting it in
+  `.claude/settings.local.json` (or in the user-level
+  Claude settings) gives ✓ and exit 0. Fix: also read settings.local.json and the user/account
+  settings files. A non-boolean value (`"true"`) is INCONCLUSIVE: whether Claude Code coerces it
+  or rejects the file was not testable offline. Report anything other than `false`/absent.
+- **M6 — doctor prints the settings path raw (src/bin/rein:1231-1232).** A MISSING entry
+  `/nope/ESC[2J ESC]0;owned BEL U+202E/stop-hook.sh` reaches the terminal unescaped. This is
+  N5's class on the doctor side. A newline in the path only adds lines that cannot clear a
+  finding. Fix: apply `_UNSAFE` to every field `check()` prints (replace with `?`).
+- **M7 (robustness) — if the install's own `pre-tool-use.sh` is a symlink out of the hooks dir
+  (hook-paths.py:102), it reads FOREIGN.** Doctor fails closed, which is correct. But sync
+  never claims the entry, so it appends another gate entry on every run (1 → 2 → 3). Fix: count
+  an entry whose lexical dirname is the hooks dir as OURS.
+- Info: if `pre-tool-use.sh` in the install is a symlink to another in-dir hook, doctor passes.
+  That is install integrity, out of this check's scope: write access to `~/.rein/hooks` already
+  owns the gate. `env X=1 /nope/stop-hook.sh` is never reported MISSING. Sync keeps it, which
+  is the safe direction. Pre-existing and not E-391: doctor exits 0 with `[SAFE_EXEC_BROKEN]` /
+  `[GATE_DEP_MISSING]` present (src/bin/rein:1265-1272 never sets `_DOCTOR_HARD_FAIL`). Ticket
+  it separately.
+
+#### Pen-Test Results (third pass)
+
+Doctor and sync ran end-to-end with `env -i HOME=$T` against an install made by
+`install-rein.sh` into a mktemp HOME. The installer was re-run there over hostile session
+directories. `hook-paths.py` also ran as a pasted copy under the harness caps (`ulimit -v`
+512 MB; `-u` 1200, as before). Nothing touched the real HOME or ~/.rein. Sync exited 1 in
+every case because of the fixture's stubbed npm (repo_map and gate_check steps); its
+settings step completed each time.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A04 | sync / doctor | `"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh` (exists) | RESISTED | 0 | N1: FOREIGN, kept |
+| A04 | sync / doctor | `/u/bin/myaudit --note /nope/stop-hook.sh` | RESISTED | 0 | N1: unknown, kept, ✓ |
+| A04 | sync is_ours | `bash -c '/u/bin/myaudit; /nope/stop-hook.sh'` (+ `--log …/session-start.sh`) | EXPLOITED | 0 | M1(a): MISSING rc=1; entry deleted |
+| A04 | sync is_ours | `bash --rcfile /nope/session-start.sh /u/bin/myaudit` | EXPLOITED | 0 | M1(b): deleted |
+| A04 | sync is_ours | `/nope/stop-hook.sh \|\| /u/bin/myaudit` | EXPLOITED | 0 | M1(c): fallback deleted with it |
+| A04 | sync is_ours | `$HOMEDIR/stop-hook.sh` | EXPLOITED | 0 | M1(d): read as `<home>DIR/…`, deleted |
+| A04 | doctor | `env X=1 /nope/stop-hook.sh` | RESISTED | 0 | unknown, kept (not reported) |
+| A04 | doctor | `true <gate>` matcher Bash; exec gate under `NoSuchTool` | RESISTED | 0 | N2: UNREGISTERED rc=1 |
+| A04 | doctor | `disableAllHooks: true` | RESISTED | 0 | N2: HOOKS_DISABLED rc=1 |
+| A04 | doctor | exec gate, matcher `(?i)bash` / `\ABash\Z` | EXPLOITED | 0 | M2: ✓ rc=0; JS throws / false |
+| A04 | doctor | exec gate, matcher `Bash` only | EXPLOITED | 0 | M3: ✓ rc=0; Write/Edit unguarded |
+| A04 | doctor | exec gate `type: prompt`; `timeout: 0.001` | EXPLOITED | 0 | M4: ✓ rc=0 |
+| A05 | doctor | `disableAllHooks: true` in settings.local.json | EXPLOITED | 0 | M5: ✓ rc=0 |
+| A05 | doctor | `disableAllHooks: "true"` (string) | INCONCLUSIVE | 0 | M5: ✓ rc=0; Claude Code's handling not testable offline |
+| A03 | doctor parser | unbalanced quote `/bin/bash -p '<gate>` | RESISTED | 0 | unknown → UNREGISTERED rc=1 |
+| A03 | doctor parser | `bash -c '<gate>'`; `env X=1 /bin/bash -p <gate>`; exec `-p -- <gate>` | RESISTED | 0 | FORM/UNREGISTERED rc=1; sync repairs |
+| A04 | doctor / sync | gate under `NoSuchTool` AND under the shipped matcher | RESISTED | 0 | ✓ is correct (one fires); sync dedups to 1 |
+| A04 | doctor | gate under `NoSuchTool` + `true <gate>` under Bash | RESISTED | 0 | UNREGISTERED rc=1 |
+| A04 | doctor / sync | a user's symlink elsewhere → the install's gate | RESISTED | 0 | FORM/UNREGISTERED; sync replaces |
+| A04 | doctor / sync | the install's `pre-tool-use.sh` → symlink out of the hooks dir | RESISTED | 0 | FOREIGN + UNREGISTERED rc=1; M7: sync adds a duplicate each run |
+| A04 | doctor | the install's `pre-tool-use.sh` → symlink to another in-dir hook | INCONCLUSIVE | 0 | ✓ rc=0; install integrity, out of scope (Info) |
+| A03 | doctor output | MISSING path with ESC/OSC/BEL/U+202E | EXPLOITED | 0 | M6: raw on the terminal |
+| A03 | doctor output | MISSING path with `\n` + a forged `OURS` line | RESISTED | 0 | it can only add lines, never clear a finding |
+| A05 | doctor / check | hooks dir absent; project-local `pre-tool-use.sh`; hooks dir `""` / `rel` | RESISTED | 0 | N3: UNREGISTERED rc=1; is_ours False |
+| A04 | installer scan | a 1 GiB first line; a 3 MiB line, then a good cwd | RESISTED | 0 | N4: 58 MB RSS, 2 s; the good cwd listed |
+| A03 | installer scan | cwd with ESC/OSC/BEL, U+202E, C1 CSI | RESISTED | 0 | N5: dropped |
+| A03 | installer scan | cwd `x$(touch PWNED1)` | RESISTED | 0 | printed as data; no canary |
+| A04 | installer scan | the candidate's `core.worktree` → another qualifying dir; `core.fsmonitor` canary | RESISTED | 0 | note closed: victim not listed; nothing run |
+
+Gating: N1–N5 and the note are closed. The new rows are P3: none makes doctor pass on an
+untouched install. Every one needs a hand edit of the machine-local settings, and an agent's
+edit to them is classifier-denied. They may be ticketed. M1 is the N1 consequence, a silent
+delete of a user's hook, and the fix is small, so it should be fixed before merge.

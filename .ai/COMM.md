@@ -335,3 +335,31 @@
 ### Open risks
 - Until the Architect pane moves, every further Architect commit here widens the port; keep step 9 short.
 ---
+---
+## Handoff — 2026-10-29 11:45 UTC
+**From**: Architect → Engineer
+**Trigger**: D-135 ruled, P-49 DONE, E-386/E-387 registered, E-384 re-dependencied
+
+### What was planned
+- **D-135** — hosted CI at the runner's width, for every Rein project and for Rein: every core is a lane on a hosted runner (r1); `tests/census-baseline.tsv` committed so a fresh runner packs lanes by measured time and admits installer-subject suites (r2); `tests/run.sh --shard i/N` + `ai ci run --shard i/N` (r3); the `fast` job in every rendering, `--changed origin/<trunk>` on PRs (r4); public PR matrix `ubuntu × {22,24}` + `macos × 22`, N shards, macOS 24 and one unsharded leg nightly-only (r5); `exclusive_seconds` measured, Rein's tail under 25 % (r6); required-check names become a list (r7); sequence E-382 → E-386 → E-384 → E-383 (r8).
+- **Blueprint** `.ai/blueprints/ci-throughput.md` (new): Components 1–5, contracts, data model, security, rollback, task table. Read it before E-386.
+- **Blueprint** `.ai/blueprints/public-ci.md` amended: §Component 1 jobs, §Component 3 required set, Data Model, contracts, constraints, task table.
+- **E-386** (Tier 2, after E-382): harness + `ai ci run` — lane default by host, census baseline, `--shard`, `exclusive_seconds`. Lands BEFORE E-384.
+- **E-387** (Tier 2, after E-386): Rein's exclusive tail under 25 %.
+- **E-384 rescoped** (now depends on E-382 and E-386; its registered text predates D-135 — where they differ, `public-ci.md` §Component 1 and `ci-throughput.md` §Component 4 govern): the fast job renders in every profile and runs `--changed` on PRs; matrix legs are `ai ci run (<os>, node <v>, <i>/<N>)` with `--shard`, no `--lanes`; macOS × 24 is nightly-only; required checks are the twelve PR legs + privacy + fast + CodeQL.
+
+### Measured facts behind the ruling (hosted run 40861277198)
+- Setup 50 s; `ai ci run` 15.5 min; 32 shared suites in 2 lanes on 4 cores, then 13 exclusive suites serially; 5 of the 13 exclusive only for "no measured installer footprint" (no census log on a fresh runner).
+
+### Blueprint divergence
+- NONE — planning only.
+
+### Next action needed (Engineer)
+- Finish E-382 (PR open). Then E-386, then E-384 (rescoped as above), then E-383; E-387 any time after E-386; E-385 any time after E-382.
+- E-386 touches the `ci_runs` schema (nullable `shard`): `skill: ai-migration`. The renderer change in E-384: `ci_gate` first, `.ai/DEVOPS.md` updated with the new required names.
+- Hand back the measured leg times from the first sharded PR run; D-135's "under 5 minutes" is a prediction to be replaced by `ai ci status` numbers.
+
+### Open risks
+- A baseline older than the suites it describes packs lanes badly (slow, never wrong). A shard partition that shifts with hints can move a flaky suite between legs; the nightly unsharded leg is the control.
+- `macos-latest` has 3 cores and 7 GB: 3 lanes, and the longest queue — if a macOS leg's queue exceeds its run time for a month, revisit D-135 alt. 4.
+---

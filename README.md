@@ -6,7 +6,7 @@
   [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
   [![CI][ci-badge]][ci]
   [![Sponsor][sponsor-badge]][sponsor]
-  [![Version](https://img.shields.io/badge/version-v4.0.0-blue.svg)](CHANGELOG.md)
+  [![Version](https://img.shields.io/badge/version-v0.4.0-blue.svg)](CHANGELOG.md)
 </div>
 
 Rein runs two Claude Code sessions side by side — an **Architect** that plans and an

@@ -211,6 +211,11 @@ test("runStamp seeds state.sqlite from state.json first, keeps tasks, never touc
     assert.deepEqual(await runStamp({ aiDir: ai, version: "3.1.0" }), [], "idempotent");
     assert.equal((await runStamp({ aiDir: ai, version: "4.0.0", check: true }))[0].kind, "pending");
     assert.equal(readProjectVersion(ai), "3.1.0", "--check wrote nothing");
+    // D-131: the public line restarts at 0.4.0 — a lower version restamps like any other.
+    await runStamp({ aiDir: ai, version: "4.0.0" });
+    const down = await runStamp({ aiDir: ai, version: "0.4.0" });
+    assert.deepEqual(down.map((r) => [r.kind, r.detail]), [["stamped", "project.aios_version 4.0.0 → 0.4.0"]]);
+    assert.equal(readProjectVersion(ai), "0.4.0");
   } finally { t.done(); }
 });
 

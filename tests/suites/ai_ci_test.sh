@@ -859,8 +859,9 @@ assert_status 0 "E-268.02a: no hosted-CI instruction remains under src/tests/hoo
 # The permitted mentions: CHANGELOG history, DECISIONS, the archive.
 assert_status 0 "E-268.02b: the CHANGELOG records the removal for the release notes" \
   grep -q 'GitHub Actions workflow removed; CI runs locally via `ai ci`' "${REPO_ROOT}/CHANGELOG.md"
-assert_status 0 "E-268.02c: under an Unreleased BREAKING heading, where E-263 will find it" \
-  bash -c "sed -n '/^## \[Unreleased\]/,/^## \[3/p' '${REPO_ROOT}/CHANGELOG.md' | grep -q 'Changed — BREAKING'"
+# E-382 (D-131): E-263 released it in [4.0.0], now under "Private predecessor"; no [Unreleased].
+assert_status 0 "E-268.02c: under the 4.0.0 BREAKING heading, where E-263 released it" \
+  bash -c "sed -n '/^## \[4\.0\.0\]/,/^## \[3/p' '${REPO_ROOT}/CHANGELOG.md' | grep -q 'Changed — BREAKING'"
 
 # ── E-268.3: README ──────────────────────────────────────────────────────
 # E-374 (D-125): a live GitHub Actions badge reflects real runs and is allowed; a static

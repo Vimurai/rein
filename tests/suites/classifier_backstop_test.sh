@@ -161,7 +161,7 @@ assert_status 0 "E-293.03g: …and does not touch the file" \
 # An OUTDATED copy (same label, other text) is replaced in place, never duplicated.
 python3 - "$S" <<'PY'
 import json, sys
-p = sys.argv[1]; d = json.load(open(p)); d["autoMode"]["hard_deny"][1] = "Rein Gate Tamper: an older wording"
+p = sys.argv[1]; d = json.load(open(p)); d["autoMode"]["hard_deny"][1] = "Rein Gate Tamper (D-099): Never disable, bypass or weaken the Rein safe-exec gate — an older wording"
 open(p, "w").write(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
 PY
 assert_contains "E-293.03h: an older labelled copy reads OUTDATED" "OUTDATED" "$(python3 -I "$PY" status "$S")"
@@ -321,12 +321,12 @@ _home; printf '{\n  "a": 1,\n}\n' > "$S"
 assert_contains "E-293.08d: unparsable → Claude Code ignores it, no autoMode active" "NO autoMode rules are active" "$(_doctor)"
 _home; printf '{"permissions": {"allow": ["Bash(rein gate:*)"], "defaultMode": "auto"}, "autoMode": {"hard_deny": ["x"]}}\n' > "$S"
 out="$(_doctor)"
-assert_contains "E-293.08e: a Bash(ai… allow rule is warned about" "allow rules are resolved BEFORE the classifier" "$out"
+assert_contains "E-293.08e: a Bash(rein… allow rule is warned about" "allow rules are resolved BEFORE the classifier" "$out"
 assert_contains "E-293.08f: a list without \$defaults is reported (D-086 r2)" 'hard_deny omits "$defaults"' "$out"
 assert_contains "E-293.08g: auto mode reported without the hook-only caveat" "default permission mode: auto" "$out"
 assert_not_contains "E-293.08h: …and no 'only gate' caveat in auto mode" "the hook is the only gate" "$out"
-_home; printf '{"autoMode": {"hard_deny": ["Rein Gate Tamper: older text"]}}\n' > "$S"
-assert_contains "E-293.08j: an outdated copy is reported" "outdated wording — rein install offers the current rule" "$(_doctor)"
+_home; printf '{"autoMode": {"hard_deny": ["Rein Gate Tamper (D-099): Never disable, bypass or weaken the Rein safe-exec gate — older text"]}}\n' > "$S"
+assert_contains "E-293.08j: an outdated copy is reported" "outdated (D-099) wording — rein install offers the current rule" "$(_doctor)"
 
 # ── E-306: an installed older rule (D-086) is replaced IN PLACE by the current one — exactly one Rein rule ──
 _home
@@ -349,7 +349,7 @@ PY
 python3 - "$S" "$D086" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p))
-d["autoMode"]["hard_deny"] = ["$defaults", sys.argv[2], "x", "Rein Gate Tamper: an even older copy"]
+d["autoMode"]["hard_deny"] = ["$defaults", sys.argv[2], "x", "Rein Gate Tamper (D-099): Never disable, bypass or weaken the Rein safe-exec gate — an even older copy"]
 json.dump(d, open(p, "w"), indent=2, ensure_ascii=False)
 PY
 python3 -I "$PY" apply "$S" >/dev/null
@@ -357,6 +357,23 @@ assert_status 0 "E-306.02d: two labelled copies collapse to ONE current rule (fi
 import json, sys
 hd = json.load(open(sys.argv[1]))["autoMode"]["hard_deny"]
 assert hd == ["$defaults", sys.argv[2], "x"], hd
+PY
+# E-391 (D-132 addendum 4 r3, security_engineer F2): only the ruled opening is ours — a user's
+# own deny rule that merely shares the words "Gate Tamper" is neither replaced nor removed.
+_home
+python3 - "$S" <<'PY'
+import json, sys
+json.dump({"autoMode": {"hard_deny": ["$defaults", "Deploy Gate Tamper: never run terraform apply on prod",
+                                      "Rein Gate Tamper: a note the user wrote by hand"]}},
+          open(sys.argv[1], "w"), indent=2)
+PY
+assert_contains "E-391.02a: a user's own '… Gate Tamper' rules are not our rule (ABSENT, not OUTDATED)" "ABSENT" "$(python3 -I "$PY" status "$S")"
+python3 -I "$PY" apply "$S" >/dev/null
+assert_status 0 "E-391.02b: apply keeps both user rules and adds the current rule after them" python3 - "$S" "$RULE" <<'PY'
+import json, sys
+hd = json.load(open(sys.argv[1]))["autoMode"]["hard_deny"]
+assert hd == ["$defaults", "Deploy Gate Tamper: never run terraform apply on prod",
+              "Rein Gate Tamper: a note the user wrote by hand", sys.argv[2]], hd
 PY
 _home; printf '{}\n' > "$S"; chmod 000 "$S"
 out="$(_doctor)"; chmod 600 "$S"

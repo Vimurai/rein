@@ -49,11 +49,13 @@ import stat
 import sys
 import tempfile
 
-# The current label. Any version of the rule (this one, or one labelled with an earlier product
-# name) reads `<product word> Gate Tamper (D-###): …` (OURS); an installed copy with other text
-# is OUTDATED.
+# The current label. Every ruled version since D-086 — this one, or one under the predecessor's
+# product name — opens `<Word> Gate Tamper (D-###): Never disable, bypass or weaken the <Word>
+# safe-exec gate` (OURS); a copy with that opening but other text is OUTDATED. Nothing else is
+# ours: a user's own `… Gate Tamper` deny rule is never replaced or removed (D-132 addendum 4 r3).
 LABEL = "Rein Gate Tamper"
-OURS = re.compile(r"^[A-Za-z][A-Za-z-]* Gate Tamper\b")
+OURS = re.compile(r"^(?P<word>[A-Za-z][A-Za-z-]*) Gate Tamper \((?P<ruling>D-\d+)\): "
+                  r"Never disable, bypass or weaken the (?P=word) safe-exec gate\b")
 # D-132 addendum 2 r6 (E-391; supersedes D-101, which superseded D-097, D-090 and D-086 ruling 1) — copied VERBATIM from .ai/DECISIONS.md
 # (tests/suites/classifier_backstop_test.sh asserts it equals the quoted constant there). A new version is a new D-ruling.
 RULE = "Rein Gate Tamper (D-132): Never disable, bypass or weaken the Rein safe-exec gate or its role tokens, however assembled (shell variables, eval, bash -c, aliases, a script written then run, python/node/perl, sed -i, jq, cp/mv/ln, editor tools, subagents, or a nested claude launched with flags or settings that drop its hooks). Specifically: running `rein gate off`; creating, editing, moving or linking `~/.rein/gate-override.json`, `~/.rein/accounts.json` or anything under `~/.rein/{hooks,bin,mcp,shared,scripts,run,config,secrets}/` (by `~`, `$HOME`, a relative path or an absolute path); running `claude auto-mode reset`; changing `~/.claude/settings.json` or any registered Claude account's `settings.json` (the `config_dir` directories named in `~/.rein/accounts.json`), or their symlink targets, to remove or alter `autoMode`, `hooks`, `disableAllHooks` or `defaultMode`, or to add `permissions.allow` rules for `rein`; or changing a project's `.claude/settings.json` or `settings.local.json` to remove or alter `hooks`, `disableAllHooks` or `defaultMode`. Exempt: `rein install`, `rein sync`, `rein init`, `rein doctor`, `rein start`, `rein pane`, `rein account`, `rein gate on`, `rein gate status` and `bash install-rein.sh`, each run with no flag that skips, disables or redirects hooks or the gate — and, for `rein install`, `rein sync` and `bash install-rein.sh`, only from a source tree whose hooks, gate or installer this session has not modified; the `rein` command's own subcommands writing their runtime state under `~/.rein/run/` (never the gate switch); `rein install` creating the key under `~/.rein/secrets/`; reading these files."
@@ -153,8 +155,7 @@ def _outdated_ruling(d):
     """The D-### an installed outdated copy carries in its label, e.g. "D-086", or ""."""
     for x in ((d.get("autoMode") or {}).get("hard_deny")) or []:
         if isinstance(x, str) and OURS.match(x) and x != RULE:
-            m = re.match(OURS.pattern + r" \((D-\d+)\)", x)
-            return m.group(1) if m else ""
+            return OURS.match(x).group("ruling")
     return ""
 
 

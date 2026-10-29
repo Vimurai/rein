@@ -1,4 +1,4 @@
-# SECURITY.md — AI-OS v2
+# SECURITY.md — Rein v2
 
 > Full threat detail: `.ai/THREAT_MODEL.md`
 > Last updated: 2026-04-14 (security_engineer — E-8 computer-use-mcp)
@@ -9,7 +9,7 @@
 
 | Secret | Stored Location | How Rotated | Must Never Appear In |
 |---|---|---|---|
-| TestSprite API key | `.mcp.json` env block (`API_KEY`) | Manual replacement in `.mcp.json`, then `install-ai-os.sh` re-sync | Logs, `.ai/*.md`, git commits, DIGEST.md |
+| TestSprite API key | `.mcp.json` env block (`API_KEY`) | Manual replacement in `.mcp.json`, then `install-rein.sh` re-sync | Logs, `.ai/*.md`, git commits, DIGEST.md |
 | GitHub credentials (github-bridge-mcp) | System keychain / env var at runtime | External (GitHub PAT rotation) | Any `.ai/` file, any MCP tool output written to disk |
 | Host `$DISPLAY` socket path | Must NOT be visible to computer-use-mcp | N/A — should be structurally unreachable | Any MCP tool argument, any log line emitted by computer-use-mcp |
 | Xvfb virtual display socket | Ephemeral per session, e.g. `/tmp/.X99-lock` | Auto-destroyed on session end | No persistent logging of socket path |
@@ -367,7 +367,7 @@ The commit metadata is noreply and unsigned, with tz +0100.
 | A01 | hook activation | `.ai/publish.json` absent from the worktree (`git rm` / `mv`) | EXPLOITED | 0 | the gate returns [] and one staged deletion disables it for good |
 | A04 | precommit CLI | file → symlink type change (status T) to a `/home/<u>` target | EXPLOITED | 0 | `--diff-filter=ACMR` drops T |
 | A04 | scan-tree CLI | new symlink to `/home/<u>/…` | EXPLOITED | 0 | readFileSync follows the link → ENOENT → skipped; the target text is never scanned |
-| A05 | hook → installed helper | `~/.ai-os/shared/publish-scan.mjs precommit` (stale install, no such CLI) | EXPLOITED | 0 | rc 0, no output; the hook prints "✓ privacy gate". This is the CURRENT installed state |
+| A05 | hook → installed helper | `~/.rein/shared/publish-scan.mjs precommit` (stale install, no such CLI) | EXPLOITED | 0 | rc 0, no output; the hook prints "✓ privacy gate". This is the CURRENT installed state |
 | A05 | CI job | snapshot's own publish-scan.mjs `scan-tree` (built from HEAD f98f00c) | EXPLOITED | 0 | rc 0, no output ⇒ the privacy CI is green and checks nothing |
 | A05 | CLI | unknown subcommand typo | EXPLOITED | 0 | rc 0 silently |
 | A08 | snapshot | latest snapshot vs current builder | EXPLOITED | 0 | rein-snapshot-ynvxhF predates the builder edit: no `.ai/publish.json`, no privacy.yml, no gate code |

@@ -1,7 +1,7 @@
 # Blueprint: Claude Code Optimizations
 
 ## Goal & Architecture
-To solidify the AI-OS v2 Triad by resolving terminal workflow friction, guaranteeing MCP JSON-RPC stream purity, and ensuring perfect audit traceability across sessions.
+To solidify the Rein v2 Triad by resolving terminal workflow friction, guaranteeing MCP JSON-RPC stream purity, and ensuring perfect audit traceability across sessions.
 
 ## Core Concept
 1. **MCP Stream Purity:** A static enforcement boundary ensuring `src/mcp/` servers never leak non-protocol data (like `console.log`) to stdout, capitalizing on Claude Code's recent leak fix.
@@ -43,4 +43,4 @@ To solidify the AI-OS v2 Triad by resolving terminal workflow friction, guarante
 ## E-## Task Breakdown
 - **E-48:** Implement MCP Stdout Purity Gate: Add a pre-commit lint rule to ban `console.log` and `console.info` in `src/mcp/**` per `claude-code-optimizations.md`. | Tier: 2
 - **E-49:** Implement Session Traceability: Update `approval-mcp` SQLite schema and `ai-log` to capture and record `CLAUDE_CODE_SESSION_ID` per `claude-code-optimizations.md`. | Tier: 2
-- **E-50:** Terminal Optimization: Inject `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` into `bin/ai` and `install-ai-os.sh` per `claude-code-optimizations.md`. | Tier: 1
+- **E-50:** Terminal Optimization: Inject `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` into `bin/ai` and `install-rein.sh` per `claude-code-optimizations.md`. | Tier: 1

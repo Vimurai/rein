@@ -9,11 +9,11 @@
 > (after E-254 merged); `_INDEX.md` regenerated.
 
 ## Goal & Architecture
-AI-OS carries two provider adapters nobody runs any more. The Architect and the Engineer both
+Rein carries two provider adapters nobody runs any more. The Architect and the Engineer both
 run on Claude (D-066); TestSprite — the "third brain" — is a third-party cloud MCP that needs an
 API key, is not exercised by the harness, and whose label is hard-coded in five places. The
 `agy`/`gemini` code paths are the largest source of dead branches in `src/bin/ai` (163 hits),
-the installer (22), the tests (59 files) and the docs (README 28). Ruling: **AI-OS v4 is
+the installer (22), the tests (59 files) and the docs (README 28). Ruling: **Rein v4 is
 Claude-native.** One provider, three Claude roles (Architect on `fable`, Engineer on `opus`,
 Tester on `sonnet`), no vendor shims but `CLAUDE.md`, no third-party test cloud. Removal is
 done by deletion, not by flags; what remains is what runs.
@@ -44,7 +44,7 @@ deleted. The Tester becomes a **headless Claude role**: no pane, dispatched as a
    `src/templates/AGENTS.md`, root `GEMINI.md`; in `src/bin/ai` remove
    `strip_gemini_agent_fields`, `_configure_project_gemini_settings`, `agy_plugin_install`,
    the `ai provider` subcommand, the `gemini`/`agy` `_provision_workspace` calls, the doctor
-   branches and every help/banner string naming a vendor; in `install-ai-os.sh` the
+   branches and every help/banner string naming a vendor; in `install-rein.sh` the
    `gemini/` and `agents/` mirrors, their purge and the agy plugin step; in `registry.json`
    the `gemini` block; in `ai-watch` and `advisor-mcp` the `agy` fallbacks (→ `claude`);
    `providers.json` template → `claude` only; `provider-adapter.mjs` `DEFAULT_ADAPTERS` →
@@ -82,7 +82,7 @@ deleted. The Tester becomes a **headless Claude role**: no pane, dispatched as a
    Gemini Model Mandate and the agy branches of §36; §36 becomes "Skill tool for skills,
    Agent tool for agents"), `hooks/pre-commit.sh`. Acceptance is a repo-wide grep:
    `grep -riE 'gemini|\bagy\b|antigravity|testsprite' src tests hooks README.md CONTRIBUTING.md
-   ARCHITECT.md ENGINEER.md CLAUDE.md install-ai-os.sh` returns ONLY the files named in
+   ARCHITECT.md ENGINEER.md CLAUDE.md install-rein.sh` returns ONLY the files named in
    `tests/fixtures/legacy-mention-allowlist.json` (**D-076**, amending the original "nothing"
    which predates D-074). Each entry is `{path, kind: removal|absence-test, hits, reason}`;
    a test runs the grep over the same roots (`corpus_or_fail`) and asserts the hit set and
@@ -138,7 +138,7 @@ text so archived rows with `Tester (TestSprite)` remain valid.
 ## Execution Constraints
 - One wave at a time, in order E-254 → E-255 → E-256 → (D-070 insights fixes) → E-263. Each
   wave is a PR; full suite + CI green before the next starts. Every wave touches `src/bin`
-  and `src/mcp`: finish with `bash install-ai-os.sh` + server restart (D-067 §3 gate, as
+  and `src/mcp`: finish with `bash install-rein.sh` + server restart (D-067 §3 gate, as
   ratified in D-071 §1 — the gate reads mirror drift and live boot records, not LOG lines).
 - E-254 is the largest deletion in the project's history: ~60 test files change. The Engineer
   works file-by-file with `corpus_or_fail` (E-251) protecting every rule-scanning suite whose
@@ -146,10 +146,10 @@ text so archived rows with `Tester (TestSprite)` remain valid.
 - The mirror-identity tests (~25) are re-pointed, not removed.
 
 ## Rollback Plan
-Tag `v3.1.0` is the rollback: check out that tag and run `bash install-ai-os.sh`. Within v4
+Tag `v3.1.0` is the rollback: check out that tag and run `bash install-rein.sh`. Within v4
 there are NO feature flags for the removed providers — a flag would keep the dead code alive,
 which is the thing being removed. `ai sync` legacy pruning is the one guarded step:
-`AI_OS_KEEP_LEGACY_WORKSPACES=1` prints instead of deleting.
+`REIN_KEEP_LEGACY_WORKSPACES=1` prints instead of deleting.
 
 ## E-## Task Breakdown
 - **E-254** (Tier 2): provider removal + legacy pruning (Components 1–2).

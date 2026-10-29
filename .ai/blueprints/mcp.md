@@ -5,7 +5,7 @@
 # Domain Blueprint: MCP Nervous System
 
 > [!IMPORTANT]
-> This document maps every AI-OS Model Context Protocol (MCP) server, grouped by routing domain. It is generated from `src/config/registry.json` — edit the registry, then re-run the generator. Never edit this file directly.
+> This document maps every Rein Model Context Protocol (MCP) server, grouped by routing domain. It is generated from `src/config/registry.json` — edit the registry, then re-run the generator. Never edit this file directly.
 
 Total registered servers: **18**. The Architect curates DOMAINS; the Engineer wires them into the registry.
 
@@ -16,7 +16,7 @@ State and task management — TASKS.md, state.json, archives, semantic memory.
 - **`orchestrator-mcp`** (WRITE) — Deterministic workflow execution (P-38): replaces LLM-interpreted skills with programmatic orchestration.
 - **`archive-manager-mcp`** (EXECUTE) — Auto-Pilot Archive (P-27): monitors .ai/ context health and triggers archive when thresholds are exceeded.
 - **`memory`** (WRITE) — WRITE server.
-- **`memory-manager-mcp`** (WRITE) — §31 Cross-Project Memory Palace: stores high-level project signatures in ~/.ai-os/memory/signatures.json.
+- **`memory-manager-mcp`** (WRITE) — §31 Cross-Project Memory Palace: stores high-level project signatures in ~/.rein/memory/signatures.json.
 
 ## Code
 Code intelligence and editing — filesystem, LSP, atomic patching.
@@ -37,7 +37,7 @@ Pre-execution safety gates — command analysis, scope checks, risk classificati
 Blueprint alignment and token budgeting.
 
 - **`blueprint-aligner-mcp`** (READ) — READ server.
-- **`token-budget-mcp`** (WRITE) — §27 Token Budget & Cost Governance: real-time LLM spend tracking persisted in ~/.ai-os/usage.sqlite.
+- **`token-budget-mcp`** (WRITE) — §27 Token Budget & Cost Governance: real-time LLM spend tracking persisted in ~/.rein/usage.sqlite.
 
 ## Quality
 Visual audit (tests run headless via skill: ai-test, E-255).

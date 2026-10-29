@@ -52,7 +52,7 @@ Four independent levers, each a flag or a default, each rolled back alone:
 - A project without `tests/tools/census.mjs` gets no baseline and no messages.
 
 ### Component 3 — Shards (`tests/run.sh`, `ai ci run`, `src/shared/ci-record.mjs`)
-- `tests/run.sh --shard i/N` (`AIOS_TEST_SHARD=i/N`; `1 ≤ i ≤ N`, else exit 2). Partition:
+- `tests/run.sh --shard i/N` (`REIN_TEST_SHARD=i/N`; `1 ≤ i ≤ N`, else exit 2). Partition:
   shared suites sorted by hint descending then name, assigned greedily to the lightest of N
   bins; exclusive suites the same, separately; a suite with no hint counts as the median.
   The node unit layer and the fast-tier timing belong to shard 1, and bin 1 is seeded with
@@ -94,7 +94,7 @@ Four independent levers, each a flag or a default, each rolled back alone:
   `exclusive <s> s (<p> % of suite seconds)` after the slowest suites.
 - Rein: the five suites exclusive for "no measured installer footprint" are expected to join
   the lanes once the baseline exists (Component 2); the remaining eight are reviewed one by
-  one and each keeps its `# AIOS_EXCLUSIVE: <reason>` header or loses the status. Target: the
+  one and each keeps its `# REIN_EXCLUSIVE: <reason>` header or loses the status. Target: the
   exclusive phase under 25 % of a leg's suite seconds; a team project sees its share and is
   not held to it.
 
@@ -107,7 +107,7 @@ tests/census-baseline.tsv
 
 ci_runs (+ column)      shard TEXT NULL        -- "i/N" or NULL
 .ai/ci/<sha>.json (+)   "shard": "i/N"         -- absent on a full run
-team.json               ci: { provider, aios_source?, shards?: 1..8 }   -- default 4
+team.json               ci: { provider, rein_source?, shards?: 1..8 }   -- default 4
 [ci] resources          lanes= peak_rss_mb= suite_seconds= exclusive_seconds= runner=
 Required checks (public, PR): fast, privacy, CodeQL,
   ai ci run (ubuntu-latest, node 22, i/4), ai ci run (ubuntu-latest, node 24, i/4),
@@ -123,7 +123,7 @@ Required checks (team):       fast, ai ci run (ubuntu-latest, node 22, i/N)
 - `ai ci hosted <provider> [--check|--force]` — renders the job list above; `--check` fails on
   drift as today; the printed policy lists every required name.
 - `ai doctor` — `[CENSUS_BASELINE_STALE] <n>` and the existing `[HOSTED_CI_OK]` line.
-- Environment: `AIOS_TEST_SHARD`, `AIOS_TEST_LANES` (existing); no new user-facing env var.
+- Environment: `REIN_TEST_SHARD`, `REIN_TEST_LANES` (existing); no new user-facing env var.
 
 ## Security
 - No secrets, no network: shards and lanes are local process partitioning; the baseline is

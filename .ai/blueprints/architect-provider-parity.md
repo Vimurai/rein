@@ -17,7 +17,7 @@ the manifest instead of hardcoding `claude=engineer`, `agents/gemini=architect`.
 ## Parity Inventory (measured 2026-09-04)
 | Surface | agy/gemini Architect has | Claude provider gets today | Gap |
 |---|---|---|---|
-| MCP servers | 25 via `.agents/mcp_config.json` (safe-exec spawn env `AI_OS_CALLER_ROLE=architect`) | 25 via `.mcp.json` (shared by both panes; spawn env = engineer) | Spawn identity — closed by E-208 launch env; verify |
+| MCP servers | 25 via `.agents/mcp_config.json` (safe-exec spawn env `REIN_CALLER_ROLE=architect`) | 25 via `.mcp.json` (shared by both panes; spawn env = engineer) | Spawn identity — closed by E-208 launch env; verify |
 | Skills | shared (25) + `src/agents/skills` (15: blueprint-writer, task-planner, decision-recorder, arch-review, architectural-aligner, digest_updater, review_synthesizer, ux_template, aqg-resolver, identity_guardian, seo_content_checklist, ai-seo, ai-task, repo-oracle, proposed) | shared + `src/claude/skills` (9, Engineer-side) | **15 Architect skills missing** from `.claude/skills` |
 | Agents | 21 via agy plugin (built from `src/claude/agents` + `src/gemini/agents`) | 13 from `src/claude/agents` | **7 missing**: ux_reviewer, docs-architect, knowledge_architect, meta_analyst, memory_curator, seo_manager, seo_content_generator |
 | Rulefile | `GEMINI.md → ARCHITECT.md` auto-load | `CLAUDE.md → ENGINEER.md`; `ARCHITECT.md` appended by `ai pane` (E-208) | `ARCHITECT.md` assumes `activate_skill`; needs the ENGINEER.md-style runtime ladder (Skill tool → MCP → activate_skill) |
@@ -49,7 +49,7 @@ the manifest instead of hardcoding `claude=engineer`, `agents/gemini=architect`.
    allow rules (`Bash(ai add-task *)`, `Bash(ai handoff *)`, `mcp__task-synchronizer-mcp__handoff_control`,
    `add_topic_seed`, `add_cluster_page`, `mcp__context-guardian-mcp__check_role_access`); the base
    settings drop the legacy `Bash(gemini -p *)`. Deny rules are NOT the sovereignty mechanism (the hook is).
-4. **Role-correct identity everywhere**: `AI_OS_CALLER_ROLE` in the `ai pane` launch env reaches every MCP
+4. **Role-correct identity everywhere**: `REIN_CALLER_ROLE` in the `ai pane` launch env reaches every MCP
    server spawned by that pane (parity with agy's per-server env freeze) — acceptance: `analyze_command`
    from the Architect pane reports `caller_role=architect`. Owner labels become `Architect (<provider>)` /
    `Engineer (<provider>)`; the Stop hook stamps `Actor: <provider> (<role>)`.
@@ -63,8 +63,8 @@ the manifest instead of hardcoding `claude=engineer`, `agents/gemini=architect`.
 A Claude Architect may commit **only** when every staged path is under `.ai/` or `plans/`. The pre-commit
 hook resolves the session role through `safe-exec --verify-role <session id>`, where the session id comes
 from the harness-provided session-id env var (E-129 records are keyed by session id and a git hook receives
-no payload, so there is no "role-stamp file" to read — amended per E-214). Fallback order: `AI_OS_PANE_ROLE`,
-then `AI_OS_CALLER_ROLE`, then `engineer`. Role `architect` + any staged path outside that scope → BLOCK
+no payload, so there is no "role-stamp file" to read — amended per E-214). Fallback order: `REIN_PANE_ROLE`,
+then `REIN_CALLER_ROLE`, then `engineer`. Role `architect` + any staged path outside that scope → BLOCK
 (`[SOVEREIGNTY_BLOCK]`, hint: hand the change list to the Engineer). For an architect-scoped commit the
 `[CRITIC_STAMP]` requirement is **waived** (critics review `src/`; `.ai/` docs have no diff for them) — all
 other Gate 2 checks (credential scan, co-modification warning, REVIEWS.md hand-edit checks) still run.
@@ -83,7 +83,7 @@ agy Architects keep using the Engineer proxy.
 | `src/shared/provider-adapter.mjs` | E-210 | Provider `launch` / `print_mode` argv templates and child-env allowlist (`PATH`, `HOME`, `USER`, `child_env_keep`). |
 | `src/shared/role-manifest.mjs` | E-212 | Role → source-directory manifest from `registry.json`. |
 | `src/shared/sync-manifest.mjs` | E-220 | `_SYNC_MANIFEST.json` writer/reader; prune only in-manifest + unmodified + gone-from-source. |
-| install-first resolver (`src/shared/locate.sh` + `locate.mjs`) | E-223 | Helpers resolve from `~/.ai-os` first; dev tree only inside the framework clone. Hooks set `AI_OS_LOCATE_UNTRUSTED_ENV=1` (env is attacker-supplied). Dev-tree rollback is **`ai --dev-tree` (argv)** — D-058 §1 superseded D-057's env-var sentence. Skills reach it via the installed mirror (E-225). |
+| install-first resolver (`src/shared/locate.sh` + `locate.mjs`) | E-223 | Helpers resolve from `~/.rein` first; dev tree only inside the framework clone. Hooks set `REIN_LOCATE_UNTRUSTED_ENV=1` (env is attacker-supplied). Dev-tree rollback is **`ai --dev-tree` (argv)** — D-058 §1 superseded D-057's env-var sentence. Skills reach it via the installed mirror (E-225). |
 | `src/shared/markdown-exec.mjs` | E-224 | Executable-markdown classifier: `!`-lines and executable-tagged fences are code, the rest is documentation; shared by `run_review` and the standards checker. **Anchor contract extensions (D-060, ratified)**: `.ai/state.json` is an exact-path allowlist (task text is data); ES module specifiers (`import`/`export … from`, `import()`, `require()`) are script-relative anchors; whole-line `//` / `#` comments are documentation. **Consent rule (D-060 §3, E-232)**: a `!`-line may run framework helpers via the resolver or read-only inspection only — never a project-supplied program. **Operand re-tokenisation (D-060 §2, E-231)**: `bash -c` / `eval` / `xargs` / heredoc operands are re-tokenised, depth capped at 1 (ratified D-061 §1). **Consent rule mechanism (ratified D-061 §1)**: a denylist of EXECUTION shapes — execution, not mention. **Program-position rule (D-061 §2, E-234; wording ratified D-062 §1)**: program position is open at the segment head and after an interpreter or a position-restarting wrapper, and it CLOSES on the first operand that actually resolves the program — it stays open for an unreadable variable (`node "$HELPER"`) or an allowlisted entrypoint (`bash tests/run.sh …`), because neither says what runs. Once closed, remaining tokens are arguments; data-typed extensions are never programs. **Hot reload (D-061 §5, E-237)**: long-running servers load these policy modules through `loadPolicy(name)`, re-importing on mtime change. |
 
 Two-phase writes (`propose_patch` → `confirm_patch`, E-221) bind the pending record to `project_root` + a
@@ -97,7 +97,7 @@ project-relative path and re-run every check (`safePath`, role, project equality
 
 ## Execution Constraints
 - Depends on **E-208** (launcher, overlay, token role) — no parity task may start before it is DONE.
-- Byte-identical mirrors: `src/` canonical → `.claude/` / `.agents/` / `~/.ai-os/` (E-201 lesson).
+- Byte-identical mirrors: `src/` canonical → `.claude/` / `.agents/` / `~/.rein/` (E-201 lesson).
 - No new dependencies.
 
 ## Rollback Plan

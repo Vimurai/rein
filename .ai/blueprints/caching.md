@@ -4,7 +4,7 @@
 > This document specifies the implementation of API-level Explicit Context Caching (Prompt Caching) to eliminate token-burn while maintaining full architectural awareness.
 
 ## 1. Goal & Architecture
-To reduce the latency and token cost of JIT (Just-In-Time) blueprint loading, AI-OS v2 leverages the native Prompt Caching features of the 2026 Claude and Gemini APIs. This guarantees that the Triad operates with 100% systemic context without incurring massive per-turn input costs.
+To reduce the latency and token cost of JIT (Just-In-Time) blueprint loading, Rein v2 leverages the native Prompt Caching features of the 2026 Claude and Gemini APIs. This guarantees that the Triad operates with 100% systemic context without incurring massive per-turn input costs.
 
 ## 2. The Cache Payload
 The following core files represent the "System State" and must be permanently cached at the API layer:

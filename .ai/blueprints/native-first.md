@@ -1,9 +1,9 @@
 # Blueprint: Native-First (D-075)
 
-> Ratified 2026-09-28 (D-075). Audit: `plans/native-vs-aios-audit.md`. Ships inside v4.0.0 (E-263).
+> Ratified 2026-09-28 (D-075). Audit: `plans/native-vs-rein-audit.md`. Ships inside v4.0.0 (E-263).
 
 ## Goal & Architecture
-Remove every AI-OS component whose only justification was a Claude Code gap that has since
+Remove every Rein component whose only justification was a Claude Code gap that has since
 closed or an Antigravity limitation that D-069 already removed, and adopt the native surface
 Claude Code now documents (path-scoped rules, subagent/skill frontmatter, hook events, plugin
 evals, the auto-mode classifier). Used by the Engineer (deletions and adoptions) and by both
@@ -11,7 +11,7 @@ roles at every session start (smaller context, fewer tool schemas). One sentence
 governance layer, delete the shims, use the harness.**
 
 ## Core Concept
-AI-OS is a governance layer over Claude Code, not a replacement for it. A component earns its
+Rein is a governance layer over Claude Code, not a replacement for it. A component earns its
 place only if the harness cannot do it: enforced role sovereignty, ACID shared task state, git
 gates on stamps and CI, isolated local CI, cross-project telemetry → proposed skills, the
 two-pane bridge. Everything else is a shim, and a shim is deleted the release after the gap
@@ -70,7 +70,7 @@ experimental one.
    inline `--settings` JSON, never from project files, so the `hard_deny` an `ai pane`
    overlay would carry cannot be shown to reach it, and no test we own can prove it was
    applied. `safe-exec` keeps running in every permission mode for both roles; the classifier
-   is an additive second gate. No `AI_OS_SAFE_EXEC_ENGINEER` variable. The Architect write
+   is an additive second gate. No `REIN_SAFE_EXEC_ENGINEER` variable. The Architect write
    gate is untouched (D-056; `tests/fixtures/arch-write-cases.json` is the contract).
 7. **`SendMessage` spike** — measure whether a local-session `SendMessage` wakes an idle
    interactive pane (idle, mid-turn, after `/clear`, after `/compact`, both directions) and
@@ -86,7 +86,7 @@ experimental one.
    ruled on 2026-10-14 that a wake lost to a down pane is acceptable and the watcher goes.
    - **Wake (E-321)**: `ai-handoff`, `ai-task` Step 4, `arch-task` Step 4, `task-planner`
      Step 7 and `ai-triage` call `SendMessage` to the other role's session name as
-     `ListAgents` lists it — `<project dir basename> · <Role>` (`ai-os-v2 · Engineer`) — as
+     `ListAgents` lists it — `<project dir basename> · <Role>` (`@vimurai/rein · Engineer`) — as
      the LAST action of the turn, after `.ai/COMM.md` is written. `SendMessage` is deferred:
      the skill text loads it with `ToolSearch select:SendMessage` first. First line of the
      message = the handoff line (what shipped or what was planned, then "execute the OPEN
@@ -107,7 +107,7 @@ experimental one.
      (`CLAUDE_CONFIG_DIR`) and launches `claude` in each. Delete `handoff_control` from
      `task-synchronizer-mcp` (`index.js`, `tool-schemas.mjs`) and its `load-policy.mjs` entry;
      strip the references in `cli-add-task.mjs`, `classifier-backstop.py`,
-     `legacy-registry.mjs`, `install-ai-os.sh`, `ai doctor`/`ai status` watcher lines. Add
+     `legacy-registry.mjs`, `install-rein.sh`, `ai doctor`/`ai status` watcher lines. Add
      the `ai-watch` script, `<project>/.ai/signal.json` and `<project>/.ai/.ai-watch.lock` to
      `src/config/legacy-artefacts.json` (class `safe`) so `ai sync` prunes them (D-074).
      Delete `ai_watch_test`, `watcher_reexec_test`, `held_handoff_test`, `handoff_cli_test`,
@@ -167,7 +167,7 @@ experimental one.
 
 ## Rollback Plan
 `ai clean --restore <date>` returns any removed mirror for 30 days; each task is a single
-revertable PR; `AI_OS_DISABLE_CACHE=1` bypasses the blob; retired blueprints (`mcp-router.md`,
+revertable PR; `REIN_DISABLE_CACHE=1` bypasses the blob; retired blueprints (`mcp-router.md`,
 `code-execution.md`) move to `.ai/archive/` with a pointer line.
 
 ## E-## Task Breakdown
@@ -194,9 +194,9 @@ revertable PR; `AI_OS_DISABLE_CACHE=1` bypasses the blob; retired blueprints (`m
 (`legacy-artefacts.json`, `legacy-registry.mjs`), their tests, the RETIRED regex in
 `skill-wake.test.mjs` and `src/templates/ARCHITECT.md` until E-323; `start.json` `watch` and
 `sizes.top` stay accepted-and-ignored, documented deprecated by E-323; BREAKING: `ai add-task`
-no longer auto-wakes the other role (E-204 removed, `AI_OS_NO_AUTO_HANDOFF` gone).
+no longer auto-wakes the other role (E-204 removed, `REIN_NO_AUTO_HANDOFF` gone).
 
 E-256 (docs) additionally depends on E-276..E-279 and E-283. E-263 (release) depends on
 E-280, E-281, E-282, E-284, E-285 instead of E-258/E-260. E-258 and E-260 are closed as
-SUPERSEDED by the Engineer after its next `install-ai-os.sh` (the D-067 §3 build gate blocks
+SUPERSEDED by the Engineer after its next `install-rein.sh` (the D-067 §3 build gate blocks
 a DONE while `state-db.js` differs from the mirror).

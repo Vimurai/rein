@@ -7,7 +7,7 @@
 Historically, the Architect (Agy) and Engineer (Claude) communicated via markdown files (`TASKS.md`, `REVIEWS.md`). Parsing these files via regex to update the SQLite state is brittle, prone to formatting errors, and lacks type safety.
 
 ## 2. Native Structured Outputs
-AI-OS v2 leverages the 2026 API features for native Structured Outputs. When an agent needs to transition the system state (e.g., adding P-## tasks, marking E-## tasks done, or emitting an Audit Stamp), it MUST do so by invoking MCP tools with strictly typed JSON payloads, bypassing raw markdown generation.
+Rein v2 leverages the 2026 API features for native Structured Outputs. When an agent needs to transition the system state (e.g., adding P-## tasks, marking E-## tasks done, or emitting an Audit Stamp), it MUST do so by invoking MCP tools with strictly typed JSON payloads, bypassing raw markdown generation.
 
 ### Schema Definition
 All state transitions are governed by the JSON Schemas defined in `src/shared/schemas/state.json`.

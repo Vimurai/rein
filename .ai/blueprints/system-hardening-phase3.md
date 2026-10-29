@@ -8,7 +8,7 @@ Strengthen the resilience of the Triad (Architect, Engineer, QA) by closing envi
 
 ## Components
 1. **Tool Alias Normalizer (`verification-mcp`)**: A pre-processing step in the `verify_compliance` tool that maps common shell aliases (like `Bash`) to their canonical built-in registry names (e.g., `run_shell_command`).
-2. **Hardened Pre-flight Installer (`install-ai-os.sh`)**: Enforces a strict fail-closed check for Node.js (v22+) during the bootloader installation sequence, ensuring `wal-flusher.mjs` and `generate_mcp_docs.mjs` never fail silently on degraded systems.
+2. **Hardened Pre-flight Installer (`install-rein.sh`)**: Enforces a strict fail-closed check for Node.js (v22+) during the bootloader installation sequence, ensuring `wal-flusher.mjs` and `generate_mcp_docs.mjs` never fail silently on degraded systems.
 3. **Managed Agents Production Connector**: Wires the offline `managed-agents-spike` (E-47) into the live API. Implements a feature flag (`AI_MANAGED_AGENTS_ENABLE`), provisions secure API key injection, and updates payloads to the `steps` API schema.
 4. **Enhanced Product Brief (`BRIEF.md`)**: Replaces the skeletal template with a comprehensive 20-line product vision, removing the Architect's over-reliance on reading the full `architect.md` during JIT `ai-preflight`.
 
@@ -18,7 +18,7 @@ Strengthen the resilience of the Triad (Architect, Engineer, QA) by closing envi
 
 ## API / Interface Contracts
 - `verify_compliance()`: Before throwing a `[CRITICAL]` Ghost Tool error, check the alias map.
-- `install-ai-os.sh`: `command -v node || { echo "[ERROR] Node 22+ required"; exit 1; }`
+- `install-rein.sh`: `command -v node || { echo "[ERROR] Node 22+ required"; exit 1; }`
 - Managed Agents: HTTP POST to the managed agent endpoint with `Authorization: Bearer $AI_MANAGED_AGENT_KEY`.
 
 ## Security
@@ -27,7 +27,7 @@ Strengthen the resilience of the Triad (Architect, Engineer, QA) by closing envi
 
 ## Execution Constraints
 - Tool mapping lookup in `verification-mcp` must add <5ms overhead.
-- `install-ai-os.sh` checks must run before any files are copied or environment lines are appended.
+- `install-rein.sh` checks must run before any files are copied or environment lines are appended.
 
 ## Rollback Plan
 - If Tool Alias Normalizer causes false negatives, revert the regex checks and manually patch YAML frontmatters.
@@ -35,6 +35,6 @@ Strengthen the resilience of the Triad (Architect, Engineer, QA) by closing envi
 
 ## E-## Task Breakdown
 - **E-68**: Update `verification-mcp` to support tool name aliasing (e.g., `Bash` -> `run_shell_command`) to resolve the Ghost Tool compliance failure.
-- **E-69**: Update `install-ai-os.sh` to enforce a strict `node` availability check (fail-closed) before installation.
+- **E-69**: Update `install-rein.sh` to enforce a strict `node` availability check (fail-closed) before installation.
 - **E-70**: Implement Managed Agents live API wiring with `AI_MANAGED_AGENTS_ENABLE` feature flag and `steps` schema migration.
-- **E-71**: Expand `.ai/BRIEF.md` from a template into a substantive product summary, reflecting the AI-OS autonomous agent triad framework.
+- **E-71**: Expand `.ai/BRIEF.md` from a template into a substantive product summary, reflecting the Rein autonomous agent triad framework.

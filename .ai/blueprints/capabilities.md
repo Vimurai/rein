@@ -1,7 +1,7 @@
 # Domain Blueprint: Capabilities & Execution Settings
 
 > [!IMPORTANT]
-> This document specifies the native 2026 API capabilities injected into the AI-OS Triad, mapping Adaptive Thinking and Computer Use boundaries.
+> This document specifies the native 2026 API capabilities injected into the Rein Triad, mapping Adaptive Thinking and Computer Use boundaries.
 
 ## 1. Adaptive Thinking (`think: "max"`)
 The "Adaptive Thinking" parameter (or "Deep Think" equivalent) must be strategically injected into the API payload based on the active role in the Triad.

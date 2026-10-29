@@ -1,7 +1,7 @@
 # CLI Collapse & Tmux Workflow
 
 ## Goal & Architecture
-The goal is to minimize the footprint of the `ai` bash CLI by collapsing it down to essential lifecycle and diagnostic commands (`init`, `sync`, `install`, `doctor`, `uninstall`). All other commands (e.g., `update`, `preflight`, `review`, `test`, `archive`, `digest`, `migrate-state`) will be migrated into conversational prompts or tool calls executed directly within the Claude or Gemini CLI environments. Furthermore, a `tmux` split-pane workflow will be formally recommended as the standard operating environment for the AI-OS Triad to improve visibility and concurrent execution.
+The goal is to minimize the footprint of the `ai` bash CLI by collapsing it down to essential lifecycle and diagnostic commands (`init`, `sync`, `install`, `doctor`, `uninstall`). All other commands (e.g., `update`, `preflight`, `review`, `test`, `archive`, `digest`, `migrate-state`) will be migrated into conversational prompts or tool calls executed directly within the Claude or Gemini CLI environments. Furthermore, a `tmux` split-pane workflow will be formally recommended as the standard operating environment for the Rein Triad to improve visibility and concurrent execution.
 
 ## Core Concept
 The `ai` script transitions from a multi-purpose orchestrator into a strict bootloader/installer. Operational commands become part of the agentic workflow (e.g., asking Claude "run a vibe test" instead of typing `ai test --vibe` in the terminal). The user's interface to the system becomes entirely conversational within the agent CLIs, facilitated by a persistent tmux layout.
@@ -19,10 +19,10 @@ The `ai` script transitions from a multi-purpose orchestrator into a strict boot
 2. **Layout is derived from `.ai/roles.json`.** The role with the lower `pane_identifier` receives the lower tmux `pane_index`, so the E-209 ordinal fallback agrees with the layout by construction. Default layout `triad`: engineer left (full height), architect right-top, watcher right-bottom. The watcher pane's foreground is a shell script, which `_is_agent_cmd` excludes — it never shifts the agent ordinals. Tests assert the resulting pane order for BOTH role orders.
 3. **Shell-hosted agent panes.** Each agent pane is an interactive shell; `ai start` waits for the prompt (`pane_current_command` is a shell) and then `send-keys` `ai pane <role>`. When the provider exits the operator keeps a shell and can rerun `ai pane`. `ai pane` pins the title and sets `allow-rename off`.
 4. **Idempotent.** In a project with live panes a re-run re-pins titles, starts the watcher only if no process holds the `ai watch` single-writer lock, and attaches — never duplicates panes. `--kill` tears the project window down, watcher first (confirm unless `--yes`). `--status` lists project panes (role, title, command) and the watcher lock holder.
-5. **Optional `.ai/start.json`**: `session` (`^[A-Za-z0-9_-]{1,32}$`), `layout` (`triad` only until another is blueprinted), `watch` (bool), `sizes` (numeric percentages). Values become tmux arguments, so anything outside these shapes is rejected (E-208 audit lesson: Architect-writable config is an exec surface). Defaults: `session=aios`, window = project basename. D-095 adds one optional key, `account` (a registry NAME, never a path) — see `accounts.md`.
+5. **Optional `.ai/start.json`**: `session` (`^[A-Za-z0-9_-]{1,32}$`), `layout` (`triad` only until another is blueprinted), `watch` (bool), `sizes` (numeric percentages). Values become tmux arguments, so anything outside these shapes is rejected (E-208 audit lesson: Architect-writable config is an exec surface). Defaults: `session=rein`, window = project basename. D-095 adds one optional key, `account` (a registry NAME, never a path) — see `accounts.md`.
 6. **Non-tmux hosts**: exit 2 and print the manual recipe (`ai pane engineer`, `ai pane architect`, `ai watch`) — tmux remains the recommended UX, not a requirement.
 
-**Reference layout** (the operator's live session, 2026-09-09): `aios:1`, engineer `104x49` left, architect `103x32` right-top, watcher/shell `103x16` right-bottom.
+**Reference layout** (the operator's live session, 2026-09-09): `rein:1`, engineer `104x49` left, architect `103x32` right-top, watcher/shell `103x16` right-bottom.
 
 **Rollback**: remove the `start` dispatch; the three manual commands keep working unchanged.
 
@@ -35,7 +35,7 @@ No new SQLite state tables are required. The state model remains driven by `TASK
   - `ai sync`: Synchronizes skills and agents.
   - `ai install`: Installs global config.
   - `ai doctor`: Validates health.
-  - `ai uninstall`: Cleans up AI-OS.
+  - `ai uninstall`: Cleans up Rein.
 - All removed commands will display a deprecation notice guiding the user to the equivalent agent command.
 
 ## Security
@@ -59,7 +59,7 @@ No new SQLite state tables are required. The state model remains driven by `TASK
 ## Per-Project tmux Sessions (D-068 Amendment, 2026-09-11)
 
 ### Goal & Architecture
-`ai start` puts every project into ONE shared tmux session (`aios`), one window per project.
+`ai start` puts every project into ONE shared tmux session (`rein`), one window per project.
 Live use with several projects showed why that is wrong: a tmux session has a single
 *current window* shared by every attached client, so `ai start` in project B (which runs
 `select-window`/`switch-client` to B's window) flips the terminal that was showing project A
@@ -73,9 +73,9 @@ another project's client or panes.
 
 ### Core Concept
 **The stamp is the identity; the name is a label.** Each session `ai start` creates carries
-the tmux session environment variable `AI_OS_PROJECT=<physical absolute project path>`
-(`tmux set-environment -t <session> AI_OS_PROJECT <path>`). Discovery reads the stamp back
-(`tmux show-environment -t <session> AI_OS_PROJECT`) across `tmux list-sessions`, so reuse,
+the tmux session environment variable `REIN_PROJECT=<physical absolute project path>`
+(`tmux set-environment -t <session> REIN_PROJECT <path>`). Discovery reads the stamp back
+(`tmux show-environment -t <session> REIN_PROJECT`) across `tmux list-sessions`, so reuse,
 `--status` and `--kill` find the project's session even when the *name* had to be suffixed.
 
 ### Components
@@ -83,20 +83,20 @@ the tmux session environment variable `AI_OS_PROJECT=<physical absolute project 
    the default: explicit `.ai/start.json` `session` wins verbatim (it is already validated
    against `^[A-Za-z0-9_-]{1,32}$`); otherwise `basename(project)` with every character
    outside `[A-Za-z0-9_-]` replaced by `-`, leading `-`/`_` dropped (a leading `-` would
-   parse as a tmux flag; tmux itself rewrites `.`/`:`), truncated to 32, and `aios` only if
+   parse as a tmux flag; tmux itself rewrites `.`/`:`), truncated to 32, and `rein` only if
    the result is empty. Pure function, unit-tested on `my.app`, `-weird`, `über`, a
    40-character name.
 2. **`_start_find_session <project>`** — the discovery pass. Returns the name of the session
-   whose `AI_OS_PROJECT` stamp equals the project's physical path, else empty. Runs before
+   whose `REIN_PROJECT` stamp equals the project's physical path, else empty. Runs before
    any name derivation so a project whose name was suffixed last time is found again.
 3. **Collision policy** — when no stamped session exists and the derived name is already a
    live session (stamped to a *different* path, or unstamped = a foreign session the
    operator owns), the name becomes `<first 25 chars>-<6 hex of sha1(path)>`. Never reuse a
    session this project does not own. The chosen name is printed once at creation.
-4. **Legacy adoption** — when no stamped session exists but the shared `aios` session has a
+4. **Legacy adoption** — when no stamped session exists but the shared `rein` session has a
    window named `basename` with at least one pane whose `pane_current_path` is inside the
    project, `ai start` reuses that window in place (idempotency for an operator mid-sprint)
-   and prints one line: `ai start: reusing legacy shared window aios:<w> — run 'ai start
+   and prints one line: `ai start: reusing legacy shared window rein:<w> — run 'ai start
    --kill' then 'ai start' to move this project to its own session '<name>'`. `--status` and
    `--kill` follow the same lookup order (stamp → legacy window) so they act on what the
    operator sees.
@@ -114,7 +114,7 @@ the tmux session environment variable `AI_OS_PROJECT=<physical absolute project 
 ### Data Model
 No SQLite change. New tmux-side state, per session:
 ```
-AI_OS_PROJECT = /Users/me/dev/<project>      # physical path, set at new-session time
+REIN_PROJECT = /Users/me/dev/<project>      # physical path, set at new-session time
 window        = basename(project)            # unchanged
 ```
 `.ai/start.json` is unchanged in shape; the `session` key's meaning changes from "the shared
@@ -124,7 +124,7 @@ session name" to "override the derived per-project name". Its default is no long
 - `ai start` — creates `<derived>` (or reuses the stamped/legacy match) and moves only the
   invoking client. Exit codes unchanged (0 ok, 2 config/tmux-missing).
 - `ai start --dry-run` — prints `tmux new-session -d -s <derived> -n <basename> -c <path>` and
-  `tmux set-environment -t <derived> AI_OS_PROJECT <path>`; never inspects or writes tmux.
+  `tmux set-environment -t <derived> REIN_PROJECT <path>`; never inspects or writes tmux.
 - `ai start --status` — first line names the session and how it was found:
   `ai start --status: <session>:<window> (@id) [owned|legacy]`.
 - `ai start --kill` — `kill-window`, watcher first, unchanged; when the window was the
@@ -155,12 +155,12 @@ session name" to "override the derived per-project name". Its default is no long
   session, a client attached to session A stays on A when `ai start` runs for B.
 
 ### Rollback Plan
-`AI_OS_SHARED_SESSION=1` restores the single `aios` session (today's behaviour, made
-explicit); an operator can also pin `.ai/start.json` `{"session":"aios"}` per project.
+`REIN_SHARED_SESSION=1` restores the single `rein` session (today's behaviour, made
+explicit); an operator can also pin `.ai/start.json` `{"session":"rein"}` per project.
 `AI_WATCH_ALL_SESSIONS=1` restores the watcher's all-sessions scan. Neither touches state.
 
 ### E-## Task Breakdown (D-068)
 - **E-252** (Tier 2): per-project session derivation, stamp, discovery, collision suffix,
   legacy adoption, client movement, `--status`/`--kill` lookup, docs (README recipe still
-  says `tmux new-session -s ai-os`; the reference layout above says `aios:1`).
+  says `tmux new-session -s rein`; the reference layout above says `rein:1`).
 - **E-253** (Tier 2): watcher session scope + physical-path comparison + banner + opt-out.

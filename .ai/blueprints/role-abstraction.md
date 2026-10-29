@@ -12,7 +12,7 @@ Historically, the OS hardcoded Gemini = Architect, Claude = Engineer. To support
 ## Components
 1. **Role Configuration Store**: A JSON configuration (`.ai/roles.json`) tracking the active provider and pane index for `architect` and `engineer`.
 2. **Provider Adapter Registry**: A JSON configuration (`.ai/providers.json` or within `registry.json`) that dictates how a CLI is configured by the OS (e.g., config path, MCP schema format).
-3. **Dynamic Bootloader (`src/bin/ai`)**: Parses the Provider Adapter to generate the correct configuration files during `ai init`/`ai sync`, and injects the `AI_OS_CALLER_ROLE` HMAC token.
+3. **Dynamic Bootloader (`src/bin/ai`)**: Parses the Provider Adapter to generate the correct configuration files during `ai init`/`ai sync`, and injects the `REIN_CALLER_ROLE` HMAC token.
 4. **Semantic Handoff Control**: `ai-watch` reads the `.ai/roles.json` mapping to route `tmux send-keys` signals strictly to the assigned pane, preventing infinite loops when one CLI (e.g., Claude) operates in both panes.
 
 ## Data Model
@@ -59,7 +59,7 @@ Historically, the OS hardcoded Gemini = Architect, Claude = Engineer. To support
 - **`handoff_control`**: Accepts `target: "architect" | "engineer"`.
 
 ## Security
-- Role spoofing remains protected by the HMAC session token (`AI_OS_CALLER_ROLE`). The bootloader still mints the token based on the semantic role map.
+- Role spoofing remains protected by the HMAC session token (`REIN_CALLER_ROLE`). The bootloader still mints the token based on the semantic role map.
 - Provider configurations cannot point outside the local repository bounds (no arbitrary path traversal for `mcp_config_path`).
 
 ## Execution Constraints
@@ -92,26 +92,26 @@ reachable by the A2A bridge (G4) — with sovereignty enforced by the gate, not 
 1. **`ai pane <role>` launcher (`src/bin/ai`)** — the single provider-agnostic binding surface,
    symmetric to `ai handoff <role>` and `ai add-task` (D-053). It reads `.ai/roles.json`, looks
    up the role's `provider` in `providers.json`, and execs the provider CLI with:
-   - launch env `AI_OS_PANE_ROLE=<role>` and `AI_OS_CALLER_ROLE=<role>`;
+   - launch env `REIN_PANE_ROLE=<role>` and `REIN_CALLER_ROLE=<role>`;
    - the provider's `launch` adapter argv (see Data Model) — for `claude`:
      `--settings .claude/settings.<role>.json --append-system-prompt-file <ROLE>.md`
      plus `--model <roles.json model>` when present;
    - `tmux select-pane -T <role>` on the current pane BEFORE exec (pins Pass 1 routing;
      no-op outside tmux).
 2. **Launch-time role for the SessionStart hook** — `session-start.sh` mints the token for
-   `${AI_OS_PANE_ROLE:-$1}`. The positional default stays `engineer` so the plain `claude`
-   launch path is unchanged. The hook ALSO emits `[AI_OS_ROLE] <role>` as the first line of its
+   `${REIN_PANE_ROLE:-$1}`. The positional default stays `engineer` so the plain `claude`
+   launch path is unchanged. The hook ALSO emits `[REIN_ROLE] <role>` as the first line of its
    `additionalContext` so the persona layer can read the minted role. (D-055 R3) The stamp is role
-   binding, not caching: `AI_OS_DISABLE_CACHE=1` suppresses the compiled blob only and MUST NOT
+   binding, not caching: `REIN_DISABLE_CACHE=1` suppresses the compiled blob only and MUST NOT
    suppress the stamp — a caching rollback must never reopen G1.
 3. **Per-role settings overlay `.claude/settings.<role>.json`** (derived programmatically by
    `ai init`/`ai sync` from `.ai/roles.json` — there is no template under `src/claude/`, so nothing
-   can drift out of sync; one per role that maps to `claude`) — carries `env.AI_OS_CALLER_ROLE`,
+   can drift out of sync; one per role that maps to `claude`) — carries `env.REIN_CALLER_ROLE`,
    the role's permission deltas, and (D-055 R1) `permissions.deny` for every filesystem-mutating
    MCP tool when the role is `architect`. It MUST NOT register a second `SessionStart` hook
    (hook arrays merge; two mints for one session id would race).
 4. **Role Resolution clause (both rulefiles)** — first section of `ENGINEER.md` and `ARCHITECT.md`:
-   > If the session context carries an `[AI_OS_ROLE] <role>` stamp naming a different role,
+   > If the session context carries an `[REIN_ROLE] <role>` stamp naming a different role,
    > that role's rulefile governs and this file is inert for the session.
    `CLAUDE.md` keeps `@ENGINEER.md` (D-051 unchanged); the Architect pane gets `ARCHITECT.md`
    appended by the launcher, and the clause resolves the conflict deterministically.
@@ -157,8 +157,8 @@ while `CLAUDECODE=1` is inherited).
   closed (`return 1`, hint: use `architect`/`engineer`). Removal: v4.0.
 
 ### Security
-- The E-129 HMAC token remains the sole enforcement surface; `AI_OS_CALLER_ROLE` stays advisory.
-  Launch-time env (`AI_OS_PANE_ROLE`) is consumed once by the SessionStart hook before any agent
+- The E-129 HMAC token remains the sole enforcement surface; `REIN_CALLER_ROLE` stays advisory.
+  Launch-time env (`REIN_PANE_ROLE`) is consumed once by the SessionStart hook before any agent
   tool call and is as trusted as the settings file itself — the E-129 in-session-mutation threat
   is unaffected.
 - The Architect pane's `Write`/`Edit` block is Tier 3: E-208 is DONE only after a live negative
@@ -179,7 +179,7 @@ while `CLAUDECODE=1` is inherited).
   block is a regression. Over-blocks outrank under-blocks in review ordering. The Git Lane is the
   last checkpoint for the accepted residual.
 - **MCP write tools without the overlay (D-056 R1, E-219)**: `patch-mcp` / `propose-patch-mcp`
-  derive the role server-side (verified session record → spawn-frozen `AI_OS_CALLER_ROLE` → no
+  derive the role server-side (verified session record → spawn-frozen `REIN_CALLER_ROLE` → no
   evidence = `architect`); a volunteered `caller_role` can only add restriction.
 - **A2A child environment (E-210, amended per measurement)**: the bridge never spreads
   `process.env`. The allowlist is `PATH`, `HOME`, `USER` plus any `child_env_keep` names the
@@ -198,7 +198,7 @@ Per D-054 §Rollback. The Role Resolution clause is inert without a stamp and ma
 
 ### E-## Task Breakdown (D-054)
 - **E-208** (Tier 3): `ai pane <role>` launcher + `.claude/settings.<role>.json` overlay + launch-time
-  role in `session-start.sh` (`[AI_OS_ROLE]` stamp) + Role Resolution clause in both rulefiles +
+  role in `session-start.sh` (`[REIN_ROLE]` stamp) + Role Resolution clause in both rulefiles +
   `Write|Edit` sovereignty gate for the architect token. Acceptance includes the live negative test.
 - **E-209** (Tier 2): `resolve_pane` precedence — roles.json ordinal before fuzzy passes for
   semantic targets (interactive-bridge.md §Pane Resolution Precedence).

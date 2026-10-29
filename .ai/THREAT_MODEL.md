@@ -1,4 +1,4 @@
-# THREAT_MODEL.md — AI-OS v2
+# THREAT_MODEL.md — Rein v2
 
 > Companion to `.ai/SECURITY.md`. Contains full threat entries for all external integrations and trust boundaries.
 > Last updated: 2026-09-07 (E-225 skills locator closed; E-226 read-only patch tools scoped)
@@ -336,12 +336,12 @@ reviewer is not misled about what this gate guarantees):
    Pre-existing for Gate 2 as a whole; not introduced by E-214.
 4. ~~**The waiver is reachable by a non-Architect**~~ — **FIXED in E-218 (D-055 R4).**
    The `[CRITIC_STAMP]` waiver now requires the role to have come from the HMAC-verified
-   session record; the `AI_OS_PANE_ROLE` / `AI_OS_CALLER_ROLE` fallbacks may still drive
+   session record; the `REIN_PANE_ROLE` / `REIN_CALLER_ROLE` fallbacks may still drive
    the path-scope BLOCK but never the waiver. An architect-role session that cannot be
    verified therefore keeps the FULL stamp requirement while still being path-restricted
    — strict in both directions. This mattered because `.ai/` contains `REVIEWS.md`, the
    very file Gate 2 reads, so the old behaviour let anyone exporting
-   `AI_OS_CALLER_ROLE=architect` commit stamp-file edits without a stamp.
+   `REIN_CALLER_ROLE=architect` commit stamp-file edits without a stamp.
 
 **Not residual — fixed in E-214 and regression-tested** (`tests/suites/git_lane_test.sh`
 E-214.10a-j): a failed `git diff` no longer fails OPEN into a full Gate 2 bypass; an
@@ -349,11 +349,11 @@ empty diff no longer collects a waiver; replacing `.ai/` with a symlink no longe
 through as in-scope; the role comparison is case/whitespace normalized; and
 `--verify-role` can no longer be captured by the mint-mode argv scan.
 
-**Rollback**: `AI_OS_SKIP_GIT_LANE=1` — it resolves the role to `engineer`, so it
+**Rollback**: `REIN_SKIP_GIT_LANE=1` — it resolves the role to `engineer`, so it
 removes the path restriction WITHOUT opening the waiver. Kept as a recorded residual (D-087
 r3: the same strength as `--no-verify`, D-081 r5) and LOUD since E-294: it prints
-`[GATE_SKIPPED] AI_OS_SKIP_GIT_LANE=1 …` on every commit it is honoured for, as do
-`AI_OS_SKIP_CONFLICT_GATE`, `AI_OS_SKIP_STANDARDS` and pre-push's `AI_OS_CI_SKIP`.
+`[GATE_SKIPPED] REIN_SKIP_GIT_LANE=1 …` on every commit it is honoured for, as do
+`REIN_SKIP_CONFLICT_GATE`, `REIN_SKIP_STANDARDS` and pre-push's `REIN_CI_SKIP`.
 
 ---
 
@@ -378,7 +378,7 @@ named route, not the underlying default-open guard.
 
 **FIXED in E-219 (D-056 R1).** Both servers now delegate to
 `src/mcp/shared/caller-role.mjs`, which derives the role server-side: the HMAC-verified
-session record first, then the server's spawn-frozen `AI_OS_CALLER_ROLE`, then
+session record first, then the server's spawn-frozen `REIN_CALLER_ROLE`, then
 `architect` — the RESTRICTED role — when there is no evidence either way. A volunteered
 `caller_role` may only ADD restriction, never lift it, so omitting it no longer means
 "unrestricted". The scope test delegates to `architectPathVerdict`, the same predicate
@@ -386,7 +386,7 @@ the Write/Edit and shell gates use, so a symlink or hardlink planted inside `.ai
 forward a write out of scope. `mcp__mcp-router__proxy_call` was also forwarding neither
 piece of evidence, which made a proxied server derive `architect` and refuse the
 ENGINEER's writes; the router now forwards both, scoped to the role-aware servers.
-Rollback: `AI_OS_SOVEREIGNTY_LOCK=0`.
+Rollback: `REIN_SOVEREIGNTY_LOCK=0`.
 
 **Verification note**: the sandboxed pen-test could not run (Docker unavailable on this
 host), so this is verified by `tests/suites/caller_role_test.sh` driving the real server
@@ -417,7 +417,7 @@ CONFIRMING project. The gap is the project boundary, not the role boundary.
 path was resolved against) plus a project-RELATIVE path. `confirm_patch` re-derives its
 own root, requires equality (`[PROJECT_MISMATCH]`), re-resolves the relative path against
 that root, and re-derives the caller role. Legacy rows carrying only an absolute path are
-refused with a re-propose hint; `AI_OS_PATCH_LEGACY=1` accepts them, and even then the
+refused with a re-propose hint; `REIN_PATCH_LEGACY=1` accepts them, and even then the
 stored path is bounds-checked against the confirming root.
 
 **The audit found the fix insufficient on its own, and that half mattered more.** Storing
@@ -509,7 +509,7 @@ and reads NO file, `reject_patch` refuses with `[PROJECT_MISMATCH]` rather than 
 another project's pending row, and `list_pending_patches` shows own-project rows by
 default — with `all: true` foreign rows appear as id + `rel_path` + the root's BASENAME,
 never an absolute path. Legacy rows are listed as legacy and never read.
-`AI_OS_PATCH_LEGACY=1` restores the old behaviour.
+`REIN_PATCH_LEGACY=1` restores the old behaviour.
 
 **Non-vacuity**: against the pre-fix server the same driver modes returned `LEAKED` (the
 canary file's contents rendered into tool output), `ABS_PATH_LEAKED` + `row-deleted` (a
@@ -549,20 +549,20 @@ the framework clone.
 **Two ways the first cut was still escapable, both found in audit and both closed.**
 A project's own `.claude/settings.json` carries an `env` block that hooks INHERIT, and
 `ai init` writes that key — so env is attacker-supplied at the same capability level as
-the repo itself, not a trusted channel. `AI_OS_LOCATE_DEV=1`, `AIOS_WORKSPACE=<decoy>` and
-`AI_OS_HOME=<decoy>` each restored the vulnerability; the last was strictly NEW exposure
-introduced by E-223 itself (pre-E-223 hooks hardcoded `${HOME}/.ai-os`) and was the worst,
+the repo itself, not a trusted channel. `REIN_LOCATE_DEV=1`, `REIN_WORKSPACE=<decoy>` and
+`REIN_HOME=<decoy>` each restored the vulnerability; the last was strictly NEW exposure
+introduced by E-223 itself (pre-E-223 hooks hardcoded `${HOME}/.rein`) and was the worst,
 because it made the bootstrap SOURCE the decoy's own `locate.sh` — arbitrary shell inside
-a fail-closed gate. Hooks now set `AI_OS_LOCATE_UNTRUSTED_ENV=1` in their own text, which
+a fail-closed gate. Hooks now set `REIN_LOCATE_UNTRUSTED_ENV=1` in their own text, which
 makes the resolver ignore all three and read the workspace only from the installer-written
 file. Separately, the shell and node implementations disagreed: a substring `grep` for
-`"name": "ai-os-v2"` matched a NESTED occurrence in an unrelated repo's package.json while
+`"name": "@vimurai/rein"` matched a NESTED occurrence in an unrelated repo's package.json while
 the node twin's `JSON.parse` did not, and the shell side is the one every hook uses. Both
 now parse.
 
 **SKILLS HALF FIXED in E-225 (D-058 §2).** The five sites below now set
-`AI_OS_LOCATE_UNTRUSTED_ENV=1`, `unset -f` any inherited resolver functions, source
-`${HOME}/.ai-os/shared/locate.sh` only if the file exists, and resolve via `ai_os_locate`.
+`REIN_LOCATE_UNTRUSTED_ENV=1`, `unset -f` any inherited resolver functions, source
+`${HOME}/.rein/shared/locate.sh` only if the file exists, and resolve via `ai_os_locate`.
 An E-80 standards rule (`skill_locator_install_first`) fails any executable markdown line
 that hands an interpreter a project-relative path, across `src/**` AND the `.claude/` and
 `.agents/` mirrors. Verified by a canary: the pre-fix skills executed a decoy project's
@@ -571,11 +571,11 @@ that hands an interpreter a project-relative path, across `src/**` AND the `.cla
 **Two audit findings recorded rather than closed:**
 
 *New exposure introduced by the fix itself* — the rewritten lines now SOURCE shell from
-`${HOME}/.ai-os/shared/locate.sh`. `HOME` is honoured by design (E-223 accepted it as a
+`${HOME}/.rein/shared/locate.sh`. `HOME` is honoured by design (E-223 accepted it as a
 pre-existing residual for the hooks), but the delta matters and is stated here rather than
 left implicit: the pre-fix line only `node`-executed one named file, whereas a redirected
 `HOME` now yields arbitrary shell sourced into the session-start shell. Same shape E-223
-wrote up for `AI_OS_HOME` and fixed; `AI_OS_HOME` itself is correctly ignored under the
+wrote up for `REIN_HOME` and fixed; `REIN_HOME` itself is correctly ignored under the
 untrusted flag.
 
 *ACCEPTED — skills that run the visited project's own entrypoint.* The complete set, after
@@ -610,7 +610,7 @@ code. It is a denylist of execution shapes rather than an allowlist of safe comm
 because an allowlist would reject the next ordinary `git`/`grep` context line somebody
 writes. Verified across the whole corpus — 187 skill/agent files, 0 violations, with a
 non-vacuity assertion that the scan actually read them. Rollback:
-`AI_OS_STANDARDS_SKIP=skill-consent`.
+`REIN_STANDARDS_SKIP=skill-consent`.
 
 The agent-initiated entries below are DELIBERATE and remain: there the agent CHOSE to run
 the project's tests, which is the skill's stated purpose, and `repro.sh` is a script the
@@ -659,7 +659,7 @@ oversight.
 
 Fixtures were written BEFORE the change, as D-060 §2 required, and earned their keep
 immediately: the first implementation passed every catch case and OVER-BLOCKED
-`bash -c "node \"${HOME}/.ai-os/shared/x.mjs\""`. Inside a double-quoted operand a nested
+`bash -c "node \"${HOME}/.rein/shared/x.mjs\""`. Inside a double-quoted operand a nested
 quote arrives escaped, so the token began with a backslash and defeated the "variable we
 cannot read" test. Treated as a regression and fixed by un-escaping quotes when a code
 operand is re-tokenised, not by narrowing the catch set. Verified over the whole corpus:
@@ -689,16 +689,16 @@ caught while `--dlq-show .ai/memory/dlq.json` is not.
 Corpus is now clean: 216 markdown files, ZERO findings (was 6). No catch was lost —
 skill_locator 169/0 and operand_retokenise 35/0 unchanged, and `program_position_test.sh`
 pins all twelve previously-caught shapes as still caught, alongside the removed
-over-blocks. Rollback `AI_OS_STANDARDS_SKIP=program-position` restores the old walk
+over-blocks. Rollback `REIN_STANDARDS_SKIP=program-position` restores the old walk
 (verified: memory_curator goes 0 → 2 findings).
 
 **Superseded description of the over-block (kept for the record):** `memory_curator.md` lines 178-179
 are flagged, and `src/**/agents/*.md` IS in the rule's `applies_to`, so anyone who edits
 that file will be blocked by the commit gate.
 
-    node "${AIOS}/shared/memory-worker-pool.mjs" --dlq-show .ai/memory/dlq.json
+    node "${REIN}/shared/memory-worker-pool.mjs" --dlq-show .ai/memory/dlq.json
 
-The program is correctly resolved through `${AIOS}`; `.ai/memory/dlq.json` is a DATA
+The program is correctly resolved through `${REIN}`; `.ai/memory/dlq.json` is a DATA
 argument to a `--dlq-show` flag, not a program. The operand walk continues past the first
 operand on purpose (so `bash tests/run.sh src/bin/ai` is still seen), and that deliberate
 choice is what makes a trailing data path look like a target. Six hits, identical before
@@ -760,7 +760,7 @@ true in general and must not be read into this entry.
 
 **The fix for this had to be fixed twice, both times by audit.** Round 1: three env vars a
 project supplies through its own `.claude/settings.json` restored it in full, one of them
-(`AI_OS_HOME`) strictly new exposure that E-223 introduced. Round 3: my "argv-only"
+(`REIN_HOME`) strictly new exposure that E-223 introduced. Round 3: my "argv-only"
 dev-tree override was implemented as ANOTHER env var that each caller promised to reset —
 `bin/ai` did, the five hooks never mentioned it, so the same settings.json channel made a
 hook resolve the visited repo's own safe-exec analyzer and the gate then allowed
@@ -770,7 +770,7 @@ remembering. The lesson worth keeping: a fix for an environment-trust bug must n
 introduce a new environment variable.
 
 **Residual**: `HOME` itself is still honoured (pre-existing — the old hooks used
-`${HOME}/.ai-os` too, and redirecting `HOME` breaks far more than this). The framework
+`${HOME}/.rein` too, and redirecting `HOME` breaks far more than this). The framework
 test's package.json fallback is reachable only when the install recorded no workspace.
 
 ---
@@ -796,7 +796,7 @@ recorded, and each hook replaces the inherited `PATH` with a fixed one before it
 external command. No new environment variable (the T-LOCATOR-001 lesson).
 
 **Status update (E-286, 2026-10-01)**: MITIGATED — shipped; decoy-PATH, NODE_OPTIONS,
-PYTHONPATH, cwd `json.py`, exported-function and inherited `AI_OS_TC_*` fixtures pass
+PYTHONPATH, cwd `json.py`, exported-function and inherited `REIN_TC_*` fixtures pass
 (`tests/suites/hook_toolchain_test.sh`) and fail on the pre-change hook. The shell-level
 channels the in-file pin cannot reach are T-HOOKENV-002.
 
@@ -810,31 +810,31 @@ channels the in-file pin cannot reach are T-HOOKENV-002.
 shell that runs the hook rather than to the hook file: `BASH_ENV`/`ENV` (sourced before
 line 1), exported functions (`BASH_FUNC_x%%` — can shadow `node`, even `unset`/`builtin`),
 `SHELLOPTS=xtrace` + `PS4='$(…)'` (code execution on the first traced command), and a decoy
-`bash` first on `PATH` (the old command line was `bash $HOME/.ai-os/hooks/…`). A shell-form
+`bash` first on `PATH` (the old command line was `bash $HOME/.rein/hooks/…`). A shell-form
 hook line also runs through `sh -c`, and macOS `/bin/sh` (bash in sh mode) honours
 `SHELLOPTS`/`PS4` BEFORE a `/bin/bash -p` on that line starts — probed.
 
-**Mitigation (E-290)**: every AI-OS hook is the documented EXEC form
+**Mitigation (E-290)**: every Rein hook is the documented EXEC form
 `{"command":"/bin/bash","args":["-p","<absolute install-time hook path>"],"timeout":30}` —
 no shell, so nothing tokenises or expands the line; `-p` (privileged) skips `BASH_ENV`/`ENV`,
 imports no functions and ignores `SHELLOPTS`/`BASHOPTS`. Git stubs are `#!/bin/bash -p` +
 `exec /bin/bash -p "<absolute canonical>"`. The installer refuses the hooks
 (`[HOOK_BASH_MISSING]`) on a host whose `/bin/bash` is missing or rejects `-p`; there is no
-`PATH` fallback. `ai sync` removes every older-form AI-OS entry before writing. The
+`PATH` fallback. `ai sync` removes every older-form Rein entry before writing. The
 prologue still unsets what `-p` leaves alone: `CDPATH`, `GLOBIGNORE`, `POSIXLY_CORRECT`,
 `BASH_COMPAT` (bash 3.2 keeps all four under `-p`; posix mode turns process substitution
 into a syntax error).
 
 **HOME measurement (D-083 r2)** — Method: scratch git project, `.claude/settings.json` with
-`"env": {"HOME": "<scratch>/fakehome", "AIOS_E290_PROBE": "env-reached-hook"}` and a
-shell-form SessionStart hook writing `$HOME` and `$AIOS_E290_PROBE` to files; a planted
-`<scratch>/fakehome/.ai-os/hooks/x.sh` that touches a marker, referenced as
-`bash $HOME/.ai-os/hooks/x.sh`; run `claude -p "reply with just: ok" --max-turns 1`.
+`"env": {"HOME": "<scratch>/fakehome", "REIN_E290_PROBE": "env-reached-hook"}` and a
+shell-form SessionStart hook writing `$HOME` and `$REIN_E290_PROBE` to files; a planted
+`<scratch>/fakehome/.rein/hooks/x.sh` that touches a marker, referenced as
+`bash $HOME/.rein/hooks/x.sh`; run `claude -p "reply with just: ok" --max-turns 1`.
 Result on Claude Code **2.1.286**, macOS, print mode, untrusted fresh folder:
-`AIOS_E290_PROBE` = `env-reached-hook` (project `env` DOES reach hooks) but `$HOME` = the
+`REIN_E290_PROBE` = `env-reached-hook` (project `env` DOES reach hooks) but `$HOME` = the
 real home directory, and the planted hook did NOT run — **`env.HOME` is not applied to the
 hook command line**. Not measured: an interactive session in a trusted folder. Moot for the
-AI-OS hooks either way: the exec-form `args` carry the absolute path and contain no `$HOME`.
+Rein hooks either way: the exec-form `args` carry the absolute path and contain no `$HOME`.
 
 **Residuals (accepted, D-081 r5 / D-083)**:
 - A decoy `git` on the Bash tool's `PATH` can skip the git hooks entirely; the
@@ -902,7 +902,7 @@ The prologue drops `PERL*` (`PERL5OPT`/`PERL5LIB` would load a project's module 
 principle reach it (D-083 r5). The auto-mode classifier reads its rules from the OPERATOR's
 `~/.claude/settings.json`; a project's `.claude/settings.json` / `settings.local.json` `autoMode`
 is ignored (measured, Claude Code 2.1.287 — D-080). One `autoMode.hard_deny` prose rule there
-("AI-OS Gate Tamper (D-086)", verbatim from DECISIONS.md) is a second, independently configured
+("Rein Gate Tamper (D-086)", verbatim from DECISIONS.md) is a second, independently configured
 gate. `hard_deny` is unconditional — no intent or `allow` entry clears it.
 
 **Mechanism**: `ai install` offers it (y/N, default N; never without a terminal or under CI);
@@ -916,7 +916,7 @@ default permission mode, a `hard_deny` without `$defaults`, and any `Bash(ai…`
 
 **Residuals (accepted, D-086)**:
 - The classifier runs only in auto mode; in `bypassPermissions` (or default/acceptEdits) the hook
-  is the only gate. No AI-OS launch path sets a mode; `ai doctor` prints the effective one.
+  is the only gate. No Rein launch path sets a mode; `ai doctor` prints the effective one.
 - A prose rule can be evaded by indirection the classifier fails to connect (D-084 r4).
 - A narrow `permissions.allow` rule such as `Bash(ai:*)` resolves BEFORE the classifier — doctor warns.
 - `CLAUDE_CONFIG_DIR` may point Claude Code at another settings directory — doctor warns.
@@ -931,12 +931,12 @@ default permission mode, a `hard_deny` without `$defaults`, and any `Bash(ai…`
 
 **Threat**: a session obtains a LESS restricted role than the one it was launched with — the
 Architect writing `src/`, pushing, or collecting the stamp waiver. Before E-294 the role came
-from the launch environment (`AI_OS_PANE_ROLE`, which a project's settings `env` reaches —
+from the launch environment (`REIN_PANE_ROLE`, which a project's settings `env` reaches —
 the T-LOCATOR-001 class), a mint took the role from argv, a deleted token could be re-minted
 at any role, and `CLAUDE_CODE_SESSION_ID` selected any session's token.
 
 **Mechanism**: the invariant is *a role may only move toward restriction*.
-- `ai pane` is the one writer of `~/.ai-os/run/launch/<pid>.json` and refuses
+- `ai pane` is the one writer of `~/.rein/run/launch/<pid>.json` and refuses
   (`[PANE_NESTED]`) under any live ancestor record; `src/shared/launch-record.py` is the one
   implementation of the record format, the start-time read, the file discipline and the walk.
 - The walk is exhaustive (≤ 64 hops) and most-restrictive-wins; a record that fails the
@@ -951,19 +951,19 @@ at any role, and `CLAUDE_CODE_SESSION_ID` selected any session's token.
 
 **Residuals (accepted, D-087)**:
 1. **Programs the gate cannot read.** A script file handed to an interpreter, a provider
-   launched outside any AI-OS project or with settings that drop its hooks, or a launch
+   launched outside any Rein project or with settings that drop its hooks, or a launch
    detached from the session's process chain is outside the per-command scan and outside
    the walk. Measured: the Architect analyzer passes these shapes. The classifier backstop
    (T-CLASSIFIER-001, auto mode only) is the cross-call layer; the shell gate is not widened
    for it (D-056) — the next decision on this gate.
 2. **Same-uid ceiling.** The record, the token and the HMAC key are files the operator's uid
-   can write; touching `~/.ai-os/run/` is gated by `GATE_SELF_DISABLE`, the `~/.ai-os/**`
+   can write; touching `~/.rein/run/` is gated by `GATE_SELF_DISABLE`, the `~/.rein/**`
    write block and the classifier rule. Removing BOTH a pane's record and its token returns
    that pane to the plain-launch default (`engineer`) — never to a less restricted role than
    that. Binding the role to something a session cannot remove is unfunded.
    `GATE_SELF_DISABLE` is a TEXT scan, so it closes the ordinary spellings (the mirror from
    HOME, relatively after entering HOME by any `cd` form or a `cd` that resolves there, `../`
-   chains, `<home>/.ai-os` from above, `find -delete/-exec`, inline interpreters after entering
+   chains, `<home>/.rein` from above, `find -delete/-exec`, inline interpreters after entering
    HOME) but NOT the string-assembly class D-084 r4 already accepts: glob or quote-split names
    (`.ai-o?`, `.a'i'-os`), a variable holding HOME (`D=~; cd $D`), a script written in one call
    and run in the next. The classifier backstop (T-CLASSIFIER-001, auto mode) is the layer for
@@ -974,18 +974,18 @@ at any role, and `CLAUDE_CODE_SESSION_ID` selected any session's token.
    relaunched** — by design (D-087 r4); the installer and `ai doctor` say so.
    **As measured (2026-10-04, the case E-304 closed):** a HALF-installed gate is worse than
    either version. `ai sync` in another project copied E-294's UNCOMMITTED hooks from the
-   developer's working tree into `~/.ai-os/hooks` — twice (14:00, 14:40) — while `mcp/` and
+   developer's working tree into `~/.rein/hooks` — twice (14:00, 14:40) — while `mcp/` and
    `shared/` stayed pre-E-294. The new SessionStart hook minted against the old safe-exec
    (a garbage token), and the new pre-commit put every unverified session into the union, so
    every commit in every project hit the Architect lane and other panes advised the operator
-   to set `AI_OS_SKIP_GIT_LANE=1`. Reinstalling from a clean worktree did not stop it: an
-   exported `AIOS_WORKSPACE` in the operator's profile beat the persisted record. Since E-304:
+   to set `REIN_SKIP_GIT_LANE=1`. Reinstalling from a clean worktree did not stop it: an
+   exported `REIN_WORKSPACE` in the operator's profile beat the persisted record. Since E-304:
    `ai sync` never writes the mirror, the installer refuses a dirty gate tree (`--allow-dirty`
    is loud and stamped), stages and verifies the whole tree and syncs hooks LAST, and the
    persisted workspace record wins over the environment.
 5. **`pre-commit` resolves its root through the committing process's `HOME`.** An agent can run
    `HOME=<dir it controls> git commit` and supply its own key and token. Same strength as
-   `--no-verify` and `AI_OS_SKIP_GIT_LANE` (D-081 r5, D-087 r3/r7) — the git hooks are a
+   `--no-verify` and `REIN_SKIP_GIT_LANE` (D-081 r5, D-087 r3/r7) — the git hooks are a
    convenience gate, and the Bash gate does not block `--no-verify` either. The hook's rows 1–2
    also run `node`/`python3` from the committer's PATH — the same class: the committer controls
    that environment. Recorded, not fixed (critic_security P2-4 and 2nd-pass P2-3, E-294 review).
@@ -1053,7 +1053,7 @@ expose my email"; a CI identity/message check; a sentinel line for both CLIs.
 
 ## New Integration Checklist
 
-When a new external integration is added to AI-OS v2, create a new T-### entry in this file covering:
+When a new external integration is added to Rein v2, create a new T-### entry in this file covering:
 1. Trust boundary introduced
 2. Data flowing across the boundary (in and out)
 3. Authentication mechanism

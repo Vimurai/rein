@@ -9,7 +9,7 @@ To close the loop on unpredictable system events logged to `incidents.ndjson`, t
 3. **`incident-aggregator` (Job)**: Parses `incidents.ndjson` to extract stack traces and frequency counts.
 
 ## Data Model
-- **Source**: `~/.ai-os/incidents.ndjson`
+- **Source**: `~/.rein/incidents.ndjson`
 - **Output**: `POSTMORTEM.md` reports and new `E-##` tasks appended to `.ai/TASKS.md`.
 
 ## API Contracts

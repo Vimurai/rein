@@ -21,7 +21,7 @@ Updates to `telemetry.sqlite` schema or write payloads:
 - `recordTaskVelocity(taskId, turns, tokens)`
 
 ## Security
-No secrets or PII are logged. Tool arguments are sanitized before insertion into SQLite to prevent SQL injection or secret leakage. The DB remains local to the user (`~/.ai-os/telemetry.sqlite`).
+No secrets or PII are logged. Tool arguments are sanitized before insertion into SQLite to prevent SQL injection or secret leakage. The DB remains local to the user (`~/.rein/telemetry.sqlite`).
 
 ## Execution Constraints
 Telemetry writes must be non-blocking and low-latency (<5ms added per tool execution) to prevent slowing down the JIT context and agent operations.
@@ -41,23 +41,23 @@ a generated blueprint never receives a hand-authored section). It lives here bec
 `instrument()` interceptor this blueprint owns is what records the stamp.
 
 **Problem**: ESM caches modules for the life of a process. A server started before
-`bash install-ai-os.sh` keeps serving the build it booted with; `update_task_status` regenerated
+`bash install-rein.sh` keeps serving the build it booted with; `update_task_status` regenerated
 `TASKS.md` through a pre-E-245 projector and silently dropped the archive pointer — twice.
 
 **Stamp** — `src/shared/build-stamp.mjs` (named in `architect.md §4`): a short CONTENT hash over
 a server's entry file plus every file in its `mcp/shared/` sibling, keyed by basename, and the
 newest mtime. Content rather than mtime because the installer's atomic copy (E-229) rewrites
-byte-identical files; basenames so the same build under `~/.ai-os` and under a checkout does not
+byte-identical files; basenames so the same build under `~/.rein` and under a checkout does not
 read as permanently stale.
 
 **Recording** — the shared `instrument()` interceptor computes the stamp once at startup (one
-change covers all servers), writes `~/.ai-os/run/build-<server>.json` (pid, hash, booted
+change covers all servers), writes `~/.rein/run/build-<server>.json` (pid, hash, booted
 timestamp) and attaches `_meta.booted_build` to every tool result. Only a bare `node <entry>`
 boot writes a record: `safe-exec-mcp --check` runs on EVERY Bash call through the PreToolUse
 hook and must not put a file write on that path. Records for dead pids are reaped on scan.
 
 **Consumers** — `verify_markdown_sync`, `run_preflight`, `ai doctor`, `ai sync` (an E-247
-fail-open step) and `install-ai-os.sh` each compare the live records with the mirror and emit
+fail-open step) and `install-rein.sh` each compare the live records with the mirror and emit
 `[STALE_SERVER] <name> booted <ts>, mirror changed <ts> — restart required`.
 
 **Completion gate (D-071 §1)** — enforced in `update_task_status(DONE)`, the only place a
@@ -76,7 +76,7 @@ start; the gate tells the operator what to do.
 policy modules only); a suite assertion pins this because the tempting fix for everything
 here is to hot-reload the lot.
 
-**Rollback** `AI_OS_BUILD_STAMP=0` suppresses the meta, the scan and the gate.
+**Rollback** `REIN_BUILD_STAMP=0` suppresses the meta, the scan and the gate.
 **Tests** `tests/unit/build-stamp.test.mjs` (the scan's own logic); `tests/suites/booted_build_test.sh`
 (the wiring, with a LIVE layer that holds one server open across a source rewrite — every other
 MCP assertion spawns a fresh server per call, which is exactly the condition under which this

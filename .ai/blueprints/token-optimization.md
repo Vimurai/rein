@@ -1,7 +1,7 @@
 # Blueprint: Token Optimization & State Hygiene
 
 ## Goal & Architecture
-**Goal**: Proactively manage the token footprint of the AI-OS hot-path by capping redundant task data and implementing automated rotation for audit stamps.
+**Goal**: Proactively manage the token footprint of the Rein hot-path by capping redundant task data and implementing automated rotation for audit stamps.
 **Architecture**: Transition from an "unbounded-accumulation" state model to a "capped-summary + rotating-stamps" model in the `task-synchronizer-mcp`.
 
 ## Core Concept

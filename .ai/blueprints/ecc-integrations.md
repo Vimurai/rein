@@ -1,11 +1,11 @@
 # Instinct Extraction and DAG Orchestration Integration
 
 ## Goal & Architecture
-This blueprint outlines the integration of two high-value features inspired by the ECC system into AI-OS: 
+This blueprint outlines the integration of two high-value features inspired by the ECC system into Rein: 
 1. **Instinct Extraction Pipeline:** An automated mechanism to analyze session logs (`LOG.md`, `REVIEWS.md`) and telemetry to extract recurring, successful patterns ("instincts") and promote them into formal `.gemini/skills/*.md` definitions.
 2. **DAG Task Orchestration:** An enhancement to the `state.json` schema and `task-synchronizer-mcp` to support explicit dependencies between `E-##` tasks (`depends_on: []`), enabling the Orchestrator to dispatch parallel, multi-step workflows automatically.
 
-These features transition AI-OS from a strictly sequential, manually-skilled system into an adaptive, parallel-capable autonomous harness.
+These features transition Rein from a strictly sequential, manually-skilled system into an adaptive, parallel-capable autonomous harness.
 
 ## Core Concept
 - **Instinct Extractor:** A background or scheduled agent (an evolution of `meta_analyst`) that acts as a "pattern recognition engine." It identifies sequences of tool calls or debugging loops that consistently lead to a `[DONE]` state and drafts new Skills.

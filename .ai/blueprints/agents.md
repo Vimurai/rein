@@ -1,9 +1,9 @@
 # Domain Blueprint: Agents & Skills
 
 > [!IMPORTANT]
-> This document maps all AI-OS Agents and Skills according to §34 Architectural Fragmentation.
+> This document maps all Rein Agents and Skills according to §34 Architectural Fragmentation.
 
-The AI-OS ecosystem divides cognitive labor across specialized agents and dynamic skills to maintain strict context limits and Token Economics.
+The Rein ecosystem divides cognitive labor across specialized agents and dynamic skills to maintain strict context limits and Token Economics.
 
 ## 1. Shared (Cross-Agent) Skills
 - **`ai-preflight`**: Executes the DIGEST-first read order and stamps `SESSION.md` at session start.
@@ -62,7 +62,7 @@ The AI-OS ecosystem divides cognitive labor across specialized agents and dynami
 - **`bug-reproducer`**: Enforces empirical validation with isolated repro scripts.
 - **`ci_gate`**: Gate required before changing CI/CD pipelines.
 - **`obs_baseline`**: Applies observability standards.
-- **`commit-crafter`**: Automates AI-OS Conventional Commits.
+- **`commit-crafter`**: Automates Rein Conventional Commits.
 - **`scope_safety`**: Enforces filesystem and shell scope boundaries.
 - **`dependency_gate`**: Gate required before adding major dependencies.
 - **`copilot`**: Delegates CLI tasks to GitHub Copilot CLI.

@@ -1,37 +1,37 @@
 # Version Lifecycle Blueprint — stamp, `ai init` upgrade, `ai clean`
 
-> D-074 (2026-09-17). Gives AI-OS a version that is recorded where it is installed and where it
+> D-074 (2026-09-17). Gives Rein a version that is recorded where it is installed and where it
 > is provisioned, makes `ai init` an idempotent UPGRADE on an existing project, and adds
 > `ai clean`, the one command that removes what earlier versions left behind. Extends
 > `workspace.md` (provisioning), `git-hooks.md` (stub upgrade), `claude-native-consolidation.md`
 > (D-069 legacy pruning, which today mostly PRINTS) and `local-ci.md` (log retention).
 
 ## Goal & Architecture
-Operators run several AI-OS projects on one machine and re-run `ai init` expecting it to bring
+Operators run several Rein projects on one machine and re-run `ai init` expecting it to bring
 a project to the installed version. Today nothing records which version provisioned a project
 (`.ai/state.json`'s `version` is the state schema), `ai init` only creates files that are
 MISSING (so `roles.json` never gains the `tester` role and `providers.json` keeps a removed
 provider), the install mirror copies `mcp/` and `hooks/` without deleting (an orphan
-`~/.ai-os/mcp/intent-refiner-mcp` exists now), `.claude/settings.json` keeps `mcp__*` allows
+`~/.rein/mcp/intent-refiner-mcp` exists now), `.claude/settings.json` keeps `mcp__*` allows
 for servers that no longer exist, agents are never pruned, and the D-069 legacy sweep prints
 `rm -r` hints instead of acting. Users: the operator (`ai init`, `ai clean`, `ai doctor`),
-`install-ai-os.sh`, and the completion gate (`BUILD_STALE`, E-249).
+`install-rein.sh`, and the completion gate (`BUILD_STALE`, E-249).
 
 ## Core Concept
 **One version, stamped twice, compared everywhere.** `package.json` is the only place the
-version is typed. The installer writes it to `~/.ai-os/VERSION`; `ai init`/`ai sync` write it
-into the project as `project.aios_version` (+ `provisioned_at`) through `state-db`. Every
+version is typed. The installer writes it to `~/.rein/VERSION`; `ai init`/`ai sync` write it
+into the project as `project.rein_version` (+ `provisioned_at`) through `state-db`. Every
 lifecycle command compares the three (clone, mirror, project) and says which is behind.
 **Generated files are refreshed, templates with a schema are merged, user content is never
 touched, and removal is a separate, explicit, reversible command.**
 
 ## Components
 1. **Version source and stamps.** `src/bin/ai`'s `VERSION=` literal and the installer's
-   literals go; the installer reads `package.json` and writes `~/.ai-os/VERSION`; `ai
+   literals go; the installer reads `package.json` and writes `~/.rein/VERSION`; `ai
    --version` reads the mirror file (falls back to the clone's `package.json` in the dev
-   tree). `ai init` and `ai sync` stamp `project.aios_version` / `provisioned_at` via a
+   tree). `ai init` and `ai sync` stamp `project.rein_version` / `provisioned_at` via a
    `state-db` helper (never by editing `state.json`). A unit test asserts `package.json`,
-   the CHANGELOG top entry and `~/.ai-os/VERSION` agree after install.
+   the CHANGELOG top entry and `~/.rein/VERSION` agree after install.
 2. **`ai init` as upgrade (idempotent).** On an existing project `ai init` (a) prints
    `project 3.0.0 → installed 3.1.0`; (b) REFRESHES everything generated: the three
    bootloaders, `.mcp.json`, `.claude/` skills/agents/overlays/settings hooks and env,
@@ -56,9 +56,9 @@ touched, and removal is a separate, explicit, reversible command.**
    that stopped shipping it), `known_hashes` (sha256 of every template version ever
    shipped, for files), `note`. Seed entries: `.gemini/`, `.agents/`, `GEMINI.md`,
    `AGENTS.md`, `testsprite_tests/`, nested `.claude/.claude/`, `.ai/legacy/`,
-   `.git/hooks/*.pre-aios`, `~/.ai-os/mcp/<not in registry>`, `~/.ai-os/hooks/<not in
-   src/hooks>`, the six orphaned v2 contracts, `~/install-ai-os.sh` (old full installer),
-   `~/.ai-os/run/role-*.lock` (dead pid), `~/.ai-os/run/build-*.json` (dead pid),
+   `.git/hooks/*.pre-rein`, `~/.rein/mcp/<not in registry>`, `~/.rein/hooks/<not in
+   src/hooks>`, the six orphaned v2 contracts, `~/install-rein.sh` (old full installer),
+   `~/.rein/run/role-*.lock` (dead pid), `~/.rein/run/build-*.json` (dead pid),
    `settings.json` `mcp__<server>__*` allows for servers absent from `registry.json`,
    `.claude/agents/<not in role manifest>`, orphan `ai-watch` processes (ppid 1, cwd under
    the temp dir). A test asserts every D-069 removal has an entry. `~/.gemini/` is NOT ours
@@ -69,11 +69,11 @@ touched, and removal is a separate, explicit, reversible command.**
    --all` also removes the `prompt` class after an interactive confirmation per group
    (`--yes` answers them; a non-interactive stdin without `--yes` refuses, as `ai start
    --kill` does). Nothing is deleted: removed paths are MOVED to
-   `~/.ai-os/trash/<ISO date>/<origin>/…` with a `manifest.json` (origin path, class,
+   `~/.rein/trash/<ISO date>/<origin>/…` with a `manifest.json` (origin path, class,
    registry entry, sha256) and kept 30 days; `ai clean --restore <date>` moves them back;
    `ai clean --purge` empties trash older than 30 days. Processes (`process` kind) are
    signalled TERM then KILL and listed, not trashed. Every apply appends one LOG line and
-   one `~/.ai-os/clean.log` line. `settings.local.json` is user-owned: `ai clean` prints
+   one `~/.rein/clean.log` line. `settings.local.json` is user-owned: `ai clean` prints
    the offending lines and never edits it.
 5. **Mirror hygiene in the installer.** `src/mcp/` and `hooks/` are synced with `--delete`
    like the other trees (the cp fallback gets an explicit orphan pass); `purge_orphans`
@@ -82,40 +82,40 @@ touched, and removal is a separate, explicit, reversible command.**
    `_prune_workspace_dir` can prune them; `_configure_project_claude_settings` removes
    `mcp__<server>__*` allows whose server is not in `registry.json` (user-added servers,
    i.e. names never in any registry version, are kept — the registry history list in the
-   legacy registry decides). `~/.ai-os/run/` locks and build records with dead pids are
+   legacy registry decides). `~/.rein/run/` locks and build records with dead pids are
    reaped by `ai sync` and `ai clean`.
 6. **`ai doctor` lines.** `version: clone 3.1.0 · mirror 3.1.0 · project 3.0.0 — run: ai
    init`; `mirror orphans: N — run: ai clean`; `legacy artefacts: N safe / M prompt — run:
    ai clean`; `watchers: 1 live, 17 orphaned — run: ai clean --apply`; `ai on PATH:
-   ~/.ai-os/bin/ai (shadowed by /usr/local/bin/ai)` from `which -a`. Stale MCP servers stay
+   ~/.rein/bin/ai (shadowed by /usr/local/bin/ai)` from `which -a`. Stale MCP servers stay
    a report with pids (E-249): nothing kills a live session's stdio child; the operator
    restarts via `/mcp` or the session, as today.
 
 ## Data Model
 ```
-~/.ai-os/VERSION                      "3.1.0\n"  (written by install-ai-os.sh from package.json)
+~/.rein/VERSION                      "3.1.0\n"  (written by install-rein.sh from package.json)
 .ai/state.json  project: { current_tier, release_verdict, focus,
-                           aios_version: "3.1.0", provisioned_at: "2026-09-17T10:00:00Z" }
+                           rein_version: "3.1.0", provisioned_at: "2026-09-17T10:00:00Z" }
 src/config/legacy-artefacts.json
   { "version": 1,
     "registry_history": ["TestSprite", "intent-refiner-mcp", …],   # server names ever shipped
     "entries": [ { "id": "gemini-workspace", "path": ".gemini/", "kind": "dir",
                    "class": "prompt", "since": "4.0.0", "known_hashes": [], "note": "D-069" },
-                 { "id": "mirror-orphan-mcp", "path": "~/.ai-os/mcp/*", "kind": "dir",
+                 { "id": "mirror-orphan-mcp", "path": "~/.rein/mcp/*", "kind": "dir",
                    "class": "safe", "since": "*", "rule": "not-in-registry" }, … ] }
-~/.ai-os/trash/<date>/manifest.json   [{ origin, class, entry_id, sha256|null, moved_at }]
-~/.ai-os/clean.log                     ISO ts | project | action | count | ids
+~/.rein/trash/<date>/manifest.json   [{ origin, class, entry_id, sha256|null, moved_at }]
+~/.rein/clean.log                     ISO ts | project | action | count | ids
 ```
 
 ## API / Interface Contracts
-- `ai --version` → `ai-os <VERSION>`; exit 0. `ai init --check` → exit 0 nothing to do,
+- `ai --version` → `rein <VERSION>`; exit 0. `ai init --check` → exit 0 nothing to do,
   1 changes pending (listed). `ai init` on an existing project never exits non-zero for a
   legacy finding — it lists and points at `ai clean`.
 - `ai clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]`; exit 0 when
   nothing (more) to do, 1 when findings remain (dry run with findings, or `prompt` items
   left without `--all`), 2 on refusal (non-interactive without `--yes`) or trash failure.
   `ai clean --restore <date> [--yes]`, `ai clean --purge [--older-than 30d]`.
-- `AI_OS_CLEAN_DISABLE=1` makes `ai clean` a no-op that prints the findings only.
+- `REIN_CLEAN_DISABLE=1` makes `ai clean` a no-op that prints the findings only.
 - The legacy registry is data: adding an entry needs no code change; a `class` of `safe`
   requires either `known_hashes` or a `rule` (`not-in-registry`, `dead-pid`,
   `not-in-manifest`, `orphan-process`) — a bare `safe` path is rejected by the loader.
@@ -141,8 +141,8 @@ src/config/legacy-artefacts.json
 ## Rollback Plan
 - `ai clean --restore <date>` reverses any apply (trash is the audit trail). Entries in
   the legacy registry can be removed or downgraded to `prompt` without code.
-- `AI_OS_CLEAN_DISABLE=1`; the installer's `--delete` on `mcp/` and `hooks/` is guarded
-  by `AI_OS_INSTALL_NO_DELETE=1` for one release.
+- `REIN_CLEAN_DISABLE=1`; the installer's `--delete` on `mcp/` and `hooks/` is guarded
+  by `REIN_INSTALL_NO_DELETE=1` for one release.
 - The merge in `ai init` is additive; the pre-merge `roles.json`/`providers.json` are kept
   as `<name>.pre-<version>.json` beside them for one release.
 - Version stamps are informational until `ai doctor` reads them; removing the keys is safe.

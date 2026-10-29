@@ -1,6 +1,6 @@
 # Team Collaboration — Shared `.ai/` Memory Across Developers (D-102)
 
-> Blueprint for running one AI-OS project with several developers on several machines
+> Blueprint for running one Rein project with several developers on several machines
 > sharing one git repository. Ruled D-102 on 2026-10-18 from the team-readiness audit
 > (COMM.md handoff 2026-10-18). Supersedes the single-operator assumptions in D-072
 > (CI on the operator's machine — master only), D-095 (one operator, several accounts)
@@ -117,18 +117,18 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
 - Engineer claim gate in `hooks/pre-tool-use.sh`: a `Write`/`Edit`/`Bash` write outside
   `.ai/` on a branch named `engineer/e<N>-*` is refused with `[CLAIM_REQUIRED] E-<N>`
   unless E-<N> is claimed by this user (local record or `origin/master`). Inactive without
-  `team.json`; `AI_OS_CLAIM_GATE=0` disables with a telemetry row.
+  `team.json`; `REIN_CLAIM_GATE=0` disables with a telemetry row.
 
 ### Component 5 — Portable CI evidence and hosted master CI (E-328, E-332)
 - `.ai/ci/<sha>.json` (tracked): `{ sha, verdict, suites, tests, started, finished,
-  runner: <email>, host, aios_version }` written by `ai ci run` beside the sqlite row.
+  runner: <email>, host, rein_version }` written by `ai ci run` beside the sqlite row.
 - `checkCiDoneGate` and `hooks/pre-push.sh` accept a PASS record for the sha from any
   team member when `team.json` exists; the local sqlite row is no longer required.
-- **5b — the hosted check contract (D-103, provider-neutral).** AI-OS projects ship on
+- **5b — the hosted check contract (D-103, provider-neutral).** Rein projects ship on
   GitHub, Azure DevOps and other providers, so the hosted `master` check is a contract,
   not a GitHub workflow: (a) trigger — a pull request targeting `master` (MUST), plus a
   push to `master` touching anything outside `.ai/**` (SHOULD, an audit run that gates
-  nothing); (b) exactly two run steps — bootstrap AI-OS, then `ai ci run` on the merge
+  nothing); (b) exactly two run steps — bootstrap Rein, then `ai ci run` on the merge
   result the provider checked out; no local-recipe command is copied into the wrapper;
   (c) artefacts on every outcome — the run log and `.ai/ci/*.json`, kept ≥ 14 days;
   (d) least privilege — read-only token, no secrets; (e) Linux image with Node 22;
@@ -140,8 +140,8 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
   (`.github/workflows/ci.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`,
   `bitbucket-pipelines.yml`); `--check` fails when the file differs from the rendering
   (sha256) and `ai doctor` reports it. Bootstrap variant chosen at render time: in the
-  AI-OS repo `bash install-ai-os.sh` from the checked-out sha; downstream, clone
-  `team.json.ci.aios_source` at the tag in `project.json.aios_version` and run its
+  Rein repo `bash install-rein.sh` from the checked-out sha; downstream, clone
+  `team.json.ci.rein_source` at the tag in `project.json.rein_version` and run its
   installer. Provider detected from the `origin` host (GitHub, Azure DevOps cloud, GitLab,
   Bitbucket) or given explicitly; unknown hosts → `[CI_PROVIDER_UNKNOWN]`. The
   equivalence test (`tests/unit/hosted-ci-workflow.test.mjs`) runs over every template.
@@ -183,14 +183,14 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
 
 ```
 .ai/team.json            { schema, planner, claim_ttl_days, shared_log, members{email→ranges},
-                           ci?: { provider: github|azure|gitlab|bitbucket, required_check, aios_source? } }
-.ai/project.json         { schema:2, focus, current_tier, release_verdict, aios_version, rev, updated_at, origin }
+                           ci?: { provider: github|azure|gitlab|bitbucket, required_check, rein_source? } }
+.ai/project.json         { schema:2, focus, current_tier, release_verdict, rein_version, rev, updated_at, origin }
 .ai/tasks/E-325.json     { id, owner, status: OPEN|BLOCKED|IN_PROGRESS|DONE, tier, description,
                            depends_on[], created_at, completed_at, summary,
                            assignee, claimed_at, claim_sha, rev, updated_at, origin }
 .ai/tasks/archive/2026-10/E-300.json   (same shape, DONE only)
 .ai/stamps/2026-10/<sha7>-<type>-<seq>.json  { task_id, type, agent, summary, sha, author, created_at, rev, origin }
-.ai/ci/<sha>.json        { sha, verdict: PASS|FAIL|SKIPPED, suites, tests, started, finished, runner, host, aios_version }
+.ai/ci/<sha>.json        { sha, verdict: PASS|FAIL|SKIPPED, suites, tests, started, finished, runner, host, rein_version }
 state.sqlite             tasks / stamps / ci_runs (index, rebuilt from files) + project.last_import_head
 generated, gitignored    state.json, TASKS.md, REVIEWS.md
 ```
@@ -231,7 +231,7 @@ on 2026-10-23 reordered the regenerated view).
   gates are convenience. The hosted runner has no team identity: its `.ai/ci/<sha>.json`
   is evidence for a reviewer, never a PASS a teammate's DONE or pre-push gate accepts.
 - Wrappers reference no secrets and request a read-only token; a downstream project's
-  bootstrap clones AI-OS at the pinned tag, never a moving branch.
+  bootstrap clones Rein at the pinned tag, never a moving branch.
 - No secrets enter records: `team.json` holds emails and ranges only; `start.local.json`
   holds the account name, never a token; `.ai/ci/*.json` holds no log text, only counts.
 - The role token (`role-token.mjs`, per-machine HMAC) is unchanged; it never crosses git.
@@ -258,8 +258,8 @@ on 2026-10-23 reordered the regenerated view).
 - `ai state migrate --legacy` folds `.ai/tasks/**`, stamps and project.json back into one
   `state.json`, removes the view entries from `.ai/.gitignore`, and deletes `team.json`
   after printing it; sqlite is rebuilt from the folded file.
-- Each gate has its kill switch, recorded in telemetry: `AI_OS_CLAIM_GATE=0`,
-  `AI_OS_STATE_IMPORT=0` (hooks become no-ops), `AI_OS_CI_GATE=0` (existing).
+- Each gate has its kill switch, recorded in telemetry: `REIN_CLAIM_GATE=0`,
+  `REIN_STATE_IMPORT=0` (hooks become no-ops), `REIN_CI_GATE=0` (existing).
 - The hosted wrapper is one rendered file per project; deleting it and the provider's
   required-check policy restores D-072 exactly (D-103). Reverting E-335 leaves the
   hand-written E-332 workflow working unchanged.

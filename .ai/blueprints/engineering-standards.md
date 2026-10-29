@@ -1,7 +1,7 @@
 # Domain Blueprint: Engineering Standards
 
 > [!IMPORTANT]
-> Proactive architectural enforcement of clean code, reusability, and maintainability in the AI-OS codebase.
+> Proactive architectural enforcement of clean code, reusability, and maintainability in the Rein codebase.
 
 ## Goal & Architecture
 Establish an automated quality-control layer that prevents "architectural drift" and sub-standard code, ensuring all engineering work follows strict reuse and cleanliness principles.
@@ -32,7 +32,7 @@ Establish an automated quality-control layer that prevents "architectural drift"
 - **Concurrency**: Standards checker runs in parallel with existing linting/test gates.
 
 ## Rollback Plan
-- Disable the pre-commit hook via `hooks/pre-commit.sh` (flag `AI_OS_SKIP_STANDARDS=1`).
+- Disable the pre-commit hook via `hooks/pre-commit.sh` (flag `REIN_SKIP_STANDARDS=1`).
 - Revert the `registry.json` change that registers the new `critic_clean_code` agent.
 
 ## E-## Task Breakdown

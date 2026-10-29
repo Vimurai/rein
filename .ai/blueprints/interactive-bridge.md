@@ -16,12 +16,12 @@ Because interactive REPLs block on standard input, they cannot natively listen t
 1. **`handoff_control` (MCP Tool)**
    - Responsibility: An explicit tool in `task-synchronizer-mcp` that allows agents to emit a structured signal (e.g., `{ target: "claude", message: "Planning complete." }`) to `.ai/signal.json`. Appends to a queue.
 2. **`ai watch` (Global CLI Command)**
-   - Responsibility: A global Bash script installed to `~/.ai-os/bin/ai-watch`. When run inside a project directory, it resolves the current `tmux` session, tails `.ai/signal.json`, and executes `tmux send-keys` to route the message to the target pane.
+   - Responsibility: A global Bash script installed to `~/.rein/bin/ai-watch`. When run inside a project directory, it resolves the current `tmux` session, tails `.ai/signal.json`, and executes `tmux send-keys` to route the message to the target pane.
    - **Busy Detection & Per-Target Independence**: Monitors the target pane's TTY state. Independent target processing ensures that a busy Claude does not block a signal meant for an idle Gemini.
    - **Single-Writer Lock**: Uses a cross-process lock to safely mutate signal statuses.
 3. **Automated Handoff Enforcement**
    - Responsibility: Agents (via prompts or framework scripts) are strictly mandated to invoke `handoff_control` automatically when their task queue is exhausted or planning is complete.
-   - **Cross-Role Auto-Handoff (E-204)**: When a role creates a task for a different role via the shell primitive `ai add-task` (e.g., Architect creates a task for the Engineer), the tool automatically triggers `ai handoff` to wake the target role. This eliminates manual signaling when delegating work. Can be bypassed via `AI_OS_NO_AUTO_HANDOFF=1`.
+   - **Cross-Role Auto-Handoff (E-204)**: When a role creates a task for a different role via the shell primitive `ai add-task` (e.g., Architect creates a task for the Engineer), the tool automatically triggers `ai handoff` to wake the target role. This eliminates manual signaling when delegating work. Can be bypassed via `REIN_NO_AUTO_HANDOFF=1`.
 
 ## Data Model
 **`.ai/signal.json` Payload (Queue Array):**
@@ -72,7 +72,7 @@ maps both roles to that provider.
 
 ## Security
 - **Isolation**: `ai watch` must strictly filter `tmux list-panes` by the current working directory to prevent injecting commands into other concurrent projects.
-  - **D-068 (2026-09-11, E-253)**: the candidate set is ALSO restricted to the watcher's own tmux session (`list-panes -s -t <session_name>`) when the watcher runs inside tmux; `AI_WATCH_ALL_SESSIONS=1` restores the `-a` scan. The path filter compares against the project's PHYSICAL path (`pwd -P`): tmux reports the process's resolved cwd, so a project entered through a symlink matched zero panes and silently dropped every signal. The launcher side (one tmux session per project, stamped `AI_OS_PROJECT`) is specified in `cli-collapse.md §Per-Project tmux Sessions`.
+  - **D-068 (2026-09-11, E-253)**: the candidate set is ALSO restricted to the watcher's own tmux session (`list-panes -s -t <session_name>`) when the watcher runs inside tmux; `AI_WATCH_ALL_SESSIONS=1` restores the `-a` scan. The path filter compares against the project's PHYSICAL path (`pwd -P`): tmux reports the process's resolved cwd, so a project entered through a symlink matched zero panes and silently dropped every signal. The launcher side (one tmux session per project, stamped `REIN_PROJECT`) is specified in `cli-collapse.md §Per-Project tmux Sessions`.
 - **Command Injection**: The `message` field must be safely escaped before being passed to `tmux send-keys` to prevent arbitrary shell execution if an agent hallucinates shell characters.
 
 ## Execution Constraints
@@ -92,7 +92,7 @@ maps both roles to that provider.
 - **E-118**: Refactor `handoff_control` and `ai-watch` to support a signal queue (array) and busy-state detection before injection.
 - **E-119**: Enforce automatic handoff in Claude and Gemini workflows by updating prompt instructions (e.g., `ai-handoff` and `ai-task` skills) to mandate calling `handoff_control`.
 - **E-124**: Implement the smart ai-watch delivery model: stateful persistence using a `delivered` flag, startup backlog drain, single-writer lock, and per-target independent FIFOs.
-- **E-204**: Auto-trigger `ai handoff` on cross-role task creation. `ai add-task` automatically signals the target role (prefix E -> engineer, P -> architect) unless `AI_OS_NO_AUTO_HANDOFF=1` is set.
+- **E-204**: Auto-trigger `ai handoff` on cross-role task creation. `ai add-task` automatically signals the target role (prefix E -> engineer, P -> architect) unless `REIN_NO_AUTO_HANDOFF=1` is set.
 - **E-209**: Re-order `resolve_pane` for semantic targets per §Pane Resolution Precedence (D-054): exact title → roles.json ordinal → fuzzy title → window name.
 - **E-211**: Deprecate legacy `claude`/`gemini` targets — stderr warning; fail closed when both roles map to the same provider.
 

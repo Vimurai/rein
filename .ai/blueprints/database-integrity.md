@@ -1,7 +1,7 @@
 # Database & State Integrity Architecture
 
 ## Core Concept
-As AI-OS heavily relies on SQLite (`state.sqlite`, `telemetry.sqlite`) for ACID coordination, the `db_architect` agent and `ai-migration` skill will manage schema migrations, WAL modes, and prevent deadlocks.
+As Rein heavily relies on SQLite (`state.sqlite`, `telemetry.sqlite`) for ACID coordination, the `db_architect` agent and `ai-migration` skill will manage schema migrations, WAL modes, and prevent deadlocks.
 
 ## Components
 1. **`db_architect` (Agent)**: An expert in database normalization, SQLite tuning, migration scripting, and data integrity.

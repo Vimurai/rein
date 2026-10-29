@@ -1,5 +1,5 @@
 # Goal & Architecture
-Fix a fatal path resolution bug in the `scripts/standards.mjs` CLI that causes pre-commit hooks to fail in installed AI-OS environments. The script currently uses a static import path that is valid within the repository but broken when the framework is installed globally at `~/.ai-os/`.
+Fix a fatal path resolution bug in the `scripts/standards.mjs` CLI that causes pre-commit hooks to fail in installed Rein environments. The script currently uses a static import path that is valid within the repository but broken when the framework is installed globally at `~/.rein/`.
 
 # Core Concept
 Replace the static `import { ... } from "../src/shared/standards-checker.mjs"` statement with a dynamic, locator-aware `await import()` chain. This mirrors the proven pattern used in `scripts/generate_mcp_docs.mjs` (E-52), allowing the script to find its dependency whether it's executing in the local development repo or from the global installation directory.
@@ -29,10 +29,10 @@ The script relies on destructuring the following from the loaded module:
 
 # Execution Constraints
 - Must remain performant; the overhead of `existsSync` and dynamic `import()` is negligible and well within the 200ms budget defined for the standards checker.
-- Requires Node 14.8+ for top-level await, but AI-OS mandates Node 22+ per system-hardening-phase3.md, so compatibility is guaranteed.
+- Requires Node 14.8+ for top-level await, but Rein mandates Node 22+ per system-hardening-phase3.md, so compatibility is guaranteed.
 
 # Rollback Plan
-If the dynamic import introduces unforeseen regressions, the change can be reverted by running `git checkout HEAD~1 scripts/standards.mjs`. In the interim, users can bypass the hook using `AI_OS_SKIP_STANDARDS=1`.
+If the dynamic import introduces unforeseen regressions, the change can be reverted by running `git checkout HEAD~1 scripts/standards.mjs`. In the interim, users can bypass the hook using `REIN_SKIP_STANDARDS=1`.
 
 # E-## Task Breakdown
 - **E-XX1:** Refactor `scripts/standards.mjs` to replace the static import of `standards-checker.mjs` with a dynamic locator chain, ensuring compatibility with both in-repo and installed execution environments. Add tests to `tests/suites/standards_checker_test.sh` if necessary to assert the locator behavior.

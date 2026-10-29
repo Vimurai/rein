@@ -11,7 +11,7 @@ company plan) needs each PROJECT to spend a chosen subscription, and needs to SE
 pane is spending. Claude Code keeps login, settings and history in one config directory
 (`~/.claude` by default) and honours `CLAUDE_CONFIG_DIR` to use another one, so one directory
 per subscription gives one login per subscription. The only question is which directory a
-project's panes start with — and the one place every AI-OS Claude launch goes through is
+project's panes start with — and the one place every Rein Claude launch goes through is
 `ai pane`, which `exec`s the provider. That is where the variable is set, immediately before
 the exec, for `ai start`'s panes and for a manual `ai pane` alike.
 
@@ -26,13 +26,13 @@ labels the pane with the account.
 
 **An account is a NAME that the operator's machine resolves to a directory.** The project
 holds only the name (`{"account": "work"}`); the mapping name → directory lives in the
-operator-owned registry `~/.ai-os/accounts.json`; the directory holds the login. Three trust
+operator-owned registry `~/.rein/accounts.json`; the directory holds the login. Three trust
 levels, three places:
 
 | What | Where | Owner | Contains |
 |---|---|---|---|
 | the choice | `.ai/start.json` `account` | project (Architect-writable, committed) | a name |
-| the mapping | `~/.ai-os/accounts.json` | operator | name → absolute config dir |
+| the mapping | `~/.rein/accounts.json` | operator | name → absolute config dir |
 | the login | `<config dir>` (e.g. `~/.claude-work`) | Claude Code | credentials, settings, history |
 
 The reserved name **`default`** means `~/.claude` with `CLAUDE_CONFIG_DIR` left exactly as the
@@ -41,7 +41,7 @@ changes for existing projects.
 
 ## Components
 
-### 1. Account registry — `~/.ai-os/accounts.json` and `ai account`
+### 1. Account registry — `~/.rein/accounts.json` and `ai account`
 
 - Shape: `{"accounts": {"work": {"config_dir": "/Users/me/.claude-work", "added": "2026-10-13"}}}`.
   `default` is never stored; it is implied.
@@ -111,7 +111,7 @@ changes for existing projects.
 - **The account's user-level copy is checked at launch (D-097).** For a non-default account,
   `ai pane` reads `<dir>/settings.json` through the E-293 helper's `plan` state and: refuses
   with exit 2 naming `ai sync` when the classifier backstop is OUTDATED (a stale copy only
-  AI-OS can refresh) or the file is missing or unparsable (the account is not set up — name
+  Rein can refresh) or the file is missing or unparsable (the account is not set up — name
   `ai account sync <name>`); prints the `ai doctor` one-line notice and continues when it is
   ABSENT (the backstop is the operator's y/N choice, exactly as in `~/.claude`). The default
   account keeps today's behaviour: `~/.claude` cannot be a stale copy, and a hand edit there is
@@ -120,12 +120,12 @@ changes for existing projects.
 ### 4. Seeding a new config directory — what is shared and what is not
 
 A new config directory starts EMPTY: no user settings, no permissions, no keybindings. The
-AI-OS hooks, skills, agents and role overlays are PROJECT-scoped: the six hook entries are
+Rein hooks, skills, agents and role overlays are PROJECT-scoped: the six hook entries are
 written into the project's `.claude/settings.json` by `ai init` / `ai sync`
-(`_configure_project_claude_settings`; gitignored, absolute paths into `~/.ai-os/hooks`), the
+(`_configure_project_claude_settings`; gitignored, absolute paths into `~/.rein/hooks`), the
 skills and agents under `.claude/`, so they work under any config directory without copying
 (E-315 proves it with the probe in Component 3). What the config directory DOES move is the
-USER layer, and one AI-OS-owned entry lives there: the E-293 classifier backstop in
+USER layer, and one Rein-owned entry lives there: the E-293 classifier backstop in
 `autoMode.hard_deny` (a project's `autoMode` is ignored by Claude Code, so it can live nowhere
 else). A copy of it goes stale when its D-ruling text changes (E-306's label mechanism); D-097
 makes `ai install` / `ai sync` refresh it in every registered account directory (below). What
@@ -149,7 +149,7 @@ have diverged on purpose). The E-293 classifier-backstop check (`_cb_settings`, 
 to `~/.claude/settings.json`) iterates every registered account directory, so a missing
 `hard_deny` rule in `~/.claude-work` is reported like one in `~/.claude`.
 
-**The AI-OS-owned entry never goes stale (D-097, E-318).** `ai install` and `ai sync` run the
+**The Rein-owned entry never goes stale (D-097, E-318).** `ai install` and `ai sync` run the
 E-293 helper's `apply` over `~/.claude/settings.json` AND every registered account's
 `settings.json` with REPLACE semantics only: an OUTDATED labelled copy is replaced in place
 (E-306's path — the label carries the operator's earlier consent); ABSENT is reported, never
@@ -167,7 +167,7 @@ here for the `account` key (Architect edit, this blueprint's PR).
 ## Data Model
 
 ```
-~/.ai-os/accounts.json          (operator, 0600 not required — it holds no secret)
+~/.rein/accounts.json          (operator, 0600 not required — it holds no secret)
 { "accounts": { "<name>": { "config_dir": "<absolute path under $HOME>", "added": "YYYY-MM-DD" } } }
 
 .ai/start.json                  (project; existing keys unchanged)
@@ -206,13 +206,13 @@ credential or the directory contents.
 
 - **The project cannot choose a directory.** `start.json` is Architect-writable and committed;
   a path there would be a committed exec surface (E-208). It names a registry KEY; the registry
-  under `~/.ai-os` is operator-owned; the resolved path is validated before it is exported. An
+  under `~/.rein` is operator-owned; the resolved path is validated before it is exported. An
   unknown name refuses, never falls back.
 - **Directory rules as built (E-314 c49a485, adopted by D-098 — stricter than D-095's three).**
   `src/shared/accounts.py` is the ONE validator (`resolve|list|check|add|remove`); a directory
   is refused (`BADDIR`, exit 5) when it is empty or carries a control character; is not
   absolute; has a `.` or `..` component; is not under `$HOME`; is inside `~/.claude` (the
-  default account) or `~/.ai-os` (the installed framework); is inside a git working tree; or
+  default account) or `~/.rein` (the installed framework); is inside a git working tree; or
   when any component is not owned by the operator or is group- or world-writable. Registry
   rows are strict (`fullmatch` names, `{config_dir, added}` only, `added` as YYYY-MM-DD, no
   unknown keys; a duplicate key is a parse error); `default` is never a row. Seeding never
@@ -223,11 +223,11 @@ credential or the directory contents.
   method and the directory and never a credential (E-314 as built; the earlier "tests
   existence only" wording was wrong). `ai account remove` never deletes.
 - **The registry and every account's `settings.json` are under the classifier rule (D-097).**
-  `~/.ai-os/accounts.json` joins the protected set; the rule's `~/.claude/settings.json` clause
+  `~/.rein/accounts.json` joins the protected set; the rule's `~/.claude/settings.json` clause
   covers each registered `config_dir`; `ai account` is exempt like the other `ai` subcommands.
 - **Same gate, same records.** `CLAUDE_CONFIG_DIR` changes where Claude Code keeps its state,
   not which hooks run: the role token (E-129), the launch record (E-294) and the pre-tool-use
-  gate are project/`~/.ai-os`-scoped and unchanged. The authentication page documents that
+  gate are project/`~/.rein`-scoped and unchanged. The authentication page documents that
   with `CLAUDE_CONFIG_DIR` set, Claude Code keeps `.credentials.json` under that directory
   and keys the macOS Keychain entry to it, so two directories hold two claude.ai logins.
   E-314 still opens with a probe proving it on this machine and this CLI version (two
@@ -244,7 +244,7 @@ credential or the directory contents.
 ## Execution Constraints
 
 - `ai pane` adds one registry read (python3, < 30 ms) on the launch path; no new node process.
-- No new environment variable of AI-OS's own: `CLAUDE_CONFIG_DIR` is Claude Code's. No new
+- No new environment variable of Rein's own: `CLAUDE_CONFIG_DIR` is Claude Code's. No new
   dependency. The registry and `start.json` are read once per command, never cached.
 - Bash 3.2-safe (macOS `/bin/bash`), as the rest of `src/bin/ai`.
 - `src/bin/ai` is near its size ceiling (5953 lines, standard ≤ 1000 per file with the script
@@ -254,7 +254,7 @@ credential or the directory contents.
 ## Rollback Plan
 
 - Per project: `ai start --account default` (removes the key) — the next `ai pane` launches as
-  today. Per machine: delete `~/.ai-os/accounts.json`; the extra config directories keep their
+  today. Per machine: delete `~/.rein/accounts.json`; the extra config directories keep their
   logins and are inert until re-registered.
 - The feature reverts as one PR (E-314 + E-315); `start.json` files carrying `account` are then
   rejected by the old validator with the existing "unknown key" message, which names the key —

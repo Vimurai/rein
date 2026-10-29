@@ -9,7 +9,7 @@
    - Verify Docker socket permissions and container startup capability.
    - Verify Node version (22+) and essential global binaries (`gh`, `git`, `tmux`).
    - Spawn-check all 25 MCP servers defined in the active `mcp_config.json` to verify they start without throwing stdout errors or immediate exits.
-   - Validate read/write permission bits on `~/.ai-os/` and `.ai/` files.
+   - Validate read/write permission bits on `~/.rein/` and `.ai/` files.
 2. **Context Cache Compaction**:
    - Introduce a token-size threshold check. If the compiled cache exceeds `5,000` characters/tokens, prune done tasks older than 7 days, maintaining a clean hot path.
 

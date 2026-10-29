@@ -33,7 +33,7 @@ No new MCP API contracts are added. Existing tools function as documented, but w
 
 ## E-## Task Breakdown
 - **E-166**: Correct `better-sqlite3` imports and pragma usage to native `node:sqlite` `DatabaseSync` in `src/claude/agents/db_architect.md` and `src/shared/skills/ai-migration/SKILL.md`.
-- **E-167**: Add `~/.agents/skills/` and `~/.ai-os/agents/skills/` to `SKILL_ROOTS` in `src/mcp/context-invoker-mcp/index.js`.
+- **E-167**: Add `~/.agents/skills/` and `~/.rein/agents/skills/` to `SKILL_ROOTS` in `src/mcp/context-invoker-mcp/index.js`.
 - **E-168**: Fix `{ readOnly: true }` parameter to `{ readonly: true }` in `src/shared/telemetry.mjs`.
 - **E-169**: Extend sovereignty validation to block writes to `.ai/blueprints/` in `src/mcp/orchestrator-mcp/index.js` and `critic_arch` template.
 - **E-170**: Resolve documentation drift: (a) update `CONTRIBUTING.md` line 41 to show `agents/skills`, (b) fix `src/bin/ai` line 2397 deprecated warning to guide users to `arch-review`, and (c) update `.ai/blueprints/agents.md` to retire `gemini_tasks` and rename `ai-review` to `arch-review`.

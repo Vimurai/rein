@@ -44,7 +44,7 @@ SHAs and declare minimal `permissions` per job.
 | `scorecard.yml` | weekly, push to trunk | OpenSSF Scorecard, results published to the security tab |
 | `dependency-review.yml` | PR | `actions/dependency-review-action`, fail on high severity or a non-allowed licence |
 | `nightly.yml` | 03:00 UTC on trunk, manual | full matrix (reuses Component 1's job via `workflow_call`), `npm audit --audit-level=high`, the D-118 r1 drift line as a job summary; on failure create-or-update ONE issue labelled `nightly` |
-| `release.yml` | tag `v*` | the full matrix on the tag; then a GitHub release from the CHANGELOG section for that version with the sha256 of `install-rein.sh` (`install-ai-os.sh` until E-383) in the notes |
+| `release.yml` | tag `v*` | the full matrix on the tag; then a GitHub release from the CHANGELOG section for that version with the sha256 of `install-rein.sh` (`install-rein.sh` until E-383) in the notes |
 | `privacy.yml` (E-378) | PR, push | unchanged |
 - `.github/dependabot.yml`: npm for the root and `src/mcp/*` (weekly, grouped minor+patch),
   `github-actions` (weekly). Dependabot PRs run the full CI like any PR.

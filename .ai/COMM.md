@@ -489,3 +489,30 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 - Installed hooks resolve helpers from this clone: a session whose install predates a rename of helper names fails closed until `bash install-rein.sh` (happened today; the operator reinstalled with --allow-dirty — doctor reports the install dirty until a clean reinstall).
 - PR #9 (E-389) mergeable; its macOS shard-1 red is E-388 (also red on main); Dependency review needs the repo's Dependency graph setting.
 ---
+## Handoff — 2026-10-29 21:16 UTC
+**From**: Architect → Engineer
+**Trigger**: D-132 addendum 2 ruled on the 21:06 handoff and the two operator addenda (no `ai` forwarder; hard rename everything, no fallbacks); E-391 and E-392 registered
+
+### What was planned
+- **D-132 addendum 2** (`.ai/DECISIONS.md`, ten rulings): command `ai` → `rein` (bin files, installer, every `ai <sub>`, no forwarder); the 18 `ai-*` skills → `rein-*` with every registry keyed on a skill name in the same commit (`arch-*` and unprefixed skills stay, E-217 holds); `.ai/` is the one survivor; **no compatibility layer** — §Component 4 withdrawn whole (symlink, env fallback, legacy reads, sync rewrites, installer forwarder, `[LEGACY_*]`/`[RENAME_PENDING]`, upgrading section, the gate rows for the old path), zero `rename:legacy-fallback` lines; the operator migrates by hand (list in the blueprint §Component 4, carry it verbatim to the operator — including `rm ~/.ai-os`, a symlink); **classifier rule text v5** verbatim in r6, label `(D-132)` (critic_arch D1); **exclusion list** = the fixture as built minus `install-ai-os.sh` and the two classifier files (D2 ratified, D3 resolved by deletion); the gate grows the command pattern (subcommands read from the dispatch table; `.ai/` can never match) and the 18 skill names; CI job `ai-ci-run` → `rein-ci-run` with the required-checks list on `main` updated by one `gh api` call in the merge step; Windows (WSL2) leg ruled (r10).
+- **`.ai/blueprints/rein-rename.md`** rewritten: §Component 2 rows 13–18, §Component 3 (records + self-references), §Component 4 = hard cut + manual migration, §Component 5 merge step, §Component 6 gates, §Component 7 Windows leg, Data Model, contracts, E-## table.
+- **`.ai/blueprints/public-ci.md`** §Component 4 (rename interplay: required-check names) and new §Component 5 (the Windows leg's steps: setup-wsl SHA-pinned, Ubuntu 24.04, WSL 2 where the hosted image can start it else WSL 1 named as such, copy the checkout to the Linux filesystem first, `rein ci run --shard i/4`).
+- **E-391** (Tier 3, OPEN, same PR as E-383, own commits, before the tag; not DAG-chained): the nine numbered steps; replaces E-383's §Component 4 acceptance — close E-383 on its mechanical passes and fixtures.
+- **E-392** (Tier 2, BLOCKED on E-391, after the tag): the Windows leg, informative until three green runs on `main`, then required; README "planned" wording goes then. `ci_gate` first.
+- Commit a8da17c (DECISIONS, both blueprints, TASKS, state). Focus set to E-391.
+
+### Decisions made
+- D-132 addendum 2 (above). D-132 ruling 2 (history not rewritten) stands; rulings 1 "Unchanged", 3, 4, 5 superseded.
+
+### Blueprint divergence
+- D1–D3 from the 21:06 handoff are each ruled (r6, r7, r4). After E-391 the blueprint and the tree must agree exactly: the fixture equals §Component 3, no exemption lines exist.
+
+### Next action needed (Engineer)
+- Execute E-391 on `rename/rein`. Order that keeps the diff reviewable: (a) drop or revert the compatibility commits; (b) command + bin files + installer; (c) skills + registries in one commit; (d) classifier v5 + pin + test; (e) gate extension + fixture; (f) CI job names + `requiredChecks()`; (g) the mechanical pass over the live blueprints and `architect.md` for the command and skill names, one commit; (h) security_engineer on the gate tables and exempt lists; (i) in the merge step, the `gh api` required-checks update right before the merge, then tag `v0.4.0`. Then `skill: rein-task` (its new name) closes E-383 and E-391 and wakes me; E-385 → E-390 follow under the new names.
+- Tell the operator the manual steps from §Component 4 in your handover to them.
+
+### Open risks
+- Fail-open by token: any gate rule or exempt list keyed on `ai` that the pass misses stops matching `rein`; the gate suites must assert the blocks after the rename, not before (r8, §Component 6).
+- Between the required-checks update and the merge no other PR can go green — do both in one sitting.
+- The Windows leg's WSL version is unknown until the first run; r10 names the fallback and the wording that goes with it.
+---

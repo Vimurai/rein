@@ -562,7 +562,7 @@ now parse.
 
 **SKILLS HALF FIXED in E-225 (D-058 §2).** The five sites below now set
 `REIN_LOCATE_UNTRUSTED_ENV=1`, `unset -f` any inherited resolver functions, source
-`${HOME}/.rein/shared/locate.sh` only if the file exists, and resolve via `ai_os_locate`.
+`${HOME}/.rein/shared/locate.sh` only if the file exists, and resolve via `rein_locate`.
 An E-80 standards rule (`skill_locator_install_first`) fails any executable markdown line
 that hands an interpreter a project-relative path, across `src/**` AND the `.claude/` and
 `.agents/` mirrors. Verified by a canary: the pre-fix skills executed a decoy project's
@@ -738,7 +738,7 @@ the skill `ENGINEER.md` mandates at the start of EVERY session, and line 18 is a
 `!`-prefixed auto-executed command. Not fixed under E-223 because D-057 §3 scopes that
 task to `hooks/*.sh` and `src/bin/ai`, and widening a Tier 3 task past its ruling is the
 drift these gates exist to prevent — but the class is NOT closed while these stand, and
-this entry would otherwise read as though it were. Fix shape: the same `ai_os_locate`,
+this entry would otherwise read as though it were. Fix shape: the same `rein_locate`,
 which the skills can reach via the installed mirror.
 
 **SCOPE — what this does NOT close.** Only FRAMEWORK-HELPER resolution. Hooks still run a
@@ -764,7 +764,7 @@ project supplies through its own `.claude/settings.json` restored it in full, on
 dev-tree override was implemented as ANOTHER env var that each caller promised to reset —
 `bin/ai` did, the five hooks never mentioned it, so the same settings.json channel made a
 hook resolve the visited repo's own safe-exec analyzer and the gate then allowed
-everything. The override is now a FUNCTION (`ai_os_locate_enable_dev_tree`), with the state
+everything. The override is now a FUNCTION (`rein_locate_enable_dev_tree`), with the state
 reset unconditionally at source time, so the guarantee no longer depends on six callers
 remembering. The lesson worth keeping: a fix for an environment-trust bug must not
 introduce a new environment variable.
@@ -882,7 +882,7 @@ The prologue drops `PERL*` (`PERL5OPT`/`PERL5LIB` would load a project's module 
 - A signal is handled only after the running foreground child (node, python3) exits — up to
   the 10 s wall clock.
 - An abort inside `$( … )` ends only that subshell; each such value on a path to `exit 0` is
-  checked by hand (the parser now; the locator and `ai_os_tc_missing` degrade to a block or
+  checked by hand (the parser now; the locator and `rein_tc_missing` degrade to a block or
   the backstop). New `$( … )` on an allow path needs the same review.
 - A fail-open hook that aborts BEFORE the pin loads records nothing (no trusted node).
 - A host without `/usr/bin/perl` keeps only the in-process timer (bounds async waits, not a
@@ -1059,7 +1059,7 @@ both spellings, or the old one walks around it. Found in E-383: secret-rule.mjs 
 role-token key is readable through the old path's `secrets/`), the pre-tool-use no-verdict
 fallback grep, the classifier backstop RULE text, and the `_ci_local_env` reservation list.
 Mitigation: one shared MIRROR pattern used by every name-based guard, and one test row per guard
-with the old spelling. Guards resolved by realpath (isUnderAiOs) are unaffected. The env fallback
+with the old spelling. Guards resolved by realpath (isUnderRein) are unaffected. The env fallback
 grants only what the new name already grants, except where the new name has a reservation.
 
 ## New Integration Checklist

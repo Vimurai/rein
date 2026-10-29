@@ -106,7 +106,7 @@ Rules (E-264):
   only in Linuxbrew (12 suites, 105 assertions, 2026-10-23).
 - One helper creates every such HOME: `tc_fixture_home <home>` (`tests/lib/toolchain-fixture.sh`)
   and `tcFixtureHome(home)` (`toolchain-fixture.mjs`), recording the host's resolved node,
-  python3 and git through the installer's own `ai_os_tc_write`. The fallback list is never
+  python3 and git through the installer's own `rein_tc_write`. The fallback list is never
   extended for a host (D-109 alt. 1).
 - The harness preflight census fails the run when a suite exports a temp HOME and then runs
   `hooks/`, `ai ` or a pin loader without that record; exemptions carry a reason (E-345).

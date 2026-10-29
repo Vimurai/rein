@@ -89,10 +89,10 @@ changes for existing projects.
   unregistered name refuses the launch with exit 2 and the `ai account add` recipe: a pane
   that silently fell back to `default` would spend the wrong subscription, which is the one
   thing this feature exists to prevent.
-- The pane is labelled: `@ai_os_account <name>` is set beside `@ai_os_role`, and the pane
+- The pane is labelled: `@rein_account <name>` is set beside `@rein_role`, and the pane
   title becomes `<role> · <name>` (`architect · work`). `ai-watch` keeps routing by
-  `@ai_os_role` (D-073); the account option is for humans and for `--status`.
-- `ai start --status` gains an account column read from `@ai_os_account`; `ai doctor` prints
+  `@rein_role` (D-073); the account option is for humans and for `--status`.
+- `ai start --status` gains an account column read from `@rein_account`; `ai doctor` prints
   the project's account, its directory and the login marker on one line.
 - `tests/run.sh` and the harness's inherited-environment strip treat `CLAUDE_CONFIG_DIR` as a
   launch variable: a suite run from an account-bound pane must not inherit the operator's
@@ -174,8 +174,8 @@ here for the `account` key (Architect edit, this blueprint's PR).
 { "session": "...", "layout": "triad", "watch": true, "sizes": {...}, "account": "work" }
 
 tmux pane options               (set by ai pane, read by --status)
-@ai_os_role     = architect | engineer
-@ai_os_account  = <name>            (absent = default)
+@rein_role     = architect | engineer
+@rein_account  = <name>            (absent = default)
 
 name   := ^[a-z][a-z0-9-]{0,23}$    ("default" reserved, never stored)
 dir    := absolute, under $HOME, no ".." component, not equal to ~/.claude
@@ -195,7 +195,7 @@ are unaffected.
 | `ai account sync <name>` | registered name | `settings.json` + `keybindings.json` re-copied | 0; 2 unknown |
 | `ai start --account <name>` | registered or `default` | `start.json` updated, launch proceeds | 0; 2 unregistered |
 | `ai start` (no key, TTY, ≥1 account) | choice from a numbered list | key written | as `ai start` |
-| `ai pane <role>` | project with `account` | `CLAUDE_CONFIG_DIR` exported before exec; `@ai_os_account` + title set | 2 unregistered or missing dir |
+| `ai pane <role>` | project with `account` | `CLAUDE_CONFIG_DIR` exported before exec; `@rein_account` + title set | 2 unregistered or missing dir |
 | `ai start --status` | — | existing rows + account column | 0 |
 | `ai doctor` | — | one `account:` line | as today |
 
@@ -275,7 +275,7 @@ credential or the directory contents.
   `orchestrator-mcp/run-handover.mjs` (index.js back under the 500-line warn).
 - **E-315** (Tier 2, after E-314 and E-318): `account` in `_start_config`; `ai start --account`
   and the TTY pick; the Component 3 probe LOG line; `ai pane` export + launch check +
-  `@ai_os_account` + title; `--status` column; `ai doctor` line; harness strip of
+  `@rein_account` + title; `--status` column; `ai doctor` line; harness strip of
   `CLAUDE_CONFIG_DIR`; README + `ai help`.
 
 Tests: the `ai_start_test`/`pane_binding_test` families and the `_start_config` validator cases

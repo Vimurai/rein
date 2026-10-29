@@ -103,7 +103,7 @@ experimental one.
    - **Removal (E-322, Tier 3)**: delete `src/bin/ai-watch`, `src/shared/signal-handoff.mjs`,
      the `ai watch` and `ai handoff` subcommands, and from `ai start` the watcher pane, the
      `.ai/.ai-watch.lock` directory, the E-229 restart backstop and `--no-watch` — `ai start`
-     still creates the window, binds each pane's role (`@ai_os_role`) and account
+     still creates the window, binds each pane's role (`@rein_role`) and account
      (`CLAUDE_CONFIG_DIR`) and launches `claude` in each. Delete `handoff_control` from
      `task-synchronizer-mcp` (`index.js`, `tool-schemas.mjs`) and its `load-policy.mjs` entry;
      strip the references in `cli-add-task.mjs`, `classifier-backstop.py`,

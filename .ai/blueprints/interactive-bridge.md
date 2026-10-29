@@ -113,10 +113,10 @@ miscounts once subagent panes appear in the session.
 
 Rules from D-073:
 1. **The binding is a tmux pane OPTION, not a title.** `ai pane <role>` sets
-   `tmux set-option -p -t "$TMUX_PANE" @ai_os_role <role>` (and `ai start`'s re-pin does the
+   `tmux set-option -p -t "$TMUX_PANE" @rein_role <role>` (and `ai start`'s re-pin does the
    same, targeted). The title is still set for humans, always with `-t "$TMUX_PANE"`, and is
    never read for routing. Pass 1 of `resolve_pane` becomes: the pane in scope whose
-   `@ai_os_role` equals the target AND whose current command is an agent (`_is_agent_cmd`).
+   `@rein_role` equals the target AND whose current command is an agent (`_is_agent_cmd`).
    A non-agent pane can never be a Pass 1 match. Pass 2 (roles.json ordinal among agent
    panes) is unchanged. Title and window-name substrings are the last resort only, and only
    among agent panes. `ai start --status` derives its role column from the option.
@@ -139,5 +139,5 @@ Rules from D-073:
    from an idle one; Claude Code's input queue absorbs a mid-turn message today. No change is
    funded until a failure is observed and reproduced; `SUBMIT_DELAY` stays 0.1 s.
 
-- **E-269**: Bind roles by `@ai_os_role` pane option (targeted `-t "$TMUX_PANE"`), agent-only Pass 1, status column from the option, fix `ai_watch_test.sh:546`.
+- **E-269**: Bind roles by `@rein_role` pane option (targeted `-t "$TMUX_PANE"`), agent-only Pass 1, status column from the option, fix `ai_watch_test.sh:546`.
 - **E-271**: Held-entry visibility (`hold_reason`/`hold_since`/`attempts`, stderr line, status + doctor line), `roles.json` mtime re-read, atomic locked writers with `[SIGNAL_LOCKED]`, test watchers under `register_cleanup` and counted by the leak diff.

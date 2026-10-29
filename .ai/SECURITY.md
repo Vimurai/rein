@@ -395,7 +395,7 @@ RLIMIT_NPROC counts every process the user owns, so V8 could not start its worke
 |---|---|---|---|---|---|
 | A01 | gate-guard selfDisableHits | redirect / `rm -rf` / `cp` / `sed -i` into the old path's hooks | RESISTED | 0 | the old path is a symlink to ~/.rein |
 | A01 | gate-guard relative / cd / -C / parent | `cd ~ && rm <old>/run/x`, `cd <old> && echo >…`, `../..$HOME/<old>/…` | RESISTED | 0 | |
-| A01 | isUnderAiOs | `<old>/hooks/x.sh`, `<old>/new/f` (not yet created) | RESISTED | 0 | realpath folds the path onto ~/.rein |
+| A01 | isUnderRein | `<old>/hooks/x.sh`, `<old>/new/f` (not yet created) | RESISTED | 0 | realpath folds the path onto ~/.rein |
 | A01 | secret-rule containsSecret | `cat <old>/secrets/role-token.key` | EXPLOITED | 0 | the same command with `.rein` is blocked, so the role-token key can be read through the old name |
 | A01 | secret-rule containsSecret | `base64 <old>/secrets/*` | EXPLOITED | 0 | |
 | A05 | rein_legacy_env_apply | old TC_NODE, LOCATE_DEV, LOCATE_UNTRUSTED_ENV, CALLER_ROLE, PANE_ROLE | RESISTED | 0 | never mapped |

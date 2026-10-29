@@ -12,7 +12,7 @@
 Rein carries two provider adapters nobody runs any more. The Architect and the Engineer both
 run on Claude (D-066); TestSprite — the "third brain" — is a third-party cloud MCP that needs an
 API key, is not exercised by the harness, and whose label is hard-coded in five places. The
-`agy`/`gemini` code paths are the largest source of dead branches in `src/bin/ai` (163 hits),
+`agy`/`gemini` code paths are the largest source of dead branches in `src/bin/rein` (163 hits),
 the installer (22), the tests (59 files) and the docs (README 28). Ruling: **Rein v4 is
 Claude-native.** One provider, three Claude roles (Architect on `fable`, Engineer on `opus`,
 Tester on `sonnet`), no vendor shims but `CLAUDE.md`, no third-party test cloud. Removal is
@@ -25,7 +25,7 @@ ship with exactly one provider, `claude`. Everything that existed only to serve 
 `gemini` (workspaces, plugin builder, TOML commands, field stripping, model pinning, plugin
 install, the `.agents/`/`.gemini/` provisioning and the `GEMINI.md`/`AGENTS.md` shims) is
 deleted. The Tester becomes a **headless Claude role**: no pane, dispatched as a subagent by
-`ai-test`, with its model taken from `roles.json` like the other two.
+`rein-test`, with its model taken from `roles.json` like the other two.
 
 ## Components
 > **D-110 (2026-10-23).** Agent model pins are by job: rule-matchers that stamp PASS/FAIL
@@ -41,9 +41,9 @@ deleted. The Tester becomes a **headless Claude role**: no pane, dispatched as a
    `role-manifest.mjs` unions directories, both roles name `claude/skills`, and both panes
    read the same `.claude/skills/`; separation is the role token, the write gate and
    distinct skill names), `src/shared/plugin-builder.mjs`, `src/templates/GEMINI.md`,
-   `src/templates/AGENTS.md`, root `GEMINI.md`; in `src/bin/ai` remove
+   `src/templates/AGENTS.md`, root `GEMINI.md`; in `src/bin/rein` remove
    `strip_gemini_agent_fields`, `_configure_project_gemini_settings`, `agy_plugin_install`,
-   the `ai provider` subcommand, the `gemini`/`agy` `_provision_workspace` calls, the doctor
+   the `rein provider` subcommand, the `gemini`/`agy` `_provision_workspace` calls, the doctor
    branches and every help/banner string naming a vendor; in `install-rein.sh` the
    `gemini/` and `agents/` mirrors, their purge and the agy plugin step; in `registry.json`
    the `gemini` block; in `ai-watch` and `advisor-mcp` the `agy` fallbacks (→ `claude`);
@@ -51,19 +51,19 @@ deleted. The Tester becomes a **headless Claude role**: no pane, dispatched as a
    `claude` only. Memory Palace agents drop the "Gemini Embedding 2" wording: the index is
    the text/hash index that is actually implemented (`memory-batch-scanner.mjs`); the
    embedding provider is **unconfigured** and multimodal retrieval is deferred, said plainly.
-2. **Legacy workspace pruning on `ai sync` (E-254)** — a project upgraded to v4 still has
-   `.gemini/`, `.agents/`, `GEMINI.md`, `AGENTS.md`. `ai sync` removes them ONLY when they are
+2. **Legacy workspace pruning on `rein sync` (E-254)** — a project upgraded to v4 still has
+   `.gemini/`, `.agents/`, `GEMINI.md`, `AGENTS.md`. `rein sync` removes them ONLY when they are
    sync-manifest-owned and unmodified (E-220 manifest-scoped pruning already knows this);
    otherwise it prints one line per leftover with the `rm` the operator can run. Never
    deletes a file it did not generate.
 3. **Claude-native Tester (E-255)** — a new `tester` entry in `roles.json`
-   (`{"provider":"claude","model":"sonnet","headless":true}`); `ai start`/`ai pane` ignore
+   (`{"provider":"claude","model":"sonnet","headless":true}`); `rein start`/`rein pane` ignore
    headless roles; the label `Tester (claude · sonnet)` is DERIVED wherever `Tester
    (TestSprite)` was hard-coded (init banner, `OWNER_PATTERNS`, `managed-agents-client.mjs`,
    `state.json` schema text, `tool-schemas.mjs`). New agent `src/claude/agents/
    test_engineer.md` with frontmatter `model: sonnet`: reads the task + diff, writes a test
    plan, adds tests in the project's OWN harness (here `tests/suites/*.sh` + `tests/unit`),
-   runs them, and stamps `[TESTS_PASS]`/`[TESTS_FAIL]` via `add_stamp`. `ai-test` is rewritten:
+   runs them, and stamps `[TESTS_PASS]`/`[TESTS_FAIL]` via `add_stamp`. `rein-test` is rewritten:
    default = run the project's real test command (`package.json` `test`, else detect
    `tests/run.sh`, `pytest`, `go test`); `--generate` dispatches `test_engineer`; `--vibe`
    unchanged (ux_reviewer + chaos_monkey, now Claude agents); `--fast` runs the Tester on
@@ -75,9 +75,9 @@ deleted. The Tester becomes a **headless Claude role**: no pane, dispatched as a
 4. **Docs and surfaces (E-256)** — README (Triad table, prerequisites, tmux recipes → `ai
    start` with D-068 per-project sessions, MCP count "16 custom + 2 third-party" (was 22
    before the D-075 retirements; `ast-parser-mcp` runs as a CLI and is not counted), Native
-   Subagents = `.claude/agents/` with no plugin, command reference without `ai provider`,
+   Subagents = `.claude/agents/` with no plugin, command reference without `rein provider`,
    Upgrading section), CONTRIBUTING (directory map, skill frontmatter section), `ai --help`,
-   `ai init` banner, `src/templates/*` (architect.md.template, BRIEF, RULES, CAPABILITIES),
+   `rein init` banner, `src/templates/*` (architect.md.template, BRIEF, RULES, CAPABILITIES),
    `src/contracts/*.md`, rulefiles (`ARCHITECT.md`/`ENGINEER.md` lose the Provider notes, the
    Gemini Model Mandate and the agy branches of §36; §36 becomes "Skill tool for skills,
    Agent tool for agents"), `hooks/pre-commit.sh`. Acceptance is a repo-wide grep:
@@ -90,7 +90,7 @@ deleted. The Tester becomes a **headless Claude role**: no pane, dispatched as a
    README, CONTRIBUTING, rulefiles, templates, contracts) may never be listed. No split
    literals to dodge the grep — name the file instead.
 5. **Release v4.0.0 (E-263, last)** — `release-manager`: CHANGELOG "Claude-Native" section
-   with a BREAKING list (removed providers, removed TestSprite, removed `ai provider`,
+   with a BREAKING list (removed providers, removed TestSprite, removed `rein provider`,
    removed shims, roles.json `tester`), version bump, tag. Its repo-wide grep permits
    CHANGELOG history, project memory (`.ai/**`, `plans/**`) and the D-076 allowlist, nothing
    else. The Architect archives the five
@@ -113,14 +113,14 @@ Owner labels: `Architect (claude · fable)`, `Engineer (claude · opus)`, `Teste
 text so archived rows with `Tester (TestSprite)` remain valid.
 
 ## API / Interface Contracts
-- `ai start` / `ai pane`: roles with `"headless": true` are neither laid out nor bindable
-  (`ai pane tester` → exit 2 "tester is headless; run skill: ai-test").
-- `skill: ai-test [--generate] [--vibe] [--fast]`: exit non-zero and `[LOCKED]` on failure as
+- `rein start` / `rein pane`: roles with `"headless": true` are neither laid out nor bindable
+  (`rein pane tester` → exit 2 "tester is headless; run skill: rein-test").
+- `skill: rein-test [--generate] [--vibe] [--fast]`: exit non-zero and `[LOCKED]` on failure as
   today; `--generate` writes tests only under `tests/`; stamps via `add_stamp` never by
   editing `REVIEWS.md`.
-- `ai sync`: prints `pruned legacy workspace: <path>` per manifest-owned leftover, or
+- `rein sync`: prints `pruned legacy workspace: <path>` per manifest-owned leftover, or
   `legacy leftover (not generated by sync): <path> — remove with: rm -r <path>`.
-- `ai provider *`: removed; exit 2 with "providers are configured in .ai/providers.json".
+- `rein provider *`: removed; exit 2 with "providers are configured in .ai/providers.json".
 - `advisor-mcp`: unchanged contract; default provider `claude`.
 
 ## Security
@@ -130,7 +130,7 @@ text so archived rows with `Tester (TestSprite)` remain valid.
   permission overlay; it cannot widen its own tools (`allowed-tools` in frontmatter is the
   ceiling). It writes under `tests/` only. No role token is minted for `tester` in v4 — it
   has no pane and acts as the Engineer's delegate.
-- `ai sync` legacy pruning deletes ONLY manifest-owned, unmodified files (E-220). Everything
+- `rein sync` legacy pruning deletes ONLY manifest-owned, unmodified files (E-220). Everything
   else is a printed suggestion.
 - No API key handling remains for TestSprite; the `${TESTSPRITE_API_KEY}` pass-through in
   `mcp-tester.mjs` becomes a generic `${*_API_KEY}` example.
@@ -148,7 +148,7 @@ text so archived rows with `Tester (TestSprite)` remain valid.
 ## Rollback Plan
 Tag `v3.1.0` is the rollback: check out that tag and run `bash install-rein.sh`. Within v4
 there are NO feature flags for the removed providers — a flag would keep the dead code alive,
-which is the thing being removed. `ai sync` legacy pruning is the one guarded step:
+which is the thing being removed. `rein sync` legacy pruning is the one guarded step:
 `REIN_KEEP_LEGACY_WORKSPACES=1` prints instead of deleting.
 
 ## E-## Task Breakdown

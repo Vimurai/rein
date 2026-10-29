@@ -11,7 +11,7 @@ status: DRAFT
 To safely scale the `memory_curator` agent to handle high-volume Multimodal RAG ingestion by introducing a parallel batch-embedding queue. This mitigates Gemini Embedding 2 API rate limits (429s) and prevents the indexer from stalling on large UI design repositories.
 
 ## Core Concept
-Replacing the fragile serial request loop with a bounded concurrency worker pool. The indexer will utilize an exponential backoff strategy for API limits and maintain a persistent Dead-Letter Queue (DLQ) so failed file ingestions can be automatically retried during the next background `ai sync`.
+Replacing the fragile serial request loop with a bounded concurrency worker pool. The indexer will utilize an exponential backoff strategy for API limits and maintain a persistent Dead-Letter Queue (DLQ) so failed file ingestions can be automatically retried during the next background `rein sync`.
 
 ## Components
 1. **Batch Scanner:** A filesystem traverser that identifies eligible media (PNG/SVG/PDF) and computes SHA-256 hashes to skip unchanged files already present in the Memory Palace.

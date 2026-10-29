@@ -49,7 +49,7 @@ These features transition Rein from a strictly sequential, manually-skilled syst
 - **Cycle Detection:** The DAG engine must robustly detect circular dependencies (`A -> B -> A`) to prevent infinite blocking or stack overflows in the Orchestrator.
 
 ## Execution Constraints
-- **Telemetry Limits:** The `meta_analyst` should only run its extraction pipeline off-band (e.g., during `ai archive` or explicit invocation) to avoid high token burn during standard planning cycles.
+- **Telemetry Limits:** The `meta_analyst` should only run its extraction pipeline off-band (e.g., during `rein archive` or explicit invocation) to avoid high token burn during standard planning cycles.
 - **DAG Depth:** Maximum dependency depth is limited to 5 levels to prevent overly complex state trees that confuse the LLM context.
 
 ## Rollback Plan

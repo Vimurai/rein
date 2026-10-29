@@ -26,12 +26,12 @@
 | Boundary | Who Can Cross | Token / Lifetime | Revocation |
 |---|---|---|---|
 | MCP tool invocation | Claude (Engineer) via MCP protocol only | Session-scoped | Process kill / session end |
-| computer-use-mcp screen capture | TestSprite + Vibe Sentinel only (via `ai test --vibe`) | Single test run | TestSprite session teardown |
+| computer-use-mcp screen capture | TestSprite + Vibe Sentinel only (via `rein test --vibe`) | Single test run | TestSprite session teardown |
 | computer-use-mcp keyboard/mouse input | TestSprite orchestration only — never direct agent prompt injection | Single test run | TestSprite session teardown |
 | filesystem MCP | Scoped to project root (`.`) per `.mcp.json` | Session-scoped | Remove from `.mcp.json` |
 | github-bridge-mcp | Claude only, authenticated PAT, read/write to project repo | PAT expiry | GitHub PAT revocation |
 
-**computer-use-mcp must enforce that it only receives commands from a TestSprite session context** — direct invocation by the agent via arbitrary tool calls outside of `ai test --vibe` must be blocked at the MCP server layer.
+**computer-use-mcp must enforce that it only receives commands from a TestSprite session context** — direct invocation by the agent via arbitrary tool calls outside of `rein test --vibe` must be blocked at the MCP server layer.
 
 ---
 
@@ -101,7 +101,7 @@ All external inputs entering the MCP server layer must be validated at the trust
 | `display` parameter (if exposed) | Must match the configured virtual display ID exactly (e.g., `:99`). Reject anything that does not match this regex: `^:[0-9]{1,3}$` and does not equal the configured value. |
 | Screenshot region parameters | Validate bounding box is within virtual display bounds. Reject negative values or values exceeding display dimensions. |
 | TestSprite test instruction payloads | Treat as UNTRUSTED. Fence with `<!-- UNTRUSTED: TestSprite instruction -->` before any storage in `.ai/` memory. Strip any embedded shell metacharacters before passing to keyboard simulation. |
-| MCP tool caller identity | Validate that the calling context is a TestSprite-initiated `ai test --vibe` session. Reject arbitrary agent-originated calls outside this context. |
+| MCP tool caller identity | Validate that the calling context is a TestSprite-initiated `rein test --vibe` session. Reject arbitrary agent-originated calls outside this context. |
 
 **Prompt injection defense**: Any instruction text passed to `computer-use-mcp` from an external source (TestSprite plans, blueprint content) must be treated as UNTRUSTED data, not as executable instructions. The server must never pass raw instruction text to a shell or `eval`-equivalent.
 
@@ -383,7 +383,7 @@ without the gate, CLI fail-open) must be fixed before the first push.
 Scope: the env resolver (env.mjs, `rein_legacy_env_apply`), the hook scrub, the installer move,
 the gate MIRROR, settings/sync and legacy key reads. Threat entry: THREAT_MODEL.md T-RENAME-001.
 Findings: P1 secret-rule.mjs SECRETS_DIR matches only the new name. P2 the pre-tool-use.sh:360
-fallback grep and classifier-backstop.py RULE name only the new path. P2 src/bin/ai
+fallback grep and classifier-backstop.py RULE name only the new path. P2 src/bin/rein
 CI_ENV_RESERVED_* dropped the old-prefix reservation HEAD had. P3 the installer's `mv` has no `-T`.
 
 ### Pen-Test Results

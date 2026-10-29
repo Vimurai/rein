@@ -11,15 +11,15 @@
 ## 2. Information Architecture & The Triad
 - **Principal Architect**: Owns `.ai/blueprints/` and `TASKS.md`. Responsible for architectural design, strategy, and producing P-## and E-## tasks. Blocked from writing source code via the ANTI-DRIFT Protocol. (`claude` on model `fable` — D-066/D-069. Governed by `ARCHITECT.md`).
 - **Lead Engineer**: Owns `src/` and `tests/`. Responsible for execution, fuzzy patching, and resolving E-## tasks. Blocked from altering sovereign blueprints. (`claude` on model `opus` — D-066. Governed by `ENGINEER.md`).
-- **Tester (D-069, v4)**: a HEADLESS Claude role (`claude` on model `sonnet`, `haiku` for `--fast`) — no tmux pane; dispatched by `skill: ai-test` as the `test_engineer` subagent. Writes tests only under `tests/`, runs the project's own harness, stamps `[TESTS_PASS]`/`[TESTS_FAIL]` via `add_stamp`. Replaces TestSprite (see `.ai/blueprints/claude-native-consolidation.md`).
+- **Tester (D-069, v4)**: a HEADLESS Claude role (`claude` on model `sonnet`, `haiku` for `--fast`) — no tmux pane; dispatched by `skill: rein-test` as the `test_engineer` subagent. Writes tests only under `tests/`, runs the project's own harness, stamps `[TESTS_PASS]`/`[TESTS_FAIL]` via `add_stamp`. Replaces TestSprite (see `.ai/blueprints/claude-native-consolidation.md`).
 - **Agent models (D-110)**: rule-matching agents that stamp PASS/FAIL (the four critics, `docs-architect`, `sre_responder`, `memory_curator`) pin `sonnet`; reasoning agents (`security_engineer`, `db_architect`, `chaos_monkey`, …) inherit the pane's model.
-- **Claude-native topology (D-069)**: Rein v4 ships ONE provider, `claude`. Roles stay decoupled from the vendor (`roles.json` binds role → provider + model; `providers.json` is the single-entry adapter registry), but the `agy`/`gemini` adapters, workspaces, shims and TestSprite are removed — by deletion, not by flags. Both pane-bound roles run in separate tmux panes of a per-project session (D-054, D-068); role identity is bound per pane at launch via `ai pane <role>`.
+- **Claude-native topology (D-069)**: Rein v4 ships ONE provider, `claude`. Roles stay decoupled from the vendor (`roles.json` binds role → provider + model; `providers.json` is the single-entry adapter registry), but the `agy`/`gemini` adapters, workspaces, shims and TestSprite are removed — by deletion, not by flags. Both pane-bound roles run in separate tmux panes of a per-project session (D-054, D-068); role identity is bound per pane at launch via `rein pane <role>`.
 - **Specialist Extensions (Claude subagents)**: the specialist personas ship as `.claude/agents/*.md` (no vendor plugin). Key specialists include the `performance_engineer`, `db_architect`, `dependency_manager`, `sre_responder` (read-only incident triage) and, from v4, `test_engineer`.
 
 ## 3. Interaction Flows (Zero-Friction Workflow)
 - **Planning**: User prompts the Architect -> Architect researches, writes domain blueprint, and emits P-##/E-## tasks to the SQLite store.
 - **Execution**: User prompts the Engineer -> Engineer loads JIT blueprints, implements tasks via Fuzzy Patching, and logs activity to `.ai/LOG.md`.
-- **Validation**: User runs `ai test --vibe` or `ai review engineer` -> Automated quality gates and critics validate the work against the blueprint.
+- **Validation**: User runs `rein test --vibe` or `rein review engineer` -> Automated quality gates and critics validate the work against the blueprint.
 
 ## 4. Architecture & Technical Strategy
 - **Framework & Stack**: Node.js 22.5+ for MCP servers, Python 3.10+ for legacy fallbacks, SQLite3 for ACID state management, Claude Code as the sole agent runtime (D-069). Memory Palace indexing is the text/hash index implemented in `memory-batch-scanner.mjs`; no embedding provider is configured and multimodal retrieval is deferred.
@@ -44,13 +44,13 @@
 ## 7. Development Cycle (Plan-Build-Test)
 1. **Plan**: The Architect (Claude · fable) writes the vision in `architect.md` and the domain blueprints. Mandatory: ask questions to clarify ambiguities before finalizing the plan. Do not be lazy.
 2. **Build**: The Engineer (Claude · opus) implements the technical logic.
-3. **Test**: The Tester (Claude · sonnet, headless) generates and runs tests in the project's own harness via `skill: ai-test`; critics stamp the result.
+3. **Test**: The Tester (Claude · sonnet, headless) generates and runs tests in the project's own harness via `skill: rein-test`; critics stamp the result.
 
 ## 30. Bootloader Resilience
 - **Concept**: Ensure the Triad maintains operational context even if the primary `orchestrator-mcp` is unavailable.
 - **Execution Flow**:
   1. Agent attempts `orchestrator-mcp::run_preflight`.
-  2. If error: Agent invokes `ai-preflight` shared skill.
+  2. If error: Agent invokes `rein-preflight` shared skill.
   3. If skill fails: Agent reads the "Emergency Recovery" section in `CLAUDE.md`.
 - **Error Handling**: Graceful degradation to manual `cat .ai/TASKS.md` if all tools fail.
 - **Security**: Fallback tools must adhere to the same path-traversal restrictions as the primary orchestrator.
@@ -59,15 +59,15 @@
 - **Concept**: A centralized RAG service (`memory-manager-mcp`) that allows multiple projects to share high-level architectural signatures. Integrated with a complete Self-Learning Arc triggered JIT.
 - **Data Model**: `Signature: { project_name, tag, summary, architect_v, timestamp }`. Storage: `~/.rein/memory/signatures.json`.
 - **API Contract**:
-  - `export_signature(summary, tags)`: Called during `ai archive`.
-  - `query_signatures(tags)`: Called during `ai init` to suggest patterns.
+  - `export_signature(summary, tags)`: Called during `rein archive`.
+  - `query_signatures(tags)`: Called during `rein init` to suggest patterns.
 - **Self-Learning Activation**: The arc involves candidate manifest writing on sync (scan-on-sync seam), `meta_analyst` instinct extraction on archive, and a HITL gate via `approval-mcp` to promote PROPOSED skills. The seam manifest remains purely an observability artifact; `memory_curator` background agent remains sovereign and scans independently.
 - **Security**: Signatures must NOT contain secrets, PII, or internal logic. Only high-level "Lore" and "Patterns". Fail-closed autonomy invariant: no self-activation of proposed skills without human `approval-mcp` approval.
 
 ## 32. Verification Audit
 - **Concept**: Automated system to verify that declared agent capabilities in YAML frontmatter match actual system configurations.
 - **API Contract**: `verify_compliance(agent_name?)`: Checks frontmatter against `registry.json` and MCP tool exports.
-- **Execution Flow**: `ai doctor --compliance` scans all agents in `src/**/agents/`, flags "Ghost Tools" as CRITICAL violations.
+- **Execution Flow**: `rein doctor --compliance` scans all agents in `src/**/agents/`, flags "Ghost Tools" as CRITICAL violations.
 - **Security**: Prevents agents from claiming tools they are not authorized to use via `registry.json`.
 
 ## 33. Token Economics — JIT Read Limits

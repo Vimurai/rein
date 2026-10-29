@@ -12,8 +12,8 @@ To solidify the Rein v2 Triad by resolving terminal workflow friction, guarantee
 1. **MCP Purity Gate (CI/CD & Pre-commit)**
    - **Responsibility:** Scans `src/mcp/**` for forbidden stdout writes (`console.log`, `console.info`, `process.stdout.write` outside of protocol). Forces all logging to `stderr`.
 2. **Session Audit Enhancer (`LOG.md` & `approval-mcp`)**
-   - **Responsibility:** Captures `CLAUDE_CODE_SESSION_ID` from the environment. `ai-log` appends it to `LOG.md` entries. `approval-mcp` logs it as a new column in `approvals.sqlite`.
-3. **Bootloader Configurator (`bin/ai`)**
+   - **Responsibility:** Captures `CLAUDE_CODE_SESSION_ID` from the environment. `rein-log` appends it to `LOG.md` entries. `approval-mcp` logs it as a new column in `approvals.sqlite`.
+3. **Bootloader Configurator (`bin/rein`)**
    - **Responsibility:** Injects `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` into the Claude subprocess environment to disable the TUI alternate screen.
 
 ## Data Model
@@ -26,7 +26,7 @@ To solidify the Rein v2 Triad by resolving terminal workflow friction, guarantee
 ```
 
 ## API / Interface Contracts
-- **Bootloader (`bin/ai`):** Exports `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` before invoking Claude.
+- **Bootloader (`bin/rein`):** Exports `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` before invoking Claude.
 - **`approval-mcp`:** Modifies `INSERT INTO approvals` to include `process.env.CLAUDE_CODE_SESSION_ID`.
 
 ## Security
@@ -42,5 +42,5 @@ To solidify the Rein v2 Triad by resolving terminal workflow friction, guarantee
 
 ## E-## Task Breakdown
 - **E-48:** Implement MCP Stdout Purity Gate: Add a pre-commit lint rule to ban `console.log` and `console.info` in `src/mcp/**` per `claude-code-optimizations.md`. | Tier: 2
-- **E-49:** Implement Session Traceability: Update `approval-mcp` SQLite schema and `ai-log` to capture and record `CLAUDE_CODE_SESSION_ID` per `claude-code-optimizations.md`. | Tier: 2
-- **E-50:** Terminal Optimization: Inject `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` into `bin/ai` and `install-rein.sh` per `claude-code-optimizations.md`. | Tier: 1
+- **E-49:** Implement Session Traceability: Update `approval-mcp` SQLite schema and `rein-log` to capture and record `CLAUDE_CODE_SESSION_ID` per `claude-code-optimizations.md`. | Tier: 2
+- **E-50:** Terminal Optimization: Inject `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1` into `bin/rein` and `install-rein.sh` per `claude-code-optimizations.md`. | Tier: 1

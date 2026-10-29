@@ -10,7 +10,7 @@ The "Second Brain" operates on a telemetry-to-insight pipeline: local project ro
 1. **Global Telemetry Store (`~/.rein/telemetry.sqlite`)**: A centralized SQLite database that records tool invocations, token consumption, task completion times, and agent handoff counts from all local Rein projects.
 2. **The `meta_analyst` Agent**: A specialized Gemini agent (`.gemini/agents/meta_analyst.md`) whose sole mandate is reading telemetry and historical data to generate optimization suggestions. It does not write source code.
 3. **Insight Generator (`ai insights`)**: A new CLI command that triggers the `meta_analyst` to read the telemetry database and output its findings to `~/.rein/INSIGHTS.md`.
-4. **Preflight Stale Check (`ai-preflight` integration)**: A mechanism within the session bootloader that checks the age of `INSIGHTS.md` and the volume of unanalyzed telemetry, emitting a CLI warning to the user if a new analysis is recommended.
+4. **Preflight Stale Check (`rein-preflight` integration)**: A mechanism within the session bootloader that checks the age of `INSIGHTS.md` and the volume of unanalyzed telemetry, emitting a CLI warning to the user if a new analysis is recommended.
 
 ## Data Model
 **Table: `tool_executions`**
@@ -41,13 +41,13 @@ The "Second Brain" operates on a telemetry-to-insight pipeline: local project ro
 - **Token Limits:** The `meta_analyst` agent must rely on SQL aggregates (averages, counts) rather than reading raw logs to stay within token budgets.
 
 ## Rollback Plan
-- Revert the `ai-preflight` notification check.
+- Revert the `rein-preflight` notification check.
 - Drop the `telemetry.sqlite` file and remove the async hook from the MCP router.
 
 ## E-## Task Breakdown
 - **E-##:** Implement `telemetry.sqlite` schema and background writing hook in the MCP router.
-- **E-##:** Create the `meta_analyst` agent definition and the `ai-insights` skill.
-- **E-##:** Update `ai-preflight` skill to check `INSIGHTS.md` staleness and emit warnings.
+- **E-##:** Create the `meta_analyst` agent definition and the `rein-insights` skill.
+- **E-##:** Update `rein-preflight` skill to check `INSIGHTS.md` staleness and emit warnings.
 
 ## Telemetry Provenance and Isolation (D-070 Amendment, 2026-09-11)
 - **Isolation**: the test suite must never write to the operator's telemetry store — see
@@ -122,7 +122,7 @@ ledger.** Nothing self-reports, so nothing can forget to.
   "unmeasured"; a zero row means nothing and is never written again.
 
 ### Data Model
-`task_velocity` gains, via `skill: ai-migration` (same retrying, race-safe ALTER pattern as
+`task_velocity` gains, via `skill: rein-migration` (same retrying, race-safe ALTER pattern as
 E-261's `source` column; down-migration drops them):
 `output_tokens INTEGER`, `cache_read_tokens INTEGER`, `source TEXT` (`transcript`),
 `session_id TEXT`. Existing columns keep their meaning as defined above. The 1,729 zero
@@ -168,5 +168,5 @@ added columns are nullable and harmless if left.
   writing nothing, a path outside `projects/` skipped, the privacy marker test; the
   migration up/down; `meta_analyst` shows non-zero rows on a fixture DB; grep for
   `recordTaskVelocityForTask` and `usage.sqlite` in `src/shared/telemetry.mjs` and
-  `task-synchronizer-mcp` returns nothing; full `ai ci run` green; `bash install-rein.sh`
+  `task-synchronizer-mcp` returns nothing; full `rein ci run` green; `bash install-rein.sh`
   + server restart.

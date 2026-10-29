@@ -1,38 +1,38 @@
-# Version Lifecycle Blueprint — stamp, `ai init` upgrade, `ai clean`
+# Version Lifecycle Blueprint — stamp, `rein init` upgrade, `rein clean`
 
 > D-074 (2026-09-17). Gives Rein a version that is recorded where it is installed and where it
-> is provisioned, makes `ai init` an idempotent UPGRADE on an existing project, and adds
-> `ai clean`, the one command that removes what earlier versions left behind. Extends
+> is provisioned, makes `rein init` an idempotent UPGRADE on an existing project, and adds
+> `rein clean`, the one command that removes what earlier versions left behind. Extends
 > `workspace.md` (provisioning), `git-hooks.md` (stub upgrade), `claude-native-consolidation.md`
 > (D-069 legacy pruning, which today mostly PRINTS) and `local-ci.md` (log retention).
 
 ## Goal & Architecture
-Operators run several Rein projects on one machine and re-run `ai init` expecting it to bring
+Operators run several Rein projects on one machine and re-run `rein init` expecting it to bring
 a project to the installed version. Today nothing records which version provisioned a project
-(`.ai/state.json`'s `version` is the state schema), `ai init` only creates files that are
+(`.ai/state.json`'s `version` is the state schema), `rein init` only creates files that are
 MISSING (so `roles.json` never gains the `tester` role and `providers.json` keeps a removed
 provider), the install mirror copies `mcp/` and `hooks/` without deleting (an orphan
 `~/.rein/mcp/intent-refiner-mcp` exists now), `.claude/settings.json` keeps `mcp__*` allows
 for servers that no longer exist, agents are never pruned, and the D-069 legacy sweep prints
-`rm -r` hints instead of acting. Users: the operator (`ai init`, `ai clean`, `ai doctor`),
+`rm -r` hints instead of acting. Users: the operator (`rein init`, `rein clean`, `rein doctor`),
 `install-rein.sh`, and the completion gate (`BUILD_STALE`, E-249).
 
 ## Core Concept
 **One version, stamped twice, compared everywhere.** `package.json` is the only place the
-version is typed. The installer writes it to `~/.rein/VERSION`; `ai init`/`ai sync` write it
+version is typed. The installer writes it to `~/.rein/VERSION`; `rein init`/`rein sync` write it
 into the project as `project.rein_version` (+ `provisioned_at`) through `state-db`. Every
 lifecycle command compares the three (clone, mirror, project) and says which is behind.
 **Generated files are refreshed, templates with a schema are merged, user content is never
 touched, and removal is a separate, explicit, reversible command.**
 
 ## Components
-1. **Version source and stamps.** `src/bin/ai`'s `VERSION=` literal and the installer's
+1. **Version source and stamps.** `src/bin/rein`'s `VERSION=` literal and the installer's
    literals go; the installer reads `package.json` and writes `~/.rein/VERSION`; `ai
    --version` reads the mirror file (falls back to the clone's `package.json` in the dev
-   tree). `ai init` and `ai sync` stamp `project.rein_version` / `provisioned_at` via a
+   tree). `rein init` and `rein sync` stamp `project.rein_version` / `provisioned_at` via a
    `state-db` helper (never by editing `state.json`). A unit test asserts `package.json`,
    the CHANGELOG top entry and `~/.rein/VERSION` agree after install.
-2. **`ai init` as upgrade (idempotent).** On an existing project `ai init` (a) prints
+2. **`rein init` as upgrade (idempotent).** On an existing project `rein init` (a) prints
    `project 3.0.0 → installed 3.1.0`; (b) REFRESHES everything generated: the three
    bootloaders, `.mcp.json`, `.claude/` skills/agents/overlays/settings hooks and env,
    git hook stubs including `pre-push`; (c) MERGES schema-bearing templates:
@@ -40,8 +40,8 @@ touched, and removal is a separate, explicit, reversible command.**
    exists, `providers.json` drops removed providers, `state.json` gains missing
    `project.*` keys — existing values and unknown keys are preserved; (d) never writes
    BRIEF, RULES, SEED, DIGEST, TASKS, LOG, architect.md or blueprints; (e) ends with an
-   upgrade summary (`N refreshed, M merged, K legacy items — run: ai clean`) and the stamp.
-   `ai init --check` is the dry run (exit 1 when anything would change). `ai sync` keeps
+   upgrade summary (`N refreshed, M merged, K legacy items — run: rein clean`) and the stamp.
+   `rein init --check` is the dry run (exit 1 when anything would change). `rein sync` keeps
    its current scope and calls the same stamp helper.
    **`.mcp.json` is generated but partly user-owned**: `generate_mcp_json` rebuilds it from
    the registry on every init/sync and, despite its comment, drops servers the user added
@@ -63,17 +63,17 @@ touched, and removal is a separate, explicit, reversible command.**
    `.claude/agents/<not in role manifest>`, orphan `ai-watch` processes (ppid 1, cwd under
    the temp dir). A test asserts every D-069 removal has an entry. `~/.gemini/` is NOT ours
    (Antigravity user data with OAuth) and is listed as `not-ours`: printed, never touched.
-4. **`ai clean`** — dry run by default. `ai clean` lists every registry match in the
+4. **`rein clean`** — dry run by default. `rein clean` lists every registry match in the
    current project and in HOME, grouped `safe` / `prompt` / `not-ours`, with the reason and
-   the action it would take. `ai clean --apply` removes the `safe` class. `ai clean --apply
+   the action it would take. `rein clean --apply` removes the `safe` class. `rein clean --apply
    --all` also removes the `prompt` class after an interactive confirmation per group
-   (`--yes` answers them; a non-interactive stdin without `--yes` refuses, as `ai start
+   (`--yes` answers them; a non-interactive stdin without `--yes` refuses, as `rein start
    --kill` does). Nothing is deleted: removed paths are MOVED to
    `~/.rein/trash/<ISO date>/<origin>/…` with a `manifest.json` (origin path, class,
-   registry entry, sha256) and kept 30 days; `ai clean --restore <date>` moves them back;
-   `ai clean --purge` empties trash older than 30 days. Processes (`process` kind) are
+   registry entry, sha256) and kept 30 days; `rein clean --restore <date>` moves them back;
+   `rein clean --purge` empties trash older than 30 days. Processes (`process` kind) are
    signalled TERM then KILL and listed, not trashed. Every apply appends one LOG line and
-   one `~/.rein/clean.log` line. `settings.local.json` is user-owned: `ai clean` prints
+   one `~/.rein/clean.log` line. `settings.local.json` is user-owned: `rein clean` prints
    the offending lines and never edits it.
 5. **Mirror hygiene in the installer.** `src/mcp/` and `hooks/` are synced with `--delete`
    like the other trees (the cp fallback gets an explicit orphan pass); `purge_orphans`
@@ -83,11 +83,11 @@ touched, and removal is a separate, explicit, reversible command.**
    `mcp__<server>__*` allows whose server is not in `registry.json` (user-added servers,
    i.e. names never in any registry version, are kept — the registry history list in the
    legacy registry decides). `~/.rein/run/` locks and build records with dead pids are
-   reaped by `ai sync` and `ai clean`.
-6. **`ai doctor` lines.** `version: clone 3.1.0 · mirror 3.1.0 · project 3.0.0 — run: ai
-   init`; `mirror orphans: N — run: ai clean`; `legacy artefacts: N safe / M prompt — run:
-   ai clean`; `watchers: 1 live, 17 orphaned — run: ai clean --apply`; `ai on PATH:
-   ~/.rein/bin/ai (shadowed by /usr/local/bin/ai)` from `which -a`. Stale MCP servers stay
+   reaped by `rein sync` and `rein clean`.
+6. **`rein doctor` lines.** `version: clone 3.1.0 · mirror 3.1.0 · project 3.0.0 — run: ai
+   init`; `mirror orphans: N — run: rein clean`; `legacy artefacts: N safe / M prompt — run:
+   rein clean`; `watchers: 1 live, 17 orphaned — run: rein clean --apply`; `ai on PATH:
+   ~/.rein/bin/rein (shadowed by /usr/local/bin/rein)` from `which -a`. Stale MCP servers stay
    a report with pids (E-249): nothing kills a live session's stdio child; the operator
    restarts via `/mcp` or the session, as today.
 
@@ -108,20 +108,20 @@ src/config/legacy-artefacts.json
 ```
 
 ## API / Interface Contracts
-- `ai --version` → `rein <VERSION>`; exit 0. `ai init --check` → exit 0 nothing to do,
-  1 changes pending (listed). `ai init` on an existing project never exits non-zero for a
-  legacy finding — it lists and points at `ai clean`.
-- `ai clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]`; exit 0 when
+- `ai --version` → `rein <VERSION>`; exit 0. `rein init --check` → exit 0 nothing to do,
+  1 changes pending (listed). `rein init` on an existing project never exits non-zero for a
+  legacy finding — it lists and points at `rein clean`.
+- `rein clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]`; exit 0 when
   nothing (more) to do, 1 when findings remain (dry run with findings, or `prompt` items
   left without `--all`), 2 on refusal (non-interactive without `--yes`) or trash failure.
-  `ai clean --restore <date> [--yes]`, `ai clean --purge [--older-than 30d]`.
-- `REIN_CLEAN_DISABLE=1` makes `ai clean` a no-op that prints the findings only.
+  `rein clean --restore <date> [--yes]`, `rein clean --purge [--older-than 30d]`.
+- `REIN_CLEAN_DISABLE=1` makes `rein clean` a no-op that prints the findings only.
 - The legacy registry is data: adding an entry needs no code change; a `class` of `safe`
   requires either `known_hashes` or a `rule` (`not-in-registry`, `dead-pid`,
   `not-in-manifest`, `orphan-process`) — a bare `safe` path is rejected by the loader.
 
 ## Security
-- `ai clean` operates only under the project root (via `pwd -P`) and `$HOME`, only on
+- `rein clean` operates only under the project root (via `pwd -P`) and `$HOME`, only on
   registry matches, and never follows symlinks out of either root. `~/.gemini/` and any
   `not-ours` entry are never touched. `settings.local.json` is never edited.
 - Trash keeps sha256 per item; `--restore` refuses when a restored path now exists.
@@ -131,26 +131,26 @@ src/config/legacy-artefacts.json
 - Version stamps are written through `state-db` (ACID); no hand edits of `state.json`.
 
 ## Execution Constraints
-- `ai init` on an existing project stays under 5 s (it already regenerates `.mcp.json`
+- `rein init` on an existing project stays under 5 s (it already regenerates `.mcp.json`
   and re-provisions `.claude/`; the merge adds a JSON read/write per template).
-- `ai clean` dry run under 3 s on this machine: registry globs, one `which -a`, one `ps`
+- `rein clean` dry run under 3 s on this machine: registry globs, one `which -a`, one `ps`
   scan, no network. Trash moves are `mv` within the same filesystem (HOME); a cross-device
   origin falls back to copy + verify + delete.
 - Trash retention 30 days; `--purge` is manual, never automatic.
 
 ## Rollback Plan
-- `ai clean --restore <date>` reverses any apply (trash is the audit trail). Entries in
+- `rein clean --restore <date>` reverses any apply (trash is the audit trail). Entries in
   the legacy registry can be removed or downgraded to `prompt` without code.
 - `REIN_CLEAN_DISABLE=1`; the installer's `--delete` on `mcp/` and `hooks/` is guarded
   by `REIN_INSTALL_NO_DELETE=1` for one release.
-- The merge in `ai init` is additive; the pre-merge `roles.json`/`providers.json` are kept
+- The merge in `rein init` is additive; the pre-merge `roles.json`/`providers.json` are kept
   as `<name>.pre-<version>.json` beside them for one release.
-- Version stamps are informational until `ai doctor` reads them; removing the keys is safe.
+- Version stamps are informational until `rein doctor` reads them; removing the keys is safe.
 
 ## E-## Task Breakdown
-- **E-270** — Components 1, 2, 6: version source + stamps, `ai init` upgrade/merge/`--check`,
+- **E-270** — Components 1, 2, 6: version source + stamps, `rein init` upgrade/merge/`--check`,
   doctor lines. (Runs after E-271, the bridge visibility task; its own text's "after E-270"
   is a self-reference from ID assignment — read it as "after E-271".)
-- **E-272** — Components 3, 4: legacy-artefact registry, `ai clean` with trash/restore/purge.
+- **E-272** — Components 3, 4: legacy-artefact registry, `rein clean` with trash/restore/purge.
 - **E-273** — Component 5: installer `--delete` for `mcp/` and `hooks/`, agent manifests
   and pruning, `mcp__*` allow pruning, `run/` reaping, orphan-watcher process kind.

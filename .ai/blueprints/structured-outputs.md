@@ -29,6 +29,6 @@ Example Schema for a Task creation:
 
 ## 3. Workflow Migration
 1. **Deprecation of Manual Markdown Editing**: Agents are strictly forbidden from manually using `write_file` or `replace` to edit `.ai/TASKS.md` or `.ai/REVIEWS.md`.
-2. **MCP-Only State Mutation**: To alter state, the agent must call the `task-synchronizer-mcp` tools (e.g., `add_task`, `update_task_status`). **Exception (D-053)**: If MCP is unreachable (e.g., in native shell environments), agents may use audited shell primitives like `ai add-task` or `ai handoff` which wrap the same SQLite transaction path.
+2. **MCP-Only State Mutation**: To alter state, the agent must call the `task-synchronizer-mcp` tools (e.g., `add_task`, `update_task_status`). **Exception (D-053)**: If MCP is unreachable (e.g., in native shell environments), agents may use audited shell primitives like `rein add-task` or `ai handoff` which wrap the same SQLite transaction path.
 3. **Runtime Enforcement**: The MCP server (`task-synchronizer-mcp`) will enforce JSON Schema adherence at runtime using the `validate_payload` tool and `_assertSchema` guards to guarantee that the agent's payload precisely matches the required schema before any SQLite mutation occurs.
 4. **Auto-Generation**: `TASKS.md` and `REVIEWS.md` become read-only, auto-generated projections of the SQLite database, created by the `task-synchronizer-mcp` immediately after any state change.

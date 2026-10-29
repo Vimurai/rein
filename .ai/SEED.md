@@ -6,7 +6,7 @@ Purpose: Absolute memory synchronization via `.ai/`.
 
 Run the preflight skill at session start — do NOT manually read files:
 ```
-skill: "ai-preflight"
+skill: "rein-preflight"
 ```
 The skill calls `orchestrator-mcp::run_preflight()` which reads DIGEST.md + TASKS.md
 and queries state.sqlite for task counts, focus, and unread deltas.
@@ -14,7 +14,7 @@ and queries state.sqlite for task counts, focus, and unread deltas.
 ## Token Economics (MANDATORY RULE)
 - Do NOT read `.ai/architect.md` during preflight — load it only when your task requires it.
 - Do NOT read `src/**` unless your task involves a specific file.
-- Trust DIGEST.md. If it is stale (preflight will warn you), run `skill: "ai-digest"` first.
+- Trust DIGEST.md. If it is stale (preflight will warn you), run `skill: "rein-digest"` first.
 
 ## Task Creation
 - All tasks live in `state.sqlite` (primary) and are regenerated to `TASKS.md` / `state.json` automatically.

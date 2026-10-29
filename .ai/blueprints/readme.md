@@ -73,14 +73,14 @@ flowchart LR
     E -->|"dispatches"| C
     C -->|"stamps"| M
     E -->|"hands back"| A
-    E -->|"commit, gated"| G["git · pre-commit · ai ci run · pre-push"]
+    E -->|"commit, gated"| G["git · pre-commit · rein ci run · pre-push"]
     G -->|"PR"| H["hosted CI · fast + shards"]
 ```
 
 **2b — What a session reads first** (under "Memory that survives the chat"):
 ```mermaid
 flowchart TD
-    S["session start<br/>ai-preflight"] --> D["DIGEST.md<br/>20–60 lines, the snapshot"]
+    S["session start<br/>rein-preflight"] --> D["DIGEST.md<br/>20–60 lines, the snapshot"]
     D --> T["TASKS.md<br/>open E-## / P-##"]
     T --> B{"task names a blueprint?"}
     B -->|yes| BP[".ai/blueprints/&lt;name&gt;.md"]
@@ -100,7 +100,7 @@ flowchart LR
     R --> C["git commit"]
     C --> P{"pre-commit<br/>fresh review stamp?"}
     P -->|no| X3["refused"]
-    P -->|yes| CI["ai ci run<br/>clean worktree, lanes, budget"]
+    P -->|yes| CI["rein ci run<br/>clean worktree, lanes, budget"]
     CI --> PP{"pre-push"} --> HC["hosted CI<br/>fast · shards · CodeQL · privacy"]
 ```
 
@@ -109,10 +109,10 @@ flowchart LR
 flowchart LR
     P["prerequisites<br/>node 22+ · git · sqlite3 · python3 · tmux"] --> CC["Claude Code<br/>installed and logged in"]
     CC --> I["bash install-rein.sh<br/>→ ~/.rein"]
-    I --> AI["ai install<br/>Claude settings + hooks"]
-    AI --> DR["ai doctor<br/>all ✓"]
-    DR --> IN["cd project · ai init"]
-    IN --> ST["ai start<br/>two panes"]
+    I --> AI["rein install<br/>Claude settings + hooks"]
+    AI --> DR["rein doctor<br/>all ✓"]
+    DR --> IN["cd project · rein init"]
+    IN --> ST["rein start<br/>two panes"]
 ```
 
 ### Component 3 — `docs/install.md`, step by step
@@ -132,14 +132,14 @@ should see*. Nothing is assumed installed.
 4. **Claude Code** — install per the official documentation page (link; the Engineer verifies
    the current command at the time of writing and quotes it beside the link), then `claude`
    once to log in; *what you should see*.
-5. **Rein** — clone, `bash install-rein.sh`, `exec "$SHELL"`, `ai install`, `ai doctor`;
-   a table of every `ai doctor` line a fresh machine can show and its fix.
-6. **Your first project** — `ai init` in a new and in an existing repository (what it
-   creates, what it never touches), `ai start`, the two panes, the first prompt to type into
-   the Architect, what happens next, how to stop (`ai start --kill`) and come back.
-7. **Upgrade and uninstall** — the README's blocks, moved here, with `ai clean`.
-8. **If something is off** — the five commonest failures and the line `ai doctor` prints for
-   each (no tmux, node too old, `ai` not on PATH, Claude not logged in, hooks not installed).
+5. **Rein** — clone, `bash install-rein.sh`, `exec "$SHELL"`, `rein install`, `rein doctor`;
+   a table of every `rein doctor` line a fresh machine can show and its fix.
+6. **Your first project** — `rein init` in a new and in an existing repository (what it
+   creates, what it never touches), `rein start`, the two panes, the first prompt to type into
+   the Architect, what happens next, how to stop (`rein start --kill`) and come back.
+7. **Upgrade and uninstall** — the README's blocks, moved here, with `rein clean`.
+8. **If something is off** — the five commonest failures and the line `rein doctor` prints for
+   each (no tmux, node too old, `rein` not on PATH, Claude not logged in, hooks not installed).
 
 ### Component 4 — `docs/` depth pages and the README's body
 - `docs/how-it-works.md`: the Triad, roles and models, the memory files one by one, the
@@ -147,7 +147,7 @@ should see*. Nothing is assumed installed.
 - `docs/getting-started.md`: the first hour — reverse-engineering an existing repository
   into `DIGEST.md`/`BRIEF.md`/`architect.md`, the first blueprint, reading a handoff,
   answering the Architect, approving a commit.
-- `docs/ci.md`: `ai ci run` (worktree, lanes, budget ratchet) and the hosted CI (fast job,
+- `docs/ci.md`: `rein ci run` (worktree, lanes, budget ratchet) and the hosted CI (fast job,
   shards, nightly, release; D-133, D-135) with the required-check table.
 - README body after the hero: **How it works** (2a + four bold paragraphs, each ending in a
   link to a `docs/` page) → **Quickstart (60 seconds)** (one block, prerequisites as one

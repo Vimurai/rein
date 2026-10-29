@@ -36,7 +36,7 @@ If the global interceptor causes instability or breaks existing MCPs, the user c
 
 ## Booted-Build Staleness (D-067 §3; ratified as shipped by D-071 §1–§2; E-249, 2026-09-13)
 This is the hand-authored specification E-249's task text pointed at `mcp.md` for. `mcp.md` is
-AUTO-GENERATED from `src/config/registry.json` on every `ai sync` and cannot hold it (D-071 §2:
+AUTO-GENERATED from `src/config/registry.json` on every `rein sync` and cannot hold it (D-071 §2:
 a generated blueprint never receives a hand-authored section). It lives here because the
 `instrument()` interceptor this blueprint owns is what records the stamp.
 
@@ -56,7 +56,7 @@ timestamp) and attaches `_meta.booted_build` to every tool result. Only a bare `
 boot writes a record: `safe-exec-mcp --check` runs on EVERY Bash call through the PreToolUse
 hook and must not put a file write on that path. Records for dead pids are reaped on scan.
 
-**Consumers** — `verify_markdown_sync`, `run_preflight`, `ai doctor`, `ai sync` (an E-247
+**Consumers** — `verify_markdown_sync`, `run_preflight`, `rein doctor`, `rein sync` (an E-247
 fail-open step) and `install-rein.sh` each compare the live records with the mirror and emit
 `[STALE_SERVER] <name> booted <ts>, mirror changed <ts> — restart required`.
 
@@ -64,7 +64,7 @@ fail-open step) and `install-rein.sh` each compare the live records with the mir
 refusal takes effect (a markdown skill cannot refuse). Evidence is STATE, not prose: the gate
 refuses when (a) the install mirror differs from `src/` under `src/mcp/**` or `src/bin/**`
 (install not run), or (b) any running server serves a build no longer on disk (not restarted).
-Lockfiles are excluded — `ai mcp-setup` runs `npm install` inside the mirror, so they differ by
+Lockfiles are excluded — `rein mcp-setup` runs `npm install` inside the mirror, so they differ by
 design and a gate that can never be satisfied is one the operator turns off. Repos that are not
 the framework clone are exempt. If nothing under those roots changed the gate is silent, which
 is the answer a perfect per-task diff would give without having to reconstruct one (a task id

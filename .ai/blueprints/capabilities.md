@@ -25,4 +25,4 @@ We are augmenting/replacing the Playwright-based `vibe-check-mcp` with native OS
 - **Security Boundary**: The `computer-use-mcp` must operate in a strictly isolated, headless X11/Wayland buffer (or equivalent sandboxed environment) to prevent the agent from escaping the project context and interacting with the host machine's sensitive applications.
 
 ### Integration with TestSprite
-When `ai test --vibe` is run, the Triad triggers `TestSprite` via `computer-use-mcp` to visually assert that the UI matches the intent defined in the architect's blueprint.
+When `rein test --vibe` is run, the Triad triggers `TestSprite` via `computer-use-mcp` to visually assert that the UI matches the intent defined in the architect's blueprint.

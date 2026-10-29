@@ -9,7 +9,7 @@ A hybrid approach combining the `task-planner` skill with environment variables 
 ## Components
 1. **task-planner skill**: Responsible for parsing the task description and file paths. If `~/.rein/` or `@vimurai/rein/src/` are detected, it applies a `framework` tag and `is_framework_task: true` payload property.
 2. **task-synchronizer-mcp**: Receives task payloads. If `is_framework_task` is true, it overrides the default `.ai/state.sqlite` and `.ai/TASKS.md` paths using the `$REIN_WORKSPACE` value.
-3. **Environment Injector (Bootloader)**: Ensures `$REIN_WORKSPACE` is exported globally during `ai init` or installation, pointing to the canonical framework clone.
+3. **Environment Injector (Bootloader)**: Ensures `$REIN_WORKSPACE` is exported globally during `rein init` or installation, pointing to the canonical framework clone.
 
 ## Data Model
 ```json
@@ -39,6 +39,6 @@ Writing tasks cross-workspace requires atomic filesystem writes to avoid corrupt
 If cross-workspace routing fails or corrupts state, developers can set `REIN_WORKSPACE_DISABLE=1` to force all tasks into the local project until the MCP logic is patched.
 
 ## E-## Task Breakdown
-- E-##: Implement `$REIN_WORKSPACE` injection in `install-rein.sh` and `bin/ai`.
+- E-##: Implement `$REIN_WORKSPACE` injection in `install-rein.sh` and `bin/rein`.
 - E-##: Update `task-synchronizer-mcp` schema and logic to support `is_framework_task` and cross-workspace SQLite/Markdown operations.
 - E-##: Update `task-planner` skill to analyze paths and pass `is_framework_task` when appropriate.

@@ -10,7 +10,7 @@ Strengthen the resilience of the Triad (Architect, Engineer, QA) by closing envi
 1. **Tool Alias Normalizer (`verification-mcp`)**: A pre-processing step in the `verify_compliance` tool that maps common shell aliases (like `Bash`) to their canonical built-in registry names (e.g., `run_shell_command`).
 2. **Hardened Pre-flight Installer (`install-rein.sh`)**: Enforces a strict fail-closed check for Node.js (v22+) during the bootloader installation sequence, ensuring `wal-flusher.mjs` and `generate_mcp_docs.mjs` never fail silently on degraded systems.
 3. **Managed Agents Production Connector**: Wires the offline `managed-agents-spike` (E-47) into the live API. Implements a feature flag (`AI_MANAGED_AGENTS_ENABLE`), provisions secure API key injection, and updates payloads to the `steps` API schema.
-4. **Enhanced Product Brief (`BRIEF.md`)**: Replaces the skeletal template with a comprehensive 20-line product vision, removing the Architect's over-reliance on reading the full `architect.md` during JIT `ai-preflight`.
+4. **Enhanced Product Brief (`BRIEF.md`)**: Replaces the skeletal template with a comprehensive 20-line product vision, removing the Architect's over-reliance on reading the full `architect.md` during JIT `rein-preflight`.
 
 ## Data Model
 - **Tool Mapping Schema (in `verification-mcp`)**: `{ "Bash": "run_shell_command", "Grep": "grep_search", "Read": "read_file" }`

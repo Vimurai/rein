@@ -10,7 +10,7 @@ turns a tag into a GitHub release. Users: contributors (fast feedback on a PR), 
 sentence: everything free that makes `main` trustworthy, nothing paid.
 
 ## Core Concept
-Two kinds of workflow files. **Rendered**: `ci.yml`, produced by `ai ci hosted github`
+Two kinds of workflow files. **Rendered**: `ci.yml`, produced by `rein ci hosted github`
 (D-103) from a `public` profile, so the hand-edit guard `--check` and the team-project
 rendering keep working. **Hand-written**: the scanners, the nightly, the release and the
 Dependabot config, which are plain files with no renderer. Both kinds pin actions to commit
@@ -25,10 +25,10 @@ SHAs and declare minimal `permissions` per job.
     requests and trunk pushes alike (D-135 addendum r1: suites beyond the fast tier need the
     installed mirror); `timeout-minutes: 10`; the first check to report. Rendered in every
     profile, not only the public one (D-135 r4).
-  - `ai ci run (${os}, node ${v}, ${i}/${N})`: on a pull request `ubuntu-latest × {22, 24}`
+  - `rein ci run (${os}, node ${v}, ${i}/${N})`: on a pull request `ubuntu-latest × {22, 24}`
     and `macos-latest × 22`, each in N shards (`team.json` `ci.shards`, default 4), `fail-fast:
     false`; checkout with full history; the cache keyed on the lockfiles; install from the
-    checked-out commit; `ai ci run --shard ${i}/${N}` (no `--lanes`: a hosted run defaults
+    checked-out commit; `rein ci run --shard ${i}/${N}` (no `--lanes`: a hosted run defaults
     to every core, D-135 r1); `timeout-minutes: 60`; artefacts (log + `.ai/ci/*.json`) kept
     14 days on failure and success. `macos-latest × 24` and one unsharded `ubuntu-latest × 22`
     leg run in the nightly only (D-135 r5).
@@ -50,7 +50,7 @@ SHAs and declare minimal `permissions` per job.
   `github-actions` (weekly). Dependabot PRs run the full CI like any PR.
 
 ### Component 3 — Branch policy and badges
-- Required checks on `main`: `privacy`, `fast`, every pull-request `ai ci run (…, i/N)` leg
+- Required checks on `main`: `privacy`, `fast`, every pull-request `rein ci run (…, i/N)` leg
   (twelve with four shards; the nightly-only legs are not required), `CodeQL` (D-135 r7).
   Until E-388 closes, the four macOS × 22 legs run but are not required (D-135 addendum 2
   r3); `dependency-review` joins once the repository's Dependency graph is enabled (r5).
@@ -62,8 +62,8 @@ SHAs and declare minimal `permissions` per job.
 ### Component 4 — Rename interplay (D-132, D-132 addendum 2 r9)
 E-384 lands before E-383. The renderer's cache path and install command name the old
 directory and script until E-383 renames them; the rename PR is the first change checked on
-macOS and both Node lines, which is the point of the ordering. E-391 renames the job
-(`ai-ci-run` → `rein-ci-run`, display `rein ci run (…)`) and so the required-check names:
+macOS and both Node lines, which is the point of the ordering. E-391 renames the job with
+the command (the job is `rein-ci-run`, display `rein ci run (…)`) and so the required-check names:
 the merge step updates the list on `main` with one `gh api` call (new names in, old names
 out) immediately before the merge, recorded in `.ai/DEVOPS.md`; `requiredChecks()` is the
 source of the strings.
@@ -93,17 +93,17 @@ source of the strings.
 .github/workflows/{ci,privacy,codeql,scorecard,dependency-review,nightly,release}.yml
 .github/dependabot.yml
 Required checks: ["privacy", "fast", "CodeQL",
-                  "ai ci run (ubuntu-latest, node 22, i/4)", "ai ci run (ubuntu-latest, node 24, i/4)",
-                  "ai ci run (macos-latest, node 22, i/4)"]           for i in 1..4   (D-135 r5, r7)
-Nightly-only legs: "ai ci run (macos-latest, node 24, i/4)", "ai ci run (ubuntu-latest, node 22)" (unsharded)
+                  "rein ci run (ubuntu-latest, node 22, i/4)", "rein ci run (ubuntu-latest, node 24, i/4)",
+                  "rein ci run (macos-latest, node 22, i/4)"]           for i in 1..4   (D-135 r5, r7)
+Nightly-only legs: "rein ci run (macos-latest, node 24, i/4)", "rein ci run (ubuntu-latest, node 22)" (unsharded)
 Nightly issue: label "nightly", title "Nightly failed on <date>", body = run link + summary; updated, never duplicated
 ```
 
 ## API / Interface Contracts
-- `ai ci hosted github` — renders the public profile when the marker exists; `--check` exit 1
-  on mismatch as today; `ai doctor` line `[HOSTED_CI_OK] github (public)` / `[WRAPPER_DIFFERS]`.
+- `rein ci hosted github` — renders the public profile when the marker exists; `--check` exit 1
+  on mismatch as today; `rein doctor` line `[HOSTED_CI_OK] github (public)` / `[WRAPPER_DIFFERS]`.
 - `tests/run.sh --tier fast` — exit code is the fast job's verdict; budget 60 s remains.
-- `ai ci run --shard i/N` — the matrix leg's command; lanes default to every core on a hosted
+- `rein ci run --shard i/N` — the matrix leg's command; lanes default to every core on a hosted
   runner (D-135 r1, `.ai/blueprints/ci-throughput.md`); `--lanes` is not passed.
 - `release.yml` inputs: the tag; outputs: the release URL in the job summary.
 
@@ -122,7 +122,7 @@ Nightly issue: label "nightly", title "Nightly failed on <date>", body = run lin
   `package-lock.json` and `src/mcp/*/package.json`.
 - The fast job reports in under 2 minutes on a pull request; a sharded leg under 5 minutes
   with four shards and four lanes (D-135: the hosted run was 15.5 minutes on two lanes plus
-  a serial tail of 13 suites). Measured, not promised: `ai ci status` reports the values.
+  a serial tail of 13 suites). Measured, not promised: `rein ci status` reports the values.
 - PR concurrency cancels superseded runs; nightly and release never cancel.
 - The one-commit-checkout skips (D-129 addendum r5) apply to the first weeks' runs and shrink
   as history grows; the nightly summary lists the skip count.
@@ -130,7 +130,7 @@ Nightly issue: label "nightly", title "Nightly failed on <date>", body = run lin
 ## Rollback Plan
 Delete the hand-written workflows and `dependabot.yml`; set the renderer back to the single
 job (the profile switch is one condition); shrink the required-check set to `privacy` and
-`ai ci run`. No state outside `.github/` and the branch policy is touched.
+`rein ci run`. No state outside `.github/` and the branch policy is touched.
 
 ## E-## Task Breakdown
 | Task | Tier | Scope | Depends on |

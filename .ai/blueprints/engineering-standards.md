@@ -21,7 +21,7 @@ Establish an automated quality-control layer that prevents "architectural drift"
 
 ## API / Interface Contracts
 - `validateStandards(diff_path: string) -> ComplianceReport`: Invoked by pre-commit hook.
-- `reportDrift(report: ComplianceReport)`: Emits structured warnings to `ai-review` synthesizers.
+- `reportDrift(report: ComplianceReport)`: Emits structured warnings to `rein-review` synthesizers.
 
 ## Security
 - **Trust Boundaries**: The `standards-checker` only introspects code structure; it MUST NOT evaluate business logic or secrets.
@@ -37,11 +37,11 @@ Establish an automated quality-control layer that prevents "architectural drift"
 
 ## E-## Task Breakdown
 - E-83: Create `src/shared/standards.json` and implement the `standards-checker` CLI utility.
-- E-84: Develop the `critic_clean_code` persona and integrate it into the `ai-review` flow.
+- E-84: Develop the `critic_clean_code` persona and integrate it into the `rein-review` flow.
 - E-85: Update `hooks/pre-commit.sh` to enforce the new standards gate.
 
 ## Subshell State (D-064 §2, 2026-09-10) — review question #4
-Three incidents in two sprints had the same shape: a helper was called as `$(helper …)` and the state it set evaporated with the subshell (a baseline cache, the cleanup registry, an output-capture stamp). Rule: a shell helper returns DATA on stdout **or** sets STATE in the caller's shell — never both. A helper that must set state is invoked as a plain command and hands data back via `printf -v` or a nameref, or the caller recomputes the state from the returned data. Write the reason at the site. Standing review question #4 (`critic_tests`, `ai-review`, `ai-debug`): "Is this helper ever called inside a command substitution, a pipeline, or a `while read` loop, and does it set state that must outlive that call?" No mechanical lint is funded (the pattern is too idiomatic to grade without over-blocks — D-056 R3); revisit on a fourth incident.
+Three incidents in two sprints had the same shape: a helper was called as `$(helper …)` and the state it set evaporated with the subshell (a baseline cache, the cleanup registry, an output-capture stamp). Rule: a shell helper returns DATA on stdout **or** sets STATE in the caller's shell — never both. A helper that must set state is invoked as a plain command and hands data back via `printf -v` or a nameref, or the caller recomputes the state from the returned data. Write the reason at the site. Standing review question #4 (`critic_tests`, `rein-review`, `rein-debug`): "Is this helper ever called inside a command substitution, a pipeline, or a `while read` loop, and does it set state that must outlive that call?" No mechanical lint is funded (the pattern is too idiomatic to grade without over-blocks — D-056 R3); revisit on a fourth incident.
 
 
 ## `validateFile` Is the Only Public Entry (D-071 §5, 2026-09-13)

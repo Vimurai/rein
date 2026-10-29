@@ -827,7 +827,10 @@ assert_status 0 "E-268.01c: .github survives (copilot-instructions.md lives ther
   test -f "${REPO_ROOT}/.github/copilot-instructions.md"
 # E-378 (D-129): a checkout without the private history (the public repository starts from one
 # squashed commit) records this as a skip, as the other history-pinned rows do.
-if [[ "$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null)" -gt 1 ]]; then
+# The public line's root is the bootstrap snapshot, whose subject names the private predecessor.
+_e268_root="$(git -C "$REPO_ROOT" rev-list --max-parents=0 HEAD 2>/dev/null | head -1)"
+if [[ -n "$_e268_root" && "$(git -C "$REPO_ROOT" log -1 --format=%s "$_e268_root")" != "Rein — successor of the private ai-os repository"* ]] \
+   && [[ "$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null)" -gt 1 ]]; then
   assert_status 0 "E-268.01d: the workflow is still in git history — that is the rollback" \
     bash -c "cd '$REPO_ROOT' && git log --oneline -1 -- .github/workflows/test.yml | grep -q ."
 else

@@ -288,3 +288,29 @@
 - Branch protection with required PRs applies to the Triad's own commits: branch + PR + merge via gh after checks. If a required check cannot be satisfied by a PR from the same account, report it; do not weaken protection.
 - The operator's reinstall under the new name (`install-rein.sh`) is the E-383 acceptance step and needs them at the keyboard.
 ---
+
+---
+## Handoff — 2026-10-29 09:59 UTC
+**From**: Architect → Engineer
+**Trigger**: operator request — full GitHub CI for the public repository (D-133, E-384)
+
+### What was decided
+- **D-133 — public CI on GitHub Actions** (free, unlimited minutes on standard runners for a public repo; larger runners never). Blueprint `.ai/blueprints/public-ci.md`.
+  - `ci.yml` stays RENDERED by `ai ci hosted github`: a new `public` profile (selected when `.ai/publish.json` exists) emits a `fast` job (`tests/run.sh --tier fast`, no install) and a full matrix ubuntu-latest + macos-latest × Node 22, 24 with `ai ci run --lanes <cores>`; SHA-pinned actions; `--check` keeps guarding; the team rendering stays byte-identical.
+  - Hand-written beside it: codeql.yml, scorecard.yml, dependency-review.yml, nightly.yml (full matrix + npm audit + drift summary; one create-or-update issue labelled nightly), release.yml (v* tag → matrix → GitHub release from the CHANGELOG section with the install script's sha256), .github/dependabot.yml. privacy.yml unchanged.
+  - Required on main: privacy, fast, all four matrix legs, CodeQL — never dropped to go green. No Windows leg (unsupported).
+  - README badge row replaced (CI, privacy, CodeQL, Scorecard, licence, version from the latest tag, sponsors).
+- **Sequence now:** E-378 steps 8–9 → **E-382** (version) → **E-384** (public CI) → **E-383** (rename, so its installer move is checked on macOS and both Node lines) → tag v0.4.0 → archive ai-os-dev. E-383's "depends on E-382" text stands; this handoff fixes the order.
+- `ci_gate` skill before E-384; `.ai/DEVOPS.md` records the workflows, the required set and the rollback.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Unchanged for E-378: finish steps 8–9 and the fresh-clone scan, hand back for P-48. In step 8, set the required checks you can now (privacy, ai ci run, DCO); E-384 extends the set.
+- Then E-382 → E-384 → E-383 in the public clone, each as one PR.
+
+### Open risks
+- macOS runners queue longer; the fast job is the early signal. A flaky leg is an E-## task, not an exemption.
+- The CHANGELOG section parser for release.yml needs the E-382 structure (the [0.4.0] entry on top) — another reason E-382 goes first.
+---

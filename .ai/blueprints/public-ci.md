@@ -21,10 +21,10 @@ SHAs and declare minimal `permissions` per job.
 ### Component 1 — The `public` rendering profile (`src/shared/hosted-ci.mjs`)
 - Selected when `.ai/publish.json` exists in the root (the privacy gate's marker).
 - Jobs (amended by D-135, `.ai/blueprints/ci-throughput.md` §Component 4 is the contract):
-  - `fast`: `ubuntu-latest`, Node 22, no installer; `bash tests/run.sh --changed origin/main`
-    on a pull request (fast tier plus the suites whose census footprint touches a changed
-    file), `--tier fast` on a trunk push; `timeout-minutes: 10`; the first check to report.
-    Rendered in every profile, not only the public one (D-135 r4).
+  - `fast`: `ubuntu-latest`, Node 22, no installer; `bash tests/run.sh --tier fast` on pull
+    requests and trunk pushes alike (D-135 addendum r1: suites beyond the fast tier need the
+    installed mirror); `timeout-minutes: 10`; the first check to report. Rendered in every
+    profile, not only the public one (D-135 r4).
   - `ai ci run (${os}, node ${v}, ${i}/${N})`: on a pull request `ubuntu-latest × {22, 24}`
     and `macos-latest × 22`, each in N shards (`team.json` `ci.shards`, default 4), `fail-fast:
     false`; checkout with full history; the cache keyed on the lockfiles; install from the

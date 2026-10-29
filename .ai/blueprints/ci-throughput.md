@@ -21,9 +21,11 @@ Four independent levers, each a flag or a default, each rolled back alone:
   committed with the code, read when no log exists.
 - **Shards** — `tests/run.sh --shard i/N` partitions the suites deterministically by the same
   hints; `ai ci run --shard i/N` carries it; the renderer emits N legs.
-- **Fast job with change selection** — the no-install job runs `--changed origin/<trunk>` on
-  a pull request (fast tier plus the suites whose footprint touches a changed file, E-298) and
-  `--tier fast` on a trunk push.
+- **Fast job** — the no-install job runs `--tier fast` on pull requests and trunk pushes
+  alike (D-135 addendum r1: a suite beyond the fast tier needs the installed mirror,
+  DEVOPS-002, and `--changed` needs a census a fresh runner never has). Change selection
+  (`--changed`, E-298) stays a local tool and falls back to the committed baseline
+  (addendum r2).
 
 ## Components
 
@@ -68,9 +70,9 @@ Four independent levers, each a flag or a default, each rolled back alone:
 - Detection: `--tier` and `--shard` are grepped from the project's `tests/run.sh` exactly as
   `ai ci run` greps `--tier` today. No `tests/run.sh` → the single job as today.
 - Jobs rendered for GitHub (every profile):
-  - `fast` (when `--tier` is advertised): checkout full history, Node 22, no installer,
-    `bash tests/run.sh --changed origin/<trunk>` on `pull_request`, `--tier fast` on `push`;
-    `timeout-minutes: 10`.
+  - `fast` (when `--tier` is advertised): checkout, Node 22, no installer,
+    `bash tests/run.sh --tier fast` on `pull_request` and `push` alike; `timeout-minutes: 10`
+    (D-135 addendum r1).
   - `ai ci run (<os>, node <v>, <i>/<N>)`: the matrix; N = `team.json` `ci.shards`, default
     4, `1` renders the single-leg name `ai ci run (<os>, node <v>)`; `--shard` not advertised
     → N forced to 1. Team profile: `ubuntu-latest × 22`. Public profile (D-133):
@@ -136,9 +138,12 @@ Required checks (team):       fast, ai ci run (ubuntu-latest, node 22, i/N)
   same partition on every leg (asserted by a unit test over a synthetic census).
 - Baseline read adds one file read; the pre-push staleness check counts `ci_runs` rows — under
   10 ms, no network.
-- Expected on Rein: a leg under 5 minutes with 4 shards × 4 lanes; the fast job under 2
-  minutes on a pull request. `ai ci status` reports the measurements; the nightly drift line
-  (D-118 r1) reports the unsharded `full_seconds`.
+- Measured on Rein (E-386, hosted, unsharded): 914 s with four lanes and no baseline
+  (13 exclusive suites, 508 s tail); 736 s with the baseline (9 exclusive, 300 s tail); local
+  exclusive share 56 %. Expected: a leg under 5 minutes with 4 shards × 4 lanes once E-387
+  shrinks the tail; the fast job is bounded by the fast tier's 60 s budget plus checkout.
+  `ai ci status` reports the measurements; the nightly drift line (D-118 r1) reports the
+  unsharded `full_seconds`.
 - Private runners: four shards cost about four extra install minutes per run; `ci.shards: 1`
   restores one leg.
 

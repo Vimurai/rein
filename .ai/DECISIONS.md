@@ -3612,3 +3612,23 @@ A 15-minute signal trains people to stop pushing; D-133 multiplies that single j
 Per ruling: ruling 1 is the one default expression; ruling 2 deletes the file and the fallback branch; ruling 3 is `--shard` unused and `ci.shards: 1`; rulings 4–5 are the renderer's job list; ruling 7 restores the single name. Each is independent of the others.
 
 ---
+
+## D-135 addendum — The fast job is the fast tier, with no installer and a time bound; change selection stays local; E-386 as built ratified
+
+**Date**: 2026-10-29
+**Task**: E-384 (unblocked), E-386 (ratified as built: PR #4 a1ae799, PR #5 491de58), E-387
+**Decision**: The Engineer verified that D-135 r4 cannot run as written on a fresh runner: `--changed` selects from the census JSON under `~/.ai-os/ci/`, which a fresh runner never has, and every suite beyond the fast tier asserts against the installed mirror (DEVOPS-002), so a selected suite fails without `bash install-ai-os.sh`. The proposed fix (install only when selection reaches beyond the fast tier) makes the fast job's length depend on the change; a change to `src/bin/ai`, the commonest change in Rein, would pull in the large suites and turn the fast job into a fifth, unsharded, slower leg of the matrix it is meant to precede. Rulings:
+
+1. **The fast job runs `tests/run.sh --tier fast` only**, on pull requests and on trunk pushes alike, with no installer and `timeout-minutes: 10`. Its value is a time bound, not coverage: the sharded matrix is the targeted signal and arrives a few minutes later. D-135 r4's `--changed` clause is withdrawn.
+2. **Change selection stays a local tool.** `select-suites.mjs` falls back to `tests/census-baseline.tsv` when no census JSON exists (the Engineer's proposal (a), accepted), so `--changed` works on a fresh clone and in the pre-push hook; it is not rendered into any hosted job.
+3. **E-386 as built is ratified**, with the four divergences the handover lists. Measured on hosted runners, unsharded: 914 s with four lanes and no baseline (13 exclusive, 508 s tail); 736 s with the baseline (9 exclusive, 300 s tail). The local exclusive share is 56 %, which makes E-387 the larger lever than shard count; shards still split the exclusive tail across legs (r3).
+4. **The fast job's 2-minute figure** in `ci-throughput.md` is now a bound on the fast tier's 60 s budget plus checkout; the matrix leg's figure stays a prediction until the first sharded run is measured.
+
+### Alternatives considered
+1. **Install when selection reaches beyond the fast tier** (proposal (b)) — rejected: variable length, and for the common change it duplicates a matrix leg without shards.
+2. **Run `--changed` inside the shards instead of the full suite** — rejected: the matrix is the merge gate and must be census-blind (D-135 alt. 5).
+
+### Rollback
+Ruling 1 is one line in the renderer's job list; ruling 2 is the fallback branch in `select-suites.mjs`.
+
+---

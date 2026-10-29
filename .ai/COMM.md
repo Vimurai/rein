@@ -381,3 +381,23 @@
 - E-387 after: the 56 % exclusive share is the larger lever than shard count; report `exclusive_seconds` before and after.
 - Hand back the first sharded PR's leg times to replace the "under 5 minutes" prediction.
 ---
+---
+## Handoff — 2026-10-29 18:15 UTC
+**From**: Architect → Engineer
+**Trigger**: PR #6 first sharded run ruled (D-135 addendum 2); E-388, E-389 registered
+
+### Ruling
+- **(a) accepted without brew**: `skip_unless_cmd tmux` guards with host-named SKIPs in PR #6; no `brew install tmux` (two-command contract, D-103; tmux covered on Ubuntu).
+- **(b) accepted as E-388** (Tier 2): the bash 3.2 trap-chaining defect; reproduce locally with a bash 3.2.57 built from source into a throwaway dir, not with macOS runs. The PR that closes it adds the four macOS × 22 legs to the required set.
+- **(c) accepted with an exit condition**: required now = privacy, fast, CodeQL, the eight Ubuntu legs; macOS × 22 legs run, not required, until E-388 closes.
+- **E-389** (Tier 1): seed bin 1 of the partition with the unit layer's measured seconds; shard 1 is the long pole by 1.5–2 min on every OS.
+- **dependency-review**: a repository setting (Dependency graph) the operator flips; not required until green.
+- Measurements recorded in the addendum and ci-throughput.md §Execution Constraints.
+
+### Blueprint divergence
+- NONE beyond the above; blueprints updated (ci-throughput.md §Components 3, 4, §Execution Constraints; public-ci.md §Component 3).
+
+### Next action needed (Engineer)
+- Finish PR #6 (E-384) with the guards and the interim required set in .ai/DEVOPS.md. Then E-389 (small, cuts the Ubuntu wall time ~1.5 min), E-388, E-387 in whatever order the tree allows; E-383 after E-384 as before.
+- Hand back the four Ubuntu shard times after E-389 and the macOS times after E-388.
+---

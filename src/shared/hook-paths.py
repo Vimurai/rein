@@ -38,6 +38,11 @@ import sys
 HOOK_NAMES = ("stop-hook.sh", "pre-tool-use.sh", "session-start.sh",
               "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh")
 _SHELLS = ("bash", "sh", "zsh", "dash")
+_SHELL_FLAGS = ("-p", "-e", "-u", "-x", "-l", "--norc", "--noprofile")
+_OPERATORS = re.compile(r"[;&|<>`]|\$\(")
+# The tools the shipped gate matcher covers (src/bin/rein _SPECS): a matcher missing one
+# leaves that tool ungated — the Architect's write gate lives in the same hook (M3).
+_GATE_TOOLS = {"Bash", "Write", "Edit", "MultiEdit", "NotebookEdit"}
 # Control (C0, DEL, C1) and bidi characters: a path carrying one is never printed (N5).
 _UNSAFE = re.compile("[\x00-\x1f\x7f-\x9f‎‏‪-‮⁦-⁩]")
 _LINE, _FILE = 1 << 20, 4 << 20   # per-line and per-file read caps for a transcript (N4)
@@ -59,7 +64,7 @@ def _expand(p, project):
     home = os.path.expanduser("~")
     for var, val in (("${CLAUDE_PROJECT_DIR}", project), ("$CLAUDE_PROJECT_DIR", project),
                      ("${HOME}", home), ("$HOME", home)):
-        if p.startswith(var):
+        if p == var or p.startswith(var + "/"):   # not $HOMEDIR (M1)
             if not val:
                 return None
             p = val + p[len(var):]
@@ -77,23 +82,52 @@ def _runs(h, project):
     argument, not what runs (N1)."""
     cmd = str(h.get("command") or "")
     args = [str(a) for a in (h.get("args") or [])]
+    # A shell-form line with an operator or a substitution runs more than one thing: which of
+    # them is "the" script cannot be read off it, so it is unknown (M1).
+    if not args and _OPERATORS.search(cmd):
+        return None
     try:
         words = ([cmd] + args) if args else shlex.split(cmd)
     except ValueError:
         return None
-    if not words:
+    script = _first_script(words)
+    if script and os.path.basename(script) in _SHELLS:
+        return None                      # a shell running a shell: not read further
+    if not script or any(c.isspace() for c in script) or _OPERATORS.search(script):
         return None
-    script = words[0]
-    if os.path.basename(script) in _SHELLS:
-        rest = [w for w in words[1:] if not w.startswith("-")]
-        if not rest:
-            return None
-        script = rest[0]
     name = os.path.basename(script)
     if name not in HOOK_NAMES:
         return None
     path = _expand(script, project)
     return (path, name) if path else None
+
+
+def _first_script(words):
+    """The command's first word, or — after a shell — its script operand. Only the flags a
+    hook line plausibly carries are skipped; any other flag (an option that takes an
+    argument, e.g. --rcfile) makes the script unknown. `-c` reads its operand once (M1)."""
+    if not words:
+        return None
+    if os.path.basename(words[0]) not in _SHELLS:
+        return words[0]
+    i = 1
+    while i < len(words) and words[i].startswith("-"):
+        w = words[i]
+        if w == "--":
+            i += 1
+            break
+        if w == "-c":
+            if i + 1 >= len(words) or _OPERATORS.search(words[i + 1]):
+                return None
+            try:
+                inner = shlex.split(words[i + 1])
+            except ValueError:
+                return None
+            return inner[0] if inner and os.path.basename(inner[0]) not in _SHELLS else None
+        if w not in _SHELL_FLAGS:
+            return None
+        i += 1
+    return words[i] if i < len(words) else None
 
 
 def _status(path, hooks_dir):
@@ -111,17 +145,30 @@ def is_ours(h, script, hooks_dir, project=None):
     if not _hooks_ok(hooks_dir):
         return False
     r = _runs(h, project)
-    return bool(r) and r[1] == script and _status(r[0], hooks_dir) in ("OURS", "MISSING")
-
-
-def _covers_bash(matcher):
-    """A PreToolUse matcher under which the gate fires for Bash (N2)."""
-    if matcher in (None, "", "*"):
-        return True
-    try:
-        return re.fullmatch(str(matcher), "Bash") is not None
-    except re.error:
+    if not r or r[1] != script:
         return False
+    # The install's own path is ours even when that file is a symlink resolving elsewhere —
+    # otherwise sync appends a fresh gate entry beside it on every run (M7).
+    if os.path.dirname(os.path.normpath(r[0])) == os.path.normpath(hooks_dir):
+        return True
+    return _status(r[0], hooks_dir) in ("OURS", "MISSING")
+
+
+def _covers_gate_tools(matcher):
+    """A PreToolUse matcher under which the gate fires for every tool it ships for (N2, M3).
+    Claude Code evaluates matchers as JavaScript regexes, so only forms that read the same
+    in any dialect count: empty, `*`, `.*`, or a plain `A|B|…` list (M2)."""
+    if matcher in (None, "", "*", ".*"):
+        return True
+    m = str(matcher)
+    return bool(re.fullmatch(r"[A-Za-z0-9_|]+", m)) and _GATE_TOOLS <= set(m.split("|"))
+
+
+def _gate_timeout_ok(h):
+    """A hook that times out does not block: the gate needs `type: command` and a timeout
+    that is absent or at least the shipped 30 seconds (M4)."""
+    t = h.get("timeout")
+    return h.get("type", "command") == "command" and (t is None or (isinstance(t, (int, float)) and t >= 30))
 
 
 def check(settings, hooks_dir):
@@ -159,9 +206,10 @@ def check(settings, hooks_dir):
                              and os.path.isabs(args[1]) and os.path.dirname(args[1]) == hooks_dir)
                 if not exec_form:
                     out.append(("FORM", ev, n))
-                # The gate counts only as it ships: exec form, under a matcher that covers
-                # Bash (a `true <gate path>` or a NoSuchTool matcher never blocks — N2).
-                if ev == "PreToolUse" and _real(p) == want_gate and exec_form and _covers_bash(e.get("matcher")):
+                # The gate counts only as it ships: exec form, `type: command`, a timeout of at
+                # least 30 s, under a matcher covering every gated tool (N2, M2–M4).
+                if (ev == "PreToolUse" and _real(p) == want_gate and exec_form
+                        and _covers_gate_tools(e.get("matcher")) and _gate_timeout_ok(h)):
                     gate = True
     if not gate:
         out.append(("UNREGISTERED",))
@@ -249,7 +297,9 @@ def projects(clone, hooks_dir):
 def main(argv):
     if len(argv) == 4 and argv[1] == "check":
         for r in check(argv[2], argv[3]):
-            print("\t".join(r))
+            # A path from a settings file is data: control and bidi characters never reach
+            # the terminal (M6, as N5 for the installer's list).
+            print("\t".join(_UNSAFE.sub("?", f) for f in r))
         return 0
     if len(argv) == 4 and argv[1] == "projects":
         for p in projects(argv[2], argv[3]):

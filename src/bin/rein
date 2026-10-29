@@ -1711,6 +1711,7 @@ try:
     import importlib.util as _ilu
     _hp_path = os.environ.get("REIN_HOOK_PATHS_PY", "")
     if _hp_path:
+        sys.dont_write_bytecode = True   # no __pycache__ beside the helper (clone or mirror)
         _spec = _ilu.spec_from_file_location("rein_hook_paths", _hp_path)
         _hp_mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_hp_mod)
 except Exception:
@@ -1729,8 +1730,15 @@ for _event, _matcher, _script, _extra in _SPECS:
     _removed = 0
     for _e in _lst:
         _before = len(_e.get("hooks", []))
+        _gone = [h for h in _e.get("hooks", []) if _is_rein_hook(h, _script)]
         _e["hooks"] = [h for h in _e.get("hooks", []) if not _is_rein_hook(h, _script)]
         _removed += _before - len(_e["hooks"])
+        # E-391 (security third pass M1): an entry sync replaces is named, unless it is the
+        # very entry it writes back — a removal is never silent.
+        for _h in _gone:
+            if _h != _want:
+                _txt = " ".join([str(_h.get("command") or "")] + [str(x) for x in (_h.get("args") or [])])
+                print(f"Replaced {_event} hook entry: {_txt[:200]}")
     _lst[:] = [e for e in _lst if e.get("hooks")]
     _lst.append({"matcher": _matcher, "hooks": [_want]})
 

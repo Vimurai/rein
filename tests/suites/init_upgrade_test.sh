@@ -299,6 +299,17 @@ p = sys.argv[1]; d = json.load(open(p)); d["disableAllHooks"] = True; json.dump(
 PY
 assert_contains "E-391.03o: disableAllHooks is reported" "[HOOKS_DISABLED]" "$(_ai doctor)"
 assert_rc 1 "E-391.03p: …and fails doctor" doctor
+# Third pass M1: a shell-form line that runs more than one thing, or an option's argument,
+# is not a Rein hook to replace — sync keeps the user's entry (and names any it replaces).
+_set_cmd Stop "bash -c '/u/bin/myaudit; /nope/stop-hook.sh'"
+_set_cmd SessionStart 'bash --rcfile /nope/session-start.sh /u/bin/myaudit'
+_ai sync >/dev/null
+assert_contains "E-391.03q: sync keeps a multi-command line that mentions a Rein hook" "/u/bin/myaudit; /nope/stop-hook.sh" "$(cat "${PROJ}/.claude/settings.json")"
+assert_contains "E-391.03r: …and one whose Rein name is an option's argument" "--rcfile /nope/session-start.sh" "$(cat "${PROJ}/.claude/settings.json")"
+# M3: a matcher that leaves a gated tool out does not count as the gate.
+_gate_variant '[{"matcher": "Bash", "hooks": [{"type": "command", "command": "/bin/bash", "args": ["-p", G], "timeout": 30}]}]'
+assert_contains "E-391.03s: a Bash-only matcher (Write/Edit ungated) is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+_ai sync >/dev/null
 python3 - "${PROJ}/.claude/settings.json" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p)); d.pop("disableAllHooks", None)

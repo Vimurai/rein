@@ -7,7 +7,7 @@ binaries, permissions, live MCP connectivity); `ai doctor --repair` fixes what i
 
 | Symptom | First check | Then |
 | :--- | :--- | :--- |
-| `ai: command not found` | Is `~/.ai-os/bin` on `PATH`? | Open a new shell; `ai doctor` prints the export line. |
+| `ai: command not found` | Is `~/.rein/bin` on `PATH`? | Open a new shell; `ai doctor` prints the export line. |
 | MCP servers fail to start | `node --version` is 22.5 or later? | `ai mcp-setup`, then `ai doctor --env`. |
 | Servers answer with old behaviour after an upgrade | Preflight's "stale MCP servers" line | Restart both Claude Code panes. |
 | A pane opens and fails at the first keystroke | `ai doctor`: is `claude` on PATH, are the roles mapped? | `ai start --status`; relaunch with `ai start`. |
@@ -57,8 +57,8 @@ nothing until they catch something.
 No. `ai gate off` must be run in your own terminal, is time-boxed, still blocks catastrophic
 commands, and announces every call it lets through.
 
-**Why is the install directory called `~/.ai-os`?**
-The project was called AI-OS before it was renamed Rein. Commands, paths and environment
+**Why is the install directory called `~/.rein`?**
+The project was called Rein before it was renamed Rein. Commands, paths and environment
 variables kept their names so existing installs, scripts and hooks keep working.
 
 **How do I report a security problem?**

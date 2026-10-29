@@ -27,29 +27,29 @@
 }
 ```
 
-## Machine files (`~/.ai-os`)
+## Machine files (`~/.rein`)
 
 | Path | Purpose |
 | :--- | :--- |
-| `~/.ai-os/bin/ai` | The CLI. |
-| `~/.ai-os/mcp/`, `hooks/`, `templates/`, `config/` | The installed framework. |
-| `~/.ai-os/accounts.json` | Registered Claude accounts. |
-| `~/.ai-os/ci/logs/` | CI run logs. |
-| `~/.ai-os/telemetry.sqlite`, `incidents.ndjson`, `INSIGHTS.md` | Local telemetry and incident records; never sent anywhere. |
-| `~/.ai-os/trash/<date>/` | What `ai clean --apply` moved. |
+| `~/.rein/bin/ai` | The CLI. |
+| `~/.rein/mcp/`, `hooks/`, `templates/`, `config/` | The installed framework. |
+| `~/.rein/accounts.json` | Registered Claude accounts. |
+| `~/.rein/ci/logs/` | CI run logs. |
+| `~/.rein/telemetry.sqlite`, `incidents.ndjson`, `INSIGHTS.md` | Local telemetry and incident records; never sent anywhere. |
+| `~/.rein/trash/<date>/` | What `ai clean --apply` moved. |
 
 ## Environment variables
 
 | Variable | Effect |
 | :--- | :--- |
-| `AI_OS_CI_GATE=0` | Close tasks without green CI. Say so when you use it. |
-| `AI_OS_CI_SKIP=1` + `AI_OS_CI_SKIP_REASON="…"` | Push once without green CI; recorded with the reason. |
-| `AI_OS_KEEP_LEGACY_WORKSPACES=1` | `ai sync` lists old provider workspaces but deletes nothing. |
-| `AI_OS_DISABLE_REPO_MAP=1` | Do not generate `.ai/REPO_MAP.md`. |
-| `AI_OS_BROWSER_TIMEOUT=<s>` | Time budget for the Playwright browser download (default 600). |
+| `REIN_CI_GATE=0` | Close tasks without green CI. Say so when you use it. |
+| `REIN_CI_SKIP=1` + `REIN_CI_SKIP_REASON="…"` | Push once without green CI; recorded with the reason. |
+| `REIN_KEEP_LEGACY_WORKSPACES=1` | `ai sync` lists old provider workspaces but deletes nothing. |
+| `REIN_DISABLE_REPO_MAP=1` | Do not generate `.ai/REPO_MAP.md`. |
+| `REIN_BROWSER_TIMEOUT=<s>` | Time budget for the Playwright browser download (default 600). |
 | `AI_TELEMETRY_DISABLE=1` | No local telemetry. |
 | `AI_INCIDENT_TRACKER_DISABLE=1` | No incident aggregation at preflight. |
 | `AI_INSIGHTS_STALENESS_DISABLE=1` | No "insights are stale" prompt at preflight. |
 
-The `AI_OS_` prefix and the `~/.ai-os` directory keep their original names so existing installs
+The `REIN_` prefix and the `~/.rein` directory keep their original names so existing installs
 and scripts keep working.

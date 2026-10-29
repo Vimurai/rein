@@ -10,7 +10,7 @@
  *     ahead of a file that is present);
  *   - a row with no file → archived on another machine (its file is under tasks/archive/)
  *     and dropped, or else a local task whose file is missing and is rewritten from the row;
- *   - git conflicts on one record are resolved at merge time by the `aios-record` merge
+ *   - git conflicts on one record are resolved at merge time by the `rein-record` merge
  *     driver (mergeRecord below) under the D-102 policy — DONE beats IN_PROGRESS beats
  *     OPEN, else the later updated_at — which logs each resolution to the git dir; the
  *     import prints one `[STATE_CONFLICT] <id> kept <side>` line per entry and writes a
@@ -30,7 +30,7 @@ import {
 } from "./record-store.mjs";
 import { mergeCiRecords } from "./ci-evidence.mjs";
 
-const CONFLICT_LOG = "aios-state-conflicts";
+const CONFLICT_LOG = "rein-state-conflicts";
 // Everything that reaches the conflict log came from a pulled file. It is reduced to these
 // shapes when written AND when read: a log line becomes a stamp record and a line in the
 // model's session context (critic_security P1, E-326).
@@ -212,7 +212,7 @@ function _rebasing(gitDir) {
 }
 
 /**
- * git merge driver for one record (`merge.aios-record.driver ... %O %A %B %P`). Writes the
+ * git merge driver for one record (`merge.rein-record.driver ... %O %A %B %P`). Writes the
  * result to `oursPath` and returns 0, or returns 1 to leave git's conflict in place (a side
  * that is not a JSON record, or a deletion against a change).
  */

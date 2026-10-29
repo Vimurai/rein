@@ -16,9 +16,9 @@ paths:
   with `[GATE_INTERNAL_ERROR]`, fail-open hooks exit 0 and write one `HOOK_ABORT` incident.
   An empty `$( … )` result on a path to `exit 0` must be checked — an abort in a subshell
   does not reach the trap. No `printf | grep -q` under `pipefail` (SIGPIPE); use `<<<`.
-- **Resolve helpers install-first (E-223).** Set `AI_OS_LOCATE_UNTRUSTED_ENV=1` in the hook's
+- **Resolve helpers install-first (E-223).** Set `REIN_LOCATE_UNTRUSTED_ENV=1` in the hook's
   own text, `unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone`
-  before sourcing `~/.ai-os/shared/locate.sh`, and never resolve from the visited repo's
+  before sourcing `~/.rein/shared/locate.sh`, and never resolve from the visited repo's
   `src/`: a project's `.claude/settings.json` `env` block is inherited by hooks and is an
   attacker channel (T-LOCATOR-001, T-HOOKENV-001).
 - **The role comes from the HMAC-verified session token** (`--session` + `--session-pid

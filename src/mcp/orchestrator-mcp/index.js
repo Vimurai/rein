@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * orchestrator-mcp — AI-OS Deterministic Workflow Execution
+ * orchestrator-mcp — Rein Deterministic Workflow Execution
  * Replaces LLM-interpreted multi-step workflows with programmatic execution.
  *
  * Tools:
@@ -66,7 +66,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "run_intent_cleanup",
       description:
-        "DEPRECATED (E-147): UPDATE.md has been removed from AI-OS. Intent is now provided via conversation context. " +
+        "DEPRECATED (E-147): UPDATE.md has been removed from Rein. Intent is now provided via conversation context. " +
         "This tool is a no-op and returns a deprecation notice. Use `/compact` to manage session context instead.",
       inputSchema: { type: "object", properties: {} },
     },
@@ -171,7 +171,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // resolves a helper cwd-relative (T-LOCATOR-001). Skipping markdown would blind the
       // gate to the only markdown that actually runs. So `src/shared/markdown-exec.mjs`
       // decides per line, and non-markdown files are graded in full as before.
-      const strictTraversal = process.env.AI_OS_REVIEW_STRICT_TRAVERSAL === "1";
+      const strictTraversal = process.env.REIN_REVIEW_STRICT_TRAVERSAL === "1";
       const { classifyDiffTraversal } = await loadPolicy("traversal-policy");
       const { traversal, proseExec } = classifyDiffTraversal(diff, {
         strict: strictTraversal,
@@ -384,7 +384,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return {
         content: [{
           type: "text",
-          text: "⚠ DEPRECATED (E-147): run_intent_cleanup is a no-op. UPDATE.md has been removed from AI-OS.\n" +
+          text: "⚠ DEPRECATED (E-147): run_intent_cleanup is a no-op. UPDATE.md has been removed from Rein.\n" +
                 "Intent is provided via conversation context. Use `/compact` to manage session context instead.",
         }],
       };

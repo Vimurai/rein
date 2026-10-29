@@ -3,7 +3,7 @@
 // tests/suites/memory_batch_scanner_test.sh (E-302, D-088: a pure module is tested in the unit
 // layer); the T-MBS-S* ids and every assertion are unchanged.
 //
-//   - Walk discovers PNG/SVG/PDF candidates and prunes node_modules/.git/.ai-os
+//   - Walk discovers PNG/SVG/PDF candidates and prunes node_modules/.git/.rein
 //   - Path-rule rejects (/.env/, /secrets/, /credentials/, /.ssh/, /.aws/, /.gnupg/)
 //   - Sensitive-name regex rejects (secret*, *credential*, *.pem, id_rsa, etc.)
 //   - .gitignore enforcement via batched `git check-ignore --stdin`
@@ -50,7 +50,7 @@ for (const [label, re] of surface) {
 let SBOX, PROJ, scan, h1;
 const put = (rel, body) => { const p = join(PROJ, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, body); };
 before(() => {
-  SBOX = mkdtempSync(join(tmpdir(), "aios-t-mbs-"));
+  SBOX = mkdtempSync(join(tmpdir(), "rein-t-mbs-"));
   PROJ = join(SBOX, "proj");
   mkdirSync(PROJ);
   // A real git repo so check-ignore works.
@@ -79,9 +79,9 @@ before(() => {
   put("ux/internal-flow.svg", '<svg xmlns="http://www.w3.org/2000/svg"><!-- [NO_RAG] --><rect/></svg>');
   // Oversized file (> 5 MB).
   put("diagrams/oversize.png", Buffer.alloc(6 * 1024 * 1024));
-  // The walker must NOT descend node_modules / .ai-os — a media file in each proves the prune.
+  // The walker must NOT descend node_modules / .rein — a media file in each proves the prune.
   put("node_modules/some-pkg/diagram.png", "NM-PNG");
-  put(".ai-os/cache/cached-render.svg", "AIOS-SVG");
+  put(".rein/cache/cached-render.svg", "REIN-SVG");
   // Outside the recognised extensions — never enters the scan.
   put("diagrams/README.md", "unrelated");
   put("docs/notes.txt", "unrelated");
@@ -123,7 +123,7 @@ test("T-MBS-S05: no skipped entry includes the sandbox SBOX path", () =>
 // ── T-MBS-S06: pruned directories never enter the candidate list ──
 const allNames = () => [...scan.eligible.map((e) => basename(e.path)), ...scan.skipped.map((s) => s.basename || "")];
 test("T-MBS-S06: node_modules diagram.png NOT in eligible+skipped", () => assert.ok(!allNames().includes("diagram.png")));
-test("T-MBS-S06: .ai-os cached-render.svg NOT in scan output", () => assert.ok(!allNames().includes("cached-render.svg")));
+test("T-MBS-S06: .rein cached-render.svg NOT in scan output", () => assert.ok(!allNames().includes("cached-render.svg")));
 
 // ── T-MBS-S07: computeFileSha256 is deterministic; already-indexed dedup works ──
 const hashCli = (f) => spawnSync(process.execPath, [SCANNER, "--hash", f], { encoding: "utf8" });
@@ -173,7 +173,7 @@ test("T-MBS-S10: non-git project emits the eligible file", () => {
   assert.match(JSON.stringify(m.scanWorkspace(p2)), /clean\.png/);
 });
 
-// ── T-MBS-S11: ~/.ai-os mirror matches src (read-only; absent → skip) ──
-const MIRROR = join(homedir(), ".ai-os/shared/memory-batch-scanner.mjs");
+// ── T-MBS-S11: ~/.rein mirror matches src (read-only; absent → skip) ──
+const MIRROR = join(homedir(), ".rein/shared/memory-batch-scanner.mjs");
 test("T-MBS-S11: mirror is byte-identical to src", { skip: !existsSync(MIRROR) && "mirror absent" }, () =>
   assert.equal(readFileSync(MIRROR, "utf8"), SRC));

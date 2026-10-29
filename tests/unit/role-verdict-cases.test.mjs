@@ -2,7 +2,7 @@
 // path class (E-301, D-088, D-113). Contract table: tests/fixtures/role-verdict-cases.json, one row
 // per (role, path) → verdict, run in process through pathAnalysis — the function the CLI calls.
 // Carries pane_binding's E-208.05/.06/.08/.10/.11 path verdicts, E-294.05i2 (the union) and
-// gate_override's E-291.05h (~/.ai-os/** for every role); the hook's tool-name branch, the
+// gate_override's E-291.05h (~/.rein/** for every role); the hook's tool-name branch, the
 // claim gate, an unverified or re-minted token and the fault injection stay with their suites.
 //
 // Roles are the D-087 model: a verified `architect` or `engineer` token, or `none` — no verified
@@ -22,7 +22,7 @@ import { repo } from "../lib/check-table.mjs";
 const FILE = resolve(repo, "tests/fixtures/role-verdict-cases.json");
 const SHA256 = "34182edf23ab0cfeb61c596f88625145786d6ce949f213d076905eaca5333d54";
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), "aios-t-rv-")));
+const root = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-rv-")));
 const proj = join(root, "proj"), home = join(root, "home"), outside = join(root, "outside");
 const saved = { home: process.env.HOME, cwd: process.cwd() };
 test.after(() => {

@@ -26,7 +26,7 @@
 # is named by its absolute path (the pin's record, else a PATH search on the fixed PATH).
 # The hook's prologue drops PERL* (PERL5OPT/PERL5LIB would load a project's code into the gate).
 ai_os_gate_bounded_node() {
-  local n="${AI_OS_TC_NODE:-}"
+  local n="${REIN_TC_NODE:-}"
   [[ -n "$n" ]] || n="$(type -P node 2>/dev/null || true)"
   [[ -n "$n" ]] || return 127
   if [[ -x /usr/bin/perl ]]; then /usr/bin/perl -e 'alarm 10; exec @ARGV or exit 127' "$n" "$@"

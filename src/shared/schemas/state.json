@@ -1,6 +1,6 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "title": "AI-OS State Transition Schemas",
+  "title": "Rein State Transition Schemas",
   "description": "Canonical JSON Schema definitions for all Triad state transitions. Agents MUST submit payloads via task-synchronizer-mcp tools — never write TASKS.md or REVIEWS.md directly. Blueprint: .ai/blueprints/structured-outputs.md §2.",
   "version": "1.0",
   "schemas": {
@@ -12,7 +12,7 @@
         "description":       { "type": "string",  "minLength": 1, "maxLength": 2000, "description": "Human-readable task description" },
         "tier":              { "type": "integer", "enum": [1, 2, 3],                 "description": "Risk tier (1=low, 2=medium, 3=high)" },
         "prefix":            { "type": "string",  "enum": ["E", "P", "T"],           "description": "ID prefix: E=Engineer, P=Architect, T=Tester" },
-        "is_framework_task": { "type": "boolean",                                    "description": "E-63: route this task to $AIOS_WORKSPACE/.ai instead of local .ai/. Errors with [WORKSPACE_NOT_FOUND] when AIOS_WORKSPACE is unset/invalid." },
+        "is_framework_task": { "type": "boolean",                                    "description": "E-63: route this task to $REIN_WORKSPACE/.ai instead of local .ai/. Errors with [WORKSPACE_NOT_FOUND] when REIN_WORKSPACE is unset/invalid." },
         "depends_on":        { "type": "array", "maxItems": 25, "items": { "type": "string", "pattern": "^[EPT]-[0-9]+$" }, "description": "E-91 (ecc-integrations.md §Data Model): task IDs this task depends on. The task starts BLOCKED until every listed task is DONE, then auto-transitions to OPEN. Referenced tasks must already exist; self-references, cycles, and chains deeper than 5 levels are rejected with [DAG_FAIL]." }
       },
       "required": ["owner", "description"],

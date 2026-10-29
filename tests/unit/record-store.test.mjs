@@ -3,7 +3,7 @@
 // Extends tests/unit/state-db.test.mjs (which covers addTask/nextId/DAG on a legacy store) to
 // the record store: file-before-row ordering, crash repair by rebuildIndex, the --team/--legacy
 // round trip, and the MCP write path. git is the process boundary of the migration, so the
-// fixtures are real throwaway repositories; no test touches ~/.ai-os (HOME is a temp dir for
+// fixtures are real throwaway repositories; no test touches ~/.rein (HOME is a temp dir for
 // the spawned server).
 
 import { test } from "node:test";
@@ -31,7 +31,7 @@ const SYNC_SERVER = join(REPO, "src/mcp/task-synchronizer-mcp/index.js");
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
 function tmp(t, tag) {
-  const d = mkdtempSync(join(tmpdir(), `aios-rs-${tag}-`));
+  const d = mkdtempSync(join(tmpdir(), `rein-rs-${tag}-`));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   return d;
 }
@@ -346,7 +346,7 @@ test("seq stays monotonic per origin across a fresh index (archived records coun
 function callTools(cwd, home, calls) {
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, ["--no-warnings", SYNC_SERVER], {
-      cwd, env: { PATH: process.env.PATH, HOME: home, AI_TELEMETRY_DISABLE: "1", AI_OS_CI_GATE: "0", AI_OS_BUILD_STAMP: "0" },
+      cwd, env: { PATH: process.env.PATH, HOME: home, AI_TELEMETRY_DISABLE: "1", REIN_CI_GATE: "0", REIN_BUILD_STAMP: "0" },
       stdio: ["pipe", "pipe", "ignore"],
     });
     const frames = [
@@ -537,7 +537,7 @@ test("ai task done closes through completeTask: record, cascade, views", (t) => 
   const { root, ai } = repo(t, "done");
   seedLegacy(ai); commitAll(root, "seed");
   migrateTeam(ai, { trunk: "master" });
-  const env = { AI_OS_CI_GATE: "0" };
+  const env = { REIN_CI_GATE: "0" };
   const res = runTaskDone(ai, "E-1", "closed by commit abc1234", { env });
   assert.equal(res.code, 0, res.out);
   assert.match(res.out, /E-1 → DONE.*unblocked: E-2/);
@@ -696,7 +696,7 @@ test("--team writes .ai/.gitattributes; --legacy removes it, but keeps one the u
   // E-328: a project migrated before ci/*.json joined the attributes still gets its file removed.
   commitAll(root, "legacy again");
   migrateTeam(ai, { trunk: "master" });
-  writeFileSync(join(ai, ".gitattributes"), ATTRIBUTES.replace("ci/*.json merge=aios-record\n", ""));
+  writeFileSync(join(ai, ".gitattributes"), ATTRIBUTES.replace("ci/*.json merge=rein-record\n", ""));
   commitAll(root, "pre-E-328 attributes");
   assert.equal(migrateLegacy(ai).ok, true);
   assert.equal(existsSync(join(ai, ".gitattributes")), false);

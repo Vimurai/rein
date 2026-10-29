@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AI-OS post-commit Hook — "Fixes E-##" closes the task through `ai task done` (E-325, D-102)
+# Rein post-commit Hook — "Fixes E-##" closes the task through `ai task done` (E-325, D-102)
 # Parses the latest commit message for task IDs and marks each DONE with `ai task done`, which
 # writes through the same library and the same completion gates as task-synchronizer-mcp. The
 # hook used to rewrite state.json and TASKS.md itself — a second writer that bypassed the gates
@@ -14,7 +14,7 @@
 # (src/shared/toolchain-pin.sh; absent before the pin loads → nothing recorded). Inline
 # string on the first executable line, builtins only. A deliberate exit keeps its code.
 # The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_aios_rc=$?; trap - EXIT; case "$_aios_rc:$BASH_COMMAND" in 0:*) exit "$_aios_rc" ;; esac; ai_os_hook_incident post-commit "$_aios_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; ai_os_hook_incident post-commit "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -24,10 +24,10 @@ trap '_aios_rc=$?; trap - EXIT; case "$_aios_rc:$BASH_COMMAND" in 0:*) exit "$_a
 # variables). See src/shared/toolchain-pin.sh.
 unset -f $(compgen -A function) 2>/dev/null
 for _v in $(compgen -e); do
-  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|AI_OS_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
+  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
 done
 PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin"
-for _p in "${HOME}/.ai-os/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
+for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
   [[ -f "$_p" ]] && { . "$_p"; break; }
 done
 unset _v _p
@@ -46,14 +46,14 @@ IDS=$(printf '%s' "$COMMIT_MSG" \
 [[ -z "$IDS" ]] && exit 0
 
 # Install mirror only (E-223): never an `ai` resolved from the visited repo or its env.
-AI_BIN="${HOME}/.ai-os/bin/ai"
+AI_BIN="${HOME}/.rein/bin/ai"
 if [[ ! -x "$AI_BIN" ]]; then
-  printf "[TASK-SYNC] WARN: %s not found — run: bash install-ai-os.sh. Not closing: %s\n" "$AI_BIN" "$(tr '\n' ' ' <<< "$IDS")" >&2
+  printf "[TASK-SYNC] WARN: %s not found — run: bash install-rein.sh. Not closing: %s\n" "$AI_BIN" "$(tr '\n' ' ' <<< "$IDS")" >&2
   exit 0
 fi
 
 # The gates' env rollbacks never reach `ai task done` (it drops them as well).
-unset AI_OS_CI_GATE AI_OS_BUILD_STAMP
+unset REIN_CI_GATE REIN_BUILD_STAMP
 SHA7=$(git rev-parse --short HEAD 2>/dev/null || true)
 for ID in $IDS; do
   # A refusal (e.g. no green CI run for this commit yet) is printed and the task stays open.

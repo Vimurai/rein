@@ -76,7 +76,7 @@ assert_status 1 "DB_PATH not derived from process.env" \
 assert_status 1 "DB_PATH not derived from tool arguments" \
   grep -qE 'DB_PATH\s*=.*args\.' "$SERVER"
 
-assert_status 0 "DB_PATH stored in ~/.ai-os/" \
+assert_status 0 "DB_PATH stored in ~/.rein/" \
   grep -q 'cache.sqlite' "$SERVER"
 
 # ── T-CACHE-S04: Security — path traversal prevention ────────────────────────
@@ -375,7 +375,7 @@ for (const { path } of files) {
 }
 
 // Verify context blob structure
-let blob = '=== AI-OS SYSTEM CONTEXT CACHE ===\n';
+let blob = '=== Rein SYSTEM CONTEXT CACHE ===\n';
 for (const { path, role } of files) {
   const content = readFileSync(path, 'utf8');
   blob += '--- ' + path.replace(projectRoot + '/', '') + ' (' + role + ') ---\n';
@@ -383,7 +383,7 @@ for (const { path, role } of files) {
 }
 blob += '=== END SYSTEM CONTEXT ===';
 
-if (!blob.includes('=== AI-OS SYSTEM CONTEXT CACHE ===')) process.exit(1);
+if (!blob.includes('=== Rein SYSTEM CONTEXT CACHE ===')) process.exit(1);
 if (!blob.includes('=== END SYSTEM CONTEXT ===')) process.exit(1);
 if (blob.length < 1000) { console.error('Blob too small:', blob.length); process.exit(1); }
 JS
@@ -430,7 +430,7 @@ assert_status 0 "emits an Omitted marker" \
   grep -q 'Omitted:' "$SERVER"
 
 # Behavioural: craft a project whose full blob exceeds 20k, with old + recent blueprints.
-# Uses --emit-context (assembles + prints WITHOUT touching the real ~/.ai-os/cache.sqlite).
+# Uses --emit-context (assembles + prints WITHOUT touching the real ~/.rein/cache.sqlite).
 CBOX="$(mktemp -d)"
 mkdir -p "${CBOX}/.ai/blueprints"
 printf 'ARCHITECT DOC\n%s\n' "$(head -c 400 /dev/zero | tr '\0' 'A')" > "${CBOX}/.ai/architect.md"

@@ -95,7 +95,7 @@ cat > "$_e212_ws/.ai/roles.json" <<'JSON'
 { "roles": { "architect": { "provider": "acme", "pane_identifier": "1" },
              "engineer":  { "provider": "claude", "pane_identifier": "0" } } }
 JSON
-# E-244: run the WORKING TREE's ai, not ${HOME}/.ai-os/bin/ai. These are assertions about
+# E-244: run the WORKING TREE's ai, not ${HOME}/.rein/bin/ai. These are assertions about
 # how the code BEHAVES, and the installed mirror is whatever version was last installed —
 # so on a developer machine they silently tested the previous release. That is not
 # hypothetical: with the mirror one release behind, a case here passed locally and failed
@@ -323,7 +323,7 @@ rm -rf "$_NOROLES"
 # Role Configuration Store (.ai/roles.json) + install flags: sources src/bin/ai to exercise
 # _parse_role_flags / _write_roles_json and validates the template default mapping.
 ROLES_TEMPLATE="${REPO_ROOT}/src/templates/roles.json"
-export AIOS="${HOME}/.ai-os"
+export REIN="${HOME}/.rein"
 # T-1: template exists + is valid JSON with the documented schema
 assert_exists "$ROLES_TEMPLATE"
 assert_status 0 "T-1: roles.json template is valid JSON" \
@@ -370,7 +370,7 @@ assert_status 0 "T-7: ensure_ai_templates wires roles.json scaffold" \
 rm -rf "$tmp_over" "$tmp_def" "$tmp_noai"
 
 # ── E-138 / E-254 (from provider_adapter_test — E-302): the providers.json template and adapter ──
-# AI-OS v4 is Claude-native (D-069): the template and built-in adapters declare `claude` only.
+# Rein v4 is Claude-native (D-069): the template and built-in adapters declare `claude` only.
 PROV_TEMPLATE="${REPO_ROOT}/src/templates/providers.json"
 ADAPTER="${REPO_ROOT}/src/shared/provider-adapter.mjs"
 # ── T-1: providers.json template valid + declares exactly the claude provider ──
@@ -480,8 +480,8 @@ assert_status 1 "E-255.04a: no settings.tester.json is written" test -e "${_ov}/
 # ── E-255.5: labels are derived for all three roles ─────────────────────────
 echo "  [E-255.5] derived labels"
 _lab() {
-  AI_OS_MOD="file://${ADAPTER}" node --input-type=module -e '
-const m = await import(process.env.AI_OS_MOD);
+  REIN_MOD="file://${ADAPTER}" node --input-type=module -e '
+const m = await import(process.env.REIN_MOD);
 const d = process.argv[1];
 process.stdout.write(["architect","engineer","tester"].map(r => m.roleLabel(d, r)).join("|") + "|" +
   ["architect","engineer","tester"].map(r => m.isHeadless(d, r)).join(","));

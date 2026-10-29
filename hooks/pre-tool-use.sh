@@ -30,7 +30,7 @@
 # Lane (E-214) remains the last checkpoint before anything reaches history.
 #
 # Operator escape (E-291, D-081 r2 / D-083): `ai gate off [--minutes N] [--reason …]` in the
-# operator's own terminal writes a time-boxed ~/.ai-os/gate-override.json; there is NO
+# operator's own terminal writes a time-boxed ~/.rein/gate-override.json; there is NO
 # environment rollback (a project's settings `env` could set one). Under an override the
 # catastrophic set and the self-disable guard still block, and every bypassed call is loud.
 #
@@ -44,7 +44,7 @@
 # shell without running EXIT, so they block too. SIGKILL and Claude Code's own hook timeout
 # are the accepted residual (THREAT_MODEL T-HOOKABORT-001). This is the hook's ONLY EXIT
 # trap (nothing it sources sets one — pinned by a test); a later one must chain to it.
-trap '_aios_rc=$?; trap - EXIT; case "$_aios_rc:$BASH_COMMAND" in 0:*|2:exit|2:exit[[:space:]]*) exit "$_aios_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-tool-use aborted (rc %s near line %s) — run: ai doctor\n" "$_aios_rc" "$LINENO" >&2; exit 2' EXIT
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|2:exit|2:exit[[:space:]]*) exit "$_rein_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-tool-use aborted (rc %s near line %s) — run: ai doctor\n" "$_rein_rc" "$LINENO" >&2; exit 2' EXIT
 trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-tool-use interrupted by a signal — run: ai doctor\n" >&2; exit 2' TERM HUP INT PIPE
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
@@ -55,17 +55,17 @@ trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-tool-use interrupted by a 
 # variables). See src/shared/toolchain-pin.sh.
 unset -f $(compgen -A function) 2>/dev/null
 for _v in $(compgen -e); do
-  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|AI_OS_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
+  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
 done
 PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin"
-for _p in "${HOME}/.ai-os/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
+for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
   [[ -f "$_p" ]] && { . "$_p"; break; }
 done
 unset _v _p
 
 # ── E-223 (D-057 §3): install-first helper resolution ────────────────────────
 # The locators below used to start at "$(git rev-parse --show-toplevel)/src/...", which
-# names the USER's repository, not the AI-OS install. Any project containing
+# names the USER's repository, not the Rein install. Any project containing
 # src/mcp/safe-exec-mcp/index.js had THAT file executed by node from inside this hook,
 # with its stdout trusted to decide whether a write is allowed — cloning a repo was
 # enough to run its code and disable the gate meant to stop it.
@@ -73,21 +73,21 @@ unset _v _p
 # Bootstrapping the shared resolver must not repeat the mistake, so it is install-mirror
 # first and script-relative second — never the visited repo.
 # The env here may have been chosen by the repo we are visiting (a project's
-# .claude/settings.json `env` block is inherited by hooks), so AI_OS_HOME is NOT read:
+# .claude/settings.json `env` block is inherited by hooks), so REIN_HOME is NOT read:
 # pointing it at a decoy made this bootstrap SOURCE the decoy's own locate.sh, i.e.
 # arbitrary shell inside a fail-closed gate. Assigned here, in the hook's own text, so it
 # overrides anything inherited.
 # Exported so a child process — an `ai` subcommand spawned from this hook — inherits
 # the same judgement rather than defaulting back to trusting the environment.
-export AI_OS_LOCATE_UNTRUSTED_ENV=1
-_AI_OS_HOME_DIR="${HOME}/.ai-os"
+export REIN_LOCATE_UNTRUSTED_ENV=1
+_REIN_HOME_DIR="${HOME}/.rein"
 # The guard below asks `declare -f ai_os_locate`, which means "is a name defined", NOT
 # "did my source succeed". bash imports exported functions from the environment at
 # startup, so an inherited `ai_os_locate` satisfies it, the safe inline fallback is never
 # installed, and the attacker's function IS the resolver — reachable whenever
 # shared/locate.sh is absent, i.e. exactly the degraded install the fallback exists for.
 unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
-for _l in "${_AI_OS_HOME_DIR}/shared/locate.sh" \
+for _l in "${_REIN_HOME_DIR}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../src/shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
 done
@@ -95,7 +95,7 @@ done
 # degraded gate, an aborted hook is a broken session). The fallback is the install
 # mirror alone — it never falls back to the visited repo.
 if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${_AI_OS_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+  ai_os_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 
 set -uo pipefail
@@ -107,13 +107,13 @@ PAYLOAD="$(cat 2>/dev/null)"
 # _is_repair_cmd <command> — the ONE place that decides "this is the repair command",
 # used by both [TOOLCHAIN_STALE] and [SAFE_EXEC_UNAVAILABLE]. It lives INLINE here, not in
 # the shared pin: when the pin itself is unreachable (a partial mirror) the repair command
-# must still pass. Exempt is exactly the literal `bash install-ai-os.sh`, from the
-# directory that holds a regular install-ai-os.sh, with no other arguments, separators or
+# must still pass. Exempt is exactly the literal `bash install-rein.sh`, from the
+# directory that holds a regular install-rein.sh, with no other arguments, separators or
 # prefixes. Nothing else.
 _is_repair_cmd() {
   local c="$1"
   c="${c#"${c%%[![:space:]]*}"}"; c="${c%"${c##*[![:space:]]}"}"   # trim surrounding space only
-  [[ "$c" == "bash install-ai-os.sh" && -f "${PWD}/install-ai-os.sh" && ! -L "${PWD}/install-ai-os.sh" ]]
+  [[ "$c" == "bash install-rein.sh" && -f "${PWD}/install-rein.sh" && ! -L "${PWD}/install-rein.sh" ]]
 }
 
 # The catastrophic set — narrow, false-positive-averse, truly irreversible. Used by the
@@ -172,12 +172,12 @@ if [[ -n "$_TC_MISSING" ]]; then
   _tc_n_tool=$(( (${#PAYLOAD} - ${#_tc_rest_tool}) / 11 ))
   _tc_n_cmd=$(( (${#PAYLOAD} - ${#_tc_rest_cmd}) / 9 ))
   _tc_re_tool='"tool_name"[[:space:]]*:[[:space:]]*"Bash"'
-  _tc_re_cmd='"tool_input"[[:space:]]*:[[:space:]]*\{[^][{}]*"command"[[:space:]]*:[[:space:]]*"bash install-ai-os\.sh"[^][{}]*\}'
+  _tc_re_cmd='"tool_input"[[:space:]]*:[[:space:]]*\{[^][{}]*"command"[[:space:]]*:[[:space:]]*"bash install-rein\.sh"[^][{}]*\}'
   if [[ "$_tc_n_tool" -eq 1 && "$_tc_n_cmd" -eq 1 && "$PAYLOAD" =~ $_tc_re_tool && "$PAYLOAD" =~ $_tc_re_cmd ]] \
-     && _is_repair_cmd "bash install-ai-os.sh"; then
+     && _is_repair_cmd "bash install-rein.sh"; then
     exit 0
   fi
-  echo "[TOOLCHAIN_STALE] ${_TC_MISSING} missing — run: bash install-ai-os.sh (E-286)" >&2
+  echo "[TOOLCHAIN_STALE] ${_TC_MISSING} missing — run: bash install-rein.sh (E-286)" >&2
   exit 2
 fi
 
@@ -240,7 +240,7 @@ unset _CMD_B64 _FP_B64
 # Under an active override the analyzer still runs, in --override mode: the catastrophic
 # set and the self-disable guard keep blocking (r8), so an override cannot extend itself.
 _ESCAPE="Operator escape — in YOUR terminal, not through the agent: ai gate off"
-_GO_FILE="${HOME}/.ai-os/gate-override.json"
+_GO_FILE="${HOME}/.rein/gate-override.json"
 _GO_ACTIVE=0; _GO_UNTIL=""; _GO_REASON=""
 if [[ -e "$_GO_FILE" || -L "$_GO_FILE" ]]; then
   _GO_PY="$(ai_os_locate shared/gate-override.py || true)"
@@ -290,7 +290,7 @@ case "$TOOL" in
       # and E-128's in-JS fail-closed guarantee cannot cover a file that never ran —
       # so treating only 2 as a block left a fail-open hole (E-208 audit).
       if [[ "$W_RC" -ne 0 ]]; then
-        # Under an override the Architect scope is lifted — but ~/.ai-os/** never is (r6).
+        # Under an override the Architect scope is lifted — but ~/.rein/** never is (r6).
         # Lifted only on a real verdict (rc 2): with none (crash, timeout) the self-disable
         # guard never ran, and a text test on the path is no substitute (case-insensitive
         # APFS, symlinked parents, `..` — critic_security P1), so no verdict = blocked (E-292).
@@ -357,8 +357,8 @@ if [[ -n "$SE" ]] && command -v node >/dev/null 2>&1; then
       # critic_security P1-1: a command padded past ARG_MAX makes node exit 126 with no
       # verdict, so GATE_SELF_DISABLE never ran. Without the analyzer, err BROAD: anything
       # naming `ai gate`, the override file or the mirror is refused here.
-      if grep -qE "a[\"'\\\\]?i[\"']?[[:space:]]+[\"']?gate|gate-override\.json|\.ai-os" <<< "$CMD"; then
-        echo "[SAFE_EXEC_BLOCK] no analyzer verdict and the command touches the gate or ~/.ai-os — blocked even under the operator override (E-291)." >&2
+      if grep -qE "a[\"'\\\\]?i[\"']?[[:space:]]+[\"']?gate|gate-override\.json|\.rein" <<< "$CMD"; then
+        echo "[SAFE_EXEC_BLOCK] no analyzer verdict and the command touches the gate or ~/.rein — blocked even under the operator override (E-291)." >&2
         exit 2
       fi
       _go_bypass
@@ -366,7 +366,7 @@ if [[ -n "$SE" ]] && command -v node >/dev/null 2>&1; then
     [[ "$rc" -eq 0 ]] && rc="0 without a verdict"
     [[ "$rc" == 4 ]] && rc="4 (TIMEOUT — no verdict within 10 s)"
     {
-      echo "[SAFE_EXEC_UNAVAILABLE] safe-exec exited ${rc}: run bash install-ai-os.sh"
+      echo "[SAFE_EXEC_UNAVAILABLE] safe-exec exited ${rc}: run bash install-rein.sh"
       echo "$_ESCAPE"
     } >&2
     exit 2

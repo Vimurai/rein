@@ -4,7 +4,7 @@
  *
  * WHY. `npx playwright install chromium` used to run inside the default install. It is an
  * unbounded network download of a ~150MB browser, and on 2026-09-09 it ran for over an
- * hour on a developer machine without finishing — inside `install-ai-os.sh`, which every
+ * hour on a developer machine without finishing — inside `install-rein.sh`, which every
  * user install and every CI run depends on. The existing `|| true` around it gave no
  * protection at all: the failure mode is HANGING, not erroring, and you cannot `|| true`
  * your way out of a process that never returns.
@@ -28,7 +28,7 @@ export const BROWSER_MISSING = "[BROWSER_MISSING]";
 export function browserStatus(chromium) {
   // Rollback / escape hatch: an operator who has a browser somewhere unusual can say so
   // rather than being blocked by a probe that is only trying to be helpful.
-  if (process.env.AI_OS_SKIP_BROWSER_CHECK === "1") {
+  if (process.env.REIN_SKIP_BROWSER_CHECK === "1") {
     return { ok: true, path: null, reason: null };
   }
   let path = null;
@@ -58,8 +58,8 @@ export function browserMissingMessage(status) {
     "unbounded ~150MB fetch that once ran for over an hour inside the installer, and every",
     "install and CI run sits behind that path.",
     status?.reason ? `\nDetail: ${status.reason}` : "",
-    "\nRollback: AI_OS_INSTALL_BROWSERS=1 restores the download during install;",
-    "AI_OS_SKIP_BROWSER_CHECK=1 bypasses this probe if the browser lives elsewhere.",
+    "\nRollback: REIN_INSTALL_BROWSERS=1 restores the download during install;",
+    "REIN_SKIP_BROWSER_CHECK=1 bypasses this probe if the browser lives elsewhere.",
   ].join("\n");
 }
 

@@ -27,7 +27,7 @@ subagent has no `allowed-tools` field). The model is set by the dispatcher — `
 2. The diff under test: `git diff --name-only "$(ai trunk)"...HEAD` plus `git diff` for unstaged work.
 3. The project's harness. Resolve the test command with
    `node "$(ai_os_locate shared/test-command.mjs)"` from the project root (or the dispatcher's value) and read
-   how that harness is laid out — in AI-OS itself: `tests/run.sh`, `tests/lib/`,
+   how that harness is laid out — in Rein itself: `tests/run.sh`, `tests/lib/`,
    `tests/suites/*.sh` and `tests/unit/*.test.mjs`.
 
 ## Procedure
@@ -44,9 +44,9 @@ input that must be refused), so a test cannot pass by the rule doing nothing.
 ### 2. Write the tests
 - Write ONLY under `tests/`. Never edit `src/`, `hooks/`, `.ai/` or configuration to make a
   test pass — a failing test against correct-looking code is a finding, report it.
-- Use the project's OWN harness and helpers (in AI-OS: `assert_*` from `tests/lib`,
+- Use the project's OWN harness and helpers (in Rein: `assert_*` from `tests/lib`,
   `register_cleanup` before creating anything external, `corpus_or_fail` for rule scans).
-- Fixtures live in a temp directory; never write under `~/.ai-os/` or the live project state.
+- Fixtures live in a temp directory; never write under `~/.rein/` or the live project state.
 - Describe the BEHAVIOUR in each assertion; a task id may appear as a row label or a comment,
   never as a suite name (rule 8).
 

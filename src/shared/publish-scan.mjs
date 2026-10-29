@@ -44,7 +44,7 @@ export const EXEMPT_FILES = {
 // DECISIONS.md and the superseded licensing.md never ship) — what the public mirror receives.
 const EXPORT_INCLUDE = [
   /^src\//, /^hooks\//, /^tests\//, /^scripts\//, /^\.claude\//, /^docs\//, /^\.ai\/blueprints\/(?!licensing\.md$)/,
-  /^(install-ai-os\.sh|package\.json|package-lock\.json|\.gitignore|LICENSE|NOTICE|CHANGELOG\.md|CONTRIBUTING\.md|SECURITY\.md|CODE_OF_CONDUCT\.md)$/, /^README[^/]*$/,
+  /^(install-rein\.sh|package\.json|package-lock\.json|\.gitignore|LICENSE|NOTICE|CHANGELOG\.md|CONTRIBUTING\.md|SECURITY\.md|CODE_OF_CONDUCT\.md)$/, /^README[^/]*$/,
   /^\.ai\/(architect\.md|BRIEF\.md|RULES\.md|SECURITY\.md|THREAT_MODEL\.md|roles\.json|providers\.json)$/,
 ];
 export const isExported = (path) => EXPORT_INCLUDE.some((re) => re.test(path));
@@ -280,7 +280,7 @@ export function redactLists(aiDir) {
   return lists;
 }
 
-const _counterFile = (home) => join(home, ".ai-os", "privacy", `redacted-${new Date().toISOString().slice(0, 10)}.count`);
+const _counterFile = (home) => join(home, ".rein", "privacy", `redacted-${new Date().toISOString().slice(0, 10)}.count`);
 function _count(n) {
   try {
     const f = _counterFile(homedir());

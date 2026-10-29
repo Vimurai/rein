@@ -8,7 +8,7 @@ context: default
 agent: default
 ---
 
-# AI-OS Sync State — Cross-Agent Context Synchronization
+# Rein Sync State — Cross-Agent Context Synchronization
 
 ## Why This Skill Exists
 

@@ -2,7 +2,7 @@
   "name": "blueprint-aligner-mcp",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "AI-OS UACS: Compares git diff output against architect.md rules to detect deviations",
+  "description": "Rein UACS: Compares git diff output against architect.md rules to detect deviations",
   "type": "module",
   "main": "index.js",
   "scripts": {

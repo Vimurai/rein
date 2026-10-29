@@ -8,13 +8,13 @@
 // FOOTPRINT (the src/ and hooks/ files it ran — recorded by tests/lib/footprint.sh — plus the
 // ones its text names), spawn shape, and the last real failure from the CI logs; then the
 // derived lists the Architect's Consolidation Map (P-44) starts from. Writes the JSON
-// (default ~/.ai-os/ci/census-<date>.json) and prints a markdown summary. Exit 0.
+// (default ~/.rein/ci/census-<date>.json) and prints a markdown summary. Exit 0.
 //
 // INPUTS (all read-only):
-//   - CI logs (default ~/.ai-os/ci/logs/*.log, only those of THIS repository): the
+//   - CI logs (default ~/.rein/ci/logs/*.log, only those of THIS repository): the
 //     `CENSUS_*` lines tests/run.sh prints under `ai ci run`, and the Results block (✓/✗ per
 //     suite) for the failure history;
-//   - census input files tests/run.sh leaves in $TMPDIR (aios-census-*.tsv) after a plain run;
+//   - census input files tests/run.sh leaves in $TMPDIR (rein-census-*.tsv) after a plain run;
 //   - the previous census JSON beside the output, so failure history outlives log retention
 //     (the CI log directory keeps 14 runs across ALL projects).
 // The --repo / --ci-logs / --input / --no-tmp-inputs flags exist so tests can point the
@@ -85,8 +85,8 @@ export function staticFacts(text, srcSet) {
   const refs = new Set();
   for (const raw of text.split("\n")) {
     // E-307 (D-091): a fixed `sleep N` is allowed only on a line that says why
-    // (`# AIOS_SLEEP_ALLOWED: <reason>`) — the same grep as the acceptance, comments included.
-    if (/sleep [0-9]/.test(raw)) { if (raw.includes("AIOS_SLEEP_ALLOWED")) sleepsAllowed++; else sleepsUnmarked++; }
+    // (`# REIN_SLEEP_ALLOWED: <reason>`) — the same grep as the acceptance, comments included.
+    if (/sleep [0-9]/.test(raw)) { if (raw.includes("REIN_SLEEP_ALLOWED")) sleepsAllowed++; else sleepsUnmarked++; }
     const line = raw.trimStart();
     if (line.startsWith("#")) continue;
     if (ASSERT_RE.test(line) && !/^\s*(assert_[a-z_]+|_pass|_fail)\s*\(\)/.test(line)) {
@@ -100,8 +100,8 @@ export function staticFacts(text, srcSet) {
   }
   const tableRunner = /[-_]cases\.(json|mjs)\b/.test(text);
   // E-311 (D-092): a suite whose SUBJECT is the installer or `ai init` says so in its header
-  // (first 10 lines, the runner's AIOS_SUITE_TIMEOUT scope).
-  const installerSubject = text.split("\n").slice(0, 10).some((l) => /^# AIOS_INSTALLER_SUBJECT\b/.test(l));
+  // (first 10 lines, the runner's REIN_SUITE_TIMEOUT scope).
+  const installerSubject = text.split("\n").slice(0, 10).some((l) => /^# REIN_INSTALLER_SUBJECT\b/.test(l));
   return { assertions, labels, refs: [...refs].sort(), tableRunner, sleepsAllowed, sleepsUnmarked, installerSubject };
 }
 
@@ -115,7 +115,7 @@ export function resolveTarget(cmd, arg, srcSet) {
   p = p.replace(/^\.\//, "").replace(/[./]+$/, "");
   if (srcSet.has(p)) return p;
   // An absolute (or otherwise prefixed) path: a CI worktree, an installed mirror under a
-  // sandbox HOME (~/.ai-os/shared/x.mjs ← src/shared/x.mjs). Longest suffix that names a
+  // sandbox HOME (~/.rein/shared/x.mjs ← src/shared/x.mjs). Longest suffix that names a
   // repo file wins.
   const segs = p.split("/").filter(Boolean);
   for (let k = segs.length; k >= 1; k--) {
@@ -165,7 +165,7 @@ export function parseCensusLines(text) {
  * installer / `ai init` (E-312, D-093). Shared only when its measured spawns ALL had a HOME of
  * their own — a harness temp dir ("tmp") or the suite's starting HOME ("run", which a lane
  * clones under CI). tests/run.sh applies the same rule (its _installer_lane); the
- * `# AIOS_EXCLUSIVE: installer` header overrides both.
+ * `# REIN_EXCLUSIVE: installer` header overrides both.
  */
 export function installerLane(homes) {
   const keys = Object.keys(homes || {});
@@ -390,7 +390,7 @@ export function buildCensus({ repo, ciLogs, inputs = [], previous = null, since 
     const entries = all ? all.filter((e) => e.cmd !== "installer") : null;
     const installs = all ? all.filter((e) => e.cmd === "installer").reduce((n, e) => n + e.count, 0) : null;
     // E-312 (D-093): each installer line's 2nd field is its spawn's HOME class (tests/lib/
-    // footprint.sh _aios_fp_home_class); a line from before E-312 has none → "unrecorded".
+    // footprint.sh _rein_fp_home_class); a line from before E-312 has none → "unrecorded".
     const homes = all ? all.filter((e) => e.cmd === "installer").reduce((m, e) => {
       const h = e.arg.split("\t")[1] || "unrecorded";
       m[h] = (m[h] || 0) + e.count;
@@ -493,12 +493,12 @@ export function renderMarkdown(c) {
       (c.history.oldest ? ` since ${c.history.oldest}` : "") + ".",
     t.installer ? `Installer / ai init runs: ${t.installer.spawns} (${Object.entries(t.installer.by_suite).map(([k, v]) => `${k} ${v}`).join(", ") || "none measured"}); ` +
       `unheadered spawners: ${t.installer.unheadered.join(", ") || "none"}` +
-      (t.installer.headered_not_measured.length ? `; AIOS_INSTALLER_SUBJECT but no measured run: ${t.installer.headered_not_measured.join(", ")}` : "") + "." : "",
+      (t.installer.headered_not_measured.length ? `; REIN_INSTALLER_SUBJECT but no measured run: ${t.installer.headered_not_measured.join(", ")}` : "") + "." : "",
     t.installer && t.installer.lanes && Object.keys(t.installer.lanes).length
       ? `Installer HOMEs → lane: ${Object.entries(t.installer.lanes).map(([k, v]) =>
         `${k} ${Object.entries(v.homes).map(([h, n]) => `${h}×${n}`).join("+") || "none"} → ${v.lane}${v.reason ? ` (${v.reason})` : ""}`).join("; ")}.`
       : "",
-    t.fixed_sleeps ? `Fixed sleeps in suites: ${t.fixed_sleeps.allowed} allowed (AIOS_SLEEP_ALLOWED), ${t.fixed_sleeps.unmarked} unmarked.` : "",
+    t.fixed_sleeps ? `Fixed sleeps in suites: ${t.fixed_sleeps.allowed} allowed (REIN_SLEEP_ALLOWED), ${t.fixed_sleeps.unmarked} unmarked.` : "",
     c.since ? `Filtered to ${c.since.suites} suite(s) touching ${c.since.changed_files} file(s) changed since ${c.since.ref}.` : "",
     "",
     `## Merge candidates (footprint overlap ≥ ${MERGE_OVERLAP * 100}%)`,
@@ -580,10 +580,10 @@ export function main(argv) {
     process.stdout.write(`${out}\n`);
     return 0;
   }
-  const ciHome = join(homedir(), ".ai-os", "ci");
+  const ciHome = join(homedir(), ".rein", "ci");
   const now = new Date();
   const json = resolve(o.json || join(ciHome, `census-${now.toISOString().slice(0, 10)}${o.since ? ".since" : ""}.json`));
-  const inputs = [...o.inputs, ...(o.noTmp ? [] : listFiles(tmpdir(), /^aios-census-.*\.tsv$/))];
+  const inputs = [...o.inputs, ...(o.noTmp ? [] : listFiles(tmpdir(), /^rein-census-.*\.tsv$/))];
   const previous = newestCensusJson(dirname(json));
   let census;
   try {

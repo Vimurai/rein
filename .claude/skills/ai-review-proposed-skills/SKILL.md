@@ -8,7 +8,7 @@ context: default
 agent: default
 ---
 
-# AI-OS — Review Proposed Skills (HITL promotion)
+# Rein — Review Proposed Skills (HITL promotion)
 
 The **activation** half of the self-learning loop (E-145, ecc-integrations.md §Components 2).
 The `meta_analyst` stages recurring successful patterns as **inert** proposals under
@@ -22,7 +22,7 @@ Proposed skills awaiting review: !ls -1 .claude/skills/proposed 2>/dev/null || e
 ## Locate the promoter (locator chain — mirrors E-58/E-65/E-75)
 ```bash
 # E-225: install-first via the shared locator, never the visited project's own copy.
-AI_OS_LOCATE_UNTRUSTED_ENV=1
+REIN_LOCATE_UNTRUSTED_ENV=1
 # `declare -f` inside locate.sh's own fallback asks whether a NAME is defined, and bash
 # imports EXPORTED functions from the environment at startup — so without this unset an
 # inherited `ai_os_locate` is the resolver whenever locate.sh is unreachable. The hooks
@@ -30,7 +30,7 @@ AI_OS_LOCATE_UNTRUSTED_ENV=1
 # guard, and a decoy executed at session start. Sourcing is gated on the FILE so a missing
 # resolver fails CLOSED — skills may, unlike the hooks, simply report "unavailable".
 unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null
-[ -f "${HOME}/.ai-os/shared/locate.sh" ] && . "${HOME}/.ai-os/shared/locate.sh"
+[ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"
 PROMOTER="$(ai_os_locate shared/skill-promoter.mjs 2>/dev/null)"
 [ -z "$PROMOTER" ] && { echo "skill-promoter.mjs not found — run: ai install"; exit 1; }
 ```

@@ -23,7 +23,7 @@ review question for `critic_tests` and `ai-review`.
 5. **The scan that never ran (E-251)**: build a scan corpus with `corpus_or_fail <min> <root>…`
    — "can this scan return an empty set and still pass?"
 6. **The instrument recorded the test (E-257)**: a run writes telemetry only to a per-run temp
-   path; nothing under `~/.ai-os/` except a per-run temp path.
+   path; nothing under `~/.rein/` except a per-run temp path.
 7. **Inherited launch variables (E-264)**: `LAUNCH_VARS` is stripped once, centrally, in
    `tests/lib`. A suite that needs one sets it explicitly. A hook or resolver that starts
    ranking a new launch variable adds it to the list in the same change.
@@ -32,7 +32,7 @@ review question for `critic_tests` and `ai-review`.
    `tcFixtureHome` (tests/lib/toolchain-fixture.*) — the toolchain record the install writes.
    The hooks' fallback dir list is never extended for a host. `tests/run.sh` refuses a suite
    that skips the helper (exemptions per rule, with a reason, in
-   tests/fixtures/fixture-home-exemptions.json); `AIOS_TEST_EMPTY_FALLBACK=1` runs the
+   tests/fixtures/fixture-home-exemptions.json); `REIN_TEST_EMPTY_FALLBACK=1` runs the
    fixtures with the fallback emptied, the proof that a suite passes on any host.
 
 ## Test economics (D-088 — rationale in `.ai/blueprints/test-economics.md`)

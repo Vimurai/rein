@@ -28,7 +28,7 @@ const TASKS_DDL = `CREATE TABLE tasks (
   completed_at TEXT, summary TEXT);`;
 // A throwaway state.sqlite holding `rows` ([id, owner, status, tier, desc, created, completed, summary]).
 function seedDb(t, rows) {
-  const dir = mkdtempSync(join(tmpdir(), "aios-t-maclient-"));
+  const dir = mkdtempSync(join(tmpdir(), "rein-t-maclient-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const path = join(dir, "state.sqlite");
   const db = new DatabaseSync(path);

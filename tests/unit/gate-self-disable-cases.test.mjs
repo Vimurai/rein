@@ -18,7 +18,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const TABLE = resolve(repo, "tests/fixtures/gate-self-disable-cases.json");
 const SHA256 = "960a01f72f6c45c66d17417165df2895f425d2a9c081da05955128c587cc08d5";
 
-const home = realpathSync(mkdtempSync(join(tmpdir(), "aios-t-gsd-")));
+const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-gsd-")));
 mkdirSync(join(home, ".ai-" + "os", "hooks"), { recursive: true });
 mkdirSync(join(home, "proj"), { recursive: true });
 const savedHome = process.env.HOME;

@@ -83,7 +83,7 @@ export function validateTeam(t) {
   const clash = findOverlap(t);
   if (clash) bad(clash);
   if (t.trunk !== undefined && !isBranchName(t.trunk)) bad("trunk must be a valid branch name");
-  // E-335 (D-103 r4): the hosted check's record. aios_source is rendered into a wrapper's
+  // E-335 (D-103 r4): the hosted check's record. rein_source is rendered into a wrapper's
   // shell line, so it is held to a plain https URL here as well as at render time.
   if (t.ci !== undefined) {
     const c = t.ci;
@@ -92,7 +92,7 @@ export function validateTeam(t) {
     if (typeof c.required_check !== "string" || !/^[\w .-]{1,64}$/.test(c.required_check)) bad("ci.required_check must be a short name");
     // E-386/E-384 (D-135 r3): how many shards the rendered matrix runs (1 = one leg).
     if (c.shards !== undefined && !(Number.isInteger(c.shards) && c.shards >= 1 && c.shards <= 8)) bad("ci.shards must be a whole number 1..8");
-    if (c.aios_source !== undefined && !/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/[A-Za-z0-9._~-]+)+$/.test(c.aios_source)) bad("ci.aios_source must be a plain https git URL");
+    if (c.rein_source !== undefined && !/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/[A-Za-z0-9._~-]+)+$/.test(c.rein_source)) bad("ci.rein_source must be a plain https git URL");
   }
 }
 

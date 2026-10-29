@@ -1,7 +1,7 @@
 # E-179 — MCP Tool Failure-Rate Audit
 
 **Author:** Engineer (Claude) · **Tier:** 2 · **Date:** 2026-06-21
-**Source signal:** `~/.ai-os/INSIGHTS.md` → *Tool Deprecation Candidates* (meta-cognition E-85)
+**Source signal:** `~/.rein/INSIGHTS.md` → *Tool Deprecation Candidates* (meta-cognition E-85)
 **Verdict:** No tool deprecated. The aggregate was **measuring the wrong thing**.
 
 ---

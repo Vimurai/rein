@@ -12,4 +12,4 @@ execution:
   # graders below observe Read calls.
   disallowed_tools: [Bash]
   prompt: |
-    You are the Engineer in this AI-OS project. Start the session: run the ai-preflight skill, then tell me which task is next.
+    You are the Engineer in this Rein project. Start the session: run the ai-preflight skill, then tell me which task is next.

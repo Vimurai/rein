@@ -11,9 +11,9 @@ agent: default
 # AI-Triage — Automated Incident Analysis
 
 ## Dynamic Context Injection
-Incidents file: !test -f ~/.ai-os/incidents.ndjson && wc -l < ~/.ai-os/incidents.ndjson || echo "(not found)"
-File size: !test -f ~/.ai-os/incidents.ndjson && du -h ~/.ai-os/incidents.ndjson | cut -f1 || echo "(not found)"
-Last incident timestamp: !test -f ~/.ai-os/incidents.ndjson && tail -1 ~/.ai-os/incidents.ndjson | jq -r '.timestamp // "(no timestamp)"' 2>/dev/null || echo "(file unavailable)"
+Incidents file: !test -f ~/.rein/incidents.ndjson && wc -l < ~/.rein/incidents.ndjson || echo "(not found)"
+File size: !test -f ~/.rein/incidents.ndjson && du -h ~/.rein/incidents.ndjson | cut -f1 || echo "(not found)"
+Last incident timestamp: !test -f ~/.rein/incidents.ndjson && tail -1 ~/.rein/incidents.ndjson | jq -r '.timestamp // "(no timestamp)"' 2>/dev/null || echo "(file unavailable)"
 Open E-## tasks: !grep "^- \[ \]" .ai/TASKS.md 2>/dev/null | wc -l | tr -d ' '
 
 ## When to Invoke
@@ -31,20 +31,20 @@ This skill is triggered in two scenarios:
 - When `.ai/DIGEST.md` warns of high incident count
 
 ### File Size Threshold
-If `~/.ai-os/incidents.ndjson` exceeds **10 KB** (approximately 200+ lines):
+If `~/.rein/incidents.ndjson` exceeds **10 KB** (approximately 200+ lines):
 - Trigger an immediate triage run
 - This prevents the file from growing unbounded
 - The aggregator rotation (max 500 lines) provides a hard cap
 
 ## Preflight — Context Load
 
-1. Check if `incidents.ndjson` exists at `~/.ai-os/incidents.ndjson`.
+1. Check if `incidents.ndjson` exists at `~/.rein/incidents.ndjson`.
    - If not found: emit "No incidents file; skipping triage." and exit.
    - If found: proceed.
 
 2. Count lines in the file:
    ```bash
-   wc -l < ~/.ai-os/incidents.ndjson
+   wc -l < ~/.rein/incidents.ndjson
    ```
    - If **≤ 2 lines** (empty or nearly empty): log and skip (no pattern yet).
    - If **≥ 3 lines**: proceed to Phase 1.
@@ -65,7 +65,7 @@ Agent({ subagent_type: "sre_responder", description: "<3-5 words>", prompt: "<wh
 ```
 
 The agent will:
-- Analyze `~/.ai-os/incidents.ndjson`
+- Analyze `~/.rein/incidents.ndjson`
 - Group by `stack_signature` and count duplicates
 - Draft postmortem entries for signatures with ≥ 3 occurrences
 - Create new E-## tasks in TASKS.md via task-synchronizer-mcp
@@ -117,7 +117,7 @@ After triage completes:
    `<project dir basename> · Architect` as `ListAgents` lists it:
    ```
    SendMessage({
-     to: "ai-os-v2 · Architect",
+     to: "@vimurai/rein · Architect",
      message: "False-positive task rejection from ai-triage: <task_id> — review root cause and plan next.\nPOSTMORTEM: <postmortem_section>. Confirm whether the incident threshold should be adjusted."
    })
    ```
@@ -139,7 +139,7 @@ Do NOT attempt to inline the agent logic.
 ### If incidents.ndjson is corrupted
 Try to parse the first valid NDJSON line:
 ```bash
-head -1 ~/.ai-os/incidents.ndjson | jq . 2>/dev/null
+head -1 ~/.rein/incidents.ndjson | jq . 2>/dev/null
 ```
 If parsing fails, report:
 ```

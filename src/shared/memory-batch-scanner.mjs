@@ -11,7 +11,7 @@
  * Layered exclusion gates (applied in order — first matching gate wins):
  *
  *   1. Skip-dir prune — walker never descends into node_modules, .git,
- *      .ai-os, .env*, .ssh, .aws, .gnupg, secrets, credentials.
+ *      .rein, .env*, .ssh, .aws, .gnupg, secrets, credentials.
  *   2. Path-rule reject — defence-in-depth substring match against the
  *      same sensitive segments (catches symlinks / unusual layouts).
  *   3. Sensitive-name reject — basename matches the credential regex
@@ -64,7 +64,7 @@ export const DEFAULT_MAX_BYTES  = 5 * 1024 * 1024;
 // for observability. The blueprint mandates that every reject carries a
 // reason code so the curator can log it; silent pruning would defeat that.
 const SKIP_DIR_EXACT = new Set([
-  "node_modules", ".git", ".ai-os",
+  "node_modules", ".git", ".rein",
   ".npm", ".yarn", ".cache",
 ]);
 
@@ -336,7 +336,7 @@ if (__isMain) {
       process.exit(2);
     }
     const embeddingsPath = process.env.AI_MEMORY_EMBEDDINGS_PATH ||
-      `${process.env.HOME}/.ai-os/memory-palace.embeddings.json`;
+      `${process.env.HOME}/.rein/memory-palace.embeddings.json`;
     const indexedHashes = loadIndexedHashes(embeddingsPath);
     const result = scanWorkspace(root, { indexedHashes });
     process.stdout.write(JSON.stringify({

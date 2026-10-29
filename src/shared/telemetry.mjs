@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// E-84: telemetry.mjs — fire-and-forget writer for ~/.ai-os/telemetry.sqlite.
+// E-84: telemetry.mjs — fire-and-forget writer for ~/.rein/telemetry.sqlite.
 //
 // Stateless helper that records anonymized tool-invocation metadata into the
 // global telemetry database described in .ai/blueprints/meta-cognition.md
@@ -14,7 +14,7 @@
 //   getTelemetryStats({ since_iso? })
 //   resetTelemetryCache()   — test hook only; closes the cached handle.
 //   TELEMETRY_DB_PATH       — the active store: AI_TELEMETRY_DB_PATH when set (E-257),
-//                             else LIVE_TELEMETRY_DB_PATH (~/.ai-os/telemetry.sqlite).
+//                             else LIVE_TELEMETRY_DB_PATH (~/.rein/telemetry.sqlite).
 //   resetTelemetryStore()   — operator-only: move the store to a dated .bak, recreate.
 //   TELEMETRY_SERVICE       — service tag for structured logs.
 //
@@ -49,7 +49,7 @@ import { fileURLToPath } from "node:url";
 
 export const TELEMETRY_SERVICE = "telemetry";
 // The operator's store. Every consumer that means "the live store" names this one.
-export const LIVE_TELEMETRY_DB_PATH = resolve(homedir(), ".ai-os", "telemetry.sqlite");
+export const LIVE_TELEMETRY_DB_PATH = resolve(homedir(), ".rein", "telemetry.sqlite");
 
 // E-257 (D-070 §1, test-harness-isolation.md §The Sixth Variety): AI_TELEMETRY_DB_PATH
 // redirects EVERY writer in the process (this module, the mcp-telemetry interceptor that
@@ -64,7 +64,7 @@ export const LIVE_TELEMETRY_DB_PATH = resolve(homedir(), ".ai-os", "telemetry.sq
 export function resolveTelemetryDbPath(env = process.env) {
   const raw = typeof env.AI_TELEMETRY_DB_PATH === "string" ? env.AI_TELEMETRY_DB_PATH.trim() : "";
   if (!raw) return LIVE_TELEMETRY_DB_PATH;
-  // …and its REAL directory must sit under the temp dir or ~/.ai-os (critic_security P2,
+  // …and its REAL directory must sit under the temp dir or ~/.rein (critic_security P2,
   // E-257): anywhere else a hostile project env could point every hook's CREATE/INSERT at a
   // foreign database, e.g. another project's .ai/state.sqlite. Both sides are realpath'd
   // (macOS: /var → /private/var). The final component is not followed here; SQLite refuses
@@ -76,7 +76,7 @@ export function resolveTelemetryDbPath(env = process.env) {
         // Fixed temp roots as well as tmpdir(): a server spawned with a hand-built env has
         // no TMPDIR, so tmpdir() says /tmp while the harness's store is under macOS's
         // per-user /var/folders — found by the live-store check (E-257).
-        const roots = [tmpdir(), "/tmp", "/var/folders", resolve(homedir(), ".ai-os")]
+        const roots = [tmpdir(), "/tmp", "/var/folders", resolve(homedir(), ".rein")]
           .map((r) => { try { return realpathSync(r); } catch { return null; } })
           .filter(Boolean);
         return roots.some((r) => dir === r || dir.startsWith(r + "/"));
@@ -86,7 +86,7 @@ export function resolveTelemetryDbPath(env = process.env) {
     process.stderr.write(JSON.stringify({
       timestamp: new Date().toISOString(), level: "warn", service: "telemetry",
       code: "telemetry-path-override-rejected",
-      detail: "AI_TELEMETRY_DB_PATH must be an absolute *.sqlite path in an existing directory under the temp dir or ~/.ai-os — using the live store",
+      detail: "AI_TELEMETRY_DB_PATH must be an absolute *.sqlite path in an existing directory under the temp dir or ~/.rein — using the live store",
     }) + "\n");
     return LIVE_TELEMETRY_DB_PATH;
   }
@@ -110,7 +110,7 @@ const SESSION_ID_RE = /^[A-Za-z0-9-]{1,64}$/;
 // is a one-line edit here and the previously-coupled sites can never desync. ORDER MATTERS:
 // append new statuses to the END so STATUS_MIGRATION_SENTINEL tracks the newest token.
 // E-291 (D-083 r7): + BYPASS — a tool call the pre-tool-use gate let through ONLY because an
-// operator override (~/.ai-os/gate-override.json) was active. Neither success nor failure of the
+// operator override (~/.rein/gate-override.json) was active. Neither success nor failure of the
 // tool: an audit row, kept out of every error-rate denominator (those name their statuses).
 export const STATUS_ORDER = ["SUCCESS", "ERROR", "TIMEOUT", "REJECTED", "BYPASS"];
 // Membership test for the writer's input validation.
@@ -213,7 +213,7 @@ function _ensureDir(path) {
 }
 
 // E-173 (June 2026 audit follow-up): preflight writability probe for telemetry.sqlite.
-// If ~/.ai-os/ (or an already-existing telemetry.sqlite) is not writable — read-only
+// If ~/.rein/ (or an already-existing telemetry.sqlite) is not writable — read-only
 // mount, hostile perms, full/locked volume — emit ONE structured warning instead of
 // letting DatabaseSync surface an opaque error deep inside a record() call. FAIL-OPEN:
 // telemetry is best-effort instrumentation, so a non-writable path must NEVER block the

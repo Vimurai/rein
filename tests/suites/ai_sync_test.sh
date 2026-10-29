@@ -39,7 +39,7 @@ echo "── Suite: ai_sync_test ───────────────�
 
 # The AST repo map is the most expensive step and its content is irrelevant here; the
 # assertions below check that it REPORTS, and the skip notice is a report.
-export AI_OS_DISABLE_REPO_MAP=1
+export REIN_DISABLE_REPO_MAP=1
 
 # A project fixture. Deliberately NOT a git repository for the default case: `ai init`
 # exited 128 there until E-244, and install_git_hooks is the first step of the restored
@@ -99,10 +99,10 @@ assert_status 1 "E-247.03b: and it is not a hardcoded zero" \
 # captured log, every later step still runs, and the exit status is 1. The forced failure
 # runs through the same capture path as a real step (its stderr is a real process's).
 _pf="$(_proj)"
-_fout="$( cd "$_pf" && AI_OS_E247_FORCE_FAIL=repo_map bash "$AI" sync 2>&1 )"
+_fout="$( cd "$_pf" && REIN_E247_FORCE_FAIL=repo_map bash "$AI" sync 2>&1 )"
 _frc=$?
 assert_match "E-247.04a: a failing step prints ✗ <step>: <its last stderr line>" \
-  '✗ repo_map: forced failure \(AI_OS_E247_FORCE_FAIL=repo_map\)' "$_fout"
+  '✗ repo_map: forced failure \(REIN_E247_FORCE_FAIL=repo_map\)' "$_fout"
 assert_match "E-339.04e: and the path of the captured stderr (E-346: the mktemp'd name)" \
   'ai-sync-repo_map\.[0-9]+\.[A-Za-z0-9]{6}\)' "$_fout"
 assert_contains "E-247.04b: and the sync still completes" "Done." "$_fout"
@@ -117,13 +117,13 @@ assert_contains "E-339.04f: a step AFTER the failed one still ran" \
 # D-067 §1 makes today's truncated behaviour available EXPLICITLY, so an operator who hits
 # a bad step has a way back that does not involve editing the script.
 _pm="$(_proj)"
-_mout="$( cd "$_pm" && AI_OS_SYNC_MINIMAL=1 bash "$AI" sync 2>&1 )"
-assert_status 1 "E-247.05a: AI_OS_SYNC_MINIMAL=1 stops after provisioning" \
+_mout="$( cd "$_pm" && REIN_SYNC_MINIMAL=1 bash "$AI" sync 2>&1 )"
+assert_status 1 "E-247.05a: REIN_SYNC_MINIMAL=1 stops after provisioning" \
   bash -c "printf '%s' '$_mout' | grep -q 'palace-index.json'"
 assert_contains "E-247.05b: and says why it stopped, rather than looking finished" \
-  "AI_OS_SYNC_MINIMAL=1" "$_mout"
+  "REIN_SYNC_MINIMAL=1" "$_mout"
 assert_status 0 "E-247.05c: the minimal path still exits 0" \
-  bash -c "cd '$_pm' && AI_OS_SYNC_MINIMAL=1 bash '$AI' sync >/dev/null 2>&1"
+  bash -c "cd '$_pm' && REIN_SYNC_MINIMAL=1 bash '$AI' sync >/dev/null 2>&1"
 
 # ── E-247.6: the non-git case specifically ───────────────────────────────────
 # install_git_hooks is the FIRST restored step and `git rev-parse` exits 128 outside a
@@ -159,16 +159,16 @@ assert_status 0 "E-247.06f: and it names an artefact sync regenerates" \
 # invocation lives in src/shared/gate-probe.sh only.
 _ph="$(test_tmpdir e339home)"
 tc_fixture_home "$_ph"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "$_ph/.ai-os/mcp/ast-parser-mcp"
+mkdir -p "$_ph/.rein/mcp/ast-parser-mcp"
 # The same HOME carries an ast-parser CLI that exits 1, so the REPO_MAP step fails for real
-# (no AI_OS_E247_FORCE_FAIL): its own stderr tail must be the ✗ line (D-107 r2).
+# (no REIN_E247_FORCE_FAIL): its own stderr tail must be the ✗ line (D-107 r2).
 printf '%s\n' 'process.stderr.write("noise\n\nparse failed: grammar wasm missing\n"); process.exit(1);' \
-  > "$_ph/.ai-os/mcp/ast-parser-mcp/index.js"
+  > "$_ph/.rein/mcp/ast-parser-mcp/index.js"
 _pb="$(_proj)"
-_bout="$( cd "$_pb" && HOME="$_ph" AI_OS_DISABLE_REPO_MAP= bash "$AI" sync 2>&1 )"
+_bout="$( cd "$_pb" && HOME="$_ph" REIN_DISABLE_REPO_MAP= bash "$AI" sync 2>&1 )"
 _brc=$?
 assert_match "E-339.07a: sync prints ✗ gate_check: [SAFE_EXEC_BROKEN] with the repair command" \
-  '✗ gate_check: \[SAFE_EXEC_BROKEN\] .* — run: bash install-ai-os\.sh' "$_bout"
+  '✗ gate_check: \[SAFE_EXEC_BROKEN\] .* — run: bash install-rein\.sh' "$_bout"
 assert_status 0 "E-339.07b: and exits 1" bash -c "[[ '$_brc' -eq 1 ]]"
 assert_match "E-339.07f: a real ast-parser exit 1 prints ✗ repo_map: <its last stderr line>" \
   '✗ repo_map: parse failed: grammar wasm missing \(log: ' "$_bout"
@@ -193,7 +193,7 @@ _ts() { node -e 'const fs=require("fs");const t=Date.now()/1000-Number(process.a
 for _f in ai-sync-foo.1.abcdef ai-sync-foo.1.ghijkl ai-sync-foo.1.log; do printf 'x\n' > "$_lt/$_f"; done
 _ts "$_lt/ai-sync-foo.1.abcdef" 25; _ts "$_lt/ai-sync-foo.1.ghijkl" 1; _ts "$_lt/ai-sync-foo.1.log" 25
 _pl="$(_proj)"
-_lout="$( cd "$_pl" && TMPDIR="$_lt" AI_OS_E247_FORCE_FAIL=repo_map \
+_lout="$( cd "$_pl" && TMPDIR="$_lt" REIN_E247_FORCE_FAIL=repo_map \
   bash -c 'ln -s "$1" "${TMPDIR}/ai-sync-repo_map.${BASHPID}.log" && exec bash "$2" sync' _ "$_victim" "$AI" 2>&1 )"
 assert_status 0 "E-346.01a: the pre-planted symlink at the old fixed path is never followed" \
   bash -c "[[ \"\$(cat '$_victim')\" == untouched ]]"
@@ -223,29 +223,29 @@ assert_status 1 "E-346.02f: and the step is not run without a log" test -e "$_lt
 # first for a project that is not the framework clone.
 _rh="$(test_tmpdir e346home)"
 tc_fixture_home "$_rh"   # E-345 (D-109 r1)
-printf '%s\n' 'process.stderr.write("reaper exploded\n"); process.exit(1);' > "$_rh/.ai-os/shared/ai-clean.mjs"
+printf '%s\n' 'process.stderr.write("reaper exploded\n"); process.exit(1);' > "$_rh/.rein/shared/ai-clean.mjs"
 _rout2="$( cd "$_pl" && HOME="$_rh" bash "$AI" sync 2>&1 )"
 _rrc=$?
 assert_match "E-346.03a: a fixture ai-clean.mjs exiting 1 yields ✗ run_reap: <its stderr>" \
   '✗ run_reap: reaper exploded \(log: ' "$_rout2"
 assert_status 0 "E-346.03b: and ai sync exits 1" bash -c "[[ '$_rrc' -eq 1 ]]"
 assert_match "E-346.03c: the watcher reaper fails the same way" '✗ watcher_reap: reaper exploded' "$_rout2"
-printf '%s\n' 'process.stdout.write("nope\n");' > "$_rh/.ai-os/shared/ai-clean.mjs"
+printf '%s\n' 'process.stdout.write("nope\n");' > "$_rh/.rein/shared/ai-clean.mjs"
 _reap() { ( cd "$_pl" && HOME="$_rh" "$@" bash -c "source '$AI' >/dev/null 2>&1; _sync_step run_reap _sync_reap_run_records; echo \"ok=\$_SYNC_STEPS_OK skipped=\$_SYNC_STEPS_SKIPPED failed=\$_SYNC_STEPS_FAILED\"" 2>&1 ); }
 _bad="$(_reap env)"
 assert_match "E-346.03d: exit 0 with output that is not JSON is [REAP_BAD_OUTPUT] <output>" \
   '✗ run_reap: \[REAP_BAD_OUTPUT\] nope' "$_bad"
 assert_contains "E-346.03e: and counted FAILED" "failed=1" "$_bad"
-assert_contains "E-346.03f: AI_OS_CLEAN_DISABLE=1 is still a by-design skip" \
-  "ok=0 skipped=1 failed=0" "$(_reap env AI_OS_CLEAN_DISABLE=1)"
-printf '%s\n' 'process.stdout.write(JSON.stringify({moved:[{}]}));' > "$_rh/.ai-os/shared/ai-clean.mjs"
+assert_contains "E-346.03f: REIN_CLEAN_DISABLE=1 is still a by-design skip" \
+  "ok=0 skipped=1 failed=0" "$(_reap env REIN_CLEAN_DISABLE=1)"
+printf '%s\n' 'process.stdout.write(JSON.stringify({moved:[{}]}));' > "$_rh/.rein/shared/ai-clean.mjs"
 assert_contains "E-346.03g: the helper's JSON still counts what it moved" \
-  "Reaped 1 dead ~/.ai-os/run/ record(s)" "$(_reap env)"
+  "Reaped 1 dead ~/.rein/run/ record(s)" "$(_reap env)"
 # ai-clean reports a failed move in its JSON with exit 2 and NO stderr. That made the ✗ line's
 # own grep exit 1 under pipefail and set -e killed the sync: the first CI run of E-346 lost
 # "Done." and every later step (two reapers racing over a shared HOME's dead records).
 printf '%s\n' 'process.stdout.write(JSON.stringify({moved:[],failures:["/x/build-1.json: EACCES"]})); process.exit(2);' \
-  > "$_rh/.ai-os/shared/ai-clean.mjs"
+  > "$_rh/.rein/shared/ai-clean.mjs"
 _silent="$(_reap env)"
 assert_match "E-346.03h: a failed move named only in the JSON is ✗ run_reap: [REAP_FAILED] <it>" \
   '✗ run_reap: \[REAP_FAILED\] /x/build-1\.json: EACCES' "$_silent"
@@ -254,7 +254,7 @@ assert_match "E-346.03h: a failed move named only in the JSON is ✗ run_reap: [
 _long="/x/$(printf 'd%.0s' $(seq 480))/build-1.json"
 printf 'process.stdout.write(JSON.stringify({moved:[],failures:[%s]})); process.exit(2);\n' \
   "$(node -e 'console.log(JSON.stringify(process.argv[1]+": EACCES\npermission denied"))' "$_long")" \
-  > "$_rh/.ai-os/shared/ai-clean.mjs"
+  > "$_rh/.rein/shared/ai-clean.mjs"
 _whole="$(_reap env)"
 assert_contains "E-352.06: a 500-char cause prints whole on one ✗ line, newlines folded" \
   "✗ run_reap: [REAP_FAILED] ${_long}: EACCES permission denied (log: " "$_whole"
@@ -277,7 +277,7 @@ echo ""
 
 # ── E-220 (from sync_prune — E-302): manifest-scoped pruning in ai sync ──
 # The sections below ran without the repo-map skip the E-247 section exports.
-unset AI_OS_DISABLE_REPO_MAP
+unset REIN_DISABLE_REPO_MAP
 # E-220 (D-056 R2): manifest-scoped pruning in `ai sync`.
 #
 # `ai sync` was purely additive: after the E-217 rename the old `ai-task` directories
@@ -431,7 +431,7 @@ assert_status 1 "E-220.08c: apply performs it"       test -d "$D7/stale"
 # every fresh install, so this is the case that guards the locator's fallback.
 T8="$(mktemp -d)"; mkdir -p "$T8/.ai"
 cp "${REPO_ROOT}/.ai/roles.json" "$T8/.ai/roles.json" 2>/dev/null || true
-_o="$(cd "$T8" && AI_OS_HOME="${AIOS:-$HOME/.ai-os}" bash "$AI_BIN" sync 2>&1)"; _rc=$?
+_o="$(cd "$T8" && REIN_HOME="${REIN:-$HOME/.rein}" bash "$AI_BIN" sync 2>&1)"; _rc=$?
 # E-346: a FAILED step is what makes it exit 1 — name its ✗ line(s) in the label, or a red run
 # says only "got 1" (the case the shared CI HOME hit after the reapers stopped masking).
 _x="$(printf '%s\n' "$_o" | grep '✗' | tr '\n' ' ' | cut -c1-400)"
@@ -442,7 +442,7 @@ assert_status 0 "E-220.09c: the workspace was still provisioned" test -d "$T8/.c
 # ── E-220.11: the REAL `ai sync` prunes end-to-end ───────────────────────────
 # Case 09 asserts exit 0, and a silently SKIPPED prune satisfies that just as well as a
 # working one — which is how the first cut shipped a locator that resolved
-# `git rev-parse --show-toplevel` (the USER's repo, not the AI-OS install) and never ran
+# `git rev-parse --show-toplevel` (the USER's repo, not the Rein install) and never ran
 # at all. These assertions pin the observable effect, not the exit code.
 TA="$(mktemp -d)"; mkdir -p "$TA/.ai"
 # The fixture decides its own binding rather than copying this repo's roles.json.
@@ -477,8 +477,8 @@ assert_contains "E-220.11f: the kept orphan is reported too" "orphan (kept) zz-u
 # The rollback flag must reach the real command path, not just the helper.
 cp -R "$_seed" "$TA/.claude/skills/zz-renamed-again"
 node --no-warnings "$SM" record "$TA/.claude/skills" >/dev/null 2>&1
-(cd "$TA" && AI_OS_NO_PRUNE=1 bash "$AI_BIN" sync >/dev/null 2>&1)
-assert_status 0 "E-220.11g: AI_OS_NO_PRUNE=1 leaves the leftover in place" \
+(cd "$TA" && REIN_NO_PRUNE=1 bash "$AI_BIN" sync >/dev/null 2>&1)
+assert_status 0 "E-220.11g: REIN_NO_PRUNE=1 leaves the leftover in place" \
   test -d "$TA/.claude/skills/zz-renamed-again"
 rm -rf "$TA"
 
@@ -486,7 +486,7 @@ rm -rf "$TA"
 # The watcher lock, its signal queue and the queue's write lock are registry entries
 # (watcher-lock, watcher-signal-queue, watcher-signal-lock) that `ai sync` applies on every
 # run. The step function is called directly under a throwaway HOME, so the trash it writes
-# never lands in the operator's ~/.ai-os; S0 pins that do_sync runs it. Extends E-220.11.
+# never lands in the operator's ~/.rein; S0 pins that do_sync runs it. Extends E-220.11.
 _WR="$(test_tmpdir syncreap)"; _WH="$(test_tmpdir syncreaphome)"
 tc_fixture_home "$_WH"   # E-345 (D-109 r1): the toolchain record the hooks pin
 _wr_seed() {  # <project> <pid for the lock>
@@ -517,8 +517,8 @@ assert_status 1 "E-220.12a: no locator resolves a helper via git rev-parse" \
 T9="$(mktemp -d)"; D9="$T9/dst"; mkdir -p "$D9"; _mkskill "$D9" alpha; _mkskill "$D9" stale
 _sm record "$D9" >/dev/null
 printf '["alpha"]' > "$T9/names.json"
-assert_status 0 "E-220.10a: AI_OS_NO_PRUNE=1 is honoured by the shell caller" \
-  bash -c "grep -q 'AI_OS_NO_PRUNE' '$AI_BIN'"
+assert_status 0 "E-220.10a: REIN_NO_PRUNE=1 is honoured by the shell caller" \
+  bash -c "grep -q 'REIN_NO_PRUNE' '$AI_BIN'"
 assert_status 0 "E-220.10b: pruning is wired into the provisioner, not one workspace" \
   bash -c "grep -q '_prune_workspace_dir \"\${ws}/skills\"' '$AI_BIN'"
 
@@ -557,7 +557,7 @@ JSON
   _mkskill "$d/${_LG_DIR_B}/skills" mine "handwritten"
   printf '%s' "$d"
 }
-_lg_sync() { ( cd "$1" && shift && env AI_OS_DISABLE_REPO_MAP=1 "$@" bash "$AI_BIN" sync 2>&1 ); }
+_lg_sync() { ( cd "$1" && shift && env REIN_DISABLE_REPO_MAP=1 "$@" bash "$AI_BIN" sync 2>&1 ); }
 
 # (a) + (b) in ONE fixture: every deletion is paired with a survival beside it.
 LG1="$(_lg_fixture)"
@@ -588,7 +588,7 @@ assert_not_contains "E-254.02e: a kept directory is never announced as pruned" \
 # above it is not provably disposable and must survive.
 LG2="$(mktemp -d)"; mkdir -p "$LG2/.ai" "$LG2/${_LG_DIR_A}"
 cp "$LG1/.ai/roles.json" "$LG2/.ai/roles.json"
-printf '{ "mcpServers": {}, "env": {"AI_OS_CALLER_ROLE": "architect"}, "theme": "user-chosen" }\n' \
+printf '{ "mcpServers": {}, "env": {"REIN_CALLER_ROLE": "architect"}, "theme": "user-chosen" }\n' \
   > "$LG2/${_LG_DIR_A}/settings.json"
 _o="$(_lg_sync "$LG2")"
 assert_status 0 "E-254.02f: a legacy settings.json with no manifest evidence is not deleted" \
@@ -600,12 +600,12 @@ LG3="$(_lg_fixture)"
 printf 'shim\n' > "$LG3/${_LG_SHIM_A}"; printf 'shim\n' > "$LG3/${_LG_SHIM_B}"
 _lg_list() { ( cd "$1" && find "${_LG_DIR_A}" "${_LG_DIR_B}" "${_LG_SHIM_A}" "${_LG_SHIM_B}" 2>/dev/null | sort ); }
 _before="$(_lg_list "$LG3")"
-_o="$(_lg_sync "$LG3" AI_OS_KEEP_LEGACY_WORKSPACES=1)"
-assert_status 0 "E-254.03a: AI_OS_KEEP_LEGACY_WORKSPACES=1 deletes nothing" \
+_o="$(_lg_sync "$LG3" REIN_KEEP_LEGACY_WORKSPACES=1)"
+assert_status 0 "E-254.03a: REIN_KEEP_LEGACY_WORKSPACES=1 deletes nothing" \
   test "$_before" = "$(_lg_list "$LG3")"
 assert_status 0 "E-254.03b: including the entry that is otherwise prunable (non-vacuity)" \
   test -f "$LG3/${_LG_DIR_A}/agents/synced.md"
-assert_contains "E-254.03c: it says nothing was removed" "AI_OS_KEEP_LEGACY_WORKSPACES=1 — nothing removed" "$_o"
+assert_contains "E-254.03c: it says nothing was removed" "REIN_KEEP_LEGACY_WORKSPACES=1 — nothing removed" "$_o"
 assert_contains "E-254.03d: and prints the first legacy directory" \
   "legacy leftover (not generated by sync): ${_LG_DIR_A} — remove with: rm -r ${_LG_DIR_A}" "$_o"
 assert_contains "E-254.03e: the second legacy directory" \
@@ -618,18 +618,18 @@ assert_not_contains "E-254.03h: no line claims a prune" "pruned legacy" "$_o"
 
 # The shims. Evidence for a shim is byte-identity with the template the install shipped,
 # so these run the REAL function against a controlled install root — the live
-# ~/.ai-os/templates may or may not still hold the retired templates on this machine.
-LG4="$(mktemp -d)"; LGA="$LG4/aios"; LGP="$LG4/proj"
+# ~/.rein/templates may or may not still hold the retired templates on this machine.
+LG4="$(mktemp -d)"; LGA="$LG4/rein"; LGP="$LG4/proj"
 mkdir -p "$LGA/templates" "$LGP"
 printf '@ARCHITECT.md\n' > "$LGA/templates/${_LG_SHIM_A}"
 printf '@ARCHITECT.md\n' > "$LGA/templates/${_LG_SHIM_B}"
 cp "$LGA/templates/${_LG_SHIM_A}" "$LGP/${_LG_SHIM_A}"               # unmodified copy
 printf '@ARCHITECT.md\nmy own notes\n' > "$LGP/${_LG_SHIM_B}"          # edited by the user
-_lg_fn() {  # <project> <aios> — source the CLI (guarded) and call the pruner directly
+_lg_fn() {  # <project> <rein> — source the CLI (guarded) and call the pruner directly
   ( cd "$1" || exit 1
     # shellcheck disable=SC1090
     source "$AI_BIN" >/dev/null 2>&1
-    AIOS="$2"
+    REIN="$2"
     _prune_legacy_workspaces sync 2>&1 || true )
 }
 _o="$(_lg_fn "$LGP" "$LGA")"
@@ -834,14 +834,14 @@ assert_status 0 "E-282.03k: --no-prune provisions without removing" test -f "$D/
 # ── E-282.4: ai sync provisions .claude/rules/ and ai doctor reports it ────
 # `ai sync` reads rules from the INSTALL MIRROR. Under `ai ci run` the mirror is installed
 # from the commit; a working tree may predate E-282 — a recorded SKIP, never a fake result.
-if [[ -d "${HOME}/.ai-os/claude/rules" ]]; then
+if [[ -d "${HOME}/.rein/claude/rules" ]]; then
   TA="$(mktemp -d)"; on_exit "rm -rf '$TA'"; mkdir -p "$TA/.ai"
   cat > "$TA/.ai/roles.json" <<'JSON'
 { "roles": { "architect": {"provider":"claude","pane_identifier":"1","model":"fable"},
              "engineer":  {"provider":"claude","pane_identifier":"0","model":"opus"} } }
 JSON
-  _o="$(cd "$TA" && AI_OS_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync 2>&1)"
-  _n_src="$(find "${HOME}/.ai-os/claude/rules" -name '*.md' | wc -l | tr -d ' ')"
+  _o="$(cd "$TA" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync 2>&1)"
+  _n_src="$(find "${HOME}/.rein/claude/rules" -name '*.md' | wc -l | tr -d ' ')"
   _n_dst="$(find "$TA/.claude/rules" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
   assert_status 0 "E-282.04a: ai sync provisions every shipped rule (${_n_dst}/${_n_src})" test "$_n_dst" -eq "$_n_src" -a "$_n_src" -ge 5
   assert_contains "E-282.04b: and says so" "path-scoped rule(s)" "$_o"
@@ -851,7 +851,7 @@ JSON
   _d="$(cd "$TA" && bash "$AI_BIN" doctor 2>&1)"
   assert_contains "E-282.04d: ai doctor reports missing rules with the fix" "missing — run: ai sync" "$_d"
 else
-  _skip "E-282.04: ai sync / doctor end to end — the install mirror predates E-282 (run: bash install-ai-os.sh)"
+  _skip "E-282.04: ai sync / doctor end to end — the install mirror predates E-282 (run: bash install-rein.sh)"
 fi
 
 # ── E-282.5: the SessionStart blob excludes rules ───────────────────────────
@@ -875,7 +875,7 @@ rm -rf "$T" "$_neg"
 #   • src/mcp/shared/mcp-domains.mjs is the single DOMAINS source the
 #     generator reads (the router that shared it was retired by E-277).
 #   • bin/ai do_sync() invokes _regenerate_mcp_docs.
-#   • install-ai-os.sh ships scripts/ to ~/.ai-os/scripts/ so downstream
+#   • install-rein.sh ships scripts/ to ~/.rein/scripts/ so downstream
 #     projects can regenerate too.
 #   • Generator is fail-open: a malformed registry warns but exits 0.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -883,7 +883,7 @@ GEN="${REPO_ROOT}/scripts/generate_mcp_docs.mjs"
 DOMAINS_MJS="${REPO_ROOT}/src/mcp/shared/mcp-domains.mjs"
 MCP_MD="${REPO_ROOT}/.ai/blueprints/mcp.md"
 BIN_AI="${REPO_ROOT}/src/bin/ai"
-INSTALLER="${REPO_ROOT}/install-ai-os.sh"
+INSTALLER="${REPO_ROOT}/install-rein.sh"
 
 
 # ── T-MCPDOC-S01: generator + DOMAINS source exist ───────────────────────────
@@ -949,9 +949,9 @@ assert_status 0 "_regenerate_mcp_docs guards on node availability" \
 assert_status 0 "helper resolves the generator via the shared install-first locator" \
   grep -q '_ai_os_helper scripts/generate_mcp_docs.mjs' "$BIN_AI"
 
-# ── T-MCPDOC-S04: install-ai-os.sh ships scripts/ ────────────────────────────
+# ── T-MCPDOC-S04: install-rein.sh ships scripts/ ────────────────────────────
 echo ""
-echo "  [T-MCPDOC-S04] install-ai-os.sh ships scripts/ to ~/.ai-os/scripts/"
+echo "  [T-MCPDOC-S04] install-rein.sh ships scripts/ to ~/.rein/scripts/"
 
 # E-304: one staged pass from the source tree, then a live sync (rsync, or the atomic cp fallback).
 assert_status 0 "installer stages scripts/ from the source tree" \
@@ -1037,9 +1037,9 @@ TMP_DIR=$(mktemp -d)
 on_exit 'rm -rf "$TMP_DIR"'
 
 # Simulate generate_mcp_json by sourcing the relevant logic inline
-python3 - "$REGISTRY" "${TMP_DIR}/.mcp.json" "$HOME" "${HOME}/.ai-os" <<'PY'
+python3 - "$REGISTRY" "${TMP_DIR}/.mcp.json" "$HOME" "${HOME}/.rein" <<'PY'
 import json, os, sys
-registry_path, mcp_path, home, aios = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+registry_path, mcp_path, home, rein = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
 servers = {
   "filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem@2026.1.14", "."]},
@@ -1051,7 +1051,7 @@ if os.path.exists(registry_path):
         reg = json.load(f)
     for name, info in reg.get("mcp_servers", {}).items():
         if "path" in info:
-            abs_path = os.path.join(aios, "mcp", name, "index.js")
+            abs_path = os.path.join(rein, "mcp", name, "index.js")
             servers[name] = {"command": "node", "args": [abs_path]}
 
 with open(mcp_path, "w") as f:
@@ -1172,7 +1172,7 @@ done
 # API-free memory-batch-scanner. It must NEVER abort sync; since E-339 (D-107 r1) a missing
 # node/scanner or the disable flag returns 2 (skipped by design) and a scanner error returns 1
 # (FAILED, counted by _sync_step),
-# must honor the AI_OS_DISABLE_MEMORY_PALACE escape hatch, and must write a valid manifest
+# must honor the REIN_DISABLE_MEMORY_PALACE escape hatch, and must write a valid manifest
 # when the scanner is present. Sources src/bin/ai (guarded) and drives the function directly.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
@@ -1187,14 +1187,14 @@ assert_status 0 "E-145.S0: _generate_memory_palace defined" \
 # ── T-1: disable flag → skipped (exit 2), no manifest ──────────────────────────
 TMP1="$(mktemp -d)"; on_exit 'rm -rf "$TMP1" "${TMP2:-}" "${TMP3:-}"'
 ( cd "$TMP1" && mkdir -p .ai
-  AIOS="${REPO_ROOT}" AI_OS_DISABLE_MEMORY_PALACE=1 bash -c "source '${REPO_ROOT}/src/bin/ai' 2>/dev/null; _generate_memory_palace" >/dev/null 2>&1 ) && rc=0 || rc=$?
+  REIN="${REPO_ROOT}" REIN_DISABLE_MEMORY_PALACE=1 bash -c "source '${REPO_ROOT}/src/bin/ai' 2>/dev/null; _generate_memory_palace" >/dev/null 2>&1 ) && rc=0 || rc=$?
 assert_status 0 "T-1: disable flag → exit 2, skipped by design (E-339, D-107 r1)" test "$rc" -eq 2
 assert_status 1 "T-1: disable flag → no palace-index.json written" test -f "$TMP1/.ai/memory/palace-index.json"
 
-# ── T-2: scanner present (AIOS→repo) → valid JSON manifest, exit 0 ───────────
+# ── T-2: scanner present (REIN→repo) → valid JSON manifest, exit 0 ───────────
 TMP2="$(mktemp -d)"
 ( cd "$TMP2" && mkdir -p .ai
-  AIOS="${REPO_ROOT}" bash -c "source '${REPO_ROOT}/src/bin/ai' 2>/dev/null; _generate_memory_palace" >/dev/null 2>&1 )
+  REIN="${REPO_ROOT}" bash -c "source '${REPO_ROOT}/src/bin/ai' 2>/dev/null; _generate_memory_palace" >/dev/null 2>&1 )
 rc=$?
 assert_status 0 "T-2: function exits 0 with scanner present" test "$rc" -eq 0
 assert_status 0 "T-2: palace-index.json written" test -f "$TMP2/.ai/memory/palace-index.json"
@@ -1202,7 +1202,7 @@ assert_status 0 "T-2: manifest is valid JSON" \
   node -e "JSON.parse(require('fs').readFileSync('$TMP2/.ai/memory/palace-index.json','utf8'))"
 
 # ── T-3: scanner MISSING → skipped (exit 2, sync continues), no manifest ─────
-# E-223 changed how this has to be staged. Overriding AIOS no longer hides the helper:
+# E-223 changed how this has to be staged. Overriding REIN no longer hides the helper:
 # the shared resolver deliberately computes its own install root from HOME so that an
 # environment variable cannot redirect it, which is the whole security property. And the
 # script-relative fallback finds the repo's own copy whenever bin/ai runs from the repo.
@@ -1216,7 +1216,7 @@ assert_status 0 "T-2: manifest is valid JSON" \
 # right shape for these two cases — they are about fail-open behaviour when a helper is
 # missing — but it is not the shared resolver, and a later reader should not take it as
 # coverage of locate.sh's HOME-rooting.
-TMP3="$(mktemp -d)"; mkdir -p "$TMP3/home/.ai-os/shared" "$TMP3/bin"
+TMP3="$(mktemp -d)"; mkdir -p "$TMP3/home/.rein/shared" "$TMP3/bin"
 tc_fixture_home "$TMP3/home"   # E-345 (D-109 r1): the toolchain record the hooks pin
 cp "${REPO_ROOT}/src/bin/ai" "$TMP3/bin/ai"
 ( cd "$TMP3" && mkdir -p .ai
@@ -1230,8 +1230,8 @@ assert_status 1 "T-4: no palace-index.json.tmp leaked (T-2 dir)" test -f "$TMP2/
 # ── T-5: the do_sync call site + fail-open guards exist in source ────────────
 assert_status 0 "T-5: _generate_memory_palace invoked in do_sync" \
   grep -q "_generate_memory_palace" "${REPO_ROOT}/src/bin/ai"
-assert_status 0 "T-5: AI_OS_DISABLE_MEMORY_PALACE escape hatch present" \
-  grep -q "AI_OS_DISABLE_MEMORY_PALACE" "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "T-5: REIN_DISABLE_MEMORY_PALACE escape hatch present" \
+  grep -q "REIN_DISABLE_MEMORY_PALACE" "${REPO_ROOT}/src/bin/ai"
 
 # ── T-6: node MISSING → skipped (exit 2) before any FS write (node check first) ─
 # PATH override is applied INLINE on the call (after source), so `command -v node`
@@ -1245,7 +1245,7 @@ assert_status 1 "T-6: node missing → no manifest (returns before mkdir)" test 
 # ── T-7: scanner present but EXITS NON-ZERO → FAILED (exit 1), nothing left ────
 # Staged like T-3: a copy of bin/ai outside the repo so the script-relative fallback
 # cannot reach the real scanner, and HOME pointing at an install root holding the stub.
-TMP7="$(mktemp -d)"; mkdir -p "$TMP7/home/.ai-os/shared" "$TMP7/bin"
+TMP7="$(mktemp -d)"; mkdir -p "$TMP7/home/.rein/shared" "$TMP7/bin"
 tc_fixture_home "$TMP7/home"   # E-345 (D-109 r1): the toolchain record the hooks pin
 cp "${REPO_ROOT}/src/bin/ai" "$TMP7/bin/ai"
 # The stub records that it RAN before failing. Without this the assertions below pass
@@ -1255,7 +1255,7 @@ cp "${REPO_ROOT}/src/bin/ai" "$TMP7/bin/ai"
 # BEFORE writing its marker — which is how the first version of this marker silently
 # failed and looked like "the scanner was never reached".
 printf 'import { writeFileSync } from "node:fs";\nwriteFileSync(process.env.STUB_MARK, "ran\\n");\nprocess.exit(1);\n' \
-  > "$TMP7/home/.ai-os/shared/memory-batch-scanner.mjs"   # runtime-failure stub
+  > "$TMP7/home/.rein/shared/memory-batch-scanner.mjs"   # runtime-failure stub
 ( cd "$TMP7" && mkdir -p .ai
   HOME="$TMP7/home" STUB_MARK="$TMP7/stub-ran" \
     bash -c "source '$TMP7/bin/ai' 2>/dev/null; cd '$TMP7'; _generate_memory_palace" >/dev/null 2>&1 ) && rc=0 || rc=$?

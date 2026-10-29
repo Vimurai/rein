@@ -7,7 +7,7 @@
 # Suites that assert what the settings CONTAIN generate it the way production does: the
 # real `ai sync` of this checkout, in a fresh fixture project.
 #
-#   gen_project_settings <dir>  → creates a minimal AI-OS project under <dir>, runs
+#   gen_project_settings <dir>  → creates a minimal Rein project under <dir>, runs
 #                                 `ai sync`, prints the path of the generated settings file
 #                                 (empty output + status 1 if generation failed).
 
@@ -19,7 +19,7 @@ gen_project_settings() {
   [[ -f "$d/.ai/roles.json" ]] || printf '%s\n' \
     '{ "roles": { "architect": {"provider":"claude","pane_identifier":"1","model":"fable"},' \
     '             "engineer":  {"provider":"claude","pane_identifier":"0","model":"opus"} } }' > "$d/.ai/roles.json"
-  ( cd "$d" && AI_OS_DISABLE_REPO_MAP=1 bash "${_GS_REPO}/src/bin/ai" sync >/dev/null 2>&1 )
+  ( cd "$d" && REIN_DISABLE_REPO_MAP=1 bash "${_GS_REPO}/src/bin/ai" sync >/dev/null 2>&1 )
   [[ -f "$d/.claude/settings.json" ]] || return 1
   printf '%s' "$d/.claude/settings.json"
 }

@@ -26,7 +26,7 @@ tools and a network). Parse the results and hand structured data back to the
 `performance_engineer` agent.
 
 D-075 (E-278) retired the Docker sandbox server, which was unavailable on
-every host that ran AI-OS; the V8 profilers give real call stacks, which the sandbox's
+every host that ran Rein; the V8 profilers give real call stacks, which the sandbox's
 `process.cpuUsage()` proxy never did.
 
 You do **NOT** write OPTIMIZATION_REPORT.md or make code changes. You **ONLY** profile and return data.

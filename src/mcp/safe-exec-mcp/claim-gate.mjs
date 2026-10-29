@@ -11,7 +11,7 @@
 // Cost when inactive: one existsSync. task-claims.mjs (and the sqlite it pulls in) is
 // imported only when team.json exists.
 //
-// AI_OS_CLAIM_GATE=0 lifts it with one telemetry BYPASS row (the task text, D-102 §4). This
+// REIN_CLAIM_GATE=0 lifts it with one telemetry BYPASS row (the task text, D-102 §4). This
 // is an environment switch on a gate, which hooks-contract forbids for the SAFETY gates; the
 // claim gate is a coordination gate, and the residual is named for the Architect.
 
@@ -34,7 +34,7 @@ export async function claimGateFor({ path = null, command = null, tokens = [], e
   const { claimGate } = await import("../shared/task-claims.mjs");
   const verdict = claimGate(root);
   if (!verdict) return null;
-  if (env.AI_OS_CLAIM_GATE === "0") {
+  if (env.REIN_CLAIM_GATE === "0") {
     try {
       const { recordToolExecution } = await import("../../shared/telemetry.mjs");
       recordToolExecution({ tool_name: "claim_gate", execution_time_ms: 0, status: "BYPASS", source: "hook" }, { sync: true });

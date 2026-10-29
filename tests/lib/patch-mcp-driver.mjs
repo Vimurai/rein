@@ -9,7 +9,7 @@
 //
 // Usage: patch-mcp-driver.mjs <target> <extra-args-json> [<project dir>]
 //   target: src | ai | symlink | hardlink
-//   project dir: E-294 — reuse this AI-OS project instead of a fresh temp one (it is reset,
+//   project dir: E-294 — reuse this Rein project instead of a fresh temp one (it is reset,
 //   never deleted). The session token verifies only when the walk from the server's cwd agrees
 //   with the session's launch record, whose `project` is the root the session started in — so a
 //   suite that runs the driver inside a real session (tests/lib/as-session.sh) starts that
@@ -87,8 +87,8 @@ try {
       ...(process.env.AI_TELEMETRY_DB_PATH ? { AI_TELEMETRY_DB_PATH: process.env.AI_TELEMETRY_DB_PATH } : {}),
       ...(process.env.AI_TELEMETRY_DISABLE ? { AI_TELEMETRY_DISABLE: process.env.AI_TELEMETRY_DISABLE } : {}),
       ...(process.env.CLAUDE_CODE_SESSION_ID ? { CLAUDE_CODE_SESSION_ID: process.env.CLAUDE_CODE_SESSION_ID } : {}),
-      ...(process.env.AI_OS_CALLER_ROLE ? { AI_OS_CALLER_ROLE: process.env.AI_OS_CALLER_ROLE } : {}),
-      ...(process.env.AI_OS_SOVEREIGNTY_LOCK ? { AI_OS_SOVEREIGNTY_LOCK: process.env.AI_OS_SOVEREIGNTY_LOCK } : {}),
+      ...(process.env.REIN_CALLER_ROLE ? { REIN_CALLER_ROLE: process.env.REIN_CALLER_ROLE } : {}),
+      ...(process.env.REIN_SOVEREIGNTY_LOCK ? { REIN_SOVEREIGNTY_LOCK: process.env.REIN_SOVEREIGNTY_LOCK } : {}),
     },
     stdio: ["pipe", "pipe", "ignore"],
   });

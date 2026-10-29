@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { tcFixtureHome } = await import("../lib/toolchain-fixture.mjs");
-const HOME = mkdtempSync(join(tmpdir(), "aios-t-privacy-home-"));
+const HOME = mkdtempSync(join(tmpdir(), "rein-t-privacy-home-"));
 tcFixtureHome(HOME);   // E-345 (D-109 r1): the run's writers spawn git, node and the map CLI under this HOME
 const _home = process.env.HOME;
 process.env.HOME = HOME;
@@ -77,7 +77,7 @@ test("E-379: a redaction logs one [PRIVACY_REDACTED] line per class and counts f
 // ── the writers ─────────────────────────────────────────────────────────────
 const git = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
 function project(t) {
-  const root = mkdtempSync(join(tmpdir(), "aios-t-privacy-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-privacy-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   git(root, "init", "-q", "-b", "main");
   git(root, "config", "user.email", "dev-a@example.com");
@@ -129,7 +129,7 @@ const WRITERS = {
     writeFileSync(join(root, "a.txt"), "1\n");
     git(root, "add", "-A"); git(root, "commit", "-q", "-m", "seed");
     writeFileSync(join(root, "a.txt"), "2\n");
-    runHandover(root, { task_id: "E-1", summary: PAYLOAD }, {}, { ...process.env, AI_OS_CI_GATE: "0", AI_OS_BUILD_STAMP: "0" });
+    runHandover(root, { task_id: "E-1", summary: PAYLOAD }, {}, { ...process.env, REIN_CI_GATE: "0", REIN_BUILD_STAMP: "0" });
     clean(read(ai, "state.json"), "state.json (task summary, delta)");
     clean(read(ai, "LOG.md"), "LOG.md");
     const reason = getDbSeeded(ai).prepare("SELECT value FROM meta WHERE key = 'digest_stale_reason'").get();
@@ -164,9 +164,9 @@ const WRITERS = {
     git(root, "remote", "add", "origin", "https://github.com/acme/app.git");
     git(root, "commit", "-q", "--allow-empty", "-m", "seed");
     git(root, "update-ref", "refs/remotes/origin/main", "HEAD");
-    writeFileSync(join(ai, "state.json"), JSON.stringify({ project: { aios_version: "4.0.0" }, tasks: [] }));
+    writeFileSync(join(ai, "state.json"), JSON.stringify({ project: { rein_version: "4.0.0" }, tasks: [] }));
     writeTeam(ai, { ...newTeam("dev-a@example.com", { E: [[1, 99]] }, "main"),
-      ci: { provider: "github", required_check: "ai ci run", aios_source: "https://git.example.com/Fabrikam/ai-os.git" } });
+      ci: { provider: "github", required_check: "ai ci run", rein_source: "https://git.example.com/Fabrikam/rein.git" } });
     const first = hosted(root, { provider: "github" });
     assert.equal(first.code, 0, first.out);
     const wrapper = read(root, PROVIDERS.github.path);
@@ -216,10 +216,10 @@ test("E-379: every writer row has a runner and ai doctor counts the wrapped writ
 });
 
 test("E-379: what lives under the install directory is not tracked — telemetry, incidents, insights, the palace", () => {
-  // The readers and writers of these files resolve them under $HOME/.ai-os, never under a project.
-  for (const [f, needle] of [["src/shared/telemetry.mjs", ".ai-os"], ["src/shared/incident-append.mjs", ".ai-os"],
-    ["src/shared/insights-staleness.mjs", ".ai-os"], ["src/mcp/memory-manager-mcp/index.js", ".ai-os"]]) {
+  // The readers and writers of these files resolve them under $HOME/.rein, never under a project.
+  for (const [f, needle] of [["src/shared/telemetry.mjs", ".rein"], ["src/shared/incident-append.mjs", ".rein"],
+    ["src/shared/insights-staleness.mjs", ".rein"], ["src/mcp/memory-manager-mcp/index.js", ".rein"]]) {
     assert.ok(read(REPO, f).includes(needle), `${f} resolves under the install directory`);
   }
-  assert.deepEqual(readdirSync(HOME).filter((d) => d !== ".ai-os"), [], "the redactor writes nothing in HOME but its counter");
+  assert.deepEqual(readdirSync(HOME).filter((d) => d !== ".rein"), [], "the redactor writes nothing in HOME but its counter");
 });

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * blueprint-aligner-mcp — AI-OS UACS MCP Server
+ * blueprint-aligner-mcp — Rein UACS MCP Server
  * Compares git diff against architect.md rules to detect sovereignty violations,
  * forbidden patterns, and missing blueprint coverage.
  *

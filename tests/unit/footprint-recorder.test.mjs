@@ -22,17 +22,17 @@ const FP = join(REPO, "tests", "lib", "footprint.sh");
 const BASH = "/bin/bash";
 
 function tmp(label) {
-  const d = realpathSync(mkdtempSync(join(tmpdir(), `aios-t-fp-${label}-`)));
+  const d = realpathSync(mkdtempSync(join(tmpdir(), `rein-t-fp-${label}-`)));
   return { d, done: () => rmSync(d, { recursive: true, force: true }) };
 }
 
-// Run a script with the recorder sourced. `rec` = the AIOS_TEST_TMPDIR to record into, or
-// null for the pass-through mode. AIOS_TEST_TMPDIR is always set or removed EXPLICITLY:
+// Run a script with the recorder sourced. `rec` = the REIN_TEST_TMPDIR to record into, or
+// null for the pass-through mode. REIN_TEST_TMPDIR is always set or removed EXPLICITLY:
 // this file itself runs under tests/run.sh, which exports it.
 function sh(script, { rec = null, input, env = {} } = {}) {
   const e = { ...process.env, ...env };
-  delete e.AIOS_TEST_TMPDIR;
-  if (rec) e.AIOS_TEST_TMPDIR = rec;
+  delete e.REIN_TEST_TMPDIR;
+  if (rec) e.REIN_TEST_TMPDIR = rec;
   const r = spawnSync(BASH, ["-c", `source '${FP}'\n${script}`, "probe_test.sh"], { encoding: "utf8", input, env: e });
   return { code: r.status, out: r.stdout, err: r.stderr };
 }
@@ -76,7 +76,7 @@ test("command -v still answers with the PATH of the binary (suites build PATHs f
   assert.equal(via, "via command");
 });
 
-test("records suite, command and a repo-relative target only when AIOS_TEST_TMPDIR is set", () => {
+test("records suite, command and a repo-relative target only when REIN_TEST_TMPDIR is set", () => {
   const t = tmp("rec");
   try {
     sh(`node '${REPO}/src/shared/ci-record.mjs' bogus >/dev/null 2>&1
@@ -110,23 +110,23 @@ test("env … <cmd> is recorded as the command; every installer / ai init run ge
     // that does not exist still exercises the recorder (it records before the binary runs).
     const AI = "/nonexistent/src/bin/ai";
     sh(`env -u CI HOME=/nonexistent FOO=1 bash -c 'exit 0'
-env HOME=/nonexistent bash /nonexistent/install-ai-os.sh 2>/dev/null
-bash /nonexistent/install-ai-os.sh 2>/dev/null
+env HOME=/nonexistent bash /nonexistent/install-rein.sh 2>/dev/null
+bash /nonexistent/install-rein.sh 2>/dev/null
 bash '${AI}' init >/dev/null 2>&1 </dev/null
 bash -c "bash '${AI}' init >/dev/null 2>&1"
 bash -c "echo run | grep -q 'ai init'"
-bash -c "grep -q install-ai-os.sh /dev/null"
-bash -c 'echo "run: bash install-ai-os.sh"; echo "then: ai init"'
-bash -c "x=1; bash /nonexistent/install-ai-os.sh 2>/dev/null"
+bash -c "grep -q install-rein.sh /dev/null"
+bash -c 'echo "run: bash install-rein.sh"; echo "then: ai init"'
+bash -c "x=1; bash /nonexistent/install-rein.sh 2>/dev/null"
 bash -c "cd /nonexistent 2>/dev/null || FOO=1 '${AI}' init 2>/dev/null"
 env true
 command -v env`, { rec: t.d });
     assert.deepEqual(log(t.d).trim().split("\n"), [
       "probe_test.sh\tbash\t-c",
-      "probe_test.sh\tbash\t/nonexistent/install-ai-os.sh",
-      "probe_test.sh\tinstaller\tinstall-ai-os.sh\tforeign:/nonexistent",
-      "probe_test.sh\tbash\t/nonexistent/install-ai-os.sh",
-      "probe_test.sh\tinstaller\tinstall-ai-os.sh\trun",
+      "probe_test.sh\tbash\t/nonexistent/install-rein.sh",
+      "probe_test.sh\tinstaller\tinstall-rein.sh\tforeign:/nonexistent",
+      "probe_test.sh\tbash\t/nonexistent/install-rein.sh",
+      "probe_test.sh\tinstaller\tinstall-rein.sh\trun",
       "probe_test.sh\tbash\t/nonexistent/src/bin/ai",
       "probe_test.sh\tinstaller\tai init\trun",
       "probe_test.sh\tbash\t-c:src/bin/ai",
@@ -137,7 +137,7 @@ command -v env`, { rec: t.d });
       // first E-311 census); a command after `;` / `||` or an assignment prefix is.
       "probe_test.sh\tbash\t-c",
       "probe_test.sh\tbash\t-c",
-      "probe_test.sh\tinstaller\tinstall-ai-os.sh\trun",
+      "probe_test.sh\tinstaller\tinstall-rein.sh\trun",
       "probe_test.sh\tbash\t-c:src/bin/ai",
       "probe_test.sh\tinstaller\tai init\trun",
     ], "a grep or echo of the name is not an installer run; `env true` records nothing");
@@ -151,15 +151,15 @@ test("an installer / ai init line carries its spawn's HOME class: tmp, run, unkn
   const t = tmp("home");
   try {
     const AI = "/nonexistent/src/bin/ai";   // never the real binary (see the test above)
-    const th = join(t.d, "aios-t-home-x");  // a harness temp dir, by its prefix
-    sh(`HOME='${th}' bash /nonexistent/install-ai-os.sh 2>/dev/null
+    const th = join(t.d, "rein-t-home-x");  // a harness temp dir, by its prefix
+    sh(`HOME='${th}' bash /nonexistent/install-rein.sh 2>/dev/null
 env HOME='${th}' bash '${AI}' init >/dev/null 2>&1 </dev/null
-bash -c "HOME='${th}' bash /nonexistent/install-ai-os.sh 2>/dev/null"
-bash -c 'HOME="$H" bash /nonexistent/install-ai-os.sh 2>/dev/null'
-env -i bash /nonexistent/install-ai-os.sh 2>/dev/null
+bash -c "HOME='${th}' bash /nonexistent/install-rein.sh 2>/dev/null"
+bash -c 'HOME="$H" bash /nonexistent/install-rein.sh 2>/dev/null'
+env -i bash /nonexistent/install-rein.sh 2>/dev/null
 env -u HOME bash '${AI}' init >/dev/null 2>&1 </dev/null
-HOME=/srv/shared bash /nonexistent/install-ai-os.sh 2>/dev/null
-bash /nonexistent/install-ai-os.sh 2>/dev/null`, { rec: t.d });
+HOME=/srv/shared bash /nonexistent/install-rein.sh 2>/dev/null
+bash /nonexistent/install-rein.sh 2>/dev/null`, { rec: t.d });
     const homes = log(t.d).trim().split("\n").filter((l) => l.includes("\tinstaller\t")).map((l) => l.split("\t")[3]);
     assert.deepEqual(homes, ["tmp", "tmp", "tmp", "unknown", "unknown", "unknown", "foreign:/srv/shared", "run"]);
   } finally { t.done(); }
@@ -172,7 +172,7 @@ test("overhead per recorded call is small next to the spawn it wraps (same-host 
   try {
     // Wrapper machinery only: `command true` resolves to the builtin, so no exec is timed.
     const N = 500;
-    const r = sh(`w() { _aios_fp_record node '${REPO}/src/shared/ci-record.mjs' record --x; command true; }
+    const r = sh(`w() { _rein_fp_record node '${REPO}/src/shared/ci-record.mjs' record --x; command true; }
 s=$(perl -MTime::HiRes=time -e 'printf "%d", time()*1e6'); for ((i=0;i<${N};i++)); do w; done
 e=$(perl -MTime::HiRes=time -e 'printf "%d", time()*1e6')
 b0=$(perl -MTime::HiRes=time -e 'printf "%d", time()*1e6'); for ((i=0;i<5;i++)); do command node -e ''; done
@@ -206,11 +206,11 @@ test("tests/run.sh: census input per suite, in the CI log block and a $TMPDIR co
       `${head}node "$R/src/shared/x.mjs"; node "$R/src/shared/x.mjs"\nassert_status 0 "ok" true\nassert_summary\n`);
     writeFileSync(join(R, "tests", "suites", "two_test.sh"), `${head}bash -c 'exit 0'\n_fail "deliberate"\nassert_summary\n`);
     const run = (extra) => {
-      const e = { ...process.env, HOME: join(R, "home"), TMPDIR: join(R, "tmp"), AI_OS_TEST_NO_SWEEP: "1", AI_TELEMETRY_DISABLE: "1", ...extra };
-      for (const k of ["AIOS_TEST_TMPDIR", "AIOS_TEST_SUITES_DIR", "CI"]) if (!(k in extra)) delete e[k];
+      const e = { ...process.env, HOME: join(R, "home"), TMPDIR: join(R, "tmp"), REIN_TEST_NO_SWEEP: "1", AI_TELEMETRY_DISABLE: "1", ...extra };
+      for (const k of ["REIN_TEST_TMPDIR", "REIN_TEST_SUITES_DIR", "CI"]) if (!(k in extra)) delete e[k];
       return spawnSync(BASH, [join(R, "tests", "run.sh")], { encoding: "utf8", env: e, cwd: R });
     };
-    const ci = run({ AI_OS_CI: "local" });
+    const ci = run({ REIN_CI: "local" });
     assert.equal(ci.status, 1, "two_test fails deliberately");
     const block = ci.stdout.slice(ci.stdout.indexOf("── census input"), ci.stdout.indexOf("━━ Results"));
     assert.match(block, /^CENSUS_SUITE\tone_test\.sh\t\d+\t1\t0\t0\t0$/m);
@@ -218,17 +218,17 @@ test("tests/run.sh: census input per suite, in the CI log block and a $TMPDIR co
     assert.match(block, /^CENSUS_FP\tone_test\.sh\t2\tnode\tsrc\/shared\/x\.mjs$/m, "attributed, counted, repo-relative");
     assert.match(block, /^CENSUS_FP\ttwo_test\.sh\t1\tbash\t-c$/m);
     assert.match(block, /^CENSUS_TOTAL\t2\t1\t1\t0$/m);
-    const copies = readdirSync(join(R, "tmp")).filter((f) => /^aios-census-.*\.tsv$/.test(f));
+    const copies = readdirSync(join(R, "tmp")).filter((f) => /^rein-census-.*\.tsv$/.test(f));
     assert.equal(copies.length, 1);
     assert.match(ci.stdout, new RegExp(`Census input: .*${copies[0]}`));
 
-    const plain = run({ AI_OS_CI: "" });
+    const plain = run({ REIN_CI: "" });
     assert.doesNotMatch(plain.stdout, /CENSUS_SUITE/, "a plain run prints only the path, not the block");
     assert.match(plain.stdout, /Census input: /);
 
     for (const f of readdirSync(join(R, "tmp"))) rmSync(join(R, "tmp", f), { recursive: true, force: true });
-    const nested = run({ AI_OS_CI: "local", AIOS_TEST_TMPDIR: join(R, "outer") });
+    const nested = run({ REIN_CI: "local", REIN_TEST_TMPDIR: join(R, "outer") });
     assert.doesNotMatch(nested.stdout, /CENSUS_|Census input/, "a runner started by a suite publishes nothing");
-    assert.deepEqual(readdirSync(join(R, "tmp")).filter((f) => f.startsWith("aios-census-")), []);
+    assert.deepEqual(readdirSync(join(R, "tmp")).filter((f) => f.startsWith("rein-census-")), []);
   } finally { t.done(); }
 });

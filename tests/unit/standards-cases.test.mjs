@@ -32,7 +32,7 @@ const standards = loadStandards();
 const rules = standards.rules;
 const rows = loadTable("standards");
 
-const proj = mkdtempSync(join(tmpdir(), "aios-t-std-"));
+const proj = mkdtempSync(join(tmpdir(), "rein-t-std-"));
 test.after(() => rmSync(proj, { recursive: true, force: true }));
 
 const wrap = (line) => "---\nname: x\n---\n\n## Dynamic Context Injection\n" + line + "\n";

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // E-66/E-67: incident-aggregate.mjs — JIT aggregator for ai-preflight.
 //
-// Reads ~/.ai-os/incidents.ndjson (E-65), groups by stack_signature, and
+// Reads ~/.rein/incidents.ndjson (E-65), groups by stack_signature, and
 // emits a single JSON block to stdout. The ai-preflight skill formats
 // the result for the active agent; if any signature has reached the
 // threshold (>= INCIDENT_THRESHOLD, default 3) the output carries
@@ -19,7 +19,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { homedir } from "node:os";
 
-const INCIDENTS_PATH = resolve(homedir(), ".ai-os", "incidents.ndjson");
+const INCIDENTS_PATH = resolve(homedir(), ".rein", "incidents.ndjson");
 const THRESHOLD      = Number(process.env.INCIDENT_THRESHOLD || 3);
 const TOP_N          = Number(process.env.INCIDENT_TOP_N || 5);
 

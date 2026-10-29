@@ -14,7 +14,7 @@
 //   - v1 tokens never verify; v1 is recognised only in mint-table row 4.
 //
 // Same-uid ceiling (T-ROLE-001): the key, the token and the record are files the operator's uid
-// can write; the gate (GATE_SELF_DISABLE, ~/.ai-os/** write block) and the classifier backstop
+// can write; the gate (GATE_SELF_DISABLE, ~/.rein/** write block) and the classifier backstop
 // raise the cost of touching them. Removing both a record and a token returns a pane to the
 // plain-launch default — never to a less restricted role than that.
 
@@ -33,13 +33,13 @@ export const ENGINEER = "engineer";
 const RANK = { engineer: 1, architect: 2 };
 const MAX_BYTES = 4096;
 
-const _SECRETS_DIR = join(homedir(), ".ai-os", "secrets");
-const _RUN_DIR = join(homedir(), ".ai-os", "run");
+const _SECRETS_DIR = join(homedir(), ".rein", "secrets");
+const _RUN_DIR = join(homedir(), ".rein", "run");
 const _KEY_PATH = join(_SECRETS_DIR, "role-hmac.key");
 
 // ── the launch-record module (8a) ────────────────────────────────────────────
 // Resolved beside THIS module (repo: src/mcp/safe-exec-mcp → src/shared; install:
-// ~/.ai-os/mcp/safe-exec-mcp → ~/.ai-os/shared), never from the cwd or the environment.
+// ~/.rein/mcp/safe-exec-mcp → ~/.rein/shared), never from the cwd or the environment.
 const LAUNCH_RECORD = fileURLToPath(new URL("../../shared/launch-record.py", import.meta.url));
 
 // The interpreter: the install-time pin (E-286) when recorded, else the system python3. Never
@@ -47,8 +47,8 @@ const LAUNCH_RECORD = fileURLToPath(new URL("../../shared/launch-record.py", imp
 // that prints "engineer" would be a role.
 function _python() {
   try {
-    const raw = readFileSync(join(homedir(), ".ai-os", "shared", "toolchain.sh"), "utf8");
-    const m = raw.match(/^AI_OS_TC_PYTHON3=([A-Za-z0-9._/@+:-]+)$/m);
+    const raw = readFileSync(join(homedir(), ".rein", "shared", "toolchain.sh"), "utf8");
+    const m = raw.match(/^REIN_TC_PYTHON3=([A-Za-z0-9._/@+:-]+)$/m);
     if (m && m[1].startsWith("/") && existsSync(m[1])) return m[1];
   } catch { /* fall through */ }
   return "/usr/bin/python3";

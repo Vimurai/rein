@@ -8,7 +8,7 @@
 //
 // Every case drives the real CLI (`--measure` / `--emit-context`) — the same entry point the
 // hook uses — under a throwaway HOME, so nothing reads or writes the operator's
-// ~/.ai-os/cache.sqlite. Fixture mtimes are set explicitly: a fresh checkout gives every
+// ~/.rein/cache.sqlite. Fixture mtimes are set explicitly: a fresh checkout gives every
 // file the same mtime, which is exactly the tie the eviction order has to survive.
 //
 // Run standalone: node --test tests/unit/cache-blob.test.mjs
@@ -29,7 +29,7 @@ const DAY = 24 * 60 * 60;
 function run(flag, cwd, home) {
   const r = spawnSync(process.execPath, ["--no-warnings", SERVER, flag], {
     cwd,
-    env: { ...process.env, HOME: home, AI_OS_DISABLE_CACHE: "0", AI_TELEMETRY_DISABLE: "1" },
+    env: { ...process.env, HOME: home, REIN_DISABLE_CACHE: "0", AI_TELEMETRY_DISABLE: "1" },
     encoding: "utf8",
   });
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
@@ -133,11 +133,11 @@ test("an architect.md larger than the cap is truncated with a marker, never let 
   });
 });
 
-test("AI_OS_DISABLE_CACHE=1 still emits nothing (rollback)", () => {
+test("REIN_DISABLE_CACHE=1 still emits nothing (rollback)", () => {
   withFixture(({ home, proj }) => {
     writeFileSync(join(proj, ".ai", "architect.md"), "# ARCHITECT DOC\n");
     const r = spawnSync(process.execPath, ["--no-warnings", SERVER, "--emit-context"], {
-      cwd: proj, env: { ...process.env, HOME: home, AI_OS_DISABLE_CACHE: "1" }, encoding: "utf8",
+      cwd: proj, env: { ...process.env, HOME: home, REIN_DISABLE_CACHE: "1" }, encoding: "utf8",
     });
     assert.equal(r.status, 0);
     assert.equal(r.stdout, "");

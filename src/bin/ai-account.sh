@@ -3,9 +3,9 @@
 #
 # Sourced by src/bin/ai (never executed: it has no top level beyond definitions). One account
 # = one Claude Code config directory = one claude.ai login. The project will name an account
-# (E-315); the operator's registry ${AIOS}/accounts.json maps the name to the directory; every
+# (E-315); the operator's registry ${REIN}/accounts.json maps the name to the directory; every
 # read and every validation goes through src/shared/accounts.py, resolved beside this file
-# (bin/ → shared/, the same layout in the clone and in ~/.ai-os), so `ai account`, `ai pane`,
+# (bin/ → shared/, the same layout in the clone and in ~/.rein), so `ai account`, `ai pane`,
 # `ai start` and `ai doctor` share one resolver.
 #
 # "default" is reserved: it is ~/.claude with CLAUDE_CONFIG_DIR left as the operator's shell
@@ -15,7 +15,7 @@
 
 _ACCT_BIN_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
 _acct_py() { printf '%s' "${_ACCT_BIN_DIR%/*}/shared/accounts.py"; }
-_acct_registry() { printf '%s' "${AIOS}/accounts.json"; }
+_acct_registry() { printf '%s' "${REIN}/accounts.json"; }
 _acct_today() { date +%Y-%m-%d; }
 _acct_tilde() { case "$1" in "$HOME"/*) printf '~%s' "${1#"$HOME"}" ;; *) printf '%s' "$1" ;; esac; }
 
@@ -185,14 +185,14 @@ _start_account_pick() {
 }
 
 # _account_launch_check <name> <dir> — the account's user-level copy, checked at launch
-# (D-097, accounts.md §3): OUTDATED backstop → refuse naming `ai sync` (a stale copy only AI-OS
+# (D-097, accounts.md §3): OUTDATED backstop → refuse naming `ai sync` (a stale copy only Rein
 # refreshes); settings.json missing or unparsable → refuse naming `ai account sync <name>`;
 # ABSENT → the doctor's notice, then continue (the backstop is the operator's y/N choice).
 _account_launch_check() {
   local name="$1" dir="$2" py out
   py="$(_cb_py 2>/dev/null)"
   if [[ ! -f "$py" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "ai pane: account '${name}': cannot check ${dir}/settings.json (helper or python3 missing — run: bash install-ai-os.sh)" >&2
+    echo "ai pane: account '${name}': cannot check ${dir}/settings.json (helper or python3 missing — run: bash install-rein.sh)" >&2
     return 2
   fi
   out="$(python3 -I "$py" status "${dir}/settings.json" 2>/dev/null | sed -n '1p')"
@@ -278,7 +278,7 @@ do_account() {
       case "$state" in
         claude.ai|console|"logged in"|oauth*) echo "  ✓ already logged in (${state})"; return 0 ;;
       esac
-      if [[ -t 0 && -t 1 && -z "${CI:-}" && -z "${AI_OS_CI:-}" ]] && command -v claude >/dev/null 2>&1; then
+      if [[ -t 0 && -t 1 && -z "${CI:-}" && -z "${REIN_CI:-}" ]] && command -v claude >/dev/null 2>&1; then
         echo "  → starting Claude Code under $(_acct_tilde "$dir"): type /login, sign in, then /exit"
         CLAUDE_CONFIG_DIR="$dir" claude || true
         echo "  login: $(_acct_login "$dir")"
@@ -323,7 +323,7 @@ do_account() {
       local name="${1:-}" ai_dir
       [[ -n "$name" && $# -le 1 ]] || { echo "usage: ai account use <name|default>" >&2; return 2; }
       ai_dir="$(_find_ai_dir)"
-      [[ -d "$ai_dir" ]] || { echo "ai account use: not inside an AI-OS project (no .ai/)" >&2; return 2; }
+      [[ -d "$ai_dir" ]] || { echo "ai account use: not inside an Rein project (no .ai/)" >&2; return 2; }
       _account_dir "$name" >/dev/null || return 2
       _start_account_set "$ai_dir" "$name" keep start.local.json || { echo "ai account use: could not write .ai/start.local.json" >&2; return 2; }
       echo "ai account use: this checkout launches under '${name}' (.ai/start.local.json — gitignored, yours only)"

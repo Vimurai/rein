@@ -5,7 +5,7 @@
 import os from "node:os";
 import path from "node:path";
 
-const out = process.env.AIOS_MUTATION_OUT || path.join(os.tmpdir(), "aios-mutation");
+const out = process.env.REIN_MUTATION_OUT || path.join(os.tmpdir(), "rein-mutation");
 
 export default {
   testRunner: "tap",
@@ -18,7 +18,7 @@ export default {
     "src/mcp/safe-exec-mcp/**/*.{js,mjs}",
     "!**/node_modules/**",
   ],
-  concurrency: Number(process.env.AIOS_MUTATION_CONCURRENCY || 6),
+  concurrency: Number(process.env.REIN_MUTATION_CONCURRENCY || 6),
   timeoutMS: 30000,
   disableBail: true,
   reporters: ["json", "progress-append-only"],

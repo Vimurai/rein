@@ -1,6 +1,6 @@
 ---
 name: ai-incident
-description: Record an unpredictable AI-OS event (MCP crash, drift, env failure, hook regression) to ~/.ai-os/incidents.ndjson for later aggregation. Sanitises PII; rotates monthly. Triggered by the Architect or Engineer when an action surfaces unexpected behaviour the user didn't anticipate.
+description: Record an unpredictable Rein event (MCP crash, drift, env failure, hook regression) to ~/.rein/incidents.ndjson for later aggregation. Sanitises PII; rotates monthly. Triggered by the Architect or Engineer when an action surfaces unexpected behaviour the user didn't anticipate.
 disable-model-invocation: false
 user-invocable: true
 context: default
@@ -12,7 +12,7 @@ allowed-tools: Bash
 
 ## Why this skill exists
 
-AI-OS spans many downstream projects. When one of them surfaces an
+Rein spans many downstream projects. When one of them surfaces an
 unpredictable event — a hook regression, an MCP crash, drift between
 state and markdown, a misclassified task, an unexplained tool refusal —
 the data is most useful when aggregated *across* projects, not buried in
@@ -21,7 +21,7 @@ one project's `LOG.md`.
 This skill writes a structured NDJSON line to a single global log:
 
 ```
-~/.ai-os/incidents.ndjson
+~/.rein/incidents.ndjson
 ```
 
 The JIT aggregator inside `ai-preflight` (E-66/E-67) groups recurrent
@@ -104,7 +104,7 @@ WAL flusher (E-58):
 
 1. `src/shared/incident-append.mjs` (in-repo dev tree)
 2. `${SELF_DIR}/../shared/incident-append.mjs` (relative to bin/ai)
-3. `${HOME}/.ai-os/shared/incident-append.mjs` (installed mirror)
+3. `${HOME}/.rein/shared/incident-append.mjs` (installed mirror)
 
 If `node` is unavailable or none of the candidates exist, log a warning
 and return — fail-open, never block the calling agent.
@@ -115,7 +115,7 @@ Set `AI_INCIDENT_TRACKER_DISABLE=1` to short-circuit every invocation.
 The helper writes a single warning to stderr and exits 0 so callers stay
 fail-open.
 
-Manually deleting `~/.ai-os/incidents.ndjson` is safe and stateless —
+Manually deleting `~/.rein/incidents.ndjson` is safe and stateless —
 the file is recreated on the next call. Monthly archives live next to
 it as `incidents-YYYY-MM.ndjson.archive`.
 

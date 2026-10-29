@@ -7,9 +7,9 @@ all call it, so they cannot disagree about which record is live.
 Invariant (D-087): a role may only move toward restriction. The walk is exhaustive and the most
 restricted live record anywhere on the process chain wins; a nested `ai pane` is refused.
 
-Record: <root>/run/launch/<pid>.json = {"role", "project", "started"}; root = $HOME/.ai-os, the
+Record: <root>/run/launch/<pid>.json = {"role", "project", "started"}; root = $HOME/.rein, the
 gate stack's one root (D-087 r7). Discipline on every read:
-  - ~/.ai-os, run, launch opened in turn with O_DIRECTORY|O_NOFOLLOW (dir_fd chain, no path
+  - ~/.rein, run, launch opened in turn with O_DIRECTORY|O_NOFOLLOW (dir_fd chain, no path
     re-traversal); each owned by the euid; run and launch carry no group/other bits (0700),
     the install root none of the write bits (it is 0755 on every install);
   - the record opened with O_NOFOLLOW relative to the launch dir fd: a regular file, owned by
@@ -136,7 +136,7 @@ def chain(start_pid, table=None):
     return out
 
 
-# ── the AI-OS root of a working directory ────────────────────────────────────
+# ── the Rein root of a working directory ────────────────────────────────────
 def project_root(cwd=None):
     """realpath of the nearest ancestor holding .ai/ (git-style, <= 40 levels), or None."""
     d = os.path.realpath(cwd or os.getcwd())
@@ -152,7 +152,7 @@ def project_root(cwd=None):
 
 # ── file discipline ──────────────────────────────────────────────────────────
 def _root():
-    return os.path.join(os.environ.get("HOME", ""), ".ai-os")
+    return os.path.join(os.environ.get("HOME", ""), ".rein")
 
 
 def _open_dir(name, dir_fd, private):
@@ -255,7 +255,7 @@ def walk(start_pid, project, table=None, skip_self=False, any_project=False):
     """Most-restrictive-wins over the live records on start_pid's chain.
 
     Returns {"result": "role", "role", "launch"} or {"result": "union", "why"}.
-    `project` None means the caller is outside any AI-OS project: every live record is then
+    `project` None means the caller is outside any Rein project: every live record is then
     foreign (union), and no record at all is the plain-launch default.
     `any_project` (the VERIFIER's walk, restrict-only): a live record counts by its role whatever
     project it names — the verifier may sit in another directory (a commit in another repo, an
@@ -457,7 +457,7 @@ def main(argv):
         role = argv[3] if len(argv) > 3 else ""
         project = project_root()
         if role not in ROLES or project is None:
-            print("refused: role must be architect|engineer inside an AI-OS project", file=sys.stderr)
+            print("refused: role must be architect|engineer inside an Rein project", file=sys.stderr)
             return 2
         print("WROTE\t%s" % write(pid, role, project))
         return 0

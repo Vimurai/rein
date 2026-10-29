@@ -32,11 +32,11 @@ Invoke the canonical CLI from the repo root. Locator chain (mirrors E-58 / E-65 
 # Prefer the in-tree script over the installed mirror.
 if [ -f scripts/standards.mjs ]; then
   CHECKER="scripts/standards.mjs"
-elif [ -f "${HOME}/.ai-os/scripts/standards.mjs" ]; then
-  CHECKER="${HOME}/.ai-os/scripts/standards.mjs"
+elif [ -f "${HOME}/.rein/scripts/standards.mjs" ]; then
+  CHECKER="${HOME}/.rein/scripts/standards.mjs"
 else
   # Bail with a structured stamp — never silently pass.
-  echo '[CLEAN_FAIL] standards-checker missing — install-ai-os has not been run'
+  echo '[CLEAN_FAIL] standards-checker missing — install-rein has not been run'
   exit 1
 fi
 
@@ -125,13 +125,13 @@ The agent does not enforce P0/P1/P2 differently — `review_synthesizer` decides
 
 ## Rollback / escape hatch
 
-If `AI_OS_SKIP_STANDARDS=1` is set in the environment, the CLI exits 0 with a `STANDARDS_SKIPPED` stderr marker. In that case, emit:
+If `REIN_SKIP_STANDARDS=1` is set in the environment, the CLI exits 0 with a `STANDARDS_SKIPPED` stderr marker. In that case, emit:
 
 ```
 mcp__task-synchronizer-mcp__add_stamp({
   type:    "CLEAN_PASS",
   agent:   "critic_clean_code",
-  summary: "[STANDARDS_SKIPPED] AI_OS_SKIP_STANDARDS=1 — gate bypassed by operator"
+  summary: "[STANDARDS_SKIPPED] REIN_SKIP_STANDARDS=1 — gate bypassed by operator"
 })
 ```
 

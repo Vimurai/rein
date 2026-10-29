@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# E-285 (D-075, native-first.md §8): the fixture AI-OS project every skill eval starts in.
+# E-285 (D-075, native-first.md §8): the fixture Rein project every skill eval starts in.
 # `claude plugin eval --scaffold` runs this in the case's empty workspace. It writes a small,
 # self-consistent .ai/ (DIGEST, TASKS, architect.md, COMM, DECISIONS, state.json) and one git
 # commit, so the skills' own reads and `!`-lines see a real project. architect.md carries a
@@ -16,7 +16,7 @@ cat > .ai/DIGEST.md <<'MD'
 # DIGEST — fixture-app (Updated: 2026-10-14)
 
 ## Product
-- fixture-app: a tiny greeting CLI used to exercise AI-OS skills.
+- fixture-app: a tiny greeting CLI used to exercise Rein skills.
 
 ## Current Focus
 - E-900 (Tier 1): add a --name flag to the greeter. E-901 (Tier 2): add i18n.

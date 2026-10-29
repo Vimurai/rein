@@ -24,8 +24,8 @@ sudo apt install tmux sqlite3 python3   # and Node 22.5+ from nodejs.org or your
 
 ```bash
 git clone https://github.com/Vimurai/rein.git && cd rein
-bash install-ai-os.sh     # copies src/ → ~/.ai-os, installs the MCP servers' dependencies, adds the PATH line
-exec "$SHELL"             # pick up PATH=~/.ai-os/bin
+bash install-rein.sh     # copies src/ → ~/.rein, installs the MCP servers' dependencies, adds the PATH line
+exec "$SHELL"             # pick up PATH=~/.rein/bin
 ai install                # Claude Code settings and hooks under ~/.claude
 ai doctor                 # each ✗ prints its fix
 ```
@@ -34,7 +34,7 @@ ai doctor                 # each ✗ prints its fix
 skill) and the Playwright Chromium browser (for the UI audits; `ai mcp-setup --browsers`). A ✗
 on those only disables what they power.
 
-The install lives in `~/.ai-os` (the directory name predates the product name and is kept so
+The install lives in `~/.rein` (the directory name predates the product name and is kept so
 existing installs keep working). Nothing is installed system-wide.
 
 ## Enable it in a project
@@ -121,7 +121,7 @@ falling back to the default login.
 
 ```bash
 cd rein && git pull
-bash install-ai-os.sh          # refresh ~/.ai-os
+bash install-rein.sh          # refresh ~/.rein
 ai install                     # optional: refresh ~/.claude settings and hooks
 
 cd ~/code/my-project
@@ -139,15 +139,15 @@ What `ai sync` does:
 - never touches `architect.md`, `BRIEF.md`, `TASKS.md`, `DIGEST.md` or anything else you wrote.
 
 Older versions leave things behind (retired servers, old hooks, stale locks). `ai clean` lists
-them; `ai clean --apply` moves them to `~/.ai-os/trash/<date>/`, and `ai clean --restore <date>`
+them; `ai clean --apply` moves them to `~/.rein/trash/<date>/`, and `ai clean --restore <date>`
 puts them back.
 
 ## Uninstalling
 
 ```bash
-ai uninstall      # removes ~/.ai-os after you type "uninstall"
+ai uninstall      # removes ~/.rein after you type "uninstall"
 ```
 
 Left for you to remove by hand: each project's `.ai/`, `.mcp.json`, `.claude/` and git hooks;
 `~/.claude/` (it holds your own Claude Code settings too); and the
-`export PATH="$HOME/.ai-os/bin:$PATH"` line in your shell rc.
+`export PATH="$HOME/.rein/bin:$PATH"` line in your shell rc.

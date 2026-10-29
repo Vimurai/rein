@@ -23,7 +23,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
     },
     {
       name: "add_task",
-      description: "Adds a new task to state with auto-assigned ID. Returns the new task. Set is_framework_task: true (E-63) to route the task to the canonical AI-OS clone at $AIOS_WORKSPACE instead of the local project's .ai/.",
+      description: "Adds a new task to state with auto-assigned ID. Returns the new task. Set is_framework_task: true (E-63) to route the task to the canonical Rein clone at $REIN_WORKSPACE instead of the local project's .ai/.",
       inputSchema: {
         type: "object",
         properties: {
@@ -31,7 +31,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
           description:       { type: "string",  description: "Task description" },
           tier:              { type: "number",  description: "Risk tier (1, 2, or 3)", enum: [1, 2, 3] },
           prefix:            { type: "string",  description: "ID prefix: P (architect), E (engineer), T (tester)", enum: ["P", "E", "T"], default: "E" },
-          is_framework_task: { type: "boolean", description: "If true, persist into $AIOS_WORKSPACE/.ai (canonical AI-OS clone) instead of local .ai/. Errors with [WORKSPACE_NOT_FOUND] when AIOS_WORKSPACE is unset/invalid. (E-63)", default: false },
+          is_framework_task: { type: "boolean", description: "If true, persist into $REIN_WORKSPACE/.ai (canonical Rein clone) instead of local .ai/. Errors with [WORKSPACE_NOT_FOUND] when REIN_WORKSPACE is unset/invalid. (E-63)", default: false },
           depends_on:        { type: "array", items: { type: "string" }, description: "E-91: task IDs this task depends on. Starts BLOCKED until all are DONE, then auto-OPENs. Self-references, cycles, unknown deps, and chains deeper than 5 are rejected with [DAG_FAIL]." },
         },
         required: ["owner", "description"],
@@ -124,7 +124,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
     {
       name: "validate_payload",
       description:
-        "Validate a payload against a named AI-OS state transition schema before submitting it. " +
+        "Validate a payload against a named Rein state transition schema before submitting it. " +
         "Schemas: task_create, task_update, stamp_add, project_update. " +
         "Returns SCHEMA_PASS or SCHEMA_FAIL with per-field error details. " +
         "Use before calling add_task, update_task_status, add_stamp, or set_project_focus to catch type errors early.",

@@ -27,7 +27,7 @@ import { mergeRecord } from "../../src/mcp/shared/record-import.mjs";
 import { ATTRIBUTES } from "../../src/mcp/shared/record-migrate.mjs";
 
 function tmp() {
-  const d = mkdtempSync(join(tmpdir(), "aios-t-cirun-"));
+  const d = mkdtempSync(join(tmpdir(), "rein-t-cirun-"));
   return { d, done: () => rmSync(d, { recursive: true, force: true }) };
 }
 
@@ -41,7 +41,7 @@ const SHA = "a".repeat(40);
 const base = (over = {}) => ({ sha: SHA, ref: "HEAD", status: "PASS", started_at: "2026-09-17T10:00:00Z", ...over });
 
 const LOG = [
-  "[ci] ai ci run — AI-OS 3.1.0",
+  "[ci] ai ci run — Rein 3.1.0",
   `[ci] sha=${SHA} ref=HEAD dirty=0 started_at=2026-09-17T10:00:00Z`,
   "[ci] repo=/r",
   "[ci] branch=engineer/x",
@@ -66,7 +66,7 @@ const LOG = [
   "CENSUS_SUITE\tbad_test.sh\t93290\t3\t1\t0\t1",
   "[run] peak_sum_rss_mb=99 samples=3 sampler_cpu_ms=10",   // a nested runner's, inside a suite
   "[run] peak_sum_rss_mb=2140 samples=790 sampler_cpu_ms=6000",
-  "[ci] resources lanes=4 peak_rss_mb=812 suite_seconds=790 exclusive_seconds=171 host=local runner=aios",
+  "[ci] resources lanes=4 peak_rss_mb=812 suite_seconds=790 exclusive_seconds=171 host=local runner=rein",
   "[ci] step=suite status=FAIL 4 passed, 1 failed, 0 skipped, leaked 0",
   "",
   "[ci] ── unit: /usr/bin/env UNIT_COVERAGE=1 /bin/bash tests/suites/node_unit_test.sh",
@@ -118,7 +118,7 @@ test("parseCiLog fills every column the runner writes", () => {
       suite_pass: 4, suite_fail: 1, suite_skip: 0, leaked: 0, unit_status: "PASS", secrets_status: "PASS",
       status: "FAIL", finished_at: "2026-09-17T10:10:10Z", duration_ms: 610000,
       perf_json: { agg: { measured_ms: 12, baseline_ms: 5, budget_ms: 60 } },
-      lanes: 4, peak_rss_mb: 812, suite_seconds: 790, runner: "aios", peak_sum_rss_mb: 2140, exclusive_seconds: 171,
+      lanes: 4, peak_rss_mb: 812, suite_seconds: 790, runner: "rein", peak_sum_rss_mb: 2140, exclusive_seconds: 171,
       slowest_json: JSON.stringify([{ suite: "bad", wall_ms: 93290 }, { suite: "good", wall_ms: 1200 }]),
     });
   assert.equal(parseCiLog("no header here"), null);
@@ -163,7 +163,7 @@ test("migration: a pre-E-310 ci_runs table gains the resource columns; its old r
     assert.match(ls, /L- -\/- -\s+7 passed/);
     assert.doesNotMatch(ls, /slowest:/, "an old row has no slowest line");
     recordCiRun(db, base({ sha: "b".repeat(40), started_at: "2026-09-18T10:00:00Z", lanes: 4, peak_rss_mb: 812, peak_sum_rss_mb: 2140, suite_seconds: 790,
-      runner: "aios", slowest_json: [{ suite: "mirror_hygiene", wall_ms: 93290 }] }));
+      runner: "rein", slowest_json: [{ suite: "mirror_hygiene", wall_ms: 93290 }] }));
     const ls2 = execFileSync(process.execPath, ["--no-warnings", cli, "list", "--ai-dir", join(t.d, ".ai")], { encoding: "utf8" });
     assert.match(ls2, /L4 812MB\/2140MB 790s/);
     assert.match(ls2, /slowest: mirror_hygiene 93s/);
@@ -419,7 +419,7 @@ test("certifyingRunFor: the commit's own FAIL is not rescued by an ancestor; SKI
   } finally { done(); }
 });
 
-test("checkCiDoneGate: adoption-off, AI_OS_CI_GATE=0, no-row, FAIL, dirty-only, PASS", () => {
+test("checkCiDoneGate: adoption-off, REIN_CI_GATE=0, no-row, FAIL, dirty-only, PASS", () => {
   const { d, db, done } = freshDb();
   try {
     const { commit } = gitRepo(d);
@@ -432,8 +432,8 @@ test("checkCiDoneGate: adoption-off, AI_OS_CI_GATE=0, no-row, FAIL, dirty-only, 
     g = checkCiDoneGate(db, d, {});
     assert.equal(g.ok, false);
     assert.equal(g.message,
-      `[CI_GATE] no green local CI run for HEAD ${head.slice(0, 7)} (no run for it or for an ancestor that differs only in .ai/) — run: ai ci run (bypass: AI_OS_CI_GATE=0)`);
-    assert.equal(checkCiDoneGate(db, d, { AI_OS_CI_GATE: "0" }).ok, true);
+      `[CI_GATE] no green local CI run for HEAD ${head.slice(0, 7)} (no run for it or for an ancestor that differs only in .ai/) — run: ai ci run (bypass: REIN_CI_GATE=0)`);
+    assert.equal(checkCiDoneGate(db, d, { REIN_CI_GATE: "0" }).ok, true);
 
     recordCiRun(db, base({ sha: head, dirty: true }));
     assert.equal(checkCiDoneGate(db, d, {}).ok, false, "dirty-only does not certify");
@@ -467,7 +467,7 @@ const TEAM = { schema: 1, planner: "a@x.test", claim_ttl_days: 7, shared_log: fa
   members: { "a@x.test": { ranges: { E: [[1, 10]] } }, "b@x.test": { ranges: { E: [[11, 20]] } } } };
 const okRecord = (over = {}) => ({
   schema: 1, sha: SHA, verdict: "PASS", suites: 146, tests: { passed: 5732, failed: 0, skipped: 3 },
-  started: "2026-10-19T11:16:53Z", finished: "2026-10-19T11:31:12Z", runner: "a@x.test", host: "h", aios_version: "4.0.0",
+  started: "2026-10-19T11:16:53Z", finished: "2026-10-19T11:31:12Z", runner: "a@x.test", host: "h", rein_version: "4.0.0",
   ...over,
 });
 
@@ -484,7 +484,7 @@ test("validateCiRecord follows tests/fixtures/ci-record-cases.json (one row per 
 
 // origin + two clones of one team project; clone `b` runs CI, clone `a` does not.
 function teamClones(t) {
-  const root = mkdtempSync(join(tmpdir(), "aios-t-cievid-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-cievid-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const git = (cwd, ...a) => execFileSync("git", ["-C", cwd, "-c", "commit.gpgsign=false", ...a],
     { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -513,11 +513,11 @@ test("a member's pulled PASS record lets another clone mark DONE and push the sh
   // Clone B runs CI on X: the runner records the row and writes the evidence file.
   const dbB = getDb(b.ai);
   const id = recordCiRun(dbB, base({ sha: x, suite_pass: 5732, suite_fail: 0, suite_skip: 3, finished_at: "2026-10-19T11:31:12Z" }));
-  const w = writeCiRecord(b.ai, dbB.prepare("SELECT * FROM ci_runs WHERE id = ?").get(id), { suites: 146, aiosVersion: "4.0.0" });
+  const w = writeCiRecord(b.ai, dbB.prepare("SELECT * FROM ci_runs WHERE id = ?").get(id), { suites: 146, reinVersion: "4.0.0" });
   assert.equal(w.written, true, w.reason);
   const rec = JSON.parse(readFileSync(join(b.ai, "ci", `${x}.json`), "utf8"));
   assert.deepEqual(Object.keys(rec).sort(),
-    ["aios_version", "finished", "host", "runner", "schema", "sha", "started", "suites", "tests", "verdict"]);
+    ["rein_version", "finished", "host", "runner", "schema", "sha", "started", "suites", "tests", "verdict"]);
   assert.deepEqual({ verdict: rec.verdict, runner: rec.runner, suites: rec.suites, tests: rec.tests },
     { verdict: "PASS", runner: "b@x.test", suites: 146, tests: { passed: 5732, failed: 0, skipped: 3 } });
   b.g("add", "-A"); b.g("commit", "-q", "-m", "chore(.ai): ci record"); b.g("push", "-q", "origin", "HEAD:master");
@@ -640,7 +640,7 @@ test("without team.json: no record is written, read or counted (the E-266/E-267 
     const other = sha40("e");
     const log = join(d, "run.log");
     writeFileSync(log, LOG.replaceAll(SHA, other));
-    const r = cli("record", "--ai-dir", join(d, ".ai"), "--log", log, "--aios-version", "4.0.0");
+    const r = cli("record", "--ai-dir", join(d, ".ai"), "--log", log, "--rein-version", "4.0.0");
     assert.equal(r.code, 0);
     assert.equal(existsSync(join(d, ".ai", "ci", `${other}.json`)), false);
   } finally { done(); }
@@ -650,13 +650,13 @@ test("ci-record record: a team project gets .ai/ci/<sha>.json (counts only); a d
   const { a } = teamClones(t);
   const log = join(a.d, "..", "run.log");
   writeFileSync(log, LOG);                                   // a FAIL run of SHA with two census suites
-  let r = cli("record", "--ai-dir", a.ai, "--log", log, "--aios-version", "4.0.0");
+  let r = cli("record", "--ai-dir", a.ai, "--log", log, "--rein-version", "4.0.0");
   assert.equal(r.code, 0, r.stderr);
   const p = join(a.ai, "ci", `${SHA}.json`);
   const rec = JSON.parse(readFileSync(p, "utf8"));
   assert.deepEqual({ ...rec, host: "-" }, {
     schema: 1, sha: SHA, verdict: "FAIL", suites: 2, tests: { passed: 4, failed: 1, skipped: 0 },
-    started: "2026-09-17T10:00:00Z", finished: "2026-09-17T10:10:10Z", runner: "a@x.test", host: "-", aios_version: "4.0.0",
+    started: "2026-09-17T10:00:00Z", finished: "2026-09-17T10:10:10Z", runner: "a@x.test", host: "-", rein_version: "4.0.0",
   });
   assert.doesNotMatch(readFileSync(p, "utf8"), /broken thing|SUITE_RESULT|engineer\/x/, "no log text");
 
@@ -688,8 +688,8 @@ test("mergeRecord: two members' records for one sha — PASS beats FAIL either w
     const o = side("ours.json", okRecord());
     mergeRecord(join(d, "none"), o, side("theirs.json", later), ".ai/ci/x.json", { cwd: d });
     assert.equal(JSON.parse(readFileSync(o, "utf8")).runner, "b@x.test");
-    assert.equal(existsSync(join(d, "aios-state-conflicts")), false);
-    assert.ok(ATTRIBUTES.includes("ci/*.json merge=aios-record"), "migrate --team routes ci records through the driver");
+    assert.equal(existsSync(join(d, "rein-state-conflicts")), false);
+    assert.ok(ATTRIBUTES.includes("ci/*.json merge=rein-record"), "migrate --team routes ci records through the driver");
   } finally { done(); }
 });
 

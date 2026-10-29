@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AIOS_SUITE_TIMEOUT=300   (E-307: launch_vars' acceptance runs ~140 s on an idle host; the 180 s default leaves too little headroom)
+# REIN_SUITE_TIMEOUT=300   (E-307: launch_vars' acceptance runs ~140 s on an idle host; the 180 s default leaves too little headroom)
 # harness_isolation_test.sh — E-156 / E-157 (test-harness-isolation.md)
 # Verifies tests/run.sh isolates MCP config into an ephemeral .mcp.test.json,
 # exports MCP_CONFIG_PATH, and tears artifacts down via a trap on any exit.
@@ -23,9 +23,9 @@ run_sh_body="$(cat "$RUN_SH")"
 
 # ── E-157: cleanup trap registered for EXIT, INT, and TERM ────────────────────
 assert_contains "run.sh registers cleanup trap on EXIT/INT/TERM" \
-  'trap _aios_test_cleanup EXIT INT TERM' "$run_sh_body"
+  'trap _rein_test_cleanup EXIT INT TERM' "$run_sh_body"
 assert_contains "run.sh defines the cleanup function" \
-  '_aios_test_cleanup() {' "$run_sh_body"
+  '_rein_test_cleanup() {' "$run_sh_body"
 
 # ── E-156: generates .mcp.test.json and exports MCP_CONFIG_PATH ───────────────
 assert_contains "run.sh names the ephemeral config .mcp.test.json" \
@@ -48,7 +48,7 @@ _md5() { md5 -q "$1" 2>/dev/null || md5sum "$1" | awk '{print $1}'; }
 mcp_before=""
 [[ -f "${REPO_ROOT}/.mcp.json" ]] && mcp_before="$(_md5 "${REPO_ROOT}/.mcp.json")"
 
-bash "$RUN_SH" '__aios_iso_nomatch__' >/dev/null 2>&1 || true
+bash "$RUN_SH" '__rein_iso_nomatch__' >/dev/null 2>&1 || true
 
 if [[ ! -e "${REPO_ROOT}/.mcp.test.json" ]]; then
   _pass "no .mcp.test.json left at repo root after run (trap cleaned up)"
@@ -140,7 +140,7 @@ assert_status 1 "E-251.07: the standards runner does not filter roots for existe
 # `sleep N` site now uses. True as soon as the event happens; false at the deadline with the
 # documented message; a predicate function may set state the caller reads (it runs in-shell).
 _wf_dir="$(test_tmpdir waitfor)"
-( sleep 0.3; touch "${_wf_dir}/ready" ) &   # AIOS_SLEEP_ALLOWED: the delayed event under test
+( sleep 0.3; touch "${_wf_dir}/ready" ) &   # REIN_SLEEP_ALLOWED: the delayed event under test
 _wf_t0=$SECONDS
 assert_status 0 "E-307.F1: wait_for returns 0 once the condition holds" wait_for "[ -e '${_wf_dir}/ready' ]" 5000
 assert_status 0 "E-307.F2: …without waiting out the timeout ($(( SECONDS - _wf_t0 ))s of 5s)" test $(( SECONDS - _wf_t0 )) -le 2
@@ -151,7 +151,7 @@ _wf_rc=0; _wf_err="$(wait_for false 300 100 2>&1)" || _wf_rc=$?
 assert_status 0 "E-307.F4: wait_for returns 1 at the deadline (rc=${_wf_rc})" test "$_wf_rc" -eq 1
 assert_contains "E-307.F5: …and says which condition and how long" "wait_for: false not true after 300 ms" "$_wf_err"
 assert_status 0 "E-307.F6: grep finds no unmarked fixed sleep in tests/suites" \
-  test -z "$(grep -nE 'sleep [0-9]' "${REPO_ROOT}"/tests/suites/*.sh | grep -v AIOS_SLEEP_ALLOWED)"
+  test -z "$(grep -nE 'sleep [0-9]' "${REPO_ROOT}"/tests/suites/*.sh | grep -v REIN_SLEEP_ALLOWED)"
 
 # ── A private socket does not isolate the CONFIG ─────────────────────────────
 # The operator's ~/.tmux.conf (tmux-continuum auto-restore) put their saved sessions into
@@ -159,22 +159,22 @@ assert_status 0 "E-307.F6: grep finds no unmarked fixed sleep in tests/suites" \
 # fixture HOME whose config sets a marker option, and prove the fixture itself would load.
 if skip_unless_cmd tmux "tmux config isolation"; then
   _cf_home="$(mktemp -d)"; register_cleanup "rm -rf '${_cf_home}'"
-  printf 'set -g @aios_conf_probe loaded\n' > "${_cf_home}/.tmux.conf"
-  _cf_real="${AIOS_TEST_REAL_TMUX:-}"
+  printf 'set -g @rein_conf_probe loaded\n' > "${_cf_home}/.tmux.conf"
+  _cf_real="${REIN_TEST_REAL_TMUX:-}"
   assert_status 0 "E-254.T1a: the tmux on PATH is the harness shim" \
-    bash -c "[[ '$(command -v tmux)' == '${AIOS_TEST_TMUX_SHIM:-/nonexistent}/tmux' && -x '${_cf_real}' ]]"
+    bash -c "[[ '$(command -v tmux)' == '${REIN_TEST_TMUX_SHIM:-/nonexistent}/tmux' && -x '${_cf_real}' ]]"
 
   _cf_sock="$(test_tmux_socket conf)"
   HOME="$_cf_home" tmux -L "$_cf_sock" new-session -d -s probe 2>/dev/null
   assert_not_contains "E-254.T1b: a server started through the harness loads no config" \
-    "loaded" "$(tmux -L "$_cf_sock" show-options -gqv @aios_conf_probe 2>/dev/null)"
+    "loaded" "$(tmux -L "$_cf_sock" show-options -gqv @rein_conf_probe 2>/dev/null)"
   tmux -L "$_cf_sock" kill-server 2>/dev/null || true
 
   # Non-vacuity: the same fixture, started with the real binary, DOES load the marker.
   _cf_sock2="$(test_tmux_socket conf2)"
   HOME="$_cf_home" XDG_CONFIG_HOME="${_cf_home}/.config" "$_cf_real" -L "$_cf_sock2" new-session -d -s probe 2>/dev/null
   assert_contains "E-254.T1c: without the shim the fixture config is loaded (guards T1b)" \
-    "loaded" "$("$_cf_real" -L "$_cf_sock2" show-options -gqv @aios_conf_probe 2>/dev/null)"
+    "loaded" "$("$_cf_real" -L "$_cf_sock2" show-options -gqv @rein_conf_probe 2>/dev/null)"
   "$_cf_real" -L "$_cf_sock2" kill-server 2>/dev/null || true
 fi
 
@@ -190,7 +190,7 @@ H="$(mktemp -d)"
 printf '{}' | HOME="$H" bash "${REPO_ROOT}/hooks/stop-hook.sh"
 BARE
 _fc_rc=0
-_fc_out="$(AIOS_TEST_SUITES_DIR="$_fc/suites" bash "$RUN_SH" 2>&1)" || _fc_rc=$?
+_fc_out="$(REIN_TEST_SUITES_DIR="$_fc/suites" bash "$RUN_SH" 2>&1)" || _fc_rc=$?
 assert_status 0 "E-345.01a: a suite running a hook under a bare fixture HOME fails the run" test "$_fc_rc" -eq 1
 assert_contains "E-345.01b: …naming the suite and the rule" "[FIXTURE_HOME_NO_RECORD] bare_home_test.sh" "$_fc_out"
 assert_not_contains "E-345.01c: …before any suite runs" "Suites found" "$_fc_out"
@@ -203,14 +203,14 @@ assert_status 1 "E-345.01e: an exemption without a reason is refused" \
 assert_status 0 "E-345.01f: every suite and node unit test passes the census (record through the helper, or a listed reason)" \
   node --no-warnings "${REPO_ROOT}/tests/tools/fixture-home-census.mjs" "${REPO_ROOT}"/tests/suites/*.sh "${REPO_ROOT}"/tests/unit/*.test.mjs
 
-# The helper writes the record the install writes, and AIOS_TEST_EMPTY_FALLBACK=1 is not vacuous:
+# The helper writes the record the install writes, and REIN_TEST_EMPTY_FALLBACK=1 is not vacuous:
 # without the record, the emptied pin finds no node even on a host that has one in the list.
 _fh="$_fc/home"
-AIOS_TEST_EMPTY_FALLBACK=1 tc_fixture_home "$_fh"
-_pin_node() { HOME="$_fh" bash -c '. "$HOME/.ai-os/shared/toolchain-pin.sh"; printf "%s" "${AI_OS_TC_NODE:-none}"'; }
+REIN_TEST_EMPTY_FALLBACK=1 tc_fixture_home "$_fh"
+_pin_node() { HOME="$_fh" bash -c '. "$HOME/.rein/shared/toolchain-pin.sh"; printf "%s" "${REIN_TC_NODE:-none}"'; }
 assert_contains "E-345.02a: the record names this host's node (its realpath, as the install records it)" \
   "$(. "${REPO_ROOT}/src/shared/toolchain-record.sh"; ai_os_tc_realpath "$(command -v node)")" "$(_pin_node)"
-mv "$_fh/.ai-os/shared/toolchain.sh" "$_fc/record.moved"
+mv "$_fh/.rein/shared/toolchain.sh" "$_fc/record.moved"
 assert_contains "E-345.02b: with the fallback emptied and no record there is no node (the switch is not vacuous)" "none" "$(_pin_node)"
 
 
@@ -274,7 +274,7 @@ assert_status 1 "E-240.02b: cleanup registered INSIDE a subshell still runs" \
 
 # ── E-240.2b (E-302): a subshell that SOURCES the library keeps the parent's registry ──
 # The fixtures above are `( source "$LIB"; … )` mini-suites. A subshell shares `$$`, and the
-# registry was `aios-cleanup-$$`: sourcing truncated the PARENT's registry and the subshell's
+# registry was `rein-cleanup-$$`: sourcing truncated the PARENT's registry and the subshell's
 # EXIT handler deleted it, so every cleanup this suite had registered before that point was
 # lost. Harmless while these rows were their own suite; merged after other sections (E-302),
 # harness_isolation leaked 9 temp dirs and tmux sockets under CI (9a91f1f).
@@ -289,7 +289,7 @@ _n1="$( source "$LIB"; test_tmux_socket n )"
 _n2="$( source "$LIB"; test_tmux_socket n )"
 assert_status 1 "E-240.03a: two sockets in a row are not the same name" \
   bash -c "[[ '$_n1' == '$_n2' ]]"
-assert_match "E-240.03b: the name carries the sweepable test prefix" '^aios-test-' "$_n1"
+assert_match "E-240.03b: the name carries the sweepable test prefix" '^rein-test-' "$_n1"
 assert_status 1 "E-240.03c: helpers do not use \$\$ for socket names" \
   bash -c "sed -n '/^test_tmux_socket() {/,/^}/p' '$LIB' | grep -q '\\\$\\\$'"
 
@@ -299,12 +299,12 @@ if skip_unless_cmd tmux "E-240.04: the sweep spares a real foreign tmux server";
   # A sweep that can kill the operator's own tmux session is worse than the leak it fixes.
   _foreign="e240-not-a-test-socket-$$"
   tmux -L "$_foreign" new-session -d -s work 2>/dev/null
-  _victim="aios-test-victim-$(basename "$(mktemp -u)")"
+  _victim="rein-test-victim-$(basename "$(mktemp -u)")"
   tmux -L "$_victim" new-session -d -s v 2>/dev/null
   assert_status 0 "E-240.04a: both probe servers are up (non-vacuity)" \
     bash -c "tmux -L '$_foreign' has-session -t work 2>/dev/null && tmux -L '$_victim' has-session -t v 2>/dev/null"
   bash -c "
-    AIOS_TEST_SOCK_PREFIX='aios-test-'; AIOS_TEST_TMP_PREFIX='aios-t-'
+    REIN_TEST_SOCK_PREFIX='rein-test-'; REIN_TEST_TMP_PREFIX='rein-t-'
     eval \"\$(sed -n '/^_leak_sweep() {/,/^}/p' '$RUNNER')\"
     _leak_sweep 'tmux-server|$_foreign
 tmux-server|$_victim'" >/dev/null 2>&1
@@ -325,17 +325,17 @@ assert_status 0 "E-240.05c: a leak FAILS the run on CI" \
   bash -c "grep -A3 'LEAK_FAILED' '$RUNNER' | grep -q 'TOTAL_FAIL'"
 assert_status 0 "E-240.05d: --sweep is offered locally" \
   grep -q 'tests/run.sh --sweep' "$RUNNER"
-assert_status 0 "E-240.05e: AI_OS_TEST_NO_SWEEP=1 disables the check" \
-  grep -q 'AI_OS_TEST_NO_SWEEP' "$RUNNER"
+assert_status 0 "E-240.05e: REIN_TEST_NO_SWEEP=1 disables the check" \
+  grep -q 'REIN_TEST_NO_SWEEP' "$RUNNER"
 # The sweep re-checks the prefix at the kill site as well as at snapshot time. Defence in
 # depth on the one branch that can destroy an operator's session.
 assert_status 0 "E-240.05f: the sweep re-checks the prefix before killing" \
-  bash -c "sed -n '/^_leak_sweep() {/,/^}/p' '$RUNNER' | grep -q 'AIOS_TEST_SOCK_PREFIX}\"\\*'"
+  bash -c "sed -n '/^_leak_sweep() {/,/^}/p' '$RUNNER' | grep -q 'REIN_TEST_SOCK_PREFIX}\"\\*'"
 
-# ── E-265: a leak FAILS a local CI run (AI_OS_CI=local) too ─────────────
+# ── E-265: a leak FAILS a local CI run (REIN_CI=local) too ─────────────
 # Behavioural, not a grep: a copy of the real runner drives one suite that leaks a
 # test-prefixed temp dir. Without a CI flag the run passes and offers --sweep; under
-# AI_OS_CI=local (what `ai ci run` sets) the same leak fails the run.
+# REIN_CI=local (what `ai ci run` sets) the same leak fails the run.
 _LK="$(test_tmpdir leakrun)"
 mkdir -p "${_LK}/tests/suites" "${_LK}/tmp"
 cp "$RUNNER" "${_LK}/tests/run.sh"
@@ -346,21 +346,21 @@ cp "${REPO_ROOT}/tests/fixtures/fixture-home-exemptions.json" "${_LK}/tests/fixt
 cp -R "${REPO_ROOT}/tests/lib" "${_LK}/tests/lib"
 cat > "${_LK}/tests/suites/leaky_test.sh" <<'LEAKY'
 #!/usr/bin/env bash
-mkdir -p "${TMPDIR%/}/${AIOS_TEST_TMP_PREFIX:-aios-t-}leaky-fixture"
+mkdir -p "${TMPDIR%/}/${REIN_TEST_TMP_PREFIX:-rein-t-}leaky-fixture"
 echo "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"
 LEAKY
 _lk_run() {  # <env-assignments...> → "<exit> <output>"
   local out rc
-  out="$(env -u CI -u AI_OS_CI -u AI_OS_TEST_NO_SWEEP TMPDIR="${_LK}/tmp" "$@" \
+  out="$(env -u CI -u REIN_CI -u REIN_TEST_NO_SWEEP TMPDIR="${_LK}/tmp" "$@" \
          bash "${_LK}/tests/run.sh" 2>&1)"; rc=$?
-  rm -rf "${_LK}/tmp/${AIOS_TEST_TMP_PREFIX}leaky-fixture"
+  rm -rf "${_LK}/tmp/${REIN_TEST_TMP_PREFIX}leaky-fixture"
   printf '%s %s' "$rc" "$out"
 }
-_lk_plain="$(_lk_run AI_OS_CI=)"
+_lk_plain="$(_lk_run REIN_CI=)"
 assert_contains "E-265.L1: the fixture really leaks (non-vacuity)" "LEAKED external state: 1" "$_lk_plain"
 assert_contains "E-265.L2: without a CI flag the leak is reported, the run passes" "0 " "${_lk_plain:0:2}"
-_lk_local="$(_lk_run AI_OS_CI=local)"
-assert_contains "E-265.L3: under AI_OS_CI=local the leak FAILS the run" "[LEAK_FAILED]" "$_lk_local"
+_lk_local="$(_lk_run REIN_CI=local)"
+assert_contains "E-265.L3: under REIN_CI=local the leak FAILS the run" "[LEAK_FAILED]" "$_lk_local"
 assert_contains "E-265.L4: and the run exits 1" "1 " "${_lk_local:0:2}"
 # Removed HERE as well as registered: a later block re-sources the library in a subshell
 # with the same $$, which truncates the registry file and would drop this handler.
@@ -368,7 +368,7 @@ rm -rf "${_LK}"
 
 # ── E-307 (D-091): every suite has a deadline ────────────────────────────────────────────
 # A fixture runner: a copy of the runner drives a suite that hangs past its
-# own `# AIOS_SUITE_TIMEOUT=2` header (a child it started hangs too), then a passing suite.
+# own `# REIN_SUITE_TIMEOUT=2` header (a child it started hangs too), then a passing suite.
 # The hung one is killed WITH its process group, reported and counted FAIL; the run goes on.
 _WD="$(test_tmpdir watchdog)"
 mkdir -p "${_WD}/tests/suites"
@@ -381,14 +381,14 @@ cp "${REPO_ROOT}/tests/fixtures/fixture-home-exemptions.json" "${_WD}/tests/fixt
 _WD_MARK="wdhang$(od -An -N4 -tx4 /dev/urandom | tr -d ' ')"
 cat > "${_WD}/tests/suites/a_hang_test.sh" <<WDEOF
 #!/usr/bin/env bash
-# AIOS_SUITE_TIMEOUT=2
-bash -c 'exec -a ${_WD_MARK} sleep 100' &   # AIOS_SLEEP_ALLOWED: the hang under test
+# REIN_SUITE_TIMEOUT=2
+bash -c 'exec -a ${_WD_MARK} sleep 100' &   # REIN_SLEEP_ALLOWED: the hang under test
 wait
 echo "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"
 WDEOF
 printf '#!/usr/bin/env bash\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_WD}/tests/suites/b_after_test.sh"
 _wd_t0=$SECONDS
-_wd_out="$(env -u CI -u AI_OS_CI -u AI_OS_TEST_NO_SWEEP bash "${_WD}/tests/run.sh" 2>&1)"; _wd_rc=$?
+_wd_out="$(env -u CI -u REIN_CI -u REIN_TEST_NO_SWEEP bash "${_WD}/tests/run.sh" 2>&1)"; _wd_rc=$?
 _wd_s=$(( SECONDS - _wd_t0 ))
 assert_contains "E-307.W1: the hung suite is reported at its own 2 s budget" "[SUITE_TIMEOUT] a_hang_test.sh after 2s" "$_wd_out"
 assert_contains "E-307.W2: …and counted FAIL" "a_hang_test.sh (0 passed, 1 failed)" "$_wd_out"
@@ -417,43 +417,43 @@ printf '#!/usr/bin/env bash\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_L
 cat > "${_LN}/tests/suites/b_leak_test.sh" <<'LNEOF'
 #!/usr/bin/env bash
 # A real suite takes its prefix from assert.sh, which defaults it; a serial runner exports none.
-mkdir -p "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX:-aios-t-}leakfixture"
-echo "prefix=${AIOS_TEST_TMP_PREFIX:-aios-t-}"
+mkdir -p "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX:-rein-t-}leakfixture"
+echo "prefix=${REIN_TEST_TMP_PREFIX:-rein-t-}"
 echo "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"
 LNEOF
-printf '#!/usr/bin/env bash\n# AIOS_EXCLUSIVE: perf\necho "excl prefix=${AIOS_TEST_TMP_PREFIX}"\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/c_excl_test.sh"
-mkdir -p "${_LN}/home"   # a tiny throwaway HOME: under AI_OS_CI a lane clones HOME
-_ln_run() { env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS=/nonexistent AIOS_TEST_FREE_MB=4096 "$@" bash "${_LN}/tests/run.sh" 2>&1; }
-_ln_out="$(_ln_run AI_OS_CI=local AIOS_TEST_LANES=2)"; _ln_rc=$?
-rm -rf "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}L2-leakfixture" "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}L1-leakfixture"
+printf '#!/usr/bin/env bash\n# REIN_EXCLUSIVE: perf\necho "excl prefix=${REIN_TEST_TMP_PREFIX}"\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/c_excl_test.sh"
+mkdir -p "${_LN}/home"   # a tiny throwaway HOME: under REIN_CI a lane clones HOME
+_ln_run() { env -u CI -u REIN_TEST_NO_SWEEP HOME="${_LN}/home" REIN_TEST_WALL_HINTS=/nonexistent REIN_TEST_FREE_MB=4096 "$@" bash "${_LN}/tests/run.sh" 2>&1; }
+_ln_out="$(_ln_run REIN_CI=local REIN_TEST_LANES=2)"; _ln_rc=$?
+rm -rf "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}L2-leakfixture" "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}L1-leakfixture"
 assert_contains "E-309.L1: the leak names its lane and suite" "(lane 2 b_leak_test.sh)" "$_ln_out"
-assert_contains "E-309.L2: …and FAILS under AI_OS_CI=local" "[LEAK_FAILED]" "$_ln_out"
+assert_contains "E-309.L2: …and FAILS under REIN_CI=local" "[LEAK_FAILED]" "$_ln_out"
 assert_status 0 "E-309.L3: the run exits non-zero (rc=${_ln_rc})" test "$_ln_rc" -ne 0
-assert_contains "E-309.L4: a lane owns its prefix" "prefix=${AIOS_TEST_TMP_PREFIX}L2-" "$_ln_out"
-# run.sh exports no prefix of its own (a suite takes aios-t- from assert.sh), so "the run's
+assert_contains "E-309.L4: a lane owns its prefix" "prefix=${REIN_TEST_TMP_PREFIX}L2-" "$_ln_out"
+# run.sh exports no prefix of its own (a suite takes rein-t- from assert.sh), so "the run's
 # own prefix" is: the exclusive suite ran, and no lane's prefix reached it.
 assert_contains "E-309.L5: the exclusive suite runs after the lanes…" "excl prefix=" "$_ln_out"
-assert_not_contains "E-309.L5b: …under the run's own prefix, not a lane's" "excl prefix=${AIOS_TEST_TMP_PREFIX}L" "$_ln_out"
+assert_not_contains "E-309.L5b: …under the run's own prefix, not a lane's" "excl prefix=${REIN_TEST_TMP_PREFIX}L" "$_ln_out"
 assert_contains "E-309.L6: the split is printed" "2 shared suite(s) in 2 lanes, then 1 exclusive suite(s) serially" "$_ln_out"
 _ln_order="$(printf '%s\n' "$_ln_out" | sed -nE 's/^  [✓✗] ([a-z_]+_test\.sh) .*/\1/p' | tr '\n' ' ')"
 assert_contains "E-309.L7: results are printed in suite order, not finish order" "a_ok_test.sh b_leak_test.sh c_excl_test.sh" "$_ln_order"
-_ln_one="$(_ln_run AIOS_TEST_LANES=1)"
-rm -rf "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}leakfixture"
-_ln_two="$(_ln_run AIOS_TEST_LANES=2)"
-rm -rf "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}L2-leakfixture" "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}L1-leakfixture"
+_ln_one="$(_ln_run REIN_TEST_LANES=1)"
+rm -rf "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}leakfixture"
+_ln_two="$(_ln_run REIN_TEST_LANES=2)"
+rm -rf "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}L2-leakfixture" "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}L1-leakfixture"
 assert_status 0 "E-309.L8: --lanes 1 and --lanes 2 give the same suite results and totals" \
   test "$(printf '%s\n' "$_ln_one" | grep -E '^  [✓✗] |Total:')" = "$(printf '%s\n' "$_ln_two" | grep -E '^  [✓✗] |Total:')"
-_ln_cap="$(_ln_run AIOS_TEST_LANES=3)"; _ln_crc=$?
+_ln_cap="$(_ln_run REIN_TEST_LANES=3)"; _ln_crc=$?
 assert_contains "E-309.L9: a request above the memory cap is refused with the cap on one line" "--lanes 3 refused — memory cap is 2 lane(s) (4096 MB free / 1536 MB per lane)" "$_ln_cap"
 assert_status 0 "E-309.L9b: …exit 2 (rc=${_ln_crc})" test "$_ln_crc" -eq 2
 # E-332 found it: `ai ci run` passes an EMPTY hint when no log of the project is left, and the
-# runner's own fallback search over ~/.ai-os/ci/logs found none with CENSUS lines either — the
+# runner's own fallback search over ~/.rein/ci/logs found none with CENSUS lines either — the
 # search's failed last grep killed run.sh under set -e with no message, 0 suites run. A missing
 # hint is not an error (E-309).
-mkdir -p "${_LN}/home/.ai-os/ci/logs"
-printf '[ci] repo=/elsewhere\n[ci] result status=PASS\n' > "${_LN}/home/.ai-os/ci/logs/other-project.log"
-_ln_nohint="$(env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS= AIOS_TEST_FREE_MB=4096 AIOS_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
-rm -rf "${_LN}/home/.ai-os" "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}L2-leakfixture" "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}L1-leakfixture"
+mkdir -p "${_LN}/home/.rein/ci/logs"
+printf '[ci] repo=/elsewhere\n[ci] result status=PASS\n' > "${_LN}/home/.rein/ci/logs/other-project.log"
+_ln_nohint="$(env -u CI -u REIN_TEST_NO_SWEEP HOME="${_LN}/home" REIN_TEST_WALL_HINTS= REIN_TEST_FREE_MB=4096 REIN_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
+rm -rf "${_LN}/home/.rein" "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}L2-leakfixture" "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}L1-leakfixture"
 assert_contains "E-309.L10: no log with CENSUS lines anywhere → the run still reaches its lanes" "Lanes: 2" "$_ln_nohint"
 assert_contains "E-309.L10b: …and runs every suite" "Total: " "$_ln_nohint"
 
@@ -462,11 +462,11 @@ assert_contains "E-309.L10b: …and runs every suite" "Total: " "$_ln_nohint"
 # installer lines give one a harness temp HOME and the other a foreign one.
 rm -f "${_LN}/tests/suites/"*_test.sh
 for _s in d_own e_foreign f_unmeasured; do
-  printf '#!/usr/bin/env bash\n# AIOS_INSTALLER_SUBJECT: fixture\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/${_s}_test.sh"
+  printf '#!/usr/bin/env bash\n# REIN_INSTALLER_SUBJECT: fixture\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/${_s}_test.sh"
 done
-printf 'CENSUS_SUITE\td_own_test.sh\t100\t1\t0\t0\t0\nCENSUS_FP\td_own_test.sh\t2\tinstaller\tai init\ttmp\nCENSUS_FP\te_foreign_test.sh\t1\tinstaller\tinstall-ai-os.sh\tforeign:/srv/shared\n' > "${_LN}/hints.log"
-_ln_cls="$(env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS="${_LN}/hints.log" AIOS_TEST_FREE_MB=4096 \
-  AIOS_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
+printf 'CENSUS_SUITE\td_own_test.sh\t100\t1\t0\t0\t0\nCENSUS_FP\td_own_test.sh\t2\tinstaller\tai init\ttmp\nCENSUS_FP\te_foreign_test.sh\t1\tinstaller\tinstall-rein.sh\tforeign:/srv/shared\n' > "${_LN}/hints.log"
+_ln_cls="$(env -u CI -u REIN_TEST_NO_SWEEP HOME="${_LN}/home" REIN_TEST_WALL_HINTS="${_LN}/hints.log" REIN_TEST_FREE_MB=4096 \
+  REIN_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
 assert_contains "E-312.H1: a suite whose installer spawns all had a temp HOME shares a lane" "Lane: d_own_test.sh shared" "$_ln_cls"
 assert_contains "E-312.H2: a foreign installer HOME keeps it exclusive, with the reason" \
   "Lane: e_foreign_test.sh exclusive — installer HOME foreign:/srv/shared" "$_ln_cls"
@@ -474,12 +474,12 @@ assert_contains "E-312.H3: no measured footprint keeps it exclusive, with the re
   "Lane: f_unmeasured_test.sh exclusive — no measured installer footprint" "$_ln_cls"
 assert_contains "E-312.H4: the split counts them" "1 shared suite(s) in 2 lanes, then 2 exclusive suite(s) serially" "$_ln_cls"
 assert_match "E-312.H5: the memory figure and the per-lane number are on one line" \
-  'Memory: 4096 MB available \(AIOS_TEST_FREE_MB\) / 1536 MB per lane \(fallback: no recorded peak_sum_rss_mb\) → cap 2 lane\(s\)' "$_ln_cls"
+  'Memory: 4096 MB available \(REIN_TEST_FREE_MB\) / 1536 MB per lane \(fallback: no recorded peak_sum_rss_mb\) → cap 2 lane\(s\)' "$_ln_cls"
 sed -i.bak '2a\
-# AIOS_EXCLUSIVE: installer' "${_LN}/tests/suites/d_own_test.sh" && rm -f "${_LN}/tests/suites/d_own_test.sh.bak"
-_ln_cls="$(env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS="${_LN}/hints.log" AIOS_TEST_FREE_MB=4096 \
-  AIOS_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
-assert_contains "E-312.H6: # AIOS_EXCLUSIVE: installer forces it back" "Lane: d_own_test.sh exclusive — # AIOS_EXCLUSIVE: installer" "$_ln_cls"
+# REIN_EXCLUSIVE: installer' "${_LN}/tests/suites/d_own_test.sh" && rm -f "${_LN}/tests/suites/d_own_test.sh.bak"
+_ln_cls="$(env -u CI -u REIN_TEST_NO_SWEEP HOME="${_LN}/home" REIN_TEST_WALL_HINTS="${_LN}/hints.log" REIN_TEST_FREE_MB=4096 \
+  REIN_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
+assert_contains "E-312.H6: # REIN_EXCLUSIVE: installer forces it back" "Lane: d_own_test.sh exclusive — # REIN_EXCLUSIVE: installer" "$_ln_cls"
 
 # ── E-386 (D-135 r2, r3, r6): hints from the committed baseline; shards; the serial tail ──
 # Extends the lane fixture above: five shared suites, the node unit layer, one exclusive and
@@ -488,27 +488,27 @@ rm -f "${_LN}/tests/suites/"*_test.sh
 for _s in p1 p2 p3 p4 p5 node_unit; do
   printf '#!/usr/bin/env bash\necho "RAN %s_test.sh"\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' "$_s" > "${_LN}/tests/suites/${_s}_test.sh"
 done
-printf '#!/usr/bin/env bash\n# AIOS_EXCLUSIVE: perf\necho "RAN q_excl_test.sh"\necho "SUITE_RESULT PASS=2 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/q_excl_test.sh"
-printf '#!/usr/bin/env bash\n# AIOS_INSTALLER_SUBJECT: fixture\necho "RAN r_inst_test.sh"\necho "SUITE_RESULT PASS=3 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/r_inst_test.sh"
-_ln_b() { env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS= AIOS_TEST_FREE_MB=4096 "$@" bash "${_LN}/tests/run.sh" 2>&1; }
-_ln_out="$(_ln_b AIOS_TEST_LANES=2)"
+printf '#!/usr/bin/env bash\n# REIN_EXCLUSIVE: perf\necho "RAN q_excl_test.sh"\necho "SUITE_RESULT PASS=2 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/q_excl_test.sh"
+printf '#!/usr/bin/env bash\n# REIN_INSTALLER_SUBJECT: fixture\necho "RAN r_inst_test.sh"\necho "SUITE_RESULT PASS=3 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/r_inst_test.sh"
+_ln_b() { env -u CI -u REIN_TEST_NO_SWEEP HOME="${_LN}/home" REIN_TEST_WALL_HINTS= REIN_TEST_FREE_MB=4096 "$@" bash "${_LN}/tests/run.sh" 2>&1; }
+_ln_out="$(_ln_b REIN_TEST_LANES=2)"
 assert_contains "E-386.B1: no local log and no baseline → hints: none" "Lane: hints: none" "$_ln_out"
 assert_contains "E-386.B1b: …so the installer-subject suite stays out of the lanes" \
   "Lane: r_inst_test.sh exclusive — no measured installer footprint" "$_ln_out"
 assert_match "E-386.X1: the serial tail is measured beside the totals" '\[run\] exclusive_seconds=[0-9]+ exclusive_suites=2' "$_ln_out"
-_ln_out="$(env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS="${_LN}/hints.log" AIOS_TEST_FREE_MB=4096 AIOS_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
+_ln_out="$(env -u CI -u REIN_TEST_NO_SWEEP HOME="${_LN}/home" REIN_TEST_WALL_HINTS="${_LN}/hints.log" REIN_TEST_FREE_MB=4096 REIN_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
 assert_contains "E-386.B2: a local log wins and is named" "Lane: hints: log ${_LN}/hints.log" "$_ln_out"
 { printf '# census-baseline fixture\nCENSUS_RUN\t2026-10-29T00:00:00Z\tabc\t*_test.sh\n'
   for _s in p1:9000 p2:7000 p3:5000 p4:3000 p5:1000 node_unit:20000 q_excl:4000 r_inst:2000; do
     printf 'CENSUS_SUITE\t%s_test.sh\t%s\t1\t0\t0\t0\n' "${_s%%:*}" "${_s##*:}"; done
-  printf 'CENSUS_FP\tr_inst_test.sh\t1\tinstaller\tinstall-ai-os.sh\ttmp\n'; } > "${_LN}/tests/census-baseline.tsv"
-_ln_full="$(_ln_b AIOS_TEST_LANES=2)"
+  printf 'CENSUS_FP\tr_inst_test.sh\t1\tinstaller\tinstall-rein.sh\ttmp\n'; } > "${_LN}/tests/census-baseline.tsv"
+_ln_full="$(_ln_b REIN_TEST_LANES=2)"
 assert_contains "E-386.B3: no local log → the committed baseline, named" "Lane: hints: baseline" "$_ln_full"
 assert_contains "E-386.B4: …whose installer footprint lets the installer-subject suite share a lane" "Lane: r_inst_test.sh shared" "$_ln_full"
 _ln_tot="$(printf '%s\n' "$_ln_full" | sed -nE 's/^ *Total: ([0-9]+) passed.*/\1/p')"
 _ln_ran="" _ln_sum=0
 for _i in 1 2 3; do
-  _o="$(_ln_b AIOS_TEST_SHARD="${_i}/3")"
+  _o="$(_ln_b REIN_TEST_SHARD="${_i}/3")"
   assert_match "E-386.S${_i}: shard ${_i}/3 prints its share" "Shard ${_i}/3: [0-9]+ shared, [0-9]+ exclusive \\(est\\. [0-9]+ s\\)" "$_o"
   [[ "$_i" == 1 ]] && assert_contains "E-386.S1b: the node unit layer is in shard 1" "RAN node_unit_test.sh" "$_o"
   _ln_ran+="$(printf '%s\n' "$_o" | sed -nE 's/^RAN (.*)$/\1/p')"$'\n'
@@ -518,7 +518,7 @@ _ln_ran="$(printf '%s' "$_ln_ran" | grep . | sort | tr '\n' ' ' | sed 's/ $//')"
 assert_status 0 "E-386.S4: shards 1..3 together run every suite exactly once (${_ln_ran})" \
   test "$_ln_ran" == "node_unit_test.sh p1_test.sh p2_test.sh p3_test.sh p4_test.sh p5_test.sh q_excl_test.sh r_inst_test.sh"
 assert_status 0 "E-386.S5: …with one full run's totals (${_ln_sum} vs ${_ln_tot})" test "${_ln_tot:-x}" == "$_ln_sum"
-_o="$(_ln_b AIOS_TEST_SHARD=4/3)"; _rc=$?
+_o="$(_ln_b REIN_TEST_SHARD=4/3)"; _rc=$?
 assert_status 0 "E-386.S6: --shard 4/3 is refused, exit 2 (rc=${_rc})" test "$_rc" -eq 2
 _o="$(env -u CI HOME="${_LN}/home" bash "${_LN}/tests/run.sh" --tier fast --shard 1/2 2>&1)"; _rc=$?
 assert_status 0 "E-386.S7: --shard with --tier fast is refused, exit 2 (rc=${_rc})" test "$_rc" -eq 2
@@ -541,7 +541,7 @@ echo "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"
 MEMEOF
 if skip_unless_cmd /usr/bin/time "E-313.M1-M3: the concurrent-memory fixture needs /usr/bin/time"; then
   _tflag="-l"; [[ "$(uname -s)" == "Darwin" ]] || _tflag="-v"
-  _ln_mem="$(env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS=/nonexistent \
+  _ln_mem="$(env -u CI -u REIN_TEST_NO_SWEEP HOME="${_LN}/home" REIN_TEST_WALL_HINTS=/nonexistent \
     /usr/bin/time "$_tflag" -o "${_LN}/rusage.txt" bash "${_LN}/tests/run.sh" 2>&1)"
   _sum_mb="$(printf '%s\n' "$_ln_mem" | sed -nE 's/^\[run\] peak_sum_rss_mb=([0-9]+) .*/\1/p')"
   _max_mb="$(awk '/maximum resident set size/ && $1 ~ /^[0-9]+$/ {print int($1 / 1048576)}
@@ -556,12 +556,12 @@ if skip_unless_cmd /usr/bin/time "E-313.M1-M3: the concurrent-memory fixture nee
 fi
 # The per-lane figure comes from the last record's sum: 2000 MB at 4 lanes × 1.25 = 625 MB;
 # a sum that small per lane is floored at 512 MB.
-printf '[run] peak_sum_rss_mb=2000 samples=900 sampler_cpu_ms=7000\n[ci] resources lanes=4 peak_rss_mb=281 suite_seconds=870 runner=aios\n' > "${_LN}/rec.log"
-_ln_rec="$(env -u CI HOME="${_LN}/home" AIOS_TEST_WALL_HINTS="${_LN}/rec.log" AIOS_TEST_FREE_MB=4096 AIOS_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
+printf '[run] peak_sum_rss_mb=2000 samples=900 sampler_cpu_ms=7000\n[ci] resources lanes=4 peak_rss_mb=281 suite_seconds=870 runner=rein\n' > "${_LN}/rec.log"
+_ln_rec="$(env -u CI HOME="${_LN}/home" REIN_TEST_WALL_HINTS="${_LN}/rec.log" REIN_TEST_FREE_MB=4096 REIN_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
 assert_contains "E-313.P1: per-lane = last peak_sum_rss_mb / its lanes × 1.25, with the source" \
-  "4096 MB available (AIOS_TEST_FREE_MB) / 625 MB per lane (last peak_sum_rss_mb 2000 at 4 lane(s) × 1.25) → cap 6 lane(s)" "$_ln_rec"
-printf '[run] peak_sum_rss_mb=800 samples=900 sampler_cpu_ms=7000\n[ci] resources lanes=4 peak_rss_mb=281 suite_seconds=870 runner=aios\n' > "${_LN}/rec.log"
-_ln_rec="$(env -u CI HOME="${_LN}/home" AIOS_TEST_WALL_HINTS="${_LN}/rec.log" AIOS_TEST_FREE_MB=4096 AIOS_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
+  "4096 MB available (REIN_TEST_FREE_MB) / 625 MB per lane (last peak_sum_rss_mb 2000 at 4 lane(s) × 1.25) → cap 6 lane(s)" "$_ln_rec"
+printf '[run] peak_sum_rss_mb=800 samples=900 sampler_cpu_ms=7000\n[ci] resources lanes=4 peak_rss_mb=281 suite_seconds=870 runner=rein\n' > "${_LN}/rec.log"
+_ln_rec="$(env -u CI HOME="${_LN}/home" REIN_TEST_WALL_HINTS="${_LN}/rec.log" REIN_TEST_FREE_MB=4096 REIN_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
 assert_contains "E-313.P2: …floored at 512 MB" "/ 512 MB per lane (last peak_sum_rss_mb 800 at 4 lane(s) × 1.25) → cap 8 lane(s)" "$_ln_rec"
 rm -rf "${_LN}"
 
@@ -589,7 +589,7 @@ for _ls in "ai_start_test|test_tmux_socket" "ai_start_test (E-228 section)|test_
   assert_status 0 "E-240.06: ${_ls%%|*} uses test_tmux_socket" \
     grep -q "${_ls#*|}" "${REPO_ROOT}/tests/suites/ai_start_test.sh"
   assert_status 1 "E-240.06: ${_ls%%|*} no longer names a socket with \$\$" \
-    grep -q 'aios-e22[78]-\$\$' "${REPO_ROOT}/tests/suites/ai_start_test.sh"
+    grep -q 'rein-e22[78]-\$\$' "${REPO_ROOT}/tests/suites/ai_start_test.sh"
 done
 
 # ── E-240.7: review question #3 is recorded ──────────────────────────────
@@ -645,8 +645,8 @@ assert_status 0 "E-241.03a: on_exit is the documented spelling" grep -q '^on_exi
 assert_status 0 "E-241.03b: CLEANUP n handlers is printed" grep -q "CLEANUP %d handlers" "$LIB"
 assert_status 0 "E-241.03c: handlers run in their own subshell (one cannot skip the next)" \
   bash -c "sed -n '/^_run_cleanups() {/,/^}/p' '$LIB' | grep -q '( eval'"
-assert_status 0 "E-241.03d: AI_OS_TEST_NO_TRAP_CHAIN=1 restores the builtin" \
-  grep -q 'AI_OS_TEST_NO_TRAP_CHAIN' "$LIB"
+assert_status 0 "E-241.03d: REIN_TEST_NO_TRAP_CHAIN=1 restores the builtin" \
+  grep -q 'REIN_TEST_NO_TRAP_CHAIN' "$LIB"
 # The library's own installation MUST use `builtin`, or the shadow swallows it and no
 # handler is installed at all — which is exactly what happened on the first attempt.
 assert_status 0 "E-241.03e: the library installs its handler with builtin trap" \
@@ -713,9 +713,9 @@ assert_status 0 "E-241.05b: and in ai-debug" \
 echo ""
 
 # ── E-264 (from launch_vars_test — E-302, D-071 §4): inherited launch variables ──
-# The harness strips the variables `ai pane`, `ai start` and the AI-OS shell export, because the
+# The harness strips the variables `ai pane`, `ai start` and the Rein shell export, because the
 # hooks rank them above a test's own inputs. Pins: no dead LAUNCH_VARS entries; the strip and its
-# AI_OS_TEST_KEEP_LAUNCH_ENV=1 rollback; the harness started from a bound Architect pane.
+# REIN_TEST_KEEP_LAUNCH_ENV=1 rollback; the harness started from a bound Architect pane.
 LV="${REPO_ROOT}/tests/lib/launch-vars.sh"
 # ── E-264.1: no dead entries ───────────────────────────────────────────────
 echo "  [E-264.1] every LAUNCH_VARS entry is read by hooks/ or src/"
@@ -731,20 +731,20 @@ echo "  [E-264.2] strip_launch_vars"
 for v in "${LAUNCH_VARS[@]}"; do
   assert_status 0 "E-264.02a: ${v} is removed" \
     env "${v}=planted" bash -c "source '$LV'; strip_launch_vars; [[ -z \"\${${v}+x}\" ]]"
-  assert_status 0 "E-264.02b: AI_OS_TEST_KEEP_LAUNCH_ENV=1 keeps ${v}" \
-    env "${v}=planted" AI_OS_TEST_KEEP_LAUNCH_ENV=1 bash -c "source '$LV'; strip_launch_vars; [[ \"\${${v}}\" == planted ]]"
+  assert_status 0 "E-264.02b: REIN_TEST_KEEP_LAUNCH_ENV=1 keeps ${v}" \
+    env "${v}=planted" REIN_TEST_KEEP_LAUNCH_ENV=1 bash -c "source '$LV'; strip_launch_vars; [[ \"\${${v}}\" == planted ]]"
 done
 # A strip run in a $(…) subshell would evaporate (review question #4): the function prints
 # nothing, so a caller has no reason to capture it — assert that stays true.
 assert_status 0 "E-264.02c: the strip returns STATE, not data (prints nothing)" \
-  test -z "$(env AI_OS_PANE_ROLE=x bash -c "source '$LV'; strip_launch_vars")"
+  test -z "$(env REIN_PANE_ROLE=x bash -c "source '$LV'; strip_launch_vars")"
 
 # ── E-264.3: acceptance — the harness under a hostile launch environment ───
 echo "  [E-264.3] tests/run.sh started from a bound Architect pane"
 # Local mode explicitly: the outer run may be `ai ci run`. No sweep: the outer run owns it.
 _hostile() {
-  ( cd "$REPO_ROOT" && env -u AI_OS_CI -u CI AI_OS_PANE_ROLE=architect AI_OS_CALLER_ROLE=architect \
-      AIOS_WORKSPACE=/nonexistent AI_OS_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1
+  ( cd "$REPO_ROOT" && env -u REIN_CI -u CI REIN_PANE_ROLE=architect REIN_CALLER_ROLE=architect \
+      REIN_WORKSPACE=/nonexistent REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1
 }
 for s in git_lane_test role_token_test mcp_servers_test; do
   _out="$(_hostile "${s}.sh")"; _rc=$?
@@ -863,8 +863,8 @@ echo ""
 TI_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd -P)"
 TELEMETRY="${TI_ROOT}/src/shared/telemetry.mjs"
 FAKE_HOME="$(test_tmpdir tel-home)"
-mkdir -p "${FAKE_HOME}/.ai-os"
-LIVE="${FAKE_HOME}/.ai-os/telemetry.sqlite"
+mkdir -p "${FAKE_HOME}/.rein"
+LIVE="${FAKE_HOME}/.rein/telemetry.sqlite"
 _count() {  # <db> [session] → row count (0 when absent)
   [[ -f "$1" ]] || { echo 0; return; }
   node --no-warnings -e '
@@ -891,7 +891,7 @@ assert_status 0 "E-257.01b: with AI_TELEMETRY_DB_PATH set the live store is unch
 assert_status 0 "E-257.01c: …and the row went to the per-run store" test "$(_count "${TMPSTORE_DIR}/run.sqlite")" = "1"
 assert_status 0 "E-257.01d: --path prints the override" \
   test "$(AI_TELEMETRY_DB_PATH="${TMPSTORE_DIR}/run.sqlite" node --no-warnings "$TELEMETRY" --path)" = "${TMPSTORE_DIR}/run.sqlite"
-# "/x.sqlite": absolute, *.sqlite, directory exists — but outside the temp dir and ~/.ai-os,
+# "/x.sqlite": absolute, *.sqlite, directory exists — but outside the temp dir and ~/.rein,
 # the shape a hostile project env would use to aim writes at a foreign database.
 for bad in "relative.sqlite" "${TMPSTORE_DIR}/no-such-dir/x.sqlite" "${TMPSTORE_DIR}/x.db" "/x.sqlite"; do
   _p="$(HOME="$FAKE_HOME" AI_TELEMETRY_DB_PATH="$bad" node --no-warnings "$TELEMETRY" --path 2>/dev/null)"
@@ -918,10 +918,10 @@ printf '{"tool_name":"Bash","execution_time_ms":1,"status":"SUCCESS"}' | env -u 
 _pass "leaky fixture wrote to the live store"
 assert_summary
 EOF
-# Local mode explicitly (the outer run may be `ai ci run`, which sets AI_OS_CI=local and
+# Local mode explicitly (the outer run may be `ai ci run`, which sets REIN_CI=local and
 # switches the gate to the growth rule); the CI mode is driven separately below.
-_run() { ( cd "$TI_ROOT" && env -u AI_OS_CI -u CI HOME="$FAKE_HOME" AIOS_TEST_SUITES_DIR="$FIX" AI_OS_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
-_run_ci() { ( cd "$TI_ROOT" && env -u CI AI_OS_CI=local HOME="$FAKE_HOME" AIOS_TEST_SUITES_DIR="$FIX" AI_OS_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
+_run() { ( cd "$TI_ROOT" && env -u REIN_CI -u CI HOME="$FAKE_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
+_run_ci() { ( cd "$TI_ROOT" && env -u CI REIN_CI=local HOME="$FAKE_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
 
 _clean_out="$(_run 'clean_test.sh')"; _clean_rc=$?
 assert_status 0 "E-257.02a: a run whose suites use the redirect passes" test "$_clean_rc" -eq 0
@@ -1019,10 +1019,10 @@ assert_contains "E-239.02c: on CI the ratio does not rescue a regression" \
   "FAIL" "$(_verdict 'CI=true' 381 200 197)"
 
 # ── E-239.3: the override ────────────────────────────────────────────────
-assert_contains "E-239.03a: AI_OS_PERF_ABSOLUTE=1 forces absolute off CI" \
-  "FAIL" "$(_verdict 'CI=; AI_OS_PERF_ABSOLUTE=1' 381 200 197)"
+assert_contains "E-239.03a: REIN_PERF_ABSOLUTE=1 forces absolute off CI" \
+  "FAIL" "$(_verdict 'CI=; REIN_PERF_ABSOLUTE=1' 381 200 197)"
 assert_contains "E-239.03b: and it is honoured for a passing case too" \
-  "PASS" "$(_verdict 'CI=; AI_OS_PERF_ABSOLUTE=1' 150 200 197)"
+  "PASS" "$(_verdict 'CI=; REIN_PERF_ABSOLUTE=1' 150 200 197)"
 
 # ── E-239.4: k and slack are declarable per assertion ────────────────────
 assert_contains "E-239.04a: a tighter k=1 rejects what k=2 allowed" \
@@ -1060,15 +1060,15 @@ assert_match "E-239.06d: the hook baseline is a number" '^[0-9]+$' "$_h"
 assert_status 0 "E-239.06e: the baseline is a MEDIAN, not a mean" \
   grep -q 'runs\[len(runs) // 2\]' "${REPO_ROOT}/tests/lib/assert.sh"
 
-# ── E-265: a local CI run (AI_OS_CI=local) stays host-relative ───────────
-# `ai ci run` unsets CI and sets AI_OS_CI=local. This host is not the ubuntu reference
+# ── E-265: a local CI run (REIN_CI=local) stays host-relative ───────────
+# `ai ci run` unsets CI and sets REIN_CI=local. This host is not the ubuntu reference
 # machine the absolute budgets were calibrated on, so the incident case must still PASS.
-assert_contains "E-265.P1: AI_OS_CI=local keeps the relative budget (the 381ms incident passes)" \
-  "PASS" "$(_verdict 'CI=; AI_OS_CI=local' 381 200 197)"
-assert_contains "E-265.P2: AI_OS_CI=local still fails a genuinely slow path" \
-  "FAIL" "$(_verdict 'CI=; AI_OS_CI=local' 500 200 35)"
-assert_contains "E-265.P3: AI_OS_PERF_ABSOLUTE=1 still wins under AI_OS_CI=local" \
-  "FAIL" "$(_verdict 'CI=; AI_OS_CI=local; AI_OS_PERF_ABSOLUTE=1' 381 200 197)"
+assert_contains "E-265.P1: REIN_CI=local keeps the relative budget (the 381ms incident passes)" \
+  "PASS" "$(_verdict 'CI=; REIN_CI=local' 381 200 197)"
+assert_contains "E-265.P2: REIN_CI=local still fails a genuinely slow path" \
+  "FAIL" "$(_verdict 'CI=; REIN_CI=local' 500 200 35)"
+assert_contains "E-265.P3: REIN_PERF_ABSOLUTE=1 still wins under REIN_CI=local" \
+  "FAIL" "$(_verdict 'CI=; REIN_CI=local; REIN_PERF_ABSOLUTE=1' 381 200 197)"
 
 # ── E-239.7: the converted assertions, and the checklist ─────────────────
 assert_status 0 "E-239.07a: incident_aggregator uses assert_perf" \

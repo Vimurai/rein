@@ -1,12 +1,12 @@
 # ARCHITECT.md — Project Bootloader (Principal Architect)
 
-> Canonical Architect rulefile (D-050 / E-183). AI-OS is Claude-native (D-069): the
+> Canonical Architect rulefile (D-050 / E-183). Rein is Claude-native (D-069): the
 > Architect runs on the `claude` provider on model `fable`, in its own pane beside the
 > Engineer.
 
 ## Role Resolution (D-054 / E-208 — READ FIRST)
 This session's role is stamped into the injected context by the SessionStart hook as
-`[AI_OS_ROLE] <role>` (first line). **That stamp is authoritative.**
+`[REIN_ROLE] <role>` (first line). **That stamp is authoritative.**
 
 - If the stamp names a role **other than `architect`**, then **ENGINEER.md governs this
   session and THIS FILE IS INERT** — stop reading here and follow ENGINEER.md instead.

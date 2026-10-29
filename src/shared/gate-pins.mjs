@@ -9,7 +9,7 @@
 //
 //   node gate-pins.mjs check <mcp-dir>   0 all installed == pinned | 1 a DIFFERENT version is
 //                                        installed (one "[TOOLCHAIN_STALE] <pkg> <installed> !=
-//                                        <pinned> — run: bash install-ai-os.sh" line each) | 4 only
+//                                        <pinned> — run: bash install-rein.sh" line each) | 4 only
 //                                        MISSING ones ("[GATE_DEP_MISSING] …") — not drift: the gate
 //                                        fails closed without them ([SAFE_EXEC_UNAVAILABLE]) | 2 a range
 //   node gate-pins.mjs list  <mcp-dir>   "<pkg>@<version>" per gate dependency
@@ -76,7 +76,7 @@ function main(argv) {
       process.stdout.write(`[GATE_DEP_MISSING] ${r.pkg} not installed (pinned ${r.pinned}) — run: ai mcp-setup\n`);
     } else {
       drift++;
-      process.stdout.write(`[TOOLCHAIN_STALE] ${r.pkg} ${r.installed} != ${r.pinned} — run: bash install-ai-os.sh\n`);
+      process.stdout.write(`[TOOLCHAIN_STALE] ${r.pkg} ${r.installed} != ${r.pinned} — run: bash install-rein.sh\n`);
     }
   }
   return drift ? 1 : missing ? 4 : 0;

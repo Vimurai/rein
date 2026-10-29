@@ -45,7 +45,7 @@ jobs:
             exit 1
           fi
           installer=install-rein.sh
-          [ -f "$installer" ] || installer=install-ai-os.sh   # until E-383 renames it
+          [ -f "$installer" ] || installer=install-rein.sh   # until E-383 renames it
           printf '\n---\n\n`%s` sha256: `%s`\n' "$installer" "$(sha256sum "$installer" | cut -d' ' -f1)" >> notes.md
           gh release create "$TAG" --verify-tag --title "Rein ${TAG}" --notes-file notes.md
           echo "Release: $(gh release view "$TAG" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"

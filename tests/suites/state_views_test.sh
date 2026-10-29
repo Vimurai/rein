@@ -824,7 +824,7 @@ cp "$TEMPLATE" "${PROJ}/.ai/state.json"
 # Usage: run_add <ROLE> <args...>  → echoes stdout (the created id); stderr suppressed.
 run_add() {
   local role="$1"; shift
-  ( cd "$PROJ" && AI_OS_CALLER_ROLE="$role" node "$HELPER" "$@" 2>/dev/null )
+  ( cd "$PROJ" && REIN_CALLER_ROLE="$role" node "$HELPER" "$@" 2>/dev/null )
 }
 task_field() { # <id> <col>
   node --input-type=module -e "
@@ -885,7 +885,7 @@ echo ""; echo "  [T-07] Prefix + validation"
 id_p="$(run_add architect --prefix P "Architect plan task")"
 assert_contains "T-07.01: --prefix P → P-id" "P-" "$id_p"
 assert_status 2 "T-07.02: empty description → usage exit 2" \
-  bash -c "cd '$PROJ' && AI_OS_CALLER_ROLE=engineer node '$HELPER' --tier 1 2>/dev/null"
+  bash -c "cd '$PROJ' && REIN_CALLER_ROLE=engineer node '$HELPER' --tier 1 2>/dev/null"
 
 # ── T-08: stdout purity (only the id on stdout; noise → stderr) ──────────────
 echo ""; echo "  [T-08] stdout purity"
@@ -1173,14 +1173,14 @@ _pc_repo() {  # → a git repo whose HEAD commit message is "$1"
 }
 _pc_home="$(test_tmpdir e325home)"
 tc_fixture_home "$_pc_home"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "$_pc_home/.ai-os/bin"
-cat > "$_pc_home/.ai-os/bin/ai" <<STUB
+mkdir -p "$_pc_home/.rein/bin"
+cat > "$_pc_home/.rein/bin/ai" <<STUB
 #!/bin/bash
 printf '%s|' "\$@" >> "$_pc_home/args"; printf '\n' >> "$_pc_home/args"
 echo "[CI_GATE] refused for the test"
 exit 1
 STUB
-chmod +x "$_pc_home/.ai-os/bin/ai"
+chmod +x "$_pc_home/.rein/bin/ai"
 _pc="$(_pc_repo "feat: x — Fixes E-1 and Closes P-2")"
 _pc_rc=0; _pc_out="$(cd "$_pc" && HOME="$_pc_home" bash "$POST_COMMIT" 2>&1)" || _pc_rc=$?
 assert_status 0 "E-325.pc1: post-commit exits 0 even when ai task done refuses" test "$_pc_rc" -eq 0

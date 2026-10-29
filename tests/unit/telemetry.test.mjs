@@ -7,7 +7,7 @@
 //     — the CLI, hook and mirror rows stay in tests/suites/telemetry_test.sh;
 //   * telemetry_migration_test.sh (E-154 TIMEOUT migration, E-180 REJECTED, E-185 enum DRY);
 //   * mcp_telemetry_test.sh (E-153/E-154 withTelemetry, E-179/E-180 rejection, E-277 coverage).
-// Labels are the bash assertions' own. Every write goes to a temp db_path, never ~/.ai-os.
+// Labels are the bash assertions' own. Every write goes to a temp db_path, never ~/.rein.
 // Run standalone:  node --test tests/unit/telemetry.test.mjs
 
 import { test, after } from "node:test";
@@ -26,7 +26,7 @@ const REPO = resolve(import.meta.dirname, "../..");
 const TELEMETRY = join(REPO, "src/shared/telemetry.mjs");
 const SRC = readFileSync(TELEMETRY, "utf8");
 
-const ROOT = mkdtempSync(join(tmpdir(), "aios-t-telemetry-"));
+const ROOT = mkdtempSync(join(tmpdir(), "rein-t-telemetry-"));
 after(() => { T.resetTelemetryCache(); try { chmodSync(join(ROOT, "ro", "locked"), 0o755); } catch { /* absent */ } rmSync(ROOT, { recursive: true, force: true }); });
 let _n = 0;
 const dbIn = () => { const d = join(ROOT, `s${++_n}`); mkdirSync(d); return join(d, "t.sqlite"); };

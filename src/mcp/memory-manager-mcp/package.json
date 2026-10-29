@@ -2,7 +2,7 @@
   "name": "memory-manager-mcp",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "AI-OS \u00a731: Global cross-project memory palace \u2014 stores and queries project architectural signatures",
+  "description": "Rein \u00a731: Global cross-project memory palace \u2014 stores and queries project architectural signatures",
   "type": "module",
   "main": "index.js",
   "scripts": {

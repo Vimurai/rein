@@ -232,7 +232,7 @@ export function parseCiLog(text, logPath = null) {
       const kv = _kv(line.slice(14));
       Object.assign(run, { status: kv.status, finished_at: kv.finished_at, duration_ms: _int(kv.duration_ms) });
     } else if (line.startsWith("[ci] resources ")) {
-      // E-310: `[ci] resources lanes=4 peak_rss_mb=812 suite_seconds=790 runner=aios`
+      // E-310: `[ci] resources lanes=4 peak_rss_mb=812 suite_seconds=790 runner=rein`
       // (peak_rss_mb=- with rss_skip=<why> when no /usr/bin/time could measure it).
       const kv = _kv(line.slice(15));
       Object.assign(run, {
@@ -453,11 +453,11 @@ export function ciAdopted(db, aiDir = null) {
 
 /**
  * The update_task_status(DONE) gate. Active only in a project that has adopted `ai ci`
- * (ciAdopted), so an upgrade never breaks a project that has not; AI_OS_CI_GATE=0 disables
+ * (ciAdopted), so an upgrade never breaks a project that has not; REIN_CI_GATE=0 disables
  * it. Returns { ok, active, message }.
  */
 export function checkCiDoneGate(db, repoRoot, env = process.env) {
-  if (env.AI_OS_CI_GATE === "0") return { ok: true, active: false, message: "CI gate disabled (AI_OS_CI_GATE=0)" };
+  if (env.REIN_CI_GATE === "0") return { ok: true, active: false, message: "CI gate disabled (REIN_CI_GATE=0)" };
   const aiDir = join(repoRoot, ".ai");
   if (!ciAdopted(db, aiDir)) return { ok: true, active: false, message: "CI gate inactive (no ai ci run recorded yet)" };
   let head;
@@ -471,7 +471,7 @@ export function checkCiDoneGate(db, repoRoot, env = process.env) {
   return {
     ok: false, active: true,
     message: `[CI_GATE] no green local CI run for HEAD ${head.slice(0, 7)} (${why}) — run: ai ci run` +
-      " (bypass: AI_OS_CI_GATE=0)" + (c.warnings.length ? `\n${c.warnings.join("\n")}` : ""),
+      " (bypass: REIN_CI_GATE=0)" + (c.warnings.length ? `\n${c.warnings.join("\n")}` : ""),
   };
 }
 

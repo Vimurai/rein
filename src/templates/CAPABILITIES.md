@@ -13,15 +13,15 @@
 - *.ts
 - *.js
 - *.sh
-- ~/.ai-os/config/**
-- ~/.ai-os/memory/**
+- ~/.rein/config/**
+- ~/.rein/memory/**
 
 ## filesystem.write
 # Allowed path patterns for WRITE operations (requires --allow-write in ai-exec).
 - src/**
 - .ai/**
 - tests/**
-- ~/.ai-os/memory/**
+- ~/.rein/memory/**
 
 ## shell.exec
 # Allowed commands/patterns for EXECUTE operations (requires [SEC_CLEARED] + --allow-execute).
@@ -58,5 +58,5 @@
 - WRITE to .ai/ is low-risk (documentation only)
 - EXECUTE of npm test/build is pre-approved (no side effects on external systems)
 - Any operation touching auth, secrets, or external APIs requires explicit [SEC_CLEARED]
-- WRITE to ~/.ai-os/memory/ is low-risk (architectural signatures only, no secrets per §31 sanitize())
-- READ of ~/.ai-os/config/registry.json is pre-approved for compliance tools (verification-mcp, §32)
+- WRITE to ~/.rein/memory/ is low-risk (architectural signatures only, no secrets per §31 sanitize())
+- READ of ~/.rein/config/registry.json is pre-approved for compliance tools (verification-mcp, §32)

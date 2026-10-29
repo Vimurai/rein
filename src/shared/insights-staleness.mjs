@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// E-86: insights-staleness.mjs — JIT staleness probe for ~/.ai-os/INSIGHTS.md.
+// E-86: insights-staleness.mjs — JIT staleness probe for ~/.rein/INSIGHTS.md.
 //
 // Wired into ai-preflight Step 7. Decides whether the cross-project
 // meta-cognition report (E-85) is stale relative to the telemetry that has
@@ -40,7 +40,7 @@ import { TELEMETRY_DB_PATH } from "./telemetry.mjs";
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
-export const DEFAULT_INSIGHTS_PATH  = resolve(homedir(), ".ai-os", "INSIGHTS.md");
+export const DEFAULT_INSIGHTS_PATH  = resolve(homedir(), ".rein", "INSIGHTS.md");
 // E-257: the ACTIVE store — AI_TELEMETRY_DB_PATH when a test run redirected it.
 export const DEFAULT_TELEMETRY_PATH = TELEMETRY_DB_PATH;
 export const DEFAULT_THRESHOLD = 200;
@@ -55,7 +55,7 @@ function _isDisabled() {
 function _resolveTelemetryHelper() {
   const candidates = [
     resolve(SCRIPT_DIR, "telemetry.mjs"),
-    resolve(homedir(), ".ai-os", "shared", "telemetry.mjs"),
+    resolve(homedir(), ".rein", "shared", "telemetry.mjs"),
   ];
   for (const c of candidates) if (existsSync(c)) return c;
   return null;

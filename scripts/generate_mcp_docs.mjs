@@ -27,18 +27,18 @@ import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
 
 // Domain map import is locator-aware: in the source repo we import the
-// in-tree module; in installed mode (~/.ai-os/scripts/) we fall back to the
-// installed copy at ~/.ai-os/shared/mcp-domains.mjs. Resolved at runtime.
+// in-tree module; in installed mode (~/.rein/scripts/) we fall back to the
+// installed copy at ~/.rein/shared/mcp-domains.mjs. Resolved at runtime.
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const SCRIPT_DIR = dirname(SCRIPT_PATH);
 
 const DOMAINS_CANDIDATES = [
   // Repo development: scripts/ → ../src/mcp/shared/mcp-domains.mjs
   resolve(SCRIPT_DIR, "../src/mcp/shared/mcp-domains.mjs"),
-  // Installed mode: ~/.ai-os/scripts/ → ../mcp/shared/mcp-domains.mjs
+  // Installed mode: ~/.rein/scripts/ → ../mcp/shared/mcp-domains.mjs
   resolve(SCRIPT_DIR, "../mcp/shared/mcp-domains.mjs"),
-  // Final fallback: explicit ~/.ai-os install root.
-  resolve(homedir(), ".ai-os/mcp/shared/mcp-domains.mjs"),
+  // Final fallback: explicit ~/.rein install root.
+  resolve(homedir(), ".rein/mcp/shared/mcp-domains.mjs"),
 ];
 let DOMAINS = null;
 for (const candidate of DOMAINS_CANDIDATES) {
@@ -59,12 +59,12 @@ if (!DOMAINS) {
 const PROJECT_ROOT = process.cwd();
 const TARGET = join(PROJECT_ROOT, ".ai", "blueprints", "mcp.md");
 
-// Registry locator: prefer the project's in-tree copy (the AI-OS repo itself),
-// fall back to the global install (~/.ai-os/config/registry.json) for any
+// Registry locator: prefer the project's in-tree copy (the Rein repo itself),
+// fall back to the global install (~/.rein/config/registry.json) for any
 // downstream project that runs `ai sync`.
 const REGISTRY_CANDIDATES = [
   join(PROJECT_ROOT, "src", "config", "registry.json"),
-  join(homedir(), ".ai-os", "config", "registry.json"),
+  join(homedir(), ".rein", "config", "registry.json"),
 ];
 let REGISTRY = null;
 for (const candidate of REGISTRY_CANDIDATES) {
@@ -122,7 +122,7 @@ function buildMarkdown(registry) {
   lines.push("# Domain Blueprint: MCP Nervous System");
   lines.push("");
   lines.push("> [!IMPORTANT]");
-  lines.push("> This document maps every AI-OS Model Context Protocol (MCP) server, grouped by routing domain. It is generated from `src/config/registry.json` — edit the registry, then re-run the generator. Never edit this file directly.");
+  lines.push("> This document maps every Rein Model Context Protocol (MCP) server, grouped by routing domain. It is generated from `src/config/registry.json` — edit the registry, then re-run the generator. Never edit this file directly.");
   lines.push("");
   lines.push(
     `Total registered servers: **${Object.keys(servers).length}**. The Architect curates DOMAINS; the Engineer wires them into the registry.`

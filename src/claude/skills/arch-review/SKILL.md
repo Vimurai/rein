@@ -8,7 +8,7 @@ context: fork
 agent: default
 ---
 
-# AI-OS Review — Architectural Audit (Architect)
+# Rein Review — Architectural Audit (Architect)
 
 ## Dynamic Context Injection
 Recent changes: !git log --oneline -10 2>/dev/null || echo "(no git history)"

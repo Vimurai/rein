@@ -7,7 +7,7 @@ transcripts; the table references them by block number so the prose is never cop
 ## Block 1 — finding 6, Engineer session: `[RM_RF_ROOT]` charged the `cd` operand to the `rm`
 
 ```
-cd /home/dev/Dev/ai-os; find .ai/stale-2026-10-15 -maxdepth 1 -printf '%f %s\n'; rm -rf .ai/stale-2026-10-15 && git status --short
+cd /home/dev/Dev/rein; find .ai/stale-2026-10-15 -maxdepth 1 -printf '%f %s\n'; rm -rf .ai/stale-2026-10-15 && git status --short
 ```
 
 ## Block 2 — Architect session, first attempt: D-105 appended with a quoted heredoc, `[ARCH_GIT_PUSH]` from the body's prose
@@ -96,22 +96,22 @@ Revert E-340; the index returns to seed-once behaviour. `.ai/.last-import-blob` 
 
 **Date**: 2026-10-23
 **Task**: E-341 (Engineer). Amends the E-98 "fail-open" note in `src/bin/ai` `_generate_repo_map`: non-fatal still means every step runs; it no longer means silent.
-**Decision**: A sync step has three outcomes — ok, skipped (the tool is absent or disabled by its env var, by design) and FAILED (the tool is present, ran, and exited non-zero). A failed step prints `✗ <step>: <last stderr line>` and the path of its captured stderr, every step still runs, the summary says `Done. (steps: N ok, M skipped, F FAILED — see the ✗ lines)` and `ai sync` exits 1 when F > 0. A new last step `gate_check` runs the mirror's safe-exec analyzer exactly as `hooks/pre-tool-use.sh` does, on the command `true`; no verdict or a non-zero exit is `✗ gate_check: [SAFE_EXEC_BROKEN] <reason> — run: bash install-ai-os.sh`. Sync never runs the installer itself.
+**Decision**: A sync step has three outcomes — ok, skipped (the tool is absent or disabled by its env var, by design) and FAILED (the tool is present, ran, and exited non-zero). A failed step prints `✗ <step>: <last stderr line>` and the path of its captured stderr, every step still runs, the summary says `Done. (steps: N ok, M skipped, F FAILED — see the ✗ lines)` and `ai sync` exits 1 when F > 0. A new last step `gate_check` runs the mirror's safe-exec analyzer exactly as `hooks/pre-tool-use.sh` does, on the command `true`; no verdict or a non-zero exit is `✗ gate_check: [SAFE_EXEC_BROKEN] <reason> — run: bash install-rein.sh`. Sync never runs the installer itself.
 
 ### Why needed
 Findings 2 and 3 (Engineer, 2026-10-23): `ai sync` printed `⚠ REPO_MAP.md generation failed — non-fatal` with the cause discarded (`2>/dev/null`), then `Done. (steps: 13 ok)`; the same sync left the pre-tool-use gate returning `[SAFE_EXEC_UNAVAILABLE] safe-exec exited 1`, so every Bash call in both panes was blocked and the Engineer could not even commit the handoff that reported it. The operator: "this should not happen in future." Both are one defect: sync counts a step that failed as ok.
 
 ### Rulings
-1. **Outcomes.** `_sync_step` reads the step's return code: 0 ok, 2 skipped, anything else FAILED. Each step function returns 2 for its by-design skips (node absent, server not installed, `AI_OS_DISABLE_*=1`) and lets a real failure through. Stderr of every step is captured to `${TMPDIR:-/tmp}/ai-sync-<step>.<pid>.log`; on failure the last non-empty line (cut at 200 chars) is printed after `✗ <step>:` with the log path. Nothing aborts early: all steps run, then the summary, then exit 1 if any failed.
+1. **Outcomes.** `_sync_step` reads the step's return code: 0 ok, 2 skipped, anything else FAILED. Each step function returns 2 for its by-design skips (node absent, server not installed, `REIN_DISABLE_*=1`) and lets a real failure through. Stderr of every step is captured to `${TMPDIR:-/tmp}/ai-sync-<step>.<pid>.log`; on failure the last non-empty line (cut at 200 chars) is printed after `✗ <step>:` with the log path. Nothing aborts early: all steps run, then the summary, then exit 1 if any failed.
 2. **REPO_MAP.** `_generate_repo_map` drops `2>/dev/null`; the current failure's cause becomes visible and E-341 fixes it (acceptance: `ai sync` in this repository regenerates `.ai/REPO_MAP.md`). The map stays non-fatal in the sense of ruling 1 only.
 3. **Gate probe.** The hook's analyzer invocation (locator, node, timeout, verdict parse) is factored into `src/shared/gate-probe.sh`, sourced by `hooks/pre-tool-use.sh` and by sync's `gate_check` step and `ai doctor`, so the probe cannot drift from the gate. The probe runs `true` through the analyzer; PASS is ok; anything else is FAILED with the analyzer's stderr line. `ai doctor` prints the same `✓ safe-exec gate: <verdict>` / `✗ … [SAFE_EXEC_BROKEN]` line.
-4. **No self-repair.** `bash install-ai-os.sh` rewrites `~/.ai-os` and the git hooks; D-083's posture is that the gate's own install is an operator action, and a sync run from the Architect pane must not reinstall the gate that confines it. The failed line names the command; the operator runs it.
+4. **No self-repair.** `bash install-rein.sh` rewrites `~/.rein` and the git hooks; D-083's posture is that the gate's own install is an operator action, and a sync run from the Architect pane must not reinstall the gate that confines it. The failed line names the command; the operator runs it.
 5. **Exit code consumers.** The SessionStart hook and any skill that calls `ai sync` treat exit 1 as "sync ran, something failed, read the ✗ lines" — not as a reason to skip the session.
 
 ### Alternatives considered
 1. **Keep "non-fatal" warnings, add the error line only** — rejected: the summary would still say every step was ok and the exit code would still be 0; the operator's complaint is the lie, not the missing detail.
 2. **Make a failed REPO_MAP abort sync** — rejected: the map is a derived cache; the remaining steps (hooks, gitignore, version stamp) matter more and must still run.
-3. **Have sync run `install-ai-os.sh` when the gate is broken** — rejected (ruling 4).
+3. **Have sync run `install-rein.sh` when the gate is broken** — rejected (ruling 4).
 4. **Three outcomes, capture stderr, probe the gate, exit 1 (chosen)** — selected: honest summary, zero new flags, and the probe shares the hook's code path.
 
 ### Constraints driving this decision
@@ -134,7 +134,7 @@ echo "appended; D count: $(grep -c '^## D-' .ai/DECISIONS.md)"; tail -3 .ai/DECI
 ## Block 3 — Architect session, second attempt: the same append with the `cd <abs> &&` prefix
 
 ```
-cd /home/dev/Dev/ai-os && cat >> .ai/DECISIONS.md <<'EOF'
+cd /home/dev/Dev/rein && cat >> .ai/DECISIONS.md <<'EOF'
 
 ---
 
@@ -217,22 +217,22 @@ Revert E-340; the index returns to seed-once behaviour. `.ai/.last-import-blob` 
 
 **Date**: 2026-10-23
 **Task**: E-341 (Engineer). Amends the E-98 "fail-open" note in `src/bin/ai` `_generate_repo_map`: non-fatal still means every step runs; it no longer means silent.
-**Decision**: A sync step has three outcomes — ok, skipped (the tool is absent or disabled by its env var, by design) and FAILED (the tool is present, ran, and exited non-zero). A failed step prints `✗ <step>: <last stderr line>` and the path of its captured stderr, every step still runs, the summary says `Done. (steps: N ok, M skipped, F FAILED — see the ✗ lines)` and `ai sync` exits 1 when F > 0. A new last step `gate_check` runs the mirror's safe-exec analyzer exactly as `hooks/pre-tool-use.sh` does, on the command `true`; no verdict or a non-zero exit is `✗ gate_check: [SAFE_EXEC_BROKEN] <reason> — run: bash install-ai-os.sh`. Sync never runs the installer itself.
+**Decision**: A sync step has three outcomes — ok, skipped (the tool is absent or disabled by its env var, by design) and FAILED (the tool is present, ran, and exited non-zero). A failed step prints `✗ <step>: <last stderr line>` and the path of its captured stderr, every step still runs, the summary says `Done. (steps: N ok, M skipped, F FAILED — see the ✗ lines)` and `ai sync` exits 1 when F > 0. A new last step `gate_check` runs the mirror's safe-exec analyzer exactly as `hooks/pre-tool-use.sh` does, on the command `true`; no verdict or a non-zero exit is `✗ gate_check: [SAFE_EXEC_BROKEN] <reason> — run: bash install-rein.sh`. Sync never runs the installer itself.
 
 ### Why needed
 Findings 2 and 3 (Engineer, 2026-10-23): `ai sync` printed `⚠ REPO_MAP.md generation failed — non-fatal` with the cause discarded (`2>/dev/null`), then `Done. (steps: 13 ok)`; the same sync left the pre-tool-use gate returning `[SAFE_EXEC_UNAVAILABLE] safe-exec exited 1`, so every Bash call in both panes was blocked and the Engineer could not even commit the handoff that reported it. The operator: "this should not happen in future." Both are one defect: sync counts a step that failed as ok.
 
 ### Rulings
-1. **Outcomes.** `_sync_step` reads the step's return code: 0 ok, 2 skipped, anything else FAILED. Each step function returns 2 for its by-design skips (node absent, server not installed, `AI_OS_DISABLE_*=1`) and lets a real failure through. Stderr of every step is captured to `${TMPDIR:-/tmp}/ai-sync-<step>.<pid>.log`; on failure the last non-empty line (cut at 200 chars) is printed after `✗ <step>:` with the log path. Nothing aborts early: all steps run, then the summary, then exit 1 if any failed.
+1. **Outcomes.** `_sync_step` reads the step's return code: 0 ok, 2 skipped, anything else FAILED. Each step function returns 2 for its by-design skips (node absent, server not installed, `REIN_DISABLE_*=1`) and lets a real failure through. Stderr of every step is captured to `${TMPDIR:-/tmp}/ai-sync-<step>.<pid>.log`; on failure the last non-empty line (cut at 200 chars) is printed after `✗ <step>:` with the log path. Nothing aborts early: all steps run, then the summary, then exit 1 if any failed.
 2. **REPO_MAP.** `_generate_repo_map` drops `2>/dev/null`; the current failure's cause becomes visible and E-341 fixes it (acceptance: `ai sync` in this repository regenerates `.ai/REPO_MAP.md`). The map stays non-fatal in the sense of ruling 1 only.
 3. **Gate probe.** The hook's analyzer invocation (locator, node, timeout, verdict parse) is factored into `src/shared/gate-probe.sh`, sourced by `hooks/pre-tool-use.sh` and by sync's `gate_check` step and `ai doctor`, so the probe cannot drift from the gate. The probe runs `true` through the analyzer; PASS is ok; anything else is FAILED with the analyzer's stderr line. `ai doctor` prints the same `✓ safe-exec gate: <verdict>` / `✗ … [SAFE_EXEC_BROKEN]` line.
-4. **No self-repair.** `bash install-ai-os.sh` rewrites `~/.ai-os` and the git hooks; D-083's posture is that the gate's own install is an operator action, and a sync run from the Architect pane must not reinstall the gate that confines it. The failed line names the command; the operator runs it.
+4. **No self-repair.** `bash install-rein.sh` rewrites `~/.rein` and the git hooks; D-083's posture is that the gate's own install is an operator action, and a sync run from the Architect pane must not reinstall the gate that confines it. The failed line names the command; the operator runs it.
 5. **Exit code consumers.** The SessionStart hook and any skill that calls `ai sync` treat exit 1 as "sync ran, something failed, read the ✗ lines" — not as a reason to skip the session.
 
 ### Alternatives considered
 1. **Keep "non-fatal" warnings, add the error line only** — rejected: the summary would still say every step was ok and the exit code would still be 0; the operator's complaint is the lie, not the missing detail.
 2. **Make a failed REPO_MAP abort sync** — rejected: the map is a derived cache; the remaining steps (hooks, gitignore, version stamp) matter more and must still run.
-3. **Have sync run `install-ai-os.sh` when the gate is broken** — rejected (ruling 4).
+3. **Have sync run `install-rein.sh` when the gate is broken** — rejected (ruling 4).
 4. **Three outcomes, capture stderr, probe the gate, exit 1 (chosen)** — selected: honest summary, zero new flags, and the probe shares the hook's code path.
 
 ### Constraints driving this decision

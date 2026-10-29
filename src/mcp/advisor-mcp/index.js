@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * advisor-mcp — AI-OS MCP Server
+ * advisor-mcp — Rein MCP Server
  * Agent-to-Agent (A2A) RPC bridge: the Engineer queries the Architect mid-execution
  * for synchronous architectural rulings.
  *
@@ -55,7 +55,7 @@ const SERVICE = "advisor-mcp";
 const VERSION = "1.2.0"; // 1.2.0: provider-aware bridge via roles.json × providers.json (E-210/D-054)
 
 // Resolve project root relative to this file's install location.
-// Supports both src/ (dev) and ~/.ai-os/mcp/ (installed) paths.
+// Supports both src/ (dev) and ~/.rein/mcp/ (installed) paths.
 function findProjectRoot() {
   // Walk up from __dirname looking for .ai/architect.md
   let dir = new URL(".", import.meta.url).pathname;
@@ -125,13 +125,13 @@ function buildPrompt(query, blueprintContent, blueprintName) {
     : "";
 
   return [
-    "You are the Principal Architect in the AI-OS Triad.",
+    "You are the Principal Architect in the Rein Triad.",
     "The Engineer (Claude) has a mid-execution question requiring an architectural ruling.",
     "Your role is STRICTLY READ-ONLY: provide a definitive ruling but do NOT write files,",
     "mutate state, or issue implementation instructions beyond answering the query.",
     "",
     "## architect.md (current system blueprint)",
-    architectContext || "(architect.md not found — answer based on general AI-OS principles)",
+    architectContext || "(architect.md not found — answer based on general Rein principles)",
     bpSection,
     "",
     "## Engineer Query",

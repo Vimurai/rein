@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AIOS_INSTALLER_SUBJECT: the installer writes the exec-form hook commands (E-311, D-092)
+# REIN_INSTALLER_SUBJECT: the installer writes the exec-form hook commands (E-311, D-092)
 # exec_form_hooks_test.sh — E-290 (D-081 r1, D-083 r1–4; THREAT_MODEL T-HOOKENV-002).
 #
 # The E-286 pin lives INSIDE the hook file, so four channels that belong to the SHELL
@@ -16,7 +16,7 @@ source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 source "${SCRIPT_DIR}/../lib/generated-settings.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 AI_BIN="${REPO_ROOT}/src/bin/ai"
-INSTALL="${REPO_ROOT}/install-ai-os.sh"
+INSTALL="${REPO_ROOT}/install-rein.sh"
 
 echo "── Suite: exec_form_hooks_test (E-290) ──────────────────────────────"
 
@@ -33,11 +33,11 @@ P="$T/proj"; mkdir -p "$P/.claude"
 cat > "$P/.claude/settings.json" <<'JSON'
 { "hooks": {
   "Stop": [ { "matcher": ".*", "hooks": [
-     { "type": "command", "command": "bash $HOME/.ai-os/hooks/stop-hook.sh" },
+     { "type": "command", "command": "bash $HOME/.rein/hooks/stop-hook.sh" },
      { "type": "command", "command": "echo users-own-stop-hook" } ] } ],
   "PreToolUse": [ { "matcher": "Bash", "hooks": [
-     { "type": "command", "command": "bash $HOME/.ai-os/hooks/pre-tool-use.sh" },
-     { "type": "command", "command": "bash \"$HOME/.ai-os/hooks/pre-tool-use.sh\"" } ] } ] } }
+     { "type": "command", "command": "bash $HOME/.rein/hooks/pre-tool-use.sh" },
+     { "type": "command", "command": "bash \"$HOME/.rein/hooks/pre-tool-use.sh\"" } ] } ] } }
 JSON
 SET="$(gen_project_settings "$P")"
 _entries() { python3 - "$1" <<'PY'
@@ -55,28 +55,28 @@ for spec in "Stop:stop-hook.sh" "PreToolUse:pre-tool-use.sh" "SessionStart:sessi
             "PostToolUse:post-tool-log.sh" "PostToolUse:post-tool-use.sh" "PermissionDenied:permission-denied.sh"; do
   ev="${spec%%:*}"; sc="${spec#*:}"
   assert_match "E-290.01a: ${sc} is exec-form /bin/bash -p <absolute path> with timeout 30" \
-    "^${ev}	[^	]*	/bin/bash	-p\|/[^	]*/\.ai-os/hooks/${sc}(\|engineer)?	30$" "$E"
+    "^${ev}	[^	]*	/bin/bash	-p\|/[^	]*/\.rein/hooks/${sc}(\|engineer)?	30$" "$E"
 done
-assert_status 1 "E-290.01b: no shell-form AI-OS line survives (incl. a quoted path)" bash -c "printf '%s\n' \"\$1\" | grep -q 'bash .*HOME/.ai-os/hooks'" _ "$E"
+assert_status 1 "E-290.01b: no shell-form Rein line survives (incl. a quoted path)" bash -c "printf '%s\n' \"\$1\" | grep -q 'bash .*HOME/.rein/hooks'" _ "$E"
 assert_contains "E-290.01c: the user's own hook entry is untouched" "echo users-own-stop-hook" "$E"
-assert_status 1 "E-290.01d: no AI-OS hook line mentions \$HOME" bash -c "printf '%s\n' \"\$1\" | grep '.ai-os/hooks' | grep -qF '\$HOME'" _ "$E"
-cp "$SET" "$T/s1"; ( cd "$P" && AI_OS_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
+assert_status 1 "E-290.01d: no Rein hook line mentions \$HOME" bash -c "printf '%s\n' \"\$1\" | grep '.rein/hooks' | grep -qF '\$HOME'" _ "$E"
+cp "$SET" "$T/s1"; ( cd "$P" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
 assert_status 0 "E-290.01e: a second sync is byte-identical (idempotent)" cmp -s "$T/s1" "$SET"
 
 # ── E-290.2: the four shell channels — marker under OLD line, none under NEW argv ─
 # A fake HOME whose mirror holds the checkout's hooks + shared tree, so both lines run the
 # same hook file; the only difference is HOW it is launched.
-FH="$T/home"; mkdir -p "$FH/.ai-os"
+FH="$T/home"; mkdir -p "$FH/.rein"
 tc_fixture_home "$FH"   # E-345 (D-109 r1): the toolchain record the hooks pin
-cp -R "${REPO_ROOT}/hooks" "$FH/.ai-os/hooks"; cp -R "${REPO_ROOT}/src/shared" "$FH/.ai-os/shared"
-NEW_HOOK="$FH/.ai-os/hooks/post-tool-log.sh"     # fail-open, quick: payload `{}` does nothing
+cp -R "${REPO_ROOT}/hooks" "$FH/.rein/hooks"; cp -R "${REPO_ROOT}/src/shared" "$FH/.rein/shared"
+NEW_HOOK="$FH/.rein/hooks/post-tool-log.sh"     # fail-open, quick: payload `{}` does nothing
 M="$T/markers"; mkdir -p "$M" "$T/decoy"
 printf '#!/bin/sh\ntouch "%s/decoy-bash"\nexec /bin/bash "$@"\n' "$M" > "$T/decoy/bash"; chmod +x "$T/decoy/bash"
 printf 'touch "%s/bash-env"\n' "$M" > "$T/bashenv.sh"
 _marks() { ls "$M" 2>/dev/null | tr '\n' ' '; }
 _old() {  # <env assignments…> — the pre-E-290 command line, run as Claude Code ran it: sh -c
   ( cd "$T" && printf '{}' | env -i HOME="$FH" PATH="$T/decoy:/usr/bin:/bin" "$@" \
-      /bin/sh -c 'bash $HOME/.ai-os/hooks/post-tool-log.sh' >/dev/null 2>&1 )
+      /bin/sh -c 'bash $HOME/.rein/hooks/post-tool-log.sh' >/dev/null 2>&1 )
 }
 _new() {  # <env assignments…> — the exec-form argv: no shell, /bin/bash -p, absolute path
   ( cd "$T" && printf '{}' | env -i HOME="$FH" PATH="$T/decoy:/usr/bin:/bin" "$@" \
@@ -135,17 +135,17 @@ gen_project_settings "$G" >/dev/null
 assert_status 0 "E-290.04a: .claude/settings.json is gitignored even beside another dir/settings.json line" \
   grep -qx '.claude/settings.json' "$G/.gitignore"
 _d="$(cd "$G" && bash "$AI_BIN" doctor 2>&1)"
-assert_contains "E-290.04b: doctor reports the exec form" "AI-OS hooks in exec form" "$_d"
+assert_contains "E-290.04b: doctor reports the exec form" "Rein hooks in exec form" "$_d"
 python3 - "$G/.claude/settings.json" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p))
-d["hooks"]["Stop"].append({"matcher": ".*", "hooks": [{"type": "command", "command": "bash $HOME/.ai-os/hooks/stop-hook.sh"}]})
+d["hooks"]["Stop"].append({"matcher": ".*", "hooks": [{"type": "command", "command": "bash $HOME/.rein/hooks/stop-hook.sh"}]})
 json.dump(d, open(p, "w"))
 PY
 _d="$(cd "$G" && bash "$AI_BIN" doctor 2>&1)"
-assert_contains "E-290.04c: doctor names a stale shell-form entry and the fix" "stale AI-OS hook entries" "$_d"
+assert_contains "E-290.04c: doctor names a stale shell-form entry and the fix" "stale Rein hook entries" "$_d"
 # A pre-E-290 stub: the stub marker the generator writes, under the old shebang.
-_marker="$(grep -m1 'AI-OS' "$G/.git/hooks/post-commit")"
+_marker="$(grep -m1 'Rein' "$G/.git/hooks/post-commit")"
 printf '#!/usr/bin/env bash\n%s\n' "$_marker" > "$G/.git/hooks/post-commit"
 _d="$(cd "$G" && bash "$AI_BIN" doctor 2>&1)"
 assert_contains "E-290.04d: doctor names a stub that predates E-290" "git post-commit stub predates E-290" "$_d"
@@ -157,11 +157,11 @@ done
 
 # ── E-290.6: the installer refuses the hooks without a privileged /bin/bash ──
 SB="$T/install"; mkdir -p "$SB/home"
-( cd "$SB" && env HOME="$SB/home" _AI_OS_TEST_HOOK_BASH="$SB/no-such-bash" AI_OS_SKIP_NODE_CHECK=1 bash "$INSTALL" ) \
+( cd "$SB" && env HOME="$SB/home" _REIN_TEST_HOOK_BASH="$SB/no-such-bash" REIN_SKIP_NODE_CHECK=1 bash "$INSTALL" ) \
   >"$SB/out" 2>"$SB/err"; rc=$?
 assert_status 0 "E-290.06a: the installer exits non-zero when /bin/bash is unusable (rc=${rc})" test "$rc" -ne 0
 assert_contains "E-290.06b: with the named error" "[HOOK_BASH_MISSING]" "$(cat "$SB/err")"
-assert_status 1 "E-290.06c: and NO hook was installed" bash -c "compgen -G '$SB/home/.ai-os/hooks/*.sh' >/dev/null"   # not ls: GNU exits 2, BSD 1
-assert_status 0 "E-290.06d: the rest of the install still ran (version stamp written)" test -f "$SB/home/.ai-os/VERSION"
+assert_status 1 "E-290.06c: and NO hook was installed" bash -c "compgen -G '$SB/home/.rein/hooks/*.sh' >/dev/null"   # not ls: GNU exits 2, BSD 1
+assert_status 0 "E-290.06d: the rest of the install still ran (version stamp written)" test -f "$SB/home/.rein/VERSION"
 
 assert_summary

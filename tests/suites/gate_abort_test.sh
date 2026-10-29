@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AIOS_EXCLUSIVE: perf   (E-312: E-292.05f bounds a 10 s timer at +1.5 s; 4-lane contention measured 12309 ms on 7b33882)
+# REIN_EXCLUSIVE: perf   (E-312: E-292.05f bounds a 10 s timer at +1.5 s; 4-lane contention measured 12309 ms on 7b33882)
 # gate_abort_test.sh — E-292 (D-082 ruling 2, sovereignty-hardening.md §Hook Toolchain Pinning
 # Component 7): an ABORTED gate is a BLOCKED call; the analyzer answers within 10 s; a
 # fail-open hook that aborts exits 0 and leaves exactly one incident record.
@@ -27,7 +27,7 @@ skip_unless_cmd python3 "E-292 gate abort" || { assert_summary; exit 0; }
 
 T="$(mktemp -d)"; on_exit "rm -rf '$T'"
 T="$(cd -P "$T" && pwd -P)"
-H="$T/home"; M="$H/.ai-os"
+H="$T/home"; M="$H/.rein"
 mkdir -p "$M/mcp/safe-exec-mcp" "$T/tree/hooks" "$T/proj"
 cp -R "${REPO_ROOT}/src/shared" "$M/shared"
 cp -R "${REPO_ROOT}/src/mcp/shared" "$M/mcp/shared"
@@ -172,10 +172,10 @@ dt=$(( $(_ms) - t0 ))
 assert_status 0 "E-292.05d: the write gate's --check-path is bounded the same way (rc=${rc}, ${dt} ms ≤ ${LIMIT_MS})" test "$rc" -eq 2 -a "$dt" -le "$LIMIT_MS"
 assert_contains "E-292.05e: …and says TIMEOUT" "(rc 4 TIMEOUT)" "$(cat "$T/err")"
 # critic_security P1: under an operator override, a write with NO verdict (timeout) is never
-# bypassed — the self-disable guard did not run, and a text test on the path (.AI-OS on
+# bypassed — the self-disable guard did not run, and a text test on the path (.Rein on
 # case-insensitive APFS, a symlinked parent) is no substitute.
 python3 -I "$M/shared/gate-override.py" write "$M/gate-override.json" 15 "e292 test" >/dev/null
-for fp in "$T/proj/a.txt" "$H/.AI-OS/hooks/x.sh"; do
+for fp in "$T/proj/a.txt" "$H/.Rein/hooks/x.sh"; do
   rc="$(_run_raw "$NEW" '{"tool_name":"Write","tool_input":{"file_path":"'"$fp"'","content":""},"session_id":"e292"}')"
   assert_status 0 "E-292.05h: override active + analyzer timeout → write to ${fp##"$T"/} BLOCKED, not bypassed (rc=${rc})" test "$rc" -eq 2
 done
@@ -243,7 +243,7 @@ _one_incident() {  # <label> <hook copy> <expected hook name> — env carries th
   ( cd "$T/proj" && printf '{}' | env HOME="$H" AI_INCIDENT_TRACKER_DISABLE=1 /bin/bash -p "$2" >/dev/null 2>&1 ) || rc=$?
   assert_status 0 "E-292.09: $1 — the fail-open hook still exits 0 (rc=${rc})" test "$rc" -eq 0
   wait_for "[[ -s '$INC' ]]" 5000 100 || true
-  sleep 0.3   # AIOS_SLEEP_ALLOWED: negative wait — a SECOND record would land within this; exactly one may
+  sleep 0.3   # REIN_SLEEP_ALLOWED: negative wait — a SECOND record would land within this; exactly one may
   local n=0; [[ -f "$INC" ]] && n="$(grep -c . "$INC")"
   assert_status 0 "E-292.09: $1 — exactly one incident record, tracker opt-out in env ignored (got ${n})" test "$n" = 1
   assert_contains "E-292.09: $1 — HOOK_ABORT naming the hook" "\"stack_signature\":\"hooks/$3.sh:" "$(cat "$INC" 2>/dev/null)"
@@ -262,12 +262,12 @@ done
 awk '{print} /^PATH=/ && !d {print "e292f() { if then; }"; d=1}' "${REPO_ROOT}/hooks/stop-hook.sh" > "$T/tree/hooks/stop-hook-prepin.sh"
 rm -f "$INC"; rc=0
 ( cd "$T/proj" && printf '{}' | env HOME="$H" /bin/bash -p "$T/tree/hooks/stop-hook-prepin.sh" >/dev/null 2>&1 ) || rc=$?
-sleep 0.5   # AIOS_SLEEP_ALLOWED: negative wait — no incident may be written
+sleep 0.5   # REIN_SLEEP_ALLOWED: negative wait — no incident may be written
 assert_status 0 "E-292.09p: an abort BEFORE the pin still exits 0 and records nothing (documented, rc=${rc})" \
   test "$rc" -eq 0 -a ! -e "$INC"
 rm -f "$INC"
 rc=0; ( cd "$T/proj" && printf '{}' | env HOME="$H" /bin/bash -p "${REPO_ROOT}/hooks/stop-hook.sh" >/dev/null 2>&1 ) || rc=$?
-sleep 0.5   # AIOS_SLEEP_ALLOWED: negative wait — no incident may be written
+sleep 0.5   # REIN_SLEEP_ALLOWED: negative wait — no incident may be written
 assert_status 0 "E-292.09z: an UNBROKEN fail-open hook writes no incident (rc=${rc})" test ! -e "$INC"
 
 # ── E-292.10: structure — one EXIT trap per hook, first executable line, nothing sourced sets one
@@ -275,7 +275,7 @@ for h in "${REPO_ROOT}"/hooks/*.sh; do
   n="$(grep -c "^trap .* EXIT$" "$h")"
   assert_status 0 "E-292.10a: $(basename "$h") has exactly one EXIT trap (got ${n})" test "$n" = 1
   first="$(awk 'NR>1 && $0 !~ /^[[:space:]]*(#|$)/ {print; exit}' "$h")"
-  assert_contains "E-292.10b: $(basename "$h") — the trap is the first executable line" "trap '_aios_rc=\$?" "$first"
+  assert_contains "E-292.10b: $(basename "$h") — the trap is the first executable line" "trap '_rein_rc=\$?" "$first"
 done
 for s in locate.sh toolchain-pin.sh; do
   assert_status 0 "E-292.10c: src/shared/${s} sets no trap (it would replace the hook's)" \

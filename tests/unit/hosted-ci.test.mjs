@@ -25,7 +25,7 @@ const git = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8", stdio
  * refs/remotes/origin/<trunk> (E-341: the rendered trunk; null leaves none, so it resolves to nothing).
  */
 function project(t, { origin = "https://github.com/acme/app.git", version = "4.0.0", pinFile = "state.json", email = PLANNER, trunk = "main" } = {}) {
-  const d = mkdtempSync(join(tmpdir(), "aios-hosted-"));
+  const d = mkdtempSync(join(tmpdir(), "rein-hosted-"));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   git(d, "init", "-q");
   git(d, "config", "user.email", email);
@@ -36,7 +36,7 @@ function project(t, { origin = "https://github.com/acme/app.git", version = "4.0
   }
   mkdirSync(join(d, ".ai"));
   if (version !== null) {
-    const body = pinFile === "project.json" ? { aios_version: version } : { project: { aios_version: version }, tasks: [] };
+    const body = pinFile === "project.json" ? { rein_version: version } : { project: { rein_version: version }, tasks: [] };
     writeFileSync(join(d, ".ai", pinFile), JSON.stringify(body));
   }
   return d;
@@ -61,8 +61,8 @@ test("a downstream project renders the clone-at-tag bootstrap naming its pinned 
   const r = hosted(d);
   assert.equal(r.code, 0, r.out);
   const yml = readFileSync(wrapper(d), "utf8");
-  assert.match(yml, /run: git clone --quiet --depth 1 --branch v4\.0\.0 https:\/\/github\.com\/Vimurai\/ai-os\.git "\$\{TMPDIR:-\/tmp\}\/ai-os-src" && bash "\$\{TMPDIR:-\/tmp\}\/ai-os-src"\/install-ai-os\.sh\n/);
-  assert.doesNotMatch(yml, /^\s+run: bash install-ai-os\.sh$/m, "the self bootstrap belongs to the AI-OS repository only");
+  assert.match(yml, /run: git clone --quiet --depth 1 --branch v4\.0\.0 https:\/\/github\.com\/Vimurai\/rein\.git "\$\{TMPDIR:-\/tmp\}\/rein-src" && bash "\$\{TMPDIR:-\/tmp\}\/rein-src"\/install-rein\.sh\n/);
+  assert.doesNotMatch(yml, /^\s+run: bash install-rein\.sh$/m, "the self bootstrap belongs to the Rein repository only");
   assert.match(r.out, /Branch policy \(D-103 r5\): GitHub → Settings → Branches → main: .*do NOT restrict pushes .*claims push \.ai\/\*\* to main\./);
   assert.doesNotMatch(r.out, /CI_PROVIDER_UNVERIFIED/, "github is ready: no unverified notice");
   // E-341 (D-105 r5): the project's trunk (here origin/main), not a literal master.
@@ -92,8 +92,8 @@ test("the pin comes from project.json in a team store, else state.json (pre-fiel
   assert.match(bootstrapFor(project(t, { version: "3.9.2", pinFile: "state.json" })).command, /--branch v3\.9\.2 /);
   const none = hosted(project(t, { version: null }));
   assert.equal(none.code, 1);
-  assert.match(none.out, /^\[CI_AIOS_VERSION_UNKNOWN\]/);
-  assert.match(hosted(project(t, { version: "4.0.0; rm -rf ~" })).out, /^\[CI_AIOS_VERSION_UNKNOWN\]/);
+  assert.match(none.out, /^\[CI_REIN_VERSION_UNKNOWN\]/);
+  assert.match(hosted(project(t, { version: "4.0.0; rm -rf ~" })).out, /^\[CI_REIN_VERSION_UNKNOWN\]/);
 });
 
 test("--check passes on the rendering, fails on a hand edit; an edit needs --force to replace", (t) => {
@@ -151,14 +151,14 @@ test("team.json ci: the planner records it; anyone else renders but is told, and
   assert.equal(existsSync(wrapper(e)), true, "the wrapper is still rendered");
 });
 
-test("team.json ci.provider wins over the origin host; aios_source is held to a plain https URL", (t) => {
+test("team.json ci.provider wins over the origin host; rein_source is held to a plain https URL", (t) => {
   const d = project(t, { origin: "https://gitlab.example.com/a/b.git" });
-  writeTeam(join(d, ".ai"), { ...newTeam(PLANNER, { E: [[1, 99]] }), ci: { provider: "github", required_check: "ai ci run", aios_source: "https://git.corp.example/mirror/ai-os.git" } });
+  writeTeam(join(d, ".ai"), { ...newTeam(PLANNER, { E: [[1, 99]] }), ci: { provider: "github", required_check: "ai ci run", rein_source: "https://git.corp.example/mirror/rein.git" } });
   const r = hosted(d);
   assert.equal(r.code, 0, r.out);
-  assert.match(readFileSync(wrapper(d), "utf8"), / https:\/\/git\.corp\.example\/mirror\/ai-os\.git "/);
+  assert.match(readFileSync(wrapper(d), "utf8"), / https:\/\/git\.corp\.example\/mirror\/rein\.git "/);
   for (const bad of ["http://plain.example/x.git", "https://x.example/a b.git", "https://x.example/a.git;id", "file:///etc/x"]) {
-    assert.throws(() => validateTeam({ ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "ai ci run", aios_source: bad } }), /aios_source/, bad);
+    assert.throws(() => validateTeam({ ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "ai ci run", rein_source: bad } }), /rein_source/, bad);
   }
   assert.throws(() => validateTeam({ ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "jenkins", required_check: "x" } }), /ci\.provider/);
   assert.throws(() => validateTeam({ ...newTeam(PLANNER, { E: [[1, 9]] }), ci: { provider: "github", required_check: "x\n- run: id" } }), /ci\.required_check/);
@@ -179,7 +179,7 @@ test("doctor: none, current, differs, and an origin/team.json mismatch is a warn
 
 test("a symlinked .github leading outside the repository is refused, nothing written there", (t) => {
   const d = project(t);
-  const outside = mkdtempSync(join(tmpdir(), "aios-hosted-out-"));
+  const outside = mkdtempSync(join(tmpdir(), "rein-hosted-out-"));
   t.after(() => rmSync(outside, { recursive: true, force: true }));
   symlinkSync(outside, join(d, ".github"));
   const r = hosted(d);

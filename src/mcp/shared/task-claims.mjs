@@ -120,7 +120,7 @@ function _strip(rec) {
 function _publish(root, trunk, id, rec, message, parent) {
   const gitDirRaw = _git(root, ["rev-parse", "--git-dir"]);
   const gitDir = isAbsolute(gitDirRaw) ? gitDirRaw : resolve(root, gitDirRaw);
-  const index = resolve(gitDir, `aios-claim-index-${process.pid}-${Date.now()}`);
+  const index = resolve(gitDir, `rein-claim-index-${process.pid}-${Date.now()}`);
   let commit;
   try {
     const env = { GIT_INDEX_FILE: index };

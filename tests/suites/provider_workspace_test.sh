@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AIOS_INSTALLER_SUBJECT: ai init in a non-git directory (E-311, D-092)
+# REIN_INSTALLER_SUBJECT: ai init in a non-git directory (E-311, D-092)
 # provider_workspace_test.sh — E-244 (D-066 §4): workspaces follow the role binding.
 #
 # `ai sync` used to provision every vendor workspace on every project, unconditionally,
@@ -24,7 +24,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PW="${REPO_ROOT}/src/shared/provider-workspace.mjs"
 # The AST repo map is irrelevant to provider workspaces and is the most expensive thing
 # a sync does; every `ai sync` below runs the full pipeline otherwise.
-export AI_OS_DISABLE_REPO_MAP=1
+export REIN_DISABLE_REPO_MAP=1
 AI="${REPO_ROOT}/src/bin/ai"
 
 echo "── Suite: provider_workspace_test (E-244) ──────────────────────────"

@@ -19,7 +19,7 @@ const A = "dev-a@example.com", B = "Dev.B+laptop@example.com";
 
 /** A project with .ai/ and, when <shared> is not null, a team.json with shared_log = <shared>. */
 function project(t, shared) {
-  const d = mkdtempSync(join(tmpdir(), "aios-teamlog-"));
+  const d = mkdtempSync(join(tmpdir(), "rein-teamlog-"));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   execFileSync("git", ["init", "-q"], { cwd: d });
   execFileSync("git", ["config", "user.email", A], { cwd: d });

@@ -47,10 +47,10 @@ _old="$(mktemp -d)"; mkdir -p "$_old/prefix"
 cat > "$_old/prefix/SKILL.md" <<'PREFIX'
 # Pre-fix ai-preflight (verbatim shape of the E-225 defect)
 
-Incident status: !for c in src/shared/incident-aggregate.mjs "${HOME}/.ai-os/shared/incident-aggregate.mjs"; do [ -f "$c" ] && node "$c" 2>/dev/null && break; done 2>/dev/null || echo "(aggregator unavailable)"
+Incident status: !for c in src/shared/incident-aggregate.mjs "${HOME}/.rein/shared/incident-aggregate.mjs"; do [ -f "$c" ] && node "$c" 2>/dev/null && break; done 2>/dev/null || echo "(aggregator unavailable)"
 
 ```bash
-for c in src/shared/insights-staleness.mjs "${HOME}/.ai-os/shared/insights-staleness.mjs"; do
+for c in src/shared/insights-staleness.mjs "${HOME}/.rein/shared/insights-staleness.mjs"; do
   if [ -f "$c" ]; then PROBE="$c"; break; fi
 done
 node "${PROBE}" 2>/dev/null || echo '{"status":"UNAVAILABLE"}'
@@ -85,18 +85,18 @@ rm -rf "$_d"
 for s in "${SKILLS[@]}"; do
   _n="$(basename "$(dirname "$s")")"
   assert_status 0 "E-225.02 $_n sources the install-rooted locator" \
-    grep -q 'HOME}/.ai-os/shared/locate.sh' "$s"
+    grep -q 'HOME}/.rein/shared/locate.sh' "$s"
   assert_status 0 "E-225.02 $_n resolves via ai_os_locate" \
     grep -q 'ai_os_locate shared/' "$s"
   assert_status 0 "E-225.02 $_n declares its environment untrusted" \
-    grep -q 'AI_OS_LOCATE_UNTRUSTED_ENV=1' "$s"
+    grep -q 'REIN_LOCATE_UNTRUSTED_ENV=1' "$s"
   # F1: the hooks' guard, which the first cut of E-225 omitted. `declare -f` is satisfied
   # by an inherited EXPORTED bash function, so without this an attacker-supplied
   # ai_os_locate IS the resolver whenever locate.sh is unreachable.
   assert_status 0 "E-225.02 $_n unsets inherited resolver functions" \
     grep -q 'unset -f ai_os_locate' "$s"
   assert_status 0 "E-225.02 $_n gates the source on the file existing" \
-    grep -q '\[ -f "\${HOME}/.ai-os/shared/locate.sh" \]' "$s"
+    grep -q '\[ -f "\${HOME}/.rein/shared/locate.sh" \]' "$s"
   # F5: ORDER is load-bearing — locate.sh fixes its install root at source time, so the
   # untrusted flag set afterwards is too late. Three independent greps would pass on a
   # reordered file, so this is one regex across the sequence.
@@ -110,11 +110,11 @@ import sys
 t = open(sys.argv[1]).read()
 i, ok = 0, True
 while True:
-    i = t.find('. \"${HOME}/.ai-os/shared/locate.sh\"', i)
+    i = t.find('. \"${HOME}/.rein/shared/locate.sh\"', i)
     if i == -1:
         break
     window = t[max(0, i - 500):i]
-    if 'AI_OS_LOCATE_UNTRUSTED_ENV=1' not in window or 'unset -f ai_os_locate' not in window:
+    if 'REIN_LOCATE_UNTRUSTED_ENV=1' not in window or 'unset -f ai_os_locate' not in window:
         ok = False
         break
     i += 1
@@ -128,9 +128,9 @@ done
 # `src/` and only 5 that executed a framework helper; a rule that flagged all 23 would
 # be the same over-block this sprint keeps removing.
 _t="$(mktemp -d)"; mkdir -p "$_t/src/shared/skills/bad" "$_t/src/shared/skills/good"
-printf 'S: !for c in src/shared/x.mjs "${HOME}/.ai-os/shared/x.mjs"; do [ -f "$c" ] && node "$c"; done\n' \
+printf 'S: !for c in src/shared/x.mjs "${HOME}/.rein/shared/x.mjs"; do [ -f "$c" ] && node "$c"; done\n' \
   > "$_t/src/shared/skills/bad/SKILL.md"
-printf 'S: !. "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"\n' \
+printf 'S: !. "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"\n' \
   > "$_t/src/shared/skills/good/SKILL.md"
 printf 'A: !cat src/db/schema.sql\nB: !grep -r foo src/\nC: !test -f src/claude/agents/x.md\nD: !node -p "require(%s./package.json%s).version"\n' "'" "'" \
   > "$_t/src/shared/skills/good/DATA.md"
@@ -161,12 +161,12 @@ assert_status 0 "E-225.04a: the rule is in standards.json" \
 assert_status 0 "E-225.04b: the handler reuses the E-224 classifier" \
   bash -c "grep -q 'classifyMarkdown' '$STD_MJS'"
 assert_status 0 "E-225.04c: the documented bypass exists" \
-  bash -c "grep -q 'AI_OS_STANDARDS_SKIP === \"skill-locator\"' '$STD_MJS'"
+  bash -c "grep -q 'REIN_STANDARDS_SKIP === \"skill-locator\"' '$STD_MJS'"
 # The bypass must actually bypass.
 _t2="$(mktemp -d)"; mkdir -p "$_t2/src/shared/skills/bad"
 printf 'S: !for c in src/shared/x.mjs; do node "$c"; done\n' > "$_t2/src/shared/skills/bad/SKILL.md"
-assert_not_contains "E-225.04d: AI_OS_STANDARDS_SKIP=skill-locator bypasses it" "FLAGGED" \
-  "$(AI_OS_STANDARDS_SKIP=skill-locator node --no-warnings "$RULECHK" "$_t2" src/shared/skills/bad/SKILL.md 2>/dev/null)"
+assert_not_contains "E-225.04d: REIN_STANDARDS_SKIP=skill-locator bypasses it" "FLAGGED" \
+  "$(REIN_STANDARDS_SKIP=skill-locator node --no-warnings "$RULECHK" "$_t2" src/shared/skills/bad/SKILL.md 2>/dev/null)"
 rm -rf "$_t2"
 
 # ── E-225.6: the rule's detection, both directions (audit F2) ──────────────
@@ -199,9 +199,9 @@ _probe FLAGGED 'A: !node lib/x.mjs'
 _probe FLAGGED 'A: !python3 tools/x.py'
 # Legitimate shapes. Over-blocking here would be the same defect this sprint keeps
 # removing, one layer up — a gate that fires on correct code gets routed around.
-_probe clean 'A: !. "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"'
+_probe clean 'A: !. "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"'
 _probe clean 'A: !node /abs/x.mjs'
-_probe clean 'A: !node "${HOME}/.ai-os/shared/x.mjs"'
+_probe clean 'A: !node "${HOME}/.rein/shared/x.mjs"'
 _probe clean 'A: !cat src/db/schema.sql'
 _probe clean 'A: !grep -r foo src/'
 _probe clean 'A: !test -f src/claude/agents/x.md'
@@ -307,7 +307,7 @@ _probe FLAGGED 'A: !node "$HELPER" src/bin/ai'
 # …but STOP at a command terminator. Without that the walk ran past
 # `. "${HOME}/…/locate.sh";` into the next command and read the resolver's own logical
 # argument as a path — an over-block on the exact line this task ships.
-_probe clean 'A: !. "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"'
+_probe clean 'A: !. "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"'
 _probe clean 'A: !bash tests/run.sh; node "$c"'
 
 
@@ -417,7 +417,7 @@ command -v probe|Copilot: !command -v gh &>/dev/null && echo yes || echo no
 test -d|Archive: !test -d .ai/archive && echo YES || echo NO
 ls listing|Structure: !ls -1 . | head -20
 python3 inline code|Next: !python3 -c "print(1)"
-framework helper via resolver|Agg: !node "${HOME}/.ai-os/shared/incident-aggregate.mjs" || echo none
+framework helper via resolver|Agg: !node "${HOME}/.rein/shared/incident-aggregate.mjs" || echo none
 CASES
 
 # ── E-232.3: the shipped corpus is clean, and the scan is not vacuous ───────
@@ -490,7 +490,7 @@ assert_status 0 "E-232.05d: bug-reproducer .claude mirror matches src" \
 # ── E-232.6: the rule is registered, and has a rollback ────────────────────
 assert_status 0 "E-232.06a: registered in standards.json" \
   grep -q "skill_consent_no_project_exec" "${REPO_ROOT}/src/shared/standards.json"
-assert_contains "E-232.06b: AI_OS_STANDARDS_SKIP=skill-consent disables it" "MISS" \
-  "$(AI_OS_STANDARDS_SKIP=skill-consent _verdict 'Failing tests: !bash tests/run.sh')"
+assert_contains "E-232.06b: REIN_STANDARDS_SKIP=skill-consent disables it" "MISS" \
+  "$(REIN_STANDARDS_SKIP=skill-consent _verdict 'Failing tests: !bash tests/run.sh')"
 
 assert_summary

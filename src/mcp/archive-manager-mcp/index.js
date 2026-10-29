@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * archive-manager-mcp — AI-OS Auto-Pilot MCP Server
+ * archive-manager-mcp — Rein Auto-Pilot MCP Server
  * Monitors .ai/ context health and orchestrates autonomous archive operations.
  *
  * Tools:

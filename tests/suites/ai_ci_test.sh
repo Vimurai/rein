@@ -13,7 +13,7 @@
 #   * nothing left behind — the worktree, the throwaway HOME and the lock are gone after.
 #
 # Every run here targets a FIXTURE repository whose tests/run.sh is a stub that prints what
-# it can see, under a fake HOME and a private TMPDIR, so the operator's ~/.ai-os/ci is
+# it can see, under a fake HOME and a private TMPDIR, so the operator's ~/.rein/ci is
 # never touched by the suite.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,7 +28,7 @@ echo "── Suite: ai_ci_test ────────────────�
 FAKE_HOME="$(test_tmpdir ci-home)"
 tc_fixture_home "$FAKE_HOME"   # E-345 (D-109 r1): the toolchain record the hooks pin
 # E-265.03b compares shared/ after every run with this snapshot: the record is the fixture's.
-_shared_sig() { ( cd "${FAKE_HOME}/.ai-os/shared" && find . -print0 | sort -z | xargs -0 cksum 2>/dev/null; find . | sort ); }
+_shared_sig() { ( cd "${FAKE_HOME}/.rein/shared" && find . -print0 | sort -z | xargs -0 cksum 2>/dev/null; find . | sort ); }
 _SHARED_BEFORE="$(_shared_sig)"
 # TMPDIR is spelled through a SYMLINK, as macOS spells it (/var → /private/var). The node
 # helpers compare argv[1] with the resolved import.meta.url, so a run whose paths are not
@@ -47,17 +47,17 @@ _mk_repo() {
 echo "PROBE_HOME=${HOME}"
 [[ "$HOME" == "$(cd "$HOME" && pwd -P)" && "$PWD" == "$(pwd -P)" ]] \
   && echo "PROBE_PHYSICAL=yes" || echo "PROBE_PHYSICAL=no"
-echo "PROBE_ENV CI=${CI-unset} TMUX=${TMUX-unset} ROLE=${AI_OS_PANE_ROLE-unset} AI_OS_CI=${AI_OS_CI-unset}"
+echo "PROBE_ENV CI=${CI-unset} TMUX=${TMUX-unset} ROLE=${REIN_PANE_ROLE-unset} REIN_CI=${REIN_CI-unset}"
 [[ -f UNCOMMITTED.txt ]] && echo "PROBE_UNCOMMITTED=present" || echo "PROBE_UNCOMMITTED=absent"
 [[ -f tracked.txt ]] && echo "PROBE_TRACKED=present" || echo "PROBE_TRACKED=absent"
 # A run that writes under HOME must land in the throwaway HOME, never the caller's.
-mkdir -p "${HOME}/.ai-os" && echo probe > "${HOME}/.ai-os/probe-written"
-echo "PROBE_LANES=${AIOS_TEST_LANES-unset} AUTO=${AIOS_TEST_LANES_AUTO-unset} FREE=${AIOS_TEST_FREE_MB-unset}"
-echo "PROBE_HINTS=${AIOS_TEST_WALL_HINTS-unset}"
+mkdir -p "${HOME}/.rein" && echo probe > "${HOME}/.rein/probe-written"
+echo "PROBE_LANES=${REIN_TEST_LANES-unset} AUTO=${REIN_TEST_LANES_AUTO-unset} FREE=${REIN_TEST_FREE_MB-unset}"
+echo "PROBE_HINTS=${REIN_TEST_WALL_HINTS-unset}"
 # E-343: what .ai/ci.local.json adds. BAR's VALUE is compared, never printed — the log is read.
 echo "PROBE_LOCAL FOO_PORT=${FOO_PORT-unset} BAR=$([[ "${BAR-}" == "s3cr3t-bar-value" ]] && echo match || echo ${BAR+other}${BAR-unset})"
 printf 'CENSUS_SUITE\tstub_test.sh\t5\t3\t0\t0\t0\n'
-echo "   Lanes: ${AIOS_TEST_LANES:-1}"
+echo "   Lanes: ${REIN_TEST_LANES:-1}"
 echo "   Total: 3 passed, 0 failed"
 exit "$(cat stub_exit)"
 STUB
@@ -73,18 +73,18 @@ STUB
 # with the variables the runner must NOT pass through set in the caller.
 _ci() {
   local d="$1"; shift
-  # AIOS_TEST_FREE_MB is the operator's own lane-cap override (E-309): a run that set it for
+  # REIN_TEST_FREE_MB is the operator's own lane-cap override (E-309): a run that set it for
   # THIS suite must not hand it to the fixture runs.
   # TF_BUILD: the host this suite runs on may itself be Azure Pipelines (E-336.01a, D-061 §4);
   # E-386: likewise every hosted-runner marker — the fixture's host is CI=true and nothing else.
-  ( cd "$d" && env -u AIOS_TEST_FREE_MB -u TF_BUILD -u GITHUB_ACTIONS -u GITLAB_CI -u BITBUCKET_BUILD_NUMBER \
+  ( cd "$d" && env -u REIN_TEST_FREE_MB -u TF_BUILD -u GITHUB_ACTIONS -u GITLAB_CI -u BITBUCKET_BUILD_NUMBER \
       HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" CI=true TMUX=/tmp/fake,1,0 \
-      AI_OS_PANE_ROLE=architect bash "$AI" ci "$@" ) 2>&1
+      REIN_PANE_ROLE=architect bash "$AI" ci "$@" ) 2>&1
 }
 # E-386 (D-135 r1): a laptop — no hosted marker at all, CI included.
 _ci_local() {
   local d="$1"; shift
-  ( cd "$d" && env -u AIOS_TEST_FREE_MB -u TF_BUILD -u GITHUB_ACTIONS -u GITLAB_CI -u BITBUCKET_BUILD_NUMBER -u CI \
+  ( cd "$d" && env -u REIN_TEST_FREE_MB -u TF_BUILD -u GITHUB_ACTIONS -u GITLAB_CI -u BITBUCKET_BUILD_NUMBER -u CI \
       HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" bash "$AI" ci "$@" ) 2>&1
 }
 
@@ -111,8 +111,8 @@ assert_contains "E-265.01f: a fixture with no package.json skips deps, not error
 # ── E-265.2: the environment is curated ──────────────────────────────────
 assert_contains "E-265.02a: CI is not inherited" "CI=unset" "$OUT"
 assert_contains "E-265.02b: TMUX is not inherited" "TMUX=unset" "$OUT"
-assert_contains "E-265.02c: a launch variable (AI_OS_PANE_ROLE) is not inherited" "ROLE=unset" "$OUT"
-assert_contains "E-265.02d: AI_OS_CI=local is set for the run" "AI_OS_CI=local" "$OUT"
+assert_contains "E-265.02c: a launch variable (REIN_PANE_ROLE) is not inherited" "ROLE=unset" "$OUT"
+assert_contains "E-265.02d: REIN_CI=local is set for the run" "REIN_CI=local" "$OUT"
 assert_contains "E-343.00: without .ai/ci.local.json nothing extra reaches the run" \
   "PROBE_LOCAL FOO_PORT=unset BAR=unset" "$OUT"
 PROBE_HOME="$(sed -n 's/^PROBE_HOME=//p' <<< "$OUT" | head -1)"
@@ -124,27 +124,27 @@ assert_status 1 "E-265.02f: the run's HOME is not inside the caller's HOME eithe
 assert_contains "E-265.02g: HOME and the worktree are PHYSICAL paths under a symlinked TMPDIR" \
   "PROBE_PHYSICAL=yes" "$OUT"
 
-# ── E-265.3: the caller's ~/.ai-os is untouched, and nothing is left behind ──
-assert_status 1 "E-265.03a: the stub's HOME write did not reach the caller's ~/.ai-os" \
-  test -e "${FAKE_HOME}/.ai-os/probe-written"
+# ── E-265.3: the caller's ~/.rein is untouched, and nothing is left behind ──
+assert_status 1 "E-265.03a: the stub's HOME write did not reach the caller's ~/.rein" \
+  test -e "${FAKE_HOME}/.rein/probe-written"
 # shared/ is the fixture's own toolchain record (tc_fixture_home, E-345), written before the run:
 # it must still be exactly what the helper wrote — a run that wrote there would show.
-assert_status 0 "E-265.03b: the caller's ~/.ai-os holds only the ci/ directory and the fixture's shared/" \
-  test "$(command ls -A "${FAKE_HOME}/.ai-os" | tr '\n' ' ')" = "ci shared "
+assert_status 0 "E-265.03b: the caller's ~/.rein holds only the ci/ directory and the fixture's shared/" \
+  test "$(command ls -A "${FAKE_HOME}/.rein" | tr '\n' ' ')" = "ci shared "
 assert_status 0 "E-265.03b2: …and the run left shared/ byte-for-byte as the fixture wrote it" \
   test "$(_shared_sig)" = "$_SHARED_BEFORE"
 assert_status 1 "E-265.03c: the throwaway HOME is removed after the run" test -e "$PROBE_HOME"
 assert_status 0 "E-265.03d: the worktree is removed from git's list" \
   test "$(git -C "$REPO" worktree list | wc -l | tr -d ' ')" = "1"
-assert_status 0 "E-265.03e: no ai-os-ci work dir is left in TMPDIR" \
-  bash -c "! compgen -G '${RUN_TMP}/ai-os-ci.*' >/dev/null"
+assert_status 0 "E-265.03e: no rein-ci work dir is left in TMPDIR" \
+  bash -c "! compgen -G '${RUN_TMP}/rein-ci.*' >/dev/null"
 assert_status 0 "E-265.03f: the lock is released" \
-  bash -c "! compgen -G '${FAKE_HOME}/.ai-os/ci/run-*.lock' >/dev/null"
+  bash -c "! compgen -G '${FAKE_HOME}/.rein/ci/run-*.lock' >/dev/null"
 assert_status 0 "E-265.03g: the operator's working tree is unchanged by the run" \
   test "$(git -C "$REPO" status --porcelain)" = "$STATUS_BEFORE"
 
 # ── E-265.4: the log ──────────────────────────────────────────────────────
-LOG="$(compgen -G "${FAKE_HOME}/.ai-os/ci/logs/${SHA}-*.log" | head -1)"
+LOG="$(compgen -G "${FAKE_HOME}/.rein/ci/logs/${SHA}-*.log" | head -1)"
 assert_status 0 "E-265.04a: the log is named <sha>-<started>.log" test -f "$LOG"
 assert_status 0 "E-265.04b: the log records the result line" \
   grep -q '^\[ci\] result status=PASS suite=PASS pass=3 fail=0 skip=0 leaked=0' "$LOG"
@@ -162,7 +162,7 @@ assert_contains "E-265.05d: the worktree step reports the overlay" "dirty: 1 cop
 assert_status 0 "E-265.05e: the working tree is unchanged by a dirty run" \
   test "$(git -C "$REPO" status --porcelain)" = "$STATUS_BEFORE"
 assert_status 0 "E-265.05f: the dirty run's log says dirty=1" \
-  bash -c "grep -l 'dirty=1' '${FAKE_HOME}'/.ai-os/ci/logs/${SHA}-*.log >/dev/null"
+  bash -c "grep -l 'dirty=1' '${FAKE_HOME}'/.rein/ci/logs/${SHA}-*.log >/dev/null"
 
 # ── E-265.6: exit codes ───────────────────────────────────────────────────
 FREPO="$(test_tmpdir ci-fail)"
@@ -193,8 +193,8 @@ assert_status 0 "E-265.06i: an unknown subcommand exits 2" test "$RC" -eq 2
 
 # ── E-265.7: one run at a time per project ───────────────────────────────
 KEY="$(printf '%s' "$(git -C "$REPO" rev-parse --show-toplevel)" | cksum | awk '{print $1}')"
-LOCK="${FAKE_HOME}/.ai-os/ci/run-${KEY}.lock"
-HOLDER="$(test_bg sleep 60)"   # AIOS_SLEEP_ALLOWED: a live stand-in process holding the lock, not a wait
+LOCK="${FAKE_HOME}/.rein/ci/run-${KEY}.lock"
+HOLDER="$(test_bg sleep 60)"   # REIN_SLEEP_ALLOWED: a live stand-in process holding the lock, not a wait
 mkdir -p "$LOCK" && echo "$HOLDER" > "${LOCK}/pid"
 OUT="$(_ci "$REPO" run)"; RC=$?
 assert_status 0 "E-265.07a: a live lock refuses a second run with exit 2" test "$RC" -eq 2
@@ -220,7 +220,7 @@ assert_status 0 "E-265.09a: steps run under env -i (isolation by construction)" 
   grep -q 'env -i "\${CI_ENV\[@\]}"' "$AI"
 assert_status 0 "E-265.09b: the suite runs under /bin/bash, the shell users have" \
   grep -q '/bin/bash tests/run.sh' "$AI"
-assert_status 0 "E-265.09c: the caller's ~/.ai-os is stripped from PATH" \
+assert_status 0 "E-265.09c: the caller's ~/.rein is stripped from PATH" \
   grep -q '_ci_clean_path' "$AI"
 assert_status 0 "E-265.09d: ai --help lists ai ci run" \
   bash -c "HOME='$FAKE_HOME' bash '$AI' --help | grep -q 'ai ci run'"
@@ -234,8 +234,8 @@ _mk_repo "$LREPO"
 _cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 2)"
 _want=$(( _cores / 2 )); (( _want > 4 )) && _want=4; (( _want < 1 )) && _want=1
 # A NEWER log from another project, with census lines, must not be this run's hints.
-mkdir -p "${FAKE_HOME}/.ai-os/ci/logs"
-_foreign="${FAKE_HOME}/.ai-os/ci/logs/ffffffffffffffffffffffffffffffffffffffff-29991231T000000Z.log"
+mkdir -p "${FAKE_HOME}/.rein/ci/logs"
+_foreign="${FAKE_HOME}/.rein/ci/logs/ffffffffffffffffffffffffffffffffffffffff-29991231T000000Z.log"
 printf '[ci] repo=/elsewhere/project\nCENSUS_SUITE\tother_test.sh\t9\t1\t0\t0\t0\n' > "$_foreign"
 OUT="$(_ci_local "$LREPO" run)"
 assert_contains "E-309.C1: the default is min(4, cores/2) on a laptop, marked auto (clamped, not refused)" \
@@ -244,12 +244,12 @@ assert_contains "E-309.C2: no log of this project yet → no hints (another proj
   "PROBE_HINTS=" "$OUT"
 assert_not_contains "E-309.C2b: …not the foreign log" "PROBE_HINTS=${_foreign}" "$OUT"
 # The NEWEST log: fixture repos committed in the same second share a sha with the ones above.
-LLOG1="$(command ls -1t "${FAKE_HOME}/.ai-os/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
+LLOG1="$(command ls -1t "${FAKE_HOME}/.rein/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
 assert_status 0 "E-309.C3: the log records the lane count the runner used" grep -q "^\[ci\] resources lanes=${_want} " "$LLOG1"
 # E-310 (D-091): extends C3 — what the suite step spent is in the log and in the row.
 # E-386: extends R1 — the serial tail ("-": the stub prints no exclusive phase) and the host class.
 assert_status 0 "E-310.R1: peak RSS is measured (an integer > 0 MB) on this host's /usr/bin/time" \
-  grep -qE '^\[ci\] resources lanes=[0-9]+ peak_rss_mb=[1-9][0-9]* suite_seconds=[0-9]+ exclusive_seconds=- host=local runner=aios$' "$LLOG1"
+  grep -qE '^\[ci\] resources lanes=[0-9]+ peak_rss_mb=[1-9][0-9]* suite_seconds=[0-9]+ exclusive_seconds=- host=local runner=rein$' "$LLOG1"
 
 touch "$_foreign"   # still the newest
 # A second COMMIT: a log is named <sha>-<second>, so the same sha in the same second would
@@ -257,7 +257,7 @@ touch "$_foreign"   # still the newest
 echo two > "${LREPO}/tracked.txt"
 git -C "$LREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qam two
 mkdir -p "${LREPO}/.ai"
-OUT="$(cd "$LREPO" && HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" AIOS_TEST_FREE_MB=8192 bash "$AI" ci run --lanes 3 2>&1)"
+OUT="$(cd "$LREPO" && HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" REIN_TEST_FREE_MB=8192 bash "$AI" ci run --lanes 3 2>&1)"
 # E-312 (D-093) reverses E-309's pass-through: no operator opt-out of the memory cap.
 assert_contains "E-309.C4: an explicit --lanes is passed as asked, not auto; a caller's FREE_MB does NOT reach it" \
   "PROBE_LANES=3 AUTO=0 FREE=unset" "$OUT"
@@ -265,7 +265,7 @@ assert_contains "E-309.C5: the hints are this project's newest census log" "PROB
 # An .ai/ (untracked) makes the runs below RECORDED, so the row can be read back.
 _st="$(cd "$LREPO" && HOME="$FAKE_HOME" bash "$AI" ci status 2>&1)"
 assert_match "E-310.R2: ai ci status prints lanes, peak RSS, suite seconds and the runner" \
-  "spent: +lanes 3, peak RSS [1-9][0-9]* MB \(largest process\), - \(concurrent sum\), suite [0-9]+s, runner aios" "$_st"
+  "spent: +lanes 3, peak RSS [1-9][0-9]* MB \(largest process\), - \(concurrent sum\), suite [0-9]+s, runner rein" "$_st"
 assert_contains "E-310.R3: …and the slowest suites, from the census rows" "slowest:  stub 0s" "$_st"
 OUT="$(_ci "$LREPO" run --lanes 0)"; RC=$?
 assert_status 0 "E-309.C6: --lanes 0 is refused (rc=${RC})" test "$RC" -eq 2
@@ -277,24 +277,24 @@ git -C "$LREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit 
 OUT="$(_ci "$LREPO" run)"
 assert_contains "E-386.H1: CI=true alone is a hosted runner — every core, still auto (the memory cap clamps it)" \
   "PROBE_LANES=${_cores} AUTO=1 FREE=unset" "$OUT"
-LLOGH="$(command ls -1t "${FAKE_HOME}/.ai-os/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
+LLOGH="$(command ls -1t "${FAKE_HOME}/.rein/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
 assert_status 0 "E-386.H2: …and the log names the host class hosted:ci" grep -qE '^\[ci\] resources .* host=hosted:ci runner=' "$LLOGH"
 echo github > "${LREPO}/tracked.txt"
 git -C "$LREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qam github
 OUT="$(cd "$LREPO" && env -u CI -u TF_BUILD HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" GITHUB_ACTIONS=true bash "$AI" ci run 2>&1)"
 assert_contains "E-386.H3: a GitHub runner's own marker, without CI=true, is hosted too" "PROBE_LANES=${_cores} AUTO=1" "$OUT"
-LLOGH="$(command ls -1t "${FAKE_HOME}/.ai-os/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
+LLOGH="$(command ls -1t "${FAKE_HOME}/.rein/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
 assert_status 0 "E-386.H4: …named hosted:github" grep -qE '^\[ci\] resources .* host=hosted:github runner=' "$LLOGH"
 
 echo ""
 # ── E-343 (D-108 r9): the per-machine env allow-list, .ai/ci.local.json ──
-# An AI-OS project (tracked .ai/) whose .gitignore covers the file, as `ai sync` leaves it.
+# An Rein project (tracked .ai/) whose .gitignore covers the file, as `ai sync` leaves it.
 EREPO="$(test_tmpdir ci-localenv)"
 _mk_repo "$EREPO"
 mkdir -p "${EREPO}/.ai"; echo keep > "${EREPO}/.ai/keep"
 printf '.env\nnode_modules\n.ai/ci.local.json\n' > "${EREPO}/.gitignore"
 git -C "$EREPO" add -A; git -C "$EREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm ai
-_eci() { ( cd "$EREPO" && env -u AIOS_TEST_FREE_MB -u TF_BUILD HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" "$@" bash "$AI" ci run ) 2>&1; }
+_eci() { ( cd "$EREPO" && env -u REIN_TEST_FREE_MB -u TF_BUILD HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" "$@" bash "$AI" ci run ) 2>&1; }
 _wtcount() { git -C "$EREPO" worktree list | wc -l | tr -d ' '; }
 
 printf '{"env":["FOO_PORT=3101","BAR"]}\n' > "${EREPO}/.ai/ci.local.json"
@@ -302,8 +302,8 @@ OUT="$(_eci BAR=s3cr3t-bar-value)"; RC=$?
 assert_status 0 "E-343.01a: a run with the allow-list passes" test "$RC" -eq 0
 assert_contains "E-343.01b: NAME=value reaches tests/run.sh under env -i as a literal" "FOO_PORT=3101" "$OUT"
 assert_contains "E-343.01c: a bare NAME passes the invoking shell's value through" "BAR=match" "$OUT"
-assert_contains "E-343.01d: the env step names what was added" "AI_OS_CI=local +FOO_PORT +BAR" "$OUT"
-_elog="$(command ls -t "${FAKE_HOME}/.ai-os/ci/logs/"*.log | head -1)"
+assert_contains "E-343.01d: the env step names what was added" "REIN_CI=local +FOO_PORT +BAR" "$OUT"
+_elog="$(command ls -t "${FAKE_HOME}/.rein/ci/logs/"*.log | head -1)"
 assert_status 1 "E-343.01e: BAR's value is never written to the log" grep -q 's3cr3t-bar-value' "$_elog"
 assert_status 0 "E-343.01f: …nor to the file" bash -c "! grep -q 's3cr3t-bar-value' '${EREPO}/.ai/ci.local.json'"
 
@@ -311,8 +311,8 @@ OUT="$(_eci env -u BAR)"
 assert_contains "E-343.02a: an unset bare NAME is skipped with a note" "(BAR unset in this shell — skipped)" "$OUT"
 assert_contains "E-343.02b: and does not reach the run" "BAR=unset" "$OUT"
 
-for _bad in '{"env":["HOME=/x"]}|HOME' '{"env":["AI_OS_CI=hosted"]}|AI_OS_CI' '{"env":["npm_config_cache"]}|npm_config_cache' \
-            '{"env":["PLAYWRIGHT_BROWSERS_PATH=/x"]}|PLAYWRIGHT_BROWSERS_PATH' '{"env":["AIOS_WORKSPACE"]}|AIOS_WORKSPACE'; do
+for _bad in '{"env":["HOME=/x"]}|HOME' '{"env":["REIN_CI=hosted"]}|REIN_CI' '{"env":["npm_config_cache"]}|npm_config_cache' \
+            '{"env":["PLAYWRIGHT_BROWSERS_PATH=/x"]}|PLAYWRIGHT_BROWSERS_PATH' '{"env":["REIN_WORKSPACE"]}|REIN_WORKSPACE'; do
   printf '%s\n' "${_bad%|*}" > "${EREPO}/.ai/ci.local.json"
   OUT="$(_eci)"; RC=$?
   assert_status 0 "E-343.03a: ${_bad##*|} is reserved — the run is ERROR (exit 2)" test "$RC" -eq 2
@@ -331,12 +331,12 @@ assert_status 0 "E-343.04c: a non-array env is ERROR" test "$RC" -eq 2
 assert_contains "E-343.04d: …saying what it must be" '"env" must be an array' "$OUT"
 rm -f "${EREPO}/.ai/ci.local.json"
 
-# The secrets step: an AI-OS project whose .gitignore misses the file FAILs; a repo without .ai/
+# The secrets step: an Rein project whose .gitignore misses the file FAILs; a repo without .ai/
 # (REPO above) is not asked about it.
 printf '.env\nnode_modules\n' > "${EREPO}/.gitignore"
 git -C "$EREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qam "drop the line"
 OUT="$(_eci)"; RC=$?
-assert_status 0 "E-343.05a: an AI-OS project not ignoring .ai/ci.local.json fails the secrets step" test "$RC" -eq 1
+assert_status 0 "E-343.05a: an Rein project not ignoring .ai/ci.local.json fails the secrets step" test "$RC" -eq 1
 assert_contains "E-343.05b: …and names the file" "must cover .env, node_modules and .ai/ci.local.json" "$OUT"
 
 # The reserved names carry every E-264 launch variable; adding one there without here fails.
@@ -349,11 +349,11 @@ done
 echo ""
 # ── E-336 (D-103): under Azure Pipelines the run names its log directory for the wrapper ──
 # A task input cannot expand $HOME, so azure-pipelines.yml's artefact step reads
-# $(AI_OS_CI_LOG_DIR); TF_BUILD=True is Azure's marker. Extends E-265.1's fixture run.
+# $(REIN_CI_LOG_DIR); TF_BUILD=True is Azure's marker. Extends E-265.1's fixture run.
 assert_not_contains "E-336.01a: outside Azure no ##vso line is printed" "##vso[" "$(_ci "$REPO" run)"
-_az="$( cd "$REPO" && env -u AIOS_TEST_FREE_MB HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" TF_BUILD=True bash "$AI" ci run 2>&1 )"
-assert_contains "E-336.01b: under Azure the run sets AI_OS_CI_LOG_DIR to its log directory" \
-  "##vso[task.setvariable variable=AI_OS_CI_LOG_DIR]${FAKE_HOME}/.ai-os/ci/logs" "$_az"
+_az="$( cd "$REPO" && env -u REIN_TEST_FREE_MB HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" TF_BUILD=True bash "$AI" ci run 2>&1 )"
+assert_contains "E-336.01b: under Azure the run sets REIN_CI_LOG_DIR to its log directory" \
+  "##vso[task.setvariable variable=REIN_CI_LOG_DIR]${FAKE_HOME}/.rein/ci/logs" "$_az"
 
 
 # ── E-266 (from ai_ci_record — E-302): the run record ──
@@ -576,7 +576,7 @@ OUT="$(node --no-warnings "$CIREC" budget-check --ai-dir "${REPO}/.ai" --log "${
 assert_status 0 "E-303.02f: the ruled budget admits the run it was raised for" test "$RC" -eq 0
 assert_contains "E-303.02g: ai ci budget names the ruling" "ruled by D-118" "$(_ci budget)"
 assert_status 1 "E-303.03: no env var or flag lifts the ratchet (none is read)" \
-  grep -qE 'AI_OS_[A-Z_]*BUDGET|--no-budget' "$AI" "$CIREC" "${REPO_ROOT}/src/mcp/shared/ci-budget.js"
+  grep -qE 'REIN_[A-Z_]*BUDGET|--no-budget' "$AI" "$CIREC" "${REPO_ROOT}/src/mcp/shared/ci-budget.js"
 
 # ── E-267 (from ai_ci_gate — E-302): the local CI gates ──
 # E-267 (D-072, local-ci.md §Components 5-6a): the local CI gates.
@@ -593,13 +593,13 @@ AI="${REPO_ROOT}/src/bin/ai"
 SYNC_SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
 
-# A fake HOME whose ~/.ai-os mirror points at THIS tree, so the stub's canonical and the
+# A fake HOME whose ~/.rein mirror points at THIS tree, so the stub's canonical and the
 # hook's helper are the code under test, and the operator's real mirror is never read.
 FAKE_HOME="$(test_tmpdir cigate-home)"
-mkdir -p "${FAKE_HOME}/.ai-os/hooks"
+mkdir -p "${FAKE_HOME}/.rein/hooks"
 tc_link_shared "$FAKE_HOME"   # E-345 (D-109 r1): mirror = this tree + the toolchain record the hooks pin
-ln -s "${REPO_ROOT}/src/mcp" "${FAKE_HOME}/.ai-os/mcp"
-ln -s "${REPO_ROOT}/hooks/pre-push.sh" "${FAKE_HOME}/.ai-os/hooks/pre-push.sh"
+ln -s "${REPO_ROOT}/src/mcp" "${FAKE_HOME}/.rein/mcp"
+ln -s "${REPO_ROOT}/hooks/pre-push.sh" "${FAKE_HOME}/.rein/hooks/pre-push.sh"
 
 REPO="$(test_tmpdir cigate-repo)"
 REMOTE="$(test_tmpdir cigate-remote)"
@@ -637,7 +637,7 @@ PY
 
 # Install the stub exactly as `ai init` does.
 _hooks_out="$( cd "$REPO" && HOME="$FAKE_HOME" bash -c "
-  AIOS=\"\$HOME/.ai-os\"; AIOS_STUB_MARKER='# AI-OS-STUB'
+  REIN=\"\$HOME/.rein\"; REIN_STUB_MARKER='# Rein-STUB'
   $(awk '/^_write_pre_push_stub\(\) \{/,/^}$/' "$AI")
   _write_pre_push_stub .git/hooks/pre-push && echo written" 2>&1 )"
 assert_contains "E-267.00: the pre-push stub is written" "written" "$_hooks_out"
@@ -669,7 +669,7 @@ assert_contains "E-267.04b: with the CI_GATE message and the command" \
   "[CI_GATE] refs/heads/main: no green local CI run for ${C4:0:7}" "$PUSH_OUT"
 assert_contains "E-267.04c: naming the nearest tested ancestor and the path" \
   "nearest tested ancestor ${C2:0:7} differs outside .ai/: src/a.js" "$PUSH_OUT"
-assert_contains "E-267.04d: and the recorded bypass" 'AI_OS_CI_SKIP=1 AI_OS_CI_SKIP_REASON=' "$PUSH_OUT"
+assert_contains "E-267.04d: and the recorded bypass" 'REIN_CI_SKIP=1 REIN_CI_SKIP_REASON=' "$PUSH_OUT"
 assert_status 0 "E-267.04e: the remote did not move" \
   test "$(git -C "$REMOTE" rev-parse main)" = "$C3"
 
@@ -680,10 +680,10 @@ assert_status 1 "E-267.04f: a tip whose run FAILED is refused" test "$PUSH_RC" -
 assert_contains "E-267.04g: and says so" "its run is FAIL" "$PUSH_OUT"
 
 # ── E-267.5: skip — with a reason recorded, without a reason refused ─────
-_push AI_OS_CI_SKIP=1
-assert_status 1 "E-267.05a: AI_OS_CI_SKIP=1 without a reason is refused" test "$PUSH_RC" -eq 0
-assert_contains "E-267.05b: and says a reason is required" "needs AI_OS_CI_SKIP_REASON" "$PUSH_OUT"
-_push AI_OS_CI_SKIP=1 "AI_OS_CI_SKIP_REASON=prod outage hotfix"
+_push REIN_CI_SKIP=1
+assert_status 1 "E-267.05a: REIN_CI_SKIP=1 without a reason is refused" test "$PUSH_RC" -eq 0
+assert_contains "E-267.05b: and says a reason is required" "needs REIN_CI_SKIP_REASON" "$PUSH_OUT"
+_push REIN_CI_SKIP=1 "REIN_CI_SKIP_REASON=prod outage hotfix"
 assert_status 0 "E-267.05c: a skip with a reason pushes" test "$PUSH_RC" -eq 0
 assert_status 0 "E-267.05d: and the remote moved" test "$(git -C "$REMOTE" rev-parse main)" = "$C4"
 assert_contains "E-267.05e: the skip is a SKIPPED row carrying the reason and ref" \
@@ -695,20 +695,20 @@ assert_status 0 "E-267.05f: a later plain push of the skipped tip is let through
 # ── E-267.6: fail closed ─────────────────────────────────────────────────
 C6="$(_commit src/a.js 6 "sixth")"
 _row "$C6" PASS
-rm "${FAKE_HOME}/.ai-os/hooks/pre-push.sh"
+rm "${FAKE_HOME}/.rein/hooks/pre-push.sh"
 _push
 assert_status 1 "E-267.06a: a missing canonical refuses the push" test "$PUSH_RC" -eq 0
 assert_contains "E-267.06b: and names the fix" "pre-push canonical missing" "$PUSH_OUT"
-ln -s "${REPO_ROOT}/hooks/pre-push.sh" "${FAKE_HOME}/.ai-os/hooks/pre-push.sh"
-mv "${FAKE_HOME}/.ai-os/shared" "${FAKE_HOME}/.ai-os/shared.off"
+ln -s "${REPO_ROOT}/hooks/pre-push.sh" "${FAKE_HOME}/.rein/hooks/pre-push.sh"
+mv "${FAKE_HOME}/.rein/shared" "${FAKE_HOME}/.rein/shared.off"
 _push
 assert_status 1 "E-267.06c: a missing helper refuses the push" test "$PUSH_RC" -eq 0
 assert_contains "E-267.06d: and names the fix" "ci-record.mjs or node unavailable" "$PUSH_OUT"
-mv "${FAKE_HOME}/.ai-os/shared.off" "${FAKE_HOME}/.ai-os/shared"
+mv "${FAKE_HOME}/.rein/shared.off" "${FAKE_HOME}/.rein/shared"
 _push
 assert_status 0 "E-267.06e: restored, the tested tip pushes (non-vacuity for 06a-d)" test "$PUSH_RC" -eq 0
 
-# A repo that is not an AI-OS project is not gated.
+# A repo that is not an Rein project is not gated.
 PLAIN="$(test_tmpdir cigate-plain)"
 git -C "$PLAIN" init -q
 out="$( cd "$PLAIN" && printf 'refs/heads/x %s refs/heads/x %s\n' "$C6" "$C6" \
@@ -721,24 +721,24 @@ assert_status 0 "E-267.06g: a branch deletion is not gated" test "$rc" -eq 0
 
 # ── E-267.7: stub chaining preserves the user's hook and stdin ───────────
 CH="$(test_tmpdir cigate-chain)"
-printf '#!/usr/bin/env bash\ncat > "%s/seen"\nexit 0\n' "$CH" > "${REPO}/.git/hooks/pre-push.pre-aios"
-chmod +x "${REPO}/.git/hooks/pre-push.pre-aios"
-# E-290: the stub bakes in \${AIOS} (the install path) at WRITE time, as src/bin/ai defines it.
+printf '#!/usr/bin/env bash\ncat > "%s/seen"\nexit 0\n' "$CH" > "${REPO}/.git/hooks/pre-push.pre-rein"
+chmod +x "${REPO}/.git/hooks/pre-push.pre-rein"
+# E-290: the stub bakes in \${REIN} (the install path) at WRITE time, as src/bin/ai defines it.
 ( cd "$REPO" && HOME="$FAKE_HOME" bash -c "
-  AIOS_STUB_MARKER='# AI-OS-STUB'
-  AIOS='${FAKE_HOME}/.ai-os'
+  REIN_STUB_MARKER='# Rein-STUB'
+  REIN='${FAKE_HOME}/.rein'
   $(awk '/^_write_pre_push_stub\(\) \{/,/^}$/' "$AI")
-  _write_pre_push_stub .git/hooks/pre-push .git/hooks/pre-push.pre-aios" )
+  _write_pre_push_stub .git/hooks/pre-push .git/hooks/pre-push.pre-rein" )
 # A NEW tested commit: git hands a hook no ref lines when there is nothing to update.
 C7="$(_commit src/a.js 7 "seventh")"
 _row "$C7" PASS
 _push
 assert_status 0 "E-267.07a: the chained push still passes the gate" test "$PUSH_RC" -eq 0
 assert_contains "E-267.07b: the user's hook received git's ref line on stdin" "refs/heads/main" "$(cat "${CH}/seen" 2>/dev/null)"
-printf '#!/usr/bin/env bash\nexit 7\n' > "${REPO}/.git/hooks/pre-push.pre-aios"
+printf '#!/usr/bin/env bash\nexit 7\n' > "${REPO}/.git/hooks/pre-push.pre-rein"
 _push
 assert_status 1 "E-267.07c: a failing user hook still blocks the push" test "$PUSH_RC" -eq 0
-rm -f "${REPO}/.git/hooks/pre-push.pre-aios"
+rm -f "${REPO}/.git/hooks/pre-push.pre-rein"
 
 # ── E-267.8: the DONE gate, through the real MCP server ─────────────────
 _mcp() { ( cd "$REPO" && env HOME="$FAKE_HOME" "$@" ) | python3 -c '
@@ -755,9 +755,9 @@ C8="$(_commit src/a.js 8 "eighth")"
 OUT="$(_done E-1)"
 assert_contains "E-267.08a: DONE is refused when HEAD has no run" \
   "[CI_GATE] no green local CI run for HEAD ${C8:0:7}" "$OUT"
-assert_contains "E-267.08b: the refusal names the command and the bypass" "run: ai ci run (bypass: AI_OS_CI_GATE=0)" "$OUT"
-OUT="$(_done E-1 AI_OS_CI_GATE=0)"
-assert_contains "E-267.08c: AI_OS_CI_GATE=0 lets DONE through" "E-1 → DONE" "$OUT"
+assert_contains "E-267.08b: the refusal names the command and the bypass" "run: ai ci run (bypass: REIN_CI_GATE=0)" "$OUT"
+OUT="$(_done E-1 REIN_CI_GATE=0)"
+assert_contains "E-267.08c: REIN_CI_GATE=0 lets DONE through" "E-1 → DONE" "$OUT"
 _row "$C8" PASS true
 OUT="$(_done E-2)"
 assert_contains "E-267.08d: a dirty-only HEAD is refused" "[CI_GATE]" "$OUT"
@@ -855,7 +855,7 @@ assert_status 0 "E-268.01c: .github survives (copilot-instructions.md lives ther
 # squashed commit) records this as a skip, as the other history-pinned rows do.
 # The public line's root is the bootstrap snapshot, whose subject names the private predecessor.
 _e268_root="$(git -C "$REPO_ROOT" rev-list --max-parents=0 HEAD 2>/dev/null | head -1)"
-if [[ -n "$_e268_root" && "$(git -C "$REPO_ROOT" log -1 --format=%s "$_e268_root")" != "Rein — successor of the private ai-os repository"* ]] \
+if [[ -n "$_e268_root" && "$(git -C "$REPO_ROOT" log -1 --format=%s "$_e268_root")" != "Rein — successor of the private rein repository"* ]] \
    && [[ "$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null)" -gt 1 ]]; then
   assert_status 0 "E-268.01d: the workflow is still in git history — that is the rollback" \
     bash -c "cd '$REPO_ROOT' && git log --oneline -1 -- .github/workflows/test.yml | grep -q ."
@@ -871,7 +871,7 @@ fi
 # vendored deps and failed under the runner, which is the wrong way round.
 _hits="$(cd "$REPO_ROOT" && grep -rnE --exclude-dir=node_modules --exclude-dir=.git \
   'gh +run|GITHUB_ACTIONS|actions/workflow|workflows/test\.yml|ubuntu-latest' \
-  src tests hooks .claude README.md CONTRIBUTING.md ENGINEER.md ARCHITECT.md install-ai-os.sh 2>/dev/null \
+  src tests hooks .claude README.md CONTRIBUTING.md ENGINEER.md ARCHITECT.md install-rein.sh 2>/dev/null \
   | grep -vE '^tests/suites/ai_ci_test\.sh:' \
   | grep -vE '^src/templates/ci/' \
   | grep -vE '^(src/shared/hosted-ci\.mjs|tests/unit/hosted-ci(-workflow)?\.test\.mjs):' \
@@ -904,7 +904,7 @@ assert_status 0 "E-268.02c: under the 4.0.0 BREAKING heading, where E-263 releas
 assert_status 1 "E-268.03a: no static tests-passing badge" grep -qiE 'img\.shields\.io/badge/tests|tests-passing' "${REPO_ROOT}/README.md"
 assert_status 0 "E-268.03b: a Local CI section documents the runner" \
   grep -q '^## Local CI — `ai ci`' "${REPO_ROOT}/README.md"
-for needle in 'ai ci run' 'ai ci status' 'ai ci log --failed' 'AI_OS_CI_SKIP_REASON' 'pre-push'; do
+for needle in 'ai ci run' 'ai ci status' 'ai ci log --failed' 'REIN_CI_SKIP_REASON' 'pre-push'; do
   assert_status 0 "E-268.03c: README documents ${needle}" \
     bash -c "sed -n '/^## Local CI/,/^## Troubleshooting/p' '${REPO_ROOT}/README.md' | grep -qF '$needle'"
 done
@@ -915,7 +915,7 @@ assert_status 0 "E-268.04a: CONTRIBUTING has the Local CI section" \
 assert_status 0 "E-268.04b: and says what green means for a PR" \
   grep -q 'non-dirty' "${REPO_ROOT}/CONTRIBUTING.md"
 assert_status 0 "E-268.04c: and names the recorded bypass" \
-  grep -q 'AI_OS_CI_SKIP=1' "${REPO_ROOT}/CONTRIBUTING.md"
+  grep -q 'REIN_CI_SKIP=1' "${REPO_ROOT}/CONTRIBUTING.md"
 
 # ── E-268.5: the agent-facing surfaces ───────────────────────────────────
 CG="${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
@@ -928,7 +928,7 @@ assert_status 0 "E-268.05c: ci_gate enforces the step order of the runner" \
 assert_status 0 "E-268.05d: the DevOps contract says what CI means here" \
   grep -q 'ai ci run` on the machine' "${REPO_ROOT}/src/contracts/40_DEVOPS.md"
 assert_status 0 "E-268.05e: devops_engineer knows CI is local" \
-  grep -q 'AI-OS itself runs CI locally' "${REPO_ROOT}/src/claude/agents/devops_engineer.md"
+  grep -q 'Rein itself runs CI locally' "${REPO_ROOT}/src/claude/agents/devops_engineer.md"
 assert_status 0 "E-268.05f: the copilot brief no longer offers CI triggers" \
   bash -c "! grep -q 'CI triggers' '${REPO_ROOT}/src/copilot/COPILOT.md'"
 

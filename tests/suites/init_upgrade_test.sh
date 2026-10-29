@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AIOS_INSTALLER_SUBJECT: ai init upgrades a project in place (and runs the installer it upgrades from) (E-311, D-092)
+# REIN_INSTALLER_SUBJECT: ai init upgrades a project in place (and runs the installer it upgrades from) (E-311, D-092)
 # init_upgrade_test.sh — E-270 (D-074, version-lifecycle.md §Components 1, 2, 6): one version
 # stamped twice, and `ai init` as an idempotent UPGRADE.
 #
@@ -7,7 +7,7 @@
 # be proved end to end is what an operator sees when they re-run `ai init` on an old
 # project:
 #
-#   * the installer writes ~/.ai-os/VERSION from package.json, and `ai --version` reads it;
+#   * the installer writes ~/.rein/VERSION from package.json, and `ai --version` reads it;
 #   * a fresh `ai init` stamps the project and `ai init --check` then has nothing to do;
 #   * a 3.0-shaped project (no tester role, the architect on a removed provider, agy and
 #     gemini in providers.json, a stale bootloader, an outdated hook stub) is upgraded to
@@ -37,8 +37,8 @@ FAKE_TMP="$(test_tmpdir upg-tmp)"
 PROJ="$(test_tmpdir upg-proj)"
 STUBS="$(test_tmpdir upg-stubs)"
 printf '#!/bin/sh\nexit 0\n' > "${STUBS}/npm"; chmod +x "${STUBS}/npm"
-AI_BIN="${FAKE_HOME}/.ai-os/bin/ai"
-BASE_PATH="${STUBS}:${FAKE_HOME}/.ai-os/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")"
+AI_BIN="${FAKE_HOME}/.rein/bin/ai"
+BASE_PATH="${STUBS}:${FAKE_HOME}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")"
 PKG_VERSION="$(node -p 'require(process.argv[1]).version' "${REPO_ROOT}/package.json")"
 
 # _ai <args…> — the INSTALLED ai, run inside the fixture project with the fixture env.
@@ -56,7 +56,7 @@ _authored() { ( cd "${PROJ}/.ai" && cksum BRIEF.md RULES.md SEED.md DIGEST.md TA
 # From a NEUTRAL cwd: the installer ends with `ai install`, which regenerates the .mcp.json
 # of the project it is run in. Run from the repo root, it rewrote THIS repository's
 # .mcp.json with the fixture HOME's paths (found by the first run of this suite, E-240).
-_inst="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-ai-os.sh" 2>&1 )"
+_inst="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"
 _irc=$?
 if [[ "$_irc" -ne 0 ]]; then
   _fail "E-270.01a: the installer runs in a fixture HOME (exit=${_irc})"
@@ -64,23 +64,23 @@ if [[ "$_irc" -ne 0 ]]; then
   assert_summary; exit 1
 fi
 _pass "E-270.01a: the installer runs in a fixture HOME"
-assert_status 0 "E-270.01b: ~/.ai-os/VERSION equals package.json (${PKG_VERSION})" \
-  test "$(cat "${FAKE_HOME}/.ai-os/VERSION")" = "$PKG_VERSION"
+assert_status 0 "E-270.01b: ~/.rein/VERSION equals package.json (${PKG_VERSION})" \
+  test "$(cat "${FAKE_HOME}/.rein/VERSION")" = "$PKG_VERSION"
 assert_contains "E-270.01c: the installer banner prints the package.json version" \
-  "AI-OS v${PKG_VERSION} installed at" "$_inst"
+  "Rein v${PKG_VERSION} installed at" "$_inst"
 assert_status 0 "E-270.01d: ai --version reads the stamp" \
-  test "$(_ai --version)" = "ai-os ${PKG_VERSION}"
-echo "9.8.7" > "${FAKE_HOME}/.ai-os/VERSION"
-assert_status 0 "E-270.01e: ai --version follows ~/.ai-os/VERSION, not a literal" \
-  test "$(_ai --version)" = "ai-os 9.8.7"
-printf '%s\n' "$PKG_VERSION" > "${FAKE_HOME}/.ai-os/VERSION"
+  test "$(_ai --version)" = "rein ${PKG_VERSION}"
+echo "9.8.7" > "${FAKE_HOME}/.rein/VERSION"
+assert_status 0 "E-270.01e: ai --version follows ~/.rein/VERSION, not a literal" \
+  test "$(_ai --version)" = "rein 9.8.7"
+printf '%s\n' "$PKG_VERSION" > "${FAKE_HOME}/.rein/VERSION"
 
 # ── E-270.2: a fresh init stamps; --check then has nothing to do ──────────────
 ( cd "$PROJ" && git init -q )
 assert_rc 1 "E-270.02a: --check outside a project says ai init would provision" init --check
 _init1="$(_ai init)"
-assert_status 0 "E-270.02b: a fresh ai init stamps project.aios_version" \
-  test "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["project"].get("aios_version",""))' "${PROJ}/.ai/state.json")" = "$PKG_VERSION"
+assert_status 0 "E-270.02b: a fresh ai init stamps project.rein_version" \
+  test "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["project"].get("rein_version",""))' "${PROJ}/.ai/state.json")" = "$PKG_VERSION"
 assert_status 0 "E-270.02c: the fresh stamp records provisioned_at" \
   python3 -c 'import json,sys;assert json.load(open(sys.argv[1]))["project"]["provisioned_at"]' "${PROJ}/.ai/state.json"
 assert_rc 0 "E-270.02d: --check after a fresh init has nothing to do" init --check
@@ -109,10 +109,10 @@ cat > "${PROJ}/.ai/providers.json" <<'J'
 }
 J
 ORIG_ROLES="$(cat "${PROJ}/.ai/roles.json")"
-sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='aios_version'"
+sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='rein_version'"
 python3 - "${PROJ}/.ai/state.json" <<'P'
 import json, sys
-p = sys.argv[1]; s = json.load(open(p)); s["project"]["aios_version"] = "3.0.0"
+p = sys.argv[1]; s = json.load(open(p)); s["project"]["rein_version"] = "3.0.0"
 json.dump(s, open(p, "w"), indent=2)
 P
 echo "stale" >> "${PROJ}/ENGINEER.md"
@@ -151,9 +151,9 @@ assert_status 0 "E-270.03q: roles.pre-<version>.json is the ORIGINAL file" \
   test "$(cat "${PROJ}/.ai/roles.pre-${PKG_VERSION}.json")" = "$ORIG_ROLES"
 assert_exists "${PROJ}/.ai/providers.pre-${PKG_VERSION}.json"
 assert_status 0 "E-270.03r: the stale bootloader was refreshed" \
-  cmp -s "${PROJ}/ENGINEER.md" "${FAKE_HOME}/.ai-os/templates/ENGINEER.md"
+  cmp -s "${PROJ}/ENGINEER.md" "${FAKE_HOME}/.rein/templates/ENGINEER.md"
 assert_status 0 "E-270.03s: the project is stamped with the installed version" \
-  test "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["project"]["aios_version"])' "${PROJ}/.ai/state.json")" = "$PKG_VERSION"
+  test "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["project"]["rein_version"])' "${PROJ}/.ai/state.json")" = "$PKG_VERSION"
 
 # ── E-270.4: idempotent — a second init is a no-op ────────────────────────────
 assert_rc 0 "E-270.04a: --check after the upgrade has nothing to do" init --check
@@ -169,7 +169,7 @@ python3 - "${PROJ}/.mcp.json" <<'P'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p)); s = d["mcpServers"]
 s["my-own-server"] = {"command": "uvx", "args": ["my-own"], "env": {"K": "v"}}
-s["task-synchronizer-mcp"]["env"] = {"AI_OS_DEBUG": "1"}
+s["task-synchronizer-mcp"]["env"] = {"REIN_DEBUG": "1"}
 s["github-bridge-mcp"] = {"command": "node", "args": ["/old/github-bridge-mcp/index.js"]}
 json.dump(d, open(p, "w"), indent=2)
 P
@@ -177,12 +177,12 @@ _mq() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]))["mcpServers"]
 _ai init >/dev/null
 assert_status 0 "E-274.e2e.a: ai init keeps a user-added server" test "$(_mq "d['my-own-server']['env']['K']")" = "v"
 assert_status 0 "E-274.e2e.b: ai init keeps a user env on an owned server" \
-  test "$(_mq "d['task-synchronizer-mcp']['env']['AI_OS_DEBUG']")" = "1"
+  test "$(_mq "d['task-synchronizer-mcp']['env']['REIN_DEBUG']")" = "1"
 assert_status 0 "E-274.e2e.c: ai init removes a retired registry_history server" \
   test "$(_mq "'github-bridge-mcp' in d")" = "False"
 _ai sync >/dev/null
 assert_status 0 "E-274.e2e.d: ai sync keeps them too" \
-  test "$(_mq "d['my-own-server']['args'][0] + d['task-synchronizer-mcp']['env']['AI_OS_DEBUG']")" = "my-own1"
+  test "$(_mq "d['my-own-server']['args'][0] + d['task-synchronizer-mcp']['env']['REIN_DEBUG']")" = "my-own1"
 assert_rc 0 "E-274.e2e.e: --check does not report the user's servers as pending" init --check
 
 # ── E-270.5: doctor — the version line and the PATH line, both branches ───────
@@ -191,11 +191,11 @@ _path_line() { printf '%s\n' "$1" | grep -E '^  [✓✗] ai on PATH:' | head -1;
 _doc="$(_ai doctor)"
 assert_contains "E-270.05a: doctor: every copy agrees" \
   "✓ version: clone ${PKG_VERSION} · mirror ${PKG_VERSION} · project ${PKG_VERSION}" "$(_ver_line "$_doc")"
-assert_contains "E-270.05b: doctor: ai on PATH is the installed one" "✓ ai on PATH: ~/.ai-os/bin/ai" "$(_path_line "$_doc")"
-sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='aios_version'"
+assert_contains "E-270.05b: doctor: ai on PATH is the installed one" "✓ ai on PATH: ~/.rein/bin/ai" "$(_path_line "$_doc")"
+sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='rein_version'"
 python3 - "${PROJ}/.ai/state.json" <<'P'
 import json, sys
-p = sys.argv[1]; s = json.load(open(p)); s["project"]["aios_version"] = "3.0.0"
+p = sys.argv[1]; s = json.load(open(p)); s["project"]["rein_version"] = "3.0.0"
 json.dump(s, open(p, "w"), indent=2)
 P
 assert_contains "E-270.05c: doctor: a project behind the mirror points at ai init" \

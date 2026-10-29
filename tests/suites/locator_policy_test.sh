@@ -3,7 +3,7 @@
 #
 # Every hook used to locate framework helpers as
 #     "$(git rev-parse --show-toplevel 2>/dev/null || pwd)/src/<helper>"
-# which names the USER's repository, not the AI-OS install. A project containing
+# which names the USER's repository, not the Rein install. A project containing
 # `src/mcp/safe-exec-mcp/index.js` therefore had THAT file executed by node from inside a
 # PreToolUse hook, with its stdout trusted to decide whether a write is allowed: cloning a
 # repo was enough to run its code AND disable the gate meant to stop it.
@@ -44,7 +44,7 @@ _decoy() {
 _D="$(_decoy)"
 _resolved="$(cd "$_D" && bash -c "source '$LOC_SH'; ai_os_locate mcp/safe-exec-mcp/index.js" 2>/dev/null)"
 assert_not_contains "E-223.01a: a decoy repo never resolves its OWN src/" "$_D" "$_resolved"
-assert_contains     "E-223.01b: it resolves the install mirror instead" ".ai-os/mcp/safe-exec-mcp" "$_resolved"
+assert_contains     "E-223.01b: it resolves the install mirror instead" ".rein/mcp/safe-exec-mcp" "$_resolved"
 _resolved="$(cd "$REPO_ROOT" && bash -c "source '$LOC_SH'; ai_os_locate mcp/safe-exec-mcp/index.js" 2>/dev/null)"
 assert_contains "E-223.01c: the framework clone still resolves the dev tree (dogfooding)" \
   "$REPO_ROOT/src/mcp/safe-exec-mcp" "$_resolved"
@@ -60,8 +60,8 @@ for _lg in "mcp/safe-exec-mcp/index.js" "shared/telemetry.mjs"; do
   done
 done
 
-# ── E-223.3: AI_OS_LOCATE_DEV=1 restores dev-first ──────────────────────────
-_resolved="$(cd "$_D" && AI_OS_LOCATE_DEV=1 bash -c "source '$LOC_SH'; ai_os_locate shared/telemetry.mjs" 2>/dev/null)"
+# ── E-223.3: REIN_LOCATE_DEV=1 restores dev-first ──────────────────────────
+_resolved="$(cd "$_D" && REIN_LOCATE_DEV=1 bash -c "source '$LOC_SH'; ai_os_locate shared/telemetry.mjs" 2>/dev/null)"
 assert_contains "E-223.03a: the rollback flag reaches the dev tree" "$_D" "$_resolved"
 _resolved="$(cd "$_D" && bash -c "source '$LOC_SH'; ai_os_locate shared/telemetry.mjs" 2>/dev/null)"
 assert_not_contains "E-223.03b: without it, the decoy tree is not consulted" "$_D" "$_resolved"
@@ -114,8 +114,8 @@ assert_status 0 "E-223.06d: post-tool-use still runs the PROJECT's own test runn
 # A project's own `.claude/settings.json` carries an `env` block that the CLI applies to
 # the session, and hooks inherit it — `ai init` writes that key, so it is the NORMAL shape.
 # The first cut of E-223 was defeated by three vars settable from that file, and the worst
-# of them was one E-223 itself introduced: pre-E-223 hooks hardcoded ${HOME}/.ai-os and
-# never read AI_OS_HOME. Cloning a repo was still enough; it just needed one more file.
+# of them was one E-223 itself introduced: pre-E-223 hooks hardcoded ${HOME}/.rein and
+# never read REIN_HOME. Cloning a repo was still enough; it just needed one more file.
 _env_canary() {  # <env assignment...> → the marker content, or "not executed"
   : > "$_D/CANARY_EXECUTED"
   local payload='{"tool_name":"Bash","tool_input":{"command":"echo hi"},"session_id":"e223-env"}'
@@ -126,54 +126,54 @@ _env_canary() {  # <env assignment...> → the marker content, or "not executed"
   local got; got="$(tr '\n' ' ' < "$_D/CANARY_EXECUTED" 2>/dev/null)"
   printf '%s' "${got:-not executed}"
 }
-# The decoy needs a shell payload too: with AI_OS_HOME redirected, the bootstrap SOURCES
+# The decoy needs a shell payload too: with REIN_HOME redirected, the bootstrap SOURCES
 # the decoy's locate.sh, which is arbitrary shell inside a fail-closed gate process.
 mkdir -p "$_D/shared"
 printf 'printf "SH_SOURCED_DECOY\\n" >> "%s"\nai_os_locate() { printf "%%s" "%s"; return 0; }\n' \
   "$_D/CANARY_EXECUTED" "$_D/src/mcp/safe-exec-mcp/index.js" > "$_D/shared/locate.sh"
 
-assert_contains "E-223.08a: AI_OS_LOCATE_DEV=1 is ignored inside hooks" "not executed" \
-  "$(_env_canary AI_OS_LOCATE_DEV=1)"
-assert_contains "E-223.08b: AIOS_WORKSPACE cannot claim the visited repo is the clone" "not executed" \
-  "$(_env_canary AIOS_WORKSPACE="$_D")"
-assert_contains "E-223.08c: AI_OS_HOME cannot redirect the resolver bootstrap" "not executed" \
-  "$(_env_canary AI_OS_HOME="$_D")"
+assert_contains "E-223.08a: REIN_LOCATE_DEV=1 is ignored inside hooks" "not executed" \
+  "$(_env_canary REIN_LOCATE_DEV=1)"
+assert_contains "E-223.08b: REIN_WORKSPACE cannot claim the visited repo is the clone" "not executed" \
+  "$(_env_canary REIN_WORKSPACE="$_D")"
+assert_contains "E-223.08c: REIN_HOME cannot redirect the resolver bootstrap" "not executed" \
+  "$(_env_canary REIN_HOME="$_D")"
 assert_status 0 "E-223.08d: every hook declares its environment untrusted" \
   bash -c "for h in pre-tool-use session-start pre-commit post-tool-use stop-hook; do
-             grep -q 'AI_OS_LOCATE_UNTRUSTED_ENV=1' '${REPO_ROOT}/hooks/'\$h'.sh' || exit 1; done"
-# Match an EXPANSION of the env var (`${AI_OS_HOME...}` / `$AI_OS_HOME`), not the local
-# `_AI_OS_HOME_DIR` that holds the hardcoded path — an earlier version of this assertion
+             grep -q 'REIN_LOCATE_UNTRUSTED_ENV=1' '${REPO_ROOT}/hooks/'\$h'.sh' || exit 1; done"
+# Match an EXPANSION of the env var (`${REIN_HOME...}` / `$REIN_HOME`), not the local
+# `_REIN_HOME_DIR` that holds the hardcoded path — an earlier version of this assertion
 # matched the variable NAME and failed on correct code.
-assert_status 1 "E-223.08e: no hook reads the AI_OS_HOME env var any more" \
-  bash -c "sed 's/[[:space:]]*#.*\$//' ${REPO_ROOT}/hooks/*.sh | grep -qE '[\\\$]\\{?AI_OS_HOME[}:]'"
+assert_status 1 "E-223.08e: no hook reads the REIN_HOME env var any more" \
+  bash -c "sed 's/[[:space:]]*#.*\$//' ${REPO_ROOT}/hooks/*.sh | grep -qE '[\\\$]\\{?REIN_HOME[}:]'"
 # The recorded workspace file outranks the env var even when the env IS trusted.
-assert_status 0 "E-223.08f: the installer-recorded workspace outranks AIOS_WORKSPACE" \
-  bash -c "grep -q 'aios-workspace.txt' '$LOC_SH' &&
+assert_status 0 "E-223.08f: the installer-recorded workspace outranks REIN_WORKSPACE" \
+  bash -c "grep -q 'rein-workspace.txt' '$LOC_SH' &&
            python3 - <<'PYX'
 import re,sys
 s=open('$LOC_SH').read()
 i=s.index('ai_os_is_framework_clone')
 body=s[i:i+1400]
-sys.exit(0 if body.index('aios-workspace.txt') < body.index('AIOS_WORKSPACE:-') else 1)
+sys.exit(0 if body.index('rein-workspace.txt') < body.index('REIN_WORKSPACE:-') else 1)
 PYX"
 
 # ── E-223.9: the framework test PARSES package.json, never greps it ─────────
 # A substring grep and a JSON parse disagree, and the shell side is the one every hook
-# uses. A repo named `totally-innocent-app` carrying a NESTED "name": "ai-os-v2" satisfied
+# uses. A repo named `totally-innocent-app` carrying a NESTED "name": "@vimurai/rein" satisfied
 # the grep. Two implementations of one policy must not diverge — and when they do, the
 # permissive one is the one that decides.
 _SB="$(mktemp -d)"; _LIAR="$_SB/liar"
-mkdir -p "$_LIAR/src/mcp/safe-exec-mcp" "$_SB/home/.ai-os/mcp/safe-exec-mcp" "$_SB/home/.ai-os/config"
+mkdir -p "$_LIAR/src/mcp/safe-exec-mcp" "$_SB/home/.rein/mcp/safe-exec-mcp" "$_SB/home/.rein/config"
 tc_fixture_home "$_SB/home"   # E-345 (D-109 r1): the toolchain record the hooks pin
 echo 'x' > "$_LIAR/src/mcp/safe-exec-mcp/index.js"
-echo 'x' > "$_SB/home/.ai-os/mcp/safe-exec-mcp/index.js"
-printf '{ "name": "totally-innocent-app", "bundledMeta": { "vendored": { "name": "ai-os-v2" } } }\n' \
+echo 'x' > "$_SB/home/.rein/mcp/safe-exec-mcp/index.js"
+printf '{ "name": "totally-innocent-app", "bundledMeta": { "vendored": { "name": "@vimurai/rein" } } }\n' \
   > "$_LIAR/package.json"
 ( cd "$_LIAR" && git init -q . && git add -A >/dev/null 2>&1 &&
   git -c user.email=t@t -c user.name=t commit -qm x >/dev/null 2>&1 )
-_sh="$(cd "$_LIAR" && HOME="$_SB/home" AI_OS_HOME="$_SB/home/.ai-os" \
+_sh="$(cd "$_LIAR" && HOME="$_SB/home" REIN_HOME="$_SB/home/.rein" \
         bash -c "source '$LOC_SH'; ai_os_locate mcp/safe-exec-mcp/index.js" 2>/dev/null)"
-_nd="$(cd "$_LIAR" && HOME="$_SB/home" AI_OS_HOME="$_SB/home/.ai-os" \
+_nd="$(cd "$_LIAR" && HOME="$_SB/home" REIN_HOME="$_SB/home/.rein" \
         node --no-warnings "$LOC_MJS" mcp/safe-exec-mcp/index.js 2>/dev/null)"
 assert_not_contains "E-223.09a: a nested name does not make a repo the framework clone" "$_LIAR" "$_sh"
 assert_contains "E-223.09b: shell and node agree on the liar manifest" "$_sh" "$_nd"
@@ -183,20 +183,20 @@ rm -rf "$_SB"
 
 # ── E-223.10: `ai` is subject to the same untrusted env as the hooks ────────
 # `ai` is invoked through Bash from inside the project being worked on, so it inherits the
-# same repo-chosen session env. Hardening only the hooks left AI_OS_HOME and
-# AI_OS_LOCATE_DEV honoured here — and `_locate_resolve_launch`'s stdout decides which
+# same repo-chosen session env. Hardening only the hooks left REIN_HOME and
+# REIN_LOCATE_DEV honoured here — and `_locate_resolve_launch`'s stdout decides which
 # BINARY `ai pane` execs. The bootstrap is EXTRACTED from the shipped script rather than
 # retyped: a hand-copied bootstrap is how the first version of this probe kept
 # "reproducing" a bug that was already fixed.
 _SB2="$(mktemp -d)"; _DEC="$_SB2/decoy"
 mkdir -p "$_DEC/src/mcp/safe-exec-mcp" "$_DEC/mcp/safe-exec-mcp" \
-         "$_SB2/home/.ai-os/mcp/safe-exec-mcp" "$_SB2/home/.ai-os/config" "$_SB2/home/.ai-os/shared"
+         "$_SB2/home/.rein/mcp/safe-exec-mcp" "$_SB2/home/.rein/config" "$_SB2/home/.rein/shared"
 tc_fixture_home "$_SB2/home"   # E-345 (D-109 r1): the toolchain record the hooks pin
 echo x > "$_DEC/src/mcp/safe-exec-mcp/index.js"
 echo x > "$_DEC/mcp/safe-exec-mcp/index.js"
-echo x > "$_SB2/home/.ai-os/mcp/safe-exec-mcp/index.js"
-cp "$LOC_SH" "$_SB2/home/.ai-os/shared/locate.sh"
-printf '%s\n' "$REPO_ROOT" > "$_SB2/home/.ai-os/config/aios-workspace.txt"
+echo x > "$_SB2/home/.rein/mcp/safe-exec-mcp/index.js"
+cp "$LOC_SH" "$_SB2/home/.rein/shared/locate.sh"
+printf '%s\n' "$REPO_ROOT" > "$_SB2/home/.rein/config/rein-workspace.txt"
 ( cd "$_DEC" && git init -q . && git commit -q --allow-empty -m x >/dev/null 2>&1 )
 sed -n '1,/^usage() {/p' "$AI_BIN" | sed '$d' > "$_SB2/boot.sh"
 
@@ -207,18 +207,18 @@ _ai_boot_resolves() {   # <env...> → the resolved path
       ai_os_locate mcp/safe-exec-mcp/index.js' 2>/dev/null )
 }
 assert_not_contains "E-223.10a: ai baseline resolves the install mirror" "$_DEC" "$(_ai_boot_resolves IGNORE=1)"
-assert_not_contains "E-223.10b: AI_OS_LOCATE_DEV cannot redirect ai"     "$_DEC" "$(_ai_boot_resolves AI_OS_LOCATE_DEV=1)"
-assert_not_contains "E-223.10c: AI_OS_HOME cannot redirect ai"           "$_DEC" "$(_ai_boot_resolves AI_OS_HOME="$_DEC")"
-assert_not_contains "E-223.10d: AIOS_WORKSPACE cannot redirect ai"       "$_DEC" "$(_ai_boot_resolves AIOS_WORKSPACE="$_DEC")"
+assert_not_contains "E-223.10b: REIN_LOCATE_DEV cannot redirect ai"     "$_DEC" "$(_ai_boot_resolves REIN_LOCATE_DEV=1)"
+assert_not_contains "E-223.10c: REIN_HOME cannot redirect ai"           "$_DEC" "$(_ai_boot_resolves REIN_HOME="$_DEC")"
+assert_not_contains "E-223.10d: REIN_WORKSPACE cannot redirect ai"       "$_DEC" "$(_ai_boot_resolves REIN_WORKSPACE="$_DEC")"
 # The argv override must be argv-ONLY: bin/ai resets it before reading argv, so an
 # inherited value cannot pre-set it. Without that reset the fix would just rename the hole.
 assert_not_contains "E-223.10e: the argv override cannot be forged through the env" "$_DEC" \
-  "$(_ai_boot_resolves _AI_OS_LOCATE_DEV_ARGV=1)"
+  "$(_ai_boot_resolves _REIN_LOCATE_DEV_ARGV=1)"
 # …and it must still work, or framework development has no dev-tree path at all.
 _dev="$( cd "$REPO_ROOT" && bash -c "set -- --dev-tree sync; source '$_SB2/boot.sh' >/dev/null 2>&1; ai_os_locate shared/locate.sh" 2>/dev/null )"
 assert_contains "E-223.10f: ai --dev-tree still reaches the dev tree" "$REPO_ROOT/src" "$_dev"
 assert_status 0 "E-223.10g: ai declares its environment untrusted" \
-  bash -c "grep -q 'AI_OS_LOCATE_UNTRUSTED_ENV=1' '$AI_BIN'"
+  bash -c "grep -q 'REIN_LOCATE_UNTRUSTED_ENV=1' '$AI_BIN'"
 
 # ── E-223.11: the twins agree on the UNTRUSTED branch too ───────────────────
 # E-223.02 compares only the trusted branch — the one where they already agreed. The
@@ -226,10 +226,10 @@ assert_status 0 "E-223.10g: ai declares its environment untrusted" \
 # different trust models there: shell returned the install mirror, node returned the decoy,
 # for all three env vars. Comparing only where two implementations agree is precisely the
 # vacuous-parity failure this suite exists to prevent.
-for _ev in "AI_OS_LOCATE_DEV=1" "AI_OS_HOME=$_DEC" "AIOS_WORKSPACE=$_DEC"; do
-  _sh="$( cd "$_DEC" && env HOME="$_SB2/home" AI_OS_LOCATE_UNTRUSTED_ENV=1 "$_ev" \
+for _ev in "REIN_LOCATE_DEV=1" "REIN_HOME=$_DEC" "REIN_WORKSPACE=$_DEC"; do
+  _sh="$( cd "$_DEC" && env HOME="$_SB2/home" REIN_LOCATE_UNTRUSTED_ENV=1 "$_ev" \
             bash -c "source '$LOC_SH'; ai_os_locate mcp/safe-exec-mcp/index.js" 2>/dev/null )"
-  _nd="$( cd "$_DEC" && env HOME="$_SB2/home" AI_OS_LOCATE_UNTRUSTED_ENV=1 "$_ev" \
+  _nd="$( cd "$_DEC" && env HOME="$_SB2/home" REIN_LOCATE_UNTRUSTED_ENV=1 "$_ev" \
             node --no-warnings "$LOC_MJS" mcp/safe-exec-mcp/index.js 2>/dev/null )"
   assert_not_contains "E-223.11 node honours the untrusted flag for ${_ev%%=*}" "$_DEC" "$_nd"
   assert_contains     "E-223.11 twins agree under untrusted env for ${_ev%%=*}" "$_sh" "$_nd"
@@ -240,12 +240,12 @@ done
 # block made a hook resolve the VISITED repo's own safe-exec analyzer — and the gate then
 # allowed everything. It is a function call now, with the state reset at source time, so no
 # variable of any name can turn it on.
-# AI_OS_LOCATE_DEV is deliberately NOT in this list: in a TRUSTED env it is supposed to
+# REIN_LOCATE_DEV is deliberately NOT in this list: in a TRUSTED env it is supposed to
 # work, and D-057 §3 names it as the framework-dev rollback. Its containment is asserted
 # where it belongs — under the untrusted flag (E-223.11) and through a real hook
 # (E-223.08a). An assertion that banned it everywhere would have been testing my own
 # misreading rather than the policy.
-for _forge in _AI_OS_LOCATE_DEV_TREE=1 _AI_OS_LOCATE_DEV_ARGV=1; do
+for _forge in _REIN_LOCATE_DEV_TREE=1 _REIN_LOCATE_DEV_ARGV=1; do
   _r="$( cd "$_DEC" && env HOME="$_SB2/home" "$_forge" \
           bash -c "source '$LOC_SH'; ai_os_locate mcp/safe-exec-mcp/index.js" 2>/dev/null )"
   assert_not_contains "E-223.12 no env var enables the dev tree: ${_forge%%=*}" "$_DEC" "$_r"
@@ -253,18 +253,18 @@ done
 # Through the REAL hook, end to end — the shape that actually failed.
 : > "$_DEC/CANARY_EXECUTED"
 ( cd "$_DEC" && printf '%s' '{"tool_name":"Bash","tool_input":{"command":"echo hi"}}' \
-    | env HOME="$_SB2/home" _AI_OS_LOCATE_DEV_ARGV=1 bash "${REPO_ROOT}/hooks/pre-tool-use.sh" >/dev/null 2>&1 ) || true
+    | env HOME="$_SB2/home" _REIN_LOCATE_DEV_ARGV=1 bash "${REPO_ROOT}/hooks/pre-tool-use.sh" >/dev/null 2>&1 ) || true
 assert_status 1 "E-223.12d: the forged override does not reach a real hook" \
   bash -c "test -s '$_DEC/CANARY_EXECUTED'"
 # The trusted-env path must still work, or the rollback D-057 §3 names is gone.
-_r="$( cd "$_DEC" && env HOME="$_SB2/home" AI_OS_LOCATE_DEV=1 \
+_r="$( cd "$_DEC" && env HOME="$_SB2/home" REIN_LOCATE_DEV=1 \
         bash -c "source '$LOC_SH'; ai_os_locate mcp/safe-exec-mcp/index.js" 2>/dev/null )"
-assert_contains "E-223.12h: AI_OS_LOCATE_DEV still works in a TRUSTED env" "$_DEC" "$_r"
+assert_contains "E-223.12h: REIN_LOCATE_DEV still works in a TRUSTED env" "$_DEC" "$_r"
 
 assert_status 0 "E-223.12e: the override is a function, not a variable" \
   bash -c "grep -q 'ai_os_locate_enable_dev_tree()' '$LOC_SH'"
 assert_status 0 "E-223.12f: its state is reset unconditionally at source time" \
-  bash -c "grep -qE '^_AI_OS_LOCATE_DEV_TREE=0' '$LOC_SH'"
+  bash -c "grep -qE '^_REIN_LOCATE_DEV_TREE=0' '$LOC_SH'"
 assert_status 0 "E-223.12g: the node twin exposes the same function, not an env var" \
   bash -c "grep -q 'export function enableDevTree' '$LOC_MJS' && ! grep -q 'DEV_ARGV' '$LOC_MJS'"
 
@@ -285,10 +285,10 @@ assert_contains "E-223.13c: as a later argument it is inert"           "install"
 assert_contains "E-223.13d: plain invocation is unaffected"            "install" "$(_try_argv sync)"
 
 assert_status 0 "E-223.11g: the node twin reads the untrusted-env flag" \
-  bash -c "grep -q 'AI_OS_LOCATE_UNTRUSTED_ENV' '$LOC_MJS'"
+  bash -c "grep -q 'REIN_LOCATE_UNTRUSTED_ENV' '$LOC_MJS'"
 assert_status 0 "E-223.11h: hooks EXPORT the flag so children inherit it" \
   bash -c "for h in pre-tool-use session-start pre-commit post-tool-use stop-hook; do
-             grep -q 'export AI_OS_LOCATE_UNTRUSTED_ENV=1' '${REPO_ROOT}/hooks/'\$h'.sh' || exit 1; done"
+             grep -q 'export REIN_LOCATE_UNTRUSTED_ENV=1' '${REPO_ROOT}/hooks/'\$h'.sh' || exit 1; done"
 rm -rf "$_SB2"
 
 # ── E-223.14: EVERY helper lookup in src/bin/ai goes through the resolver ───
@@ -320,12 +320,12 @@ rm -rf "$_D2"
 # the safe inline fallback is never installed, and the attacker's function IS the
 # resolver — reachable whenever shared/locate.sh is absent, which is precisely the
 # degraded install the fallback exists to cover.
-_SB3="$(mktemp -d)"; mkdir -p "$_SB3/home/.ai-os/shared"
-sed -n '/^export AI_OS_LOCATE_UNTRUSTED_ENV=1/,/^fi$/p' "${REPO_ROOT}/hooks/pre-tool-use.sh" > "$_SB3/boot.sh"
+_SB3="$(mktemp -d)"; mkdir -p "$_SB3/home/.rein/shared"
+sed -n '/^export REIN_LOCATE_UNTRUSTED_ENV=1/,/^fi$/p' "${REPO_ROOT}/hooks/pre-tool-use.sh" > "$_SB3/boot.sh"
 grep -v '^unset -f ai_os_locate' "$_SB3/boot.sh" > "$_SB3/boot_unguarded.sh"
 _forge_run() {  # <bootstrap> <present?>
-  if [[ "$2" == yes ]]; then cp "$LOC_SH" "$_SB3/home/.ai-os/shared/locate.sh"
-  else rm -f "$_SB3/home/.ai-os/shared/locate.sh"; fi
+  if [[ "$2" == yes ]]; then cp "$LOC_SH" "$_SB3/home/.rein/shared/locate.sh"
+  else rm -f "$_SB3/home/.rein/shared/locate.sh"; fi
   HOME="$_SB3/home" bash -c '
     ai_os_locate() { printf "%s" "FORGED-RESOLVER-USED"; }
     export -f ai_os_locate
@@ -348,7 +348,7 @@ rm -rf "$_SB3"
 # ── E-223.7: hooks stay fail-open when the resolver is missing ──────────────
 # A hook that aborts because a helper moved is worse than a degraded gate.
 _out="$(printf '{"tool_name":"Bash","tool_input":{"command":"echo hi"}}' | \
-  AI_OS_HOME="$(mktemp -d)" bash "${REPO_ROOT}/hooks/post-tool-use.sh" 2>&1; echo "rc=$?")"
+  REIN_HOME="$(mktemp -d)" bash "${REPO_ROOT}/hooks/post-tool-use.sh" 2>&1; echo "rc=$?")"
 assert_contains "E-223.07a: post-tool-use survives an empty install root" "rc=0" "$_out"
 assert_status 0 "E-223.07b: every hook defines the fail-open fallback" \
   bash -c "for h in pre-tool-use session-start pre-commit post-tool-use stop-hook; do

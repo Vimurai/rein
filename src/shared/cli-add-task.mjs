@@ -18,7 +18,7 @@
 //      addTask() (nextId → DAG validate → INSERT → id high-water → regenerate views).
 //   2. Stamp the caller_role: the created task's owner reflects the resolved Triad
 //      role (architect → "Architect (Claude)", engineer → "Engineer (Claude)"), taken
-//      from the bootloader-injected AI_OS_CALLER_ROLE (E-127) unless overridden.
+//      from the bootloader-injected REIN_CALLER_ROLE (E-127) unless overridden.
 //   3. Respect the sovereignty lock: writes go through getDbSeeded() (node:sqlite WAL,
 //      single-writer) — the same handle discipline the MCP uses; no divergent raw write.
 //
@@ -52,14 +52,14 @@ function _titleProvider(p) {
 
 /**
  * Resolve the owner label. Explicit --owner wins; else map the Triad role
- * (--role, then the bootloader-injected AI_OS_CALLER_ROLE, then 'engineer') and
+ * (--role, then the bootloader-injected REIN_CALLER_ROLE, then 'engineer') and
  * pair it with the provider that role is bound to in .ai/roles.json.
  * Fails soft to the D-050 defaults — an attribution label must never break task
  * creation just because roles.json is missing or unreadable.
  */
 export function resolveOwner({ owner, role, aiDir } = {}) {
   if (typeof owner === "string" && owner.trim()) return owner.trim();
-  const r = String(role || process.env.AI_OS_CALLER_ROLE || "engineer").toLowerCase();
+  const r = String(role || process.env.REIN_CALLER_ROLE || "engineer").toLowerCase();
   const known = r === "architect" ? "architect" : "engineer";
   const label = known === "architect" ? "Architect" : "Engineer";
   try {

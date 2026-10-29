@@ -4,7 +4,7 @@
 # `ai ci hosted --force` rewrites it.
 #
 # The contract: on a pull request into main, every `ai ci run` leg runs exactly two
-# commands — bootstrap AI-OS, then `ai ci run` on the merge result — and keeps the log and
+# commands — bootstrap Rein, then `ai ci run` on the merge result — and keeps the log and
 # .ai/ci/*.json as artefacts. The `fast` job (when the project's runner has a fast tier) is
 # the first signal: dependencies and `tests/run.sh --tier fast`, no installer. Branches stay
 # local-first (D-072): `ai ci run` before pushing is the developer's gate; this is the one
@@ -84,30 +84,30 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      # Node 22 is AI-OS's floor (node:sqlite).
+      # Node 22 is Rein's floor (node:sqlite).
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
         with:
           node-version: ${{ matrix.node }}
 
-      # The recipe's npm and Playwright caches live under ~/.ai-os/ci/cache.
+      # The recipe's npm and Playwright caches live under ~/.rein/ci/cache.
       - name: Cache ai ci downloads
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9   # v6.1.0
         with:
-          path: ~/.ai-os/ci/cache
+          path: ~/.rein/ci/cache
           key: ai-ci-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json', 'src/mcp/*/package.json') }}
           restore-keys: ai-ci-${{ runner.os }}-node${{ matrix.node }}-
 
-      # This IS the AI-OS repository: install from the checked-out commit — the code under test.
-      - name: Install AI-OS
-        run: bash install-ai-os.sh
+      # This IS the Rein repository: install from the checked-out commit — the code under test.
+      - name: Install Rein
+        run: bash install-rein.sh
 
       # `ai ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check. On a
       # hosted runner it uses every core as a lane (D-135 r1); a shard runs one part of the suite.
       - name: ai ci run
         shell: bash
         run: |
-          "$HOME/.ai-os/bin/ai" ci run${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}
+          "$HOME/.rein/bin/ai" ci run${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}
 
       # Kept on failure — a red run is the one worth reading. .ai/ci/<sha>.json exists only
       # in a team project; the runner is not a team member, so it is reviewer evidence, not
@@ -118,7 +118,7 @@ jobs:
         with:
           name: ai-ci-run-${{ matrix.os }}-node${{ matrix.node }}-${{ strategy.job-index }}
           path: |
-            ~/.ai-os/ci/logs/
+            ~/.rein/ci/logs/
             .ai/ci/*.json
           if-no-files-found: warn
           retention-days: 14

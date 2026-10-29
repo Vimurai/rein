@@ -65,7 +65,7 @@ A pull request whose commits are not all signed off is asked to add the sign-off
 ```bash
 git clone https://github.com/Vimurai/rein.git && cd rein
 npm ci                  # the clone's own dependencies: inside this repository the gate runs from src/
-bash install-ai-os.sh   # copies src/ to ~/.ai-os and adds it to PATH
+bash install-rein.sh   # copies src/ to ~/.rein and adds it to PATH
 exec "$SHELL"
 ai install && ai sync
 ai doctor               # every gate line ✓ (a ✗ safe-exec gate line here means `npm ci` was skipped)
@@ -96,7 +96,7 @@ A working-tree run is not evidence about a commit: `ai ci run` exists to exclude
 machine's own mirror and whatever a previous run left behind. Every PR needs a non-dirty
 PASS row for its head commit; `update_task_status(DONE)` and the `pre-push` hook both refuse
 without one. A commit that only adds `.ai/` bookkeeping above a tested commit is accepted.
-To bypass one push, `AI_OS_CI_SKIP=1 AI_OS_CI_SKIP_REASON="<why>" git push` — recorded as a
+To bypass one push, `REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="<why>" git push` — recorded as a
 `SKIPPED` run; a skip without a reason is refused.
 
 ---
@@ -198,7 +198,7 @@ await server.connect(transport);
 
 After adding a server, re-run the global installer to refresh the registry:
 ```bash
-cd ~/.ai-os && bash install-ai-os.sh
+cd ~/.rein && bash install-rein.sh
 ```
 Then run `ai sync` in any project to regenerate `.mcp.json`. (The previous `ai mcp-setup` shell command was removed in E-34; the install script does the same npm setup plus refreshes the global registry.)
 

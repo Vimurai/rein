@@ -1,12 +1,12 @@
 # ENGINEER.md — Project Bootloader (Lead Engineer)
 
-> Canonical Engineer rulefile (D-050 / E-183). AI-OS is Claude-native (D-069): the
+> Canonical Engineer rulefile (D-050 / E-183). Rein is Claude-native (D-069): the
 > Engineer runs on the `claude` provider on model `opus`.
 > `CLAUDE.md` is a thin shim that `@import`s this file so vendor auto-load still works.
 
 ## Role Resolution (D-054 / E-208 — READ FIRST)
 This session's role is stamped into the injected context by the SessionStart hook as
-`[AI_OS_ROLE] <role>` (first line). **That stamp is authoritative.**
+`[REIN_ROLE] <role>` (first line). **That stamp is authoritative.**
 
 - If the stamp names a role **other than `engineer`**, then **ARCHITECT.md governs this
   session and THIS FILE IS INERT** — stop reading here and follow ARCHITECT.md instead.
@@ -94,7 +94,7 @@ Every 3rd E-## task or before a long sprint → `mcp__archive-manager-mcp__check
 
 ## Emergency Recovery (§30 — Bootloader Resilience)
 
-If the AI-OS MCP servers are unavailable, degrade gracefully through these layers:
+If the Rein MCP servers are unavailable, degrade gracefully through these layers:
 
 **Layer 1** — `skill: "ai-preflight"` ← its Bash fallback reads state.json directly
 **Layer 2** — Manual recovery (this section):

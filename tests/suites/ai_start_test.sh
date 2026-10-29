@@ -16,7 +16,7 @@
 #
 # E-302 also folds in the launcher's surface (--status/--kill, doctor, docs — E-228) and the
 # two env injections `ai sync` / the installer make for every pane: E-50's
-# CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN and E-62's AIOS_WORKSPACE.
+# CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN and E-62's REIN_WORKSPACE.
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
@@ -150,7 +150,7 @@ rm -rf "$_p"
 # ── E-227.5: refusals ──────────────────────────────────────────────────────
 _d="$(mktemp -d)"
 ( cd "$_d" && bash "$AI" start --dry-run >/dev/null 2>&1 )
-assert_status 0 "E-227.05a: outside an AI-OS project → exit 2" bash -c "[[ $? -eq 2 ]]"
+assert_status 0 "E-227.05a: outside an Rein project → exit 2" bash -c "[[ $? -eq 2 ]]"
 rm -rf "$_d"
 _p="$(_proj 0 1)"
 ( cd "$_p" && bash "$AI" start --bogus >/dev/null 2>&1 )
@@ -178,7 +178,7 @@ if command -v tmux >/dev/null 2>&1; then
   # Resolve by ID — the window name is the project basename and mktemp names contain a
   # dot, which is exactly the target ambiguity this suite exists to keep closed.
   # E-252 (D-068): the project now gets its OWN session, named after it — this lookup used
-  # to hard-code `-t aios`, which is the shared session that no longer exists by default.
+  # to hard-code `-t rein`, which is the shared session that no longer exists by default.
   _sess="$(awk '/^_start_session_name\(\) \{/,/^\}$/' "$AI" > "$_shim/fn.sh"; ( . "$_shim/fn.sh"; _start_session_name "$_lp" ))"
   _wid="$("$_tb" -L "$_sock" list-windows -t "$_sess" -F '#{window_id} #{window_name}' 2>/dev/null \
           | awk -v n="$_win" '$2 == n { print $1; exit }')"
@@ -245,12 +245,12 @@ fi
 
 # ── E-252 (D-068): one tmux session per project ────────────────────────────
 #
-# `ai start` used to put every project into ONE shared `aios` session. A tmux session has
+# `ai start` used to put every project into ONE shared `rein` session. A tmux session has
 # a single CURRENT WINDOW shared by every attached client, so starting project B flipped
 # the terminal showing project A; and the project window was found by NAME ONLY, so two
 # checkouts with the same basename shared one window.
 #
-# THE STAMP IS THE IDENTITY, THE NAME IS A LABEL: a session carries AI_OS_PROJECT and is
+# THE STAMP IS THE IDENTITY, THE NAME IS A LABEL: a session carries REIN_PROJECT and is
 # discovered by it, so a suffixed name is still found and a foreign session that merely
 # shares a name is never adopted.
 
@@ -262,7 +262,7 @@ _sname_direct() {
   # extracted and run in a subshell instead — which also keeps this honest about testing
   # the SHIPPED definition rather than a copy of it drifting in the test file.
   awk '/^_start_session_name\(\) \{/,/^\}$/' "$AI" > "${_E252_FN:?}"
-  ( set -u; AI_OS_SHARED_SESSION="${AI_OS_SHARED_SESSION:-0}"; . "${_E252_FN}"; _start_session_name "$1" "${2:-}" )
+  ( set -u; REIN_SHARED_SESSION="${REIN_SHARED_SESSION:-0}"; . "${_E252_FN}"; _start_session_name "$1" "${2:-}" )
 }
 _E252_FN="$(test_tmpdir e252)/fn.sh"
 
@@ -279,18 +279,18 @@ _long="$(_sname_direct "/tmp/$(printf 'a%.0s' $(seq 1 40))")"
 assert_contains "E-252.01d: a 40-character name is truncated to 32" "32" "${#_long}"
 assert_contains "E-252.01e: an explicit start.json session wins verbatim" \
   "pinned" "$(_sname_direct /tmp/my.app pinned)"
-assert_contains "E-252.01f: AI_OS_SHARED_SESSION=1 restores the single shared session" \
-  "aios" "$(AI_OS_SHARED_SESSION=1 _sname_direct /tmp/my.app)"
+assert_contains "E-252.01f: REIN_SHARED_SESSION=1 restores the single shared session" \
+  "rein" "$(REIN_SHARED_SESSION=1 _sname_direct /tmp/my.app)"
 
 # The dry run shows the two commands that make a session a project's own.
 if skip_unless_cmd tmux "E-252.02: the dry run's session commands"; then
 _p="$(_proj 0 1)"
 _out="$(_dry "$_p")"
 _derived="$(_sname_direct "$_p")"
-assert_contains "E-252.02a: --dry-run creates the DERIVED session, not 'aios'" \
+assert_contains "E-252.02a: --dry-run creates the DERIVED session, not 'rein'" \
   "new-session -d -s ${_derived}" "$_out"
 assert_contains "E-252.02b: and stamps it with the project path" \
-  "set-environment -t ${_derived} AI_OS_PROJECT" "$_out"
+  "set-environment -t ${_derived} REIN_PROJECT" "$_out"
 assert_status 1 "E-252.02c: select-window is no longer composed (it moves OTHER clients)" \
   bash -c "printf '%s' \"\$_out\" | grep -q 'select-window'"
 rm -rf "$_p"
@@ -314,13 +314,13 @@ if skip_unless_cmd tmux "E-252 live session-isolation layer"; then
   _sessions="$(_t2 list-sessions -F '#{session_name}' 2>/dev/null | tr '\n' ' ')"
   assert_contains "E-252.03a: project A has its own session (${_sessions})" "$_sA" "$_sessions"
   assert_contains "E-252.03b: project B has its own session" "$_sB" "$_sessions"
-  assert_status 1 "E-252.03c: and neither landed in the shared 'aios' session" \
-    bash -c "_t2() { '$_tb2' -L '$_sock2' \"\$@\"; }; _t2 has-session -t aios 2>/dev/null"
+  assert_status 1 "E-252.03c: and neither landed in the shared 'rein' session" \
+    bash -c "_t2() { '$_tb2' -L '$_sock2' \"\$@\"; }; _t2 has-session -t rein 2>/dev/null"
 
   # THE STAMP is what makes them findable. Asserted directly, because everything below
   # (reuse, --status, --kill) is a consequence of it.
   assert_contains "E-252.03d: A's session is stamped with A's physical path" \
-    "$(cd "$_pA" && pwd -P)" "$(_t2 show-environment -t "$_sA" AI_OS_PROJECT 2>/dev/null)"
+    "$(cd "$_pA" && pwd -P)" "$(_t2 show-environment -t "$_sA" REIN_PROJECT 2>/dev/null)"
 
   # REUSE goes through the stamp, so a re-run does not create a second session.
   _nbefore="$(_t2 list-sessions 2>/dev/null | grep -c .)"
@@ -359,7 +359,7 @@ if skip_unless_cmd tmux "E-252 live session-isolation layer"; then
   _outC="$(_start2 "$_pC")"
   _foundC="$(_t2 list-sessions -F '#{session_name}' 2>/dev/null \
              | while IFS= read -r _s; do
-                 [[ "$(_t2 show-environment -t "$_s" AI_OS_PROJECT 2>/dev/null | sed -n 's/^AI_OS_PROJECT=//p')" == "$(cd "$_pC" && pwd -P)" ]] && printf '%s' "$_s"
+                 [[ "$(_t2 show-environment -t "$_s" REIN_PROJECT 2>/dev/null | sed -n 's/^REIN_PROJECT=//p')" == "$(cd "$_pC" && pwd -P)" ]] && printf '%s' "$_s"
                done)"
   assert_status 0 "E-252.05a: a foreign same-name session is NOT adopted (got '${_foundC}')" \
     bash -c "[[ -n '${_foundC}' && '${_foundC}' != '${_sC}' ]]"
@@ -375,10 +375,10 @@ if skip_unless_cmd tmux "E-252 live session-isolation layer"; then
   # operator is told how to migrate. Without this, an upgrade tears down a live layout.
   _pL="$(_proj 0 1)"
   _pLp="$(cd "$_pL" && pwd -P)"
-  _t2 new-session -d -s aios -n "$(basename "$_pLp")" -c "$_pLp"
-  _wL_before="$(_t2 list-windows -t aios 2>/dev/null | grep -c .)"
+  _t2 new-session -d -s rein -n "$(basename "$_pLp")" -c "$_pLp"
+  _wL_before="$(_t2 list-windows -t rein 2>/dev/null | grep -c .)"
   _outL="$(_start2 "$_pL")"
-  _wL_after="$(_t2 list-windows -t aios 2>/dev/null | grep -c .)"
+  _wL_after="$(_t2 list-windows -t rein 2>/dev/null | grep -c .)"
   assert_contains "E-252.06a: the legacy window is adopted, not duplicated (${_wL_before}→${_wL_after})" \
     "$_wL_before" "$_wL_after"
   assert_contains "E-252.06b: and the migration path is printed once" "reusing legacy shared window" "$_outL"
@@ -440,8 +440,8 @@ assert_not_contains "E-227.07d: the recipe no longer names ai watch (D-099)" "ai
 # launch stops at the tmux check (exit 2) after the binding — nothing reaches a tmux server.
 _ah="$(test_tmpdir startacct)"
 tc_fixture_home "$_ah"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "${_ah}/.ai-os" "${_ah}/.claude-work"; chmod 700 "${_ah}/.claude-work"
-HOME="$_ah" python3 -I "${REPO_ROOT}/src/shared/accounts.py" add "${_ah}/.ai-os/accounts.json" \
+mkdir -p "${_ah}/.rein" "${_ah}/.claude-work"; chmod 700 "${_ah}/.claude-work"
+HOME="$_ah" python3 -I "${REPO_ROOT}/src/shared/accounts.py" add "${_ah}/.rein/accounts.json" \
   "$_ah" work "${_ah}/.claude-work" 2026-10-14 >/dev/null
 _ast() {  # <proj> <PATH> <args…> → output + "RC:<n>", stdin not a TTY
   local d="$1" p="$2"; shift 2
@@ -532,7 +532,7 @@ JSON
 # the code.
 _nosrv_shim() {  # → dir containing a `tmux` that talks to an empty socket
   local dir; dir="$(mktemp -d)"
-  printf '#!/usr/bin/env bash\nexec %s -L aios-nosrv-%s "$@"\n' "$(command -v tmux)" "$$" > "${dir}/tmux"
+  printf '#!/usr/bin/env bash\nexec %s -L rein-nosrv-%s "$@"\n' "$(command -v tmux)" "$$" > "${dir}/tmux"
   chmod +x "${dir}/tmux"
   printf '%s' "$dir"
 }
@@ -654,7 +654,7 @@ assert_status 0 "E-228.06c: README documents --kill"          grep -q 'ai start 
 assert_status 0 "E-228.06d: README keeps the manual fallback" \
   grep -q 'Manual fallback' "${REPO_ROOT}/README.md"
 # E-252 (D-068): the recipe is now PER PROJECT. It used to read `tmux new-session -s
-# ai-os` — a single shared session, which is the arrangement D-068 removed because one
+# rein` — a single shared session, which is the arrangement D-068 removed because one
 # session has one current window shared by every attached client. The assertion follows the
 # recipe rather than pinning the old literal, and checks BOTH halves: the recipe still
 # exists (tmux-less hosts depend on it) and it no longer hands every project one session.
@@ -662,8 +662,8 @@ assert_status 0 "E-228.06e: README still shows a manual tmux recipe" \
   grep -q 'tmux new-session -s' "${REPO_ROOT}/README.md"
 assert_status 0 "E-252.07a: and the recipe is per-project, not one shared session" \
   grep -q 'tmux new-session -s "\$(basename "\$PWD")"' "${REPO_ROOT}/README.md"
-assert_status 1 "E-252.07b: the shared 'ai-os' session name is gone from the recipe" \
-  grep -q 'new-session -s ai-os' "${REPO_ROOT}/README.md"
+assert_status 1 "E-252.07b: the shared 'rein' session name is gone from the recipe" \
+  grep -q 'new-session -s rein' "${REPO_ROOT}/README.md"
 assert_status 0 "E-228.06f: CONTRIBUTING points at ai start" \
   grep -q 'ai start' "${REPO_ROOT}/CONTRIBUTING.md"
 # E-256 (D-069): the manual recipe binds each pane through `ai pane <role>`, as `ai start`
@@ -690,7 +690,7 @@ echo ""
 
 # ── E-50 (from alternate_screen_env_test — E-302): CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN=1 ──
 # propagates through bin/ai _configure_project_claude_settings (.claude/settings.json env)
-# and install-ai-os.sh (shell rc files) without clobbering pre-existing user values.
+# and install-rein.sh (shell rc files) without clobbering pre-existing user values.
 # ── T-ALT-S01: bin/ai injects the env into project settings.json ──────────────
 echo ""
 echo "  [T-ALT-S01] bin/ai injects via _configure_project_claude_settings"
@@ -721,11 +721,11 @@ else
   _fail "T-ALT-S02: ai sync did not generate .claude/settings.json"
 fi
 
-# ── T-ALT-S03: install-ai-os.sh exports the env via shell rc ─────────────────
+# ── T-ALT-S03: install-rein.sh exports the env via shell rc ─────────────────
 echo ""
-echo "  [T-ALT-S03] install-ai-os.sh writes shell rc export"
+echo "  [T-ALT-S03] install-rein.sh writes shell rc export"
 
-ALT_INSTALL="${REPO_ROOT}/install-ai-os.sh"
+ALT_INSTALL="${REPO_ROOT}/install-rein.sh"
 assert_status 0 "install script defines ensure_env_line helper" \
   grep -q 'ensure_env_line()' "$ALT_INSTALL"
 
@@ -745,7 +745,7 @@ assert_status 0 "ensure_env_line writes to .bashrc" \
 echo ""
 echo "  [T-ALT-S04] ensure_env_line idempotency + override preservation"
 
-# Sandbox: extract just the helper from install-ai-os.sh, source it, drive it
+# Sandbox: extract just the helper from install-rein.sh, source it, drive it
 # against a temp rc file, and assert behaviour matches the spec.
 ALT_SANDBOX="$(mktemp -d -t alt-screen-XXXXXX)"
 on_exit 'rm -rf "$ALT_SANDBOX"'
@@ -784,80 +784,80 @@ RES3="$(ensure_env_line "$RC" "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" "1")"
 assert_status 0 "user override is preserved"      bash -c "[[ '$RES3' == 'kept' ]]"
 assert_status 0 "value still '0' (not clobbered)" grep -q 'CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN="0"' "$RC"
 
-# ── E-62 (from aios_workspace_env_test — E-302): AIOS_WORKSPACE injection ──
-# install-ai-os.sh persists the workspace to config/aios-workspace.txt; bin/ai resolves
+# ── E-62 (from rein_workspace_env_test — E-302): REIN_WORKSPACE injection ──
+# install-rein.sh persists the workspace to config/rein-workspace.txt; bin/ai resolves
 # env > persisted file > "" and threads it into settings.json env via setdefault.
-# ── T-WS-S01: bin/ai defines _resolve_aios_workspace ──────────────────────────
+# ── T-WS-S01: bin/ai defines _resolve_rein_workspace ──────────────────────────
 echo ""
-echo "  [T-WS-S01] bin/ai exposes _resolve_aios_workspace helper"
+echo "  [T-WS-S01] bin/ai exposes _resolve_rein_workspace helper"
 
-assert_status 0 "bin/ai defines _resolve_aios_workspace()" \
-  grep -q '^_resolve_aios_workspace()' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "bin/ai defines _resolve_rein_workspace()" \
+  grep -q '^_resolve_rein_workspace()' "${REPO_ROOT}/src/bin/ai"
 
 # Order: env first, then persisted file, then empty.
-assert_status 0 "resolver reads \$AIOS_WORKSPACE first" \
-  grep -q 'AIOS_WORKSPACE:-' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "resolver reads \$REIN_WORKSPACE first" \
+  grep -q 'REIN_WORKSPACE:-' "${REPO_ROOT}/src/bin/ai"
 
-assert_status 0 "resolver falls back to config/aios-workspace.txt" \
-  grep -q 'aios-workspace.txt' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "resolver falls back to config/rein-workspace.txt" \
+  grep -q 'rein-workspace.txt' "${REPO_ROOT}/src/bin/ai"
 
-# ── T-WS-S02: _configure_project_claude_settings propagates AIOS_WORKSPACE ───
+# ── T-WS-S02: _configure_project_claude_settings propagates REIN_WORKSPACE ───
 echo ""
-echo "  [T-WS-S02] settings.json env carries AIOS_WORKSPACE via setdefault"
+echo "  [T-WS-S02] settings.json env carries REIN_WORKSPACE via setdefault"
 
-assert_status 0 "bin/ai uses setdefault for AIOS_WORKSPACE (preserves override)" \
-  grep -qE 'env\.setdefault\(\s*["\x27]AIOS_WORKSPACE' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "bin/ai uses setdefault for REIN_WORKSPACE (preserves override)" \
+  grep -qE 'env\.setdefault\(\s*["\x27]REIN_WORKSPACE' "${REPO_ROOT}/src/bin/ai"
 
-assert_status 0 "bin/ai threads AIOS_WORKSPACE through to python heredoc" \
-  grep -q 'AIOS_WORKSPACE="\${AIOS_WORKSPACE_VALUE}" python3' "${REPO_ROOT}/src/bin/ai"
+assert_status 0 "bin/ai threads REIN_WORKSPACE through to python heredoc" \
+  grep -q 'REIN_WORKSPACE="\${REIN_WORKSPACE_VALUE}" python3' "${REPO_ROOT}/src/bin/ai"
 
-WS_INSTALL="${REPO_ROOT}/install-ai-os.sh"
-# ── T-WS-S03 (E-304, D-089 r2): the installer NO LONGER exports AIOS_WORKSPACE from profiles ──
-# The persisted ~/.ai-os/config/aios-workspace.txt is the record; an exported copy in a profile
+WS_INSTALL="${REPO_ROOT}/install-rein.sh"
+# ── T-WS-S03 (E-304, D-089 r2): the installer NO LONGER exports REIN_WORKSPACE from profiles ──
+# The persisted ~/.rein/config/rein-workspace.txt is the record; an exported copy in a profile
 # outlived reinstalls and pointed `ai sync` at a working tree (2026-10-04).
-echo "  [T-WS-S03] install-ai-os.sh writes no AIOS_WORKSPACE export; offers to remove old ones"
-assert_status 1 "install never invokes ensure_env_line for AIOS_WORKSPACE (E-304)" \
-  grep -qE 'ensure_env_line[[:space:]]+".*"[[:space:]]+"AIOS_WORKSPACE"' "$WS_INSTALL"
+echo "  [T-WS-S03] install-rein.sh writes no REIN_WORKSPACE export; offers to remove old ones"
+assert_status 1 "install never invokes ensure_env_line for REIN_WORKSPACE (E-304)" \
+  grep -qE 'ensure_env_line[[:space:]]+".*"[[:space:]]+"REIN_WORKSPACE"' "$WS_INSTALL"
 assert_status 0 "install offers to remove an earlier export (y/N, terminal only)" \
-  grep -q 'Remove the AIOS_WORKSPACE export an earlier install added' "$WS_INSTALL"
+  grep -q 'Remove the REIN_WORKSPACE export an earlier install added' "$WS_INSTALL"
 assert_status 0 "…and only lines of the exact shape it used to write" \
-  grep -qF "'^export AIOS_WORKSPACE=\"[^\"]*\"\$'" "$WS_INSTALL"
+  grep -qF "'^export REIN_WORKSPACE=\"[^\"]*\"\$'" "$WS_INSTALL"
 assert_status 0 "…never without a terminal or under CI" \
-  grep -qE '\[\[ -t 0 && -z "\$\{CI:-\}" && -z "\$\{AI_OS_CI:-\}" \]\]' "$WS_INSTALL"
+  grep -qE '\[\[ -t 0 && -z "\$\{CI:-\}" && -z "\$\{REIN_CI:-\}" \]\]' "$WS_INSTALL"
 
-assert_status 0 "install writes config/aios-workspace.txt" \
-  grep -q 'aios-workspace.txt' "$WS_INSTALL"
+assert_status 0 "install writes config/rein-workspace.txt" \
+  grep -q 'rein-workspace.txt' "$WS_INSTALL"
 
-assert_status 0 "install creates \${AIOS}/config dir before write" \
-  grep -qE 'mkdir -p[[:space:]]+"\$\{AIOS\}/config"' "$WS_INSTALL"
+assert_status 0 "install creates \${REIN}/config dir before write" \
+  grep -qE 'mkdir -p[[:space:]]+"\$\{REIN\}/config"' "$WS_INSTALL"
 
 # Functional check: live install (if present) should have the file.
-if [[ -f "${HOME}/.ai-os/config/aios-workspace.txt" ]]; then
-  PERSISTED="$(head -n 1 "${HOME}/.ai-os/config/aios-workspace.txt" | tr -d '\n')"
-  assert_status 0 "persisted aios-workspace.txt is non-empty" \
+if [[ -f "${HOME}/.rein/config/rein-workspace.txt" ]]; then
+  PERSISTED="$(head -n 1 "${HOME}/.rein/config/rein-workspace.txt" | tr -d '\n')"
+  assert_status 0 "persisted rein-workspace.txt is non-empty" \
     bash -c "[[ -n '${PERSISTED}' ]]"
   assert_status 0 "persisted path resolves to a directory" \
     bash -c "[[ -d '${PERSISTED}' ]]"
 else
-  echo "  ⚠ ~/.ai-os/config/aios-workspace.txt absent — install hasn't run since E-62; skipping live checks"
+  echo "  ⚠ ~/.rein/config/rein-workspace.txt absent — install hasn't run since E-62; skipping live checks"
 fi
 
-# ── T-WS-S05: _resolve_aios_workspace behavioural test (sandbox) ─────────────
+# ── T-WS-S05: _resolve_rein_workspace behavioural test (sandbox) ─────────────
 echo ""
-echo "  [T-WS-S05] _resolve_aios_workspace honours env > file > empty"
+echo "  [T-WS-S05] _resolve_rein_workspace honours env > file > empty"
 
-WS_SANDBOX="$(mktemp -d -t aios-ws-XXXXXX)"
+WS_SANDBOX="$(mktemp -d -t rein-ws-XXXXXX)"
 on_exit 'rm -rf "$WS_SANDBOX"'
 
 # Extract just the function to keep the sandbox hermetic.
 cat > "${WS_SANDBOX}/helper.sh" <<'HELPER'
-AIOS="${AIOS_DIR}"
-_resolve_aios_workspace() {
-  if [[ -n "${AIOS_WORKSPACE:-}" ]]; then
-    printf "%s" "${AIOS_WORKSPACE}"
+REIN="${REIN_DIR}"
+_resolve_rein_workspace() {
+  if [[ -n "${REIN_WORKSPACE:-}" ]]; then
+    printf "%s" "${REIN_WORKSPACE}"
     return 0
   fi
-  local persisted="${AIOS}/config/aios-workspace.txt"
+  local persisted="${REIN}/config/rein-workspace.txt"
   if [[ -f "$persisted" ]]; then
     head -n 1 "$persisted" 2>/dev/null | tr -d '\n'
     return 0
@@ -867,26 +867,26 @@ _resolve_aios_workspace() {
 HELPER
 
 # (a) env wins
-AIOS_DIR="${WS_SANDBOX}" AIOS_WORKSPACE="/from/env" \
-  bash -c "source ${WS_SANDBOX}/helper.sh; _resolve_aios_workspace" \
+REIN_DIR="${WS_SANDBOX}" REIN_WORKSPACE="/from/env" \
+  bash -c "source ${WS_SANDBOX}/helper.sh; _resolve_rein_workspace" \
   > "${WS_SANDBOX}/out_env" 2>&1
 assert_status 0 "env value wins" \
   bash -c "[[ \"\$(cat ${WS_SANDBOX}/out_env)\" == '/from/env' ]]"
 
 # (b) file fallback when env unset
 mkdir -p "${WS_SANDBOX}/config"
-echo "/from/file" > "${WS_SANDBOX}/config/aios-workspace.txt"
-unset AIOS_WORKSPACE
-AIOS_DIR="${WS_SANDBOX}" \
-  bash -c "unset AIOS_WORKSPACE; source ${WS_SANDBOX}/helper.sh; _resolve_aios_workspace" \
+echo "/from/file" > "${WS_SANDBOX}/config/rein-workspace.txt"
+unset REIN_WORKSPACE
+REIN_DIR="${WS_SANDBOX}" \
+  bash -c "unset REIN_WORKSPACE; source ${WS_SANDBOX}/helper.sh; _resolve_rein_workspace" \
   > "${WS_SANDBOX}/out_file" 2>&1
 assert_status 0 "persisted file used when env unset" \
   bash -c "[[ \"\$(cat ${WS_SANDBOX}/out_file)\" == '/from/file' ]]"
 
 # (c) empty when neither
-rm -f "${WS_SANDBOX}/config/aios-workspace.txt"
-AIOS_DIR="${WS_SANDBOX}" \
-  bash -c "unset AIOS_WORKSPACE; source ${WS_SANDBOX}/helper.sh; _resolve_aios_workspace" \
+rm -f "${WS_SANDBOX}/config/rein-workspace.txt"
+REIN_DIR="${WS_SANDBOX}" \
+  bash -c "unset REIN_WORKSPACE; source ${WS_SANDBOX}/helper.sh; _resolve_rein_workspace" \
   > "${WS_SANDBOX}/out_none" 2>&1
 assert_status 0 "empty string when neither source present" \
   bash -c "[[ \"\$(cat ${WS_SANDBOX}/out_none)\" == '' ]]"

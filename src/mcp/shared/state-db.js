@@ -210,7 +210,7 @@ export function importStateJson(jsonPath, db, { warn = () => {}, info = () => {}
   setProj.run("release_verdict", proj.release_verdict ?? null);
   setProj.run("focus",           proj.focus          ?? null);
   // E-270: the provisioning stamp survives a re-import.
-  if (proj.aios_version   != null) setProj.run("aios_version",   String(proj.aios_version));
+  if (proj.rein_version   != null) setProj.run("rein_version",   String(proj.rein_version));
   if (proj.provisioned_at != null) setProj.run("provisioned_at", String(proj.provisioned_at));
 
   const insertTask = db.prepare(`
@@ -390,7 +390,7 @@ export function readState(db) {
       focus:           proj.focus ?? null,
       // E-270 (D-074 §Components 1): the framework version that last provisioned this
       // project. Projected only once stamped, so an unstamped project's view is unchanged.
-      ...(proj.aios_version   != null ? { aios_version:   proj.aios_version }   : {}),
+      ...(proj.rein_version   != null ? { rein_version:   proj.rein_version }   : {}),
       ...(proj.provisioned_at != null ? { provisioned_at: proj.provisioned_at } : {}),
     },
     tasks:               (() => {
@@ -794,14 +794,14 @@ export function stampProvisioning(aiDir, db, { version, at = new Date().toISOStr
   if (typeof version !== "string" || !/^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$/.test(version)) {
     return { ok: false, code: "INVALID_VERSION", error: `version must be semver, got ${JSON.stringify(version)}.` };
   }
-  const prev = db.prepare("SELECT value FROM project WHERE key = 'aios_version'").get();
+  const prev = db.prepare("SELECT value FROM project WHERE key = 'rein_version'").get();
   // Idempotent: re-provisioning with the same version keeps the original provisioned_at,
   // so a second `ai init` writes nothing (its --check must then report no changes).
   if (prev?.value === version) {
     const at0 = db.prepare("SELECT value FROM project WHERE key = 'provisioned_at'").get();
     return { ok: true, changed: false, previous: version, version, provisioned_at: at0?.value ?? null };
   }
-  withTransaction(db, (d) => setProject(aiDir, d, { aios_version: version, provisioned_at: at }));
+  withTransaction(db, (d) => setProject(aiDir, d, { rein_version: version, provisioned_at: at }));
   // Only the state.json view carries project.* — TASKS.md and REVIEWS.md are left exactly
   // as they were, so `ai init` never rewrites them as a side effect of the stamp.
   renderStateJson(aiDir, db);

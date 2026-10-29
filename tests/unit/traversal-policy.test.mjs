@@ -32,7 +32,7 @@ test("the table carries every grade (it cannot pass empty)", () => {
 for (const c of cases) test(`${c.want}: ${c.label}`, () => assert.equal(grade(c.line, c.strict), c.want, c.line));
 
 // ── E-222.5: the rollback flag restores the flat regex (05a is a table row) ──
-test("E-222.05b: run_review reads AI_OS_REVIEW_STRICT_TRAVERSAL", () => assert.match(ORCH, /AI_OS_REVIEW_STRICT_TRAVERSAL/));
+test("E-222.05b: run_review reads REIN_REVIEW_STRICT_TRAVERSAL", () => assert.match(ORCH, /REIN_REVIEW_STRICT_TRAVERSAL/));
 
 // ── E-222.6: the policy has exactly one definition; run_review delegates the per-line loop
 // (E-224 moved it into the shared module, so the gate and these rows run the same code) ──

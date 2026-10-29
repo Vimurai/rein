@@ -5,7 +5,7 @@
  * its ci_runs row, so a run on one machine certifies the commit on every clone that pulls it:
  *
  *   { schema, sha, verdict: PASS|FAIL|SKIPPED, suites, tests: {passed, failed, skipped},
- *     started, finished, runner: <git email>, host, aios_version }
+ *     started, finished, runner: <git email>, host, rein_version }
  *
  * Counts only — never log text. A record arrives by `git pull`, so every read validates it:
  * a filename that is not its own sha, a verdict outside the enum, a runner who is not a
@@ -14,7 +14,7 @@
  * project's `ai ci` behaves exactly as before.
  *
  * One file per sha: two members who run the same commit write the same path. preferRecord()
- * decides which one stays, both for a local overwrite and in the aios-record merge driver —
+ * decides which one stays, both for a local overwrite and in the rein-record merge driver —
  * a PASS beats a FAIL or SKIPPED (the same tree passed somewhere), else the later finish.
  */
 
@@ -73,7 +73,7 @@ export function validateCiRecord(rec, sha, team) {
   if (!_count(rec.suites ?? null)) return "suites must be a count";
   const t = rec.tests;
   if (!t || typeof t !== "object" || !["passed", "failed", "skipped"].every((k) => _count(t[k] ?? null))) return "tests must be counts";
-  if (!_line(rec.host ?? "", 255) || !_line(rec.aios_version ?? "", 64)) return "host and aios_version must be one short line";
+  if (!_line(rec.host ?? "", 255) || !_line(rec.rein_version ?? "", 64)) return "host and rein_version must be one short line";
   return null;
 }
 
@@ -156,14 +156,14 @@ export function preferRecord(a, b) {
 }
 
 /** The evidence record for a ci_runs row (an ERROR run is a FAIL to everyone else). */
-export function ciRecordFromRow(row, { runner, suites = null, aiosVersion = "", host = "-" } = {}) {
+export function ciRecordFromRow(row, { runner, suites = null, reinVersion = "", host = "-" } = {}) {
   const verdict = row.status === "PASS" ? "PASS" : row.status === "SKIPPED" ? "SKIPPED" : "FAIL";
   const int = (v) => (Number.isInteger(v) && v >= 0 ? v : null);
   return {
     schema: CI_RECORD_SCHEMA, sha: row.sha, verdict, suites: int(suites),
     tests: { passed: int(row.suite_pass), failed: int(row.suite_fail), skipped: int(row.suite_skip) },
     started: row.started_at, finished: row.finished_at || null,
-    runner, host: String(host).replace(/[\r\n\0]/g, "").slice(0, 255), aios_version: String(aiosVersion || "").slice(0, 64),
+    runner, host: String(host).replace(/[\r\n\0]/g, "").slice(0, 255), rein_version: String(reinVersion || "").slice(0, 64),
   };
 }
 

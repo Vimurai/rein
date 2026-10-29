@@ -2,7 +2,7 @@
 // E-335, D-103, team-collaboration.md §Component 5b).
 //
 // A wrapper must not be a second description of the pipeline (DEVOPS-009): it bootstraps
-// AI-OS and runs `ai ci run`. contractViolations() diffs a rendering's run steps against the
+// Rein and runs `ai ci run`. contractViolations() diffs a rendering's run steps against the
 // command list of _ci_run in src/bin/ai, and checks the rest of the D-103 r1 contract. It runs
 // over EVERY template in src/templates/ci, in both bootstrap variants, and against mutated
 // renderings so the checker is shown to fail (E-335 acceptance).
@@ -24,7 +24,7 @@ const AI = readFileSync(join(REPO, "src/bin/ai"), "utf8");
 const TEMPLATE_DIR = join(REPO, "src/templates/ci");
 const PINNED = {   // a downstream project's bootstrap, as bootstrapFor() renders it
   variant: "pinned", note: "pinned fixture",
-  command: 'git clone --quiet --depth 1 --branch v4.0.0 https://github.com/Vimurai/ai-os.git "${TMPDIR:-/tmp}/ai-os-src" && bash "${TMPDIR:-/tmp}/ai-os-src"/install-ai-os.sh',
+  command: 'git clone --quiet --depth 1 --branch v4.0.0 https://github.com/Vimurai/rein.git "${TMPDIR:-/tmp}/rein-src" && bash "${TMPDIR:-/tmp}/rein-src"/install-rein.sh',
 };
 
 // The body of _ci_run, up to the next top-level function.
@@ -66,7 +66,7 @@ function runLines(yml) {
 }
 
 const RECIPE = recipeCommands(recipeBody(AI));
-const AI_CI_RUN = '"$HOME/.ai-os/bin/ai" ci run';
+const AI_CI_RUN = '"$HOME/.rein/bin/ai" ci run';
 // E-384 (D-135 r3): a GitHub leg passes its shard, or nothing, to the same command.
 const AI_CI_RUN_LEG = `${AI_CI_RUN}\${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}`;
 // E-384 (D-135 addendum r1): the fast job's whole command list — dependencies, then the fast tier.
@@ -115,7 +115,7 @@ function contractViolations(provider, yml, boot, trunk = "master") {
   if (runs.length !== 2) v.push(`expected two run commands, got ${runs.length}`);
   if (runs[0] !== boot.command) v.push("first run is not the bootstrap");
   if (runs[1] !== leg) v.push("second run is not `ai ci run` from the installed mirror");
-  if (boot.variant === "pinned" && !runs[0]?.endsWith(`&& bash "\${TMPDIR:-/tmp}/ai-os-src"/install-ai-os.sh`)) v.push("pinned bootstrap does not end in the clone's installer");
+  if (boot.variant === "pinned" && !runs[0]?.endsWith(`&& bash "\${TMPDIR:-/tmp}/rein-src"/install-rein.sh`)) v.push("pinned bootstrap does not end in the clone's installer");
   const copied = RECIPE.filter((c) => c !== SELF_BOOTSTRAP)
     .filter((c) => runs.some((r) => r.includes(c.replace(/^\/usr\/bin\/env \S+ /, "").replace(/^\/bin\/bash /, ""))));
   if (copied.length) v.push(`recipe command copied: ${copied.join(", ")}`);
@@ -146,7 +146,7 @@ function contractViolations(provider, yml, boot, trunk = "master") {
     if (!/persist-credentials: false/.test(steps[0] ?? "")) v.push("checkout persists credentials");
     const uses = [...(jobs["ai-ci-run"] ?? "").matchAll(/^\s*(?:- )?uses:\s*([^@\s]+)@/gm)].map((m) => m[1]);
     if (JSON.stringify(uses) !== JSON.stringify(["actions/checkout", "actions/setup-node", "actions/cache", "actions/upload-artifact"])) v.push(`unexpected actions: ${uses.join(", ")}`);
-    // The matrix carries Linux and Node 22, AI-OS's floor, in every profile.
+    // The matrix carries Linux and Node 22, Rein's floor, in every profile.
     const legJob = jobs["ai-ci-run"] ?? "";
     if (!/node-version: \$\{\{ matrix\.node \}\}/.test(legJob) || !/^        node: \[(?:'\d+', )*'22'/m.test(legJob) ||
         !/^    runs-on: \$\{\{ matrix\.os \}\}$/m.test(legJob) || !/^        os: \[ubuntu-latest/m.test(legJob)) v.push("not Linux + Node 22");
@@ -154,14 +154,14 @@ function contractViolations(provider, yml, boot, trunk = "master") {
     const ifs = steps.map((b) => b.match(/^\s+if:\s*(.*)$/m)?.[1] ?? null);
     if (/continue-on-error/.test(code) || ifs.slice(0, 5).some((x) => x !== null) || /^    if:/m.test(legJob)) v.push("the check cannot fail (continue-on-error or a condition on a step)");
     const up = steps.find((b) => /uses: actions\/upload-artifact@/.test(b)) ?? "";
-    if (ifs[5] !== "always()" || !/~\/\.ai-os\/ci\/logs\//.test(up) || !/\.ai\/ci\/\*\.json/.test(up) || !/retention-days: (1[4-9]|[2-9]\d)/.test(up)) v.push("no artefact step (always, log + .ai/ci, ≥ 14 days)");
+    if (ifs[5] !== "always()" || !/~\/\.rein\/ci\/logs\//.test(up) || !/\.ai\/ci\/\*\.json/.test(up) || !/retention-days: (1[4-9]|[2-9]\d)/.test(up)) v.push("no artefact step (always, log + .ai/ci, ≥ 14 days)");
   } else if (provider === "azure") {
     // On Azure Repos the merge gate is the Build Validation policy; pr: covers GitHub/Bitbucket.
     if (code.match(/^pr:\n((?:  .*\n)+)/m)?.[1] !== `  branches:\n    include: [${trunk}]\n` || (code.match(/^pr:/gm) ?? []).length !== 1) v.push(`no pull_request trigger on ${trunk}`);
     // A missing trigger: runs on every push to every branch — the audit block is REQUIRED here.
     if (code.match(/^trigger:\n((?:  .*\n)+)/m)?.[1] !== `  branches:\n    include: [${trunk}]\n  paths:\n    exclude: ['.ai/*']\n` || (code.match(/^trigger:/gm) ?? []).length !== 1) v.push(`push trigger other than the ${trunk} audit run`);
     // No secret can reach a step: no env:, no variables / groups, no macro but the log directory.
-    const macros = [...code.matchAll(/\$\(([^)]*)\)/g)].map((m) => m[1]).filter((m) => m !== "AI_OS_CI_LOG_DIR");
+    const macros = [...code.matchAll(/\$\(([^)]*)\)/g)].map((m) => m[1]).filter((m) => m !== "REIN_CI_LOG_DIR");
     if (/System\.AccessToken/.test(code) || /^\s+env:/m.test(code) || /^variables:/m.test(code) || /^\s+- group:/m.test(code) || macros.length) v.push(`references secrets${macros.length ? `: $(${macros.join("), $(")})` : ""}`);
     // Exactly these steps: Azure has no closed step set, so a pwsh:/template:/publish: step
     // would run commands the run-line diff never sees (critic_tests P1).
@@ -174,14 +174,14 @@ function contractViolations(provider, yml, boot, trunk = "master") {
     // ##vso commands in a step's output can set variables: the bootstrap sets none, the run
     // step only the log directory (critic_security P3).
     if (!/\n    target:\n      settableVariables: none\n/.test(boot_ ?? "") ||
-        !/\n    target:\n      settableVariables:\n        - AI_OS_CI_LOG_DIR\n/.test(run ?? "")) v.push("steps may set any pipeline variable");
+        !/\n    target:\n      settableVariables:\n        - REIN_CI_LOG_DIR\n/.test(run ?? "")) v.push("steps may set any pipeline variable");
     // The check must be able to fail: no condition / continueOnError on the two commands.
     if ([boot_, run].some((b) => /^\s+(?:condition|continueOnError):/m.test(b ?? ""))) v.push("the check cannot fail (continueOnError or a condition on a step)");
     const conds = (b) => [...(b ?? "").matchAll(/^\s+condition:\s*(.*)$/gm)].map((m) => m[1]);
-    if (!/^  - task: PublishPipelineArtifact@1\n/.test(log ?? "") || !/targetPath: \$\(AI_OS_CI_LOG_DIR\)\n/.test(log ?? "") || /continueOnError/.test(log ?? "") ||
+    if (!/^  - task: PublishPipelineArtifact@1\n/.test(log ?? "") || !/targetPath: \$\(REIN_CI_LOG_DIR\)\n/.test(log ?? "") || /continueOnError/.test(log ?? "") ||
         !/^  - task: PublishPipelineArtifact@1\n/.test(rec ?? "") || !/targetPath: \.ai\/ci\n/.test(rec ?? "") ||
         JSON.stringify([conds(log), conds(rec)]) !== JSON.stringify([["always()"], ["always()"]])) v.push("no artefact step (always, log + .ai/ci)");
-    if (!/AI_OS_CI_LOG_DIR\]/.test(AI)) v.push("ai ci run does not set AI_OS_CI_LOG_DIR for the artefact step");
+    if (!/REIN_CI_LOG_DIR\]/.test(AI)) v.push("ai ci run does not set REIN_CI_LOG_DIR for the artefact step");
   } else {
     // A provider cannot become renderable with only the generic clauses (critic_tests P2):
     // E-337 adds GitLab's and Bitbucket's trigger, token and artefact checks here.
@@ -226,7 +226,7 @@ const MUTANTS = {
     ["artefact step not always()", good.replace("    displayName: Upload run log\n    condition: always()\n", "    displayName: Upload run log\n"), "no artefact step"],
     ["secrets referenced", good.replace(`    displayName: ai ci run\n`, `    displayName: ai ci run\n    env:\n      T: $(System.AccessToken)\n`), "references secrets"],
     ["secret variable macro", good.replace("targetPath: .ai/ci", "targetPath: $(MySecret)"), "references secrets"],
-    ["run step may set any variable", good.replace("      settableVariables:\n        - AI_OS_CI_LOG_DIR\n", ""), "steps may set any pipeline variable"],
+    ["run step may set any variable", good.replace("      settableVariables:\n        - REIN_CI_LOG_DIR\n", ""), "steps may set any pipeline variable"],
     ["a pwsh step", good.replace("  - task: PublishPipelineArtifact@1\n    displayName: Upload run log", "  - pwsh: bash tests/run.sh\n\n  - task: PublishPipelineArtifact@1\n    displayName: Upload run log"), "expected steps"],
     ["the check cannot fail", good.replace("    displayName: ai ci run\n", "    displayName: ai ci run\n    continueOnError: true\n"), "the check cannot fail"],
     ["no trigger block", good.replace(/^trigger:\n(?:  .*\n)+/m, ""), "push trigger other than"],
@@ -277,7 +277,7 @@ test("github: the checker fails a fast job that installs, runs more, or can be s
   const boot = bootstrapFor(REPO);
   const good = render("github", boot, "main", MATRICES.public);
   const muts = [
-    ["fast job installs", good.replace("        run: bash tests/run.sh --tier fast\n", "        run: bash install-ai-os.sh && bash tests/run.sh --tier fast\n"), "fast job runs other than"],
+    ["fast job installs", good.replace("        run: bash tests/run.sh --tier fast\n", "        run: bash install-rein.sh && bash tests/run.sh --tier fast\n"), "fast job runs other than"],
     ["fast job runs the full suite", good.replace("run: bash tests/run.sh --tier fast", "run: bash tests/run.sh"), "fast job runs other than"],
     ["fast job skipped", good.replace("    name: fast\n", "    name: fast\n    if: false\n"), "the check cannot fail"],
     ["a third job", good.replace("  ai-ci-run:\n", "  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n\n  ai-ci-run:\n"), "unexpected jobs"],

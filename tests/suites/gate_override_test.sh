@@ -12,7 +12,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HOOK="${REPO_ROOT}/hooks/pre-tool-use.sh"
 SS_HOOK="${REPO_ROOT}/hooks/session-start.sh"
 AI_BIN="${REPO_ROOT}/src/bin/ai"
-V_GATE="AI_OS_SAFE""_EXEC_GATE"; V_TOKEN="AI_OS_ROLE""_TOKEN"
+V_GATE="REIN_SAFE""_EXEC_GATE"; V_TOKEN="REIN_ROLE""_TOKEN"
 PRE_E291_REF="bba0150"   # E-290 tip: the last hook with the env opt-outs
 
 echo "── Suite: gate_override_test (E-291) ────────────────────────────────"
@@ -22,7 +22,7 @@ skip_unless_cmd python3 "E-291 gate override" || { assert_summary; exit 0; }
 T="$(mktemp -d)"; on_exit "rm -rf '$T'"
 T="$(cd -P "$T" && pwd -P)"
 # A fixture HOME whose mirror is THIS checkout's code (not whatever is installed).
-H="$T/home"; M="$H/.ai-os"
+H="$T/home"; M="$H/.rein"
 mkdir -p "$M/mcp/safe-exec-mcp" "$T/proj/.ai" "$T/proj/src"
 cp -R "${REPO_ROOT}/src/shared" "$M/shared"
 cp -R "${REPO_ROOT}/src/mcp/shared" "$M/mcp/shared"
@@ -60,7 +60,7 @@ SID_A="e291arch$RANDOM"   # an Architect session per _hook call (as-session.sh),
 rm -f "$GO"
 rc="$(_hook "$HOOK" Write "$T/proj/src/x.js" "$SID_A" "$V_GATE=0" "$V_TOKEN=0")"
 assert_status 0 "E-291.01a: with both removed env switches set, an Architect write is still BLOCKED (rc=${rc})" test "$rc" -eq 2
-rc="$( cd "$T/proj" && HOME="$H" bash "$AS" architect "$SID_A" -- env HOME="$H" "$V_TOKEN=0" AI_OS_CALLER_ROLE=engineer node --no-warnings "$SE" --check 'git push origin main' engineer --session "$SID_A" >/dev/null 2>&1; echo $? )"
+rc="$( cd "$T/proj" && HOME="$H" bash "$AS" architect "$SID_A" -- env HOME="$H" "$V_TOKEN=0" REIN_CALLER_ROLE=engineer node --no-warnings "$SE" --check 'git push origin main' engineer --session "$SID_A" >/dev/null 2>&1; echo $? )"
 assert_status 0 "E-291.01b: …and the role still comes from the token, not the env (rc=${rc})" test "$rc" -eq 2
 OLD="$T/old-hook.sh"
 if git -C "$REPO_ROOT" show "${PRE_E291_REF}:hooks/pre-tool-use.sh" > "$OLD" 2>/dev/null; then
@@ -94,7 +94,7 @@ assert_status 0 "E-291.03a: rm -rf / is BLOCKED even with an active override (r8
 rc="$(_hook "$HOOK" Bash "ai gate off --minutes 60" "$SID_A")"
 assert_status 0 "E-291.03b: the agent cannot extend the override (rc=${rc})" test "$rc" -eq 2
 rc="$(_hook "$HOOK" Write "$M/hooks-x.sh" "$SID_A")"
-assert_status 0 "E-291.03c: a Write under ~/.ai-os/ is BLOCKED even with an override (rc=${rc})" test "$rc" -eq 2
+assert_status 0 "E-291.03c: a Write under ~/.rein/ is BLOCKED even with an override (rc=${rc})" test "$rc" -eq 2
 
 # critic_security P1-1: a command padded past ARG_MAX makes node exit 126 (no verdict); under
 # an override that path must still refuse anything touching the gate.
@@ -118,7 +118,7 @@ rm -f "$GO"; printf '{"until": %s, "reason": "old"}' "$(( $(date +%s) - 10 ))" >
 rm -f "$GO"; printf '{"until": NaN}' > "$GO"; chmod 600 "$GO"; _ignored "NaN until (the naive-check exploit)" "not a finite number"
 rm -f "$GO"; printf '{"until": %s}' "$(( $(date +%s) + 4000 ))" > "$GO"; chmod 600 "$GO"; _ignored "window over 60 minutes" "longer than 60 minutes"
 _override; chmod 620 "$GO"; _ignored "group-writable" "group/other-writable"
-# E-294: a group-writable ~/.ai-os also fails the launch-record discipline (each directory 0700),
+# E-294: a group-writable ~/.rein also fails the launch-record discipline (each directory 0700),
 # so no session can be minted there — the hook runs with no token, i.e. in the union, which
 # applies the same Architect write rule this case needs.
 _override; chmod 770 "$M"; _HOOK_SESSION=0; _ignored "group-writable directory" "directory is group/other-writable"; _HOOK_SESSION=1; chmod 700 "$M"
@@ -148,7 +148,7 @@ assert_status 1 "E-291.05e: ai gate on removes the file" test -e "$GO"
 # the gate-self-disable contract table in the unit layer (E-301, D-088); the spawn path is probed
 # once for it in safe_exec_test. What stays here needs the hook, a live session or the override.
 rc="$( cd "$T/proj" && HOME="$H" bash "$AS" none e291chk -- node --no-warnings "$SE" --check-path "$M/shared/x.mjs" --session e291chk >/dev/null 2>&1; echo $? )"
-assert_status 0 "E-291.05h: the write gate blocks ~/.ai-os/** for the ENGINEER too (rc=${rc})" test "$rc" -eq 2
+assert_status 0 "E-291.05h: the write gate blocks ~/.rein/** for the ENGINEER too (rc=${rc})" test "$rc" -eq 2
 
 # ── E-291.6: loudness beyond the call — session start and doctor ────────────
 _override 15 "e291 loud"

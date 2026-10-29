@@ -145,7 +145,7 @@ export function withTelemetry(serverName, handler, opts = {}) {
           status,
           source: "interceptor", // E-261: latency is compared like with like
           project_root: process.cwd(),
-          session_id: process.env.CLAUDE_CODE_SESSION_ID || process.env.AI_OS_SESSION_ID || "",
+          session_id: process.env.CLAUDE_CODE_SESSION_ID || process.env.REIN_SESSION_ID || "",
         });
       } catch { /* telemetry must never break a tool */ }
     }

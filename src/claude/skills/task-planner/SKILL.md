@@ -71,25 +71,25 @@ Never reuse a completed task ID.
 
 ## Step 4 — Classify the Workspace (E-64 — Framework Routing)
 
-Before writing the task, decide *where* it belongs. AI-OS framework changes
+Before writing the task, decide *where* it belongs. Rein framework changes
 must not pollute downstream project queues (the misclassification class
 captured in `.ai/blueprints/task-routing.md`).
 
 A task is **framework-level** (`is_framework_task: true`) if any of the
 following is true:
 
-- It mutates files under `~/.ai-os/` or any path inside the canonical
-  `ai-os-v2/src/**` clone (MCP servers, shared skills, agents, scripts,
+- It mutates files under `~/.rein/` or any path inside the canonical
+  `@vimurai/rein/src/**` clone (MCP servers, shared skills, agents, scripts,
   installer, hooks, registry, schemas).
 - It edits `.ai/blueprints/*.md` *for the framework itself* — i.e. the
-  blueprint sits inside the AI-OS clone, not the consuming project.
+  blueprint sits inside the Rein clone, not the consuming project.
 - The task description names a framework component without a project-
   specific feature (e.g. "Update task-synchronizer-mcp", "Fix bin/ai
   locator chain", "Add new skill to shared/skills").
 
 A task is **project-level** (`is_framework_task` omitted/false) if it
 touches `<project>/src/**`, application code, or anything outside the
-framework clone — even if it imports an AI-OS skill or MCP.
+framework clone — even if it imports an Rein skill or MCP.
 
 **Ambiguous?** Default to project-level and note the ambiguity in the
 description. Mis-routing a project task into the framework workspace is a
@@ -117,10 +117,10 @@ mcp__task-synchronizer-mcp__add_task({
 ```
 
 When `is_framework_task: true`, the MCP redirects the row into
-`$AIOS_WORKSPACE/.ai/state.sqlite` instead of the local `.ai/`. If the env
+`$REIN_WORKSPACE/.ai/state.sqlite` instead of the local `.ai/`. If the env
 is unset or invalid the call returns `[WORKSPACE_NOT_FOUND]` — do not
 retry without the flag; surface the error so the user can re-run
-`install-ai-os.sh` from the framework clone.
+`install-rein.sh` from the framework clone.
 
 ## Step 6 — Confirm
 
@@ -160,7 +160,7 @@ Then wake the Engineer with `SendMessage` (D-099). It is a deferred tool — loa
 ```
 ToolSearch({ query: "select:SendMessage" })
 SendMessage({
-  to: "<project dir basename> · Engineer",   // as ListAgents lists it, e.g. "ai-os-v2 · Engineer"
+  to: "<project dir basename> · Engineer",   // as ListAgents lists it, e.g. "@vimurai/rein · Engineer"
   message: "Planned E-##..E-## (<one-line scope>) — execute the OPEN queue.\nDetails: .ai/COMM.md handoff <YYYY-MM-DD HH:MM UTC>, commit <short sha>."
 })
 ```
@@ -178,10 +178,10 @@ Then report: "Planned N tasks and handed control to the Engineer."
 - Do NOT write E-## tasks without a blueprint reference
 - Do NOT write tasks in passive voice ("should be done", "needs to be")
 - Do NOT skip the circular dependency check for chains > 2 hops
-- Do NOT file framework-level tasks (changes to `~/.ai-os/` or
-  `ai-os-v2/src/**`) into a downstream project's queue — set
+- Do NOT file framework-level tasks (changes to `~/.rein/` or
+  `@vimurai/rein/src/**`) into a downstream project's queue — set
   `is_framework_task: true` per Step 4 so the MCP routes them to the
-  canonical AI-OS clone.
+  canonical Rein clone.
 - Do NOT end a planning turn WITHOUT handing off to the Engineer (Step 7).
   Registered-but-un-handed-off tasks strand the loop — the Engineer never wakes.
 - Do NOT hand off WHILE still creating or updating tasks. The `SendMessage` wake is

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * context-guardian-mcp — AI-OS UACS MCP Server
+ * context-guardian-mcp — Rein UACS MCP Server
  * Guards ai archive and git commit by detecting unresolved markers in the workspace.
  *
  * Tools:

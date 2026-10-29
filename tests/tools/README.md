@@ -17,7 +17,7 @@ feasibility spike, kept here as a fixture program that `tests/suites/managed_age
 
 ```bash
 npm install --no-save --save-exact @stryker-mutator/core@10.0.0 @stryker-mutator/tap-runner@10.0.0
-bash tests/tools/mutation/probe.sh            # hours; report → ~/.ai-os/ci/mutation-<date>.json + .md
+bash tests/tools/mutation/probe.sh            # hours; report → ~/.rein/ci/mutation-<date>.json + .md
 ```
 
 Stryker is NOT a dependency of this repo (D-089 ruling 4 admitted it for the probe only), so a
@@ -34,15 +34,15 @@ re-run installs it with `--no-save` first and leaves `package.json` untouched.
   The tables are answered in ONE process per mutant (`mutation/inproc-tables.mjs` imports the
   mutated gate and asks `runAnalysis` with `--check`'s semantics) — seconds instead of ~2 min of
   per-case `--check` spawns; mutants in `index.js`'s CLI glue (from `_gateFlags` on) take the
-  spawn path, and the first `AIOS_MUTATION_CROSSCHECK` (default 20) in-process mutants are
+  spawn path, and the first `REIN_MUTATION_CROSSCHECK` (default 20) in-process mutants are
   re-run on the spawn path and any disagreement is reported.
 - **Report** — per module the mutation score (unit layer alone and with the tables), every
   surviving mutant with `file:line`, per unit test file the mutants it kills, and the unit tests
   that kill none (deletion candidates for P-44's Consolidation Map).
 
 Every test process runs with a throwaway HOME; the only write outside the temp work dir is the
-report (`--out <path>` moves it). `AIOS_MUTATION_CONCURRENCY` sets the worker count (pass A
-default 6, pass B default 4); `--skip-a` with `AIOS_MUTATION_OUT=<earlier work dir>` re-runs
+report (`--out <path>` moves it). `REIN_MUTATION_CONCURRENCY` sets the worker count (pass A
+default 6, pass B default 4); `--skip-a` with `REIN_MUTATION_OUT=<earlier work dir>` re-runs
 pass B and the report from an existing pass-A result.
 
 Known limits: the mint side of `role-token.mjs` is exercised only through the repo's unmutated

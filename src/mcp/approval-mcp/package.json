@@ -2,7 +2,7 @@
   "name": "approval-mcp",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "AI-OS MCP server: Human-in-the-Loop (HITL) CLI gate for Tier 3 security operations",
+  "description": "Rein MCP server: Human-in-the-Loop (HITL) CLI gate for Tier 3 security operations",
   "type": "module",
   "main": "index.js",
   "scripts": {

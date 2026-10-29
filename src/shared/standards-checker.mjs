@@ -149,7 +149,7 @@ export const RULE_REGISTRY = {
    * framework helper.
    */
   skill_locator_install_first(ctx) {
-    if (process.env.AI_OS_STANDARDS_SKIP === "skill-locator") return null;
+    if (process.env.REIN_STANDARDS_SKIP === "skill-locator") return null;
     let executable;
     try {
       ({ executable } = classifyMarkdown(ctx.content, ctx.relPath));
@@ -175,7 +175,7 @@ export const RULE_REGISTRY = {
     // D-061 §2 rollback: restores the pre-E-234 walk, which graded every operand as a
     // candidate program. Kept because the narrowing REMOVES findings, and a gate that
     // stops reporting needs a way back to the louder behaviour if that proves wrong.
-    const PROGRAM_POSITION = process.env.AI_OS_STANDARDS_SKIP !== "program-position";
+    const PROGRAM_POSITION = process.env.REIN_STANDARDS_SKIP !== "program-position";
     // Wrappers that RESTART program position: what follows them is a program again.
     // Without this, `env FOO=1 node src/bin/ai` and `command node src/bin/ai` would read
     // as "a wrapper with arguments" and the real interpreter would never be reached.
@@ -231,8 +231,8 @@ export const RULE_REGISTRY = {
 
     // D-061 §2 / E-234: a token with a DATA-typed extension is never a program, in any
     // position. `memory_curator.md` was blocked six times for
-    //   node "${AIOS}/shared/memory-worker-pool.mjs" --dlq-show .ai/memory/dlq.json
-    // where the program is correctly resolved through ${AIOS} and the flagged token is an
+    //   node "${REIN}/shared/memory-worker-pool.mjs" --dlq-show .ai/memory/dlq.json
+    // where the program is correctly resolved through ${REIN} and the flagged token is an
     // argument to a --dlq-show flag. Position alone must not launder one either: putting a
     // .json first does not make it a program, which is why this is tested on the TOKEN and
     // not on where it sits.
@@ -454,7 +454,7 @@ export const RULE_REGISTRY = {
    * WHAT THIS MUST NOT FLAG, and it is the whole difficulty: a test that ASSERTS something
    * about traps quotes the string it is looking for. `ai_watch_test` greps the watcher for
    * `trap '_release_lock' EXIT`, and `harness_isolation_test` asserts the runner
-   * registers `trap _aios_test_cleanup EXIT INT TERM`. Flagging those would make the rule
+   * registers `trap _rein_test_cleanup EXIT INT TERM`. Flagging those would make the rule
    * reject the tests that verify trap behaviour — the same trap E-224 and E-238 both hit,
    * where a gate blocked the document describing it.
    *
@@ -463,7 +463,7 @@ export const RULE_REGISTRY = {
    * assert_* invocation is data, not an invocation.
    */
   no_raw_exit_trap_in_tests(ctx) {
-    if (process.env.AI_OS_STANDARDS_SKIP === "raw-exit-trap") return null;
+    if (process.env.REIN_STANDARDS_SKIP === "raw-exit-trap") return null;
     if (!/^tests\/.*\.sh$/.test(ctx.relPath)) return null;
     // E-250: the tests/run.sh exemption MOVED to standards.json `exempt_files`, where
     // validateFile applies it and the summary can print it with its reason. It lived here
@@ -520,7 +520,7 @@ export const RULE_REGISTRY = {
    * inspection line the moment someone wrote a new one.
    */
   skill_consent_no_project_exec(ctx) {
-    if (process.env.AI_OS_STANDARDS_SKIP === "skill-consent") return null;
+    if (process.env.REIN_STANDARDS_SKIP === "skill-consent") return null;
     let bangLines;
     try {
       ({ bangLines } = classifyMarkdown(ctx.content, ctx.relPath));

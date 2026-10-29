@@ -1,6 +1,6 @@
 ---
 name: ai-task
-description: Manage AI-OS task lifecycle — mark tasks DONE, run handover, check for next tasks. Use after completing any E-## implementation. Wraps task-synchronizer-mcp and run_handover in one step.
+description: Manage Rein task lifecycle — mark tasks DONE, run handover, check for next tasks. Use after completing any E-## implementation. Wraps task-synchronizer-mcp and run_handover in one step.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Bash, Glob, Grep, mcp__task-synchronizer-mcp__update_task_status, mcp__task-synchronizer-mcp__get_state, mcp__orchestrator-mcp__run_handover, ToolSearch, ListAgents, SendMessage
@@ -84,7 +84,7 @@ the result; the line is that record.
 Master was RED for two days (2026-09-07 → 2026-09-09) while three sprints were asked to
 "verify on CI", because nobody looked and the README carried a hardcoded
 `tests-passing` badge. A suite that passed in the working tree is not evidence about the
-commit: the failures were a `~/.ai-os` mirror only a developer machine had, and state a
+commit: the failures were a `~/.rein` mirror only a developer machine had, and state a
 previous run left behind — exactly what a clean `ai ci run` exists to exclude.
 
 - **`PASS <sha7> …`** — proceed.
@@ -101,7 +101,7 @@ previous run left behind — exactly what a clean `ai ci run` exists to exclude.
 - **`(ai ci unavailable …)`** — CI status is unknown. Unknown is not green.
 
 `update_task_status(DONE)` enforces the same rule: it refuses with `[CI_GATE]` when HEAD
-(or a tested ancestor that differs only in `.ai/`) has no green run. `AI_OS_CI_GATE=0`
+(or a tested ancestor that differs only in `.ai/`) has no green run. `REIN_CI_GATE=0`
 disables that gate — say so explicitly if you use it.
 
 Reporting a red or untested commit as green is the failure mode this step exists to prevent.
@@ -131,7 +131,7 @@ Read `.ai/TASKS.md` and report any remaining open E-## tasks.
     ```
     ToolSearch({ query: "select:SendMessage" })   // SendMessage is a deferred tool
     SendMessage({
-      to: "<project dir basename> · Architect",    // as ListAgents lists it, e.g. "ai-os-v2 · Architect"
+      to: "<project dir basename> · Architect",    // as ListAgents lists it, e.g. "@vimurai/rein · Architect"
       message: "Engineer queue exhausted. <one-line of what shipped> — review and plan next."
     })
     ```

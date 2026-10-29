@@ -14,7 +14,7 @@
 // and refuses on a non-interactive stdin without --yes, exactly as `ai start --kill`
 // does. This process is therefore safe to drive from a script or a test.
 //
-// NOTHING IS DELETED. Every removal is a MOVE into ~/.ai-os/trash/<date>/ beside a
+// NOTHING IS DELETED. Every removal is a MOVE into ~/.rein/trash/<date>/ beside a
 // manifest that records the origin, the class, the registry entry and the sha256 — so
 // `--restore <date>` is a real rollback and not a promise. A housekeeping command that
 // can lose data is one an operator will never run, which would make the whole registry
@@ -45,7 +45,7 @@ function parseArgs(argv) {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
-const trashRoot = (home) => join(home, ".ai-os", "trash");
+const trashRoot = (home) => join(home, ".rein", "trash");
 
 /** The trash mirrors the origin path, so a restore needs no guessing. */
 function trashTargetFor(home, date, origin) {
@@ -154,8 +154,8 @@ function logApply({ home, project, action, ids, count }) {
   const ts = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   const line = `${ts} | ${project || "(no project)"} | ${action} | ${count} | ${ids.join(",")}\n`;
   try {
-    mkdirSync(join(home, ".ai-os"), { recursive: true });
-    appendFileSync(join(home, ".ai-os", "clean.log"), line);
+    mkdirSync(join(home, ".rein"), { recursive: true });
+    appendFileSync(join(home, ".rein", "clean.log"), line);
   } catch { /* the apply already happened; a log failure must not undo it */ }
   const projLog = project ? join(project, ".ai", "LOG.md") : null;
   if (projLog && existsSync(projLog)) {
@@ -208,7 +208,7 @@ function render(findings, notes, { applied = [], disabled = false } = {}) {
   }
   for (const n of notes) out.push(`note: ${n}`);
   for (const a of applied) out.push(a);
-  if (disabled) out.push("AI_OS_CLEAN_DISABLE=1 — findings only, nothing was touched.");
+  if (disabled) out.push("REIN_CLEAN_DISABLE=1 — findings only, nothing was touched.");
   return out.join("\n");
 }
 
@@ -229,7 +229,7 @@ function scanFor(o) {
   const home = o.home ? resolve(o.home) : homedir();
   const project = o.project ? resolve(o.project) : null;
   const srcRoots = [];
-  const ws = join(home, ".ai-os", "config", "aios-workspace.txt");
+  const ws = join(home, ".rein", "config", "rein-workspace.txt");
   if (existsSync(ws)) {
     try {
       const w = readFileSync(ws, "utf8").split("\n")[0].trim();
@@ -252,7 +252,7 @@ function scanFor(o) {
     registryPath: o["registry"] || registryPath({ home, repoRoot: srcRoots[0] || null }),
   });
   // E-273: `--only <id,id>` narrows every mode to the named registry entries. `ai sync`
-  // uses it to reap dead ~/.ai-os/run/ records on every run without also acting on the
+  // uses it to reap dead ~/.rein/run/ records on every run without also acting on the
   // rest of the registry, which stays the operator's explicit `ai clean` decision.
   // Present-but-empty (`--only ""`, or `--only` as the last argument) matches NOTHING: a
   // narrowing flag that silently widened to the whole registry would be the worst reading.
@@ -369,7 +369,7 @@ function cmdRestore(o) {
   const home = o.home ? resolve(o.home) : homedir();
   const date = String(o.date || "");
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    process.stderr.write("ai clean --restore: needs a date in YYYY-MM-DD form (see ~/.ai-os/trash/)\n");
+    process.stderr.write("ai clean --restore: needs a date in YYYY-MM-DD form (see ~/.rein/trash/)\n");
     return 2;
   }
   const dir = join(trashRoot(home), date);
@@ -474,18 +474,18 @@ export function run(argv) {
   const [cmd, ...rest] = argv;
   const o = parseArgs(rest);
   // §Rollback: the whole feature degrades to a report.
-  const disabled = process.env.AI_OS_CLEAN_DISABLE === "1";
+  const disabled = process.env.REIN_CLEAN_DISABLE === "1";
   switch (cmd) {
     case "plan": return cmdPlan(o);
     case "apply":
       if (disabled) {
         const rc = cmdPlan(o);
-        process.stdout.write("AI_OS_CLEAN_DISABLE=1 — findings only, nothing was touched.\n");
+        process.stdout.write("REIN_CLEAN_DISABLE=1 — findings only, nothing was touched.\n");
         return rc;
       }
       return cmdApply(o);
-    case "restore": return disabled ? (process.stderr.write("ai clean: AI_OS_CLEAN_DISABLE=1 — restore is also disabled.\n"), 2) : cmdRestore(o);
-    case "purge": return disabled ? (process.stderr.write("ai clean: AI_OS_CLEAN_DISABLE=1 — purge is also disabled.\n"), 2) : cmdPurge(o);
+    case "restore": return disabled ? (process.stderr.write("ai clean: REIN_CLEAN_DISABLE=1 — restore is also disabled.\n"), 2) : cmdRestore(o);
+    case "purge": return disabled ? (process.stderr.write("ai clean: REIN_CLEAN_DISABLE=1 — purge is also disabled.\n"), 2) : cmdPurge(o);
     case "doctor": return cmdDoctor(o);
     default:
       process.stderr.write("usage: ai-clean.mjs <plan|apply|restore|purge|doctor> --project <root> [--all] [--json] [--only <entry-id,…>]\n");

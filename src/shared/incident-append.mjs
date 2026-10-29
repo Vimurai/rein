@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// E-65: incident-append.mjs — atomic NDJSON appender for ~/.ai-os/incidents.ndjson.
+// E-65: incident-append.mjs — atomic NDJSON appender for ~/.rein/incidents.ndjson.
 //
 // Invocation:
 //   node incident-append.mjs '<json>'
@@ -30,7 +30,7 @@ import { resolve, dirname } from "node:path";
 import { homedir } from "node:os";
 import { redact } from "./publish-scan.mjs";
 
-const INCIDENTS_DIR    = resolve(homedir(), ".ai-os");
+const INCIDENTS_DIR    = resolve(homedir(), ".rein");
 const INCIDENTS_PATH   = resolve(INCIDENTS_DIR, "incidents.ndjson");
 const INCIDENT_ROTATE_LINES = Number(process.env.INCIDENT_ROTATE_LINES || 500);
 const MAX_MSG_LEN      = 500;

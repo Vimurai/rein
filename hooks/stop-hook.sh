@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# AI-OS Stop Hook — auto-stamps .ai/SESSION.md when a Claude session ends.
-# Installed to ~/.ai-os/hooks/stop-hook.sh and referenced in .claude/settings.json
+# Rein Stop Hook — auto-stamps .ai/SESSION.md when a Claude session ends.
+# Installed to ~/.rein/hooks/stop-hook.sh and referenced in .claude/settings.json
 
 # ── E-292 (D-082 r2): a FAIL-OPEN hook that aborts on its own bug still exits 0 ──────
 # (it never blocks the session) but leaves ONE incident record via ai_os_hook_incident
 # (src/shared/toolchain-pin.sh; absent before the pin loads → nothing recorded). Inline
 # string on the first executable line, builtins only. A deliberate exit keeps its code.
 # The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_aios_rc=$?; trap - EXIT; case "$_aios_rc:$BASH_COMMAND" in 0:*) exit "$_aios_rc" ;; esac; ai_os_hook_incident stop-hook "$_aios_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; ai_os_hook_incident stop-hook "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -17,17 +17,17 @@ trap '_aios_rc=$?; trap - EXIT; case "$_aios_rc:$BASH_COMMAND" in 0:*) exit "$_a
 # variables). See src/shared/toolchain-pin.sh.
 unset -f $(compgen -A function) 2>/dev/null
 for _v in $(compgen -e); do
-  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|AI_OS_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
+  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
 done
 PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin"
-for _p in "${HOME}/.ai-os/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
+for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
   [[ -f "$_p" ]] && { . "$_p"; break; }
 done
 unset _v _p
 
 # ── E-223 (D-057 §3): install-first helper resolution ────────────────────────
 # The locators below used to start at "$(git rev-parse --show-toplevel)/src/...", which
-# names the USER's repository, not the AI-OS install. Any project containing
+# names the USER's repository, not the Rein install. Any project containing
 # src/mcp/safe-exec-mcp/index.js had THAT file executed by node from inside this hook,
 # with its stdout trusted to decide whether a write is allowed — cloning a repo was
 # enough to run its code and disable the gate meant to stop it.
@@ -35,21 +35,21 @@ unset _v _p
 # Bootstrapping the shared resolver must not repeat the mistake, so it is install-mirror
 # first and script-relative second — never the visited repo.
 # The env here may have been chosen by the repo we are visiting (a project's
-# .claude/settings.json `env` block is inherited by hooks), so AI_OS_HOME is NOT read:
+# .claude/settings.json `env` block is inherited by hooks), so REIN_HOME is NOT read:
 # pointing it at a decoy made this bootstrap SOURCE the decoy's own locate.sh, i.e.
 # arbitrary shell inside a fail-closed gate. Assigned here, in the hook's own text, so it
 # overrides anything inherited.
 # Exported so a child process — an `ai` subcommand spawned from this hook — inherits
 # the same judgement rather than defaulting back to trusting the environment.
-export AI_OS_LOCATE_UNTRUSTED_ENV=1
-_AI_OS_HOME_DIR="${HOME}/.ai-os"
+export REIN_LOCATE_UNTRUSTED_ENV=1
+_REIN_HOME_DIR="${HOME}/.rein"
 # The guard below asks `declare -f ai_os_locate`, which means "is a name defined", NOT
 # "did my source succeed". bash imports exported functions from the environment at
 # startup, so an inherited `ai_os_locate` satisfies it, the safe inline fallback is never
 # installed, and the attacker's function IS the resolver — reachable whenever
 # shared/locate.sh is absent, i.e. exactly the degraded install the fallback exists for.
 unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
-for _l in "${_AI_OS_HOME_DIR}/shared/locate.sh" \
+for _l in "${_REIN_HOME_DIR}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../src/shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
 done
@@ -57,13 +57,13 @@ done
 # degraded gate, an aborted hook is a broken session). The fallback is the install
 # mirror alone — it never falls back to the visited repo.
 if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${_AI_OS_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+  ai_os_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 
 AI_DIR="$(pwd)/.ai"
 SESSION_FILE="${AI_DIR}/SESSION.md"
 
-# Only run if this is an AI-OS project
+# Only run if this is an Rein project
 [[ -d "$AI_DIR" ]] || exit 0
 [[ -f "$SESSION_FILE" ]] || exit 0
 
@@ -113,7 +113,7 @@ SUMMARY="${SUMMARY:0:100}"
 # `ai pane`) or the advisory env; provider from .ai/roles.json. Fails soft to "Claude"
 # — a session stamp must never break the Stop hook.
 ACTOR="Claude"
-_E213_ROLE="${AI_OS_PANE_ROLE:-${AI_OS_CALLER_ROLE:-engineer}}"
+_E213_ROLE="${REIN_PANE_ROLE:-${REIN_CALLER_ROLE:-engineer}}"
 case "$_E213_ROLE" in architect|engineer) ;; *) _E213_ROLE="engineer" ;; esac
 if command -v node >/dev/null 2>&1; then
   for _pa in "$(ai_os_locate shared/provider-adapter.mjs || true)"; do

@@ -50,15 +50,15 @@ function siblingSharing(dbOwner, name) {
   return p;
 }
 
-// E-294 (D-087): the server's role is the HMAC-verified session token's — AI_OS_CALLER_ROLE is
+// E-294 (D-087): the server's role is the HMAC-verified session token's — REIN_CALLER_ROLE is
 // no longer evidence (no token → the fail-closed `architect`). Every server therefore runs as
 // the direct child of a real PLAIN-LAUNCH session (tests/lib/as-session.sh none → engineer, the
 // write target being src/), with CLAUDE_CODE_SESSION_ID naming it. A plain launch has no launch
 // record, so the cross-project modes (two cwds) both verify as engineer. The session's token and
-// machine key live in a per-driver throwaway HOME, never the operator's ~/.ai-os (rule 6).
+// machine key live in a per-driver throwaway HOME, never the operator's ~/.rein (rule 6).
 const AS = join(REPO, "tests", "lib", "as-session.sh");
 const SESSION_HOME = mkdtempSync(join(tmpdir(), "e221-home-"));
-mkdirSync(join(SESSION_HOME, ".ai-os"), { recursive: true });
+mkdirSync(join(SESSION_HOME, ".rein"), { recursive: true });
 process.on("exit", () => { try { rmSync(SESSION_HOME, { recursive: true, force: true }); } catch { /* temp dir */ } });
 let _rpcN = 0;
 
@@ -154,7 +154,7 @@ try {
     const id = proposeIn(A);
     const db = getDb(join(A, ".ai"));
     db.prepare("UPDATE patches SET project_root = NULL, rel_path = NULL WHERE id = ?").run(id);
-    const env = mode === "legacy-ok" ? { AI_OS_PATCH_LEGACY: "1" } : {};
+    const env = mode === "legacy-ok" ? { REIN_PATCH_LEGACY: "1" } : {};
     const out = rpc(A, [{ name: "confirm_patch", args: { patch_id: id } }], env);
     verdict = verdictOf(out);
     content = contentOf(join(A, "src", "target.txt"));
@@ -167,7 +167,7 @@ try {
     const db = getDb(join(A, ".ai"));
     db.prepare("UPDATE patches SET project_root = NULL, rel_path = NULL, path = ? WHERE id = ?")
       .run(outside, id);
-    const out = rpc(A, [{ name: "confirm_patch", args: { patch_id: id } }], { AI_OS_PATCH_LEGACY: "1" });
+    const out = rpc(A, [{ name: "confirm_patch", args: { patch_id: id } }], { REIN_PATCH_LEGACY: "1" });
     verdict = verdictOf(out);
     content = contentOf(outside);
     try { rmSync(outside, { force: true }); } catch { /* nothing written is the pass */ }

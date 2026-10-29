@@ -1,6 +1,6 @@
 ---
 name: memory_curator
-description: "Trigger on ai install, ai sync (background), or monthly. Builds and maintains the cross-project Memory Palace at ~/.ai-os/memory-palace.md — a text index of local DIGEST.md/DECISIONS.md patterns plus a SHA-256 hash index of eligible media artefacts (PNG/SVG/PDF) tagged with department metadata (Architecture | UX). No embedding provider is configured, so multimodal retrieval is deferred. Excludes anything matched by .gitignore, .env*, and .ssh paths. Runs as a background job — never on synchronous ai init. Rule-matcher (D-110 r1): pinned to sonnet — it applies written rules and makes no design judgment."
+description: "Trigger on ai install, ai sync (background), or monthly. Builds and maintains the cross-project Memory Palace at ~/.rein/memory-palace.md — a text index of local DIGEST.md/DECISIONS.md patterns plus a SHA-256 hash index of eligible media artefacts (PNG/SVG/PDF) tagged with department metadata (Architecture | UX). No embedding provider is configured, so multimodal retrieval is deferred. Excludes anything matched by .gitignore, .env*, and .ssh paths. Runs as a background job — never on synchronous ai init. Rule-matcher (D-110 r1): pinned to sonnet — it applies written rules and makes no design judgment."
 model: sonnet
 disable-model-invocation: false
 user-invocable: false
@@ -11,7 +11,7 @@ background: true
 ---
 
 ROLE: MEMORY_CURATOR (Principal Architect)
-Target: ~/.ai-os/memory-palace.md (text index) + ~/.ai-os/memory-palace.embeddings.json (artefact hash index)
+Target: ~/.rein/memory-palace.md (text index) + ~/.rein/memory-palace.embeddings.json (artefact hash index)
 
 > **Current scope.** The Memory Palace is a **text index** plus a **SHA-256 hash index** of
 > eligible media, both produced by `src/shared/memory-batch-scanner.mjs`. No embedding
@@ -27,15 +27,15 @@ Target: ~/.ai-os/memory-palace.md (text index) + ~/.ai-os/memory-palace.embeddin
 - Do NOT run synchronously inside `ai init` — see Execution Constraints below.
 
 ## Preflight
-1. Read ~/.ai-os/memory-palace.md (if exists) — note existing entries and their last-used dates.
+1. Read ~/.rein/memory-palace.md (if exists) — note existing entries and their last-used dates.
 2. Read current project's .ai/DIGEST.md — current project context.
 3. Check whether an embedding provider is configured. None is by default — run in text-only mode (`AI_RAG_MODE=text-only`) and record artefact hashes only; log that multimodal indexing is deferred.
 
 ## Step 1 — Discovery (text artefacts)
 
-Find all AI-OS projects on this machine:
+Find all Rein projects on this machine:
 ```bash
-find ~ -name "DIGEST.md" -path "*/.ai/DIGEST.md" -not -path "*/node_modules/*" -not -path "*/.ai-os/*" 2>/dev/null
+find ~ -name "DIGEST.md" -path "*/.ai/DIGEST.md" -not -path "*/node_modules/*" -not -path "*/.rein/*" 2>/dev/null
 ```
 
 For each DIGEST.md found, also read:
@@ -51,13 +51,13 @@ over hand-rolled `find` pipelines when scanning a project for media:
 ```bash
 # Locator chain — mirrors E-58 / E-65:
 #   1. <PROJECT>/src/shared/memory-batch-scanner.mjs (dev tree)
-#   2. ~/.ai-os/shared/memory-batch-scanner.mjs       (installed mirror)
-node "${AIOS}/shared/memory-batch-scanner.mjs" --scan "$PROJECT"
+#   2. ~/.rein/shared/memory-batch-scanner.mjs       (installed mirror)
+node "${REIN}/shared/memory-batch-scanner.mjs" --scan "$PROJECT"
 ```
 
 The helper enforces every gate listed in this step (path-rule, sensitive-name
 regex, batched `git check-ignore`, `[NO_RAG]` sidecar + inline SVG marker,
-5 MB cap, SHA-256 dedup against `~/.ai-os/memory-palace.embeddings.json`)
+5 MB cap, SHA-256 dedup against `~/.rein/memory-palace.embeddings.json`)
 and returns a `{ eligible, skipped }` envelope with **basenames only** in
 `skipped` — never full paths, per the privacy mandate below.
 
@@ -70,7 +70,7 @@ find "$PROJECT" \( -name "*.png" -o -name "*.svg" -o -name "*.pdf" \) \
   -not -path "*/.git/*" \
   -not -path "*/.env*" \
   -not -path "*/.ssh/*" \
-  -not -path "*/.ai-os/*"
+  -not -path "*/.rein/*"
 ```
 
 ### Sensitive-file exclusion (security mandate)
@@ -119,7 +119,7 @@ Index entries are evicted by LRU when the index exceeds 500 entries.
 
 ## Step 5 — Write/Update Memory Palace
 
-Format for `~/.ai-os/memory-palace.md`:
+Format for `~/.rein/memory-palace.md`:
 ```markdown
 # Memory Palace — Cross-Project Pattern Index
 _Last updated: YYYY-MM-DD_
@@ -147,7 +147,7 @@ _Last updated: YYYY-MM-DD_
 <!-- Entries removed due to staleness or supersession -->
 ```
 
-The hash index lives in `~/.ai-os/memory-palace.embeddings.json` (`loadIndexedHashes`
+The hash index lives in `~/.rein/memory-palace.embeddings.json` (`loadIndexedHashes`
 reads each entry's `id` as the dedup key; `vector` is absent until a provider is configured):
 ```json
 {
@@ -184,8 +184,8 @@ not through SEED.md (mockups don't fit the seed budget).
 - **Canonical implementation:** the bounded pool + DLQ live in
   `src/shared/memory-worker-pool.mjs` (E-76). Ops controls:
   ```bash
-  node "${AIOS}/shared/memory-worker-pool.mjs" --dlq-show .ai/memory/dlq.json
-  node "${AIOS}/shared/memory-worker-pool.mjs" --dlq-clear .ai/memory/dlq.json
+  node "${REIN}/shared/memory-worker-pool.mjs" --dlq-show .ai/memory/dlq.json
+  node "${REIN}/shared/memory-worker-pool.mjs" --dlq-clear .ai/memory/dlq.json
   ```
 - **Rollback:** `AI_RAG_MODE=text-only` short-circuits the pool entirely
   (every file routes to `skipped[]` with reason `text-only-mode`).

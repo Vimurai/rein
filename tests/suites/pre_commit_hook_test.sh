@@ -97,8 +97,8 @@ assert_contains "E-238.03h: the probe still BLOCKS a real marker (non-vacuity)" 
   "$(_gate doc.md $'a\n<<<<<<< HEAD\nb\n>>>>>>> x\n')"
 
 # ── E-238.4: the rollback exists, and the gate is wired into the hook ──────
-assert_status 0 "E-238.04a: AI_OS_SKIP_CONFLICT_GATE is honoured" \
-  grep -q 'AI_OS_SKIP_CONFLICT_GATE' "$HOOK"
+assert_status 0 "E-238.04a: REIN_SKIP_CONFLICT_GATE is honoured" \
+  grep -q 'REIN_SKIP_CONFLICT_GATE' "$HOOK"
 assert_status 0 "E-238.04b: the gate runs in the hook, not merely defined" \
   grep -q '_conflict_marker_gate || _cm_ok=1' "$HOOK"
 assert_status 0 "E-238.04c: the JSON gate runs too" \
@@ -290,7 +290,7 @@ assert_status 0 "every existing src/mcp/*.js passes the gate" run_checker
 # ── E-82 (from pre_commit_standards_gate — E-301): the standards gate in the hook ──
 # hooks/pre-commit.sh wires the E-80 standards-checker CLI into the commit (engineering-
 # standards.md §Components 2, §Rollback Plan): check_standards_gate() defined and invoked,
-# AI_OS_SKIP_STANDARDS=1 skips silently, the locator chain falls back gracefully, CLI exit 1
+# REIN_SKIP_STANDARDS=1 skips silently, the locator chain falls back gracefully, CLI exit 1
 # prints [STANDARDS_BLOCK] and blocks, exit 0 is silent.
 
 # ── T-PCS-S01: Source contract — function defined + invoked ─────────────────
@@ -304,12 +304,12 @@ assert_status 0 "check_standards_gate function defined" \
 assert_status 0 "check_standards_gate invoked"          \
   grep -qE '^check_standards_gate$' "$HOOK"
 
-# ── T-PCS-S02: Rollback contract — AI_OS_SKIP_STANDARDS=1 ───────────────────
+# ── T-PCS-S02: Rollback contract — REIN_SKIP_STANDARDS=1 ───────────────────
 echo ""
-echo "  [T-PCS-S02] AI_OS_SKIP_STANDARDS=1 short-circuits the gate"
+echo "  [T-PCS-S02] REIN_SKIP_STANDARDS=1 short-circuits the gate"
 
-assert_status 0 "AI_OS_SKIP_STANDARDS guard present" \
-  grep -q 'AI_OS_SKIP_STANDARDS' "$HOOK"
+assert_status 0 "REIN_SKIP_STANDARDS guard present" \
+  grep -q 'REIN_SKIP_STANDARDS' "$HOOK"
 # The block must short-circuit BEFORE invoking the CLI.
 assert_status 0 "skip guard appears before the CLI invocation" \
   python3 -c "
@@ -319,19 +319,19 @@ text = open('$HOOK').read()
 m = re.search(r'check_standards_gate\(\)\s*\{(.*?)\n\}\n', text, flags=re.S)
 if not m: sys.exit(1)
 body = m.group(1)
-i_skip = body.find('AI_OS_SKIP_STANDARDS')
+i_skip = body.find('REIN_SKIP_STANDARDS')
 i_cli  = body.find('node \"\$cli\"')
 sys.exit(0 if 0 <= i_skip < i_cli else 2)
 "
 
-# ── T-PCS-S03: Locator chain — in-tree → ~/.ai-os → graceful skip ────────────
+# ── T-PCS-S03: Locator chain — in-tree → ~/.rein → graceful skip ────────────
 echo ""
 echo "  [T-PCS-S03] Locator chain matches E-58/E-65/E-75 pattern"
 
 assert_status 0 "checks in-tree scripts/standards.mjs first" \
   grep -q '\${repo_root}/scripts/standards.mjs' "$HOOK"
-assert_status 0 "falls back to ~/.ai-os/scripts/standards.mjs" \
-  grep -q '\${HOME}/.ai-os/scripts/standards.mjs' "$HOOK"
+assert_status 0 "falls back to ~/.rein/scripts/standards.mjs" \
+  grep -q '\${HOME}/.rein/scripts/standards.mjs' "$HOOK"
 assert_status 0 "graceful skip when both absent (pre-E-80 install)" \
   python3 -c "
 import re, sys
@@ -357,7 +357,7 @@ echo "  [T-PCS-S05] STANDARDS_BLOCK banner + exit 1 on CLI failure"
 assert_status 0 "STANDARDS_BLOCK heredoc tag present"     grep -q 'STANDARDS_BLOCK' "$HOOK"
 assert_status 0 "banner names the gate verbatim"          grep -q 'ENGINEERING-STANDARDS — COMMIT BLOCKED' "$HOOK"
 assert_status 0 "banner documents the rollback flag"      \
-  bash -c "awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK' | grep -q 'AI_OS_SKIP_STANDARDS=1'"
+  bash -c "awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK' | grep -q 'REIN_SKIP_STANDARDS=1'"
 assert_status 0 "banner mentions kebab-case / shared / NDJSON fix hints" \
   bash -c "awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK' | grep -qiE 'kebab|shared|NDJSON'"
 assert_status 0 "exit 1 follows the banner on failure" \
@@ -435,11 +435,11 @@ assert_status 0 "banner surfaced on stderr" \
 assert_status 0 "CLI report appended after the banner" \
   grep -q "no_committed_tmp_files" "$OUT_FILE"
 
-# ── T-PCS-S07: AI_OS_SKIP_STANDARDS=1 bypasses the gate ─────────────────────
+# ── T-PCS-S07: REIN_SKIP_STANDARDS=1 bypasses the gate ─────────────────────
 echo ""
-echo "  [T-PCS-S07] AI_OS_SKIP_STANDARDS=1 silences the gate"
+echo "  [T-PCS-S07] REIN_SKIP_STANDARDS=1 silences the gate"
 
-(cd "$PROJ" && AI_OS_SKIP_STANDARDS=1 bash "$HOOK") > "$OUT_FILE" 2>&1 || true
+(cd "$PROJ" && REIN_SKIP_STANDARDS=1 bash "$HOOK") > "$OUT_FILE" 2>&1 || true
 assert_status 1 "standards banner NOT printed when skip flag set" \
   grep -q "ENGINEERING-STANDARDS — COMMIT BLOCKED" "$OUT_FILE"
 
@@ -466,11 +466,11 @@ echo "  [T-PCS-S09] Hook degrades gracefully when node is unavailable"
 assert_status 1 "no STANDARDS banner when node absent" \
   grep -q "ENGINEERING-STANDARDS — COMMIT BLOCKED" "$OUT_FILE"
 
-# ── T-PCS-S10: ~/.ai-os mirror byte-identical ──────────────────────────────
+# ── T-PCS-S10: ~/.rein mirror byte-identical ──────────────────────────────
 echo ""
-echo "  [T-PCS-S10] ~/.ai-os/hooks/pre-commit.sh mirror matches src/"
+echo "  [T-PCS-S10] ~/.rein/hooks/pre-commit.sh mirror matches src/"
 
-MIRROR="${HOME}/.ai-os/hooks/pre-commit.sh"
+MIRROR="${HOME}/.rein/hooks/pre-commit.sh"
 if [[ -f "$MIRROR" ]]; then
   assert_status 0 "mirror is byte-identical to src/" diff -q "$HOOK" "$MIRROR"
 else
@@ -481,7 +481,7 @@ echo ""
 
 # ── E-80 (from standards_checker — E-301): the standards checker where a process is under test ──
 # validateStaged over a real git index, the CLI's 0/1/2 contract and --json envelope,
-# AI_OS_SKIP_STANDARDS=1, the install layout and the E-250 suppression report. The rules
+# REIN_SKIP_STANDARDS=1, the install layout and the E-250 suppression report. The rules
 # themselves are rows of the standards contract table, in process in tests/unit (D-088).
 STANDARDS_JSON="${REPO_ROOT}/src/shared/standards.json"
 STD_CHECKER="${REPO_ROOT}/src/shared/standards-checker.mjs"
@@ -570,30 +570,30 @@ printf '%s' "$list_json" > "$_lj_file"
 assert_status 0 "list-rules --json parses + carries rules[]" \
   python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d.get("rules"), list) and len(d["rules"]) >= 6 else 1)' "$_lj_file"
 
-# ── T-STD-S12: AI_OS_SKIP_STANDARDS=1 rollback path ─────────────────────────
+# ── T-STD-S12: REIN_SKIP_STANDARDS=1 rollback path ─────────────────────────
 echo ""
-echo "  [T-STD-S12] AI_OS_SKIP_STANDARDS=1 short-circuits the gate"
+echo "  [T-STD-S12] REIN_SKIP_STANDARDS=1 short-circuits the gate"
 
-stderr_out="$( ( cd "$SPROJ" && AI_OS_SKIP_STANDARDS=1 node "$CLI" check --file src/staged.tmp ) 2>&1 >/dev/null )"
+stderr_out="$( ( cd "$SPROJ" && REIN_SKIP_STANDARDS=1 node "$CLI" check --file src/staged.tmp ) 2>&1 >/dev/null )"
 rc=$?
 assert_status 0 "skip flag → exit 0 (even on would-be error)" bash -c "[[ $rc -eq 0 ]]"
 assert_status 0 "stderr carries STANDARDS_SKIPPED marker" \
   bash -c "echo '$stderr_out' | grep -q 'STANDARDS_SKIPPED'"
 
-# ── T-STD-S14: ~/.ai-os mirrors byte-identical ──────────────────────────────
+# ── T-STD-S14: ~/.rein mirrors byte-identical ──────────────────────────────
 echo ""
-echo "  [T-STD-S14] ~/.ai-os mirrors byte-identical"
+echo "  [T-STD-S14] ~/.rein mirrors byte-identical"
 
-assert_status 0 "standards.json mirror"        diff -q "$STANDARDS_JSON" "${HOME}/.ai-os/shared/standards.json"
-assert_status 0 "standards-checker mirror"     diff -q "$STD_CHECKER" "${HOME}/.ai-os/shared/standards-checker.mjs"
-assert_status 0 "scripts/standards.mjs mirror" diff -q "$CLI"      "${HOME}/.ai-os/scripts/standards.mjs"
+assert_status 0 "standards.json mirror"        diff -q "$STANDARDS_JSON" "${HOME}/.rein/shared/standards.json"
+assert_status 0 "standards-checker mirror"     diff -q "$STD_CHECKER" "${HOME}/.rein/shared/standards-checker.mjs"
+assert_status 0 "scripts/standards.mjs mirror" diff -q "$CLI"      "${HOME}/.rein/scripts/standards.mjs"
 
 # ── T-STD-S15: scripts/standards.mjs locator chain (E-83) ───────────────────
 echo ""
 echo "  [T-STD-S15] CLI resolves standards-checker.mjs via dynamic locator chain"
 
 # Synthetic install layout: <root>/scripts/standards.mjs + <root>/shared/standards-checker.mjs
-# (matches ~/.ai-os/ tree). Asserts Candidate 2 of the locator chain.
+# (matches ~/.rein/ tree). Asserts Candidate 2 of the locator chain.
 INSTALL="${SSBOX}/installroot"
 mkdir -p "${INSTALL}/scripts" "${INSTALL}/shared"
 cp "$CLI"      "${INSTALL}/scripts/standards.mjs"
@@ -704,11 +704,11 @@ echo ""
 _RD="${REPO_ROOT}/tests/tools/registry-drift.sh"
 assert_status 0 "E-302.RD1: the hook names the registry checker that exists" \
   bash -c 'f="$(grep -o "tests/tools/registry-drift\.sh" "$1" | head -1)"; [[ -n "$f" && -f "$2/$f" ]]' _ "$HOOK" "$REPO_ROOT"
-_RD_HOME="$(test_tmpdir rdhome)"; mkdir -p "${_RD_HOME}/.ai-os/config"
-printf '{"mcp_servers":{}}\n' > "${_RD_HOME}/.ai-os/config/registry.json"
+_RD_HOME="$(test_tmpdir rdhome)"; mkdir -p "${_RD_HOME}/.rein/config"
+printf '{"mcp_servers":{}}\n' > "${_RD_HOME}/.rein/config/registry.json"
 assert_status 1 "E-302.RD2: a global registry missing the local servers fails the checker (the gate blocks)" \
   env HOME="$_RD_HOME" bash "$_RD"
-cp "${REPO_ROOT}/src/config/registry.json" "${_RD_HOME}/.ai-os/config/registry.json"
+cp "${REPO_ROOT}/src/config/registry.json" "${_RD_HOME}/.rein/config/registry.json"
 assert_status 0 "E-302.RD3: …and a matching one passes" env HOME="$_RD_HOME" bash "$_RD"
 
 assert_summary

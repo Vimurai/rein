@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-AIOS="${HOME}/.ai-os"
+REIN="${HOME}/.rein"
 
 # ── E-270 (D-074 §Components 1): one version, typed once ─────────────────────
-# package.json is the only place the version is written by hand. install-ai-os.sh copies
-# it to ~/.ai-os/VERSION; this reads that file, and in the dev tree (no install, e.g. the
+# package.json is the only place the version is written by hand. install-rein.sh copies
+# it to ~/.rein/VERSION; this reads that file, and in the dev tree (no install, e.g. the
 # test suites running src/bin/ai) falls back to the clone's own package.json — only when
 # that file really is the framework's, so a stray ~/package.json next to the mirror can
 # never supply a version.
 _pkg_version() {  # <package.json> → version, or nothing
-  [[ -f "$1" ]] && grep -q '"name"[[:space:]]*:[[:space:]]*"ai-os-v2"' "$1" 2>/dev/null || return 1
+  [[ -f "$1" ]] && grep -q '"name"[[:space:]]*:[[:space:]]*"@vimurai/rein"' "$1" 2>/dev/null || return 1
   sed -nE 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$1" | head -1
 }
 _resolve_version() {
   local v=""
-  [[ -f "${AIOS}/VERSION" ]] && v="$(head -1 "${AIOS}/VERSION" 2>/dev/null | tr -d '[:space:]')"
+  [[ -f "${REIN}/VERSION" ]] && v="$(head -1 "${REIN}/VERSION" 2>/dev/null | tr -d '[:space:]')"
   if [[ -z "$v" ]]; then
     local _sd; _sd="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)"
     v="$(_pkg_version "${_sd%/*/*}/package.json" 2>/dev/null || true)"
@@ -30,11 +30,11 @@ UPGRADE_MERGED=()   # E-270: filled by ensure_ai_templates, counted by do_init
 # that Bash inherits the session env the CLI applied — which a project's own
 # `.claude/settings.json` `env` block supplies, a file `ai init` itself writes. So the env
 # reaching `ai` sits at exactly the same trust level as the one reaching the hooks, and
-# hardening only the hooks left AI_OS_HOME and AI_OS_LOCATE_DEV honoured here: proven, a
+# hardening only the hooks left REIN_HOME and REIN_LOCATE_DEV honoured here: proven, a
 # decoy repo redirected `_locate_resolve_launch`, whose stdout decides which BINARY
 # `ai pane` execs.
 #
-# DEVIATION FROM D-057 §3, flagged for the Architect: the ruling names AI_OS_LOCATE_DEV=1
+# DEVIATION FROM D-057 §3, flagged for the Architect: the ruling names REIN_LOCATE_DEV=1
 # as the dev-tree rollback. An env var cannot be the rollback channel here, because the
 # env is the attack channel. The same capability is `--dev-tree`, which a settings.json
 # cannot supply — and it is turned on by CALLING ai_os_locate_enable_dev_tree below, not by
@@ -45,12 +45,12 @@ UPGRADE_MERGED=()   # E-270: filled by ensure_ai_templates, counted by do_init
 # literal "--dev-tree" arriving as user DATA (a task title, a handoff message,
 # `ai add-task -- --dev-tree`) cannot steer resolution policy or be eaten from the
 # arguments the user meant to pass.
-_AI_OS_WANT_DEV_TREE=0
+_REIN_WANT_DEV_TREE=0
 if [[ "${1:-}" == "--dev-tree" ]]; then
-  _AI_OS_WANT_DEV_TREE=1
+  _REIN_WANT_DEV_TREE=1
   shift
 fi
-AI_OS_LOCATE_UNTRUSTED_ENV=1
+REIN_LOCATE_UNTRUSTED_ENV=1
 
 # ── E-223 (D-057 §3): the shared helper resolver ─────────────────────────────
 # One policy, one place — see src/shared/locate.sh. Install mirror first; the dev tree
@@ -62,12 +62,12 @@ AI_OS_LOCATE_UNTRUSTED_ENV=1
 # the attacker's function IS the resolver — reachable on a partial or mid-upgrade install
 # missing shared/locate.sh, which is exactly the degraded state the fallback exists for.
 unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
-for _l in "${AIOS}/shared/locate.sh" \
+for _l in "${REIN}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
 done
 if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${AIOS}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+  ai_os_locate() { local _c="${REIN}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 # _ai_os_helper <logical-path> — every helper lookup in this file goes through here.
 # D-057 §3 names src/bin/ai, and the first pass converted only the three _locate_* wrappers
@@ -90,13 +90,13 @@ _ai_os_helper() {
 }
 
 # Only now, after argv has been read and the resolver sourced.
-if [[ "$_AI_OS_WANT_DEV_TREE" == "1" ]] && declare -f ai_os_locate_enable_dev_tree >/dev/null 2>&1; then
+if [[ "$_REIN_WANT_DEV_TREE" == "1" ]] && declare -f ai_os_locate_enable_dev_tree >/dev/null 2>&1; then
   ai_os_locate_enable_dev_tree
 fi
 
 usage() {
   cat <<USAGE
-ai — AI-OS v${VERSION}
+ai — Rein v${VERSION}
 
 The shell CLI is a thin bootloader. Operational commands (planning, review,
 testing, archive, digest) now run as prompts inside Claude Code.
@@ -121,7 +121,7 @@ Commands:
                  Diagnose PATH, configs, hooks, MCP; --compliance audits agent
                  frontmatter for Ghost Tools; --env deep-checks Node/binaries/
                  permissions and live MCP connectivity (exit 1 on critical fail)
-  ai uninstall   Remove the global ~/.ai-os install (project .ai/ stays)
+  ai uninstall   Remove the global ~/.rein install (project .ai/ stays)
   ai start [--status | --kill [--yes] | --account <name> | --detach | --dry-run]
                  Build or reattach the project's tmux Triad (one session per
                  project, D-068): Engineer and Architect panes bound to their
@@ -136,7 +136,7 @@ Commands:
                  model and permission overlay. The tester is headless (no pane).
   ai account list | add <name> [--dir <path>] | remove <name> | sync <name>
                  Claude accounts (D-095): one config directory per claude.ai login,
-                 registered in ~/.ai-os/accounts.json; 'default' is ~/.claude
+                 registered in ~/.rein/accounts.json; 'default' is ~/.claude
   ai add-task [flags] <description>
                  Register a task in .ai/state.sqlite from the shell (no MCP needed)
   ai task done <id> [--summary <text>]
@@ -162,8 +162,8 @@ Commands:
   ai ci status [--ref <sha>] [--short] | ai ci list [-n N] | ai ci log [<sha>] [--failed]
                  Read the recorded local CI runs (.ai/state.sqlite ci_runs)
   ai clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]
-                 List (and, with --apply, remove) what earlier AI-OS versions left
-                 behind. Dry run by default; removals move to ~/.ai-os/trash/<date>/
+                 List (and, with --apply, remove) what earlier Rein versions left
+                 behind. Dry run by default; removals move to ~/.rein/trash/<date>/
                  and 'ai clean --restore <date>' puts them back
   ai gate off [--minutes N] [--reason TEXT] | on | status
                  Operator-only escape from the safe-exec policy gate (E-291): a
@@ -179,12 +179,12 @@ Removed — use the agent skill instead (see .ai/blueprints/cli-collapse.md):
   review           → skill: ai-review (Engineer) / skill: arch-review (Architect)
   test [--vibe]    → skill: ai-test  (--generate | --fast | --vibe)
   provider         → removed in v4; providers are configured in .ai/providers.json
-  where            → echo \$AIOS  (now stored as ~/.ai-os)
+  where            → echo \$REIN  (now stored as ~/.rein)
 
 Recovery (used internally by install/init; surfaced by 'ai doctor' hints):
   migrate-state    Rebuild state from TASKS.md — lossy; refused with [LOSSY_RESEED] when the
                    committed state.json holds more (use: ai state import; or --from-tasks)
-  mcp-setup        Install MCP-server npm deps under ~/.ai-os/mcp
+  mcp-setup        Install MCP-server npm deps under ~/.rein/mcp
 USAGE
 }
 
@@ -194,7 +194,7 @@ _show_deprecated() {
   local old_cmd="$1" replacement="$2"
   cat >&2 <<DEP
 
-[ai-os] "ai ${old_cmd}" was removed (see .ai/blueprints/cli-collapse.md).
+[rein] "ai ${old_cmd}" was removed (see .ai/blueprints/cli-collapse.md).
 
 Use the agent flow instead:
   ${replacement}
@@ -216,7 +216,7 @@ ensure_file_if_missing() {
 
 # E-52: Regenerate .ai/blueprints/mcp.md from registry.json + DOMAINS map.
 # Locates the generator first in the in-repo scripts/ (development mode),
-# falling back to ~/.ai-os/scripts/ (installed mode). Missing node or script
+# falling back to ~/.rein/scripts/ (installed mode). Missing node or script
 # returns 2 (skipped); a generator error returns 1 (FAILED — later steps still run, E-339).
 _regenerate_mcp_docs() {
   if ! command -v node >/dev/null 2>&1; then
@@ -283,14 +283,14 @@ _wal_checkpoint_state_db() {
 # Runs the ast-parser-mcp generate-map CLI over the workspace. Per blueprint
 # §Execution Constraints this lives in `ai sync` (NOT the synchronous ai init /
 # preflight loops). A missing server or node returns 2 (skipped); a parse error
-# returns 1 (FAILED, E-339). AI_OS_DISABLE_REPO_MAP=1 is the rollback escape hatch.
+# returns 1 (FAILED, E-339). REIN_DISABLE_REPO_MAP=1 is the rollback escape hatch.
 _generate_repo_map() {
-  [[ "${AI_OS_DISABLE_REPO_MAP:-}" == "1" ]] && { echo "  ⚠ REPO_MAP.md skipped (AI_OS_DISABLE_REPO_MAP=1)"; return 2; }
+  [[ "${REIN_DISABLE_REPO_MAP:-}" == "1" ]] && { echo "  ⚠ REPO_MAP.md skipped (REIN_DISABLE_REPO_MAP=1)"; return 2; }
   if ! command -v node >/dev/null 2>&1; then
     echo "  ⚠ node not found — skipping REPO_MAP.md regeneration" >&2
     return 2
   fi
-  local server="${AIOS}/mcp/ast-parser-mcp/index.js"
+  local server="${REIN}/mcp/ast-parser-mcp/index.js"
   if [[ ! -f "$server" ]]; then
     echo "  ⚠ ast-parser-mcp not installed — skipping REPO_MAP.md (run: ai install)" >&2
     return 2
@@ -306,9 +306,9 @@ _generate_repo_map() {
 # SCANS the workspace for eligible artifacts (memory-batch-scanner) and writes the candidate
 # manifest to .ai/memory/palace-index.json. The actual embedding into the Memory Palace is
 # the memory_curator agent's job (it has API access in a session) — a sync hook must never
-# require network/keys. Fail-open; AI_OS_DISABLE_MEMORY_PALACE=1 is the escape hatch.
+# require network/keys. Fail-open; REIN_DISABLE_MEMORY_PALACE=1 is the escape hatch.
 _generate_memory_palace() {
-  [[ "${AI_OS_DISABLE_MEMORY_PALACE:-}" == "1" ]] && { echo "  ⚠ Memory Palace index skipped (AI_OS_DISABLE_MEMORY_PALACE=1)"; return 2; }
+  [[ "${REIN_DISABLE_MEMORY_PALACE:-}" == "1" ]] && { echo "  ⚠ Memory Palace index skipped (REIN_DISABLE_MEMORY_PALACE=1)"; return 2; }
   command -v node >/dev/null 2>&1 || { echo "  ⚠ node not found — skipping Memory Palace index" >&2; return 2; }
   local scanner=""
   scanner="$(_ai_os_helper shared/memory-batch-scanner.mjs || true)"
@@ -333,14 +333,14 @@ _generate_memory_palace() {
 
 # E-112 (caching.md §3.1): rebuild the cache-manager System Context cache during
 # sync so the cache-manager-mcp is actually exercised in a live flow (it was
-# built but never invoked). Fail-open; AI_OS_DISABLE_CACHE=1 is the escape hatch.
+# built but never invoked). Fail-open; REIN_DISABLE_CACHE=1 is the escape hatch.
 _rebuild_context_cache() {
-  [[ "${AI_OS_DISABLE_CACHE:-}" == "1" ]] && { echo "  ⚠ context cache skipped (AI_OS_DISABLE_CACHE=1)"; return 0; }
+  [[ "${REIN_DISABLE_CACHE:-}" == "1" ]] && { echo "  ⚠ context cache skipped (REIN_DISABLE_CACHE=1)"; return 0; }
   if ! command -v node >/dev/null 2>&1; then
     echo "  ⚠ node not found — skipping context cache rebuild" >&2
     return 0
   fi
-  local server="${AIOS}/mcp/cache-manager-mcp/index.js"
+  local server="${REIN}/mcp/cache-manager-mcp/index.js"
   if [[ ! -f "$server" ]]; then
     echo "  ⚠ cache-manager-mcp not installed — skipping context cache (run: ai install)" >&2
     return 0
@@ -352,30 +352,30 @@ _rebuild_context_cache() {
   fi
 }
 
-# E-62: Resolve canonical AI-OS framework clone path. Order (E-304: file first):
-#   1. ${AIOS}/config/aios-workspace.txt (persisted by install-ai-os.sh)
-#   2. $AIOS_WORKSPACE if exported and no file exists
+# E-62: Resolve canonical Rein framework clone path. Order (E-304: file first):
+#   1. ${REIN}/config/rein-workspace.txt (persisted by install-rein.sh)
+#   2. $REIN_WORKSPACE if exported and no file exists
 #   3. empty string (no opinion — task-synchronizer-mcp will refuse cross-
 #      workspace writes and fall back to local .ai/ per task-routing.md)
 # Pure read — never validates path traversal here; consumers enforce.
-# E-304 (D-089 r2): the PERSISTED file wins; an exported AIOS_WORKSPACE is honoured only when
-# no file exists. The old order let a stale `export AIOS_WORKSPACE=…` in a shell profile beat
+# E-304 (D-089 r2): the PERSISTED file wins; an exported REIN_WORKSPACE is honoured only when
+# no file exists. The old order let a stale `export REIN_WORKSPACE=…` in a shell profile beat
 # the installer's own record, so reinstalling from a clean tree did not change where `ai sync`
 # copied hooks from (2026-10-04). `ai doctor` warns when the two exist and disagree.
-_resolve_aios_workspace() {
-  local persisted="${AIOS}/config/aios-workspace.txt"
+_resolve_rein_workspace() {
+  local persisted="${REIN}/config/rein-workspace.txt"
   if [[ -f "$persisted" ]]; then
     head -n 1 "$persisted" 2>/dev/null | tr -d '\n'
     return 0
   fi
-  if [[ -n "${AIOS_WORKSPACE:-}" ]]; then
-    printf "%s" "${AIOS_WORKSPACE}"
+  if [[ -n "${REIN_WORKSPACE:-}" ]]; then
+    printf "%s" "${REIN_WORKSPACE}"
     return 0
   fi
   printf ""
 }
 
-# Generates .mcp.json with absolute paths to ~/.ai-os/mcp/<server>/index.js
+# Generates .mcp.json with absolute paths to ~/.rein/mcp/<server>/index.js
 # Uses registry.json as source of truth. Preserves user-set env values.
 generate_mcp_json() {
   local DEST_DIR="${1:-.}"
@@ -384,23 +384,23 @@ generate_mcp_json() {
   # .mcp.json behaviour.
   local MCP_FILE="${2:-${DEST_DIR}/.mcp.json}"
   local MCP_KEY="${3:-mcpServers}"
-  local REGISTRY="${AIOS}/config/registry.json"
+  local REGISTRY="${REIN}/config/registry.json"
 
   if ! command -v python3 &>/dev/null; then
-    [[ -f "${AIOS}/templates/.mcp.json" ]] && cp "${AIOS}/templates/.mcp.json" "$MCP_FILE"
+    [[ -f "${REIN}/templates/.mcp.json" ]] && cp "${REIN}/templates/.mcp.json" "$MCP_FILE"
     return
   fi
 
   # E-274 (D-074 §Components 2): .mcp.json is generated but PARTLY USER-OWNED. A server
   # named in registry.json, or in the legacy registry's registry_history (every server
-  # name AI-OS ever shipped), is OWNED: regenerated from the registry, and removed once
+  # name Rein ever shipped), is OWNED: regenerated from the registry, and removed once
   # retired. Every other entry is USER-ADDED and is carried over byte-for-byte, and a user
   # `env` block on an owned server is carried over too (user keys win over registry keys).
   # This used to rebuild the file from the registry alone — dropping user servers and
   # env — while the comment at the call site said it preserved them.
-  python3 - "$REGISTRY" "$MCP_FILE" "$HOME" "$AIOS" "$MCP_KEY" "${AIOS}/config/legacy-artefacts.json" <<'PY'
+  python3 - "$REGISTRY" "$MCP_FILE" "$HOME" "$REIN" "$MCP_KEY" "${REIN}/config/legacy-artefacts.json" <<'PY'
 import json, sys, os
-registry_path, mcp_path, home, aios, mcp_key, legacy_path = sys.argv[1:7]
+registry_path, mcp_path, home, rein, mcp_key, legacy_path = sys.argv[1:7]
 
 servers = {
   "filesystem": {
@@ -420,7 +420,7 @@ if os.path.exists(registry_path):
         reg = json.load(f)
     for name, info in reg.get("mcp_servers", {}).items():
         if "path" in info:
-            abs_path = os.path.join(aios, "mcp", name, "index.js")
+            abs_path = os.path.join(rein, "mcp", name, "index.js")
             entry = {"command": "node", "args": [abs_path]}
             # E-38: propagate registry-declared env (a server that declares an
             # env block, e.g. a sandbox DISPLAY/HOME). Without this, `ai sync`
@@ -622,7 +622,7 @@ _provider_source_dirs() {
   local rm; rm="$(_locate_role_manifest || true)"
   [[ -z "$rm" ]] && return 0
   command -v node >/dev/null 2>&1 || return 0
-  node --no-warnings "$rm" ".ai" "${AIOS}/config/registry.json" "$provider" "$flag" 2>/dev/null || true
+  node --no-warnings "$rm" ".ai" "${REIN}/config/registry.json" "$provider" "$flag" 2>/dev/null || true
 }
 
 # _provision_workspace <provider> <workspace_dir> <copy_agents:yes|no> [legacy_skill_dirs...]
@@ -738,12 +738,12 @@ _provision_workspace() {
   if [[ "${#skill_dirs[@]}" -gt 0 ]]; then
     local first=1
     for line in "${skill_dirs[@]}"; do
-      [[ -d "${AIOS}/${line}" ]] || continue
+      [[ -d "${REIN}/${line}" ]] || continue
       if [[ "$first" -eq 1 || "$multi_role" -eq 0 ]]; then
-        sync_skills_20 "${AIOS}/${line}" "${ws}/skills"
+        sync_skills_20 "${REIN}/${line}" "${ws}/skills"
         first=0
       else
-        _sync_skills_no_clobber "${AIOS}/${line}" "${ws}/skills" "$line"
+        _sync_skills_no_clobber "${REIN}/${line}" "${ws}/skills" "$line"
       fi
     done
     # Prune with the SAME source array the copy above just consumed. Deriving the
@@ -751,7 +751,7 @@ _provision_workspace() {
     # what is canonical — which is precisely how a "cleanup" deletes something real.
     local -a _abs=()
     for line in "${skill_dirs[@]}"; do
-      [[ -d "${AIOS}/${line}" ]] && _abs+=("${AIOS}/${line}")
+      [[ -d "${REIN}/${line}" ]] && _abs+=("${REIN}/${line}")
     done
     [[ "${#_abs[@]}" -gt 0 ]] && _prune_workspace_dir "${ws}/skills" "${_abs[@]}"
   fi
@@ -762,14 +762,14 @@ _provision_workspace() {
     mkdir -p "${ws}/agents"
     if [[ "${#agent_dirs[@]}" -gt 0 ]]; then
       for line in "${agent_dirs[@]}"; do
-        [[ -d "${AIOS}/${line}" ]] && cp -f "${AIOS}/${line}/"*.md "${ws}/agents/" 2>/dev/null || true
+        [[ -d "${REIN}/${line}" ]] && cp -f "${REIN}/${line}/"*.md "${ws}/agents/" 2>/dev/null || true
       done
       # E-273 (D-074 §Components 5): agents get the skills' manifest treatment. An agent
       # sync wrote, nobody edited, and the role manifest no longer provides is pruned; an
       # agent the user added was never recorded and is kept (E-220 evidence rule).
       local -a _aabs=()
       for line in "${agent_dirs[@]}"; do
-        [[ -d "${AIOS}/${line}" ]] && _aabs+=("${AIOS}/${line}")
+        [[ -d "${REIN}/${line}" ]] && _aabs+=("${REIN}/${line}")
       done
       [[ "${#_aabs[@]}" -gt 0 ]] && _prune_workspace_dir "${ws}/agents" "${_aabs[@]}"
     fi
@@ -790,7 +790,7 @@ _provision_workspace() {
 # Everything else is reported as `orphan (kept)`. A first run has no manifest and
 # therefore prunes nothing.
 #
-# Rollback: AI_OS_NO_PRUNE=1 skips pruning entirely (the manifest is still recorded, so
+# Rollback: REIN_NO_PRUNE=1 skips pruning entirely (the manifest is still recorded, so
 # a later run can prune once the flag is removed).
 _locate_sync_manifest() {
   local c
@@ -811,7 +811,7 @@ _locate_sync_manifest() {
 _prune_workspace_dir() {
   local dst="$1"; shift
   [[ -d "$dst" ]] || return 0
-  [[ "${AI_OS_NO_PRUNE:-0}" == "1" ]] && return 0
+  [[ "${REIN_NO_PRUNE:-0}" == "1" ]] && return 0
   command -v node >/dev/null 2>&1 || return 0
   local sm; sm="$(_locate_sync_manifest || true)"
   [[ -n "$sm" ]] || return 0
@@ -843,7 +843,7 @@ _prune_workspace_dir() {
   { printf '['; local f2=1; for d in "$@"; do [[ -d "$d" ]] || continue; [[ "$f2" -eq 1 ]] || printf ','; printf '"%s"' "$d"; f2=0; done; printf ']'; } > "$canon_json"
 
   local mode="apply" extra=()
-  [[ "${AI_OS_PRUNE_KNOWN:-0}" == "1" ]] && extra+=("--prune-known")
+  [[ "${REIN_PRUNE_KNOWN:-0}" == "1" ]] && extra+=("--prune-known")
   local out
   out="$(node --no-warnings "$sm" "$mode" "$dst" "$names_json" "${extra[@]:-}" --canon "$canon_json" 2>/dev/null || true)"
   rm -f "$names_json" "$canon_json"
@@ -971,10 +971,10 @@ _prune_provider_workspaces() {
     # provider); only the identity evidence is added.
     local -a _canon=()
     for sub in shared/skills claude/skills shared/agents claude/agents; do
-      [[ -d "${AIOS}/${sub}" ]] && _canon+=("${AIOS}/${sub}")
+      [[ -d "${REIN}/${sub}" ]] && _canon+=("${REIN}/${sub}")
     done
     for sub in skills agents; do
-      [[ -d "${dir}/${sub}" ]] && AI_OS_PRUNE_KNOWN=1 \
+      [[ -d "${dir}/${sub}" ]] && REIN_PRUNE_KNOWN=1 \
         _prune_stale_workspace_dir "${dir}/${sub}" ${_canon[@]+"${_canon[@]}"}
     done
     # Sync's own bookkeeping. These are not user content by definition — sync writes them
@@ -1008,7 +1008,7 @@ _prune_provider_workspaces() {
 _prune_stale_workspace_dir() {
   local dst="$1"; shift
   [[ -d "$dst" ]] || return 0
-  [[ "${AI_OS_NO_PRUNE:-0}" == "1" ]] && return 0
+  [[ "${REIN_NO_PRUNE:-0}" == "1" ]] && return 0
   command -v node >/dev/null 2>&1 || return 0
   local sm; sm="$(_locate_sync_manifest || true)"
   [[ -n "$sm" ]] || return 0
@@ -1019,7 +1019,7 @@ _prune_stale_workspace_dir() {
   { printf '['; local f=1; for d in "$@"; do [[ -d "$d" ]] || continue; [[ "$f" -eq 1 ]] || printf ','; printf '"%s"' "$d"; f=0; done; printf ']'; } > "$canon_json"
 
   local extra=()
-  [[ "${AI_OS_PRUNE_KNOWN:-0}" == "1" ]] && extra+=("--prune-known")
+  [[ "${REIN_PRUNE_KNOWN:-0}" == "1" ]] && extra+=("--prune-known")
   local out
   out="$(node --no-warnings "$sm" apply "$dst" "$names_json" "${extra[@]:-}" --canon "$canon_json" 2>/dev/null || true)"
   rm -f "$names_json" "$canon_json"
@@ -1045,10 +1045,10 @@ _prune_stale_workspace_dir() {
 # generated and the file still matches; print the rest with the exact `rm` the operator can
 # run. Never delete a file this command did not generate.
 #
-# Rollback: AI_OS_KEEP_LEGACY_WORKSPACES=1 prints every leftover and deletes nothing.
+# Rollback: REIN_KEEP_LEGACY_WORKSPACES=1 prints every leftover and deletes nothing.
 _prune_legacy_workspaces() {
   local mode="${1:-sync}"
-  local keep="${AI_OS_KEEP_LEGACY_WORKSPACES:-0}"
+  local keep="${REIN_KEEP_LEGACY_WORKSPACES:-0}"
   local -a legacy_dirs=(".gemini" ".agents")
   local -a legacy_files=("GEMINI.md" "AGENTS.md")
   local found=0 d f
@@ -1058,7 +1058,7 @@ _prune_legacy_workspaces() {
   [[ "$found" -eq 0 ]] && return 0
 
   if [[ "$keep" == "1" ]]; then
-    echo "  Legacy v3 workspaces present (AI_OS_KEEP_LEGACY_WORKSPACES=1 — nothing removed):"
+    echo "  Legacy v3 workspaces present (REIN_KEEP_LEGACY_WORKSPACES=1 — nothing removed):"
     for d in "${legacy_dirs[@]}"; do [[ -d "$d" ]] && echo "    legacy leftover (not generated by sync): ${d} — remove with: rm -r ${d}"; done
     for f in "${legacy_files[@]}"; do [[ -f "$f" ]] && echo "    legacy leftover (not generated by sync): ${f} — remove with: rm ${f}"; done
     return 0
@@ -1070,13 +1070,13 @@ _prune_legacy_workspaces() {
   local -a _canon=()
   local sub
   for sub in shared/skills claude/skills shared/agents claude/agents; do
-    [[ -d "${AIOS}/${sub}" ]] && _canon+=("${AIOS}/${sub}")
+    [[ -d "${REIN}/${sub}" ]] && _canon+=("${REIN}/${sub}")
   done
 
   for d in "${legacy_dirs[@]}"; do
     [[ -d "$d" ]] || continue
     for sub in skills agents; do
-      [[ -d "${d}/${sub}" ]] && AI_OS_PRUNE_KNOWN=1 \
+      [[ -d "${d}/${sub}" ]] && REIN_PRUNE_KNOWN=1 \
         _prune_stale_workspace_dir "${d}/${sub}" ${_canon[@]+"${_canon[@]}"}
     done
     # Sync's own bookkeeping — written by sync, read only by sync. NOT settings.json: v3
@@ -1098,7 +1098,7 @@ _prune_legacy_workspaces() {
   # present and otherwise refuses, which is the safe direction.
   for f in "${legacy_files[@]}"; do
     [[ -f "$f" ]] || continue
-    if [[ -f "${AIOS}/templates/${f}" ]] && cmp -s "$f" "${AIOS}/templates/${f}"; then
+    if [[ -f "${REIN}/templates/${f}" ]] && cmp -s "$f" "${REIN}/templates/${f}"; then
       rm -f "$f" && echo "  pruned legacy shim: ${f} (unmodified copy of the template)"
     else
       echo "  legacy leftover (not generated by sync): ${f} — remove with: rm ${f}"
@@ -1111,17 +1111,17 @@ _prune_legacy_workspaces() {
 # `paths:` frontmatter list; Claude Code loads one when a matching file is read. They are
 # mirrored to .claude/rules/ through the E-220 manifest (sync-manifest.mjs provision),
 # which never overwrites a rule it cannot prove it wrote — teams write their own rules
-# there, and a same-named one must survive a sync. Rollback: AI_OS_NO_PRUNE=1 keeps
+# there, and a same-named one must survive a sync. Rollback: REIN_NO_PRUNE=1 keeps
 # retired rules; deleting .claude/rules/ is safe (the next sync re-provisions it).
 _provision_rules() {
   local dst="${1:-.claude/rules}"
-  local src="${AIOS}/claude/rules"
+  local src="${REIN}/claude/rules"
   [[ -d "$src" ]] || return 0
   command -v node >/dev/null 2>&1 || return 0
   local sm; sm="$(_locate_sync_manifest || true)"
   [[ -n "$sm" ]] || return 0
   local -a extra=()
-  [[ "${AI_OS_NO_PRUNE:-0}" == "1" ]] && extra+=("--no-prune")
+  [[ "${REIN_NO_PRUNE:-0}" == "1" ]] && extra+=("--no-prune")
   local out line n=0
   out="$(node --no-warnings "$sm" provision "$src" "$dst" ${extra[@]+"${extra[@]}"} 2>/dev/null || true)"
   while IFS= read -r line; do
@@ -1138,18 +1138,18 @@ _provision_rules() {
 # ── E-291 (D-081 r2, D-083 r5-8): `ai gate off|on|status` ──────────────────────
 # The operator's escape from the safe-exec POLICY gate, replacing the two environment
 # switches (removed in E-291) that a project's settings `env` could set. It writes
-# ~/.ai-os/gate-override.json through src/shared/gate-override.py — the same module the hook
+# ~/.rein/gate-override.json through src/shared/gate-override.py — the same module the hook
 # reads it with — so writer and reader agree on what "active" means. Default 15 minutes,
 # hard max 60 (clamped, with a notice). The catastrophic set and the self-disable guard
 # still block under an override, and every bypassed call is loud (systemMessage + telemetry).
 # Run it in YOUR terminal: the analyzer blocks `ai gate` for every agent role (GATE_SELF_DISABLE).
-_gate_py() { ai_os_locate shared/gate-override.py 2>/dev/null || printf '%s' "${AIOS}/shared/gate-override.py"; }
+_gate_py() { ai_os_locate shared/gate-override.py 2>/dev/null || printf '%s' "${REIN}/shared/gate-override.py"; }
 
 do_gate() {
   local sub="${1:-status}"; shift || true
-  local f="${AIOS}/gate-override.json" py out rc
+  local f="${REIN}/gate-override.json" py out rc
   py="$(_gate_py)"
-  [[ -f "$py" ]] || { echo "ai gate: ${py} missing — run: bash install-ai-os.sh" >&2; return 2; }
+  [[ -f "$py" ]] || { echo "ai gate: ${py} missing — run: bash install-rein.sh" >&2; return 2; }
   case "$sub" in
     off)
       local minutes=15 reason=""
@@ -1188,10 +1188,10 @@ do_gate() {
 # E-286 (D-078): `ai doctor` line for the hook toolchain pin. Parsed with the same strict
 # pattern the hooks use (src/shared/toolchain-pin.sh) — never sourced.
 _doctor_toolchain_report() {
-  local f="${AIOS}/shared/toolchain.sh" line node="" py=""
-  local re='^AI_OS_TC_(NODE|PYTHON3)=(/[A-Za-z0-9._/@+:-]+)$'
+  local f="${REIN}/shared/toolchain.sh" line node="" py=""
+  local re='^REIN_TC_(NODE|PYTHON3)=(/[A-Za-z0-9._/@+:-]+)$'
   if [[ ! -f "$f" ]]; then
-    echo "  ✗ hook toolchain: ${f} missing — run: bash install-ai-os.sh"
+    echo "  ✗ hook toolchain: ${f} missing — run: bash install-rein.sh"
     return 0
   fi
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -1201,7 +1201,7 @@ _doctor_toolchain_report() {
   local p
   for p in "${node:-node (unrecorded)}" "${py:-python3 (unrecorded)}"; do
     if [[ "$p" != /* || ! -x "$p" ]]; then
-      echo "  ✗ hook toolchain: ${p} missing — run: bash install-ai-os.sh"
+      echo "  ✗ hook toolchain: ${p} missing — run: bash install-rein.sh"
       return 0
     fi
   done
@@ -1211,9 +1211,9 @@ _doctor_toolchain_report() {
 # The scanner lives in its own function: bash 3.2 mis-parses a heredoc inside $( ) whose
 # body carries an unbalanced quote, and fails at an unrelated later line.
 _doctor_hook_form_scan() {
-  AIOS_HOOKS="$(cd "${AIOS}/hooks" 2>/dev/null && pwd -P)" python3 - "$1" <<'PY' 2>/dev/null
+  REIN_HOOKS="$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" python3 - "$1" <<'PY' 2>/dev/null
 import json, os, re, sys
-want_dir = os.environ.get("AIOS_HOOKS", "")
+want_dir = os.environ.get("REIN_HOOKS", "")
 try:
     d = json.load(open(sys.argv[1]))
 except Exception:
@@ -1224,9 +1224,9 @@ for ev, lst in (d.get("hooks") or {}).items():
         for h in e.get("hooks") or []:
             args = [str(a) for a in (h.get("args") or [])]
             text = " ".join([str(h.get("command") or "")] + args)
-            m = re.search(r"(\S*\.ai-os/hooks/[\w.-]+\.sh)", text)
+            m = re.search(r"(\S*\.rein/hooks/[\w.-]+\.sh)", text)
             if not m:
-                continue                      # not an AI-OS hook — the user's own entry
+                continue                      # not an Rein hook — the user's own entry
             ok = (h.get("command") == "/bin/bash" and args[:1] == ["-p"] and len(args) >= 2
                   and os.path.isabs(args[1]) and os.path.dirname(args[1]) == want_dir)
             if not ok:
@@ -1247,9 +1247,9 @@ _doctor_hook_form_report() {
     local stale
     stale="$(_doctor_hook_form_scan "$f")"
     if [[ -n "$stale" ]]; then
-      echo "  ✗ .claude/settings.json: stale AI-OS hook entries (not exec-form /bin/bash -p under ${AIOS}/hooks): ${stale} — run: ai sync"
+      echo "  ✗ .claude/settings.json: stale Rein hook entries (not exec-form /bin/bash -p under ${REIN}/hooks): ${stale} — run: ai sync"
     else
-      echo "  ✓ .claude/settings.json: AI-OS hooks in exec form (/bin/bash -p, absolute path)"
+      echo "  ✓ .claude/settings.json: Rein hooks in exec form (/bin/bash -p, absolute path)"
     fi
     if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
       echo "  ! .claude/settings.json is tracked but machine-specific — run: git rm --cached .claude/settings.json"
@@ -1258,7 +1258,7 @@ _doctor_hook_form_report() {
   local gd stub
   gd="$(git rev-parse --git-path hooks 2>/dev/null)" || return 0
   for stub in pre-commit pre-push post-commit post-merge post-checkout post-rewrite; do
-    [[ -f "${gd}/${stub}" ]] && _is_aios_stub "${gd}/${stub}" || continue
+    [[ -f "${gd}/${stub}" ]] && _is_rein_stub "${gd}/${stub}" || continue
     head -1 "${gd}/${stub}" | grep -qx '#!/bin/bash -p' || echo "  ✗ git ${stub} stub predates E-290 (not #!/bin/bash -p) — run: ai sync"
   done
   return 0
@@ -1271,14 +1271,14 @@ _doctor_gate_report() {
   local gp st
   gp="$(_ai_os_helper shared/gate-probe.sh || true)"
   if [[ -z "$gp" ]]; then
-    echo "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — run: bash install-ai-os.sh"; return 0
+    echo "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — run: bash install-rein.sh"; return 0
   fi
   # shellcheck source=src/shared/gate-probe.sh
   . "$gp"
   if st="$(ai_os_gate_probe)"; then
     echo "  ✓ safe-exec gate: ${st}"
   else
-    echo "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — run: bash install-ai-os.sh"
+    echo "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — run: bash install-rein.sh"
   fi
 }
 
@@ -1287,7 +1287,7 @@ _doctor_gate_report() {
 _doctor_comm_report() {
   local cs st
   cs="$(ai_os_locate shared/comm-status.sh 2>/dev/null || true)"
-  [[ -n "$cs" ]] || { echo "  ! comm-status probe not installed — run: bash install-ai-os.sh"; return 0; }
+  [[ -n "$cs" ]] || { echo "  ! comm-status probe not installed — run: bash install-rein.sh"; return 0; }
   # shellcheck source=src/shared/comm-status.sh
   . "$cs"
   st="$(ai_os_comm_status .)"
@@ -1301,7 +1301,7 @@ _doctor_comm_report() {
 }
 
 _doctor_rules_report() {
-  local src="${AIOS}/claude/rules" f name missing=0 stale=0 total=0
+  local src="${REIN}/claude/rules" f name missing=0 stale=0 total=0
   [[ -d "$src" ]] || return 0
   for f in "$src"/*.md; do
     [[ -f "$f" ]] || continue
@@ -1347,7 +1347,7 @@ _sync_workspace_dirs() {
 ensure_ai_templates() {
   mkdir -p .ai .ai/archive
 
-  local T="${AIOS}/templates"
+  local T="${REIN}/templates"
 
   ensure_file_if_missing "$T/RULES.md"         ".ai/RULES.md"
   ensure_file_if_missing "$T/SEED.md"          ".ai/SEED.md"
@@ -1384,7 +1384,7 @@ ensure_ai_templates() {
   # .mcp.json — always regenerate to pick up new servers. Servers the user added and env
   # they set on ours are carried over (E-274; see generate_mcp_json).
   generate_mcp_json "."
-  echo "Updated .mcp.json (MCP servers: filesystem + memory + AI-OS custom servers)"
+  echo "Updated .mcp.json (MCP servers: filesystem + memory + Rein custom servers)"
 
   # Bootloaders (D-050/E-183): ENGINEER.md/ARCHITECT.md are the canonical rulefiles;
   # CLAUDE.md is a thin @import shim so Claude Code's auto-load
@@ -1398,7 +1398,7 @@ ensure_ai_templates() {
   _sync_workspace_dirs init
 
   # .github/copilot-instructions.md — read automatically by GitHub Copilot Chat
-  local C="${AIOS}/copilot"
+  local C="${REIN}/copilot"
   if [[ -f "${C}/copilot-instructions.md" && ! -f ".github/copilot-instructions.md" ]]; then
     mkdir -p .github
     cp "${C}/copilot-instructions.md" ".github/copilot-instructions.md"
@@ -1434,7 +1434,7 @@ migrate_legacy_ai_if_present() {
 # MERGES hook arrays rather than replacing them, so registering a second
 # `session-start.sh <role>` here would mint TWO role tokens for one session id with
 # undefined ordering (D-054 §Alternatives, option 3). The launch-time role reaches
-# the hook through AI_OS_PANE_ROLE instead, which has a single authoritative value.
+# the hook through REIN_PANE_ROLE instead, which has a single authoritative value.
 _write_role_settings_overlays() {
   local target_dir="${1:-.claude}"
   local ai_dir="${2:-.ai}"
@@ -1473,7 +1473,7 @@ for role, cfg in roles.items():
     data = load(path, {})
     env = data.setdefault("env", {})
     # Authoritative (not setdefault) so a stale/forged role can never linger.
-    env["AI_OS_CALLER_ROLE"] = role
+    env["REIN_CALLER_ROLE"] = role
     # NEVER register hooks here — see the comment above _write_role_settings_overlays.
     data.pop("hooks", None)
 
@@ -1513,7 +1513,7 @@ for role, cfg in roles.items():
             # that router; a future forwarding server must be denied here the same way.
             # The MCP analogue of the "interactive editors" residual: these drive any
             # GUI editor to write any file. E-279 (D-075) retired that server, but its
-            # mirror copy stays in ~/.ai-os/mcp until `ai clean` runs, and a hand-added or
+            # mirror copy stays in ~/.rein/mcp until `ai clean` runs, and a hand-added or
             # user-scope entry could still launch it — so the deny stays; it costs nothing.
             "mcp__computer-use-mcp__type_text",
             "mcp__computer-use-mcp__key_press",
@@ -1540,14 +1540,14 @@ PY
 
 _configure_project_claude_settings() {
   local TARGET_DIR="${1:-.claude}"
-  local REGISTRY="${AIOS}/config/registry.json"
+  local REGISTRY="${REIN}/config/registry.json"
   mkdir -p "$TARGET_DIR"
-  # E-62: pass resolved AIOS_WORKSPACE through to the python heredoc via env
+  # E-62: pass resolved REIN_WORKSPACE through to the python heredoc via env
   # so the framework clone path can be propagated into project settings.json
   # without changing the heredoc's positional-arg contract.
-  local AIOS_WORKSPACE_VALUE
-  AIOS_WORKSPACE_VALUE="$(_resolve_aios_workspace)"
-  AIOS_WORKSPACE="${AIOS_WORKSPACE_VALUE}" python3 - "$TARGET_DIR" "$REGISTRY" "${AIOS}/config/legacy-artefacts.json" <<'PY'
+  local REIN_WORKSPACE_VALUE
+  REIN_WORKSPACE_VALUE="$(_resolve_rein_workspace)"
+  REIN_WORKSPACE="${REIN_WORKSPACE_VALUE}" python3 - "$TARGET_DIR" "$REGISTRY" "${REIN}/config/legacy-artefacts.json" <<'PY'
 import json, os, sys
 
 target_dir = sys.argv[1]
@@ -1571,20 +1571,20 @@ env["CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS"] = "1"
 # §"Terminal Emancipation" + §Rollback: revert this if specific OSes show
 # rendering bugs.
 env.setdefault("CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN", "1")
-# E-62: Propagate AIOS_WORKSPACE so Claude (and tools spawned by it) can
-# route framework-level tasks to the canonical ai-os-v2 clone regardless
+# E-62: Propagate REIN_WORKSPACE so Claude (and tools spawned by it) can
+# route framework-level tasks to the canonical @vimurai/rein clone regardless
 # of which project tree the user is currently working in. Empty string
-# means install-ai-os.sh hasn't run yet — leave the key absent so a stale
+# means install-rein.sh hasn't run yet — leave the key absent so a stale
 # value from an earlier install doesn't linger.
-_aios_ws = os.environ.get("AIOS_WORKSPACE", "")
-if _aios_ws:
-    env.setdefault("AIOS_WORKSPACE", _aios_ws)
+_rein_ws = os.environ.get("REIN_WORKSPACE", "")
+if _rein_ws:
+    env.setdefault("REIN_WORKSPACE", _rein_ws)
 
 # E-127 (sovereignty-hardening.md §Security): bootloader-inject the Triad role so
 # safe-exec trusts the ENVIRONMENT over the agent-self-reported caller_role
 # (anti-impersonation). This is Claude's project → engineer. Set authoritatively
 # (not setdefault) so a stale/forged value can never linger.
-env["AI_OS_CALLER_ROLE"] = "engineer"
+env["REIN_CALLER_ROLE"] = "engineer"
 
 # Permissions: registry-driven MCP tools.
 # E-213/E-254: the legacy v3 vendor-CLI shell grants are DROPPED and actively stripped from
@@ -1602,7 +1602,7 @@ for entry in allow:
         print(f"Removed legacy grant: {entry} (E-213)")
         continue
     new_allow.append(entry)
-# E-273 (D-074 §Components 5): an allow for a server AI-OS once shipped and has since
+# E-273 (D-074 §Components 5): an allow for a server Rein once shipped and has since
 # retired (in the legacy registry's registry_history, absent from registry.json) is dead
 # weight that also keeps a retired tool name pre-approved. Remove those. A server name
 # that was NEVER in any registry version is the user's own and its allows are kept;
@@ -1683,12 +1683,12 @@ for rule in GH_ASK_RULES:
 hooks = data.setdefault("hooks", {})
 
 # E-290 (D-081 r1, D-083 r1-3; sovereignty-hardening.md §Hook Toolchain Pinning C5):
-# every AI-OS hook is the documented EXEC form — no shell at all. A shell-form line runs
+# every Rein hook is the documented EXEC form — no shell at all. A shell-form line runs
 # through `sh -c`, and macOS /bin/sh (bash in sh mode) honours SHELLOPTS/PS4 from a
 # project's settings `env` BEFORE `/bin/bash -p` starts (probed). `args` carries the
 # install-time ABSOLUTE path, so `$HOME` is gone from the hook lines; that makes this file
 # machine-specific, so it is gitignored (E-233 mechanism) and regenerated here.
-# Before writing, EVERY AI-OS-owned entry for the six hooks is removed in ANY older form
+# Before writing, EVERY Rein-owned entry for the six hooks is removed in ANY older form
 # (shell form, stale path) — appending beside an old entry would leave the vulnerable line
 # running. User entries are never touched. History kept from the entries this replaces:
 #   E-125/E-208 pre-tool-use is the fail-closed gate on Bash + the write tools;
@@ -1699,7 +1699,7 @@ hooks = data.setdefault("hooks", {})
 #   E-105 post-tool-use matcher ".*" (universal telemetry; the AQG self-gates);
 #   E-284 permission-denied books REJECTED rows for denied built-ins.
 import re as _re
-_HOOKS_DIR = os.path.realpath(os.path.join(os.path.expanduser("~"), ".ai-os", "hooks"))
+_HOOKS_DIR = os.path.realpath(os.path.join(os.path.expanduser("~"), ".rein", "hooks"))
 _SPECS = [  # (event, matcher, script, extra args)
     ("Stop", ".*", "stop-hook.sh", []),
     ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "pre-tool-use.sh", []),
@@ -1708,12 +1708,12 @@ _SPECS = [  # (event, matcher, script, extra args)
     ("PostToolUse", ".*", "post-tool-use.sh", []),
     ("PermissionDenied", ".*", "permission-denied.sh", []),
 ]
-def _is_aios_hook(h, script):
+def _is_rein_hook(h, script):
     text = " ".join([str(h.get("command") or "")] + [str(x) for x in (h.get("args") or [])])
     # Same reach as the `ai doctor` scanner (critic_security P2): a quoted path or one
     # followed by a separator is still ours — otherwise doctor reports a stale entry that
     # sync never removes.
-    return _re.search(r"\.ai-os/hooks/" + _re.escape(script) + r"(?=[\s\"';|&)]|$)", text) is not None
+    return _re.search(r"\.rein/hooks/" + _re.escape(script) + r"(?=[\s\"';|&)]|$)", text) is not None
 for _event, _matcher, _script, _extra in _SPECS:
     _want = {"type": "command", "command": "/bin/bash",
              "args": ["-p", os.path.join(_HOOKS_DIR, _script)] + _extra, "timeout": 30}
@@ -1721,7 +1721,7 @@ for _event, _matcher, _script, _extra in _SPECS:
     _removed = 0
     for _e in _lst:
         _before = len(_e.get("hooks", []))
-        _e["hooks"] = [h for h in _e.get("hooks", []) if not _is_aios_hook(h, _script)]
+        _e["hooks"] = [h for h in _e.get("hooks", []) if not _is_rein_hook(h, _script)]
         _removed += _before - len(_e["hooks"])
     _lst[:] = [e for e in _lst if e.get("hooks")]
     _lst.append({"matcher": _matcher, "hooks": [_want]})
@@ -1736,12 +1736,12 @@ PY
 
 install_global() {
   _parse_role_flags "$@"   # E-135: --architect/--engineer overrides (validated; bad format aborts)
-  echo "Preparing AI-OS v${VERSION} installation..."
+  echo "Preparing Rein v${VERSION} installation..."
 
   # Copilot CLI
   mkdir -p "${HOME}/.config/github-copilot"
-  if [[ -f "${AIOS}/copilot/COPILOT.md" ]]; then
-    cp -f "${AIOS}/copilot/COPILOT.md" "${HOME}/.config/github-copilot/COPILOT.md"
+  if [[ -f "${REIN}/copilot/COPILOT.md" ]]; then
+    cp -f "${REIN}/copilot/COPILOT.md" "${HOME}/.config/github-copilot/COPILOT.md"
   fi
   echo "✓ Installed Copilot config → ~/.config/github-copilot"
 
@@ -1753,22 +1753,22 @@ install_global() {
   fi
 
   # Hooks
-  chmod +x "${AIOS}/hooks/"*.sh 2>/dev/null || true
-  echo "✓ Hooks ready → ${AIOS}/hooks"
+  chmod +x "${REIN}/hooks/"*.sh 2>/dev/null || true
+  echo "✓ Hooks ready → ${REIN}/hooks"
 
   # E-129 (sovereignty-hardening.md §Security): provision the per-machine HMAC key
   # + runtime dirs for the tamper-resistant role token. getMachineKey() also
   # lazily creates these, so this is just first-run priming with correct perms.
-  mkdir -p "${HOME}/.ai-os/secrets" "${HOME}/.ai-os/run" 2>/dev/null || true
-  chmod 700 "${HOME}/.ai-os/secrets" "${HOME}/.ai-os/run" 2>/dev/null || true
-  if command -v node >/dev/null 2>&1 && [[ ! -f "${HOME}/.ai-os/secrets/role-hmac.key" ]]; then
-    node -e 'const c=require("node:crypto"),fs=require("fs"),p=process.env.HOME+"/.ai-os/secrets/role-hmac.key"; try{fs.writeFileSync(p,c.randomBytes(32).toString("hex"),{mode:0o600})}catch(e){}' 2>/dev/null || true
+  mkdir -p "${HOME}/.rein/secrets" "${HOME}/.rein/run" 2>/dev/null || true
+  chmod 700 "${HOME}/.rein/secrets" "${HOME}/.rein/run" 2>/dev/null || true
+  if command -v node >/dev/null 2>&1 && [[ ! -f "${HOME}/.rein/secrets/role-hmac.key" ]]; then
+    node -e 'const c=require("node:crypto"),fs=require("fs"),p=process.env.HOME+"/.rein/secrets/role-hmac.key"; try{fs.writeFileSync(p,c.randomBytes(32).toString("hex"),{mode:0o600})}catch(e){}' 2>/dev/null || true
   fi
-  echo "✓ Role-token key ready → ~/.ai-os/secrets (E-129)"
+  echo "✓ Role-token key ready → ~/.rein/secrets (E-129)"
 
   # MCP servers
-  if [[ -d "${AIOS}/mcp" ]]; then
-    echo "✓ MCP servers available → ${AIOS}/mcp"
+  if [[ -d "${REIN}/mcp" ]]; then
+    echo "✓ MCP servers available → ${REIN}/mcp"
   fi
 
   # Install MCP server npm dependencies
@@ -1801,7 +1801,7 @@ install_global() {
   _classifier_offer
 
   echo ""
-  echo "✓ AI-OS global installation complete → ${AIOS}"
+  echo "✓ Rein global installation complete → ${REIN}"
   echo "  Run 'ai init' inside any project to scaffold .ai/ and .claude/."
 }
 
@@ -1811,13 +1811,13 @@ install_global() {
 # configured gate in front of the safe-exec gate. All reading/writing is
 # src/shared/classifier-backstop.py; `ai install` OFFERS it (y/N, default N) and never writes
 # without a TTY or under CI; `ai doctor` reports it.
-_cb_py() { ai_os_locate shared/classifier-backstop.py 2>/dev/null || printf '%s' "${AIOS}/shared/classifier-backstop.py"; }
+_cb_py() { ai_os_locate shared/classifier-backstop.py 2>/dev/null || printf '%s' "${REIN}/shared/classifier-backstop.py"; }
 _cb_settings() { printf '%s' "${HOME}/.claude/settings.json"; }
 
 _classifier_offer() {
   local py; py="$(_cb_py)"
   [[ -f "$py" ]] && command -v python3 >/dev/null 2>&1 || return 0
-  if [[ -n "${CI:-}" || -n "${AI_OS_CI:-}" || ! -t 0 ]]; then
+  if [[ -n "${CI:-}" || -n "${REIN_CI:-}" || ! -t 0 ]]; then
     echo "  ○ classifier backstop: not offered (no terminal) — run 'ai install' in a terminal to add it"
     return 0
   fi
@@ -1864,7 +1864,7 @@ _classifier_report() {
   return 0
 }
 
-# E-318 (D-097, accounts.md §4 "never goes stale"): refresh the AI-OS-owned backstop entry in
+# E-318 (D-097, accounts.md §4 "never goes stale"): refresh the Rein-owned backstop entry in
 # ~/.claude AND every registered account's settings.json — REPLACE ONLY. An OUTDATED labelled
 # copy is replaced in place (the label is the operator's earlier consent, E-306); ABSENT is
 # reported, never added (adding stays the y/N in `ai install`); unparsable is reported and left.
@@ -1919,7 +1919,7 @@ _classifier_report_one() {  # <settings.json> <account name, "" = default>
   fi
   py="$(_cb_py)"
   if [[ ! -f "$py" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "  ⚠ ${lbl}: cannot check (helper or python3 missing — run: bash install-ai-os.sh)"
+    echo "  ⚠ ${lbl}: cannot check (helper or python3 missing — run: bash install-rein.sh)"
     return 0
   fi
   out="$(python3 -I "$py" status "$settings" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
@@ -1956,9 +1956,9 @@ _gate_pins_report() {
   local gp out rc=0
   gp="$(ai_os_locate shared/gate-pins.mjs 2>/dev/null || true)"
   [[ -n "$gp" ]] && command -v node >/dev/null 2>&1 || { echo "  ⚠ gate dependencies: cannot check (gate-pins.mjs or node missing)"; return 0; }
-  out="$(node --no-warnings "$gp" check "${AIOS}/mcp" 2>&1)" || rc=$?
+  out="$(node --no-warnings "$gp" check "${REIN}/mcp" 2>&1)" || rc=$?
   if [[ "$rc" -eq 0 ]]; then
-    echo "  ✓ gate dependencies pinned: $(node --no-warnings "$gp" list "${AIOS}/mcp" 2>/dev/null | tr '\n' ' ')"
+    echo "  ✓ gate dependencies pinned: $(node --no-warnings "$gp" list "${REIN}/mcp" 2>/dev/null | tr '\n' ' ')"
   else
     printf '%s\n' "$out" | sed 's/^/  ✗ /'
   fi
@@ -1967,10 +1967,10 @@ _gate_pins_report() {
 
 # E-304 (D-089 r2): where the mirror came from, and whether two workspace sources disagree.
 _install_report() {
-  local stamp="${AIOS}/config/install-stamp.json" ws_file=""
-  [[ -f "${AIOS}/config/aios-workspace.txt" ]] && ws_file="$(head -1 "${AIOS}/config/aios-workspace.txt" 2>/dev/null)"
-  if [[ -n "${AIOS_WORKSPACE:-}" && -n "$ws_file" && "${AIOS_WORKSPACE%/}" != "${ws_file%/}" ]]; then
-    echo "  ⚠ workspace: exported AIOS_WORKSPACE=${AIOS_WORKSPACE} disagrees with the installed record ${ws_file} — the record wins (E-304); remove the export from your shell profile"
+  local stamp="${REIN}/config/install-stamp.json" ws_file=""
+  [[ -f "${REIN}/config/rein-workspace.txt" ]] && ws_file="$(head -1 "${REIN}/config/rein-workspace.txt" 2>/dev/null)"
+  if [[ -n "${REIN_WORKSPACE:-}" && -n "$ws_file" && "${REIN_WORKSPACE%/}" != "${ws_file%/}" ]]; then
+    echo "  ⚠ workspace: exported REIN_WORKSPACE=${REIN_WORKSPACE} disagrees with the installed record ${ws_file} — the record wins (E-304); remove the export from your shell profile"
   fi
   if [[ -f "$stamp" ]] && command -v python3 >/dev/null 2>&1; then
     python3 -c '
@@ -1983,7 +1983,7 @@ else:
     print("  ✓ install: %s @ %s (clean tree)" % (src, sha))
 ' "$stamp" 2>/dev/null || echo "  ⚠ install: install-stamp.json unreadable"
   else
-    echo "  ○ install: no install stamp (installed before E-304) — run: bash install-ai-os.sh"
+    echo "  ○ install: no install stamp (installed before E-304) — run: bash install-rein.sh"
   fi
   return 0
 }
@@ -1992,7 +1992,7 @@ _launch_record_report() {
   local lr out
   lr="$(ai_os_locate shared/launch-record.py || true)"
   if [[ -z "$lr" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "  ⚠ launch records: cannot check (launch-record.py or python3 missing — run: bash install-ai-os.sh)"
+    echo "  ⚠ launch records: cannot check (launch-record.py or python3 missing — run: bash install-rein.sh)"
     return 0
   fi
   out="$(python3 -I "$lr" status 2>/dev/null)" || out=""
@@ -2019,18 +2019,18 @@ if stale:
   return 0
 }
 
-# Marker emitted in every AI-OS execution stub. Anything containing this line
-# is recognised as a current-format stub by _is_aios_stub / the do_sync
+# Marker emitted in every Rein execution stub. Anything containing this line
+# is recognised as a current-format stub by _is_rein_stub / the do_sync
 # upgrader. Legacy copies of pre-commit.sh do NOT carry it.
-AIOS_STUB_MARKER="# AI-OS Execution Stub (E-41)"
+REIN_STUB_MARKER="# Rein Execution Stub (E-41)"
 
-# Returns 0 when $1 is an AI-OS execution stub (current format), 1 otherwise.
-# Callers that want to distinguish "legacy AI-OS copy" from "third-party hook"
-# should also test for the canonical "AI-OS Gate 2" / "TASKS.md Auto-Sync"
+# Returns 0 when $1 is an Rein execution stub (current format), 1 otherwise.
+# Callers that want to distinguish "legacy Rein copy" from "third-party hook"
+# should also test for the canonical "Rein Gate 2" / "TASKS.md Auto-Sync"
 # headers that appear inside the original copied scripts.
-_is_aios_stub() {
+_is_rein_stub() {
   local f="$1"
-  [[ -f "$f" ]] && grep -qF "$AIOS_STUB_MARKER" "$f" 2>/dev/null
+  [[ -f "$f" ]] && grep -qF "$REIN_STUB_MARKER" "$f" 2>/dev/null
 }
 
 # Writes a pre-commit execution stub. Fails closed: if the canonical hook is
@@ -2044,17 +2044,17 @@ _write_pre_commit_stub() {
   local dst="$1" backup="${2:-}"
   cat > "$dst" <<STUB
 #!/bin/bash -p
-${AIOS_STUB_MARKER} — Gate 2 pre-commit
+${REIN_STUB_MARKER} — Gate 2 pre-commit
 # This file is a thin redirector. The canonical script lives at
-# \$HOME/.ai-os/hooks/pre-commit.sh and is always upgraded by 'ai sync'.
+# \$HOME/.rein/hooks/pre-commit.sh and is always upgraded by 'ai sync'.
 set -uo pipefail
 
-CANONICAL="${AIOS}/hooks/pre-commit.sh"   # E-290: install-time absolute path, never \$HOME
+CANONICAL="${REIN}/hooks/pre-commit.sh"   # E-290: install-time absolute path, never \$HOME
 STUB
 
   if [[ -n "$backup" ]]; then
     cat >> "$dst" <<STUB
-# E-41: chained execution — call the user's pre-AI-OS hook first.
+# E-41: chained execution — call the user's pre-Rein hook first.
 USER_HOOK="\${0%/*}/${backup##*/}"
 if [[ -x "\$USER_HOOK" ]]; then
   /bin/bash -p "\$USER_HOOK" "\$@" || exit \$?
@@ -2065,7 +2065,7 @@ STUB
 
   cat >> "$dst" <<'STUB'
 if [[ ! -f "$CANONICAL" ]]; then
-  echo "[AI-OS] pre-commit canonical missing: $CANONICAL — run: bash install-ai-os.sh" >&2
+  echo "[Rein] pre-commit canonical missing: $CANONICAL — run: bash install-rein.sh" >&2
   exit 1   # fail closed (Gate 2 contract)
 fi
 exec /bin/bash -p "$CANONICAL" "$@"
@@ -2081,24 +2081,24 @@ _write_pre_push_stub() {
   local dst="$1" backup="${2:-}"
   cat > "$dst" <<STUB
 #!/bin/bash -p
-${AIOS_STUB_MARKER} — Local CI pre-push
+${REIN_STUB_MARKER} — Local CI pre-push
 # This file is a thin redirector. The canonical script lives at
-# \$HOME/.ai-os/hooks/pre-push.sh and is always upgraded by 'ai sync'.
+# \$HOME/.rein/hooks/pre-push.sh and is always upgraded by 'ai sync'.
 set -uo pipefail
 
-CANONICAL="${AIOS}/hooks/pre-push.sh"   # E-290: install-time absolute path, never \$HOME
+CANONICAL="${REIN}/hooks/pre-push.sh"   # E-290: install-time absolute path, never \$HOME
 STUB
 
   if [[ -n "$backup" ]]; then
     cat >> "$dst" <<STUB
-# Chained execution — the user's pre-AI-OS hook sees the same stdin first.
+# Chained execution — the user's pre-Rein hook sees the same stdin first.
 USER_HOOK="\${0%/*}/${backup##*/}"
 _REFS="\$(cat)"
 if [[ -x "\$USER_HOOK" ]]; then
   printf '%s\\n' "\$_REFS" | /bin/bash -p "\$USER_HOOK" "\$@" || exit \$?
 fi
 if [[ ! -f "\$CANONICAL" ]]; then
-  echo "[AI-OS] pre-push canonical missing: \$CANONICAL — run: bash install-ai-os.sh" >&2
+  echo "[Rein] pre-push canonical missing: \$CANONICAL — run: bash install-rein.sh" >&2
   exit 1   # fail closed (local CI gate)
 fi
 printf '%s\\n' "\$_REFS" | exec /bin/bash -p "\$CANONICAL" "\$@"
@@ -2106,7 +2106,7 @@ STUB
   else
     cat >> "$dst" <<'STUB'
 if [[ ! -f "$CANONICAL" ]]; then
-  echo "[AI-OS] pre-push canonical missing: $CANONICAL — run: bash install-ai-os.sh" >&2
+  echo "[Rein] pre-push canonical missing: $CANONICAL — run: bash install-rein.sh" >&2
   exit 1   # fail closed (local CI gate)
 fi
 exec /bin/bash -p "$CANONICAL" "$@"
@@ -2122,17 +2122,17 @@ _write_post_commit_stub() {
   local dst="$1" backup="${2:-}"
   cat > "$dst" <<STUB
 #!/bin/bash -p
-${AIOS_STUB_MARKER} — TASKS.md Auto-Sync post-commit
+${REIN_STUB_MARKER} — TASKS.md Auto-Sync post-commit
 # This file is a thin redirector. The canonical script lives at
-# \$HOME/.ai-os/hooks/post-commit.sh and is always upgraded by 'ai sync'.
+# \$HOME/.rein/hooks/post-commit.sh and is always upgraded by 'ai sync'.
 set -uo pipefail
 
-CANONICAL="${AIOS}/hooks/post-commit.sh"   # E-290: install-time absolute path, never \$HOME
+CANONICAL="${REIN}/hooks/post-commit.sh"   # E-290: install-time absolute path, never \$HOME
 STUB
 
   if [[ -n "$backup" ]]; then
     cat >> "$dst" <<STUB
-# E-41: chained execution — call the user's pre-AI-OS hook first (advisory).
+# E-41: chained execution — call the user's pre-Rein hook first (advisory).
 USER_HOOK="\${0%/*}/${backup##*/}"
 if [[ -x "\$USER_HOOK" ]]; then
   /bin/bash -p "\$USER_HOOK" "\$@" || true
@@ -2143,7 +2143,7 @@ STUB
 
   cat >> "$dst" <<'STUB'
 if [[ ! -f "$CANONICAL" ]]; then
-  echo "[AI-OS] post-commit canonical missing: $CANONICAL (skipping TASK-SYNC)" >&2
+  echo "[Rein] post-commit canonical missing: $CANONICAL (skipping TASK-SYNC)" >&2
   exit 0   # fail open (post-commit is advisory)
 fi
 /bin/bash -p "$CANONICAL" "$@" || true
@@ -2160,16 +2160,16 @@ _write_import_stub() {  # <dst> <hook> [backup]
   local dst="$1" hook="$2" backup="${3:-}"
   cat > "$dst" <<STUB
 #!/bin/bash -p
-${AIOS_STUB_MARKER} — State import ${hook}
+${REIN_STUB_MARKER} — State import ${hook}
 # This file is a thin redirector. The canonical script lives at
-# \$HOME/.ai-os/hooks/state-import.sh and is always upgraded by 'ai sync'.
+# \$HOME/.rein/hooks/state-import.sh and is always upgraded by 'ai sync'.
 set -uo pipefail
 
-CANONICAL="${AIOS}/hooks/state-import.sh"   # E-290: install-time absolute path, never \$HOME
+CANONICAL="${REIN}/hooks/state-import.sh"   # E-290: install-time absolute path, never \$HOME
 STUB
   if [[ -n "$backup" ]]; then
     cat >> "$dst" <<STUB
-# E-41: chained execution — call the user's pre-AI-OS hook first (advisory).
+# E-41: chained execution — call the user's pre-Rein hook first (advisory).
 USER_HOOK="\${0%/*}/${backup##*/}"
 if [[ -x "\$USER_HOOK" ]]; then
   /bin/bash -p "\$USER_HOOK" "\$@" || true
@@ -2179,7 +2179,7 @@ STUB
   fi
   cat >> "$dst" <<STUB
 if [[ ! -f "\$CANONICAL" ]]; then
-  echo "[AI-OS] ${hook} canonical missing: \$CANONICAL (skipping state import)" >&2
+  echo "[Rein] ${hook} canonical missing: \$CANONICAL (skipping state import)" >&2
   exit 0   # fail open (an import never blocks git)
 fi
 /bin/bash -p "\$CANONICAL" ${hook} "\$@" || true
@@ -2195,16 +2195,16 @@ IMPORT_HOOKS="post-merge:_write_post_merge_stub post-checkout:_write_post_checko
 # E-326: the git merge driver for team record files (.ai/.gitattributes names it). Config is
 # per clone; a clone without it falls back to git's text merge and its conflict markers.
 _install_record_merge_driver() {
-  local cs="${AIOS}/shared/cli-state.mjs"
+  local cs="${REIN}/shared/cli-state.mjs"
   # The driver line is a shell command persisted in .git/config: refuse an install path that
   # is relative or carries a quote (a session's env can set HOME) rather than store it.
-  if [[ "$AIOS" != /* || "$AIOS" == *"'"* ]]; then
-    echo "  ⚠  not configuring the aios-record merge driver: install path ${AIOS} is not a plain absolute path"; return 0
+  if [[ "$REIN" != /* || "$REIN" == *"'"* ]]; then
+    echo "  ⚠  not configuring the rein-record merge driver: install path ${REIN} is not a plain absolute path"; return 0
   fi
   [[ -f "$cs" ]] || { echo "  ⚠  cli-state.mjs not found at ${cs} — run: ai install"; return 0; }
-  git config merge.aios-record.name "AI-OS team record (D-102 policy)" || return 0
-  git config merge.aios-record.driver "node --no-warnings '${cs}' state merge-driver %O %A %B %P" || return 0
-  echo "  ✓ Configured the aios-record merge driver (team record files)"
+  git config merge.rein-record.name "Rein team record (D-102 policy)" || return 0
+  git config merge.rein-record.driver "node --no-warnings '${cs}' state merge-driver %O %A %B %P" || return 0
+  echo "  ✓ Configured the rein-record merge driver (team record files)"
 }
 
 install_git_hooks() {
@@ -2222,7 +2222,7 @@ install_git_hooks() {
     return
   fi
 
-  local HOOK_SRC="${AIOS}/hooks/pre-commit.sh"
+  local HOOK_SRC="${REIN}/hooks/pre-commit.sh"
   local HOOK_DST="${GIT_HOOKS_DIR}/pre-commit"
 
   if [[ ! -f "$HOOK_SRC" ]]; then
@@ -2231,24 +2231,24 @@ install_git_hooks() {
   fi
 
   if [[ -f "$HOOK_DST" ]]; then
-    if _is_aios_stub "$HOOK_DST"; then
+    if _is_rein_stub "$HOOK_DST"; then
       # E-270: an existing stub is refreshed when an older version wrote it.
       if _refresh_stub _write_pre_commit_stub "$HOOK_DST"; then
         echo "  ✓ Refreshed pre-commit stub (Gate 2)"
       else
         echo "  ✓ pre-commit stub already installed (Gate 2)"
       fi
-    elif grep -q "AI-OS Gate 2" "$HOOK_DST" 2>/dev/null; then
+    elif grep -q "Rein Gate 2" "$HOOK_DST" 2>/dev/null; then
       # Legacy copy — upgrade in place to a stub.
       _write_pre_commit_stub "$HOOK_DST"
       echo "  ✓ Upgraded legacy pre-commit copy → execution stub (Gate 2)"
     else
       # Preserve existing third-party hook; chain it through the stub.
-      local BACKUP="${HOOK_DST}.pre-aios"
+      local BACKUP="${HOOK_DST}.pre-rein"
       mv "$HOOK_DST" "$BACKUP"
-      echo "  ✓ Backed up existing pre-commit hook → pre-commit.pre-aios"
+      echo "  ✓ Backed up existing pre-commit hook → pre-commit.pre-rein"
       _write_pre_commit_stub "$HOOK_DST" "$BACKUP"
-      echo "  ✓ Installed Gate 2 stub (chained → pre-commit.pre-aios) → ${HOOK_DST}"
+      echo "  ✓ Installed Gate 2 stub (chained → pre-commit.pre-rein) → ${HOOK_DST}"
     fi
   else
     _write_pre_commit_stub "$HOOK_DST"
@@ -2256,49 +2256,49 @@ install_git_hooks() {
   fi
 
   # E-267 (D-072 §5b): pre-push local CI gate — same stub model, fails closed.
-  local PP_SRC="${AIOS}/hooks/pre-push.sh"
+  local PP_SRC="${REIN}/hooks/pre-push.sh"
   local PP_DST="${GIT_HOOKS_DIR}/pre-push"
   if [[ ! -f "$PP_SRC" ]]; then
     echo "  ⚠  pre-push.sh not found at ${PP_SRC} — run: ai install"
-  elif [[ -f "$PP_DST" ]] && _is_aios_stub "$PP_DST"; then
+  elif [[ -f "$PP_DST" ]] && _is_rein_stub "$PP_DST"; then
     if _refresh_stub _write_pre_push_stub "$PP_DST"; then
       echo "  ✓ Refreshed pre-push stub (local CI gate)"
     else
       echo "  ✓ pre-push stub already installed (local CI gate)"
     fi
   elif [[ -f "$PP_DST" ]]; then
-    local PP_BACKUP="${PP_DST}.pre-aios"
+    local PP_BACKUP="${PP_DST}.pre-rein"
     mv "$PP_DST" "$PP_BACKUP"
-    echo "  ✓ Backed up existing pre-push hook → pre-push.pre-aios"
+    echo "  ✓ Backed up existing pre-push hook → pre-push.pre-rein"
     _write_pre_push_stub "$PP_DST" "$PP_BACKUP"
-    echo "  ✓ Installed local CI gate stub (chained → pre-push.pre-aios) → ${PP_DST}"
+    echo "  ✓ Installed local CI gate stub (chained → pre-push.pre-rein) → ${PP_DST}"
   else
     _write_pre_push_stub "$PP_DST"
     echo "  ✓ Installed local CI gate pre-push stub → ${PP_DST}"
   fi
 
   # E-55: Install post-commit hook (TASKS.md auto-sync) — same stub model.
-  local PC_SRC="${AIOS}/hooks/post-commit.sh"
+  local PC_SRC="${REIN}/hooks/post-commit.sh"
   local PC_DST="${GIT_HOOKS_DIR}/post-commit"
 
   if [[ ! -f "$PC_SRC" ]]; then
     echo "  ⚠  post-commit.sh not found at ${PC_SRC} — run: ai install"
   elif [[ -f "$PC_DST" ]]; then
-    if _is_aios_stub "$PC_DST"; then
+    if _is_rein_stub "$PC_DST"; then
       if _refresh_stub _write_post_commit_stub "$PC_DST"; then
         echo "  ✓ Refreshed post-commit stub (TASK-SYNC)"
       else
         echo "  ✓ post-commit stub already installed (TASK-SYNC)"
       fi
-    elif grep -q "AI-OS.*TASK-SYNC\|TASKS.md Auto-Sync" "$PC_DST" 2>/dev/null; then
+    elif grep -q "Rein.*TASK-SYNC\|TASKS.md Auto-Sync" "$PC_DST" 2>/dev/null; then
       _write_post_commit_stub "$PC_DST"
       echo "  ✓ Upgraded legacy post-commit copy → execution stub (TASK-SYNC)"
     else
-      local PC_BACKUP="${PC_DST}.pre-aios"
+      local PC_BACKUP="${PC_DST}.pre-rein"
       mv "$PC_DST" "$PC_BACKUP"
-      echo "  ✓ Backed up existing post-commit hook → post-commit.pre-aios"
+      echo "  ✓ Backed up existing post-commit hook → post-commit.pre-rein"
       _write_post_commit_stub "$PC_DST" "$PC_BACKUP"
-      echo "  ✓ Installed TASK-SYNC stub (chained → post-commit.pre-aios) → ${PC_DST}"
+      echo "  ✓ Installed TASK-SYNC stub (chained → post-commit.pre-rein) → ${PC_DST}"
     fi
   else
     _write_post_commit_stub "$PC_DST"
@@ -2307,18 +2307,18 @@ install_git_hooks() {
 
   # E-326: state import on pull / checkout / rebase — same stub model, fails open.
   local pair hook writer dst
-  if [[ ! -f "${AIOS}/hooks/state-import.sh" ]]; then
-    echo "  ⚠  state-import.sh not found at ${AIOS}/hooks — run: ai install"
+  if [[ ! -f "${REIN}/hooks/state-import.sh" ]]; then
+    echo "  ⚠  state-import.sh not found at ${REIN}/hooks — run: ai install"
   else
     for pair in $IMPORT_HOOKS; do
       hook="${pair%%:*}"; writer="${pair#*:}"; dst="${GIT_HOOKS_DIR}/${hook}"
-      if [[ -f "$dst" ]] && _is_aios_stub "$dst"; then
+      if [[ -f "$dst" ]] && _is_rein_stub "$dst"; then
         _refresh_stub "$writer" "$dst" && echo "  ✓ Refreshed ${hook} stub (state import)" \
           || echo "  ✓ ${hook} stub already installed (state import)"
       elif [[ -f "$dst" ]]; then
-        mv "$dst" "${dst}.pre-aios"
-        "$writer" "$dst" "${dst}.pre-aios"
-        echo "  ✓ Installed state import stub (chained → ${hook}.pre-aios) → ${dst}"
+        mv "$dst" "${dst}.pre-rein"
+        "$writer" "$dst" "${dst}.pre-rein"
+        echo "  ✓ Installed state import stub (chained → ${hook}.pre-rein) → ${dst}"
       else
         "$writer" "$dst"
         echo "  ✓ Installed state import ${hook} stub → ${dst}"
@@ -2330,8 +2330,8 @@ install_git_hooks() {
 
 # E-41: Idempotent in-place upgrade of legacy copied hooks to the stub model.
 # Called from do_sync; walks .git/hooks/{pre,post}-commit and rewrites any
-# legacy AI-OS copy (no stub marker, has Gate 2 / TASK-SYNC headers) to a
-# fresh stub. Skips third-party hooks (no AI-OS markers at all) so user
+# legacy Rein copy (no stub marker, has Gate 2 / TASK-SYNC headers) to a
+# fresh stub. Skips third-party hooks (no Rein markers at all) so user
 # tooling is never silently overwritten.
 _upgrade_legacy_git_hooks() {
   local git_dir
@@ -2340,15 +2340,15 @@ _upgrade_legacy_git_hooks() {
   local HOOKS_DIR="${git_dir}/hooks"
 
   local pc="${HOOKS_DIR}/pre-commit"
-  if [[ -f "$pc" ]] && ! _is_aios_stub "$pc" \
-       && grep -q "AI-OS Gate 2" "$pc" 2>/dev/null; then
+  if [[ -f "$pc" ]] && ! _is_rein_stub "$pc" \
+       && grep -q "Rein Gate 2" "$pc" 2>/dev/null; then
     _write_pre_commit_stub "$pc"
     echo "  ✓ Upgraded .git/hooks/pre-commit → stub (E-41)"
   fi
 
   local poc="${HOOKS_DIR}/post-commit"
-  if [[ -f "$poc" ]] && ! _is_aios_stub "$poc" \
-       && grep -qE "AI-OS.*TASK-SYNC|TASKS.md Auto-Sync" "$poc" 2>/dev/null; then
+  if [[ -f "$poc" ]] && ! _is_rein_stub "$poc" \
+       && grep -qE "Rein.*TASK-SYNC|TASKS.md Auto-Sync" "$poc" 2>/dev/null; then
     _write_post_commit_stub "$poc"
     echo "  ✓ Upgraded .git/hooks/post-commit → stub (E-41)"
   fi
@@ -2357,7 +2357,7 @@ _upgrade_legacy_git_hooks() {
 # E-114: Query global memory store for similar projects during ai init (§31 advisory hint)
 # Silent failure — project-local context always takes priority.
 _query_similar_signatures() {
-  local MEM_DIR="${AIOS}/memory"
+  local MEM_DIR="${REIN}/memory"
   local SIG_FILE="${MEM_DIR}/signatures.json"
   if ! command -v python3 &>/dev/null; then return 0; fi
   if [[ ! -f "$SIG_FILE" ]]; then return 0; fi
@@ -2413,7 +2413,7 @@ _upgrade_records() {
     printf 'error\tproject-upgrade.mjs\tunavailable — run: ai install\n'; return 0
   fi
   local -a a=(--ai-dir .ai --version "$VERSION")
-  [[ "$sub" == "merge" ]] && a+=(--templates "${AIOS}/templates" --legacy "${AIOS}/config/legacy-artefacts.json")
+  [[ "$sub" == "merge" ]] && a+=(--templates "${REIN}/templates" --legacy "${REIN}/config/legacy-artefacts.json")
   node "${_CI_NODE_FLAGS[@]}" "$h" "$sub" "${a[@]}" "$@" 2>/dev/null \
     || printf 'error\tproject-upgrade.mjs\t%s failed\n' "$sub"
 }
@@ -2421,7 +2421,7 @@ _upgrade_records() {
 # The generated surface `ai init` refreshes, one path per line, relative to the cwd (git
 # hooks absolute). _SYNC_MANIFEST.json is excluded: it is sync bookkeeping and carries a
 # written_at timestamp, so it changes on every run without anything being refreshed.
-# settings.local.json is user-owned (never written by AI-OS).
+# settings.local.json is user-owned (never written by Rein).
 _generated_surface() {
   local f
   for f in ENGINEER.md ARCHITECT.md CLAUDE.md .mcp.json .gitignore .ai/.gitignore; do
@@ -2448,7 +2448,7 @@ _surface_changes() {  # <before-file> <after-file>
   LC_ALL=C comm -3 <(LC_ALL=C sort "$1") <(LC_ALL=C sort "$2") | awk '{print $NF}' | LC_ALL=C sort -u
 }
 
-# ── git hook stubs: refresh an existing AI-OS stub whose text is out of date ──
+# ── git hook stubs: refresh an existing Rein stub whose text is out of date ──
 # install_git_hooks used to leave any existing stub alone, so a stub written by an older
 # version was never upgraded. The chained user hook (the USER_HOOK line) is preserved.
 _stub_backup_of() {
@@ -2459,14 +2459,14 @@ _expected_stub() {  # <writer> <existing-stub> <out>
   if [[ -n "$b" ]]; then "$1" "$3" "$(dirname "$2")/${b}"; else "$1" "$3"; fi
 }
 _stub_is_current() {  # <writer> <stub>
-  local t rc=0; t="$(mktemp "${TMPDIR:-/tmp}/aios-stub.XXXXXX")"
+  local t rc=0; t="$(mktemp "${TMPDIR:-/tmp}/rein-stub.XXXXXX")"
   _expected_stub "$1" "$2" "$t"
   cmp -s "$t" "$2" || rc=1
   rm -f "$t"
   return "$rc"
 }
 _refresh_stub() {  # <writer> <stub> — rewrite in place when stale; 0 = refreshed
-  local t; t="$(mktemp "${2}.aios.XXXXXX")" || return 1
+  local t; t="$(mktemp "${2}.rein.XXXXXX")" || return 1
   _expected_stub "$1" "$2" "$t"
   if cmp -s "$t" "$2"; then rm -f "$t"; return 1; fi
   chmod +x "$t"; mv -f "$t" "$2"
@@ -2504,7 +2504,7 @@ _init_check() {
     esac
   done < <(_upgrade_records merge --check; _upgrade_records stamp --check)
 
-  local scratch; scratch="$(mktemp -d "${TMPDIR:-/tmp}/aios-init-check.XXXXXX")"
+  local scratch; scratch="$(mktemp -d "${TMPDIR:-/tmp}/rein-init-check.XXXXXX")"
   mkdir -p "${scratch}/.ai"
   local f
   for f in ENGINEER.md ARCHITECT.md CLAUDE.md .mcp.json .gitignore; do
@@ -2519,13 +2519,13 @@ _init_check() {
     _upgrade_records merge >/dev/null
     _ensure_generated_gitignore "." >/dev/null 2>&1
     generate_mcp_json "." >/dev/null 2>&1
-    cp -f "${AIOS}/templates/ENGINEER.md"  "ENGINEER.md"
-    cp -f "${AIOS}/templates/ARCHITECT.md" "ARCHITECT.md"
-    cp -f "${AIOS}/templates/CLAUDE.md"    "CLAUDE.md"
+    cp -f "${REIN}/templates/ENGINEER.md"  "ENGINEER.md"
+    cp -f "${REIN}/templates/ARCHITECT.md" "ARCHITECT.md"
+    cp -f "${REIN}/templates/CLAUDE.md"    "CLAUDE.md"
     _sync_workspace_dirs sync >/dev/null 2>&1
   ) || true
   local proj_digest scratch_digest
-  proj_digest="$(mktemp "${TMPDIR:-/tmp}/aios-dig.XXXXXX")"; scratch_digest="$(mktemp "${TMPDIR:-/tmp}/aios-dig.XXXXXX")"
+  proj_digest="$(mktemp "${TMPDIR:-/tmp}/rein-dig.XXXXXX")"; scratch_digest="$(mktemp "${TMPDIR:-/tmp}/rein-dig.XXXXXX")"
   # Hooks are compared by content below, not through the scratch copy (it has no .git).
   _surface_digest | grep -v '/hooks/' > "$proj_digest" || true
   ( cd "$scratch" && _surface_digest ) > "$scratch_digest" || true
@@ -2539,7 +2539,7 @@ _init_check() {
     local pair hook writer
     for pair in pre-commit:_write_pre_commit_stub pre-push:_write_pre_push_stub post-commit:_write_post_commit_stub $IMPORT_HOOKS; do
       hook="${pair%%:*}"; writer="${pair#*:}"
-      if [[ ! -f "${gd}/hooks/${hook}" ]] || ! _is_aios_stub "${gd}/hooks/${hook}"; then
+      if [[ ! -f "${gd}/hooks/${hook}" ]] || ! _is_rein_stub "${gd}/hooks/${hook}"; then
         pending+=("install  ${gd}/hooks/${hook}")
       elif ! _stub_is_current "$writer" "${gd}/hooks/${hook}"; then
         pending+=("refresh  ${gd}/hooks/${hook}")
@@ -2573,7 +2573,7 @@ do_init() {
     _existing=1
     _old_version="$(_project_version)"
     echo "Upgrading: project ${_old_version:-(unstamped)} → installed ${VERSION}"
-    _before="$(mktemp "${TMPDIR:-/tmp}/aios-dig.XXXXXX")"
+    _before="$(mktemp "${TMPDIR:-/tmp}/rein-dig.XXXXXX")"
     _surface_digest > "$_before" || true
   fi
 
@@ -2582,7 +2582,7 @@ do_init() {
   install_git_hooks
 
   # E-33: Auto-setup MCP server dependencies (Battery-Included onboarding)
-  if command -v node &>/dev/null && [[ -d "${AIOS}/mcp" ]]; then
+  if command -v node &>/dev/null && [[ -d "${REIN}/mcp" ]]; then
     echo ""
     echo "Setting up MCP servers (Node.js detected)..."
     do_mcp_setup 2>/dev/null || echo "  ⚠  MCP setup incomplete — run: ai mcp-setup"
@@ -2620,7 +2620,7 @@ do_init() {
 
   if [[ "$_existing" -eq 1 ]]; then
     local _after _n_refreshed _n_merged="${#UPGRADE_MERGED[@]}" _n_legacy
-    _after="$(mktemp "${TMPDIR:-/tmp}/aios-dig.XXXXXX")"
+    _after="$(mktemp "${TMPDIR:-/tmp}/rein-dig.XXXXXX")"
     _surface_digest > "$_after" || true
     _n_refreshed="$(_surface_changes "$_before" "$_after" | grep -c . || true)"
     rm -f "$_before" "$_after"
@@ -2628,12 +2628,12 @@ do_init() {
     echo ""
     [[ -n "$_stamp_line" ]] && echo "Stamp: ${_stamp_line}"
     echo "Upgrade: ${_n_refreshed} refreshed, ${_n_merged} merged, ${_n_legacy} legacy items$( [[ "$_n_legacy" != "0" ]] && printf ' — run: ai clean')"
-    echo "AI-OS v${VERSION} — user files (BRIEF, RULES, SEED, DIGEST, TASKS, LOG, architect.md, blueprints) untouched."
+    echo "Rein v${VERSION} — user files (BRIEF, RULES, SEED, DIGEST, TASKS, LOG, architect.md, blueprints) untouched."
     return 0
   fi
 
   echo ""
-  echo "Initialized .ai/ + .github/ (safe — no overwrites) with AI-OS v${VERSION}"
+  echo "Initialized .ai/ + .github/ (safe — no overwrites) with Rein v${VERSION}"
   echo ""
   echo "Next (MANDATORY):"
   echo "1) Fill in .ai/BRIEF.md and .ai/REPO.md"
@@ -2754,7 +2754,7 @@ except:
 
   local _al _el _tl
   IFS='|' read -r _al _el _tl <<< "$(_roles_banner_labels)"
-  AIOS_ARCH_OWNER="Architect (${_al})" AIOS_TESTER_OWNER="Tester (${_tl//·/ · })" \
+  REIN_ARCH_OWNER="Architect (${_al})" REIN_TESTER_OWNER="Tester (${_tl//·/ · })" \
   python3 - "$TASKS_FILE" "$PARSED_TMPFILE" <<'PY'
 import json, re, sys
 
@@ -2763,8 +2763,8 @@ out_file   = sys.argv[2]
 # Derived label (E-243). Falls back to a bare role name rather than a vendor: if roles.json
 # cannot be read, "Architect" is still true, whereas a vendor-qualified label may not be.
 import os as _os
-ARCH_OWNER = _os.environ.get("AIOS_ARCH_OWNER") or "Architect"
-TESTER_OWNER = _os.environ.get("AIOS_TESTER_OWNER") or "Tester"
+ARCH_OWNER = _os.environ.get("REIN_ARCH_OWNER") or "Architect"
+TESTER_OWNER = _os.environ.get("REIN_TESTER_OWNER") or "Tester"
 
 tasks = []
 
@@ -2849,7 +2849,7 @@ PY
   # E-325: state.json has one writer, record-store.mjs writeStateFile.
   local _rs; _rs="$(_ai_os_helper mcp/shared/record-store.mjs || true)"
   if [[ -z "$_rs" ]]; then
-    echo "✗ record-store.mjs not found (run: bash install-ai-os.sh)"
+    echo "✗ record-store.mjs not found (run: bash install-rein.sh)"
     rm -rf "$PARSED_TMPDIR"
     exit 1
   fi
@@ -3019,7 +3019,7 @@ do_sync_github() {
   fi
 
   if [[ ! -d ".ai" ]]; then
-    echo "✗ Not in an AI-OS project — run: ai init"
+    echo "✗ Not in an Rein project — run: ai init"
     return 1
   fi
 
@@ -3062,7 +3062,7 @@ for issue in issues:
     parts.append(block)
 # E-243: role-derived, not vendor-literal — an all-Claude project was told to hand work to
 # a vendor no role was bound to.
-_arch_owner = os.environ.get("AIOS_ARCH_OWNER") or "Architect"
+_arch_owner = os.environ.get("REIN_ARCH_OWNER") or "Architect"
 footer = "\n## Action Required\n%s: Review the issues above and create P-## blueprint tasks via:\n  mcp__task-synchronizer-mcp__add_task({ prefix: 'P', owner: '%s', description: '...', tier: N })\nThis writes to state.sqlite and regenerates TASKS.md automatically.\n" % (_arch_owner, _arch_owner)
 print(header + "\n\n---\n\n".join(parts) + "\n" + footer)
 PY
@@ -3117,11 +3117,11 @@ _ensure_generated_gitignore() {
     # The LEADING newline here is load-bearing, not cosmetic: a .gitignore that does not
     # end in a newline would otherwise splice our header onto the project's last line,
     # silently rewriting THEIR rule into something else. Keep it.
-    printf '\n# AI-OS generated artefacts — regenerated by `ai sync` (E-233 / D-060 §4).\n'
+    printf '\n# Rein generated artefacts — regenerated by `ai sync` (E-233 / D-060 §4).\n'
     printf '# Machine-local by construction; committing them produces a diff on every sync.\n'
     printf '%s\n' "${add[@]}"
   } >> "$gi" || return 1   # E-346: an unwritable .gitignore is FAILED, not "added"
-  echo "  .gitignore: added ${#add[@]} AI-OS generated-artefact pattern(s)"
+  echo "  .gitignore: added ${#add[@]} Rein generated-artefact pattern(s)"
 }
 
 # _untrack_comm_gitignore — E-338 (D-104 r1): COMM.md is tracked, no opt-out. Remove the
@@ -3150,8 +3150,8 @@ _untrack_comm_gitignore() {
 _report_policy_staleness() {
   command -v python3 >/dev/null 2>&1 || return 2
   local newest=0 f
-  for f in "${AIOS}/shared/traversal-policy.mjs" "${AIOS}/shared/markdown-exec.mjs" \
-           "${AIOS}/mcp/safe-exec-mcp/architect-writes.mjs" "${AIOS}/mcp/shared/caller-role.mjs"; do
+  for f in "${REIN}/shared/traversal-policy.mjs" "${REIN}/shared/markdown-exec.mjs" \
+           "${REIN}/mcp/safe-exec-mcp/architect-writes.mjs" "${REIN}/mcp/shared/caller-role.mjs"; do
     [[ -f "$f" ]] || continue
     local m
     m="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
@@ -3217,7 +3217,7 @@ PY
   done <<< "$stale"
   echo "  They hot-reload policy per request (E-237), so no action is needed unless one was"
   echo "  started before E-237 shipped — in that case restart it, or the session, to clear"
-  echo "  stale verdicts (AI_OS_POLICY_HOT_RELOAD=0 disables hot reload entirely)."
+  echo "  stale verdicts (REIN_POLICY_HOT_RELOAD=0 disables hot reload entirely)."
 }
 
 # ── E-249 (D-067 §3): booted-build staleness ──────────────────────────────────
@@ -3264,7 +3264,7 @@ _report_stale_servers() {
   echo "  Unlike the policy note above, these do NOT hot-reload (D-067 §3): state-db and the"
   echo "  projectors are never swapped mid-process. Restart the MCP servers — in Claude Code,"
   echo "  /mcp then restart, or restart the session."
-  echo "  Rollback: AI_OS_BUILD_STAMP=0 suppresses this check."
+  echo "  Rollback: REIN_BUILD_STAMP=0 suppresses this check."
 }
 
 # ── E-247 (D-067 §1): fail-open step wrapper for the second half of `ai sync` ──
@@ -3315,8 +3315,8 @@ _sync_step() {
   # the sync" needs a step that actually breaks, and breaking a real one from a test means
   # corrupting the environment it reads. Named after the task so it cannot be mistaken for
   # a feature. The forced failure is a real process run through the same capture path.
-  if [[ "${AI_OS_E247_FORCE_FAIL:-}" == "$name" ]]; then
-    set -- bash -c 'echo "forced failure (AI_OS_E247_FORCE_FAIL=$1)" >&2; exit 1' _ "$name"
+  if [[ "${REIN_E247_FORCE_FAIL:-}" == "$name" ]]; then
+    set -- bash -c 'echo "forced failure (REIN_E247_FORCE_FAIL=$1)" >&2; exit 1' _ "$name"
   fi
   "$@" 2>"$log" || _rc=$?
   case "$_rc" in
@@ -3352,14 +3352,14 @@ _sync_reap_step_logs() {
 _sync_gate_check() {
   local gp st
   gp="$(_ai_os_helper shared/gate-probe.sh || true)"
-  [[ -n "$gp" ]] || { echo "[SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — run: bash install-ai-os.sh" >&2; return 1; }
+  [[ -n "$gp" ]] || { echo "[SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — run: bash install-rein.sh" >&2; return 1; }
   # shellcheck source=src/shared/gate-probe.sh
   . "$gp"
   if st="$(ai_os_gate_probe)"; then
     echo "  ✓ safe-exec gate: ${st}"
     return 0
   fi
-  echo "[SAFE_EXEC_BROKEN] ${st} — run: bash install-ai-os.sh" >&2
+  echo "[SAFE_EXEC_BROKEN] ${st} — run: bash install-rein.sh" >&2
   return 1
 }
 
@@ -3423,7 +3423,7 @@ _sync_reap_watcher_state() {
   local h out n
   h="$(_ai_os_helper shared/ai-clean.mjs || true)"
   [[ -n "$h" ]] && command -v node >/dev/null 2>&1 || return 2
-  [[ "${AI_OS_CLEAN_DISABLE:-0}" == "1" ]] && return 2
+  [[ "${REIN_CLEAN_DISABLE:-0}" == "1" ]] && return 2
   [[ -d .ai ]] || return 0
   # E-346 (D-109 r3): stderr inherited (the step captures it), exit status kept.
   out="$(node "${_CI_NODE_FLAGS[@]}" "$h" apply --project "$PWD" --scope project \
@@ -3434,7 +3434,7 @@ _sync_reap_watcher_state() {
   return 0
 }
 
-# E-273 (D-074 §Components 5): dead ~/.ai-os/run/ records are reaped on every sync — the
+# E-273 (D-074 §Components 5): dead ~/.rein/run/ records are reaped on every sync — the
 # two registry entries only (dead-role-lock, dead-build-record), through `ai clean`'s own
 # mover, so they land in the trash with a manifest like any other removal. No --project:
 # a sync must not append to the project's LOG.md for housekeeping in HOME.
@@ -3442,24 +3442,24 @@ _sync_reap_run_records() {
   local h out n
   h="$(_ai_os_helper shared/ai-clean.mjs || true)"
   [[ -n "$h" ]] && command -v node >/dev/null 2>&1 || return 2
-  [[ "${AI_OS_CLEAN_DISABLE:-0}" == "1" ]] && return 2
+  [[ "${REIN_CLEAN_DISABLE:-0}" == "1" ]] && return 2
   out="$(node "${_CI_NODE_FLAGS[@]}" "$h" apply --only dead-role-lock,dead-build-record --json)" \
     || { _sync_reap_failure "$out"; return 1; }   # E-346
   n="$(_sync_reap_moved "$out")" || return 1
-  [[ "$n" != "0" ]] && echo "  Reaped ${n} dead ~/.ai-os/run/ record(s) (restore: ai clean --restore $(date -u +%Y-%m-%d))"
+  [[ "$n" != "0" ]] && echo "  Reaped ${n} dead ~/.rein/run/ record(s) (restore: ai clean --restore $(date -u +%Y-%m-%d))"
   return 0
 }
 
 # _sync_install_hooks — this project's git-hook stubs + legacy upgrade, as one step.
 #
-# (Re)install this project's git-hook stubs so commits run the canonical AI-OS hooks, and
+# (Re)install this project's git-hook stubs so commits run the canonical Rein hooks, and
 # upgrade any legacy copied .git/hooks/* to the stub model (E-41) so there is no
 # copy-by-value drift.
 #
-# E-304 (D-089 r2): `ai sync` NEVER writes into ~/.ai-os. It used to copy
-# ${AIOS_WORKSPACE}/hooks/*.sh into the mirror — hooks WITHOUT the mcp/ and shared/ they call
+# E-304 (D-089 r2): `ai sync` NEVER writes into ~/.rein. It used to copy
+# ${REIN_WORKSPACE}/hooks/*.sh into the mirror — hooks WITHOUT the mcp/ and shared/ they call
 # — and on 2026-10-04 that put E-294's uncommitted hooks live machine-wide twice, against the
-# old safe-exec, so every project's commits hit the Architect lane. `bash install-ai-os.sh`
+# old safe-exec, so every project's commits hit the Architect lane. `bash install-rein.sh`
 # is the one installer.
 _sync_install_hooks() {
   install_git_hooks
@@ -3486,11 +3486,11 @@ do_sync() {
 
   # Sync project-scoped dirs only — global ~/.claude is user-owned (§21)
   if [[ -d ".ai" ]]; then
-    echo "Syncing project-scoped .claude/ from ${AIOS} ..."
+    echo "Syncing project-scoped .claude/ from ${REIN} ..."
 
     # Always update bootloaders so skill invocation stays current (D-050/E-183:
     # canonical ENGINEER.md/ARCHITECT.md + the CLAUDE.md @import shim).
-    local T="${AIOS}/templates"
+    local T="${REIN}/templates"
     cp -f "$T/ENGINEER.md"  "ENGINEER.md"  && echo "  ENGINEER.md updated (canonical bootloader)"
     cp -f "$T/ARCHITECT.md" "ARCHITECT.md" && echo "  ARCHITECT.md updated (canonical bootloader)"
     cp -f "$T/CLAUDE.md"    "CLAUDE.md"    && echo "  CLAUDE.md updated (shim → ENGINEER.md)"
@@ -3534,9 +3534,9 @@ do_sync() {
     # makes that impossible to reach the caller: a step that fails prints
     # `sync: <name> skipped — <reason>` and the rest continue. The exit status is settled
     # once, at the end, so the property E-217 wanted survives.
-    if [[ "${AI_OS_SYNC_MINIMAL:-0}" == "1" ]]; then
+    if [[ "${REIN_SYNC_MINIMAL:-0}" == "1" ]]; then
       echo ""
-      echo "  Stopping after provisioning (AI_OS_SYNC_MINIMAL=1) — hooks, doc regeneration,"
+      echo "  Stopping after provisioning (REIN_SYNC_MINIMAL=1) — hooks, doc regeneration,"
       echo "  the WAL checkpoint, REPO_MAP, the Memory Palace index and the policy report"
       echo "  were NOT run. Unset it to complete a full sync."
       return 0
@@ -3589,7 +3589,7 @@ do_sync() {
     [[ "$_SYNC_STEPS_FAILED" -gt 0 ]] && return 1
     return 0
   else
-    echo "  Not in an AI-OS project (.ai/ not found) — nothing to sync."
+    echo "  Not in an Rein project (.ai/ not found) — nothing to sync."
     echo "  Run 'ai init' first to scaffold .ai/ and .claude/."
     exit 0
   fi
@@ -3623,7 +3623,7 @@ _report_role_provisioning() {
 const { pathToFileURL } = require("node:url");
 import(pathToFileURL(process.argv[1]).href).then(m =>
   process.stdout.write(m.roleProvider(".ai", process.argv[2]) || ""));
-' "${AIOS}/shared/provider-adapter.mjs" "$role" 2>/dev/null || true)"
+' "${REIN}/shared/provider-adapter.mjs" "$role" 2>/dev/null || true)"
     [[ -z "$provider" ]] && provider="(unmapped)"
 
     # Vendor workspace for that provider (D-052 keeps these vendor-named).
@@ -3672,7 +3672,7 @@ import(pathToFileURL(process.argv[1]).href).then(m =>
 const { pathToFileURL } = require("node:url");
 import(pathToFileURL(process.argv[1]).href).then(m =>
   process.stdout.write(m.rulefileForRole(process.argv[2], process.argv[3]) || ""));
-' "${AIOS}/shared/role-manifest.mjs" "${AIOS}/config/registry.json" "$role" 2>/dev/null || true)"
+' "${REIN}/shared/role-manifest.mjs" "${REIN}/config/registry.json" "$role" 2>/dev/null || true)"
     [[ -z "$rulefile" ]] && rulefile="$( [[ "$role" == "architect" ]] && echo ARCHITECT.md || echo ENGINEER.md )"
     if [[ -f "$rulefile" ]]; then
       echo "      ✓ rulefile ${rulefile}"
@@ -3746,19 +3746,19 @@ _report_legacy_artefacts() {
 }
 
 # ── E-270 (D-074 §Components 6): the version and PATH doctor lines ───────────
-# clone = package.json of the recorded framework workspace (install-ai-os.sh writes
-# config/aios-workspace.txt); mirror = ~/.ai-os/VERSION; project = the stamp in .ai/.
+# clone = package.json of the recorded framework workspace (install-rein.sh writes
+# config/rein-workspace.txt); mirror = ~/.rein/VERSION; project = the stamp in .ai/.
 _report_versions() {
   local ws="" clone="" mirror="" project="" pv
-  [[ -f "${AIOS}/config/aios-workspace.txt" ]] && ws="$(head -1 "${AIOS}/config/aios-workspace.txt" 2>/dev/null)"
+  [[ -f "${REIN}/config/rein-workspace.txt" ]] && ws="$(head -1 "${REIN}/config/rein-workspace.txt" 2>/dev/null)"
   [[ -n "$ws" ]] && clone="$(_pkg_version "${ws}/package.json" 2>/dev/null || true)"
-  [[ -f "${AIOS}/VERSION" ]] && mirror="$(head -1 "${AIOS}/VERSION" 2>/dev/null | tr -d '[:space:]')"
+  [[ -f "${REIN}/VERSION" ]] && mirror="$(head -1 "${REIN}/VERSION" 2>/dev/null | tr -d '[:space:]')"
   if [[ -d ".ai" ]]; then pv="$(_project_version)"; project="${pv:-unstamped}"; else project="-"; fi
   local line="clone ${clone:-?} · mirror ${mirror:-missing} · project ${project}"
   if [[ -z "$mirror" ]]; then
-    echo "  ✗ version: ${line} — run: bash install-ai-os.sh"
+    echo "  ✗ version: ${line} — run: bash install-rein.sh"
   elif [[ -n "$clone" && "$clone" != "$mirror" ]]; then
-    echo "  ✗ version: ${line} — the mirror is behind the clone; run: bash install-ai-os.sh"
+    echo "  ✗ version: ${line} — the mirror is behind the clone; run: bash install-rein.sh"
   elif [[ "$project" != "-" && "$project" != "$mirror" ]]; then
     echo "  ✗ version: ${line} — run: ai init"
   else
@@ -3773,7 +3773,7 @@ _real_path() {
   python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1" 2>/dev/null || printf '%s\n' "$1"
 }
 _report_path_shadow() {
-  local want="${AIOS}/bin/ai" want_real first="" p r
+  local want="${REIN}/bin/ai" want_real first="" p r
   local -a others=()
   want_real="$(_real_path "$want")"
   local seen="|"
@@ -3789,9 +3789,9 @@ _report_path_shadow() {
   local tilde='~' short
   short="${want/#$HOME/$tilde}"
   if [[ -z "$first" ]]; then
-    echo "  ✗ ai on PATH: not found — add: export PATH=\"\$HOME/.ai-os/bin:\$PATH\""
+    echo "  ✗ ai on PATH: not found — add: export PATH=\"\$HOME/.rein/bin:\$PATH\""
   elif [[ "$first" != "$want_real" ]]; then
-    echo "  ✗ ai on PATH: ${short} (shadowed by ${first}) — remove it or put ~/.ai-os/bin first"
+    echo "  ✗ ai on PATH: ${short} (shadowed by ${first}) — remove it or put ~/.rein/bin first"
   elif [[ "${#others[@]}" -gt 0 ]]; then
     echo "  ✓ ai on PATH: ${short} (also on PATH, unused: ${others[*]})"
   else
@@ -3823,18 +3823,18 @@ doctor() {
 
   # v3.0: REPAIR is 0/1 — ${REPAIR:+} would fire on the string "0" (non-empty),
   # so the label always showed. Gate on the actual value instead.
-  echo "AI-OS v${VERSION} — doctor$( [[ "$REPAIR" -eq 1 ]] && printf ' (--repair mode)' )"
+  echo "Rein v${VERSION} — doctor$( [[ "$REPAIR" -eq 1 ]] && printf ' (--repair mode)' )"
   echo ""
 
-  echo "Install root:  ${AIOS}"
-  echo "Bin:           ${AIOS}/bin/ai"
+  echo "Install root:  ${REIN}"
+  echo "Bin:           ${REIN}/bin/ai"
   echo ""
 
-  echo "PATH contains ~/.ai-os/bin?"
-  if echo "$PATH" | tr ':' '\n' | grep -q "\.ai-os/bin"; then
+  echo "PATH contains ~/.rein/bin?"
+  if echo "$PATH" | tr ':' '\n' | grep -q "\.rein/bin"; then
     echo "  ✓ yes"
   else
-    echo "  ✗ NO — add to shell: export PATH=\"\$HOME/.ai-os/bin:\$PATH\""
+    echo "  ✗ NO — add to shell: export PATH=\"\$HOME/.rein/bin:\$PATH\""
   fi
   echo ""
 
@@ -3843,7 +3843,7 @@ doctor() {
   _report_versions
   echo ""
 
-  echo "Claude (Global — user-owned, not managed by AI-OS):"
+  echo "Claude (Global — user-owned, not managed by Rein):"
   [[ -d "${HOME}/.claude" ]] && echo "  ✓ ~/.claude exists" || echo "  ✗ ~/.claude missing"
   echo ""
 
@@ -3857,7 +3857,7 @@ doctor() {
   if [[ "$_stale_srv_rc" -eq 1 ]]; then
     echo "  ✗ the build-stamp scan failed: $(printf '%s' "$_stale_srv_report" | tail -1 | cut -c1-200)"
   elif [[ "$_stale_srv_rc" -eq 2 ]]; then
-    echo "  ⚠ cannot check (node or shared/build-stamp.mjs missing — run: bash install-ai-os.sh)"
+    echo "  ⚠ cannot check (node or shared/build-stamp.mjs missing — run: bash install-rein.sh)"
   elif [[ -n "$_stale_srv_report" ]]; then
     printf '%s\n' "$_stale_srv_report"
     echo "  These do NOT hot-reload (D-067 §3) — restart the MCP servers or the session."
@@ -3943,22 +3943,22 @@ doctor() {
   fi
 
   echo "Hooks:"
-  if [[ -f "${HOME}/.ai-os/hooks/stop-hook.sh" ]]; then
+  if [[ -f "${HOME}/.rein/hooks/stop-hook.sh" ]]; then
     echo "  ✓ stop-hook.sh present (auto SESSION stamp)"
   else
     echo "  ✗ stop-hook.sh missing — run: ai install"
   fi
-  if [[ -f "${HOME}/.ai-os/hooks/post-tool-log.sh" ]]; then
+  if [[ -f "${HOME}/.rein/hooks/post-tool-log.sh" ]]; then
     echo "  ✓ post-tool-log.sh present (auto LOG append)"
   else
     echo "  ✗ post-tool-log.sh missing — run: ai install"
   fi
-  if [[ -f "${HOME}/.ai-os/hooks/post-tool-use.sh" ]]; then
+  if [[ -f "${HOME}/.rein/hooks/post-tool-use.sh" ]]; then
     echo "  ✓ post-tool-use.sh present (AQG: auto test gate)"
   else
     echo "  ✗ post-tool-use.sh missing — run: ai install"
   fi
-  if [[ -f "${HOME}/.ai-os/hooks/pre-commit.sh" ]]; then
+  if [[ -f "${HOME}/.rein/hooks/pre-commit.sh" ]]; then
     echo "  ✓ pre-commit.sh present (Gate 2: Quality Gate)"
   else
     echo "  ✗ pre-commit.sh missing — run: ai install"
@@ -3968,9 +3968,9 @@ doctor() {
     local pc_hook
     pc_hook="$(git rev-parse --git-dir)/hooks/pre-commit"
     # E-41: match the installer's detection — the current execution stub
-    # carries the AIOS_STUB_MARKER, while legacy copies carry "AI-OS Gate 2".
+    # carries the REIN_STUB_MARKER, while legacy copies carry "Rein Gate 2".
     # Accept either so a correctly-installed stub is not reported missing.
-    if [[ -f "$pc_hook" ]] && { _is_aios_stub "$pc_hook" || grep -q "AI-OS Gate 2" "$pc_hook" 2>/dev/null; }; then
+    if [[ -f "$pc_hook" ]] && { _is_rein_stub "$pc_hook" || grep -q "Rein Gate 2" "$pc_hook" 2>/dev/null; }; then
       echo "  ✓ .git/hooks/pre-commit: Gate 2 installed"
     else
       echo "  ✗ .git/hooks/pre-commit: Gate 2 NOT installed — run: ai init"
@@ -4033,8 +4033,8 @@ print('  PostToolUse hook:', 'yes ✓' if hooks.get('PostToolUse') else 'NO - ru
   fi
 
   # E-34: Per-server health check from registry
-  local MCP_DIR="${AIOS}/mcp"
-  local REGISTRY="${AIOS}/config/registry.json"
+  local MCP_DIR="${REIN}/mcp"
+  local REGISTRY="${REIN}/config/registry.json"
   if [[ -f "$REGISTRY" ]] && command -v python3 &>/dev/null; then
     echo "  Custom MCP servers (registry: ${REGISTRY}):"
     while IFS='|' read -r srv_name _; do
@@ -4086,7 +4086,7 @@ PY
 
   # ── E-235 (D-061 §3): browsers are opt-in, so say whether they are here ────
   echo "Vibe-check browsers (ai mcp-setup --browsers):"
-  local _vdir="${AIOS}/mcp/vibe-check-mcp"
+  local _vdir="${REIN}/mcp/vibe-check-mcp"
   if [[ ! -d "$_vdir" ]]; then
     echo "  ⚠  vibe-check-mcp not installed"
   elif node --input-type=module -e "
@@ -4213,8 +4213,8 @@ for name, info in d.get('mcp_servers', {}).items():
     if [[ -f ".mcp.json" ]]; then
       python3 - <<'PY' 2>/dev/null || true
 import json, os
-AIOS = os.path.expanduser("~/.ai-os")
-with open(os.path.join(AIOS, "config/registry.json")) as f:
+REIN = os.path.expanduser("~/.rein")
+with open(os.path.join(REIN, "config/registry.json")) as f:
     reg = json.load(f)
 with open(".mcp.json") as f:
     mcp = json.load(f)
@@ -4224,7 +4224,7 @@ for name, info in reg.get("mcp_servers", {}).items():
         print(f"  ✗ {name}: in registry but missing from .mcp.json — run: ai mcp-setup")
     elif "path" in info:
         args = mcp_servers[name].get("args", [])
-        expected = os.path.join(AIOS, "mcp", name, "index.js")
+        expected = os.path.join(REIN, "mcp", name, "index.js")
         if args and args[0] != expected:
             print(f"  ✗ {name}: .mcp.json path mismatch")
             print(f"      expected: {expected}")
@@ -4248,8 +4248,8 @@ PY
 
   echo "Orphaned v2 contracts (should be gone):"
   for f in 10_WORKFLOW.md 20_OWNERSHIP.md 30_TOKEN_DISCIPLINE.md 40_SECURITY.md 50_DEVOPS.md 60_SEO_COMPLIANCE.md; do
-    if [[ -f "${AIOS}/contracts/$f" ]]; then
-      echo "  ✗ ORPHAN: ${AIOS}/contracts/$f — run: ai install to remove"
+    if [[ -f "${REIN}/contracts/$f" ]]; then
+      echo "  ✗ ORPHAN: ${REIN}/contracts/$f — run: ai install to remove"
     fi
   done
   echo "  (if nothing listed above, contracts are clean ✓)"
@@ -4286,8 +4286,8 @@ PY
     echo ""
     echo "Repair Mode — fixing detected issues..."
     echo ""
-    local MCP_DIR="${AIOS}/mcp"
-    local REGISTRY="${AIOS}/config/registry.json"
+    local MCP_DIR="${REIN}/mcp"
+    local REGISTRY="${REIN}/config/registry.json"
 
     # Re-run npm install for all registered MCP servers with missing/broken deps
     if [[ -f "$REGISTRY" ]] && command -v node &>/dev/null && command -v python3 &>/dev/null; then
@@ -4321,13 +4321,13 @@ for name, info in d.get('mcp_servers', {}).items():
 }
 
 # E-175: Deep environment & connectivity diagnostics (doctor-and-cache-optimizations.md
-# §Components 1-2). Verifies the host can actually run AI-OS — Node 22+, essential
+# §Components 1-2). Verifies the host can actually run Rein — Node 22+, essential
 # global binaries, read/write bits on the framework + project
 # state dirs — then probes live MCP connectivity via the E-176 mcp-tester. Exits 1 if any
-# CRITICAL check fails (Node version, state-db write access, ~/.ai-os access, MCP boot);
+# CRITICAL check fails (Node version, state-db write access, ~/.rein access, MCP boot);
 # missing-but-optional tooling (gh/tmux) is a non-fatal [WARN]. Budget: < 2.0s.
 _run_env_diagnostics() {
-  echo "AI-OS v${VERSION} — doctor (--env: deep environment & connectivity)"
+  echo "Rein v${VERSION} — doctor (--env: deep environment & connectivity)"
   echo ""
   local fail=0
 
@@ -4356,10 +4356,10 @@ _run_env_diagnostics() {
     fi
   done
 
-  # E-278 (D-075): no AI-OS component uses Docker any more, so there is no check for it.
+  # E-278 (D-075): no Rein component uses Docker any more, so there is no check for it.
 
   # Read/write permission bits on the framework + project state dirs.
-  for d in "${HOME}/.ai-os" ".ai"; do
+  for d in "${HOME}/.rein" ".ai"; do
     if [[ -d "$d" ]]; then
       if [[ -r "$d" && -w "$d" ]]; then
         echo "  [OK]   ${d} read/write access"
@@ -4367,7 +4367,7 @@ _run_env_diagnostics() {
         echo "  [FAIL] ${d} not read/writable (permission bits)"; fail=1
       fi
     elif [[ "$d" == ".ai" ]]; then
-      echo "  [WARN] ${d} not present (not inside an AI-OS project dir)"
+      echo "  [WARN] ${d} not present (not inside an Rein project dir)"
     else
       echo "  [FAIL] ${d} missing — run: ai install"; fail=1
     fi
@@ -4406,8 +4406,8 @@ _run_env_diagnostics() {
 
 # E-109: Compliance audit — scan agent/skill YAML frontmatter vs registry + .mcp.json (§32)
 _run_compliance_audit() {
-  local REGISTRY="${AIOS}/config/registry.json"
-  echo "AI-OS v${VERSION} — Compliance Audit (§32 Verification)"
+  local REGISTRY="${REIN}/config/registry.json"
+  echo "Rein v${VERSION} — Compliance Audit (§32 Verification)"
   echo ""
 
   if ! command -v python3 &>/dev/null; then
@@ -4415,12 +4415,12 @@ _run_compliance_audit() {
     exit 1
   fi
 
-  python3 - "$REGISTRY" "$AIOS" <<'PY'
+  python3 - "$REGISTRY" "$REIN" <<'PY'
 import json, sys, os, re
 from pathlib import Path
 
 registry_path = sys.argv[1]
-aios          = sys.argv[2]
+rein          = sys.argv[2]
 
 # Load registry allowed-tools per server
 available_tools = {}
@@ -4457,11 +4457,11 @@ def is_available(tool):
 
 # Scan all agent + skill .md files
 search_paths = [
-    Path(aios) / "claude" / "agents",
-    Path(aios) / "claude" / "skills",
-    Path(aios) / "shared" / "skills",
+    Path(rein) / "claude" / "agents",
+    Path(rein) / "claude" / "skills",
+    Path(rein) / "shared" / "skills",
 ]
-# Also scan project-local if we're in an AI-OS project
+# Also scan project-local if we're in an Rein project
 if Path(".ai").exists():
     search_paths += [
         Path("src/claude/agents"),
@@ -4518,7 +4518,7 @@ ANTI_DRIFT_HEADER = "ANTI-DRIFT PROTOCOL"
 anti_drift_targets = []
 if Path(".ai").exists():
     anti_drift_targets += [Path("ENGINEER.md"), Path("ARCHITECT.md")]
-anti_drift_targets += [Path(aios) / "claude" / "CLAUDE.md"]
+anti_drift_targets += [Path(rein) / "claude" / "CLAUDE.md"]
 seen_targets = set()
 for t in anti_drift_targets:
     if t in seen_targets or not t.exists():
@@ -4564,7 +4564,7 @@ PY
 #      to a hung one. Nothing tells an operator less than a silent process.
 _install_browsers() {
   local sdir="$1"
-  local budget="${AI_OS_BROWSER_TIMEOUT:-600}"
+  local budget="${REIN_BROWSER_TIMEOUT:-600}"
   echo "  Installing Playwright Chromium (bounded to ${budget}s; ~150MB download)..."
 
   ( cd "$sdir" && npx playwright install chromium ) &
@@ -4582,14 +4582,14 @@ _install_browsers() {
   else
     echo "  ✗ Chromium install did not complete (exit ${rc}; budget ${budget}s)." >&2
     echo "    The vibe-check tools will report [BROWSER_MISSING] until it succeeds." >&2
-    echo "    Retry: ai mcp-setup --browsers    (raise the budget: AI_OS_BROWSER_TIMEOUT=1800)" >&2
+    echo "    Retry: ai mcp-setup --browsers    (raise the budget: REIN_BROWSER_TIMEOUT=1800)" >&2
   fi
   return 0   # never fail the install over an optional browser
 }
 
 do_mcp_setup() {
-  local MCP_DIR="${AIOS}/mcp"
-  local REGISTRY="${AIOS}/config/registry.json"
+  local MCP_DIR="${REIN}/mcp"
+  local REGISTRY="${REIN}/config/registry.json"
 
   if ! command -v node &>/dev/null; then
     echo "✗ Node.js not found — required for MCP servers. Install: brew install node"
@@ -4629,7 +4629,7 @@ for name, info in d.get('mcp_servers', {}).items():
 
   # E-235: explicit opt-in, so the default install never blocks on a browser download.
   local WANT_BROWSERS=0
-  [[ "${AI_OS_INSTALL_BROWSERS:-0}" == "1" ]] && WANT_BROWSERS=1
+  [[ "${REIN_INSTALL_BROWSERS:-0}" == "1" ]] && WANT_BROWSERS=1
   local _a
   for _a in "$@"; do
     [[ "$_a" == "--browsers" ]] && WANT_BROWSERS=1
@@ -4647,12 +4647,12 @@ for name, info in d.get('mcp_servers', {}).items():
       # E-235 (D-061 §3): the browser download is NO LONGER part of the default install.
       #
       # `npx playwright install chromium` is an unbounded ~150MB network fetch. On
-      # 2026-09-09 it ran for over an HOUR here without finishing — inside install-ai-os.sh,
+      # 2026-09-09 it ran for over an HOUR here without finishing — inside install-rein.sh,
       # which every user install and every CI run depends on. The `|| true` that used to
       # wrap it gave no protection whatsoever: the failure mode is HANGING, not erroring,
       # and you cannot `|| true` your way out of a process that never returns.
       #
-      # Opt in with `ai mcp-setup --browsers`, or AI_OS_INSTALL_BROWSERS=1 to restore the
+      # Opt in with `ai mcp-setup --browsers`, or REIN_INSTALL_BROWSERS=1 to restore the
       # old behaviour. Missing browsers now produce a clear [BROWSER_MISSING] rejection at
       # first use rather than a hang.
       if [[ "$server" == "vibe-check-mcp" ]]; then
@@ -4698,27 +4698,27 @@ for name, info in d.get('mcp_servers', {}).items():
   echo "  Registry: ${REGISTRY}"
 }
 
-# E-34: Remove the global AI-OS install. Project .ai/ directories are
-# untouched; only ~/.ai-os/ (the shared install root) is deleted. PATH and
+# E-34: Remove the global Rein install. Project .ai/ directories are
+# untouched; only ~/.rein/ (the shared install root) is deleted. PATH and
 # user config (~/.claude) are flagged for manual cleanup since
 # they may contain unrelated user data.
 do_uninstall() {
-  if [[ ! -d "$AIOS" ]]; then
-    echo "✗ ${AIOS} not found — nothing to uninstall."
+  if [[ ! -d "$REIN" ]]; then
+    echo "✗ ${REIN} not found — nothing to uninstall."
     exit 0
   fi
 
   cat <<WARN
-About to remove: ${AIOS}
+About to remove: ${REIN}
 
 Will be deleted:
-  ${AIOS}/        (bin, mcp/, hooks/, templates/, config/, agents/, skills/)
+  ${REIN}/        (bin, mcp/, hooks/, templates/, config/, agents/, skills/)
 
 Will NOT be touched (manual cleanup):
   ~/.claude/      (your Claude settings + agents — may contain unrelated data)
   ~/.config/github-copilot/
   any project's .ai/, .mcp.json, .git/hooks/pre-commit, .git/hooks/pre-push
-  PATH entry in your shell rc (you must remove ~/.ai-os/bin manually)
+  PATH entry in your shell rc (you must remove ~/.rein/bin manually)
 
 WARN
   read -r -p "Type 'uninstall' to confirm: " ANSWER
@@ -4727,14 +4727,14 @@ WARN
     exit 1
   fi
 
-  rm -rf "$AIOS"
-  echo "✓ Removed ${AIOS}"
+  rm -rf "$REIN"
+  echo "✓ Removed ${REIN}"
   echo ""
   echo "Manual cleanup steps:"
-  echo "  1. Edit ~/.zshrc or ~/.bashrc and remove:  export PATH=\"\$HOME/.ai-os/bin:\$PATH\""
-  echo "  2. Review ~/.claude/agents/ for AI-OS-specific files"
+  echo "  1. Edit ~/.zshrc or ~/.bashrc and remove:  export PATH=\"\$HOME/.rein/bin:\$PATH\""
+  echo "  2. Review ~/.claude/agents/ for Rein-specific files"
   echo "  3. In each project: \`rm .git/hooks/pre-commit\` if it sources hooks/pre-commit.sh"
-  echo "  4. In each project: \`rm .git/hooks/pre-push\` — the local CI stub fails closed, so it blocks every push once ~/.ai-os is gone"
+  echo "  4. In each project: \`rm .git/hooks/pre-push\` — the local CI stub fails closed, so it blocks every push once ~/.rein is gone"
 }
 
 # E-198 (Ruling A / pending D-053): shell-native task creation. Persists the SAME
@@ -4750,7 +4750,7 @@ do_add_task() {
     return 1
   fi
   # Locate the helper relative to THIS script first (BASH_SOURCE-derived, resolves in
-  # both the dev tree and the ~/.ai-os install), then the install mirror, then cwd —
+  # both the dev tree and the ~/.rein install), then the install mirror, then cwd —
   # the same locator chain as the plugin/mcp-tester
   # helpers. (run_review's deterministic PATH_TRAVERSAL heuristic flags the `../` here
   # and in the helper's relative import; both are static, safe paths — advisory only,
@@ -4796,8 +4796,8 @@ fi
 # It does four things, then exec()s the provider CLI:
 #   1. resolves role -> provider (+ optional model) from .ai/roles.json
 #   2. builds the provider's `launch` argv from .ai/providers.json
-#   3. exports AI_OS_PANE_ROLE + AI_OS_CALLER_ROLE into the launch environment
-#      (session-start.sh mints the E-129 token from AI_OS_PANE_ROLE)
+#   3. exports REIN_PANE_ROLE + REIN_CALLER_ROLE into the launch environment
+#      (session-start.sh mints the E-129 token from REIN_PANE_ROLE)
 #   4. sets the pane's @ai_os_role option and pins its title to the role (E-209), so
 #      `ai start --status` reports it instead of a drifting summary title
 #
@@ -4823,7 +4823,7 @@ _start_config() {
   local ai_dir="$1" cfg="${1}/start.json"
   # E-252 (D-068): `session` is now an OVERRIDE, not a default. It defaults to EMPTY so the
   # caller can tell "the operator pinned a name" from "derive one from the project" — with
-  # a literal "aios" default those two were indistinguishable, which is how every project
+  # a literal "rein" default those two were indistinguishable, which is how every project
   # ended up in one shared session.
   local session="" layout="triad" main="50" account=""
   local lcfg="${1}/start.local.json" lparsed=""
@@ -4977,7 +4977,7 @@ do_start() {
 
   local ai_dir; ai_dir="$(_find_ai_dir)"
   if [[ ! -d "$ai_dir" ]]; then
-    echo "ai start: not inside an AI-OS project (.ai/ not found). Run 'ai init' first." >&2
+    echo "ai start: not inside an Rein project (.ai/ not found). Run 'ai init' first." >&2
     return 2
   fi
 
@@ -5054,7 +5054,7 @@ do_start() {
   # creates an account; an unregistered name exits 2 with the `ai account add` recipe.
   if ! declare -F _account_dir >/dev/null; then
     [[ -z "$want_account" && -z "$account" ]] \
-      || { echo "ai start: ai-account.sh is missing beside ai — run: bash install-ai-os.sh" >&2; return 2; }
+      || { echo "ai start: ai-account.sh is missing beside ai — run: bash install-rein.sh" >&2; return 2; }
   elif [[ -n "$want_account" ]]; then
     _account_dir "$want_account" >/dev/null || return 2
     if [[ "$dry" -eq 1 ]]; then
@@ -5106,12 +5106,12 @@ do_start() {
   # symbolic `pane<N>` placeholders instead, because in that mode no panes exist; it shows
   # the COMPOSITION (which command reaches which pane, in order), and the live smoke is
   # what asserts real tmux behaviour.
-  # A pre-D-068 window inside the shared `aios` session is reused IN PLACE — an operator
+  # A pre-D-068 window inside the shared `rein` session is reused IN PLACE — an operator
   # mid-sprint does not get their layout torn down by an upgrade — but they are told once
   # how to move it, because until they do, this project still shares a current window with
   # every other project in that session.
   if [[ "$dry" -eq 0 && "$session_origin" == "legacy" ]]; then
-    echo "ai start: reusing legacy shared window aios:${window} — run 'ai start --kill' then"
+    echo "ai start: reusing legacy shared window rein:${window} — run 'ai start --kill' then"
     echo "  'ai start' to move this project to its own session '$(_start_session_name "$project" "$explicit_session")'."
   fi
 
@@ -5146,9 +5146,9 @@ do_start() {
     # layout, and the operator is TOLD that ownership could not be recorded rather than
     # silently getting name-only behaviour.
     if [[ "$_created_session" -eq 1 ]]; then
-      _run set-environment -t "$session" AI_OS_PROJECT "$project"
+      _run set-environment -t "$session" REIN_PROJECT "$project"
       if [[ "$dry" -eq 0 ]] && [[ "$(_start_session_stamp "$session")" != "$project" ]]; then
-        echo "ai start: could not stamp session '${session}' with AI_OS_PROJECT — this tmux" >&2
+        echo "ai start: could not stamp session '${session}' with REIN_PROJECT — this tmux" >&2
         echo "  may predate set-environment. Falling back to name-only lookup; --status and" >&2
         echo "  --kill will find this session by name only." >&2
       fi
@@ -5247,19 +5247,19 @@ do_start() {
 
 # ── E-252 (D-068): one tmux session per project ───────────────────────────────
 #
-# `ai start` used to put every project into ONE shared session (`aios`), one window each.
+# `ai start` used to put every project into ONE shared session (`rein`), one window each.
 # A tmux session has a single CURRENT WINDOW shared by every attached client, so `ai start`
 # in project B flipped the terminal that was showing project A; the window was found by
 # NAME ONLY, so two checkouts with the same basename shared one window and a renamed window
 # was recreated beside the old one.
 #
 # THE STAMP IS THE IDENTITY; THE NAME IS A LABEL. Each session `ai start` creates carries
-# `AI_OS_PROJECT=<pwd -P of the project>` in its session environment. Discovery reads the
+# `REIN_PROJECT=<pwd -P of the project>` in its session environment. Discovery reads the
 # stamp back, so reuse, `--status` and `--kill` find the project's session even when the
 # NAME had to be suffixed — and a foreign session that merely shares a name is never
 # adopted, which is the injection path this closes from the launcher side.
 #
-# Rollback: AI_OS_SHARED_SESSION=1 restores the single `aios` session.
+# Rollback: REIN_SHARED_SESSION=1 restores the single `rein` session.
 
 # _start_session_name <project> <explicit-or-empty> → the session name to use.
 #
@@ -5271,7 +5271,7 @@ do_start() {
 _start_session_name() {
   local project="$1" explicit="${2:-}"
   if [[ -n "$explicit" ]]; then printf '%s' "$explicit"; return 0; fi
-  if [[ "${AI_OS_SHARED_SESSION:-0}" == "1" ]]; then printf 'aios'; return 0; fi
+  if [[ "${REIN_SHARED_SESSION:-0}" == "1" ]]; then printf 'rein'; return 0; fi
 
   local n
   n="$(printf '%s' "$(basename "$project")" | LC_ALL=C sed 's/[^A-Za-z0-9_-]/-/g')"
@@ -5279,15 +5279,15 @@ _start_session_name() {
   # like `--weird` would keep a leading dash and be read by tmux as a flag.
   while [[ "$n" == [-_]* ]]; do n="${n#?}"; done
   n="${n:0:32}"
-  [[ -z "$n" ]] && n="aios"
+  [[ -z "$n" ]] && n="rein"
   printf '%s' "$n"
 }
 
-# _start_session_stamp <session> → the AI_OS_PROJECT value, or "".
+# _start_session_stamp <session> → the REIN_PROJECT value, or "".
 # `show-environment` prints `-NAME` for a variable that is explicitly unset, so the match is
 # anchored on `NAME=` and that form yields nothing rather than a bogus value.
 _start_session_stamp() {
-  tmux show-environment -t "$1" AI_OS_PROJECT 2>/dev/null | sed -n 's/^AI_OS_PROJECT=//p' | head -1
+  tmux show-environment -t "$1" REIN_PROJECT 2>/dev/null | sed -n 's/^REIN_PROJECT=//p' | head -1
 }
 
 # _start_find_session <project> → the session whose stamp equals this project, or "".
@@ -5324,15 +5324,15 @@ _start_session_suffix() {
 # _start_legacy_window <basename> <project> → the @id of a live pre-D-068 window, or "".
 #
 # Idempotency for an operator mid-sprint: a window named after the project inside the old
-# shared `aios` session is adopted IN PLACE rather than abandoned. A matching name is not
+# shared `rein` session is adopted IN PLACE rather than abandoned. A matching name is not
 # enough — at least one pane must actually be rooted in this project, or `ai start` in a
 # same-named checkout would hijack the other one's window, which is the bug this task is
 # fixing rather than a shape of it to preserve.
 _start_legacy_window() {
   local window="$1" project="$2"
-  tmux has-session -t aios 2>/dev/null || { printf ''; return 0; }
+  tmux has-session -t rein 2>/dev/null || { printf ''; return 0; }
   local wid
-  wid="$(tmux list-windows -t aios -F '#{window_id} #{window_name}' 2>/dev/null \
+  wid="$(tmux list-windows -t rein -F '#{window_id} #{window_name}' 2>/dev/null \
          | awk -v n="$window" '$2 == n { print $1; exit }')"
   [[ -n "$wid" ]] || { printf ''; return 0; }
   local p
@@ -5353,7 +5353,7 @@ _start_resolve_session() {
   local project="$1" window="$2" explicit="${3:-}"
   local found; found="$(_start_find_session "$project")"
   if [[ -n "$found" ]]; then printf '%s|owned' "$found"; return 0; fi
-  if [[ -n "$(_start_legacy_window "$window" "$project")" ]]; then printf 'aios|legacy'; return 0; fi
+  if [[ -n "$(_start_legacy_window "$window" "$project")" ]]; then printf 'rein|legacy'; return 0; fi
   local name; name="$(_start_session_name "$project" "$explicit")"
   if ! _start_session_free "$name" "$project"; then
     name="$(_start_session_suffix "$name" "$project")"
@@ -5480,7 +5480,7 @@ do_pane() {
 
   local ai_dir; ai_dir="$(_find_ai_dir)"
   if [[ ! -d "$ai_dir" ]]; then
-    echo "ai pane: not inside an AI-OS project (.ai/ not found). Run 'ai init' first." >&2
+    echo "ai pane: not inside an Rein project (.ai/ not found). Run 'ai init' first." >&2
     return 2
   fi
   # E-327 (D-102 §3): the planner rule is enforced by add_task; this is the one-line notice.
@@ -5504,7 +5504,7 @@ do_pane() {
   python3 -I "$_lr" nested "$$" >&2 || _lr_rc=$?
   if [[ "$_lr_rc" -ne 0 ]]; then
     if [[ "$_lr_rc" -eq 3 ]]; then
-      echo "[PANE_NESTED] ai pane: refusing to launch inside an existing AI-OS session — open a new terminal pane and run it there." >&2
+      echo "[PANE_NESTED] ai pane: refusing to launch inside an existing Rein session — open a new terminal pane and run it there." >&2
     else
       echo "ai pane: could not check the process chain (rc ${_lr_rc}) — refusing." >&2
     fi
@@ -5586,7 +5586,7 @@ do_pane() {
   _acct="${_pcfg##*|}"
   if [[ -n "$_acct" && "$provider" == "claude" ]]; then
     if ! declare -F _account_dir >/dev/null; then
-      echo "ai pane: ai-account.sh is missing beside ai — run: bash install-ai-os.sh" >&2
+      echo "ai pane: ai-account.sh is missing beside ai — run: bash install-rein.sh" >&2
       return 2
     fi
     _acct_dir="$(_account_dir "$_acct")" || { echo "ai pane: refusing to launch ${role} under account '${_acct}'." >&2; return 2; }
@@ -5638,10 +5638,10 @@ do_pane() {
     echo "ai pane: could not write the launch record (rc ${_lr_rc}) — refusing to launch." >&2
     return 2
   fi
-  # AI_OS_PANE_ROLE / AI_OS_CALLER_ROLE are ADVISORY now (prompts, advisor, handoff routing,
+  # REIN_PANE_ROLE / REIN_CALLER_ROLE are ADVISORY now (prompts, advisor, handoff routing,
   # pre-commit's restrict-only row 4) — no gate reads them (D-087 r3).
-  export AI_OS_PANE_ROLE="$role"
-  export AI_OS_CALLER_ROLE="$role"
+  export REIN_PANE_ROLE="$role"
+  export REIN_CALLER_ROLE="$role"
   # E-315: after the launch record, immediately before exec — default inherits the shell's own.
   if [[ -n "$_acct_dir" ]]; then
     echo "ai pane: account '${_acct}' ($(_acct_tilde "$_acct_dir"))"
@@ -5683,7 +5683,7 @@ _locate_resolve_launch() {
 #
 # GitHub-hosted CI gave us three things a bare `bash tests/run.sh` on a laptop does not: a
 # CLEAN CHECKOUT (uncommitted files are invisible), a FRESH MIRROR installed from the
-# commit under test (not the laptop's lagging ~/.ai-os), and a RECORD. This runner
+# commit under test (not the laptop's lagging ~/.rein), and a RECORD. This runner
 # reproduces the first two and writes the log the third is built from (E-266 adds the row).
 #
 # Isolation is by construction, not by list: the steps run under `env -i` with a curated
@@ -5705,7 +5705,7 @@ Usage: ai ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--lane
        ai ci budget [set --ruling D-### <field>=<n> …]
 
   hosted         Render the hosted trunk check for the provider (github; azure, gitlab,
-                 bitbucket are planned — D-103): exactly two steps, bootstrap AI-OS then
+                 bitbucket are planned — D-103): exactly two steps, bootstrap Rein then
                  'ai ci run' on the merge result. The provider is the argument, else
                  .ai/team.json ci, else the origin host. --check exits 1 when the file is not
                  the current rendering; an existing differing file needs --force. Prints the
@@ -5713,7 +5713,7 @@ Usage: ai ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--lane
   evals          Run the core-skill evals (tests/suites/skill_evals_test.sh, E-285) under
                  YOUR HOME — the model needs your claude login, which a run's throwaway
                  HOME never has. Needs a clean tree outside .ai/; the JSON report is kept
-                 as ~/.ai-os/ci/evals/<sha>.json and 'ai ci log' prints its path.
+                 as ~/.rein/ci/evals/<sha>.json and 'ai ci log' prints its path.
   --ref <rev>    Commit to test (default HEAD). Tested in a detached git worktree, so
                  uncommitted files are invisible to the run.
   --dirty        Test HEAD plus the working tree's uncommitted changes (the run is
@@ -5736,10 +5736,10 @@ service this machine runs differently (a port, a local URL) is listed in the git
 .ai/ci.local.json — {"env": ["NAME", "NAME=value"]}: a bare NAME passes your shell's value
 through (never written to the file or the log; unset = skipped), NAME=value sets a literal.
 The env step names what was added (env ok … +NAME). Reserved, refused as ERROR with
-[CI_ENV_RESERVED]: PATH HOME TMPDIR SHELL TERM USER LOGNAME LANG CI TMUX, AI_OS_*,
+[CI_ENV_RESERVED]: PATH HOME TMPDIR SHELL TERM USER LOGNAME LANG CI TMUX, REIN_*,
 npm_config_*, PLAYWRIGHT_* and the pane launch variables. A hosted run never sees the file.
 
-run exit: 0 PASS, 1 FAIL, 2 ERROR. Logs: ~/.ai-os/ci/logs/ (newest 14 runs, 14 days).
+run exit: 0 PASS, 1 FAIL, 2 ERROR. Logs: ~/.rein/ci/logs/ (newest 14 runs, 14 days).
 status exit: 0 PASS, 1 FAIL/ERROR/SKIPPED, 2 no certifying run (none, or dirty/shard only).
 After a full PASS it writes tests/census-baseline.tsv (E-386) when the committed one is
 missing or older than 30 full runs — commit it: a fresh hosted runner packs its lanes by it.
@@ -5803,9 +5803,9 @@ _ci_evals() {
     return 2
   fi
   sha="$(git -C "$root" rev-parse HEAD)"
-  dir="${AIOS}/ci/evals"; report="${dir}/${sha}.json"
+  dir="${REIN}/ci/evals"; report="${dir}/${sha}.json"
   mkdir -p "$dir" && rm -f "$report"
-  AI_OS_SKILL_EVAL_REPORT="$report" bash "${root}/tests/suites/skill_evals_test.sh" || rc=$?
+  REIN_SKILL_EVAL_REPORT="$report" bash "${root}/tests/suites/skill_evals_test.sh" || rc=$?
   if [[ ! -f "$report" ]]; then
     echo "ai ci evals: no report for ${sha:0:7} — the live layer did not run (see SKIPPED above)"
     return $(( rc ? 1 : 2 ))
@@ -5821,7 +5821,7 @@ _ci_hosted() {
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "ai ci hosted: not inside a git repository" >&2; return 2; }
   helper="$(_ai_os_helper shared/hosted-ci.mjs || true)"
   [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || {
-    echo "ai ci hosted: hosted-ci.mjs or node unavailable — run: bash install-ai-os.sh" >&2; return 2; }
+    echo "ai ci hosted: hosted-ci.mjs or node unavailable — run: bash install-rein.sh" >&2; return 2; }
   node --no-warnings "$helper" --root "$root" "$@"
 }
 
@@ -5855,13 +5855,13 @@ _ci_fail_tail() {
   tail -20 "$CI_LOG" | sed 's/^/  | /'
 }
 
-# _ci_clean_path — the caller's PATH minus any entry inside the operator's ~/.ai-os: the run
+# _ci_clean_path — the caller's PATH minus any entry inside the operator's ~/.rein: the run
 # must use the mirror it installed from the commit under test, never the laptop's.
 _ci_clean_path() {
   local out="" p
   local IFS=':'
   for p in $PATH; do
-    [[ -z "$p" || "$p" == "${AIOS}" || "$p" == "${AIOS}/"* ]] && continue
+    [[ -z "$p" || "$p" == "${REIN}" || "$p" == "${REIN}/"* ]] && continue
     out="${out:+${out}:}${p}"
   done
   printf '%s' "$out"
@@ -5889,7 +5889,7 @@ _ci_lock_acquire() {
 }
 
 # _ci_wall_hints → the newest log of THIS project carrying CENSUS_SUITE lines (the runner's
-# throwaway HOME cannot see ~/.ai-os/ci/logs), for longest-first lane placement (E-309).
+# throwaway HOME cannot see ~/.rein/ci/logs), for longest-first lane placement (E-309).
 # _ci_host_class → "hosted:<provider>" on a hosted runner (its own environment markers; CI=true
 # alone → hosted:ci), else "local". E-386 (D-135 r1): every core is a lane on a hosted runner.
 # The markers are in the E-343 reserved set, so .ai/ci.local.json cannot claim "hosted".
@@ -5928,7 +5928,7 @@ _ci_wall_hints() {
   local f
   # The log directory is machine-wide: a log from another project's run (its own suites,
   # its own names) is skipped by its [ci] repo= line.
-  for f in $(ls -1t "${CI_LOGDIR:-${HOME}/.ai-os/ci/logs}"/*.log 2>/dev/null | head -20); do
+  for f in $(ls -1t "${CI_LOGDIR:-${HOME}/.rein/ci/logs}"/*.log 2>/dev/null | head -20); do
     grep -qxF "[ci] repo=${CI_ROOT:-}" "$f" 2>/dev/null || continue
     grep -q '^CENSUS_SUITE' "$f" 2>/dev/null && { echo "$f"; return 0; }
   done
@@ -5941,8 +5941,8 @@ _ci_wall_hints() {
 # CI_LOCAL_NOTE (names only — never a value) and CI_LOCAL_ERR; returns 2 on an error. Called as
 # a plain command (it sets state — D-064 §2). The reserved names mirror tests/lib/launch-vars.sh
 # LAUNCH_VARS (E-264); ai_ci_test.sh fails when the two lists drift.
-CI_ENV_RESERVED_NAMES="PATH HOME TMPDIR SHELL TERM USER LOGNAME LANG CI TMUX AI_OS_PANE_ROLE AI_OS_CALLER_ROLE AIOS_WORKSPACE CLAUDE_CONFIG_DIR"
-CI_ENV_RESERVED_PREFIXES="AI_OS_ npm_config_ PLAYWRIGHT_"
+CI_ENV_RESERVED_NAMES="PATH HOME TMPDIR SHELL TERM USER LOGNAME LANG CI TMUX REIN_PANE_ROLE REIN_CALLER_ROLE REIN_WORKSPACE CLAUDE_CONFIG_DIR"
+CI_ENV_RESERVED_PREFIXES="REIN_ npm_config_ PLAYWRIGHT_"
 _ci_local_env() {
   CI_LOCAL_ENV=(); CI_LOCAL_NOTE=""; CI_LOCAL_ERR=""
   local file="${1}/.ai/ci.local.json" kind name val
@@ -6038,7 +6038,7 @@ _ci_run() {
   sha="$(git -C "$root" rev-parse --verify --quiet "${ref}^{commit}")" || {
     echo "ai ci run: '${ref}' is not a commit in ${root}" >&2; return 2; }
 
-  local ci_home="${AIOS}/ci"
+  local ci_home="${REIN}/ci"
   mkdir -p "${ci_home}/logs" "${ci_home}/cache/npm" "${ci_home}/cache/ms-playwright" || {
     echo "ai ci run: cannot create ${ci_home}" >&2; return 2; }
   # E-336 (D-103): Azure Pipelines cannot expand $HOME in a task input, so the hosted wrapper's
@@ -6047,7 +6047,7 @@ _ci_run() {
   # one line.
   if [[ "${TF_BUILD:-}" == "True" ]]; then
     local _azlog="${ci_home}/logs"; _azlog="${_azlog//[$'\r\n']/}"
-    printf '##vso[task.setvariable variable=AI_OS_CI_LOG_DIR]%s\n' "$_azlog"
+    printf '##vso[task.setvariable variable=REIN_CI_LOG_DIR]%s\n' "$_azlog"
   fi
 
   # One lock per project, keyed by the repository path.
@@ -6062,7 +6062,7 @@ _ci_run() {
   t0="$(date +%s)"
   CI_LOG="${ci_home}/logs/${sha}-${started}.log"
   local tmpbase="${TMPDIR:-/tmp}"
-  work="$(mktemp -d "${tmpbase%/}/ai-os-ci.XXXXXX")" || {
+  work="$(mktemp -d "${tmpbase%/}/rein-ci.XXXXXX")" || {
     rm -rf "$lock"; echo "ai ci run: mktemp failed" >&2; return 2; }
   # PHYSICAL path. macOS TMPDIR is /var/folders/…, a symlink to /private/var/folders/…, and
   # the node helpers' "am I the main module?" checks compare argv[1] against the resolved
@@ -6080,7 +6080,7 @@ _ci_run() {
   trap '_ci_cleanup; exit 130' INT TERM
 
   {
-    echo "[ci] ai ci run — AI-OS ${VERSION}"
+    echo "[ci] ai ci run — Rein ${VERSION}"
     echo "[ci] sha=${sha} ref=${ref} dirty=${dirty} started_at=${started_iso}"
     [[ -n "$shard" ]] && echo "[ci] shard ${shard}"
     echo "[ci] repo=${root}"
@@ -6129,12 +6129,12 @@ _ci_run() {
     "LOGNAME=${LOGNAME:-$(id -un)}"
     "SHELL=/bin/bash"
     "TERM=dumb"
-    "AI_OS_CI=local"
+    "REIN_CI=local"
     "PLAYWRIGHT_BROWSERS_PATH=${ci_home}/cache/ms-playwright"
     "npm_config_cache=${ci_home}/cache/npm"
     ${CI_LOCAL_ENV[@]+"${CI_LOCAL_ENV[@]}"}
   )
-  _ci_step env ok "HOME=${ci_homedir} AI_OS_CI=local${CI_LOCAL_NOTE}"
+  _ci_step env ok "HOME=${ci_homedir} REIN_CI=local${CI_LOCAL_NOTE}"
   _ci_step load info "start: $(_ci_load)"
 
   # ── deps ──
@@ -6174,12 +6174,12 @@ _ci_run() {
   fi
 
   # ── install ── the mirror under test is built from the commit under test.
-  if [[ -f "${CI_WT}/install-ai-os.sh" ]]; then
-    _ci_exec install bash install-ai-os.sh || {
-      _ci_step install ERROR "install-ai-os.sh failed"; _ci_fail_tail; _ci_finish ERROR "$sha" "$t0"; return 2; }
-    _ci_step install ok "${ci_homedir}/.ai-os"
+  if [[ -f "${CI_WT}/install-rein.sh" ]]; then
+    _ci_exec install bash install-rein.sh || {
+      _ci_step install ERROR "install-rein.sh failed"; _ci_fail_tail; _ci_finish ERROR "$sha" "$t0"; return 2; }
+    _ci_step install ok "${ci_homedir}/.rein"
   else
-    _ci_step install skip "no install-ai-os.sh"
+    _ci_step install skip "no install-rein.sh"
   fi
 
   # ── toolchain ──
@@ -6196,10 +6196,10 @@ _ci_run() {
   if [[ "$do_suite" -eq 1 && -f "${CI_WT}/tests/run.sh" ]]; then
     printf '\n[ci] ── suite: /bin/bash tests/run.sh\n' >> "$CI_LOG"
     set +e
-    # E-312 (D-093): no operator opt-out of the memory cap — AIOS_TEST_FREE_MB is the lane
+    # E-312 (D-093): no operator opt-out of the memory cap — REIN_TEST_FREE_MB is the lane
     # fixture's stand-in inside tests/run.sh only, and env -i keeps it from reaching the run.
-    local _ci_lane_env=(AIOS_TEST_LANES="$lanes" AIOS_TEST_LANES_AUTO="$lanes_auto" AIOS_TEST_WALL_HINTS="$(_ci_wall_hints)")
-    [[ -n "$shard" ]] && _ci_lane_env+=(AIOS_TEST_SHARD="$shard")
+    local _ci_lane_env=(REIN_TEST_LANES="$lanes" REIN_TEST_LANES_AUTO="$lanes_auto" REIN_TEST_WALL_HINTS="$(_ci_wall_hints)")
+    [[ -n "$shard" ]] && _ci_lane_env+=(REIN_TEST_SHARD="$shard")
     # E-310 (D-091): the suite step's peak resident memory, by the OS's own accounting —
     # /usr/bin/time -l (macOS, bytes) or GNU -v (Linux, kB) into a file of its own, so the
     # suite's stderr stays the suite's. Neither → recorded as skipped, with the reason.
@@ -6226,8 +6226,8 @@ _ci_run() {
     fi
     # The summary: every runner's shape (E-310 — a downstream project's vitest totals recorded pass=0),
     # read from the suite section only. A mirror that predates ci-summary.mjs falls back to
-    # the AI-OS line, as before.
-    local runner="aios" sumhelper totals
+    # the Rein line, as before.
+    local runner="rein" sumhelper totals
     sumhelper="$(_ai_os_helper shared/ci-summary.mjs || true)"
     if [[ -n "$sumhelper" ]] && command -v node >/dev/null 2>&1; then
       totals="$(node --no-warnings "$sumhelper" "$CI_LOG" --after "[ci] ── suite:" 2>/dev/null || true)"
@@ -6321,7 +6321,7 @@ _ci_run() {
 
   # ── secrets ── the workflow's .gitignore check, unchanged.
   local secrets_status="PASS"
-  # E-343: an AI-OS project's .ai/ci.local.json may carry literal values (ports, tokens) — never
+  # E-343: an Rein project's .ai/ci.local.json may carry literal values (ports, tokens) — never
   # committed. A repository without .ai/ has no such file to cover.
   local _sec=".env and node_modules" _ci_local_ok=0
   if [[ -d "${CI_WT}/.ai" ]]; then
@@ -6377,7 +6377,7 @@ _ci_record() {
     return 0
   fi
   node "${_CI_NODE_FLAGS[@]}" "$helper" record --ai-dir "${CI_ROOT}/.ai" --log "$CI_LOG" --prune-dir "$CI_LOGDIR" \
-    --aios-version "$VERSION" >/dev/null \
+    --rein-version "$VERSION" >/dev/null \
     || echo "ai ci: WARNING — the run was not recorded in ${CI_ROOT}/.ai/state.sqlite" >&2
 }
 
@@ -6412,7 +6412,7 @@ _ci_read() {
   local extra=()
   [[ "$short" -eq 1 ]] && extra+=(--short)
   [[ "$failed" -eq 1 ]] && extra+=(--failed)
-  [[ "$sub" == "log" ]] && extra+=(--evals-dir "${AIOS}/ci/evals")
+  [[ "$sub" == "log" ]] && extra+=(--evals-dir "${REIN}/ci/evals")
   node "${_CI_NODE_FLAGS[@]}" "$helper" "$sub" --ai-dir "${root}/.ai" --sha "$sha" ${extra[@]+"${extra[@]}"}
 }
 
@@ -6427,7 +6427,7 @@ Usage: ai clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]
        ai clean --restore <YYYY-MM-DD> [--yes]
        ai clean --purge [--older-than 30d]
 
-Lists what earlier AI-OS versions left behind (src/config/legacy-artefacts.json),
+Lists what earlier Rein versions left behind (src/config/legacy-artefacts.json),
 grouped by class, with the reason and the action it would take:
 
   safe      provably ours — reproducible from src/, or unmodified since we wrote it
@@ -6439,10 +6439,10 @@ grouped by class, with the reason and the action it would take:
   --project-only    this project only     --home-only  ~/ and the mirror only
   --json            machine-readable findings (the full list, uncollapsed)
 
-Nothing is deleted: removals MOVE to ~/.ai-os/trash/<date>/ with a manifest, and
+Nothing is deleted: removals MOVE to ~/.rein/trash/<date>/ with a manifest, and
 'ai clean --restore <date>' puts them back. 'ai clean --purge' empties old trash.
 Exit: 0 nothing (more) to do, 1 findings remain, 2 refused or a trash failure.
-Rollback: AI_OS_CLEAN_DISABLE=1 makes every form a report.
+Rollback: REIN_CLEAN_DISABLE=1 makes every form a report.
 CLEANUSAGE
 }
 
@@ -6529,7 +6529,7 @@ do_clean() {
   # count is captured first (never piped through the exit code) and an unreadable count
   # prompts rather than proceeds. Caught by ai_clean_test's "the refused run changed
   # nothing" assertion, which is why that assertion exists beside the exit-code one.
-  if [[ "$all" -eq 1 && "${AI_OS_CLEAN_DISABLE:-0}" != "1" ]]; then
+  if [[ "$all" -eq 1 && "${REIN_CLEAN_DISABLE:-0}" != "1" ]]; then
     local plan_json="" n_prompt=""
     plan_json="$(node "${_CI_NODE_FLAGS[@]}" "$helper" plan --scope "$scope" --json ${proj_args[@]+"${proj_args[@]}"} 2>/dev/null || true)"
     if [[ -n "$plan_json" ]] && command -v python3 >/dev/null 2>&1; then
@@ -6578,7 +6578,7 @@ case "$cmd" in
   # E-341 (D-105 r2): `ai trunk` — the project's trunk (team.json → origin/HEAD → main|master).
   state|task|team|log|trunk)
     _st="$(_ai_os_helper shared/cli-state.mjs || true)"
-    [[ -n "$_st" ]] || { echo "ai ${cmd}: cli-state.mjs not found (run: bash install-ai-os.sh)" >&2; exit 1; }
+    [[ -n "$_st" ]] || { echo "ai ${cmd}: cli-state.mjs not found (run: bash install-rein.sh)" >&2; exit 1; }
     command -v node >/dev/null 2>&1 || { echo "ai ${cmd}: node not found" >&2; exit 1; }
     node --no-warnings "$_st" "$cmd" "${@:2}" ;;
   # E-208 (role-abstraction.md §Same-Provider Triad): bind THIS tmux pane to a role
@@ -6587,7 +6587,7 @@ case "$cmd" in
   start)         do_start "${@:2}" ;;
   # E-314 (D-095, accounts.md): Claude accounts — one config directory per claude.ai login.
   account)
-    declare -F do_account >/dev/null || { echo "ai account: ai-account.sh is missing beside ai — run: bash install-ai-os.sh" >&2; exit 2; }
+    declare -F do_account >/dev/null || { echo "ai account: ai-account.sh is missing beside ai — run: bash install-rein.sh" >&2; exit 2; }
     do_account "${@:2}" ;;
   # E-265 (D-072, local-ci.md): local CI — tests a committed sha in an isolated worktree.
   ci)            do_ci "${@:2}" ;;
@@ -6602,10 +6602,10 @@ case "$cmd" in
   # the place to edit, so the exit says where rather than only that the command is gone.
   provider)
     echo "ai provider: removed in v4 — providers are configured in .ai/providers.json." >&2
-    echo "  AI-OS is Claude-native (D-069): one provider, three Claude roles." >&2
+    echo "  Rein is Claude-native (D-069): one provider, three Claude roles." >&2
     exit 2
     ;;
-  version|-v|--version) echo "ai-os ${VERSION}" ;;
+  version|-v|--version) echo "rein ${VERSION}" ;;
   ""|help|-h|--help) usage ;;
 
   # Deprecated user surface — removed, see .ai/blueprints/cli-collapse.md
@@ -6615,7 +6615,7 @@ case "$cmd" in
   archive)       _show_deprecated "archive" "skill: ai-archive" ;;
   review)        _show_deprecated "review" "skill: arch-review  (Architect codebase audit; ai-review was renamed in E-147)" ;;
   test)          _show_deprecated "test" "skill: ai-test  (use --vibe arg inside the skill for chaos audit)" ;;
-  where)         _show_deprecated "where" "echo \"\$HOME/.ai-os\"  (install root is fixed)" ;;
+  where)         _show_deprecated "where" "echo \"\$HOME/.rein\"  (install root is fixed)" ;;
 
   # Recovery helpers — documented under "Recovery" in usage(); also called by the
   # init/install paths directly and exercised by the test suites.

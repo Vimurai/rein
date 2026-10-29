@@ -6,7 +6,7 @@
 # `.claude/settings.json` `env` block can set PATH — so the visited project chose the
 # interpreter that runs the gate meant to stop it. The installer now decides instead: it
 # resolves the three tools ONCE, from the operator's own shell, checks each one, and writes
-# their absolute realpaths to ~/.ai-os/shared/toolchain.sh. The hooks read that file
+# their absolute realpaths to ~/.rein/shared/toolchain.sh. The hooks read that file
 # (src/shared/toolchain-pin.sh); they never consult an inherited PATH for an interpreter.
 #
 # Sourceable (functions only, no side effects) so the safety check is unit-testable.
@@ -90,11 +90,11 @@ ai_os_tc_write() {  # <file> <node> <python3> <nice>
   mkdir -p "$dir" || return 1
   tmp="$(mktemp "${dir}/.toolchain.XXXXXX")" || return 1
   {
-    echo "# Written by install-ai-os.sh (E-286). Parsed, never sourced, by the hooks."
-    echo "AI_OS_TC_NODE=$2"
-    echo "AI_OS_TC_PYTHON3=$3"
-    echo "AI_OS_TC_NICE=$4"
-    echo "AI_OS_TC_RECORDED=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "# Written by install-rein.sh (E-286). Parsed, never sourced, by the hooks."
+    echo "REIN_TC_NODE=$2"
+    echo "REIN_TC_PYTHON3=$3"
+    echo "REIN_TC_NICE=$4"
+    echo "REIN_TC_RECORDED=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   } > "$tmp" || { rm -f "$tmp"; return 1; }
   chmod 0644 "$tmp" && mv -f "$tmp" "$file"   # rename replaces a symlink, never follows it
 }

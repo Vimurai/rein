@@ -88,9 +88,9 @@ CENSUS_FP	exec_form_hooks_test.sh	1	bash	-c:hooks/post-commit
 CENSUS_FP	exec_form_hooks_test.sh	1	bash	-c:hooks/pre-commit
 CENSUS_FP	exec_form_hooks_test.sh	1	bash	-c:hooks/pre-push
 CENSUS_FP	exec_form_hooks_test.sh	4	bash	-p:hooks/post-tool-log.sh
-CENSUS_FP	exec_form_hooks_test.sh	1	bash	install-ai-os.sh
+CENSUS_FP	exec_form_hooks_test.sh	1	bash	install-rein.sh
 CENSUS_FP	exec_form_hooks_test.sh	7	bash	src/bin/ai
-CENSUS_FP	exec_form_hooks_test.sh	1	installer	install-ai-os.sh	tmp
+CENSUS_FP	exec_form_hooks_test.sh	1	installer	install-rein.sh	tmp
 CENSUS_FP	exec_form_hooks_test.sh	2	python3	-
 CENSUS_SUITE	gate_abort_test.sh	60209	85	0	8	0
 CENSUS_FP	gate_abort_test.sh	1	bash	-c:src/shared/locate.sh
@@ -153,18 +153,18 @@ CENSUS_FP	incident_tracker_test.sh	119	node	src/shared/incident-append.mjs
 CENSUS_FP	incident_tracker_test.sh	1	python3	-
 CENSUS_FP	incident_tracker_test.sh	2	python3	-c
 CENSUS_SUITE	init_upgrade_test.sh	97108	45	0	0	0
-CENSUS_FP	init_upgrade_test.sh	1	bash	install-ai-os.sh
+CENSUS_FP	init_upgrade_test.sh	1	bash	install-rein.sh
 CENSUS_FP	init_upgrade_test.sh	12	installer	ai init	tmp
-CENSUS_FP	init_upgrade_test.sh	1	installer	install-ai-os.sh	tmp
+CENSUS_FP	init_upgrade_test.sh	1	installer	install-rein.sh	tmp
 CENSUS_FP	init_upgrade_test.sh	1	node	-p
 CENSUS_FP	init_upgrade_test.sh	3	python3	-
 CENSUS_FP	init_upgrade_test.sh	13	python3	-c
 CENSUS_SUITE	installer_node_check_test.sh	35497	18	0	0	0
 CENSUS_FP	installer_node_check_test.sh	7	bash	-c
-CENSUS_FP	installer_node_check_test.sh	3	bash	install-ai-os.sh
-CENSUS_FP	installer_node_check_test.sh	1	installer	install-ai-os.sh	foreign
-CENSUS_FP	installer_node_check_test.sh	1	installer	install-ai-os.sh	foreign
-CENSUS_FP	installer_node_check_test.sh	1	installer	install-ai-os.sh	foreign
+CENSUS_FP	installer_node_check_test.sh	3	bash	install-rein.sh
+CENSUS_FP	installer_node_check_test.sh	1	installer	install-rein.sh	foreign
+CENSUS_FP	installer_node_check_test.sh	1	installer	install-rein.sh	foreign
+CENSUS_FP	installer_node_check_test.sh	1	installer	install-rein.sh	foreign
 CENSUS_SUITE	locator_policy_test.sh	27357	63	0	0	0
 CENSUS_FP	locator_policy_test.sh	23	bash	-c
 CENSUS_FP	locator_policy_test.sh	1	bash	-c:hooks/post-tool-use.sh
@@ -229,9 +229,9 @@ CENSUS_FP	meta_cognition_test.sh	2	bash	-c:src/shared/skills/ai-insights/SKILL.m
 CENSUS_FP	meta_cognition_test.sh	4	node	src/shared/insights-staleness.mjs
 CENSUS_FP	meta_cognition_test.sh	3	node	src/shared/telemetry.mjs
 CENSUS_SUITE	mirror_hygiene_test.sh	95853	55	0	0	0
-CENSUS_FP	mirror_hygiene_test.sh	3	bash	install-ai-os.sh
+CENSUS_FP	mirror_hygiene_test.sh	3	bash	install-rein.sh
 CENSUS_FP	mirror_hygiene_test.sh	1	installer	ai init	tmp
-CENSUS_FP	mirror_hygiene_test.sh	6	installer	install-ai-os.sh	tmp
+CENSUS_FP	mirror_hygiene_test.sh	6	installer	install-rein.sh	tmp
 CENSUS_FP	mirror_hygiene_test.sh	1	python3	-
 CENSUS_FP	mirror_hygiene_test.sh	3	python3	-c
 CENSUS_SUITE	node_unit_test.sh	33938	2220	0	0	0

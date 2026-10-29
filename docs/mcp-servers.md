@@ -1,7 +1,7 @@
 # MCP servers
 
 Rein ships 16 local MCP servers and wires two third-party ones. `ai sync` writes them into the
-project's `.mcp.json` from `~/.ai-os/config/registry.json`; servers you add yourself are kept.
+project's `.mcp.json` from `~/.rein/config/registry.json`; servers you add yourself are kept.
 They run as local processes over stdio — nothing listens on a port.
 
 ## State and orchestration

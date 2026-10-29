@@ -4,7 +4,7 @@
 // module get_ci_status and the E-267 gates read — so the shell view and the MCP view
 // cannot drift.
 //
-//   node ci-record.mjs record  --ai-dir <d> --log <path> [--prune-dir <d>] [--aios-version <v>]
+//   node ci-record.mjs record  --ai-dir <d> --log <path> [--prune-dir <d>] [--rein-version <v>]
 //   node ci-record.mjs status  --ai-dir <d> --sha <sha> [--short]   exit 0 PASS / 1 not green / 2 no certifying row
 //
 // E-328 (D-102 §5a): in a team project `record` also writes the tracked .ai/ci/<sha>.json,
@@ -121,7 +121,7 @@ export function run(argv) {
       // E-328: a team project also gets the portable .ai/ci/<sha>.json (counts only).
       const row = db.prepare("SELECT * FROM ci_runs WHERE id = ?").get(id);
       const suites = (readFileSync(o.log, "utf8").match(/^CENSUS_SUITE\t/gm) || []).length || null;
-      const ev = writeCiRecord(resolve(o["ai-dir"]), row, { suites, aiosVersion: o["aios-version"] });
+      const ev = writeCiRecord(resolve(o["ai-dir"]), row, { suites, reinVersion: o["rein-version"] });
       for (const w of ev.warnings) process.stderr.write(`${w}\n`);
       if (ev.written) process.stderr.write(`ai ci: wrote .ai/ci/${row.sha}.json — commit it so the team sees this run\n`);
       else if (ev.path) process.stderr.write(`ai ci: .ai/ci/${row.sha.slice(0, 7)}….json not replaced — ${ev.reason}\n`);
@@ -145,7 +145,7 @@ export function run(argv) {
       } else if (rec) {
         process.stdout.write([
           `CI: ${rec.verdict} ${rec.sha.slice(0, 7)} — certified by the team record .ai/ci/${rec.sha}.json`,
-          `  runner:   ${rec.runner} on ${rec.host || "?"} (ai-os ${rec.aios_version || "?"})`,
+          `  runner:   ${rec.runner} on ${rec.host || "?"} (rein ${rec.rein_version || "?"})`,
           `  started:  ${rec.started} (${ageOf(rec.started)})${rec.finished ? `, finished ${rec.finished}` : ""}`,
           `  suite:    ${_suite(v.row)}${rec.suites != null ? ` in ${rec.suites} suites` : ""}`,
         ].join("\n") + "\n");
@@ -245,13 +245,13 @@ export function run(argv) {
       else why = "no run for it or for a tested ancestor";
       process.stderr.write(
         `[CI_GATE] ${label}: no green local CI run for ${sha7} (${why}) — run: ai ci run, ` +
-        "or AI_OS_CI_SKIP=1 AI_OS_CI_SKIP_REASON=\"<why>\" git push\n");
+        "or REIN_CI_SKIP=1 REIN_CI_SKIP_REASON=\"<why>\" git push\n");
       return 1;
     }
     case "skip": {
       const reason = String(o.reason || "").trim();
       if (!reason) {
-        process.stderr.write("[CI_GATE] AI_OS_CI_SKIP=1 needs AI_OS_CI_SKIP_REASON=\"<why>\" — a skip is recorded, never silent\n");
+        process.stderr.write("[CI_GATE] REIN_CI_SKIP=1 needs REIN_CI_SKIP_REASON=\"<why>\" — a skip is recorded, never silent\n");
         return 1;
       }
       const db = _db(o["ai-dir"]);

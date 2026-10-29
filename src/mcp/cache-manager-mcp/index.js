@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
- * cache-manager-mcp — AI-OS Explicit Context Cache (E-11)
+ * cache-manager-mcp — Rein Explicit Context Cache (E-11)
  *
- * Assembles and persists a "System Context" blob from the AI-OS blueprint
+ * Assembles and persists a "System Context" blob from the Rein blueprint
  * files so agents can include it as a long-lived prompt prefix — enabling
  * Anthropic's prompt caching to eliminate per-turn JIT read costs.
  *
@@ -27,7 +27,7 @@
  *
  * Security:
  *   - project_root validated: absolute, no ".." traversal, must exist.
- *   - DB path fixed to ~/.ai-os/cache.sqlite — never user-controlled.
+ *   - DB path fixed to ~/.rein/cache.sqlite — never user-controlled.
  *   - All file reads use readFileSync (no execSync / shell).
  *
  * Observability:
@@ -60,7 +60,7 @@ import { createLogger } from "../shared/logger.js";
 const SERVICE = "cache-manager-mcp";
 const VERSION = "1.0.0";
 
-const STORE_DIR = resolve(homedir(), ".ai-os");
+const STORE_DIR = resolve(homedir(), ".rein");
 const DB_PATH   = join(STORE_DIR, "cache.sqlite");
 
 // ── Structured logger ─────────────────────────────────────────────────────────
@@ -165,7 +165,7 @@ const STALE_BLUEPRINT_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 /** Render the System Context blob from a chosen subset of entries. */
 function renderContextBlob(projectRoot, allEntries, included, omittedCount) {
   const header = [
-    `=== AI-OS SYSTEM CONTEXT CACHE ===`,
+    `=== Rein SYSTEM CONTEXT CACHE ===`,
     `Built: ${new Date().toISOString()}`,
     `Source: ${projectRoot}`,
     `Files: ${included.length}/${allEntries.length}`,
@@ -347,7 +347,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           project_root: {
             type: "string",
             description:
-              "Absolute path to the AI-OS project root. Defaults to cwd. " +
+              "Absolute path to the Rein project root. Defaults to cwd. " +
               "Must not contain '..' path traversal segments.",
           },
         },
@@ -366,7 +366,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           project_root: {
             type: "string",
             description:
-              "Absolute path to the AI-OS project root. Defaults to cwd.",
+              "Absolute path to the Rein project root. Defaults to cwd.",
           },
         },
       },
@@ -603,7 +603,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 // Context blob to stdout so the SessionStart hook (hooks/session-start.sh) can
 // inject it as a prompt-prefix at Claude session start (the previously-unwired
 // "Agent Invocation" step of the caching workflow). No server is started.
-// Fail-open: any error (or AI_OS_DISABLE_CACHE=1) emits nothing and exits 0 so
+// Fail-open: any error (or REIN_DISABLE_CACHE=1) emits nothing and exits 0 so
 // session start is never blocked.
 // E-275: `--measure` prints the size of exactly what `--emit-context` would inject, so the
 // cap is checkable from a shell and from tests/unit. Both print the omitted blueprint names
@@ -626,7 +626,7 @@ if (process.argv.includes("--measure")) {
 
 if (process.argv.includes("--emit-context")) {
   try {
-    if (process.env.AI_OS_DISABLE_CACHE !== "1") {
+    if (process.env.REIN_DISABLE_CACHE !== "1") {
       const projectRoot = validateProjectRoot();
       const { blob, omitted } = assembleContext(projectRoot);
       _reportOmitted(omitted);

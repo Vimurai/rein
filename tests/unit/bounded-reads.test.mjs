@@ -14,7 +14,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 let T;
-before(() => { T = mkdtempSync(join(tmpdir(), "aios-t-bounded-")); });
+before(() => { T = mkdtempSync(join(tmpdir(), "rein-t-bounded-")); });
 after(() => { if (T) rmSync(T, { recursive: true, force: true }); });
 
 // ── P-8: readHead (memory-manager-mcp) reads a bounded head, never the whole file ──

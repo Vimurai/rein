@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ai_clean_test.sh — E-272 (D-074, version-lifecycle.md §Components 3-4): `ai clean`.
 #
-# The end-to-end layer for the one command in AI-OS that REMOVES things. The registry's
+# The end-to-end layer for the one command in Rein that REMOVES things. The registry's
 # data faults are pinned in tests/unit/legacy-registry.test.mjs; what has to be proved
 # here is the behaviour an operator's data depends on:
 #
@@ -46,22 +46,22 @@ assert_rc() {
 _sha() { shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1; }
 
 # ── the fixture: one item of every kind and class ─────────────────────────────
-mkdir -p "${FAKE_HOME}/.ai-os/run" "${FAKE_HOME}/.ai-os/mcp/retired-mcp" \
-         "${FAKE_HOME}/.ai-os/ci" "${FAKE_HOME}/.gemini" \
+mkdir -p "${FAKE_HOME}/.rein/run" "${FAKE_HOME}/.rein/mcp/retired-mcp" \
+         "${FAKE_HOME}/.rein/ci" "${FAKE_HOME}/.gemini" \
          "${PROJ}/.ai" "${PROJ}/.claude" "${PROJ}/.gemini/skills/mine"
 
 # safe · file · rule stale-mtime (backdated past the 7-day window)
-printf '{"v":1,"role":"engineer"}' > "${FAKE_HOME}/.ai-os/run/role-stale.lock"
+printf '{"v":1,"role":"engineer"}' > "${FAKE_HOME}/.rein/run/role-stale.lock"
 touch -t "$(date -u -v-20d +%Y%m%d%H%M 2>/dev/null || date -u -d '20 days ago' +%Y%m%d%H%M)" \
-  "${FAKE_HOME}/.ai-os/run/role-stale.lock"
+  "${FAKE_HOME}/.rein/run/role-stale.lock"
 # safe · file · rule dead-pid (2147480000 cannot be a live pid on any supported host)
-printf '{"server":"x","pid":2147480000}' > "${FAKE_HOME}/.ai-os/run/build-dead.json"
+printf '{"server":"x","pid":2147480000}' > "${FAKE_HOME}/.rein/run/build-dead.json"
 # safe · file · rule dead-pid, but its pid is THIS process: never a finding
-printf '{"server":"y","pid":%s}' "$$" > "${FAKE_HOME}/.ai-os/run/build-live.json"
+printf '{"server":"y","pid":%s}' "$$" > "${FAKE_HOME}/.rein/run/build-live.json"
 # safe · dir · rule not-in-src (src/mcp does not ship retired-mcp)
-echo x > "${FAKE_HOME}/.ai-os/mcp/retired-mcp/index.js"
+echo x > "${FAKE_HOME}/.rein/mcp/retired-mcp/index.js"
 # prompt · file · a HOME copy of the old installer
-echo '# old installer' > "${FAKE_HOME}/install-ai-os.sh"
+echo '# old installer' > "${FAKE_HOME}/install-rein.sh"
 # prompt · dir · a provider workspace that may hold the operator's own skill
 echo 'my own skill' > "${PROJ}/.gemini/skills/mine/SKILL.md"
 # setting · report only · one retired allow and one the operator added
@@ -111,8 +111,8 @@ assert_status 0 "E-272.01n: the dry run changed nothing on disk" test "$BEFORE" 
 assert_rc 1 "E-272.01o: a dry run with findings exits 1"
 
 if [[ "$HAVE_SHIM" -eq 1 ]]; then
-  assert_contains "E-272.01p: an unmodified shim is safe, by hash" "byte-identical to a version AI-OS shipped" "$OUT"
-  assert_contains "E-272.01q: an edited shim is downgraded to prompt" "edited since AI-OS wrote it" "$OUT"
+  assert_contains "E-272.01p: an unmodified shim is safe, by hash" "byte-identical to a version Rein shipped" "$OUT"
+  assert_contains "E-272.01q: an edited shim is downgraded to prompt" "edited since Rein wrote it" "$OUT"
 else
   _skip "E-272.01p/q: shim hash cases (git history for 343cd5b unavailable)"
 fi
@@ -142,9 +142,9 @@ assert_rc 2 "E-272.04d: an unknown option exits 2" --delete-everything
 assert_rc 2 "E-272.04e: --restore with a malformed date exits 2" --restore yesterday --yes
 assert_rc 2 "E-272.04f: --restore and --purge cannot be combined" --restore "$TODAY" --purge
 
-# ── E-272.5: AI_OS_CLEAN_DISABLE=1 degrades every form to a report ────────────
-DIS="$( ( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" AI_OS_CLEAN_DISABLE=1 bash "$AI" clean --apply --all --yes ) 2>&1 )"
-assert_contains "E-272.05a: the rollback flag says nothing was touched" "AI_OS_CLEAN_DISABLE=1" "$DIS"
+# ── E-272.5: REIN_CLEAN_DISABLE=1 degrades every form to a report ────────────
+DIS="$( ( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" REIN_CLEAN_DISABLE=1 bash "$AI" clean --apply --all --yes ) 2>&1 )"
+assert_contains "E-272.05a: the rollback flag says nothing was touched" "REIN_CLEAN_DISABLE=1" "$DIS"
 DIS_AFTER="$(cd "$FAKE_HOME" && find . -type f | sort; cd "$PROJ" && find . -type f | sort)"
 assert_status 0 "E-272.05b: nothing was removed under the rollback flag" test "$BEFORE" = "$DIS_AFTER"
 
@@ -152,17 +152,17 @@ assert_status 0 "E-272.05b: nothing was removed under the rollback flag" test "$
 GEMINI_PROJ_SHA=""
 [[ "$HAVE_SHIM" -eq 1 ]] && GEMINI_PROJ_SHA="$GEMINI_SHA"
 APPLY="$(_clean --apply)"
-TRASH="${FAKE_HOME}/.ai-os/trash/${TODAY}"
+TRASH="${FAKE_HOME}/.rein/trash/${TODAY}"
 assert_contains "E-272.06a: the apply reports where each item went" "moved" "$APPLY"
 assert_contains "E-272.06b: the apply prints the undo command" "ai clean --restore ${TODAY}" "$APPLY"
 assert_status 0 "E-272.06c: the stale role lock is gone from the mirror" \
-  test ! -e "${FAKE_HOME}/.ai-os/run/role-stale.lock"
+  test ! -e "${FAKE_HOME}/.rein/run/role-stale.lock"
 assert_status 0 "E-272.06d: the dead build record is gone" \
-  test ! -e "${FAKE_HOME}/.ai-os/run/build-dead.json"
-assert_status 0 "E-272.06e: the live build record was left alone" test -e "${FAKE_HOME}/.ai-os/run/build-live.json"
-assert_status 0 "E-272.06f: the mirror orphan is gone" test ! -e "${FAKE_HOME}/.ai-os/mcp/retired-mcp"
+  test ! -e "${FAKE_HOME}/.rein/run/build-dead.json"
+assert_status 0 "E-272.06e: the live build record was left alone" test -e "${FAKE_HOME}/.rein/run/build-live.json"
+assert_status 0 "E-272.06f: the mirror orphan is gone" test ! -e "${FAKE_HOME}/.rein/mcp/retired-mcp"
 assert_status 0 "E-272.06g: the prompt-class workspace survives --apply" test -e "${PROJ}/.gemini/skills/mine/SKILL.md"
-assert_status 0 "E-272.06h: the prompt-class installer copy survives --apply" test -e "${FAKE_HOME}/install-ai-os.sh"
+assert_status 0 "E-272.06h: the prompt-class installer copy survives --apply" test -e "${FAKE_HOME}/install-rein.sh"
 assert_status 0 "E-272.06i: ~/.gemini is never touched" test -e "${FAKE_HOME}/.gemini/credentials.json"
 assert_status 0 "E-272.06j: settings.local.json is byte-identical" \
   test "$(_sha "${PROJ}/.claude/settings.local.json")" = "$SETTINGS_LOCAL_SHA"
@@ -187,14 +187,14 @@ ids={i['entry_id'] for i in items}
 assert 'dead-role-lock' in ids and 'dead-build-record' in ids and 'mirror-orphan-mcp' in ids, ids
 " "$MANI"
 assert_status 0 "E-272.06o: one clean.log line per apply" \
-  test "$(grep -c 'apply' "${FAKE_HOME}/.ai-os/clean.log")" -eq 1
+  test "$(grep -c 'apply' "${FAKE_HOME}/.rein/clean.log")" -eq 1
 assert_status 0 "E-272.06p: one LOG.md line per apply" \
   test "$(grep -c '| ai clean |' "${PROJ}/.ai/LOG.md")" -eq 1
 
 # ── E-272.7: --apply --all --yes moves the prompt class ───────────────────────
 ALL="$(_clean --apply --all --yes)"
 assert_status 0 "E-272.07a: the provider workspace is gone" test ! -e "${PROJ}/.gemini"
-assert_status 0 "E-272.07b: the HOME installer copy is gone" test ! -e "${FAKE_HOME}/install-ai-os.sh"
+assert_status 0 "E-272.07b: the HOME installer copy is gone" test ! -e "${FAKE_HOME}/install-rein.sh"
 assert_status 0 "E-272.07c: ~/.gemini STILL survives --all" test -e "${FAKE_HOME}/.gemini/credentials.json"
 assert_contains "E-272.07d: the second apply logged its own line" "moved" "$ALL"
 assert_rc 0 "E-272.07e: only report-only findings remain, so the exit is 0"
@@ -204,13 +204,13 @@ assert_status 0 "E-272.07f: the retired allow is still reported after --all" \
 # ── E-272.8: --restore returns every item byte-identical ──────────────────────
 assert_rc 2 "E-272.08a: --restore without --yes on a pipe exits 2" --restore "$TODAY"
 # One origin is re-created before the restore: the item must be REFUSED, not overwritten.
-printf 'a different installer\n' > "${FAKE_HOME}/install-ai-os.sh"
+printf 'a different installer\n' > "${FAKE_HOME}/install-rein.sh"
 RESTORE="$(_clean --restore "$TODAY" --yes)"
 assert_contains "E-272.08b: an existing origin is refused" "refused" "$RESTORE"
 assert_status 0 "E-272.08c: the re-created file was NOT overwritten" \
-  grep -q "a different installer" "${FAKE_HOME}/install-ai-os.sh"
-assert_status 0 "E-272.08d: the mirror orphan is back" test -e "${FAKE_HOME}/.ai-os/mcp/retired-mcp/index.js"
-assert_status 0 "E-272.08e: the role lock is back" test -e "${FAKE_HOME}/.ai-os/run/role-stale.lock"
+  grep -q "a different installer" "${FAKE_HOME}/install-rein.sh"
+assert_status 0 "E-272.08d: the mirror orphan is back" test -e "${FAKE_HOME}/.rein/mcp/retired-mcp/index.js"
+assert_status 0 "E-272.08e: the role lock is back" test -e "${FAKE_HOME}/.rein/run/role-stale.lock"
 assert_status 0 "E-272.08f: the provider workspace is back with its content" test -e "${PROJ}/.gemini/skills/mine/SKILL.md"
 assert_status 0 "E-272.08g: the restored skill is byte-identical" \
   test "$(cat "${PROJ}/.gemini/skills/mine/SKILL.md")" = "my own skill"
@@ -225,16 +225,16 @@ assert_rc 2 "E-272.08j: a date with nothing recorded exits 2" --restore 1999-01-
 
 # ── E-272.9: --purge empties trash older than the retention window ────────────
 OLD_DAY="$(date -u -v-40d +%Y-%m-%d 2>/dev/null || date -u -d '40 days ago' +%Y-%m-%d)"
-mkdir -p "${FAKE_HOME}/.ai-os/trash/${OLD_DAY}/stuff"
-echo x > "${FAKE_HOME}/.ai-os/trash/${OLD_DAY}/stuff/f"
+mkdir -p "${FAKE_HOME}/.rein/trash/${OLD_DAY}/stuff"
+echo x > "${FAKE_HOME}/.rein/trash/${OLD_DAY}/stuff/f"
 PURGE="$(_clean --purge)"
-assert_status 0 "E-272.09a: a 40-day-old day folder is purged" test ! -e "${FAKE_HOME}/.ai-os/trash/${OLD_DAY}"
+assert_status 0 "E-272.09a: a 40-day-old day folder is purged" test ! -e "${FAKE_HOME}/.rein/trash/${OLD_DAY}"
 assert_status 0 "E-272.09b: today's trash is kept" test -e "${TRASH}"
 assert_contains "E-272.09c: the purge says what it removed" "purged ${OLD_DAY}" "$PURGE"
-mkdir -p "${FAKE_HOME}/.ai-os/trash/${OLD_DAY}"
+mkdir -p "${FAKE_HOME}/.rein/trash/${OLD_DAY}"
 assert_rc 2 "E-272.09d: --older-than needs a number of days" --purge --older-than soon
 assert_rc 0 "E-272.09e: --older-than 1d takes the same folder" --purge --older-than 1d
-assert_status 0 "E-272.09f: and it is gone" test ! -e "${FAKE_HOME}/.ai-os/trash/${OLD_DAY}"
+assert_status 0 "E-272.09f: and it is gone" test ! -e "${FAKE_HOME}/.rein/trash/${OLD_DAY}"
 
 # ── E-272.10: processes — the orphan is signalled, the lock holder is not ─────
 # An ai-watch fixture is `exec -a ai-watch sleep`, started from a subshell that exits
@@ -306,13 +306,13 @@ DRY_MS="$(perf_time_ms bash -c "cd '$PROJ' && HOME='$FAKE_HOME' TMPDIR='$FAKE_TM
 assert_perf "E-272.12a: ai clean dry run" "$DRY_MS" 3000 "$BASE_MS" 30 1500
 
 # ── E-346 (D-109 r3): concurrent reapers ──────────────────────────────────────
-# Every `ai sync` reaps dead ~/.ai-os/run/ records, and four CI lanes share one HOME. A record
+# Every `ai sync` reaps dead ~/.rein/run/ records, and four CI lanes share one HOME. A record
 # another reaper moved between this one's scan and its move is gone, not failed: four racing
 # over 300 dead build records all exit 0 and move each exactly once. Before, the losers
 # reported "already exists in today's trash" / ENOENT and exited 2 (reliably at this size).
 RACE_HOME="$(test_tmpdir clean-race)"
-mkdir -p "$RACE_HOME/.ai-os/run"
-for i in $(seq 1 300); do printf '{"pid":999999%d}' "$i" > "$RACE_HOME/.ai-os/run/build-$i.json"; done
+mkdir -p "$RACE_HOME/.rein/run"
+for i in $(seq 1 300); do printf '{"pid":999999%d}' "$i" > "$RACE_HOME/.rein/run/build-$i.json"; done
 for k in 1 2 3 4; do
   ( HOME="$RACE_HOME" node "${REPO_ROOT}/src/shared/ai-clean.mjs" apply --only dead-build-record --json \
       > "$RACE_HOME/out$k" 2>&1; echo $? > "$RACE_HOME/rc$k" ) &
@@ -326,18 +326,18 @@ assert_contains "E-346.R1: four concurrent reapers all exit 0, each record moved
 # E-352 (D-112 r6): each reaper read today's manifest, appended its own moves and wrote it back,
 # so the last writer won and the other moves had no manifest entry (no --restore for them).
 _entries="$(node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).length)' \
-  "$RACE_HOME/.ai-os/trash/$(date -u +%Y-%m-%d)/manifest.json" 2>&1)"
+  "$RACE_HOME/.rein/trash/$(date -u +%Y-%m-%d)/manifest.json" 2>&1)"
 assert_contains "E-352.01: …and today's manifest keeps all 300 entries" "entries=300" "entries=${_entries}"
 assert_status 0 "E-352.02: …and no lock is left behind" \
-  bash -c "! ls -d '$RACE_HOME'/.ai-os/trash/*/manifest.json.lock 2>/dev/null"
+  bash -c "! ls -d '$RACE_HOME'/.rein/trash/*/manifest.json.lock 2>/dev/null"
 
 # A reaper killed while it held the lock leaves it behind; a lock older than 60 s is taken over
 # and reported once, and the apply goes on.
 STALE_HOME="$(test_tmpdir clean-stale)"
-_sdir="$STALE_HOME/.ai-os/trash/$(date -u +%Y-%m-%d)"
-mkdir -p "$STALE_HOME/.ai-os/run" "$_sdir/manifest.json.lock"
+_sdir="$STALE_HOME/.rein/trash/$(date -u +%Y-%m-%d)"
+mkdir -p "$STALE_HOME/.rein/run" "$_sdir/manifest.json.lock"
 touch -d '2 minutes ago' "$_sdir/manifest.json.lock"
-printf '{"pid":99999901}' > "$STALE_HOME/.ai-os/run/build-s.json"
+printf '{"pid":99999901}' > "$STALE_HOME/.rein/run/build-s.json"
 _stale="$(HOME="$STALE_HOME" node "${REPO_ROOT}/src/shared/ai-clean.mjs" apply --only dead-build-record --json 2>&1 >/dev/null; echo "rc=$?")"
 assert_contains "E-352.03: a stale lock is taken over and the apply exits 0" "rc=0" "$_stale"
 _n="$(grep -c 'stale lock' <<<"$_stale")"
@@ -350,18 +350,18 @@ assert_status 0 "E-352.05: …and the move is in the manifest, the lock gone" \
 # that day exited 1 (CI: E-212.06e2 / E-220.09a). It moves beside the first copy instead,
 # never over it, and --restore puts back one copy and keeps the other.
 AGAIN_HOME="$(test_tmpdir clean-again)"
-mkdir -p "$AGAIN_HOME/.ai-os/run"
+mkdir -p "$AGAIN_HOME/.rein/run"
 _again() {
-  printf '{"pid":9999990%s}' "$1" > "$AGAIN_HOME/.ai-os/run/build-x-mcp.json"
+  printf '{"pid":9999990%s}' "$1" > "$AGAIN_HOME/.rein/run/build-x-mcp.json"
   HOME="$AGAIN_HOME" node "${REPO_ROOT}/src/shared/ai-clean.mjs" apply --only dead-build-record --json \
     | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);console.log(`moved=${j.moved.length} failures=${j.failures.length}`)})'
 }
 _a1="$(_again 1)"; _a2="$(_again 2)"
-_slots="$(find "$AGAIN_HOME/.ai-os/trash" -name 'build-x-mcp.json*' -type f | wc -l | tr -d ' ')"
+_slots="$(find "$AGAIN_HOME/.rein/trash" -name 'build-x-mcp.json*' -type f | wc -l | tr -d ' ')"
 assert_contains "E-346.R2: a record reaped twice in one day moves both times, no failure" \
   "1:moved=1 failures=0 2:moved=1 failures=0 slots=2" "1:${_a1} 2:${_a2} slots=${_slots}"
 _r="$(HOME="$AGAIN_HOME" node "${REPO_ROOT}/src/shared/ai-clean.mjs" restore --date "$(date -u +%Y-%m-%d)" 2>&1)"
-assert_contains "E-346.R2b: --restore puts one copy back" "restored ${AGAIN_HOME}/.ai-os/run/build-x-mcp.json" "$_r"
+assert_contains "E-346.R2b: --restore puts one copy back" "restored ${AGAIN_HOME}/.rein/run/build-x-mcp.json" "$_r"
 assert_contains "E-346.R2c: …and keeps the other, never overwriting" "exists again" "$_r"
 
 assert_summary

@@ -85,7 +85,7 @@ assert_status 1 "DB_PATH not read from process.env" \
 assert_status 1 "DB_PATH not read from tool arguments" \
   grep -qE 'DB_PATH\s*=.*args\.' "$SERVER"
 
-assert_status 0 "DB_PATH stored in ~/.ai-os/" \
+assert_status 0 "DB_PATH stored in ~/.rein/" \
   grep -q 'approvals.sqlite' "$SERVER"
 
 # ── T-HITL-S05: TTY assertion (T-HITL-003) ───────────────────────────────────

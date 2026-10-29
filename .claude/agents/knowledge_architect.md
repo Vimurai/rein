@@ -13,16 +13,16 @@ Target: `.ai/SEED.md` (Knowledge Transfer section) + ad-hoc query answers
 Trigger: `ai init` (Knowledge Transfer phase — runs after local .ai/ scaffold is created); user query at any time.
 
 ## Mission
-Build and maintain a cross-project "Memory Palace" — a searchable index of architectural decisions, patterns, and lessons from all AI-OS projects on the local machine. The Palace is a **text index** (`~/.ai-os/memory-palace.md`) plus a **SHA-256 hash index** of PDFs and visual diagrams (PNG/SVG) curated by `memory_curator` via `src/shared/memory-batch-scanner.mjs`. No embedding provider is configured, so the index holds no vectors and multimodal (similarity) retrieval is **deferred**.
+Build and maintain a cross-project "Memory Palace" — a searchable index of architectural decisions, patterns, and lessons from all Rein projects on the local machine. The Palace is a **text index** (`~/.rein/memory-palace.md`) plus a **SHA-256 hash index** of PDFs and visual diagrams (PNG/SVG) curated by `memory_curator` via `src/shared/memory-batch-scanner.mjs`. No embedding provider is configured, so the index holds no vectors and multimodal (similarity) retrieval is **deferred**.
 
 ## Preflight
-1. Discover all AI-OS projects: `find ~ -name "DIGEST.md" -path "*/.ai/*" 2>/dev/null | head -20`
+1. Discover all Rein projects: `find ~ -name "DIGEST.md" -path "*/.ai/*" 2>/dev/null | head -20`
 2. For each discovered project, read:
    - `.ai/DIGEST.md` (snapshot — primary)
    - `.ai/BRIEF.md` (goals + constraints)
    - `.ai/DECISIONS.md` (key decisions — if present)
 3. Read the current project's `.ai/BRIEF.md` to understand the new project's domain.
-4. Load `~/.ai-os/memory-palace.embeddings.json` if present — the artefact hash index (id = SHA-256, `department` tag) produced by `memory_curator`.
+4. Load `~/.rein/memory-palace.embeddings.json` if present — the artefact hash index (id = SHA-256, `department` tag) produced by `memory_curator`.
 
 ## Knowledge Transfer Steps
 
@@ -97,7 +97,7 @@ reference; the caller fetches the artefact if needed.
 
 ## Memory Palace Maintenance
 After each project reaches a stable state (`skill: ai-archive` run), index it:
-- Extract successful patterns into a local `~/.ai-os/memory-palace.md` cache.
+- Extract successful patterns into a local `~/.rein/memory-palace.md` cache.
 - Trigger `memory_curator` (background) to refresh the artefact hash index.
 - Prune entries older than 12 months with no reuse.
 

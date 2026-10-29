@@ -24,7 +24,7 @@
 //      deliberately the RESTRICTED role. Every session that ran its SessionStart hook holds
 //      a token — a plain launch included (`engineer`, unverified launch) — so this is reached
 //      only when the mint failed or the token was tampered with.
-//   The server's spawn environment (AI_OS_CALLER_ROLE) is NOT evidence any more: a project's
+//   The server's spawn environment (REIN_CALLER_ROLE) is NOT evidence any more: a project's
 //   settings `env` reaches it (D-087 r3).
 //
 // A SELF-REPORTED `caller_role` MAY ONLY ADD RESTRICTION, NEVER LIFT IT. Claiming
@@ -48,7 +48,7 @@ const ENGINEER = "engineer";
 let _cached = null;
 
 // Resolved relative to THIS MODULE, never the cwd. These servers are installed under
-// ~/.ai-os and run inside ARBITRARY user projects, so a cwd-relative candidate meant any
+// ~/.rein and run inside ARBITRARY user projects, so a cwd-relative candidate meant any
 // project containing src/mcp/safe-exec-mcp/index.js got that file EXECUTED by node — and
 // its stdout is trusted to name a role, so a hostile clone bought both code execution in
 // the server process and a guard bypass (it need only print "engineer"). safe-exec sits

@@ -26,7 +26,7 @@ Target: .ai/DEVOPS.md
   - install, dev, test, lint, typecheck, build, format
   - Run a single test file: <command>
   - Run tests matching pattern: <command>
-- **CI pipeline** (ordered steps). AI-OS itself runs CI locally (D-072): `ai ci run` does
+- **CI pipeline** (ordered steps). Rein itself runs CI locally (D-072): `ai ci run` does
   `worktree → env → deps → browsers → install → toolchain → suite → unit → secrets` and
   records the verdict for the commit. For a project with a hosted pipeline:
   1. lint → 2. typecheck → 3. test → 4. build

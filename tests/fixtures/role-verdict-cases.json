@@ -31,10 +31,10 @@
 {"label":"E-294.05i2: no verified token is the union: src/ BLOCKED","role":"none","path":"<proj>/src/bin/ai","want":"BLOCK"},
 {"label":"E-294.05i2: …and the union still allows .ai/","role":"none","path":"<proj>/.ai/blueprints/x.md","want":"pass"},
 {"label":"engineer: a path outside the project is not path-gated","role":"engineer","path":"<outside>/outside.txt","want":"pass"},
-{"label":"E-291.05h: ~/.ai-os/** is BLOCKED for the union","role":"none","path":"<home>/.ai-os/shared/x.mjs","want":"BLOCK"},
-{"label":"E-291.05h: ~/.ai-os/** is BLOCKED for the ENGINEER too","role":"engineer","path":"<home>/.ai-os/shared/x.mjs","want":"BLOCK"},
-{"label":"E-291: ~/.ai-os/** is BLOCKED for the architect","role":"architect","path":"<home>/.ai-os/hooks-x.sh","want":"BLOCK"},
-{"label":"E-291: the install root itself is BLOCKED","role":"engineer","path":"<home>/.ai-os","want":"BLOCK"},
-{"label":"E-291: a sibling of ~/.ai-os is not the install","role":"engineer","path":"<home>/.ai-os-notes.md","want":"pass"},
-{"label":"E-291: a relative name that is not ~/.ai-os is not the install","role":"engineer","path":"x","want":"pass"}
+{"label":"E-291.05h: ~/.rein/** is BLOCKED for the union","role":"none","path":"<home>/.rein/shared/x.mjs","want":"BLOCK"},
+{"label":"E-291.05h: ~/.rein/** is BLOCKED for the ENGINEER too","role":"engineer","path":"<home>/.rein/shared/x.mjs","want":"BLOCK"},
+{"label":"E-291: ~/.rein/** is BLOCKED for the architect","role":"architect","path":"<home>/.rein/hooks-x.sh","want":"BLOCK"},
+{"label":"E-291: the install root itself is BLOCKED","role":"engineer","path":"<home>/.rein","want":"BLOCK"},
+{"label":"E-291: a sibling of ~/.rein is not the install","role":"engineer","path":"<home>/.rein-notes.md","want":"pass"},
+{"label":"E-291: a relative name that is not ~/.rein is not the install","role":"engineer","path":"x","want":"pass"}
 ]

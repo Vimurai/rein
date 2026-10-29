@@ -2,14 +2,14 @@
 // team-collaboration.md §Component 5b).
 //
 // The hosted trunk check is a contract, not a pipeline: on a pull request into the trunk the
-// provider runs exactly two commands — bootstrap AI-OS, then `ai ci run` on the merge result.
+// provider runs exactly two commands — bootstrap Rein, then `ai ci run` on the merge result.
 // One thin wrapper per provider is RENDERED from src/templates/ci/<template>; nobody edits it
 // by hand, and `--check` fails when the file on disk is not the current rendering.
 //
-// The bootstrap is chosen at render time (D-103 r3): in the AI-OS repository itself it is
-// `bash install-ai-os.sh` from the checked-out sha (the code under test); downstream it clones
-// team.json.ci.aios_source at the tag the project pins (project.json aios_version) — a
-// project's hosted check runs the AI-OS version its developers run.
+// The bootstrap is chosen at render time (D-103 r3): in the Rein repository itself it is
+// `bash install-rein.sh` from the checked-out sha (the code under test); downstream it clones
+// team.json.ci.rein_source at the tag the project pins (project.json rein_version) — a
+// project's hosted check runs the Rein version its developers run.
 //
 // E-341 (D-105 r5): the trunk is trunk.mjs's resolveTrunk (team.json "trunk", else origin/HEAD,
 // else main|master) rendered as {{TRUNK}}; for this repository that is master, so its
@@ -30,8 +30,8 @@ import { resolveTrunk } from "../mcp/shared/trunk.mjs";
 import { redact } from "./publish-scan.mjs"; // E-379 (D-130)
 
 const TEMPLATES = resolve(dirname(fileURLToPath(import.meta.url)), "../templates/ci");
-export const DEFAULT_AIOS_SOURCE = "https://github.com/Vimurai/ai-os.git";
-export const SELF_BOOTSTRAP = "bash install-ai-os.sh";
+export const DEFAULT_REIN_SOURCE = "https://github.com/Vimurai/rein.git";
+export const SELF_BOOTSTRAP = "bash install-rein.sh";
 export const REQUIRED_CHECK = "ai ci run";   // team.json ci.required_check: the legs' common name
 // E-384 (D-135 r3, r5): the matrix. A shard count comes from team.json ci.shards (default 4);
 // a project whose tests/run.sh has no --shard runs one leg. The public profile (.ai/publish.json
@@ -173,15 +173,15 @@ export function detectProvider(url) {
   return null;
 }
 
-/** Is <root> the AI-OS repository itself? Its installer at the root and its package name. */
+/** Is <root> the Rein repository itself? Its installer at the root and its package name. */
 export function isAiOsRepo(root) {
-  if (!existsSync(join(root, "install-ai-os.sh"))) return false;
-  try { return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).name === "ai-os-v2"; } catch { return false; }
+  if (!existsSync(join(root, "install-rein.sh"))) return false;
+  try { return JSON.parse(readFileSync(join(root, "package.json"), "utf8")).name === "@vimurai/rein"; } catch { return false; }
 }
 
-/** The AI-OS version a project pins: project.json (team record store), else state.json. */
+/** The Rein version a project pins: project.json (team record store), else state.json. */
 export function pinnedVersion(root) {
-  for (const [file, pick] of [["project.json", (d) => d.aios_version], ["state.json", (d) => d.project?.aios_version]]) {
+  for (const [file, pick] of [["project.json", (d) => d.rein_version], ["state.json", (d) => d.project?.rein_version]]) {
     try {
       const v = pick(JSON.parse(readFileSync(join(root, ".ai", file), "utf8")));
       if (v != null) return String(v);
@@ -194,21 +194,21 @@ export function pinnedVersion(root) {
  * The bootstrap for <root>: { variant, command, note }. Throws HostedCiError when a downstream
  * project has no pinned version, or a pinned value / source falls outside the plain charset.
  */
-export function bootstrapFor(root, { aiosSource } = {}) {
+export function bootstrapFor(root, { reinSource } = {}) {
   if (isAiOsRepo(root)) {
     return { variant: "self", command: SELF_BOOTSTRAP,
-      note: "This IS the AI-OS repository: install from the checked-out commit — the code under test." };
+      note: "This IS the Rein repository: install from the checked-out commit — the code under test." };
   }
   const v = pinnedVersion(root);
-  if (!v) throw new HostedCiError("CI_AIOS_VERSION_UNKNOWN", "this project pins no AI-OS version (.ai/project.json or state.json aios_version) — run: ai init");
-  if (!VERSION_RE.test(v)) throw new HostedCiError("CI_AIOS_VERSION_UNKNOWN", `the pinned AI-OS version ${JSON.stringify(v).slice(0, 40)} is not X.Y.Z`);
-  const src = aiosSource || DEFAULT_AIOS_SOURCE;
-  if (!SOURCE_RE.test(src)) throw new HostedCiError("CI_SOURCE_INVALID", `aios_source ${JSON.stringify(src).slice(0, 80)} must be a plain https git URL`);
-  const dir = '"${TMPDIR:-/tmp}/ai-os-src"';
+  if (!v) throw new HostedCiError("CI_REIN_VERSION_UNKNOWN", "this project pins no Rein version (.ai/project.json or state.json rein_version) — run: ai init");
+  if (!VERSION_RE.test(v)) throw new HostedCiError("CI_REIN_VERSION_UNKNOWN", `the pinned Rein version ${JSON.stringify(v).slice(0, 40)} is not X.Y.Z`);
+  const src = reinSource || DEFAULT_REIN_SOURCE;
+  if (!SOURCE_RE.test(src)) throw new HostedCiError("CI_SOURCE_INVALID", `rein_source ${JSON.stringify(src).slice(0, 80)} must be a plain https git URL`);
+  const dir = '"${TMPDIR:-/tmp}/rein-src"';
   return {
     variant: "pinned",
-    command: `git clone --quiet --depth 1 --branch v${v} ${src} ${dir} && bash ${dir}/install-ai-os.sh`,
-    note: `Install the AI-OS version this project pins (v${v}) — the hosted check runs what its developers run.`,
+    command: `git clone --quiet --depth 1 --branch v${v} ${src} ${dir} && bash ${dir}/install-rein.sh`,
+    note: `Install the Rein version this project pins (v${v}) — the hosted check runs what its developers run.`,
   };
 }
 
@@ -278,7 +278,7 @@ export function hosted(root, { provider: arg = "", check = false, force = false 
     if (!renderable(provider)) {
       return { code: 1, out: `[CI_PROVIDER_PLANNED] ${provider} (${p.path}) ships with ${p.task}, after a documented run on a real ${provider} instance (D-103 r6).` };
     }
-    const boot = bootstrapFor(root, { aiosSource: team?.ci?.aios_source });
+    const boot = bootstrapFor(root, { reinSource: team?.ci?.rein_source });
     const trunk = trunkFor(root, team);
     // E-379 (D-130): redacted before the comparison, so a redacted wrapper on disk is "current".
     const matrix = matrixFor(root, team);
@@ -299,7 +299,7 @@ export function hosted(root, { provider: arg = "", check = false, force = false 
     lines.push(`✓ ${p.path} ${current ? "already current" : "written"} (${provider}, ${boot.variant} bootstrap) — commit it`);
     if (team) {
       const me = gitEmailAt(root);
-      const ci = { provider, required_check: REQUIRED_CHECK, ...(team.ci?.aios_source ? { aios_source: team.ci.aios_source } : {}) };
+      const ci = { provider, required_check: REQUIRED_CHECK, ...(team.ci?.rein_source ? { rein_source: team.ci.rein_source } : {}) };
       if (JSON.stringify(team.ci) === JSON.stringify(ci)) {
         // already recorded
       } else if (team.planner !== me) {

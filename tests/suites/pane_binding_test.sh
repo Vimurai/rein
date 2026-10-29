@@ -23,15 +23,15 @@ AS="${REPO_ROOT}/tests/lib/as-session.sh"
 LR="${REPO_ROOT}/src/shared/launch-record.py"
 
 # E-294 (D-087): the role comes from a launch record + a token bound to the session process —
-# never from AI_OS_PANE_ROLE / AI_OS_CALLER_ROLE. Every hook, mint and `ai pane` run below uses
-# this throwaway HOME (rule 6) whose ~/.ai-os/{shared,mcp} are this checkout's src/, so the
+# never from REIN_PANE_ROLE / REIN_CALLER_ROLE. Every hook, mint and `ai pane` run below uses
+# this throwaway HOME (rule 6) whose ~/.rein/{shared,mcp} are this checkout's src/, so the
 # install-first locator answers with the code under test, and no launch record or token on the
 # operator's own machine (or process chain) can reach a verdict. Sessions come from as-session.sh.
 PB_HOME="$(test_tmpdir pbhome)"
-mkdir -p "${PB_HOME}/.ai-os"
+mkdir -p "${PB_HOME}/.rein"
 tc_link_shared "$PB_HOME"   # E-345 (D-109 r1): mirror = this tree + the toolchain record the hooks pin
-ln -s "${REPO_ROOT}/src/mcp" "${PB_HOME}/.ai-os/mcp"
-PB_RUN="${PB_HOME}/.ai-os/run"
+ln -s "${REPO_ROOT}/src/mcp" "${PB_HOME}/.rein/mcp"
+PB_RUN="${PB_HOME}/.rein/run"
 
 echo "── Suite: pane_binding_test (E-208) ─────────────────────────────────"
 
@@ -145,7 +145,7 @@ printf '#!/usr/bin/env bash\nprintf "ARG:%%s\\n" "$@"\n' > "$E288_BIN/claude"; c
 # A throwaway HOME whose install mirror is THIS checkout (PB_HOME) — otherwise the real
 # install answers and the test measures whatever was last installed (E-236 environment
 # dependence). It also keeps the pane — and, since E-294, its launch record — off the real
-# ~/.ai-os. (An EMPTY HOME no longer works: `ai pane` refuses to launch without
+# ~/.rein. (An EMPTY HOME no longer works: `ai pane` refuses to launch without
 # launch-record.py, which it locates install-first.)
 E288_HOME="$PB_HOME"
 _e288_pane() { (cd "$E288_PROJ" && env -u TMUX -u TMUX_PANE HOME="$E288_HOME" PATH="$E288_BIN:$PATH" bash "$AI_BIN" pane architect "$@" 2>/dev/null); }
@@ -169,8 +169,8 @@ E294_BIN="$(test_tmpdir pbstub)"
 cat > "$E294_BIN/claude" <<'STUB'
 #!/usr/bin/env bash
 printf 'PID:%s\n' "$$"
-for f in "$HOME"/.ai-os/run/launch/*.json; do printf 'REC:%s\n' "${f##*/}"; done
-python3 -c 'import json,sys; print("ROLE:" + json.load(open(sys.argv[1]))["role"])' "$HOME/.ai-os/run/launch/$$.json" 2>/dev/null
+for f in "$HOME"/.rein/run/launch/*.json; do printf 'REC:%s\n' "${f##*/}"; done
+python3 -c 'import json,sys; print("ROLE:" + json.load(open(sys.argv[1]))["role"])' "$HOME/.rein/run/launch/$$.json" 2>/dev/null
 STUB
 chmod +x "$E294_BIN/claude"
 E294_OUT="$(cd "$E288_PROJ" && env -u TMUX -u TMUX_PANE HOME="$PB_HOME" PATH="$E294_BIN:$PATH" bash "$AI_BIN" pane architect 2>/dev/null)"
@@ -184,7 +184,7 @@ assert_contains "E-294.P01c: …and that record names the bound role" "ROLE:arch
 # restricted role than the session it runs in (D-087 r1).
 _nest_before="$(ls "${PB_RUN}/launch" 2>/dev/null | sort | tr '\n' ' ')"
 E294_OUT="$(cd "$E288_PROJ" && HOME="$PB_HOME" bash "$AS" architect pb-nest -- \
-  bash -c 'ls "$HOME/.ai-os/run/launch" | sort | tr "\n" " "; echo; env -u TMUX -u TMUX_PANE PATH="$1:$PATH" bash "$2" pane engineer; echo "RC:$?"; ls "$HOME/.ai-os/run/launch" | sort | tr "\n" " "; echo' \
+  bash -c 'ls "$HOME/.rein/run/launch" | sort | tr "\n" " "; echo; env -u TMUX -u TMUX_PANE PATH="$1:$PATH" bash "$2" pane engineer; echo "RC:$?"; ls "$HOME/.rein/run/launch" | sort | tr "\n" " "; echo' \
   _ "$E294_BIN" "$AI_BIN" 2>&1)"
 assert_contains "E-294.P02a: nested ai pane under a live record exits 2" "RC:2" "$E294_OUT"
 assert_contains "E-294.P02b: …with [PANE_NESTED]" "[PANE_NESTED]" "$E294_OUT"
@@ -199,11 +199,11 @@ assert_status 0 "E-294.P02e: the session's own record is gone afterwards (fixtur
 # Extends the E-288/E-294 stub-provider rows: the stub prints the CLAUDE_CONFIG_DIR it was
 # exec'd with. Own HOME (install mirror = this checkout, like PB_HOME) holding the registry.
 AC_HOME="$(test_tmpdir pbacct)"
-mkdir -p "${AC_HOME}/.ai-os" "${AC_HOME}/.claude-work"; chmod 700 "${AC_HOME}/.claude-work"
+mkdir -p "${AC_HOME}/.rein" "${AC_HOME}/.claude-work"; chmod 700 "${AC_HOME}/.claude-work"
 tc_link_shared "$AC_HOME"   # E-345 (D-109 r1): mirror = this tree + the toolchain record the hooks pin
-ln -s "${REPO_ROOT}/src/mcp" "${AC_HOME}/.ai-os/mcp"
+ln -s "${REPO_ROOT}/src/mcp" "${AC_HOME}/.rein/mcp"
 echo '{}' > "${AC_HOME}/.claude-work/settings.json"
-HOME="$AC_HOME" python3 -I "${REPO_ROOT}/src/shared/accounts.py" add "${AC_HOME}/.ai-os/accounts.json" \
+HOME="$AC_HOME" python3 -I "${REPO_ROOT}/src/shared/accounts.py" add "${AC_HOME}/.rein/accounts.json" \
   "$AC_HOME" work "${AC_HOME}/.claude-work" 2026-10-14 >/dev/null
 AC_PROJ="$(test_tmpdir pbacctproj)"; mkdir -p "$AC_PROJ/.ai" "$AC_PROJ/.claude"
 cp "$E288_PROJ/.ai/roles.json" "$E288_PROJ/.ai/providers.json" "$AC_PROJ/.ai/"
@@ -241,10 +241,10 @@ echo '{"account":"work"}' > "$AC_PROJ/.ai/start.json"
 python3 - "${REPO_ROOT}/.ai/DECISIONS.md" "${AC_HOME}/.claude-work/settings.json" <<'PY'
 import json, re, sys
 t = open(sys.argv[1], encoding="utf-8").read()
-rule = re.search(r"^> (AI-OS Gate Tamper \(D-097\): .*)$", t[t.index("## D-097"):], re.M).group(1)
+rule = re.search(r"^> (Rein Gate Tamper \(D-097\): .*)$", t[t.index("## D-097"):], re.M).group(1)
 json.dump({"autoMode": {"hard_deny": ["$defaults", rule]}}, open(sys.argv[2], "w"), indent=2)
 PY
-assert_contains "E-324.P05f: the fixture carries the D-097 label" "AI-OS Gate Tamper (D-097)" "$(cat "${AC_HOME}/.claude-work/settings.json")"
+assert_contains "E-324.P05f: the fixture carries the D-097 label" "Rein Gate Tamper (D-097)" "$(cat "${AC_HOME}/.claude-work/settings.json")"
 _ac_out="$(_ac_pane engineer)"
 assert_contains "E-315.P05a: an OUTDATED (D-097) account backstop refuses with exit 2" "RC:2" "$_ac_out"
 assert_contains "E-315.P05b: …naming ai sync" "run: ai sync" "$_ac_out"
@@ -270,7 +270,7 @@ mv "${AC_HOME}/.claude-work-gone" "${AC_HOME}/.claude-work"
 # account, and each developer's gitignored override. (P06 removed work's settings.json.)
 echo '{}' > "${AC_HOME}/.claude-work/settings.json"
 mkdir -p "${AC_HOME}/.claude-home"; chmod 700 "${AC_HOME}/.claude-home"; echo '{}' > "${AC_HOME}/.claude-home/settings.json"
-HOME="$AC_HOME" python3 -I "${REPO_ROOT}/src/shared/accounts.py" add "${AC_HOME}/.ai-os/accounts.json" \
+HOME="$AC_HOME" python3 -I "${REPO_ROOT}/src/shared/accounts.py" add "${AC_HOME}/.rein/accounts.json" \
   "$AC_HOME" home "${AC_HOME}/.claude-home" 2026-10-22 >/dev/null
 echo '{"session":"acct"}' > "$AC_PROJ/.ai/start.json"
 echo '{"account":"work"}' > "$AC_PROJ/.ai/start.local.json"
@@ -319,7 +319,7 @@ bash -c "source '$AI_BIN' 2>/dev/null; _write_role_settings_overlays '$OV_DIR' '
 
 assert_status 0 "E-208.03a: architect overlay generated" test -f "$OV_DIR/settings.architect.json"
 assert_status 0 "E-208.03b: engineer overlay generated" test -f "$OV_DIR/settings.engineer.json"
-assert_contains "E-208.03c: architect overlay carries its own caller role" '"AI_OS_CALLER_ROLE": "architect"' \
+assert_contains "E-208.03c: architect overlay carries its own caller role" '"REIN_CALLER_ROLE": "architect"' \
   "$(cat "$OV_DIR/settings.architect.json")"
 # CRITICAL (D-054 §Alternatives option 3): Claude Code MERGES hook arrays, so a second
 # SessionStart registration here would mint two role tokens for one session id.
@@ -337,31 +337,31 @@ assert_status 1 "E-208.03f: no overlay for a role bound to a non-claude provider
   test -f "$NO_OV/settings.architect.json"
 
 # ── E-208.4 → E-294: the LAUNCH RECORD reaches the SessionStart mint ─────────
-# Was: "AI_OS_PANE_ROLE binds the session". Since E-294 (D-087 r3) the role comes from the
-# launch record on the hook's process chain; AI_OS_PANE_ROLE and the positional role are
+# Was: "REIN_PANE_ROLE binds the session". Since E-294 (D-087 r3) the role comes from the
+# launch record on the hook's process chain; REIN_PANE_ROLE and the positional role are
 # ignored. _stamp writes a record (or none) for a bash process and runs the hook as its DIRECT
 # child, so the hook's PPID is that process — exactly what `ai pane` + claude look like.
-_stamp() {  # <record role|none> <AI_OS_PANE_ROLE> <positional> [sid] → the first two stamp lines
+_stamp() {  # <record role|none> <REIN_PANE_ROLE> <positional> [sid] → the first two stamp lines
   local rec="$1" pane="$2" pos="$3" sid="${4:-e208t-$RANDOM$RANDOM}"
   ( cd "$REPO_ROOT" && HOME="$PB_HOME" bash -c '
       [ "$1" != none ] && python3 -I "$2" write $$ "$1" >/dev/null
-      printf "{\"session_id\":\"%s\"}" "$3" | AI_OS_DISABLE_CACHE=1 AI_OS_PANE_ROLE="$4" bash "$5" "$6"
-      rc=$?; rm -f "$HOME/.ai-os/run/launch/$$.json"; exit $rc' _ "$rec" "$LR" "$sid" "$pane" "$SS_HOOK" "$pos" 2>/dev/null ) \
+      printf "{\"session_id\":\"%s\"}" "$3" | REIN_DISABLE_CACHE=1 REIN_PANE_ROLE="$4" bash "$5" "$6"
+      rc=$?; rm -f "$HOME/.rein/run/launch/$$.json"; exit $rc' _ "$rec" "$LR" "$sid" "$pane" "$SS_HOOK" "$pos" 2>/dev/null ) \
     | python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"].splitlines()[:2]))' 2>/dev/null
 }
 assert_contains "E-208.04a: an architect launch record binds the session to architect (env says engineer)" \
-  "[AI_OS_ROLE] architect" "$(_stamp architect engineer engineer)"
+  "[REIN_ROLE] architect" "$(_stamp architect engineer engineer)"
 _S04="$(_stamp none architect architect)"
-assert_contains "E-294.04a2: AI_OS_PANE_ROLE=architect + positional architect, no record → engineer (env no longer binds)" \
-  "[AI_OS_ROLE] engineer" "$_S04"
-assert_contains "E-294.04a3: …marked as an unverified (plain) launch" "[AI_OS_LAUNCH] unverified" "$_S04"
-assert_contains "E-208.04b: plain launch still mints engineer (the plain-launch default)" "[AI_OS_ROLE] engineer" \
+assert_contains "E-294.04a2: REIN_PANE_ROLE=architect + positional architect, no record → engineer (env no longer binds)" \
+  "[REIN_ROLE] engineer" "$_S04"
+assert_contains "E-294.04a3: …marked as an unverified (plain) launch" "[REIN_LAUNCH] unverified" "$_S04"
+assert_contains "E-208.04b: plain launch still mints engineer (the plain-launch default)" "[REIN_ROLE] engineer" \
   "$(_stamp none '' engineer)"
-assert_contains "E-208.04c: an unknown pane role never mints a bogus role" "[AI_OS_ROLE] engineer" \
+assert_contains "E-208.04c: an unknown pane role never mints a bogus role" "[REIN_ROLE] engineer" \
   "$(_stamp none hacker hacker)"
 _S04="$(_stamp engineer architect architect)"
-assert_contains "E-294.04c2: an engineer launch record binds engineer whatever the env says" "[AI_OS_ROLE] engineer" "$_S04"
-assert_not_contains "E-294.04c3: …as a recorded (not unverified) launch" "[AI_OS_LAUNCH] unverified" "$_S04"
+assert_contains "E-294.04c2: an engineer launch record binds engineer whatever the env says" "[REIN_ROLE] engineer" "$_S04"
+assert_not_contains "E-294.04c3: …as a recorded (not unverified) launch" "[REIN_LAUNCH] unverified" "$_S04"
 
 # The stamp and the minted token must agree — the stamp drives the persona, the
 # token drives enforcement; a mismatch would mean a pane that reads as one role and
@@ -370,7 +370,7 @@ SID_M="e208-mint-$RANDOM$RANDOM"
 _S04="$(_stamp architect engineer engineer "$SID_M")"
 assert_contains "E-208.04d: minted role matches the emitted stamp" '"role":"architect"' \
   "$(tr -d ' ' < "${PB_RUN}/role-${SID_M}.lock" 2>/dev/null)"
-assert_contains "E-208.04d2: …and the stamp said architect" "[AI_OS_ROLE] architect" "$_S04"
+assert_contains "E-208.04d2: …and the stamp said architect" "[REIN_ROLE] architect" "$_S04"
 rm -f "${PB_RUN}/role-${SID_M}.lock"
 
 # ── E-208.5: --check-path verdicts (the enforcement primitive) ──────────────
@@ -384,7 +384,7 @@ assert_contains "E-294.05i4: the union block names itself [ROLE_UNVERIFIED]" "[R
   "$(cd "$REPO_ROOT" && HOME="$PB_HOME" node --no-warnings "$SAFE_EXEC" --check-path "$REPO_ROOT/src/bin/ai" --session pb-no-such 2>/dev/null)"
 
 # Fail-closed on analyzer crash — a crash must never become an allow (T-HITL-004).
-( cd "$REPO_ROOT" && HOME="$PB_HOME" bash "$AS" architect pb-throw -- env AI_OS_SAFE_EXEC_SELFTEST_THROW=1 \
+( cd "$REPO_ROOT" && HOME="$PB_HOME" bash "$AS" architect pb-throw -- env REIN_SAFE_EXEC_SELFTEST_THROW=1 \
   node --no-warnings "$SAFE_EXEC" --check-path "$REPO_ROOT/.ai/ok.md" --session pb-throw >/dev/null 2>&1 )
 assert_contains "E-208.05k: analyzer crash FAILS CLOSED (blocks, never allows)" "2" "$?"
 
@@ -395,11 +395,11 @@ assert_contains "E-208.05k: analyzer crash FAILS CLOSED (blocks, never allows)" 
 SID_A="architect"; SID_E="engineer"
 _gate() {  # <role> <tool> <pathkey> <path> → exit code
   printf '{"tool_name":"%s","tool_input":{"%s":"%s"},"session_id":"pb-g-%s"}' "$2" "$3" "$4" "$1" \
-    | ( cd "$REPO_ROOT" && HOME="$PB_HOME" bash "$AS" "$1" "pb-g-$1" -- env AI_OS_CALLER_ROLE=engineer AI_OS_PANE_ROLE=engineer \
+    | ( cd "$REPO_ROOT" && HOME="$PB_HOME" bash "$AS" "$1" "pb-g-$1" -- env REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer \
         bash "$HOOK" >/dev/null 2>&1 )
   echo $?
 }
-# AI_OS_CALLER_ROLE=engineer is exported in every call below: if the env could win,
+# REIN_CALLER_ROLE=engineer is exported in every call below: if the env could win,
 # these would all pass. They must not — E-129's whole point.
 assert_contains "E-208.06a: Write to src/ BLOCKED in an architect session" "2" \
   "$(_gate "$SID_A" Write file_path "$REPO_ROOT/src/bin/ai")"
@@ -421,7 +421,7 @@ assert_contains "E-208.06h: engineer session — Edit to tests/ ALLOWED" "0" \
 # E-291 (D-081 r2): the environment escape hatch is GONE — a project's settings `env` could
 # set it. Setting it must not bypass the write gate. (The operator's escape is now the
 # `ai gate off` file, covered with a fixture HOME in gate_override_test.)
-_V_GATE="AI_OS_SAFE""_EXEC_GATE"
+_V_GATE="REIN_SAFE""_EXEC_GATE"
 printf '{"tool_name":"Write","tool_input":{"file_path":"%s"},"session_id":"pb-g6i"}' "$REPO_ROOT/src/bin/ai" \
   | ( cd "$REPO_ROOT" && HOME="$PB_HOME" bash "$AS" architect pb-g6i -- env "${_V_GATE}=0" bash "$HOOK" >/dev/null 2>&1 )
 assert_contains "E-208.06i: the removed env switch no longer bypasses the write gate (E-291)" "2" "$?"
@@ -442,10 +442,10 @@ assert_status 0 "E-208.07c: ENGINEER.md carries the Role Resolution clause" \
 assert_status 0 "E-208.07d: ARCHITECT.md carries the Role Resolution clause" \
   grep -q 'Role Resolution (D-054' "${REPO_ROOT}/src/templates/ARCHITECT.md"
 # E-294 (D-087 r2/r3): was "session-start prefers the launch-time pane role". The role is now
-# derived inside safe-exec from the launch records; the hook reads neither AI_OS_PANE_ROLE nor
+# derived inside safe-exec from the launch records; the hook reads neither REIN_PANE_ROLE nor
 # its positional argument, and mints with `<sid> <its PPID>` — no role in argv.
-assert_status 1 "E-294.07e: session-start no longer reads AI_OS_PANE_ROLE or a positional role" \
-  grep -qE 'AI_OS_PANE_ROLE:-|\$\{1:-' "$SS_HOOK"
+assert_status 1 "E-294.07e: session-start no longer reads REIN_PANE_ROLE or a positional role" \
+  grep -qE 'REIN_PANE_ROLE:-|\$\{1:-' "$SS_HOOK"
 assert_status 0 "E-294.07f: session-start mints with <sid> <PPID>, no role word" \
   grep -qF -- '--mint-token "$_SID" "$PPID"' "$SS_HOOK"
 
@@ -465,11 +465,11 @@ echo "  [E-208.8] security-audit regressions"
 _tok_role() { python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['role'])" "${PB_RUN}/role-$1.lock" 2>/dev/null; }
 _RM_STOP="${PB_HOME}/stop-pb-remint"
 ( cd "$REPO_ROOT" && HOME="$PB_HOME" exec bash "$AS" architect pb-remint -- \
-    bash -c 'i=0; while [ ! -e "$1" ] && [ -d "${1%/*}" ] && [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done' _ "$_RM_STOP" ) >/dev/null 2>&1 &   # AIOS_SLEEP_ALLOWED: keep-alive loop of a child session shell (no assert.sh there); ends on the stop file
+    bash -c 'i=0; while [ ! -e "$1" ] && [ -d "${1%/*}" ] && [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done' _ "$_RM_STOP" ) >/dev/null 2>&1 &   # REIN_SLEEP_ALLOWED: keep-alive loop of a child session shell (no assert.sh there); ends on the stop file
 _RM_PID=$!
 on_exit "touch '${_RM_STOP}'; wait_for '! kill -0 ${_RM_PID} 2>/dev/null' 3000 100 2>/dev/null; kill ${_RM_PID} 2>/dev/null || true"
 wait_for "[ -e \"${PB_RUN}/role-pb-remint.lock\" ]" 10000 100 || true
-( cd "$REPO_ROOT" && HOME="$PB_HOME" bash -c 'python3 -I "$1" write $$ engineer >/dev/null; node --no-warnings "$2" --mint-token pb-remint $$ >/dev/null 2>&1; rm -f "$HOME/.ai-os/run/launch/$$.json"' _ "$LR" "$SAFE_EXEC" )
+( cd "$REPO_ROOT" && HOME="$PB_HOME" bash -c 'python3 -I "$1" write $$ engineer >/dev/null; node --no-warnings "$2" --mint-token pb-remint $$ >/dev/null 2>&1; rm -f "$HOME/.rein/run/launch/$$.json"' _ "$LR" "$SAFE_EXEC" )
 assert_contains "E-208.08d: re-minting a bound live session from an engineer chain is refused" "architect" \
   "$(_tok_role pb-remint)"
 assert_contains "E-208.08e: the write stays BLOCKED after an attempted role swap (session pid hot path)" "2" \
@@ -557,9 +557,9 @@ echo "  [E-208.9] launcher error paths"
 # un-installed HOME now refuses before these checks run), and the [PANE_NESTED] check must not
 # see a launch record on the operator's own process chain.
 
-# Outside an AI-OS project: must refuse, not launch anything.
+# Outside an Rein project: must refuse, not launch anything.
 OUTSIDE="$(mktemp -d)"
-assert_status 2 "E-208.09a: refuses to bind outside an AI-OS project" \
+assert_status 2 "E-208.09a: refuses to bind outside an Rein project" \
   bash -c "cd '$OUTSIDE' && HOME='$PB_HOME' bash '$AI_BIN' pane architect 2>/dev/null"
 assert_contains "E-208.09b: the message names the missing .ai/ and the fix" "ai init" \
   "$(cd "$OUTSIDE" && HOME="$PB_HOME" bash "$AI_BIN" pane architect 2>&1)"
@@ -664,7 +664,7 @@ if skip_unless_cmd tmux "live tmux pane-option binding"; then
              "architect": { "provider": "claude", "pane_identifier": "1" } } }
 JSON
   # A stand-in provider: `ai pane` execs it, and it must keep the pane alive while we look.
-  printf '#!/usr/bin/env bash\nexec sleep 30\n' > "${BIN}/claude"   # AIOS_SLEEP_ALLOWED: a stand-in claude binary, not a wait
+  printf '#!/usr/bin/env bash\nexec sleep 30\n' > "${BIN}/claude"   # REIN_SLEEP_ALLOWED: a stand-in claude binary, not a wait
   chmod +x "${BIN}/claude"
   # tmux resolves `tmux` inside the pane through PATH, so the pane must reach THIS server.
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$(command -v tmux)" "$SOCK" > "${BIN}/tmux"
@@ -685,8 +685,8 @@ JSON
   "$T" -L "$SOCK" select-pane -t "$OTHER" -T "untouched"
 
   # E-294: `ai pane` writes a launch record through launch-record.py, located in the install
-  # mirror — so the throwaway HOME carries `.ai-os/shared` pointing at this tree's src/shared.
-  E269_HOME="$(test_tmpdir e269-home)"; mkdir -p "${E269_HOME}/.ai-os"
+  # mirror — so the throwaway HOME carries `.rein/shared` pointing at this tree's src/shared.
+  E269_HOME="$(test_tmpdir e269-home)"; mkdir -p "${E269_HOME}/.rein"
   tc_link_shared "$E269_HOME"   # E-345 (D-109 r1): mirror = this tree + the toolchain record the hooks pin
   # Run `ai pane engineer` IN the non-active agent pane (TMUX_PANE is that pane's id).
   "$T" -L "$SOCK" send-keys -t "$AGENT" \
@@ -856,12 +856,12 @@ STOP_HOOK="${REPO_ROOT}/hooks/stop-hook.sh"
 ADD_TASK="${REPO_ROOT}/src/shared/cli-add-task.mjs"
 # ── E-213.1: owner labels carry the bound provider ─────────────────────────
 _owner() {  # <role> <aiDir> → owner label
-  AI_OS_R="$1" AI_OS_D="$2" node --input-type=module -e '
-const m = await import(process.env.AI_OS_MOD);
-process.stdout.write(m.resolveOwner({ role: process.env.AI_OS_R, aiDir: process.env.AI_OS_D }));
+  REIN_R="$1" REIN_D="$2" node --input-type=module -e '
+const m = await import(process.env.REIN_MOD);
+process.stdout.write(m.resolveOwner({ role: process.env.REIN_R, aiDir: process.env.REIN_D }));
 ' 2>/dev/null
 }
-export AI_OS_MOD="file://${ADD_TASK}"
+export REIN_MOD="file://${ADD_TASK}"
 
 _DUAL="$(mktemp -d)"
 cat > "$_DUAL/roles.json" <<'JSON'
@@ -898,8 +898,8 @@ assert_contains "E-213.01e: section headers are provider-agnostic (no churn)" \
 
 # An explicit --owner still wins over any role mapping.
 assert_contains "E-213.01f: explicit --owner still wins" "QA (External)" \
-  "$(AI_OS_MOD="file://${ADD_TASK}" node --input-type=module -e '
-const m = await import(process.env.AI_OS_MOD);
+  "$(REIN_MOD="file://${ADD_TASK}" node --input-type=module -e '
+const m = await import(process.env.REIN_MOD);
 process.stdout.write(m.resolveOwner({ owner: "QA (External)", role: "architect" }));
 ' 2>/dev/null)"
 
@@ -952,7 +952,7 @@ assert_status 0 "E-213.03b: the generator PRUNES an existing legacy grant" \
 # Behavioural: a settings file that already carries the rule loses it on sync.
 _LEG="$(mktemp -d)/.claude"; mkdir -p "$_LEG"
 printf '{"permissions":{"allow":["%s","mcp__keep-me__tool"]}}' "$_LEGACY_GRANT" > "$_LEG/settings.json"
-bash -c "source '$AI_BIN' 2>/dev/null; AIOS=\"\$HOME/.ai-os\"; _configure_project_claude_settings '$_LEG'" >/dev/null 2>&1
+bash -c "source '$AI_BIN' 2>/dev/null; REIN=\"\$HOME/.rein\"; _configure_project_claude_settings '$_LEG'" >/dev/null 2>&1
 assert_not_contains "E-213.03c: sync removes the legacy grant from an existing file" \
   "${_LEGACY_GRANT:-<no-grant-extracted>}" "$(cat "$_LEG/settings.json")"
 assert_contains "E-213.03d: unrelated allow rules survive the prune" \
@@ -964,7 +964,7 @@ assert_status 0 "E-213.04a: the Actor stamp is no longer the literal 'Claude'" \
 assert_status 0 "E-213.04b: the Actor stamp is interpolated" \
   grep -qE '^- Actor: \$\{ACTOR\}$' "$STOP_HOOK"
 assert_status 0 "E-213.04c: the role comes from the launch-time pane role" \
-  grep -q 'AI_OS_PANE_ROLE:-' "$STOP_HOOK"
+  grep -q 'REIN_PANE_ROLE:-' "$STOP_HOOK"
 assert_status 0 "E-213.04d: an unknown role falls back rather than being stamped" \
   grep -q 'architect|engineer) ;;' "$STOP_HOOK"
 
@@ -974,16 +974,16 @@ assert_status 0 "E-213.04d: an unknown role falls back rather than being stamped
 # enforcing gate (`safe-exec --check`) takes the role from the session's HMAC-verified token
 # (minted from the launch record, bound to the session process); the analyze_command MCP tool
 # is ADVISORY and reports only the rule set its caller's own caller_role names.
-# Was: "AI_OS_CALLER_ROLE=architect on the server's spawn env applies Architect rules" — now
+# Was: "REIN_CALLER_ROLE=architect on the server's spawn env applies Architect rules" — now
 # asserted as: the env var changes nothing; the session token does.
 _analyze() {  # <env role> <command> [caller_role] → the advisory analysis report
   local _cr=""; [[ -n "${3:-}" ]] && _cr=",\"caller_role\":\"$3\""
   ( cd "$REPO_ROOT"
     source tests/lib/mcp-client.sh
-    AI_OS_CALLER_ROLE="$1" mcp_call_tool "$SAFE_EXEC" analyze_command "{\"command\":\"$2\"${_cr}}"
+    REIN_CALLER_ROLE="$1" mcp_call_tool "$SAFE_EXEC" analyze_command "{\"command\":\"$2\"${_cr}}"
   ) 2>/dev/null | python3 -c 'import json,sys; print(json.load(sys.stdin)["content"][0]["text"])' 2>/dev/null
 }
-_RI_HOME="$(test_tmpdir rihome)"; mkdir -p "${_RI_HOME}/.ai-os"
+_RI_HOME="$(test_tmpdir rihome)"; mkdir -p "${_RI_HOME}/.rein"
 tc_fixture_home "$_RI_HOME"   # E-345 (D-109 r1): the toolchain record the hooks pin
 _ri_gate() {  # <architect|engineer> <command> → the enforcing --check report, run inside a real session
   ( cd "$REPO_ROOT" && HOME="$_RI_HOME" bash tests/lib/as-session.sh "$1" "ri-$1" -- \
@@ -997,7 +997,7 @@ _ENG_REPORT="$(_ri_gate engineer "git push origin master")"
 assert_not_contains "E-213.05c: an Engineer session's gate applies NO Architect rules" \
   "ARCH_" "$_ENG_REPORT"
 assert_contains "E-213.05d: and the Engineer may push" "PASS" "$_ENG_REPORT"
-assert_not_contains "E-294.05e: AI_OS_CALLER_ROLE=architect on the server env no longer selects Architect rules" \
+assert_not_contains "E-294.05e: REIN_CALLER_ROLE=architect on the server env no longer selects Architect rules" \
   "ARCH_GIT_PUSH" "$(_analyze architect "git push origin master")"
 assert_contains "E-294.05f: the advisory tool reports Architect rules when its caller_role asks" \
   "ARCH_GIT_PUSH" "$(_analyze engineer "git push origin master" architect)"

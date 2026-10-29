@@ -58,7 +58,7 @@ If new tests were added in this diff:
 
 > **Does this assertion depend on what the running machine happens to have?**
 > Installed CLIs, an ambient tmux server, the contents of `node_modules`, the state of the
-> `~/.ai-os` mirror, an inherited environment variable.
+> `~/.rein` mirror, an inherited environment variable.
 
 If yes, the test is not measuring the code — it is measuring the host, and it will pass on
 a developer machine and fail under `ai ci` (or, far worse, pass under `ai ci` while asserting
@@ -68,11 +68,11 @@ Five defects in the 2026-09-09 sprint were exactly this, and each was invisible 
 
 | Assertion | What it actually measured |
 |---|---|
-| `~/.ai-os` legacy-provider mirror byte-identity | whether that machine's mirror predated a strip |
+| `~/.rein` legacy-provider mirror byte-identity | whether that machine's mirror predated a strip |
 | `ls` exit code 1 for a missing path | BSD vs GNU coreutils |
 | an unpruned `node_modules` corpus scan | whether deps happened to be installed |
 | "nothing is running" for tmux | whether a tmux server happened to be up |
-| MCP caller role | an inherited `AI_OS_CALLER_ROLE` from settings |
+| MCP caller role | an inherited `REIN_CALLER_ROLE` from settings |
 
 **Two different fixes, and picking the wrong one hides the problem:**
 
@@ -96,7 +96,7 @@ on that laptop once 54 leaked tmux servers and a wedged download were cleared. I
 tracking machine load the entire time.
 
 Required shape: `assert_perf <label> <elapsed> <absolute> <baseline>` — absolute enforced
-where the hardware is known (`CI=true` or `AI_OS_PERF_ABSOLUTE=1`; `ai ci` stays relative), `elapsed <= k*baseline + slack` elsewhere, and **both
+where the hardware is known (`CI=true` or `REIN_PERF_ABSOLUTE=1`; `ai ci` stays relative), `elapsed <= k*baseline + slack` elsewhere, and **both
 numbers printed every run**. A perf assertion that prints only a verdict cannot distinguish
 "the code got slower" from "the machine is busy", which is the whole question.
 
@@ -113,11 +113,11 @@ which recycles, so a later run attached to a leftover server still holding windo
 
 Look for external state created without a matching `register_cleanup` **registered before
 the state exists**: tmux servers, background processes, temp dirs outside the sandbox,
-`.ai/` lock dirs and `~/.ai-os` writes.
+`.ai/` lock dirs and `~/.rein` writes.
 
 Required shape: `register_cleanup "…"` FIRST, then create; names from `mktemp` entropy,
 **never `$$`**. `tests/run.sh` reports `LEAKED n <kind>` per suite and fails the run under `ai ci`
-(`AI_OS_CI=local`), as on any hosted CI.
+(`REIN_CI=local`), as on any hosted CI.
 
 This is the third variety of environment dependence, alongside "what the machine has"
 (E-236) and "how fast it is" (E-239).
@@ -179,11 +179,11 @@ that never RAN (E-241).
 
 ### The instrument recorded the test (review question #6 — E-257, D-070 §1) — **P1**
 
-> **Does this test write to any path under `~/.ai-os/` other than a per-run temp path?**
+> **Does this test write to any path under `~/.rein/` other than a per-run temp path?**
 
 The sixth variety is the inverse of the other five: not the test measuring something else,
 but the PRODUCTION INSTRUMENT measuring the test. Every MCP call the suite made was
-telemetered into the operator's `~/.ai-os/telemetry.sqlite`; on 2026-09-11, 47,391 of
+telemetered into the operator's `~/.rein/telemetry.sqlite`; on 2026-09-11, 47,391 of
 51,382 in-window rows were fixtures, and two `ai-insights` reports recommended skills for
 behaviour that was the test suite's.
 
@@ -191,11 +191,11 @@ behaviour that was the test suite's.
 every process a per-run session marker, and FAILS the run (`[TELEMETRY_LEAKED]`) when a
 row carrying that marker reaches the live store. `tests/lib/assert.sh` does the same
 redirect for a suite run on its own. That covers telemetry — it does not cover a test that
-writes some OTHER file under `~/.ai-os/` (the trash, `run/`, `ci/`, the mirror itself).
+writes some OTHER file under `~/.rein/` (the trash, `run/`, `ci/`, the mirror itself).
 
-Look for: a suite that runs `ai`, a hook, an MCP server or `install-ai-os.sh` without a
+Look for: a suite that runs `ai`, a hook, an MCP server or `install-rein.sh` without a
 fixture `HOME`; a subprocess started with `env -i` or a hand-built environment (which
-drops `AI_TELEMETRY_DB_PATH`); any literal `~/.ai-os` / `$HOME/.ai-os` a test writes to.
+drops `AI_TELEMETRY_DB_PATH`); any literal `~/.rein` / `$HOME/.rein` a test writes to.
 The remedy is a fixture HOME (`test_tmpdir`) or the per-run temp path — never a cleanup
 step that deletes from the operator's real directory afterwards.
 
@@ -204,8 +204,8 @@ step that deletes from the operator's real directory afterwards.
 > **Does this test drive a hook or resolver that ranks an inherited launch variable above the
 > test's own inputs — and is that variable stripped?**
 
-`ai pane <role>` exports `AI_OS_PANE_ROLE` and `AI_OS_CALLER_ROLE`; the AI-OS shell exports
-`AIOS_WORKSPACE`. The hooks rank them ABOVE a test's own inputs, deliberately — that is the
+`ai pane <role>` exports `REIN_PANE_ROLE` and `REIN_CALLER_ROLE`; the Rein shell exports
+`REIN_WORKSPACE`. The hooks rank them ABOVE a test's own inputs, deliberately — that is the
 D-054 per-pane binding. So a suite run from a bound pane obeyed the pane: `git_lane_test` lost
 its whole Architect lane, `role_token_test` minted the wrong role while its "one was minted"
 check still passed, and the E-249 gate never fired in `booted_build_test`. Three tasks in a

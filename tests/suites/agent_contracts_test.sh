@@ -13,9 +13,9 @@
 #   - Persona stamps via task-synchronizer-mcp::add_stamp (never writes
 #     REVIEWS.md directly) using CLEAN_PASS / CLEAN_WARN / CLEAN_FAIL types
 #   - ai-review SKILL.md Tier 2 + Tier 3 sections wire the persona in
-#   - AI_OS_SKIP_STANDARDS=1 rollback path documented in the persona
+#   - REIN_SKIP_STANDARDS=1 rollback path documented in the persona
 #   - Severity ladder + verdict table match the E-80 envelope schema
-#   - Mirrors byte-identical to .claude/ + ~/.ai-os/claude/
+#   - Mirrors byte-identical to .claude/ + ~/.rein/claude/
 
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,10 +24,10 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PERSONA_SRC="${REPO_ROOT}/src/claude/agents/critic_clean_code.md"
 PERSONA_CLD="${REPO_ROOT}/.claude/agents/critic_clean_code.md"
-PERSONA_MIRROR="${HOME}/.ai-os/claude/agents/critic_clean_code.md"
+PERSONA_MIRROR="${HOME}/.rein/claude/agents/critic_clean_code.md"
 REVIEW_SRC="${REPO_ROOT}/src/claude/skills/ai-review/SKILL.md"
 REVIEW_CLD="${REPO_ROOT}/.claude/skills/ai-review/SKILL.md"
-REVIEW_MIRROR="${HOME}/.ai-os/claude/skills/ai-review/SKILL.md"
+REVIEW_MIRROR="${HOME}/.rein/claude/skills/ai-review/SKILL.md"
 
 echo "── Suite: agent_contracts_test ──────────────────────────────────────"
 
@@ -56,8 +56,8 @@ assert_status 0 "persona references scripts/standards.mjs" \
   grep -q 'scripts/standards.mjs' "$PERSONA_SRC"
 assert_status 0 "persona uses --staged + --json envelope" \
   grep -q 'check --staged --json' "$PERSONA_SRC"
-assert_status 0 "persona documents the locator chain (in-tree + ~/.ai-os fallback)" \
-  grep -qE '\$\{HOME\}/.ai-os/scripts/standards.mjs|HOME.*ai-os' "$PERSONA_SRC"
+assert_status 0 "persona documents the locator chain (in-tree + ~/.rein fallback)" \
+  grep -qE '\$\{HOME\}/.rein/scripts/standards.mjs|HOME.*rein' "$PERSONA_SRC"
 assert_status 0 "persona references standards.json (rule registry)" \
   grep -q 'standards.json' "$PERSONA_SRC"
 assert_status 0 "persona reads the engineering-standards blueprint" \
@@ -92,9 +92,9 @@ assert_status 0 "CLEAN_FAIL is the COMMIT BLOCKED signal" \
 
 # ── T-CCC-S05: Rollback path documented per blueprint §Rollback Plan ───────
 echo ""
-echo "  [T-CCC-S05] AI_OS_SKIP_STANDARDS=1 escape hatch documented"
+echo "  [T-CCC-S05] REIN_SKIP_STANDARDS=1 escape hatch documented"
 
-assert_status 0 "rollback flag named verbatim"       grep -q 'AI_OS_SKIP_STANDARDS=1' "$PERSONA_SRC"
+assert_status 0 "rollback flag named verbatim"       grep -q 'REIN_SKIP_STANDARDS=1' "$PERSONA_SRC"
 assert_status 0 "STANDARDS_SKIPPED marker referenced" grep -q 'STANDARDS_SKIPPED' "$PERSONA_SRC"
 assert_status 0 "skip-path still emits a stamp"      \
   bash -c "awk '/^## Rollback/{f=1; next} /^## /{f=0} f' '$PERSONA_SRC' | grep -q 'add_stamp'"
@@ -129,21 +129,21 @@ assert_status 0 "Tier 3 spawns critic_clean_code" \
 assert_status 0 "Tier 3 expected-stamps list mentions CLEAN_*" \
   bash -c "awk '/^## Tier 3/{f=1} f' '$REVIEW_SRC' | grep -qE 'CLEAN_PASS/WARN/FAIL'"
 
-# ── T-CCC-S08: ~/.ai-os mirrors byte-identical ──────────────────────────────
+# ── T-CCC-S08: ~/.rein mirrors byte-identical ──────────────────────────────
 echo ""
 echo "  [T-CCC-S08] Mirrors match src/"
 
 assert_status 0 "persona .claude/ mirror"      diff -q "$PERSONA_SRC" "$PERSONA_CLD"
 if [[ -f "$PERSONA_MIRROR" ]]; then
-  assert_status 0 "persona ~/.ai-os/ mirror"   diff -q "$PERSONA_SRC" "$PERSONA_MIRROR"
+  assert_status 0 "persona ~/.rein/ mirror"   diff -q "$PERSONA_SRC" "$PERSONA_MIRROR"
 else
-  echo "    ⚠  persona ~/.ai-os/ mirror absent — skipping"
+  echo "    ⚠  persona ~/.rein/ mirror absent — skipping"
 fi
 assert_status 0 "ai-review .claude/ mirror"   diff -q "$REVIEW_SRC" "$REVIEW_CLD"
 if [[ -f "$REVIEW_MIRROR" ]]; then
-  assert_status 0 "ai-review ~/.ai-os/ mirror" diff -q "$REVIEW_SRC" "$REVIEW_MIRROR"
+  assert_status 0 "ai-review ~/.rein/ mirror" diff -q "$REVIEW_SRC" "$REVIEW_MIRROR"
 else
-  echo "    ⚠  ai-review ~/.ai-os/ mirror absent — skipping"
+  echo "    ⚠  ai-review ~/.rein/ mirror absent — skipping"
 fi
 
 # ── T-CCC-S09: Reference resolution — critic_clean_code points to E-80 files ─
@@ -382,19 +382,19 @@ assert_status 0 "ai-test Tier-3 gate lists [VIBE_CLEARED]" \
 assert_status 0 "review_synthesizer requires [VIBE_CLEARED]" \
   grep -qF 'VIBE_CLEARED' "$SYNTH"
 
-# ── mirror identity for ai-test (.claude + ~/.ai-os) ──────────────────────
+# ── mirror identity for ai-test (.claude + ~/.rein) ──────────────────────
 assert_status 0 "ai-test .claude mirror identical" \
   diff -q "$AI_TEST" "${REPO_ROOT}/.claude/skills/ai-test/SKILL.md"
-assert_status 0 "ai-test ~/.ai-os mirror identical" \
-  diff -q "$AI_TEST" "${HOME}/.ai-os/shared/skills/ai-test/SKILL.md"
+assert_status 0 "ai-test ~/.rein mirror identical" \
+  diff -q "$AI_TEST" "${HOME}/.rein/shared/skills/ai-test/SKILL.md"
 
 # ── E-64 (from task_planner_routing_test — E-302): task-planner teaches path classification ──
 # Verifies that the task-planner skill (Architect-owned) explicitly teaches
 # Step 4 path-classification + the is_framework_task payload contract
 # from .ai/blueprints/task-routing.md, and stays in sync with its
-# ~/.ai-os/ mirror.
+# ~/.rein/ mirror.
 SKILL_SRC="${REPO_ROOT}/src/claude/skills/task-planner/SKILL.md"
-SKILL_MIRROR="${HOME}/.ai-os/claude/skills/task-planner/SKILL.md"
+SKILL_MIRROR="${HOME}/.rein/claude/skills/task-planner/SKILL.md"
 
 
 # ── T-PR-S01: skill teaches the framework-classification step ─────────────────
@@ -407,10 +407,10 @@ assert_status 0 "skill file exists" \
 assert_status 0 "Step 4 — Classify the Workspace section present" \
   grep -q 'Step 4 — Classify the Workspace' "$SKILL_SRC"
 
-assert_status 0 "explicit framework-path triggers (~/.ai-os/, ai-os-v2/src/**)" \
-  grep -q '~/.ai-os/' "$SKILL_SRC"
-assert_status 0 "explicit ai-os-v2/src/** trigger documented" \
-  grep -q 'ai-os-v2/src' "$SKILL_SRC"
+assert_status 0 "explicit framework-path triggers (~/.rein/, @vimurai/rein/src/**)" \
+  grep -q '~/.rein/' "$SKILL_SRC"
+assert_status 0 "explicit @vimurai/rein/src/** trigger documented" \
+  grep -q '@vimurai/rein/src' "$SKILL_SRC"
 
 # ── T-PR-S02: payload contract surfaced ──────────────────────────────────────
 echo ""
@@ -422,8 +422,8 @@ assert_status 0 "skill names is_framework_task in the add_task call" \
 assert_status 0 "skill warns about [WORKSPACE_NOT_FOUND] failure mode" \
   grep -q 'WORKSPACE_NOT_FOUND' "$SKILL_SRC"
 
-assert_status 0 "skill names \$AIOS_WORKSPACE explicitly" \
-  grep -q 'AIOS_WORKSPACE' "$SKILL_SRC"
+assert_status 0 "skill names \$REIN_WORKSPACE explicitly" \
+  grep -q 'REIN_WORKSPACE' "$SKILL_SRC"
 
 # ── T-PR-S03: ambiguity guidance documented ──────────────────────────────────
 echo ""
@@ -439,15 +439,15 @@ echo "  [T-PR-S04] anti-pattern call-out forbids cross-project leakage"
 assert_status 0 "What NOT to Do mentions framework-level routing" \
   grep -qE 'framework-level tasks|framework workspace' "$SKILL_SRC"
 
-# ── T-PR-S05: ~/.ai-os mirror is byte-identical ──────────────────────────────
+# ── T-PR-S05: ~/.rein mirror is byte-identical ──────────────────────────────
 echo ""
-echo "  [T-PR-S05] ~/.ai-os/ mirror tracks src/ verbatim"
+echo "  [T-PR-S05] ~/.rein/ mirror tracks src/ verbatim"
 
 if [[ -f "$SKILL_MIRROR" ]]; then
-  assert_status 0 "src and ~/.ai-os mirror are byte-identical" \
+  assert_status 0 "src and ~/.rein mirror are byte-identical" \
     cmp -s "$SKILL_SRC" "$SKILL_MIRROR"
 else
-  echo "  ⚠ mirror absent — install-ai-os.sh hasn't run since E-64; skipping cmp"
+  echo "  ⚠ mirror absent — install-rein.sh hasn't run since E-64; skipping cmp"
 fi
 
 # ── E-43 (from ai_debug_skill_test — E-302): ai-debug skill TASK_BUDGET upgrade ──

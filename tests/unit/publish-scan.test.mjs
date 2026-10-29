@@ -64,7 +64,7 @@ test("E-364: every class is reachable (the scanner cannot pass empty)", () => {
 });
 
 test("E-364: scanFiles reports per file and skips binaries", () => {
-  const root = mkdtempSync(join(tmpdir(), "aios-t-pscan-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, ".ai"));
     writeFileSync(join(root, "a.md"), "see /home/dave/x\n");
@@ -74,7 +74,7 @@ test("E-364: scanFiles reports per file and skips binaries", () => {
 });
 
 test("E-365: without .ai/publish-scan.local.json a tree scan FAILS CLOSED; with it the names are checked", () => {
-  const root = mkdtempSync(join(tmpdir(), "aios-t-pscan-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, ".ai"));
     writeFileSync(join(root, "a.md"), "built for Fabrikam\n");
@@ -89,7 +89,7 @@ test("E-365: without .ai/publish-scan.local.json a tree scan FAILS CLOSED; with 
 test("E-365: the reviewed exemption covers this file's invented data — never client names", () => {
   assert.deepEqual(Object.keys(EXEMPT_FILES), ["tests/unit/publish-scan.test.mjs"]);
   for (const reason of Object.values(EXEMPT_FILES)) assert.ok(reason.length > 20);
-  const root = mkdtempSync(join(tmpdir(), "aios-t-pscan-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, "tests", "unit"), { recursive: true });
     writeFileSync(join(root, "tests/unit/publish-scan.test.mjs"), "cd /home/frank; Fabrikam\n");
@@ -98,7 +98,7 @@ test("E-365: the reviewed exemption covers this file's invented data — never c
 });
 
 test("E-365: an empty client list refuses like a missing one", () => {
-  const root = mkdtempSync(join(tmpdir(), "aios-t-pscan-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, ".ai"));
     for (const body of [{ client_names: [] }, {}, { client_names: [""] }]) {
@@ -147,7 +147,7 @@ test("E-372: an operator value is found in any form the list names, bounded, Uni
 });
 
 test("E-372: an allowed value passes only in its allowed file; everything else of the operator's refuses", () => {
-  const root = mkdtempSync(join(tmpdir(), "aios-t-pscan-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     for (const [f, t] of [["NOTICE", "Copyright 2026 Ada Quill"], ["package.json", '"author": "Ada Quill <ada.quill@corpmail.net>"'],
       ["src/x.mjs", "// Ada Quill"], ["README.md", "old: aq@formerjob.biz"]]) {
@@ -166,7 +166,7 @@ test("E-372: the operator list and its allow block fail closed", () => {
   assert.throws(() => checkAllow({ "Ada Quill": ["src/x.mjs"] }, ["Ada Quill"]), /\[SCAN_ALLOW_BAD\].*allowed files/);
   assert.throws(() => checkAllow({ "Bo Ray": ["NOTICE"] }, ["Ada Quill"]), /\[SCAN_ALLOW_BAD\].*not in operator_names/);
   assert.throws(() => checkAllow(["NOTICE"], ["Ada Quill"]), /\[SCAN_ALLOW_BAD\]/);
-  const root = mkdtempSync(join(tmpdir(), "aios-t-pscan-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, ".ai"));
     const write = (j) => writeFileSync(join(root, ".ai", "publish-scan.local.json"), JSON.stringify(j));
@@ -183,13 +183,13 @@ test("E-372: the operator list and its allow block fail closed", () => {
 });
 
 test("E-372: the export tree refuses .git, .env*, *.local.json, off-registry lockfile URLs and absolute template paths", () => {
-  const root = mkdtempSync(join(tmpdir(), "aios-t-pscan-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, ".claude"));
     writeFileSync(join(root, "package-lock.json"), JSON.stringify({ packages: { "": {}, "node_modules/a": { resolved: "https://registry.npmjs.org/a/-/a-1.tgz" },
       "node_modules/b": { resolved: "https://evil.example/b.tgz" }, "node_modules/c": { resolved: "git+ssh://git@github.com/x/c.git" },
       "node_modules/w": { resolved: "src/mcp/w", link: true }, "node_modules/x": { resolved: "../outside/x", link: true } } }));
-    writeFileSync(join(root, ".claude", "settings.engineer.json"), JSON.stringify({ hooks: { a: [{ command: "~/.ai-os/hooks/x.sh" }, { command: "/opt/x/hook.sh" }] } }));
+    writeFileSync(join(root, ".claude", "settings.engineer.json"), JSON.stringify({ hooks: { a: [{ command: "~/.rein/hooks/x.sh" }, { command: "/opt/x/hook.sh" }] } }));
     writeFileSync(join(root, ".mcp.json"), JSON.stringify({ mcpServers: { s: { args: ["C:\\tools\\s.js"] } } }));
     const files = ["package-lock.json", ".claude/settings.engineer.json", ".mcp.json", ".git/config", ".env.local", "x/.env", ".ai/publish-scan.local.json", "X/.ENV", ".env.example", "src/ok.mjs"];
     assert.deepEqual(treeProblems(root, files).map((h) => `${h.class} ${h.file}`), [
@@ -217,7 +217,7 @@ test("E-372: today's export tree passes the checks beyond content", () => {
 const PUBLIC = { name: "Vimurai", email: "1+vimurai@users.noreply.github.com" };
 const PUB_ID = `${PUBLIC.name} <${PUBLIC.email}>`;
 function publicRepo(t, { operatorList = true } = {}) {
-  const root = mkdtempSync(join(tmpdir(), "aios-t-pscan-pub-"));
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-pub-"));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, ".ai"));
   writeFileSync(join(root, ".ai", "publish.json"), JSON.stringify({ author: PUBLIC }));
@@ -383,14 +383,14 @@ test("E-378 P1-7: a staged symlink is scanned as its target text (type changes i
 test("E-378: the pre-commit hook runs the gate where no env opt-out reaches it, and fails closed", () => {
   const hook = _read(_resolve(REPO, "hooks/pre-commit.sh"), "utf8");
   const gate = hook.indexOf("# ── E-378 (D-129 §Component 9): the public repository's privacy gate");
-  const optOutEnd = hook.indexOf('fi\n', hook.indexOf('[GATE_SKIPPED] AI_OS_SKIP_CONFLICT_GATE=1'));
+  const optOutEnd = hook.indexOf('fi\n', hook.indexOf('[GATE_SKIPPED] REIN_SKIP_CONFLICT_GATE=1'));
   assert.ok(gate > optOutEnd && optOutEnd > 0, "after the E-238 opt-out block, not inside it");
   const body = hook.slice(gate, hook.indexOf("\nfi\n", gate));
   assert.match(body, /precommit "\$\{AI_DIR%\/\.ai\}"/);
   assert.match(body, /\[PUBLISH_GATE\] shared\/publish-scan\.mjs or node unavailable/);
   assert.match(body, /"\$_e378_out" != "\[PRIVACY_GATE_OK\]"\*/, "the verdict line is required (P0-3)");
   assert.match(hook, /git cat-file -e :\.ai\/publish\.json/, "the index copy activates it (P1-4)");
-  assert.doesNotMatch(body, /\$\{?AI_OS_[A-Z_]*/, "no env switch");
+  assert.doesNotMatch(body, /\$\{?REIN_[A-Z_]*/, "no env switch");
 });
 
 // ── E-370 (D-123, open-source-release.md §Component 1): the licence is Apache-2.0 ──

@@ -73,25 +73,25 @@ const ASSIGN = new RegExp(
 // E-355 (D-114, licensing.md §Security): the licence signing key never passes through a shell.
 // Absolute: a private key's PEM header (whitespace- and case-tolerant) or the fixed prefix of an
 // Ed25519 PKCS8 key (base64 or hex). Per command segment: naming the signing key
-// (license-sign…, any spelling a glob could complete) or anything under ~/.ai-os/secrets —
+// (license-sign…, any spelling a glob could complete) or anything under ~/.rein/secrets —
 // except a segment that only searches or records text (grep/rg, git commit/log/show/grep/diff)
 // and, for the directory, ls/stat. A speed bump, not the boundary: the 0600 file and not
 // running agents as the vendor on the signing machine are (security_engineer P2-7, P2-8).
 const PEM_PRIVATE = /-----\s*BEGIN\s+(?:[A-Z0-9]+\s+)*PRIVATE\s+KEY\s*-----/i;
 const ED25519_PKCS8 = /MC4CAQAwBQYDK2VwBCIEI[A-Za-z0-9+/]{20,}|302e020100300506032b657004220420[0-9a-f]{20,}/i;
 const SIGNING_KEY = /(?<![A-Za-z0-9_-])license-sign/i;
-const SECRETS_DIR = /\.ai-os\/secrets(?=[/*\s"'}]|$)|\.ai-os\/?["']?\s+["']?secrets\b/;   // also `-C ~/.ai-os secrets`
+const SECRETS_DIR = /\.rein\/secrets(?=[/*\s"'}]|$)|\.rein\/?["']?\s+["']?secrets\b/;   // also `-C ~/.rein secrets`
 const TEXT_ONLY = /^(?:grep|egrep|fgrep|rg|git\s+(?:commit|log|show|grep|diff))\b/;
 const LISTS = /^(?:ls|stat)\b/;
 
 function _signingKeyPath(text) {
-  // `~/.ai-os//secrets` and `~/.ai-os/./secrets` are the same directory (critic_security P2, E-355).
+  // `~/.rein//secrets` and `~/.rein/./secrets` are the same directory (critic_security P2, E-355).
   const s = text.replace(/\/(?:\.?\/)+/g, "/");
   for (const seg of s.split(/&&|\|\||[;|&\n]/)) {
     const cmd = seg.trim().replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S*\s+)*(?:sudo\s+)?/, "");
-    // The secrets directory, or a glob straight under ~/.ai-os/, blocks in EVERY segment —
-    // searching (`grep -r . ~/.ai-os/secrets`) or writing (`git log > …/secrets/y`) included.
-    if ((SECRETS_DIR.test(cmd) || /\.ai-os\/[?*[]/.test(cmd)) && !LISTS.test(cmd)) return true;
+    // The secrets directory, or a glob straight under ~/.rein/, blocks in EVERY segment —
+    // searching (`grep -r . ~/.rein/secrets`) or writing (`git log > …/secrets/y`) included.
+    if ((SECRETS_DIR.test(cmd) || /\.rein\/[?*[]/.test(cmd)) && !LISTS.test(cmd)) return true;
     // A search or a commit message may NAME the key file; not when it hides a substitution.
     if (TEXT_ONLY.test(cmd) && !/\$\(|`/.test(cmd)) continue;
     if (SIGNING_KEY.test(cmd)) return true;

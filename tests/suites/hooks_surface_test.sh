@@ -54,7 +54,7 @@ _wait_rows Bash 1
 assert_status 0 "E-284.01b: a denied Bash call books exactly one REJECTED row with source=hook (got $(_count Bash))" \
   test "$(_count Bash)" -eq 1
 _fire mcp__task-synchronizer-mcp__add_task >/dev/null
-sleep 1   # AIOS_SLEEP_ALLOWED: negative wait — the detached writer gets the time a write takes; nothing may land
+sleep 1   # REIN_SLEEP_ALLOWED: negative wait — the detached writer gets the time a write takes; nothing may land
 assert_status 0 "E-284.01c: a denied mcp__ tool books nothing here (the interceptor owns it)" \
   test "$(_count mcp__task-synchronizer-mcp__add_task)" -eq 0
 rc="$(printf 'not json' | env AI_TELEMETRY_DB_PATH="$DB" /bin/bash "$HOOK" >/dev/null 2>&1; echo $?)"
@@ -84,14 +84,14 @@ assert_perf "E-284.01f: PermissionDenied hook foreground latency" "$el" 20 "$bas
 # ── E-284.2: ai sync registers the hook ─────────────────────────────────────
 TA="$T/proj"; mkdir -p "$TA/.ai"
 printf '{ "roles": { "engineer": {"provider":"claude","pane_identifier":"0","model":"opus"} } }\n' > "$TA/.ai/roles.json"
-( cd "$TA" && AI_OS_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
+( cd "$TA" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
 _reg="$(python3 -c '
 import json,sys
 d=json.load(open(sys.argv[1]))
 for e in d.get("hooks",{}).get("PermissionDenied",[]):
     for h in e.get("hooks",[]): print(e.get("matcher"), h.get("command"), " ".join(h.get("args") or []))' "$TA/.claude/settings.json" 2>/dev/null)"
 assert_contains "E-284.02a: ai sync registers permission-denied.sh on PermissionDenied" "permission-denied.sh" "$_reg"
-( cd "$TA" && AI_OS_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
+( cd "$TA" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
 _n="$(python3 -c '
 import json,sys
 d=json.load(open(sys.argv[1]))
@@ -149,9 +149,9 @@ assert_status 0 "hook uses --emit-context"                   grep -qF -- '--emit
 
 # ── S02: --emit-context emits the compiled blob; rollback emits nothing ───────
 assert_status 0 "S02: --emit-context emits the System Context blob" bash -c \
-  "node --no-warnings '$CM' --emit-context 2>/dev/null | grep -q 'AI-OS SYSTEM CONTEXT CACHE'"
-assert_status 0 "S02: AI_OS_DISABLE_CACHE=1 emits nothing" bash -c \
-  "[ -z \"\$(AI_OS_DISABLE_CACHE=1 node --no-warnings '$CM' --emit-context 2>/dev/null)\" ]"
+  "node --no-warnings '$CM' --emit-context 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
+assert_status 0 "S02: REIN_DISABLE_CACHE=1 emits nothing" bash -c \
+  "[ -z \"\$(REIN_DISABLE_CACHE=1 node --no-warnings '$CM' --emit-context 2>/dev/null)\" ]"
 
 # ── S03: hook emits VALID SessionStart JSON with the cache in additionalContext ─
 assert_status 0 "S03: hook output is valid SessionStart additionalContext JSON" bash -c "
@@ -160,20 +160,20 @@ import json, sys
 d = json.load(sys.stdin)
 h = d[\"hookSpecificOutput\"]
 assert h[\"hookEventName\"] == \"SessionStart\", \"event name\"
-assert \"AI-OS SYSTEM CONTEXT CACHE\" in h[\"additionalContext\"], \"cache present\"
+assert \"Rein SYSTEM CONTEXT CACHE\" in h[\"additionalContext\"], \"cache present\"
 assert len(h[\"additionalContext\"]) > 1000, \"non-trivial blob\"
 '"
 
-# ── S04: rollback — AI_OS_DISABLE_CACHE=1 suppresses the CACHE ───────────────
+# ── S04: rollback — REIN_DISABLE_CACHE=1 suppresses the CACHE ───────────────
 # E-208 (D-054) changed this contract deliberately: the hook still emits the
-# `[AI_OS_ROLE] <role>` stamp, because the ROLE BINDING is not part of the cache
+# `[REIN_ROLE] <role>` stamp, because the ROLE BINDING is not part of the cache
 # feature. If disabling the cache also dropped the stamp, an Architect-bound pane
 # would silently lose its persona binding (gap G1 would reopen) purely as a
 # side-effect of a caching rollback. The cache blob itself must still be absent.
 assert_status 0 "S04: rollback flag → cache blob suppressed" bash -c \
-  "! AI_OS_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null | grep -q 'AI-OS SYSTEM CONTEXT CACHE'"
+  "! REIN_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
 assert_status 0 "S04: rollback flag → role stamp still emitted (E-208)" bash -c \
-  "AI_OS_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null | grep -q 'AI_OS_ROLE'"
+  "REIN_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null | grep -q 'REIN_ROLE'"
 
 # ── S05: fail-open — node unavailable → hook exits 0, emits nothing (no block) ─
 # E-286: the hook pins its own PATH, so "no node" is simulated the way production meets
@@ -183,7 +183,7 @@ source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 _S05="$(mktemp -d)"; on_exit "rm -rf '$_S05'"
 tc_overlay_home "$_S05/home" "$_S05/bin" --no-pin
 ( . "${SCRIPT_DIR}/../../src/shared/toolchain-record.sh"
-  ai_os_tc_write "$_S05/home/.ai-os/shared/toolchain.sh" "$_S05/gone/node" "$_S05/bin/python3" /usr/bin/nice )
+  ai_os_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/gone/node" "$_S05/bin/python3" /usr/bin/nice )
 _S05_HOOK="$(tc_stale_tree "$_S05/tree" "$SSC_HOOK")"
 if [[ -x /usr/bin/env && -x "$_S05/bin/python3" ]]; then
   assert_status 0 "S05: no node → hook exits 0 (fail-open)" bash -c \
@@ -191,17 +191,17 @@ if [[ -x /usr/bin/env && -x "$_S05/bin/python3" ]]; then
   # E-208: no node → no cache blob, but the role stamp still binds the persona
   # (building it needs only python3).
   assert_status 0 "S05: no node → cache blob suppressed" bash -c \
-    "! HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'AI-OS SYSTEM CONTEXT CACHE'"
+    "! HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
   # The comment above promises the role stamp still binds without node (building it
   # needs only python3) — assert it rather than leaving the claim untested.
   assert_status 0 "S05: no node → role stamp still emitted (E-208)" bash -c \
-    "HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'AI_OS_ROLE'"
+    "HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'REIN_ROLE'"
   # Non-vacuity: the same tree WITH node recorded does emit the cache blob, so the
   # suppression above is caused by the missing node and nothing else.
   ( . "${SCRIPT_DIR}/../../src/shared/toolchain-record.sh"
-    ai_os_tc_write "$_S05/home/.ai-os/shared/toolchain.sh" "$_S05/bin/node" "$_S05/bin/python3" /usr/bin/nice )
+    ai_os_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/bin/node" "$_S05/bin/python3" /usr/bin/nice )
   assert_status 0 "S05: (non-vacuity) with node recorded the same tree emits the blob" bash -c \
-    "cd '${REPO_ROOT:-$PWD}' && HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'AI-OS SYSTEM CONTEXT CACHE'"
+    "cd '${REPO_ROOT:-$PWD}' && HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
 else
   _skip "S05: fail-open without node — the fixture could not record a python3 to keep"
 fi
@@ -238,7 +238,7 @@ path = sys.argv[1]
 for _ in range(2):
     data = json.load(open(path))
     hooks = data.setdefault("hooks", {})
-    ss_cmd = "bash $HOME/.ai-os/hooks/session-start.sh"
+    ss_cmd = "bash $HOME/.rein/hooks/session-start.sh"
     ss = hooks.setdefault("SessionStart", [])
     if not any(h.get("command") == ss_cmd for e in ss for h in e.get("hooks", [])):
         ss.append({"matcher": "startup|resume|clear|compact", "hooks": [{"type": "command", "command": ss_cmd}]})
@@ -251,9 +251,9 @@ rm -rf "$S06_DIR"
 # ── S07 (E-326, D-102): a team project's pulled records are imported at session start ─
 # The lines reach the model's context; a legacy project gets no import (and no node start).
 _S07="$(mktemp -d)"; on_exit "rm -rf '$_S07'"
-mkdir -p "$_S07/home/.ai-os" "$_S07/team/.ai" "$_S07/legacy/.ai"
+mkdir -p "$_S07/home/.rein" "$_S07/team/.ai" "$_S07/legacy/.ai"
 tc_link_shared "$_S07/home"   # E-345 (D-109 r1): mirror = this tree + the toolchain record the hooks pin
-ln -s "${REPO_ROOT}/src/mcp" "$_S07/home/.ai-os/mcp"
+ln -s "${REPO_ROOT}/src/mcp" "$_S07/home/.rein/mcp"
 ( cd "$_S07/team" && git init -q . && node --no-warnings --input-type=module -e "
     const { getDb, addTask } = await import('file://${REPO_ROOT}/src/mcp/shared/state-db.js');
     const { writeRecord, taskRecord } = await import('file://${REPO_ROOT}/src/mcp/shared/record-store.mjs');
@@ -263,10 +263,10 @@ ln -s "${REPO_ROOT}/src/mcp" "$_S07/home/.ai-os/mcp"
     writeRecord('.ai', 'task', row.id, taskRecord(row), { fresh: true });
     writeRecord('.ai', 'task', 'E-900', taskRecord({ id: 'E-900', owner: 'Engineer (Claude)', status: 'OPEN', description: 'pulled', created_at: new Date().toISOString() }), { fresh: true });
   " )
-_S07_OUT="$(cd "$_S07/team" && HOME="$_S07/home" AI_OS_DISABLE_CACHE=1 bash "$SSC_HOOK" </dev/null 2>/dev/null)"
+_S07_OUT="$(cd "$_S07/team" && HOME="$_S07/home" REIN_DISABLE_CACHE=1 bash "$SSC_HOOK" </dev/null 2>/dev/null)"
 assert_contains "S07: a team project's pulled record is imported at session start" "[STATE_IMPORT] + E-900 OPEN" "$_S07_OUT"
 assert_contains "S07b: …and the view now carries it" "E-900: pulled" "$(cat "$_S07/team/.ai/TASKS.md" 2>/dev/null)"
-_S07_LEG="$(cd "$_S07/legacy" && HOME="$_S07/home" AI_OS_DISABLE_CACHE=1 bash "$SSC_HOOK" </dev/null 2>/dev/null)"
+_S07_LEG="$(cd "$_S07/legacy" && HOME="$_S07/home" REIN_DISABLE_CACHE=1 bash "$SSC_HOOK" </dev/null 2>/dev/null)"
 assert_not_contains "S07c: a legacy project gets no import" "STATE_IMPORT" "$_S07_LEG"
 assert_status 1 "S07d: …and no store is created for it" test -e "$_S07/legacy/.ai/state.sqlite"
 
@@ -285,7 +285,7 @@ git -C "$_S08/x" add -A; git -C "$_S08/x" commit -qm seed; git -C "$_S08/x" push
 git clone -q "$_S08/origin.git" "$_S08/y" 2>/dev/null
 git -C "$_S08/y" config user.email dev-b@example.com
 ( cd "$_S08/x" && HOME="$_S07/home" node --no-warnings "${REPO_ROOT}/src/shared/cli-state.mjs" task claim E-900 >/dev/null 2>&1 )
-_S08_OUT="$(cd "$_S08/y" && HOME="$_S07/home" AI_OS_DISABLE_CACHE=1 bash "$SSC_HOOK" </dev/null 2>/dev/null)"
+_S08_OUT="$(cd "$_S08/y" && HOME="$_S07/home" REIN_DISABLE_CACHE=1 bash "$SSC_HOOK" </dev/null 2>/dev/null)"
 assert_contains "E-331.S08: a teammate's claim made after this clone was cloned is listed at session start" \
   "[CLAIMS] E-900 IN_PROGRESS by dev-a@example.com since" "$_S08_OUT"
 assert_not_contains "E-331.S08b: a project without team.json lists no claims (and fetches nothing)" "[CLAIMS]" "$_S07_LEG"
@@ -294,7 +294,7 @@ assert_not_contains "E-331.S08b: a project without team.json lists no claims (an
 # Regression guard for the recurring `- <date>: auto-stamped by Stop hook` junk line in DIGEST's
 # curated "Recent Changes" when there is no real session summary.
 STOP_HOOK="${REPO_ROOT}/hooks/stop-hook.sh"
-HOOK_MIRROR="${HOME}/.ai-os/hooks/stop-hook.sh"
+HOOK_MIRROR="${HOME}/.rein/hooks/stop-hook.sh"
 assert_exists "$STOP_HOOK"
 
 # Helper: fresh sandbox project with a curated DIGEST.
@@ -343,18 +343,18 @@ assert_status 1 "E-379.S01b: no planted value is left in DIGEST or SESSION" \
   grep -qiE "fabrikam|${_E379_H}|corpmail" "$SB/.ai/DIGEST.md" "$SB/.ai/SESSION.md"
 rm -rf "$SB"
 
-# ── T-4: non-AI-OS dir (no .ai/) is a clean no-op ────────────────────────────
+# ── T-4: non-Rein dir (no .ai/) is a clean no-op ────────────────────────────
 SB="$(mktemp -d)"
 assert_status 0 "T-4: exits 0 with no .ai/ directory" \
   bash -c "cd '$SB' && printf '' | bash '$STOP_HOOK'"
 rm -rf "$SB"
 
-# ── T-5: ~/.ai-os mirror is byte-identical to the repo source ────────────────
+# ── T-5: ~/.rein mirror is byte-identical to the repo source ────────────────
 if [[ -f "$HOOK_MIRROR" ]]; then
-  assert_status 0 "T-5: ~/.ai-os/hooks/stop-hook.sh identical to repo source" \
+  assert_status 0 "T-5: ~/.rein/hooks/stop-hook.sh identical to repo source" \
     diff -q "$STOP_HOOK" "$HOOK_MIRROR"
 else
-  echo "  [SKIP] T-5 — ~/.ai-os/hooks/stop-hook.sh not installed"
+  echo "  [SKIP] T-5 — ~/.rein/hooks/stop-hook.sh not installed"
 fi
 
 # ── E-105 (from telemetry_hook_matcher_test — E-302, universal-telemetry.md §Components 2): T-HM-01..04 ──
@@ -362,16 +362,16 @@ fi
 # Write|Edit; the sibling logger (post-tool-log.sh) stays on Write|Edit. Drives the SHIPPED generator
 # (_configure_project_claude_settings in src/bin/ai) by extracting its embedded Python at runtime.
 REGISTRY="${REPO_ROOT}/src/config/registry.json"
-SANDBOX="$(mktemp -d -t aios-hookmatch-XXXXXX)"
+SANDBOX="$(mktemp -d -t rein-hookmatch-XXXXXX)"
 on_exit 'rm -rf "$SANDBOX"'
 
 # Extract just the claude-settings generator Python (uniquely prefixed with
-# AIOS_WORKSPACE_VALUE) between its <<'PY' marker and the closing PY. Trailing positional
+# REIN_WORKSPACE_VALUE) between its <<'PY' marker and the closing PY. Trailing positional
 # args are allowed (E-273 added the legacy-registry path; the generator treats it as
 # optional, so the two-arg call below still exercises it).
 GEN_PY="${SANDBOX}/gen.py"
 awk '
-  /AIOS_WORKSPACE_VALUE.*python3 - "\$TARGET_DIR" "\$REGISTRY".*<</ {cap=1; next}
+  /REIN_WORKSPACE_VALUE.*python3 - "\$TARGET_DIR" "\$REGISTRY".*<</ {cap=1; next}
   cap && /^PY$/ {cap=0}
   cap {print}
 ' "$AI_BIN" > "$GEN_PY"
@@ -409,8 +409,8 @@ cat > "${SANDBOX}/stale/settings.json" <<'JSON'
 {
   "hooks": {
     "PostToolUse": [
-      { "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "bash $HOME/.ai-os/hooks/post-tool-log.sh" }] },
-      { "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "bash $HOME/.ai-os/hooks/post-tool-use.sh" }] }
+      { "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "bash $HOME/.rein/hooks/post-tool-log.sh" }] },
+      { "matcher": "Write|Edit", "hooks": [{ "type": "command", "command": "bash $HOME/.rein/hooks/post-tool-use.sh" }] }
     ]
   }
 }
@@ -453,15 +453,15 @@ assert_status 0 "hook detects .ai/architect.md writes" \
   grep -qF '/.ai/architect.md' "$PTU_HOOK"
 assert_status 0 "hook invokes cache-manager --build" \
   grep -qE 'cache-manager-mcp/index\.js' "$PTU_HOOK"
-assert_status 0 "hook honors AI_OS_DISABLE_CACHE rollback" \
-  grep -qF 'AI_OS_DISABLE_CACHE' "$PTU_HOOK"
+assert_status 0 "hook honors REIN_DISABLE_CACHE rollback" \
+  grep -qF 'REIN_DISABLE_CACHE' "$PTU_HOOK"
 # E-223: the hook no longer spells the mirror path itself — it asks the shared resolver,
 # which is install-mirror-first by policy. The assertion keeps its INTENT (the hook can
 # still reach the installed server) and follows the code to where that is now decided,
 # rather than pinning a literal the implementation has moved past.
 assert_status 0 "hook resolves cache-manager via the shared install-first locator" \
   grep -qF 'ai_os_locate mcp/cache-manager-mcp/index.js' "$PTU_HOOK"
-assert_status 0 "the resolver it bootstraps prefers the ~/.ai-os mirror" \
+assert_status 0 "the resolver it bootstraps prefers the ~/.rein mirror" \
   grep -qF 'shared/locate.sh' "$PTU_HOOK"
 
 # ── S03: detection logic — blueprint/architect REBUILD, src/Bash do not ──────
@@ -495,7 +495,7 @@ assert_contains "S04: --build reports the cache was built" "context cache" "$OUT
 rm -rf "${TMP}"
 
 # ── S05: mirror identity for the hook ────────────────────────────────────────
-assert_status 0 "post-tool-use.sh ~/.ai-os mirror identical" \
-  diff -q "$PTU_HOOK" "${HOME}/.ai-os/hooks/post-tool-use.sh"
+assert_status 0 "post-tool-use.sh ~/.rein mirror identical" \
+  diff -q "$PTU_HOOK" "${HOME}/.rein/hooks/post-tool-use.sh"
 
 assert_summary

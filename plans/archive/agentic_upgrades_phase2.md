@@ -7,7 +7,7 @@ This plan defines the architectural specifications for Token Budgeting, GitHub I
 - **Location**: `src/mcp/token-budget-mcp/`
 - **Engine**: Node.js + `better-sqlite3`.
 - **Logic**:
-    - Centralized SQLite database in `~/.ai-os/usage.sqlite` to track cross-project spend.
+    - Centralized SQLite database in `~/.rein/usage.sqlite` to track cross-project spend.
     - `report_usage` tool: Must be idempotent; called by `stop-hook.sh` after every agent turn.
     - `get_budget_status` tool: Used by Gemini Architect during the Strategy phase to decide if a "Low-Context" or "High-Context" approach is required.
 

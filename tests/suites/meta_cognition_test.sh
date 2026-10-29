@@ -18,7 +18,7 @@
 #     delegates to meta_analyst, never queries the DB directly.
 #   • Frontmatter parses cleanly (description quoted — colon-parse guard
 #     mirrors E-49 / E-65 / E-77 / E-78).
-#   • Mirrors byte-identical to .claude/ + ~/.ai-os/.
+#   • Mirrors byte-identical to .claude/ + ~/.rein/.
 
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,10 +28,10 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 AGENT_SRC="${REPO_ROOT}/src/claude/agents/meta_analyst.md"
 AGENT_CLAUDE="${REPO_ROOT}/.claude/agents/meta_analyst.md"
-AGENT_MIRROR="${HOME}/.ai-os/claude/agents/meta_analyst.md"
+AGENT_MIRROR="${HOME}/.rein/claude/agents/meta_analyst.md"
 SKILL_SRC="${REPO_ROOT}/src/shared/skills/ai-insights/SKILL.md"
 SKILL_CLAUDE="${REPO_ROOT}/.claude/skills/ai-insights/SKILL.md"
-SKILL_MIRROR="${HOME}/.ai-os/shared/skills/ai-insights/SKILL.md"
+SKILL_MIRROR="${HOME}/.rein/shared/skills/ai-insights/SKILL.md"
 BLUEPRINT="${REPO_ROOT}/.ai/blueprints/meta-cognition.md"
 TELEMETRY="${REPO_ROOT}/src/shared/telemetry.mjs"
 
@@ -66,8 +66,8 @@ assert_status 0 "forbids source-code generation"     \
   grep -qiE 'do NOT write source code' "$AGENT_SRC"
 assert_status 0 "forbids SELECT * — aggregates only" \
   grep -qE 'SELECT \*' "$AGENT_SRC"
-assert_status 0 "writes only ~/.ai-os/INSIGHTS.md"   \
-  grep -qE '~/\.ai-os/INSIGHTS\.md' "$AGENT_SRC"
+assert_status 0 "writes only ~/.rein/INSIGHTS.md"   \
+  grep -qE '~/\.rein/INSIGHTS\.md' "$AGENT_SRC"
 assert_status 0 "names blueprint §Execution Constraints contract" \
   grep -qE 'Execution Constraints' "$AGENT_SRC"
 
@@ -132,7 +132,7 @@ echo "  [T-META-S05] meta_analyst references telemetry.mjs locator chain"
 
 assert_status 0 "names telemetry.mjs by path"        grep -qE 'src/shared/telemetry\.mjs' "$AGENT_SRC"
 assert_status 0 "installed mirror in locator chain"  \
-  grep -qE '~/\.ai-os/shared/telemetry\.mjs' "$AGENT_SRC"
+  grep -qE '~/\.rein/shared/telemetry\.mjs' "$AGENT_SRC"
 assert_status 0 "uses getTelemetryStats helper"      grep -qE 'getTelemetryStats' "$AGENT_SRC"
 
 # ── T-META-S06: ai-insights skill frontmatter ─────────────────────────────────
@@ -200,8 +200,8 @@ echo "  [T-META-S09] telemetry --path / --stats smoke (used by skill Step 1)"
 # E-257: the harness redirects telemetry with AI_TELEMETRY_DB_PATH, so the DEFAULT is
 # checked with the override removed — and the override itself is checked beside it.
 PATHOUT="$(env -u AI_TELEMETRY_DB_PATH node "$TELEMETRY" --path)"
-assert_contains "telemetry --path emits expected suffix" ".ai-os/telemetry.sqlite" "$PATHOUT"
-_PROBE="$(cd "${TMPDIR:-/tmp}" && pwd -P)/aios-e257-probe.sqlite"   # overrides live under the temp dir
+assert_contains "telemetry --path emits expected suffix" ".rein/telemetry.sqlite" "$PATHOUT"
+_PROBE="$(cd "${TMPDIR:-/tmp}" && pwd -P)/rein-e257-probe.sqlite"   # overrides live under the temp dir
 PATHOVR="$(AI_TELEMETRY_DB_PATH="$_PROBE" node "$TELEMETRY" --path 2>/dev/null)"
 assert_contains "telemetry --path honours AI_TELEMETRY_DB_PATH (E-257)" "$_PROBE" "$PATHOVR"
 
@@ -216,25 +216,25 @@ assert_status 0 "meta_analyst → .claude mirror"    diff -q "$AGENT_SRC" "$AGEN
 # E-248 (D-067 §2): the installed copy is canonical — byte identity, and the three
 # Claude agent-contract keys PRESENT.
 # E-236 (D-061 §4): the INSTALL is genuinely optional — a clone with no `ai install` has
-# no ~/.ai-os to compare against. Asserting unconditionally made the verdict depend on
+# no ~/.rein to compare against. Asserting unconditionally made the verdict depend on
 # whether this machine happened to be installed, which is the pattern this sprint kept
 # removing. Absent install → SKIP, counted separately; never a fabricated pass.
 if [[ -f "$AGENT_MIRROR" ]]; then
-  assert_status 0 "meta_analyst → ~/.ai-os copy is byte-identical to src/" \
+  assert_status 0 "meta_analyst → ~/.rein copy is byte-identical to src/" \
     diff -q "$AGENT_SRC" "$AGENT_MIRROR"
-  assert_status 0 "meta_analyst → ~/.ai-os copy KEEPS the Claude-only keys (E-248)" \
+  assert_status 0 "meta_analyst → ~/.rein copy KEEPS the Claude-only keys (E-248)" \
     grep -qE '^(disable-model-invocation|user-invocable|allowed-tools):' "$AGENT_MIRROR"
 else
-  _skip "meta_analyst → ~/.ai-os copy comparison (framework not installed)"
-  _skip "meta_analyst → ~/.ai-os Claude-key check (framework not installed)"
+  _skip "meta_analyst → ~/.rein copy comparison (framework not installed)"
+  _skip "meta_analyst → ~/.rein Claude-key check (framework not installed)"
 fi
 assert_status 0 "ai-insights  → .claude mirror"     diff -q "$SKILL_SRC" "$SKILL_CLAUDE"
 # E-236: same reasoning as the agent mirror above — an uninstalled clone has nothing to
 # compare, and asserting anyway makes the verdict a property of the machine.
 if [[ -f "$SKILL_MIRROR" ]]; then
-  assert_status 0 "ai-insights  → ~/.ai-os mirror"  diff -q "$SKILL_SRC" "$SKILL_MIRROR"
+  assert_status 0 "ai-insights  → ~/.rein mirror"  diff -q "$SKILL_SRC" "$SKILL_MIRROR"
 else
-  _skip "ai-insights → ~/.ai-os mirror comparison (framework not installed)"
+  _skip "ai-insights → ~/.rein mirror comparison (framework not installed)"
 fi
 
 echo ""
@@ -251,7 +251,7 @@ echo ""
 #     circuit to status:DISABLED.
 #   • ai-preflight SKILL.md Step 7 documents the locator chain, the verbatim
 #     [INSIGHTS_STALE] block, and the rollback flag.
-#   • Mirrors byte-identical to ~/.ai-os.
+#   • Mirrors byte-identical to ~/.rein.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PROBE="${REPO_ROOT}/src/shared/insights-staleness.mjs"
 PREFLIGHT_SKILL_SRC="${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
@@ -305,7 +305,7 @@ assert_status 0 "Step 7 resolves the probe via the shared install-first locator"
 assert_status 1 "Step 7 no longer names a cwd-relative candidate" \
   grep -qE 'for c in src/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
 assert_status 0 "Step 7 names locator chain (installed)" \
-  grep -qE '\.ai-os/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
+  grep -qE '\.rein/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
 assert_status 0 "Step 7 documents AI_INSIGHTS_STALENESS_DISABLE" \
   grep -qE 'AI_INSIGHTS_STALENESS_DISABLE' "$PREFLIGHT_SKILL_SRC"
 assert_status 0 "Step 7 emits [INSIGHTS_STALE] block"  \
@@ -317,10 +317,10 @@ assert_status 0 "Step 7 acknowledges other-status silence" \
 
 # ── T-INS-S10: mirrors byte-identical ─────────────────────────────────────────
 echo ""
-echo "  [T-INS-S10] ~/.ai-os mirrors byte-identical"
+echo "  [T-INS-S10] ~/.rein mirrors byte-identical"
 
-assert_status 0 "insights-staleness.mjs mirror"   diff -q "$PROBE"   "${HOME}/.ai-os/shared/insights-staleness.mjs"
-assert_status 0 "ai-preflight SKILL.md mirror"    diff -q "$PREFLIGHT_SKILL_SRC" "${HOME}/.ai-os/shared/skills/ai-preflight/SKILL.md"
+assert_status 0 "insights-staleness.mjs mirror"   diff -q "$PROBE"   "${HOME}/.rein/shared/insights-staleness.mjs"
+assert_status 0 "ai-preflight SKILL.md mirror"    diff -q "$PREFLIGHT_SKILL_SRC" "${HOME}/.rein/shared/skills/ai-preflight/SKILL.md"
 assert_status 0 "ai-preflight .claude mirror"     diff -q "$PREFLIGHT_SKILL_SRC" "${REPO_ROOT}/.claude/skills/ai-preflight/SKILL.md"
 
 # ── E-93 (from instinct_stager — E-302): the meta_analyst Instinct-Extraction prompt ──

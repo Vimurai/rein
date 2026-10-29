@@ -112,15 +112,15 @@ action of your turn**, after COMM.md is written and committed (and, Architect→
    ToolSearch({ query: "select:SendMessage" })
    ```
 2. The target is the receiving role's session name as `ListAgents` lists it:
-   `<project dir basename> · <Role>` — e.g. `ai-os-v2 · Architect` (Engineer→Architect)
-   or `ai-os-v2 · Engineer` (Architect→Engineer).
+   `<project dir basename> · <Role>` — e.g. `@vimurai/rein · Architect` (Engineer→Architect)
+   or `@vimurai/rein · Engineer` (Architect→Engineer).
 3. Send. The FIRST line is the handoff line — what shipped or what was planned, then
    "review and plan next" (to the Architect) or "execute the OPEN queue" (to the
    Engineer). The body points at the COMM.md entry and its commit (Step 2b) so a receiver
    on another clone can fetch it; it never repeats it:
    ```
    SendMessage({
-     to: "ai-os-v2 · Architect",
+     to: "@vimurai/rein · Architect",
      message: "E-321 shipped (skills wake via SendMessage) — review and plan next.\nDetails: .ai/COMM.md handoff <YYYY-MM-DD HH:MM UTC>, commit <short sha>."
    })
    ```
@@ -130,7 +130,7 @@ skip it because `ListAgents` does not show the target; the send's own result is 
 check. On that failure print ONE line to your user naming the target and the handoff line you
 could not deliver, then end the turn. No retry, no queue, no fallback (D-099 ruling 4).
 ```
-✗ ai-os-v2 · Architect not reachable — undelivered: "E-321 shipped — review and plan next."
+✗ @vimurai/rein · Architect not reachable — undelivered: "E-321 shipped — review and plan next."
 ```
 **Target busy** — nothing to do: the message drains into its running turn after its
 current tool call (E-281 case b).

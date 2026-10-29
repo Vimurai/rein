@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * vibe-check-mcp — AI-OS MCP Server
+ * vibe-check-mcp — Rein MCP Server
  * Exposes Playwright-powered visual audit, chaos testing, and performance metrics.
  *
  * Tools:

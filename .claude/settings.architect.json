@@ -1,6 +1,6 @@
 {
   "env": {
-    "AI_OS_CALLER_ROLE": "architect"
+    "REIN_CALLER_ROLE": "architect"
   },
   "permissions": {
     "allow": [

@@ -7,7 +7,7 @@
  * refreshed by `ai sync` — never reaches the running server. Throughout the 2026-09-09
  * sprint `run_review` reported a P0 PATH_TRAVERSAL on
  * `source "${SCRIPT_DIR}/../lib/assert.sh"` while the on-disk `traversal-policy.mjs`,
- * byte-identical in `src` and the `~/.ai-os` mirror, graded that exact line P1 with
+ * byte-identical in `src` and the `~/.rein` mirror, graded that exact line P1 with
  * anchor=self_dir. Every review had to be adjudicated by hand against the real module.
  *
  * A gate that cries wolf is worse than one that is merely wrong: people learn to wave it
@@ -21,7 +21,7 @@
  * a self re-exec inert for a rewrite landing in the same second the process started —
  * which is precisely the `ai sync` case. Do not coarsen this.
  *
- * Rollback: AI_OS_POLICY_HOT_RELOAD=0 pins the first load for the process lifetime, which
+ * Rollback: REIN_POLICY_HOT_RELOAD=0 pins the first load for the process lifetime, which
  * is exactly the pre-E-237 behaviour.
  */
 import { statSync } from "node:fs";
@@ -63,7 +63,7 @@ export async function loadPolicy(name) {
   const path = POLICY_PATHS[name];
   if (!path) throw new Error(`loadPolicy: unknown policy '${name}'`);
 
-  const hot = process.env.AI_OS_POLICY_HOT_RELOAD !== "0";
+  const hot = process.env.REIN_POLICY_HOT_RELOAD !== "0";
   const hit = cache.get(name);
 
   if (!hot) {

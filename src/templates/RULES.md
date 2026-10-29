@@ -1,4 +1,4 @@
-# RULES (AI-OS v2 Triad)
+# RULES (Rein v2 Triad)
 
 Fundamental laws governing the Architect/Engineer/Tester triad. 
 

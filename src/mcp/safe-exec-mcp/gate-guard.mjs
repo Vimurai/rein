@@ -12,11 +12,11 @@
 //     - `ai gate …` at command position (off, on, status — the agent has no business here);
 //     - any mention of `gate-override.json` (the override FILE — not the stem, which names
 //       the gate-override.py module and is fine to stage, grep or edit);
-//     - a write into ~/.ai-os/ — redirection, a write verb, or an inline interpreter that
-//       names the path. Reading ~/.ai-os (cat, ls, node ~/.ai-os/shared/x.mjs) stays allowed.
-//     The ONLY writers of ~/.ai-os are the literal allowlist: `bash install-ai-os.sh`,
+//     - a write into ~/.rein/ — redirection, a write verb, or an inline interpreter that
+//       names the path. Reading ~/.rein (cat, ls, node ~/.rein/shared/x.mjs) stays allowed.
+//     The ONLY writers of ~/.rein are the literal allowlist: `bash install-rein.sh`,
 //     `ai install`, `ai sync`, `ai doctor` — none of which names the path, so none trips this.
-//   isUnderAiOs(target, home) → true when a Write/Edit target resolves inside ~/.ai-os/
+//   isUnderAiOs(target, home) → true when a Write/Edit target resolves inside ~/.rein/
 //     (realpath of the deepest existing ancestor, so a not-yet-created file and a symlink
 //     into the mirror are both caught).
 
@@ -36,25 +36,25 @@ const CMD_HEAD =
 const AI_TOKEN = "(?:\\S*/)?[\"']?a[\"'\\\\]?i[\"']?";
 const AI_GATE = new RegExp(CMD_HEAD + AI_TOKEN + "\\s+[\"']?gate\\b", "i");
 // The mirror, spelled the ways a shell command spells it.
-// A quoted home (`"$HOME"/.ai-os`, critic_security P2) is the same path.
-const AIOS_PATH = String.raw`["']?(?:~|\$HOME|\$\{HOME\}|${escapeRe(homedir())})["']?/\.ai-os(?:/|\b)`;
-const REDIRECT_INTO = new RegExp(String.raw`(?:^|[^<])>{1,2}\|?\s*["']?` + AIOS_PATH);
+// A quoted home (`"$HOME"/.rein`, critic_security P2) is the same path.
+const REIN_PATH = String.raw`["']?(?:~|\$HOME|\$\{HOME\}|${escapeRe(homedir())})["']?/\.rein(?:/|\b)`;
+const REDIRECT_INTO = new RegExp(String.raw`(?:^|[^<])>{1,2}\|?\s*["']?` + REIN_PATH);
 const WRITE_VERB = new RegExp(
   CMD_HEAD +
     String.raw`(?:rm|mv|cp|ln|tee|touch|mkdir|rmdir|chmod|chown|truncate|install|rsync|dd|unlink|patch|sed\s+-i|perl\s+-i|perl\s+-pi)\b[^;&|\n]*?` +
-    AIOS_PATH,
+    REIN_PATH,
   "i"
 );
 // Entering the mirror and writing there without naming the path twice (critic_security
-// P1-2): `cd ~/.ai-os && …>…` / write verb, and `-C ~/.ai-os` (tar -x, git checkout, make).
-const CD_INTO = new RegExp(String.raw`\b(?:cd|pushd)\s+` + AIOS_PATH);
+// P1-2): `cd ~/.rein && …>…` / write verb, and `-C ~/.rein` (tar -x, git checkout, make).
+const CD_INTO = new RegExp(String.raw`\b(?:cd|pushd)\s+` + REIN_PATH);
 const ANY_WRITE = new RegExp(String.raw`>|` + CMD_HEAD +
   String.raw`(?:rm|mv|cp|ln|tee|touch|mkdir|rmdir|chmod|chown|truncate|install|rsync|dd|unlink|patch|tar|git|sed\s+-i|perl\s+-p?i)\b`, "i");
-const DASH_C_INTO = new RegExp(String.raw`(?:^|\s)-C\s*["']?` + AIOS_PATH);
+const DASH_C_INTO = new RegExp(String.raw`(?:^|\s)-C\s*["']?` + REIN_PATH);
 // Entering HOME and naming the mirror RELATIVELY (critic_security P1-2, E-294 review, two
-// passes): `cd ~ && rm .ai-os/run/launch/N.json` and `cd $HOME && cat > .ai-os/…` passed every
+// passes): `cd ~ && rm .rein/run/launch/N.json` and `cd $HOME && cat > .rein/…` passed every
 // pattern above, which all need the mirror spelled from HOME. A launch record and a role token
-// live there now (T-ROLE-001), so entering HOME and then writing a relative `.ai-os` path is
+// live there now (T-ROLE-001), so entering HOME and then writing a relative `.rein` path is
 // the same write. HOME is entered by `cd`/`pushd` in COMMAND position (so `fix-cd` is not a cd),
 // with optional `--`/`-P`/`-L`/`-e`/`-@`, as a bare `cd` or any spelling of HOME, including a
 // trailing `/`, `/.`, `//` inside or outside the quotes; the argument ends at a separator, a
@@ -64,21 +64,21 @@ const CD_HOME = new RegExp(
   CMD_HEAD + String.raw`(?:builtin\s+)?(?:cd|pushd)(?:\s+-[-PLe@]*)*(?:\s+` + HOME_SPELLED +
     String.raw`)?\s*(?:$|[;&|\n)<>#]|\d[<>])`
 );
-// The mirror named relative to HOME: `.ai-os` after whitespace, a quote, `=`, a redirection, a
-// paren or a `/` (so `././.ai-os`, `x/../.ai-os`), as a whole name — `.ai-os-cache` and
-// `.ai-os.txt` are other files.
-const REL_AIOS = /(?:^|[\s"'=<>(/])\.ai-os(?:\/|["'\s]|$)/;
-// Named from ABOVE home without entering it: `../../.ai-os` from anywhere under HOME, or
-// `<home's basename>/.ai-os` (`cd /Users && rm <you>/.ai-os/…`).
-const PARENT_AIOS = new RegExp(
-  String.raw`(?:^|[\s"'=<>(])(?:\.\.\/)+\.ai-os(?:\/|["'\s]|$)|(?:^|[\s"'=<>(/])` +
-    escapeRe(basename(homedir())) + String.raw`\/\.ai-os(?:\/|["'\s]|$)`
+// The mirror named relative to HOME: `.rein` after whitespace, a quote, `=`, a redirection, a
+// paren or a `/` (so `././.rein`, `x/../.rein`), as a whole name — `.rein-cache` and
+// `.rein.txt` are other files.
+const REL_REIN = /(?:^|[\s"'=<>(/])\.rein(?:\/|["'\s]|$)/;
+// Named from ABOVE home without entering it: `../../.rein` from anywhere under HOME, or
+// `<home's basename>/.rein` (`cd /Users && rm <you>/.rein/…`).
+const PARENT_REIN = new RegExp(
+  String.raw`(?:^|[\s"'=<>(])(?:\.\.\/)+\.rein(?:\/|["'\s]|$)|(?:^|[\s"'=<>(/])` +
+    escapeRe(basename(homedir())) + String.raw`\/\.rein(?:\/|["'\s]|$)`
 );
 // `find … -delete` / `-exec` is a write; an inline interpreter after entering HOME is a write
 // (os.remove / fs.rmSync never spell the mirror from HOME).
 const FIND_WRITE = String.raw`|` + CMD_HEAD + String.raw`find\b[^;&|\n]*\s-(?:delete|exec|execdir|ok|okdir)\b`;
 const INTERP_WRITE = String.raw`|` + CMD_HEAD + String.raw`(?:python3?|node|perl|ruby)\s+-[ce]\b`;
-const FIND_INTO = new RegExp(CMD_HEAD + String.raw`find\b[^;&|\n]*?` + AIOS_PATH + String.raw`[^;&|\n]*\s-(?:delete|exec|execdir|ok|okdir)\b`, "i");
+const FIND_INTO = new RegExp(CMD_HEAD + String.raw`find\b[^;&|\n]*?` + REIN_PATH + String.raw`[^;&|\n]*\s-(?:delete|exec|execdir|ok|okdir)\b`, "i");
 // A literal `cd` target that RESOLVES to HOME from the gate's cwd (`cd ../../..` from a project,
 // `cd /Users/<you>`): the spellings above cannot know where `..` lands; the gate can.
 const CD_ARG = new RegExp(
@@ -97,7 +97,7 @@ function cdTargetsHome(s, cwd = process.cwd()) {
 }
 const WRITE_AFTER_ENTER = new RegExp(ANY_WRITE.source + FIND_WRITE + INTERP_WRITE, "i");
 const INTERPRETER_NAMING = new RegExp(
-  CMD_HEAD + String.raw`(?:python3?|node|perl|ruby|bash|sh|zsh)\s+-[ce]\b[^\n]*?` + AIOS_PATH,
+  CMD_HEAD + String.raw`(?:python3?|node|perl|ruby|bash|sh|zsh)\s+-[ce]\b[^\n]*?` + REIN_PATH,
   "i"
 );
 
@@ -115,16 +115,16 @@ export function selfDisableHits(raw) {
   } else if (/gate-override\.json/i.test(s)) {
     // The FILE name only. The bare stem over-blocked ordinary work — a branch named
     // engineer/e291-gate-override and `git add src/shared/gate-override.py` (recorded in
-    // gate_override_test E-291.05g). Writes anywhere under ~/.ai-os are caught below anyway.
+    // gate_override_test E-291.05g). Writes anywhere under ~/.rein are caught below anyway.
     hits.push({ id: "GATE_SELF_DISABLE", message: `the gate override file is operator-only — BLOCKED for every role. ${MSG_ESCAPE}` });
   } else if (REDIRECT_INTO.test(s) || WRITE_VERB.test(s) || INTERPRETER_NAMING.test(s) || FIND_INTO.test(s) ||
              DASH_C_INTO.test(s) || (CD_INTO.test(s) && WRITE_AFTER_ENTER.test(s)) ||
-             ((CD_HOME.test(s) || cdTargetsHome(s)) && REL_AIOS.test(s) && WRITE_AFTER_ENTER.test(s)) ||
-             (PARENT_AIOS.test(s) && WRITE_AFTER_ENTER.test(s))) {
+             ((CD_HOME.test(s) || cdTargetsHome(s)) && REL_REIN.test(s) && WRITE_AFTER_ENTER.test(s)) ||
+             (PARENT_REIN.test(s) && WRITE_AFTER_ENTER.test(s))) {
     hits.push({
       id: "GATE_SELF_DISABLE",
-      message: "writes under ~/.ai-os/ (the AI-OS install: hooks, gate, secrets) are BLOCKED for every role — " +
-        "only `bash install-ai-os.sh`, `ai install`, `ai sync` and `ai doctor` write there",
+      message: "writes under ~/.rein/ (the Rein install: hooks, gate, secrets) are BLOCKED for every role — " +
+        "only `bash install-rein.sh`, `ai install`, `ai sync` and `ai doctor` write there",
     });
   }
   return hits;
@@ -148,7 +148,7 @@ function resolveDeep(p) {
 export function isUnderAiOs(target, home = homedir()) {
   if (!target) return false;
   const t = isAbsolute(target) ? target : resolve(process.cwd(), target);
-  let root = join(home, ".ai-os");
+  let root = join(home, ".rein");
   try { root = realpathSync(root); } catch { /* not installed: compare lexically */ }
   const r = resolveDeep(t);
   return r === root || r.startsWith(root + sep);

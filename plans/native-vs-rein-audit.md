@@ -1,13 +1,13 @@
-# Audit: Claude Code native framework vs AI-OS (2026-09-28)
+# Audit: Claude Code native framework vs Rein (2026-09-28)
 
 > Architect assessment, not a ruling. Proposes D-075 ("Native-first: retire what the harness
 > now does itself"). Inputs: official Claude Code docs (code.claude.com/docs, verified live
-> 2026-09-28) and a repo inventory of AI-OS v3.1.0 (`src/` 21.3k LOC, 22 custom MCP servers,
+> 2026-09-28) and a repo inventory of Rein v3.1.0 (`src/` 21.3k LOC, 22 custom MCP servers,
 > 50 skills, 21 agents, 8 hooks, `ai` CLI 5.0k LOC, 143 bash suites / 5043 assertions).
 
 ## 1. What each thing IS
 
-| | Claude Code (native) | AI-OS |
+| | Claude Code (native) | Rein |
 |---|---|---|
 | Unit of work | one interactive session (+ forked subagents, background agents, experimental agent teams) | a **Triad** of long-lived roles in separate panes, plus headless subagents |
 | Memory | CLAUDE.md hierarchy, `.claude/rules/` (path-scoped), auto-memory dir, `/memory` | `.ai/` as primary memory: blueprints, DECISIONS, DIGEST, generated TASKS/REVIEWS views |
@@ -20,14 +20,14 @@
 | Observability | `/usage`, `/insights`, `/skill-doctor`, OTEL export (all per-session / per-user) | cross-project `telemetry.sqlite` → `meta_analyst` → INSIGHTS.md → proposed skills (HITL) |
 | Orchestration | Workflow tool (JS scripts, `parallel`/`pipeline`), agent hooks | orchestrator-mcp scripted workflows, critic agents dispatched by `ai-review` |
 
-**The one-sentence diff:** Claude Code gives a single agent excellent primitives. AI-OS is a
+**The one-sentence diff:** Claude Code gives a single agent excellent primitives. Rein is a
 governance layer for **several agents sharing one repo over weeks**: enforced roles, durable
 task state, commit gates and a feedback loop. None of those four exist natively.
 
-## 2. Where AI-OS is genuinely better (KEEP — this is the product)
+## 2. Where Rein is genuinely better (KEEP — this is the product)
 
 1. **Enforced role sovereignty.** Native `permissionMode`/`tools:` rely on the orchestrating
-   model honouring them. AI-OS blocks at the hook, fail-closed, keyed on a verified token —
+   model honouring them. Rein blocks at the hook, fail-closed, keyed on a verified token —
    it blocked `python3 -c` and `node -e` from the Architect twice during this very audit.
 2. **Durable ACID task state with DAG validation and generated views.** Agent teams' shared
    list dies with the session and costs ~7x tokens. `verify_markdown_sync` catches drift.
@@ -51,7 +51,7 @@ since closed.
 
 | Remove / retire | LOC | Built because | Native replacement now | Evidence |
 |---|---|---|---|---|
-| `mcp-router` (list_domains, activate_domain, proxy_call) | 568 | "23+ tool schema bloat" (E-40) | Deferred tools + `ToolSearch` — every AI-OS MCP tool is *already* deferred in this session | `activate_domain` is the top genuine ERROR source, 20% (E-260) |
+| `mcp-router` (list_domains, activate_domain, proxy_call) | 568 | "23+ tool schema bloat" (E-40) | Deferred tools + `ToolSearch` — every Rein MCP tool is *already* deferred in this session | `activate_domain` is the top genuine ERROR source, 20% (E-260) |
 | `context-invoker-mcp` (activate_skill/agent) | 323 | agy did not expose Skill/Agent tools | Skill tool + Agent tool, always present under Claude | rulefile "ladder" Steps 2–3 exist only for this |
 | `orchestrator-mcp::run_preflight` (keep the other 4) | ~120 | MCP fallback for agy | `ai-preflight` skill with `!`-injection is the native path | ENGINEER/ARCHITECT.md Step 2 |
 | `lsp-mcp` (TS only) | 339 | no code intelligence | Code Intelligence plugins (LSP, auto-diagnostics post-edit) | — |
@@ -89,8 +89,8 @@ sections. 9 skill/agent files reference the removal candidates and need edits.
 5. **Subagent frontmatter:** `mcpServers` scoping (critics get only `add_stamp`; this is what
    `verification-mcp` "ghost tools" tries to police after the fact), `maxTurns` for critics,
    `memory: project` for `meta_analyst`, `background: true` for `memory_curator`.
-6. **`claude plugin eval`.** AI-OS has 5k assertions on its *code* and zero on whether its
-   50 skills produce the right behaviour. Package AI-OS as a plugin (it has been one before)
+6. **`claude plugin eval`.** Rein has 5k assertions on its *code* and zero on whether its
+   50 skills produce the right behaviour. Package Rein as a plugin (it has been one before)
    and write evals for `ai-preflight`, `ai-task`, `ai-handoff`, `task-planner`. Graders
    `tool_used`/`tool_order` map directly onto our "never skip gates" rules.
 7. **`/skill-doctor` once, then prune.** Descriptions of all 50 skills load at every session

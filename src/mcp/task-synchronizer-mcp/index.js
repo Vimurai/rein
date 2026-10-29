@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * task-synchronizer-mcp — AI-OS Exclusive State Mutator (E-156: SQLite migration)
+ * task-synchronizer-mcp — Rein Exclusive State Mutator (E-156: SQLite migration)
  * Uses .ai/state.sqlite as the ACID-safe primary store.
  * Automatically migrates existing .ai/state.json on first use.
  * Regenerates state.json (backwards-compat view), TASKS.md, and REVIEWS.md
@@ -80,8 +80,8 @@ function _getDb(aiDir) {
 
 // E-107 (token-optimization.md §Components 1 / §Data Model): cap a DONE task's
 // stored summary so state.json stays light. The full narrative lives in LOG.md
-// (Engineer-managed). Rollback: set AI_OS_SUMMARY_CAP=2000.
-const SUMMARY_CAP = Number(process.env.AI_OS_SUMMARY_CAP) || 200;
+// (Engineer-managed). Rollback: set REIN_SUMMARY_CAP=2000.
+const SUMMARY_CAP = Number(process.env.REIN_SUMMARY_CAP) || 200;
 
 // E-342 (D-106 r4): the tools that write the index and then regenerate the views.
 const VIEW_WRITERS = new Set(["add_task", "update_task_status", "add_stamp", "set_project_focus", "archive_done_tasks", "mark_deltas_read"]);
@@ -121,25 +121,25 @@ const DB_ERR = "✗ state.sqlite could not be opened";
 
 // ── E-63: Framework workspace routing (task-routing.md) ──────────────────────
 // When add_task receives is_framework_task: true, redirect persistence to the
-// canonical AI-OS clone (process.env.AIOS_WORKSPACE) instead of the local
-// project's .ai/. Honours AIOS_WORKSPACE_DISABLE=1 as an emergency override
+// canonical Rein clone (process.env.REIN_WORKSPACE) instead of the local
+// project's .ai/. Honours REIN_WORKSPACE_DISABLE=1 as an emergency override
 // (rollback-plan.md): forces local persistence when cross-workspace writes
 // misbehave. Returns either a string aiDir or an error envelope ready to
 // return from the request handler.
 function _resolveFrameworkAiDir() {
-  if (process.env.AIOS_WORKSPACE_DISABLE === "1") {
+  if (process.env.REIN_WORKSPACE_DISABLE === "1") {
     return {
-      error: "[WORKSPACE_DISABLED] AIOS_WORKSPACE_DISABLE=1 — cross-workspace " +
+      error: "[WORKSPACE_DISABLED] REIN_WORKSPACE_DISABLE=1 — cross-workspace " +
              "writes are temporarily off. Either unset the variable or omit " +
              "is_framework_task and let the task land in the local .ai/.",
     };
   }
-  const ws = (process.env.AIOS_WORKSPACE || "").trim();
+  const ws = (process.env.REIN_WORKSPACE || "").trim();
   if (!ws) {
     return {
-      error: "[WORKSPACE_NOT_FOUND] is_framework_task=true but AIOS_WORKSPACE " +
-             "is unset. Re-run install-ai-os.sh from your AI-OS clone or " +
-             "export AIOS_WORKSPACE=/path/to/ai-os-v2 manually.",
+      error: "[WORKSPACE_NOT_FOUND] is_framework_task=true but REIN_WORKSPACE " +
+             "is unset. Re-run install-rein.sh from your Rein clone or " +
+             "export REIN_WORKSPACE=/path/to/@vimurai/rein manually.",
     };
   }
   // Defence-in-depth path validation (task-routing.md §Security):
@@ -147,14 +147,14 @@ function _resolveFrameworkAiDir() {
   // - must contain a real .ai/ directory (the only thing we'll write to)
   if (!ws.startsWith("/")) {
     return {
-      error: `[WORKSPACE_NOT_FOUND] AIOS_WORKSPACE='${ws}' is not absolute. ` +
+      error: `[WORKSPACE_NOT_FOUND] REIN_WORKSPACE='${ws}' is not absolute. ` +
              `Cross-workspace writes require an absolute path.`,
     };
   }
   const candidate = resolve(ws, ".ai");
   if (!existsSync(candidate)) {
     return {
-      error: `[WORKSPACE_NOT_FOUND] AIOS_WORKSPACE='${ws}' has no .ai/ directory. ` +
+      error: `[WORKSPACE_NOT_FOUND] REIN_WORKSPACE='${ws}' has no .ai/ directory. ` +
              `Run 'ai init' inside the framework clone before routing framework tasks.`,
     };
   }
@@ -364,7 +364,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // the edit lands, it is finished when the mirror carries it and the servers have
       // been restarted. The gate refuses DONE until both are true, and reports which of
       // the two is missing. It runs BEFORE the dependency-revision write so a refusal
-      // leaves no partial mutation behind. Rollback: AI_OS_BUILD_STAMP=0.
+      // leaves no partial mutation behind. Rollback: REIN_BUILD_STAMP=0.
       // E-320 (D-098 r2): the gate list lives in src/shared/completion-gates.mjs, shared with
       // orchestrator-mcp's run_handover — E-267's CI gate runs there after the build gate.
       if (args.status === "DONE") {

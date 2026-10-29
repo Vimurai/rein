@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * risk-analyzer-mcp — AI-OS TSRT MCP Server
+ * risk-analyzer-mcp — Rein TSRT MCP Server
  * Classifies intent and git changes as Tier 1/2/3 using multi-signal analysis.
  * Enables gate skipping and token savings per architect.md §14.
  *

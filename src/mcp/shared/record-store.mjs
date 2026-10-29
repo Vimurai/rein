@@ -31,7 +31,7 @@ const YM_RE       = /^\d{4}-\d{2}$/;
 const STAMP_ID_RE = /^\d{4}-\d{2}\/[0-9a-f]{7}-[A-Za-z0-9_]{1,40}-\d+$/;
 // The project fields a record carries; anything else in the sqlite project table
 // (id high-water marks, future per-machine keys) stays local.
-export const PROJECT_KEYS = ["focus", "current_tier", "release_verdict", "aios_version", "provisioned_at"];
+export const PROJECT_KEYS = ["focus", "current_tier", "release_verdict", "rein_version", "provisioned_at"];
 
 /**
  * A team project: migrated with `ai state migrate --team`, which writes project.json last.
@@ -517,7 +517,7 @@ export function rebuildIndex(aiDir, db) {
     const setP = d.prepare("INSERT OR REPLACE INTO project(key, value) VALUES (?, ?)");
     for (const k of PROJECT_KEYS) {
       if (k in project) setP.run(k, project[k] == null ? null : String(project[k]));
-      else if (k === "aios_version" || k === "provisioned_at") d.prepare("DELETE FROM project WHERE key = ?").run(k);
+      else if (k === "rein_version" || k === "provisioned_at") d.prepare("DELETE FROM project WHERE key = ?").run(k);
       else setP.run(k, null);
     }
     for (const t of tasks) recordIdHighWater(d, t.id);

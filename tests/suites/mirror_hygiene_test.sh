@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# AIOS_INSTALLER_SUBJECT: the installer's mirror and ai init's provisioning (E-311, D-092)
-# AIOS_SUITE_TIMEOUT=300   (E-307: ~140 s on an idle host; the 180 s default leaves too little headroom)
+# REIN_INSTALLER_SUBJECT: the installer's mirror and ai init's provisioning (E-311, D-092)
+# REIN_SUITE_TIMEOUT=300   (E-307: ~140 s on an idle host; the 180 s default leaves too little headroom)
 # mirror_hygiene_test.sh — E-273 (D-074, version-lifecycle.md §Component 5): the install
 # mirror and project provisioning under the same hygiene as everything else.
 #
 #   * the installer mirrors src/mcp and hooks/ with --delete: an orphaned server dir and an
 #     orphaned hook are removed, while npm's node_modules/ and package-lock.json inside a
-#     LIVE server survive, and so does config/aios-workspace.txt (installer-written);
-#     `ai doctor` reported the orphans beforehand; AI_OS_INSTALL_NO_DELETE=1 keeps them;
+#     LIVE server survive, and so does config/rein-workspace.txt (installer-written);
+#     `ai doctor` reported the orphans beforehand; REIN_INSTALL_NO_DELETE=1 keeps them;
 #   * the installer's "Next steps" no longer names deprecated commands;
 #   * .claude/agents is pruned by the E-220 evidence rule: an agent sync wrote and the
 #     manifest no longer provides goes, an agent the user added stays;
@@ -33,11 +33,11 @@ FAKE_TMP="$(test_tmpdir hyg-tmp)"
 PROJ="$(test_tmpdir hyg-proj)"
 STUBS="$(test_tmpdir hyg-stubs)"
 printf '#!/bin/sh\nexit 0\n' > "${STUBS}/npm"; chmod +x "${STUBS}/npm"
-M="${FAKE_HOME}/.ai-os"
+M="${FAKE_HOME}/.rein"
 AI_BIN="${M}/bin/ai"
 BASE_PATH="${STUBS}:${M}/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")"
 
-_install() { ( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" "$@" bash "${REPO_ROOT}/install-ai-os.sh" ) 2>&1; }
+_install() { ( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" "$@" bash "${REPO_ROOT}/install-rein.sh" ) 2>&1; }
 _ai() { ( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" "$@" ) 2>&1; }
 
 # ── E-273.1: the installer's mirror hygiene ───────────────────────────────────
@@ -61,8 +61,8 @@ _doc="$(_ai doctor)"
 assert_match "E-273.01d: doctor reports the mirror orphans before the install" \
   'mirror orphans: [1-9][0-9]* — run: ai clean' "$_doc"
 
-_i_keep="$(_install env AI_OS_INSTALL_NO_DELETE=1)"
-assert_status 0 "E-273.01e: AI_OS_INSTALL_NO_DELETE=1 keeps the orphans (rollback)" \
+_i_keep="$(_install env REIN_INSTALL_NO_DELETE=1)"
+assert_status 0 "E-273.01e: REIN_INSTALL_NO_DELETE=1 keeps the orphans (rollback)" \
   test -f "${M}/mcp/retired-mcp/index.js" -a -f "${M}/hooks/retired-hook.sh"
 
 _i2="$(_install env)"
@@ -74,8 +74,8 @@ assert_status 0 "E-273.01j: a live server's node_modules survive" \
   test -f "${M}/mcp/task-synchronizer-mcp/node_modules/dep/i.js"
 assert_status 0 "E-273.01k: a live server's package-lock.json survives" \
   test -f "${M}/mcp/task-synchronizer-mcp/package-lock.json"
-assert_status 0 "E-273.01l: config/aios-workspace.txt (installer-written) survives" \
-  test -f "${M}/config/aios-workspace.txt"
+assert_status 0 "E-273.01l: config/rein-workspace.txt (installer-written) survives" \
+  test -f "${M}/config/rein-workspace.txt"
 assert_status 0 "E-273.01m: the live servers are all still mirrored" \
   test -f "${M}/mcp/task-synchronizer-mcp/index.js" -a -f "${M}/mcp/shared/state-db.js"
 assert_contains "E-273.01n: doctor is clean afterwards" "✓ mirror orphans: none" "$(_ai doctor)"
@@ -116,7 +116,7 @@ assert_contains "E-273.03e: a live server's allows are kept" "mcp__task-synchron
 assert_contains "E-273.03f: settings.local.json is never edited" "mcp__mcp-router__activate_domain" \
   "$(cat "${PROJ}/.claude/settings.local.json")"
 
-# ── E-273.4: ai sync reaps dead ~/.ai-os/run/ records ──────────────────────────
+# ── E-273.4: ai sync reaps dead ~/.rein/run/ records ──────────────────────────
 mkdir -p "${M}/run"
 printf '{"server":"x","pid":2147480000}' > "${M}/run/build-dead.json"
 printf '{"server":"y","pid":%s}' "$$" > "${M}/run/build-live.json"
@@ -128,13 +128,13 @@ assert_status 1 "E-273.04a: a build record whose pid is dead is reaped" test -e 
 assert_status 0 "E-273.04b: a build record whose pid is alive is kept" test -f "${M}/run/build-live.json"
 assert_status 1 "E-273.04c: a week-old role lock is reaped" test -e "${M}/run/role-old.lock"
 assert_status 0 "E-273.04d: a fresh role lock is kept" test -f "${M}/run/role-new.lock"
-assert_contains "E-273.04e: sync says what it reaped and how to undo it" "Reaped 2 dead ~/.ai-os/run/ record(s)" "$_s"
+assert_contains "E-273.04e: sync says what it reaped and how to undo it" "Reaped 2 dead ~/.rein/run/ record(s)" "$_s"
 assert_status 0 "E-273.04f: the reaped records are in the trash, not deleted" \
   test -f "${M}/trash/$(date -u +%Y-%m-%d)/${M#/}/run/build-dead.json"
 
 # ── E-273.6: critic_security findings, each pinned ─────────────────────────────
 # The installer's helpers, extracted so each failure mode can be driven directly.
-_fn() { sed -n "/^$1() {/,/^}/p" "${REPO_ROOT}/install-ai-os.sh"; }
+_fn() { sed -n "/^$1() {/,/^}/p" "${REPO_ROOT}/install-rein.sh"; }
 FX="$(test_tmpdir 'hyg-fx[1]')"          # a bracket in the path: a glob if unquoted
 mkdir -p "${FX}/src/keep" "${FX}/dst/keep" "${FX}/dst/gone"
 echo a > "${FX}/src/keep/a.js"; echo a > "${FX}/dst/keep/a.js"; echo b > "${FX}/dst/gone/b.js"
@@ -167,24 +167,24 @@ _before="$(_code_sum)"; _ai sync >/dev/null; _after="$(_code_sum)"
 assert_status 0 "E-304.01a: ai sync changes nothing under the installed code trees (checksum before == after)" test "$_before" = "$_after"
 assert_status 1 "E-304.01b: ai sync no longer carries a hook-propagation step" grep -q 'Hooks propagated from framework workspace' "$AI_BIN"
 
-# (c) the persisted record beats an exported AIOS_WORKSPACE.
-printf '%s\n' "${PROJ}" > "${M}/config/aios-workspace.txt"
-_ws="$( eval "$(sed -n '/^_resolve_aios_workspace() {/,/^}/p' "${REPO_ROOT}/src/bin/ai")"; AIOS="$M" AIOS_WORKSPACE=/nonexistent/env-path _resolve_aios_workspace )"
+# (c) the persisted record beats an exported REIN_WORKSPACE.
+printf '%s\n' "${PROJ}" > "${M}/config/rein-workspace.txt"
+_ws="$( eval "$(sed -n '/^_resolve_rein_workspace() {/,/^}/p' "${REPO_ROOT}/src/bin/ai")"; REIN="$M" REIN_WORKSPACE=/nonexistent/env-path _resolve_rein_workspace )"
 assert_status 0 "E-304.02a: with both set to different paths, the file wins (got ${_ws})" test "$_ws" = "$PROJ"
-_ws="$( eval "$(sed -n '/^_resolve_aios_workspace() {/,/^}/p' "${REPO_ROOT}/src/bin/ai")"; AIOS="${FAKE_TMP}/no-such-aios" AIOS_WORKSPACE=/env/only _resolve_aios_workspace )"
+_ws="$( eval "$(sed -n '/^_resolve_rein_workspace() {/,/^}/p' "${REPO_ROOT}/src/bin/ai")"; REIN="${FAKE_TMP}/no-such-rein" REIN_WORKSPACE=/env/only _resolve_rein_workspace )"
 assert_status 0 "E-304.02b: with no file, the exported value is honoured" test "$_ws" = "/env/only"
-_dw="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" AIOS_WORKSPACE=/elsewhere bash "$AI_BIN" doctor 2>&1 )"
+_dw="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" REIN_WORKSPACE=/elsewhere bash "$AI_BIN" doctor 2>&1 )"
 assert_contains "E-304.02c: ai doctor warns when the export and the record disagree" "disagrees with the installed record" "$_dw"
 
 # The rc cleanup removes ONLY the exact lines an earlier install wrote, and is idempotent.
 RC="${FAKE_TMP}/rc"
-printf '%s\n' '# mine' 'export AIOS_WORKSPACE="/old/clone"' 'export AIOS_WORKSPACE=$HOME/custom' 'alias x=y' > "$RC"
-( eval "$(sed -n '/^_aios_remove_workspace_export() {/,/^}/p' "${REPO_ROOT}/install-ai-os.sh")"
-  _aios_remove_workspace_export "$RC"; _aios_remove_workspace_export "$RC" )
+printf '%s\n' '# mine' 'export REIN_WORKSPACE="/old/clone"' 'export REIN_WORKSPACE=$HOME/custom' 'alias x=y' > "$RC"
+( eval "$(sed -n '/^_rein_remove_workspace_export() {/,/^}/p' "${REPO_ROOT}/install-rein.sh")"
+  _rein_remove_workspace_export "$RC"; _rein_remove_workspace_export "$RC" )
 assert_status 0 "E-304.03a: the installer-shaped export is removed; every other line is untouched, in order (twice = once)" \
-  test "$(cat "$RC")" = "$(printf '%s\n' '# mine' 'export AIOS_WORKSPACE=$HOME/custom' 'alias x=y')"
+  test "$(cat "$RC")" = "$(printf '%s\n' '# mine' 'export REIN_WORKSPACE=$HOME/custom' 'alias x=y')"
 assert_status 1 "E-304.03b: the installer no longer writes the export into profiles" \
-  grep -qE 'ensure_env_line[[:space:]]+".*"[[:space:]]+"AIOS_WORKSPACE"' "${REPO_ROOT}/install-ai-os.sh"
+  grep -qE 'ensure_env_line[[:space:]]+".*"[[:space:]]+"REIN_WORKSPACE"' "${REPO_ROOT}/install-rein.sh"
 
 # (b) a dirty gate tree is refused, naming the files; --allow-dirty installs loudly + stamps dirty.
 DW="$(test_tmpdir hyg-dirty)"; rmdir "$DW"
@@ -195,20 +195,20 @@ if [[ -d "$DW/hooks" ]]; then
   mkdir -p "$DW/src/mcp/safe-exec-mcp/node_modules/x"; echo '{}' > "$DW/src/mcp/safe-exec-mcp/package-lock.json"
   echo x > "$DW/src/mcp/safe-exec-mcp/node_modules/x/i.js"
   DH0="$(test_tmpdir hyg-npm-home)"
-  ( cd "$FAKE_TMP" && HOME="$DH0" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-ai-os.sh" ) >/dev/null 2>&1; _nrc=$?
+  ( cd "$FAKE_TMP" && HOME="$DH0" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" ) >/dev/null 2>&1; _nrc=$?
   assert_status 0 "E-304.04z: untracked npm artifacts under src/mcp do not make the tree dirty (rc=${_nrc})" test "$_nrc" -eq 0
   echo "# uncommitted" >> "$DW/hooks/stop-hook.sh"
   DH="$(test_tmpdir hyg-dirty-home)"
-  _dout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-ai-os.sh" 2>&1 )"; _drc=$?
+  _dout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" 2>&1 )"; _drc=$?
   assert_status 0 "E-304.04a: a dirty hooks/ makes the installer exit non-zero (rc=${_drc})" test "$_drc" -ne 0
   assert_contains "E-304.04b: …naming the refusal" "[INSTALL_DIRTY_TREE]" "$_dout"
   assert_contains "E-304.04c: …and the file" "hooks/stop-hook.sh" "$_dout"
-  assert_status 1 "E-304.04d: …and nothing was installed" test -e "${DH}/.ai-os/bin/ai"
-  _aout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-ai-os.sh" --allow-dirty 2>&1 )"
+  assert_status 1 "E-304.04d: …and nothing was installed" test -e "${DH}/.rein/bin/ai"
+  _aout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" --allow-dirty 2>&1 )"
   assert_contains "E-304.04e: --allow-dirty installs with a loud banner" "--allow-dirty: installing UNCOMMITTED gate code" "$_aout"
   assert_status 0 "E-304.04f: …and records dirty=true in the install stamp" \
-    python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["dirty"] is True' "${DH}/.ai-os/config/install-stamp.json"
-  _dd="$( cd "$PROJ" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="${STUBS}:${DH}/.ai-os/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" bash "${DH}/.ai-os/bin/ai" doctor 2>&1 )"
+    python3 -c 'import json,sys; assert json.load(open(sys.argv[1]))["dirty"] is True' "${DH}/.rein/config/install-stamp.json"
+  _dd="$( cd "$PROJ" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="${STUBS}:${DH}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" bash "${DH}/.rein/bin/ai" doctor 2>&1 )"
   assert_contains "E-304.04g: ai doctor reports the uncommitted install" "installed from an UNCOMMITTED tree" "$_dd"
 else
   _skip "E-304.04: could not create a scratch worktree of HEAD"

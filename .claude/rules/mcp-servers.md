@@ -15,7 +15,7 @@ paths:
 - **Every server is wrapped by the telemetry interceptor** (`instrument()` from
   `src/shared/mcp-telemetry.mjs`). An expected rejection of bad input is marked
   `_meta.expected_rejection`, so it books REJECTED, not ERROR (E-179/E-180).
-- **A running server serves the code it booted with (E-249).** After `bash install-ai-os.sh`
+- **A running server serves the code it booted with (E-249).** After `bash install-rein.sh`
   or a pull, running servers are stale until the session restarts; `build-stamp.mjs` announces
   it. Never hot-reload the write path — only the pure policy modules in E-237's set may reload.
 - **Retiring a server** removes its `registry.json`, `.mcp.json`, settings-allow and

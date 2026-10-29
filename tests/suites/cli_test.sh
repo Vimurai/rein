@@ -14,11 +14,11 @@ AI_BIN="${SCRIPT_DIR}/../../src/bin/ai"
 
 echo "── Suite: cli_test ──────────────────────────────────────────────────"
 
-# ai version exits 0 and prints a semver. The value follows the installed ~/.ai-os/VERSION
+# ai version exits 0 and prints a semver. The value follows the installed ~/.rein/VERSION
 # (E-270), which init_upgrade_test pins; a literal major here broke on the 4.0.0 bump (E-263).
 out=$("$AI_BIN" version 2>&1)
 assert_status 0 "ai version exits 0" "$AI_BIN" version
-assert_match "ai version contains version number" '^ai-os [0-9]+\.[0-9]+\.[0-9]+' "$out"
+assert_match "ai version contains version number" '^rein [0-9]+\.[0-9]+\.[0-9]+' "$out"
 
 # Usage lists the kept commands (install / init / sync / doctor / uninstall)
 out=$("$AI_BIN" 2>&1 || true)
@@ -118,7 +118,7 @@ SANDBOX="$(mktemp -d)"
 ( cd "$SANDBOX" && node "$GEN" >/dev/null 2>&1 )
 assert_status 0 "exit 0 when .ai/blueprints absent" \
   bash -c "cd '$SANDBOX' && node '$GEN' >/dev/null 2>&1"
-assert_status 1 "no _INDEX.md created in a non-AI-OS dir" \
+assert_status 1 "no _INDEX.md created in a non-Rein dir" \
   test -f "${SANDBOX}/.ai/blueprints/_INDEX.md"
 rm -rf "$SANDBOX" "$TMP_OUT"
 
@@ -127,7 +127,7 @@ rm -rf "$SANDBOX" "$TMP_OUT"
 # E-175 (doctor-and-cache-optimizations.md §Components 1)
 #
 # `ai doctor --env` performs deep environment + connectivity diagnostics:
-# Node 22+, essential binaries, Docker, read/write bits on ~/.ai-os & .ai, and a
+# Node 22+, essential binaries, Docker, read/write bits on ~/.rein & .ai, and a
 # live MCP connectivity probe (E-176 mcp-tester). Exits 1 on critical failure.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
@@ -166,7 +166,7 @@ RC=$?
 
 assert_contains "prints --env header"          "deep environment & connectivity" "$OUT"
 assert_contains "node version check is [OK]"    "[OK]   node version"             "$OUT"
-assert_contains "reports ~/.ai-os access"       ".ai-os read/write access"       "$OUT"
+assert_contains "reports ~/.rein access"       ".rein read/write access"       "$OUT"
 assert_contains "runs MCP connectivity probe"   "MCP connectivity"               "$OUT"
 assert_contains "local server answered tools/list" "cache-manager-mcp"           "$OUT"
 assert_contains "summary line present"          "Environment OK"                 "$OUT"
@@ -217,7 +217,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 ALLOW="${REPO_ROOT}/tests/fixtures/legacy-mention-allowlist.json"
 
 PATTERN='gemini|\bagy\b|antigravity|testsprite'
-ROOTS=(src tests hooks README.md CONTRIBUTING.md ARCHITECT.md ENGINEER.md CLAUDE.md install-ai-os.sh)
+ROOTS=(src tests hooks README.md CONTRIBUTING.md ARCHITECT.md ENGINEER.md CLAUDE.md install-rein.sh)
 
 
 # _hits <dir> <root>... — "path<TAB>count" for every file under the roots with a match,
@@ -309,8 +309,8 @@ if skip_unless_cmd python3 "E-274 generate_mcp_json"; then
 FAKE_HOME="$(test_tmpdir mcpj-home)"
 tc_fixture_home "$FAKE_HOME"   # E-345 (D-109 r1): the toolchain record the hooks pin
 PROJ="$(test_tmpdir mcpj-proj)"
-mkdir -p "${FAKE_HOME}/.ai-os/config"
-cp "${REPO_ROOT}/src/config/registry.json" "${REPO_ROOT}/src/config/legacy-artefacts.json" "${FAKE_HOME}/.ai-os/config/"
+mkdir -p "${FAKE_HOME}/.rein/config"
+cp "${REPO_ROOT}/src/config/registry.json" "${REPO_ROOT}/src/config/legacy-artefacts.json" "${FAKE_HOME}/.rein/config/"
 
 # _gen [mcp_file] [mcp_key] — run the real generate_mcp_json from the sourced CLI.
 _gen() {
@@ -326,7 +326,7 @@ N_OWNED="$(_q "len(d['mcpServers'])")"
 assert_status 0 "E-274.01a: the generated file carries the registry's servers" \
   test "$N_OWNED" -gt 5
 assert_status 0 "E-274.01b: task-synchronizer-mcp points into the fixture mirror" \
-  test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = "${FAKE_HOME}/.ai-os/mcp/task-synchronizer-mcp/index.js"
+  test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = "${FAKE_HOME}/.rein/mcp/task-synchronizer-mcp/index.js"
 
 # ── E-274.2: the fixture — a foreign server, a user env, a retired server ─────
 python3 - "${PROJ}/.mcp.json" <<'P'
@@ -334,7 +334,7 @@ import json, sys
 p = sys.argv[1]; d = json.load(open(p))
 s = d["mcpServers"]
 s["my-own-server"] = {"command": "uvx", "args": ["my-own", "--flag"], "env": {"TOKEN_FILE": "~/.mine"}, "x-note": [1, 2]}
-s["task-synchronizer-mcp"]["env"] = {"AI_OS_DEBUG": "1"}
+s["task-synchronizer-mcp"]["env"] = {"REIN_DEBUG": "1"}
 s["mcp-router"] = {"command": "node", "args": ["/old/mcp-router/index.js"]}   # retired (registry_history)
 d["someTopLevelKey"] = {"kept": True}
 json.dump(d, open(p, "w"), indent=2)
@@ -345,9 +345,9 @@ _gen >/dev/null
 _foreign_after="$(_q "json.dumps(d['mcpServers']['my-own-server'], sort_keys=True)")"
 assert_status 0 "E-274.02a: a user-added server survives byte-for-byte" test "$_foreign_after" = "$FOREIGN_BEFORE"
 assert_status 0 "E-274.02b: a user env block on an owned server survives" \
-  test "$(_q "d['mcpServers']['task-synchronizer-mcp'].get('env',{}).get('AI_OS_DEBUG')")" = "1"
+  test "$(_q "d['mcpServers']['task-synchronizer-mcp'].get('env',{}).get('REIN_DEBUG')")" = "1"
 assert_status 0 "E-274.02c: the owned server is still regenerated (args from the registry)" \
-  test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = "${FAKE_HOME}/.ai-os/mcp/task-synchronizer-mcp/index.js"
+  test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = "${FAKE_HOME}/.rein/mcp/task-synchronizer-mcp/index.js"
 assert_status 0 "E-274.02d: a retired registry_history server is removed" \
   test "$(_q "'mcp-router' in d['mcpServers']")" = "False"
 assert_status 0 "E-274.02e: other top-level keys are kept" \
@@ -361,7 +361,7 @@ _gen >/dev/null
 assert_status 0 "E-274.03a: regenerating again is byte-identical" test "$(cksum < "${PROJ}/.mcp.json")" = "$_h1"
 
 # ── E-274.4: failure modes keep the user's data ───────────────────────────────
-mv "${FAKE_HOME}/.ai-os/config/legacy-artefacts.json" "${FAKE_HOME}/.ai-os/config/legacy.off"
+mv "${FAKE_HOME}/.rein/config/legacy-artefacts.json" "${FAKE_HOME}/.rein/config/legacy.off"
 python3 - "${PROJ}/.mcp.json" <<'P'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p)); d["mcpServers"]["mcp-router"] = {"command": "node", "args": ["x"]}
@@ -370,7 +370,7 @@ P
 _gen >/dev/null
 assert_status 0 "E-274.04a: without the legacy registry an unknown name is KEPT, never deleted" \
   test "$(_q "'mcp-router' in d['mcpServers'] and 'my-own-server' in d['mcpServers']")" = "True"
-mv "${FAKE_HOME}/.ai-os/config/legacy.off" "${FAKE_HOME}/.ai-os/config/legacy-artefacts.json"
+mv "${FAKE_HOME}/.rein/config/legacy.off" "${FAKE_HOME}/.rein/config/legacy-artefacts.json"
 
 echo "{ this is not json" > "${PROJ}/.mcp.json"
 _out="$(_gen)"
@@ -390,7 +390,7 @@ assert_status 1 "E-274.06a: no 'preserves user env values' claim left in src/bin
 fi
 
 # ── T-01 (from agent_logic — E-302): intent_gate() behaviour ──
-# AI-OS Agent Logic Validation (T-01)
+# Rein Agent Logic Validation (T-01)
 # Re-implemented by Claude (E-59) — tests actual intent_gate() behaviour.
 # ── Harness: load intent_gate() from src/bin/ai without executing main ────────
 AI_BIN="${REPO_ROOT}/src/bin/ai"
@@ -660,15 +660,15 @@ REPO_ROOT="${SCRIPT_DIR}/../.."
 AI_BIN="${REPO_ROOT}/src/bin/ai"
 
 
-# ── Setup: create a temporary AI-OS project directory ────────────────────────
+# ── Setup: create a temporary Rein project directory ────────────────────────
 TMPDIR_BASE=$(mktemp -d)
 on_exit 'rm -rf "$TMPDIR_BASE"'
 
 PROJECT_DIR="${TMPDIR_BASE}/test_project"
 mkdir -p "$PROJECT_DIR"
 
-# We need AIOS pointing to the repo src dir so templates are found
-export AIOS="${REPO_ROOT}/src"
+# We need REIN pointing to the repo src dir so templates are found
+export REIN="${REPO_ROOT}/src"
 
 # ── Helper: run ensure_ai_templates in the test project ──────────────────────
 run_init() {
@@ -677,7 +677,7 @@ run_init() {
     # Source the ai script to pick up the function definitions, then call directly
     # We stub only the heavy side-effects (npm, git) that we don't need here
     bash -c "
-      export AIOS='${AIOS}'
+      export REIN='${REIN}'
       # Minimal stub for python3-dependent generate_mcp_json
       source '${AI_BIN}'
       ensure_ai_templates
@@ -693,13 +693,13 @@ mkdir -p "$PROJECT_DIR/.ai"
 
 # Check: bootloader templates exist in src. E-183/D-050: ENGINEER.md/ARCHITECT.md are the
 # canonical rulefiles; CLAUDE.md is the @import shim. All three are synced by `ai sync`.
-assert_exists "${AIOS}/templates/CLAUDE.md"
-assert_exists "${AIOS}/templates/ENGINEER.md"
-assert_exists "${AIOS}/templates/ARCHITECT.md"
+assert_exists "${REIN}/templates/CLAUDE.md"
+assert_exists "${REIN}/templates/ENGINEER.md"
+assert_exists "${REIN}/templates/ARCHITECT.md"
 
 # ── Test 2: CLAUDE.md always matches template (idempotency) ──────────────────
-TEMPLATE_CLAUDE="${AIOS}/templates/CLAUDE.md"
-TEMPLATE_ENGINEER="${AIOS}/templates/ENGINEER.md"
+TEMPLATE_CLAUDE="${REIN}/templates/CLAUDE.md"
+TEMPLATE_ENGINEER="${REIN}/templates/ENGINEER.md"
 
 # Manually corrupt CLAUDE.md and ENGINEER.md to simulate stale state
 echo "STALE CONTENT - should be overwritten" > "${PROJECT_DIR}/CLAUDE.md"
@@ -758,20 +758,20 @@ fi
 # ── Test 5: .mcp.json overwrite idempotency ───────────────────────────────────
 # generate_mcp_json uses python3 + registry.json; test the core property:
 # calling it twice produces identical output.
-REGISTRY="${AIOS}/config/registry.json"
+REGISTRY="${REIN}/config/registry.json"
 if command -v python3 &>/dev/null && [[ -f "$REGISTRY" ]]; then
   MCP_OUT="${PROJECT_DIR}/.mcp.json"
 
-  python3 - "$REGISTRY" "$MCP_OUT" "$HOME" "$AIOS" <<'PY'
+  python3 - "$REGISTRY" "$MCP_OUT" "$HOME" "$REIN" <<'PY'
 import json, sys, os
-registry_path, mcp_path, home, aios = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+registry_path, mcp_path, home, rein = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 servers = {}
 if os.path.exists(registry_path):
     with open(registry_path) as f:
         reg = json.load(f)
     for name, info in reg.get("mcp_servers", {}).items():
         if "path" in info:
-            abs_path = os.path.join(aios, "mcp", name, "index.js")
+            abs_path = os.path.join(rein, "mcp", name, "index.js")
             servers[name] = {"command": "node", "args": [abs_path]}
 with open(mcp_path, "w") as f:
     json.dump({"mcpServers": servers}, f, indent=2)
@@ -780,16 +780,16 @@ PY
   RUN1=$(cat "$MCP_OUT")
 
   # Run again — output must be identical
-  python3 - "$REGISTRY" "$MCP_OUT" "$HOME" "$AIOS" <<'PY'
+  python3 - "$REGISTRY" "$MCP_OUT" "$HOME" "$REIN" <<'PY'
 import json, sys, os
-registry_path, mcp_path, home, aios = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+registry_path, mcp_path, home, rein = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 servers = {}
 if os.path.exists(registry_path):
     with open(registry_path) as f:
         reg = json.load(f)
     for name, info in reg.get("mcp_servers", {}).items():
         if "path" in info:
-            abs_path = os.path.join(aios, "mcp", name, "index.js")
+            abs_path = os.path.join(rein, "mcp", name, "index.js")
             servers[name] = {"command": "node", "args": [abs_path]}
 with open(mcp_path, "w") as f:
     json.dump({"mcpServers": servers}, f, indent=2)
@@ -837,8 +837,8 @@ fi
 # ── Test 8: ANTI-DRIFT PROTOCOL header survives template overwrite ────────────
 # E-183/D-050: the header lives in the canonical ENGINEER.md/ARCHITECT.md; CLAUDE.md is the
 # @import shim that re-exports it and carries no header of its own.
-assert_contains "ENGINEER.md template has ANTI-DRIFT PROTOCOL" "ANTI-DRIFT PROTOCOL" "$(cat "${AIOS}/templates/ENGINEER.md")"
-assert_contains "ARCHITECT.md template has ANTI-DRIFT PROTOCOL" "ANTI-DRIFT PROTOCOL" "$(cat "${AIOS}/templates/ARCHITECT.md")"
+assert_contains "ENGINEER.md template has ANTI-DRIFT PROTOCOL" "ANTI-DRIFT PROTOCOL" "$(cat "${REIN}/templates/ENGINEER.md")"
+assert_contains "ARCHITECT.md template has ANTI-DRIFT PROTOCOL" "ANTI-DRIFT PROTOCOL" "$(cat "${REIN}/templates/ARCHITECT.md")"
 assert_contains "CLAUDE.md shim imports ENGINEER.md" "@ENGINEER.md" "$EXPECTED_CLAUDE"
 assert_not_contains "CLAUDE.md shim carries no header of its own" "ANTI-DRIFT PROTOCOL" "$EXPECTED_CLAUDE"
 

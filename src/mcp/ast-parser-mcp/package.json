@@ -2,7 +2,7 @@
   "name": "ast-parser-mcp",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "AI-OS AST Repository Map (E-95) — Tree-sitter (WASM) workspace symbol extraction for TS/JS.",
+  "description": "Rein AST Repository Map (E-95) — Tree-sitter (WASM) workspace symbol extraction for TS/JS.",
   "type": "module",
   "main": "index.js",
   "scripts": {

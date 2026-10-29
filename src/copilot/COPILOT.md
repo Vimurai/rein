@@ -1,4 +1,4 @@
-# COPILOT.md (Global) — AI-OS v3.2
+# COPILOT.md (Global) — Rein v3.2
 
 You are GitHub Copilot.
 

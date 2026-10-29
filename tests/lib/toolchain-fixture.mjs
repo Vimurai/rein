@@ -1,7 +1,7 @@
 // tests/lib/toolchain-fixture.mjs — the node-side twin of tests/lib/toolchain-fixture.sh.
 //
 // A hook ASSIGNS its PATH (E-286) and finds node through the install-time record
-// ~/.ai-os/shared/toolchain.sh, falling back to a FIXED dir list (/usr/bin, /bin,
+// ~/.rein/shared/toolchain.sh, falling back to a FIXED dir list (/usr/bin, /bin,
 // /usr/local/bin, /opt/homebrew/bin). A fixture HOME has no record, so on a host whose node
 // lives anywhere else (Linuxbrew, nvm, fnm) every hook-driven `ai` call reported "node not
 // found" and the test failed for a reason that has nothing to do with what it tests. The
@@ -9,8 +9,8 @@
 //
 //   tcFixtureHome(home)         E-345 (D-109 r1): the twin of tc_fixture_home — the record
 //                               AND the pin, through the shell helper itself (one writer)
-//   recordToolchain(home)       writes <home>/.ai-os/shared/toolchain.sh
-//   linkShared(home, srcShared) <home>/.ai-os/shared as a REAL dir whose entries link into
+//   recordToolchain(home)       writes <home>/.rein/shared/toolchain.sh
+//   linkShared(home, srcShared) <home>/.rein/shared as a REAL dir whose entries link into
 //                               srcShared, so the record never lands in the source tree
 
 import { mkdirSync, readdirSync, symlinkSync, realpathSync } from "node:fs";
@@ -21,7 +21,7 @@ import { fileURLToPath } from "node:url";
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export function recordToolchain(home) {
-  const shared = join(home, ".ai-os", "shared");
+  const shared = join(home, ".rein", "shared");
   mkdirSync(shared, { recursive: true });
   const py = execFileSync("bash", ["-c", "command -v python3 || true"], { encoding: "utf8" }).trim();
   execFileSync("bash", ["-c", '. "$1"; ai_os_tc_write "$2" "$3" "$4" /usr/bin/nice', "_",
@@ -35,7 +35,7 @@ export function tcFixtureHome(home) {
 }
 
 export function linkShared(home, srcShared) {
-  const shared = join(home, ".ai-os", "shared");
+  const shared = join(home, ".rein", "shared");
   mkdirSync(shared, { recursive: true });
   for (const n of readdirSync(srcShared)) {
     if (n !== "toolchain.sh") symlinkSync(join(srcShared, n), join(shared, n));

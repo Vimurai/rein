@@ -1,6 +1,6 @@
 ---
 name: ai-preflight
-description: Use this skill at the start of every session in an AI-OS project. Executes the DIGEST-first read order (DIGEST → TASKS.md → architect.md if needed) and stamps SESSION.md.
+description: Use this skill at the start of every session in an Rein project. Executes the DIGEST-first read order (DIGEST → TASKS.md → architect.md if needed) and stamps SESSION.md.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Glob, Bash, mcp__task-synchronizer-mcp__verify_markdown_sync
@@ -8,19 +8,19 @@ context: default
 agent: default
 ---
 
-# AI-OS Preflight — Session Bootstrap
+# Rein Preflight — Session Bootstrap
 
 ## Dynamic Context Injection
 Project root: !pwd
-AI-OS project: !test -d .ai && echo "YES — .ai/ found" || echo "NO — run: ai init"
+Rein project: !test -d .ai && echo "YES — .ai/ found" || echo "NO — run: ai init"
 DIGEST freshness: !head -2 .ai/DIGEST.md 2>/dev/null || echo "(DIGEST.md missing — run skill: ai-digest)"
 Recent log (E-333 — every developer's .ai/log/*.md when team.json shared_log is true): !ai log recent -n 5 2>/dev/null || tail -5 .ai/LOG.md 2>/dev/null || echo "(no log)"
-COMM.md (D-104): !AI_OS_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.ai-os/shared/locate.sh" ] && . "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/comm-status.sh 2>/dev/null)"; [ -n "$c" ] && . "$c" && s="$(ai_os_comm_status .)" && case "$s" in UNCOMMITTED*) echo "UNCOMMITTED (${s#UNCOMMITTED } lines) — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;; IGNORED) echo "IGNORED — run: ai sync" ;; *) echo "$s" ;; esac || echo "(comm-status probe unavailable)"
+COMM.md (D-104): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/comm-status.sh 2>/dev/null)"; [ -n "$c" ] && . "$c" && s="$(ai_os_comm_status .)" && case "$s" in UNCOMMITTED*) echo "UNCOMMITTED (${s#UNCOMMITTED } lines) — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;; IGNORED) echo "IGNORED — run: ai sync" ;; *) echo "$s" ;; esac || echo "(comm-status probe unavailable)"
 Open tasks: !grep "^- \[ \]" .ai/TASKS.md 2>/dev/null | head -5 || echo "(none)"
-State index (E-344, D-108): !AI_OS_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.ai-os/shared/locate.sh" ] && . "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/cli-state.mjs 2>/dev/null)"; [ -n "$c" ] && node --no-warnings "$c" state health --short 2>/dev/null || echo "(state health unavailable)"
+State index (E-344, D-108): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/cli-state.mjs 2>/dev/null)"; [ -n "$c" ] && node --no-warnings "$c" state health --short 2>/dev/null || echo "(state health unavailable)"
 Claims on the trunk (E-331, E-341): !test -f .ai/team.json && { ai task claims 2>/dev/null || echo "(ai task claims unavailable)"; } || echo "(single-operator project — no claims)"
-Incident status: !AI_OS_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.ai-os/shared/locate.sh" ] && . "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/incident-aggregate.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null | grep -m1 '"status"' | sed -E 's/.*"status": *"([^"]+)".*/\1/' || echo "(aggregator unavailable)"
-Stale MCP servers (E-249): !AI_OS_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.ai-os/shared/locate.sh" ] && . "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/build-stamp.mjs 2>/dev/null)"; r=""; [ -n "$c" ] && r="$(node --no-warnings "$c" --stale 2>/dev/null)"; [ -n "$r" ] && printf '%s — restart the MCP servers before trusting their answers\n' "$r" || echo "none"
+Incident status: !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/incident-aggregate.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null | grep -m1 '"status"' | sed -E 's/.*"status": *"([^"]+)".*/\1/' || echo "(aggregator unavailable)"
+Stale MCP servers (E-249): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/build-stamp.mjs 2>/dev/null)"; r=""; [ -n "$c" ] && r="$(node --no-warnings "$c" --stale 2>/dev/null)"; [ -n "$r" ] && printf '%s — restart the MCP servers before trusting their answers\n' "$r" || echo "none"
 
 ## Preflight Read Order (DIGEST-First)
 
@@ -85,13 +85,13 @@ After reading, mark them as read (set `"read": true`) so they don't repeat.
 
 After the sync check, run the JIT aggregator to surface recurring
 unpredictable events captured by the `ai-incident` skill (E-65). The
-aggregator reads `~/.ai-os/incidents.ndjson`, groups records by
+aggregator reads `~/.rein/incidents.ndjson`, groups records by
 `stack_signature`, and reports counts. Budget: <50ms — the helper does a
 single linear pass.
 
 **Locator chain** (mirrors E-58 / E-65 fail-open patterns):
 1. the install mirror via `ai_os_locate shared/incident-aggregate.mjs` (E-225)
-2. `${HOME}/.ai-os/shared/incident-aggregate.mjs` (installed mirror)
+2. `${HOME}/.rein/shared/incident-aggregate.mjs` (installed mirror)
 
 **Invocation** (run silently, parse the JSON):
 ```bash
@@ -127,26 +127,26 @@ node "${AGGREGATOR}" 2>/dev/null || echo '{"status":"AGGREGATOR_UNAVAILABLE"}'
 
 **Rollback**: set `AI_INCIDENT_TRACKER_DISABLE=1` to short-circuit the
 aggregator (it returns `status: "DISABLED"`). Manual deletion of
-`~/.ai-os/incidents.ndjson` is safe and stateless.
+`~/.rein/incidents.ndjson` is safe and stateless.
 
 ### 7. INSIGHTS.md Staleness Check ← META-COGNITION (E-86, blueprint meta-cognition)
 
 After the incident aggregator, run the staleness probe for the
 cross-project meta-cognition report (E-85). The helper compares
-`~/.ai-os/INSIGHTS.md` mtime against telemetry rows accumulated in
-`~/.ai-os/telemetry.sqlite` (E-84). Budget: <50ms — one stat + one
+`~/.rein/INSIGHTS.md` mtime against telemetry rows accumulated in
+`~/.rein/telemetry.sqlite` (E-84). Budget: <50ms — one stat + one
 SQLite COUNT() with optional `since_iso` clause.
 
 **Locator chain** (mirrors E-58 / E-65 / E-75 / E-83):
 1. the install mirror via `ai_os_locate shared/insights-staleness.mjs` (E-225)
-2. `${HOME}/.ai-os/shared/insights-staleness.mjs` (installed mirror)
+2. `${HOME}/.rein/shared/insights-staleness.mjs` (installed mirror)
 
 **Invocation** (run silently, parse the JSON envelope):
 ```bash
 # E-225: resolve through the shared install-first locator, never cwd-relative. The old
 # chain started at src/shared/..., so running preflight inside ANY project that happened
 # to contain that file executed THAT file — and preflight runs at every session start.
-AI_OS_LOCATE_UNTRUSTED_ENV=1
+REIN_LOCATE_UNTRUSTED_ENV=1
 # `declare -f` inside locate.sh's own fallback asks whether a NAME is defined, and bash
 # imports EXPORTED functions from the environment at startup — so without this unset an
 # inherited `ai_os_locate` is the resolver whenever locate.sh is unreachable. The hooks
@@ -154,7 +154,7 @@ AI_OS_LOCATE_UNTRUSTED_ENV=1
 # guard, and a decoy executed at session start. Sourcing is gated on the FILE so a missing
 # resolver fails CLOSED — skills may, unlike the hooks, simply report "unavailable".
 unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null
-[ -f "${HOME}/.ai-os/shared/locate.sh" ] && . "${HOME}/.ai-os/shared/locate.sh"
+[ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"
 PROBE="$(ai_os_locate shared/insights-staleness.mjs 2>/dev/null)"
 [ -n "${PROBE:-}" ] && node "${PROBE}" 2>/dev/null || echo '{"status":"UNAVAILABLE"}'
 ```
@@ -177,7 +177,7 @@ PROBE="$(ai_os_locate shared/insights-staleness.mjs 2>/dev/null)"
             <insights_mtime or "(never generated)">.
 
   Suggested next step: run `skill: ai-insights` to regenerate
-  ~/.ai-os/INSIGHTS.md before the next planning loop. The skill is
+  ~/.rein/INSIGHTS.md before the next planning loop. The skill is
   on-demand and bounded — no telemetry write side-effects.
   ```
 
@@ -189,7 +189,7 @@ PROBE="$(ai_os_locate shared/insights-staleness.mjs 2>/dev/null)"
 **Rollback**: set `AI_INSIGHTS_STALENESS_DISABLE=1` to short-circuit
 the probe (it returns `status: "DISABLED"`). The wider
 `AI_TELEMETRY_DISABLE=1` (E-84) also disables this check by extension.
-Manual deletion of `~/.ai-os/INSIGHTS.md` is safe — the next probe
+Manual deletion of `~/.rein/INSIGHTS.md` is safe — the next probe
 re-evaluates from the telemetry DB.
 
 ### 8. Load REPO_MAP.md ← ARCHITECTURE CONTEXT (E-98, blueprint ast-repository-map)
@@ -211,10 +211,10 @@ imports. It is regenerated by `ai sync` via `ast-parser-mcp generate_map`
   symbol lives. It is a *map*, not the source of truth; open the real
   file before editing.
 - **If absent**: it has not been generated yet (fresh clone, or
-  `AI_OS_DISABLE_REPO_MAP=1`). Run `ai sync` to build it, or fall back
+  `REIN_DISABLE_REPO_MAP=1`). Run `ai sync` to build it, or fall back
   to `grep`/`list_directory`.
 
-**Rollback**: `AI_OS_DISABLE_REPO_MAP=1` stops regeneration; deleting
+**Rollback**: `REIN_DISABLE_REPO_MAP=1` stops regeneration; deleting
 `.ai/REPO_MAP.md` is safe — the next `ai sync` rebuilds it.
 
 ### Open Only When Task Touches That Domain

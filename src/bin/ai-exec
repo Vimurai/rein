@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# ai-exec — AI-OS Execution Gate (E-01)
+# ai-exec — Rein Execution Gate (E-01)
 # Provides git worktree isolation for high-risk tasks.
 # Enforces capability isolation: READ (default), WRITE/EXECUTE (require explicit flags).
-# Installed to ~/.ai-os/bin/ai-exec
+# Installed to ~/.rein/bin/ai-exec
 
 set -euo pipefail
 
-AIOS="${HOME}/.ai-os"
+REIN="${HOME}/.rein"
 VERSION="1.0"
 SCRIPT_NAME="ai-exec"
 
@@ -19,7 +19,7 @@ RESET='\033[0m'
 
 usage() {
   cat <<USAGE
-${SCRIPT_NAME} — AI-OS Execution Gate v${VERSION}
+${SCRIPT_NAME} — Rein Execution Gate v${VERSION}
 
 Usage:
   ai-exec [OPTIONS] <task-name> -- <command> [args...]
@@ -88,7 +88,7 @@ check_capabilities_md() {
   caps_file="$(pwd)/.ai/CAPABILITIES.md"
   if [[ ! -f "$caps_file" ]]; then
     echo -e "${YELLOW}⚠  No .ai/CAPABILITIES.md found — using permissive defaults.${RESET}"
-    echo "   Run: ai init (or copy ~/.ai-os/templates/CAPABILITIES.md to .ai/)"
+    echo "   Run: ai init (or copy ~/.rein/templates/CAPABILITIES.md to .ai/)"
     return 0
   fi
   echo -e "${CYAN}  CAPABILITIES.md present — enforcement active.${RESET}"
@@ -188,7 +188,7 @@ for _orphan in /tmp/ai-exec-* .ai-worktree-*; do
 done
 
 echo ""
-echo -e "${CYAN}━━ AI-OS Execution Gate ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+echo -e "${CYAN}━━ Rein Execution Gate ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 echo "   Task:     ${TASK_NAME}"
 echo "   Command:  ${CMD_ARGS[*]}"
 echo -ne "   Tier:     "

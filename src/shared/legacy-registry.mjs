@@ -2,7 +2,7 @@
 // legacy-registry.mjs — the loader and scanner for src/config/legacy-artefacts.json
 // (E-272, D-074, version-lifecycle.md §Component 3).
 //
-// WHAT THIS IS. Every AI-OS version leaves things behind: a provider workspace whose
+// WHAT THIS IS. Every Rein version leaves things behind: a provider workspace whose
 // provider is gone, a shim rulefile, a mirror directory the registry no longer lists, a
 // lock for a session that ended months ago. Until now that knowledge lived in prose (the
 // D-069 sweep PRINTED `rm -r` hints) or nowhere at all. The registry is the single list,
@@ -37,10 +37,10 @@ export const CLASSES = new Set(["safe", "prompt", "not-ours"]);
 //
 // DIVERGENCE from version-lifecycle.md §API, which enumerates four (not-in-registry,
 // dead-pid, not-in-manifest, orphan-process):
-//   * `not-in-src` is required by §Component 3's OWN seed list ("~/.ai-os/hooks/<not in
+//   * `not-in-src` is required by §Component 3's OWN seed list ("~/.rein/hooks/<not in
 //     src/hooks>", "the six orphaned v2 contracts") — a mirror file is stale exactly when
 //     the source tree stopped shipping it, and no hash list can say that.
-//   * `stale-mtime` exists because `~/.ai-os/run/role-*.lock` HAS NO PID: the E-129 token
+//   * `stale-mtime` exists because `~/.rein/run/role-*.lock` HAS NO PID: the E-129 token
 //     is keyed by Claude session id and its record holds {v, role, session_id, hmac}. The
 //     blueprint's "(dead pid)" describes an artefact that does not exist. Age is the only
 //     signal available, and it is a safe one — SessionStart re-mints a token on resume.
@@ -61,7 +61,7 @@ const DEFAULT_REGISTRY = "config/legacy-artefacts.json";
 /** Resolve the registry through the install mirror, then the clone. */
 export function registryPath({ home = homedir(), repoRoot = null } = {}) {
   const candidates = [
-    join(home, ".ai-os", DEFAULT_REGISTRY),
+    join(home, ".rein", DEFAULT_REGISTRY),
     ...(repoRoot ? [join(repoRoot, "src", DEFAULT_REGISTRY)] : []),
     resolve(new URL("../config/legacy-artefacts.json", import.meta.url).pathname),
   ];
@@ -126,7 +126,7 @@ export function sha256File(p) {
 
 const isWithin = (root, p) => p === root || p.startsWith(root.endsWith(sep) ? root : root + sep);
 
-/** Longest-first so `~/.ai-os/…` never reports as merely "$HOME". */
+/** Longest-first so `~/.rein/…` never reports as merely "$HOME". */
 function rootFor(roots, p) {
   return Object.entries(roots)
     .filter(([, r]) => r && isWithin(r, p))
@@ -166,7 +166,7 @@ export function expandEntryPaths(entry, ctx) {
 // ── rules ────────────────────────────────────────────────────────────────────
 // Each returns { stale: boolean, why: string }. `stale: false` means the path is still
 // in service and is NOT a finding — the difference between a report that means something
-// and a list of everything AI-OS ever wrote.
+// and a list of everything Rein ever wrote.
 
 function pidAlive(pid) {
   if (!(Number.isInteger(pid) && pid > 0)) return false;
@@ -332,7 +332,7 @@ export function scanSettingAllows(p, ctx) {
 
 function buildContext({ project, home = homedir(), tmp = tmpdir(), registry, srcRoots = [] }) {
   const servers = new Set();
-  for (const root of [join(home, ".ai-os"), ...srcRoots.map((r) => join(r, "src"))]) {
+  for (const root of [join(home, ".rein"), ...srcRoots.map((r) => join(r, "src"))]) {
     const p = join(root, "config", "registry.json");
     if (!existsSync(p)) continue;
     try {
@@ -444,7 +444,7 @@ export function scan(opts) {
         for (const h of hits) {
           findings.push({
             entry_id: entry.id, kind: "setting", class: entry.class, path: `${p} → ${h.allow}`,
-            origin: null, why: `${h.server} is not in registry.json but AI-OS once shipped it`,
+            origin: null, why: `${h.server} is not in registry.json but Rein once shipped it`,
             action: "report", note: entry.note || "",
           });
         }
@@ -465,9 +465,9 @@ export function scan(opts) {
         const h = sha256File(p);
         if (!h || !entry.known_hashes.includes(h)) {
           cls = "prompt";
-          why = "edited since AI-OS wrote it (no shipped version matches its hash)";
+          why = "edited since Rein wrote it (no shipped version matches its hash)";
         } else {
-          why = "byte-identical to a version AI-OS shipped";
+          why = "byte-identical to a version Rein shipped";
         }
       }
 

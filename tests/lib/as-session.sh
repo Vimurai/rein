@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# as-session.sh — run a command as a child of a real AI-OS SESSION PROCESS (E-294, D-087).
+# as-session.sh — run a command as a child of a real Rein SESSION PROCESS (E-294, D-087).
 #
 #   bash tests/lib/as-session.sh <architect|engineer|none> <session_id> -- <command...>
 #
@@ -8,13 +8,13 @@
 # the claude process; here, THIS script's process). So a fixture that wants a role does what
 # production does instead of exporting a variable:
 #   1. <architect|engineer>: write a launch record for this pid (src/shared/launch-record.py —
-#      the cwd must be inside an AI-OS project, i.e. under a directory holding .ai/);
+#      the cwd must be inside an Rein project, i.e. under a directory holding .ai/);
 #      `none` writes no record — the plain-launch default, engineer / launch: unverified;
 #   2. mint <session_id>'s token bound to this pid (safe-exec --mint-token, no role in argv);
 #   3. run <command> as a DIRECT CHILD, with this script's stdin (a hook's JSON event) — so a hook's own PPID is this pid (the --session-pid hot
 #      path) and any deeper process has it as an ancestor (the --verify-role path);
 #   4. remove the record and the token, so the next call with the same id starts clean.
-# Everything lives under $HOME/.ai-os: run it with a throwaway HOME (rule 6).
+# Everything lives under $HOME/.rein: run it with a throwaway HOME (rule 6).
 # Exit: the command's status; 97 when the record or the mint failed (never a silent no-role).
 set -uo pipefail
 _here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -31,11 +31,11 @@ fi
 _minted="$(node --no-warnings "$_se" --mint-token "$sid" "$$" </dev/null 2>/dev/null)"
 if [[ -z "$_minted" ]]; then
   echo "as-session.sh: token for '${sid}' not minted" >&2
-  rm -f "${HOME}/.ai-os/run/launch/$$.json"
+  rm -f "${HOME}/.rein/run/launch/$$.json"
   exit 97
 fi
 
 "$@"
 rc=$?
-rm -f "${HOME}/.ai-os/run/launch/$$.json" "${HOME}/.ai-os/run/role-${sid}.lock"
+rm -f "${HOME}/.rein/run/launch/$$.json" "${HOME}/.rein/run/role-${sid}.lock"
 exit "$rc"

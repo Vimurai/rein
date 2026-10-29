@@ -82,7 +82,7 @@ Keep it 20–60 lines. Bullets only. No prose.
 
 Required sections (in order):
 ```
-# DIGEST — AI-OS v2 (Updated: YYYY-MM-DD)
+# DIGEST — Rein v2 (Updated: YYYY-MM-DD)
 
 ## Product
 - <one line>

@@ -22,7 +22,7 @@ const FLUSHER = resolve(repo, "src/shared/wal-flusher.mjs");
 const run = (...args) => spawnSync(process.execPath, [FLUSHER, ...args], { encoding: "utf8" });
 
 function walDb(t, rows) {
-  const dir = mkdtempSync(join(tmpdir(), "aios-t-walflush-"));
+  const dir = mkdtempSync(join(tmpdir(), "rein-t-walflush-"));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   const path = join(dir, "state.sqlite");
   const db = new DatabaseSync(path);
@@ -67,7 +67,7 @@ const BAD_PATHS = [
   { label: "non-.sqlite path → rejected", arg: () => "/etc/hosts", want: /extension must be \.sqlite/ },
   { label: "nonexistent .sqlite → 'does not exist'", arg: () => "/tmp/nonexistent-12345.sqlite", want: /does not exist/ },
   { label: "directory → 'not a regular file'", arg: (t) => {
-      const d = mkdtempSync(join(tmpdir(), "aios-t-walflush-"));
+      const d = mkdtempSync(join(tmpdir(), "rein-t-walflush-"));
       renameSync(d, `${d}.sqlite`);
       t.after(() => rmdirSync(`${d}.sqlite`));
       return `${d}.sqlite`;

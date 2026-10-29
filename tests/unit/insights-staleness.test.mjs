@@ -6,7 +6,7 @@
 // tests/unit/telemetry-naming.test.mjs (E-261: tool rows only). The CLI rows (S02 rollback
 // flags, S08 envelope + --quiet), the ai-preflight Step 7 wiring and the mirrors stay in
 // tests/suites/meta_cognition_test.sh. Labels are the bash assertions' own; every store is a
-// temp db_path, never ~/.ai-os. Run standalone:  node --test tests/unit/insights-staleness.test.mjs
+// temp db_path, never ~/.rein. Run standalone:  node --test tests/unit/insights-staleness.test.mjs
 
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
@@ -21,7 +21,7 @@ const REPO = resolve(import.meta.dirname, "../..");
 const PROBE = join(REPO, "src/shared/insights-staleness.mjs");
 const SRC = readFileSync(PROBE, "utf8");
 
-const ROOT = mkdtempSync(join(tmpdir(), "aios-t-insights-"));
+const ROOT = mkdtempSync(join(tmpdir(), "rein-t-insights-"));
 after(() => { resetTelemetryCache(); rmSync(ROOT, { recursive: true, force: true }); });
 let _n = 0;
 const sbox = () => { const d = join(ROOT, `s${++_n}`); mkdirSync(d); return d; };

@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * memory-manager-mcp — AI-OS §31 Cross-Project Memory Palace (E-106)
+ * memory-manager-mcp — Rein §31 Cross-Project Memory Palace (E-106)
  *
  * Stores and queries high-level project architectural signatures in a global
- * JSON store at ~/.ai-os/memory/signatures.json.
+ * JSON store at ~/.rein/memory/signatures.json.
  *
  * Security: Signatures must NOT contain secrets, PII, or internal logic.
  *           Only high-level "Lore" and "Patterns" are stored.
@@ -27,7 +27,7 @@ import { redact } from "../../shared/publish-scan.mjs";
 // ── Structured logger (obs_baseline §Logging) ────────────────────────────────
 const logger = createLogger("memory-manager-mcp");
 
-const STORE_DIR  = resolve(process.env.HOME || "~", ".ai-os", "memory");
+const STORE_DIR  = resolve(process.env.HOME || "~", ".rein", "memory");
 const STORE_FILE = join(STORE_DIR, "signatures.json");
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -86,7 +86,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "export_signature",
       description:
-        "Exports the current project's architectural signature to the global memory store (~/.ai-os/memory/signatures.json). " +
+        "Exports the current project's architectural signature to the global memory store (~/.rein/memory/signatures.json). " +
         "Called automatically by `ai archive`. Signatures contain ONLY high-level lore/patterns — no secrets, PII, or internal logic.",
       inputSchema: {
         type: "object",

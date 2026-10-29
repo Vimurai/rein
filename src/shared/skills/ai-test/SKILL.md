@@ -8,21 +8,21 @@ context: default
 agent: default
 ---
 
-# AI-OS Test — the headless Tester
+# Rein Test — the headless Tester
 
 The Tester is the third Claude role (D-069): `tester` in `.ai/roles.json`, `headless: true`,
 model `sonnet`. It has no pane — `ai pane tester` exits 2 and points here.
 
 ## Dynamic Context Injection
-Test command: !AI_OS_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.ai-os/shared/locate.sh" ] && . "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/test-command.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null || echo '{"command":null,"note":"helper unavailable — reinstall AI-OS"}'
+Test command: !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(ai_os_locate shared/test-command.mjs 2>/dev/null)"; [ -n "$c" ] && node "$c" 2>/dev/null || echo '{"command":null,"note":"helper unavailable — reinstall Rein"}'
 Open tasks requiring tests: !grep -n "E-[0-9]" .ai/TASKS.md 2>/dev/null | grep -v "\[x\]" | head -5 || echo "(all tasks complete)"
 
 ## Resolve the command and the model
 
 ```bash
-AI_OS_LOCATE_UNTRUSTED_ENV=1
+REIN_LOCATE_UNTRUSTED_ENV=1
 unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null
-[ -f "${HOME}/.ai-os/shared/locate.sh" ] && . "${HOME}/.ai-os/shared/locate.sh"
+[ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"
 HELPER="$(ai_os_locate shared/test-command.mjs 2>/dev/null)"
 node "$HELPER"           # default:  {"command":"npm test","source":"package.json","model":"sonnet"}
 node "$HELPER" --fast    # --fast:   same command, "model":"haiku"
@@ -44,7 +44,7 @@ Gate: all tests must pass before any commit. If a test fails, you are **LOCKED**
 non-zero, report `[LOCKED]` with the failing assertion, and fix the failure (`skill: ai-debug`)
 before proceeding.
 
-**In a review** (critic_tests, ai-review) the AI-OS runner is invoked as
+**In a review** (critic_tests, ai-review) the Rein runner is invoked as
 `bash tests/run.sh --tier fast --changed <base>` — the unit layer, every contract table, and the
 suites whose census footprint the change touches (E-298, D-088). The full matrix is `ai ci run`'s
 and pre-push's job, not a review's.

@@ -29,7 +29,7 @@ assert_status 0 "uses shared SQLite-aware rotation" \
   grep -qE 'archiveDoneTasks|archiveStamps' "$AM"
 
 # ── Behavioural: execute_archive rotates stamps via SQLite ───────────────────
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 TMP="$(mktemp -d)"; on_exit 'rm -rf "$TMP"'
 PROJECT="${TMP}/proj"; mkdir -p "${PROJECT}/.ai"
 echo '{"version":"1.0","project":{},"tasks":[],"stamps":[],"deltas":[]}' > "${PROJECT}/.ai/state.json"

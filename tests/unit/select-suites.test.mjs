@@ -64,9 +64,9 @@ test("a suite missing from the census is never dropped from full", () => {
 });
 
 // E-384 (D-135 addendum r2): extends the no-census test above — a fresh clone has no
-// ~/.ai-os/ci census, so the CLI reads the committed tests/census-baseline.tsv's footprints.
+// ~/.rein/ci census, so the CLI reads the committed tests/census-baseline.tsv's footprints.
 test("CLI --changed with no local census selects by the committed baseline, and says so", (t) => {
-  const r = mkdtempSync(join(tmpdir(), "aios-t-select-"));
+  const r = mkdtempSync(join(tmpdir(), "rein-t-select-"));
   t.after(() => rmSync(r, { recursive: true, force: true }));
   const put = (p, body) => { mkdirSync(dirname(join(r, p)), { recursive: true }); writeFileSync(join(r, p), body); };
   put("src/shared/x.mjs", "export const x = 1;\n");

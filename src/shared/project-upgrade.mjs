@@ -11,7 +11,7 @@
 //             src/config/legacy-artefacts.json — the same owned-vs-user-added rule E-274
 //             applies to .mcp.json). Existing values and unknown keys are preserved; a
 //             changed file is first copied to <name>.pre-<version>.json.
-//   stamp   — project.aios_version / provisioned_at, written through state-db (state.json
+//   stamp   — project.rein_version / provisioned_at, written through state-db (state.json
 //             is a view of state.sqlite; a hand edit would be overwritten).
 //   version — the stamped version, read without side effects (doctor, the init banner).
 //
@@ -20,7 +20,7 @@
 // Exit 0 always for merge/stamp/version (a finding is data, not a failure); exit 2 on a
 // usage error. --check never writes anything.
 //
-// Rollback: the .pre-<version>.json copies; removing the aios_version/provisioned_at keys
+// Rollback: the .pre-<version>.json copies; removing the rein_version/provisioned_at keys
 // is safe (nothing gates on them).
 
 import { existsSync, readFileSync, writeFileSync, copyFileSync, renameSync, realpathSync } from "node:fs";
@@ -97,7 +97,7 @@ export function mergeRoles(project, template, providerNames) {
 }
 
 function _writeAtomic(path, text) {
-  const tmp = `${path}.aios-tmp-${process.pid}`;
+  const tmp = `${path}.rein-tmp-${process.pid}`;
   writeFileSync(tmp, text, "utf8");
   renameSync(tmp, path);
 }
@@ -163,14 +163,14 @@ export function runMerge({ aiDir, templatesDir, legacyPath, version, check = fal
 export function readProjectVersion(aiDir) {
   try {
     const s = _readJson(join(aiDir, "state.json"));
-    if (s?.project?.aios_version) return s.project.aios_version;
+    if (s?.project?.rein_version) return s.project.rein_version;
   } catch { /* fall through */ }
   const dbPath = join(aiDir, "state.sqlite");
   if (!existsSync(dbPath)) return null;
   let db;
   try {
     db = new DatabaseSync(dbPath, { readOnly: true });
-    const r = db.prepare("SELECT value FROM project WHERE key = 'aios_version'").get();
+    const r = db.prepare("SELECT value FROM project WHERE key = 'rein_version'").get();
     return r?.value ?? null;
   } catch {
     return null;
@@ -196,7 +196,7 @@ export async function runStamp({ aiDir, version, check = false }) {
   }
   const current = readProjectVersion(aiDir);
   if (current === version) return [];
-  if (check) return [{ kind: "pending", file: ".ai/state.json", detail: `project.aios_version ${current ?? "(unstamped)"} → ${version}` }];
+  if (check) return [{ kind: "pending", file: ".ai/state.json", detail: `project.rein_version ${current ?? "(unstamped)"} → ${version}` }];
   // getDbSeeded, not getDb: when this is the first open of the store it imports state.json
   // exactly as task-synchronizer-mcp does, so the stamp can never regenerate state.json
   // from an empty database.
@@ -204,7 +204,7 @@ export async function runStamp({ aiDir, version, check = false }) {
   const res = stampProvisioning(aiDir, getDbSeeded(aiDir), { version });
   if (!res.ok) return [{ kind: "error", file: ".ai/state.json", detail: res.error }];
   return res.changed
-    ? [{ kind: "stamped", file: ".ai/state.json", detail: `project.aios_version ${res.previous ?? "(unstamped)"} → ${version}` }]
+    ? [{ kind: "stamped", file: ".ai/state.json", detail: `project.rein_version ${res.previous ?? "(unstamped)"} → ${version}` }]
     : [];
 }
 

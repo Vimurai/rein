@@ -13,16 +13,16 @@ HOOK="${REPO_ROOT}/hooks/pre-tool-use.sh"
 
 echo "===== pre_tool_use_gate_test.sh (E-125) ====="
 
-# E-294 (D-087): the gate's role is the HMAC-verified session token's — never AI_OS_CALLER_ROLE
+# E-294 (D-087): the gate's role is the HMAC-verified session token's — never REIN_CALLER_ROLE
 # and never a positional role word; no verified token → the UNION (the Architect's blocks for
 # everyone). So an "engineer" verdict needs a real session: tests/lib/as-session.sh runs the
 # check / hook as the DIRECT child of a session process (a plain launch → engineer, or a launch
-# record of the named role), in a throwaway HOME whose ~/.ai-os/{shared,mcp} are this checkout.
+# record of the named role), in a throwaway HOME whose ~/.rein/{shared,mcp} are this checkout.
 AS="${REPO_ROOT}/tests/lib/as-session.sh"
 PTU_HOME="$(test_tmpdir ptuhome)"
-mkdir -p "${PTU_HOME}/.ai-os"
+mkdir -p "${PTU_HOME}/.rein"
 tc_link_shared "$PTU_HOME"   # E-345 (D-109 r1): mirror = this tree + the toolchain record the hooks pin
-ln -s "${REPO_ROOT}/src/mcp" "${PTU_HOME}/.ai-os/mcp"
+ln -s "${REPO_ROOT}/src/mcp" "${PTU_HOME}/.rein/mcp"
 
 # ── S01: artifacts exist + parse ─────────────────────────────────────────────
 assert_status 0 "hook exists"            test -f "$HOOK"
@@ -52,13 +52,13 @@ assert_contains "S02: engineer git push → exit 0"       "0" "$(chk 'git push o
 # E-127 → E-294 (D-087 r3): was "the bootloader env role overrides the arg". Neither is a role
 # input any more: the env var and a positional role word change no verdict.
 assert_contains "E-294.S02a: env=architect in an ENGINEER session does not block (env ignored)" "0" \
-  "$(export AI_OS_CALLER_ROLE=architect AI_OS_PANE_ROLE=architect; chk 'git push origin main' engineer)"
+  "$(export REIN_CALLER_ROLE=architect REIN_PANE_ROLE=architect; chk 'git push origin main' engineer)"
 assert_contains "E-294.S02b: env=engineer + positional 'engineer' with NO token → union, BLOCKED" "2" \
-  "$(export AI_OS_CALLER_ROLE=engineer AI_OS_PANE_ROLE=engineer; chk_nosession 'git push origin main' engineer)"
+  "$(export REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer; chk_nosession 'git push origin main' engineer)"
 assert_contains "E-294.S02c: …and the union names itself [ROLE_UNVERIFIED]" "[ROLE_UNVERIFIED]" \
-  "$(cd "$REPO_ROOT" && HOME="$PTU_HOME" AI_OS_CALLER_ROLE=engineer node --no-warnings "$SE" --check 'git push origin main' engineer 2>/dev/null)"
+  "$(cd "$REPO_ROOT" && HOME="$PTU_HOME" REIN_CALLER_ROLE=engineer node --no-warnings "$SE" --check 'git push origin main' engineer 2>/dev/null)"
 assert_contains "E-294.S02d: env=engineer in an ARCHITECT session still blocks" "2" \
-  "$(export AI_OS_CALLER_ROLE=engineer AI_OS_PANE_ROLE=engineer; chk 'git push origin main' architect)"
+  "$(export REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer; chk 'git push origin main' architect)"
 assert_contains "E-294.S02e: a session id with no token on this chain verifies nothing (union)" "2" \
   "$(chk_nosession 'git push origin main' --session ptu-chk-none)"
 assert_contains "S02: empty command → exit 0 (fail-open)" "0" "$(chk '')"
@@ -91,23 +91,23 @@ assert_contains "S04: Read tool → ALLOW" "0" \
 assert_contains "S04: Write tool → ALLOW" "0" \
   "$(hook_rc "$(python3 -c 'import json;print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"x","content":"rm -rf /"},"session_id":"ptu-hook-none"}))')")"
 
-# ── S05: role-awareness — E-294: via the SESSION's launch record, not AI_OS_CALLER_ROLE ──
-arch_hook_rc() { _hook_as architect "$(mkevent Bash "$1" ptu-hook-architect)" AI_OS_CALLER_ROLE=engineer; }
+# ── S05: role-awareness — E-294: via the SESSION's launch record, not REIN_CALLER_ROLE ──
+arch_hook_rc() { _hook_as architect "$(mkevent Bash "$1" ptu-hook-architect)" REIN_CALLER_ROLE=engineer; }
 assert_contains "S05: architect 'git push' → hook BLOCKS"   "2" "$(arch_hook_rc 'git push origin main')"
 assert_contains "S05: architect 'npm publish' → hook BLOCKS" "2" "$(arch_hook_rc 'npm publish')"
 assert_contains "S05: engineer (default) 'git push' → ALLOW" "0" "$(hook_rc "$(mkevent Bash 'git push origin main')")"
-assert_contains "E-294.S05d: env AI_OS_CALLER_ROLE=architect does not restrict an engineer session" "0" \
-  "$(_hook_as none "$(mkevent Bash 'git push origin main')" AI_OS_CALLER_ROLE=architect AI_OS_PANE_ROLE=architect)"
+assert_contains "E-294.S05d: env REIN_CALLER_ROLE=architect does not restrict an engineer session" "0" \
+  "$(_hook_as none "$(mkevent Bash 'git push origin main')" REIN_CALLER_ROLE=architect REIN_PANE_ROLE=architect)"
 # No session id in the event → no token → the union: the Architect blocks apply to everyone.
 _ev_nosid="$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":"git push origin main"}}))')"
 assert_contains "E-294.S05e: an event with no session id gets the union ('git push' BLOCKED)" "2" \
-  "$(printf '%s' "$_ev_nosid" | ( cd "$REPO_ROOT" && HOME="$PTU_HOME" AI_OS_CALLER_ROLE=engineer bash "$HOOK" >/dev/null 2>&1 ); echo $?)"
+  "$(printf '%s' "$_ev_nosid" | ( cd "$REPO_ROOT" && HOME="$PTU_HOME" REIN_CALLER_ROLE=engineer bash "$HOOK" >/dev/null 2>&1 ); echo $?)"
 
 # ── S06: the removed env switch no longer bypasses the gate (E-291, D-081 r2) ──
 # It reversed: before E-291 this variable let even 'rm -rf /' through. The operator's escape
 # is now the `ai gate off` file — and even under it the catastrophic set blocks (D-083 r8,
 # covered in gate_override_test with a fixture HOME).
-_V_GATE="AI_OS_SAFE""_EXEC_GATE"
+_V_GATE="REIN_SAFE""_EXEC_GATE"
 roll_rc() { _hook_as none "$1" "${_V_GATE}=0"; }
 assert_contains "S06: the removed env switch no longer lets 'rm -rf /' through" "2" "$(roll_rc "$(mkevent Bash 'rm -rf /')")"
 
@@ -156,7 +156,7 @@ d = json.load(open(sys.argv[1]))
 out = []
 for e in d.get("hooks", {}).get("PreToolUse", []):
     for h in e.get("hooks", []):
-        if any(str(a).endswith("/.ai-os/hooks/pre-tool-use.sh") for a in h.get("args", [])):
+        if any(str(a).endswith("/.rein/hooks/pre-tool-use.sh") for a in h.get("args", [])):
             out.append("%s|%s|%s" % (e.get("matcher"), h.get("command"), " ".join(h.get("args", []))))
 print("\n".join(out))
 PY
@@ -164,7 +164,7 @@ PY
 _S10="$(_s10)"
 assert_contains "S10: the gate is registered on Bash and the write tools (E-208)" "Bash|Write|Edit|MultiEdit|NotebookEdit|" "$_S10"
 assert_contains "S10: in exec form under privileged bash (E-290)" "|/bin/bash|-p /" "$_S10"
-( cd "$S10_DIR/proj" && AI_OS_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
+( cd "$S10_DIR/proj" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
 assert_status 0 "S10: registration is idempotent (exactly one gate entry after a re-sync)" \
   test "$(_s10 | grep -c .)" -eq 1
 
@@ -173,11 +173,11 @@ assert_status 0 "S10: registration is idempotent (exactly one gate entry after a
 assert_status 0 "S11: --check error path fails closed" grep -qF 'FAILING CLOSED' "$SE"
 # Deterministic fault injection (safe: can only ADD restriction): a crash → exit 2.
 assert_contains "S11: injected analyzer crash → --check exit 2" "2" \
-  "$(export AI_OS_SAFE_EXEC_SELFTEST_THROW=1; chk 'ls -la')"
+  "$(export REIN_SAFE_EXEC_SELFTEST_THROW=1; chk 'ls -la')"
 assert_contains "S11: no crash → --check exit 0 (normal path intact)" "0" "$(chk 'ls -la')"
 # Through the hook: a crashed analyzer blocks the Bash tool call.
 assert_contains "S11: injected crash → hook BLOCKS (exit 2)" "2" \
-  "$(_hook_as none "$(mkevent Bash 'ls -la')" AI_OS_SAFE_EXEC_SELFTEST_THROW=1)"
+  "$(_hook_as none "$(mkevent Bash 'ls -la')" REIN_SAFE_EXEC_SELFTEST_THROW=1)"
 
 # ── S12 (E-331, D-102 §4): the Engineer claim gate ───────────────────────────
 # Extends S03/S05: in a team project (.ai/team.json) an engineer session on engineer/e<N>-*
@@ -214,8 +214,8 @@ assert_contains "E-331.S12b: … naming the command that fixes it" "ai task clai
 assert_contains "E-331.S12c: unclaimed — a shell write to src/ is blocked" "2 " "$(_claim_hook "$(mkbash 'echo x > src/y.js')")"
 assert_contains "E-331.S12d: unclaimed — a write under .ai/ stays open" "0 " "$(_claim_hook "$(mkwrite "$S12C/.ai/notes.md")")"
 assert_contains "E-331.S12d: unclaimed — a read-only command stays open" "0 " "$(_claim_hook "$(mkbash 'ls src')")"
-assert_contains "E-331.S12e: AI_OS_CLAIM_GATE=0 lifts it" "0 " \
-  "$(_claim_hook "$(mkwrite "$S12C/src/x.js")" AI_OS_CLAIM_GATE=0 AI_TELEMETRY_DISABLE=1)"
+assert_contains "E-331.S12e: REIN_CLAIM_GATE=0 lifts it" "0 " \
+  "$(_claim_hook "$(mkwrite "$S12C/src/x.js")" REIN_CLAIM_GATE=0 AI_TELEMETRY_DISABLE=1)"
 _cl="$(cd "$S12C" && HOME="$PTU_HOME" node --no-warnings "${REPO_ROOT}/src/shared/cli-state.mjs" task claim E-900 2>&1)"
 assert_contains "E-331.S12f: ai task claim E-900 publishes the claim" "E-900 claimed by dev-a@example.com" "$_cl"
 assert_contains "E-331.S12f: claimed — the identical Write now passes" "0 " "$(_claim_hook "$(mkwrite "$S12C/src/x.js")")"
@@ -265,20 +265,20 @@ assert_status 0 "E-216.08g: the module records the data-vs-syntax invariant" \
 # E-294 (D-087 r3, 8f): the environment is not a role input. An engineer's freedom comes ONLY
 # from a verified engineer token; no token → the union, and an env role neither restricts nor
 # lifts a verified session.
-assert_contains "E-294.12a: no token + AI_OS_CALLER_ROLE=engineer → union, the write BLOCKS" "2" \
-  "$(export AI_OS_CALLER_ROLE=engineer AI_OS_PANE_ROLE=engineer; chk_nosession 'echo x > src/x.js')"
+assert_contains "E-294.12a: no token + REIN_CALLER_ROLE=engineer → union, the write BLOCKS" "2" \
+  "$(export REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer; chk_nosession 'echo x > src/x.js')"
 assert_contains "E-294.12b: env architect does not restrict a verified ENGINEER session" "0" \
-  "$(export AI_OS_CALLER_ROLE=architect AI_OS_PANE_ROLE=architect; chk 'echo x > src/x.js' engineer)"
+  "$(export REIN_CALLER_ROLE=architect REIN_PANE_ROLE=architect; chk 'echo x > src/x.js' engineer)"
 assert_contains "E-294.12c: env engineer does not lift a verified ARCHITECT session" "2" \
-  "$(export AI_OS_CALLER_ROLE=engineer AI_OS_PANE_ROLE=engineer; chk 'echo x > src/x.js' architect)"
+  "$(export REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer; chk 'echo x > src/x.js' architect)"
 # The token is bound to its session process: the engineer's id presented with a LIVE pid that is
 # not its own (this shell's) does not verify → the union.
 _AWG_STOP="${PTU_HOME}/stop-awg"
 ( cd "$REPO_ROOT" && HOME="$PTU_HOME" exec bash "$AS" engineer awg-engineer -- \
-    bash -c 'i=0; while [ ! -e "$1" ] && [ -d "${1%/*}" ] && [ $i -lt 3000 ]; do sleep 0.1; i=$((i+1)); done' _ "$_AWG_STOP" ) >/dev/null 2>&1 &   # AIOS_SLEEP_ALLOWED: keep-alive loop of a child session shell (no assert.sh there); ends on the stop file
+    bash -c 'i=0; while [ ! -e "$1" ] && [ -d "${1%/*}" ] && [ $i -lt 3000 ]; do sleep 0.1; i=$((i+1)); done' _ "$_AWG_STOP" ) >/dev/null 2>&1 &   # REIN_SLEEP_ALLOWED: keep-alive loop of a child session shell (no assert.sh there); ends on the stop file
 _AWG_PID=$!
 on_exit "touch '${_AWG_STOP}'; wait_for '! kill -0 ${_AWG_PID} 2>/dev/null' 3000 100 2>/dev/null; kill ${_AWG_PID} 2>/dev/null || true"
-wait_for "[ -e \"${PTU_HOME}/.ai-os/run/role-awg-engineer.lock\" ]" 10000 100 || true
+wait_for "[ -e \"${PTU_HOME}/.rein/run/role-awg-engineer.lock\" ]" 10000 100 || true
 assert_contains "E-294.12d0: the live engineer session verifies with its own pid (fixture)" "0" \
   "$(chk_nosession 'echo x > src/x.js' --session awg-engineer --session-pid "$_AWG_PID")"
 assert_contains "E-294.12d: …and its token presented with another live pid does not verify (union)" "2" \
@@ -296,7 +296,7 @@ PRE_E289_REF="5cf1fcd"
 
 
 UT="$(test_tmpdir seunavail)"; UT="$(cd -P "$UT" && pwd -P)"
-UH="$UT/home"; UM="$UH/.ai-os"
+UH="$UT/home"; UM="$UH/.rein"
 mkdir -p "$UM/mcp/safe-exec-mcp" "$UT/tree/hooks" "$UT/proj"
 cp -R "${REPO_ROOT}/src/shared" "$UM/shared"
 cp -R "${REPO_ROOT}/src/mcp/shared" "$UM/mcp/shared"
@@ -328,29 +328,29 @@ assert_status 0 "E-289.02a: the broken mirror really exits non-0/2 (got ${_probe
 rc="$(_urun "$UHOOK" "ls -la")"
 assert_status 0 "E-289.02b: an arbitrary command is BLOCKED when the analyzer cannot load (rc=${rc})" test "$rc" -eq 2
 assert_contains "E-289.02c: with the exact unavailable line" \
-  "[SAFE_EXEC_UNAVAILABLE] safe-exec exited ${_probe_rc}: run bash install-ai-os.sh" "$(cat "$UT/err")"
-touch "$UT/proj/install-ai-os.sh"
-rc="$(_urun "$UHOOK" "bash install-ai-os.sh")"
+  "[SAFE_EXEC_UNAVAILABLE] safe-exec exited ${_probe_rc}: run bash install-rein.sh" "$(cat "$UT/err")"
+touch "$UT/proj/install-rein.sh"
+rc="$(_urun "$UHOOK" "bash install-rein.sh")"
 assert_status 0 "E-289.02d: the literal repair command still passes (rc=${rc})" test "$rc" -eq 0
-for c in "bash install-ai-os.sh --x" "bash install-ai-os.sh; id" "bash ./install-ai-os.sh" " bash  install-ai-os.sh"; do
+for c in "bash install-rein.sh --x" "bash install-rein.sh; id" "bash ./install-rein.sh" " bash  install-rein.sh"; do
   rc="$(_urun "$UHOOK" "$c")"
   assert_status 0 "E-289.02e: '${c}' is not the repair command (rc=${rc})" test "$rc" -eq 2
 done
-rm -f "$UT/proj/install-ai-os.sh"; : > "$UT/elsewhere.sh"; ln -s "$UT/elsewhere.sh" "$UT/proj/install-ai-os.sh"
-rc="$(_urun "$UHOOK" "bash install-ai-os.sh")"
-assert_status 0 "E-289.02f: a SYMLINKED install-ai-os.sh is not exempt (rc=${rc})" test "$rc" -eq 2
-rm -f "$UT/proj/install-ai-os.sh"
-rc="$(_urun "$UHOOK" "bash install-ai-os.sh")"
-assert_status 0 "E-289.02g: outside a dir holding install-ai-os.sh it is not exempt (rc=${rc})" test "$rc" -eq 2
+rm -f "$UT/proj/install-rein.sh"; : > "$UT/elsewhere.sh"; ln -s "$UT/elsewhere.sh" "$UT/proj/install-rein.sh"
+rc="$(_urun "$UHOOK" "bash install-rein.sh")"
+assert_status 0 "E-289.02f: a SYMLINKED install-rein.sh is not exempt (rc=${rc})" test "$rc" -eq 2
+rm -f "$UT/proj/install-rein.sh"
+rc="$(_urun "$UHOOK" "bash install-rein.sh")"
+assert_status 0 "E-289.02g: outside a dir holding install-rein.sh it is not exempt (rc=${rc})" test "$rc" -eq 2
 # D-082 ruling 3: the predicate is INLINE so a partial mirror whose pin is unreachable
 # still lets the repair through. Remove the pin too; the hook copy has no src/ beside it.
 mv "$UM/shared/toolchain-pin.sh" "$UT/toolchain-pin.sh.bak"
-touch "$UT/proj/install-ai-os.sh"
-rc="$(_urun "$UHOOK" "bash install-ai-os.sh")"
+touch "$UT/proj/install-rein.sh"
+rc="$(_urun "$UHOOK" "bash install-rein.sh")"
 assert_status 0 "E-289.02h: with the pin ALSO unreachable the repair command still passes (rc=${rc})" test "$rc" -eq 0
 rc="$(_urun "$UHOOK" "ls -la")"
 assert_status 0 "E-289.02i: …while anything else still blocks (rc=${rc})" test "$rc" -eq 2
-rm -f "$UT/proj/install-ai-os.sh"; mv "$UT/toolchain-pin.sh.bak" "$UM/shared/toolchain-pin.sh"
+rm -f "$UT/proj/install-rein.sh"; mv "$UT/toolchain-pin.sh.bak" "$UM/shared/toolchain-pin.sh"
 
 # ── E-289.3: the same fixture ALLOWS on the pre-change hook (proves the gap) ──
 OLDT="$UT/oldtree/hooks"; mkdir -p "$OLDT"
@@ -388,14 +388,14 @@ mv "$UM/mcp/safe-exec-mcp/secret-rule.mjs" "$UT/secret-rule.mjs.bak"
 # exercise the override's broken-analyzer path and not an ordinary analyzer PASS.
 _probe_rc=0; node --no-warnings "$UM/mcp/safe-exec-mcp/index.js" --check "ls" >/dev/null 2>&1 || _probe_rc=$?
 assert_status 0 "E-289.05a2: the analyzer is broken at this point (rc=${_probe_rc}, neither 0 nor 2)" test "$_probe_rc" -ne 0 -a "$_probe_rc" -ne 2
-python3 -I "$UM/shared/gate-override.py" write "$UH/.ai-os/gate-override.json" 15 "e289 hatch" >/dev/null
+python3 -I "$UM/shared/gate-override.py" write "$UH/.rein/gate-override.json" 15 "e289 hatch" >/dev/null
 _upayload "ls" > "$UT/p.json"
 out="$( cd "$UT/proj" && env HOME="$UH" /bin/bash "$UHOOK" < "$UT/p.json" 2>/dev/null )"; rc=$?
 assert_status 0 "E-289.05b: a broken analyzer + an active override lets an ordinary command through (rc=${rc})" test "$rc" -eq 0
 assert_contains "E-289.05c: …loudly (systemMessage)" "[GATE_OVERRIDE] safe-exec bypassed" "$out"
 rc="$(_urun "$UHOOK" "rm -rf /")"
 assert_status 0 "E-289.05d: …while a catastrophic command still BLOCKS (rc=${rc})" test "$rc" -eq 2
-rm -f "$UH/.ai-os/gate-override.json"; mv "$UT/secret-rule.mjs.bak" "$UM/mcp/safe-exec-mcp/secret-rule.mjs"
+rm -f "$UH/.rein/gate-override.json"; mv "$UT/secret-rule.mjs.bak" "$UM/mcp/safe-exec-mcp/secret-rule.mjs"
 
 # ── S15 (E-286, from hook_toolchain — E-301; T-HOOKENV-001): hook toolchain pinning ──
 # A project's `.claude/settings.json` `env` reaches every hook. Before E-286 the hooks ran
@@ -403,7 +403,7 @@ rm -f "$UH/.ai-os/gate-override.json"; mv "$UT/secret-rule.mjs.bak" "$UM/mcp/saf
 # to stop it. These drive the REAL hooks with a decoy node/python3 that leave a marker, and
 # prove (a) the pre-change hook was hijacked by that fixture (non-vacuity) and (b) the pinned
 # hook never runs a decoy and still blocks — across PATH, exported-function, NODE_OPTIONS,
-# PYTHONPATH, cwd json.py and inherited AI_OS_TC_* channels, and across the stale / missing /
+# PYTHONPATH, cwd json.py and inherited REIN_TC_* channels, and across the stale / missing /
 # partial toolchain-file branches.
 POST="${REPO_ROOT}/hooks/post-tool-use.sh"
 PIN="${REPO_ROOT}/src/shared/toolchain-pin.sh"
@@ -428,14 +428,14 @@ _clear() { rm -f "$W"/MARKER-*; }
 # the checkout's safe-exec, so the gate's ANALYZER (node) really runs — with no analyzer the
 # hook falls to its catastrophic backstop and a node channel would be tested vacuously.
 _mkhome() {
-  mkdir -p "$1/.ai-os/shared" "$1/.ai-os/mcp"
-  cp "${REPO_ROOT}/src/shared/locate.sh" "$1/.ai-os/shared/"
-  cp "${REPO_ROOT}/src/shared/gate-probe.sh" "$1/.ai-os/shared/"   # E-339: the hook's analyzer call
-  ln -s "${REPO_ROOT}/src/mcp/safe-exec-mcp" "$1/.ai-os/mcp/safe-exec-mcp"
-  [[ "${2:-}" == "--no-pin" ]] || cp "$PIN" "$1/.ai-os/shared/toolchain-pin.sh"
+  mkdir -p "$1/.rein/shared" "$1/.rein/mcp"
+  cp "${REPO_ROOT}/src/shared/locate.sh" "$1/.rein/shared/"
+  cp "${REPO_ROOT}/src/shared/gate-probe.sh" "$1/.rein/shared/"   # E-339: the hook's analyzer call
+  ln -s "${REPO_ROOT}/src/mcp/safe-exec-mcp" "$1/.rein/mcp/safe-exec-mcp"
+  [[ "${2:-}" == "--no-pin" ]] || cp "$PIN" "$1/.rein/shared/toolchain-pin.sh"
 }
 TH="$W/home"; _mkhome "$TH"
-( . "$REC"; ai_os_tc_write "$TH/.ai-os/shared/toolchain.sh" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
+( . "$REC"; ai_os_tc_write "$TH/.rein/shared/toolchain.sh" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
 # The hook resolves safe-exec from the install mirror first, then its own tree — so with
 # this HOME it uses the checkout's analyzer, which is what we are testing.
 # Only the ANALYZER blocks this (DROP_TABLE); the no-node backstop would let it through.
@@ -486,23 +486,23 @@ rc="$( cd "$W" && printf '%s' "$BLK" | HOME="$TH" W="$W" /bin/bash -c '
   export -f python3 node; exec /bin/bash "$0"' "$HOOK" >/dev/null 2>&1; echo $? )"
 assert_status 0 "E-286.02e: an exported node()/python3() function is dropped by the prologue (rc=${rc})" test "$(_markers)" -eq 0 -a "$rc" -eq 2
 
-# ── E-286.3: inherited AI_OS_TC_* never wins ─────────────────────────────────
-_clear; rc="$(_trun "$HOOK" "$BLK" HOME="$TH" AI_OS_TC_NODE="$DECOY/node" AI_OS_TC_PYTHON3="$DECOY/python3")"
-assert_status 0 "E-286.03a: an inherited AI_OS_TC_NODE is overwritten (file present; rc=${rc})" test "$(_markers)" -eq 0 -a "$rc" -eq 2
+# ── E-286.3: inherited REIN_TC_* never wins ─────────────────────────────────
+_clear; rc="$(_trun "$HOOK" "$BLK" HOME="$TH" REIN_TC_NODE="$DECOY/node" REIN_TC_PYTHON3="$DECOY/python3")"
+assert_status 0 "E-286.03a: an inherited REIN_TC_NODE is overwritten (file present; rc=${rc})" test "$(_markers)" -eq 0 -a "$rc" -eq 2
 TM="$W/home-missing"; _mkhome "$TM"
-_clear; rc="$(_trun "$HOOK" "$BLK" HOME="$TM" AI_OS_TC_NODE="$DECOY/node" AI_OS_TC_PYTHON3="$DECOY/python3" PATH="$DECOY:$PATH")"
+_clear; rc="$(_trun "$HOOK" "$BLK" HOME="$TM" REIN_TC_NODE="$DECOY/node" REIN_TC_PYTHON3="$DECOY/python3" PATH="$DECOY:$PATH")"
 assert_status 0 "E-286.03b: …and with the toolchain file MISSING (fallback PATH, rc=${rc})" test "$(_markers)" -eq 0 -a "$rc" -eq 2
 TP="$W/home-partial"; _mkhome "$TP"
-printf 'AI_OS_TC_NODE=%s\n' "$REAL_NODE" > "$TP/.ai-os/shared/toolchain.sh"
-_clear; rc="$(_trun "$HOOK" "$BLK" HOME="$TP" AI_OS_TC_PYTHON3="$DECOY/python3" PATH="$DECOY:$PATH")"
+printf 'REIN_TC_NODE=%s\n' "$REAL_NODE" > "$TP/.rein/shared/toolchain.sh"
+_clear; rc="$(_trun "$HOOK" "$BLK" HOME="$TP" REIN_TC_PYTHON3="$DECOY/python3" PATH="$DECOY:$PATH")"
 assert_status 0 "E-286.03c: …and with a PARTIAL file (rc=${rc})" test "$(_markers)" -eq 0 -a "$rc" -eq 2
-printf 'AI_OS_TC_NODE=%s\nAI_OS_TC_PYTHON3=$(touch %s/MARKER-sourced)\n' "$REAL_NODE" "$W" > "$TP/.ai-os/shared/toolchain.sh"
+printf 'REIN_TC_NODE=%s\nREIN_TC_PYTHON3=$(touch %s/MARKER-sourced)\n' "$REAL_NODE" "$W" > "$TP/.rein/shared/toolchain.sh"
 _clear; _trun "$HOOK" "$BLK" HOME="$TP" >/dev/null
 assert_status 0 "E-286.03d: the toolchain file is PARSED, never sourced" test "$(_markers)" -eq 0
 
 # ── E-286.4: stale recorded interpreter — fail-closed and fail-open hooks ────
 TS="$W/home-stale"; _mkhome "$TS"
-( . "$REC"; ai_os_tc_write "$TS/.ai-os/shared/toolchain.sh" "$W/gone/node" "$W/gone/python3" /usr/bin/nice )
+( . "$REC"; ai_os_tc_write "$TS/.rein/shared/toolchain.sh" "$W/gone/node" "$W/gone/python3" /usr/bin/nice )
 _clear; rc="$(_trun "$HOOK" "$BLK" HOME="$TS" PATH="$DECOY:$PATH")"
 assert_status 0 "E-286.04a: fail-closed gate with a stale record never uses the decoy PATH and still blocks (rc=${rc})" \
   test "$(_markers)" -eq 0 -a "$rc" -eq 2
@@ -518,30 +518,30 @@ ST="$W/stale-tree"; tc_stale_tree "$ST" "$HOOK" >/dev/null
 assert_status 0 "E-286.05a: the stale-tree pin really has no fallback dirs (fixture check)" \
   grep -q "for d in ${ST}/empty-fallback; do" "$ST/src/shared/toolchain-pin.sh"
 TE="$W/home-empty"; _mkhome "$TE" --no-pin
-( . "$REC"; ai_os_tc_write "$TE/.ai-os/shared/toolchain.sh" "$W/gone/node" "$REAL_PY" /usr/bin/nice )
+( . "$REC"; ai_os_tc_write "$TE/.rein/shared/toolchain.sh" "$W/gone/node" "$REAL_PY" /usr/bin/nice )
 rc="$(_trun "$ST/hooks/pre-tool-use.sh" "$OK" HOME="$TE")"
 assert_status 0 "E-286.05b: no node anywhere → the gate blocks even a harmless command (rc=${rc})" test "$rc" -eq 2
-assert_contains "E-286.05c: …with [TOOLCHAIN_STALE] naming node and the fix" "[TOOLCHAIN_STALE] node missing — run: bash install-ai-os.sh" "$(cat "$W/stderr")"
-( . "$REC"; ai_os_tc_write "$TE/.ai-os/shared/toolchain.sh" "$REAL_NODE" "$W/gone/python3" /usr/bin/nice )
+assert_contains "E-286.05c: …with [TOOLCHAIN_STALE] naming node and the fix" "[TOOLCHAIN_STALE] node missing — run: bash install-rein.sh" "$(cat "$W/stderr")"
+( . "$REC"; ai_os_tc_write "$TE/.rein/shared/toolchain.sh" "$REAL_NODE" "$W/gone/python3" /usr/bin/nice )
 rc="$(_trun "$ST/hooks/pre-tool-use.sh" "$OK" HOME="$TE")"
 assert_status 0 "E-286.05d: no python3 anywhere → no parser, no verdict, a block (rc=${rc})" test "$rc" -eq 2
 assert_contains "E-286.05e: …naming python3" "[TOOLCHAIN_STALE] python3 missing" "$(cat "$W/stderr")"
-REPAIR='{"tool_name":"Bash","tool_input":{"command":"bash install-ai-os.sh"},"session_id":"e286"}'
-touch "$W/install-ai-os.sh"
+REPAIR='{"tool_name":"Bash","tool_input":{"command":"bash install-rein.sh"},"session_id":"e286"}'
+touch "$W/install-rein.sh"
 rc="$(_trun "$ST/hooks/pre-tool-use.sh" "$REPAIR" HOME="$TE")"
 assert_status 0 "E-286.05f: the literal repair command passes the stale branch from the project root (rc=${rc})" test "$rc" -eq 0
-rc="$(_trun "$ST/hooks/pre-tool-use.sh" '{"tool_name":"Bash","tool_input":{"command":"bash install-ai-os.sh --x"},"session_id":"e286"}' HOME="$TE")"
+rc="$(_trun "$ST/hooks/pre-tool-use.sh" '{"tool_name":"Bash","tool_input":{"command":"bash install-rein.sh --x"},"session_id":"e286"}' HOME="$TE")"
 assert_status 0 "E-286.05g: an extra argument is not the repair command (rc=${rc})" test "$rc" -eq 2
-rc="$(_trun "$ST/hooks/pre-tool-use.sh" '{"tool_name":"Bash","tool_input":{"command":"bash install-ai-os.sh; rm -rf ~/"},"session_id":"e286"}' HOME="$TE")"
+rc="$(_trun "$ST/hooks/pre-tool-use.sh" '{"tool_name":"Bash","tool_input":{"command":"bash install-rein.sh; rm -rf ~/"},"session_id":"e286"}' HOME="$TE")"
 assert_status 0 "E-286.05h: a chained command is not the repair command (rc=${rc})" test "$rc" -eq 2
-NESTED='{"tool_name":"Write","tool_input":{"file_path":"x"},"x":{"tool_name":"Bash"},"y":{"command":"bash install-ai-os.sh"},"session_id":"e286"}'
+NESTED='{"tool_name":"Write","tool_input":{"file_path":"x"},"x":{"tool_name":"Bash"},"y":{"command":"bash install-rein.sh"},"session_id":"e286"}'
 rc="$(_trun "$ST/hooks/pre-tool-use.sh" "$NESTED" HOME="$TE")"
 assert_status 0 "E-286.05k: nested tool_name/command keys in another tool's payload are not the repair command (critic_security P1; rc=${rc})" test "$rc" -eq 2
-rc="$(_trun "$ST/hooks/pre-tool-use.sh" '{"tool_name":"Bash","tool_input":{"command":"bash install-ai-os.sh","description":"Reinstall AI-OS"},"session_id":"e286"}' HOME="$TE")"
+rc="$(_trun "$ST/hooks/pre-tool-use.sh" '{"tool_name":"Bash","tool_input":{"command":"bash install-rein.sh","description":"Reinstall Rein"},"session_id":"e286"}' HOME="$TE")"
 assert_status 0 "E-286.05l: the real Bash payload shape (command + description) still passes (rc=${rc})" test "$rc" -eq 0
-rm -f "$W/install-ai-os.sh"
+rm -f "$W/install-rein.sh"
 rc="$(_trun "$ST/hooks/pre-tool-use.sh" "$REPAIR" HOME="$TE")"
-assert_status 0 "E-286.05i: outside the dir that holds install-ai-os.sh it is not exempt (rc=${rc})" test "$rc" -eq 2
+assert_status 0 "E-286.05i: outside the dir that holds install-rein.sh it is not exempt (rc=${rc})" test "$rc" -eq 2
 assert_status 0 "E-286.05j: ONE predicate decides the exemption, inline in the gate (D-082 ruling 3)" \
   bash -c "grep -q '^_is_repair_cmd()' '$HOOK' && ! grep -q 'is_repair_cmd' '$PIN'"
 
@@ -600,10 +600,10 @@ for h in pre-tool-use post-tool-use post-tool-log session-start stop-hook pre-co
 done
 
 # ── E-286.8: ai doctor reports both branches ────────────────────────────────
-DH="$W/doctor-home"; mkdir -p "$DH/.ai-os/shared"
+DH="$W/doctor-home"; mkdir -p "$DH/.rein/shared"
 _d="$(cd "$W" && HOME="$DH" bash "$AI_BIN" doctor 2>&1)"
-assert_contains "E-286.08a: doctor names a missing toolchain file and the fix" "hook toolchain: ${DH}/.ai-os/shared/toolchain.sh missing — run: bash install-ai-os.sh" "$_d"
-( . "$REC"; ai_os_tc_write "$DH/.ai-os/shared/toolchain.sh" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
+assert_contains "E-286.08a: doctor names a missing toolchain file and the fix" "hook toolchain: ${DH}/.rein/shared/toolchain.sh missing — run: bash install-rein.sh" "$_d"
+( . "$REC"; ai_os_tc_write "$DH/.rein/shared/toolchain.sh" "$REAL_NODE" "$REAL_PY" /usr/bin/nice )
 _d="$(cd "$W" && HOME="$DH" bash "$AI_BIN" doctor 2>&1)"
 assert_contains "E-286.08b: doctor reports the pinned versions" "✓ hook toolchain: node v" "$_d"
 

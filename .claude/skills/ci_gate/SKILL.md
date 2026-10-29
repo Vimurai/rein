@@ -30,7 +30,7 @@ hosted pipeline the equivalent order is `lint → typecheck → test → build �
 deploy only on protected branches.
 
 Never merge or push a commit without a green `ai ci run` (`ai ci status`). Never skip it with
-`--no-verify` or equivalent; a deliberate skip is `AI_OS_CI_SKIP=1 AI_OS_CI_SKIP_REASON="<why>"`,
+`--no-verify` or equivalent; a deliberate skip is `REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="<why>"`,
 and it is recorded (D-072).
 
 ## Dynamic Context Injection

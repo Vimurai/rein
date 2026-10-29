@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "comment": "E-272 (D-074, version-lifecycle.md §Components 3-4): the single list of what earlier AI-OS versions created and no longer do. DATA, not code — adding an entry needs no code change. class: safe = provably ours and reproducible (needs known_hashes or a rule); prompt = may hold user content (removed only with --all + confirmation); not-ours = printed, never touched. rule: not-in-src | not-in-manifest | dead-pid | stale-mtime (path predicates) | not-in-registry (kind setting) | orphan-process (kind process). Only the LAST path segment may hold a '*'.",
+  "comment": "E-272 (D-074, version-lifecycle.md §Components 3-4): the single list of what earlier Rein versions created and no longer do. DATA, not code — adding an entry needs no code change. class: safe = provably ours and reproducible (needs known_hashes or a rule); prompt = may hold user content (removed only with --all + confirmation); not-ours = printed, never touched. rule: not-in-src | not-in-manifest | dead-pid | stale-mtime (path predicates) | not-in-registry (kind setting) | orphan-process (kind process). Only the LAST path segment may hold a '*'.",
   "provider_history_comment": "E-270 (D-074 §Components 2): every provider name .ai/providers.json ever shipped. `ai init` drops a project provider (and any role bound to it) that is listed here but absent from the current template; a name never listed is user-added and kept.",
   "provider_history": ["claude", "agy", "gemini"],
   "registry_history": [
@@ -104,12 +104,12 @@
       "note": "Pre-3.0 .ai/legacy/ holding area. May contain the operator's own notes."
     },
     {
-      "id": "pre-aios-hook-backups",
-      "path": ".git/hooks/*.pre-aios",
+      "id": "pre-rein-hook-backups",
+      "path": ".git/hooks/*.pre-rein",
       "kind": "file",
       "class": "prompt",
       "since": "*",
-      "note": "E-41 backups of a third-party hook AI-OS replaced with a stub. They are the operator's own hooks — never removed without --all."
+      "note": "E-41 backups of a third-party hook Rein replaced with a stub. They are the operator's own hooks — never removed without --all."
     },
     {
       "id": "claude-agents-orphan",
@@ -212,7 +212,7 @@
     },
     {
       "id": "mirror-orphan-mcp",
-      "path": "~/.ai-os/mcp/*",
+      "path": "~/.rein/mcp/*",
       "kind": "dir",
       "class": "safe",
       "since": "*",
@@ -222,7 +222,7 @@
     },
     {
       "id": "mirror-orphan-hook",
-      "path": "~/.ai-os/hooks/*",
+      "path": "~/.rein/hooks/*",
       "kind": "file",
       "class": "safe",
       "since": "*",
@@ -232,7 +232,7 @@
     },
     {
       "id": "orphan-v2-contract",
-      "path": "~/.ai-os/contracts/*",
+      "path": "~/.rein/contracts/*",
       "kind": "file",
       "class": "safe",
       "since": "3.0.0",
@@ -242,7 +242,7 @@
     },
     {
       "id": "home-installer-copy",
-      "path": "~/install-ai-os.sh",
+      "path": "~/install-rein.sh",
       "kind": "file",
       "class": "prompt",
       "since": "3.0.0",
@@ -250,7 +250,7 @@
     },
     {
       "id": "dead-role-lock",
-      "path": "~/.ai-os/run/role-*.lock",
+      "path": "~/.rein/run/role-*.lock",
       "kind": "file",
       "class": "safe",
       "since": "*",
@@ -260,7 +260,7 @@
     },
     {
       "id": "dead-build-record",
-      "path": "~/.ai-os/run/build-*.json",
+      "path": "~/.rein/run/build-*.json",
       "kind": "file",
       "class": "safe",
       "since": "*",
@@ -270,18 +270,18 @@
     },
     {
       "id": "abandoned-ci-workdir",
-      "path": "$TMPDIR/ai-os-ci.*",
+      "path": "$TMPDIR/rein-ci.*",
       "kind": "dir",
       "class": "safe",
       "since": "*",
       "rule": "dead-pid",
-      "guard_pids": "~/.ai-os/ci/run-*.lock",
+      "guard_pids": "~/.rein/ci/run-*.lock",
       "guard_pid_source": "file:pid",
       "note": "The worktree and throwaway HOME of an `ai ci run` that was killed: SIGKILL cannot run the cleanup trap, and one such directory held 1.3G. The directory carries no pid of its own, so the guard is the run lock: while ANY ai ci run lock has a live owner, nothing here is a finding."
     },
     {
       "id": "retired-bin-ai-watch",
-      "path": "~/.ai-os/bin/ai-watch",
+      "path": "~/.rein/bin/ai-watch",
       "kind": "file",
       "class": "safe",
       "since": "4.0.0",
@@ -291,7 +291,7 @@
     },
     {
       "id": "retired-shared-signal-handoff",
-      "path": "~/.ai-os/shared/signal-handoff.mjs",
+      "path": "~/.rein/shared/signal-handoff.mjs",
       "kind": "file",
       "class": "safe",
       "since": "4.0.0",
@@ -346,7 +346,7 @@
       "kind": "dir",
       "class": "not-ours",
       "since": "*",
-      "note": "Antigravity's own user data, including OAuth credentials. NOT an AI-OS artefact: printed so the operator can decide, never touched by any flag."
+      "note": "Antigravity's own user data, including OAuth credentials. NOT an Rein artefact: printed so the operator can decide, never touched by any flag."
     }
   ]
 }

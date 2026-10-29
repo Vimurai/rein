@@ -18,7 +18,7 @@
  *   --help / --version
  *     Standard banners.
  *
- * Honors AI_OS_SKIP_STANDARDS=1 (blueprint §Rollback Plan): exits 0 with
+ * Honors REIN_SKIP_STANDARDS=1 (blueprint §Rollback Plan): exits 0 with
  * a stderr notice so the pre-commit hook can roll back to the legacy
  * gate without removing the wiring.
  */
@@ -31,15 +31,15 @@ import { homedir } from "node:os";
 // Locator-aware import of standards-checker.mjs (E-83, blueprint
 // standards-checker-import-fix.md). Mirrors the E-52 pattern in
 // scripts/generate_mcp_docs.mjs so the CLI resolves correctly both in
-// the source repo and from the global install at ~/.ai-os/.
+// the source repo and from the global install at ~/.rein/.
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 const CHECKER_CANDIDATES = [
   // Repo development: scripts/ → ../src/shared/standards-checker.mjs
   resolve(SCRIPT_DIR, "../src/shared/standards-checker.mjs"),
-  // Installed mode: ~/.ai-os/scripts/ → ../shared/standards-checker.mjs
+  // Installed mode: ~/.rein/scripts/ → ../shared/standards-checker.mjs
   resolve(SCRIPT_DIR, "../shared/standards-checker.mjs"),
-  // Absolute fallback: explicit ~/.ai-os install root.
-  resolve(homedir(), ".ai-os/shared/standards-checker.mjs"),
+  // Absolute fallback: explicit ~/.rein install root.
+  resolve(homedir(), ".rein/shared/standards-checker.mjs"),
 ];
 let _checkerMod = null;
 for (const candidate of CHECKER_CANDIDATES) {
@@ -168,7 +168,7 @@ export function formatSuppressionSummary(reportEnvelope, rules = []) {
 function _walkSources(root, exts = [".js", ".mjs", ".ts", ".tsx"]) {
   // Best-effort source walker for `--all`. Prunes node_modules / .git / dist.
   const out = [];
-  const skip = new Set(["node_modules", ".git", "dist", "build", ".ai-os"]);
+  const skip = new Set(["node_modules", ".git", "dist", "build", ".rein"]);
   function visit(dir) {
     let entries;
     try { entries = readdirSync(dir, { withFileTypes: true }); } catch { return; }
@@ -199,8 +199,8 @@ async function main() {
   }
 
   // Rollback (blueprint §Rollback Plan).
-  if (process.env.AI_OS_SKIP_STANDARDS === "1") {
-    process.stderr.write("[STANDARDS_SKIPPED] AI_OS_SKIP_STANDARDS=1 — bypassing rule checks\n");
+  if (process.env.REIN_SKIP_STANDARDS === "1") {
+    process.stderr.write("[STANDARDS_SKIPPED] REIN_SKIP_STANDARDS=1 — bypassing rule checks\n");
     process.exit(0);
   }
 

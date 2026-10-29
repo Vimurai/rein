@@ -127,17 +127,17 @@ done
 
 # ── E-249 (from booted_build_test — E-302): booted-build staleness is ANNOUNCED ──
 # THE DEFECT. ESM caches a module for the lifetime of the process, and an MCP server is a
-# long-lived process. `bash install-ai-os.sh` rewrites ~/.ai-os and `git pull` rewrites
+# long-lived process. `bash install-rein.sh` rewrites ~/.rein and `git pull` rewrites
 # src/; neither reaches a server that is already running. The task synchroniser served the
 # pre-E-245 projector and stripped the archive pointer on every write; run_review reported
 # a P0 the shipped checker no longer emitted. Both times the gate was reporting on code
 AI="${REPO_ROOT}/src/bin/ai"
-INSTALLER="${REPO_ROOT}/install-ai-os.sh"
+INSTALLER="${REPO_ROOT}/install-rein.sh"
 STAMP="${REPO_ROOT}/src/shared/build-stamp.mjs"
 SYNCHRONIZER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
 
-export AI_OS_DISABLE_REPO_MAP=1
+export REIN_DISABLE_REPO_MAP=1
 
 # ── §1: LIVE — one server, held open across a source rewrite ─────────────────
 #
@@ -294,8 +294,8 @@ assert_contains "E-249.02a: the fixture is stale while the stamp is enabled" "ST
   "$(E249_MOD="$STAMP" E249_RUN="${_rb}/run" node --no-warnings -e '
       import(process.env.E249_MOD).then(m => console.log(m.staleServerReport({ runDir: process.env.E249_RUN }).join("\n")));
     ' 2>/dev/null || true)"
-assert_status 1 "E-249.02b: AI_OS_BUILD_STAMP=0 silences it" \
-  bash -c "AI_OS_BUILD_STAMP=0 E249_MOD='$STAMP' E249_RUN='${_rb}/run' node --no-warnings -e '
+assert_status 1 "E-249.02b: REIN_BUILD_STAMP=0 silences it" \
+  bash -c "REIN_BUILD_STAMP=0 E249_MOD='$STAMP' E249_RUN='${_rb}/run' node --no-warnings -e '
       import(process.env.E249_MOD).then(m => console.log(m.staleServerReport({ runDir: process.env.E249_RUN }).join(\"\n\")));
     ' 2>/dev/null | grep -q STALE_SERVER"
 
@@ -318,7 +318,7 @@ assert_status 0 "E-249.03b: the ai-preflight skill runs the scan" \
 assert_status 0 "E-249.03c: ai sync runs it as a fail-open step" \
   grep -qE '_sync_step +stale_servers +_report_stale_servers' "$AI"
 assert_status 0 "E-249.03d: ai doctor reports it" grep -q '_stale_server_lines' "$AI"
-assert_status 0 "E-249.03e: install-ai-os.sh reports it at the end" \
+assert_status 0 "E-249.03e: install-rein.sh reports it at the end" \
   grep -q 'build-stamp.mjs" --stale' "$INSTALLER"
 # Doctor prints the CLEAN case too — a diagnostic that is silent when healthy cannot be
 # told apart from one that did not run.
@@ -361,20 +361,20 @@ assert_status 0 "E-249.04b: the refusal is recorded where the mechanism lives" \
 # isFrameworkClone() decides whether a repo is one the mirror is a copy OF. With HOME
 # redirected there is no persisted workspace file, so it falls back to package.json's name
 # — which is what makes a self-contained fixture possible here.
-_gate_fixture() {   # <mirror-matches: yes|no> → project dir, with $HOME/.ai-os as the mirror
+_gate_fixture() {   # <mirror-matches: yes|no> → project dir, with $HOME/.rein as the mirror
   local matches="$1"
   local h; h="$(test_tmpdir e249-gate-home)"
   tc_fixture_home "$h"   # E-345 (D-109 r1): the toolchain record the hooks pin
   local d; d="$(test_tmpdir e249-gate-proj)"
-  mkdir -p "$d/.ai" "$d/src/mcp/probe" "$d/src/bin" "$h/.ai-os/mcp/probe" "$h/.ai-os/bin"
-  printf '{"name":"ai-os-v2"}\n' > "$d/package.json"
+  mkdir -p "$d/.ai" "$d/src/mcp/probe" "$d/src/bin" "$h/.rein/mcp/probe" "$h/.rein/bin"
+  printf '{"name":"@vimurai/rein"}\n' > "$d/package.json"
   printf '// probe v1\n' > "$d/src/mcp/probe/index.js"
   printf '#!/usr/bin/env bash\n' > "$d/src/bin/ai"
-  cp "$d/src/bin/ai" "$h/.ai-os/bin/ai"
+  cp "$d/src/bin/ai" "$h/.rein/bin/ai"
   if [[ "$matches" == "yes" ]]; then
-    cp "$d/src/mcp/probe/index.js" "$h/.ai-os/mcp/probe/index.js"
+    cp "$d/src/mcp/probe/index.js" "$h/.rein/mcp/probe/index.js"
   else
-    printf '// probe v0 — the mirror is a build behind\n' > "$h/.ai-os/mcp/probe/index.js"
+    printf '// probe v0 — the mirror is a build behind\n' > "$h/.rein/mcp/probe/index.js"
   fi
   ( cd "$d" && git init -q . && git config user.email t@t && git config user.name t ) >/dev/null 2>&1
   printf '%s' "$d|$h"
@@ -383,27 +383,27 @@ _gate_fixture() {   # <mirror-matches: yes|no> → project dir, with $HOME/.ai-o
 _gate_verdict() {   # <matches> → the update_task_status result text
   local pair; pair="$(_gate_fixture "$1")"
   local d="${pair%%|*}" h="${pair##*|}"
-  # E-236 / the E-248 tail: `AIOS_WORKSPACE` is EXPORTED into an AI-OS shell and points at
+  # E-236 / the E-248 tail: `REIN_WORKSPACE` is EXPORTED into an Rein shell and points at
   # the real framework clone. isFrameworkClone() consults it before falling back to
   # package.json, so an inherited value makes every fixture below read as "not the
   # framework" and the gate never fires — the assertions would pass only in the direction
   # that proves nothing. Second instance of an inherited launch variable deciding a verdict
   # in two consecutive tasks. E-264: stripped centrally now (tests/lib/launch-vars.sh);
-  # AI_OS_HOME is an operator override, not a launch variable, and stays stripped here.
-  ( cd "$d" && env -u AI_OS_HOME HOME="$h" bash -c "
+  # REIN_HOME is an operator override, not a launch variable, and stays stripped here.
+  ( cd "$d" && env -u REIN_HOME HOME="$h" bash -c "
       source '${SCRIPT_DIR}/../lib/mcp-client.sh'
       mcp_call_tool '$SYNCHRONIZER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"E-249 gate probe\",\"prefix\":\"E\"}' >/dev/null 2>&1
       mcp_call_tool '$SYNCHRONIZER' update_task_status '{\"id\":\"E-1\",\"status\":\"DONE\",\"summary\":\"probe\"}' 2>/dev/null
     " )
 }
 
-assert_status 1 "E-264: AIOS_WORKSPACE is not in the environment the gate inherits" \
-  bash -c '[[ -n "${AIOS_WORKSPACE+x}" ]]'
+assert_status 1 "E-264: REIN_WORKSPACE is not in the environment the gate inherits" \
+  bash -c '[[ -n "${REIN_WORKSPACE+x}" ]]'
 _gate_dirty="$(_gate_verdict no)"
 assert_contains "E-249.05a: DONE is REFUSED while the mirror is a build behind" "BUILD_STALE" "${_gate_dirty}"
 assert_contains "E-249.05b: the refusal names the file that was not installed" "src/mcp/probe/index.js" "${_gate_dirty}"
-assert_contains "E-249.05c: and says how to fix it" "install-ai-os.sh" "${_gate_dirty}"
-assert_contains "E-249.05d: and names its own rollback" "AI_OS_BUILD_STAMP=0" "${_gate_dirty}"
+assert_contains "E-249.05c: and says how to fix it" "install-rein.sh" "${_gate_dirty}"
+assert_contains "E-249.05d: and names its own rollback" "REIN_BUILD_STAMP=0" "${_gate_dirty}"
 
 # NON-VACUITY. Without this, deleting the gate entirely, or breaking it so it refuses
 # nothing, would leave 05a-05d passing only if they were also deleted — but a gate that
@@ -416,12 +416,12 @@ assert_contains "E-249.05f: and the task really transitions" "DONE" "${_gate_cle
 # The rollback releases the gate rather than requiring the mirror to be fixed.
 _gate_pair="$(_gate_fixture no)"
 _gp_d="${_gate_pair%%|*}"; _gp_h="${_gate_pair##*|}"
-_gate_off="$( cd "$_gp_d" && env -u AI_OS_HOME HOME="$_gp_h" AI_OS_BUILD_STAMP=0 bash -c "
+_gate_off="$( cd "$_gp_d" && env -u REIN_HOME HOME="$_gp_h" REIN_BUILD_STAMP=0 bash -c "
     source '${SCRIPT_DIR}/../lib/mcp-client.sh'
     mcp_call_tool '$SYNCHRONIZER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"probe\",\"prefix\":\"E\"}' >/dev/null 2>&1
     mcp_call_tool '$SYNCHRONIZER' update_task_status '{\"id\":\"E-1\",\"status\":\"DONE\"}' 2>/dev/null
   " )"
-assert_status 1 "E-249.05g: AI_OS_BUILD_STAMP=0 releases the gate" \
+assert_status 1 "E-249.05g: REIN_BUILD_STAMP=0 releases the gate" \
   bash -c "printf '%s' \"\${_gate_off}\" | grep -q BUILD_STALE"
 
 # A refusal must leave NOTHING behind: the gate runs before the dependency-revision write,
@@ -429,7 +429,7 @@ assert_status 1 "E-249.05g: AI_OS_BUILD_STAMP=0 releases the gate" \
 # rollback pair above deliberately let its DONE through, and checking that one would have
 # asserted the opposite of what it reads.
 _h8="$(_gate_fixture no)"; _h8d="${_h8%%|*}"; _h8h="${_h8##*|}"
-( cd "$_h8d" && env -u AI_OS_HOME HOME="$_h8h" bash -c "
+( cd "$_h8d" && env -u REIN_HOME HOME="$_h8h" bash -c "
     source '${SCRIPT_DIR}/../lib/mcp-client.sh'
     mcp_call_tool '$SYNCHRONIZER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"probe\",\"prefix\":\"E\"}' >/dev/null 2>&1
     mcp_call_tool '$SYNCHRONIZER' update_task_status '{\"id\":\"E-1\",\"status\":\"DONE\",\"summary\":\"probe\"}' >/dev/null 2>&1
@@ -452,7 +452,7 @@ LOADER="${REPO_ROOT}/src/mcp/shared/load-policy.mjs"
 assert_status 0 "E-237.01a: the loader exists" test -f "$LOADER"
 assert_status 0 "E-237.01b: it exports loadPolicy"      grep -q "export async function loadPolicy" "$LOADER"
 assert_status 0 "E-237.01c: and a staleness reporter"   grep -q "export function policyStaleness" "$LOADER"
-assert_status 0 "E-237.01d: rollback env is honoured"   grep -q "AI_OS_POLICY_HOT_RELOAD" "$LOADER"
+assert_status 0 "E-237.01d: rollback env is honoured"   grep -q "REIN_POLICY_HOT_RELOAD" "$LOADER"
 
 # ── E-237.2: a rewritten policy is picked up, and an unchanged one is not ──
 # Both halves matter. The first is the bug; the second is the leak the fix must not cause.
@@ -502,7 +502,7 @@ assert_contains "E-237.02d: an unchanged file is NOT re-imported (no leak)"   "1
 assert_contains "E-237.02e: a changed file is imported exactly once more"     "2"  "${_cChange:-}"
 
 # ── E-237.3: the rollback pins the first load ─────────────────────────────
-_pinned="$(AI_OS_POLICY_HOT_RELOAD=0 _reload_probe pinned)"
+_pinned="$(REIN_POLICY_HOT_RELOAD=0 _reload_probe pinned)"
 read -r _p1 _p2 _p3 _pc1 _pc2 <<< "$_pinned"
 assert_contains "E-237.03a: pinned, the first load still works"              "P0" "${_p1:-}"
 assert_contains "E-237.03b: pinned, a rewrite is IGNORED (pre-E-237 behaviour)" "P0" "${_p3:-}"
@@ -529,13 +529,13 @@ assert_status 0 "E-237.05a: ai sync has the staleness notice" \
   grep -q '_report_policy_staleness' "${REPO_ROOT}/src/bin/ai"
 
 # ── E-237.6: mirrors ─────────────────────────────────────────────────────
-if [[ -f "${HOME}/.ai-os/mcp/shared/load-policy.mjs" ]]; then
-  assert_status 0 "E-237.06a: ~/.ai-os mirror of the loader matches src" \
-    diff -q "$LOADER" "${HOME}/.ai-os/mcp/shared/load-policy.mjs"
+if [[ -f "${HOME}/.rein/mcp/shared/load-policy.mjs" ]]; then
+  assert_status 0 "E-237.06a: ~/.rein mirror of the loader matches src" \
+    diff -q "$LOADER" "${HOME}/.rein/mcp/shared/load-policy.mjs"
 else
   # E-236: an absent install is a SKIP, counted separately. A pass here would claim the
   # mirror had been verified when nothing was compared.
-  _skip "E-237.06a: ~/.ai-os mirror comparison (framework not installed)"
+  _skip "E-237.06a: ~/.rein mirror comparison (framework not installed)"
 fi
 
 echo ""
@@ -578,7 +578,7 @@ test_secret_pattern "api_key= detected" \
 
 # privacy:allow-fake-token (an invented test input)
 test_secret_pattern "apikey= detected (no separator)" \
-  '+  apikey = "AKIAIOSFODNN7EXAMPLE"' \
+  '+  apikey = "AKIREINFODNN7EXAMPLE"' \
   'match'
 
 test_secret_pattern "secret= detected" \
@@ -750,7 +750,7 @@ process.stdout.write(detect(process.argv[2]) ?? 'none');
   fi
 }
 
-SBOX="$(mktemp -d -t aios-aligner-XXXXXX)"
+SBOX="$(mktemp -d -t rein-aligner-XXXXXX)"
 mkdir -p "${SBOX}/.ai"
 
 # No state.json, no LOG.md → no stamp → FAIL severity preserved.
@@ -1245,8 +1245,8 @@ assert_status 0 "T-05.06e: real parseFrontmatter handles list-form" \
 assert_status 0 "T-05.06f: real auditAgent keys leniency on /agents/ (isAgentPath)" \
   grep -qF 'const isAgentPath = mdPath.includes("/agents/");' "$VERIFY_MCP"
 # T-05.06g (E-254): default scan roots are the claude + shared trees only. Every
-# resolve(cwd, "src", X) / join(aios, X) root must name claude or shared.
-roots=$(grep -oE 'resolve\(cwd, "src", "[a-z_-]+"|join\(aios, "[a-z_-]+"' "$VERIFY_MCP" | grep -oE '"[a-z_-]+"$' | grep -v '"config"' | sort -u | tr '\n' ' ')
+# resolve(cwd, "src", X) / join(rein, X) root must name claude or shared.
+roots=$(grep -oE 'resolve\(cwd, "src", "[a-z_-]+"|join\(rein, "[a-z_-]+"' "$VERIFY_MCP" | grep -oE '"[a-z_-]+"$' | grep -v '"config"' | sort -u | tr '\n' ' ')
 assert_match "T-05.06g: default scan roots are claude/shared only (got: ${roots})" \
   '^("claude" |"shared" )+$' "$roots"
 
@@ -1406,7 +1406,7 @@ assert_contains "T-05.13f: a Ghost Tool in an agent's tools allowlist is detecte
 
 # ── E-235 (from browser_optin_test — E-302): the browser download is opt-in and bounded ──
 # `ai mcp-setup` ran `npx playwright install chromium` unconditionally, inside the path
-# that install-ai-os.sh — and so every user install and every CI run — depends on. It is an
+# that install-rein.sh — and so every user install and every CI run — depends on. It is an
 # unbounded ~150MB fetch, and on 2026-09-09 it ran for over an HOUR on a developer machine
 # without finishing.
 # The `|| true` that wrapped it was worthless: the failure mode is HANGING, not erroring,
@@ -1430,15 +1430,15 @@ assert_status 0 "E-235.01d: and lives in _install_browsers, not the install loop
 # ── E-235.2: --browsers and the env rollback both opt in ──────────────────
 assert_status 0 "E-235.02a: --browsers sets the flag" \
   grep -q '\[\[ "$_a" == "--browsers" \]\] && WANT_BROWSERS=1' "$AI_BO"
-assert_status 0 "E-235.02b: AI_OS_INSTALL_BROWSERS=1 restores the old behaviour" \
-  grep -q 'AI_OS_INSTALL_BROWSERS:-0' "$AI_BO"
+assert_status 0 "E-235.02b: REIN_INSTALL_BROWSERS=1 restores the old behaviour" \
+  grep -q 'REIN_INSTALL_BROWSERS:-0' "$AI_BO"
 
 # ── E-235.3: the download is BOUNDED, and the bound is enforced not assumed ─
 # `timeout(1)` is absent on macOS by default, so a script that merely CALLS timeout has a
 # limit only on some hosts. A bound that silently is not applied is worse than none,
 # because it is believed. This asserts a watchdog is actually used.
 assert_status 0 "E-235.03a: a timeout budget exists and is configurable" \
-  grep -q 'AI_OS_BROWSER_TIMEOUT:-600' "$AI_BO"
+  grep -q 'REIN_BROWSER_TIMEOUT:-600' "$AI_BO"
 assert_status 0 "E-235.03b: enforced by a watchdog, not by the absent timeout(1)" \
   bash -c "sed -n '/^_install_browsers()/,/^}/p' '$AI_BO' | grep -q 'kill -TERM'"
 assert_status 1 "E-235.03c: it does NOT rely on timeout(1) being installed" \
@@ -1477,8 +1477,8 @@ _probe() {  # <mode> → ok|missing
 export BC="file://${VC}/browser-check.mjs"
 assert_contains "E-235.04e: a missing executable is detected"        "missing" "$(_probe missing)"
 assert_contains "E-235.04f: a present executable is accepted"        "ok"      "$(_probe present)"
-assert_contains "E-235.04g: AI_OS_SKIP_BROWSER_CHECK=1 bypasses the probe" "ok" \
-  "$(AI_OS_SKIP_BROWSER_CHECK=1 _probe missing)"
+assert_contains "E-235.04g: REIN_SKIP_BROWSER_CHECK=1 bypasses the probe" "ok" \
+  "$(REIN_SKIP_BROWSER_CHECK=1 _probe missing)"
 
 # ── E-235.5: doctor reports browser status ────────────────────────────────
 assert_status 0 "E-235.05a: doctor has a browser section" \
@@ -1492,7 +1492,7 @@ assert_status 0 "E-235.05b: and tells the operator how to fix it" \
 AI_BIN="${REPO_ROOT}/src/bin/ai"
 assert_status 0 "E-235.06a: the local CI runner installs Chromium explicitly" \
   bash -c "sed -n '/── browsers ──/,/── install ──/p' '$AI_BIN' | grep -q 'playwright install chromium'"
-assert_status 0 "E-235.06b: cached under ~/.ai-os/ci, so it is a download once per version" \
+assert_status 0 "E-235.06b: cached under ~/.rein/ci, so it is a download once per version" \
   grep -q 'PLAYWRIGHT_BROWSERS_PATH=\${ci_home}/cache/ms-playwright' "$AI_BIN"
 assert_status 0 "E-235.06c: a cache hit is reported rather than silently re-downloaded" \
   bash -c "sed -n '/── browsers ──/,/── install ──/p' '$AI_BIN' | grep -q 'cache hit'"
@@ -1505,7 +1505,7 @@ assert_status 1 "E-235.06d: no workflow installs browsers itself" \
 assert_status 0 "E-235.07a: DEVOPS-006 exists" \
   grep -q 'DEVOPS-006' "${REPO_ROOT}/.ai/DEVOPS.md"
 assert_status 0 "E-235.07b: with a rollback plan" \
-  bash -c "grep -A4 'Rollback plan' '${REPO_ROOT}/.ai/DEVOPS.md' | grep -q 'AI_OS_INSTALL_BROWSERS=1'"
+  bash -c "grep -A4 'Rollback plan' '${REPO_ROOT}/.ai/DEVOPS.md' | grep -q 'REIN_INSTALL_BROWSERS=1'"
 
 echo ""
 
@@ -1526,8 +1526,8 @@ assert_contains "token-budget-mcp: get_usage_report tool defined" "get_usage_rep
 assert_contains "token-budget-mcp: set_budget tool defined"     "set_budget"     "$TB_CONTENT"
 assert_contains "token-budget-mcp: reset_session tool defined"  "reset_session"  "$TB_CONTENT"
 
-# SQLite path uses ~/.ai-os/usage.sqlite (not hardcoded user path)
-assert_contains "token-budget-mcp: DB path uses .ai-os dir"  ".ai-os" "$TB_CONTENT"
+# SQLite path uses ~/.rein/usage.sqlite (not hardcoded user path)
+assert_contains "token-budget-mcp: DB path uses .rein dir"  ".rein" "$TB_CONTENT"
 assert_contains "token-budget-mcp: DB file is usage.sqlite"  "usage.sqlite" "$TB_CONTENT"
 
 # BUDGET_WARN is emitted when threshold exceeded

@@ -1,8 +1,8 @@
 {
   "_comment": "D-076 (E-256): the ONLY files under the v4 acceptance-grep roots allowed to name the retired providers or the retired test cloud. tests/suites/cli_test.sh (E-256 section) asserts the grep's hit set EQUALS this list, per-file line counts included. Kinds: removal (the D-074 registry and its consumers) | absence-test (tests of that removal or of absence). User-facing text can never be listed. A count change is an explicit edit here, in the diff.",
   "entries": [
-    { "path": "install-ai-os.sh", "kind": "removal", "hits": 1,
-      "reason": "Purges the retired providers' install-mirror trees from ~/.ai-os on upgrade (E-254/E-273)." },
+    { "path": "install-rein.sh", "kind": "removal", "hits": 1,
+      "reason": "Purges the retired providers' install-mirror trees from ~/.rein on upgrade (E-254/E-273)." },
     { "path": "src/bin/ai", "kind": "removal", "hits": 3,
       "reason": "_prune_legacy_workspaces names the v3 workspace dirs and shims it removes (E-254); the settings-allow cleanup names the retired CLI's Bash allow entries it drops." },
     { "path": "src/config/legacy-artefacts.json", "kind": "removal", "hits": 17,

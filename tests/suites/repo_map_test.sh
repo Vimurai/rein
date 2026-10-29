@@ -5,7 +5,7 @@
 #
 # E-98 wiring (§Components 3): --generate-map CLI, the `ai sync` hook, ai-preflight Step 8,
 # vendored grammars, and the lazy-SDK invariant that keeps the CLI path
-# self-contained for the installed ~/.ai-os server.
+# self-contained for the installed ~/.rein server.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -20,7 +20,7 @@ PKG="${REPO_ROOT}/src/mcp/ast-parser-mcp/package.json"
 EXTRACTOR="${REPO_ROOT}/src/mcp/ast-parser-mcp/extractor.mjs"
 
 echo "── Suite: repo_map_test ─────────────────────────────────────────────"
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 
 # ── T-98.01: --generate-map CLI writes .ai/REPO_MAP.md ───────────────────────
 TMP="$(mktemp -d)"; mkdir -p "${TMP}/src"
@@ -30,9 +30,9 @@ out=$(cd "${TMP}" && node "${SERVER}" --generate-map 2>&1)
 assert_contains "T-98.01: CLI reports REPO_MAP write" "REPO_MAP" "$out"
 assert_exists   "${TMP}/.ai/REPO_MAP.md"
 
-# ── T-98.02: AI_OS_DISABLE_REPO_MAP=1 → CLI no-op, no write ───────────────────
+# ── T-98.02: REIN_DISABLE_REPO_MAP=1 → CLI no-op, no write ───────────────────
 TMP2="$(mktemp -d)"; mkdir -p "${TMP2}/src"; printf 'export const x=1;\n' > "${TMP2}/src/x.js"
-out2=$(cd "${TMP2}" && AI_OS_DISABLE_REPO_MAP=1 node "${SERVER}" --generate-map 2>&1)
+out2=$(cd "${TMP2}" && REIN_DISABLE_REPO_MAP=1 node "${SERVER}" --generate-map 2>&1)
 assert_contains "T-98.02: disabled flag short-circuits CLI" "REPO_MAP_DISABLED" "$out2"
 if [ -f "${TMP2}/.ai/REPO_MAP.md" ]; then _fail "T-98.02b: no REPO_MAP.md when disabled"; else _pass "T-98.02b: no REPO_MAP.md when disabled"; fi
 rm -rf "${TMP}" "${TMP2}"
@@ -41,7 +41,7 @@ rm -rf "${TMP}" "${TMP2}"
 ai_src=$(cat "${AI_BIN}")
 assert_contains "T-98.03: _generate_repo_map helper defined" "_generate_repo_map()" "$ai_src"
 assert_contains "T-98.03b: helper invoked inside do_sync"     "  _generate_repo_map" "$ai_src"
-assert_contains "T-98.04: hook honors AI_OS_DISABLE_REPO_MAP" "AI_OS_DISABLE_REPO_MAP" "$ai_src"
+assert_contains "T-98.04: hook honors REIN_DISABLE_REPO_MAP" "REIN_DISABLE_REPO_MAP" "$ai_src"
 assert_contains "T-98.04b: hook fail-open on missing node"    "node not found — skipping REPO_MAP" "$ai_src"
 
 # ── T-98.05: ai-preflight Step 8 documents REPO_MAP loading ──────────────────
@@ -49,7 +49,7 @@ pf=$(cat "${PREFLIGHT}")
 assert_contains "T-98.05: Step 8 present"             "### 8. Load REPO_MAP.md" "$pf"
 assert_contains "T-98.05b: names E-98"               "E-98" "$pf"
 assert_contains "T-98.05c: names blueprint"          "ast-repository-map" "$pf"
-assert_contains "T-98.05d: documents rollback flag"  "AI_OS_DISABLE_REPO_MAP" "$pf"
+assert_contains "T-98.05d: documents rollback flag"  "REIN_DISABLE_REPO_MAP" "$pf"
 
 # ── T-98.06: ai-preflight SKILL mirrors are byte-identical ───────────────────
 assert_status 0 "T-98.06a: .claude mirror identical" diff -q "${PREFLIGHT}" "${REPO_ROOT}/.claude/skills/ai-preflight/SKILL.md"
@@ -157,7 +157,7 @@ rm -rf "${TMP_AP}"
 # serialization (ast-repository-map.md §API, §Execution Constraints token budget).
 # Unit-tests the serializer (skeleton format, ⋮ elision, budget trimming) then
 # drives the real ast-parser-mcp generate_map tool to confirm it writes
-# .ai/REPO_MAP.md and honours the budget + AI_OS_DISABLE_REPO_MAP rollback.
+# .ai/REPO_MAP.md and honours the budget + REIN_DISABLE_REPO_MAP rollback.
 
 SER="${REPO_ROOT}/src/mcp/ast-parser-mcp/serializer.mjs"
 SERVER_RG="${REPO_ROOT}/src/mcp/ast-parser-mcp/index.js"
@@ -216,10 +216,10 @@ RES_TINY=$(cd "${WS}" && call_rg "${SERVER_RG}" generate_map '{"dir_path":".","m
 inc_tiny=$(python3 -c 'import json,sys; print(json.loads(sys.stdin.read())["files_included"])' <<<"$RES_TINY" 2>/dev/null || echo "?")
 assert_match "T-97.14: small budget includes ≤1 file" "^[01]$" "$inc_tiny"
 
-# Rollback: AI_OS_DISABLE_REPO_MAP=1 → no-op, no write.
+# Rollback: REIN_DISABLE_REPO_MAP=1 → no-op, no write.
 TMP2_RG="$(mktemp -d)"; WS2="${TMP2_RG}/ws"; mkdir -p "${WS2}/src"
 printf 'export const X=1;\n' > "${WS2}/src/x.js"
-RES_OFF=$(cd "${WS2}" && export AI_OS_DISABLE_REPO_MAP=1 && call_rg "${SERVER_RG}" generate_map '{"dir_path":"."}')
+RES_OFF=$(cd "${WS2}" && export REIN_DISABLE_REPO_MAP=1 && call_rg "${SERVER_RG}" generate_map '{"dir_path":"."}')
 assert_contains "T-97.15: disabled flag short-circuits" "REPO_MAP_DISABLED" "$RES_OFF"
 if [ -f "${WS2}/.ai/REPO_MAP.md" ]; then _fail "T-97.16: no REPO_MAP.md written when disabled"; else _pass "T-97.16: no REPO_MAP.md written when disabled"; fi
 

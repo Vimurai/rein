@@ -32,7 +32,7 @@ const TEMPLATES = join(ROOT, "src", "templates");
 const LEGACY = join(ROOT, "src", "config", "legacy-artefacts.json");
 
 function tmp(tag = "upg") {
-  const d = mkdtempSync(join(tmpdir(), `aios-t-${tag}-`));
+  const d = mkdtempSync(join(tmpdir(), `rein-t-${tag}-`));
   return { d, done: () => rmSync(d, { recursive: true, force: true }) };
 }
 const readJson = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -69,12 +69,12 @@ test("package.json and the CHANGELOG's newest released entry name the same versi
   assert.equal(top[1], pkg);
 });
 
-test("no version literal remains in src/bin/ai or install-ai-os.sh", () => {
+test("no version literal remains in src/bin/ai or install-rein.sh", () => {
   const ai = readFileSync(join(ROOT, "src", "bin", "ai"), "utf8");
-  const inst = readFileSync(join(ROOT, "install-ai-os.sh"), "utf8");
+  const inst = readFileSync(join(ROOT, "install-rein.sh"), "utf8");
   assert.doesNotMatch(ai, /^VERSION="\d+\.\d+\.\d+"/m, "src/bin/ai must not hard-code VERSION");
-  assert.doesNotMatch(inst, /AI-OS v\d+\.\d+\.\d+/, "the installer must not print a typed version");
-  assert.match(inst, /\$\{AIOS\}\/VERSION/, "the installer writes ~/.ai-os/VERSION");
+  assert.doesNotMatch(inst, /Rein v\d+\.\d+\.\d+/, "the installer must not print a typed version");
+  assert.match(inst, /\$\{REIN\}\/VERSION/, "the installer writes ~/.rein/VERSION");
 });
 
 test("provider_history lists every provider the template ever shipped", () => {
@@ -203,7 +203,7 @@ test("runStamp seeds state.sqlite from state.json first, keeps tasks, never touc
     const recs = await runStamp({ aiDir: ai, version: "3.1.0" });
     assert.equal(recs[0].kind, "stamped");
     const s = readJson(join(ai, "state.json"));
-    assert.equal(s.project.aios_version, "3.1.0");
+    assert.equal(s.project.rein_version, "3.1.0");
     assert.equal(s.project.focus, "f");
     assert.equal(s.tasks.length, 1, "the seed import kept the task");
     assert.equal(readFileSync(join(ai, "TASKS.md"), "utf8"), "hand-written\n");
@@ -214,7 +214,7 @@ test("runStamp seeds state.sqlite from state.json first, keeps tasks, never touc
     // D-131: the public line restarts at 0.4.0 — a lower version restamps like any other.
     await runStamp({ aiDir: ai, version: "4.0.0" });
     const down = await runStamp({ aiDir: ai, version: "0.4.0" });
-    assert.deepEqual(down.map((r) => [r.kind, r.detail]), [["stamped", "project.aios_version 4.0.0 → 0.4.0"]]);
+    assert.deepEqual(down.map((r) => [r.kind, r.detail]), [["stamped", "project.rein_version 4.0.0 → 0.4.0"]]);
     assert.equal(readProjectVersion(ai), "0.4.0");
   } finally { t.done(); }
 });
@@ -236,9 +236,9 @@ test("the first-run import carries an existing stamp across", () => {
   const t = tmp("imp");
   try {
     const ai = join(t.d, ".ai"); mkdirSync(ai);
-    writeJson(join(ai, "state.json"), STATE_JSON({ aios_version: "3.0.0", provisioned_at: "2025-01-01T00:00:00Z" }));
+    writeJson(join(ai, "state.json"), STATE_JSON({ rein_version: "3.0.0", provisioned_at: "2025-01-01T00:00:00Z" }));
     const st = readState(getDbSeeded(ai));
-    assert.equal(st.project.aios_version, "3.0.0");
+    assert.equal(st.project.rein_version, "3.0.0");
     assert.equal(st.project.provisioned_at, "2025-01-01T00:00:00Z");
   } finally { t.done(); }
 });
@@ -255,7 +255,7 @@ test("an unstamped project's view has no stamp keys (the view shape is unchanged
 // Extends this suite's "upgrade a user's project files" layer to the .ai/.gitignore that
 // older templates wrote; the probe (src/shared/comm-status.sh) is the one detector doctor,
 // preflight and the Stop hook share. Fixture repos only; the real pre-commit hook runs
-// under a fixture HOME so nothing reaches ~/.ai-os.
+// under a fixture HOME so nothing reaches ~/.rein.
 
 const SKILLS_WITH_HANDOFF = [
   ".claude/skills/ai-handoff/SKILL.md", ".claude/skills/ai-task/SKILL.md",
@@ -267,7 +267,7 @@ const SKILLS_WITH_HANDOFF = [
 ];
 
 function fixtureRepo(t) {
-  const home = mkdtempSync(join(tmpdir(), "aios-t-comm-home-"));
+  const home = mkdtempSync(join(tmpdir(), "rein-t-comm-home-"));
   tcFixtureHome(home);   // E-345 (D-109 r1): the toolchain record the hooks pin
   const dir = join(t.d, "r");
   const env = { PATH: process.env.PATH, HOME: home, GIT_CONFIG_NOSYSTEM: "1", AI_TELEMETRY_DISABLE: "1" };

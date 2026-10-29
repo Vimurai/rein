@@ -8,7 +8,7 @@ context: default
 agent: default
 ---
 
-# AI-OS Archive (User-Triggered Only)
+# Rein Archive (User-Triggered Only)
 
 ⚠️ **DESTRUCTIVE OPERATION** — `disable-model-invocation: true`
 This skill can only be triggered explicitly by the user. The agent cannot invoke it autonomously.
@@ -73,7 +73,7 @@ shell command was removed in E-34). Steps:
    Claude Code's `/compact` and auto-compact — this step only keeps SESSION.md's
    carry-over.)
 3. Move each file to `.ai/archive/YYYY-MM/<name>.YYYYMMDD_HHMM.md`
-4. Re-create files from `~/.ai-os/templates/` (or with a header if no template exists);
+4. Re-create files from `~/.rein/templates/` (or with a header if no template exists);
    the new SESSION.md gets the Active Context from step 2 under its header, with the
    comment `<!-- Raw log archived to .ai/archive/YYYY-MM/SESSION.<ts>.md -->`.
 5. `COMM.md` is tracked (D-104 r5): commit the re-created file in the same breath — git

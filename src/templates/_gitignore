@@ -1,4 +1,4 @@
-# AI-OS — sensitive .ai/ files should not be committed
+# Rein — sensitive .ai/ files should not be committed
 # Rename this to .gitignore inside .ai/ (done by ai init)
 
 # Contains env var names and secret storage details

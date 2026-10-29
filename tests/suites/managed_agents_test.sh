@@ -118,9 +118,9 @@ assert_status 1 "stderr does NOT include payload-secret values" \
 
 # ── T-MAC-S09: Mirror byte-identity ──────────────────────────────────────────
 echo ""
-echo "  [T-MAC-S09] ~/.ai-os mirror matches src"
+echo "  [T-MAC-S09] ~/.rein mirror matches src"
 
-MIRROR="${HOME}/.ai-os/shared/managed-agents-client.mjs"
+MIRROR="${HOME}/.rein/shared/managed-agents-client.mjs"
 if [[ -f "$MIRROR" ]]; then
   assert_status 0 "mirror is byte-identical to src" \
     diff -q "$CLIENT" "$MIRROR"
@@ -221,11 +221,11 @@ usage_out="$(node "$CLIENT" --bogus 2>&1 >/dev/null || true)"
 assert_status 0 "usage mentions --project"  bash -c "echo '$usage_out' | grep -q -- '--project'"
 assert_status 0 "usage mentions --sync"     bash -c "echo '$usage_out' | grep -q -- '--sync'"
 
-# ── T-STP-S14: ~/.ai-os mirror byte-identity ─────────────────────────────────
+# ── T-STP-S14: ~/.rein mirror byte-identity ─────────────────────────────────
 echo ""
-echo "  [T-STP-S14] ~/.ai-os mirror matches src"
+echo "  [T-STP-S14] ~/.rein mirror matches src"
 
-MIRROR="${HOME}/.ai-os/shared/managed-agents-client.mjs"
+MIRROR="${HOME}/.rein/shared/managed-agents-client.mjs"
 if [[ -f "$MIRROR" ]]; then
   assert_status 0 "mirror is byte-identical to src" \
     diff -q "$CLIENT" "$MIRROR"

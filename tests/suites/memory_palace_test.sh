@@ -187,10 +187,10 @@ assert_exists "$MEMORY_MCP"
 assert_status 0 "T-04.01: memory-manager-mcp syntax OK" \
   node -e "import('file://${MEMORY_MCP}').catch(e => { if (e instanceof SyntaxError) process.exit(1); })"
 
-# ── Isolated store in tmpdir (avoids touching real ~/.ai-os) ─────────────────
+# ── Isolated store in tmpdir (avoids touching real ~/.rein) ─────────────────
 FAKE_HOME=$(mktemp -d)
 on_exit 'rm -rf "$FAKE_HOME"'
-STORE_FILE="${FAKE_HOME}/.ai-os/memory/signatures.json"
+STORE_FILE="${FAKE_HOME}/.rein/memory/signatures.json"
 
 # Helper: export a signature to the isolated store (inlines memory-manager-mcp logic)
 export_sig() {
@@ -198,7 +198,7 @@ export_sig() {
   HOME="$FAKE_HOME" node -e "
     import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
     import { resolve, join } from 'path';
-    const STORE_DIR  = resolve(process.env.HOME, '.ai-os', 'memory');
+    const STORE_DIR  = resolve(process.env.HOME, '.rein', 'memory');
     const STORE_FILE = join(STORE_DIR, 'signatures.json');
 
     function sanitize(str, maxLen = 300) {
@@ -234,7 +234,7 @@ query_sig() {
   HOME="$FAKE_HOME" node -e "
     import { readFileSync, existsSync } from 'fs';
     import { resolve, join } from 'path';
-    const STORE_FILE = join(resolve(process.env.HOME, '.ai-os', 'memory'), 'signatures.json');
+    const STORE_FILE = join(resolve(process.env.HOME, '.rein', 'memory'), 'signatures.json');
     function readStore() {
       try { return existsSync(STORE_FILE) ? JSON.parse(readFileSync(STORE_FILE,'utf8')) : []; }
       catch { return []; }
@@ -286,13 +286,13 @@ assert_contains "T-04.07b: OR logic matches beta (auth)" "project-beta" "$multi"
 
 # T-04.08: silent failure when store directory is unwritable
 READONLY_HOME=$(mktemp -d)
-# Make .ai-os/memory unwritable by making parent unwritable
-mkdir -p "${READONLY_HOME}/.ai-os"
-chmod 000 "${READONLY_HOME}/.ai-os"
+# Make .rein/memory unwritable by making parent unwritable
+mkdir -p "${READONLY_HOME}/.rein"
+chmod 000 "${READONLY_HOME}/.rein"
 fail_result=$(HOME="$READONLY_HOME" node -e "
   import { writeFileSync, mkdirSync } from 'fs';
   import { resolve, join } from 'path';
-  const STORE_DIR  = resolve(process.env.HOME, '.ai-os', 'memory');
+  const STORE_DIR  = resolve(process.env.HOME, '.rein', 'memory');
   const STORE_FILE = join(STORE_DIR, 'signatures.json');
   function writeStore(sigs) {
     try { mkdirSync(STORE_DIR,{recursive:true}); writeFileSync(STORE_FILE,JSON.stringify(sigs)); return true; }
@@ -300,7 +300,7 @@ fail_result=$(HOME="$READONLY_HOME" node -e "
   }
   console.log(writeStore([{test:true}]) ? 'wrote' : 'silent_failure');
 " --input-type=module 2>/dev/null || echo "node_error")
-chmod 755 "${READONLY_HOME}/.ai-os"
+chmod 755 "${READONLY_HOME}/.rein"
 rm -rf "$READONLY_HOME"
 assert_contains "T-04.08: silent failure on unwritable store (no crash)" "silent_failure" "$fail_result"
 

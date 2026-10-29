@@ -8,7 +8,7 @@ context: default
 agent: default
 ---
 
-# AI-OS Digest — Regenerate DIGEST.md
+# Rein Digest — Regenerate DIGEST.md
 
 ## Dynamic Context Injection
 Current DIGEST age: !stat -f "%Sm" .ai/DIGEST.md 2>/dev/null || stat -c "%y" .ai/DIGEST.md 2>/dev/null || echo "(unknown)"
@@ -36,7 +36,7 @@ Keep it **20–60 lines. Bullets only. No prose.**
 
 Required sections:
 ```markdown
-# DIGEST — AI-OS v2 (Updated: YYYY-MM-DD)
+# DIGEST — Rein v2 (Updated: YYYY-MM-DD)
 
 ## Product
 - <one-line product description>

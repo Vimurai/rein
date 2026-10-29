@@ -12,7 +12,7 @@
 //
 // E-326: `ai state import` brings the index up to the pulled record files (record-import.mjs).
 // It is run by the post-merge / post-checkout / post-rewrite hooks and at session start, exits
-// 0 whatever happens, and with AI_OS_STATE_IMPORT=0 the hook runs (--hook) are no-ops that
+// 0 whatever happens, and with REIN_STATE_IMPORT=0 the hook runs (--hook) are no-ops that
 // leave one telemetry row. `state parity` is the pre-commit check; `state merge-driver` is the
 // git merge driver for record files (`ai sync` configures it).
 // E-342 (D-106): in a legacy project (no team.json) `state import` merges HEAD:.ai/state.json
@@ -54,7 +54,7 @@ import { resolveTrunk, trunkDoctor } from "../mcp/shared/trunk.mjs";
 
 const SUMMARY_CAP = 200;
 // The completion gates' rollback switches (ci-runs.js checkCiDoneGate, build-stamp.mjs).
-export const GATE_ROLLBACK_VARS = ["AI_OS_CI_GATE", "AI_OS_BUILD_STAMP"];
+export const GATE_ROLLBACK_VARS = ["REIN_CI_GATE", "REIN_BUILD_STAMP"];
 
 function _withoutRollbacks(env) {
   const out = { ...env };
@@ -118,9 +118,9 @@ export function runPlannerCheck(aiDir) {
 
 /** Never fails: an import runs from git hooks and must not block a pull. @returns {{code:0, out:string}} */
 export function runStateImport(aiDir, { dryRun = false, force = false, hook = null, env = process.env } = {}) {
-  if (hook && env.AI_OS_STATE_IMPORT === "0") {
+  if (hook && env.REIN_STATE_IMPORT === "0") {
     recordToolExecution({ tool_name: "state_import", execution_time_ms: 0, status: "BYPASS", source: "hook" }, { sync: true });
-    return { code: 0, out: `[STATE_IMPORT] skipped (${hook}): AI_OS_STATE_IMPORT=0` };
+    return { code: 0, out: `[STATE_IMPORT] skipped (${hook}): REIN_STATE_IMPORT=0` };
   }
   if (!existsSync(aiDir)) return { code: 0, out: "" };
   try {

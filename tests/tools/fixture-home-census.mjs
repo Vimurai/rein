@@ -1,7 +1,7 @@
 // tests/tools/fixture-home-census.mjs — E-345 (D-109 r1): every fixture HOME a hook runs under
 // carries the toolchain record.
 //
-// A hook ASSIGNS its PATH and finds node through ~/.ai-os/shared/toolchain.sh (E-286); without
+// A hook ASSIGNS its PATH and finds node through ~/.rein/shared/toolchain.sh (E-286); without
 // the record it falls back to a fixed dir list. A suite that points HOME at a temp dir and then
 // runs a hook, `ai`, or the pin (src/shared/toolchain-pin.sh) therefore passes only on hosts whose node
 // sits in that list — 12 suites went red on 2026-10-23 when node moved to Linuxbrew. The record
@@ -31,7 +31,7 @@ const RUNS_LOADER = new RegExp([
   String.raw`\bcore\.hooksPath\b`,
   String.raw`["']hooks["']\s*,\s*["'][\w-]+\.sh["']`,   // node: join(REPO, "hooks", "x.sh")
   String.raw`\bsrc\/bin\/ai\b`,
-  String.raw`\.ai-os\/bin\/ai\b`,
+  String.raw`\.rein\/bin\/ai\b`,
   String.raw`(?:^|[\s;(&|"'\`])ai\s+(?:doctor|sync|init|install|pane|start|ci|task|state|trunk|gate|clean|log)\b`,
   String.raw`\bsrc\/shared\/toolchain-pin\.sh\b`,
 ].join("|"), "m");
@@ -49,7 +49,7 @@ export function censusSuite(source, name, exemptions = {}) {
   const text = _code(source);
   const out = [];
   if (!exempt.has("FIXTURE_HOME_NO_RECORD") && SETS_HOME.test(text) && RUNS_LOADER.test(text) && !HELPER.test(text)) {
-    out.push(`[FIXTURE_HOME_NO_RECORD] ${name}: sets HOME and runs a hook, ai or the toolchain pin without tc_fixture_home — its HOME has no ~/.ai-os/shared/toolchain.sh (D-109 r1)`);
+    out.push(`[FIXTURE_HOME_NO_RECORD] ${name}: sets HOME and runs a hook, ai or the toolchain pin without tc_fixture_home — its HOME has no ~/.rein/shared/toolchain.sh (D-109 r1)`);
   }
   if (!exempt.has("TOOLCHAIN_WRITE") && WRITES_TC.test(text)) {
     out.push(`[TOOLCHAIN_WRITE] ${name}: writes a toolchain record itself — use tc_fixture_home / tcFixtureHome (tests/lib/toolchain-fixture.*)`);

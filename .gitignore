@@ -71,3 +71,7 @@ evals/results/
 # E-364: the client project names the publish scan refuses (src/shared/publish-scan.mjs) — the
 # names themselves must never be committed.
 .ai/publish-scan.local.json
+
+# Python bytecode (a helper imported by path writes it beside the source)
+__pycache__/
+*.pyc

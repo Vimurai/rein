@@ -59,10 +59,33 @@ SHAs and declare minimal `permissions` per job.
   via shields `github/v/tag`), sponsors. The hard-coded version badge is replaced.
 - `.ai/DEVOPS.md` records the workflows, the required set and the rollback (`ci_gate` skill).
 
-### Component 4 — Rename interplay (D-132)
+### Component 4 — Rename interplay (D-132, D-132 addendum 2 r9)
 E-384 lands before E-383. The renderer's cache path and install command name the old
 directory and script until E-383 renames them; the rename PR is the first change checked on
-macOS and both Node lines, which is the point of the ordering.
+macOS and both Node lines, which is the point of the ordering. E-391 renames the job
+(`ai-ci-run` → `rein-ci-run`, display `rein ci run (…)`) and so the required-check names:
+the merge step updates the list on `main` with one `gh api` call (new names in, old names
+out) immediately before the merge, recorded in `.ai/DEVOPS.md`; `requiredChecks()` is the
+source of the strings.
+
+### Component 5 — Windows (WSL2) leg (E-392, D-132 addendum 2 r10)
+- Matrix: `windows-latest × node 22 × 4 shards`, in the public profile only, after the tag.
+  Informative (not in the required set; `continue-on-error` is NOT used — the leg is simply
+  not required, so a red stays visible) until three consecutive green runs on `main`, then
+  required by the same `gh api` step and a `.ai/DEVOPS.md` entry; the README's "planned"
+  parenthesis goes at that moment.
+- Steps: checkout (as the other legs); setup-wsl action pinned to a full commit SHA with the
+  version in a trailing comment (D-133), distribution Ubuntu 24.04, WSL 2 where the hosted
+  `windows-2022` image can start it (the action documents WSL 2 there); if the first run shows
+  the runner cannot, the leg runs WSL 1 and its display name and the README say "WSL" — WSL 1
+  and 2 share the userland Rein runs in, so the claim is weaker and true. Inside the
+  distribution, before anything else: copy the checkout to the Linux filesystem (`~/src`) —
+  the `/mnt/c` mount drops exec bits and symlinks and is slow; then install node 22 (NodeSource
+  or nvm, pinned major), git, sqlite3, python3, tmux; `bash install-rein.sh`; `rein doctor`;
+  `rein ci run --shard i/4` with lanes defaulting by host as on Ubuntu.
+- Records: `rein ci status` ingests the leg like any other (`host=` carries `windows-wsl2` or
+  `windows-wsl1`); `tests/census-baseline.tsv` is not re-seeded from it.
+- Timeout 60 minutes as the other legs; Windows minutes are free for a public repository.
 
 ## Data Model
 ```
@@ -115,3 +138,4 @@ job (the profile switch is one condition); shrink the required-check set to `pri
 | E-384 | 2 | Components 1–3: the public renderer profile (fast job with `--changed`, shard matrix, required names per D-135), the six hand-written files, Dependabot, badges, required checks, DEVOPS.md | E-382, E-386 |
 | E-386 | 2 | `.ai/blueprints/ci-throughput.md` §Components 1–3, 5: lane default by host, census baseline, `--shard`, `exclusive_seconds` | E-382 |
 | E-387 | 2 | `.ai/blueprints/ci-throughput.md` §Component 5: Rein's exclusive tail under 25 % | E-386 |
+| E-392 | 2 | Component 5: the Windows (WSL2) leg, informative then required; README wording; DEVOPS.md | E-391 (after `v0.4.0`) |

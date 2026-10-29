@@ -192,3 +192,5 @@
 [CRITIC_STAMP] 2026-10-29 | c4ff013 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned
 [ALIGN_PASS] 2026-10-29 | 26035bc 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-382 test pin follows the D-131 CHANGELOG structure
 [CRITIC_STAMP] 2026-10-29 | 26035bc 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned
+[ALIGN_PASS] 2026-10-29 | f447a61 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-386 per ci-throughput.md §1–3, 5; ORPHANED_WORK files are named by the blueprint (pre-push, budget, skill text); LOG updated
+[CRITIC_STAMP] 2026-10-29 | f447a61 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned

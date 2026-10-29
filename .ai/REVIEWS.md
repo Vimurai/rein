@@ -194,3 +194,4 @@
 [CRITIC_STAMP] 2026-10-29 | 26035bc 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned
 [ALIGN_PASS] 2026-10-29 | f447a61 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-386 per ci-throughput.md §1–3, 5; ORPHANED_WORK files are named by the blueprint (pre-push, budget, skill text); LOG updated
 [CRITIC_STAMP] 2026-10-29 | f447a61 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned
+[CRITIC_STAMP] 2026-10-29 | 20f3147 32126521+Vimurai@users.noreply.github.com | [TIER_1] E-386 census baseline data file — written by ai ci run on a full PASS; privacy scan clean, no host paths

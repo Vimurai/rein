@@ -1,5 +1,5 @@
 # REPO_MAP.md — AST Repository Map (auto-generated)
-<!-- ast-parser-mcp generate_map (E-97): 27/153 files, budget 2048 tokens. `⋮` = elided function body. -->
+<!-- ast-parser-mcp generate_map (E-97): 26/155 files, budget 2048 tokens. `⋮` = elided function body. -->
 
 ## src/mcp/shared/record-store.mjs  (centrality 1)
 exports: PROJECT_SCHEMA, PROJECT_KEYS, isRecordStore, gitEmail, headSha, recordPath, readRecord, CLAIM_KEYS, assertTaskRecord, writeRecord, listRecords, taskRecord, stampRecord, stampRecordId, nextSeq, insertTask, updateTask, insertStamp, setProject, archiveRecords, orderRecords, rebuildIndex, writeStateFile, renderStateJson, renderViews
@@ -56,7 +56,7 @@ imports: node:crypto, node:fs, node:os, node:path, node:url, ./locate.mjs
 exports: createLogger
 
 ## src/mcp/shared/ci-runs.js  (centrality 0.2169)
-exports: CI_STATUSES, CI_LOG_KEEP_RUNS, CI_LOG_KEEP_DAYS, CI_RUNS_UP, CI_RUNS_DOWN, CI_RESOURCE_COLUMNS, migrateCiRuns, downCiRuns, recordCiRun, latestCiRun, listCiRuns, ciRunCount, ciVerdict, ageOf, shortLine, parseCiLog, recordCiRunFromLog, failedSections, pruneCiLogs, getCiStatus, certifyingRunFor, certifiedBy, ciAdopted, checkCiDoneGate, recordCiSkip
+exports: CI_STATUSES, CI_LOG_KEEP_RUNS, CI_LOG_KEEP_DAYS, CI_RUNS_UP, CI_RUNS_DOWN, CI_RESOURCE_COLUMNS, CERTIFYING_SQL, migrateCiRuns, downCiRuns, recordCiRun, latestCiRun, listCiRuns, ciRunCount, ciVerdict, ageOf, shortLine, parseCiLog, recordCiRunFromLog, failedSections, pruneCiLogs, getCiStatus, certifyingRunFor, certifiedBy, ciAdopted, checkCiDoneGate, recordCiSkip
 imports: fs, path, child_process, ./ci-evidence.mjs, ./ci-budget.js
 
 ## src/mcp/shared/ci-evidence.mjs  (centrality 0.1995)
@@ -105,7 +105,3 @@ exports: DEFAULT_AIOS_SOURCE, SELF_BOOTSTRAP, REQUIRED_CHECK, PROVIDERS, trunkFo
 imports: node:fs, node:crypto, node:child_process, node:path, node:url, ../mcp/shared/is-main.mjs, ../mcp/shared/team.mjs, ../mcp/shared/trunk.mjs, ./publish-scan.mjs
 class HostedCiError
   constructor(code, message) ⋮
-
-## tests/tools/census.mjs  (centrality 0.1011)
-exports: MERGE_OVERLAP, MISNAMED_RE, LABEL_RE, inventory, staticFacts, resolveTarget, spawnShape, parseCensusLines, installerLane, parseCiLogForCensus, failureHistory, overlap, HUB_SHARE, hubFiles, deriveCandidates, buildCensus, renderMarkdown, main
-imports: node:fs, node:path, node:os, node:child_process, node:url

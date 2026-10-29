@@ -4,8 +4,8 @@
     "current_tier": 2,
     "release_verdict": null,
     "focus": "E-181/E-182: README rewrite + CLI deprecation cleanup (src/bin/ai)",
-    "aios_version": "4.0.0",
-    "provisioned_at": "2026-10-18T20:11:28.351Z"
+    "aios_version": "0.4.0",
+    "provisioned_at": "2026-10-29T14:38:17.775Z"
   },
   "tasks": [
     {
@@ -2889,6 +2889,15 @@
       "timestamp": "2026-10-29T14:05:25.065Z",
       "summary": "[TIER_2] Blueprint aligned",
       "sha": "f447a61a8029f34888a21dbaa8552f9c8a4a2c8b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-386",
+      "timestamp": "2026-10-29T14:52:12.795Z",
+      "summary": "[TIER_1] E-386 census baseline data file — written by ai ci run on a full PASS; privacy scan clean, no host paths",
+      "sha": "20f314791aad9168ce0fb5a309733ca0a0b8b056",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

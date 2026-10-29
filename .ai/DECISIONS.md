@@ -3667,3 +3667,28 @@ Ruling 3 is the branch-policy list; ruling 4 is one seed value in the partition.
 Sequence only; no file depends on it.
 
 ---
+
+## D-136 — The README sells in outcomes, explains in Mermaid, and hands installation to a step-by-step `docs/install.md` that assumes nothing; it lands right after the mark
+
+**Date**: 2026-10-29
+**Task**: E-390 (after E-385), P-49 lineage
+**Decision**: The operator asked, after the mark lands, for "perfect README files with graphs", a stronger explanation of what the system does in marketing terms, and a step-by-step guide that includes installing tmux and setting everything up. Blueprint: `.ai/blueprints/readme.md`. Rulings:
+1. **Diagrams are Mermaid fenced blocks**, not images: GitHub renders them natively, themes them for light and dark, and they diff as text. Four blocks are specified in the blueprint (the loop, what a session reads first, the gate chain, the install path). The ASCII diagram and the `docs/assets/triad.svg` link go.
+2. **The pitch is written in outcomes** (what a single chat loses and Rein keeps; plan and build as separate jobs; nothing merges on trust; local and thin), followed by "who it is for". Features move to a tour table below the quickstart.
+3. **`docs/install.md` assumes an empty machine**: prerequisites per OS (macOS, Ubuntu/Debian, Fedora, Arch, Windows via WSL2), tmux with the five keys a user needs, Claude Code install and login quoted from the official page, then Rein, verification, first session, upgrade, uninstall, and the commonest failures with the `ai doctor` line for each. Install, upgrade, uninstall and the manual tmux fallback leave the README.
+4. **The `docs/` pages the README already links must exist**: the public tree has no `docs/` directory, so those links are broken today. E-390 creates `docs/install.md`, `docs/how-it-works.md`, `docs/getting-started.md`, `docs/ci.md`, and a unit test that fails on any unresolved relative link.
+5. **No "design" skill exists** in this repository or in Claude Code's skill set, so the design is specified in the blueprint (hero composition, section order, viewport rule, page weight) and checked by the `docs-architect` agent plus a by-eye pass in both GitHub themes.
+6. **Sequence**: E-390 depends on E-385 (the mark) and therefore follows E-383 (the rename); it uses the post-rename names. The CI follow-ups (E-389, E-388, E-387) wait behind it per the operator's priority.
+
+### Alternatives considered
+1. **SVG diagrams rendered from a canvas** (as the mark was, D-134) — rejected for diagrams: two files per theme, no text diff, and GitHub already renders Mermaid.
+2. **Keep installation in the README** — rejected: a complete per-OS guide is ten screens; the README's job is to be read in ten minutes.
+3. **A docs site (GitHub Pages)** — deferred: four Markdown pages serve until the docs outgrow them.
+
+### Impact
+- Unlocks: E-390. Risk if wrong: Mermaid's GitHub subset limits styling; the loop diagram may need simplification to stay legible on a phone, which the by-eye pass catches.
+
+### Rollback
+One pull request; `git revert` restores the previous README and removes `docs/` and the link test.
+
+---

@@ -435,3 +435,57 @@
 ### Next action needed (Engineer)
 - Continue E-383. E-390 opens when E-385 closes. In E-390, run every command block of docs/install.md on this machine and say so in the handoff.
 ---
+
+---
+## Engineer WIP note — 2026-10-29 (E-383 paused: session role unverified after the install)
+**From**: Engineer → next Engineer session (and the Architect, for information)
+**State**
+- E-384 DONE (PR #6 887b366; handover run). E-389 is PR #9 (branch e-389-seed-shard-1, local PASS 77eced2), checks were running — merge it when green.
+- E-383 in progress on branch `rename/rein` (from dff9265), UNCOMMITTED in the working tree: the mechanical pass is applied (374 files, 4694 replacements, script map in order: ai-os-v2→@vimurai/rein, install-ai-os.sh→install-rein.sh, .ai-os→.rein, AI_OS_→REIN_, AIOS→REIN, aios→rein, AI-OS→Rein, ai-os→rein); `git mv` of install-ai-os.sh → install-rein.sh and plans/native-vs-aios-audit.md → native-vs-rein-audit.md; tests/fixtures/rename-exclusions.json written (history + records: DECISIONS, COMM, LOG, TASKS, state.json, REVIEWS, DIGEST, DEVOPS, REPO_MAP, rein-rename.md, archive/, CHANGELOG predecessor section, README "Where this comes from").
+- Paused because `bash install-ai-os.sh` (for E-384's BUILD_STALE gate) left this session with an old role token: every role's blocks apply, so source edits are refused. Relaunch with `ai pane engineer`.
+**Still to do in E-383 (each legacy line marked `rename:legacy-fallback`)**
+1. Fix prose articles: "a Rein" → "a Rein" outside the exclusions.
+2. Stub marker: detect the old "# AI-OS Execution Stub (E-41)" beside "# Rein Execution Stub (E-41)".
+3. Merge driver: sync replaces `merge.aios-record.*` and `.gitattributes` `merge=aios-record` lines (record-migrate WRITTEN_ATTRIBUTES).
+4. State key: read `aios_version` when `rein_version` is absent (state-db, record-store, project-upgrade, hosted-ci pinnedVersion).
+5. team.json: read `ci.aios_source` as a fallback for `ci.rein_source` (team.mjs validation too).
+6. Settings: recognise `~/.ai-os/hooks/…` entries as ours so sync replaces, not duplicates.
+7. Installer: move a real `~/.ai-os` to `~/.rein` once, leave a symlink, doctor `[LEGACY_HOME_LINK]`.
+8. Env: `src/shared/env.mjs` + a locate.sh function mapping AI_OS_X → REIN_X when unset, never for *_TC_*, *_LOCATE_*, CALLER_ROLE/PANE_ROLE; hooks scrub both prefixes; doctor `[LEGACY_ENV]`.
+9. `install-ai-os.sh` one-line forwarder to install-rein.sh (also lets the installed 0.4.0 runner test the branch).
+10. Gate test tests/unit/rename-gate.test.mjs; install proof with a pre-seeded ~/.ai-os; docs/upgrading.md note (removal in 0.5); re-render ci.yml; full suite; security_engineer + critics (Tier 3); one PR; then tag v0.4.0 via release-manager.
+---
+
+---
+## Handoff — 2026-10-29 21:06 UTC
+**From**: Engineer → Architect
+**Trigger**: operator ruling needed — the command and the skills are renamed too (reverses part of D-132); E-383 paused before the PR
+
+### What was built (branch rename/rein, not pushed)
+- 9bb41c1 mechanical code pass (324 files) · 144b8f7 mechanical .ai/ live docs (48) · da0949a compatibility layer, gate, install proof, doctor tests (60 files; critic_arch ARCH_PASS, critic_security SEC_PASS, critic_tests TESTS_PASS).
+- eacd7af two tests that read history records in a clean checkout (rename-gate: gitignored .ai/LOG.md may be absent; E-235.07b accepts DEVOPS.md's old spelling).
+- 5b7f213 README: Windows supported through WSL2; a Windows (WSL2) CI leg "planned" (operator request).
+- 4d390a0 + 0257ee0 the gap the operator spotted: the gate was case-sensitive, so ~430 lowercase `ai_os_*` shell functions (ai_os_locate, ai_os_helper, ai_os_role, ai_os_tc_*, …) and camelCase isUnderAiOs / isAiOsRepo kept the old name. Renamed to rein_* / isUnderRein / isReinRepo; gate now /ai[-_]os|aios/i.
+- ai ci run: 5b7f213 PASS 7010/0/25. 0257ee0 running.
+
+### Operator decisions (2026-10-29, this session) — need a ruling + blueprint amendment
+1. **The command is renamed `ai` → `rein`** (e.g. `rein ci run`, `rein sync`, `rein pane engineer`). **No `ai` fallback** — removed now, not kept until 0.5 (operator chose this over a one-release forwarder).
+2. **Skills renamed `ai-*` → `rein-*`** ("skills inside everything") — ai-preflight, ai-task, ai-handoff, ai-test, … in .claude/skills, src/shared/skills and every reference in rulefiles, agents, hooks and tests.
+3. **Only the `.ai/` directory keeps the old name.**
+4. **In this PR, before the v0.4.0 tag**, as its own commits.
+5. Windows: officially supported through WSL2 plus a Windows (WSL2) CI leg — the leg needs a ruling and a task (ci_gate); the README says "planned" until it is green.
+Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai` file name, the installer's PATH entry, installed git hook stubs, settings.json hook lines, `ai pane` role binding and the tmux options all change. Without a forwarder, an operator who has not re-run the installer gets "command not found" — doctor/installer wording should say what to run.
+
+### Blueprint divergence
+- critic_arch D1 (P1): src/shared/classifier-backstop.py and tests/suites/classifier_backstop_test.sh are whole-file exclusions keeping D-101's rule text verbatim ("AI-OS Gate Tamper", ~/.ai-os/…, install-ai-os.sh) — needs a Rein-form D-101 text.
+- D2 (P2): rename-exclusions.json excludes more than §Data Model lists (TASKS, state.json, REVIEWS, DIGEST, DEVOPS, REPO_MAP, the fixtures/gate themselves) — amend the list.
+- D3 (P2): install-ai-os.sh forwarder exists but is not in §Component 4.
+- rein-rename.md §Component 2 "Unchanged: `ai` (command, bin, the `ai-*` skill names)" — reversed by the operator decisions above.
+
+### Next action needed (Architect)
+- Rule decisions 1–5 (D-132 addendum), amend rein-rename.md (§Component 2 table, Unchanged line, §Component 4 without an `ai` forwarder, §Data Model exclusions, D1–D3), register the work (extend E-383 or add an E-## before the tag) and the Windows CI leg task. Then wake the Engineer.
+
+### Open risks
+- Installed hooks resolve helpers from this clone: a session whose install predates a rename of helper names fails closed until `bash install-rein.sh` (happened today; the operator reinstalled with --allow-dirty — doctor reports the install dirty until a clean reinstall).
+- PR #9 (E-389) mergeable; its macOS shard-1 red is E-388 (also red on main); Dependency review needs the repo's Dependency graph setting.
+---

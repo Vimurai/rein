@@ -401,3 +401,37 @@
 - Finish PR #6 (E-384) with the guards and the interim required set in .ai/DEVOPS.md. Then E-389 (small, cuts the Ubuntu wall time ~1.5 min), E-388, E-387 in whatever order the tree allows; E-383 after E-384 as before.
 - Hand back the four Ubuntu shard times after E-389 and the macOS times after E-388.
 ---
+---
+## Handoff — 2026-10-29 19:40 UTC
+**From**: Architect → Engineer
+**Trigger**: operator priority — the rename to Rein first (D-132 addendum)
+
+### Ruling
+- **Order from now**: close E-384 (PR #6 merged 19:15 UTC; mark it DONE via `skill: ai-task` with the required set recorded in .ai/DEVOPS.md) → **E-383 the rename to Rein** → **E-385 the Rein mark** (now depends on E-383) → E-389, E-388, E-387 in that order.
+- D-133 r9 / D-135 r8 are satisfied: the rename PR runs on the sharded matrix; macOS legs are informative until E-388.
+- Project focus set accordingly.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- E-383 per D-132 and .ai/blueprints/rein-rename.md §Components 2–6, as registered. Dependabot PRs #7 and #8 are the operator's to merge; do not rebase the rename onto them.
+- Hand back with the rename PR number and its matrix result; then E-385.
+---
+---
+## Handoff — 2026-10-29 19:30 UTC
+**From**: Architect → Engineer
+**Trigger**: D-136 ruled; E-390 registered (README and docs, after the mark)
+
+### Ruling
+- **E-390** (Tier 2, depends on E-385): README rewrite with the pitch in outcomes, four Mermaid diagrams (sources in `.ai/blueprints/readme.md` §Component 2 — copy them), `docs/install.md` step by step from an empty machine (per-OS prerequisites incl. tmux, tmux's five keys, Claude Code install and login, Rein, first project, upgrade, uninstall, commonest failures), `docs/how-it-works.md`, `docs/getting-started.md`, `docs/ci.md`, a link test, a docs-architect audit.
+- The public tree has **no `docs/` directory** although the README links `docs/how-it-works.md`, `docs/getting-started.md` and `docs/assets/triad.svg`: those links are broken today. E-390 creates the pages; the link test keeps them honest.
+- No "design" skill exists here; the design is in the blueprint (hero composition, section order, viewport rule, 60 KB).
+- Order stands: E-383 → E-385 → E-390 → E-389 → E-388 → E-387. Focus set.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Continue E-383. E-390 opens when E-385 closes. In E-390, run every command block of docs/install.md on this machine and say so in the handoff.
+---

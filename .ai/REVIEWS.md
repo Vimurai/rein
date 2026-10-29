@@ -199,3 +199,4 @@
 [CRITIC_STAMP] 2026-10-29 | 1d610fe 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned
 [ALIGN_PASS] 2026-10-29 | c910083 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-384 tmux SKIP guards per D-135 addendum 2 (a); suites pass with and without tmux; interim required set in DEVOPS-014
 [CRITIC_STAMP] 2026-10-29 | c910083 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned
+[CRITIC_STAMP] 2026-10-29 | 887b366 32126521+Vimurai@users.noreply.github.com | [TIER_1] E-389 seed shard 1 with the unit layer's hint — partition unchanged without hints; seeded test extends E-386's

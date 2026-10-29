@@ -63,3 +63,30 @@ test("parseShard accepts 1 ≤ i ≤ N and nothing else; a duplicate suite is re
   for (const bad of ["0/4", "5/4", "1/0", "a/b", "1/", "/4", "1/4/2", "", undefined]) assert.equal(parseShard(bad), null, String(bad));
   assert.throws(() => shardPlan({ suites: [{ name: "a", cls: "shared" }, { name: "a", cls: "shared" }], n: 2 }), /listed twice/);
 });
+
+// E-389 (D-135 addendum 2 r4): extends the E-386 partition tests above — `ai ci run` runs the
+// unit layer again on shard 1 (its coverage step), so bin 1 starts that much heavier.
+test("a seeded bin 1 still holds every suite exactly once, and takes about the seed fewer suite seconds", () => {
+  const suites = Array.from({ length: 24 }, (_, k) => ({ name: `t${String(k).padStart(2, "0")}_test.sh`, cls: "shared" }));
+  suites.push({ name: "node_unit_test.sh", cls: "shared" });
+  const hints = new Map(suites.map((s, k) => [s.name, 10000 + 1000 * (k % 7)]));
+  // The unit layer below a fair share (as on Rein: ~25 s of ~400 s over 4 shards).
+  hints.set("node_unit_test.sh", 30000);
+  const opts = { suites, n: 4, hints, pin: ["node_unit_test.sh"] };
+  const seeded = shardPlan({ ...opts, seed: "node_unit_test.sh" });
+  assert.deepEqual(seeded.flatMap((b) => [...b.shared, ...b.exclusive]).sort(), suites.map((s) => s.name).sort());
+  assert.equal(seeded[0].seed_ms, 30000);
+  const suiteSecs = (b) => b.shared_ms - b.seed_ms;   // what the suites themselves weigh
+  const others = seeded.slice(1).map(suiteSecs);
+  const lighter = Math.min(...others) - suiteSecs(seeded[0]);
+  assert.ok(lighter >= 30000 - 16000 && lighter <= 30000 + 16000, `bin 1 is lighter by ${lighter} ms, about the 30000 ms seed (± one suite)`);
+  // The total each shard carries comes out level: the seed is balanced, not just added.
+  const loads = seeded.map((b) => b.shared_ms);
+  assert.ok(Math.max(...loads) - Math.min(...loads) <= 16000, `loads ${loads}`);
+});
+
+test("no hint known at all → no seed, and the partition is exactly the unseeded one", () => {
+  const suites = ["a", "b", "c", "node_unit_test.sh"].map((name) => ({ name, cls: "shared" }));
+  const opts = { suites, n: 2, pin: ["node_unit_test.sh"] };
+  assert.deepEqual(shardPlan({ ...opts, seed: "node_unit_test.sh" }), shardPlan(opts));
+});

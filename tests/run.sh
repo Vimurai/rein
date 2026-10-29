@@ -635,7 +635,8 @@ _collect() {
 # ── E-386 (D-135 r3): one shard — the same lane classes, partitioned by wall hint ──
 # tests/tools/shard-plan.mjs is the pure partition (unit-tested): shared and exclusive suites
 # separately, hint descending then name, greedy to the lightest bin, unknown hint = median.
-# The node unit layer goes to shard 1. Every shard of the same commit and baseline computes
+# The node unit layer goes to shard 1, and shard 1 starts that much heavier (E-389: `ai ci
+# run` runs the unit layer again there, as its coverage step). Every shard of the same commit and baseline computes
 # the same partition, so shards 1..N together run every suite exactly once.
 if [[ -n "$AIOS_SHARD" ]]; then
   _wall_hints_load
@@ -646,7 +647,7 @@ if [[ -n "$AIOS_SHARD" ]]; then
     printf '%s\t%s\n' "$(basename "$_f")" "${_c%% *}" >> "$_shard_in"
   done
   _shard_out="$(node --no-warnings "${SCRIPT_DIR}/tools/shard-plan.mjs" --shard "$AIOS_SHARD" \
-    --hints "${TEST_TMPDIR}/wall-hints.tsv" --pin node_unit_test.sh < "$_shard_in")" \
+    --hints "${TEST_TMPDIR}/wall-hints.tsv" --pin node_unit_test.sh --seed node_unit_test.sh < "$_shard_in")" \
     || { echo "run.sh: shard partition failed" >&2; exit 2; }
   # An empty shard selects nothing: grep's status 1 must not end the run under pipefail (E-332).
   _keep=" $({ grep -v '^#' <<< "$_shard_out" || :; } | tr '\n' ' ')"

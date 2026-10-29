@@ -1232,6 +1232,7 @@ _doctor_hook_form_report() {
           FOREIGN)      echo "  ✗ [HOOK_PATH_FOREIGN] ${p} (${ev}) — a Rein hook name outside ${REIN}/hooks; check it, then: rein sync"; bad=1 ;;
           FORM)         stale="${stale:+${stale} }${ev}:${p}" ;;
           UNREGISTERED) echo "  ✗ [GATE_UNREGISTERED] no PreToolUse entry runs ${REIN}/hooks/pre-tool-use.sh — run: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
+          DISABLED)     echo "  ✗ [HOOKS_DISABLED] .claude/settings.json sets disableAllHooks — no Rein hook runs here; remove it, then: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
           UNPARSEABLE)  stale="unparseable" ;;
         esac
       done <<< "$findings"
@@ -1716,7 +1717,7 @@ except Exception:
     _hp_mod = None
 def _is_rein_hook(h, script):
     if _hp_mod is not None:
-        return _hp_mod.is_ours(h, script, _HOOKS_DIR)
+        return _hp_mod.is_ours(h, script, _HOOKS_DIR, os.path.dirname(os.path.abspath(target_dir)))
     # Helper unreadable: the install-path match alone (an older entry is then left beside
     # the new one, and doctor reports it).
     text = " ".join([str(h.get("command") or "")] + [str(x) for x in (h.get("args") or [])])

@@ -13,7 +13,9 @@ final report — so the rule cannot drift between them.
         MISSING   <event> <path>  a Rein-named entry whose script does not exist
         FOREIGN   <event> <path>  a Rein-named script outside the install's hooks dir
         FORM      <event> <name>  ours, but not the exec form /bin/bash -p <absolute path>
-        UNREGISTERED              no PreToolUse entry resolves to the install's pre-tool-use.sh
+        UNREGISTERED              no PreToolUse entry runs the install's pre-tool-use.sh in exec form
+                                  under a matcher that covers Bash
+        DISABLED                  the file sets disableAllHooks: no hook runs at all
         UNPARSEABLE               the file is not JSON (doctor reports it; nothing else said)
   projects <clone> <install hooks dir>
       the projects Claude Code's session directories name (D-132 addendum 5) whose settings
@@ -21,37 +23,77 @@ final report — so the rule cannot drift between them.
       newest *.jsonl, its first 50 lines, the first string `cwd`; every other field is dropped
       on the spot. REIN_NO_PROJECT_SCAN=1 prints nothing.
 
-Import (sync): load this file by path and call is_ours(entry, script, hooks_dir).
+Import (sync): load this file by path and call is_ours(entry, script, hooks_dir, project_root).
+An entry counts by the ONE script it runs (exec form's script argument, or the command's first
+word / the word after a shell), with $HOME, ~ and $CLAUDE_PROJECT_DIR expanded; anything else is
+unknown — never MISSING, never ours (security re-review N1).
 """
 import glob
 import json
 import os
 import re
-import subprocess
+import shlex
 import sys
 
 HOOK_NAMES = ("stop-hook.sh", "pre-tool-use.sh", "session-start.sh",
               "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh")
-_PATH = re.compile(r"""(?P<p>[^\s"';|&()]*/(?P<n>""" + "|".join(re.escape(n) for n in HOOK_NAMES)
-                   + r"""))(?=[\s"';|&)]|$)""")
+_SHELLS = ("bash", "sh", "zsh", "dash")
+# Control (C0, DEL, C1) and bidi characters: a path carrying one is never printed (N5).
+_UNSAFE = re.compile("[\x00-\x1f\x7f-\x9f‎‏‪-‮⁦-⁩]")
+_LINE, _FILE = 1 << 20, 4 << 20   # per-line and per-file read caps for a transcript (N4)
 
 
 def _real(p):
     return os.path.realpath(p)
 
 
-def _expand(p):
+def _hooks_ok(hooks_dir):
+    """An empty or relative hooks dir names nothing: realpath("") is the cwd (N3)."""
+    return isinstance(hooks_dir, str) and os.path.isabs(hooks_dir)
+
+
+def _expand(p, project):
+    """The variables a hook command may carry, and nothing else: $HOME (an earlier install's
+    shell-form entry), ~ and $CLAUDE_PROJECT_DIR (the form Claude Code documents). A path
+    left with another `$`, a quote or a relative start is unknown — None (N1)."""
     home = os.path.expanduser("~")
-    for pre in ("${HOME}", "$HOME"):
-        if p.startswith(pre):
-            return home + p[len(pre):]
-    return os.path.expanduser(p)
+    for var, val in (("${CLAUDE_PROJECT_DIR}", project), ("$CLAUDE_PROJECT_DIR", project),
+                     ("${HOME}", home), ("$HOME", home)):
+        if p.startswith(var):
+            if not val:
+                return None
+            p = val + p[len(var):]
+            break
+    p = os.path.expanduser(p)
+    if "$" in p or "'" in p or '"' in p or not os.path.isabs(p):
+        return None
+    return p
 
 
-def _paths(h):
-    """(path, name) for every Rein-named script an entry runs — as written, and expanded."""
-    text = " ".join([str(h.get("command") or "")] + [str(a) for a in (h.get("args") or [])])
-    return [(_expand(m.group("p")), m.group("n")) for m in _PATH.finditer(text)]
+def _runs(h, project):
+    """(path, name) of the ONE script this entry runs, when it is a Rein hook name — else
+    None. Exec form: `/bin/bash -p <script>`; shell form: the command's first word, or the
+    first non-flag word after a shell. A Rein name mentioned anywhere else in the line is an
+    argument, not what runs (N1)."""
+    cmd = str(h.get("command") or "")
+    args = [str(a) for a in (h.get("args") or [])]
+    try:
+        words = ([cmd] + args) if args else shlex.split(cmd)
+    except ValueError:
+        return None
+    if not words:
+        return None
+    script = words[0]
+    if os.path.basename(script) in _SHELLS:
+        rest = [w for w in words[1:] if not w.startswith("-")]
+        if not rest:
+            return None
+        script = rest[0]
+    name = os.path.basename(script)
+    if name not in HOOK_NAMES:
+        return None
+    path = _expand(script, project)
+    return (path, name) if path else None
 
 
 def _status(path, hooks_dir):
@@ -62,10 +104,24 @@ def _status(path, hooks_dir):
     return "OURS"
 
 
-def is_ours(h, script, hooks_dir):
-    """True when `rein sync` may replace this entry: it runs `script` from the install's hooks
-    dir, or from a path that no longer exists. An existing script elsewhere is the user's."""
-    return any(n == script and _status(p, hooks_dir) in ("OURS", "MISSING") for p, n in _paths(h))
+def is_ours(h, script, hooks_dir, project=None):
+    """True when `rein sync` may replace this entry: the script it runs is `script` in the
+    install's hooks dir, or at a path that no longer exists. An existing script elsewhere is
+    the user's; an entry whose script cannot be read off its command is never ours."""
+    if not _hooks_ok(hooks_dir):
+        return False
+    r = _runs(h, project)
+    return bool(r) and r[1] == script and _status(r[0], hooks_dir) in ("OURS", "MISSING")
+
+
+def _covers_bash(matcher):
+    """A PreToolUse matcher under which the gate fires for Bash (N2)."""
+    if matcher in (None, "", "*"):
+        return True
+    try:
+        return re.fullmatch(str(matcher), "Bash") is not None
+    except re.error:
+        return False
 
 
 def check(settings, hooks_dir):
@@ -74,25 +130,39 @@ def check(settings, hooks_dir):
             d = json.load(f)
     except Exception:
         return [("UNPARSEABLE",)]
+    if not isinstance(d, dict):
+        return [("UNPARSEABLE",)]
+    if not _hooks_ok(hooks_dir):
+        return [("UNREGISTERED",)]
+    project = os.path.dirname(os.path.dirname(os.path.abspath(settings)))
     out, gate = [], False
     want_gate = _real(os.path.join(hooks_dir, "pre-tool-use.sh"))
+    if d.get("disableAllHooks") is True:
+        out.append(("DISABLED",))
     for ev, lst in ((d.get("hooks") or {}) if isinstance(d.get("hooks"), dict) else {}).items():
         for e in lst or []:
-            for h in (e.get("hooks") or []) if isinstance(e, dict) else []:
+            if not isinstance(e, dict):
+                continue
+            for h in e.get("hooks") or []:
                 if not isinstance(h, dict):
                     continue
-                for p, n in _paths(h):
-                    s = _status(p, hooks_dir)
-                    if s in ("MISSING", "FOREIGN"):
-                        out.append((s, ev, p))
-                        continue
-                    args = [str(a) for a in (h.get("args") or [])]
-                    exec_form = (h.get("command") == "/bin/bash" and args[:1] == ["-p"] and len(args) >= 2
-                                 and os.path.isabs(args[1]) and os.path.dirname(args[1]) == hooks_dir)
-                    if not exec_form:
-                        out.append(("FORM", ev, n))
-                    if ev == "PreToolUse" and _real(p) == want_gate:
-                        gate = True
+                r = _runs(h, project)
+                if not r:
+                    continue
+                p, n = r
+                s = _status(p, hooks_dir)
+                if s in ("MISSING", "FOREIGN"):
+                    out.append((s, ev, p))
+                    continue
+                args = [str(a) for a in (h.get("args") or [])]
+                exec_form = (h.get("command") == "/bin/bash" and args[:1] == ["-p"] and len(args) >= 2
+                             and os.path.isabs(args[1]) and os.path.dirname(args[1]) == hooks_dir)
+                if not exec_form:
+                    out.append(("FORM", ev, n))
+                # The gate counts only as it ships: exec form, under a matcher that covers
+                # Bash (a `true <gate path>` or a NoSuchTool matcher never blocks — N2).
+                if ev == "PreToolUse" and _real(p) == want_gate and exec_form and _covers_bash(e.get("matcher")):
+                    gate = True
     if not gate:
         out.append(("UNREGISTERED",))
     return out
@@ -119,9 +189,18 @@ def _session_cwds():
                     continue
                 newest = max(files, key=os.path.getmtime)
                 with open(newest, encoding="utf-8", errors="replace") as f:
-                    for i, line in enumerate(f):
-                        if i >= 50:
+                    # Bounded in lines AND bytes (N4): a line longer than _LINE is skipped
+                    # unread, and nothing past _FILE bytes is read at all.
+                    used = 0
+                    for _ in range(50):
+                        line = f.readline(_LINE)
+                        if not line or used >= _FILE:
                             break
+                        used += len(line)
+                        if not line.endswith("\n") and len(line) >= _LINE:
+                            while line and not line.endswith("\n") and used < _FILE:
+                                line = f.readline(_LINE); used += len(line)
+                            continue
                         try:
                             cwd = json.loads(line).get("cwd")
                         except Exception:
@@ -139,12 +218,17 @@ def _qualifies(p):
 
 
 def _toplevel(p):
-    try:
-        r = subprocess.run(["git", "-C", p, "rev-parse", "--show-toplevel"], capture_output=True,
-                           text=True, timeout=5, stdin=subprocess.DEVNULL)
-        return r.stdout.strip() if r.returncode == 0 else ""
-    except Exception:
-        return ""
+    """The nearest ancestor holding .git, found by walking directories — no git process, so a
+    candidate's .git/config (core.worktree, fsmonitor, hooksPath) is never read or run."""
+    d = _real(p)
+    for _ in range(40):
+        if os.path.exists(os.path.join(d, ".git")):
+            return d
+        up = os.path.dirname(d)
+        if up == d:
+            break
+        d = up
+    return ""
 
 
 def projects(clone, hooks_dir):
@@ -152,7 +236,7 @@ def projects(clone, hooks_dir):
         return []
     found = set()
     for c in list(_session_cwds()) + [clone]:
-        if any(ch in c for ch in "\n\r\t\0") or not _qualifies(c):
+        if _UNSAFE.search(c) or not _qualifies(c):
             continue
         found.add(_real(c))
         top = _toplevel(c)

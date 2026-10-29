@@ -259,6 +259,54 @@ PY
 assert_contains "E-391.03g: no PreToolUse entry for the install's gate is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
 assert_rc 1 "E-391.03h: …and doctor exits non-zero" doctor
 _ai sync >/dev/null
+# Security re-review N1: an entry counts by the ONE script it runs. The form Claude Code
+# documents ("$CLAUDE_PROJECT_DIR"/…) and a Rein name passed as an ARGUMENT are not missing
+# Rein hooks — doctor does not fail on them and sync keeps them.
+_set_cmd() {  # <event> <shell-form command>
+  python3 - "${PROJ}/.claude/settings.json" "$1" "$2" <<'PY'
+import json, sys
+p, ev, cmd = sys.argv[1:4]
+d = json.load(open(p))
+d.setdefault("hooks", {}).setdefault(ev, []).append({"matcher": ".*", "hooks": [{"type": "command", "command": cmd}]})
+json.dump(d, open(p, "w"), indent=2)
+PY
+}
+mkdir -p "${PROJ}/.claude/hooks"; printf '#!/bin/sh\nexit 0\n' > "${PROJ}/.claude/hooks/session-start.sh"
+_set_cmd SessionStart '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh'
+_set_cmd Stop '/usr/local/bin/myaudit --note /nope/stop-hook.sh'
+_doc="$(_ai doctor)"
+assert_not_contains "E-391.03i: a project hook in Claude Code's documented form is not MISSING" "[HOOK_PATH_MISSING]" "$_doc"
+assert_rc 0 "E-391.03j: …and neither entry fails doctor" doctor
+_ai sync >/dev/null
+assert_contains "E-391.03k: sync keeps the project's own hook" '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh' "$(cat "${PROJ}/.claude/settings.json")"
+assert_contains "E-391.03l: sync keeps an entry that only names a Rein hook as an argument" "myaudit --note /nope/stop-hook.sh" "$(cat "${PROJ}/.claude/settings.json")"
+# N2: the gate counts only as it ships — exec form, under a matcher that covers Bash.
+_gate_variant() {  # <python expression for the PreToolUse list, with G = the gate path>
+  python3 - "${PROJ}/.claude/settings.json" "$(cd "${FAKE_HOME}/.rein/hooks" && pwd -P)/pre-tool-use.sh" "$1" <<'PY'
+import json, sys
+p, G, expr = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(p)); d["hooks"]["PreToolUse"] = eval(expr); json.dump(d, open(p, "w"), indent=2)
+PY
+}
+_gate_variant '[{"matcher": ".*", "hooks": [{"type": "command", "command": "true " + G}]}]'
+assert_contains "E-391.03m: a PreToolUse entry that names the gate but never runs it is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+_gate_variant '[{"matcher": "NoSuchTool", "hooks": [{"type": "command", "command": "/bin/bash", "args": ["-p", G]}]}]'
+assert_contains "E-391.03n: …and so is the gate under a matcher that never covers Bash" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+_ai sync >/dev/null
+python3 - "${PROJ}/.claude/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d["disableAllHooks"] = True; json.dump(d, open(p, "w"), indent=2)
+PY
+assert_contains "E-391.03o: disableAllHooks is reported" "[HOOKS_DISABLED]" "$(_ai doctor)"
+assert_rc 1 "E-391.03p: …and fails doctor" doctor
+python3 - "${PROJ}/.claude/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d.pop("disableAllHooks", None)
+for ev in ("SessionStart", "Stop"):
+    d["hooks"][ev] = [e for e in d["hooks"].get(ev, []) if "myaudit" not in json.dumps(e) and "CLAUDE_PROJECT_DIR" not in json.dumps(e)]
+json.dump(d, open(p, "w"), indent=2)
+PY
+rm -rf "${PROJ}/.claude/hooks"
 
 # ── E-391.04 (D-132 addendum 5): the installer's "projects to sync" list ──────────────
 # Candidates come from Claude Code's per-project session dirs: the newest *.jsonl, its first
@@ -278,6 +326,20 @@ assert_not_contains "E-391.04b: a cwd without .ai/ is not a candidate" "$_plain"
 assert_not_contains "E-391.04c: a cwd that does not exist is not a candidate" "/nonexistent/project" "$_list"
 assert_status 0 "E-391.04d: an unreadable session dir is skipped, the scan still answers" test "$(printf '%s\n' "$_list" | grep -c .)" -eq 1
 assert_status 0 "E-391.04e: REIN_NO_PROJECT_SCAN=1 prints nothing" test -z "$(_scan env REIN_NO_PROJECT_SCAN=1)"
+# N4/N5: a transcript line over the per-line cap is skipped unread (the next line still
+# counts); a directory name carrying a control character is never a candidate.
+mkdir -p "${_cp}/d"
+python3 - "${_cp}/d/s1.jsonl" "$PROJ" <<'PY'
+import json, sys
+open(sys.argv[1], "w").write("x" * (3 << 20) + "\n" + json.dumps({"cwd": sys.argv[2]}) + "\n")
+PY
+_esc_dir="${FAKE_TMP}/esc$(printf '\033')[2Jdir"; mkdir -p "${_esc_dir}/.ai" "${_esc_dir}/.claude"; cp "${PROJ}/.claude/settings.json" "${_esc_dir}/.claude/"
+mkdir -p "${_cp}/e"; python3 -c 'import json,sys; print(json.dumps({"cwd": sys.argv[1]}))' "$_esc_dir" > "${_cp}/e/s1.jsonl"
+rm -f "${_cp}/a/s1.jsonl"
+_list="$(_scan env)"
+assert_contains "E-391.04h: a line past the per-line cap is skipped and the next line still read" "$_projreal" "$_list"
+assert_status 1 "E-391.04i: a directory name with a control character is never printed" grep -q "esc" <<< "$_list"
+rm -rf "$_esc_dir" "${_cp}/e"
 _inst3="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"
 assert_contains "E-391.04f: the installer lists the project with run: rein sync" "${_projreal} — run: rein sync" "$_inst3"
 assert_contains "E-391.04g: …under a heading that says the list may be incomplete" "others may exist" "$_inst3"

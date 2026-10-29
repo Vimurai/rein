@@ -1062,6 +1062,20 @@ files under a name no name-based guard matches (the role-token key under `secret
 Mitigation: the operator removes it by hand (rein-rename.md §Component 4 step 2); it is the
 only install. A fresh install never creates it.
 
+E-391 addendum (security_engineer, 2026-10-29), EXPLOITED: removing the old path ALSO
+removes the gate. A project's generated `.claude/settings.json` registers every hook by
+the absolute old path (`/bin/bash -p <home>/<old>/hooks/pre-tool-use.sh`, seen in this repo's
+own settings). Once the symlink is gone, that command exits 127. Claude Code blocks only on
+exit 2, so the PreToolUse gate fails OPEN for every project that has not yet had `rein sync`.
+Neither of the two checks that would notice does: the `rein sync` hook matcher (`_is_rein_hook`)
+and the `rein doctor` form scan (`_doctor_hook_form_scan`) recognise a Rein hook only by
+`.rein/hooks/`. To them the dead entry is "the user's own", so doctor prints ✓ and sync
+keeps it next to the new one. Mitigations: run `rein sync` in every project BEFORE `rm`
+(change §Component 4's order). Have doctor and session-start check that a
+PreToolUse entry for `${REIN}/hooks/pre-tool-use.sh` is present. Have them flag any hook
+entry whose script basename is a Rein hook name at a path that does not exist. None of
+these names the old path.
+
 ## New Integration Checklist
 
 When a new external integration is added to Rein v2, create a new T-### entry in this file covering:

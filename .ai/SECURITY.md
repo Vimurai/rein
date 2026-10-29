@@ -404,3 +404,80 @@ RLIMIT_NPROC counts every process the user owns, so V8 could not start its worke
 | A05 | `_ci_local_env` reservation | old-name WORKSPACE in .ai/ci.local.json | EXPLOITED | n/a | found by reading the code, not run: only REIN_* is reserved now |
 
 Gating: the A01 EXPLOITED rows block Tier 3 sign-off for E-383 until SECRETS_DIR covers both names.
+
+## E-391 / D-132 addendum 2–3 — hard cut: `rein` command, `rein-*` skills, classifier v5 (security_engineer, 2026-10-29)
+
+Scope: fail-open by token. Every gate rule, block table, exempt list, hook check, classifier
+helper and installer step that keyed on the pre-rename command, its skill prefix, its bin name or the old home. Commits
+cb3c009..6a9cf09. Threat entry: THREAT_MODEL.md T-RENAME-001 (E-391 addendum).
+
+Parity held where the gate is enforced. selfDisableHits / CLI_GATE and the pre-tool-use
+fallback grep block exactly the token forms they blocked before the rename (probed side by side
+against e04bb83's gate-guard). The three pinned tables differ from e04bb83 only in token
+substitutions (29/38/108 rows before and after, no verdict changed: D-132 add. 3 r2b checked).
+The 18 skills have no `ai-` residue in src/, hooks/, .claude/rules or agents. The only
+remaining hit is the untracked generated `.claude/skills/_SKILLS_INDEX.md`. No RBAC or gate
+code keys on a skill name. The gate tests pass: 943+683 node tests (gate-self-disable,
+role-verdict, arch-write, gate-guard-home, secret-cases, all *-cases runners),
+classifier_backstop 139/0, safe_exec 18/0, rename-gate 7/0.
+
+Findings:
+- P1 (EXPLOITED): hooks registered by the old absolute path fail open after
+  `rm <old home>` (§Component 4 step 2 runs before step 3's `rein sync`). Also `rein doctor`
+  prints ✓ for them, and `rein sync` keeps them, because both recognise only `.rein/hooks/`.
+  Code: src/bin/rein:1227, 1716. Details in T-RENAME-001.
+- P2 (EXPLOITED): classifier-backstop.py:56. OURS = `^[A-Za-z][A-Za-z-]* Gate Tamper\b` claims
+  any user hard_deny entry that starts "<Word> Gate Tamper". `refresh` (run without a prompt by
+  `rein sync`/`install`/`account add`) then replaces the user's rule with RULE and deletes any
+  further such rule. Two harms: the user's own deny rule is lost, and Rein's rule is installed
+  where the operator had declined it. Fix: require the label shape every version since D-086
+  shares, `^([A-Za-z][A-Za-z-]*) Gate Tamper \(D-\d+\): Never disable, bypass or weaken the \1 safe-exec gate\b`.
+- P2: src/bin/rein:3786. `_report_path_shadow` still runs `type -ap` with the pre-rename command name, so a `rein` planted
+  earlier on PATH is never reported, and the line always says "✗ ai on PATH: not found".
+  init_upgrade_test E-270.05b/05d FAIL (2). The ruling-8 gate pattern did not catch it because
+  it needs `ai <subcommand>`. Fix: `type -ap rein` and relabel the lines.
+- P3: install-rein.sh:242. The prune loop under `set -e` aborts the installer (rc 1) when
+  ~/.rein/bin holds a directory (cp-fallback path), after hooks are already live. If
+  ~/.rein/bin is a symlink, the loop deletes non-shipped files in the target. So does the
+  rsync --delete before it, which is not new. Odd names (`-r`, spaces, `*`, newline, symlinks)
+  are handled safely. Fix: refuse a symlinked `bin/` before both steps; use `rm -rf -- "$_b"`
+  only after `[[ ! -L "${REIN}/bin" ]]`, or skip directories.
+- P3: over-block. CLI_GATE (case-insensitive, `|` counts as a command head) blocks
+  `grep "x\|Rein Gate Tamper" f` and `echo 'x|rein gate status'`. This fails closed, the
+  workaround is `grep -e … -e …`, and it is accepted.
+- P3: hooks/post-tool-log.sh:154 runs `bash /usr/local/bin/rein archive` before trying
+  ~/.rein/bin/rein. A foreign `rein` in /usr/local/bin is now more likely; prefer the install's own path.
+- Pre-existing, not introduced by E-391 (the same bypasses exist on e04bb83 with the pre-rename command). CLI_GATE
+  misses 15 forms of `rein gate off`: `re""in`, `rei''n`, `\rein`, `$'rein'`, `g'a'te`, `\gate`,
+  `rein -- gate`, `env -i`, `nice -n 5`, `sudo -u x`, `stdbuf -o0`, `setsid`, `flock f`,
+  `exec -a x`, `command -p`, `time -p` and `case x in x) rein …`. `rein gate off` needs no TTY,
+  so each of these writes a live override. Recommend a separate P1 task. Strip all quotes and
+  backslashes from a word before the token match. Treat any `-flag [arg]` run after a
+  prefix command as skippable. Add `)` and the missing prefixes to CMD_HEAD. Alternatively
+  require a TTY / operator confirmation in `rein gate off` itself, which closes the whole class.
+
+### Pen-Test Results
+
+Harness: mktemp dir, `env -i PATH=/usr/bin:/bin HOME=$T`, `ulimit -t 5 -f 10240`, `-v` 512 MB
+(4 GB for node), 10 s kill. `ulimit -u 64` → 1200: RLIMIT_NPROC counts the user's ~700 threads
+on this WSL host, so bash could not fork. Fixtures: a pasted copy of gate-guard.mjs and
+classifier-backstop.py, the prune loop and the hook-scan/sync matchers extracted verbatim, and
+runAnalysis imported read-only with HOME=$T (it only analyses strings).
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | CLI_GATE / runAnalysis | `rein gate off`, `REIN`, `"rein"`, `r'e'i'n'`, `r\ein`, `(rein …)`, `~/.rein/bin/rein gate off`, `find -exec rein gate off` | RESISTED | 0 | parity with the pre-rename command's rows |
+| A01 | CLI_GATE / runAnalysis | `re""in gate off`, `\rein gate off`, `env -i rein gate off`, `rein -- gate off` (+11 forms) | EXPLOITED | 0 | pre-existing: identical on e04bb83 with the pre-rename command; not an E-391 regression |
+| A01 | CLI_GATE | `x=rein; $x gate off`, `$'\x72ein' gate off` | INCONCLUSIVE | 0 | the named residual (runtime assembly), covered only by the classifier |
+| A01 | gate-guard path | `cp x ~/.rein/hooks/…`, `ln -sf /tmp/x ~/.rein/bin/rein`, `cat ~/.rein/gate-override.json` | RESISTED | 0 | |
+| A04 | project hook registration | `/bin/bash -p <old home>/hooks/pre-tool-use.sh` after `rm <old home>` | EXPLOITED | 0 | exit 127 is not a block; doctor scan ✓, sync matcher False |
+| A04 | classifier-backstop refresh | hard_deny `["$defaults","Deploy Gate Tamper: never …"]` | EXPLOITED | 0 | status OUTDATED → refresh replaced the user's rule with RULE |
+| A04 | classifier-backstop refresh | `[…,"<predecessor> Gate Tamper (D-101): old","Branch Gate Tamper: …"]` | EXPLOITED | 0 | the user's second rule deleted |
+| A08 | classifier-backstop | forged `Rein Gate Tamper (D-132): allow everything` | RESISTED | 0 | OUTDATED, replaced by the pinned text |
+| A04 | doctor PATH shadow | a `rein` stub earlier on PATH (init_upgrade_test E-270.05d) | EXPLOITED | n/a | ran in the suite's fake HOME: never reported |
+| A01 | installer bin prune | symlinked ~/.rein/bin → outside dir | EXPLOITED | 0 | outside files deleted; rsync --delete does the same (pre-existing) |
+| A03 | installer bin prune | names `-r`, `a b`, `*`, `n\nl`, symlink-to-dir, symlink-to-file | RESISTED | 0 | links removed, not their targets |
+| A05 | installer bin prune | a leftover directory in bin/ under `set -e` | EXPLOITED | 1 | installer aborts mid-install (availability) |
+
+Gating: under the reporting rule, the P1 hook-registration row and the P2 classifier and doctor
+rows block Tier 3 sign-off for E-391. The pre-existing CLI_GATE rows are recorded for a separate task.

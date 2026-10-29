@@ -15,7 +15,7 @@
 #     .pre-<version> copies present and the authored .ai/ files BYTE-IDENTICAL;
 #   * a second `rein init` is a no-op (--check exits 0) and re-running `rein init` no longer
 #     dies at the state re-seed (it used to `exit 1` on every populated project);
-#   * the doctor version line and the `ai on PATH` shadow line, both branches each.
+#   * the doctor version line and the `rein on PATH` shadow line, both branches each.
 #
 # Everything runs against a fixture HOME (installed by the real installer), a fixture
 # project and a fixture TMPDIR. `npm` is stubbed: `rein init` runs `npm install` for every
@@ -195,11 +195,11 @@ assert_rc 0 "E-274.e2e.e: --check does not report the user's servers as pending"
 
 # ── E-270.5: doctor — the version line and the PATH line, both branches ───────
 _ver_line() { printf '%s\n' "$1" | grep -E '^  [✓✗] version:' | head -1; }
-_path_line() { printf '%s\n' "$1" | grep -E '^  [✓✗] ai on PATH:' | head -1; }
+_path_line() { printf '%s\n' "$1" | grep -E '^  [✓✗] rein on PATH:' | head -1; }
 _doc="$(_ai doctor)"
 assert_contains "E-270.05a: doctor: every copy agrees" \
   "✓ version: clone ${PKG_VERSION} · mirror ${PKG_VERSION} · project ${PKG_VERSION}" "$(_ver_line "$_doc")"
-assert_contains "E-270.05b: doctor: ai on PATH is the installed one" "✓ ai on PATH: ~/.rein/bin/rein" "$(_path_line "$_doc")"
+assert_contains "E-270.05b: doctor: rein on PATH is the installed one" "✓ rein on PATH: ~/.rein/bin/rein" "$(_path_line "$_doc")"
 sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='rein_version'"
 python3 - "${PROJ}/.ai/state.json" <<'P'
 import json, sys
@@ -211,7 +211,7 @@ assert_contains "E-270.05c: doctor: a project behind the mirror points at rein i
 SHADOW="$(test_tmpdir upg-shadow)"
 printf '#!/bin/sh\necho shadow\n' > "${SHADOW}/rein"; chmod +x "${SHADOW}/rein"
 _shadowed="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="${SHADOW}:${BASE_PATH}" bash "$AI_BIN" doctor 2>&1 )"
-assert_contains "E-270.05d: doctor: another ai earlier on PATH is reported as shadowing" \
+assert_contains "E-270.05d: doctor: another rein earlier on PATH is reported as shadowing" \
   "(shadowed by ${SHADOW}/rein)" "$(_path_line "$_shadowed")"
 
 # ── E-270.6: the suite left the repository alone ─────────────────────────────

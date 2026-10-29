@@ -3767,7 +3767,7 @@ _report_versions() {
   _report_path_shadow
 }
 
-# `ai on PATH`: which binary a bare `rein` runs. Another `rein` earlier on PATH silently takes
+# `rein on PATH`: which binary a bare `rein` runs. Another `rein` earlier on PATH silently takes
 # over every command — the installed one then never runs, whatever its version.
 _real_path() {
   python3 -c 'import os,sys; print(os.path.realpath(sys.argv[1]))' "$1" 2>/dev/null || printf '%s\n' "$1"
@@ -3783,19 +3783,19 @@ _report_path_shadow() {
     [[ "$seen" == *"|${r}|"* ]] && continue
     seen="${seen}${r}|"
     if [[ -z "$first" ]]; then first="$r"; else others+=("$p"); fi
-  done < <(type -ap ai 2>/dev/null)
+  done < <(type -ap rein 2>/dev/null)
   # The `~` comes from a variable: bash 5.2 tilde-expands a literal `~` in a ${…/…/~}
   # replacement, which turned the short form back into $HOME on Linux (E-332).
   local tilde='~' short
   short="${want/#$HOME/$tilde}"
   if [[ -z "$first" ]]; then
-    echo "  ✗ ai on PATH: not found — add: export PATH=\"\$HOME/.rein/bin:\$PATH\""
+    echo "  ✗ rein on PATH: not found — add: export PATH=\"\$HOME/.rein/bin:\$PATH\""
   elif [[ "$first" != "$want_real" ]]; then
-    echo "  ✗ ai on PATH: ${short} (shadowed by ${first}) — remove it or put ~/.rein/bin first"
+    echo "  ✗ rein on PATH: ${short} (shadowed by ${first}) — remove it or put ~/.rein/bin first"
   elif [[ "${#others[@]}" -gt 0 ]]; then
-    echo "  ✓ ai on PATH: ${short} (also on PATH, unused: ${others[*]})"
+    echo "  ✓ rein on PATH: ${short} (also on PATH, unused: ${others[*]})"
   else
-    echo "  ✓ ai on PATH: ${short}"
+    echo "  ✓ rein on PATH: ${short}"
   fi
 }
 

@@ -880,6 +880,7 @@ _hits="$(cd "$REPO_ROOT" && grep -rnE --exclude-dir=node_modules --exclude-dir=.
   | grep -vE '^README\.md:[0-9]+:\[privacy(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/privacy\.yml(/badge\.svg)?$' \
   | grep -vE '^README\.md:[0-9]+:\[codeql(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/codeql\.yml(/badge\.svg)?$' \
   | grep -vE '^src/bin/rein:[0-9]+:  if \[\[ -n "\$\{GITHUB_ACTIONS:-\}" \]\]; then echo "hosted:github"$' \
+  | grep -vE '^tests/unit/rename-gate\.test\.mjs:' \
   || true)"   # E-335 (D-103): the rendered hosted-check templates ARE a hosted run.
 # E-384 (D-135 r5): so is the renderer that builds their matrix, and the two suites that pin it.
 # E-386 (D-135 r1): _ci_host_class reads the GitHub runner's marker to widen its lanes — the
@@ -888,12 +889,14 @@ _hits="$(cd "$REPO_ROOT" && grep -rnE --exclude-dir=node_modules --exclude-dir=.
 # allowed to name a workflow — a status display, not an instruction to read a hosted run.
 # E-384 (D-133 §Component 3): likewise the privacy and CodeQL badges and their links, each
 # naming only its own workflow.
+# E-391 (D-132 addendum 2 r8): the rename gate names the old CI job id among the spellings it
+# searches for — a pattern, not an instruction.
 assert_status 0 "E-268.02a: no hosted-CI instruction remains under src/tests/hooks/.claude/docs" \
   bash -c "[[ -z \"\$1\" ]]" _ "$_hits"
 [[ -n "$_hits" ]] && printf '  ⓘ remaining hits:\n%s\n' "$_hits"
 # The permitted mentions: CHANGELOG history, DECISIONS, the archive.
 assert_status 0 "E-268.02b: the CHANGELOG records the removal for the release notes" \
-  grep -q 'GitHub Actions workflow removed; CI runs locally via `rein ci`' "${REPO_ROOT}/CHANGELOG.md"
+  grep -qE 'GitHub Actions workflow removed; CI runs locally via `[a-z]+ ci`' "${REPO_ROOT}/CHANGELOG.md"  # released under the predecessor's command name
 # E-382 (D-131): E-263 released it in [4.0.0], now under "Private predecessor"; no [Unreleased].
 assert_status 0 "E-268.02c: under the 4.0.0 BREAKING heading, where E-263 released it" \
   bash -c "sed -n '/^## \[4\.0\.0\]/,/^## \[3/p' '${REPO_ROOT}/CHANGELOG.md' | grep -q 'Changed — BREAKING'"

@@ -61,6 +61,8 @@ export function patterns(subs = subcommands()) {
     ["command", new RegExp(NOT_BEFORE + String.raw`ai (?:${subs.join("|")})(?![A-Za-z0-9_-])`)],
     ["skill", new RegExp(NOT_BEFORE + String.raw`ai-(?:${skillNames})(?![A-Za-z0-9_-])`)],
     ["literal", new RegExp(String.raw`bin/ai(?![A-Za-z0-9_-])|ai-exec|ai-account|ai-ci-run|ai ci run \(|` + "`ai`")],
+    // D-132 addendum 4 r4: the command looked up by name — `type -ap ai` hid a doctor check.
+    ["lookup", /\b(?:type|which|hash)(?:\s+-[A-Za-z]+)*\s+ai(?![A-Za-z0-9_.\/-])|\bcommand\s+-[vV]\s+ai(?![A-Za-z0-9_.\/-])/],
   ];
 }
 
@@ -117,11 +119,11 @@ test("the patterns catch the old forms and never the new ones or the .ai/ direct
   const pats = patterns(["ci", "sync", "pane", "doctor"]);
   const hit = (s) => pats.some(([, re]) => re.test(s));
   for (const s of ["run: ai sync", "`ai ci run --dirty`", "skill: ai-preflight", "ai-review-proposed-skills",
-    "src/bin/ai", "src/bin/ai-exec", "ai-account.sh", "job ai-ci-run", "ai ci run (ubuntu-latest", "the `ai` command",
+    "src/bin/ai", "src/bin/ai-exec", "ai-account.sh", "job ai-ci-run", "ai ci run (ubuntu-latest", "the `ai` command", "type -ap ai 2>/dev/null", "command -v ai", "which ai", "hash -r ai",
     "ai_os_locate", "~/.ai-os/hooks", "AI_OS_HOME", "AIOS_WORKSPACE", "\\tai sync\\trun", "\\nai ci run"]) assert.ok(hit(s), `missed: ${s}`);
   for (const s of ["rein sync", "rein ci run", "skill: rein-preflight", "src/bin/rein", "rein-ci-run", ".ai/TASKS.md",
     "cat .ai/ci.local.json", "~/.ai/sync", "openai sync", "the AI review", "arch-review", "chaos", "repo/ai pane",
-    "rein-review-proposed-skills", "\\trein init", "maintain sync"]) assert.ok(!hit(s), `false positive: ${s}`);
+    "rein-review-proposed-skills", "\\trein init", "maintain sync", "type -ap rein", "which aider", "command -v air"]) assert.ok(!hit(s), `false positive: ${s}`);
 });
 
 test("a path segment named ai-/ai_ fails, except the .ai/ bookkeeping rule", () => {

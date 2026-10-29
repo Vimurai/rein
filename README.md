@@ -47,7 +47,7 @@ Deeper guides live in [`docs/`](docs/README.md).
 
 ## Quickstart (60 seconds)
 
-You need macOS or Linux, **Node.js 22.5+**, Python 3.10+, `sqlite3`, `git`, `tmux` and
+You need macOS, Linux or Windows (through WSL2), **Node.js 22.5+**, Python 3.10+, `sqlite3`, `git`, `tmux` and
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`) logged in.
 
 ```bash
@@ -149,7 +149,7 @@ fresh review stamp is rejected. See [docs/how-it-works.md](docs/how-it-works.md)
 
 | Requirement | Why |
 | :--- | :--- |
-| macOS or Linux (bash/zsh) | The installer and hooks are bash. On Windows, use WSL2. |
+| macOS, Linux, or Windows through WSL2 (bash/zsh) | The installer and hooks are bash. Windows is supported through WSL2 (run everything inside the WSL2 distribution, not in PowerShell); a Windows (WSL2) leg in the CI matrix is planned. |
 | **Node.js 22.5+** | The MCP servers use the built-in `node:sqlite`. |
 | Python 3.10+ | Generates `.mcp.json` and runs state fallbacks. |
 | `sqlite3`, `git` | Hooks read `.ai/state.sqlite`; everything is git-aware. |

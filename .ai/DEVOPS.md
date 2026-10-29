@@ -640,3 +640,44 @@ branch protection); the pre-commit step is inert without `.ai/publish.json`.
 real git boundary, identity refusal, contributor mode, fail-closed list, placement outside the
 opt-out); `ai_ci_test` E-268.01a admits `privacy.yml` only where `publish.json` exists; a real
 `ai ci run` inside a one-commit copy of the bootstrap snapshot.
+
+## DEVOPS-013 — Hosted CI at the runner's width: lanes by host, census baseline, shards (E-386, D-135 r1–r3, r6) — 2026-10-29
+
+**What changes and why.** A hosted `ai ci run` on Rein took 15.5 min using 2 of 4 cores, then a
+serial tail of 13 suites (5 of them only for "no measured installer footprint": a fresh runner
+has no census log). Changed (`.ai/blueprints/ci-throughput.md` §Components 1–3, 5):
+1. `ai ci run` lane default: every core on a hosted runner (`GITHUB_ACTIONS`, `TF_BUILD`,
+   `GITLAB_CI`, `BITBUCKET_BUILD_NUMBER`, else `CI=true`), `min(4, cores/2)` on a laptop; both
+   still clamped by `tests/run.sh`'s memory cap; an explicit `--lanes` unchanged.
+2. `tests/census-baseline.tsv` (committed): `tests/run.sh` reads wall hints and installer
+   footprints from the newest local CI log, else the baseline, else none, and prints which
+   (`Lane: hints: …`). `ai ci run` writes it into the project tree after a full, unsharded,
+   committed PASS when the committed one is missing or older than 30 full runs (not after every
+   run — a constantly rewritten tracked file would keep the tree dirty and each commit of it
+   would need a run of its own). The pre-push hook and `ai doctor` print
+   `[CENSUS_BASELINE_STALE] <n>`; never a block.
+3. `tests/run.sh --shard i/N` / `ai ci run --shard i/N`: a deterministic partition
+   (`tests/tools/shard-plan.mjs`); the unit layer and the budget on shard 1 (its full_seconds
+   and peaks recorded as `-`); `ci_runs.shard` (nullable) — a shard row never certifies, is
+   reported `SHARD i/N`, and is never written as a team record `.ai/ci/<sha>.json`.
+4. `[ci] resources` gains `exclusive_seconds=` (the serial tail) and `host=` (`local` /
+   `hosted:<provider>`); `ai ci status` prints the exclusive share. `runner=` keeps its meaning
+   (the summary format), since recorded rows and three suites parse it.
+
+**Security implications.** No secrets, no network, no permissions. The hosted markers are read
+from the invoking environment before `env -i`; they are in the E-343 reserved set, so
+`.ai/ci.local.json` cannot claim "hosted". The baseline is scheduling data: a hostile row can
+slow a run, never change a verdict — every suite still runs in exactly one shard (asserted).
+The writer drops rows naming an absolute path and reduces `foreign:<path>` to `foreign`, so the
+file carries no host paths; the privacy scan covers it like any tracked file.
+
+**Rollback.** Each lever alone: the lane default is one expression in `_ci_run`; delete
+`tests/census-baseline.tsv` (and the fallback branch in `_wall_hints_load`) for `hints: none`;
+`--shard` is unused unless passed; the `shard` / `exclusive_seconds` columns are nullable and
+ignored when unused.
+
+**Proof.** `tests/unit/shard-plan.test.mjs` (synthetic census: every suite in exactly one shard
+for N = 1..20, deterministic, unit layer pinned); `census.test.mjs` (baseline writer);
+`ci-runs.test.mjs` (a shard never certifies — self, ancestor, team record; `census-stale`);
+`harness_isolation_test` E-386.B/S/X (hint sources, shards 1..3 = one full run's totals,
+refusals); `ai_ci_test` E-386.H (host lanes, `host=`); a real `ai ci run` on the branch tip.

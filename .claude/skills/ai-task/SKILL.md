@@ -96,6 +96,8 @@ previous run left behind — exactly what a clean `ai ci run` exists to exclude.
   of a tested commit is accepted by the DONE gate without a new run.
 - **`DIRTY <sha7> …`** — only a `--dirty` run exists. It does not certify the commit: run
   `ai ci run` on the committed HEAD.
+- **`SHARD i/N <sha7> …`** — only a `--shard` run exists (E-386). One shard tests part of the
+  suite and never certifies the commit: run `ai ci run` without `--shard`.
 - **`(ai ci unavailable …)`** — CI status is unknown. Unknown is not green.
 
 `update_task_status(DONE)` enforces the same rule: it refuses with `[CI_GATE]` when HEAD

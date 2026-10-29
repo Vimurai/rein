@@ -405,7 +405,7 @@ cp -R "${REPO_ROOT}/tests/lib" "${_LN}/tests/lib"
 cp "$RUNNER" "${_LN}/tests/run.sh"
 # E-345: run.sh refuses to start without its fixture-home census and exemptions.
 mkdir -p "${_LN}/tests/tools" "${_LN}/tests/fixtures"
-cp "${REPO_ROOT}/tests/tools/fixture-home-census.mjs" "${_LN}/tests/tools/"
+cp "${REPO_ROOT}/tests/tools/fixture-home-census.mjs" "${REPO_ROOT}/tests/tools/shard-plan.mjs" "${_LN}/tests/tools/"
 cp "${REPO_ROOT}/tests/fixtures/fixture-home-exemptions.json" "${_LN}/tests/fixtures/"
 printf '#!/usr/bin/env bash\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/a_ok_test.sh"
 cat > "${_LN}/tests/suites/b_leak_test.sh" <<'LNEOF'
@@ -474,6 +474,50 @@ sed -i.bak '2a\
 _ln_cls="$(env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS="${_LN}/hints.log" AIOS_TEST_FREE_MB=4096 \
   AIOS_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
 assert_contains "E-312.H6: # AIOS_EXCLUSIVE: installer forces it back" "Lane: d_own_test.sh exclusive — # AIOS_EXCLUSIVE: installer" "$_ln_cls"
+
+# ── E-386 (D-135 r2, r3, r6): hints from the committed baseline; shards; the serial tail ──
+# Extends the lane fixture above: five shared suites, the node unit layer, one exclusive and
+# one installer-subject suite, each printing its own name.
+rm -f "${_LN}/tests/suites/"*_test.sh
+for _s in p1 p2 p3 p4 p5 node_unit; do
+  printf '#!/usr/bin/env bash\necho "RAN %s_test.sh"\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' "$_s" > "${_LN}/tests/suites/${_s}_test.sh"
+done
+printf '#!/usr/bin/env bash\n# AIOS_EXCLUSIVE: perf\necho "RAN q_excl_test.sh"\necho "SUITE_RESULT PASS=2 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/q_excl_test.sh"
+printf '#!/usr/bin/env bash\n# AIOS_INSTALLER_SUBJECT: fixture\necho "RAN r_inst_test.sh"\necho "SUITE_RESULT PASS=3 FAIL=0 SKIP=0"\n' > "${_LN}/tests/suites/r_inst_test.sh"
+_ln_b() { env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS= AIOS_TEST_FREE_MB=4096 "$@" bash "${_LN}/tests/run.sh" 2>&1; }
+_ln_out="$(_ln_b AIOS_TEST_LANES=2)"
+assert_contains "E-386.B1: no local log and no baseline → hints: none" "Lane: hints: none" "$_ln_out"
+assert_contains "E-386.B1b: …so the installer-subject suite stays out of the lanes" \
+  "Lane: r_inst_test.sh exclusive — no measured installer footprint" "$_ln_out"
+assert_match "E-386.X1: the serial tail is measured beside the totals" '\[run\] exclusive_seconds=[0-9]+ exclusive_suites=2' "$_ln_out"
+_ln_out="$(env -u CI -u AI_OS_TEST_NO_SWEEP HOME="${_LN}/home" AIOS_TEST_WALL_HINTS="${_LN}/hints.log" AIOS_TEST_FREE_MB=4096 AIOS_TEST_LANES=2 bash "${_LN}/tests/run.sh" 2>&1)"
+assert_contains "E-386.B2: a local log wins and is named" "Lane: hints: log ${_LN}/hints.log" "$_ln_out"
+{ printf '# census-baseline fixture\nCENSUS_RUN\t2026-10-29T00:00:00Z\tabc\t*_test.sh\n'
+  for _s in p1:9000 p2:7000 p3:5000 p4:3000 p5:1000 node_unit:20000 q_excl:4000 r_inst:2000; do
+    printf 'CENSUS_SUITE\t%s_test.sh\t%s\t1\t0\t0\t0\n' "${_s%%:*}" "${_s##*:}"; done
+  printf 'CENSUS_FP\tr_inst_test.sh\t1\tinstaller\tinstall-ai-os.sh\ttmp\n'; } > "${_LN}/tests/census-baseline.tsv"
+_ln_full="$(_ln_b AIOS_TEST_LANES=2)"
+assert_contains "E-386.B3: no local log → the committed baseline, named" "Lane: hints: baseline" "$_ln_full"
+assert_contains "E-386.B4: …whose installer footprint lets the installer-subject suite share a lane" "Lane: r_inst_test.sh shared" "$_ln_full"
+_ln_tot="$(printf '%s\n' "$_ln_full" | sed -nE 's/^ *Total: ([0-9]+) passed.*/\1/p')"
+_ln_ran="" _ln_sum=0
+for _i in 1 2 3; do
+  _o="$(_ln_b AIOS_TEST_SHARD="${_i}/3")"
+  assert_match "E-386.S${_i}: shard ${_i}/3 prints its share" "Shard ${_i}/3: [0-9]+ shared, [0-9]+ exclusive \\(est\\. [0-9]+ s\\)" "$_o"
+  [[ "$_i" == 1 ]] && assert_contains "E-386.S1b: the node unit layer is in shard 1" "RAN node_unit_test.sh" "$_o"
+  _ln_ran+="$(printf '%s\n' "$_o" | sed -nE 's/^RAN (.*)$/\1/p')"$'\n'
+  _ln_sum=$(( _ln_sum + $(printf '%s\n' "$_o" | sed -nE 's/^ *Total: ([0-9]+) passed.*/\1/p') ))
+done
+_ln_ran="$(printf '%s' "$_ln_ran" | grep . | sort | tr '\n' ' ' | sed 's/ $//')"
+assert_status 0 "E-386.S4: shards 1..3 together run every suite exactly once (${_ln_ran})" \
+  test "$_ln_ran" == "node_unit_test.sh p1_test.sh p2_test.sh p3_test.sh p4_test.sh p5_test.sh q_excl_test.sh r_inst_test.sh"
+assert_status 0 "E-386.S5: …with one full run's totals (${_ln_sum} vs ${_ln_tot})" test "${_ln_tot:-x}" == "$_ln_sum"
+_o="$(_ln_b AIOS_TEST_SHARD=4/3)"; _rc=$?
+assert_status 0 "E-386.S6: --shard 4/3 is refused, exit 2 (rc=${_rc})" test "$_rc" -eq 2
+_o="$(env -u CI HOME="${_LN}/home" bash "${_LN}/tests/run.sh" --tier fast --shard 1/2 2>&1)"; _rc=$?
+assert_status 0 "E-386.S7: --shard with --tier fast is refused, exit 2 (rc=${_rc})" test "$_rc" -eq 2
+assert_contains "E-386.S7b: …saying the fast job is one leg" "the fast job is one leg" "$_o"
+rm -f "${_LN}/tests/census-baseline.tsv"
 
 # ── E-313 (D-094): the runner samples the CONCURRENT memory of its suites ─────────────────
 # Extends the fixture above: one suite holds two IDENTICAL node processes (~150 MB buffer

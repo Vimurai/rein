@@ -3704,12 +3704,19 @@ _report_local_ci() {
     PASS) echo "  ✓ local CI: HEAD ${2} PASS ${3} ${4}" ;;
     FAIL|ERROR|SKIPPED) echo "  ✗ local CI: HEAD ${2} ${1} ${3} ${4} — run: ai ci log --failed" ;;
     DIRTY) echo "  ✗ local CI: HEAD ${2} has only a dirty run — run: ai ci run" ;;
+    SHARD) echo "  ✗ local CI: HEAD ${3} has only shard run ${2} (E-386: a shard never certifies) — run: ai ci run" ;;
     *) echo "  ✗ local CI: no run for HEAD ${sha:0:7} — run: ai ci run" ;;
   esac
   # E-303: the test budget the next run is held to.
   line="$(node "${_CI_NODE_FLAGS[@]}" "$helper" budget --ai-dir ".ai" 2>/dev/null || true)"
   # E-366: the budget, then any [BUDGET_DRIFT] lines — one doctor line each.
   [[ -n "$line" ]] && printf '%s\n' "$line" | sed 's/^/  - /'
+  # E-386 (D-135 r2): the census baseline a fresh hosted runner packs its lanes by.
+  line="$(node "${_CI_NODE_FLAGS[@]}" "$helper" census-stale --ai-dir ".ai" --sha "$sha" 2>/dev/null || true)"
+  case "$line" in
+    STALE*) echo "  ✗ [CENSUS_BASELINE_STALE] ${line#STALE } full runs since tests/census-baseline.tsv — run: ai ci run, then commit it" ;;
+    MISSING) echo "  - census baseline: none committed — the next green ai ci run writes tests/census-baseline.tsv" ;;
+  esac
   return 0
 }
 
@@ -5689,7 +5696,7 @@ _locate_resolve_launch() {
 
 _ci_usage() {
   cat <<'CIUSAGE'
-Usage: ai ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--lanes N] [--keep]
+Usage: ai ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--lanes N] [--shard i/N] [--keep]
        ai ci status [<sha>|--ref <sha>] [--short]
        ai ci list [-n <N>]
        ai ci log [<sha>] [--failed]
@@ -5713,8 +5720,12 @@ Usage: ai ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--lane
                  marked dirty; a dirty run never certifies a commit).
   --suite-only   Run the bash suite only (skip the node:test unit layer).
   --unit-only    Run the node:test unit layer only (skip the bash suite).
-  --lanes N      Run shared suites in N parallel lanes (default min(4, cores/2), clamped
-                 to free memory / 1.5 GB; an explicit N above that is refused).
+  --lanes N      Run shared suites in N parallel lanes (default min(4, cores/2) here and
+                 every core on a hosted runner — E-386; both clamped to free memory / 1.5 GB;
+                 an explicit N above that is refused).
+  --shard i/N    Run shard i of N of the suite (tests/run.sh --shard; E-386). The unit layer
+                 and the budget run on shard 1 only; a shard run never certifies a commit
+                 ('ai ci status' reports SHARD i/N) and never writes the census baseline.
   --keep         Keep the worktree and throwaway HOME for debugging.
   budget         The test budget (E-303): suites, test_lines and fast_tier_seconds only move
                  down — a full run over the best recorded value (slack: suites +0, test_lines
@@ -5729,7 +5740,9 @@ The env step names what was added (env ok … +NAME). Reserved, refused as ERROR
 npm_config_*, PLAYWRIGHT_* and the pane launch variables. A hosted run never sees the file.
 
 run exit: 0 PASS, 1 FAIL, 2 ERROR. Logs: ~/.ai-os/ci/logs/ (newest 14 runs, 14 days).
-status exit: 0 PASS, 1 FAIL/ERROR/SKIPPED, 2 no certifying run (none, or dirty only).
+status exit: 0 PASS, 1 FAIL/ERROR/SKIPPED, 2 no certifying run (none, or dirty/shard only).
+After a full PASS it writes tests/census-baseline.tsv (E-386) when the committed one is
+missing or older than 30 full runs — commit it: a fresh hosted runner packs its lanes by it.
 Each run is recorded in the project's .ai/state.sqlite (ci_runs, E-266). In a team project
 (.ai/team.json) it also writes the tracked .ai/ci/<sha>.json (counts only, E-328): commit it,
 and a teammate's PASS record certifies that sha on your clone too. 'ai ci status' names the
@@ -5877,6 +5890,40 @@ _ci_lock_acquire() {
 
 # _ci_wall_hints → the newest log of THIS project carrying CENSUS_SUITE lines (the runner's
 # throwaway HOME cannot see ~/.ai-os/ci/logs), for longest-first lane placement (E-309).
+# _ci_host_class → "hosted:<provider>" on a hosted runner (its own environment markers; CI=true
+# alone → hosted:ci), else "local". E-386 (D-135 r1): every core is a lane on a hosted runner.
+# The markers are in the E-343 reserved set, so .ai/ci.local.json cannot claim "hosted".
+_ci_host_class() {
+  if [[ -n "${GITHUB_ACTIONS:-}" ]]; then echo "hosted:github"
+  elif [[ -n "${TF_BUILD:-}" ]]; then echo "hosted:azure"
+  elif [[ -n "${GITLAB_CI:-}" ]]; then echo "hosted:gitlab"
+  elif [[ -n "${BITBUCKET_BUILD_NUMBER:-}" ]]; then echo "hosted:bitbucket"
+  elif [[ "${CI:-}" == "true" ]]; then echo "hosted:ci"
+  else echo "local"
+  fi
+}
+
+# _ci_baseline <sha> — E-386: write tests/census-baseline.tsv into the project tree from this
+# run's log when the baseline committed at <sha> is missing or stale (ci-record.mjs
+# census-stale). Writing only then keeps the file still between refreshes: a rewrite after
+# every run would leave the tree dirty and each commit of it would need a run of its own.
+_ci_baseline() {
+  local sha="$1" helper age out
+  helper="$(_ai_os_helper shared/ci-record.mjs || true)"
+  [[ -n "$helper" && -d "${CI_ROOT}/.ai" && -d "${CI_ROOT}/tests" ]] || return 0
+  age="$(node "${_CI_NODE_FLAGS[@]}" "$helper" census-stale --ai-dir "${CI_ROOT}/.ai" --sha "$sha" 2>/dev/null || true)"
+  case "$age" in
+    MISSING|STALE*) ;;
+    *) _ci_step baseline skip "committed baseline is fresh (${age:-unknown})"; return 0 ;;
+  esac
+  if out="$(node --no-warnings "${CI_WT}/tests/tools/census.mjs" --baseline-from "$CI_LOG" \
+        --baseline-out "${CI_ROOT}/tests/census-baseline.tsv" 2>&1)"; then
+    _ci_step baseline ok "tests/census-baseline.tsv written (${age}) — commit it"
+  else
+    _ci_step baseline skip "not written: ${out##*: }"
+  fi
+}
+
 _ci_wall_hints() {
   local f
   # The log directory is machine-wide: a log from another project's run (its own suites,
@@ -5941,11 +5988,15 @@ _ci_local_env() {
 }
 
 _ci_run() {
-  local ref="" dirty=0 do_suite=1 do_unit=1 keep=0 lanes="" lanes_auto=0
+  local ref="" dirty=0 do_suite=1 do_unit=1 keep=0 lanes="" lanes_auto=0 shard=""
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --lanes) [[ "${2:-}" =~ ^[1-9][0-9]*$ ]] || { echo "ai ci run: --lanes needs a positive integer" >&2; return 2; }
                lanes="$2"; shift 2 ;;
+      --shard) if [[ ! "${2:-}" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
+                 echo "ai ci run: --shard needs i/N with 1 ≤ i ≤ N" >&2; return 2
+               fi
+               shard="$2"; shift 2 ;;
       --ref) [[ $# -ge 2 && -n "$2" ]] || { echo "ai ci run: --ref needs a value" >&2; return 2; }
              ref="$2"; shift 2 ;;
       --ref=*) ref="${1#--ref=}"; shift ;;
@@ -5962,9 +6013,16 @@ _ci_run() {
   fi
   # E-309 (D-091): default lanes = min(4, cores/2), clamped (not refused) by tests/run.sh's
   # memory cap; an explicit --lanes is passed as asked and refused above the cap.
+  # E-386 (D-135 r1): a hosted runner is a machine of its own — every core is a lane there.
+  local ci_host; ci_host="$(_ci_host_class)"
   if [[ -z "$lanes" ]]; then
     local _cores; _cores="$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 2)"
-    lanes=$(( _cores / 2 )); (( lanes > 4 )) && lanes=4; (( lanes < 1 )) && lanes=1
+    if [[ "$ci_host" == hosted:* ]]; then
+      lanes="$_cores"
+    else
+      lanes=$(( _cores / 2 )); (( lanes > 4 )) && lanes=4
+    fi
+    (( lanes < 1 )) && lanes=1
     lanes_auto=1
   fi
   # A dirty run tests HEAD plus the working tree; testing another ref "dirty" has no meaning.
@@ -6024,12 +6082,13 @@ _ci_run() {
   {
     echo "[ci] ai ci run — AI-OS ${VERSION}"
     echo "[ci] sha=${sha} ref=${ref} dirty=${dirty} started_at=${started_iso}"
+    [[ -n "$shard" ]] && echo "[ci] shard ${shard}"
     echo "[ci] repo=${root}"
     echo "[ci] branch=$(git -C "$root" symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
   } > "$CI_LOG"
   CI_ROOT="$root"; CI_LOGDIR="${ci_home}/logs"
 
-  echo "ai ci run: ${sha:0:7} (${ref}$([[ $dirty -eq 1 ]] && echo ', dirty'))"
+  echo "ai ci run: ${sha:0:7} (${ref}$([[ $dirty -eq 1 ]] && echo ', dirty')${shard:+, shard ${shard}})"
   local status="PASS" rc
 
   # ── E-343: the per-machine env allow-list is read (and refused) before anything is checked out ──
@@ -6140,6 +6199,7 @@ _ci_run() {
     # E-312 (D-093): no operator opt-out of the memory cap — AIOS_TEST_FREE_MB is the lane
     # fixture's stand-in inside tests/run.sh only, and env -i keeps it from reaching the run.
     local _ci_lane_env=(AIOS_TEST_LANES="$lanes" AIOS_TEST_LANES_AUTO="$lanes_auto" AIOS_TEST_WALL_HINTS="$(_ci_wall_hints)")
+    [[ -n "$shard" ]] && _ci_lane_env+=(AIOS_TEST_SHARD="$shard")
     # E-310 (D-091): the suite step's peak resident memory, by the OS's own accounting —
     # /usr/bin/time -l (macOS, bytes) or GNU -v (Linux, kB) into a file of its own, so the
     # suite's stderr stays the suite's. Neither → recorded as skipped, with the reason.
@@ -6185,9 +6245,13 @@ _ci_run() {
     s_pass="${s_pass:-0}"; s_fail="${s_fail:-0}"; s_skip="${s_skip:-0}"; leaked="${leaked:-0}"
     # What the step spent, for the record: the lane count the runner actually used (after
     # the memory clamp), peak RSS, wall seconds, and whose summary the counts came from.
-    printf '[ci] resources lanes=%s peak_rss_mb=%s suite_seconds=%s runner=%s%s\n' \
+    # E-386: exclusive_seconds is the serial tail (the run's own, last, [run] line; "-" at one
+    # lane, where nothing is classed) and host names where it ran (local / hosted:<provider>).
+    printf '[ci] resources lanes=%s peak_rss_mb=%s suite_seconds=%s exclusive_seconds=%s host=%s runner=%s%s\n' \
       "$(sed -nE 's/^   Lanes: ([0-9]+)$/\1/p' "$CI_LOG" | tail -1 | grep . || echo 1)" \
-      "$peak_rss" "$suite_seconds" "${runner:-none}" "${rss_skip:+ rss_skip=${rss_skip}}" >> "$CI_LOG"
+      "$peak_rss" "$suite_seconds" \
+      "$(sed -nE 's/^\[run\] exclusive_seconds=([0-9]+).*/\1/p' "$CI_LOG" | tail -1 | grep . || echo -)" \
+      "$ci_host" "${runner:-none}" "${rss_skip:+ rss_skip=${rss_skip}}" >> "$CI_LOG"
     if [[ "$rc" -eq 0 ]]; then suite_status="PASS"; else suite_status="FAIL"; status="FAIL"; fi
     _ci_step suite "$suite_status" "${s_pass} passed, ${s_fail} failed, ${s_skip} skipped, leaked ${leaked}"
   elif [[ "$do_suite" -eq 1 ]]; then
@@ -6198,7 +6262,10 @@ _ci_run() {
 
   # ── unit ──
   local unit_status="SKIPPED"
-  if [[ "$do_unit" -eq 1 && -f "${CI_WT}/tests/suites/node_unit_test.sh" ]]; then
+  # E-386: the unit layer belongs to shard 1 (tests/run.sh pins node_unit_test.sh there too).
+  if [[ -n "$shard" && "${shard%%/*}" != "1" ]]; then
+    _ci_step unit skip "shard ${shard} — the unit layer runs on shard 1"
+  elif [[ "$do_unit" -eq 1 && -f "${CI_WT}/tests/suites/node_unit_test.sh" ]]; then
     if _ci_exec unit /usr/bin/env UNIT_COVERAGE=1 /bin/bash tests/suites/node_unit_test.sh; then
       unit_status="PASS"
     else
@@ -6217,7 +6284,10 @@ _ci_run() {
   # full_seconds (the suite step); then ci-record.mjs compares them with the best recorded
   # since the latest ruling. A regression FAILS the run, with recorded/measured/slack on one
   # line. No flag or env var lifts it: `ai ci budget set --ruling D-###` is the only way up.
+  # E-386: on a shard the budget runs once, on shard 1; its full_seconds and peaks describe a
+  # part of the run, so they are recorded as "-" (absent) and never become a best or a drift.
   if [[ "$do_suite" -eq 1 && "$do_unit" -eq 1 && -f "${CI_WT}/tests/tools/census.mjs" ]] \
+     && [[ -z "$shard" || "${shard%%/*}" == "1" ]] \
      && grep -q -- '--tier' "${CI_WT}/tests/run.sh" 2>/dev/null; then
     local _inv _fast_s0 _fast_rc=0 fast_s="-" budget_helper
     _inv="$(CENSUS_MJS="${CI_WT}/tests/tools/census.mjs" CENSUS_REPO="$CI_WT" node --no-warnings --input-type=module -e '
@@ -6229,8 +6299,9 @@ _ci_run() {
     ( cd "$CI_WT" && env -i "${CI_ENV[@]}" /bin/bash tests/run.sh --tier fast ) >> "$CI_LOG" 2>&1 || _fast_rc=$?
     [[ "$_fast_rc" -eq 0 ]] && fast_s=$(( SECONDS - _fast_s0 ))
     printf '[ci] budget suites=%s test_lines=%s fast_tier_seconds=%s full_seconds=%s peak_rss_mb=%s peak_sum_rss_mb=%s\n' \
-      "$(cut -d' ' -f1 <<< "${_inv:--}")" "$(cut -d' ' -f2 <<< "${_inv:-- -}")" "$fast_s" "${suite_seconds:--}" \
-      "${peak_rss:--}" "$(sed -nE 's/^\[run\] peak_sum_rss_mb=([0-9]+).*/\1/p' "$CI_LOG" | tail -1 | grep . || echo -)" >> "$CI_LOG"
+      "$(cut -d' ' -f1 <<< "${_inv:--}")" "$(cut -d' ' -f2 <<< "${_inv:-- -}")" "$fast_s" \
+      "$([[ -n "$shard" ]] && echo - || echo "${suite_seconds:--}")" "$([[ -n "$shard" ]] && echo - || echo "${peak_rss:--}")" \
+      "$([[ -n "$shard" ]] && echo - || { sed -nE 's/^\[run\] peak_sum_rss_mb=([0-9]+).*/\1/p' "$CI_LOG" | tail -1 | grep . || echo -; })" >> "$CI_LOG"
     budget_helper="$(_ai_os_helper shared/ci-record.mjs || true)"
     local _bout _brc=0
     if [[ "$_fast_rc" -ne 0 ]]; then
@@ -6264,6 +6335,14 @@ _ci_run() {
   else
     secrets_status="FAIL"; status="FAIL"
     _ci_step secrets FAIL ".gitignore must cover ${_sec}"
+  fi
+
+  # ── baseline ── E-386 (D-135 r2): a full, unsharded, committed PASS refreshes the census
+  # baseline in the project tree when the committed one is missing or stale, so a fresh hosted
+  # runner packs its lanes by measured time. Never from a shard, a dirty run or a FAIL; a
+  # project without tests/tools/census.mjs gets no baseline and no line.
+  if [[ "$status" == "PASS" && -z "$shard" && "$dirty" -eq 0 && "$do_suite" -eq 1 && -f "${CI_WT}/tests/tools/census.mjs" ]]; then
+    _ci_baseline "$sha"
   fi
 
   _ci_step load info "end: $(_ci_load)"

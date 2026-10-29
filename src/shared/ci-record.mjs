@@ -19,9 +19,15 @@
 //   node ci-record.mjs budget-check --ai-dir <d> --log <path>             exit 1 on a regression
 //   node ci-record.mjs budget-set   --ai-dir <d> --ruling D-### f=n …     the only way up
 //
+// E-386 (D-135 r2): how old the census baseline committed at <sha> is, in full runs.
+//   node ci-record.mjs census-stale --ai-dir <d> --sha <sha>
+//     → `MISSING` / `FRESH <n>` / `STALE <n>` (n = full PASS runs recorded since its CENSUS_RUN);
+//       nothing at all when the commit has no tests/tools/census.mjs (no census, no baseline).
+//
 // Only `record` (the runner) and `skip` (the pre-push bypass) write.
 
 import { realpathSync, existsSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { resolve } from "node:path";
 import { getDbSeeded } from "../mcp/shared/state-db.js";
@@ -73,6 +79,32 @@ function _recordRow(rec) {
   };
 }
 
+// E-386 (D-135 r6): the serial exclusive tail, and its share of the suite step's seconds.
+function _exclusive(r) {
+  const pct = r.suite_seconds ? ` (${Math.round((r.exclusive_seconds / r.suite_seconds) * 100)} % of suite seconds)` : "";
+  return `${r.exclusive_seconds} s${pct}`;
+}
+
+// E-386: past this many full runs since its CENSUS_RUN, the committed baseline is stale.
+export const CENSUS_BASELINE_STALE_RUNS = 30;
+
+/** The committed baseline's age at `sha`: { state: "MISSING"|"FRESH"|"STALE", runs } or null (no census). */
+export function censusBaselineAge(db, repo, sha) {
+  const show = (path) => {
+    try { return execFileSync("git", ["-C", repo, "show", `${sha}:${path}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 4 << 20 }); }
+    catch { return null; }
+  };
+  try { execFileSync("git", ["-C", repo, "cat-file", "-e", `${sha}:tests/tools/census.mjs`], { stdio: "ignore" }); }
+  catch { return null; }
+  const text = show("tests/census-baseline.tsv");
+  const iso = text && (text.split("\n").find((l) => l.startsWith("CENSUS_RUN\t")) || "").split("\t")[1];
+  if (!iso) return { state: "MISSING", runs: null };
+  const runs = db.prepare(
+    "SELECT COUNT(*) AS n FROM ci_runs WHERE status = 'PASS' AND dirty = 0 AND shard IS NULL AND started_at > ?",
+  ).get(iso).n;
+  return { state: runs > CENSUS_BASELINE_STALE_RUNS ? "STALE" : "FRESH", runs };
+}
+
 function _slowest(r, n = 10) {
   let list = [];
   try { list = JSON.parse(r.slowest_json || "[]"); } catch { list = []; }
@@ -102,7 +134,7 @@ export function run(argv) {
       let v = ciVerdict(db, o.sha);
       // E-328: no local certifying row → a teammate's .ai/ci/<sha>.json may answer.
       let rec = null;
-      if (v.kind === "NONE" || v.kind === "DIRTY") {
+      if (v.kind === "NONE" || v.kind === "DIRTY" || v.kind === "SHARD") {
         const warnings = [];
         rec = readCiRecord(resolve(o["ai-dir"]), o.sha, { warnings });
         for (const w of warnings) process.stderr.write(`${w}\n`);
@@ -122,7 +154,7 @@ export function run(argv) {
       } else {
         const r = v.row;
         process.stdout.write([
-          `local CI: ${v.kind} ${r.sha.slice(0, 7)}${r.dirty ? " (dirty — not a certification)" : ""}`,
+          `local CI: ${v.kind} ${r.sha.slice(0, 7)}${r.dirty ? " (dirty — not a certification)" : ""}${r.shard ? ` (shard ${r.shard} — not a certification)` : ""}`,
           `  ref:      ${r.ref || "-"}${r.branch ? ` (${r.branch})` : ""}`,
           `  started:  ${r.started_at} (${ageOf(r.started_at)})${r.duration_ms != null ? `, ${Math.round(r.duration_ms / 1000)}s` : ""}`,
           `  suite:    ${_suite(r)}, leaked ${r.leaked ?? 0}`,
@@ -130,6 +162,7 @@ export function run(argv) {
           `  secrets:  ${r.secrets_status || "-"}`,
           `  spent:    ${_resources(r)}`,
           `  slowest:  ${_slowest(r)}`,
+          ...(r.exclusive_seconds != null ? [`  exclusive: ${_exclusive(r)}`] : []),
           `  budget:   ${budgetSummary(budgetBest(db))}`,
           ...budgetDrift(db).map((d) => `  ${driftLine(d)}`),
           `  host:     node ${r.node_version || "?"}, bash ${r.bash_version || "?"}, ${r.os || "?"}`,
@@ -138,7 +171,7 @@ export function run(argv) {
         ].join("\n") + "\n");
       }
       if (v.kind === "PASS") return 0;
-      if (v.kind === "NONE" || v.kind === "DIRTY") return 2;
+      if (v.kind === "NONE" || v.kind === "DIRTY" || v.kind === "SHARD") return 2;
       return 1;
     }
     case "list": {
@@ -152,7 +185,7 @@ export function run(argv) {
         const dur = r.duration_ms != null ? `${Math.round(r.duration_ms / 1000)}s` : "-";
         const spent = `L${r.lanes ?? "-"} ${r.peak_rss_mb != null ? `${r.peak_rss_mb}MB` : "-"}/${r.peak_sum_rss_mb != null ? `${r.peak_sum_rss_mb}MB` : "-"} ${r.suite_seconds != null ? `${r.suite_seconds}s` : "-"}`;
         process.stdout.write(
-          `${r.status.padEnd(7)} ${r.sha.slice(0, 7)} ${r.dirty ? "dirty" : "     "} ` +
+          `${r.status.padEnd(7)} ${r.sha.slice(0, 7)} ${r.dirty ? "dirty" : r.shard ? r.shard.padEnd(5) : "     "} ` +
           `${(r.branch || r.ref || "-").padEnd(28)} ${ageOf(r.started_at).padEnd(8)} ${dur.padStart(6)} ${spent.padStart(21)}  ${_suite(r)}\n` +
           (r.slowest_json ? `        slowest: ${_slowest(r)}\n` : ""));
       }
@@ -260,8 +293,14 @@ export function run(argv) {
         return 2;
       }
     }
+    case "census-stale": {
+      const aiDir = resolve(o["ai-dir"]);
+      const age = censusBaselineAge(_db(aiDir), resolve(aiDir, ".."), o.sha);
+      if (age) process.stdout.write(`${age.state}${age.runs != null ? ` ${age.runs}` : ""}\n`);
+      return 0;
+    }
     default:
-      process.stderr.write("usage: ci-record.mjs <record|status|list|log|gate|skip|budget|budget-check|budget-set> --ai-dir <d> …\n");
+      process.stderr.write("usage: ci-record.mjs <record|status|list|log|gate|skip|budget|budget-check|budget-set|census-stale> --ai-dir <d> …\n");
       return 2;
   }
 }

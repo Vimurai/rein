@@ -178,6 +178,9 @@ export function writeCiRecord(aiDir, row, opts = {}) {
   const team = _team(aiDir, warnings);
   if (!team) return { written: false, reason: "not a team project", warnings };
   if (row.dirty) return { written: false, reason: "a dirty run certifies nothing", warnings };
+  // E-386: nor does one shard — and a client that predates the shard field would read a
+  // record as a certification of the whole commit, so a shard is never written at all.
+  if (row.shard) return { written: false, reason: `shard ${row.shard} certifies nothing`, warnings };
   // E-379 (security P2-4): the host names a personal device; it is recorded only when
   // .ai/team.json says `"ci_record_host": true`, and is "-" otherwise.
   const rec = ciRecordFromRow(row, { runner: gitEmail(aiDir), ...(team.ci_record_host === true ? { host: hostname() } : {}), ...opts });

@@ -19,6 +19,7 @@ import { fileURLToPath } from "node:url";
 import {
   inventory, staticFacts, resolveTarget, spawnShape, parseCensusLines, parseCiLogForCensus,
   failureHistory, overlap, hubFiles, deriveCandidates, buildCensus, renderMarkdown, MISNAMED_RE,
+  baselineFromLog, BASELINE_HEADER, CENSUS_BASELINE,
 } from "../tools/census.mjs";
 
 const CENSUS = join(dirname(fileURLToPath(import.meta.url)), "..", "tools", "census.mjs");
@@ -354,5 +355,54 @@ test("CLI --since <ref>: only suites whose file or footprint changed; an unknown
     let code = 0;
     try { execFileSync(process.execPath, [...args, "--since", "no-such-ref"], { stdio: "pipe" }); } catch (e) { code = e.status; }
     assert.equal(code, 2);
+  } finally { f.done(); }
+});
+
+// E-386 (D-135 r2): extends the CI-log parse tests above — the census baseline is the suite
+// step's census rows of one log, with what only this host could use taken out.
+test("baselineFromLog: the suite step's rows, header first; worktree paths relative, temp paths and the fast tier's rows dropped", () => {
+  const log = [
+    "[ci] sha=" + "a".repeat(40) + " ref=HEAD dirty=0 started_at=2026-10-29T11:16:27Z",
+    "[ci] ── suite: /bin/bash tests/run.sh",
+    "CENSUS_SUITE\tnoise_test.sh\t1\t1\t0\t0\t0",          // before the block: a suite's own output
+    "── census input (E-297) ──",
+    "CENSUS_RUN\t2026-10-29T11:17:47Z\t" + "a".repeat(40) + "\t*_test.sh",
+    "CENSUS_SUITE\tcli_test.sh\t42000\t90\t0\t0\t0",
+    "CENSUS_FP\tcli_test.sh\t4\tnode\t/tmp/ai-os-ci.R2zF/wt/scripts/generate_blueprints_index.mjs",
+    "CENSUS_FP\tcli_test.sh\t2\tnode\t-e:src/shared/a.mjs",
+    "CENSUS_FP\tgate_test.sh\t1\tpython3\t/tmp/ai-os-ci.R2zF/tmp/tmp.X/home/.ai-os/shared/g.py",
+    "CENSUS_FP\tinst_test.sh\t1\tinstaller\tinstall-ai-os.sh\tforeign:/tmp/ai-os-ci.R2zF/tmp/tmp.Y/home",
+    "CENSUS_FP\tinit_test.sh\t12\tinstaller\tai init\ttmp",
+    "CENSUS_TOTAL\t46\t6921\t0\t25",
+    "",
+    "━━ Results ━━",
+    "[ci] ── fast tier: /bin/bash tests/run.sh --tier fast",
+    "── census input (E-297) ──",
+    "CENSUS_SUITE\tnode_unit_test.sh\t22000\t2209\t0\t0\t0",
+  ].join("\n");
+  assert.equal(baselineFromLog(log), [
+    BASELINE_HEADER,
+    "CENSUS_RUN\t2026-10-29T11:17:47Z\t" + "a".repeat(40) + "\t*_test.sh",
+    "CENSUS_SUITE\tcli_test.sh\t42000\t90\t0\t0\t0",
+    "CENSUS_FP\tcli_test.sh\t4\tnode\tscripts/generate_blueprints_index.mjs",
+    "CENSUS_FP\tcli_test.sh\t2\tnode\t-e:src/shared/a.mjs",
+    "CENSUS_FP\tinst_test.sh\t1\tinstaller\tinstall-ai-os.sh\tforeign",
+    "CENSUS_FP\tinit_test.sh\t12\tinstaller\tai init\ttmp",
+  ].join("\n") + "\n");
+  assert.equal(baselineFromLog("[ci] ── suite: x\n(no census)"), null, "no suite census → no baseline");
+});
+
+test("CLI --baseline-from writes the baseline atomically; it is not counted as test lines", () => {
+  const f = fixtureRepo();
+  try {
+    const before = inventory(f.r).testLines;
+    const log = join(f.r, "run.log");
+    writeFileSync(log, "[ci] ── suite: x\n── census input (E-297) ──\nCENSUS_RUN\tt\ts\tp\nCENSUS_SUITE\ta_test.sh\t5\t1\t0\t0\t0\n");
+    const out = execFileSync("node", ["--no-warnings", CENSUS, "--baseline-from", log, "--repo", f.r], { encoding: "utf8" }).trim();
+    assert.equal(out, join(f.r, CENSUS_BASELINE));
+    assert.match(readFileSync(out, "utf8"), /^# census-baseline .*\nCENSUS_RUN\tt\ts\tp\nCENSUS_SUITE\ta_test\.sh\t5/);
+    assert.equal(inventory(f.r).testLines, before, "scheduling data, not test code");
+    writeFileSync(log, "nothing");
+    assert.throws(() => execFileSync("node", ["--no-warnings", CENSUS, "--baseline-from", log, "--repo", f.r], { stdio: "pipe" }), (e) => e.status === 1, "no suite census → exit 1, nothing written");
   } finally { f.done(); }
 });

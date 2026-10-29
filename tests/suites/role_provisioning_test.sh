@@ -440,23 +440,28 @@ assert_contains "E-255.01b: _write_roles_json emits the headless tester beside b
 
 # ── E-255.2: ai start ignores headless roles ────────────────────────────────
 echo "  [E-255.2] ai start / _start_roles"
-# _start_roles is defined past bin/ai's source guard (E-53), so drive it through the
-# dry run — the same path an operator's `ai start` takes.
+# E-384 (D-135 addendum 2, harness rule 1): the dry run plans tmux panes, so it needs tmux;
+# a host without it (the macOS runner image) records one skip for the section.
+# The project is created outside the guard: E-255.3 below reuses it.
 _p="$(_proj start "$V4_ROLES")"
-_out="$(cd "$_p" && bash "$AI" start --dry-run 2>&1)"
-assert_match "E-255.02a: dry run binds the engineer to the first pane" 'send-keys -t pane0 ai.\ pane.\ engineer' "$_out"
-assert_match "E-255.02b: …and the architect to the second" 'send-keys -t pane1 ai.\ pane.\ architect' "$_out"
-assert_not_contains "E-255.02c: no third pane is addressed (the tester occupies none)" "pane2" "$_out"
-assert_not_contains "E-255.02d: the tester is never sent 'ai pane'" 'pane\ tester' "$_out"
+if skip_unless_cmd tmux "E-255.02: ai start --dry-run plans tmux panes"; then
+  # _start_roles is defined past bin/ai's source guard (E-53), so drive it through the
+  # dry run — the same path an operator's `ai start` takes.
+  _out="$(cd "$_p" && bash "$AI" start --dry-run 2>&1)"
+  assert_match "E-255.02a: dry run binds the engineer to the first pane" 'send-keys -t pane0 ai.\ pane.\ engineer' "$_out"
+  assert_match "E-255.02b: …and the architect to the second" 'send-keys -t pane1 ai.\ pane.\ architect' "$_out"
+  assert_not_contains "E-255.02c: no third pane is addressed (the tester occupies none)" "pane2" "$_out"
+  assert_not_contains "E-255.02d: the tester is never sent 'ai pane'" 'pane\ tester' "$_out"
 
-# Non-vacuity: the headless FLAG is what excludes a role, not the name "tester". An
-# architect marked headless disappears from the layout too.
-_p2="$(_proj start-headless-arch '{ "roles": {
-  "architect": { "provider": "claude", "pane_identifier": "1", "headless": true },
-  "engineer":  { "provider": "claude", "pane_identifier": "0" } } }')"
-_out2="$(cd "$_p2" && bash "$AI" start --dry-run 2>&1)"
-assert_match "E-255.02e: headless:true — the engineer is still bound" 'ai.\ pane.\ engineer' "$_out2"
-assert_not_contains "E-255.02f: headless:true removes any role from the layout, the architect included" 'pane\ architect' "$_out2"
+  # Non-vacuity: the headless FLAG is what excludes a role, not the name "tester". An
+  # architect marked headless disappears from the layout too.
+  _p2="$(_proj start-headless-arch '{ "roles": {
+    "architect": { "provider": "claude", "pane_identifier": "1", "headless": true },
+    "engineer":  { "provider": "claude", "pane_identifier": "0" } } }')"
+  _out2="$(cd "$_p2" && bash "$AI" start --dry-run 2>&1)"
+  assert_match "E-255.02e: headless:true — the engineer is still bound" 'ai.\ pane.\ engineer' "$_out2"
+  assert_not_contains "E-255.02f: headless:true removes any role from the layout, the architect included" 'pane\ architect' "$_out2"
+fi
 
 # ── E-255.3: ai pane tester refuses with the pointer to ai-test ─────────────
 echo "  [E-255.3] ai pane tester"

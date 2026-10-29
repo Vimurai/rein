@@ -708,10 +708,19 @@ The single Ubuntu job becomes layered CI (`.ai/blueprints/public-ci.md` §Compon
    when no census JSON exists.
 4. README badges: CI, privacy, CodeQL, Scorecard, licence, version from the latest tag, sponsors.
 
-**Required checks on `main` (D-135 r7).** `privacy scan`, `fast`, `CodeQL`, and the twelve PR legs:
-`ai ci run (ubuntu-latest, node 22, i/4)`, `ai ci run (ubuntu-latest, node 24, i/4)`,
-`ai ci run (macos-latest, node 22, i/4)` for i = 1..4. Not required: the nightly-only legs,
-Scorecard, dependency review (advisory). Never dropped to go green: a flaky leg is an E-## task.
+**Required checks on `main` (D-135 r7, interim per D-135 addendum 2).** Now: `privacy scan`,
+`fast`, `CodeQL`, and the eight Ubuntu legs `ai ci run (ubuntu-latest, node 22, i/4)` and
+`ai ci run (ubuntu-latest, node 24, i/4)` for i = 1..4. The four `ai ci run (macos-latest,
+node 22, i/4)` legs RUN on every PR but are not required until E-388 (the bash 3.2 trap-wrapper
+defect) closes; the PR that closes it adds them. Not required: the nightly-only legs, Scorecard,
+dependency review (until the operator enables the Dependency graph). Never dropped to go green:
+a flaky leg is an E-## task.
+
+**First sharded run (PR #6, run 40906294420).** fast 1m22s; Ubuntu × 22 6m12s / 4m47s / 4m55s /
+5m15s; Ubuntu × 24 7m07s / 4m36s / 4m43s / 5m04s; macOS × 22 13m44s / 7m46s / 4m11s / 8m35s.
+macOS showed two pre-existing defects: no tmux on the image (19 assertions failed instead of
+skipping — fixed in this PR with `skip_unless_cmd tmux` guards, harness rule 1) and the bash 3.2
+trap wrapper (E-388).
 
 **Security implications.** No secrets: `GITHUB_TOKEN` only. Every action pinned to a full commit
 SHA with its version in a comment (the contract checker refuses a tag). `permissions: contents:

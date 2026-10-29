@@ -239,21 +239,24 @@ assert_status 0 "E-240.01a: the fixture actually created something (non-vacuity)
 assert_status 1 "E-240.01b: a temp dir is removed even when the suite ABORTS midway" \
   test -d "$_leftover"
 
-# A tmux socket, the thing that actually leaked 50 times.
-_probe2="$(mktemp)"
-( source "$LIB"
-  s="$(test_tmux_socket midfail)"
-  tmux -L "$s" new-session -d -s x 2>/dev/null
-  printf '%s' "$s" > "$_probe2"
-  exit 1 ) >/dev/null 2>&1
-_sock="$(cat "$_probe2")"; rm -f "$_probe2"
-assert_status 0 "E-240.01c: the fixture actually created a socket (non-vacuity)" \
-  bash -c "[[ -n '$_sock' ]]"
-assert_status 1 "E-240.01d: the tmux SERVER is gone after an aborted suite" \
-  bash -c "tmux -L '$_sock' list-sessions >/dev/null 2>&1"
-# kill-server leaves the socket FILE; a leftover file is still state the sweep would count.
-assert_status 1 "E-240.01e: and the socket FILE is removed too" \
-  test -e "${SOCKDIR}/${_sock}"
+# E-384 (D-135 addendum 2, harness rule 1): the socket rows start a real tmux server.
+if skip_unless_cmd tmux "E-240.01c–e: a real tmux server survives no aborted suite"; then
+  # A tmux socket, the thing that actually leaked 50 times.
+  _probe2="$(mktemp)"
+  ( source "$LIB"
+    s="$(test_tmux_socket midfail)"
+    tmux -L "$s" new-session -d -s x 2>/dev/null
+    printf '%s' "$s" > "$_probe2"
+    exit 1 ) >/dev/null 2>&1
+  _sock="$(cat "$_probe2")"; rm -f "$_probe2"
+  assert_status 0 "E-240.01c: the fixture actually created a socket (non-vacuity)" \
+    bash -c "[[ -n '$_sock' ]]"
+  assert_status 1 "E-240.01d: the tmux SERVER is gone after an aborted suite" \
+    bash -c "tmux -L '$_sock' list-sessions >/dev/null 2>&1"
+  # kill-server leaves the socket FILE; a leftover file is still state the sweep would count.
+  assert_status 1 "E-240.01e: and the socket FILE is removed too" \
+    test -e "${SOCKDIR}/${_sock}"
+fi
 
 # ── E-240.2: registration works from a SUBSHELL ───────────────────────────
 # Helpers are called as `$(test_tmux_socket …)`, which IS a subshell. The first version of
@@ -291,24 +294,27 @@ assert_status 1 "E-240.03c: helpers do not use \$\$ for socket names" \
   bash -c "sed -n '/^test_tmux_socket() {/,/^}/p' '$LIB' | grep -q '\\\$\\\$'"
 
 # ── E-240.4: THE SAFETY PROPERTY — the sweep spares foreign state ─────────
-# A sweep that can kill the operator's own tmux session is worse than the leak it fixes.
-_foreign="e240-not-a-test-socket-$$"
-tmux -L "$_foreign" new-session -d -s work 2>/dev/null
-_victim="aios-test-victim-$(basename "$(mktemp -u)")"
-tmux -L "$_victim" new-session -d -s v 2>/dev/null
-assert_status 0 "E-240.04a: both probe servers are up (non-vacuity)" \
-  bash -c "tmux -L '$_foreign' has-session -t work 2>/dev/null && tmux -L '$_victim' has-session -t v 2>/dev/null"
-bash -c "
-  AIOS_TEST_SOCK_PREFIX='aios-test-'; AIOS_TEST_TMP_PREFIX='aios-t-'
-  eval \"\$(sed -n '/^_leak_sweep() {/,/^}/p' '$RUNNER')\"
-  _leak_sweep 'tmux-server|$_foreign
+# E-384 (D-135 addendum 2, harness rule 1): both probe servers are real tmux servers.
+if skip_unless_cmd tmux "E-240.04: the sweep spares a real foreign tmux server"; then
+  # A sweep that can kill the operator's own tmux session is worse than the leak it fixes.
+  _foreign="e240-not-a-test-socket-$$"
+  tmux -L "$_foreign" new-session -d -s work 2>/dev/null
+  _victim="aios-test-victim-$(basename "$(mktemp -u)")"
+  tmux -L "$_victim" new-session -d -s v 2>/dev/null
+  assert_status 0 "E-240.04a: both probe servers are up (non-vacuity)" \
+    bash -c "tmux -L '$_foreign' has-session -t work 2>/dev/null && tmux -L '$_victim' has-session -t v 2>/dev/null"
+  bash -c "
+    AIOS_TEST_SOCK_PREFIX='aios-test-'; AIOS_TEST_TMP_PREFIX='aios-t-'
+    eval \"\$(sed -n '/^_leak_sweep() {/,/^}/p' '$RUNNER')\"
+    _leak_sweep 'tmux-server|$_foreign
 tmux-server|$_victim'" >/dev/null 2>&1
-assert_status 0 "E-240.04b: a FOREIGN tmux server SURVIVES the sweep" \
-  bash -c "tmux -L '$_foreign' has-session -t work 2>/dev/null"
-assert_status 1 "E-240.04c: a test-prefixed server is swept (non-vacuity)" \
-  bash -c "tmux -L '$_victim' list-sessions >/dev/null 2>&1"
-tmux -L "$_foreign" kill-server 2>/dev/null || true
-rm -f "${SOCKDIR}/${_foreign}" "${SOCKDIR}/${_victim}" 2>/dev/null || true
+  assert_status 0 "E-240.04b: a FOREIGN tmux server SURVIVES the sweep" \
+    bash -c "tmux -L '$_foreign' has-session -t work 2>/dev/null"
+  assert_status 1 "E-240.04c: a test-prefixed server is swept (non-vacuity)" \
+    bash -c "tmux -L '$_victim' list-sessions >/dev/null 2>&1"
+  tmux -L "$_foreign" kill-server 2>/dev/null || true
+  rm -f "${SOCKDIR}/${_foreign}" "${SOCKDIR}/${_victim}" 2>/dev/null || true
+fi
 
 # ── E-240.5: the runner reports and gates ─────────────────────────────────
 assert_status 0 "E-240.05a: the runner snapshots external state" \

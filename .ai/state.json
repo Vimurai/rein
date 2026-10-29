@@ -2941,6 +2941,24 @@
       "summary": "[TIER_2] Blueprint aligned",
       "sha": "1d610fe551b1ce566ee214807e83a3da26f1d9fd",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-384",
+      "timestamp": "2026-10-29T18:27:42.526Z",
+      "summary": "[TIER_2] Blueprint aligned — E-384 tmux SKIP guards per D-135 addendum 2 (a); suites pass with and without tmux; interim required set in DEVOPS-014",
+      "sha": "c910083fc30a8eff067d077a1dabb05af812c904",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-384",
+      "timestamp": "2026-10-29T18:27:43.260Z",
+      "summary": "[TIER_2] Blueprint aligned",
+      "sha": "c910083fc30a8eff067d077a1dabb05af812c904",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

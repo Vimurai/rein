@@ -60,7 +60,7 @@ steps:
     condition: always()
     inputs:
       targetPath: $(REIN_CI_LOG_DIR)
-      artifact: ai-ci-run-log
+      artifact: rein-ci-run-log
 
   - task: PublishPipelineArtifact@1
     displayName: Upload CI record
@@ -68,4 +68,4 @@ steps:
     continueOnError: true
     inputs:
       targetPath: .ai/ci
-      artifact: ai-ci-record
+      artifact: rein-ci-record

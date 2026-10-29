@@ -63,7 +63,7 @@ jobs:
       - name: Fast tier
         run: bash tests/run.sh --tier fast
 
-  ai-ci-run:
+  rein-ci-run:
     name: rein ci run (${{ matrix.os }}, node ${{ matrix.node }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
@@ -95,8 +95,8 @@ jobs:
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9   # v6.1.0
         with:
           path: ~/.rein/ci/cache
-          key: ai-ci-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json', 'src/mcp/*/package.json') }}
-          restore-keys: ai-ci-${{ runner.os }}-node${{ matrix.node }}-
+          key: rein-ci-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json', 'src/mcp/*/package.json') }}
+          restore-keys: rein-ci-${{ runner.os }}-node${{ matrix.node }}-
 
       # This IS the Rein repository: install from the checked-out commit — the code under test.
       - name: Install Rein
@@ -116,7 +116,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
         with:
-          name: ai-ci-run-${{ matrix.os }}-node${{ matrix.node }}-${{ strategy.job-index }}
+          name: rein-ci-run-${{ matrix.os }}-node${{ matrix.node }}-${{ strategy.job-index }}
           path: |
             ~/.rein/ci/logs/
             .ai/ci/*.json

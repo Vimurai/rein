@@ -110,7 +110,7 @@ function contractViolations(provider, yml, boot, trunk = "master") {
   // E-384: on GitHub the two-command contract holds for every `rein ci run` leg; the fast job
   // has its own clause below and is the one place the fast tier may be named.
   const jobs = provider === "github" ? jobBlocks(code) : null;
-  const runs = runLines(jobs ? (jobs["ai-ci-run"] ?? "") : yml);
+  const runs = runLines(jobs ? (jobs["rein-ci-run"] ?? "") : yml);
   const leg = provider === "github" ? AI_CI_RUN_LEG : AI_CI_RUN;
   if (runs.length !== 2) v.push(`expected two run commands, got ${runs.length}`);
   if (runs[0] !== boot.command) v.push("first run is not the bootstrap");
@@ -123,8 +123,8 @@ function contractViolations(provider, yml, boot, trunk = "master") {
   if (/\bsecrets\b/.test(yml)) v.push("references secrets");
   if (/pull_request_target/.test(yml)) v.push("pull_request_target");
   if (provider === "github") {
-    const extra = Object.keys(jobs).filter((j) => j !== "ai-ci-run" && j !== "fast");
-    if (extra.length || !jobs["ai-ci-run"]) v.push(`unexpected jobs: ${Object.keys(jobs).join(", ")}`);
+    const extra = Object.keys(jobs).filter((j) => j !== "rein-ci-run" && j !== "fast");
+    if (extra.length || !jobs["rein-ci-run"]) v.push(`unexpected jobs: ${Object.keys(jobs).join(", ")}`);
     if (jobs.fast) {
       const f = runLines(jobs.fast);
       if (JSON.stringify(f) !== JSON.stringify(FAST_RUNS)) v.push(`fast job runs other than dependencies + the fast tier: ${JSON.stringify(f)}`);
@@ -141,13 +141,13 @@ function contractViolations(provider, yml, boot, trunk = "master") {
     const push = on.match(/^  push:\n((?:    .*\n)+)/m)?.[1];
     if (push !== undefined && push !== `    branches: [${trunk}]\n    paths-ignore: ['.ai/**']\n`) v.push(`push trigger other than the ${trunk} audit run`);
     if (!/^permissions:\n  contents: read$/m.test(code)) v.push("token is not read-only");
-    const steps = stepBlocks(jobs["ai-ci-run"] ?? "", "      - ");
+    const steps = stepBlocks(jobs["rein-ci-run"] ?? "", "      - ");
     if (steps.length !== 6 || !steps.every((b) => /^\s+(?:- )?(?:uses|run):/m.test(b))) v.push(`expected six uses/run steps, got ${steps.length}`);
     if (!/persist-credentials: false/.test(steps[0] ?? "")) v.push("checkout persists credentials");
-    const uses = [...(jobs["ai-ci-run"] ?? "").matchAll(/^\s*(?:- )?uses:\s*([^@\s]+)@/gm)].map((m) => m[1]);
+    const uses = [...(jobs["rein-ci-run"] ?? "").matchAll(/^\s*(?:- )?uses:\s*([^@\s]+)@/gm)].map((m) => m[1]);
     if (JSON.stringify(uses) !== JSON.stringify(["actions/checkout", "actions/setup-node", "actions/cache", "actions/upload-artifact"])) v.push(`unexpected actions: ${uses.join(", ")}`);
     // The matrix carries Linux and Node 22, Rein's floor, in every profile.
-    const legJob = jobs["ai-ci-run"] ?? "";
+    const legJob = jobs["rein-ci-run"] ?? "";
     if (!/node-version: \$\{\{ matrix\.node \}\}/.test(legJob) || !/^        node: \[(?:'\d+', )*'22'/m.test(legJob) ||
         !/^    runs-on: \$\{\{ matrix\.os \}\}$/m.test(legJob) || !/^        os: \[ubuntu-latest/m.test(legJob)) v.push("not Linux + Node 22");
     // The check must be able to fail: no step may continue on error, only the upload has an if:.
@@ -280,7 +280,7 @@ test("github: the checker fails a fast job that installs, runs more, or can be s
     ["fast job installs", good.replace("        run: bash tests/run.sh --tier fast\n", "        run: bash install-rein.sh && bash tests/run.sh --tier fast\n"), "fast job runs other than"],
     ["fast job runs the full suite", good.replace("run: bash tests/run.sh --tier fast", "run: bash tests/run.sh"), "fast job runs other than"],
     ["fast job skipped", good.replace("    name: fast\n", "    name: fast\n    if: false\n"), "the check cannot fail"],
-    ["a third job", good.replace("  ai-ci-run:\n", "  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n\n  ai-ci-run:\n"), "unexpected jobs"],
+    ["a third job", good.replace("  rein-ci-run:\n", "  extra:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n\n  rein-ci-run:\n"), "unexpected jobs"],
   ];
   for (const [name, text, clause] of muts) {
     assert.notEqual(text, good, `mutation '${name}' did not apply`);

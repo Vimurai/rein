@@ -1069,16 +1069,16 @@
     {
       "id": "E-382",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Start the public version line at 0.4.0 per D-131 and .ai/blueprints/rein-rename.md §Component 1: set package.json to 0.4.0 (ai version reads it); restructure CHANGELOG.md with a [0.4.0] entry on top and the [4.0.0]/[3.1.0]/[2.0.0] entries under \"Private predecessor (AI-OS, 2025–2026)\", nothing renumbered; add one sentence to .ai/blueprints/version-lifecycle.md (the public line restarts at 0.4.0; 2.x–4.x are the predecessor's numbers); make every \"4.0.0\" literal that means the current version read package.json, leave literals that mean the predecessor; confirm project-upgrade restamps 4.0.0 → 0.4.0 with the ordinary stamped line and .pre-0.4.0.json copies (no refusal, no downgrade warning, no epoch). Work in the public clone on a branch as one PR under the privacy gates (after E-378 steps 8–9); do not tag — the v0.4.0 tag belongs to E-383. Acceptance: ai version prints 0.4.0; ai sync on a project stamped 4.0.0 prints stamped project.aios_version 4.0.0 → 0.4.0; CHANGELOG structure as above; privacy scan, ai ci run and DCO green on the PR; merged to main. Depends on E-378 steps 8–9.",
       "created_at": "2026-10-29T10:25:03.822Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-29T11:45:02.472Z",
+      "summary": "Public version line at 0.4.0 (D-131): package.json + lockfile root 0.4.0, ai version prints 0.4.0; CHANGELOG [0.4.0] on top, 4.0.0/3.1.0/2.0.0 under \"Private predecessor (AI-OS, 2025 …[full in LOG.md]",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-29T10:25:03.834Z"
+      "updated_at": "2026-10-29T11:45:02.473Z"
     },
     {
       "id": "E-383",
@@ -1109,7 +1109,6 @@
       ],
       "ready": false,
       "blocked_by": [
-        "E-382",
         "E-386"
       ],
       "updated_at": "2026-10-29T11:39:31.765Z"
@@ -1131,7 +1130,7 @@
     {
       "id": "E-386",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 2,
       "description": "Raise hosted CI throughput in the shared harness per D-135 r1–r3, r6 and .ai/blueprints/ci-throughput.md §Components 1–3 and 5 (repo-oracle on tests/run.sh lanes E-309/E-312 and ai ci run first): (1) ai ci run defaults --lanes to the core count on a hosted runner (GITHUB_ACTIONS, TF_BUILD, GITLAB_CI, BITBUCKET_BUILD_NUMBER, else CI=true), still clamped by the measured memory cap; a laptop keeps min(4, cores/2); explicit --lanes unchanged; runner= names the host class. (2) tests/census-baseline.tsv: tests/run.sh takes wall hints and installer footprints from the newest local census log, else the baseline, else none, and the Lane: lines say which; ai ci run writes the baseline into the project tree after a full unsharded PASS beside the E-328 record, never from a shard, dirty or FAIL; the pre-push hook warns [CENSUS_BASELINE_STALE] past 30 full runs; commit Rein's first baseline from a full local PASS. (3) tests/run.sh --shard i/N (AIOS_TEST_SHARD): shared and exclusive suites partitioned separately, hint descending then name, greedy to the lightest bin, unknown hint = median, unit layer and fast-tier timing in shard 1, refused with --tier fast or --changed (exit 2); ai ci run --shard i/N records shard in ci_runs (nullable column — skill ai-migration) and the E-328 record, is non-certifying in ai ci status, runs the budget step on shard 1 only. (4) `[ci] resources` gains exclusive_seconds= and ai ci status prints the exclusive share. Tests (D-088): a node unit test over a synthetic census asserts a deterministic partition with every suite in exactly one shard; the E-309/E-310 suites extend (named) for the lane default and the new lines. Acceptance: local `ai ci run` unchanged; CI=true picks every core; no local log → `hints: baseline`; shards 1/4..4/4 together run every suite once with one full run's totals; ai ci budget suites +0; full ai ci run green; bash install-ai-os.sh. Before E-384 (D-135 r8).",
       "created_at": "2026-10-29T11:39:19.076Z",
@@ -1140,11 +1139,9 @@
       "depends_on": [
         "E-382"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-382"
-      ],
-      "updated_at": "2026-10-29T11:39:19.089Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-29T11:45:02.476Z"
     },
     {
       "id": "E-387",

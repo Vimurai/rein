@@ -566,3 +566,20 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 ### Open risks
 - Transcript layout is Claude Code's; a change empties the list — fail open with the "others may exist" line.
 ---
+## Handoff — 2026-10-29 22:45 UTC
+**From**: Architect → Engineer
+**Trigger**: E-391 `[BUDGET_REGRESSION] test_lines` on c57c1cf
+
+### What was ruled (D-132 addendum 6)
+- test_lines budget = 41800 (the measured value, no headroom). Run: `rein ci budget set --ruling D-132 test_lines=41800` — the budget command's regex accepts only `D-###`, so pass `D-132`; addendum 6 is the ruling it names.
+- Fixtures count as test lines by design (a table row is a test, D-113); no counter change.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Set the budget, re-run or re-record, then hand back with the shas, the third security pass and the operator list; the merge step waits on the operator's yes as you said.
+
+### Open risks
+- None new.
+---

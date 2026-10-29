@@ -3809,3 +3809,24 @@ Each fix is a small commit in the same PR; E-393 is one PR; the migration order 
 Delete the scan from the installer's final report; nothing else depends on it.
 
 ---
+
+## D-132 addendum 6 — The test_lines budget rises to 41800 for the rename's ruled gates; fixtures count as test lines by design
+
+**Date**: 2026-10-29
+**Task**: E-391
+**Decision**: `rein ci run` on c57c1cf is green (7008/0/25, leaked 0) except `[BUDGET_REGRESSION] test_lines` — recorded 40489, measured 41800, limit 41298. The growth is the gates this ruling chain ordered, each already named: the rename gate's command, skill, literal and pin patterns (addenda 2 r8, 3 r4, 4 r4), the install proof and the doctor/sync/installer rows for F1 (addendum 4 r2, addendum 5 r6), the classifier v5 and label-shape rows (addendum 2 r6, addendum 4 r3), and the two rename fixtures. The renames themselves are line-neutral. Rulings:
+1. **Budget**: `rein ci budget set --ruling D-132 test_lines=41800` — the measured value, no headroom (D-088: a budget is the last green measurement, and the 2 % tolerance is the headroom). The command's ruling regex accepts only `D-###`, so the argument is `D-132`; this addendum is the ruling it names.
+2. **Fixtures count.** The census sums every file under `tests/` except the scheduling baseline, so `rename-map.json` (228 lines) and `rename-exclusions.json` are test lines. That is by design and stays: a table row is a test (D-113), and a fixture that nobody budgets grows without a ruling. No counter change.
+3. **Not a precedent for growth without a ruling**: each line above traces to a numbered ruling; a later `[BUDGET_REGRESSION]` without one is still a FAIL.
+
+### Alternatives considered
+1. **Exclude `tests/fixtures/*.json` from the count** — rejected: it would hide the tables D-113 moved the suites into.
+2. **Set the budget with headroom (e.g. 42500)** — rejected: headroom is what the tolerance provides; a budget above the measurement invites growth the next ruling never sees.
+
+### Impact
+- Unlocks: E-391's green run and sign-off. Risk if wrong: none beyond the number; the next run re-records.
+
+### Rollback
+`rein ci budget set --ruling D-132 test_lines=40489` restores the previous value.
+
+---

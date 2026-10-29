@@ -3518,3 +3518,34 @@ Bump to the next minor; versions never go backwards again.
 Revert the PR before 0.5 removes the compatibility layer; the symlink and the env fallback make the revert symmetric.
 
 ---
+
+## D-133 — Public CI on GitHub Actions: a matrix, a fast job, nightly, CodeQL, Scorecard, Dependabot and a release workflow, free for a public repository
+
+**Date**: 2026-10-29
+**Task**: E-384, P-48
+**Decision**: The operator asked to use GitHub's CI fully now that the repository is public ("we have unlimited everything"). GitHub Actions is free with no minute limit for public repositories on the standard hosted runners (Linux, macOS, Windows); larger runners are not free and are never used. The public CI grows from one Ubuntu job into: a `fast` job (`tests/run.sh --tier fast`, no install, under three minutes), a full matrix (`ubuntu-latest`, `macos-latest` × Node 22, 24, `ai ci run --lanes <cores>` with the install step), a nightly full run on `main` with `npm audit` and the budget drift report, CodeQL, the OpenSSF Scorecard, Dependabot for npm and actions, a dependency-review check on PRs, and a release workflow on `v*` tags. Blueprint: `.ai/blueprints/public-ci.md`.
+
+### Rulings
+1. **`ci.yml` stays rendered** by `ai ci hosted github` (D-103): the renderer gains a `public` profile, selected when `.ai/publish.json` is present (the same marker as the privacy gate), that emits the fast job and the matrix with actions pinned to commit SHAs. `--check` keeps guarding against hand edits. A rendering for a private team project is unchanged.
+2. **Hand-written workflows beside it**: `codeql.yml`, `scorecard.yml`, `nightly.yml`, `release.yml`, `dependency-review.yml` and `dependabot.yml` are ordinary files, SHA-pinned, `permissions` minimal per job, each with a header comment naming this decision. `privacy.yml` (E-378) is unchanged and stays its own required check.
+3. **Required checks on `main`**: privacy, fast, every full-matrix leg, CodeQL. A flaky leg becomes an E-## task; it is never dropped from the required list to go green.
+4. **No Windows leg**: Rein runs on macOS and Linux (WSL on Windows); a Windows job would test an unsupported path. Revisit with a "refuses cleanly" smoke if Windows users appear.
+5. **Nightly** (03:00 UTC, `main`): the full matrix plus `npm audit --audit-level=high` and the D-118 r1 drift line as a job summary; a failure opens or updates ONE issue labelled `nightly` (never one per run). Not cancelled by concurrency; PR runs are.
+6. **Release** (`v*` tag): the full matrix must pass on the tagged commit; then a GitHub release is created from the CHANGELOG section for that version, with the sha256 of `install-rein.sh` in the notes. No npm publish (D-125 addendum: a package only if ever needed).
+7. **Badges** in the README: CI, privacy, CodeQL, Scorecard, licence, version from the latest tag, sponsors.
+8. **Budget discipline**: standard runners only; `timeout-minutes` on every job; artefact retention 14 days; caches keyed on the lockfiles; cancel-in-progress on PR groups. The fast job is the developer's signal; the matrix is the merge gate.
+9. **Sequence**: E-384 lands after E-382 and before E-383, so the rename PR (which moves the install directory) is checked on macOS and both Node lines; E-383 renames the paths inside the renderer like any other file.
+
+### Alternatives considered
+1. **Hand-write `ci.yml`** — rejected: `ai ci hosted --check` would fail forever and the team-project rendering would diverge from the public one.
+2. **One Ubuntu leg only** — rejected: the README promises macOS, and the installer's directory move (D-132) is exactly what macOS should check.
+3. **Larger runners or Windows** — rejected: not free, and not supported, respectively.
+
+### Impact
+- Unlocks: E-384; E-383 runs on the matrix; P-48 records the required-check set.
+- Risk if wrong: macOS runners queue longer and slow merges; mitigated by the fast job's early signal and by cancel-in-progress.
+
+### Rollback
+Delete the added workflows and set the renderer profile back to the single job; the required-check list shrinks to privacy + `ai ci run`.
+
+---

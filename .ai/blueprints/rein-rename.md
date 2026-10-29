@@ -12,7 +12,7 @@ keep the old names working for one release, ship as `v0.4.0`.
 
 Sequence (D-132 r7): E-378 step 8 (ci.yml for `main`, branch protection) → step 9 (clone
 switch, operator installs from the public clone — the last `install-ai-os.sh`) → E-382
-(version, a small PR that proves the public flow) → E-383 (rename, one PR) → tag `v0.4.0`
+(version, a small PR that proves the public flow) → E-384 (public CI matrix, D-133) → E-383 (rename, one PR, checked on the matrix) → tag `v0.4.0`
 → archive `ai-os-dev`.
 
 ## Core Concept

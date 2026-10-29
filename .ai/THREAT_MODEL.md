@@ -1076,6 +1076,18 @@ PreToolUse entry for `${REIN}/hooks/pre-tool-use.sh` is present. Have them flag 
 entry whose script basename is a Rein hook name at a path that does not exist. None of
 these names the old path.
 
+*Resolved in E-391 (D-132 addenda 4 r2, 5):* `shared/hook-paths.py` recognises a Rein hook by
+file name; doctor reports `[HOOK_PATH_MISSING]` / `[GATE_UNREGISTERED]` (exit 1) and
+`[HOOK_PATH_FOREIGN]`; sync replaces an entry whose script is in the install dir or missing; the
+operator's list syncs every project before the symlink goes. *Transcript-read note:* the
+installer's projects-to-sync list reads Claude Code's per-project session files — files Rein
+does not own and whose content is attacker-influenced (a transcript records tool output). The
+read is bounded (newest `*.jsonl` per directory, first 50 lines, first string `cwd`; every
+other field dropped on the spot, never stored, logged or sent), a `cwd` counts only when it is
+an existing directory holding `.ai/` and `.claude/settings.json`, and a candidate is printed with
+`printf '%s'` and never `cd`'d into, run or passed to a shell — so a crafted line can at most
+add a path that fails the filter or appears in the list. `REIN_NO_PROJECT_SCAN=1` skips it.
+
 ## New Integration Checklist
 
 When a new external integration is added to Rein v2, create a new T-### entry in this file covering:

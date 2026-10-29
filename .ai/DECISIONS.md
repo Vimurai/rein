@@ -3462,3 +3462,59 @@ Residuals (security, non-blocking) become **E-380** (Tier 2, before the first pu
 Delete `Vimurai/rein` before it is cloned; publish a corrected snapshot. The private repository is untouched.
 
 ---
+
+## D-131 — The public line starts at v0.4.0; versions 2.0.0 to 4.0.0 are the private predecessor's history
+
+**Date**: 2026-10-29
+**Task**: E-378, E-382, P-48
+**Decision**: The operator rejected `v4.0.0` for the first public release ("it should be v0.4") and chose `0.4.0` as the code version (semver needs three parts; prose says v0.4). The Engineer deleted the minutes-old public tag with the operator's intent — ratified; `Vimurai/rein` has no tag until E-383 merges. Rein's public version line is `0.x` until the CLI, the hook contract and the `.ai/` schema are declared stable, then `1.0.0`. The CHANGELOG keeps the `[4.0.0]`, `[3.1.0]` and `[2.0.0]` entries under a heading "Private predecessor (AI-OS, 2025–2026)" and adds `[0.4.0]` on top; nothing is renumbered.
+
+### Rulings
+1. **Sources of the version**: root `package.json` `0.4.0`; `ai version` reads it; the README badge follows the tag; the CHANGELOG entry `[0.4.0]` lists the rename (D-132) and the open-source release (D-123 to D-130) as its content.
+2. **Project stamps (`project.aios_version`, soon `rein_version` — D-132)**: `project-upgrade.mjs` already restamps `previous → version` without ordering and keeps `.pre-<version>.json` copies, so a project stamped `4.0.0` becomes `0.4.0` on the next `ai sync` with the ordinary `stamped` line. No refusal, no "downgrade" warning, no epoch field: the version-lifecycle blueprint gets one sentence saying the public line restarts at 0.4.0 and 2.x–4.x are the predecessor's numbers. The doctor's version line prints the stamp as is.
+3. **The private tag `v4.0.0`** stays in `ai-os-dev` (archived with it). The public tag `v0.4.0` is created by E-383 after the rename merges, so the first public tag already carries the new names. Later releases follow the release-manager skill unchanged.
+4. **Semver under 0.x**: a minor bump may break; the rename is such a break and lands in 0.4.0 itself. `1.0.0` is a separate decision.
+
+### Alternatives considered
+1. **Keep 4.0.0** — rejected by the operator; a fourth major on day one promises a stability the public project has not earned.
+2. **0.1.0** — rejected: four private majors of work deserve more than a first minor; 0.4 also keeps the "4" the private line reached, which helps anyone comparing the CHANGELOGs.
+3. **An epoch or a special downgrade path in the lifecycle** — rejected: the restamp is already unordered; adding machinery for a one-time event is cost without a user.
+
+### Impact
+- Unlocks: E-382 (the version change), E-383 (the tag).
+- Risk if wrong: an operator with projects stamped 4.0.0 sees `4.0.0 → 0.4.0` once; the line is self-explanatory.
+
+### Rollback
+Bump to the next minor; versions never go backwards again.
+
+---
+
+## D-132 — The rename is complete: `~/.rein`, `REIN_*`, `install-rein.sh`, `[REIN_ROLE]`, `rein-record`, `rein_version` and all prose; the command `ai` and the directory `.ai/` stay (supersedes D-125 rulings 1 and 3)
+
+**Date**: 2026-10-29
+**Task**: E-378, E-383, P-48
+**Decision**: The operator, seeing `ai-os` throughout the published files ("it should all be renamed to rein"), reversed D-125's "identifiers stay". Asked whether the command and the memory directory change too, the operator chose to keep `ai` and `.ai/` (they do not contain the old name, and D-125's reasons for them hold). Every spelling of the old name — `ai-os`, `.ai-os`, `AI-OS`, `AI_OS_`, `aios`, `AIOS` — becomes the Rein form, with a one-release compatibility layer so existing installs and projects migrate on `ai sync` without a manual step. Blueprint: `.ai/blueprints/rein-rename.md`.
+
+### Rulings
+1. **Name map** (exhaustive; the blueprint carries the table): `~/.ai-os` → `~/.rein`; `AI_OS_<X>` → `REIN_<X>`; `AIOS_WORKSPACE` → `REIN_WORKSPACE`; `AI_OS_HOME` → `REIN_HOME`; `[AI_OS_ROLE]` → `[REIN_ROLE]`; `install-ai-os.sh` → `install-rein.sh`; the `aios-record` merge driver → `rein-record`; `project.aios_version` → `project.rein_version`; `aios`/`AIOS` prefixes in identifiers, temp-dir prefixes and test names → `rein`/`REIN`; package names containing `ai-os` → `rein` (root package `@vimurai/rein`); prose `AI-OS` → `Rein`. Unchanged: `ai` (command and bin), `.ai/`, `ai-*` skill names (`ai-preflight`, `ai-task`, …: the prefix is the command, not the brand), the hook file names, the MCP server names.
+2. **History is not rewritten**: `.ai/DECISIONS.md`, `.ai/COMM.md`, `.ai/LOG.md`, `.ai/archive/**`, the CHANGELOG's predecessor entries, the README's "Where this comes from" sentence (it names AI-OS as the predecessor on purpose) and git history keep the old name. Everything else in the tree is renamed, including the live blueprints and `architect.md`: the Engineer applies the mechanical substitution there as a ruled exception to §35 (one commit, string replacement only, no sentence changed), because the Architect cannot write 59 files by hand and the text's meaning does not change.
+3. **Install directory migration**: `install-rein.sh` creates `~/.rein`; if `~/.ai-os` exists and `~/.rein` does not, it moves the directory (telemetry, incidents, insights, memory palace, registry, the installed mirror) and leaves `~/.ai-os` as a symlink to `~/.rein`; the doctor prints `[LEGACY_HOME_LINK] ~/.ai-os → ~/.rein (remove after 0.5)`. The symlink is removed by the 0.5 installer. A `~/.ai-os` that is already a symlink is left alone.
+4. **Environment migration**: one resolver (`src/shared/env.mjs` + the `locate.sh` equivalent) reads `REIN_<X>`, then `AI_OS_<X>`; when only the old one is set it is honoured and the doctor prints `[LEGACY_ENV] AI_OS_<X> → REIN_<X>` once. Removed in 0.5. The hooks' `AI_OS_LOCATE_UNTRUSTED_ENV` guard is renamed with the same fallback.
+5. **Project migration on `ai sync`**: rewrite `.claude/settings.json` hook paths `~/.ai-os/hooks/…` → `~/.rein/hooks/…`; `.gitattributes` and `.git/config` merge-driver entries `aios-record` → `rein-record`; `ARCHITECT.md`/`ENGINEER.md`/`CLAUDE.md` re-rendered from the templates; `state.json`/`state.sqlite` key `aios_version` → `rein_version` through `record-migrate` (reading the old key for one release). Each rewrite prints the ordinary `merged`/`stamped` line; `ai doctor` reports `[RENAME_PENDING] <file>` for a project not yet synced. Because of ruling 3's symlink, an un-synced project keeps working.
+6. **Contract tables and tests**: the hook-surface, doctor and installer tables rename their expected tags in the same commit as the hooks; no suite is skipped or deleted; the test temp prefixes change with the identifiers. A test that pins the old tag deliberately (the legacy fallbacks of rulings 3–5) says so in its name.
+7. **Where**: in the public clone, on a branch, as one PR under the privacy gates, after E-378 steps 8 and 9 and after E-382; tagged `v0.4.0` on merge (D-131). The private clone receives nothing.
+8. **The published first commit** keeps the old names; that is history too.
+
+### Alternatives considered
+1. **Prose and filenames only (D-125 as it stood)** — rejected by the operator: the published tree shows `ai-os` in 250 files and the brand must be consistent.
+2. **Rename `ai` → `rein` and `.ai/` → `.rein/` as well** — offered, declined by the operator: no brand string in them, and `.ai/` moving would touch every project directory.
+3. **No compatibility layer** — rejected: the operator's own projects and every `.claude/settings.json` on this machine point at `~/.ai-os/hooks`; a hard cut would break the Triad that performs the rename.
+
+### Impact
+- Unlocks: E-383; the `v0.4.0` tag; P-48 records the completed rename.
+- Risk if wrong: a missed spelling in a hook path breaks a hook silently — mitigated by the grep gate in the blueprint (zero matches of the old spellings outside the history exclusions is a CI assertion).
+
+### Rollback
+Revert the PR before 0.5 removes the compatibility layer; the symlink and the env fallback make the revert symmetric.
+
+---

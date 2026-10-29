@@ -222,6 +222,13 @@ _live_one() {  # <tree> [rsync filter args…]
     _atomic_copy_tree "${_STAGE}/${t}" "${REIN}/${t}"
   fi
 }
+# E-391 (D-132 addendum 4 r5, security_engineer F4): bin/ is mirrored with --delete and pruned
+# below, so a bin/ that is a symlink would have files deleted wherever it points. Refused
+# before anything there is touched.
+if [[ -L "${REIN}/bin" ]]; then
+  echo "[INSTALL_BIN_SYMLINK] ${REIN}/bin is a symlink — replace it with a directory, then re-run: bash install-rein.sh" >&2
+  exit 3
+fi
 for _t in contracts templates shared claude copilot config bin; do _live_one "$_t"; done
 # E-273: mcp/ mirrors with --delete, but node_modules/ and package-lock.json written by
 # `npm install` INTO the mirror are PROTECTED. REIN_INSTALL_NO_DELETE=1 keeps the additive copy.
@@ -238,8 +245,10 @@ chmod +x "${REIN}/bin/rein"
 chmod +x "${REIN}/hooks/"*.sh 2>/dev/null || true
 # E-391 (D-132 addendum 2 r1): bin/ holds exactly what the source ships — the rsync path
 # deletes the rest already, the cp fallback does not, so an entry from an earlier install
-# (the pre-rename command) is removed here on both paths.
+# (the pre-rename command) is removed here on both paths. A directory is left alone: rm -f
+# cannot remove it, and under set -e that aborted the install after the hooks went live (F4).
 for _b in "${REIN}/bin/"*; do
+  [[ -d "$_b" && ! -L "$_b" ]] && continue
   [[ -e "${_STAGE}/bin/${_b##*/}" ]] || rm -f -- "$_b"
 done
 echo "✓ The command is rein (${REIN}/bin/rein)"

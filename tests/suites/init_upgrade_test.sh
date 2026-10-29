@@ -72,6 +72,16 @@ assert_status 0 "E-391.01a: the installer installs the command as ~/.rein/bin/re
 assert_status 1 "E-391.01b: the pre-rename command beside it is removed" test -e "${FAKE_HOME}/.rein/bin/${_old_cmd}"
 assert_contains "E-391.01c: the installer says the command is rein" "The command is rein" "$_inst"
 assert_rc 0 "E-391.01d: rein doctor exits 0 on the fresh install" doctor
+# D-132 addendum 4 r5 (security_engineer F4): a symlinked ~/.rein/bin is refused before
+# anything is mirrored or pruned into it, and whatever it points at is left alone.
+_sb_home="$(test_tmpdir upg-symbin)"; tc_fixture_home "$_sb_home"
+_sb_target="$(test_tmpdir upg-symbin-target)"; echo keep > "${_sb_target}/keep"
+mkdir -p "${_sb_home}/.rein"; ln -s "$_sb_target" "${_sb_home}/.rein/bin"
+_sb_out="$( cd "$FAKE_TMP" && HOME="$_sb_home" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"; _sb_rc=$?
+assert_status 0 "E-391.01e: a symlinked ~/.rein/bin is refused with exit 3 (got ${_sb_rc})" test "$_sb_rc" -eq 3
+assert_contains "E-391.01f: …naming it" "[INSTALL_BIN_SYMLINK]" "$_sb_out"
+assert_status 0 "E-391.01g: …and the directory it points at is untouched" \
+  test "$(command ls -A "$_sb_target")" = "keep"
 assert_status 0 "E-270.01b: ~/.rein/VERSION equals package.json (${PKG_VERSION})" \
   test "$(cat "${FAKE_HOME}/.rein/VERSION")" = "$PKG_VERSION"
 assert_contains "E-270.01c: the installer banner prints the package.json version" \

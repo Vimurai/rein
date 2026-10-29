@@ -151,7 +151,8 @@ if (( LOG_LINE_COUNT >= ARCHIVE_THRESHOLD )); then
     # Workspace CLEAN — trigger archive automatically
     printf "[AUTO-ARCHIVE] LOG.md reached %d lines — archiving .ai/ logs...\n" "$LOG_LINE_COUNT" >&2
     AI_BIN=""
-    for _p in "/usr/local/bin/rein" "${HOME}/.rein/bin/rein"; do
+    # The install's own command first (E-391 F6): an unrelated `rein` elsewhere is never it.
+    for _p in "${HOME}/.rein/bin/rein" "/usr/local/bin/rein"; do
       [[ -x "$_p" ]] && AI_BIN="$_p" && break
     done
     if [[ -n "$AI_BIN" ]]; then

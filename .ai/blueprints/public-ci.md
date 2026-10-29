@@ -52,6 +52,8 @@ SHAs and declare minimal `permissions` per job.
 ### Component 3 — Branch policy and badges
 - Required checks on `main`: `privacy`, `fast`, every pull-request `ai ci run (…, i/N)` leg
   (twelve with four shards; the nightly-only legs are not required), `CodeQL` (D-135 r7).
+  Until E-388 closes, the four macOS × 22 legs run but are not required (D-135 addendum 2
+  r3); `dependency-review` joins once the repository's Dependency graph is enabled (r5).
   Linear history, no force-push, PRs required, conversation resolution not required.
 - README badge row: CI (`ci.yml`), privacy, CodeQL, Scorecard, licence, version (latest tag
   via shields `github/v/tag`), sponsors. The hard-coded version badge is replaced.

@@ -1170,6 +1170,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-10-29T11:39:43.669Z"
+    },
+    {
+      "id": "E-388",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Fix the bash 3.2 trap-chaining defect per D-135 addendum 2 r2 and .ai/blueprints/ci-throughput.md §Component 4: under macOS /bin/bash 3.2 a subshell EXIT trap does not fire through tests/assert.sh's trap-chaining wrapper, so harness_isolation_test E-241.02a/b and E-239.05a–f fail (run 40906294420, macOS × 22 shards 1 and 3). Start with bug-reproducer: build bash 3.2.57 from the GNU source tarball into a throwaway directory (never installed, never on PATH) and run the two suites with that interpreter until each failing assertion is reproduced locally; a macOS hosted run is the confirmation, not the loop. Fix the wrapper so the chained trap fires under bash 3.2 and 5 alike without changing what the assertions assert; name the test each change extends (D-088). Acceptance: both suites pass under the local bash 3.2 build and under bash 5; all four macOS × 22 shards green on the PR; the PR adds the four `ai ci run (macos-latest, node 22, i/4)` legs to the required set and records it in .ai/DEVOPS.md (D-135 addendum 2 r3); full ai ci run green; bash install-ai-os.sh.",
+      "created_at": "2026-10-29T18:10:54.289Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-29T18:10:54.302Z"
+    },
+    {
+      "id": "E-389",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Seed shard 1 with the node unit layer's weight per D-135 addendum 2 r4 and .ai/blueprints/ci-throughput.md §Component 3: in tests/run.sh's --shard partition, start bin 1 at the unit layer's measured seconds (from the newest census log, else tests/census-baseline.tsv, else the median suite hint) before suites are assigned, so shard 1 stops being the long pole by 1.5–2 minutes (run 40906294420: 6m12s/7m07s against 4m36s–5m15s). Extend the E-386 partition unit test (named) with a seeded case asserting every suite still lands in exactly one shard and that bin 1 receives fewer suite seconds than the others by about the seed. Acceptance: the partition is unchanged when no unit timing exists; on the next PR the slowest Ubuntu shard is within 60 s of the fastest (report the four times in the handover); full ai ci run green.",
+      "created_at": "2026-10-29T18:10:59.007Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-29T18:10:59.008Z"
     }
   ],
   "stamps": [

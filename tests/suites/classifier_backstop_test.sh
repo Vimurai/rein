@@ -27,35 +27,52 @@ _sha() { [[ -e "$1" ]] && shasum -a 256 "$1" | cut -d' ' -f1 || echo none; }
 _hd() { python3 -c 'import json,sys; print(json.dumps(json.load(open(sys.argv[1]))["autoMode"]["hard_deny"]))' "$1"; }
 RULE="$(python3 -c 'import importlib.util,sys; s=importlib.util.spec_from_file_location("cb", sys.argv[1]); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); print(m.RULE)' "$PY")"
 
-# ── E-293.01 / E-306 / E-318 / E-324: the constant is the CURRENT ruling's text, verbatim (D-101) ──
-_ruling() {  # <D-###> → that ruling's "AI-OS Gate Tamper (D-###): …" paragraph — a "> " quote (D-086..D-097)
-             # or an indented fenced block (D-101)
-  python3 - "${REPO_ROOT}/.ai/DECISIONS.md" "$1" <<'PY'
+# ── E-293.01 / E-306 / E-318 / E-324 / E-391: the constant is the CURRENT ruling's text, verbatim (D-132 addendum 2 r6) ──
+_ruling() {  # <D-###> [<section header>] → that ruling's "<product> Gate Tamper (D-###): …" paragraph — a "> "
+             # quote (D-086..D-097) or an indented fenced block (D-101, D-132 addendum 2). The header
+             # defaults to the D-number; an addendum names its own ("D-132 addendum 2").
+  python3 - "${REPO_ROOT}/.ai/DECISIONS.md" "$1" "${2:-$1}" <<'PY'
 import re, sys
-t = open(sys.argv[1], encoding="utf-8").read(); d = sys.argv[2]
+t = open(sys.argv[1], encoding="utf-8").read(); d = sys.argv[2]; head = sys.argv[3]
 # The ruling's OWN section only (critic_security P2): header anchored so D-101 never matches
 # D-1010, slice ends at the next "## ", so a later ruling quoting the text cannot stand in.
-h = re.search(r"^## " + d + r"\b", t, re.M)
+h = re.search(r"^## " + re.escape(head) + r"(?![\w-])", t, re.M)
 sec = t[h.start():] if h else ""
 nxt = sec.find("\n## ", 1)
-m = re.search(r"^(?:> |[ \t]+)(AI-OS Gate Tamper \(" + d + r"\): .*)$", sec[:nxt] if nxt > 0 else sec, re.M)
+m = re.search(r"^(?:> |[ \t]+)([A-Za-z][A-Za-z-]* Gate Tamper \(" + d + r"\): .*)$", sec[:nxt] if nxt > 0 else sec, re.M)
 print(m.group(1) if m else "")
 PY
 }
-D101="$(_ruling D-101)"; D097="$(_ruling D-097)"; D086="$(_ruling D-086)"
-assert_status 0 "E-306.01a: D-101's quoted rule was found (${#D101} chars)" test "${#D101}" -gt 500
-assert_status 0 "E-306.01b: RULE in the helper equals D-101's paragraph byte-for-byte" test "$RULE" = "$D101"
-assert_status 0 "E-306.01c: …same sha256" test "$(printf '%s' "$RULE" | shasum -a 256 | cut -c1-64)" = "$(printf '%s' "$D101" | shasum -a 256 | cut -c1-64)"
-assert_status 0 "E-324.01a: …and it is NOT D-097's paragraph (the pin moved with the ruling)" test "$RULE" != "$D097"
-assert_status 0 "E-324.01b: D-101 = D-097 with exactly two changes: the label, and 'ai watch' out of Exempt" python3 - "$D097" "$D101" <<'PY'
-import sys
+CUR="$(_ruling D-132 "D-132 addendum 2")"; D101="$(_ruling D-101)"; D097="$(_ruling D-097)"; D086="$(_ruling D-086)"
+CUR_LABEL="${RULE%%:*}"   # "<product> Gate Tamper (D-###)" of the current rule
+assert_status 0 "E-306.01a: D-132 addendum 2's quoted rule was found (${#CUR} chars)" test "${#CUR}" -gt 500
+assert_status 0 "E-306.01b: RULE in the helper equals D-132 addendum 2 r6's paragraph byte-for-byte" test "$RULE" = "$CUR"
+assert_status 0 "E-306.01c: …same sha256" test "$(printf '%s' "$RULE" | shasum -a 256 | cut -c1-64)" = "$(printf '%s' "$CUR" | shasum -a 256 | cut -c1-64)"
+assert_status 0 "E-391.01a: the current label is (D-132)" test "$CUR_LABEL" = "Rein Gate Tamper (D-132)"
+assert_status 0 "E-391.01b: v5 = D-101 with the product name, command, home, installer and label in their Rein form, nothing else" python3 - "$D101" "$CUR" <<'PY'
+import re, sys
 old, new = sys.argv[1], sys.argv[2]
-assert "`ai watch`" in old and "`ai watch`" not in new
-assert old.replace("(D-097)", "(D-101)", 1).replace("`rein pane`, `ai watch`, ", "`rein pane`, ", 1) == new
+word = old.split(" Gate Tamper", 1)[0]          # the predecessor's name, read from D-101 itself
+home = "~/." + word.lower() + "/"
+cmd = re.search(r"`(\w+) gate off`", old).group(1)   # the predecessor's command, likewise
+assert word != "Rein" and home in old and cmd != "rein"
+mapped = (old.replace("(D-101)", "(D-132)", 1).replace(home, "~/.rein/").replace("`" + cmd + " ", "`rein ").replace("`" + cmd + "`", "`rein`")
+             .replace("install-" + word.lower() + ".sh", "install-rein.sh").replace(word, "Rein"))
+assert mapped == new, [i for i, (a, b) in enumerate(zip(mapped, new)) if a != b][:3]
+PY
+assert_status 0 "E-391.01c: the v5 rule blocks the renamed switch and the renamed home" \
+  python3 -c 'import sys; r=sys.argv[1]; assert "`rein gate off`" in r and "~/.rein/gate-override.json" in r and "~/.rein/{hooks,bin,mcp,shared,scripts,run,config,secrets}/" in r' "$RULE"
+assert_status 0 "E-324.01a: …and it is NOT D-101's or D-097's paragraph (the pin moved with the ruling)" test "$RULE" != "$D101" -a "$RULE" != "$D097"
+assert_status 0 "E-324.01b: D-101 = D-097 with exactly two changes: the label, and the watch command out of Exempt" python3 - "$D097" "$D101" <<'PY'
+import re, sys
+old, new = sys.argv[1], sys.argv[2]
+watch = re.search(r", (`\w+ watch`), ", old).group(1)
+assert watch in old and watch not in new
+assert old.replace("(D-097)", "(D-101)", 1).replace(", " + watch, "", 1) == new
 PY
 assert_status 0 "E-318.01a: the superseded D-097 paragraph is still found (the refresh rows below need it)" test "${#D097}" -gt 500
-assert_contains "E-318.01b: D-101 names the account registry" '~/.ai-os/accounts.json' "$D101"  # D-101 as ruled (pre-rename path)
-assert_contains "E-318.01c: …and exempts rein account" '`rein account`' "$D101"
+assert_contains "E-318.01b: the current rule names the account registry" '~/.rein/accounts.json' "$RULE"
+assert_contains "E-318.01c: …and exempts rein account" '`rein account`' "$RULE"
 assert_status 0 "E-306.01d: the superseded D-086 paragraph is still found (the replacement fixture below needs it)" test "${#D086}" -gt 500
 
 # ── E-293.02: no autoMode → exactly "$defaults" + the rule ────────────────────────────
@@ -112,13 +129,13 @@ assert b["autoMode"]["hard_deny"] == a["autoMode"]["hard_deny"] + [rule]
 b["autoMode"]["hard_deny"] = b["autoMode"]["hard_deny"][:-1]
 assert a == b
 PY
-assert_status 0 "E-293.03c: …and the bytes of the file are the original plus the one inserted line" python3 - "$T/orig" "$S" <<'PY'
+assert_status 0 "E-293.03c: …and the bytes of the file are the original plus the one inserted line" python3 - "$T/orig" "$S" "$CUR_LABEL" <<'PY'
 import sys
 a, b = open(sys.argv[1], encoding="utf-8").read().splitlines(), open(sys.argv[2], encoding="utf-8").read().splitlines()
 # Adding an entry gives the previous last entry a trailing comma; compare with commas stripped.
 a2, b2 = [l.rstrip(",") for l in a], [l.rstrip(",") for l in b]
 extra = [l for l in b2 if l not in a2]
-assert len(b2) == len(a2) + 1 and len(extra) == 1 and extra[0].strip().startswith('"AI-OS Gate Tamper (D-101)'), extra
+assert len(b2) == len(a2) + 1 and len(extra) == 1 and extra[0].strip().startswith('"' + sys.argv[3]), extra
 assert [l for l in b2 if l != extra[0]] == a2
 PY
 assert_status 0 "E-293.03d: one .bak beside the file, equal to the original" cmp -s "$S.bak" "$T/orig"
@@ -144,7 +161,7 @@ assert_status 0 "E-293.03g: …and does not touch the file" \
 # An OUTDATED copy (same label, other text) is replaced in place, never duplicated.
 python3 - "$S" <<'PY'
 import json, sys
-p = sys.argv[1]; d = json.load(open(p)); d["autoMode"]["hard_deny"][1] = "AI-OS Gate Tamper: an older wording"
+p = sys.argv[1]; d = json.load(open(p)); d["autoMode"]["hard_deny"][1] = "Rein Gate Tamper: an older wording"
 open(p, "w").write(json.dumps(d, indent=2, ensure_ascii=False) + "\n")
 PY
 assert_contains "E-293.03h: an older labelled copy reads OUTDATED" "OUTDATED" "$(python3 -I "$PY" status "$S")"
@@ -193,7 +210,7 @@ assert_contains "E-293.04: …and kept as 1.5" '"x": 1.5' "$(cat "$S")"
 _home; mkdir -p "$T/dots"; printf '{}\n' > "$T/dots/settings.json"; ln -s "$T/dots/settings.json" "$S"
 python3 -I "$PY" apply "$S" >/dev/null
 assert_status 0 "E-293.05a: a symlinked settings.json is written THROUGH (link kept)" test -L "$S"
-assert_contains "E-293.05b: …the target carries the rule" "AI-OS Gate Tamper (D-101)" "$(cat "$T/dots/settings.json")"
+assert_contains "E-293.05b: …the target carries the rule" "$CUR_LABEL" "$(cat "$T/dots/settings.json")"
 rm -f "$T/dots/settings.json" "$T/dots/settings.json.bak"
 out="$(python3 -I "$PY" apply "$S")"
 assert_contains "E-293.05c: a dangling symlink is refused" "dangling symlink" "$out"
@@ -220,7 +237,7 @@ PY
 )"; rc=$?
 assert_status 0 "E-293.06a: a concurrent write aborts the apply (rc 4, got ${rc})" test "$rc" -eq 4
 assert_status 0 "E-293.06b: …the other writer's content stands, no rule written, no temp left" \
-  bash -c "! grep -q 'AI-OS Gate Tamper' '$S' && ! ls '$T/h/.claude/'.settings.*.tmp >/dev/null 2>&1"
+  bash -c "! grep -q ' Gate Tamper' '$S' && ! ls '$T/h/.claude/'.settings.*.tmp >/dev/null 2>&1"
 
 # ── E-293.07: the `rein install` offer (bash glue) ──────────────────────────────────────
 # The offer runs only with a terminal on stdin. Python's pty module gives it one, waits for
@@ -268,7 +285,7 @@ if true; then   # python3 (required above) provides the pty
   _home; printf '{\n  "a": 1\n}\n' > "$S"
   out="$(_pty y)"
   assert_contains "E-293.07c: 'y' adds it and points at critique" "claude auto-mode critique" "$out"
-  assert_contains "E-293.07d: …and the file now has the rule" "AI-OS Gate Tamper (D-101)" "$(cat "$S")"
+  assert_contains "E-293.07d: …and the file now has the rule" "$CUR_LABEL" "$(cat "$S")"
   out="$(_pty y)"
   assert_contains "E-293.07e: with the rule present there is no prompt" "Classifier backstop present" "$out"
   assert_contains "E-293.07e0: …the offer ran to completion" "OFFER_DONE" "$out"
@@ -308,7 +325,7 @@ assert_contains "E-293.08e: a Bash(ai… allow rule is warned about" "allow rule
 assert_contains "E-293.08f: a list without \$defaults is reported (D-086 r2)" 'hard_deny omits "$defaults"' "$out"
 assert_contains "E-293.08g: auto mode reported without the hook-only caveat" "default permission mode: auto" "$out"
 assert_not_contains "E-293.08h: …and no 'only gate' caveat in auto mode" "the hook is the only gate" "$out"
-_home; printf '{"autoMode": {"hard_deny": ["AI-OS Gate Tamper: older text"]}}\n' > "$S"
+_home; printf '{"autoMode": {"hard_deny": ["Rein Gate Tamper: older text"]}}\n' > "$S"
 assert_contains "E-293.08j: an outdated copy is reported" "outdated wording — rein install offers the current rule" "$(_doctor)"
 
 # ── E-306: an installed older rule (D-086) is replaced IN PLACE by the current one — exactly one Rein rule ──
@@ -323,7 +340,7 @@ PY
 assert_contains "E-306.02a: an installed D-086 rule reads OUTDATED and names its ruling" $'OUTDATED\tD-086' "$(python3 -I "$PY" status "$S")"
 assert_contains "E-306.02b: rein doctor says 'outdated (D-086)'" "outdated (D-086) wording" "$(_doctor)"
 python3 -I "$PY" apply "$S" >/dev/null
-assert_status 0 "E-306.02c: after apply: exactly one Rein rule, the current one, in the D-086 one's place; every other entry untouched" python3 - "$S" "$D101" <<'PY'
+assert_status 0 "E-306.02c: after apply: exactly one Rein rule, the current one, in the D-086 one's place; every other entry untouched" python3 - "$S" "$RULE" <<'PY'
 import json, sys
 d = json.load(open(sys.argv[1]))
 assert d["autoMode"]["hard_deny"] == ["$defaults", "keep-before", sys.argv[2], "keep-after"], d["autoMode"]["hard_deny"]
@@ -332,11 +349,11 @@ PY
 python3 - "$S" "$D086" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p))
-d["autoMode"]["hard_deny"] = ["$defaults", sys.argv[2], "x", "AI-OS Gate Tamper: an even older copy"]
+d["autoMode"]["hard_deny"] = ["$defaults", sys.argv[2], "x", "Rein Gate Tamper: an even older copy"]
 json.dump(d, open(p, "w"), indent=2, ensure_ascii=False)
 PY
 python3 -I "$PY" apply "$S" >/dev/null
-assert_status 0 "E-306.02d: two labelled copies collapse to ONE current rule (first position kept)" python3 - "$S" "$D101" <<'PY'
+assert_status 0 "E-306.02d: two labelled copies collapse to ONE current rule (first position kept)" python3 - "$S" "$RULE" <<'PY'
 import json, sys
 hd = json.load(open(sys.argv[1]))["autoMode"]["hard_deny"]
 assert hd == ["$defaults", sys.argv[2], "x"], hd
@@ -360,8 +377,8 @@ python3 -I "$PY" apply "$T/h/.claude-work/settings.json" >/dev/null
 assert_contains "E-314.01c: …and reads present once it has it" "✓ classifier backstop [account work]: present" "$(_doctor)"
 
 # ── E-318 (D-097, accounts.md §4 "never goes stale"): REPLACE-ONLY refresh in every account ──
-# ~/.claude PRESENT (current), account "old" carrying the D-097 label mid-list (E-324: the
-# version D-101 superseded), account "none"
+# ~/.claude PRESENT (current), account "old" carrying the D-101 label mid-list (E-391: the
+# version D-132 addendum 2 superseded, under the predecessor's product name), account "none"
 # without the rule. The files are in Claude Code's own format, so a rewrite that changed
 # anything but the one entry would show in the bytes.
 _refresh() { env HOME="$T/h" bash -c "source '${REPO_ROOT}/src/bin/rein' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_refresh_all $*" 2>&1; }
@@ -374,19 +391,19 @@ open(sys.argv[1], "w", encoding="utf-8").write(json.dumps(d, indent=2, ensure_as
 PYW
 }
 _home; mkdir -p "$T/h/.claude-old" "$T/h/.claude-none" "$T/h/.rein"
-_cc_json "$S" "$(python3 -c 'import json,sys; print(json.dumps(["$defaults", sys.argv[1]]))' "$D101")"
-_cc_json "$T/h/.claude-old/settings.json" "$(python3 -c 'import json,sys; print(json.dumps(["$defaults", "keep-before", sys.argv[1], "keep-after"]))' "$D097")"
+_cc_json "$S" "$(python3 -c 'import json,sys; print(json.dumps(["$defaults", sys.argv[1]]))' "$RULE")"
+_cc_json "$T/h/.claude-old/settings.json" "$(python3 -c 'import json,sys; print(json.dumps(["$defaults", "keep-before", sys.argv[1], "keep-after"]))' "$D101")"
 _cc_json "$T/h/.claude-none/settings.json" '["$defaults", "x"]'
 printf '{"accounts": {"none": {"config_dir": "%s", "added": "2026-10-14"}, "old": {"config_dir": "%s", "added": "2026-10-14"}}}\n' \
   "$T/h/.claude-none" "$T/h/.claude-old" > "$T/h/.rein/accounts.json"
 sha_claude="$(_sha "$S")"; sha_none="$(_sha "$T/h/.claude-none/settings.json")"
-assert_contains "E-318.02a: before: doctor reads the account's D-097 copy as outdated" \
-  "○ classifier backstop [account old]: outdated (D-097) wording" "$(_doctor)"
+assert_contains "E-318.02a: before: doctor reads the account's D-101 copy as outdated" \
+  "○ classifier backstop [account old]: outdated (D-101) wording" "$(_doctor)"
 out="$(_refresh)"
 assert_contains "E-318.02b: the outdated account copy is replaced, one line naming it" \
   "✓ classifier backstop [account old]: outdated copy in ~/.claude-old/settings.json replaced with the current rule" "$out"
 assert_status 0 "E-318.02c: …at its original position; every other key byte-identical (the file equals the original with ONE entry swapped)" \
-  python3 - "$T/h/.claude-old/settings.json" "$D101" <<'PY2'
+  python3 - "$T/h/.claude-old/settings.json" "$RULE" <<'PY2'
 import json, sys
 d = {"model": "opus", "permissions": {"defaultMode": "auto", "allow": ["Bash(ls *)"]},
      "autoMode": {"soft_deny": ["$defaults", "mine"], "hard_deny": ["$defaults", "keep-before", sys.argv[2], "keep-after"]}, "theme": "dark ü"}
@@ -407,7 +424,7 @@ assert_status 0 "E-318.02k: …byte-identical" test "$(_sha "$T/h/.claude-old/se
 # terminal (the offer declines to ask) still leaves no outdated copy behind.
 _cc_json "$S" "$(python3 -c 'import json,sys; print(json.dumps(["$defaults", "keep", sys.argv[1]]))' "$D097")"
 out="$(env HOME="$T/h" bash -c "source '${REPO_ROOT}/src/bin/rein' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; _classifier_refresh_all; _classifier_offer" </dev/null 2>&1)"
-assert_contains "E-318.02l: a non-TTY install sequence replaces an outdated ~/.claude copy…" "AI-OS Gate Tamper (D-101)" "$(cat "$S")"
+assert_contains "E-318.02l: a non-TTY install sequence replaces an outdated ~/.claude copy…" "$CUR_LABEL" "$(cat "$S")"
 assert_contains "E-318.02l2: …and the offer still declines to prompt without a terminal" "not offered (no terminal)" "$out"
 assert_status 0 "E-318.02l3: …the ABSENT account stays untouched" test "$(_sha "$T/h/.claude-none/settings.json")" = "$sha_none"
 assert_contains "E-318.02m: rein sync runs the refresh as a step" "_classifier_refresh_all" "$(grep -nE '_sync_step +classifier +_classifier_refresh_all' "${REPO_ROOT}/src/bin/rein")"
@@ -420,7 +437,7 @@ _home; rm -rf "$T/h/.rein" "$T/h/.claude-work"
 _cc_json "$S" "$(python3 -c 'import json,sys; print(json.dumps(["$defaults", sys.argv[1]]))' "$D097")"
 out="$(env HOME="$T/h" PATH="/usr/bin:/bin" bash -c "source '${REPO_ROOT}/src/bin/rein' >/dev/null 2>&1; _cb_py() { printf %s '${PY}'; }; do_account add work" </dev/null 2>&1)"
 assert_contains "E-318.03a: rein account add reports the refresh of the seeded copy" "✓ classifier backstop [account work]: outdated copy" "$out"
-assert_contains "E-318.03b: …the new directory carries the D-101 text" "AI-OS Gate Tamper (D-101)" "$(cat "$T/h/.claude-work/settings.json" 2>/dev/null)"
-assert_not_contains "E-318.03c: …and ~/.claude keeps its own (outdated) copy for the offer" "AI-OS Gate Tamper (D-101)" "$(cat "$S")"
+assert_contains "E-318.03b: …the new directory carries the current text" "$CUR_LABEL" "$(cat "$T/h/.claude-work/settings.json" 2>/dev/null)"
+assert_not_contains "E-318.03c: …and ~/.claude keeps its own (outdated) copy for the offer" "$CUR_LABEL" "$(cat "$S")"
 
 assert_summary

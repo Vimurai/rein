@@ -241,10 +241,10 @@ echo '{"account":"work"}' > "$AC_PROJ/.ai/start.json"
 python3 - "${REPO_ROOT}/.ai/DECISIONS.md" "${AC_HOME}/.claude-work/settings.json" <<'PY'
 import json, re, sys
 t = open(sys.argv[1], encoding="utf-8").read()
-rule = re.search(r"^> (AI-OS Gate Tamper \(D-097\): .*)$", t[t.index("## D-097"):], re.M).group(1)  # rename:legacy-fallback (D-097 is quoted as ruled)
+rule = re.search(r"^> ([A-Za-z][A-Za-z-]* Gate Tamper \(D-097\): .*)$", t[t.index("## D-097"):], re.M).group(1)  # D-097 as ruled, any product word
 json.dump({"autoMode": {"hard_deny": ["$defaults", rule]}}, open(sys.argv[2], "w"), indent=2)
 PY
-assert_contains "E-324.P05f: the fixture carries the D-097 label" "AI-OS Gate Tamper (D-097)" "$(cat "${AC_HOME}/.claude-work/settings.json")"  # rename:legacy-fallback
+assert_contains "E-324.P05f: the fixture carries the D-097 label" " Gate Tamper (D-097)" "$(cat "${AC_HOME}/.claude-work/settings.json")"
 _ac_out="$(_ac_pane engineer)"
 assert_contains "E-315.P05a: an OUTDATED (D-097) account backstop refuses with exit 2" "RC:2" "$_ac_out"
 assert_contains "E-315.P05b: …naming rein sync" "run: rein sync" "$_ac_out"

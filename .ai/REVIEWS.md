@@ -188,3 +188,7 @@
 [CRITIC_STAMP] 2026-10-29 | e04bb83 32126521+Vimurai@users.noreply.github.com | E-378 step 8: ci.yml rendered for main by ai ci hosted github --force (only master→main); hosted-ci-workflow test follows the rendered trunk and the resolved one. Reviewed by the Engineer; ai ci run --dirty PASS on the clone.
 [CRITIC_STAMP] 2026-10-29 | 84d2398 32126521+Vimurai@users.noreply.github.com | E-378 step 8: CONTRIBUTING install-from-source adds npm ci (inside the framework clone the gate runs from src/; without it sync's gate_check reports SAFE_EXEC_BROKEN) and fixes a dead README anchor; the link check now covers CONTRIBUTING, SECURITY, CODE_OF_CONDUCT. publish-scan 61/61.
 [CRITIC_STAMP] 2026-10-29 | 0828852 32126521+Vimurai@users.noreply.github.com | E-378 step 8: E-268.01d skips on the public line (its root is the bootstrap snapshot), not merely on a one-commit checkout; CI FAIL 0828852 was this row. ai_ci_test 239/0/1.
+[ALIGN_PASS] 2026-10-29 | c4ff013 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-382 per rein-rename.md §Component 1; aligner WARNs are the version field (no dep) and files the component names
+[CRITIC_STAMP] 2026-10-29 | c4ff013 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned
+[ALIGN_PASS] 2026-10-29 | 26035bc 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-382 test pin follows the D-131 CHANGELOG structure
+[CRITIC_STAMP] 2026-10-29 | 26035bc 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned

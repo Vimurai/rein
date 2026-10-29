@@ -1,0 +1,243 @@
+{
+  "version": "2.0",
+  "comment": "AI-OS v2 MCP Server Registry. All servers must be listed here before they can be used with WRITE or EXECUTE permissions.",
+  "roles": {
+    "_comment": "E-254 (claude-native-consolidation.md §Components 1): the only place that says which source directory serves which role. v4 is Claude-native, so both roles name the same src/claude/ directories, so both receive every skill; role-manifest.mjs unions directories and does not partition by name — role separation is enforced by the role token and the write gate (D-076). do_sync still unions shared with every role a provider serves.",
+    "architect": {
+      "skill_dirs": [
+        "claude/skills"
+      ],
+      "agent_dirs": [
+        "claude/agents"
+      ],
+      "rulefile": "ARCHITECT.md"
+    },
+    "engineer": {
+      "skill_dirs": [
+        "claude/skills"
+      ],
+      "agent_dirs": [
+        "claude/agents"
+      ],
+      "rulefile": "ENGINEER.md"
+    },
+    "shared": {
+      "skill_dirs": [
+        "shared/skills"
+      ],
+      "agent_dirs": []
+    }
+  },
+  "mcp_servers": {
+    "filesystem": {
+      "package": "@modelcontextprotocol/server-filesystem",
+      "capability": "READ",
+      "status": "approved",
+      "allowed-tools": [
+        "Read",
+        "Glob",
+        "Grep"
+      ]
+    },
+    "memory": {
+      "package": "@modelcontextprotocol/server-memory",
+      "capability": "WRITE",
+      "status": "approved",
+      "allowed-tools": [
+        "*"
+      ]
+    },
+    "vibe-check-mcp": {
+      "path": "src/mcp/vibe-check-mcp/index.js",
+      "capability": "EXECUTE",
+      "status": "approved",
+      "allowed-tools": [
+        "run_vibe_audit",
+        "run_chaos_test",
+        "get_performance_metrics"
+      ],
+      "requires_playwright": true,
+      "disable-model-invocation": false
+    },
+    "task-synchronizer-mcp": {
+      "path": "src/mcp/task-synchronizer-mcp/index.js",
+      "capability": "WRITE",
+      "status": "approved",
+      "allowed-tools": [
+        "get_state",
+        "add_task",
+        "update_task_status",
+        "add_stamp",
+        "set_project_focus",
+        "verify_markdown_sync",
+        "get_ci_status",
+        "archive_done_tasks",
+        "claim_task",
+        "release_task",
+        "validate_payload",
+        "mark_deltas_read"
+      ],
+      "disable-model-invocation": false,
+      "_note": "Exclusive State Mutator (P-39): manages .ai/state.json, regenerates TASKS.md and REVIEWS.md as views",
+      "_mandate": "v3.1 (P-44): state.json is the exclusive write target. TASKS.md and REVIEWS.md are generated views only. Write tools reject calls when state.json is absent — run: ai migrate-state to seed it."
+    },
+    "safe-exec-mcp": {
+      "path": "src/mcp/safe-exec-mcp/index.js",
+      "capability": "READ",
+      "status": "approved",
+      "allowed-tools": [
+        "analyze_command"
+      ],
+      "disable-model-invocation": true,
+      "_note": "disable-model-invocation: true — Claude cannot self-authorize execution bypass"
+    },
+    "blueprint-aligner-mcp": {
+      "path": "src/mcp/blueprint-aligner-mcp/index.js",
+      "capability": "READ",
+      "status": "approved",
+      "allowed-tools": [
+        "align_diff",
+        "validate_blueprint_section",
+        "generate_implementation_delta"
+      ],
+      "disable-model-invocation": false
+    },
+    "context-guardian-mcp": {
+      "path": "src/mcp/context-guardian-mcp/index.js",
+      "capability": "READ",
+      "status": "approved",
+      "allowed-tools": [
+        "check_workspace"
+      ],
+      "disable-model-invocation": false
+    },
+    "risk-analyzer-mcp": {
+      "path": "src/mcp/risk-analyzer-mcp/index.js",
+      "capability": "READ",
+      "status": "approved",
+      "allowed-tools": [
+        "classify_risk",
+        "get_tier_actions"
+      ],
+      "disable-model-invocation": false,
+      "_note": "TSRT classifier — invoked automatically by ai update and ai review"
+    },
+    "archive-manager-mcp": {
+      "path": "src/mcp/archive-manager-mcp/index.js",
+      "capability": "EXECUTE",
+      "status": "approved",
+      "allowed-tools": [
+        "check_context_health",
+        "execute_archive"
+      ],
+      "disable-model-invocation": false,
+      "_note": "Auto-Pilot Archive (P-27): monitors .ai/ context health and triggers archive when thresholds are exceeded"
+    },
+    "orchestrator-mcp": {
+      "path": "src/mcp/orchestrator-mcp/index.js",
+      "capability": "WRITE",
+      "status": "approved",
+      "allowed-tools": [
+        "run_handover",
+        "run_review",
+        "run_dispatch"
+      ],
+      "disable-model-invocation": false,
+      "_note": "Deterministic workflow execution (P-38): replaces LLM-interpreted skills with programmatic orchestration. run_dispatch (E-92) is a read-only DAG dispatch planner."
+    },
+    "memory-manager-mcp": {
+      "path": "src/mcp/memory-manager-mcp/index.js",
+      "capability": "WRITE",
+      "status": "approved",
+      "allowed-tools": [
+        "export_signature",
+        "query_signatures"
+      ],
+      "disable-model-invocation": false,
+      "_note": "§31 Cross-Project Memory Palace: stores high-level project signatures in ~/.ai-os/memory/signatures.json"
+    },
+    "verification-mcp": {
+      "path": "src/mcp/verification-mcp/index.js",
+      "capability": "READ",
+      "status": "approved",
+      "allowed-tools": [
+        "verify_compliance"
+      ],
+      "disable-model-invocation": false,
+      "_note": "§32 Verification Audit: checks agent YAML frontmatter allowed-tools against registry; flags Ghost Tools as CRITICAL"
+    },
+    "patch-mcp": {
+      "path": "src/mcp/patch-mcp/index.js",
+      "capability": "WRITE",
+      "status": "approved",
+      "allowed-tools": [
+        "patch_file",
+        "get_file_md5"
+      ],
+      "disable-model-invocation": false,
+      "_note": "§25 Staleness-Aware Patching: MD5-verified atomic writes — prevents race-condition overwrites"
+    },
+    "token-budget-mcp": {
+      "path": "src/mcp/token-budget-mcp/index.js",
+      "capability": "WRITE",
+      "status": "approved",
+      "allowed-tools": [
+        "report_cost",
+        "get_token_budget",
+        "get_usage_report",
+        "set_budget",
+        "reset_session"
+      ],
+      "disable-model-invocation": false,
+      "_note": "§27 Token Budget & Cost Governance: real-time LLM spend tracking persisted in ~/.ai-os/usage.sqlite"
+    },
+    "propose-patch-mcp": {
+      "path": "src/mcp/propose-patch-mcp/index.js",
+      "capability": "WRITE",
+      "status": "approved",
+      "allowed-tools": [
+        "propose_patch",
+        "confirm_patch",
+        "reject_patch",
+        "list_pending_patches",
+        "preview_patch"
+      ],
+      "disable-model-invocation": false,
+      "_note": "§30 Human-in-the-Loop Safe Diff Flow: propose_patch requires explicit confirm_patch before writing to disk"
+    },
+    "approval-mcp": {
+      "path": "src/mcp/approval-mcp/index.js",
+      "capability": "EXECUTE",
+      "status": "approved",
+      "allowed-tools": [
+        "request_approval"
+      ],
+      "disable-model-invocation": false,
+      "_note": "E-10 HITL Gate: blocks Tier 3 ops until human types y/Y in terminal. Audit trail in ~/.ai-os/approvals.sqlite. Cannot be bypassed. Blueprint: interop.md §2. SEC_CLEARED 2026-04-24.",
+      "_security": "T-HITL-001: ANSI stripped. T-HITL-002: DB_PATH hardcoded. T-HITL-003: stdin.isTTY required. T-HITL-004: SQLite write before response. T-HITL-005: maxLength 200/500 enforced."
+    },
+    "advisor-mcp": {
+      "path": "src/mcp/advisor-mcp/index.js",
+      "capability": "EXECUTE",
+      "status": "approved",
+      "allowed-tools": [
+        "ask_architect"
+      ],
+      "disable-model-invocation": false,
+      "_note": "E-9 A2A Bridge: the Engineer queries the Architect mid-execution via `claude -p`. Read-only — the Architect cannot write files. All rulings logged as [A2A_RULING] in .ai/LOG.md. Blueprint: interop.md §1."
+    },
+    "cache-manager-mcp": {
+      "path": "src/mcp/cache-manager-mcp/index.js",
+      "capability": "READ",
+      "status": "approved",
+      "allowed-tools": [
+        "build_cache",
+        "get_cached_context",
+        "invalidate_cache",
+        "get_cache_status"
+      ],
+      "disable-model-invocation": false,
+      "_note": "E-11 Explicit Context Cache: assembles architect.md plus .ai/blueprints/*.md modified within 7 days into a prompt-cacheable System Context blob capped at 20,000 chars (E-275, D-075). mtime-based invalidation. Cache in ~/.ai-os/cache.sqlite. Blueprint: caching.md."
+    }
+  }
+}

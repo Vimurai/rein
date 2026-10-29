@@ -1,0 +1,145 @@
+{
+  "version": "1.0",
+  "blueprint": ".ai/blueprints/engineering-standards.md",
+  "_comment": "Canonical engineering-standards registry (E-80). Each rule MUST carry rule_id, severity, threshold, description, auto_fix_available per blueprint §Data Model. Modifications require a Tier 3 Architect ruling per §Security/Integrity.",
+  "rules": [
+    {
+      "rule_id": "file_size_limit_lines",
+      "severity": "error",
+      "threshold": 1000,
+      "warn_threshold": 500,
+      "description": "Source files MUST stay ≤ 1000 lines (warn at 500). Beyond that, split into focused modules under src/shared/ per blueprint §Core Concept Delegated Architecture.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "src/**/*.js",
+        "src/**/*.mjs",
+        "src/**/*.ts",
+        "src/**/*.tsx"
+      ]
+    },
+    {
+      "rule_id": "mcp_stdout_purity",
+      "severity": "error",
+      "threshold": 0,
+      "description": "src/mcp/** files MUST NOT call console.log() or console.info() — stdout is reserved for JSON-RPC frames. Use the structured stderr logger (src/mcp/shared/logger.js) instead. Mirrors E-48 pre-commit gate.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "src/mcp/**/*.js",
+        "src/mcp/**/*.mjs"
+      ]
+    },
+    {
+      "rule_id": "no_committed_tmp_files",
+      "severity": "error",
+      "threshold": 0,
+      "description": "Staged paths MUST NOT end in .tmp, .bak, .swp, or .orig. Strip editor/merge cruft before committing.",
+      "auto_fix_available": true,
+      "applies_to": [
+        "**/*"
+      ]
+    },
+    {
+      "rule_id": "kebab_case_filenames",
+      "severity": "warning",
+      "threshold": 0,
+      "description": "Source filenames under src/ SHOULD be kebab-case (memory-batch-scanner.mjs) or single-camelCase (memoryCurator.md). Mixed_Snake.Case is forbidden — breaks ESM resolver case-sensitivity guarantees across platforms.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "src/**/*.js",
+        "src/**/*.mjs",
+        "src/**/*.ts",
+        "src/**/*.tsx"
+      ]
+    },
+    {
+      "rule_id": "no_secrets_in_diff",
+      "severity": "error",
+      "threshold": 0,
+      "description": "Refuse to commit obvious secret patterns: AWS access keys (AKIA…), Stripe live keys (sk_live_…), Slack tokens (xox[bp]-…), GitHub PATs (ghp_…/ghs_…), or BEGIN PRIVATE KEY blocks. Defence-in-depth alongside identity_guardian. Test files under tests/** are exempted — they document detection fixtures that must contain the patterns verbatim.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "**/*"
+      ],
+      "applies_to_excludes": [
+        "tests/**",
+        ".ai/**"
+      ]
+    },
+    {
+      "rule_id": "mandatory_shared_helper",
+      "severity": "warning",
+      "threshold": 0,
+      "description": "Files under src/mcp/** importing node:sqlite directly SHOULD go through src/shared/wal-flusher.mjs or src/mcp/shared/state-db.js — duplicating SQLite plumbing fragments the schema-bootstrap contract (P-13, E-79). Per blueprint §Core Concept Mandatory reuse of src/shared/.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "src/mcp/**/*.js",
+        "src/mcp/**/*.mjs"
+      ]
+    },
+    {
+      "rule_id": "skill_locator_install_first",
+      "severity": "error",
+      "threshold": 0,
+      "description": "An EXECUTABLE markdown line (a `!`-prefixed line in a skill/agent file, or a line inside a bash/js/python fence) must not execute a helper by a cwd- or repo-relative path. `!`-lines are auto-executed at session start, so a chain beginning src/shared/x.mjs runs the VISITED project's copy — T-LOCATOR-001. Resolve through `ai_os_locate` after sourcing ${HOME}/.ai-os/shared/locate.sh. Only paths with an EXECUTABLE extension count: reading the project's own src/db/schema.sql or grepping src/ is legitimate and must not be flagged. Bypass: AI_OS_STANDARDS_SKIP=skill-locator.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "src/**/SKILL.md",
+        "src/**/agents/*.md",
+        ".claude/skills/**/SKILL.md"
+      ]
+    },
+    {
+      "rule_id": "skill_consent_no_project_exec",
+      "severity": "error",
+      "threshold": 0,
+      "description": "A `!`-prefixed line in a SKILL.md or agents/*.md file is auto-executed by the harness the moment the file LOADS — before the agent decides anything and before the operator is asked. Such a line may INSPECT, but must never EXECUTE a program the visited project supplies: `bash tests/run.sh`, `npm|pnpm|yarn run`, `make`, `npx`, `./x`, `scripts/*`. `ai-debug` opened with `!bash tests/run.sh`, so loading the debugging skill ran the visited project's tests. The test is EXECUTION, not mention: `npm outdated` and `npm audit` remain allowed because they query the manifest and registry and run none of the project's own code. Move project-program execution into a numbered step the agent performs deliberately (D-060 §3, E-232). Rollback: AI_OS_STANDARDS_SKIP=skill-consent.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "src/**/SKILL.md",
+        "src/**/agents/*.md",
+        ".claude/**/SKILL.md"
+      ]
+    },
+    {
+      "rule_id": "no_raw_exit_trap_in_tests",
+      "severity": "error",
+      "threshold": 0,
+      "description": "A raw `trap 'cmd' EXIT` in a test suite REPLACES any existing EXIT handler, silently discarding the assert.sh cleanup registry — which is how 42 suites disabled their own teardown and E-227/E-228 leaked 50 tmux servers. Use `on_exit <cmd>`, which chains (D-064 / E-241). A test that ASSERTS something about traps is not flagged: comments, `assert_*` lines quoting a trap string, and an explicit `builtin trap` are all exempt, because a gate that rejects the tests verifying trap behaviour is the same failure E-224 and E-238 each had to avoid. Rollback: AI_OS_STANDARDS_SKIP=raw-exit-trap.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "tests/**/*.sh"
+      ],
+      "suppression_aliases": [
+        "raw-trap",
+        "raw-exit-trap"
+      ],
+      "exempt_files": [
+        {
+          "path": "tests/run.sh",
+          "reason": "The RUNNER is the parent process that spawns suites, not one that sources the cleanup registry; it legitimately traps EXIT INT TERM so a Ctrl-C mid-run still tears down the sandbox. Named here rather than narrowing the rule's scope, which would also stop covering tests/lib/*.sh where the same mistake would be worse (D-065 §1)."
+        }
+      ]
+    },
+    {
+      "rule_id": "test_suite_naming",
+      "severity": "error",
+      "threshold": 0,
+      "description": "tests/suites/*.sh are named for the BEHAVIOUR they observe, never for a task (no ^e<N>, _e<N>, p<N>_ in the name); task ids live in comments or table-row labels (D-088 r1, test-economics.md Component 3).",
+      "auto_fix_available": false,
+      "applies_to": [
+        "tests/suites/*.sh"
+      ],
+      "exempt_files": []
+    },
+    {
+      "rule_id": "test_label_density",
+      "severity": "warning",
+      "threshold": 0,
+      "description": "A suite with more task-id labels (E-/P-/T- ids) than assertions is organised by task, not behaviour — a finding, not a block (D-088 r1). A label belongs on a contract-table row, at most one per assertion.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "tests/suites/*.sh"
+      ]
+    }
+  ]
+}

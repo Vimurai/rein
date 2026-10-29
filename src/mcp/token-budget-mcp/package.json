@@ -1,0 +1,14 @@
+{
+  "name": "token-budget-mcp",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "AI-OS Token Budget & Cost Governance (\u00a727) \u2014 real-time LLM spend tracking with SQLite persistence.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "*"
+  }
+}

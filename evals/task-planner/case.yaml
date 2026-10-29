@@ -1,0 +1,15 @@
+schema_version: "1.1"
+name: task-planner
+description: task-planner registers a well-formed task via add_task and rejects one without a tier (E-285).
+tags: [core-skill]
+runs: 2
+context:
+  scaffold_script: scaffold.sh
+execution:
+  max_turns: 20
+  allowed_tools: [Read, Glob, Grep, Skill]
+  prompt: |
+    Use the task-planner skill to register these two Engineer tasks:
+    1. "Add a --shout flag to src/greet.js per .ai/architect.md §2. Acceptance: --shout upper-cases the output. | Tier: 1"
+    2. "Add a --quiet flag to src/greet.js per .ai/architect.md §2."
+    Do not hand off afterwards; just report what was registered and what was rejected.

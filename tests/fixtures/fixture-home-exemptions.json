@@ -1,0 +1,33 @@
+{
+  "//": "E-345 (D-109 r1): suites the fixture-home census (tests/tools/fixture-home-census.mjs) does not hold to a rule, each with why.",
+  "pre_tool_use_gate_test.sh": {
+    "rules": [
+      "TOOLCHAIN_WRITE"
+    ],
+    "reason": "S15 (hook toolchain pinning, from hook_toolchain) tests the pin's own parser: builds every HOME's record by hand — decoy, partial, gone-interpreter — on purpose"
+  },
+  "hooks_surface_test.sh": {
+    "rules": [
+      "TOOLCHAIN_WRITE"
+    ],
+    "reason": "E-286 S05 records an interpreter that is gone to prove SessionStart degrades, not blocks"
+  },
+  "skill_lines_test.sh": {
+    "rules": [
+      "FIXTURE_HOME_NO_RECORD"
+    ],
+    "reason": "E-225.01f runs the preflight line with HOME=/nonexistent on purpose (a degraded install must fail closed)"
+  },
+  "census.test.mjs": {
+    "rules": [
+      "FIXTURE_HOME_NO_RECORD"
+    ],
+    "reason": "its hook paths are fixture TEXT fed to the census tool; the only process it runs under a temp HOME is that node CLI"
+  },
+  "footprint-recorder.test.mjs": {
+    "rules": [
+      "FIXTURE_HOME_NO_RECORD"
+    ],
+    "reason": "every ai / installer path it records is under /nonexistent on purpose — the recorder classifies command lines, nothing is run"
+  }
+}

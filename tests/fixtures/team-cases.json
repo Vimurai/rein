@@ -1,0 +1,21 @@
+{
+  "comment": "E-327 (D-102 §Component 3): validateTeam contract table — one row per rule. `patch` is merged over a valid base registry (planner a@x.test, E:[[1,10]]); `valid` is the expected verdict, `match` a substring of the TEAM_INVALID message.",
+  "cases": [
+    { "label": "the valid base", "patch": {}, "valid": true },
+    { "label": "schema must be 1", "patch": { "schema": 2 }, "valid": false, "match": "schema must be 1" },
+    { "label": "planner must be an email", "patch": { "planner": "not-an-email" }, "valid": false, "match": "planner must be an email" },
+    { "label": "claim_ttl_days positive", "patch": { "claim_ttl_days": 0 }, "valid": false, "match": "claim_ttl_days" },
+    { "label": "claim_ttl_days integer", "patch": { "claim_ttl_days": 1.5 }, "valid": false, "match": "claim_ttl_days" },
+    { "label": "shared_log boolean", "patch": { "shared_log": "yes" }, "valid": false, "match": "shared_log" },
+    { "label": "members object", "patch": { "members": [] }, "valid": false, "match": "members must be an object" },
+    { "label": "member key is an email", "patch": { "members": { "bob": { "ranges": {} } } }, "valid": false, "match": "is not an email" },
+    { "label": "ranges object", "patch": { "members": { "a@x.test": { "ranges": [] } } }, "valid": false, "match": "ranges must be an object" },
+    { "label": "prefix is 1-4 capitals", "patch": { "members": { "a@x.test": { "ranges": { "e": [[1, 2]] } } } }, "valid": false, "match": "bad prefix" },
+    { "label": "ranges per prefix is a list", "patch": { "members": { "a@x.test": { "ranges": { "E": [1, 2] } } } }, "valid": false, "match": "must be [from, to]" },
+    { "label": "a range is [from, to]", "patch": { "members": { "a@x.test": { "ranges": { "E": [[1, 2, 3]] } } } }, "valid": false, "match": "must be [from, to]" },
+    { "label": "from > 0", "patch": { "members": { "a@x.test": { "ranges": { "E": [[0, 2]] } } } }, "valid": false, "match": "must be [from, to]" },
+    { "label": "from ≤ to", "patch": { "members": { "a@x.test": { "ranges": { "E": [[5, 2]] } } } }, "valid": false, "match": "must be [from, to]" },
+    { "label": "no overlap across members", "patch": { "members": { "a@x.test": { "ranges": { "E": [[1, 10]] } }, "b@x.test": { "ranges": { "E": [[10, 20]] } } } }, "valid": false, "match": "overlaps" },
+    { "label": "same numbers, other prefix, is fine", "patch": { "members": { "a@x.test": { "ranges": { "E": [[1, 10]] } }, "b@x.test": { "ranges": { "P": [[1, 10]] } } } }, "valid": true }
+  ]
+}

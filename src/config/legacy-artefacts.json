@@ -1,0 +1,352 @@
+{
+  "version": 1,
+  "comment": "E-272 (D-074, version-lifecycle.md §Components 3-4): the single list of what earlier AI-OS versions created and no longer do. DATA, not code — adding an entry needs no code change. class: safe = provably ours and reproducible (needs known_hashes or a rule); prompt = may hold user content (removed only with --all + confirmation); not-ours = printed, never touched. rule: not-in-src | not-in-manifest | dead-pid | stale-mtime (path predicates) | not-in-registry (kind setting) | orphan-process (kind process). Only the LAST path segment may hold a '*'.",
+  "provider_history_comment": "E-270 (D-074 §Components 2): every provider name .ai/providers.json ever shipped. `ai init` drops a project provider (and any role bound to it) that is listed here but absent from the current template; a name never listed is user-added and kept.",
+  "provider_history": ["claude", "agy", "gemini"],
+  "registry_history": [
+    "TestSprite",
+    "testsprite-mcp",
+    "intent-refiner-mcp",
+    "ast-parser-mcp",
+    "advisor-mcp",
+    "approval-mcp",
+    "archive-manager-mcp",
+    "blueprint-aligner-mcp",
+    "cache-manager-mcp",
+    "code-execution-mcp",
+    "computer-use-mcp",
+    "context-guardian-mcp",
+    "context-invoker-mcp",
+    "filesystem",
+    "github-bridge-mcp",
+    "lsp-mcp",
+    "mcp-router",
+    "memory",
+    "memory-manager-mcp",
+    "orchestrator-mcp",
+    "patch-mcp",
+    "propose-patch-mcp",
+    "risk-analyzer-mcp",
+    "safe-exec-mcp",
+    "task-synchronizer-mcp",
+    "token-budget-mcp",
+    "verification-mcp",
+    "vibe-check-mcp"
+  ],
+  "entries": [
+    {
+      "id": "gemini-workspace",
+      "path": ".gemini/",
+      "kind": "dir",
+      "class": "prompt",
+      "since": "4.0.0",
+      "note": "D-069/E-254: the gemini provider is removed. The project workspace may hold user-edited skills, so it is never removed without --all."
+    },
+    {
+      "id": "agents-workspace",
+      "path": ".agents/",
+      "kind": "dir",
+      "class": "prompt",
+      "since": "4.0.0",
+      "note": "D-069/E-254: the agy (Antigravity) provider is removed. Same user-content risk as .gemini/."
+    },
+    {
+      "id": "gemini-rulefile",
+      "path": "GEMINI.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "628f1c41fb8405425ca03d939ddb24233f22c24e0a8fbfe9da85c04a3208f1ee",
+        "98329ae1703682c43e447804edbde152186781fcf35c0c8240d88b24ffc7c796",
+        "ab9ee5cd038fc8f8021f60bf8ad02897aa0ad985ece92de04bb63aa1e3940ac7",
+        "b08ef6750d61a9fc82b9c5684038fffa1d183ea2bb40bb3b1eac2033bf805321",
+        "c66ae062b42492d2812882247094d98574d90be3307a98509e11f0c36e03a33c",
+        "e18b5a2875186aa2a05e592894c63614ab1a18a341508e198d6e081aae1c8a41",
+        "e6c35c887be443c7a874b71c12760e823d827e2f3d836564278188eab3a527e6",
+        "ee26f815353d9c0be0e03796225face7843bcd609ce73bbbafb1b66b2c8c00fe"
+      ],
+      "note": "D-069/E-254: the GEMINI.md @import shim. `ai sync` wrote it with `cp -f` from src/templates/GEMINI.md, so the sha256 of every version that file ever had in git IS the set of bytes we shipped. A GEMINI.md that hashes to none of them was edited and is reported as prompt instead."
+    },
+    {
+      "id": "agents-rulefile",
+      "path": "AGENTS.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "042932edc3951d05977bf5e8acb7b98060c194e3d69813e4f88436de5477d7ed"
+      ],
+      "note": "D-069/E-254: the AGENTS.md shim for agy. Same hash evidence as GEMINI.md (src/templates/AGENTS.md had one version)."
+    },
+    {
+      "id": "testsprite-tests",
+      "path": "testsprite_tests/",
+      "kind": "dir",
+      "class": "prompt",
+      "since": "4.0.0",
+      "note": "D-069/E-255: TestSprite is replaced by the headless Claude Tester. Generated tests may have been edited."
+    },
+    {
+      "id": "nested-claude-dir",
+      "path": ".claude/.claude/",
+      "kind": "dir",
+      "class": "prompt",
+      "since": "*",
+      "note": "A provisioning bug created .claude/.claude/ and nothing reads it. DIVERGENCE: the blueprint's seed list implies a safe removal, but `safe` demands evidence and there is none for a whole directory tree — no manifest records it and its contents are not hash-comparable to a source path. Listed as prompt (--all + confirmation) rather than given a rule that would be true by assertion."
+    },
+    {
+      "id": "ai-legacy-dir",
+      "path": ".ai/legacy/",
+      "kind": "dir",
+      "class": "prompt",
+      "since": "3.0.0",
+      "note": "Pre-3.0 .ai/legacy/ holding area. May contain the operator's own notes."
+    },
+    {
+      "id": "pre-aios-hook-backups",
+      "path": ".git/hooks/*.pre-aios",
+      "kind": "file",
+      "class": "prompt",
+      "since": "*",
+      "note": "E-41 backups of a third-party hook AI-OS replaced with a stub. They are the operator's own hooks — never removed without --all."
+    },
+    {
+      "id": "claude-agents-orphan",
+      "path": ".claude/agents/*",
+      "kind": "file",
+      "class": "safe",
+      "since": "*",
+      "rule": "not-in-manifest",
+      "note": "An agent file sync wrote for a role no longer served. Only a file recorded in _SYNC_MANIFEST.json, unmodified since, and absent from the current source set qualifies — the E-220 three-part evidence rule. Until E-273 gives .claude/agents a manifest there is no evidence and this entry matches nothing, which is the correct behaviour, not a gap."
+    },
+    {
+      "id": "retired-skill-ai-compact",
+      "path": ".claude/skills/ai-compact/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "3642bb0dba3430a2d7ddc24618f02abadd55fe30f4f8113c8ad8444dae8c1ed1",
+        "cf8daac51c61254a586eb84d794158ad248bfaaecf1231f112ed3d82b362fd93",
+        "db5bf113b301fabce3f60f963b31292f016c1660c43e9db127819fb6a74a57c7"
+      ],
+      "note": "E-283 (D-075): the ai-compact skill is retired — Claude Code /compact and auto-compact; SESSION.md carry-over folded into ai-archive. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "retired-skill-ai-analyze",
+      "path": ".claude/skills/ai-analyze/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "5fc05808041757239fdcae7ded71f7dd075a4a2fea63f53e5e7ddee49e327b24"
+      ],
+      "note": "E-283 (D-075): the ai-analyze skill is retired — call mcp__safe-exec-mcp__analyze_command directly. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "retired-skill-ai-cluster",
+      "path": ".claude/skills/ai-cluster/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "0da2c6778fe333b01e31ddefc92516bdcbb4c37f8638a1d24f0df56a6a5be257"
+      ],
+      "note": "E-283 (D-075): the ai-cluster skill is retired — call mcp__task-synchronizer-mcp__add_cluster_page directly. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "retired-skill-ai-context-check",
+      "path": ".claude/skills/ai-context-check/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "a35f0216ded482b180aa40de3439171a07c1966211e7a44a74eb0cc0fbc28e3b"
+      ],
+      "note": "E-283 (D-075): the ai-context-check skill is retired — call mcp__archive-manager-mcp__check_context_health directly. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "retired-skill-ai-dispatch",
+      "path": ".claude/skills/ai-dispatch/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "66d3b399b45fe3a513acf83935652ad95b6f82ac9cc300097e54770cff8efa64",
+        "b103d0b9f092ec83db76364d755a4b52498777f5aa86de95a97d2096b26f1287",
+        "b8d41d2aa61ccf93b141a9291179aeaa855f2121fa94704361973af164432231"
+      ],
+      "note": "E-283 (D-075): the ai-dispatch skill is retired — call mcp__orchestrator-mcp__run_dispatch directly. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "retired-skill-ai-sync-verify",
+      "path": ".claude/skills/ai-sync-verify/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "18470aca053c04f53103ae01e596337203302590d22a53a03717bf340a484e66"
+      ],
+      "note": "E-283 (D-075): the ai-sync-verify skill is retired — call mcp__task-synchronizer-mcp__verify_markdown_sync directly. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "retired-skill-ai-topic",
+      "path": ".claude/skills/ai-topic/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "known_hashes": [
+        "918a29248386de715eb838ef314fb13507f5bc1961a73a89bf25b5c2f7d0fbc6"
+      ],
+      "note": "E-283 (D-075): the ai-topic skill is retired — call mcp__task-synchronizer-mcp__add_topic_seed directly. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "settings-allow-orphan",
+      "path": ".claude/settings.json",
+      "kind": "setting",
+      "class": "prompt",
+      "since": "*",
+      "rule": "not-in-registry",
+      "note": "mcp__<server>__* allow entries for a server absent from registry.json. A name that was NEVER in any shipped registry (registry_history) is the operator's own server and is kept. REPORT ONLY: `ai clean` moves paths to the trash and a JSON key is not a path — `ai init`/`ai sync` own this file (E-273). settings.local.json is user-owned and is only ever printed."
+    },
+    {
+      "id": "mirror-orphan-mcp",
+      "path": "~/.ai-os/mcp/*",
+      "kind": "dir",
+      "class": "safe",
+      "since": "*",
+      "rule": "not-in-src",
+      "src_root": "src/mcp",
+      "note": "An MCP server directory in the install mirror that src/mcp/ no longer ships (e.g. intent-refiner-mcp). DIVERGENCE: the blueprint says 'not in registry', but registry.json is not the shipping list — ast-parser-mcp and shared/ are in src/mcp and in no registry, so a registry test would propose deleting live code. The mirror is a copy of src/, so src/ is the right comparand."
+    },
+    {
+      "id": "mirror-orphan-hook",
+      "path": "~/.ai-os/hooks/*",
+      "kind": "file",
+      "class": "safe",
+      "since": "*",
+      "rule": "not-in-src",
+      "src_root": "hooks",
+      "note": "A hook in the mirror that hooks/ no longer ships."
+    },
+    {
+      "id": "orphan-v2-contract",
+      "path": "~/.ai-os/contracts/*",
+      "kind": "file",
+      "class": "safe",
+      "since": "3.0.0",
+      "rule": "not-in-src",
+      "src_root": "src/contracts",
+      "note": "A contract in the mirror that src/contracts/ no longer ships (the six v2 contracts)."
+    },
+    {
+      "id": "home-installer-copy",
+      "path": "~/install-ai-os.sh",
+      "kind": "file",
+      "class": "prompt",
+      "since": "3.0.0",
+      "note": "The old full installer copied into HOME. It may be a version the operator keeps deliberately, so it is only listed unless --all."
+    },
+    {
+      "id": "dead-role-lock",
+      "path": "~/.ai-os/run/role-*.lock",
+      "kind": "file",
+      "class": "safe",
+      "since": "*",
+      "rule": "stale-mtime",
+      "max_age_days": 7,
+      "note": "An E-129 role token for a session that is over. 923 had accumulated on the operator's machine by 2026-09-17. DIVERGENCE: the blueprint says 'dead pid', but the record is keyed by Claude session id and holds {v, role, session_id, hmac} — there is no pid to test. Age is the available signal and a safe one: SessionStart re-mints a token on resume, so removing a week-old lock costs nothing."
+    },
+    {
+      "id": "dead-build-record",
+      "path": "~/.ai-os/run/build-*.json",
+      "kind": "file",
+      "class": "safe",
+      "since": "*",
+      "rule": "dead-pid",
+      "pid_source": "json:pid",
+      "note": "An E-249 booted-build record whose server process is gone. A record whose pid is alive is what the staleness report reads — it is never a finding."
+    },
+    {
+      "id": "abandoned-ci-workdir",
+      "path": "$TMPDIR/ai-os-ci.*",
+      "kind": "dir",
+      "class": "safe",
+      "since": "*",
+      "rule": "dead-pid",
+      "guard_pids": "~/.ai-os/ci/run-*.lock",
+      "guard_pid_source": "file:pid",
+      "note": "The worktree and throwaway HOME of an `ai ci run` that was killed: SIGKILL cannot run the cleanup trap, and one such directory held 1.3G. The directory carries no pid of its own, so the guard is the run lock: while ANY ai ci run lock has a live owner, nothing here is a finding."
+    },
+    {
+      "id": "retired-bin-ai-watch",
+      "path": "~/.ai-os/bin/ai-watch",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "rule": "not-in-src",
+      "src_root": "src/bin",
+      "note": "The Interactive Bridge tmux watcher, removed by D-099 (E-322): SendMessage is the only Triad wake path. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-signal-handoff",
+      "path": "~/.ai-os/shared/signal-handoff.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "The signal.json writer behind `ai handoff` and handoff_control, both removed by D-099 (E-322)."
+    },
+    {
+      "id": "watcher-lock",
+      "path": ".ai/.ai-watch.lock",
+      "kind": "dir",
+      "class": "safe",
+      "since": "4.0.0",
+      "rule": "dead-pid",
+      "pid_source": "file:pid",
+      "note": "The single-writer lock of a project's ai-watch (D-099 removed the watcher). Stale once the pid it records is gone; a watcher still running from an older install keeps it."
+    },
+    {
+      "id": "watcher-signal-queue",
+      "path": ".ai/signal.json",
+      "kind": "file",
+      "class": "safe",
+      "since": "4.0.0",
+      "rule": "dead-pid",
+      "guard_pids": ".ai/.ai-watch.lock",
+      "guard_pid_source": "file:pid",
+      "note": "The handoff queue ai-watch consumed (D-099: wakes go by SendMessage and are never queued). It records no pid, so the guard is the watcher lock: while a watcher from an older install still runs, nothing here is a finding."
+    },
+    {
+      "id": "watcher-signal-lock",
+      "path": ".ai/signal.json.lock",
+      "kind": "dir",
+      "class": "safe",
+      "since": "4.0.0",
+      "rule": "dead-pid",
+      "guard_pids": ".ai/.ai-watch.lock",
+      "guard_pid_source": "file:pid",
+      "note": "The short-lived write lock of signal.json, left behind when a writer was killed mid-append. Same guard as the queue."
+    },
+    {
+      "id": "orphan-watcher",
+      "path": "ai-watch",
+      "kind": "process",
+      "class": "safe",
+      "since": "*",
+      "rule": "orphan-process",
+      "note": "An ai-watch process whose cwd is under the temp root and which holds no project watcher lock — a test fixture that outlived its suite. 24 were alive on 2026-09-17, some over a day old. `ai start` runs a watcher from a real project, never from the temp root, and a watcher the operator is using holds .ai/.ai-watch.lock, so both halves are needed and neither is ppid: a process whose parent has exited but not been reaped still reports the zombie as its parent. Processes are signalled TERM then KILL, never trashed."
+    },
+    {
+      "id": "gemini-home",
+      "path": "~/.gemini/",
+      "kind": "dir",
+      "class": "not-ours",
+      "since": "*",
+      "note": "Antigravity's own user data, including OAuth credentials. NOT an AI-OS artefact: printed so the operator can decide, never touched by any flag."
+    }
+  ]
+}

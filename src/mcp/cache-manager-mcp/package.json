@@ -1,0 +1,14 @@
+{
+  "name": "cache-manager-mcp",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "AI-OS Explicit Context Cache (E-11) \u2014 assembles blueprint files into a prompt-cacheable System Context blob with mtime-based invalidation.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "*"
+  }
+}

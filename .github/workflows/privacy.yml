@@ -1,0 +1,34 @@
+# Privacy scan — the public repository's tracked tree, on every push and pull request (E-378,
+# D-129 §Component 9). `publish-scan.mjs scan-tree` runs the structural classes (personal
+# addresses, home paths, session ids, sockets, secrets) and the tree checks (no .git, .env*,
+# *.local.json; registry-only lockfile URLs; no absolute paths in templates). The operator's
+# names are checked on their own machine by the pre-commit gate, never here: the list is theirs.
+name: privacy
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: privacy scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09   # v5
+        with:
+          persist-credentials: false
+      - name: Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4
+        with:
+          node-version: "22"
+      - name: Scan the tracked tree
+        # The verdict line is required: a helper that ran nothing must not pass (E-378 P0-3).
+        run: |
+          out="$(node src/shared/publish-scan.mjs scan-tree .)"
+          echo "$out"
+          [[ "$out" == "[PRIVACY_GATE_OK]"* ]]

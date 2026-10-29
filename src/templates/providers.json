@@ -1,0 +1,12 @@
+{
+  "providers": {
+    "claude": {
+      "mcp_config_path": ".claude.json",
+      "workspace_dir": ".claude",
+      "mcp_key": "mcpServers",
+      "launch": ["--settings", ".claude/settings.{role}.json", "--append-system-prompt-file", "{rulefile}", "--model", "{model}", "--name", "{session_name}"],
+      "print_mode": ["-p", "--append-system-prompt-file", "{rulefile}", "{prompt}"],
+      "child_env_unset": ["CLAUDECODE"]
+    }
+  }
+}

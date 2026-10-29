@@ -1,0 +1,77 @@
+# Hosted master check — rendered by `ai ci hosted github` (D-103, team-collaboration.md
+# §Component 5b). Do not edit by hand: `ai ci hosted --check` fails when this file is not
+# the current rendering, and `ai ci hosted --force` rewrites it.
+#
+# The contract: on a pull request into master, run exactly two commands — bootstrap AI-OS,
+# then `ai ci run` on the merge result — and keep the log and .ai/ci/*.json as artefacts.
+# Branches stay local-first (D-072): `ai ci run` before pushing is the developer's gate;
+# this is the one authority for "nobody merges red into master", made required by the
+# branch policy. A push to master outside .ai/** gets an audit run that gates nothing.
+# Rollback: delete this file AND the required check in the branch policy.
+name: master CI
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+    paths-ignore: ['.ai/**']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: master-ci-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  ai-ci-run:
+    name: ai ci run
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      # The merge result — exactly what master becomes. `ai ci run` tests HEAD. Full
+      # history, as a local `ai ci run` worktree has it (suites pin files to past commits).
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      # Node 22 is AI-OS's floor (node:sqlite).
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      # The recipe's npm and Playwright caches live under ~/.ai-os/ci/cache.
+      - name: Cache ai ci downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.ai-os/ci/cache
+          key: ai-ci-${{ runner.os }}-${{ hashFiles('package-lock.json', 'src/mcp/*/package.json') }}
+          restore-keys: ai-ci-${{ runner.os }}-
+
+      # This IS the AI-OS repository: install from the checked-out commit — the code under test.
+      - name: Install AI-OS
+        run: bash install-ai-os.sh
+
+      # `ai ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check.
+      - name: ai ci run
+        shell: bash
+        run: |
+          "$HOME/.ai-os/bin/ai" ci run
+
+      # Kept on failure — a red run is the one worth reading. .ai/ci/<sha>.json exists only
+      # in a team project; the runner is not a team member, so it is reviewer evidence, not
+      # a record teammates' gates accept (D-103 r1f).
+      - name: Upload run log and CI record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-ci-run
+          path: |
+            ~/.ai-os/ci/logs/
+            .ai/ci/*.json
+          if-no-files-found: warn
+          retention-days: 14

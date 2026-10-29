@@ -1,0 +1,14 @@
+{
+  "name": "propose-patch-mcp",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "AI-OS Human-in-the-Loop Safe Diff Flow (\u00a730) \u2014 propose_patch with TUI preview and explicit confirm/reject.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "*"
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "ai-os-v2",
+  "version": "4.0.0",
+  "license": "Apache-2.0",
+  "author": "Emir Kovacevic <emirkovacevic@protonmail.com>",
+  "private": true,
+  "workspaces": [
+    "src/mcp/*"
+  ],
+  "scripts": {
+    "test": "bash tests/run.sh"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.27.1"
+  }
+}

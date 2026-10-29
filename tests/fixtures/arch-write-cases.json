@@ -1,0 +1,554 @@
+[
+  {
+    "label": "awk -v then program: redirect",
+    "cmd": "awk -v n=1 'BEGIN{print \"y\" > \"src/x\"}'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "awk two -v then program",
+    "cmd": "awk -v n=1 -v m=2 'BEGIN{print \"y\" > \"src/x\"}'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "awk -f program file out of scope",
+    "cmd": "awk -f /tmp/prog.awk",
+    "want": "BLOCK"
+  },
+  {
+    "label": "awk print | tee",
+    "cmd": "awk 'BEGIN{print \"x\" | \"tee src/x\"}'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "awk print | dd",
+    "cmd": "awk 'BEGIN{print \"x\" | \"dd of=src/x\"}'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "awk system()",
+    "cmd": "awk 'BEGIN{system(\"echo x > src/x\")}'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "awk plain redirect",
+    "cmd": "awk 'BEGIN{print \"x\" > \"src/x\"}'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "gawk -i inplace",
+    "cmd": "gawk -i inplace '{print}' src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "awk comparison $1 > 5 (READ)",
+    "cmd": "awk '$1 > 5 {print $2}' .ai/data",
+    "want": "pass"
+  },
+  {
+    "label": "awk NR>1 (READ)",
+    "cmd": "awk 'NR>1{print}' .ai/data",
+    "want": "pass"
+  },
+  {
+    "label": "awk if ($3>0) (READ)",
+    "cmd": "awk '{ if ($3>0) n++ } END{print n}' .ai/data",
+    "want": "pass"
+  },
+  {
+    "label": "awk >= comparison (READ)",
+    "cmd": "awk 'BEGIN{if (a >= b) print \"y\"}'",
+    "want": "pass"
+  },
+  {
+    "label": "awk 1>0 comparison (READ)",
+    "cmd": "awk 'BEGIN{if (1>0) print \"y\"}'",
+    "want": "pass"
+  },
+  {
+    "label": "awk field print (READ)",
+    "cmd": "awk '{print $1}' .ai/notes.md",
+    "want": "pass"
+  },
+  {
+    "label": "awk -F field print (READ)",
+    "cmd": "awk -F, '{print $2}' .ai/data.csv",
+    "want": "pass"
+  },
+  {
+    "label": "pipe into sudo bash",
+    "cmd": "cat .ai/p | sudo bash",
+    "want": "BLOCK"
+  },
+  {
+    "label": "pipe into env bash",
+    "cmd": "cat .ai/p | env bash",
+    "want": "BLOCK"
+  },
+  {
+    "label": "pipe into nice bash",
+    "cmd": "cat .ai/p | nice bash",
+    "want": "BLOCK"
+  },
+  {
+    "label": "pipe into command sh",
+    "cmd": "cat .ai/p | command sh",
+    "want": "BLOCK"
+  },
+  {
+    "label": "pipe into xargs bash",
+    "cmd": "cat .ai/p | xargs bash",
+    "want": "BLOCK"
+  },
+  {
+    "label": "pipe into /usr/bin/env python3",
+    "cmd": "cat .ai/p | /usr/bin/env python3",
+    "want": "BLOCK"
+  },
+  {
+    "label": "pipe into a READER is fine",
+    "cmd": "cat .ai/notes.md | grep foo",
+    "want": "pass"
+  },
+  {
+    "label": "curl -oVALUE attached",
+    "cmd": "curl -osrc/x https://e",
+    "want": "BLOCK"
+  },
+  {
+    "label": "curl clustered -Lo",
+    "cmd": "curl -Lo src/x https://e",
+    "want": "BLOCK"
+  },
+  {
+    "label": "curl --output=VALUE",
+    "cmd": "curl --output=src/x https://e",
+    "want": "BLOCK"
+  },
+  {
+    "label": "wget -OVALUE attached",
+    "cmd": "wget -Osrc/x https://e",
+    "want": "BLOCK"
+  },
+  {
+    "label": "wget --output-document=VALUE",
+    "cmd": "wget --output-document=src/x https://e",
+    "want": "BLOCK"
+  },
+  {
+    "label": "curl -o INTO .ai/",
+    "cmd": "curl -o .ai/dl.json https://e",
+    "want": "pass"
+  },
+  {
+    "label": "unzip -l is a READ",
+    "cmd": "unzip -l a.zip",
+    "want": "pass"
+  },
+  {
+    "label": "unzip -t is a READ",
+    "cmd": "unzip -t a.zip",
+    "want": "pass"
+  },
+  {
+    "label": "unzip -p is a READ",
+    "cmd": "unzip -p a.zip",
+    "want": "pass"
+  },
+  {
+    "label": "unzip -d INTO .ai/",
+    "cmd": "unzip -o a.zip -d .ai/",
+    "want": "pass"
+  },
+  {
+    "label": "tar -xf -C INTO .ai/",
+    "cmd": "tar -xf a.tar -C .ai/",
+    "want": "pass"
+  },
+  {
+    "label": "engineer: awk redirect",
+    "cmd": "awk -v n=1 'BEGIN{print \"y\" > \"src/x\"}'",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "engineer: pipe into sudo bash",
+    "cmd": "cat .ai/p | sudo bash",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "engineer: curl --output=",
+    "cmd": "curl --output=src/x https://e",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "engineer: redirect into src/",
+    "cmd": "echo x > src/x",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "compound: sort -t, then cp INTO plans/",
+    "cmd": "sort -t, .ai/data > .ai/out && cp .ai/out plans/",
+    "want": "pass"
+  },
+  {
+    "label": "compound: ls -lt then in-scope cp",
+    "cmd": "ls -lt src/ && cp .ai/a .ai/b",
+    "want": "pass"
+  },
+  {
+    "label": "compound: read then out-of-scope redirect still blocks",
+    "cmd": "ls -la && echo x > src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "compound: read ; then out-of-scope cp still blocks",
+    "cmd": "cat .ai/n ; cp /tmp/a src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "compound: git status && cp -t src/",
+    "cmd": "git status && cp -t src/ .ai/a",
+    "want": "BLOCK"
+  },
+  {
+    "label": "awk printf with | in a format string",
+    "cmd": "awk '{printf \"%s | %s\\n\", $1, $2}' .ai/data",
+    "want": "pass"
+  },
+  {
+    "label": "awk print with | concatenated",
+    "cmd": "awk '{print $1 \" | \" $2}' .ai/TASKS.md",
+    "want": "pass"
+  },
+  {
+    "label": "awk print with > inside a literal",
+    "cmd": "awk '{print \"a > b\"}'",
+    "want": "pass"
+  },
+  {
+    "label": "awk print with -> inside a literal",
+    "cmd": "awk '{print \"Architect -> Engineer\"}'",
+    "want": "pass"
+  },
+  {
+    "label": "perl -ne clustered",
+    "cmd": "perl -ne 'open(F,\">src/x\")'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "perl -pe clustered",
+    "cmd": "perl -pe s/a/b/",
+    "want": "BLOCK"
+  },
+  {
+    "label": "perl -lane clustered",
+    "cmd": "perl -lane 'print'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "ruby -ne clustered",
+    "cmd": "ruby -ne 'puts 1'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "bash -lc clustered",
+    "cmd": "bash -lc 'echo x > src/x'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "sh -xc clustered",
+    "cmd": "sh -xc 'echo x > src/x'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "python3 -uc clustered",
+    "cmd": "python3 -uc 'open(\"src/x\",\"w\")'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "sort -t, alone is a read",
+    "cmd": "sort -t, -k2 .ai/data",
+    "want": "pass"
+  },
+  {
+    "label": "grep for a > char",
+    "cmd": "grep -c '>' .ai/notes.md",
+    "want": "pass"
+  },
+  {
+    "label": "printf append into .ai/",
+    "cmd": "printf 'x\\n' >> .ai/log",
+    "want": "pass"
+  },
+  {
+    "label": "cat two in-scope into a third",
+    "cmd": "cat .ai/a .ai/b > .ai/c",
+    "want": "pass"
+  },
+  {
+    "label": "curl clustered -sSLo INTO .ai/",
+    "cmd": "curl -sSLo .ai/dl.json https://e",
+    "want": "pass"
+  },
+  {
+    "label": "awk -f program file IN scope",
+    "cmd": "awk -f .ai/report.awk",
+    "want": "pass"
+  },
+  {
+    "label": "engineer: perl -ne",
+    "cmd": "perl -ne 'x'",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "engineer: bash -lc",
+    "cmd": "bash -lc 'echo x > src/x'",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "engineer: compound with cp",
+    "cmd": "ls -lt src/ && cp .ai/a .ai/b",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "newline: git status then git restore",
+    "cmd": "git status\ngit restore src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "newline: read then out-of-scope redirect",
+    "cmd": "ls -la\necho x > src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "newline: read then out-of-scope cp",
+    "cmd": "git status\ncp /tmp/a src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "newline: read then out-of-scope sed -i",
+    "cmd": "cat .ai/n\nsed -i '' s/a/b/ src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "newline: in-scope cp then a read",
+    "cmd": "cp .ai/a .ai/b\nls src/",
+    "want": "pass"
+  },
+  {
+    "label": "newline: in-scope tee then a read",
+    "cmd": "tee .ai/log\nls src/",
+    "want": "pass"
+  },
+  {
+    "label": "newline: in-scope sed -i then a read",
+    "cmd": "sed -i '' s/a/b/ .ai/n\nls src/",
+    "want": "pass"
+  },
+  {
+    "label": "second git in a compound",
+    "cmd": "git log --oneline && git restore src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "git after fetch",
+    "cmd": "git fetch && git restore src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "git after ; separator",
+    "cmd": "git status ; git switch master",
+    "want": "BLOCK"
+  },
+  {
+    "label": "the word git in an echo does not consume the lookup",
+    "cmd": "echo git && git restore src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "second awk in a compound writes",
+    "cmd": "awk '{print $1}' .ai/a && awk 'BEGIN{print \"x\" > \"src/x\"}'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "sed -i in scope then git diff",
+    "cmd": "sed -i '' s/a/b/ .ai/notes.md && git diff .ai/notes.md",
+    "want": "pass"
+  },
+  {
+    "label": "sed -i in scope then cat",
+    "cmd": "sed -i s/a/b/ .ai/f && cat src/x",
+    "want": "pass"
+  },
+  {
+    "label": "cp -at clustered target dir",
+    "cmd": "cp -at src/ .ai/a",
+    "want": "BLOCK"
+  },
+  {
+    "label": "cp -rt clustered target dir",
+    "cmd": "cp -rt src/ .ai/a",
+    "want": "BLOCK"
+  },
+  {
+    "label": "cp -tVALUE attached",
+    "cmd": "cp -tsrc/ .ai/a",
+    "want": "BLOCK"
+  },
+  {
+    "label": "cp -at INTO .ai/",
+    "cmd": "cp -at .ai/ /tmp/draft",
+    "want": "pass"
+  },
+  {
+    "label": "ls -lt in another segment is not cp's dest",
+    "cmd": "ls -lt src/ && cp .ai/a .ai/b",
+    "want": "pass"
+  },
+  {
+    "label": "engineer: newline git restore",
+    "cmd": "git status\ngit restore src/x",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "engineer: cp -at",
+    "cmd": "cp -at src/ .ai/a",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "multi-line commit message with > in the body",
+    "cmd": "git commit -m \"fix: thing\n\nArchitect > Engineer handoff\"",
+    "want": "pass"
+  },
+  {
+    "label": "commit body mentioning a cp command",
+    "cmd": "git commit -m \"docs: notes\n\nSee cp .ai/a src/x for context\"",
+    "want": "pass"
+  },
+  {
+    "label": "commit body with a pipe and a gt",
+    "cmd": "git commit -m \"chore: x\n\npipe | and > in the body\"",
+    "want": "pass"
+  },
+  {
+    "label": "ai add-task with a multi-line description",
+    "cmd": "ai add-task E-999 \"plan\nroute: Architect -> Engineer\"",
+    "want": "pass"
+  },
+  {
+    "label": "heredoc body documenting a cp command",
+    "cmd": "cat > .ai/notes.md <<'EOF'\nUse cp .ai/a src/x to copy\nEOF",
+    "want": "pass"
+  },
+  {
+    "label": "heredoc body documenting a redirect",
+    "cmd": "cat > .ai/doc.md <<'EOF'\nRun: echo hi > out.txt\nEOF",
+    "want": "pass"
+  },
+  {
+    "label": "heredoc into python3 still refused",
+    "cmd": "python3 <<EOF\nprint(1)\nEOF",
+    "want": "BLOCK"
+  },
+  {
+    "label": "heredoc into bash still refused",
+    "cmd": "bash <<'EOF'\necho x > src/x\nEOF",
+    "want": "BLOCK"
+  },
+  {
+    "label": "redirect target no longer masks cp's destination",
+    "cmd": "cp .ai/a src/x > /dev/null",
+    "want": "BLOCK"
+  },
+  {
+    "label": "in-scope cp with a /dev/null redirect",
+    "cmd": "cp .ai/a .ai/b > /dev/null",
+    "want": "pass"
+  },
+  {
+    "label": "engineer: multi-line commit message",
+    "cmd": "git commit -m \"a\n\nb > c\"",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "engineer: cp with /dev/null redirect",
+    "cmd": "cp .ai/a src/x > /dev/null",
+    "want": "pass",
+    "role": "engineer"
+  },
+  {
+    "label": "heredoc tag END-OF then a real cp",
+    "cmd": "cat > .ai/d <<END-OF\nbody\nEND-OF\ncp .ai/a src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "heredoc tag EOF! then a real cp",
+    "cmd": "cat > .ai/d <<EOF!\nb\nEOF!\ncp .ai/a src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "heredoc tag my.tag then a real redirect",
+    "cmd": "cat > .ai/d <<my.tag\nb\nmy.tag\necho x > src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "quoted tag 'END-OF' body is data",
+    "cmd": "cat > .ai/d <<'END-OF'\nUse cp .ai/a src/x\nEND-OF",
+    "want": "pass"
+  },
+  {
+    "label": "quoted tag 'my.tag' body is data",
+    "cmd": "cat > .ai/d <<'my.tag'\nUse cp .ai/a src/x\nmy.tag",
+    "want": "pass"
+  },
+  {
+    "label": "double-quoted tag body is data",
+    "cmd": "cat > .ai/d <<\"END-OF\"\nRun echo hi > out\nEND-OF",
+    "want": "pass"
+  },
+  {
+    "label": "plain tag then an in-scope cp",
+    "cmd": "cat > .ai/d <<EOF\nbody\nEOF\ncp .ai/a .ai/x2",
+    "want": "pass"
+  },
+  {
+    "label": "plain tag then an out-of-scope redirect",
+    "cmd": "cat > .ai/d <<EOF\nbody\nEOF\necho x > src/x",
+    "want": "BLOCK"
+  },
+  {
+    "label": "indented terminator <<-",
+    "cmd": "cat > .ai/d <<-'EOF'\n\tUse cp .ai/a src/x\n\tEOF",
+    "want": "pass"
+  },
+  {
+    "label": "here-string into python3 is refused",
+    "cmd": "python3 <<< 'print(1)'",
+    "want": "BLOCK"
+  },
+  {
+    "label": "here-string into cat is a read",
+    "cmd": "cat <<< 'hi' > .ai/n",
+    "want": "pass"
+  },
+  {
+    "label": "interpreter heredoc with a non-word tag",
+    "cmd": "python3 <<END-OF\nprint(1)\nEND-OF",
+    "want": "BLOCK"
+  },
+  {
+    "label": "engineer: non-word heredoc tag",
+    "cmd": "cat > .ai/d <<END-OF\nb\nEND-OF\ncp .ai/a src/x",
+    "want": "pass",
+    "role": "engineer"
+  }
+]

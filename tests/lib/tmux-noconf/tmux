@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Harness tmux shim (see tests/lib/assert.sh): every server a test starts loads NO config.
+# The real binary is resolved once by assert.sh; the PATH walk is only a fallback for a
+# process that inherited PATH without AIOS_TEST_REAL_TMUX.
+real="${AIOS_TEST_REAL_TMUX:-}"
+if [[ -z "$real" || ! -x "$real" ]]; then
+  self="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+  real=""
+  IFS=: read -ra _dirs <<< "${PATH}"
+  for d in "${_dirs[@]}"; do
+    [[ -x "${d}/tmux" ]] || continue
+    [[ "$(cd "$d" 2>/dev/null && pwd -P)" == "$self" ]] && continue
+    real="${d}/tmux"; break
+  done
+fi
+[[ -n "$real" ]] || { echo "tmux (test shim): no real tmux on PATH" >&2; exit 127; }
+exec "$real" -f /dev/null "$@"

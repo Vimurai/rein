@@ -1,0 +1,71 @@
+# Hosted {{TRUNK}} check — rendered by `ai ci hosted azure` (D-103, team-collaboration.md
+# §Component 5b). Do not edit by hand: `ai ci hosted --check` fails when this file is not
+# the current rendering, and `ai ci hosted --force` rewrites it.
+#
+# The contract: on a pull request into {{TRUNK}}, run exactly two commands — bootstrap AI-OS,
+# then `ai ci run` on the merge result — and keep the log and .ai/ci/*.json as artefacts.
+# On Azure Repos the merge gate is the branch policy (Build Validation, required); `pr:`
+# below applies only to GitHub- or Bitbucket-hosted repositories. A push to {{TRUNK}} outside
+# .ai/** gets an audit run that gates nothing.
+# Rollback: delete this file, the pipeline AND the Build Validation policy.
+
+trigger:
+  branches:
+    include: [{{TRUNK}}]
+  paths:
+    exclude: ['.ai/*']
+
+pr:
+  branches:
+    include: [{{TRUNK}}]
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+  # The merge result — exactly what {{TRUNK}} becomes. `ai ci run` tests HEAD. Full history,
+  # as a local `ai ci run` worktree has it (suites pin files to past commits).
+  - checkout: self
+    fetchDepth: 0
+    persistCredentials: false
+
+  # Node 22 is AI-OS's floor (node:sqlite).
+  - task: NodeTool@0
+    displayName: Set up Node.js
+    inputs:
+      versionSpec: '22.x'
+
+  # {{BOOTSTRAP_NOTE}}
+  # settableVariables: what a step prints can set pipeline variables (##vso) — none here.
+  - bash: {{BOOTSTRAP}}
+    displayName: Install AI-OS
+    target:
+      settableVariables: none
+
+  # `ai ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check. Under
+  # Azure (TF_BUILD) it also sets AI_OS_CI_LOG_DIR: a task input cannot expand $HOME. The
+  # suite's own output is printed too, so that is the ONLY variable this step may set.
+  - bash: |
+      "$HOME/.ai-os/bin/ai" ci run
+    displayName: ai ci run
+    target:
+      settableVariables:
+        - AI_OS_CI_LOG_DIR
+
+  # Kept on failure — a red run is the one worth reading. .ai/ci/<sha>.json exists only in
+  # a team project; the runner is not a team member, so it is reviewer evidence, not a
+  # record teammates' gates accept (D-103 r1f).
+  - task: PublishPipelineArtifact@1
+    displayName: Upload run log
+    condition: always()
+    inputs:
+      targetPath: $(AI_OS_CI_LOG_DIR)
+      artifact: ai-ci-run-log
+
+  - task: PublishPipelineArtifact@1
+    displayName: Upload CI record
+    condition: always()
+    continueOnError: true
+    inputs:
+      targetPath: .ai/ci
+      artifact: ai-ci-record

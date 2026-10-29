@@ -1,0 +1,26 @@
+{
+  "env": {
+    "AI_OS_CALLER_ROLE": "architect"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(ai add-task *)",
+      "mcp__task-synchronizer-mcp__add_topic_seed",
+      "mcp__task-synchronizer-mcp__add_cluster_page",
+      "mcp__context-guardian-mcp__check_role_access",
+      "ListAgents",
+      "SendMessage"
+    ],
+    "deny": [
+      "mcp__filesystem__write_file",
+      "mcp__filesystem__edit_file",
+      "mcp__filesystem__move_file",
+      "mcp__filesystem__create_directory",
+      "mcp__patch-mcp__patch_file",
+      "mcp__propose-patch-mcp__propose_patch",
+      "mcp__propose-patch-mcp__confirm_patch",
+      "mcp__computer-use-mcp__type_text",
+      "mcp__computer-use-mcp__key_press"
+    ]
+  }
+}

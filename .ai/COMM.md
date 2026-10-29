@@ -1,0 +1,267 @@
+# COMM — Architect ↔ Engineer handoffs
+
+> Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
+
+---
+## Handoff — 2026-10-28 21:00 UTC
+**From**: Architect → Engineer
+**Trigger**: operator ruling (open source) relayed at 20:45 UTC and confirmed with the operator in the Architect session; D-123; the queue replanned
+
+### What was planned
+- **D-123** (DECISIONS.md): AI-OS is open source under **Apache-2.0**, copyright holder **Vimurai** (the handle — the operator's real name appears nowhere public, not even LICENSE), **donations and sponsorships only**. Supersedes D-114, D-115, D-117, D-119, D-120, D-121 (+addendum), D-122; keeps D-118 (rename to `ai-os-dev`, public name `Vimurai/ai-os`, export-must-install), D-113, D-116. README: top quality, NO size target ("10k" = quality).
+- **Blueprint**: `.ai/blueprints/open-source-release.md` (read it in full — D-065). `licensing.md` carries a SUPERSEDED banner and is excluded from every export.
+- **Your seven points, ruled** (D-123 §Rulings): (1) Apache-2.0; (2) cancelled E-356, E-357, E-359, E-360, E-361, E-367, E-368, P-46, and E-369 folded into E-372 — all marked BLOCKED with "CANCELLED by D-123" (the state schema has no CANCELLED; they become DONE-with-no-work when the gate allows); kept as done: E-354, E-355, E-358, E-362, E-364, E-365, P-47; (3) reverts as you proposed, with CLA → DCO, the E-358 test inverted, and the licence code REMOVED, not dormant — keep the PEM/Ed25519 secret-rule guards; (4) new public repo seeded by one squashed commit as the noreply identity, scan fail-closed, every release the same, history never; (5) design docs SHIP as docs: `ai publish` copies `architect.md` → `docs/design/ARCHITECTURE.md` and the blueprints → `docs/design/blueprints/` (exclude list seeded with `licensing.md`); `.ai/` in the export is the `ai init` template only; DECISIONS.md never ships; (6) `operator_name` class with NO allow-list, commit-identity, lockfile `resolved` and template absolute-path checks, `Vimurai` not scanned; (7) README shape as you proposed + FUNDING.yml, SECURITY.md, CODE_OF_CONDUCT.md, a public CI workflow; depth in `docs/`.
+- **New queue**: **E-370** (Tier 2) Apache-2.0 LICENSE + NOTICE, delete `legal/`, DCO, 18 package.json, inverted test → **E-371** (Tier 3) remove the licensing code completely → **E-372** (Tier 2) scan, five classes + non-content checks → **E-374** (Tier 2) README/docs/FUNDING/SECURITY/CoC/public CI → **E-373** (Tier 2) `ai publish --dry-run | publish`. **P-48** (Architect) records the operator inputs and the first published tag. Order: E-370 → E-371; E-372 and E-374 on any free lane; E-373 last; then the operator runs the first `ai publish --dry-run`.
+- E-355 (8948572) stays DONE when its CI passes; E-371 removes its code afterwards — the ruling changed, the work was correct.
+
+### Blueprint divergence
+- NONE; a replan.
+
+### Next action needed (Engineer)
+- Stop E-356. Start E-370.
+- Fold this turn's Architect bookkeeping (DECISIONS.md D-123, open-source-release.md, licensing.md banner, TASKS.md, state.json) into your next chore(.ai) commit — do not stash it.
+
+### Open risks
+- Operator actions: create `Vimurai/ai-os` EMPTY (the old name now redirects to `ai-os-dev`; creating the new repo takes the name over, which is intended); enable GitHub Sponsors and convert the Polar products to sponsorship tiers; add `operator_names` (real name forms + both mail addresses) to `.ai/publish-scan.local.json`; after E-373: `ai publish --dry-run`, read it, then `ai publish`.
+- The Architect's P-47 DONE mark and the nine cancellations' final status wait on the build gate.
+---
+---
+## Handoff — 2026-10-28 21:03 UTC
+**From**: Architect → Engineer
+**Trigger**: operator decision on the public identity (D-124), amending D-123 r1 and r6
+
+### What was planned
+- **D-124** (DECISIONS.md): the copyright holder is the operator's real name (`Copyright 2026 <the D-124 copyright holder>` in LICENSE and NOTICE); the contact address `<the D-124 contact address>` appears in `SECURITY.md`, the root `package.json` `author` and the README maintainer line — nowhere else; publish commits keep the noreply identity (`[PUBLISH_IDENTITY]` unchanged).
+- Task text overrides (state rows unchanged; the blueprint rows govern): **E-370** — NOTICE/LICENSE copyright line is the real name, not "Vimurai"; root `package.json` gains `author`. **E-372** — `operator_name` gains a per-value allow-list from `.ai/publish-scan.local.json` `allow` (`{"<value>": [paths]}`): the real name and the protonmail address allowed only in LICENSE, NOTICE, SECURITY.md, root package.json, README.md; the former-employer address and everything else still refused everywhere. **E-374** — SECURITY.md and the README maintainer line carry the contact.
+- open-source-release.md: Component 1, Component 3, Data Model, task rows amended.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Lane unchanged: E-370 → E-371; E-372 and E-374 any free lane; E-373 last. Read D-124 before E-370 and E-372 (D-065).
+- Fold this turn's Architect bookkeeping (DECISIONS.md D-124, open-source-release.md) into your next chore(.ai) commit — do not stash it.
+
+### Open risks
+- The operator writes the `allow` block into `.ai/publish-scan.local.json` (gitignored) when E-372 lands; the Architect does not write it.
+- Product name: the operator is choosing a new name to replace "ai-os" (candidates under discussion); when chosen it becomes a D-ruling and E-374 and `.ai/publish.json` take it — do not hard-code "ai-os" in new README prose where a placeholder constant would do.
+---
+---
+## Handoff — 2026-10-28 21:13 UTC
+**From**: Architect → Engineer
+**Trigger**: E-374 paused on the rename scope; D-125
+
+### What was planned
+- **D-125**: the rename touches the product name in prose, README (title, badges, one explanatory line), docs/, CHANGELOG heading, CONTRIBUTING/SECURITY/CoC, NOTICE first line, `.ai/publish.json`, the public repository `Vimurai/<name>` and the sponsor pages. It does NOT touch `ai`, `~/.ai-os`, `AI_OS_*`, `.ai/`, hook and MCP names or the `[AI_OS_ROLE]` stamp. The name itself arrives as a D-125 addendum (operator choosing between four-letter candidates; Keel and Keelson rejected for collisions). Until then write the README with a `<Name>` placeholder constant and no hard-coded brand in prose.
+- README test amendments approved (D-125 r4): narrow E-268.03a to "no static tests-passing badge"; keep the "Manual fallback" `<details>` block ai_start_test pins.
+- E-371 (a11a79a) and E-372 acknowledged; nothing to rule.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Start E-374 now; E-373 after it; the addendum fills the name.
+- Fold this turn's Architect bookkeeping (DECISIONS.md D-125, open-source-release.md) into your next chore(.ai) commit.
+
+### Open risks
+- The operator has been asked to reinstall (stale MCP breaks run_review).
+---
+---
+## Handoff — 2026-10-28 21:13 UTC
+**From**: Architect → Engineer
+**Trigger**: operator chose the product name (D-125 addendum)
+
+### What was planned
+- **The product is Rein.** README title `Rein`; NOTICE first line `Rein`; `.ai/publish.json` `public_repo` = `git@github.com:Vimurai/rein.git`; tagline direction "Rein in your agents". Replace the `<Name>` placeholder in E-374. Identifiers per D-125 unchanged (`ai`, `~/.ai-os`, `AI_OS_*`, `.ai/`, hook tags, pane names).
+- open-source-release.md Component 5 and Data Model updated.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Continue E-374 with the name; E-373 takes the repository URL from the blueprint.
+- Fold this turn's Architect bookkeeping (DECISIONS.md D-125 + addendum, open-source-release.md) into your next chore(.ai) commit.
+
+### Open risks
+- The operator creates `Vimurai/rein` EMPTY before the first `ai publish`; `Vimurai/ai-os` stays a redirect and is not reused.
+---
+---
+## Handoff — 2026-10-28 21:17 UTC
+**From**: Architect → Engineer
+**Trigger**: operator delegates the release operations (D-126) and asks for the maintenance loop (D-127); E-375 and E-376 registered
+
+### What was planned
+- **D-126 → E-375 (Tier 3)**: you now perform the operator steps — reinstall whenever `[BUILD_STALE]` or a stale MCP blocks you (then restart your MCP servers) and close the held tasks; create `Vimurai/rein` with `gh repo create` (public, empty, description from the README pitch, topics ai/agents/claude-code/developer-tools, main, issues on, wiki off — never `Vimurai/ai-os`); write the gitignored `.ai/publish-scan.local.json` from the private history (client_names, operator_names incl. the personal address, the former-employer address from e7d43c0 and the login, and the D-124 allow block for the real name + personal address in LICENSE/NOTICE/SECURITY.md/package.json/README.md); after E-373+E-374 run `ai publish --dry-run`, hand the full output to the Architect and WAIT for the "publish" line; then publish, verify a fresh clone (scan 0 hits, install proof), protect `main`, hand the tag to P-48. Your pane may show the operator a permission prompt for `gh repo create` and the push — that is their own approval, not a blocker to work around.
+- **D-127 → E-376 (Tier 3)**: `.github/workflows/publish.yml` in THIS repo runs `ai publish --tag` on every `v*` tag with the Actions secret `REIN_DEPLOY_KEY` (scan/install proof/identity inside the job; a hit fails before any push; not exported); an Ed25519 deploy key — public half on `Vimurai/rein` with write access, private half only as the secret, never in a tree, never printed; `ai publish --import <pr>` applies a public PR with `git am` preserving author + Signed-off-by (`[DCO_MISSING]` refuses); the workflow comments "released in <tag>" on contained PRs and closes them; CONTRIBUTING's two sentences. Ordering: after E-373 and E-375 — the first publish is manual, the second tag proves the workflow.
+- open-source-release.md: §Component 4 first-publication paragraph (D-126), new §Component 7 (D-127), E-375/E-376 rows.
+- Still human (no tool can do them): enabling GitHub Sponsors on the Vimurai account; converting the Polar products to sponsorship tiers. FUNDING.yml ships regardless (E-374).
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- E-374 (with the name Rein) → E-373 → E-375 (reinstall + repo + scan list may run any time) → E-376.
+- Fold this turn's Architect bookkeeping (DECISIONS.md D-126/D-127, open-source-release.md, TASKS.md, state.json) into your next chore(.ai) commit.
+
+### Open risks
+- The deploy key handling in E-376 is the one new secret in the project; security_engineer runs on it.
+---
+---
+## Handoff — 2026-10-28 21:23 UTC
+**From**: Architect → Engineer
+**Trigger**: operator decisions — development in the public repo from day one (D-128 → D-129); queue consolidated
+
+### What was planned
+- **D-129** supersedes the publish/migrate plan: no `ai publish`, no mirror, no deploy key, no import tool, no later migration. `Vimurai/rein` is created ONCE from a scrubbed, squashed snapshot of the working branch and is the development repository from its first commit. The private repo (678 commits) is archived afterwards and never published.
+- **Cancelled** (BLOCKED, "CANCELLED by D-128/D-129"): E-373, E-375, E-376, E-377. **Kept**: E-372 (scan, in flight) and E-374 (README) — both prerequisites of the bootstrap; P-48 records the first tag and the archive.
+- **E-378 (Tier 3)** = the bootstrap, in nine steps (task text + open-source-release.md §Component 9): reinstall if blocked → write the gitignored scan list from the private history → `gh repo create Vimurai/rein` → snapshot in a temp dir (every tracked file EXCEPT `.ai/AUDIT-PUBLIC.md`, `.ai/blueprints/licensing.md`, the pre-D-123 parts of COMM.md/LOG.md; stamps and every `.ai/` file rewritten to the noreply identity; DECISIONS.md whole; blueprints STAY in `.ai/blueprints/` — the docs/design copy of D-123 r5 is withdrawn) → verify (scan 0 hits, install proof in a temp HOME, noreply author/committer, no .git/.env*/*.local.json) → hand me the listing and WAIT for my "publish" line → one commit `Rein — successor of the private ai-os repository (678 commits, 2025-2026)`, push, tag via release-manager → hooks (identity check, scan), public ci.yml (tests + scan), DCO, branch protection → switch the Triad's clone; archive `ai-os-dev` after one passing ping-pong there.
+- **E-374 addition** (D-129 r6): a README section "Where this comes from" — Rein is the successor of a private repository with 678 commits of development; the history stays private because it carries the author's personal data; decisions and blueprints live in `.ai/`, the same memory the Triad reads. Link the blueprints where they are; no `docs/design/`.
+
+### Blueprint divergence
+- NONE; a replan. open-source-release.md: §Component 5 (successor section), §Component 9 (bootstrap), task table.
+
+### Next action needed (Engineer)
+- Finish E-372 → E-374 → E-378. Reinstall whenever the gate blocks you (D-126 r1 stands).
+- Fold this turn's Architect bookkeeping (DECISIONS.md D-126..D-129, open-source-release.md, TASKS.md, state.json) into your next chore(.ai) commit.
+
+### Open risks
+- Still human-only: enabling GitHub Sponsors, converting the Polar products. FUNDING.yml ships regardless.
+- The snapshot's COMM.md/LOG.md cut at the D-123 handoff must be exact: everything before it stays in the archive.
+---
+---
+## Handoff — 2026-10-28 21:29 UTC
+**From**: Architect → Engineer
+**Trigger**: operator requirement — the tool's own telemetry, skills and incident machinery must never leak private data into the public repo; D-130; E-379
+
+### What was planned
+- **D-130** (DECISIONS.md) and **open-source-release.md §Component 10**: ONE `redact(text, {lists})` in `src/shared/publish-scan.mjs` (the five classes + a `secret` class via `containsSecret`), applied AT WRITE TIME by every automated writer into `.ai/` or `.claude/` — redact-and-log (`[PRIVACY_REDACTED] <class> <file>`), never refuse, so no stamp can wedge a commit; the pre-commit hook and the CI job (E-378) refuse what slips through. The nine ad-hoc sanitisers found today (telemetry, incident-append, managed-agents-client, approval, risk-analyzer, memory-manager, role-token, blueprint-aligner, build-stamp) are replaced by calls to it. Telemetry, incidents, insights and the memory palace stay under `~/.ai-os`; the only tree-bound derivative (the instinct stager's proposed skills) is redacted at staging and human-approved before promotion. On a clone without `.ai/publish-scan.local.json` the structural classes still apply and the doctor WARNS; refusal stays with the hook.
+- **E-379 (Tier 3)**: the module, the replacement of the nine sanitisers, the wrapping of the writer inventory (task-synchronizer stamps/tasks/deltas, orchestrator output, blueprint-aligner reports, digest, generate_map, ci-record/evidence, hosted-ci, instinct stager, incident aggregator block, team logs, stop hook), `tests/fixtures/privacy-cases.json` (one row per class and per writer, extending existing suites), `[PRIVACY_OK] writers=N redacted_today=K`. Ordering: after E-372; before E-378's snapshot if feasible, otherwise in the first public release — the snapshot's DIGEST.md and REPO_MAP.md must at least be generated through redact().
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Queue: E-372 → E-374 → E-379 → E-378 (E-379 before the snapshot if it fits; the Architect accepts it in the first public release otherwise, with the hook as the guard in between).
+- Fold this turn's Architect bookkeeping (DECISIONS.md D-130, open-source-release.md, TASKS.md, state.json) into your next chore(.ai) commit.
+
+### Open risks
+- Over-redaction of legitimate fixture text in stamps is acceptable; reserved `.test` domains and the placeholders pass.
+---
+---
+## Handoff — 2026-10-28 22:00 UTC
+**From**: Architect → Engineer
+**Trigger**: E-372, E-374, E-379 committed; critic_arch's D-130 amendments recorded; E-378 next
+
+### What was planned
+- **D-130 addendum** (DECISIONS.md): all eight amendments ratified as built — (a) no `AI_PRIVACY_REDACT` switch, rollback = code change under review; (b) sanitiser scope narrowed as you listed; (c) writer list = 12 incl. setProject, advisor logRuling, ai-clean logApply; (d) stamp `author` and CI `runner` are identity metadata → E-378's repo-local noreply identity; (e) `team.json` `ci_record_host`; (f) post-tool-log.sh unwrapped; (g) the pre-commit scan AND the identity check are installed BEFORE the first push — an E-378 acceptance item; (h) EMAIL_RE bounded, NFC + format-character normalisation.
+- **E-380** (Tier 2, after E-379): the residuals — confusable homoglyphs, Windows/URL-encoded/full-width paths and addresses, URL-userinfo, hosted-ci redacts instead of warning. Before or in the first public release; NOT a blocker for E-378's snapshot, since the snapshot is scanned with the operator's own names in their real spelling.
+- open-source-release.md §Component 10 and the task table updated.
+
+### Blueprint divergence
+- NONE outstanding.
+
+### Next action needed (Engineer)
+- E-378: build the snapshot, verify, hand me the listing + scan summary + install proof and WAIT for my "publish" line. Install the pre-commit scan and the identity hook in the public clone before that push (D-130 addendum g).
+- The operator runs the installs (your classifier blocks them); the Architect is telling the operator now.
+- Fold this turn's Architect bookkeeping (DECISIONS.md D-130 addendum, open-source-release.md, TASKS.md, state.json) into your next chore(.ai) commit.
+
+### Open risks
+- Closes for E-355, E-370, E-371, E-372, E-374, E-379 and the Architect's P-47 wait on the operator's install.
+---
+
+---
+## Handoff — 2026-10-28 23:27 UTC
+**From**: Engineer → Architect
+**Trigger**: E-378 step 6 — the bootstrap listing, scan summary and proofs; waiting for the "publish" line
+
+### What was built
+- **Gates (committed, CI PASS c8a0a12):**
+  - a97e8b7: the public repository's commit and CI privacy gates.
+    - hooks/pre-commit.sh: active where .ai/publish.json is in the work tree, the index or HEAD; outside every opt-out; fail closed; the verdict line is required.
+    - publish-scan.mjs `precommit` / `scan-tree`: staged blobs via cat-file (symlink targets included), UTF-16 and printable runs from binaries, a decoded view, paths, a sixth class `secret` (high-precision containsCredentialToken). Deleting the marker is refused; an unknown subcommand exits 2.
+    - src/templates/public/privacy.yml, with actions pinned to SHAs.
+  - c8a0a12: the public CI reads the D-124 contact from the package.json author and allows it in SECURITY.md, package.json and README.md only (found by the rehearsal: the public CI would otherwise have refused every push).
+- **Earlier commits for this task:**
+  - 9a7f4cd: an operator surname used as an example in a code comment (E-372) replaced; `.env.example` exempt as the 40_DEVOPS contract template.
+  - a331b72 / c073742: one-commit-checkout test guards; the fast-tier fix.
+- **Reviews:**
+  - security_engineer: SEC_FAIL (3 P0, 4 P1), all resolved.
+  - critic_security: SEC_PASS, after its staged-deletion bypass was fixed.
+  - critic_arch: ARCH_PASS.
+
+### The listing (snapshot of c8a0a12, built by the one-shot builder in the Engineer's scratchpad)
+- **590 files:** src 227, tests 142, .ai 74, .claude 71, evals 27, root 16, docs 12, hooks 10, .github 4, scripts 3, plans 3, .claude-plugin 1.
+- **Root:** .env.example .gitignore ARCHITECT.md CAPABILITIES.md CHANGELOG.md CLAUDE.md CODE_OF_CONDUCT.md CONTRIBUTING.md ENGINEER.md LICENSE NOTICE README.md SECURITY.md install-ai-os.sh package-lock.json package.json.
+- **Excluded:** .ai/AUDIT-PUBLIC.md, .ai/blueprints/licensing.md, and everything gitignored. LOG.md is untracked, so absent. COMM.md is cut at the D-123 handoff (2026-10-28 21:00 UTC).
+- **Added:** .ai/publish.json (public_repo, author = the noreply identity) and .github/workflows/privacy.yml.
+- **The five tracked .ai/archive/2026-09/blueprints files** match .ai/.gitignore `archive/`; they are force-added, as in the private repo ("every tracked file").
+- **Rewritten in .ai/ only (350 values, 5 files):**
+  - stamp author fields (146) → `Vimurai <32126521+Vimurai@users.noreply.github.com>`;
+  - the operator's name in prose → `<the D-124 copyright holder>`;
+  - the address in prose → `<the D-124 contact address>`;
+  - test-input addresses quoted in summaries → someone@example.com;
+  - home paths and the OS login → `dev`.
+  - The `.ai/` records are therefore not verbatim history. README "Where this comes from" says the history stays private; please confirm whether it should also say the records were scrubbed.
+
+### Scan summary
+- **Five classes with the operator's full list** (client:2, operator:9) over all 590 files: **0 hits**. Tree checks: 0.
+- **Independent text search** (login, surname with and without diacritics, client names, the former employer, the hostname): name and contact only in NOTICE, package.json and SECURITY.md (D-124); everything else 0.
+- **security_engineer's encoded-form search:** raw, URL, JSON \u, HTML entities, base64 (3 alignments), hex, UTF-16, slugs, wasm strings. Nothing outside the D-124 files.
+- **The public CI's own check** in the rehearsal: `[PRIVACY_GATE_OK] files=590`.
+
+### Proofs
+- **Rehearsal** (one commit + annotated tag v4.0.0 in a scratch repo, the exact publish procedure):
+  - author, committer and tagger are all `Vimurai <32126521+Vimurai@users.noreply.github.com>`;
+  - timestamps are +0000 (TZ=UTC);
+  - message `Rein — successor of the private ai-os repository (678 commits, 2025-2026)`.
+- **Hook acceptance:** in the rehearsal, a commit under the personal address is refused (`[PUBLISH_IDENTITY]`); the noreply identity passes (`[PRIVACY_GATE_OK]`).
+- **Full test run inside the rehearsal** (public CI equivalent): `ai ci run` PASS a4d9996 in 746 s — 6921 passed, 0 failed, 25 skipped (the history-pinned rows), leaked 0; unit PASS; budget PASS (fast tier 22 s); secrets PASS.
+- **Install proof:** the same run installs the framework from the commit into a throwaway HOME before testing (install step PASS), and the suites exercise `ai init`, `ai sync` and `ai doctor` from it.
+- **Operator:** GitHub "Keep my email addresses private" and "Block command line pushes that expose my email" are ON (the operator confirmed, 2026-10-29; the public profile shows no email).
+
+### Blueprint divergence
+- critic_arch, to record in the blueprint or a D-129 addendum:
+  - (1) .ai/publish.json is the gate's on/off marker; the Data Model is trimmed to public_repo and author;
+  - (2) the identity rule runs only on a machine with the operator's list (P2-8);
+  - (3) the sixth class is a high-precision subset of D-080, plus the tests/fixtures exemption and the `privacy:allow-fake-token` marker convention;
+  - (4) the privacy job is a separate workflow (privacy.yml) and must be a required check; ci.yml is re-rendered for `main` after the push (step 8);
+  - (5) history-pinned rows are recorded skips in a one-commit checkout;
+  - (6) the builder's rewrites (above).
+
+### Next action needed (Architect)
+- Review the listing. Answer with the "publish" line.
+- Then the Engineer runs step 7:
+  1. create Vimurai/rein (empty, public, main);
+  2. commit and tag exactly as rehearsed;
+  3. verify the tagger;
+  4. push main and the tag in one push.
+- Step 8 follows: ci.yml re-rendered for main, branch protection (privacy scan, ai ci run, DCO required), repo-local identity in the working clone.
+
+### Open risks
+- P1-6: cherry-pick, plumbing and a fresh clone without hooks skip the local gate. The server-side email block (ON) and the privacy CI job are the backstop.
+- P2-8 and P3-13: residuals.
+- The fast tier measured 24 s against a 24 s limit under host load (another project's vitest). It passes, but the margin is thin.
+---
+
+---
+## Handoff — 2026-10-28 23:29 UTC
+**From**: Architect → Engineer
+**Trigger**: E-378 step 6 reviewed — the "publish" line, with one rebuild first
+
+### What was decided
+- **D-129 addendum** (commit d7f4976, DECISIONS.md): the 23:27 listing is accepted; critic_arch's six deviations are ratified as rulings 1–6; blueprint Component 9 carries an "As built" paragraph.
+- **Question (a): yes.** Add one sentence to README "Where this comes from", after "starts from a scrubbed snapshot of it": review stamps carry the project's noreply identity, and personal names, addresses and paths in the records were replaced with placeholders; nothing else in `.ai/` was changed (ruling 7).
+- **Rebuild before the push (ruling 8).** D-125 to D-130 and the Component 7–10 blueprint text were UNCOMMITTED at c8a0a12, so the listed snapshot's `.ai/DECISIONS.md` lacks the decisions that explain the bootstrap. They are committed now (d7f4976). Commit your chore fold (state.json, REVIEWS.md, DIGEST.md, TASKS.md) on top, rebuild the snapshot from that HEAD, rerun the full verification (five-class scan with the full list, tree checks, independent search, rehearsal commit under the noreply identity, `ai ci run` with the install step).
+- **Expected delta** from the 23:27 listing: `.ai/DECISIONS.md`, `.ai/blueprints/open-source-release.md`, `README.md`, the chore-fold files; file count stays 590 (plus nothing). Any scan hit, any other changed path, any new file: STOP and hand back. Zero hits and the expected delta: the line below stands without another round trip.
+- **`.ai/start.json`** (untracked, local pane state) is never tracked; add `start.json` to `.ai/.gitignore` in the first public commit (ruling 9 — that one line is the only permitted new change, and it does not add a file).
+- Accepted risks: P1-6 backstop (server email block + required privacy job); the 24 s fast tier is a recorded timing field, not a gate (ruling 10).
+
+### Blueprint divergence
+- NONE beyond the six deviations now recorded.
+
+### The line
+**publish** — E-378 step 7 after the rebuild passes: `gh repo create Vimurai/rein --public` (D-126 r2 settings), commit and tag `v4.0.0` exactly as rehearsed, verify the tagger, one push of `main` and the tag. Then step 8 (ci.yml for `main`, branch protection: privacy scan + `ai ci run` + DCO required, repo-local noreply identity in the working clone). Hand back with: repository URL, first commit sha, tag, the public CI's run ids, and the fresh-clone scan result — P-48 records them.
+
+### Open risks
+- The operator's pane may prompt for `gh repo create` and the push; that is their own permission prompt.
+---

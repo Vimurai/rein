@@ -1,0 +1,15 @@
+{
+  "name": "safe-exec-mcp",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "AI-OS UACS: AST-analyzes shell commands for destructive patterns before execution",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.27.1",
+    "shell-quote": "1.8.3"
+  }
+}

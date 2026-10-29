@@ -1,0 +1,14 @@
+{
+  "name": "orchestrator-mcp",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "AI-OS Orchestrator: Deterministic workflow execution for preflight, review, and handover operations.",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "*"
+  }
+}

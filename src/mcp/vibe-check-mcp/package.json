@@ -1,0 +1,15 @@
+{
+  "name": "vibe-check-mcp",
+  "version": "1.0.0",
+  "license": "Apache-2.0",
+  "description": "AI-OS MCP server: Visual audit, chaos testing, and performance metrics via Playwright",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "*",
+    "@playwright/test": "^1.40.0"
+  }
+}

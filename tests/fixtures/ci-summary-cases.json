@@ -1,0 +1,117 @@
+[
+  {
+    "label": "AI-OS runner: the Total line is the run's total (last one wins)",
+    "want": {
+      "runner": "aios",
+      "pass": 5830,
+      "fail": 0,
+      "skip": 2
+    },
+    "log": "  \u2713 a_test.sh (3 passed)\n   Total: 3 passed, 0 failed\n\u2501\u2501 Results \u2501\u2501\n   Total: 5830 passed, 0 failed, 2 skipped\n"
+  },
+  {
+    "label": "AI-OS runner without a skipped clause",
+    "want": {
+      "runner": "aios",
+      "pass": 3,
+      "fail": 1,
+      "skip": 0
+    },
+    "log": "   Total: 3 passed, 1 failed\n[TEST_FAILED] 1 test(s) failed\n"
+  },
+  {
+    "label": "AI-OS line wins over node --test lines inside its suites",
+    "want": {
+      "runner": "aios",
+      "pass": 200,
+      "fail": 0,
+      "skip": 0
+    },
+    "log": "\u2139 pass 196\n\u2139 fail 0\n   Total: 200 passed, 0 failed\n"
+  },
+  {
+    "label": "downstream vitest shape (recorded pass=0 before E-310): two vitest runs, the second in ANSI colour, summed; Test Files lines ignored",
+    "want": {
+      "runner": "vitest",
+      "pass": 2543,
+      "fail": 0,
+      "skip": 7
+    },
+    "log": " Test Files  197 passed | 1 skipped (198)\n      Tests  2516 passed | 7 skipped (2523)\n   Start at  12:26:45\n   Duration  351.46s (tests 91%, import 8%, transform 1%)\n\n> app@0.1.0 test:capture\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m2 passed\u001b[39m\u001b[22m\u001b[90m (2)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m27 passed\u001b[39m\u001b[22m\u001b[90m (27)\u001b[39m\n\u001b[2m   Duration \u001b[22m 84.80s\n"
+  },
+  {
+    "label": "vitest with failures and todo",
+    "want": {
+      "runner": "vitest",
+      "pass": 2513,
+      "fail": 3,
+      "skip": 9
+    },
+    "log": " Test Files  2 failed | 196 passed (198)\n      Tests  3 failed | 2513 passed | 7 skipped | 2 todo (2525)\n"
+  },
+  {
+    "label": "node --test, TAP reporter",
+    "want": {
+      "runner": "node-test",
+      "pass": 194,
+      "fail": 2,
+      "skip": 1
+    },
+    "log": "TAP version 13\nok 1 - x\n1..197\n# tests 197\n# suites 0\n# pass 194\n# fail 2\n# cancelled 0\n# skipped 1\n# todo 0\n# duration_ms 812\n"
+  },
+  {
+    "label": "node --test, spec reporter; a cancelled test is not a pass",
+    "want": {
+      "runner": "node-test",
+      "pass": 10,
+      "fail": 1,
+      "skip": 0
+    },
+    "log": "\u2714 a (1ms)\n\u2139 tests 11\n\u2139 suites 0\n\u2139 pass 10\n\u2139 fail 0\n\u2139 cancelled 1\n\u2139 skipped 0\n\u2139 todo 0\n\u2139 duration_ms 40\n"
+  },
+  {
+    "label": "pytest, framed summary with warnings",
+    "want": {
+      "runner": "pytest",
+      "pass": 10,
+      "fail": 3,
+      "skip": 1
+    },
+    "log": "tests/test_a.py ..F.\n========= 3 failed, 10 passed, 1 skipped, 2 warnings in 2.31s =========\n"
+  },
+  {
+    "label": "pytest -q bare summary",
+    "want": {
+      "runner": "pytest",
+      "pass": 42,
+      "fail": 0,
+      "skip": 0
+    },
+    "log": "..........\n42 passed in 0.12s\n"
+  },
+  {
+    "label": "jest",
+    "want": {
+      "runner": "jest",
+      "pass": 10,
+      "fail": 1,
+      "skip": 2
+    },
+    "log": "Test Suites: 1 failed, 4 passed, 5 total\nTests:       1 failed, 2 skipped, 10 passed, 13 total\nSnapshots:   0 total\nTime:        3.2 s\n"
+  },
+  {
+    "label": "two runners in one suite step are summed and both named",
+    "want": {
+      "runner": "vitest+pytest",
+      "pass": 13,
+      "fail": 0,
+      "skip": 0
+    },
+    "log": "      Tests  10 passed (10)\n3 passed in 0.40s\n"
+  },
+  {
+    "label": "no known summary \u2192 null (ai ci records runner=none, counts 0)",
+    "want": null,
+    "log": "> build\nok\nDone in 3s\n"
+  }
+]

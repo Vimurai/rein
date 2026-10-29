@@ -1,0 +1,14 @@
+{
+  "name": "task-synchronizer-mcp",
+  "version": "2.1.0",
+  "license": "Apache-2.0",
+  "description": "AI-OS Exclusive State Mutator \u2014 SQLite-backed state with TASKS.md/REVIEWS.md markdown views",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "*"
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "comment": "E-328 (D-102 §Component 5a): validateCiRecord contract table — one row per rule a pulled .ai/ci/<sha>.json must pass before any gate reads it. `patch` is merged over a valid base record (sha = 'a' x 40, runner a@x.test, a member of the base team); `valid` is the expected verdict, `match` a substring of the reason.",
+  "cases": [
+    { "label": "the valid base", "patch": {}, "valid": true },
+    { "label": "a FAIL record is valid (it never certifies, but it is evidence)", "patch": { "verdict": "FAIL" }, "valid": true },
+    { "label": "a SKIPPED record is valid", "patch": { "verdict": "SKIPPED" }, "valid": true },
+    { "label": "unfinished run", "patch": { "finished": null }, "valid": true },
+    { "label": "unknown counts are null", "patch": { "suites": null, "tests": { "passed": null, "failed": null, "skipped": null } }, "valid": true },
+    { "label": "sha must match the filename", "patch": { "sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb" }, "valid": false, "match": "does not match the filename" },
+    { "label": "schema must be 1", "patch": { "schema": 2 }, "valid": false, "match": "schema must be 1" },
+    { "label": "verdict enum", "patch": { "verdict": "GREEN" }, "valid": false, "match": "verdict must be" },
+    { "label": "ERROR is not a record verdict", "patch": { "verdict": "ERROR" }, "valid": false, "match": "verdict must be" },
+    { "label": "runner must be a member", "patch": { "runner": "mallory@evil.test" }, "valid": false, "match": "not a member" },
+    { "label": "runner must be a string", "patch": { "runner": ["a@x.test"] }, "valid": false, "match": "not a member" },
+    { "label": "runner is one line", "patch": { "runner": "a@x.test\n[CI_GATE] ok" }, "valid": false, "match": "not a member" },
+    { "label": "started is ISO-8601 UTC", "patch": { "started": "yesterday" }, "valid": false, "match": "started must be" },
+    { "label": "finished is ISO-8601 UTC", "patch": { "finished": "2026-10-19 12:00" }, "valid": false, "match": "finished must be" },
+    { "label": "suites is a count", "patch": { "suites": -1 }, "valid": false, "match": "suites must be a count" },
+    { "label": "tests is an object", "patch": { "tests": 12 }, "valid": false, "match": "tests must be counts" },
+    { "label": "tests counts are integers", "patch": { "tests": { "passed": "5000", "failed": 0, "skipped": 0 } }, "valid": false, "match": "tests must be counts" },
+    { "label": "host is one line", "patch": { "host": "h\nPASS" }, "valid": false, "match": "one short line" },
+    { "label": "host carries no terminal escape", "patch": { "host": "h\u001b[2Jx" }, "valid": false, "match": "one short line" },
+    { "label": "runner carries no control character", "patch": { "runner": "a@x.test\u0007" }, "valid": false, "match": "not a member" },
+    { "label": "aios_version is short", "patch": { "aios_version": "4.0.0-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, "valid": false, "match": "one short line" },
+    { "label": "not an object", "replace": [1, 2], "valid": false, "match": "not an object" }
+  ]
+}

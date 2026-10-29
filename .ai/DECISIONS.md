@@ -3754,3 +3754,30 @@ Revert the PR before the tag; after `v0.4.0` a revert is a re-rename, not planne
 Re-pin to the old sha with the old bytes; the diff is the token substitution in reverse.
 
 ---
+
+## D-132 addendum 4 — E-391 security findings: sync every project before the symlink goes; the doctor and `rein sync` recognise a Rein hook by its file name and flag a missing path; the classifier claims only its own label; the CLI_GATE assembly bypasses get their own P1 task
+
+**Date**: 2026-10-29
+**Task**: E-391 (F1–F4, F6 in scope), E-393 (new, after the tag, before E-385)
+**Decision**: The security_engineer's E-391 review (`.ai/SECURITY.md` "E-391 / D-132 addendum 2–3") found one P1 that this ruling's own migration order caused, two P2s and two P3s inside the rename's scope, and a pre-existing P1 class outside it. Rulings:
+1. **F1 (P1) — the migration order was wrong.** Removing the old-home symlink before `rein sync` turns the gate off in every un-synced project: its `.claude/settings.json` registers the hooks by the old absolute path, the hook exits 127, and Claude Code blocks only on exit 2. The blueprint's §Component 4 list is reordered: install → `rein sync` in every project → `rein doctor` clean → only then `rm ~/.ai-os` → shell rc. The Engineer's handover to the operator carries the corrected order.
+2. **F1 — the check is in scope of E-391.** `rein doctor`'s project hook scan and `rein sync`'s matcher recognise a Rein hook entry by the hook's file name (`pre-tool-use.sh`, `session-start.sh`, `post-tool-log.sh`, …) whatever directory the entry names — no old name in code. Doctor: a hook entry whose path does not resolve to a file is `✗ [HOOK_PATH_MISSING] <path>` (non-zero exit); no PreToolUse entry resolving to the install's `hooks/pre-tool-use.sh` is `✗ [GATE_UNREGISTERED]`. Sync: a Rein-named entry with a missing path is rewritten to the install path like any other re-render. Installer: after installing, it prints each project the registry knows whose settings name a missing Rein hook path, with `run: rein sync` — the operator sees the list before they can remove anything. Suites: a project whose settings name a missing path is reported by doctor, repaired by sync, listed by the installer (extend the doctor and sync suites, named).
+3. **F2 (P2) — the classifier helper claims only its own rule.** The `OURS` pattern becomes the label shape every version since D-086 shares — `<Word> Gate Tamper (D-nnn): Never disable, bypass or weaken the <Word> safe-exec gate` — so a user's own `… Gate Tamper` deny rule is neither replaced nor deleted by `refresh`. Pen-test rows A04 (two) become RESISTED. The pinned RULE text is untouched.
+4. **F3 (P2) — doctor PATH shadow**: `type -ap rein`, lines relabelled; accepted. The ruling-8 gate missed it because the literal is `type -ap ai`, so the gate gains one pattern: `ai` as the last word of a `type`, `which`, `command -v` or `hash` call.
+5. **F4 and F6 (P3)** — accepted as the security_engineer proposed: the installer refuses a symlinked `~/.rein/bin` before both the `rsync --delete` and the prune loop, and the prune skips directories instead of aborting under `set -e`; `hooks/post-tool-log.sh` resolves `rein` from the install's own path before any other.
+6. **F5 (P3) over-block** — accepted as is: `|` as a command head fails closed; `grep -e … -e …` is the workaround.
+7. **CLI_GATE assembly bypasses (pre-existing, P1) — E-393**, Tier 3, right after the `v0.4.0` tag and before E-385: the operator's priority was identity after the rename, but a 15-form gate bypass that an agent can type outranks the mark; the operator may reorder. Design, both layers: (a) the lock — normalise per word (strip quotes and backslashes, decode `$'…'`, drop `--`) and skip wrapper prefixes with their flags (`env`, `nice`, `sudo`, `stdbuf`, `setsid`, `flock`, `exec -a`, `command`, `builtin`, `time`, `nohup`, `timeout`) before the token match; `)` joins CMD_HEAD; the D-112 operand normaliser is reused, not duplicated; (b) the belt — `rein gate off` itself refuses (exit 2, the operator-escape message) unless stdin is a TTY and no Rein role token or Claude session variable is in its environment; a pty faked with `script` is why (b) is not the lock. The 15 forms become rows in `gate-self-disable-cases.json` (re-pinned under this ruling, addendum 3 conditions). The runtime-assembly residual (`x=rein; $x gate off`, hex-escaped words) stays the classifier's, as named since D-089.
+
+### Alternatives considered
+1. **Keep the symlink until every project is synced, by code** (a doctor line naming the old path) — rejected: the hard cut allows no old name in code; the reorder plus the file-name-based hook check achieves the same without it.
+2. **Fold E-393 into E-391** — rejected: it is pre-existing, identical with `ai`, and the rename PR must stay reviewable; it is also the first task after the tag rather than waiting behind the README.
+3. **Only the TTY belt for E-393** — rejected: `script` allocates a pty; the parser fix is the lock.
+
+### Impact
+- Unlocks: E-391 Tier 3 sign-off once F1–F4 and F6 land and the security_engineer re-stamps; E-393.
+- Risk if wrong: a hook entry whose file name matches but points at a foreign script would pass the file-name check — the doctor also reports a Rein-named hook outside the install directory as `[HOOK_PATH_FOREIGN]`, which closes it.
+
+### Rollback
+Each fix is a small commit in the same PR; E-393 is one PR; the migration order is text.
+
+---

@@ -90,15 +90,28 @@ the old home path. The commits that built them on the unpushed branch are remove
 commit or dropped — the Engineer's choice; the final tree is what is reviewed).
 
 The operator (the only install) migrates by hand after the merge; the Engineer's handoff
-carries this list verbatim, and no code prints any of it:
-1. `bash install-rein.sh` from the merged `main` (installs `~/.rein/bin/rein`; the installer
-   prints that the command is `rein`).
-2. `rm ~/.ai-os` — today's reinstall left it as a symlink to `~/.rein`; it is a symlink, so
-   `rm`, never `rm -r`. The gate rows that protected this path are gone, so it must go.
-3. `rein sync` in every project: rulefiles, hook paths, merge driver and settings re-render
-   from the templates as they always have.
-4. Remove any `AI_OS_*` export from shell rc files; nothing reads them.
-5. `rein doctor` shows `[REIN_ROLE]` and no line naming the old form.
+carries this list verbatim, in this order (D-132 addendum 4 r1: the symlink goes LAST —
+removing it before the projects are synced turns the gate off in every un-synced project,
+because its settings register the hooks by the old absolute path and a hook that exits 127
+is not a block). No code prints the old name; the installer and doctor name only what is
+missing (addendum 4 r2):
+1. `bash install-rein.sh` from the merged `main` (installs `~/.rein/bin/rein`; prints that
+   the command is `rein`; then lists every registered project whose settings name a missing
+   Rein hook path, each with `run: rein sync`).
+2. `rein sync` in every project on that list (and any other): rulefiles, hook paths, merge
+   driver and settings re-render from the templates; a Rein-named hook entry with a missing
+   path is rewritten to the install path.
+3. `rein doctor` in each project: no `[HOOK_PATH_MISSING]`, no `[GATE_UNREGISTERED]`,
+   `[REIN_ROLE]` present.
+4. Only now `rm ~/.ai-os` — today's reinstall left it as a symlink to `~/.rein`; it is a
+   symlink, so `rm`, never `rm -r`. The gate rows that protected this path are gone, so it
+   must go.
+5. Remove any `AI_OS_*` export from shell rc files; nothing reads them.
+
+Doctor and sync recognise a Rein hook entry by the hook's file name whatever directory it
+names; doctor reports a missing path as `[HOOK_PATH_MISSING]`, no PreToolUse entry resolving
+to the install's `hooks/pre-tool-use.sh` as `[GATE_UNREGISTERED]`, and a Rein-named hook
+outside the install directory as `[HOOK_PATH_FOREIGN]`.
 
 ### Component 5 — Delivery (D-132 r7, addendum 2 r9)
 In the public clone: branch `rename/rein`, one PR, the mechanical commits (E-383) separate

@@ -1252,6 +1252,24 @@
         "E-391"
       ],
       "updated_at": "2026-10-29T21:16:07.573Z"
+    },
+    {
+      "id": "E-393",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 3,
+      "description": "Close the CLI_GATE assembly bypasses per D-132 addendum 4 r7 and .ai/SECURITY.md \"E-391 / D-132 addendum 2–3\" (pre-existing: identical on e04bb83 with `ai`; P1; right after the v0.4.0 tag, before E-385). (1) Normalise before the token match in gate-guard's CLI_GATE and the pre-tool-use fallback grep: strip quotes and backslashes per word, decode $'…' words, drop the `--` separator, and skip wrapper prefixes with their flags and arguments (env [-i] [NAME=val…], nice [-n N], sudo [-u x …], stdbuf -oX, setsid, flock f, exec [-a x], command [-p], builtin, time [-p], nohup, timeout N) before matching `rein gate off`; add `)` and the missing prefixes to CMD_HEAD. Reuse the D-112 operand normaliser in src/shared (engineering-standards: no second normaliser). (2) Belt in the command itself: `rein gate off` exits 2 with the operator-escape message unless stdin is a TTY and no Rein role token or Claude session variable is present in its environment; the operator's terminal passes both. (3) Rows: every one of the 15 forms in SECURITY.md's finding, plus the over-block rows that must stay blocked, as rows in tests/fixtures/gate-self-disable-cases.json; the table is byte-pinned (D-089 r5) — re-pin under this ruling with old and new sha and the row counts in the PR description (D-132 addendum 3 r2 conditions). The runtime-assembly residual (`x=rein; $x gate off`, hex-escaped words) stays the classifier's, as named. (4) security_engineer re-runs the A01 payload table; every EXPLOITED row of the 15 is RESISTED; the INCONCLUSIVE residual is recorded as such. Acceptance: all 15 forms blocked by the hook in a throwaway HOME; `rein gate off` refuses under the Bash tool and works in a terminal; gate-self-disable, gate-guard-home and safe_exec suites green; no suite deleted or skipped; full rein ci run green; THREAT_MODEL.md entry updated.",
+      "created_at": "2026-10-29T22:14:28.016Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-391"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-391"
+      ],
+      "updated_at": "2026-10-29T22:14:28.017Z"
     }
   ],
   "stamps": [
@@ -3111,6 +3129,69 @@
       "timestamp": "2026-10-29T21:05:31.802Z",
       "summary": "E-383 gap fix, .ai/ side: same ai_os_* / isUnderAiOs substitution in live blueprints, THREAT_MODEL, SECURITY — string substitution only (§35 rename exception).",
       "sha": "4d390a087dd2d4699a1b1f14f6c8d4559a8e79c3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T21:21:58.766Z",
+      "summary": "E-391 step (a): compatibility layer removed per D-132 addendum 2 r4 — files rebuilt from the mechanical commit 9bb41c1 + later substitutions (every dropped line audited as compat), env.mjs/install-ai-os.sh/docs/upgrading.md deleted, 10 fixture rows dropped, two pins re-pinned, T-RENAME-001 rewritten; unit tests 194/0 on touched files. security_engineer review follows at step (h).",
+      "sha": "03b8818af16571c6a8d3ef02279a1d0652feca2c",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T21:32:12.291Z",
+      "summary": "E-391 step (b): command ai → rein (bin files, 2414 command substitutions in 264 files, ai-named files, escape-preceded and bin-name leftovers, installer bin/ prune + install proof). FINDING: gate-guard's ai token regex and the hook fallback grep let `rein gate off` through — caught by gate-self-disable-cases rows (E-291.05f, `rein gate off` et al.), fixed. Three pinned tables re-pinned per D-132 addendum 3 (token-only diffs, equal rows). Unit 2238 pass; gate/T-MBS-S11 expected until later steps/reinstall.",
+      "sha": "9de7eb9909c2de847500afffe909b6838a224af8",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T21:38:43.836Z",
+      "summary": "E-391 step (c): the 18 ai-* skills → rein-* in .claude/skills, src/shared/skills, src/claude/skills and evals (dirs + 630 references in 150 files incl. registries, manifests, agents, rules, hooks, suites); historical E-217/E-147 notes reworded; tmux pane regexes fixed. skill_lines 207/0, skill_evals 22/0, unit 2238; remaining local failures are stale-mirror checks only.",
+      "sha": "14eebdd0094ce7149cacbd3158a5ddde4048c0a2",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T21:42:59.213Z",
+      "summary": "E-391 step (d): classifier RULE = D-132 addendum 2 r6 verbatim, label (D-132); detection by \"<product word> Gate Tamper\" so a (D-101) copy is OUTDATED without naming the old brand; classifier_backstop_test 139/0 (constant = ruled text, v5 = D-101 mapped, (D-101) account copy refreshed); pane_binding 201/0.",
+      "sha": "da778c7f66eda6f784331ad2d8e348feb66dfc4f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T21:43:15.053Z",
+      "summary": "E-391 step (e): rename gate per §Component 6 — brand (any case), command (subcommands from src/bin/rein's dispatch table, .ai/ never matches, also after \\t/\\n/\\r escapes), 18 skills, literals, ai-/ai_ path segments, no marker exemption; exclusions = §Component 3; map gains command/skill/pin rows; pin rows verified. Pattern self-tests pass; the tree scan goes green after (f)/(g).",
+      "sha": "bec6e699cc1c504e1c4c48a37df268ac23a950ef",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T21:59:39.554Z",
+      "summary": "E-391 step (f): CI job rein-ci-run, artefacts, cache prefix, nightly pattern, azure artefacts; ci.yml re-rendered (--check green); hosted-ci tests 34/0; DEVOPS-015 (ci_gate) with the required-checks swap planned for the merge step.",
+      "sha": "bec6e699cc1c504e1c4c48a37df268ac23a950ef",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T22:00:52.152Z",
+      "summary": "E-391 step (g): command + skill substitution over the live .ai/ docs (40+31 files, 698 replacements; records and history excluded), the Architect's public-ci.md rewording, T-RENAME-001 residual reworded without the old path. Rename gate 7/0 — zero old spellings outside §Component 3.",
+      "sha": "6a9cf09f79dc604c768e0302b80d6d90f94d5d81",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

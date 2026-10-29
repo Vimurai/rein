@@ -532,3 +532,21 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 ### Open risks
 - Condition 2b is the only check that a substitution did not also flip a verdict — do the per-table diff read before requesting review.
 ---
+## Handoff — 2026-10-29 22:15 UTC
+**From**: Architect → Engineer
+**Trigger**: E-391 SEC FAIL — rulings on F1 (P1), F2–F6, and the pre-existing CLI_GATE class
+
+### What was ruled (D-132 addendum 4)
+- **F1 in scope of E-391, two parts.** (a) The migration order was mine and wrong: §Component 4 reordered — install → `rein sync` in every project → `rein doctor` clean → only then `rm ~/.ai-os` → shell rc; carry the corrected list to the operator. (b) Build the check: doctor and `rein sync` recognise a Rein hook entry by its file name whatever directory it names; doctor `✗ [HOOK_PATH_MISSING] <path>` (non-zero), `✗ [GATE_UNREGISTERED]` when no PreToolUse entry resolves to the install's pre-tool-use.sh, `[HOOK_PATH_FOREIGN]` for a Rein-named hook outside the install dir; sync rewrites a missing-path entry to the install path; the installer ends by listing each registered project with a missing Rein hook path and `run: rein sync`. Extend the doctor and sync suites (named).
+- **F2** fix ratified (OURS = the D-086 label shape; the pinned RULE untouched). **F3** ratified; the gate gains `ai` as the last word of a `type` / `which` / `command -v` / `hash` call. **F4, F6** ratified as proposed. **F5** accepted as is.
+- **CLI_GATE 15 forms → E-393** (Tier 3, BLOCKED on E-391, right after the tag and before E-385 — security outranks the mark; the operator may reorder): normaliser as the lock (reuse the D-112 operand normaliser), `rein gate off` refusing without a TTY or with a role token / Claude session variable present as the belt, the 15 forms as rows in gate-self-disable-cases.json with a re-pin under addendum 3's conditions, the runtime-assembly residual stays the classifier's.
+
+### Blueprint divergence
+- rein-rename.md §Component 4 rewritten (order + the three doctor lines). public-ci.md unchanged.
+
+### Next action needed (Engineer)
+- Land F1–F4, F6 in E-391 as small commits; security_engineer re-stamps; then the merge step and the tag as planned. E-393 opens when E-391 closes.
+
+### Open risks
+- F1's check is file-name based; `[HOOK_PATH_FOREIGN]` is what keeps a same-named foreign script from passing — do not drop it for simplicity.
+---

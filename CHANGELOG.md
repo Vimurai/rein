@@ -3,10 +3,38 @@
 All notable changes to **ai-os-v2** are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.4.0] — First public release
+
+The first release of **Rein** in its public repository. The version line restarts at
+0.4.0 (D-131): the private predecessor AI-OS shipped 2.0.0 to 4.0.0, listed below under
+"Private predecessor", and a project stamped `4.0.0` is restamped `4.0.0 → 0.4.0` by
+`ai sync` like any other version change.
+
+### Changed
+
+- **Open source under Apache-2.0, funded by donations (D-123, D-124).** `LICENSE` and
+  `NOTICE` set the terms; the paid-distribution code planned before D-123 was removed
+  before it shipped. Contributions are accepted under the DCO (`git commit -s`, see
+  `CONTRIBUTING.md`).
+- **Public development from day one (D-129).** `Vimurai/rein` was bootstrapped once from a
+  scrubbed snapshot of the private repository (678 commits, 2025–2026) and is the
+  development repository from its first commit; the predecessor's history stays private
+  because it carries personal data. The export pipeline, mirror and import tool planned by
+  D-126..D-128 were cancelled before they were built.
+- **The product is named Rein (D-125 addendum, D-132).** Every spelling of the old name
+  becomes the Rein form, with a one-release compatibility layer so existing installs and
+  projects migrate on `ai sync`; the command `ai` and the `.ai/` directory keep their names.
 
 ### Added
 
+- **Privacy by construction (D-130).** One redaction module (`src/shared/publish-scan.mjs`)
+  is applied at write time by every automated writer into the tracked tree; a hit becomes
+  `[redacted:<class>]` and is logged, never refused. Telemetry, incidents and insights never
+  leave the home directory.
+- **Privacy gates (D-129, D-130).** The pre-commit hook refuses a commit whose author is not
+  the public identity in `.ai/publish.json` and a staged file the five-class scan flags; the
+  `privacy scan` job runs the same scan on every push and pull request. Both are required
+  for merge on `main`, beside `ai ci run`.
 - **Hosted CI for `master` (E-332, D-102 §5b, D-103).** `.github/workflows/ci.yml` runs on
   pull requests to `master`: it installs AI-OS from the merge commit and runs `ai ci run` —
   the local recipe, not a copy of it (`tests/unit/hosted-ci-workflow.test.mjs` refuses a
@@ -41,6 +69,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); this project adh
   `team.json` `shared_log: true`, `skill: ai-log` and `run_handover` append to the tracked
   `.ai/log/<email-localpart>.md`, and `ai-preflight` shows the newest entries across every
   developer's file (`ai log path|recent`); the default stays `LOG.md`.
+
+## Private predecessor (AI-OS, 2025–2026)
+
+Releases of the private repository Rein grew out of. Their numbers are the predecessor's and
+are not renumbered; the public line starts at 0.4.0.
 
 ## [4.0.0] — Claude-Native — 2026-10-18
 

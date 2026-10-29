@@ -25,7 +25,7 @@
 // whole. Its default output is census-<date>.since.json, so it never replaces the full census
 // that carries the failure history forward.
 
-import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync, realpathSync } from "node:fs";
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync, mkdirSync, realpathSync, renameSync } from "node:fs";
 import { join, dirname, basename, resolve } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { execFileSync } from "node:child_process";
@@ -39,6 +39,8 @@ const ASSERT_RE = /(?:^|[\s;&|({])(assert_(?!summary\b)[a-z_]+|_pass|_fail)\s/;
 const PATH_RE = /(?:^|[^A-Za-z0-9_.-])((?:src|hooks)\/[A-Za-z0-9_./-]*[A-Za-z0-9_-])/g;
 const CODE_EXT = /\.(mjs|js|cjs|sh|py)$/;
 const SKIP_DIRS = new Set(["node_modules", ".git"]);
+// E-386 (D-135 r2): the committed census rows tests/run.sh reads when no local CI log exists.
+export const CENSUS_BASELINE = "tests/census-baseline.tsv";
 
 // ── repository inventory ────────────────────────────────────────────────────
 function walk(root, rel, out) {
@@ -67,7 +69,8 @@ export function inventory(repo) {
   for (const f of srcFiles) {
     if (CODE_EXT.test(f) || /^src\/bin\/[^/.]+$/.test(f)) srcLines += lineCount(readFileSync(join(repo, f), "utf8"));
   }
-  for (const f of testFiles) testLines += lineCount(readFileSync(join(repo, f), "utf8"));
+  // E-386: the census baseline is scheduling data `ai ci run` rewrites, not test code.
+  for (const f of testFiles) if (f !== CENSUS_BASELINE) testLines += lineCount(readFileSync(join(repo, f), "utf8"));
   return {
     srcSet: new Set(srcFiles),
     suites: testFiles.filter((f) => /^tests\/suites\/[^/]+_test\.sh$/.test(f)).sort(),
@@ -199,6 +202,34 @@ export function parseCiLogForCensus(text) {
     for (const [s, v] of run.census.suites) (v.fail > 0 || v.exit !== 0 ? run.failed : run.passed).add(s);
   }
   return run.sha && run.started_at ? run : null;
+}
+
+/**
+ * E-386 (D-135 r2, ci-throughput.md §Component 2): the census baseline from one `ai ci run`
+ * log — the CENSUS_RUN / CENSUS_SUITE / CENSUS_FP rows of its suite step (the first census
+ * block after `[ci] ── suite:`; a nested runner prints none, the fast tier's comes later),
+ * header first. Host-specific paths are what a fresh runner cannot use and what would churn
+ * the file on every rewrite: a path inside the run's worktree becomes repo-relative, an
+ * installer HOME `foreign:<path>` becomes `foreign` (it classifies the same), and a row still
+ * naming an absolute path is dropped. → the file's text, or null when the log has no suite census.
+ */
+export const BASELINE_HEADER = "# census-baseline — tests/run.sh lane hints when no local CI log exists (E-386, D-135 r2). Written by `ai ci run` after a full unsharded PASS; do not edit.";
+export function baselineFromLog(text) {
+  const lines = String(text).split("\n");
+  const s = lines.findIndex((l) => l.startsWith("[ci] ── suite:"));
+  const c = s < 0 ? -1 : lines.findIndex((l, i) => i > s && l.startsWith("── census input (E-297) ──"));
+  if (c < 0) return null;
+  const rows = [];
+  for (let i = c + 1; i < lines.length && lines[i].startsWith("CENSUS_"); i++) {
+    const f = lines[i].split("\t");
+    if (f[0] === "CENSUS_RUN" || f[0] === "CENSUS_SUITE") { rows.push(lines[i]); continue; }
+    if (f[0] !== "CENSUS_FP") continue;
+    if (f[3] === "installer" && /^foreign:/.test(f[5] || "")) f[5] = "foreign";
+    for (let k = 4; k < f.length; k++) f[k] = f[k].replace(/(^|:)\/\S*?\/wt\//g, "$1");
+    if (f.slice(4).some((v) => /(^|:)\//.test(v))) continue;
+    rows.push(f.join("\t"));
+  }
+  return rows.some((r) => r.startsWith("CENSUS_SUITE\t")) ? `${[BASELINE_HEADER, ...rows].join("\n")}\n` : null;
 }
 
 /**
@@ -508,6 +539,8 @@ function parseArgs(argv) {
     else if (a === "--ci-logs") o.ciLogs = val();
     else if (a === "--input") o.inputs.push(val());
     else if (a === "--no-tmp-inputs") o.noTmp = true;
+    else if (a === "--baseline-from") o.baselineFrom = val();
+    else if (a === "--baseline-out") o.baselineOut = val();
     else if (a === "-h" || a === "--help") o.help = true;
     else throw new Error(`unknown argument '${a}'`);
   }
@@ -529,10 +562,24 @@ export function main(argv) {
     process.stderr.write(`census: ${e.message}\n`); return 2;
   }
   if (o.help) {
-    process.stdout.write("usage: node tests/tools/census.mjs [--json <path>] [--since <ref>] [--repo <dir>] [--ci-logs <dir>] [--input <file>]... [--no-tmp-inputs]\n");
+    process.stdout.write("usage: node tests/tools/census.mjs [--json <path>] [--since <ref>] [--repo <dir>] [--ci-logs <dir>] [--input <file>]... [--no-tmp-inputs]\n       node tests/tools/census.mjs --baseline-from <ai ci log> [--baseline-out <file>]\n");
     return 0;
   }
   const repo = resolve(o.repo || join(dirname(fileURLToPath(import.meta.url)), "..", ".."));
+  // E-386: `--baseline-from <ci log> [--baseline-out <file>]` writes the census baseline only.
+  if (o.baselineFrom) {
+    let text;
+    try { text = baselineFromLog(readFileSync(o.baselineFrom, "utf8")); } catch (e) {
+      process.stderr.write(`census: ${e.message}\n`); return 2;
+    }
+    if (!text) { process.stderr.write("census: the log has no suite census — baseline not written\n"); return 1; }
+    const out = resolve(o.baselineOut || join(repo, CENSUS_BASELINE));
+    const tmp = `${out}.tmp-${process.pid}`;
+    writeFileSync(tmp, text);
+    renameSync(tmp, out);
+    process.stdout.write(`${out}\n`);
+    return 0;
+  }
   const ciHome = join(homedir(), ".ai-os", "ci");
   const now = new Date();
   const json = resolve(o.json || join(ciHome, `census-${now.toISOString().slice(0, 10)}${o.since ? ".since" : ""}.json`));

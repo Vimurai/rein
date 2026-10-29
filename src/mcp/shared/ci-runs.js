@@ -68,7 +68,13 @@ export const CI_RESOURCE_COLUMNS = [
   ["peak_sum_rss_mb", "INTEGER"],
   // E-303 (D-088): the budget block a run measured, and the ruling that set it (ci-budget.js).
   ["budget_json", "TEXT"], ["budget_ruling", "TEXT"],
+  // E-386 (D-135 r3, r6): "i/N" for one shard of a run (NULL = the full run — the only kind that
+  // certifies), and the seconds the serial exclusive tail took.
+  ["shard", "TEXT"], ["exclusive_seconds", "INTEGER"],
 ];
+
+// E-386: the rows that may certify a commit — neither a working-tree run nor one shard of a run.
+export const CERTIFYING_SQL = "dirty = 0 AND shard IS NULL";
 
 const COLUMNS = [
   "sha", "ref", "branch", "dirty", "status", "started_at", "finished_at", "duration_ms",
@@ -124,7 +130,7 @@ export function recordCiRun(db, run) {
  * gate may accept. Returns null when there is none.
  */
 export function latestCiRun(db, sha, { certifying = false } = {}) {
-  const where = certifying ? "sha = ? AND dirty = 0" : "sha = ?";
+  const where = certifying ? `sha = ? AND ${CERTIFYING_SQL}` : "sha = ?";
   return db.prepare(`SELECT * FROM ci_runs WHERE ${where} ORDER BY started_at DESC, id DESC LIMIT 1`).get(sha) || null;
 }
 
@@ -141,12 +147,14 @@ export function ciRunCount(db) {
 /**
  * The short view a status line or a gate prints for `sha`:
  *   { kind: "PASS"|"FAIL"|"ERROR"|"SKIPPED"|"DIRTY"|"NONE", row }
- * DIRTY = only dirty rows exist; it never certifies a commit.
+ * DIRTY = only dirty rows exist; it never certifies a commit. SHARD (E-386) = the newest
+ * non-certifying row is one shard of a run — it never certifies a commit either.
  */
 export function ciVerdict(db, sha) {
   const cert = latestCiRun(db, sha, { certifying: true });
   if (cert) return { kind: cert.status, row: cert };
   const any = latestCiRun(db, sha);
+  if (any && any.shard && !any.dirty) return { kind: "SHARD", row: any };
   if (any) return { kind: "DIRTY", row: any };
   return { kind: "NONE", row: null };
 }
@@ -170,6 +178,7 @@ export function shortLine(verdict, sha, now = Date.now()) {
   const suite = r.suite_pass == null ? "suite -" : `suite ${r.suite_pass}/${r.suite_fail ?? 0}/${r.suite_skip ?? 0}`;
   let line = `${verdict.kind} ${sha7} ${ageOf(r.started_at, now)} (${suite}, unit ${r.unit_status || "-"}, leaked ${r.leaked ?? 0})`;
   if (verdict.kind === "DIRTY") line += ` — dirty run ${r.status}, not a certification; run: ai ci run`;
+  if (verdict.kind === "SHARD") line = `SHARD ${r.shard} ${line.slice("SHARD ".length)} — shard run ${r.status}, not a certification; run: ai ci run`;
   if (r.status === "SKIPPED") line += ` — skipped: ${r.skip_reason}`;
   return line;
 }
@@ -204,6 +213,10 @@ export function parseCiLog(text, logPath = null) {
     if (line.startsWith("[ci] sha=")) {
       const kv = _kv(line.slice(5));
       Object.assign(run, { sha: kv.sha, ref: kv.ref, dirty: kv.dirty === "1", started_at: kv.started_at });
+    } else if (line.startsWith("[ci] shard ")) {
+      // E-386: `[ci] shard i/N` — one shard of the run, never a certification.
+      const m = line.slice(11).trim().match(/^([1-9][0-9]*)\/([1-9][0-9]*)$/);
+      if (m && Number(m[1]) <= Number(m[2])) run.shard = `${m[1]}/${m[2]}`;
     } else if (line.startsWith("[ci] branch=")) {
       run.branch = _kv(line.slice(5)).branch || null;
     } else if (line.startsWith("[ci] toolchain ")) {
@@ -224,7 +237,7 @@ export function parseCiLog(text, logPath = null) {
       const kv = _kv(line.slice(15));
       Object.assign(run, {
         lanes: _int(kv.lanes), peak_rss_mb: _int(kv.peak_rss_mb), suite_seconds: _int(kv.suite_seconds),
-        runner: kv.runner || null,
+        runner: kv.runner || null, exclusive_seconds: _int(kv.exclusive_seconds),
       });
     } else if (line.startsWith("[run] peak_sum_rss_mb=")) {
       // The LAST one is the run's own: a suite that starts a runner prints its line earlier.
@@ -400,7 +413,7 @@ export function certifyingRunFor(db, repoRoot, sha, { allowSkipped = false, aiDi
   if (rec) return { ok: rec.verdict === "PASS", kind: rec.verdict, via: "record", row: null, record: rec, differs: [], warnings };
 
   const rows = db.prepare(
-    "SELECT * FROM ci_runs WHERE dirty = 0 AND status = 'PASS' AND sha != ? ORDER BY started_at DESC, id DESC LIMIT ?",
+    `SELECT * FROM ci_runs WHERE ${CERTIFYING_SQL} AND status = 'PASS' AND sha != ? ORDER BY started_at DESC, id DESC LIMIT ?`,
   ).all(sha, ANCESTOR_SEARCH_ROWS);
   const records = aiDir ? listCiRecords(aiDir, { warnings }).filter((r) => r.verdict === "PASS" && r.sha !== sha) : [];
   const candidates = [

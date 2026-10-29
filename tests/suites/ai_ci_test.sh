@@ -75,9 +75,17 @@ _ci() {
   local d="$1"; shift
   # AIOS_TEST_FREE_MB is the operator's own lane-cap override (E-309): a run that set it for
   # THIS suite must not hand it to the fixture runs.
-  # TF_BUILD: the host this suite runs on may itself be Azure Pipelines (E-336.01a, D-061 §4).
-  ( cd "$d" && env -u AIOS_TEST_FREE_MB -u TF_BUILD HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" CI=true TMUX=/tmp/fake,1,0 \
+  # TF_BUILD: the host this suite runs on may itself be Azure Pipelines (E-336.01a, D-061 §4);
+  # E-386: likewise every hosted-runner marker — the fixture's host is CI=true and nothing else.
+  ( cd "$d" && env -u AIOS_TEST_FREE_MB -u TF_BUILD -u GITHUB_ACTIONS -u GITLAB_CI -u BITBUCKET_BUILD_NUMBER \
+      HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" CI=true TMUX=/tmp/fake,1,0 \
       AI_OS_PANE_ROLE=architect bash "$AI" ci "$@" ) 2>&1
+}
+# E-386 (D-135 r1): a laptop — no hosted marker at all, CI included.
+_ci_local() {
+  local d="$1"; shift
+  ( cd "$d" && env -u AIOS_TEST_FREE_MB -u TF_BUILD -u GITHUB_ACTIONS -u GITLAB_CI -u BITBUCKET_BUILD_NUMBER -u CI \
+      HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" bash "$AI" ci "$@" ) 2>&1
 }
 
 REPO="$(test_tmpdir ci-repo)"
@@ -229,8 +237,8 @@ _want=$(( _cores / 2 )); (( _want > 4 )) && _want=4; (( _want < 1 )) && _want=1
 mkdir -p "${FAKE_HOME}/.ai-os/ci/logs"
 _foreign="${FAKE_HOME}/.ai-os/ci/logs/ffffffffffffffffffffffffffffffffffffffff-29991231T000000Z.log"
 printf '[ci] repo=/elsewhere/project\nCENSUS_SUITE\tother_test.sh\t9\t1\t0\t0\t0\n' > "$_foreign"
-OUT="$(_ci "$LREPO" run)"
-assert_contains "E-309.C1: the default is min(4, cores/2), marked auto (clamped, not refused)" \
+OUT="$(_ci_local "$LREPO" run)"
+assert_contains "E-309.C1: the default is min(4, cores/2) on a laptop, marked auto (clamped, not refused)" \
   "PROBE_LANES=${_want} AUTO=1 FREE=unset" "$OUT"
 assert_contains "E-309.C2: no log of this project yet → no hints (another project's log is skipped)" \
   "PROBE_HINTS=" "$OUT"
@@ -239,8 +247,9 @@ assert_not_contains "E-309.C2b: …not the foreign log" "PROBE_HINTS=${_foreign}
 LLOG1="$(command ls -1t "${FAKE_HOME}/.ai-os/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
 assert_status 0 "E-309.C3: the log records the lane count the runner used" grep -q "^\[ci\] resources lanes=${_want} " "$LLOG1"
 # E-310 (D-091): extends C3 — what the suite step spent is in the log and in the row.
+# E-386: extends R1 — the serial tail ("-": the stub prints no exclusive phase) and the host class.
 assert_status 0 "E-310.R1: peak RSS is measured (an integer > 0 MB) on this host's /usr/bin/time" \
-  grep -qE '^\[ci\] resources lanes=[0-9]+ peak_rss_mb=[1-9][0-9]* suite_seconds=[0-9]+ runner=aios$' "$LLOG1"
+  grep -qE '^\[ci\] resources lanes=[0-9]+ peak_rss_mb=[1-9][0-9]* suite_seconds=[0-9]+ exclusive_seconds=- host=local runner=aios$' "$LLOG1"
 
 touch "$_foreign"   # still the newest
 # A second COMMIT: a log is named <sha>-<second>, so the same sha in the same second would
@@ -262,6 +271,20 @@ OUT="$(_ci "$LREPO" run --lanes 0)"; RC=$?
 assert_status 0 "E-309.C6: --lanes 0 is refused (rc=${RC})" test "$RC" -eq 2
 assert_contains "E-309.C6b: …saying why" "--lanes needs a positive integer" "$OUT"
 rm -f "$_foreign"
+# E-386 (D-135 r1): extends C1 — a hosted runner (its marker, else CI=true) uses every core.
+echo hosted > "${LREPO}/tracked.txt"
+git -C "$LREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qam hosted
+OUT="$(_ci "$LREPO" run)"
+assert_contains "E-386.H1: CI=true alone is a hosted runner — every core, still auto (the memory cap clamps it)" \
+  "PROBE_LANES=${_cores} AUTO=1 FREE=unset" "$OUT"
+LLOGH="$(command ls -1t "${FAKE_HOME}/.ai-os/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
+assert_status 0 "E-386.H2: …and the log names the host class hosted:ci" grep -qE '^\[ci\] resources .* host=hosted:ci runner=' "$LLOGH"
+echo github > "${LREPO}/tracked.txt"
+git -C "$LREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qam github
+OUT="$(cd "$LREPO" && env -u CI -u TF_BUILD HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" GITHUB_ACTIONS=true bash "$AI" ci run 2>&1)"
+assert_contains "E-386.H3: a GitHub runner's own marker, without CI=true, is hosted too" "PROBE_LANES=${_cores} AUTO=1" "$OUT"
+LLOGH="$(command ls -1t "${FAKE_HOME}/.ai-os/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
+assert_status 0 "E-386.H4: …named hosted:github" grep -qE '^\[ci\] resources .* host=hosted:github runner=' "$LLOGH"
 
 echo ""
 # ── E-343 (D-108 r9): the per-machine env allow-list, .ai/ci.local.json ──
@@ -850,7 +873,10 @@ _hits="$(cd "$REPO_ROOT" && grep -rnE --exclude-dir=node_modules --exclude-dir=.
   | grep -vE '^src/templates/ci/' \
   | grep -vE '^src/templates/public/privacy\.yml:' \
   | grep -vE '^README\.md:[0-9]+:\[ci(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/ci\.yml(/badge\.svg)?$' \
+  | grep -vE '^src/bin/ai:[0-9]+:  if \[\[ -n "\$\{GITHUB_ACTIONS:-\}" \]\]; then echo "hosted:github"$' \
   || true)"   # E-335 (D-103): the rendered hosted-check templates ARE a hosted run.
+# E-386 (D-135 r1): _ci_host_class reads the GitHub runner's marker to widen its lanes — the
+# one src/bin/ai line allowed to name it; detecting a runner is not an instruction to read one.
 # E-374 (D-125, D-129): the public repo's live CI badge and its link are the two README lines
 # allowed to name a workflow — a status display, not an instruction to read a hosted run.
 assert_status 0 "E-268.02a: no hosted-CI instruction remains under src/tests/hooks/.claude/docs" \

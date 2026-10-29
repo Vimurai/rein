@@ -66,7 +66,7 @@ const LOG = [
   "CENSUS_SUITE\tbad_test.sh\t93290\t3\t1\t0\t1",
   "[run] peak_sum_rss_mb=99 samples=3 sampler_cpu_ms=10",   // a nested runner's, inside a suite
   "[run] peak_sum_rss_mb=2140 samples=790 sampler_cpu_ms=6000",
-  "[ci] resources lanes=4 peak_rss_mb=812 suite_seconds=790 runner=aios",
+  "[ci] resources lanes=4 peak_rss_mb=812 suite_seconds=790 exclusive_seconds=171 host=local runner=aios",
   "[ci] step=suite status=FAIL 4 passed, 1 failed, 0 skipped, leaked 0",
   "",
   "[ci] ── unit: /usr/bin/env UNIT_COVERAGE=1 /bin/bash tests/suites/node_unit_test.sh",
@@ -118,7 +118,7 @@ test("parseCiLog fills every column the runner writes", () => {
       suite_pass: 4, suite_fail: 1, suite_skip: 0, leaked: 0, unit_status: "PASS", secrets_status: "PASS",
       status: "FAIL", finished_at: "2026-09-17T10:10:10Z", duration_ms: 610000,
       perf_json: { agg: { measured_ms: 12, baseline_ms: 5, budget_ms: 60 } },
-      lanes: 4, peak_rss_mb: 812, suite_seconds: 790, runner: "aios", peak_sum_rss_mb: 2140,
+      lanes: 4, peak_rss_mb: 812, suite_seconds: 790, runner: "aios", peak_sum_rss_mb: 2140, exclusive_seconds: 171,
       slowest_json: JSON.stringify([{ suite: "bad", wall_ms: 93290 }, { suite: "good", wall_ms: 1200 }]),
     });
   assert.equal(parseCiLog("no header here"), null);
@@ -135,6 +135,7 @@ test("parseCiLog: slowest is the top ten by wall time; an unmeasured RSS stays n
   assert.deepEqual(slow[9], { suite: "s2", wall_ms: 3000 });
   assert.equal(r.peak_rss_mb, null, "peak_rss_mb=- is not a number");
   assert.equal(r.runner, "vitest");
+  assert.equal(r.exclusive_seconds, null, "a line from before E-386 has no exclusive_seconds");
   assert.equal(parseCiLog([...head, "[ci] lanes=4"].join("\n")).lanes, 4, "a log from between E-309 and E-310");
 });
 
@@ -174,10 +175,10 @@ test("recordCiRunFromLog: every column populated; a truncated log records ERROR"
   try {
     const p = join(d, "run.log");
     // E-303: the runner writes a budget line too; budget_ruling, like skip_reason, is set only
-    // by a ruling (`ai ci budget set`), never by a run.
+    // by a ruling (`ai ci budget set`), never by a run; shard (E-386) is NULL on a full run.
     writeFileSync(p, `${LOG}\n[ci] budget suites=45 test_lines=39444 fast_tier_seconds=37 full_seconds=418 peak_rss_mb=247 peak_sum_rss_mb=2140\n`);
     const row = db.prepare("SELECT * FROM ci_runs WHERE id = ?").get(recordCiRunFromLog(db, p));
-    const empty = Object.entries(row).filter(([k, v]) => v === null && k !== "skip_reason" && k !== "budget_ruling").map(([k]) => k);
+    const empty = Object.entries(row).filter(([k, v]) => v === null && k !== "skip_reason" && k !== "budget_ruling" && k !== "shard").map(([k]) => k);
     assert.deepEqual(empty, [], `unpopulated columns: ${empty}`);
     assert.equal(existsSync(row.log_path), true);
 
@@ -343,6 +344,58 @@ test("certifyingRunFor: self, bookkeeping ancestor, code-changing ancestor", () 
       recordCiRun(db2, base({ sha: t2, dirty: true }));
       assert.equal(certifyingRunFor(db2, d2, b2).ok, false);
     } finally { done2(); }
+  } finally { done(); }
+});
+
+// E-386 (D-135 r3): extends the verdict and certifyingRunFor tests above — one shard of a run
+// tests part of the suite, so it is recorded and listed but never certifies a commit.
+test("a shard PASS never certifies: not its sha, not as an ancestor, never as a team record", (t) => {
+  const { d, db, done } = freshDb();
+  try {
+    const { commit } = gitRepo(d);
+    const tested = commit("src/a.js", "1", "code");
+    const book = commit(".ai/TASKS.md", "done", "bookkeeping");
+    const head = [`[ci] sha=${tested} ref=HEAD dirty=0 started_at=2026-09-17T10:00:00Z`, "[ci] shard 2/4",
+      "[ci] finished status=PASS duration_ms=1000 finished_at=2026-09-17T10:00:01Z"];
+    assert.equal(parseCiLog(head.join("\n")).shard, "2/4");
+    assert.equal(parseCiLog(head.join("\n").replace("2/4", "5/4")).shard, undefined, "an impossible spec is not a shard");
+    const id = recordCiRun(db, parseCiLog(head.join("\n")));
+    const v = ciVerdict(db, tested);
+    assert.equal(v.kind, "SHARD");
+    assert.match(shortLine(v, tested), /^SHARD 2\/4 [0-9a-f]{7} .*shard run PASS, not a certification; run: ai ci run$/);
+    assert.equal(certifyingRunFor(db, d, tested).ok, false);
+    assert.equal(certifyingRunFor(db, d, book).ok, false, "a shard PASS on the ancestor does not carry a bookkeeping commit");
+    assert.equal(checkCiDoneGate(db, d, {}).ok, false);
+    assert.equal(writeCiRecord(join(d, ".ai"), db.prepare("SELECT * FROM ci_runs WHERE id = ?").get(id)).written, false);
+    recordCiRun(db, base({ sha: tested, started_at: "2026-09-17T11:00:00Z" }));
+    assert.equal(ciVerdict(db, tested).kind, "PASS", "the full run certifies");
+    assert.equal(certifyingRunFor(db, d, book).via, "ancestor");
+  } finally { done(); }
+  // In a team project the shard is not written either (an older client would read it as a PASS).
+  const { a } = teamClones(t);
+  const sdb = getDb(a.ai);
+  const sid = recordCiRun(sdb, base({ sha: sha40("e"), shard: "1/4" }));
+  const w = writeCiRecord(a.ai, sdb.prepare("SELECT * FROM ci_runs WHERE id = ?").get(sid));
+  assert.deepEqual([w.written, w.reason], [false, "shard 1/4 certifies nothing"]);
+});
+
+test("ci-record census-stale: MISSING without a committed baseline, FRESH, then STALE past 30 full runs; silent without a census", () => {
+  const { d, db, done } = freshDb();
+  try {
+    const { commit } = gitRepo(d);
+    const none = commit("src/a.js", "1", "no census");
+    const cs = (sha) => execFileSync("node", ["--no-warnings", CLI, "census-stale", "--ai-dir", join(d, ".ai"), "--sha", sha], { encoding: "utf8" }).trim();
+    assert.equal(cs(none), "", "a project without tests/tools/census.mjs gets no baseline and no message");
+    const missing = commit("tests/tools/census.mjs", "//", "census");
+    assert.equal(cs(missing), "MISSING");
+    const withBase = commit("tests/census-baseline.tsv", "# h\nCENSUS_RUN\t2026-09-17T10:00:00Z\tabc\t*_test.sh\n", "baseline");
+    const full = (k, over = {}) => recordCiRun(db, base({ sha: sha40(String(k % 10)), started_at: `2026-09-18T10:${String(k).padStart(2, "0")}:00Z`, ...over }));
+    for (let k = 0; k < 30; k++) full(k);
+    full(40, { shard: "1/4" }); full(41, { dirty: true }); full(42, { status: "FAIL" });
+    recordCiRun(db, base({ started_at: "2026-09-16T10:00:00Z" }));   // before the baseline
+    assert.equal(cs(withBase), "FRESH 30", "shard, dirty, FAIL and older runs do not age it");
+    full(31);
+    assert.equal(cs(withBase), "STALE 31");
   } finally { done(); }
 });
 

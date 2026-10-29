@@ -120,7 +120,8 @@ export const DRIFT_PCT = 0.25;
 
 export function budgetDrift(db) {
   const rows = db.prepare(
-    "SELECT budget_json FROM ci_runs WHERE status = 'PASS' AND dirty = 0 AND budget_json IS NOT NULL ORDER BY id DESC LIMIT 5",
+    // E-386: a shard's block has no full_seconds or peaks of the whole run — full runs only.
+    "SELECT budget_json FROM ci_runs WHERE status = 'PASS' AND dirty = 0 AND shard IS NULL AND budget_json IS NOT NULL ORDER BY id DESC LIMIT 5",
   ).all().map((r) => _parse(r.budget_json)).filter(Boolean);
   if (rows.length < 5) return [];
   const out = [];

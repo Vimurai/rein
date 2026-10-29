@@ -78,5 +78,9 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     node "${NODE_FLAGS[@]}" "$HELPER" gate --ai-dir "$AI_DIR" --sha "$local_sha" \
       --ref "$remote_ref" || rc=1
   fi
+  # E-386 (D-135 r2): a stale census baseline slows a fresh runner's lanes, it never changes a
+  # verdict — so it is a warning, and the push goes on.
+  _age="$(node "${NODE_FLAGS[@]}" "$HELPER" census-stale --ai-dir "$AI_DIR" --sha "$local_sha" 2>/dev/null || true)"
+  [[ "$_age" == STALE* ]] && echo "[CENSUS_BASELINE_STALE] ${_age#STALE } full runs since the baseline in ${local_sha:0:7} — the next ai ci run rewrites tests/census-baseline.tsv; commit it" >&2
 done
 exit "$rc"

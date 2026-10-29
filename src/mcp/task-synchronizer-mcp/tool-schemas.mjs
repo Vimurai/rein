@@ -108,7 +108,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
     // Call add_task instead.
     {
       name: "get_ci_status",
-      description: "E-266 (D-072): the newest local CI run (ai ci run) recorded for a commit — default HEAD. Returns the ci_runs row plus `verdict` (PASS|FAIL|ERROR|SKIPPED|DIRTY|NONE; only a non-dirty PASS certifies a commit) and a one-line `summary`, or { status: \"NONE\" }. Read-only.",
+      description: "E-266 (D-072): the newest local CI run (ai ci run) recorded for a commit — default HEAD. Returns the ci_runs row plus `verdict` (PASS|FAIL|ERROR|SKIPPED|DIRTY|SHARD|NONE; only a non-dirty, unsharded PASS certifies a commit) and a one-line `summary`, or { status: \"NONE\" }. Read-only.",
       inputSchema: {
         type: "object",
         properties: {

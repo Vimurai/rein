@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # run.sh — AI-OS Master Test Runner (P-15 / §22)
-# Usage: bash tests/run.sh [--sweep] [--tier fast|full] [--changed <ref>] [--lanes N] [suite_pattern]
+# Usage: bash tests/run.sh [--sweep] [--tier fast|full] [--changed <ref>] [--lanes N] [--shard i/N] [suite_pattern]
 #   --lanes N (AIOS_TEST_LANES, default 1): shared suites in N parallel lanes, exclusive ones
 #     after them serially (E-309, D-091); refused above free memory / 1.5 GB.
 #   --tier full (default): every suite — today's matrix; `ai ci run` and pre-push use it.
 #   --tier fast: the node unit layer + every contract-table suite (E-298, D-088; budget 60 s).
 #   --changed <ref>: fast + the suites whose census footprint touches a file changed since <ref>
 #     (tests/tools/select-suites.mjs); with no census it runs the full matrix and says so.
+#   --shard i/N (AIOS_TEST_SHARD): only shard i of N — a deterministic partition by wall hint
+#     (tests/tools/shard-plan.mjs; E-386, D-135 r3). Not with --tier fast or --changed.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -30,6 +32,9 @@ while [[ $# -gt 0 ]]; do
     --lanes)
       [[ "${2:-}" =~ ^[1-9][0-9]*$ ]] || { echo "run.sh: --lanes needs a positive integer" >&2; exit 2; }
       AIOS_TEST_LANES="$2"; shift 2 ;;
+    --shard)
+      [[ -n "${2:-}" ]] || { echo "run.sh: --shard needs i/N" >&2; exit 2; }
+      AIOS_TEST_SHARD="$2"; shift 2 ;;
     *) break ;;
   esac
 done
@@ -40,9 +45,20 @@ unset AIOS_LANE_LABEL
 # The lane settings configure THIS run only: a runner a suite starts (the fixture runs in
 # harness_isolation_test's leaked-state and telemetry-isolation sections) is serial unless it asks — so they are read
 # here and kept, but no longer exported to the suites.
-export -n AIOS_TEST_LANES AIOS_TEST_LANES_AUTO AIOS_TEST_WALL_HINTS AIOS_TEST_FREE_MB 2>/dev/null || true
+export -n AIOS_TEST_LANES AIOS_TEST_LANES_AUTO AIOS_TEST_WALL_HINTS AIOS_TEST_FREE_MB AIOS_TEST_SHARD 2>/dev/null || true
 AIOS_LANES="${AIOS_TEST_LANES:-1}"
 [[ "$AIOS_LANES" =~ ^[1-9][0-9]*$ ]] || { echo "run.sh: AIOS_TEST_LANES must be a positive integer" >&2; exit 2; }
+# E-386 (D-135 r3): one shard of the run. The fast job is one leg, so a shard of the fast tier
+# or of a change selection has no meaning — refused, like a bad spec.
+AIOS_SHARD="${AIOS_TEST_SHARD:-}"
+if [[ -n "$AIOS_SHARD" ]]; then
+  if [[ ! "$AIOS_SHARD" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
+    echo "run.sh: --shard needs i/N with 1 ≤ i ≤ N (got '${AIOS_SHARD}')" >&2; exit 2
+  fi
+  if [[ "$AIOS_TIER" == "fast" || -n "$AIOS_CHANGED" ]]; then
+    echo "run.sh: --shard cannot be combined with --tier fast or --changed (the fast job is one leg)" >&2; exit 2
+  fi
+fi
 # ── E-240 (D-063 §2): leaked external state ─────────────────────────────────
 #
 # A suite that fails halfway used to leave tmux servers behind — 50 of them accumulated
@@ -369,9 +385,13 @@ _lane_mem_mb() {
 }
 
 # _wall_hint <suite name> → its last measured wall time in ms (the newest CENSUS_SUITE line
-# in AIOS_TEST_WALL_HINTS, or in the newest ~/.ai-os/ci log), else 30000. Longest-first
-# placement needs only an order of magnitude; a missing hint is not an error.
+# in AIOS_TEST_WALL_HINTS, or in the newest ~/.ai-os/ci log, or — E-386 — in the committed
+# tests/census-baseline.tsv), else 30000. Longest-first placement needs only an order of
+# magnitude; a missing hint is not an error. AIOS_HINTS_FROM says which source answered
+# ("log <path>" / "baseline" / "none"); the run prints it once as its `Lane: hints:` line.
+AIOS_HINTS_FROM=""
 _wall_hints_load() {
+  [[ -n "$AIOS_HINTS_FROM" ]] && return 0   # once per run: the lanes and the shard read the same
   local src="${AIOS_TEST_WALL_HINTS:-}"
   if [[ -z "$src" ]]; then
     # No log with CENSUS lines → the loop's last status is a failed grep, which under
@@ -379,6 +399,15 @@ _wall_hints_load() {
     src="$(ls -1t "${HOME}/.ai-os/ci/logs/"*.log 2>/dev/null | head -20 | while IFS= read -r f; do
       grep -q '^CENSUS_SUITE' "$f" 2>/dev/null && { echo "$f"; break; }; done || :)"
   fi
+  # E-386 (D-135 r2): a fresh hosted runner has no log; the baseline is the last full PASS's rows.
+  if [[ -n "$src" && -r "$src" ]]; then
+    AIOS_HINTS_FROM="log ${src}"
+  elif grep -q '^CENSUS_SUITE' "${SCRIPT_DIR}/census-baseline.tsv" 2>/dev/null; then
+    src="${SCRIPT_DIR}/census-baseline.tsv"; AIOS_HINTS_FROM="baseline"
+  else
+    src=""; AIOS_HINTS_FROM="none"
+  fi
+  echo "   Lane: hints: ${AIOS_HINTS_FROM}"
   [[ -n "$src" && -r "$src" ]] && grep '^CENSUS_SUITE' "$src" | cut -f2,3 > "${TEST_TMPDIR}/wall-hints.tsv" || : > "${TEST_TMPDIR}/wall-hints.tsv"
   { [[ -n "$src" && -r "$src" ]] && grep -E '^\[(run|ci)\] (peak_sum_rss_mb|resources)' "$src"; } > "${TEST_TMPDIR}/hints-src.log" 2>/dev/null || :
   # E-312: the same log's installer lines, "<suite>\t<HOME class>" (CENSUS_FP … installer
@@ -395,16 +424,21 @@ _wall_hint() {
 # workers, then the exclusive ones serially in this shell. Each lane owns its prefixes
 # (aios-test-L<n>-, aios-t-L<n>-), its AIOS_TEST_TMPDIR (footprint log) and telemetry store,
 # and — under `ai ci run`, whose HOME is the run's throwaway one — a HOME clone.
-_lanes_run() {
-  local i=0 suite n l best shared=() excl=() lane_of=() load=() order
-  _wall_hints_load
-  # Clone HOME per lane only under CI, and NEVER the account's real home (the user record,
-  # not $HOME) — a local `AI_OS_CI=local bash tests/run.sh --lanes 4` must not copy it.
+# _lane_clone_home_set — clone HOME per lane only under CI, and NEVER the account's real home
+# (the user record, not $HOME): a local `AI_OS_CI=local bash tests/run.sh --lanes 4` must not
+# copy it. Sets _lane_clone_home, which _lane_class reads (E-386: the shard pass classes too).
+_lane_clone_home_set() {
   _lane_clone_home=0
   if [[ -n "${AI_OS_CI:-}" || "${CI:-}" == "true" ]] \
      && [[ "$HOME" != "$(node -p 'require("os").userInfo().homedir' 2>/dev/null)" ]]; then
     _lane_clone_home=1
   fi
+}
+
+_lanes_run() {
+  local i=0 suite n l best shared=() excl=() lane_of=() load=() order
+  _wall_hints_load
+  _lane_clone_home_set
   local _cls
   for suite in "${SUITES[@]}"; do
     _cls="$(_lane_class "$suite")"
@@ -463,7 +497,10 @@ _lanes_run() {
       AIOS_LANE_TEL_GREW=$(( ${AIOS_LANE_TEL_GREW:-0} + (n > 0 ? n : 0) ))
     done
   fi
+  # E-386 (D-135 r6): the serial tail, measured — `ai ci run` records it as exclusive_seconds.
+  local _ex0; _ex0="$(_now_ms)"
   for i in "${excl[@]+"${excl[@]}"}"; do _run_suite "$i" "${SUITES[$i]}"; done
+  echo "[run] exclusive_seconds=$(( ($(_now_ms) - _ex0) / 1000 )) exclusive_suites=${#excl[@]}"
 }
 
 # ── One suite, run and recorded (E-309: shared by the serial path and every lane) ──
@@ -594,6 +631,38 @@ _collect() {
   cat "${RUN_DIR}/${idx}.out"
   echo ""
 }
+
+# ── E-386 (D-135 r3): one shard — the same lane classes, partitioned by wall hint ──
+# tests/tools/shard-plan.mjs is the pure partition (unit-tested): shared and exclusive suites
+# separately, hint descending then name, greedy to the lightest bin, unknown hint = median.
+# The node unit layer goes to shard 1. Every shard of the same commit and baseline computes
+# the same partition, so shards 1..N together run every suite exactly once.
+if [[ -n "$AIOS_SHARD" ]]; then
+  _wall_hints_load
+  _lane_clone_home_set
+  _shard_in="${TEST_TMPDIR}/shard-classes.tsv"; : > "$_shard_in"
+  for _f in "${SUITES[@]}"; do
+    _c="$(_lane_class "$_f")"
+    printf '%s\t%s\n' "$(basename "$_f")" "${_c%% *}" >> "$_shard_in"
+  done
+  _shard_out="$(node --no-warnings "${SCRIPT_DIR}/tools/shard-plan.mjs" --shard "$AIOS_SHARD" \
+    --hints "${TEST_TMPDIR}/wall-hints.tsv" --pin node_unit_test.sh < "$_shard_in")" \
+    || { echo "run.sh: shard partition failed" >&2; exit 2; }
+  # An empty shard selects nothing: grep's status 1 must not end the run under pipefail (E-332).
+  _keep=" $({ grep -v '^#' <<< "$_shard_out" || :; } | tr '\n' ' ')"
+  _all=("${SUITES[@]}"); SUITES=()
+  for _f in "${_all[@]}"; do [[ "$_keep" == *" $(basename "$_f") "* ]] && SUITES+=("$_f"); done
+  read -r _ _sh_k _sh_m _sh_s <<< "$(grep '^#SHARD ' <<< "$_shard_out")"
+  echo "   Shard ${AIOS_SHARD}: ${_sh_k} shared, ${_sh_m} exclusive (est. ${_sh_s} s)"
+  if [[ ${#SUITES[@]} -eq 0 ]]; then
+    # More shards than suites: an empty leg passes (bash 3.2 cannot expand an empty array
+    # under set -u, so it stops here rather than in the loops below).
+    echo "   Shard ${AIOS_SHARD}: no suites — nothing to run"
+    echo "   Total: 0 passed, 0 failed"
+    echo "[TEST_PASSED] All tests passed ✓"
+    exit 0
+  fi
+fi
 
 RUN_DIR="${TEST_TMPDIR}/suites"; mkdir -p "$RUN_DIR"
 PG_DIR="${TEST_TMPDIR}/pgids"; mkdir -p "$PG_DIR"

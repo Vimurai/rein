@@ -3464,6 +3464,15 @@
       "summary": "Tier 1 bookkeeping only: E-385 DONE; Architect's D-136 addendum, D-137, readme.md and public-ci.md blueprint edits carried as written.",
       "sha": "3f69de9f8a34e561aca1f17e3f5d2305dfd1da8f",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-388",
+      "timestamp": "2026-10-30T15:49:11.858Z",
+      "summary": "Tier 2 harness fix: assert.sh subshell registry key ${BASHPID} -> ${BASHPID:-$(exec sh -c 'echo $PPID')} (bash 3.2 has no BASHPID; set -u aborted every sourcing subshell). New row E-240.02d extends E-240.02c. harness_isolation 247/0 on bash 5 and with BASHPID unset; 15 fail without the fix.",
+      "sha": "a54bc01c8234e41bb9596e51cd5635a79a53d1c5",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

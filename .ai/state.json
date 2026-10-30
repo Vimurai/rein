@@ -1380,6 +1380,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-10-30T20:40:23.781Z"
+    },
+    {
+      "id": "E-402",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Produce the demo recording and put it in the README per D-139 and .ai/blueprints/demo-video.md §Components 1–5, §API, §Security (operator priority: right after E-390, ahead of E-400/E-401; the recording may start on its own branch before E-390 merges, the README block lands on E-390's README). (1) scripts/demo/scenes.tsv: the six scenes of §Component 2 with conditions and timeouts. (2) scripts/demo/record.sh per §Component 3 and §API: tool check with install lines (exit 2), throwaway `tally` project under --root (deleted unless --keep), 120×36 tmux session, `asciinema rec --idle-time-limit 2`, scenes typed with tmux send-keys and polled with capture-pane, timeout exit 3 keeping the partial cast, then scan, agg (speed 1.5–3 so the GIF ≤ 90 s, font 16, dark theme) and ffmpeg to MP4; --dry-run; here-strings, no `| grep -q` (D-138 r1). (3) scripts/demo/scan.sh: publish-scan over demo.cast, exit 4 on any hit, no render. (4) Record once for real here (asciinema, agg, ffmpeg via Linuxbrew, outside the repo); watch the GIF end to end and name what is on screen per scene in the handover; on any hit fix the cause and re-record. (5) Commit docs/assets/demo.gif (≤ 8 MB) and docs/assets/demo.cast; attach demo.mp4 to the next GitHub release (release flow --asset <file>, or by hand with the operator's yes — say which); README \"See it run\" block under the pitch per §Component 5 (Markdown image + alt text, one caption line linking the MP4 asset and the cast, no new HTML); same GIF under docs/how-it-works.md's first diagram. (6) Tests: scenes.tsv parser (malformed row → exit 2) and demo.gif ≤ 8 MB in tests/unit/docs-links.test.mjs (name what each extends, D-088). Acceptance: --dry-run exits 0 listing six scenes; committed cast scans clean; GIF ≤ 8 MB, ≤ 90 s, six scenes visible (handover names them and the run's token cost); README block renders in GitHub light and dark; link test, `rein ci run` and all required checks green. One PR (two if the recording lands before E-390).",
+      "created_at": "2026-10-30T20:54:42.865Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T20:54:42.866Z"
     }
   ],
   "stamps": [
@@ -3653,6 +3667,24 @@
       "timestamp": "2026-10-30T20:49:25.140Z",
       "summary": "Tier 1 bookkeeping only: Architect's D-138 (DECISIONS, test-harness-isolation.md, ci-throughput.md, E-400/E-401 tasks) carried as written; E-390 stamps and views.",
       "sha": "9a16d5491837c17fdf5167076dca23b8a34f4fc6",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T21:00:09.436Z",
+      "summary": "Tier 2 test fix: rein_ci_test E-268.03b/c follow the local-CI text from README to docs/ci.md (## Local CI .. ## Hosted CI), unchanged in what they assert; docs/ci.md gains the `rein ci log --failed` example the README carried. rein_ci_test 243/0.",
+      "sha": "7681500847d8efd3c87c772958e161bef97886cd",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T21:00:17.353Z",
+      "summary": "Tier 1 bookkeeping only: Architect's D-139 (DECISIONS, blueprints/demo-video.md, readme.md amendment, E-402 task) carried as written; stamps and views.",
+      "sha": "5628b1bd227537c762e886b6315095a40364054b",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

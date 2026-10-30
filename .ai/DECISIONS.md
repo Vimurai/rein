@@ -3959,3 +3959,38 @@ Fifteen required checks now gate every merge. Each flake that is answered with a
 Revert E-400's PR (the sites return to pipes; the checker rule goes) and E-401's PR (the budget and header return) independently; the rule text reverts with E-401. Ruling 4 is an acceptance and has no rollback.
 
 ---
+
+## D-139 — The demo is a scripted terminal cast of one real Triad run on a throwaway project: text first, scanned, rendered to a GIF for the README and an MP4 for the release; it is the next priority after the README rewrite
+
+**Date**: 2026-10-30
+**Task**: E-402 (new); amends D-136 (the README's image rule)
+**Decision**: The operator asked for a short video that records the flow — Architect, Engineer, testing, the gates — on a random new project, added to the README, as the next priority. Rulings:
+
+1. **A terminal cast, not a screen capture.** The recording is `asciinema` of the two-pane tmux session, rendered with `agg` to a GIF and with `ffmpeg` to an MP4. The cast is JSON text: it diffs, the privacy gate scans it with the same classes as the public mirror (E-369/E-380), and the GIF and MP4 are derived from the scanned text, so nothing reaches the repository that was not scanned first. A screen capture under WSL2 has no display pipeline to record, is large, and cannot be scanned.
+2. **Scripted and re-recordable.** `scripts/demo/record.sh` creates the throwaway project, starts Rein, types six scenes into the panes with `tmux send-keys`, waits on a named condition per scene, and fails loudly on a timeout. The model's words vary between runs; the story does not. Any later UI change means one command, not a new production.
+3. **The project is generic and disposable**: a `tally` word-count CLI with tests in `~/code/demo-tally-<suffix>`, deleted after the run. It says nothing about the operator's work and is small enough to be planned, built and tested inside the recording.
+4. **Where it lands**: the GIF (≤ 8 MB, ≤ 90 s) and the cast are committed under `docs/assets/`; the MP4 is a release asset, not a repository file; the README gets a **See it run** block under the pitch (D-136 §Component 1 amended: the mark and the demo GIF are the README's two images; no new HTML), and `docs/how-it-works.md` embeds the same GIF.
+5. **Priority**: E-402 follows E-390 in the queue, ahead of E-400 and E-401; the recording may be produced on its own branch before E-390 merges, and the README block lands on E-390's README.
+6. **The tools are the operator's, not the project's**: `asciinema`, `agg`, `ffmpeg` are installed by the operator's package manager; the script checks for them and prints the install line; nothing is added to `package.json`, nothing runs in CI except the scenes parser test and the asset size assertion.
+
+### Why needed
+The README tells and diagrams; a visitor still cannot see the loop run. One scripted recording answers "is this real" in eighty seconds and can be regenerated whenever the panes change.
+
+### Alternatives considered
+1. **Screen recording (OBS, wf-recorder) of the real terminal** — rejected: no display pipeline under WSL2 for the recording host; tens of megabytes; unscannable for secrets; not reproducible.
+2. **Host the cast on asciinema.org and embed its player** — rejected: an external service in the README, the cast leaves the repository, and GitHub does not render the player anyway; the committed cast gives `asciinema play` without it.
+3. **Hand-driven recording by the operator** — rejected: not reproducible after a UI change, and the human pass is still needed; the script keeps the human pass (watching the GIF) and removes the typing.
+4. **Commit the MP4** — rejected: binary weight in every clone for a file the release can carry.
+5. **Scripted cast, scanned, GIF in repo + MP4 on the release** — selected.
+
+### Constraints driving this decision
+- D-136 (README under 60 KB of text; the hero fits one viewport — the GIF sits under the pitch, not in the hero; no HTML beyond `div`/`picture`/`details`); the privacy classes of E-369/E-380 (nothing public unscanned); D-138 r1 (no `| grep -q` in the new script); D-103 (no new hosted command); sovereignty (the recording's gate scene shows `[SOVEREIGNTY_BLOCK]` doing its job, and the script itself never touches the framework clone or an operator project).
+
+### Impact
+- Unlocks: E-402; the README's "See it run"; a regenerable demo for every later release.
+- Risk if wrong: a GIF that ages when the panes change — bounded by ruling 2 (one command to re-record); a privacy miss in a frame — bounded by ruling 1 (scanned text first) plus the human pass.
+
+### Rollback
+One PR, one revert (`demo-video.md` §Rollback Plan); delete the release asset; D-136's image rule returns to "the mark only".
+
+---

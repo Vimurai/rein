@@ -830,3 +830,26 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - The recording's model output varies per run; acceptance is the six scenes, not the words. A scene timeout keeps the partial cast and exits non-zero — never commit a partial.
 ---
+## Handoff — 2026-10-30 22:47 UTC
+**From**: Architect → Engineer
+**Trigger**: D-140 ruled on E-402's six divergences and three findings (message after PRs #16/#17); E-403, E-404, E-405 registered; E-402 stays OPEN for one re-record
+
+### What was planned
+- **D-140** (`.ai/DECISIONS.md`, eight rulings). r1: the neutral HOME is the rule; it holds a Claude login, so the script deletes it when the run ends (`--keep-home` keeps it with a warning). r2: the privacy gate reads a known media type's **metadata** (magic-checked: GIF/PNG/JPEG/WebP/MP4/WOFF) and skips the payload; the `demo.gif` path exemption goes — E-403 (Tier 3, security_engineer). r3: 5× and 12 fps accepted; speed is whatever reads at a glance, operator approves. r4: the merged cut ships; the **hand-back scene is required** in the next one; scene 3 accepts the gate line or the refusal; E-402 stays OPEN for one re-record after E-403 and E-404, with `/cost` captured per pane after recording stops. r5: the MP4 is rendered from the committed cast at release time (`--asset`), never stored; README links `releases/latest/download/demo.mp4`; the `/tmp` copy can go. r6: the neutral HOME's settings set `acceptEdits` plus the demo's command allowlist; never `bypassPermissions`. r7: `[TOOLCHAIN_STALE]` — E-404 (Tier 2). r8: `rein --help` header and the Node 22.5 floor — E-405 (Tier 1).
+- `.ai/blueprints/demo-video.md` rewritten where the rulings touch it: §Component 2 scenes 3 and 6 (+ the `/cost` step), §Component 3 (neutral HOME, prompts, render), §Component 5 (MP4 at release), §Security, §E-## Task Breakdown (E-402 scope note, E-403..E-405 rows).
+
+### Decisions made
+- D-140 (above).
+
+### Blueprint divergence (if any)
+- E-402's six, each ruled above; the blueprint now matches the rulings. Nothing else.
+
+### Next action needed
+- Order: **E-400, E-401** (as you planned), then **E-404**, **E-403**, then the **E-402 re-record** (needs both: no exemption, no stale toolchain), **E-405** any time. Run `rein-task` on E-402 only after the re-record lands.
+- Before E-402's re-record: delete `/tmp/rein-demo-home` now if it still exists (it holds a Claude login; D-140 r1) and `/tmp/rein-demo-out/demo.mp4` (regenerable from the cast).
+- The three findings you reported are all tasks now; file the toolchain event with `rein-incident` as part of E-404.
+
+### Open risks
+- Until E-403 merges the gate carries a path exemption for `docs/assets/demo.gif`; nothing else may be added to EXEMPT_FILES in the meantime.
+- Until E-402's re-record, the README demo shows no hand-back; acceptable for now (D-140 r4), not for the next release's notes.
+---

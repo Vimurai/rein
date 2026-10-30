@@ -638,3 +638,35 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 ### Open risks
 - Until step 1 runs, every session start in this repo re-clobbers the tree with the old names.
 ---
+
+## Handoff — 2026-10-30 11:45 UTC
+**From**: Architect → Engineer
+**Trigger**: Ruling on the E-391 merge blockers (Engineer handoff 2026-10-30 09:52 UTC); E-396, E-397 registered
+
+### What was decided
+- **D-133 addendum** (DECISIONS.md): the required `CodeQL` check is never bypassed and no source alert is dismissed. The thirteen pre-existing alerts flagged on PR #10 are fixed INSIDE the rename PR as **E-397** (own commits after a317dcd, before the merge step), the way e7e9514 fixed the dispatch-table ReDoS. The three test-fixture alerts (#14–#16) alone are dismissed as "used in tests" with the comment "D-133 addendum r2". No admin merge; fallback if E-397 cannot close in-PR is a fix-on-main-first PR, never a bypass.
+- **E-396**: the macOS × 22 shard 1/4 rows that are NOT E-388's (E-240.01a/02a/03a/03b) — after the v0.4.0 tag, beside E-388; one PR closes both if the root cause is the bash 3.2 trap. The macOS legs join the required set when E-388 and E-396 are both closed (D-135 addendum 2 r3 exit condition, widened in public-ci.md §Component 3).
+- **Required-check rename**: unchanged — one `gh api` call in the merge step (public-ci.md §Component 4), on the operator's yes.
+- **Scorecard rows** (BinaryArtifacts wasm grammars, PinnedDependencies in src/bin/ai:4300/:4646 and ci.yml:61) are NOT CodeQL and not required; left for a Scorecard pass after v0.4.0 (addendum r5). **Dependency review** waits on the operator enabling the Dependency graph (D-135 addendum 2 r5).
+
+### Blueprint changes
+- `.ai/blueprints/public-ci.md` §Component 3: exit condition for the macOS legs now E-388 + E-396; the no-bypass rule for a red required check.
+
+### Blueprint divergence
+- NONE reported in your handoff; none found.
+
+### Next action needed (Engineer)
+1. **E-397** now, on rename/rein: rewrite the ten source regex/escaping sites (git-redirect.mjs:18/:34, architect-writes.mjs:94, blueprint-aligner index.js:233, record-store.mjs:137, publish-scan.mjs:384) without changing what they match; add the pathological-input rows to the suites that already cover them; security_engineer on the safe-exec rewrites; dismiss #14–#16 "used in tests". Acceptance: zero open CodeQL alerts on refs/heads/rename/rein, both `CodeQL` check-runs green, no fixture table re-pinned, test_lines within tolerance or reported.
+2. Then the E-391 merge step as planned (required-checks swap, merge, tag v0.4.0, release) on the operator's yes; carry §Component 4's migration list verbatim.
+3. Before the merge step: `git status` — this session's start (cache built 00:00 UTC) shows the tree re-clobbered again (34 tracked files modified to ai-*, 18 ai-* skill dirs, `.pre-0.4.0` backups). Restore to HEAD once more before committing E-397; the re-clobber ends when the operator runs step 1 of the migration list from merged main.
+4. E-396 after the tag, with E-388.
+
+### Operator actions (please surface)
+- Say yes to the merge step once E-397 is green.
+- Enable the repository's Dependency graph (Settings → Security) so `dependency-review` can run.
+- After the merge: the five migration steps (install-rein.sh from main → `rein sync` per project → `rein doctor` → `rm ~/.ai-os` last → drop `AI_OS_*` exports). Until step 1, every session start re-clobbers this tree.
+
+### Open risks
+- E-397 adds one hosted round (~15 min) before the merge. A regex rewrite that changes gate matching is caught by the byte-pinned tables and the safe_exec suites — treat any table diff as a defect in the rewrite, not a re-pin.
+- `verify_markdown_sync` prints `[STALE_SERVER]` for all 16 MCP servers although their boot time is AFTER the mirror change — the staleness comparison looks inverted; noted, not ruled.
+---

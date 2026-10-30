@@ -1352,6 +1352,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-10-30T16:20:12.221Z"
+    },
+    {
+      "id": "E-400",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Remove the writer-process pipe into `grep -q` from the test harness per D-138 r1 and .claude/rules/hooks-contract.md (SIGPIPE under pipefail: grep -q exits on first match, the writer gets SIGPIPE, pipefail fails the pipeline, the match is lost; first seen as E-294.R3a on PR #13). Fixture-first: a harness self-suite test (name the test it extends, D-088) pipes a multi-megabyte string into `grep -q` under `set -o pipefail` and shows the match is lost, then shows `grep -q <<<\"$x\"` keeps it. Then: (1) tests/lib/assert.sh assert_match and assert_contains use `[[ =~ ]]` / `[[ == * * ]]` or `grep -qE <<<\"$str\"`, never a pipe; (2) every `<writer> | grep -q` site under tests/ (census at ruling: 235 in tests/suites/*.sh — seo_cluster 75, incident_tracker 16, mcp_servers 15, managed_agents 13, task_synchronizer 11, agent_contracts 11, pre_commit_hook 9, cli 7, …; plus git_lane_test.sh _e218_label and the cli_test.sh sites in the 15:30+ handoff) becomes a bash test when the pattern allows, else a here-string, else an assert_match/assert_contains call; what each assertion asserts is unchanged; (3) .claude/rules/test-harness.md gains the rule line (mirroring hooks-contract.md) and the E-80 standards-checker (critic_clean_code) flags `| grep -q` under tests/** and hooks/**, with the checker's own test; (4) run the full suite under `set -o pipefail` locally and on hosted. Acceptance: the fixture fails before and passes after; zero `| grep -q` matches under tests/ and hooks/ (the checker's count); no suite renamed, deleted or skipped; `rein ci run` green; all fifteen required checks green on the PR; test_lines delta named in the handover if over the 2 % tolerance. One PR.",
+      "created_at": "2026-10-30T20:40:23.663Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T20:40:23.667Z"
+    },
+    {
+      "id": "E-401",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Apply the reconciled budget and timeout rules per D-138 r2–r3 and .ai/blueprints/test-harness-isolation.md §Performance Budgets Are Host-Relative (as reworded 2026-10-30): (1) tests/unit/record-import.test.mjs \"importing 500 records\": keep `elapsed <= 15 * baseline + 200`; replace the `CI=true` 300 ms line with a 1500 ms ceiling asserted on every host, commented as the import's linear-time bound (five times the CI median); (2) .claude/rules/test-harness.md rule 2: reword to the blueprint's text — baseline-relative always; an absolute number only as a declared ceiling, at least 5× the CI median, on every host, never `CI=true`-only; a `CI=true`-only absolute is a critic_tests finding — and add the suite-timeout rule (a suite over a third of the default declares `# REIN_SUITE_TIMEOUT=<s>` at 3× its slowest green hosted run, measurement in a trailing comment); (3) tests/suites/exec_form_hooks_test.sh header `# REIN_SUITE_TIMEOUT=480` with the measured 120 s green macOS run in the comment; check every REIN_INSTALLER_SUBJECT suite against the same rule and set headers where needed, each with its measurement; (4) grep tests/ for any other `process.env.CI === \"true\"` absolute budget and convert it the same way, listing each in the handover. Acceptance: no `CI === \"true\"` budget branch under tests/; the rule text in .claude/rules/test-harness.md matches the blueprint; `rein ci run` green; hosted macOS × 22 all four shards green on the PR. One PR, after E-400 or beside it.",
+      "created_at": "2026-10-30T20:40:23.781Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T20:40:23.781Z"
     }
   ],
   "stamps": [
@@ -3589,6 +3617,42 @@
       "timestamp": "2026-10-30T20:37:42.307Z",
       "summary": "Tier 1 bookkeeping only on 443104f: E-388 and E-396 DONE, LOG and views.",
       "sha": "443104f0ed596ae6500af5751b0ea02f83f8d5fe",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_AUDIT",
+      "agent": "docs-architect",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T20:47:26.324Z",
+      "summary": "Docs audit (README + docs/*.md, E-390) complete: 0 HIGH, 3 MEDIUM, 5 LOW gaps vs architect.md/.mcp.json/rein --help",
+      "sha": "8f7d95e1899e1895e453ed6fb23f3c33df88d850",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T20:49:12.634Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK (README, CONTRIBUTING, docs/README) covered by .ai/blueprints/readme.md §Components 1-5 and D-136 + addendum, not architect.md.",
+      "sha": "8f7d95e1899e1895e453ed6fb23f3c33df88d850",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T20:49:14.965Z",
+      "summary": "[TIER_2] E-390: README rewrite (hero in Markdown, outcome pitch, Mermaid 2a, Claude Code-first quickstart, feature tour); docs/install.md steps 1-8 (2d); how-it-works (2a-2c), getting-started (first hour), ci.md (local-ci.md + hosted, required checks); E-374 link test extended (ci.md, install.md), docs-links.test.mjs mermaid/HTML/size (mutation-checked); rein_start_test doc rows follow the text to docs/install.md; docs-architect 0 HIGH; fast tier 2247/0.",
+      "sha": "8f7d95e1899e1895e453ed6fb23f3c33df88d850",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T20:49:25.140Z",
+      "summary": "Tier 1 bookkeeping only: Architect's D-138 (DECISIONS, test-harness-isolation.md, ci-throughput.md, E-400/E-401 tasks) carried as written; E-390 stamps and views.",
+      "sha": "9a16d5491837c17fdf5167076dca23b8a34f4fc6",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

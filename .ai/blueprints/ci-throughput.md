@@ -85,7 +85,7 @@ Four independent levers, each a flag or a default, each rolled back alone:
 - macOS legs (D-135 addendum 2): no `brew install tmux` — the contract stays two commands;
   tmux paths are covered on Ubuntu; tmux-dependent assertions `skip_unless_cmd tmux` with a
   host-named SKIP (harness rule 1, E-332). The macOS × 22 legs run on every pull request and
-  join the required set in the pull request that closes E-388 (the bash 3.2 trap defect).
+  join the required set in the pull request that closes E-388 (the bash 3.2 defect: `set -u` aborted every sourcing subshell on `${BASHPID}`, unset in bash 3.2 — not trap chaining; D-138 r4. Joined on 2026-10-30, DEVOPS-017).
 - Azure (E-336) gets Component 1 for free; its shard matrix and the GitLab/Bitbucket wrappers
   land with E-337 and follow the same names.
 

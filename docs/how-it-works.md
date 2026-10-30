@@ -1,5 +1,7 @@
 # How it works
 
+Stop prompting the intelligence and start navigating it.
+
 Rein turns Claude Code into a small team: an **Architect** that plans, an **Engineer** that
 builds, a **Tester** and **critics** that check. One memory, `.ai/`, lives in your repository.
 Hooks enforce the rules between them, so the rules hold even when the model forgets them.

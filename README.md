@@ -1,227 +1,153 @@
 <div align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/rein-mark-animated-dark.svg">
-    <img src="docs/assets/rein-mark-animated.svg" width="120" alt="Rein">
-  </picture>
-  <h1>Rein</h1>
-  <p><b>Rein in your agents.</b></p>
-  <p>Claude Code as a small engineering team that plans, builds, reviews and remembers.</p>
 
-  [![CI][ci-badge]][ci]
-  [![Privacy][privacy-badge]][privacy]
-  [![CodeQL][codeql-badge]][codeql]
-  [![OpenSSF Scorecard][scorecard-badge]][scorecard]
-  [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-  [![Version][version-badge]](CHANGELOG.md)
-  [![Sponsor][sponsor-badge]][sponsor]
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/rein-mark-animated-dark.svg">
+  <img src="docs/assets/rein-mark-animated.svg" width="120" alt="Rein">
+</picture>
+
+# Rein
+
+**Rein in your agents.**
+
+Claude Code as a small engineering team that plans, builds, reviews and remembers.
+
+[![CI][ci-badge]][ci]
+[![Privacy][privacy-badge]][privacy]
+[![CodeQL][codeql-badge]][codeql]
+[![OpenSSF Scorecard][scorecard-badge]][scorecard]
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Version][version-badge]](CHANGELOG.md)
+[![Sponsor][sponsor-badge]][sponsor]
+
 </div>
 
-Rein runs two Claude Code sessions side by side — an **Architect** that plans and an
-**Engineer** that builds — and gives them what a single chat lacks: a shared, crash-safe project
-memory in `.ai/`, hard role boundaries, and quality gates that a commit has to pass. The Architect
-writes a blueprint and a task list; the Engineer implements it, has independent critics review the
-diff, runs your tests in a clean worktree, and only then commits; each wakes the other when its turn
-is done. It is a thin layer on your machine — no proxy, no cloud service, no account beyond Claude
-Code itself.
+**One chat forgets. A team remembers.** A single Claude session loses the plan when its context
+fills. Rein keeps the plan, the tasks, the decisions and the review stamps in `.ai/`, in a
+crash-safe store that every session reads first.
 
-> **Licence.** Rein is open source under the [Apache License 2.0](LICENSE). Use it, change it and
-> ship it, personally or commercially; keep the [NOTICE](NOTICE). It is funded by donations and
-> sponsorships.
+**Plan and build are different jobs.** An Architect pane cannot touch source, and an Engineer
+pane cannot rewrite the plan. Each wakes the other when its turn ends; you watch and answer.
+
+**Nothing merges on trust.** Independent critics review the diff, and tests run in a clean
+worktree. A commit without a fresh review stamp is refused by a hook, not by a request.
+
+**Local, thin, yours.** No proxy, no cloud service, no account beyond Claude Code. Rein is
+open source under the [Apache License 2.0](LICENSE).
+
+**Who it is for:** a solo developer who wants a second opinion that cannot be talked out of the
+rules · a small team that wants one memory per repository · an existing codebase that needs to
+be understood before it is changed.
 
 ---
 
-## Contents
-
-- [Quickstart (60 seconds)](#quickstart-60-seconds)
 - [How it works](#how-it-works)
+- [Quickstart (60 seconds)](#quickstart-60-seconds)
 - [Feature tour](#feature-tour)
-- [Install and uninstall](#install-and-uninstall)
 - [Command reference](#command-reference)
-- [Gates, critics and budgets](#gates-critics-and-budgets)
-- [Local CI — `rein ci`](#local-ci--rein-ci)
-- [Configuration](#configuration)
 - [FAQ](#faq)
-- [Troubleshooting](#troubleshooting)
-- [Where this comes from](#where-this-comes-from)
-- [Contributing](#contributing) · [Security](#security) · [Sponsoring](#sponsoring) · [Licence](#licence)
+- [Where this comes from](#where-this-comes-from) · [Contributing](#contributing) · [Security](#security) · [Sponsoring](#sponsoring) · [Licence](#licence)
 
-Deeper guides live in [`docs/`](docs/README.md).
+Step-by-step install for every OS: [docs/install.md](docs/install.md). All guides:
+[docs/](docs/README.md).
+
+---
+
+## How it works
+
+```mermaid
+flowchart LR
+    You(["You<br/>ask, answer, approve"])
+    subgraph A["Architect pane · claude fable"]
+        A1["blueprint · tasks · decisions"]
+    end
+    subgraph E["Engineer pane · claude opus"]
+        E1["code · tests · commit"]
+    end
+    subgraph M[".ai/ shared memory"]
+        M1[("state.sqlite<br/>ACID · WAL")]
+        M2["TASKS · DIGEST · COMM<br/>blueprints · DECISIONS"]
+    end
+    C["critics + tester<br/>arch · security · tests"]
+    You -->|"plan X"| A
+    A -->|"writes"| M
+    A -->|"wake"| E
+    E -->|"reads"| M
+    E -->|"dispatches"| C
+    C -->|"stamps"| M
+    E -->|"hands back"| A
+    E -->|"commit, gated"| G["git · pre-commit · rein ci run · pre-push"]
+    G -->|"PR"| H["hosted CI · fast + shards"]
+```
+
+**Two roles, one memory.** Each pane is Claude Code bound to a role by `rein pane <role>`. The
+Architect (model `fable`) owns the blueprint and the task list; the Engineer (model `opus`) owns
+the source and the tests. A headless Tester (`sonnet`) writes tests when the Engineer asks.
+→ [The roles](docs/how-it-works.md#the-roles)
+
+**Memory that survives the chat.** Tasks, decisions, review stamps and handoffs live in
+`.ai/state.sqlite`, which is WAL-mode, so two sessions never corrupt it, and they are mirrored
+to readable Markdown. Each session starts from a 20–60 line snapshot, not from your whole
+repository. → [Memory](docs/how-it-works.md#memory-that-survives-the-chat)
+
+**Ping-pong, not copy-paste.** When a role finishes, it writes a short handoff to `.ai/COMM.md`
+and wakes the other pane with Claude Code's `SendMessage`. A closed pane gets one
+"not reachable" line; nothing is queued behind your back.
+→ [The wake](docs/how-it-works.md#the-wake)
+
+**Tested where it counts.** `rein ci run` tests the committed sha in a clean worktree under a
+throwaway `HOME`. The pre-push hook requires it, and so does closing a task. Hosted CI repeats it
+on Linux and macOS. → [CI](docs/ci.md)
 
 ---
 
 ## Quickstart (60 seconds)
 
-You need macOS, Linux or Windows (through WSL2), **Node.js 22.5+**, Python 3.10+, `sqlite3`, `git`, `tmux` and
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`) logged in.
+You need macOS, Linux or Windows through WSL2, with **Node.js 22+**, `git`, `sqlite3`,
+`python3` and `tmux`. Starting from an empty machine? Follow [docs/install.md](docs/install.md).
 
 ```bash
-# 1. Install once per machine
+# 1. Claude Code — skip if `claude --version` already prints a version
+curl -fsSL https://claude.ai/install.sh | bash   # official installer: https://code.claude.com/docs/en/setup
+claude --version                                 # in a NEW terminal; then run `claude` once to log in
+
+# 2. Rein, once per machine
 git clone https://github.com/Vimurai/rein.git && cd rein
-bash install-rein.sh          # copies the framework to ~/.rein and adds it to PATH
-exec "$SHELL"                  # reload the shell so `rein` is found
-rein install                     # Claude Code settings + hooks
-rein doctor                      # each ✗ names its fix; Copilot and Chromium are optional
+bash install-rein.sh                             # copies the framework to ~/.rein, adds it to PATH
+exec "$SHELL"                                    # reload the shell so `rein` is found
+rein install                                     # Claude Code settings and hooks
+rein doctor                                      # each ✗ names its fix
 
-# 2. Enable it in a project (new or existing)
+# 3. Your project, new or existing
 cd ~/code/my-project
-rein init                        # creates .ai/, .claude/, .mcp.json; never overwrites your files
-
-# 3. Launch the team
-rein start                       # tmux: Engineer pane (left) + Architect pane (right)
+rein init                                        # creates .ai/, .claude/, .mcp.json; never overwrites your files
+rein start                                       # tmux: Engineer pane (left) + Architect pane (right)
 ```
 
 Then type your first request into the **Architect** pane:
 
 > *Plan a `/health` endpoint that reports the app version and database status.*
 
-The Architect writes `.ai/blueprints/health.md` and adds `E-##` tasks to `.ai/TASKS.md`, then
-wakes the Engineer. The Engineer implements them, runs the tests and the critics, commits, and hands
-back. You watch, answer questions, and approve. For an existing codebase, start with
-*"Reverse-engineer this repository into `.ai/DIGEST.md`, `.ai/BRIEF.md` and `.ai/architect.md`."*
-
-No tmux? Open two terminals and run `rein pane engineer` in one and `rein pane architect` in the other
-(see the manual fallback under [Starting a session](#starting-a-session)).
-
----
-
-## How it works
-
-```
-        you
-         │  "plan X"                               "looks good" / answers
-         ▼                                                  ▲
-┌────────────────────────┐   SendMessage (wake)   ┌────────────────────────┐
-│  ARCHITECT  (pane 1)   │ ─────────────────────▶ │  ENGINEER  (pane 0)    │
-│  claude · fable        │ ◀───────────────────── │  claude · opus         │
-│                        │                        │                        │
-│  blueprints, tasks,    │                        │  code, tests, review,  │
-│  decisions, rulings    │                        │  commits               │
-│  ✗ cannot edit source  │                        │  ✗ cannot edit plans   │
-└───────────┬────────────┘                        └───────────┬────────────┘
-            │            ┌─────────────────────────────┐      │  dispatches
-            └──────────▶ │  .ai/  — shared memory      │ ◀────┤
-                         │  state.sqlite  (ACID, WAL)  │      ▼
-                         │  TASKS · DIGEST · COMM      │  ┌────────────────────────┐
-                         │  architect.md · blueprints/ │  │  critics + tester      │
-                         │  DECISIONS · LOG · REVIEWS  │  │  arch · security ·     │
-                         └─────────────────────────────┘  │  tests · test_engineer │
-                                                          └────────────────────────┘
-                 git commit ──▶ pre-commit gate ──▶ rein ci run ──▶ pre-push gate
-```
-
-A picture version is in [docs/assets/triad.svg](docs/assets/triad.svg).
-
-**Two roles, one memory.** Each pane is Claude Code bound to a role by `rein pane <role>`: the
-Architect (model `fable`) owns `.ai/architect.md`, `.ai/blueprints/` and the task list; the
-Engineer (model `opus`) owns the source and the tests. A third role, the **Tester**
-(`test_engineer`, model `sonnet`), has no pane — the Engineer dispatches it to write tests.
-Bindings live in `.ai/roles.json`.
-
-**Memory that survives the chat.** Tasks, review stamps and handoff notes live in
-`.ai/state.sqlite` (WAL mode, so two sessions never corrupt it) and are mirrored to readable
-Markdown. Every session starts by reading the project snapshot (`DIGEST.md`) and its open
-tasks — not by re-reading your whole repository.
-
-**Ping-pong, not copy-paste.** When a role finishes, its skill writes a short handoff to
-`.ai/COMM.md` and wakes the other pane with Claude Code's `SendMessage`. A pane that is closed gets
-one "not reachable" line; nothing is queued behind your back.
-
-**Boundaries are enforced, not requested.** Hooks check every tool call: the Architect cannot
-write source, a destructive or secret-bearing shell command is refused, and a commit without a
-fresh review stamp is rejected. See [docs/how-it-works.md](docs/how-it-works.md).
+The Architect writes `.ai/blueprints/health.md`, adds `E-##` tasks to `.ai/TASKS.md`, and
+wakes the Engineer. The Engineer implements them, runs the tests and the critics, commits, and
+hands back. For an existing codebase, start with *"Reverse-engineer this repository into
+`.ai/DIGEST.md`, `.ai/BRIEF.md` and `.ai/architect.md`."*
 
 ---
 
 ## Feature tour
 
-| Feature | What you get | Read more |
+| Outcome | How | Read more |
 | :--- | :--- | :--- |
-| **Roles** | Architect and Engineer panes with their own model, rulefile (`ARCHITECT.md`, `ENGINEER.md`) and permissions; a headless Tester. | [How it works](docs/how-it-works.md) |
-| **Project memory** | `.ai/` holds the blueprint, tasks, decisions, digest, log and review stamps; ACID SQLite underneath. | [The `.ai/` directory](docs/how-it-works.md#the-ai-directory) |
-| **Gates** | Tool-call gate (role boundaries, destructive commands, secrets), pre-commit review gate, pre-push CI gate. | [Gates and review](docs/gates-and-review.md) |
-| **Critics** | Independent reviewers for architecture, security, tests and clean code, each in its own context, stamping `PASS`/`FAIL`. | [Gates and review](docs/gates-and-review.md#critics) |
-| **Skills** | 40+ procedures the agents run on cue — preflight, task close-out, handoff, debugging, release, dependency and CI gates. | [Agents and skills](docs/agents-and-skills.md) |
-| **Subagents** | 21 specialists — critics, Tester, security, database, DevOps, performance, chaos, UX, SEO, docs. | [Agents and skills](docs/agents-and-skills.md#subagents) |
-| **MCP servers** | 16 local MCP servers (task store, orchestration, safe exec, patching, risk tiers, blueprint alignment, approval, memory…) wired by `rein sync`. | [MCP servers](docs/mcp-servers.md) |
-| **Local CI + ratchet** | `rein ci run` tests a commit in a clean worktree; a test budget that only moves down. | [Local CI](docs/local-ci.md) |
-| **Team mode** | Several developers on one repo: task claims on the trunk, per-developer id ranges, shared logs. | [Team mode](docs/team-mode.md) |
-| **Accounts** | Run one project on a second Claude subscription with `rein account` and `rein start --account`. | [Getting started](docs/getting-started.md#a-second-claude-account) |
-
----
-
-## Install and uninstall
-
-| Requirement | Why |
-| :--- | :--- |
-| macOS, Linux, or Windows through WSL2 (bash/zsh) | The installer and hooks are bash. Windows is supported through WSL2 (run everything inside the WSL2 distribution, not in PowerShell); a Windows (WSL2) leg in the CI matrix is planned. |
-| **Node.js 22.5+** | The MCP servers use the built-in `node:sqlite`. |
-| Python 3.10+ | Generates `.mcp.json` and runs state fallbacks. |
-| `sqlite3`, `git` | Hooks read `.ai/state.sqlite`; everything is git-aware. |
-| **Claude Code** (`claude`) | Runs every role. |
-| `tmux` (recommended) | `rein start` builds the two-pane layout in tmux. |
-| `gh` (optional) | GitHub issue ingestion (`rein sync --github`). |
-
-**Install** — once per machine:
-
-```bash
-git clone https://github.com/Vimurai/rein.git && cd rein
-bash install-rein.sh     # copies src/ → ~/.rein, installs MCP dependencies, adds ~/.rein/bin to PATH
-exec "$SHELL"             # reload the shell so `rein` is found
-rein install                # ~/.claude settings and hooks
-rein doctor
-```
-
-**Upgrade** — pull, reinstall, then sync each project:
-
-```bash
-cd rein && git pull && bash install-rein.sh
-cd ~/code/my-project && rein init && rein sync && rein doctor
-```
-
-`rein sync` refreshes the rulefiles, `.mcp.json`, `.claude/agents/`, `.claude/skills/` and the git
-hooks. It never touches what you wrote: `BRIEF.md`, `TASKS.md`, `DIGEST.md`, `architect.md` and
-your blueprints stay yours. `rein clean` lists what older versions left behind (dry run by default).
-
-**Uninstall** — `rein uninstall` removes `~/.rein` after you type `uninstall`. Your projects'
-`.ai/` directories, `~/.claude/` and the PATH line in your shell rc are left for you to remove.
-
-### Starting a session
-
-```bash
-cd /path/to/your-project
-rein start
-```
-
-`rein start` creates or reuses the project's tmux session, binds each pane to its role and launches
-Claude Code in both. It is idempotent — run it whenever you come back to a project.
-
-```bash
-rein start --status        # which panes exist and what each is running
-rein start --kill          # tear the project window down (asks first; --yes skips the prompt)
-rein start --detach        # build the layout without attaching
-rein start --dry-run       # print the tmux commands instead of running them
-```
-
-<details>
-<summary>Manual fallback — the layout by hand</summary>
-
-Without `rein start` (or without tmux), the layout is two panes and two commands. Use one tmux
-session **per project**, named after it — one session has one current window shared by every
-attached client, so two projects in one session flip each other's terminal:
-
-```bash
-tmux new-session -s "$(basename "$PWD")"
-# Then, in two panes (split with prefix + %):
-rein pane engineer      # pane 0 — Claude Code bound to the Engineer (opus)
-rein pane architect     # pane 1 — Claude Code bound to the Architect (fable)
-```
-
-Each pane keeps its shell when Claude Code exits, so you can rerun the command. Use another
-terminal for `rein sync`, `rein doctor` and git.
-
-</details>
-
-More: [docs/getting-started.md](docs/getting-started.md) (tmux layout, accounts, upgrading from v3).
+| **The plan outlives the chat** | `.ai/` holds the blueprint, tasks, decisions, digest, log and review stamps in ACID SQLite, mirrored to Markdown. | [How it works](docs/how-it-works.md#the-ai-directory) |
+| **Planning and building stay apart** | Architect and Engineer panes, each with its own model, rulefile and permissions; a headless Tester. | [How it works](docs/how-it-works.md#the-roles) |
+| **Rules that hold** | A tool-call gate (role boundaries, destructive commands, secrets), a pre-commit review gate, a pre-push CI gate. | [Gates and review](docs/gates-and-review.md) |
+| **A second opinion on every diff** | Critics for architecture, security, tests and clean code, each in its own context, stamping `PASS`/`FAIL`. | [Gates and review](docs/gates-and-review.md#critics) |
+| **A green commit means the commit** | `rein ci run` tests a committed sha in a clean worktree; a test budget that only moves down; hosted CI on Linux and macOS. | [CI](docs/ci.md) |
+| **Procedures the agents follow** | 40+ skills — preflight, task close-out, handoff, debugging, release, dependency and CI gates. | [Agents and skills](docs/agents-and-skills.md) |
+| **Specialists on call** | 21 subagents — critics, Tester, security, database, DevOps, performance, chaos, UX, docs. | [Agents and skills](docs/agents-and-skills.md#subagents) |
+| **Tools without a server** | 16 local MCP servers (task store, orchestration, safe exec, patching, risk tiers, blueprint alignment, approval, memory…) wired by `rein sync`. | [MCP servers](docs/mcp-servers.md) |
+| **More than one developer** | Task claims on the trunk, per-developer id ranges, shared logs. | [Team mode](docs/team-mode.md) |
+| **A project on another subscription** | `rein account add` and `rein start --account`. | [Getting started](docs/getting-started.md#a-second-claude-account) |
 
 ---
 
@@ -243,12 +169,12 @@ skills inside the two Claude Code panes.
 | `rein task claim\|release\|claims` | Team mode: claim a task on the trunk before working on it. |
 | `rein team add\|show`, `rein trunk` | Team mode: per-developer id ranges; which branch is the trunk. |
 | `rein state import\|migrate` | Bring this machine's task index up to what git tracks. |
-| `rein ci run\|status\|list\|log\|budget` | Local CI — see [below](#local-ci--rein-ci). |
+| `rein ci run\|status\|list\|log\|budget\|hosted` | Local CI and the hosted check — see [CI](docs/ci.md). |
 | `rein account list\|add\|remove\|sync` | Extra Claude Code accounts (one config directory per login). |
 | `rein clean [--apply] [--restore <date>]` | List, then move to a dated trash, what older versions left behind. |
 | `rein gate off [--minutes N]\|on\|status` | Operator-only, time-boxed escape from the tool-call gate (run it in your own terminal). |
 | `rein uninstall` | Remove `~/.rein`. |
-| `rein version`, `ai --help` | Version; full help. |
+| `rein version`, `rein --help` | Version; full help. |
 
 Inside Claude Code, the commonly used skills are:
 
@@ -262,87 +188,8 @@ Inside Claude Code, the commonly used skills are:
 | `rein-debug` | Hypothesis → test → observe loop; commits stay locked until green. |
 | `rein-digest`, `rein-archive` | Refresh the project snapshot; rotate long logs. |
 
-The full list is in [docs/agents-and-skills.md](docs/agents-and-skills.md).
-
----
-
-## Gates, critics and budgets
-
-Every change is classified into a **risk tier**, and the tier decides how much review it needs:
-
-| Tier | Typical change | Review before commit |
-| :--- | :--- | :--- |
-| 1 | Docs, config, comments | None |
-| 2 | Ordinary code | Blueprint alignment check |
-| 3 | Security, state, hooks, removals | Critics in parallel — architecture, security, tests — plus a security engineer for auth or secrets |
-
-Three gates enforce it, all as git or Claude Code hooks — not as instructions the model may forget:
-
-1. **Tool-call gate** (every tool call): role boundaries (the Architect cannot write source),
-   destructive shell commands, secrets and private keys in commands, writes outside the project.
-2. **Pre-commit gate**: the commit needs a review stamp bound to its parent; bookkeeping-only commits
-   are exempt. Conflict markers and broken `.ai/*.json` are refused.
-3. **Pre-push gate**: the tip must have a green `rein ci run`.
-
-**Critics** are subagents with a fixed brief and their own context: `critic_arch` compares the
-diff with the blueprint, `critic_security` audits it for OWASP-class issues and leaked secrets,
-`critic_tests` checks that each changed behaviour has one test at the cheapest layer, and
-`critic_clean_code` applies the engineering standards. They record `[ARCH_PASS]`, `[SEC_FAIL]`
-and so on as stamps; nobody edits `REVIEWS.md` by hand.
-
-**Budgets** keep the test suite honest: every green CI run records the number of suites, test
-lines and fast-tier seconds, and the next run fails if any of them grows past a small slack. The
-budget only moves down; raising it is a recorded decision. Details:
-[docs/gates-and-review.md](docs/gates-and-review.md) and [docs/local-ci.md](docs/local-ci.md).
-
----
-
-## Local CI — `rein ci`
-
-CI runs on your machine; no hosted pipeline is needed. `rein ci run` checks out a **committed** sha
-in a detached `git worktree` under a throwaway `HOME`, installs the framework from that commit,
-and runs the test suites, the unit tests and a secrets check. The verdict is stored in
-`.ai/state.sqlite`; logs go to `~/.rein/ci/logs/`.
-
-```bash
-rein ci run                 # test HEAD; exit 0 PASS / 1 FAIL / 2 ERROR
-rein ci run --dirty         # include uncommitted changes (never certifies a commit)
-rein ci status --short      # the recorded verdict for HEAD
-rein ci list -n 10          # recent runs
-rein ci log --failed        # only the failing suites of the last run
-rein ci budget              # the test budget the next run is held to
-```
-
-"CI green" means a non-dirty PASS for that exact commit. Two things read it: closing a task
-(`rein-task` refuses until HEAD is green) and the `pre-push` hook, which refuses to push an untested
-tip. A commit that only adds `.ai/` bookkeeping on top of a tested one needs no new run. To push in
-an emergency, skip once — it is recorded, and a reason is mandatory:
-
-```bash
-REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="prod outage hotfix" git push
-```
-
-Machine-specific environment (a local port, a URL only your laptop has) goes in the gitignored
-`.ai/ci.local.json`. More: [docs/local-ci.md](docs/local-ci.md).
-
----
-
-## Configuration
-
-| File | Tracked | Purpose |
-| :--- | :--- | :--- |
-| `.ai/roles.json` | yes | Role → provider, model and pane (`engineer` 0 · `opus`, `architect` 1 · `fable`). |
-| `.ai/providers.json` | yes | Provider definitions (Claude Code). |
-| `.ai/start.json` | yes | `rein start` options, including the bound Claude account. |
-| `.ai/team.json` | yes | Team mode: trunk, developer id ranges, claim expiry, shared log. |
-| `.ai/CAPABILITIES.md` | yes | Paths and commands the agents may read, write and run. |
-| `.ai/ci.local.json` | no | This machine's extra CI environment. |
-| `.mcp.json`, `.claude/` | generated | Regenerated by `rein sync`; edit the sources, not these. |
-
-Useful environment variables: `REIN_CI_GATE=0` (close tasks without green CI — say so when you
-do), `REIN_KEEP_LEGACY_WORKSPACES=1` (sync lists old files but deletes nothing),
-`REIN_DISABLE_REPO_MAP=1` (skip the code map), `AI_TELEMETRY_DISABLE=1` (no local telemetry).
-Full reference: [docs/configuration.md](docs/configuration.md).
+The full list is in [docs/agents-and-skills.md](docs/agents-and-skills.md); every config file
+and environment variable is in [docs/configuration.md](docs/configuration.md).
 
 ---
 
@@ -358,34 +205,15 @@ account is optional, for keeping one project on another subscription.
 **Can I use it on an existing project?** Yes. `rein init` adds `.ai/` and `.claude/` and never
 overwrites your files; ask the Architect to reverse-engineer the codebase first.
 
-**Can I use only one pane?** Yes — the Engineer alone is a disciplined single agent with memory,
+**Can I use only one pane?** Yes. The Engineer alone is a disciplined single agent with memory,
 gates and critics. You lose the planning half and the automatic handoff.
-
-**Why are there so many rules?** Because each one replaced a failure that actually happened —
-a red master nobody noticed, a role editing the other's plan, a secret in a command line. They
-are hooks, so they cost you nothing until they save you.
 
 **How do I turn a gate off?** In your own terminal, `rein gate off --minutes 15 --reason "…"`.
 Catastrophic commands still block, and every bypassed call is announced. An agent cannot do this
 for you.
 
-More questions: [docs/troubleshooting.md](docs/troubleshooting.md#faq).
-
----
-
-## Troubleshooting
-
-| Symptom | First check | Then |
-| :--- | :--- | :--- |
-| `ai: command not found` | Is `~/.rein/bin` on `PATH`? | Open a new shell; `rein doctor` prints the export line. |
-| MCP servers fail to start | `node --version` is 22.5+? | `rein mcp-setup`, then `rein doctor --env`. |
-| A pane opens and then fails | `rein doctor` — is `claude` on PATH, are roles mapped? | `rein start --status`. |
-| Commit refused by the pre-commit gate | Was the change reviewed? | Run `skill: rein-review` in the Engineer pane. |
-| Push refused | `rein ci status --short` | `rein ci run`, fix what fails, push again. |
-| Tasks differ between machines | `rein doctor` state health | `rein state import`. |
-| The other pane never wakes | Is it open? A closed pane gets "not reachable". | Relaunch it with `rein start` or `rein pane <role>`. |
-
-More: [docs/troubleshooting.md](docs/troubleshooting.md).
+**Something is off.** Run `rein doctor`; every ✗ names its fix. The common cases are in
+[docs/troubleshooting.md](docs/troubleshooting.md).
 
 ---
 

@@ -3926,3 +3926,71 @@ Two sources disagreed about what `main` requires, and the release gate silently 
 Revert E-399's single PR: `requiredChecks()` and `release.yml` return to their current text; the DEVOPS-016 entry records the revert. The ratification of v0.4.0 (ruling 4) stands regardless.
 
 ---
+
+## D-138 — Three flaky required checks are three rules, not three reruns: no writer-process pipe into `grep -q` under `pipefail`, an absolute budget is a declared ceiling at five times the CI median, and a suite timeout is a hang detector at three times the slowest green run
+
+**Date**: 2026-10-30
+**Task**: E-400, E-401 (new); E-388 acceptance divergence
+**Decision**: With macOS × 22 in the required set (DEVOPS-017), the Engineer reports three required checks that failed once each and passed on rerun, and asks for rulings rather than fixing them ad hoc, which is right: a required check that is red for a reason nobody fixes is the standing invitation to the bypass D-133 r3 forbids. Rulings:
+
+1. **`<writer> | grep -q` under `pipefail` is a defect class, not one flaky line.** `grep -q` exits on the first match; a writer still holding bytes gets SIGPIPE (exit 141); `pipefail` makes the pipeline fail and the match is lost. The race widens with output size and runner load, which is why it surfaced first on a loaded shard (E-294.R3a, PR #13). `.claude/rules/hooks-contract.md` already forbids the shape for hooks; the rule now covers `tests/**` too. The census at the time of ruling: 235 sites in `tests/suites/*.sh` (seo_cluster 75, incident_tracker 16, mcp_servers 15, managed_agents 13, task_synchronizer 11, agent_contracts 11, …) plus `assert_match` in `tests/lib/assert.sh` and the sites named in the handoff. Fix shape, in this order of preference: a bash test (`[[ $x == *pat* ]]`, `[[ $x =~ re ]]`) when the pattern is a literal or an ERE bash accepts; otherwise `grep -q <<<"$x"` (a here-string has no writer process to signal). `assert_match` and `assert_contains` are fixed first, because most sites can then become one of them. Fixture-first: a test in the harness self-suite reproduces the loss with a multi-megabyte string piped into `grep -q` under `pipefail` and shows the here-string form keeps the match. A checker (the E-80 standards-checker, `critic_clean_code`) flags the pattern under `tests/**` and `hooks/**` so it does not return. This is E-400 (Tier 2): one PR, mechanical, suites unchanged in what they assert; test_lines moves by the fixture only.
+2. **Harness rule 2 and D-137 r5 are reconciled: the absolute budget is a ceiling, declared as such.** Rule 2 said "an absolute budget applies only when `CI=true`" and D-137 r5 removed exactly such a branch; the Engineer is right that the two texts disagree. The reconciled rule: every performance assertion is baseline-relative (`elapsed ≤ k × baseline + slack`, same run, printed); an absolute number is allowed only as a **ceiling** that states its reason (a linear-time bound against pathological input, a hook latency contract) and is at least five times the measured CI median, and it applies on every host, not only under `CI=true` — a bound that is true only on CI is not a bound. `record-import.test.mjs` "importing 500 records": the `15 × baseline + 200` assertion stays; the `CI=true` 300 ms line (local median ~40 ms, hosted failed once) becomes a 1500 ms ceiling on every host, named as the import's linear-time bound. The blueprint line (`test-harness-isolation.md` §Performance Budgets) and `.claude/rules/test-harness.md` rule 2 are reworded under this ruling; `critic_tests` reads the new text. This is half of E-401.
+3. **A suite timeout is a hang detector, not a budget.** `exec_form_hooks_test` runs the full installer (E-290.06) and took 120 s on a green hosted macOS run against the 180 s default; a loaded 3-CPU runner pushed it over. The rule: a suite whose green hosted time exceeds a third of the default declares its own `# REIN_SUITE_TIMEOUT=<s>` header at **at least three times its slowest green hosted run**, with the measurement in a trailing comment (precedent: E-397 set `init_upgrade` to 480 s for 212–300 s runs). `exec_form_hooks_test` gets 480 s. The `REIN_INSTALLER_SUBJECT` marker already names the suites that run the installer; each of them is checked against the rule in the same change. This is the other half of E-401 (Tier 1).
+4. **E-388's acceptance divergence is accepted.** The task said "build bash 3.2.57 from the GNU tarball into a throwaway directory"; the classifier denied the build and the Engineer reproduced the failure by unsetting `BASHPID` instead. The root cause turned out not to be trap chaining at all but `set -u` aborting every sourcing subshell on `${BASHPID}` (unset in bash 3.2); unsetting the variable is therefore a faithful reproduction of the mechanism, not a stand-in for it, and all four macOS × 22 shards green and required on `main` satisfy the acceptance's confirmation clause. The blueprint's name for the defect (`ci-throughput.md` §Component 4, "trap-chaining") is corrected under this ruling. The denied build is not a task: the next bash-version defect that needs a real interpreter is a `bug-reproducer` question for the Architect at that time, with the classifier's verdict quoted.
+
+### Why needed
+Fifteen required checks now gate every merge. Each flake that is answered with a rerun trains the habit of rerunning, and the day a real red appears it will be rerun too. The three failures have three named causes, and each cause has a rule that prevents its class.
+
+### Alternatives considered
+1. **Rerun and move on** — rejected: the failures are deterministic in cause, random only in timing; they return.
+2. **Fix only the sites that failed** (one `grep -q`, one budget, one timeout) — rejected for ruling 1: 235 identical sites fail the same way under the same load; for rulings 2–3: the rule text is what the critics read, so an unrevised rule reproduces the shape in the next test.
+3. **Drop `pipefail` in the harness** — rejected: `run.sh` needs it (E-332 lessons) and dropping it hides real failures in every other pipeline.
+4. **Raise the default suite timeout for everyone** — rejected: it slows the detection of a genuine hang in the 60 fast suites to protect three slow ones; a per-suite header is the existing mechanism.
+5. **Classes, rules, and two tasks** — selected.
+
+### Constraints driving this decision
+- D-133 r3 (a red required check is fixed, never bypassed); D-088 (a new test names what it extends; suites are not named for tasks; the test_lines budget only moves down — the E-400 fixture is the only addition and is named in the handover if it crosses the 2 % tolerance); D-137 r5 (the budget shape this ruling generalises); `.claude/rules/hooks-contract.md` (the SIGPIPE rule this ruling extends); D-103 (nothing here adds a hosted command).
+
+### Impact
+- Unlocks: E-400, E-401; fewer reruns on the fifteen required checks; `critic_clean_code` and `critic_tests` have text to enforce.
+- Risk if wrong: a here-string copies the string once more (trivial at test sizes); a 1500 ms ceiling or a 480 s timeout lets a real regression of 3–5× pass the ceiling, but the baseline-relative assertion beside it still catches it, which is the point of keeping both.
+
+### Rollback
+Revert E-400's PR (the sites return to pipes; the checker rule goes) and E-401's PR (the budget and header return) independently; the rule text reverts with E-401. Ruling 4 is an acceptance and has no rollback.
+
+---
+
+## D-139 — The demo is a scripted terminal cast of one real Triad run on a throwaway project: text first, scanned, rendered to a GIF for the README and an MP4 for the release; it is the next priority after the README rewrite
+
+**Date**: 2026-10-30
+**Task**: E-402 (new); amends D-136 (the README's image rule)
+**Decision**: The operator asked for a short video that records the flow — Architect, Engineer, testing, the gates — on a random new project, added to the README, as the next priority. Rulings:
+
+1. **A terminal cast, not a screen capture.** The recording is `asciinema` of the two-pane tmux session, rendered with `agg` to a GIF and with `ffmpeg` to an MP4. The cast is JSON text: it diffs, the privacy gate scans it with the same classes as the public mirror (E-369/E-380), and the GIF and MP4 are derived from the scanned text, so nothing reaches the repository that was not scanned first. A screen capture under WSL2 has no display pipeline to record, is large, and cannot be scanned.
+2. **Scripted and re-recordable.** `scripts/demo/record.sh` creates the throwaway project, starts Rein, types six scenes into the panes with `tmux send-keys`, waits on a named condition per scene, and fails loudly on a timeout. The model's words vary between runs; the story does not. Any later UI change means one command, not a new production.
+3. **The project is generic and disposable**: a `tally` word-count CLI with tests in `~/code/demo-tally-<suffix>`, deleted after the run. It says nothing about the operator's work and is small enough to be planned, built and tested inside the recording.
+4. **Where it lands**: the GIF (≤ 8 MB, ≤ 90 s) and the cast are committed under `docs/assets/`; the MP4 is a release asset, not a repository file; the README gets a **See it run** block under the pitch (D-136 §Component 1 amended: the mark and the demo GIF are the README's two images; no new HTML), and `docs/how-it-works.md` embeds the same GIF.
+5. **Priority**: E-402 follows E-390 in the queue, ahead of E-400 and E-401; the recording may be produced on its own branch before E-390 merges, and the README block lands on E-390's README.
+6. **The tools are the operator's, not the project's**: `asciinema`, `agg`, `ffmpeg` are installed by the operator's package manager; the script checks for them and prints the install line; nothing is added to `package.json`, nothing runs in CI except the scenes parser test and the asset size assertion.
+
+### Why needed
+The README tells and diagrams; a visitor still cannot see the loop run. One scripted recording answers "is this real" in eighty seconds and can be regenerated whenever the panes change.
+
+### Alternatives considered
+1. **Screen recording (OBS, wf-recorder) of the real terminal** — rejected: no display pipeline under WSL2 for the recording host; tens of megabytes; unscannable for secrets; not reproducible.
+2. **Host the cast on asciinema.org and embed its player** — rejected: an external service in the README, the cast leaves the repository, and GitHub does not render the player anyway; the committed cast gives `asciinema play` without it.
+3. **Hand-driven recording by the operator** — rejected: not reproducible after a UI change, and the human pass is still needed; the script keeps the human pass (watching the GIF) and removes the typing.
+4. **Commit the MP4** — rejected: binary weight in every clone for a file the release can carry.
+5. **Scripted cast, scanned, GIF in repo + MP4 on the release** — selected.
+
+### Constraints driving this decision
+- D-136 (README under 60 KB of text; the hero fits one viewport — the GIF sits under the pitch, not in the hero; no HTML beyond `div`/`picture`/`details`); the privacy classes of E-369/E-380 (nothing public unscanned); D-138 r1 (no `| grep -q` in the new script); D-103 (no new hosted command); sovereignty (the recording's gate scene shows `[SOVEREIGNTY_BLOCK]` doing its job, and the script itself never touches the framework clone or an operator project).
+
+### Impact
+- Unlocks: E-402; the README's "See it run"; a regenerable demo for every later release.
+- Risk if wrong: a GIF that ages when the panes change — bounded by ruling 2 (one command to re-record); a privacy miss in a frame — bounded by ruling 1 (scanned text first) plus the human pass.
+
+### Rollback
+One PR, one revert (`demo-video.md` §Rollback Plan); delete the release asset; D-136's image rule returns to "the mark only".
+
+---

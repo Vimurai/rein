@@ -646,31 +646,34 @@ assert_contains "E-228.05c: it reports roles"  "roles mapped" "$_doc"
 assert_contains "E-228.05d: and each role's provider" "engineer →" "$_doc"
 
 # ── E-228.6: the docs point at the launcher, and keep the fallback ────────
-assert_status 0 "E-228.06a: README documents rein start"        grep -q '^rein start$' "${REPO_ROOT}/README.md"
-assert_status 0 "E-228.06b: README documents --status"        grep -q 'rein start --status' "${REPO_ROOT}/README.md"
-assert_status 0 "E-228.06c: README documents --kill"          grep -q 'rein start --kill' "${REPO_ROOT}/README.md"
+# E-390 (D-136 r3): starting a session and the manual layout moved from the README to the
+# step-by-step install guide; the rows follow the text, unchanged in what they assert.
+INSTALL_DOC="${REPO_ROOT}/docs/install.md"
+assert_status 0 "E-228.06a: the install guide documents rein start"        grep -q '^rein start$' "$INSTALL_DOC"
+assert_status 0 "E-228.06b: the install guide documents --status"        grep -q 'rein start --status' "$INSTALL_DOC"
+assert_status 0 "E-228.06c: the install guide documents --kill"          grep -q 'rein start --kill' "$INSTALL_DOC"
 # The manual recipe must SURVIVE: hosts without tmux still need it, and `rein start` exits 2
 # and prints it. Replacing the docs with "just run rein start" would strand those users.
-assert_status 0 "E-228.06d: README keeps the manual fallback" \
-  grep -q 'Manual fallback' "${REPO_ROOT}/README.md"
+assert_status 0 "E-228.06d: the install guide keeps the manual fallback" \
+  grep -q 'Manual fallback' "$INSTALL_DOC"
 # E-252 (D-068): the recipe is now PER PROJECT. It used to read `tmux new-session -s
 # rein` — a single shared session, which is the arrangement D-068 removed because one
 # session has one current window shared by every attached client. The assertion follows the
 # recipe rather than pinning the old literal, and checks BOTH halves: the recipe still
 # exists (tmux-less hosts depend on it) and it no longer hands every project one session.
-assert_status 0 "E-228.06e: README still shows a manual tmux recipe" \
-  grep -q 'tmux new-session -s' "${REPO_ROOT}/README.md"
+assert_status 0 "E-228.06e: the install guide still shows a manual tmux recipe" \
+  grep -q 'tmux new-session -s' "$INSTALL_DOC"
 assert_status 0 "E-252.07a: and the recipe is per-project, not one shared session" \
-  grep -q 'tmux new-session -s "\$(basename "\$PWD")"' "${REPO_ROOT}/README.md"
+  grep -q 'tmux new-session -s "\$(basename "\$PWD")"' "$INSTALL_DOC"
 assert_status 1 "E-252.07b: the shared 'rein' session name is gone from the recipe" \
-  grep -q 'new-session -s rein' "${REPO_ROOT}/README.md"
+  grep -q 'new-session -s rein' "$INSTALL_DOC"
 assert_status 0 "E-228.06f: CONTRIBUTING points at rein start" \
   grep -q 'rein start' "${REPO_ROOT}/CONTRIBUTING.md"
 # E-256 (D-069): the manual recipe binds each pane through `rein pane <role>`, as `rein start`
 # does. It used to send a bare one-word CLI name to each pane, which launches an UNBOUND
 # session: no role token, no model, no permission overlay — the recipe that tmux-less hosts
 # depend on would have produced a Triad with no roles in it.
-_recipe="$(sed -n '/Manual fallback/,/<\/details>/p' "${REPO_ROOT}/README.md")"
+_recipe="$(sed -n '/Manual fallback/,/<\/details>/p' "$INSTALL_DOC")"
 assert_contains "E-256.01a: the recipe binds the Engineer pane" "rein pane engineer" "$_recipe"
 assert_contains "E-256.01b: the recipe binds the Architect pane" "rein pane architect" "$_recipe"
 # D-099 (E-323): the watcher is removed — the recipe is two panes and must not start it.

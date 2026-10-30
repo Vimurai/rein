@@ -1178,16 +1178,16 @@
     {
       "id": "E-388",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix the bash 3.2 trap-chaining defect per D-135 addendum 2 r2 and .ai/blueprints/ci-throughput.md §Component 4: under macOS /bin/bash 3.2 a subshell EXIT trap does not fire through tests/assert.sh's trap-chaining wrapper, so harness_isolation_test E-241.02a/b and E-239.05a–f fail (run 40906294420, macOS × 22 shards 1 and 3). Start with bug-reproducer: build bash 3.2.57 from the GNU source tarball into a throwaway directory (never installed, never on PATH) and run the two suites with that interpreter until each failing assertion is reproduced locally; a macOS hosted run is the confirmation, not the loop. Fix the wrapper so the chained trap fires under bash 3.2 and 5 alike without changing what the assertions assert; name the test each change extends (D-088). Acceptance: both suites pass under the local bash 3.2 build and under bash 5; all four macOS × 22 shards green on the PR; the PR adds the four `ai ci run (macos-latest, node 22, i/4)` legs to the required set and records it in .ai/DEVOPS.md (D-135 addendum 2 r3); full ai ci run green; bash install-ai-os.sh.",
       "created_at": "2026-10-29T18:10:54.289Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T20:37:24.358Z",
+      "summary": "bash 3.2 harness fix: assert.sh subshell registry key ${BASHPID} -> ${BASHPID:-$(exec sh -c 'echo $PPID')} (set -u aborted every sourcing subshell; not a trap-chaining defect); E-240 …[full in LOG.md]",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-29T18:10:54.302Z"
+      "updated_at": "2026-10-30T20:37:24.376Z"
     },
     {
       "id": "E-389",
@@ -1300,16 +1300,16 @@
     {
       "id": "E-396",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix the harness self-tests E-240.01a, E-240.02a, E-240.03a and E-240.03b that fail only on the hosted macOS × 22 shard 1/4 (main 94d543e and PR #10 a317dcd; Linux green) per D-133 addendum r4 and .ai/blueprints/ci-throughput.md §Component 4, worked beside E-388 and after the v0.4.0 tag. Start with bug-reproducer: run the owning suite under the local bash 3.2.57 build E-388 produces (throwaway directory, never on PATH) and under BSD coreutils where the assertion names them; if the root cause is E-388's trap-chaining defect, fix it there and close both in one PR saying so; if it is a BSD/GNU tool difference (sed -i, stat, mktemp, readlink -f) or a path assumption, fix the harness under rule 1 (an optional need is `skip_unless_cmd`; a required one is portable) without changing what the assertions assert; name the test each change extends (D-088). Acceptance: the four rows pass under the local bash 3.2 build and bash 5; macOS × 22 shard 1/4 green on the PR; with E-388 closed too, the PR adds the four `rein ci run (macos-latest, node 22, i/4)` legs to the required set with one gh api call and records it in .ai/DEVOPS.md (D-135 addendum 2 r3 exit condition, now both tasks); no suite deleted or skipped; full rein ci run green.",
       "created_at": "2026-10-30T11:40:58.239Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T20:37:25.816Z",
+      "summary": "Same root cause as E-388 (assert.sh ${BASHPID} unbound under set -u on bash 3.2) — E-240.01a/02a/03a/03b green on hosted macOS x 22 shard 1/4 in PR #15 (merged 443104f), closed in on …[full in LOG.md]",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T11:40:58.246Z"
+      "updated_at": "2026-10-30T20:37:25.816Z"
     },
     {
       "id": "E-397",
@@ -1352,6 +1352,48 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-10-30T16:20:12.221Z"
+    },
+    {
+      "id": "E-400",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Remove the writer-process pipe into `grep -q` from the test harness per D-138 r1 and .claude/rules/hooks-contract.md (SIGPIPE under pipefail: grep -q exits on first match, the writer gets SIGPIPE, pipefail fails the pipeline, the match is lost; first seen as E-294.R3a on PR #13). Fixture-first: a harness self-suite test (name the test it extends, D-088) pipes a multi-megabyte string into `grep -q` under `set -o pipefail` and shows the match is lost, then shows `grep -q <<<\"$x\"` keeps it. Then: (1) tests/lib/assert.sh assert_match and assert_contains use `[[ =~ ]]` / `[[ == * * ]]` or `grep -qE <<<\"$str\"`, never a pipe; (2) every `<writer> | grep -q` site under tests/ (census at ruling: 235 in tests/suites/*.sh — seo_cluster 75, incident_tracker 16, mcp_servers 15, managed_agents 13, task_synchronizer 11, agent_contracts 11, pre_commit_hook 9, cli 7, …; plus git_lane_test.sh _e218_label and the cli_test.sh sites in the 15:30+ handoff) becomes a bash test when the pattern allows, else a here-string, else an assert_match/assert_contains call; what each assertion asserts is unchanged; (3) .claude/rules/test-harness.md gains the rule line (mirroring hooks-contract.md) and the E-80 standards-checker (critic_clean_code) flags `| grep -q` under tests/** and hooks/**, with the checker's own test; (4) run the full suite under `set -o pipefail` locally and on hosted. Acceptance: the fixture fails before and passes after; zero `| grep -q` matches under tests/ and hooks/ (the checker's count); no suite renamed, deleted or skipped; `rein ci run` green; all fifteen required checks green on the PR; test_lines delta named in the handover if over the 2 % tolerance. One PR.",
+      "created_at": "2026-10-30T20:40:23.663Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T20:40:23.667Z"
+    },
+    {
+      "id": "E-401",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Apply the reconciled budget and timeout rules per D-138 r2–r3 and .ai/blueprints/test-harness-isolation.md §Performance Budgets Are Host-Relative (as reworded 2026-10-30): (1) tests/unit/record-import.test.mjs \"importing 500 records\": keep `elapsed <= 15 * baseline + 200`; replace the `CI=true` 300 ms line with a 1500 ms ceiling asserted on every host, commented as the import's linear-time bound (five times the CI median); (2) .claude/rules/test-harness.md rule 2: reword to the blueprint's text — baseline-relative always; an absolute number only as a declared ceiling, at least 5× the CI median, on every host, never `CI=true`-only; a `CI=true`-only absolute is a critic_tests finding — and add the suite-timeout rule (a suite over a third of the default declares `# REIN_SUITE_TIMEOUT=<s>` at 3× its slowest green hosted run, measurement in a trailing comment); (3) tests/suites/exec_form_hooks_test.sh header `# REIN_SUITE_TIMEOUT=480` with the measured 120 s green macOS run in the comment; check every REIN_INSTALLER_SUBJECT suite against the same rule and set headers where needed, each with its measurement; (4) grep tests/ for any other `process.env.CI === \"true\"` absolute budget and convert it the same way, listing each in the handover. Acceptance: no `CI === \"true\"` budget branch under tests/; the rule text in .claude/rules/test-harness.md matches the blueprint; `rein ci run` green; hosted macOS × 22 all four shards green on the PR. One PR, after E-400 or beside it.",
+      "created_at": "2026-10-30T20:40:23.781Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T20:40:23.781Z"
+    },
+    {
+      "id": "E-402",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Produce the demo recording and put it in the README per D-139 and .ai/blueprints/demo-video.md §Components 1–5, §API, §Security (operator priority: right after E-390, ahead of E-400/E-401; the recording may start on its own branch before E-390 merges, the README block lands on E-390's README). (1) scripts/demo/scenes.tsv: the six scenes of §Component 2 with conditions and timeouts. (2) scripts/demo/record.sh per §Component 3 and §API: tool check with install lines (exit 2), throwaway `tally` project under --root (deleted unless --keep), 120×36 tmux session, `asciinema rec --idle-time-limit 2`, scenes typed with tmux send-keys and polled with capture-pane, timeout exit 3 keeping the partial cast, then scan, agg (speed 1.5–3 so the GIF ≤ 90 s, font 16, dark theme) and ffmpeg to MP4; --dry-run; here-strings, no `| grep -q` (D-138 r1). (3) scripts/demo/scan.sh: publish-scan over demo.cast, exit 4 on any hit, no render. (4) Record once for real here (asciinema, agg, ffmpeg via Linuxbrew, outside the repo); watch the GIF end to end and name what is on screen per scene in the handover; on any hit fix the cause and re-record. (5) Commit docs/assets/demo.gif (≤ 8 MB) and docs/assets/demo.cast; attach demo.mp4 to the next GitHub release (release flow --asset <file>, or by hand with the operator's yes — say which); README \"See it run\" block under the pitch per §Component 5 (Markdown image + alt text, one caption line linking the MP4 asset and the cast, no new HTML); same GIF under docs/how-it-works.md's first diagram. (6) Tests: scenes.tsv parser (malformed row → exit 2) and demo.gif ≤ 8 MB in tests/unit/docs-links.test.mjs (name what each extends, D-088). Acceptance: --dry-run exits 0 listing six scenes; committed cast scans clean; GIF ≤ 8 MB, ≤ 90 s, six scenes visible (handover names them and the run's token cost); README block renders in GitHub light and dark; link test, `rein ci run` and all required checks green. One PR (two if the recording lands before E-390).",
+      "created_at": "2026-10-30T20:54:42.865Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T20:54:42.866Z"
     }
   ],
   "stamps": [
@@ -3580,6 +3622,69 @@
       "timestamp": "2026-10-30T19:59:44.591Z",
       "summary": "Tier 1 bookkeeping only: merge origin/main (1a38c6c, #13 E-385) into e-388-bash32-subshell-registry; REVIEWS/state.json append conflicts resolved as the union (branch flip stamps kept, main's E-385 stamp auto-merged), JSON valid, no markers.",
       "sha": "068aaffecfe080386aa73322015030bf9925ee68",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-388",
+      "timestamp": "2026-10-30T20:37:42.307Z",
+      "summary": "Tier 1 bookkeeping only on 443104f: E-388 and E-396 DONE, LOG and views.",
+      "sha": "443104f0ed596ae6500af5751b0ea02f83f8d5fe",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_AUDIT",
+      "agent": "docs-architect",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T20:47:26.324Z",
+      "summary": "Docs audit (README + docs/*.md, E-390) complete: 0 HIGH, 3 MEDIUM, 5 LOW gaps vs architect.md/.mcp.json/rein --help",
+      "sha": "8f7d95e1899e1895e453ed6fb23f3c33df88d850",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T20:49:12.634Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK (README, CONTRIBUTING, docs/README) covered by .ai/blueprints/readme.md §Components 1-5 and D-136 + addendum, not architect.md.",
+      "sha": "8f7d95e1899e1895e453ed6fb23f3c33df88d850",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T20:49:14.965Z",
+      "summary": "[TIER_2] E-390: README rewrite (hero in Markdown, outcome pitch, Mermaid 2a, Claude Code-first quickstart, feature tour); docs/install.md steps 1-8 (2d); how-it-works (2a-2c), getting-started (first hour), ci.md (local-ci.md + hosted, required checks); E-374 link test extended (ci.md, install.md), docs-links.test.mjs mermaid/HTML/size (mutation-checked); rein_start_test doc rows follow the text to docs/install.md; docs-architect 0 HIGH; fast tier 2247/0.",
+      "sha": "8f7d95e1899e1895e453ed6fb23f3c33df88d850",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T20:49:25.140Z",
+      "summary": "Tier 1 bookkeeping only: Architect's D-138 (DECISIONS, test-harness-isolation.md, ci-throughput.md, E-400/E-401 tasks) carried as written; E-390 stamps and views.",
+      "sha": "9a16d5491837c17fdf5167076dca23b8a34f4fc6",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T21:00:09.436Z",
+      "summary": "Tier 2 test fix: rein_ci_test E-268.03b/c follow the local-CI text from README to docs/ci.md (## Local CI .. ## Hosted CI), unchanged in what they assert; docs/ci.md gains the `rein ci log --failed` example the README carried. rein_ci_test 243/0.",
+      "sha": "7681500847d8efd3c87c772958e161bef97886cd",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T21:00:17.353Z",
+      "summary": "Tier 1 bookkeeping only: Architect's D-139 (DECISIONS, blueprints/demo-video.md, readme.md amendment, E-402 task) carried as written; stamps and views.",
+      "sha": "5628b1bd227537c762e886b6315095a40364054b",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

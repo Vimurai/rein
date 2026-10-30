@@ -901,15 +901,18 @@ assert_status 0 "E-268.02b: the CHANGELOG records the removal for the release no
 assert_status 0 "E-268.02c: under the 4.0.0 BREAKING heading, where E-263 released it" \
   bash -c "sed -n '/^## \[4\.0\.0\]/,/^## \[3/p' '${REPO_ROOT}/CHANGELOG.md' | grep -q 'Changed — BREAKING'"
 
-# ── E-268.3: README ──────────────────────────────────────────────────────
+# ── E-268.3: README and the CI page ──────────────────────────────────────
 # E-374 (D-125): a live GitHub Actions badge reflects real runs and is allowed; a static
 # "tests passing" image is what E-268 removed, and stays gone.
+# E-390 (D-136): the runner's documentation moved from the README to docs/ci.md (its
+# "Local CI" section); the rows follow the text, unchanged in what they assert.
 assert_status 1 "E-268.03a: no static tests-passing badge" grep -qiE 'img\.shields\.io/badge/tests|tests-passing' "${REPO_ROOT}/README.md"
+CI_DOC="${REPO_ROOT}/docs/ci.md"
 assert_status 0 "E-268.03b: a Local CI section documents the runner" \
-  grep -q '^## Local CI — `rein ci`' "${REPO_ROOT}/README.md"
+  grep -q '^## Local CI$' "$CI_DOC"
 for needle in 'rein ci run' 'rein ci status' 'rein ci log --failed' 'REIN_CI_SKIP_REASON' 'pre-push'; do
-  assert_status 0 "E-268.03c: README documents ${needle}" \
-    bash -c "sed -n '/^## Local CI/,/^## Troubleshooting/p' '${REPO_ROOT}/README.md' | grep -qF '$needle'"
+  assert_status 0 "E-268.03c: the CI page documents ${needle}" \
+    bash -c "sed -n '/^## Local CI/,/^## Hosted CI/p' '$CI_DOC' | grep -qF '$needle'"
 done
 
 # ── E-268.4: CONTRIBUTING ────────────────────────────────────────────────

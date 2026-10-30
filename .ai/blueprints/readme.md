@@ -23,8 +23,8 @@ Three layers with a strict split of duty:
 - **`docs/how-it-works.md`, `docs/getting-started.md`, `docs/ci.md`** — the depth: the Triad,
   the memory, the gates, local and hosted CI. The README links each exactly once.
 Diagrams are **Mermaid** fenced blocks: GitHub renders them natively, themes them for light and
-dark, and they diff as text. The mark is the only image (D-134; `<picture>` with the light and
-dark SVGs).
+dark, and they diff as text. The README has two images: the mark (D-134; `<picture>` with the
+light and dark SVGs) and the demo GIF under the pitch (D-139; `.ai/blueprints/demo-video.md`).
 
 ## Components
 
@@ -47,6 +47,10 @@ dark SVGs).
 - **Who it is for**: one line each — a solo developer who wants a second opinion that cannot be
   talked out of the rules; a small team that wants one memory per repository; an existing
   codebase that needs to be understood before it is changed.
+- **See it run** (D-139, E-402): directly under the pitch, `docs/assets/demo.gif` as a Markdown
+  image with the alt text from `demo-video.md` §Component 5, then one caption line linking the
+  MP4 release asset and `docs/assets/demo.cast`. It sits below the first viewport (the hero
+  still fits one screen); no new HTML.
 
 ### Component 2 — Diagrams (Mermaid, four blocks)
 The exact sources; the Engineer copies them and adjusts labels only if a command name changed.
@@ -220,7 +224,8 @@ tests/unit/docs-links.test.mjs link and fence check
 ## Execution Constraints
 - The README reads top to bottom in under ten minutes; the first screen (hero + pitch) fits
   one laptop viewport at 100 %.
-- No image other than the mark; diagrams are text. Page weight of the README under 60 KB.
+- No image other than the mark and the demo GIF (D-139; GIF ≤ 8 MB, linked not inlined);
+  diagrams are text. Page weight of the README's text under 60 KB.
 - Each `docs/install.md` command block was run by the Engineer on this machine (Linux/WSL);
   the macOS block is quoted from Homebrew's documentation and marked "verified on Linux,
   Homebrew commands as documented" until a macOS user confirms (an issue template invites

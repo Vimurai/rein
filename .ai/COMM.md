@@ -784,3 +784,49 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Until E-399 merges, a tag whose macOS legs fail skips its publish; the fallback remains a manual release with the operator's yes, as for v0.4.0 (ratified, r4).
 ---
+## Handoff — 2026-10-30 20:40 UTC
+**From**: Architect → Engineer
+**Trigger**: D-138 ruled on the three flaky required checks reported by message after PRs #13/#14/#15; E-400 and E-401 registered; E-388 acceptance divergence accepted
+
+### What was planned
+- **D-138** (`.ai/DECISIONS.md`, four rulings). r1: `<writer> | grep -q` under `pipefail` is a defect class (SIGPIPE loses the match); the hooks-contract rule now covers `tests/**`; fix shape bash test, else here-string, else `assert_match`/`assert_contains`; fixture-first; checker in the E-80 standards-checker. r2: harness rule 2 and D-137 r5 reconciled: baseline-relative always; an absolute number only as a declared ceiling at ≥5× the CI median, on every host, never `CI=true`-only; record-import's 300 ms line becomes a 1500 ms ceiling. r3: a suite timeout is a hang detector: a suite over a third of the default declares `# REIN_SUITE_TIMEOUT` at 3× its slowest green hosted run; `exec_form_hooks_test` gets 480 s. r4: E-388's divergence (no local bash 3.2.57 build; `BASHPID`-unset simulation + hosted macOS green) is accepted: the root cause was `set -u` on an unset `BASHPID`, so unsetting it IS the mechanism; the blueprint's "trap defect" name is corrected.
+- **E-400** (Tier 2): the SIGPIPE class, 235 sites + `assert.sh`, fixture-first, checker. **E-401** (Tier 1): the budget ceiling, the rule text, the suite-timeout headers. Full text in `.ai/TASKS.md`.
+- `.ai/blueprints/test-harness-isolation.md` §Performance Budgets reworded; `.ai/blueprints/ci-throughput.md` §Component 4 defect name corrected.
+
+### Decisions made
+- D-138 (above).
+
+### Blueprint divergence (if any)
+- E-388: reproduction path differed from the task text; accepted under D-138 r4. Nothing else.
+
+### Next action needed
+- Operator's order stands: E-390 (in progress) first. Then E-400, then E-401 (or beside E-400 in its own PR). Neither blocks E-390.
+- `.claude/rules/test-harness.md` is yours to edit (E-282 path-scoped rules); the blueprint text is the source, copy it.
+
+### Open risks
+- Until E-400 merges, any of the fifteen required checks can lose a `grep -q` match under load; rerun once with the named cause, never bypass (D-133 r3).
+---
+## Handoff — 2026-10-30 20:54 UTC
+**From**: Architect → Engineer
+**Trigger**: operator request — a short demo video of the Triad flow on a random new project, in the README, as the next priority; D-139 ruled, blueprint written, E-402 registered
+
+### What was planned
+- **`.ai/blueprints/demo-video.md`** (new, D-139): a scripted, re-recordable terminal cast. `scripts/demo/record.sh` creates a throwaway `tally` word-count CLI project under `~/code/demo-tally-<suffix>`, starts Rein in a dedicated 120×36 tmux session, records with `asciinema rec --idle-time-limit 2`, types six scenes from `scripts/demo/scenes.tsv` with `tmux send-keys` (init+start; Architect plan + handoff; the `[SOVEREIGNTY_BLOCK]` gate scene; Engineer build + `rein-test`; `rein-review` + commit through the pre-commit gate; hand-back), each ending on a named condition with a timeout; then `scripts/demo/scan.sh` runs publish-scan over the cast (exit 4 on a hit, no render), then `agg` → GIF (≤ 90 s, ≤ 8 MB) and `ffmpeg` → MP4.
+- **Where it lands**: `docs/assets/demo.gif` and `docs/assets/demo.cast` committed; the MP4 a release asset; README **See it run** block directly under the pitch (D-136 §Component 1 amended; two images now: the mark and the GIF; no new HTML); the same GIF under `docs/how-it-works.md`'s first diagram; size assertion in the E-390 link test.
+- **D-139** in `.ai/DECISIONS.md`: cast over screen capture (text first, scannable, reproducible); project generic and disposable; MP4 not committed; tools are the operator's (Linuxbrew), not the project's, nothing in CI; priority right after E-390.
+- **E-402** (Tier 2, OPEN, not DAG-chained): full text in `.ai/TASKS.md`.
+
+### Decisions made
+- D-139 (above). D-136 amended in the readme blueprint: §Core Concept image sentence, §Component 1 "See it run", §Execution Constraints image rule.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Queue order by operator priority: **E-390 (finish), E-402, E-400, E-401.** E-402's recording may start on its own branch before E-390 merges; its README block lands on E-390's README (two PRs in that case).
+- Before the real recording: install `asciinema`, `agg`, `ffmpeg` with Linuxbrew on this machine (operator tools, outside the repo). The run costs real tokens in two extra Claude sessions; name the cost in the handover.
+- Watch the GIF once end to end before committing it; the scanner covers the text, you cover the frame (status line, pane titles, paths).
+
+### Open risks
+- The recording's model output varies per run; acceptance is the six scenes, not the words. A scene timeout keeps the partial cast and exits non-zero — never commit a partial.
+---

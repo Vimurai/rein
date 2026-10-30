@@ -1,14 +1,15 @@
 # Troubleshooting and FAQ
 
-Start with `rein doctor`. Every ✗ line names its fix. `rein doctor --env` goes deeper (Node,
+Start with `rein doctor`; the five commonest failures on a new machine are in
+[Install, step 8](install.md#8-if-something-is-off). Every ✗ line names its fix. `rein doctor --env` goes deeper (Node,
 binaries, permissions, live MCP connectivity); `rein doctor --repair` fixes what it can.
 
 ## Troubleshooting
 
 | Symptom | First check | Then |
 | :--- | :--- | :--- |
-| `ai: command not found` | Is `~/.rein/bin` on `PATH`? | Open a new shell; `rein doctor` prints the export line. |
-| MCP servers fail to start | `node --version` is 22.5 or later? | `rein mcp-setup`, then `rein doctor --env`. |
+| `rein: command not found` | Is `~/.rein/bin` on `PATH`? | Open a new shell; `rein doctor` prints the export line. |
+| MCP servers fail to start | `node --version` is 22 or later? | `rein mcp-setup`, then `rein doctor --env`. |
 | Servers answer with old behaviour after an upgrade | Preflight's "stale MCP servers" line | Restart both Claude Code panes. |
 | A pane opens and fails at the first keystroke | `rein doctor`: is `claude` on PATH, are the roles mapped? | `rein start --status`; relaunch with `rein start`. |
 | The other pane never wakes | Is it open? A closed pane gets "not reachable". | Relaunch it; the handoff note is in `.ai/COMM.md`. |
@@ -56,10 +57,6 @@ nothing until they catch something.
 **Can an agent turn the gates off?**
 No. `rein gate off` must be run in your own terminal, is time-boxed, still blocks catastrophic
 commands, and announces every call it lets through.
-
-**Why is the install directory called `~/.rein`?**
-The project was called Rein before it was renamed Rein. Commands, paths and environment
-variables kept their names so existing installs, scripts and hooks keep working.
 
 **How do I report a security problem?**
 Privately — see [SECURITY.md](../SECURITY.md).

@@ -670,3 +670,30 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 - E-397 adds one hosted round (~15 min) before the merge. A regex rewrite that changes gate matching is caught by the byte-pinned tables and the safe_exec suites — treat any table diff as a defect in the rewrite, not a re-pin.
 - `verify_markdown_sync` prints `[STALE_SERVER]` for all 16 MCP servers although their boot time is AFTER the mirror change — the staleness comparison looks inverted; noted, not ruled.
 ---
+
+## Handoff — 2026-10-30 14:10 UTC
+**From**: Architect → Engineer
+**Trigger**: E-397 acceptance met on b675b07 (Engineer message 2026-10-30); E-398 registered; ruling on [BUILD_STALE]
+
+### What was reviewed
+- E-397 accepted: 0 open CodeQL alerts on rename/rein, both `CodeQL` check-runs green, hosted matrix green except macOS 1/4 (E-396) and Dependency review (graph off, operator setting). 86c5d2d regex rewrites with fuzz 0 mismatches, SEC_CLEARED, ALIGN_PASS; aa6c5c6 node 22 temp-dir leak; b675b07 init_upgrade watchdog 480 s. #14–#16 dismissed per D-133 addendum r2 (your note says #26/#15/#16 — confirm the first id in the merge-step description).
+- **E-398** (Tier 2, after the tag, before E-393): the two pre-existing safe-exec residuals from your pass — decodedView RangeError on `&#1114112;` (fail-closed must be proved with a hook-level row, the exception caught at the decode boundary into a BLOCK), and the quadratic viaConfig regex (linear rewrite, or a recorded bound with a timing row at the cap).
+
+### Ruling — [BUILD_STALE] on the DONE mark
+- Not bypassed: correct. The stamp compares the running MCP mirror with the source tree; the mirror is pre-hard-cut. The fix is the operator's **migration step 1 run early from the rename/rein checkout at b675b07** (`bash install-rein.sh`), which is byte-identical to what merges. Steps 2–5 (sync, doctor, `rm ~/.ai-os`, drop `AI_OS_*`) still wait for the merge, symlink last (D-132 addendum 4 r1). This also ends the session-start re-clobber. Mark E-397 and E-391 DONE after that reinstall, or after the merge — either order is fine; never force the stamp.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+1. Wait for the operator's yes, then the E-391 merge step as planned (required-checks swap in one gh api call, merge, tag v0.4.0, release, migration list verbatim in the handover).
+2. After the tag: E-385 (mark), then E-390 (README + docs) — the operator's priority is the public identity (D-132 addendum). E-398, E-396/E-388, E-389, E-387 trail behind them unless the operator reorders.
+
+### Operator actions
+- **Yes to the merge step.**
+- Reinstall now from the branch (`bash install-rein.sh` in this checkout) to clear [BUILD_STALE] and stop the re-clobber; the other four migration steps after the merge.
+- Enable the repository's Dependency graph.
+
+### Open risks
+- Until the reinstall, every session start in this repo rewrites 34 tracked files back to ai-*; restore to HEAD before any commit.
+---

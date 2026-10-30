@@ -1,14 +1,15 @@
 # Rein documentation
 
-Start with the [README](../README.md) for the 60-second quickstart. These pages go deeper, one
+Start with the [README](../README.md) for the 60-second quickstart, or [Install](install.md) on a new machine. These pages go deeper, one
 topic each.
 
 | Page | Read it when |
 | :--- | :--- |
-| [Getting started](getting-started.md) | Installing, the tmux layout, a second Claude account, upgrading, uninstalling. |
-| [How it works](how-it-works.md) | You want the model: roles, the `.ai/` memory, handoffs, a task's life. |
+| [Install](install.md) | From an empty machine: prerequisites per OS, tmux, Claude Code, Rein, the first project, upgrading, uninstalling. |
+| [Getting started](getting-started.md) | The first hour: filling `.ai/`, the first blueprint, reading a handoff, a second Claude account. |
+| [How it works](how-it-works.md) | You want the model: roles, the `.ai/` memory, the wake, the hooks and gates. |
 | [Gates and review](gates-and-review.md) | A gate refused something, or you want to know what the critics check. |
-| [Local CI](local-ci.md) | Running `rein ci`, the test budget, machine-specific environment, hosted CI. |
+| [CI](ci.md) | Running `rein ci`, the test budget, machine-specific environment, the hosted pipeline and its required checks. |
 | [Team mode](team-mode.md) | More than one developer works on the repository. |
 | [Agents and skills](agents-and-skills.md) | What each subagent and skill does, and when it runs. |
 | [MCP servers](mcp-servers.md) | What each local MCP server provides. |

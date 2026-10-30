@@ -1,107 +1,98 @@
-# Getting started
+# Getting started — the first hour
 
-## Requirements
+This page picks up where [Install](install.md) ends: `rein doctor` is all ✓, `rein init` has
+run in your project, and `rein start` shows two panes, with the Engineer on the left and the
+Architect on the right. Here is what the first hour looks like.
 
-| Requirement | Why |
-| :--- | :--- |
-| macOS or Linux (bash/zsh) | The installer and hooks are bash. On Windows, use WSL2. |
-| **Node.js 22.5+** | The MCP servers use the built-in `node:sqlite`; Node 20 starts some servers but not the SQLite-backed ones. |
-| Python 3.10+ | Generates `.mcp.json`; a bash/jq fallback exists. |
-| `sqlite3` CLI | The hooks read `.ai/state.sqlite`. |
-| `git` | Everything is git-aware: gates are git hooks, CI tests commits. |
-| **Claude Code** (`claude`) | Runs every role. One login is enough. |
-| `tmux` | Recommended: `rein start` builds the two-pane layout in it. |
-| `gh` | Optional: GitHub issue ingestion (`rein sync --github`). |
+## 1. Give the Architect the picture
 
-```bash
-# macOS
-brew install node tmux sqlite
-# Debian/Ubuntu
-sudo apt install tmux sqlite3 python3   # and Node 22.5+ from nodejs.org or your version manager
-```
+The Architect plans from `.ai/`, so the first job is to fill it.
 
-## Install
+**An existing codebase.** In the Architect pane:
 
-```bash
-git clone https://github.com/Vimurai/rein.git && cd rein
-bash install-rein.sh     # copies src/ → ~/.rein, installs the MCP servers' dependencies, adds the PATH line
-exec "$SHELL"             # pick up PATH=~/.rein/bin
-rein install                # Claude Code settings and hooks under ~/.claude
-rein doctor                 # each ✗ prints its fix
-```
+> *Reverse-engineer this repository: populate `.ai/DIGEST.md`, `.ai/BRIEF.md` and seed
+> `.ai/architect.md` from the real code. Read at most six files.*
 
-`rein doctor` also reports optional tools: the GitHub Copilot CLI (`gh copilot`, for the `copilot`
-skill) and the Playwright Chromium browser (for the UI audits; `rein mcp-setup --browsers`). A ✗
-on those only disables what they power.
+The Architect reads the code map (`.ai/REPO_MAP.md`) and a handful of central files. It writes:
 
-The install lives in `~/.rein` (the directory name predates the product name and is kept so
-existing installs keep working). Nothing is installed system-wide.
+- `DIGEST.md` — a 20–60 line snapshot: what the product is, the stack, the current focus, known
+  risks. Every later session reads it first.
+- `BRIEF.md` — goals, non-goals and constraints, in a few lines. Correct it: it is the one file
+  that is mostly yours.
+- `architect.md` — the system blueprint: components, data, boundaries, the conventions it found.
 
-## Enable it in a project
+**A new project.** Write two or three sentences into `.ai/BRIEF.md` yourself (what it is for,
+what it is not), then go to step 2.
 
-```bash
-cd ~/code/my-project
-rein init
-```
+Read the three files. They are short on purpose, and everything the agents do next starts from
+them. If something is wrong, say so in the Architect pane; it fixes the files.
 
-`rein init` creates:
+## 2. The first blueprint
 
-- `.ai/` — the project memory (see [How it works](how-it-works.md#the-ai-directory));
-- `.claude/` — agents, skills and the per-role settings overlays;
-- `.mcp.json` — the MCP servers Claude Code starts for this project;
-- `ENGINEER.md`, `ARCHITECT.md` and a `CLAUDE.md` shim that imports the Engineer rulefile;
-- the git hooks (`pre-commit`, `pre-push`, `post-commit`).
+Ask for one feature, in outcomes:
 
-It never overwrites `BRIEF.md`, `TASKS.md`, `LOG.md`, `DIGEST.md`, `architect.md` or your
-blueprints, so it is safe on an existing project and safe to run again. `rein init --check` lists
-what it would change.
+> *Plan a `/health` endpoint that reports the app version and database status.*
 
-**New project:** fill in `.ai/BRIEF.md` (goals and non-goals) in a sentence or two, then ask the
-Architect to plan the first feature.
+The Architect answers with:
 
-**Existing project:** ask the Architect: *"Reverse-engineer this repository — populate
-`.ai/DIGEST.md`, `.ai/BRIEF.md` and seed `.ai/architect.md` from the real code. Read at most six
-files."*
+- a **blueprint**, `.ai/blueprints/health.md`: the goal, the components, the data, the API, the
+  security notes, a rollback plan;
+- a **decision** in `.ai/DECISIONS.md` if it had to choose between options, with the rejected
+  alternatives and why;
+- **tasks** in `.ai/TASKS.md`: `E-##` lines for the Engineer, each with a tier and acceptance
+  criteria.
 
-## The two-pane layout
+It may ask you questions first. Answer them in the Architect pane; it waits. When the plan is
+written, the Architect wakes the Engineer.
 
-```
-┌─────────────────────────┬─────────────────────────┐
-│  Engineer               │  Architect              │
-│  claude · opus  (0)     │  claude · fable  (1)    │
-│                         │                         │
-│  - implements tasks     │  - blueprints, tasks    │
-│  - runs skills, tests   │  - decisions, rulings   │
-│  - commits              │  - reviews              │
-└─────────────────────────┴─────────────────────────┘
-        ◀──────── SendMessage (wake) ────────▶
-```
+## 3. Watch the Engineer
 
-```bash
-cd /path/to/your-project
-rein start
-```
+The Engineer pane comes alive by itself. It runs its preflight (digest, open tasks, health
+checks), takes the first open `E-##`, and works through it:
 
-`rein start` creates or reuses one tmux session per project (named after the project directory),
-orders the panes by `pane_identifier` in `.ai/roles.json`, binds each to its role and launches
-Claude Code. It is idempotent: rerunning it re-pins the pane titles and attaches.
+- it writes the code and the tests;
+- it runs the tests, and dispatches the Tester for missing ones;
+- it runs the critics the task's risk tier calls for;
+- it commits, gated: no review stamp, no commit;
+- it runs `rein ci run` on the commit, and closes the task only when that is green.
+
+You do not have to do anything. If it asks a question, answer it in the Engineer pane. If a
+gate refuses something, the refusal names the rule and the agent reads it, as you can.
+
+## 4. Read the handoff
+
+When the Engineer's queue is empty, it appends a handoff to `.ai/COMM.md` and wakes the
+Architect. The entry is short and always has the same sections:
+
+- **What was built** — per task, with the files changed;
+- **Decisions made** — anything decided on the way;
+- **Blueprint divergence** — where the code differs from the plan, or "NONE";
+- **Next action needed**;
+- **Open risks**.
+
+The divergence section is the one to read. The Architect reviews it, updates the blueprint to
+match what was built (or files a task to change the code), and plans the next step.
+
+## 5. Approve, push, repeat
+
+The commits are local until you push. Look at them as you would a colleague's:
 
 ```bash
-rein start --status        # which panes exist and what each is running
-rein start --kill          # tear the project window down (asks first)
-rein start --kill --yes    # same, without the prompt
-rein start --detach        # build the layout without attaching
-rein start --dry-run       # print the tmux commands instead of running them
+git log --oneline -5
+git show --stat HEAD
+rein ci status --short        # PASS <sha> means the commit itself was tested
 ```
 
-Without tmux, `rein start` exits 2 and prints the manual recipe: open two terminals and run
-`rein pane engineer` in one and `rein pane architect` in the other. Each pane keeps its shell when
-Claude Code exits, so you can relaunch with the same command. Use a third terminal for `rein sync`,
-`rein doctor` and git.
+Push when you are satisfied. The pre-push hook refuses a tip without a green local run, so a
+push is never untested. Then describe the next feature to the Architect.
 
-`rein doctor` checks that the launcher can work: tmux present, roles mapped, and each role's
-provider on `PATH`. A missing provider gives a pane that opens and fails at the first keystroke,
-so check there first.
+## Day to day
+
+- `rein start` in the project directory reattaches, or rebuilds the panes if tmux was closed.
+- `Ctrl-b` `d` detaches and leaves both agents working.
+- One pane alone works: the Engineer by itself is a single agent with memory, gates, critics
+  and CI, and you do the planning. Add tasks with `rein add-task "…"`.
+- When `DIGEST.md` feels stale, ask for `skill: rein-digest`.
 
 ## A second Claude account
 
@@ -116,38 +107,3 @@ rein start                     # both panes now run under the work login
 `rein start --account default` unbinds it. `rein account list | remove <name> | sync <name>` manage
 the registered accounts. A pane whose account does not resolve refuses to start rather than
 falling back to the default login.
-
-## Upgrading
-
-```bash
-cd rein && git pull
-bash install-rein.sh          # refresh ~/.rein
-rein install                     # optional: refresh ~/.claude settings and hooks
-
-cd ~/code/my-project
-rein init                        # upgrade the project to the installed version
-rein sync                        # regenerate .mcp.json, .claude/, rulefiles, hooks
-rein doctor
-```
-
-What `rein sync` does:
-
-- updates `ENGINEER.md`, `ARCHITECT.md` and the `CLAUDE.md` shim;
-- regenerates `.mcp.json` — servers you added yourself are kept, retired ones removed;
-- refreshes `.claude/agents/` and `.claude/skills/`;
-- reinstalls the git hooks;
-- never touches `architect.md`, `BRIEF.md`, `TASKS.md`, `DIGEST.md` or anything else you wrote.
-
-Older versions leave things behind (retired servers, old hooks, stale locks). `rein clean` lists
-them; `rein clean --apply` moves them to `~/.rein/trash/<date>/`, and `rein clean --restore <date>`
-puts them back.
-
-## Uninstalling
-
-```bash
-rein uninstall      # removes ~/.rein after you type "uninstall"
-```
-
-Left for you to remove by hand: each project's `.ai/`, `.mcp.json`, `.claude/` and git hooks;
-`~/.claude/` (it holds your own Claude Code settings too); and the
-`export PATH="$HOME/.rein/bin:$PATH"` line in your shell rc.

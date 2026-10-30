@@ -47,7 +47,7 @@ your own terminal — an agent cannot switch the gate off.
 
 The tip must have a green, non-dirty `rein ci run`. A tip that only adds `.ai/` bookkeeping on top
 of a tested commit passes. A recorded skip is possible, with a mandatory reason — see
-[Local CI](local-ci.md#skipping-once).
+[Local CI](ci.md#skipping-once).
 
 ## Critics
 
@@ -82,4 +82,4 @@ Tests are kept cheap on purpose. Behaviour is expressed as rows in contract tabl
 what only a real process boundary can show. Every green CI run records the number of suites, test
 lines and fast-tier seconds; the next run fails if one grows past its slack (suites +0, test lines
 +2 %, fast-tier time +10 %). The numbers only go down. Raising one is a recorded decision:
-`rein ci budget set --ruling D-### <field>=<n>`. See [Local CI](local-ci.md#the-test-budget).
+`rein ci budget set --ruling D-### <field>=<n>`. See [Local CI](ci.md#the-test-budget).

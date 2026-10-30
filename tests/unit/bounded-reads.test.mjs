@@ -12,6 +12,9 @@ import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync, existsSync
   openSync, readSync, closeSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+// Static, not a top-level await import below the hooks: node 22 then ran the root after() before
+// the later tests, which recreated the temp dir it had removed (a leak on hosted CI, E-397).
+import { snakeIdentifiers } from "../../src/mcp/blueprint-aligner-mcp/index.js";
 
 let T;
 before(() => { T = mkdtempSync(join(tmpdir(), "rein-t-bounded-")); });
@@ -56,7 +59,6 @@ test("P-9: +++ diff header lines correctly excluded from addedLines", () => {
 
 // E-397 (CodeQL js/redos): blueprint-aligner's backticked snake_case scan, as /`(\w+(?:_\w+)+)`/g
 // found it, without the exponential backtracking on `0_0_0_… .
-const { snakeIdentifiers } = await import("../../src/mcp/blueprint-aligner-mcp/index.js");
 test("P-9: snakeIdentifiers finds backticked a_b words as the regex did, in linear time", () => {
   assert.deepEqual(snakeIdentifiers("`run_review` `_x` `x_` `ab`x_y` `a__b` `a_b`c_d`"), ["run_review", "x_y", "a__b", "a_b"]);
   const t = Date.now();

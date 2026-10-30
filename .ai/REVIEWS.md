@@ -244,3 +244,4 @@
 [ALIGN_PASS] 2026-10-30 | 509d7e5 32126521+Vimurai@users.noreply.github.com | [TIER_2] align_diff WARN only: ORPHANED_WORK covered by public-ci.md §Component 2/§Data Model per D-137 (not architect.md); NO_LOG_UPDATE handled at handover. Matches D-137 r1-r3, r5.
 [CRITIC_STAMP] 2026-10-30 | 509d7e5 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-399: INFORMATIVE_LEGS + requiredChecks() exact set (unit), --required flag, release.yml publish gate on the required set (dry run vs 509d7e5 exit 0; negative exit 1), operand-scope baseline budget + 1000 ms ceiling; fast tier 2244/0; actionlint SKIP (not on Linux x86_64 host).
 [CRITIC_STAMP] 2026-10-30 | afec3af 32126521+Vimurai@users.noreply.github.com | Tier 1 bookkeeping only on afec3af: E-399 DONE, LOG and views.
+[CRITIC_STAMP] 2026-10-30 | 6c4d34b 32126521+Vimurai@users.noreply.github.com | Tier 1 bookkeeping only on 6c4d34b: E-399 DONE, LOG and views.

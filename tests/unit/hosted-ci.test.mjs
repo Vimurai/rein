@@ -14,7 +14,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { detectProvider, remoteHost, hosted, doctorLine, bootstrapFor, PROVIDERS, matrixFor, requiredChecks, profileFor } from "../../src/shared/hosted-ci.mjs";
+import { detectProvider, remoteHost, hosted, doctorLine, bootstrapFor, PROVIDERS, matrixFor, requiredChecks, profileFor, INFORMATIVE_LEGS } from "../../src/shared/hosted-ci.mjs";
 import { newTeam, writeTeam, readTeam, validateTeam } from "../../src/mcp/shared/team.mjs";
 
 const PLANNER = "planner@example.com", OTHER = "dev@example.com";
@@ -231,13 +231,16 @@ test("the matrix follows the project: --tier → a fast job, --shard → team.js
   assert.deepEqual(requiredChecks(d, team), ["fast", "rein ci run (ubuntu-latest, node 22, 1/2)", "rein ci run (ubuntu-latest, node 22, 2/2)"]);
   writeFileSync(join(d, ".ai", "publish.json"), "{}");
   assert.equal(profileFor(d), "public");
-  const pub = requiredChecks(d, null);
-  assert.equal(pub.length, 13, "fast + 3 PR legs × 4 shards (macOS × 24 is nightly-only)");
-  assert.ok(pub.includes("rein ci run (macos-latest, node 22, 4/4)") && !pub.some((n) => n.includes("macos-latest, node 24")));
+  // D-137 r1–r2 (E-399): the exact required set — fast + the eight Ubuntu legs; an
+  // INFORMATIVE_LEGS leg (macOS × 22) is rendered into the matrix but never required.
+  const ubuntu = ["22", "24"].flatMap((n) => [1, 2, 3, 4].map((i) => `rein ci run (ubuntu-latest, node ${n}, ${i}/4)`));
+  assert.deepEqual(requiredChecks(d, null), ["fast", ...ubuntu]);
+  assert.deepEqual(INFORMATIVE_LEGS, [["macos-latest", "22"]]);
   const r = hosted(d, { provider: "github" });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /^Required checks \(D-135 r7, public profile\): "fast", "rein ci run \(ubuntu-latest, node 22, 1\/4\)", /m);
   assert.match(readFileSync(wrapper(d), "utf8"), /^  fast:\n    name: fast\n/m);
+  assert.match(readFileSync(wrapper(d), "utf8"), /^        os: \[ubuntu-latest, macos-latest\]$/m, "the informative leg still runs");
 });
 
 test("team.json ci.shards is a whole number 1..8", () => {

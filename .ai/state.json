@@ -1342,16 +1342,16 @@
     {
       "id": "E-399",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Make requiredChecks() the single source of the required set and gate the release publish on it per D-137 r1–r3, r5 and .ai/blueprints/public-ci.md §Component 2 (release.yml row), §Data Model and §E-## Task Breakdown (E-399 row); ci_gate first, DEVOPS-016 entry with rollback; after v0.4.0, not a dependency of E-385. (1) src/shared/hosted-ci.mjs: add INFORMATIVE_LEGS beside PUBLIC_LEGS (today [[\"macos-latest\",\"22\"]], comment naming D-135 addendum 2 r3, D-133 addendum r4, D-137 r2); requiredChecks() skips those legs and returns exactly `fast` + the eight Ubuntu legs; _matrixYaml still renders them; `rein ci hosted --required` prints requiredChecks() one per line; tests/unit/hosted-ci.test.mjs asserts the exact set and that an informative leg is in the matrix and not in the set. (2) .github/workflows/release.yml: the publish job runs `if: ${{ !cancelled() }}` after the matrix job; its first step reads the tag sha's check runs (gh api repos/<owner>/<repo>/commits/<sha>/check-runs, paginated) and fails unless every name `rein ci hosted --required` prints has conclusion success; a second step writes an \"informative legs\" table (name, conclusion) to the job summary; the notes recipe is unchanged; no continue-on-error anywhere. (3) tests/unit/operand-scope.test.mjs: both budget tests drop the CI=true branch and use `200 + 20 * base` everywhere with an absolute ceiling of 1000 ms (assert both). (4) DEVOPS-016: the publish gate, the single source, the rollback; DEVOPS-015's required-set list gains a pointer to `rein ci hosted --required`. Acceptance: hosted-ci.test.mjs green with the exact set; rendered release.yml validated with actionlint if in the CI cache (else host-named SKIP); `rein ci run` green; a dry run of the publish-gate step against 509d7e5 (v0.4.0) exits 0 on the eight Ubuntu legs and lists the four macOS legs in the informative table; DEVOPS-016 written before the first edit. One PR.",
       "created_at": "2026-10-30T15:29:42.926Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T16:20:12.212Z",
+      "summary": "requiredChecks() single source (INFORMATIVE_LEGS macOS×22), rein ci hosted --required, release.yml publish gated on required set (dry run v0.4.0 exit 0), operand-scope baseline budge …[full in LOG.md]",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T15:29:42.937Z"
+      "updated_at": "2026-10-30T16:20:12.221Z"
     }
   ],
   "stamps": [
@@ -3490,6 +3490,60 @@
       "timestamp": "2026-10-30T15:49:46.757Z",
       "summary": "Tier 1 bookkeeping only on f0f2b2d: regenerated task/review views and stamps.",
       "sha": "f0f2b2d7a9c6c85402682f9460404817db9aba00",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-399",
+      "timestamp": "2026-10-30T15:55:25.052Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK covered by public-ci.md §Component 2/§Data Model per D-137 (not architect.md); NO_LOG_UPDATE handled at handover. Matches D-137 r1-r3, r5.",
+      "sha": "509d7e568c21ef6f64e8279315e8a2b4e34ab516",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-399",
+      "timestamp": "2026-10-30T15:55:26.955Z",
+      "summary": "[TIER_2] E-399: INFORMATIVE_LEGS + requiredChecks() exact set (unit), --required flag, release.yml publish gate on the required set (dry run vs 509d7e5 exit 0; negative exit 1), operand-scope baseline budget + 1000 ms ceiling; fast tier 2244/0; actionlint SKIP (not on Linux x86_64 host).",
+      "sha": "509d7e568c21ef6f64e8279315e8a2b4e34ab516",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-399",
+      "timestamp": "2026-10-30T16:05:00.465Z",
+      "summary": "Tier 1 bookkeeping only on afec3af: E-399 DONE, LOG and views.",
+      "sha": "afec3af3b5ddc9d6f9d264bfa64fedeaca4e3d66",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-399",
+      "timestamp": "2026-10-30T16:20:16.926Z",
+      "summary": "Tier 1 bookkeeping only on 6c4d34b: E-399 DONE, LOG and views.",
+      "sha": "6c4d34b1e91d42d532eaf8b3320f0abe6042e607",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-385",
+      "timestamp": "2026-10-30T19:13:36.991Z",
+      "summary": "Tier 1 bookkeeping only: merge origin/main (8c649ee, #14) into e-385-rein-mark; .ai view conflicts (TASKS/REVIEWS/state.json) resolved to main's superset side, E-385 and E-399 both DONE, JSON valid, no markers.",
+      "sha": "9bff85661bddfdd5a1e8704edc6517ebde43be4f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-388",
+      "timestamp": "2026-10-30T19:23:43.292Z",
+      "summary": "Tier 1 bookkeeping only: merge origin/main (8c649ee, #14) into e-388-bash32-subshell-registry; .ai view conflicts resolved to main's superset side (E-399 DONE), JSON valid, no markers.",
+      "sha": "04a9d78b25f275e22965cc99005ae7d02e9a14b6",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

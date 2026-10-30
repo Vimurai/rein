@@ -26,6 +26,8 @@ OUT="./demo-out"
 ROOT="/tmp/rein-demo"
 KEEP=0 SPEED="" DRY=0
 TOOLS=(tmux asciinema agg ffmpeg claude rein node)
+# Claude Code's empty-input placeholder (`❯ Try "…"`): on screen only when the pane takes input.
+READY='Try "'
 
 _tilde() { local p="$1"; [[ -n "${HOME:-}" && "$p" == "$HOME"* ]] && p="~${p#"$HOME"}"; printf '%s' "$p"; }
 _die() { echo "record.sh: $2" >&2; exit "$1"; }
@@ -189,6 +191,11 @@ _drive() {
     if [[ "${S_PROMPT[$i]}" != "-" ]]; then
       id=""
       while [[ -z "$id" && $SECONDS -lt $deadline ]]; do id="$(_pane_of "${S_PANE[$i]}")"; [[ -n "$id" ]] || sleep 2; done
+      # A role pane takes the prompt only while its input box is showing: a permission or trust
+      # dialog replaces it, and keys typed then would answer the dialog instead.
+      if [[ -n "$id" && "${S_PANE[$i]}" != shell ]]; then
+        until _met "pane:${READY}" "${S_PANE[$i]}" 0; do [[ $SECONDS -lt $deadline ]] || break; sleep 2; done
+      fi
       if [[ -n "$id" ]]; then
         "${T[@]}" send-keys -t "$id" -l -- "${S_PROMPT[$i]}"
         sleep 0.5

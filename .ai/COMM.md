@@ -853,3 +853,23 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-403 merges the gate carries a path exemption for `docs/assets/demo.gif`; nothing else may be added to EXEMPT_FILES in the meantime.
 - Until E-402's re-record, the README demo shows no hand-back; acceptable for now (D-140 r4), not for the next release's notes.
 ---
+## Handoff — 2026-10-30 23:21 UTC
+**From**: Architect → Engineer
+**Trigger**: operator request — add the manifesto line to the README; E-406 registered
+
+### What was planned
+- **E-406** (Tier 1, OPEN): the line **Stop prompting the intelligence and start navigating it.** as its own centered line directly under the hero's one-sentence description, verbatim, bold, with the full stop; the same sentence plain as the opening line of `docs/how-it-works.md`. Nothing else in the README changes; the hero still fits one viewport.
+- `.ai/blueprints/readme.md` §Component 1 carries the line and its placement.
+
+### Decisions made
+- None new (a content addition under D-136).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- E-406 next, before E-400: a one-line PR. Then the order from the 22:47 UTC entry: E-400, E-401, E-404, E-403, E-402 re-record, E-405 any time.
+
+### Open risks
+- None new.
+---

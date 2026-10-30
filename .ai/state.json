@@ -1206,18 +1206,18 @@
     {
       "id": "E-390",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Rewrite the README and create the docs pages per D-136 and .ai/blueprints/readme.md §Components 1–5 (post-rename names: install-rein.sh, ~/.rein, REIN_*): (1) README.md — hero with the animated mark via <picture> (light/dark SVGs from E-385), wordmark, tagline, badge row; the pitch in outcomes (the four bold paragraphs and \"who it is for\" as written in §Component 1); \"How it works\" with Mermaid diagram 2a replacing the ASCII block and the triad.svg link; quickstart as one block with prerequisites as one line linking docs/install.md; feature tour table; command reference and FAQ kept; install, upgrade, uninstall and the manual tmux fallback moved out. (2) docs/install.md — diagram 2d then steps 1–8 as §Component 3: per-OS prerequisites (macOS Homebrew, Ubuntu/Debian, Fedora, Arch, Windows via WSL2) for node 22+, git, sqlite3, python3 and tmux with version checks; tmux in five keys and an optional ~/.tmux.conf; Claude Code install quoted from the official page with the link, then login; Rein install, ai install, ai doctor with a table of every doctor line a fresh machine can show; first project (ai init, ai start, the first prompt, stop and return); upgrade and uninstall; the five commonest failures. Run every command block on this machine; mark the macOS block as documented-not-run. (3) docs/how-it-works.md (diagrams 2a–2c, roles, memory, wake, hooks), docs/getting-started.md (the first hour), docs/ci.md (local and hosted CI, required checks). (4) tests/unit/docs-links.test.mjs: every relative link and image in README.md and docs/**/*.md resolves; every mermaid fence balanced and flowchart-only; parse only if mermaid is in the CI cache, else host-named SKIP. (5) Dispatch docs-architect; no HIGH gap. Acceptance: link test green; rendered README checked in GitHub light and dark and named in the handoff; README under 60 KB, hero fits one laptop viewport; no HTML beyond div/picture/details; full ai ci run green. One PR, after E-385.",
       "created_at": "2026-10-29T19:28:32.229Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T21:24:54.352Z",
+      "summary": "README rewrite (outcome pitch, Mermaid 2a, Claude Code-first quickstart, feature tour) + docs/install.md steps 1-8, how-it-works 2a-2c, getting-started, ci.md; E-374 extended, docs-l …[full in LOG.md]",
       "depends_on": [
         "E-385"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T15:48:34.034Z"
+      "updated_at": "2026-10-30T21:24:54.362Z"
     },
     {
       "id": "E-391",
@@ -3685,6 +3685,15 @@
       "timestamp": "2026-10-30T21:00:17.353Z",
       "summary": "Tier 1 bookkeeping only: Architect's D-139 (DECISIONS, blueprints/demo-video.md, readme.md amendment, E-402 task) carried as written; stamps and views.",
       "sha": "5628b1bd227537c762e886b6315095a40364054b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T21:25:06.318Z",
+      "summary": "Tier 1 bookkeeping only on 6150663: E-390 DONE, LOG and views.",
+      "sha": "61506635e9fe710f9fc6e4853a915cdaf20736ed",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

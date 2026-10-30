@@ -258,3 +258,4 @@
 [CRITIC_STAMP] 2026-10-30 | 9a16d54 32126521+Vimurai@users.noreply.github.com | Tier 1 bookkeeping only: Architect's D-138 (DECISIONS, test-harness-isolation.md, ci-throughput.md, E-400/E-401 tasks) carried as written; E-390 stamps and views.
 [CRITIC_STAMP] 2026-10-30 | 7681500 32126521+Vimurai@users.noreply.github.com | Tier 2 test fix: rein_ci_test E-268.03b/c follow the local-CI text from README to docs/ci.md (## Local CI .. ## Hosted CI), unchanged in what they assert; docs/ci.md gains the `rein ci log --failed` example the README carried. rein_ci_test 243/0.
 [CRITIC_STAMP] 2026-10-30 | 5628b1b 32126521+Vimurai@users.noreply.github.com | Tier 1 bookkeeping only: Architect's D-139 (DECISIONS, blueprints/demo-video.md, readme.md amendment, E-402 task) carried as written; stamps and views.
+[CRITIC_STAMP] 2026-10-30 | 6150663 32126521+Vimurai@users.noreply.github.com | Tier 1 bookkeeping only on 6150663: E-390 DONE, LOG and views.

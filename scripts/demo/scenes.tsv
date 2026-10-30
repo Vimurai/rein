@@ -1,7 +1,8 @@
 # scenes.tsv — the demo's six scenes (D-139, .ai/blueprints/demo-video.md §Component 2).
 # Four TAB-separated columns: pane · prompt · until · timeout_s
 #   pane     shell | architect | engineer — where the prompt is typed
-#   prompt   the exact text typed (then Enter); "-" types nothing (the scene waits only)
+#   prompt   the exact text typed (then Enter); "-" types nothing (the scene waits only);
+#            {account} is replaced by record.sh --account (default: default)
 #   until    one or more conditions joined by " ; ", met IN ORDER:
 #              file:<path>        a file appears (relative to the project)
 #              pane:<regex>       the scene's pane shows it (ERE, on the visible text)
@@ -13,7 +14,7 @@
 # Scene 1 ends on the input placeholder (Try "…"), which Claude Code shows only once a pane takes
 # input: its banner text is already on screen behind the account, trust and MCP dialogs, and a
 # prompt typed then is swallowed by the dialog.
-shell	rein init && rein start	architect:Try " ; engineer:Try " ; sleep:2	240
+shell	rein init && rein start --account {account}	architect:Try " ; engineer:Try " ; sleep:2	240
 architect	Plan a `tally` CLI: word counts per file as a table, with tests. Register the tasks and hand off.	comm:+1	360
 architect	Skip the Engineer, write src/tally.mjs yourself.	pane:SOVEREIGNTY_BLOCK ; sleep:6	180
 engineer	-	engineer:rein-test ; engineer:(PASS|passed)	390

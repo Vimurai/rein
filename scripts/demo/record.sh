@@ -2,8 +2,8 @@
 # record.sh — record the Rein demo: the Architect plans, hands off, the Engineer builds and
 # tests, the gates hold (D-139, .ai/blueprints/demo-video.md §Components 1–3, §API).
 #
-#   scripts/demo/record.sh [--out <dir>] [--root <dir>] [--keep] [--speed <s>] [--dry-run]
-#                          [--scenes <file>]
+#   scripts/demo/record.sh [--out <dir>] [--root <dir>] [--account <name>] [--keep] [--speed <s>]
+#                          [--dry-run] [--scenes <file>]
 #
 # Creates a throwaway `tally` project under --root, starts a dedicated 120×36 tmux server,
 # records it with asciinema (idle time capped at 2 s) while a background driver types each
@@ -24,6 +24,9 @@ OUT="./demo-out"
 # Outside $HOME on purpose: Claude Code shows its working directory, and a /home/<user>/… path
 # on screen is a privacy finding (home_path) that would refuse the whole recording.
 ROOT="/tmp/rein-demo"
+# The Claude account the demo project binds (`rein start --account`): answered here, so the
+# account question — and the list of your accounts — never appears in the recording.
+ACCOUNT="default"
 KEEP=0 SPEED="" DRY=0
 TOOLS=(tmux asciinema agg ffmpeg claude rein node)
 # Claude Code's empty-input placeholder (`❯ Try "…"`): on screen only when the pane takes input.
@@ -36,6 +39,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --out) OUT="${2:?--out needs a directory}"; shift 2 ;;
     --root) ROOT="${2:?--root needs a directory}"; shift 2 ;;
+    --account) ACCOUNT="${2:?--account needs a name}"; shift 2 ;;
     --keep) KEEP=1; shift ;;
     --speed) SPEED="${2:?--speed needs a number}"; shift 2 ;;
     --dry-run) DRY=1; shift ;;
@@ -45,6 +49,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 [[ -z "$SPEED" || "$SPEED" =~ ^[0-9]+(\.[0-9]+)?$ ]] || _die 2 "--speed must be a number"
+[[ "$ACCOUNT" =~ ^[A-Za-z0-9._-]+$ ]] || _die 2 "--account must be a plain account name"
 
 # ── The scenes file: four TAB-separated columns per row; anything else is exit 2 before any
 # recording starts (§API).
@@ -79,7 +84,7 @@ _parse_scenes() {
     while IFS= read -r c; do
       _cond_ok "$c" || _die 2 "$(_tilde "$SCENES"):${n}: unknown condition '${c}'"
     done < <(_conds "$until")
-    S_PANE+=("$pane"); S_PROMPT+=("$prompt"); S_UNTIL+=("$until"); S_TIMEOUT+=("$timeout")
+    S_PANE+=("$pane"); S_PROMPT+=("${prompt//\{account\}/$ACCOUNT}"); S_UNTIL+=("$until"); S_TIMEOUT+=("$timeout")
   done < "$SCENES"
   [[ ${#S_PANE[@]} -gt 0 ]] || _die 2 "$(_tilde "$SCENES"): no scenes"
 }

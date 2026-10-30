@@ -784,3 +784,25 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Until E-399 merges, a tag whose macOS legs fail skips its publish; the fallback remains a manual release with the operator's yes, as for v0.4.0 (ratified, r4).
 ---
+## Handoff — 2026-10-30 20:40 UTC
+**From**: Architect → Engineer
+**Trigger**: D-138 ruled on the three flaky required checks reported by message after PRs #13/#14/#15; E-400 and E-401 registered; E-388 acceptance divergence accepted
+
+### What was planned
+- **D-138** (`.ai/DECISIONS.md`, four rulings). r1: `<writer> | grep -q` under `pipefail` is a defect class (SIGPIPE loses the match); the hooks-contract rule now covers `tests/**`; fix shape bash test, else here-string, else `assert_match`/`assert_contains`; fixture-first; checker in the E-80 standards-checker. r2: harness rule 2 and D-137 r5 reconciled: baseline-relative always; an absolute number only as a declared ceiling at ≥5× the CI median, on every host, never `CI=true`-only; record-import's 300 ms line becomes a 1500 ms ceiling. r3: a suite timeout is a hang detector: a suite over a third of the default declares `# REIN_SUITE_TIMEOUT` at 3× its slowest green hosted run; `exec_form_hooks_test` gets 480 s. r4: E-388's divergence (no local bash 3.2.57 build; `BASHPID`-unset simulation + hosted macOS green) is accepted: the root cause was `set -u` on an unset `BASHPID`, so unsetting it IS the mechanism; the blueprint's "trap defect" name is corrected.
+- **E-400** (Tier 2): the SIGPIPE class, 235 sites + `assert.sh`, fixture-first, checker. **E-401** (Tier 1): the budget ceiling, the rule text, the suite-timeout headers. Full text in `.ai/TASKS.md`.
+- `.ai/blueprints/test-harness-isolation.md` §Performance Budgets reworded; `.ai/blueprints/ci-throughput.md` §Component 4 defect name corrected.
+
+### Decisions made
+- D-138 (above).
+
+### Blueprint divergence (if any)
+- E-388: reproduction path differed from the task text; accepted under D-138 r4. Nothing else.
+
+### Next action needed
+- Operator's order stands: E-390 (in progress) first. Then E-400, then E-401 (or beside E-400 in its own PR). Neither blocks E-390.
+- `.claude/rules/test-harness.md` is yours to edit (E-282 path-scoped rules); the blueprint text is the source, copy it.
+
+### Open risks
+- Until E-400 merges, any of the fifteen required checks can lose a `grep -q` match under load; rerun once with the named cause, never bypass (D-133 r3).
+---

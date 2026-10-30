@@ -89,12 +89,20 @@ for (const [line, want] of RO) {
 }
 
 // E-350 (D-111 r6 iv): the tokenizer is quadratic in tokens, so a 50k-group line took ~100 s and
-// relied on the hook's timeout. Past the cap the analyzer refuses before tokenizing. Rule 2 of the
-// harness: the absolute 200 ms applies under CI=true; elsewhere it moves with a same-run baseline.
+// relied on the hook's timeout. Past the cap the analyzer refuses before tokenizing.
+// D-137 r5 (E-399): the budget is a linear-time tripwire, not an SLA — the same-run baseline form
+// on every host (a slower runner gets proportionally more headroom, rule 1: no host-conditional
+// budget), and 1000 ms, the denial-of-service bound for a 50k-group input, caps it everywhere.
 const msOf = (fn) => { const t = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t) / 1e6; };
-test("a 50k-group input is refused [INPUT_TOO_LARGE] inside 200 ms, for every role", () => {
+const CEILING_MS = 1000;
+const budgetOf = (base) => 200 + 20 * base;
+const assertInside = (ms, budget, label) => {
+  assert.ok(ms < budget, `${label}: ${ms.toFixed(1)} ms ≥ ${budget.toFixed(1)} ms (baseline-relative)`);
+  assert.ok(ms < CEILING_MS, `${label}: ${ms.toFixed(1)} ms ≥ the ${CEILING_MS} ms ceiling`);
+};
+test("a 50k-group input is refused [INPUT_TOO_LARGE] inside the budget, for every role", () => {
   const base = msOf(() => runAnalysis("true; ".repeat(50), "engineer"));
-  const budget = process.env.CI === "true" ? 200 : 200 + 20 * base;
+  const budget = budgetOf(base);
   for (const [shape, unit] of [["{ :; }", "{ :; } "], ["$( : )", "echo $( : ); "], ["true;", "true; "], ["words", "a "],
     ["a< (one word, redirections split it)", "a<"], ["one 100k-char word", "ab"]]) {
     for (const role of ["engineer", "architect"]) {
@@ -103,7 +111,7 @@ test("a 50k-group input is refused [INPUT_TOO_LARGE] inside 200 ms, for every ro
       console.log(`  ${shape} ×50k ${role}: ${ms.toFixed(1)} ms (budget ${budget.toFixed(1)}, baseline ${base.toFixed(2)})`);
       assert.equal(r.verdict, "BLOCK");
       assert.ok(r.blocked.some((b) => b.id === "INPUT_TOO_LARGE"), `${shape}: rules ${r.blocked.map((b) => b.id)}`);
-      assert.ok(ms < budget, `${shape} ${role}: ${ms.toFixed(1)} ms ≥ ${budget.toFixed(1)} ms`);
+      assertInside(ms, budget, `${shape} ${role}`);
     }
   }
 });
@@ -121,7 +129,7 @@ test("…while a long ordinary command below the cap is still analysed, not refu
 // inside the 50k test's budget. The other spellings are the table's E-350 (iii) rows.
 test("CodeQL's pathological git and path inputs keep their verdict and stay inside the budget", () => {
   const base = msOf(() => runAnalysis("true; ".repeat(50), "engineer"));
-  const budget = process.env.CI === "true" ? 200 : 200 + 20 * base;
+  const budget = budgetOf(base);
   for (const [cmd, rule] of [["git " + "-C -! ".repeat(400) + "--git-dir=x status", "ARCH_GIT_DIR_OVERRIDE"],
     ["GIT_CONFIG_KEY_0=" + "(GIT_CONFIG_KEY_0=".repeat(400) + "core.hooksPath git status", "ARCH_GIT_HOOKS_PATH"]]) {
     let r;
@@ -129,8 +137,8 @@ test("CodeQL's pathological git and path inputs keep their verdict and stay insi
     console.log(`  ${rule}: ${ms.toFixed(1)} ms (budget ${budget.toFixed(1)}, baseline ${base.toFixed(2)})`);
     assert.equal(r.verdict, "BLOCK");
     assert.ok(r.sovereignty.some((b) => b.id === rule), `rules ${r.sovereignty.map((b) => b.id)}`);
-    assert.ok(ms < budget, `${rule}: ${ms.toFixed(1)} ms ≥ ${budget.toFixed(1)} ms`);
+    assertInside(ms, budget, rule);
   }
   const ms = msOf(() => boundedRel(".ai/" + "/".repeat(50000) + "x", repo));
-  assert.ok(ms < budget, `trailing-separator trim: ${ms.toFixed(1)} ms`);
+  assertInside(ms, budget, "trailing-separator trim");
 });

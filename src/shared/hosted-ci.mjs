@@ -17,6 +17,7 @@
 //
 // Usage: node hosted-ci.mjs --root <dir> [<provider>] [--check] [--force]
 //        node hosted-ci.mjs --root <dir> --doctor          (one doctor line)
+//        node hosted-ci.mjs --root <dir> --required        (requiredChecks(), one per line — D-137)
 // Exit: 0 written / current, 1 --check mismatch or refusal, 2 usage or unknown provider.
 
 import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync, realpathSync } from "node:fs";
@@ -38,6 +39,11 @@ export const REQUIRED_CHECK = "rein ci run";   // team.json ci.required_check: t
 // — Rein itself) adds Node 24 and macOS; its nightly adds macOS × 24 and one unsharded leg.
 export const DEFAULT_SHARDS = 4;
 const PUBLIC_LEGS = [["ubuntu-latest", "22"], ["ubuntu-latest", "24"], ["macos-latest", "22"]];
+// D-135 addendum 2 r3, D-133 addendum r4, D-137 r2: legs the matrix runs (and shows red) but
+// no gate requires — neither main's branch protection nor the release publish. requiredChecks()
+// is the one place that decides; it empties when E-388/E-396 make macOS green.
+export const INFORMATIVE_LEGS = [["macos-latest", "22"]];
+const _informative = (os, node) => INFORMATIVE_LEGS.some(([o, n]) => o === os && n === node);
 const TEAM_LEGS = [["ubuntu-latest", "22"]];
 const SHA = {
   checkout: "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1",
@@ -75,12 +81,13 @@ export function matrixFor(root, team) {
   return { fast: run.includes("--tier"), shards, profile: profileFor(root) };
 }
 
-/** Every check name the rendered wrapper reports on a pull request — what the branch policy requires. */
+/** The check names of the rendered wrapper that the branch policy and the release publish require (D-137). */
 export function requiredChecks(root, team) {
   const m = matrixFor(root, team);
   const legs = m.profile === "public" ? PUBLIC_LEGS : TEAM_LEGS;
   const names = m.fast ? ["fast"] : [];
   for (const [os, node] of legs) {
+    if (_informative(os, node)) continue;
     if (m.shards === 1) names.push(`${REQUIRED_CHECK} (${os}, node ${node})`);
     else for (let i = 1; i <= m.shards; i++) names.push(`${REQUIRED_CHECK} (${os}, node ${node}, ${i}/${m.shards})`);
   }
@@ -335,18 +342,26 @@ export function doctorLine(root) {
 }
 
 function main(argv) {
-  let root = null, provider = "", check = false, force = false, doctor = false;
+  let root = null, provider = "", check = false, force = false, doctor = false, required = false;
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === "--root") root = argv[++i];
     else if (a === "--check") check = true;
     else if (a === "--force") force = true;
     else if (a === "--doctor") doctor = true;
+    else if (a === "--required") required = true;
     else if (!a.startsWith("-") && !provider) provider = a;
     else { process.stderr.write(`rein ci hosted: unknown argument '${a}'\n`); return 2; }
   }
   if (!root) { process.stderr.write("rein ci hosted: --root is required\n"); return 2; }
   if (doctor) { process.stdout.write(doctorLine(root) + "\n"); return 0; }
+  // D-137 r2: the branch-protection PATCH and the release publish gate read the set from here.
+  if (required) {
+    let team = null;
+    try { team = readTeam(join(root, ".ai")); } catch (e) { process.stderr.write(`rein ci hosted: ${e.message}\n`); return 1; }
+    process.stdout.write(requiredChecks(root, team).join("\n") + "\n");
+    return 0;
+  }
   const r = hosted(root, { provider, check, force });
   process.stdout.write(r.out + "\n");
   return r.code;

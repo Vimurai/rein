@@ -767,6 +767,35 @@ node 22, 1/4)", … "(ubuntu-latest, node 22, 4/4)","rein ci run (ubuntu-latest,
 … "(ubuntu-latest, node 24, 4/4)"]` — eleven contexts, the eight `ai ci run (…)` names gone.
 Note: `requiredChecks()` in src/shared/hosted-ci.mjs also returns the four
 `macos-latest, node 22` shards; the call followed this entry (macOS informative, E-388).
+Since DEVOPS-016 the `rein ci run` / `fast` part of the required set is what
+`rein ci hosted --required` prints; this list is the record of one call, not the source.
 
 **Rollback.** Revert the commit and run the same `gh api` call with the old names. The old
 cache entries simply expire (the new prefix starts a cold cache once).
+
+## DEVOPS-016 — One required set: `requiredChecks()` is the source, the release publish gates on it (E-399, D-137) — 2026-10-30
+
+**What changes and why.** Two sources disagreed about what `main` requires (DEVOPS-015's list
+and `requiredChecks()`, which still returned the macOS legs), and `release.yml` used a third —
+the whole matrix — so the v0.4.0 publish was skipped by an informative macOS leg (D-137).
+- `src/shared/hosted-ci.mjs`: `INFORMATIVE_LEGS` beside `PUBLIC_LEGS` (today macOS × 22);
+  `requiredChecks()` skips those legs and returns exactly `fast` + the eight Ubuntu legs; the
+  rendered matrix still runs them. `rein ci hosted --required` prints the set one per line —
+  the branch-protection PATCH and the publish gate both read it from there.
+- `.github/workflows/release.yml`: the publish job runs `if: ${{ !cancelled() }}` after the
+  matrix; its first step reads the tag sha's check runs (`gh api …/commits/<sha>/check-runs`,
+  paginated) and fails unless every required name has conclusion `success`; a second step
+  writes an "informative legs" table (name, conclusion) to the job summary. The notes recipe
+  is unchanged; no `continue-on-error`.
+- `tests/unit/operand-scope.test.mjs`: both budgets drop the `CI=true` constant and use the
+  same-run baseline (`200 + 20 × base`) everywhere, capped at 1000 ms (D-137 r5).
+
+**Security implications.** The publish job already holds `contents: write`; it gains
+`checks: read` (the tag's check runs) and `actions: read` (its own run's check suite), plus
+the SHA-pinned `actions/setup-node` already used by ci.yml to run `hosted-ci.mjs --required`. No new secret, network egress or action; the tag sha
+reaches the script through `env`, never interpolated. A red required leg still blocks the
+publish; a red informative leg is listed, never hidden.
+
+**Rollback.** Revert E-399's PR: `requiredChecks()` and `release.yml` return to their previous
+text and the publish again needs the whole matrix. Branch protection is not touched by this
+change (it already matches the set).

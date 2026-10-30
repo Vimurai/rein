@@ -1,6 +1,9 @@
 # Release — a `v*` tag runs the full matrix on the tag, then publishes a GitHub release whose
 # notes are that version's CHANGELOG section plus the sha256 of the install script (E-384,
 # D-133, public-ci.md §Component 2). Hand-written; actions pinned to commit SHAs.
+# The publish gates on the REQUIRED set (`rein ci hosted --required`, D-137 r3), not on the
+# whole matrix: an informative leg (macOS while E-388/E-396 are open) still runs, stays red in
+# the UI and is listed in the job summary, but does not hold the release. No continue-on-error.
 # Rollback: delete this file; a release can be deleted with `gh release delete <tag>`.
 name: Release
 
@@ -21,15 +24,64 @@ jobs:
   release:
     name: GitHub release
     needs: matrix
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write   # create the release
+      checks: read      # the tag's check runs
+      actions: read     # this run's check suite
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
         with:
           persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
+        with:
+          node-version: '22'
+
+      # Every required name must be `success` in THIS run's matrix (its check suite; the newest
+      # attempt per name). The sha and run id arrive as environment variables.
+      - name: Required checks are green on the tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          CALLER: Full matrix
+        run: |
+          set -euo pipefail
+          node --no-warnings src/shared/hosted-ci.mjs --root . --required > required.txt
+          suite="$(gh api "repos/${REPO}/actions/runs/${RUN_ID}" --jq .check_suite_id)"
+          gh api --paginate "repos/${REPO}/commits/${GITHUB_SHA}/check-runs?per_page=100" \
+            --jq ".check_runs[] | select(.check_suite.id == ${suite}) | [.id, .name, (.conclusion // \"pending\")] | @tsv" \
+            | sort -n | awk -F'\t' '{last[$2] = $3} END {for (n in last) print n "\t" last[n]}' | sort > runs.tsv
+          fail=0
+          while IFS= read -r name; do
+            c="$(awk -F'\t' -v n="${CALLER} / ${name}" '$1 == n {print $2}' runs.tsv)"
+            if [ "$c" != success ]; then echo "required check '${name}' is ${c:-missing} on ${GITHUB_SHA}" >&2; fail=1; fi
+          done < required.txt
+          exit "$fail"
+
+      - name: Informative legs
+        if: ${{ !cancelled() }}
+        env:
+          CALLER: Full matrix
+        run: |
+          set -euo pipefail
+          {
+            echo "### Informative legs — not required (D-137)"
+            echo
+            echo "| Check | Conclusion |"
+            echo "|---|---|"
+            while IFS=$'\t' read -r n c; do
+              s="${n#"${CALLER} / "}"
+              [ "$s" = "$n" ] && continue
+              grep -qxF -- "$s" required.txt && continue
+              echo "| ${s} | ${c} |"
+            done < runs.tsv
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The tag arrives as an environment variable, never interpolated into the script.
       - name: Publish the release

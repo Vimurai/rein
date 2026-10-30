@@ -5721,7 +5721,7 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
        rein ci list [-n <N>]
        rein ci log [<sha>] [--failed]
        rein ci evals
-       rein ci hosted [<provider>] [--check] [--force]
+       rein ci hosted [<provider>] [--check] [--force] | --required
        rein ci budget [set --ruling D-### <field>=<n> …]
 
   hosted         Render the hosted trunk check for the provider (github; azure, gitlab,
@@ -5730,7 +5730,9 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
                  .ai/team.json ci, else the origin host. --check exits 1 when the file is not
                  the current rendering; an existing differing file needs --force. Prints the
                  branch-policy setting: required for merge, pushes left open (claims).
-  evals          Run the core-skill evals (tests/suites/skill_evals_test.sh, E-285) under
+                 --required prints the required check names one per line — the source
+                 the branch protection and the release publish gate read (D-137).
+  evals         Run the core-skill evals (tests/suites/skill_evals_test.sh, E-285) under
                  YOUR HOME — the model needs your claude login, which a run's throwaway
                  HOME never has. Needs a clean tree outside .ai/; the JSON report is kept
                  as ~/.rein/ci/evals/<sha>.json and 'rein ci log' prints its path.

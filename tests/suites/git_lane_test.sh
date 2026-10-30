@@ -331,10 +331,10 @@ _e218_as() {  # <repo> <architect|engineer|none> <sid> <env...> → rc + label, 
 }
 _e218_label() {
   local rc="$1" out="$2" l=pass
-  printf '%s' "$out" | grep -q SOVEREIGNTY_BLOCK && l=BLOCK
-  printf '%s' "$out" | grep -q 'stamp waived' && l=WAIVED
-  printf '%s' "$out" | grep -q 'still applies' && l=NO_WAIVER
-  printf '%s' "$out" | grep -q 'GATE 2' && l="${l}+gate2"
+  grep -q SOVEREIGNTY_BLOCK <<< "$out" && l=BLOCK
+  grep -q 'stamp waived' <<< "$out" && l=WAIVED
+  grep -q 'still applies' <<< "$out" && l=NO_WAIVER
+  grep -q 'GATE 2' <<< "$out" && l="${l}+gate2"
   printf 'rc=%s %s' "$rc" "$l"
 }
 _nostamp_ai() { local R; R="$(_mkrepo)"; ( cd "$R" && rm -f .ai/state.json && echo x > plans/n.md && git add plans/n.md ); printf '%s' "$R"; }

@@ -116,7 +116,7 @@ BLOCK_MSG="$(printf '%s' "$(mkevent Bash 'rm -rf /')" | ( cd "$REPO_ROOT" && HOM
 assert_contains "S07: block message carries [SAFE_EXEC_BLOCK]" "[SAFE_EXEC_BLOCK]" "$BLOCK_MSG"
 assert_contains "S07: block message names the rule"           "RM_RF_ROOT"        "$BLOCK_MSG"
 assert_contains "S07: block message states the OPERATOR escape" "Operator escape — in YOUR terminal, not through the agent" "$BLOCK_MSG"
-assert_status 1 "S07: and never tells the model to set an env switch" bash -c "printf '%s' \"\$1\" | grep -q '=0'" _ "$BLOCK_MSG"
+assert_status 1 "S07: and never tells the model to set an env switch" bash -c "grep -q '=0' <<< \"\$1\"" _ "$BLOCK_MSG"
 
 # ── S08: command integrity — quotes/spaces survive the base64 boundary ───────
 assert_contains "S08: quoted safe command allowed" "0" "$(hook_rc "$(mkevent Bash 'echo "hello   world"')")"
@@ -577,7 +577,7 @@ if chgrp 20 "$R/grp" 2>/dev/null; then
 else
   _skip "E-286.06i: cannot chgrp to staff (gid 20) on this host"
 fi
-if id -G | tr ' ' '\n' | grep -qx 80 && chgrp 80 "$R/grp" 2>/dev/null; then
+if grep < <(id -G | tr ' ' '\n') -qx 80 && chgrp 80 "$R/grp" 2>/dev/null; then
   assert_status 0 "E-286.06j: an admin-group-writable dir is accepted (Homebrew's Cellar)" test "$(_chk "$R/grp/tool")" -eq 0
 else
   _skip "E-286.06j: this user is not in the admin group (gid 80)"

@@ -160,7 +160,7 @@ _conflict_marker_gate() {
   while IFS= read -r f; do
     [[ -z "$f" || ! -f "$f" ]] && continue
     # Binary files have no lines to inspect and grep would be noise.
-    if ! git diff --cached --numstat -- "$f" 2>/dev/null | grep -qv '^-'; then
+    if ! grep < <(git diff --cached --numstat -- "$f" 2>/dev/null) -qv '^-'; then
       continue
     fi
     # The unambiguous halves: 7 markers followed by a space+label, or alone on the line.
@@ -279,7 +279,7 @@ check_markdown_sync() {
   [[ -f "$TASKS_FILE" ]] || return 0  # skip if TASKS.md missing
 
   # Check 1: Verify TASKS.md has the generated header (indicates it wasn't hand-edited)
-  if ! head -1 "$TASKS_FILE" 2>/dev/null | grep -q "Generated from state.json"; then
+  if ! grep < <(head -1 "$TASKS_FILE" 2>/dev/null) -q "Generated from state.json"; then
     cat >&2 <<'SYNC_BLOCK'
 
 ╔══════════════════════════════════════════════════════════════════════════╗
@@ -307,7 +307,7 @@ SYNC_BLOCK
     if [[ "$STATE_STAMPS" -gt 0 ]]; then
       local REVIEWS_FILE="${AI_DIR}/REVIEWS.md"
       if [[ -f "$REVIEWS_FILE" ]]; then
-        if ! head -1 "$REVIEWS_FILE" 2>/dev/null | grep -q "Generated from state.json"; then
+        if ! grep < <(head -1 "$REVIEWS_FILE" 2>/dev/null) -q "Generated from state.json"; then
           cat >&2 <<'REVIEWS_BLOCK'
 
 ╔══════════════════════════════════════════════════════════════════════════╗
@@ -364,7 +364,7 @@ check_architect_src_comodification() {
     # Allow if LOG.md staged change contains an implementation delta marker
     local log_staged
     log_staged=$(git diff --cached -- .ai/LOG.md 2>/dev/null)
-    if echo "$log_staged" | grep -qiE "\[IMPL_DELTA\]|\[APPROVED\]|implementation delta"; then
+    if grep -qiE "\[IMPL_DELTA\]|\[APPROVED\]|implementation delta" <<< "$log_staged"; then
       return 0
     fi
     cat >&2 <<'ARCH_WARN'
@@ -440,7 +440,7 @@ check_registry_sync
 check_mcp_stdout_purity() {
   local staged_files
   staged_files=$(git diff --cached --name-only --diff-filter=AM 2>/dev/null)
-  echo "$staged_files" | grep -qE '^src/mcp/.*\.(js|mjs|cjs|ts)$' || return 0
+  grep -qE '^src/mcp/.*\.(js|mjs|cjs|ts)$' <<< "$staged_files" || return 0
 
   local repo_root checker
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"

@@ -49,7 +49,7 @@ assert_contains "fixture architect.md carries the sentinel" "ARCHITECT_SENTINEL_
 # ── 2. live: the four cases against the model ─────────────────────────────────
 echo "  [skill-evals.live] 4 cases × ${REIN_SKILL_EVAL_RUNS:-2} runs, every grader passes"
 if skip_unless_cmd claude "live skill evals"; then
-  if ! claude auth status 2>/dev/null | grep -q '"loggedIn": *true'; then
+  if ! grep < <(claude auth status 2>/dev/null) -q '"loggedIn": *true'; then
     _skip "live skill evals — claude is not authenticated on this host (HOME=${HOME})"
   else
     tmp="$(mktemp -d "${TMPDIR:-/tmp}/rein-skill-evals.XXXXXX")"

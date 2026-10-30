@@ -47,7 +47,7 @@ assert_status 0 "incident-append.mjs exists" \
   test -f "$HELPER"
 
 assert_status 0 "helper has shebang for direct execution" \
-  bash -c "head -1 '$HELPER' | grep -q '#!/usr/bin/env node'"
+  bash -c "grep < <(head -1 '$HELPER') -q '#!/usr/bin/env node'"
 
 # ── T-IN-S02: missing arg rejected ───────────────────────────────────────────
 echo ""
@@ -104,13 +104,13 @@ run_helper '{"incident_type":"ENV_ERROR","message":"see '"$SBOX"'/foo and admin@
 LAST="$(tail -n1 "$SBOX/.rein/incidents.ndjson")"
 
 assert_status 0 "HOME path replaced with ~" \
-  bash -c "echo '$LAST' | grep -q '~/foo'"
+  bash -c "grep -q '~/foo' <<< '$LAST'"
 assert_status 0 "email redacted" \
-  bash -c "echo '$LAST' | grep -q '\[email\]'"
+  bash -c "grep -q '\[email\]' <<< '$LAST'"
 assert_status 0 "sk_ token redacted" \
-  bash -c "echo '$LAST' | grep -q '\[token\]'"
+  bash -c "grep -q '\[token\]' <<< '$LAST'"
 assert_status 0 "32-char hex stack_signature redacted" \
-  bash -c "echo '$LAST' | grep -q '\[hex\]'"
+  bash -c "grep -q '\[hex\]' <<< '$LAST'"
 
 # ── T-IN-S07: source_agent normalisation ────────────────────────────────────
 echo ""
@@ -119,7 +119,7 @@ echo "  [T-IN-S07] unknown source_agent normalised to 'unknown'"
 run_helper '{"incident_type":"X","message":"y","stack_signature":"z:1","source_agent":"BogusBot"}' \
   >/dev/null 2>"$SBOX/err" || true
 assert_status 0 "BogusBot normalised to unknown" \
-  bash -c "tail -n1 '$SBOX/.rein/incidents.ndjson' | grep -q '\"source_agent\":\"unknown\"'"
+  bash -c "grep < <(tail -n1 '$SBOX/.rein/incidents.ndjson') -q '\"source_agent\":\"unknown\"'"
 
 # E-255: the allow-list is Claude | Tester (the headless Claude Tester role, D-069). Pin that allowed agents are PRESERVED, so
 # the BogusBot case above cannot pass merely because every agent became 'unknown'.
@@ -127,7 +127,7 @@ for _agent in Claude Tester; do
   run_helper "{\"incident_type\":\"X\",\"message\":\"y\",\"stack_signature\":\"z:1\",\"source_agent\":\"${_agent}\"}" \
     >/dev/null 2>"$SBOX/err" || true
   assert_status 0 "${_agent} preserved (not normalised to unknown)" \
-    bash -c "tail -n1 '$SBOX/.rein/incidents.ndjson' | grep -q '\"source_agent\":\"${_agent}\"'"
+    bash -c "grep < <(tail -n1 '$SBOX/.rein/incidents.ndjson') -q '\"source_agent\":\"${_agent}\"'"
 done
 
 # ── T-IN-S08: rotation threshold ─────────────────────────────────────────────
@@ -243,7 +243,7 @@ echo "  [T-AG-S02] missing log → status NO_INCIDENTS"
 
 OUT="$(run_aggr)"
 assert_status 0 "status NO_INCIDENTS reported" \
-  bash -c "echo '$OUT' | grep -q '\"status\": \"NO_INCIDENTS\"'"
+  bash -c "grep -q '\"status\": \"NO_INCIDENTS\"' <<< '$OUT'"
 
 # ── T-AG-S03: DISABLED short-circuit ─────────────────────────────────────────
 echo ""
@@ -251,7 +251,7 @@ echo "  [T-AG-S03] AI_INCIDENT_TRACKER_DISABLE=1 → status DISABLED"
 
 OUT="$(HOME="$AGG_SBOX" AI_INCIDENT_TRACKER_DISABLE=1 node "$AGGR")"
 assert_status 0 "status DISABLED reported" \
-  bash -c "echo '$OUT' | grep -q '\"status\": \"DISABLED\"'"
+  bash -c "grep -q '\"status\": \"DISABLED\"' <<< '$OUT'"
 
 # ── T-AG-S04: OK when below threshold ────────────────────────────────────────
 echo ""
@@ -261,9 +261,9 @@ run_append '{"incident_type":"X","message":"first","stack_signature":"foo:1"}'
 run_append '{"incident_type":"X","message":"second","stack_signature":"foo:1"}'
 OUT="$(run_aggr)"
 assert_status 0 "status OK when distinct sig has count=2" \
-  bash -c "echo '$OUT' | grep -q '\"status\": \"OK\"'"
+  bash -c "grep -q '\"status\": \"OK\"' <<< '$OUT'"
 assert_status 0 "total_incidents reflects appended rows" \
-  bash -c "echo '$OUT' | grep -q '\"total_incidents\": 2'"
+  bash -c "grep -q '\"total_incidents\": 2' <<< '$OUT'"
 
 # ── T-AG-S05: THRESHOLD_REACHED at 3 occurrences ────────────────────────────
 echo ""
@@ -272,11 +272,11 @@ echo "  [T-AG-S05] count >= threshold trips THRESHOLD_REACHED"
 run_append '{"incident_type":"X","message":"third","stack_signature":"foo:1"}'
 OUT="$(run_aggr)"
 assert_status 0 "status THRESHOLD_REACHED at count=3" \
-  bash -c "echo '$OUT' | grep -q '\"status\": \"THRESHOLD_REACHED\"'"
+  bash -c "grep -q '\"status\": \"THRESHOLD_REACHED\"' <<< '$OUT'"
 assert_status 0 "stack_signature foo:1 listed in groups" \
-  bash -c "echo '$OUT' | grep -q '\"stack_signature\": \"foo:1\"'"
+  bash -c "grep -q '\"stack_signature\": \"foo:1\"' <<< '$OUT'"
 assert_status 0 "threshold_reached: true on the offending group" \
-  bash -c "echo '$OUT' | grep -q '\"threshold_reached\": true'"
+  bash -c "grep -q '\"threshold_reached\": true' <<< '$OUT'"
 
 # ── T-AG-S06: distinct signatures grouped independently ─────────────────────
 echo ""
@@ -285,9 +285,9 @@ echo "  [T-AG-S06] distinct signatures counted independently"
 run_append '{"incident_type":"Y","message":"alt","stack_signature":"bar:42"}'
 OUT="$(run_aggr)"
 assert_status 0 "two distinct signatures reported" \
-  bash -c "echo '$OUT' | grep -q '\"distinct_signatures\": 2'"
+  bash -c "grep -q '\"distinct_signatures\": 2' <<< '$OUT'"
 assert_status 0 "bar:42 still below threshold" \
-  bash -c "echo '$OUT' | python3 -c \"import json,sys; d=json.load(sys.stdin); print([g for g in d['groups'] if g['stack_signature']=='bar:42'][0]['threshold_reached'])\" | grep -qx False"
+  bash -c "echo '$OUT' | python3 -c \"import json,sys; d=json.load(sys.stdin); print([g for g in d['groups'] if grep < <(g['stack_signature']=='bar:42'][0]['threshold_reached'])\") -qx False"
 
 # ── T-AG-S07: malformed lines skipped ────────────────────────────────────────
 echo ""

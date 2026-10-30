@@ -288,19 +288,19 @@ _now_ms() {
 # and the tmux / port / perf rule still win.
 _lane_class() {
   local f="$1" name homes bad
-  if sed -n '1,10p' "$f" | grep -qE '^# REIN_EXCLUSIVE:'; then
+  if grep < <(sed -n '1,10p' "$f") -qE '^# REIN_EXCLUSIVE:'; then
     echo "exclusive # REIN_EXCLUSIVE: $(sed -n '1,10s/^# REIN_EXCLUSIVE:[[:space:]]*//p' "$f" | head -1)"; return 0
   fi
   if grep -qE 'tmux|assert_perf|nc -l|\.listen\(|createServer' "$f"; then
     echo "exclusive tmux / port / perf"; return 0
   fi
-  sed -n '1,10p' "$f" | grep -qE '^# REIN_INSTALLER_SUBJECT' || { echo "shared"; return 0; }
+  grep < <(sed -n '1,10p' "$f") -qE '^# REIN_INSTALLER_SUBJECT' || { echo "shared"; return 0; }
   name="$(basename "$f")"
   homes="$(awk -F'\t' -v s="$name" '$1==s {print $2}' "${TEST_TMPDIR}/installer-homes.tsv" 2>/dev/null | sort -u)"
   [[ -n "$homes" ]] || { echo "exclusive no measured installer footprint"; return 0; }
   bad="$(printf '%s\n' "$homes" | grep -vxE 'tmp|run' | tr '\n' ' ' | sed 's/ $//')"
   [[ -z "$bad" ]] || { echo "exclusive installer HOME ${bad}"; return 0; }
-  if printf '%s\n' "$homes" | grep -qx run && [[ "${_lane_clone_home:-0}" -ne 1 ]]; then
+  if grep -qx run <<< "$homes" && [[ "${_lane_clone_home:-0}" -ne 1 ]]; then
     echo "exclusive installer HOME run, and lanes do not clone HOME outside CI"; return 0
   fi
   echo "shared"
@@ -444,7 +444,7 @@ _lanes_run() {
     _cls="$(_lane_class "$suite")"
     if [[ "$_cls" == shared ]]; then shared+=("$i"); else excl+=("$i"); fi
     # The installer-subject verdicts are printed: the classification moves with the data.
-    if sed -n '1,10p' "$suite" | grep -qE '^# REIN_INSTALLER_SUBJECT'; then
+    if grep < <(sed -n '1,10p' "$suite") -qE '^# REIN_INSTALLER_SUBJECT'; then
       echo "   Lane: $(basename "$suite") ${_cls/exclusive /exclusive — }"
     fi
     i=$((i + 1))

@@ -429,8 +429,8 @@ run_gate() {
   WORD_COUNT=$(echo "$CONTENT" | wc -w | tr -d ' ')
 
   local HAS_ACTION=0
-  echo "$CONTENT" | grep -qiE \
-    '\b(add|implement|fix|create|update|refactor|remove|delete|migrate|deploy|build|write|change|replace|integrate|scaffold|install|configure|test|debug|review|audit)\b' \
+  grep -qiE \
+    '\b(add|implement|fix|create|update|refactor|remove|delete|migrate|deploy|build|write|change|replace|integrate|scaffold|install|configure|test|debug|review|audit)\b' <<< "$CONTENT" \
     && HAS_ACTION=1
 
   # VOTU OVERRIDE: long + action verb → pass
@@ -444,8 +444,8 @@ run_gate() {
   fi
 
   # High-risk detection
-  echo "$CONTENT" | grep -qiE \
-    '\b(auth|oauth|jwt|secret|api.?key|token|password|credential|passphrase|env.var|deploy|production|migration|breaking.?change|drop.?table|delete.?all|rm -rf|truncate)\b' \
+  grep -qiE \
+    '\b(auth|oauth|jwt|secret|api.?key|token|password|credential|passphrase|env.var|deploy|production|migration|breaking.?change|drop.?table|delete.?all|rm -rf|truncate)\b' <<< "$CONTENT" \
     && return 2
 
   return 0
@@ -582,13 +582,13 @@ check_tier3_security() {
   local log_content="$2"
 
   # Only trigger if TASKS.md is in the diff
-  echo "$diff" | grep -q "TASKS.md" || return 1
+  grep -q "TASKS.md" <<< "$diff" || return 1
 
   # Check for added lines that close a Tier 3 task (Tier: 3 + Status: DONE on same line)
   local tier3_closing=false
   while IFS= read -r line; do
     if [[ "$line" == +* && "$line" != +++* ]]; then
-      if echo "$line" | grep -qiE 'Tier:[[:space:]]*3' && echo "$line" | grep -qiE 'Status:[[:space:]]*DONE'; then
+      if grep -qiE 'Tier:[[:space:]]*3' <<< "$line" && grep -qiE 'Status:[[:space:]]*DONE' <<< "$line"; then
         tier3_closing=true
         break
       fi
@@ -598,7 +598,7 @@ check_tier3_security() {
   # Also detect: +- [x] checkbox on a line that contains Tier: 3
   local checkbox_closed=false
   while IFS= read -r line; do
-    if echo "$line" | grep -qE '^\+- \[x\]' && echo "$line" | grep -qiE 'Tier:[[:space:]]*3'; then
+    if grep -qE '^\+- \[x\]' <<< "$line" && grep -qiE 'Tier:[[:space:]]*3' <<< "$line"; then
       checkbox_closed=true
       break
     fi
@@ -609,7 +609,7 @@ check_tier3_security() {
   fi
 
   # Check LOG.md content for security evidence
-  echo "$log_content" | grep -qiE 'security_engineer|THREAT_MODEL|\[SECURITY\]|\[SEC_PASS\]' && return 1
+  grep -qiE 'security_engineer|THREAT_MODEL|\[SECURITY\]|\[SEC_PASS\]' <<< "$log_content" && return 1
 
   return 0  # Violation: Tier 3 closed without security evidence
 }
@@ -828,7 +828,7 @@ done
 # ── Test 7: do_sync also rewrites the bootloaders ────────────────────────────
 # Static check: do_sync must also call cp -f on these files (its copies echo "updated").
 SYNC_CP_F=$(sed -n '/^do_sync()/,/^}/p' "${AI_BIN}" | grep -E 'cp -f .*"CLAUDE.md"' || true)
-if echo "$SYNC_CP_F" | grep -q 'cp -f'; then
+if grep -q 'cp -f' <<< "$SYNC_CP_F"; then
   _pass "do_sync section also contains 'cp -f' bootloader overwrites"
 else
   _fail "do_sync does not contain 'cp -f' bootloader overwrites — rein sync may leave stale files"

@@ -128,13 +128,13 @@ sqlite_check() {
 }
 TABLES="$(sqlite_check)"
 assert_status 0 "topic_seeds table created on first open" \
-  bash -c "echo '$TABLES' | grep -q 'topic_seeds'"
+  bash -c "grep -q 'topic_seeds' <<< '$TABLES'"
 assert_status 0 "cluster_pages table created on first open" \
-  bash -c "echo '$TABLES' | grep -q 'cluster_pages'"
+  bash -c "grep -q 'cluster_pages' <<< '$TABLES'"
 assert_status 0 "existing tasks table unchanged" \
-  bash -c "echo '$TABLES' | grep -q ',tasks'"
+  bash -c "grep -q ',tasks' <<< '$TABLES'"
 assert_status 0 "existing stamps table unchanged" \
-  bash -c "echo '$TABLES' | grep -q ',stamps'"
+  bash -c "grep -q ',stamps' <<< '$TABLES'"
 
 # Helper: drive a tool from the SBOX cwd so the MCP resolves .ai relative there.
 _call() {
@@ -166,9 +166,9 @@ echo "  [T-MVS-S04] add_topic_seed creates TS-1 and returns the row"
 
 resp="$(_call add_topic_seed '{"term":"ai testing","target_volume":10}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "response confirms TS-1 created"        bash -c "echo '$text' | grep -q 'TopicSeed TS-1'"
-assert_status 0 "response includes term"                bash -c "echo '$text' | grep -q '\"term\": \"ai testing\"'"
-assert_status 0 "response includes target_volume=10"    bash -c "echo '$text' | grep -q '\"target_volume\": 10'"
+assert_status 0 "response confirms TS-1 created"        bash -c "grep -q 'TopicSeed TS-1' <<< '$text'"
+assert_status 0 "response includes term"                bash -c "grep -q '\"term\": \"ai testing\"' <<< '$text'"
+assert_status 0 "response includes target_volume=10"    bash -c "grep -q '\"target_volume\": 10' <<< '$text'"
 
 # ── T-MVS-S05: add_topic_seed input validation ──────────────────────────────
 echo ""
@@ -187,7 +187,7 @@ for tuple in \
   want="${tuple##*:}"
   resp="$(_call add_topic_seed "$args")"
   text="$(echo "$resp" | _text)"
-  assert_status 0 "case=${label} → ${want}" bash -c "echo '$text' | grep -q '${want}'"
+  assert_status 0 "case=${label} → ${want}" bash -c "grep -q '${want}' <<< '$text'"
 done
 
 # ── T-MVS-S06: add_cluster_page happy path (Pillar) ─────────────────────────
@@ -196,8 +196,8 @@ echo "  [T-MVS-S06] add_cluster_page attaches CP-1 (pillar-overview) to TS-1"
 
 resp="$(_call add_cluster_page '{"seed_id":"TS-1","intent_type":"pillar-overview","content_blob":"# AI Testing: The Complete Guide"}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "response confirms CP-1 created" bash -c "echo '$text' | grep -q 'ClusterPage CP-1'"
-assert_status 0 "response carries intent_type=pillar-overview" bash -c "echo '$text' | grep -q 'pillar-overview'"
+assert_status 0 "response confirms CP-1 created" bash -c "grep -q 'ClusterPage CP-1' <<< '$text'"
+assert_status 0 "response carries intent_type=pillar-overview" bash -c "grep -q 'pillar-overview' <<< '$text'"
 
 # ── T-MVS-S07: add_cluster_page rejects unknown intent_type ─────────────────
 echo ""
@@ -205,8 +205,8 @@ echo "  [T-MVS-S07] Unknown intent_type → UNKNOWN_INTENT_TYPE"
 
 resp="$(_call add_cluster_page '{"seed_id":"TS-1","intent_type":"bogus-shape"}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "rejects bogus slug"           bash -c "echo '$text' | grep -q 'UNKNOWN_INTENT_TYPE'"
-assert_status 0 "error mentions canonical set" bash -c "echo '$text' | grep -q 'cost'"
+assert_status 0 "rejects bogus slug"           bash -c "grep -q 'UNKNOWN_INTENT_TYPE' <<< '$text'"
+assert_status 0 "error mentions canonical set" bash -c "grep -q 'cost' <<< '$text'"
 
 # ── T-MVS-S08: add_cluster_page enforces FK (seed must exist) ───────────────
 echo ""
@@ -214,12 +214,12 @@ echo "  [T-MVS-S08] seed_id must exist → SEED_NOT_FOUND"
 
 resp="$(_call add_cluster_page '{"seed_id":"TS-999","intent_type":"how-to"}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "missing seed → SEED_NOT_FOUND" bash -c "echo '$text' | grep -q 'SEED_NOT_FOUND'"
+assert_status 0 "missing seed → SEED_NOT_FOUND" bash -c "grep -q 'SEED_NOT_FOUND' <<< '$text'"
 
 # Bad seed_id format
 resp="$(_call add_cluster_page '{"seed_id":"notakey","intent_type":"how-to"}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "malformed seed_id → INVALID_SEED_ID" bash -c "echo '$text' | grep -q 'INVALID_SEED_ID'"
+assert_status 0 "malformed seed_id → INVALID_SEED_ID" bash -c "grep -q 'INVALID_SEED_ID' <<< '$text'"
 
 # ── T-MVS-S09: cannibalization guard ((seed_id, intent_type) uniqueness) ─────
 echo ""
@@ -227,7 +227,7 @@ echo "  [T-MVS-S09] Duplicate (seed_id, intent_type) → INTENT_ALREADY_USED"
 
 resp="$(_call add_cluster_page '{"seed_id":"TS-1","intent_type":"pillar-overview"}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "duplicate intent rejected" bash -c "echo '$text' | grep -q 'INTENT_ALREADY_USED'"
+assert_status 0 "duplicate intent rejected" bash -c "grep -q 'INTENT_ALREADY_USED' <<< '$text'"
 
 # ── T-MVS-S10: lifted cluster-page cap ──────────────────────────────────────
 echo ""
@@ -264,7 +264,7 @@ assert_status 0 "MAX_CLUSTER_PAGES_PER_SEED constant is 10" \
   bash -c "node --input-type=module -e \"
     const m = await import('file://${INTENT_MOD}');
     console.log(m.MAX_CLUSTER_PAGES_PER_SEED);
-  \" 2>/dev/null | grep -q '^10$'"
+  grep < <(\" 2>/dev/null) -q '^10$'"
 assert_status 0 "CLUSTER_CAP_REACHED gate present in source" \
   grep -q 'CLUSTER_CAP_REACHED' "$SYNC_MCP"
 
@@ -275,33 +275,33 @@ echo "  [T-MVS-S11] report_performance merges JSON keys; idempotent on repeat"
 resp="$(_call report_performance '{"page_id":"CP-1","metrics":{"clicks":120,"impressions":4500}}')"
 text="$(echo "$resp" | _text)"
 assert_status 0 "first call records both metrics" \
-  bash -c "echo '$text' | grep -q '\"clicks\": 120'"
+  bash -c "grep -q '\"clicks\": 120' <<< '$text'"
 assert_status 0 "first call records impressions"  \
-  bash -c "echo '$text' | grep -q '\"impressions\": 4500'"
+  bash -c "grep -q '\"impressions\": 4500' <<< '$text'"
 
 # Second call: add ctr; existing keys remain.
 resp="$(_call report_performance '{"page_id":"CP-1","metrics":{"ctr":0.027,"clicks":135}}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "second call merges ctr key" bash -c "echo '$text' | grep -q '\"ctr\": 0.027'"
-assert_status 0 "second call updates clicks" bash -c "echo '$text' | grep -q '\"clicks\": 135'"
+assert_status 0 "second call merges ctr key" bash -c "grep -q '\"ctr\": 0.027' <<< '$text'"
+assert_status 0 "second call updates clicks" bash -c "grep -q '\"clicks\": 135' <<< '$text'"
 assert_status 0 "previous impressions key preserved" \
-  bash -c "echo '$text' | grep -q '\"impressions\": 4500'"
+  bash -c "grep -q '\"impressions\": 4500' <<< '$text'"
 
 # Bad inputs.
 resp="$(_call report_performance '{"page_id":"not-cp","metrics":{}}')"
 text="$(echo "$resp" | _text)"
 assert_status 0 "malformed page_id → INVALID_PAGE_ID" \
-  bash -c "echo '$text' | grep -q 'INVALID_PAGE_ID'"
+  bash -c "grep -q 'INVALID_PAGE_ID' <<< '$text'"
 
 resp="$(_call report_performance '{"page_id":"CP-999","metrics":{"clicks":1}}')"
 text="$(echo "$resp" | _text)"
 assert_status 0 "unknown page_id → PAGE_NOT_FOUND" \
-  bash -c "echo '$text' | grep -q 'PAGE_NOT_FOUND'"
+  bash -c "grep -q 'PAGE_NOT_FOUND' <<< '$text'"
 
 resp="$(_call report_performance '{"page_id":"CP-1","metrics":"not-an-object"}')"
 text="$(echo "$resp" | _text)"
 assert_status 0 "non-object metrics → INVALID_METRICS" \
-  bash -c "echo '$text' | grep -q 'INVALID_METRICS'"
+  bash -c "grep -q 'INVALID_METRICS' <<< '$text'"
 
 # ── T-MVS-S12: get_topic_cluster returns nested envelope ────────────────────
 echo ""
@@ -309,19 +309,19 @@ echo "  [T-MVS-S12] get_topic_cluster returns {seed, pages[], counts}"
 
 resp="$(_call get_topic_cluster '{"seed_id":"TS-1"}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "envelope carries the seed object"   bash -c "echo '$text' | grep -q '\"seed\":'"
-assert_status 0 "envelope carries pages array"       bash -c "echo '$text' | grep -q '\"pages\":'"
-assert_status 0 "counts.total == 11"                 bash -c "echo '$text' | grep -q '\"total\": 11'"
-assert_status 0 "counts.pillar == 1"                 bash -c "echo '$text' | grep -q '\"pillar\": 1'"
-assert_status 0 "counts.cluster == 10"               bash -c "echo '$text' | grep -q '\"cluster\": 10'"
-assert_status 0 "counts.remaining == 0"              bash -c "echo '$text' | grep -q '\"remaining\": 0'"
-assert_status 0 "performance_metrics is parsed JSON" bash -c "echo '$text' | grep -q '\"ctr\": 0.027'"
+assert_status 0 "envelope carries the seed object"   bash -c "grep -q '\"seed\":' <<< '$text'"
+assert_status 0 "envelope carries pages array"       bash -c "grep -q '\"pages\":' <<< '$text'"
+assert_status 0 "counts.total == 11"                 bash -c "grep -q '\"total\": 11' <<< '$text'"
+assert_status 0 "counts.pillar == 1"                 bash -c "grep -q '\"pillar\": 1' <<< '$text'"
+assert_status 0 "counts.cluster == 10"               bash -c "grep -q '\"cluster\": 10' <<< '$text'"
+assert_status 0 "counts.remaining == 0"              bash -c "grep -q '\"remaining\": 0' <<< '$text'"
+assert_status 0 "performance_metrics is parsed JSON" bash -c "grep -q '\"ctr\": 0.027' <<< '$text'"
 
 # Missing seed
 resp="$(_call get_topic_cluster '{"seed_id":"TS-999"}')"
 text="$(echo "$resp" | _text)"
 assert_status 0 "missing seed → SEED_NOT_FOUND" \
-  bash -c "echo '$text' | grep -q 'SEED_NOT_FOUND'"
+  bash -c "grep -q 'SEED_NOT_FOUND' <<< '$text'"
 
 # ── T-MVS-S13: Legacy-schema migration preserves rows ───────────────────────
 echo ""
@@ -359,13 +359,13 @@ MIG="$(AIDIR="${MBOX}/.ai" REPO_ROOT="${REPO_ROOT}" node --no-warnings --input-t
   }));
 " 2>/dev/null)"
 assert_status 0 "legacy tables renamed (topic_seeds + cluster_pages)" \
-  bash -c "echo '$MIG' | grep -q '\"renamed\":true'"
+  bash -c "grep -q '\"renamed\":true' <<< '$MIG'"
 assert_status 0 "approach_type column renamed to intent_type" \
-  bash -c "echo '$MIG' | grep -q '\"intentCol\":true'"
+  bash -c "grep -q '\"intentCol\":true' <<< '$MIG'"
 assert_status 0 "legacy seed row preserved" \
-  bash -c "echo '$MIG' | grep -q '\"seedTerm\":\"legacy seed\"'"
+  bash -c "grep -q '\"seedTerm\":\"legacy seed\"' <<< '$MIG'"
 assert_status 0 "legacy variation row preserved as cluster page" \
-  bash -c "echo '$MIG' | grep -q '\"pageIntent\":\"listicle\"'"
+  bash -c "grep -q '\"pageIntent\":\"listicle\"' <<< '$MIG'"
 rm -rf "$MBOX"
 
 # ── T-MVS-S14: No regression of existing tools (tasks path) ─────────────────
@@ -374,13 +374,13 @@ echo "  [T-MVS-S14] Existing add_task / update_task_status still work"
 
 resp="$(_call add_task '{"owner":"Engineer (Claude)","description":"e88 regression smoke","tier":1}')"
 text="$(echo "$resp" | _text)"
-assert_status 0 "add_task still works" bash -c "echo '$text' | grep -q 'Added E-'"
+assert_status 0 "add_task still works" bash -c "grep -q 'Added E-' <<< '$text'"
 
 new_id="$(echo "$text" | grep -oE 'E-[0-9]+' | head -1)"
 resp="$(_call update_task_status "{\"id\":\"${new_id}\",\"status\":\"DONE\",\"summary\":\"regression\"}")"
 text="$(echo "$resp" | _text)"
 assert_status 0 "update_task_status still works" \
-  bash -c "echo '$text' | grep -q '${new_id} → DONE'"
+  bash -c "grep -q '${new_id} → DONE' <<< '$text'"
 
 # ── T-MVS-S15: Mirror byte-identity ─────────────────────────────────────────
 echo ""
@@ -410,14 +410,14 @@ echo "  [T-SEO-S01] Agent file exists with parseable YAML frontmatter"
 
 assert_status 0 "src/ agent file exists"             test -f "$AGENT_SRC"
 assert_status 0 ".claude/ mirror exists"             test -f "$AGENT_CLAUDE"
-assert_status 0 "frontmatter opens on line 1"        bash -c "head -1 '$AGENT_SRC' | grep -q '^---$'"
+assert_status 0 "frontmatter opens on line 1"        bash -c "grep < <(head -1 '$AGENT_SRC') -q '^---$'"
 assert_status 0 "name: seo_manager"                  grep -q '^name: seo_manager$' "$AGENT_SRC"
 assert_status 0 "description present"                grep -q '^description: ' "$AGENT_SRC"
 assert_status 0 "description is double-quoted (no colon-parse trap)" \
-  bash -c "head -10 '$AGENT_SRC' | grep -q '^description: \"'"
+  bash -c "grep < <(head -10 '$AGENT_SRC') -q '^description: \"'"
 assert_status 0 "blueprint reference present"        grep -q "seo-keyword-multiplier.md" "$AGENT_SRC"
 assert_status 0 "frontmatter has a closing --- delimiter" \
-  bash -c "awk 'NR>1 && /^---$/{print NR; exit}' '$AGENT_SRC' | grep -qE '^[2-9]$|^[12][0-9]$|^30$'"
+  bash -c "grep < <(awk 'NR>1 && /^---$/{print NR; exit}' '$AGENT_SRC') -qE '^[2-9]$|^[12][0-9]$|^30$'"
 assert_status 0 "description value is properly quoted (no colon-parse trap)" \
   python3 -c "
 import re, sys
@@ -469,11 +469,11 @@ echo ""
 echo "  [T-SEO-S04] Agent forbids content generation and state tracking"
 
 assert_status 0 "Forbidden: no content generation" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC' | grep -qi 'generate article content'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC') -qi 'generate article content'"
 assert_status 0 "Forbidden: no state tracking" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC' | grep -qi 'page performance'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC') -qi 'page performance'"
 assert_status 0 "Forbidden: cap on MAX_CLUSTER_PAGES_PER_SEED" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC' | grep -q 'MAX_CLUSTER_PAGES_PER_SEED'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC') -q 'MAX_CLUSTER_PAGES_PER_SEED'"
 assert_status 0 "References the SEO-Content-Generator downstream owner" \
   grep -q 'SEO-Content-Generator' "$AGENT_SRC"
 assert_status 0 "References the Multi-Variation-State-Tracker owner" \
@@ -486,11 +486,11 @@ echo ""
 echo "  [T-SEO-S05] Concurrency 3 / cluster cap / 120s budget surfaced verbatim"
 
 assert_status 0 "concurrency=3 referenced" \
-  bash -c "awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC' | grep -qE 'batches of 3|concurrency.*3'"
+  bash -c "grep < <(awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC') -qE 'batches of 3|concurrency.*3'"
 assert_status 0 "cluster-page cap referenced" \
-  bash -c "awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC' | grep -qE '10 Cluster pages|11th Cluster'"
+  bash -c "grep < <(awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC') -qE '10 Cluster pages|11th Cluster'"
 assert_status 0 "120-second performance budget referenced" \
-  bash -c "awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC' | grep -q '120s'"
+  bash -c "grep < <(awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC') -q '120s'"
 
 # ── T-SEO-S06: API contract — add_task example references the right tool ─────
 echo ""
@@ -501,20 +501,20 @@ assert_status 0 "Step 3 names add_task tool" \
 assert_status 0 "Step 2 persists the seed via add_topic_seed" \
   grep -q 'mcp__task-synchronizer-mcp__add_topic_seed' "$AGENT_SRC"
 assert_status 0 "Step 3 specifies tier:2 (per blueprint)" \
-  bash -c "awk '/^## Step 3/,/^## Step 4/' '$AGENT_SRC' | grep -q 'tier: *2'"
+  bash -c "grep < <(awk '/^## Step 3/,/^## Step 4/' '$AGENT_SRC') -q 'tier: *2'"
 assert_status 0 "Step 3 uses canonical description prefix" \
-  bash -c "awk '/^## Step 3/,/^## Step 4/' '$AGENT_SRC' | grep -q 'SEO cluster page:'"
+  bash -c "grep < <(awk '/^## Step 3/,/^## Step 4/' '$AGENT_SRC') -q 'SEO cluster page:'"
 assert_status 0 "Step 5 returns task_ids[] per blueprint API" \
-  bash -c "awk '/^## Step 5/,/^## Step 6/' '$AGENT_SRC' | grep -q 'task_ids'"
+  bash -c "grep < <(awk '/^## Step 5/,/^## Step 6/' '$AGENT_SRC') -q 'task_ids'"
 
 # ── T-SEO-S07: Input validation (security — untrusted keyword term) ──────────
 echo ""
 echo "  [T-SEO-S07] Untrusted keyword input handled per blueprint §Security"
 
 assert_status 0 "Preflight asserts length cap on term" \
-  bash -c "awk '/^## Preflight/,/^## API/' '$AGENT_SRC' | grep -qE '256 chars|256 character'"
+  bash -c "grep < <(awk '/^## Preflight/,/^## API/' '$AGENT_SRC') -qE '256 chars|256 character'"
 assert_status 0 "Preflight rejects shell metacharacters" \
-  bash -c "awk '/^## Preflight/,/^## API/' '$AGENT_SRC' | grep -q 'shell metacharacters'"
+  bash -c "grep < <(awk '/^## Preflight/,/^## API/' '$AGENT_SRC') -q 'shell metacharacters'"
 assert_status 0 "INVALID_TOPIC_TERM error tag documented" \
   grep -q 'INVALID_TOPIC_TERM' "$AGENT_SRC"
 
@@ -523,9 +523,9 @@ echo ""
 echo "  [T-SEO-S08] Rollback section is actionable"
 
 assert_status 0 "Rollback names update_task_status as the unwind tool" \
-  bash -c "awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC' | grep -q 'update_task_status'"
+  bash -c "grep < <(awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC') -q 'update_task_status'"
 assert_status 0 "Rollback acknowledges content-file purge is out-of-scope" \
-  bash -c "awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC' | grep -qE 'git restore|content files'"
+  bash -c "grep < <(awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC') -qE 'git restore|content files'"
 
 # ── T-SEO-S09: Mirror byte-identity ──────────────────────────────────────────
 echo ""
@@ -576,17 +576,17 @@ echo "  [T-SENG-S01] Persona file exists with parseable YAML frontmatter"
 
 assert_status 0 "src/ persona file exists"           test -f "$AGENT_SRC_SE"
 assert_status 0 ".claude/ mirror exists"             test -f "$AGENT_CLAUDE_SE"
-assert_status 0 "frontmatter opens on line 1"        bash -c "head -1 '$AGENT_SRC_SE' | grep -q '^---$'"
+assert_status 0 "frontmatter opens on line 1"        bash -c "grep < <(head -1 '$AGENT_SRC_SE') -q '^---$'"
 assert_status 0 "name: seo_engineer"                 grep -q '^name: seo_engineer$' "$AGENT_SRC_SE"
 assert_status 0 "description present"                grep -q '^description: ' "$AGENT_SRC_SE"
 assert_status 0 "description is double-quoted (no colon-parse trap)" \
-  bash -c "head -10 '$AGENT_SRC_SE' | grep -q '^description: \"'"
+  bash -c "grep < <(head -10 '$AGENT_SRC_SE') -q '^description: \"'"
 assert_status 0 "tools allowlist declared (E-295)"   grep -q '^tools:' "$AGENT_SRC_SE"
 assert_status 0 "allowed-tools permit Write/Edit (implements code)" \
-  bash -c "grep '^tools:' '$AGENT_SRC_SE' | grep -qE 'Write|Edit'"
+  bash -c "grep < <(grep '^tools:' '$AGENT_SRC_SE') -qE 'Write|Edit'"
 assert_status 0 "blueprint reference present"        grep -q "seo-keyword-multiplier.md" "$AGENT_SRC_SE"
 assert_status 0 "frontmatter has a closing --- delimiter" \
-  bash -c "awk 'NR>1 && /^---$/{print NR; exit}' '$AGENT_SRC_SE' | grep -qE '^[2-9]$|^[12][0-9]$|^30$'"
+  bash -c "grep < <(awk 'NR>1 && /^---$/{print NR; exit}' '$AGENT_SRC_SE') -qE '^[2-9]$|^[12][0-9]$|^30$'"
 assert_status 0 "description value is properly quoted (no colon-parse trap)" \
   python3 -c "
 import re, sys
@@ -631,11 +631,11 @@ echo ""
 echo "  [T-SENG-S04] Persona forbids content generation + orchestration + tracking"
 
 assert_status 0 "Forbidden: NO article copy" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SE' | grep -qiE 'article copy|body content'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SE') -qiE 'article copy|body content'"
 assert_status 0 "Forbidden: NO orchestration (E-87)" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SE' | grep -qE 'orchestrate|SEO-Topic-Cluster-Manager'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SE') -qE 'orchestrate|SEO-Topic-Cluster-Manager'"
 assert_status 0 "Forbidden: NO state tracking" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SE' | grep -qE 'performance|Multi-Variation-State-Tracker'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SE') -qE 'performance|Multi-Variation-State-Tracker'"
 assert_status 0 "References the SEO-Content-Generator owner" \
   grep -q 'SEO-Content-Generator' "$AGENT_SRC_SE"
 assert_status 0 "References E-87 orchestrator by id" \
@@ -655,14 +655,14 @@ echo ""
 echo "  [T-SENG-S06] Execution Constraints require idempotent wiring"
 
 assert_status 0 "idempotent re-run constraint" \
-  bash -c "awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SE' | grep -qi 'idempotent'"
+  bash -c "grep < <(awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SE') -qi 'idempotent'"
 
 # ── T-SENG-S07: Rollback section is actionable ───────────────────────────────
 echo ""
 echo "  [T-SENG-S07] Rollback maps to git restore of modified files"
 
 assert_status 0 "Rollback references git restore" \
-  bash -c "awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC_SE' | grep -q 'git restore'"
+  bash -c "grep < <(awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC_SE') -q 'git restore'"
 
 # ── T-SENG-S08: Mirror byte-identity ─────────────────────────────────────────
 echo ""
@@ -708,14 +708,14 @@ echo "  [T-SCG-S01] Agent file exists with parseable frontmatter"
 
 assert_status 0 "src/ agent file exists"             test -f "$AGENT_SRC_SG"
 assert_status 0 ".claude/ mirror exists"             test -f "$AGENT_CLAUDE_SG"
-assert_status 0 "frontmatter opens on line 1"        bash -c "head -1 '$AGENT_SRC_SG' | grep -q '^---$'"
+assert_status 0 "frontmatter opens on line 1"        bash -c "grep < <(head -1 '$AGENT_SRC_SG') -q '^---$'"
 assert_status 0 "name: seo_content_generator"        grep -q '^name: seo_content_generator$' "$AGENT_SRC_SG"
 assert_status 0 "description present"                grep -q '^description: ' "$AGENT_SRC_SG"
 assert_status 0 "description is double-quoted"       \
-  bash -c "head -10 '$AGENT_SRC_SG' | grep -q '^description: \"'"
+  bash -c "grep < <(head -10 '$AGENT_SRC_SG') -q '^description: \"'"
 assert_status 0 "blueprint reference in description" grep -q "seo-keyword-multiplier.md" "$AGENT_SRC_SG"
 assert_status 0 "frontmatter has closing delimiter within first 30 lines" \
-  bash -c "awk 'NR>1 && /^---$/{print NR; exit}' '$AGENT_SRC_SG' | grep -qE '^[2-9]$|^[12][0-9]$|^30$'"
+  bash -c "grep < <(awk 'NR>1 && /^---$/{print NR; exit}' '$AGENT_SRC_SG') -qE '^[2-9]$|^[12][0-9]$|^30$'"
 assert_status 0 "description value uses safe quoting (no colon-parse trap)" \
   python3 -c "
 import re, sys
@@ -773,11 +773,11 @@ echo ""
 echo "  [T-SCG-S04] Generator forbids orchestration + state tracking"
 
 assert_status 0 "Forbidden: NO orchestration (E-87)" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SG' | grep -qE 'orchestrate|SEO-Topic-Cluster-Manager'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SG') -qE 'orchestrate|SEO-Topic-Cluster-Manager'"
 assert_status 0 "Forbidden: NO state tracking" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SG' | grep -qE 'state|Multi-Variation-State-Tracker'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SG') -qE 'state|Multi-Variation-State-Tracker'"
 assert_status 0 "Forbidden: NO publish / deploy" \
-  bash -c "awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SG' | grep -qiE 'publish|deploy'"
+  bash -c "grep < <(awk '/^## Forbidden/,/^## Preflight/' '$AGENT_SRC_SG') -qiE 'publish|deploy'"
 assert_status 0 "What-this-is-NOT references E-87 by id"  grep -q 'E-87' "$AGENT_SRC_SG"
 assert_status 0 "References the Multi-Variation-State-Tracker"  grep -q 'Multi-Variation-State-Tracker' "$AGENT_SRC_SG"
 
@@ -786,13 +786,13 @@ echo ""
 echo "  [T-SCG-S05] 120s budget + concurrency 3 + 1000ms→15000ms backoff"
 
 assert_status 0 "120-second wall-clock budget" \
-  bash -c "awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SG' | grep -q '120 seconds\\|120-second'"
+  bash -c "grep < <(awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SG') -q '120 seconds\\|120-second'"
 assert_status 0 "concurrency cap of 3"         \
-  bash -c "awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SG' | grep -qE '3 in-flight|concurrency.*3'"
+  bash -c "grep < <(awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SG') -qE '3 in-flight|concurrency.*3'"
 assert_status 0 "exponential backoff 1000→15000ms" \
-  bash -c "awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SG' | grep -qE '1000ms.*15000ms|1000ms → 15000ms'"
+  bash -c "grep < <(awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SG') -qE '1000ms.*15000ms|1000ms → 15000ms'"
 assert_status 0 "cluster cap / cannibalization defence-in-depth"      \
-  bash -c "awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SG' | grep -qE 'cannibalization|cluster-page cap'"
+  bash -c "grep < <(awk '/^## Execution Constraints/,/^## Rollback/' '$AGENT_SRC_SG') -qE 'cannibalization|cluster-page cap'"
 
 # ── T-SCG-S06: Security gates (duplicate-content + identity + critic) ───────
 echo ""
@@ -838,9 +838,9 @@ echo ""
 echo "  [T-SCG-S09] Rollback maps to blueprint §Rollback Plan"
 
 assert_status 0 "Rollback names stamp deletion" \
-  bash -c "awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC_SG' | grep -qE 'stamp|SEO_VARIATION_GENERATED'"
+  bash -c "grep < <(awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC_SG') -qE 'stamp|SEO_VARIATION_GENERATED'"
 assert_status 0 "Rollback references git restore for staged content" \
-  bash -c "awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC_SG' | grep -q 'git restore'"
+  bash -c "grep < <(awk '/^## Rollback/,/^## What this agent is NOT/' '$AGENT_SRC_SG') -q 'git restore'"
 
 # ── T-SCG-S10: Mirror byte-identity ─────────────────────────────────────────
 echo ""

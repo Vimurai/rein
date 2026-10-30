@@ -42,10 +42,10 @@ echo ""
 echo "  [T-META-S01] meta_analyst.md frontmatter parses cleanly"
 
 assert_status 0 "src/ agent file exists"             test -f "$AGENT_SRC"
-assert_status 0 "frontmatter opens on line 1"        bash -c "head -1 '$AGENT_SRC' | grep -q '^---$'"
+assert_status 0 "frontmatter opens on line 1"        bash -c "grep < <(head -1 '$AGENT_SRC') -q '^---$'"
 assert_status 0 "name: meta_analyst"                 grep -q '^name: meta_analyst$' "$AGENT_SRC"
 assert_status 0 "description double-quoted (no colon-parse trap)" \
-  bash -c "head -10 '$AGENT_SRC' | grep -q '^description: \"'"
+  bash -c "grep < <(head -10 '$AGENT_SRC') -q '^description: \"'"
 assert_status 0 "description names blueprint"        \
   grep -q 'meta-cognition\.md' "$AGENT_SRC"
 assert_status 0 "description names E-85"             \
@@ -142,7 +142,7 @@ echo "  [T-META-S06] rein-insights skill frontmatter parses cleanly"
 assert_status 0 "src/ skill file exists"             test -f "$SKILL_SRC"
 assert_status 0 "name: rein-insights"                  grep -q '^name: rein-insights$' "$SKILL_SRC"
 assert_status 0 "description double-quoted"          \
-  bash -c "head -10 '$SKILL_SRC' | grep -q '^description: \"'"
+  bash -c "grep < <(head -10 '$SKILL_SRC') -q '^description: \"'"
 assert_status 0 "user-invocable: true"               grep -q '^user-invocable: true$' "$SKILL_SRC"
 assert_status 0 "agent: meta_analyst declared"       grep -q '^agent: meta_analyst$' "$SKILL_SRC"
 assert_status 0 "allowed-tools includes Bash"        grep -qE '^allowed-tools:.*Bash' "$SKILL_SRC"

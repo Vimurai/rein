@@ -90,7 +90,7 @@ assert_contains "E-247.02e: the Memory Palace candidate index is refreshed" \
 assert_match "E-247.03a: a step summary is printed" \
   'steps: [0-9]+ ok' "$_out"
 assert_status 1 "E-247.03b: and it is not a hardcoded zero" \
-  bash -c "printf '%s' '$_out' | grep -q 'steps: 0 ok'"
+  bash -c "grep -q 'steps: 0 ok' <<< '$_out'"
 
 # ── E-247.4 / E-339 (D-107 r1): a broken step is FAILED, loudly, and the rest still run ──
 # The property that separates this restore from the one that had to be reverted: a step
@@ -119,7 +119,7 @@ assert_contains "E-339.04f: a step AFTER the failed one still ran" \
 _pm="$(_proj)"
 _mout="$( cd "$_pm" && REIN_SYNC_MINIMAL=1 bash "$AI" sync 2>&1 )"
 assert_status 1 "E-247.05a: REIN_SYNC_MINIMAL=1 stops after provisioning" \
-  bash -c "printf '%s' '$_mout' | grep -q 'palace-index.json'"
+  bash -c "grep -q 'palace-index.json' <<< '$_mout'"
 assert_contains "E-247.05b: and says why it stopped, rather than looking finished" \
   "REIN_SYNC_MINIMAL=1" "$_mout"
 assert_status 0 "E-247.05c: the minimal path still exits 0" \
@@ -674,7 +674,7 @@ assert_status 0 "E-233.01a: init wires the helper in" \
 # Pinned by the FUNCTION each call sits in, not by a count: E-270's `rein init --check`
 # replays init in a scratch copy and is a legitimate third caller.
 assert_status 0 "E-233.01b: sync wires it in too (do_sync and ensure_ai_templates)" \
-  bash -c "sed -n '/^do_sync() {/,/^}/p' '$AI_BIN' | grep -q '_ensure_generated_gitignore \"\.\"' && sed -n '/^ensure_ai_templates() {/,/^}/p' '$AI_BIN' | grep -q '_ensure_generated_gitignore \"\.\"'"
+  bash -c "grep < <(sed -n '/^do_sync() {/,/^}/p' '$AI_BIN') -q '_ensure_generated_gitignore \"\.\"' && grep < <(sed -n '/^ensure_ai_templates() {/,/^}/p' '$AI_BIN') -q '_ensure_generated_gitignore \"\.\"'"
 
 # Outside a git work tree there is nothing to ignore — writing a .gitignore anyway would
 # be litter in a directory the user never asked to be a repo.
@@ -1139,7 +1139,7 @@ assert_status 0 "E-283.03: no file outside the registry, .ai/, plans/ and CHANGE
   test -z "$_hits"
 # …and the grep itself saw the tree (a git grep that failed would also return nothing).
 assert_status 0 "E-283.03b: the reference scan read the tree" \
-  bash -c "cd '$REPO_ROOT' && git grep -l 'rein-archive' -- src | grep -q ."
+  bash -c "cd '$REPO_ROOT' && grep < <(git grep -l 'rein-archive' -- src) -q ."
 
 REG="${REPO_ROOT}/src/config/legacy-artefacts.json"
 for n in "${RETIRED[@]}"; do

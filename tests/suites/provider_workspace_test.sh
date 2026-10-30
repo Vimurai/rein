@@ -67,7 +67,7 @@ _s="$(_classify "$_split")"
 assert_contains "E-244.01d: with the Architect on acme, .acme/ is MAPPED, not stale" \
   $'acme\t.acme\tmapped' "$_s"
 assert_status 1 "E-244.01e: and acme does not appear in the stale list" \
-  bash -c "_o=\$(cd '$_split' && node '$PW' stale .ai . 2>/dev/null); printf '%s' \"\$_o\" | grep -q '^acme'"
+  bash -c "_o=\$(cd '$_split' && node '$PW' stale .ai . 2>/dev/null); grep -q '^acme' <<< \"\$_o\""
 
 # A directory that does not exist is not stale — there is nothing to clean up.
 _none="$(_proj claude claude .claude)"
@@ -91,7 +91,7 @@ printf '{ "roles": {} }' > "${_empty}/.ai/roles.json"
 assert_contains "E-244.02c: .claude/ is never stale, even with an EMPTY roles map" \
   $'claude\t.claude\talways' "$(_classify "$_empty")"
 assert_status 1 "E-244.02d: and .claude is absent from the stale list" \
-  bash -c "_o=\$(cd '$_empty' && node '$PW' stale .ai . 2>/dev/null); printf '%s' \"\$_o\" | grep -q '^claude'"
+  bash -c "_o=\$(cd '$_empty' && node '$PW' stale .ai . 2>/dev/null); grep -q '^claude' <<< \"\$_o\""
 
 # ── E-244.3: THE PRUNE — evidence, not absence ───────────────────────────────
 # The whole feature turns on this block. A sync-written, unmodified skill goes; a
@@ -152,7 +152,7 @@ printf '# live\n' > "${_pm}/.acme/skills/live-skill/SKILL.md"
 assert_status 0 "E-244.03h: a MAPPED provider's workspace is untouched by the prune" \
   test -f "${_pm}/.acme/skills/live-skill/SKILL.md"
 assert_status 1 "E-244.03i: and acme is not even listed as stale while it holds a role" \
-  bash -c "_o=\$(cd '$_pm' && node '$PW' stale .ai . 2>/dev/null); printf '%s' \"\$_o\" | grep -q '^acme'"
+  bash -c "_o=\$(cd '$_pm' && node '$PW' stale .ai . 2>/dev/null); grep -q '^acme' <<< \"\$_o\""
 
 # ── E-244.4: the prune is EXPLICIT — a plain sync never deletes ───────────────
 # A cleanup that happens on a command people run reflexively is an incident waiting.
@@ -226,7 +226,7 @@ assert_status 0 "E-244.08a: 'rein init' completes in a NON-git directory (was ex
 assert_status 0 "E-244.08b: and it scaffolded .ai/ rather than dying first" \
   test -f "${_pn}/.ai/roles.json"
 assert_status 0 "E-244.08c: the guard is the empty-string one, not a swallowed 128" \
-  bash -c "sed -n '/^install_git_hooks() {/,/^}/p' '$AI' | grep -q 'git rev-parse --git-dir 2>/dev/null || true'"
+  bash -c "grep < <(sed -n '/^install_git_hooks() {/,/^}/p' '$AI') -q 'git rev-parse --git-dir 2>/dev/null || true'"
 
 # ── E-244.9: what became of the two defects this task found ─────────────────
 # These began as pins: assertions holding a defect in place so it could not be quietly
@@ -241,7 +241,7 @@ assert_status 0 "E-244.08c: the guard is the empty-string one, not a swallowed 1
 assert_status 1 "E-244.09a: the dead-code note is GONE — E-247 removed its subject" \
   bash -c "grep -q 'DELIBERATELY NOT FIXED HERE' '$AI'"
 assert_status 0 "E-244.09b: and the steps run inside the .ai branch, before the return" \
-  bash -c "sed -n '/^do_sync() {/,/^}/p' '$AI' | grep -q '_sync_step policy_report'"
+  bash -c "grep < <(sed -n '/^do_sync() {/,/^}/p' '$AI') -q '_sync_step policy_report'"
 assert_status 1 "E-244.09c: the policy note no longer word-splits (unquoted \$stale is gone)" \
   bash -c "grep -q \"printf '  %s..n' .stale\" '$AI'"
 

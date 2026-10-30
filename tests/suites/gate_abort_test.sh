@@ -290,8 +290,8 @@ assert_contains "E-292.10d: generated hook entries carry an explicit 30 s timeou
 for f in arch-write-cases secret-cases; do
   _old "E-292.11a (${f})" || continue
   assert_status 0 "E-292.11a: every row of tests/fixtures/${f}.json at ${PRE_E292_REF} is unchanged" \
-    bash -c 'comm -23 <(git -C "$1" show "$2:tests/fixtures/$3.json" | sed "s/,\$//" | sort -u) \
-      <(sed "s/,\$//" "$1/tests/fixtures/$3.json" | sort -u) | grep -q . && exit 1 || exit 0' _ "$REPO_ROOT" "$PRE_E292_REF" "$f"
+    bash -c '[ -z "$(comm -23 <(git -C "$1" show "$2:tests/fixtures/$3.json" | sed "s/,\$//" | sort -u) \
+      <(sed "s/,\$//" "$1/tests/fixtures/$3.json" | sort -u))" ]' _ "$REPO_ROOT" "$PRE_E292_REF" "$f"
 done
 
 assert_summary

@@ -891,7 +891,7 @@ assert_status 2 "T-07.02: empty description → usage exit 2" \
 echo ""; echo "  [T-08] stdout purity"
 out="$(run_add engineer "Purity check task")"
 assert_status 0 "T-08.01: stdout is a single bare id line" \
-  bash -c "printf '%s' '$out' | grep -qxE 'E-[0-9]+'"
+  bash -c "grep -qxE 'E-[0-9]+' <<< '$out'"
 
 # D-099 (E-322): add-task no longer wakes the other role — a cross-role task writes no queue.
 run_add architect --prefix E "Cross-role task, no wake" >/dev/null

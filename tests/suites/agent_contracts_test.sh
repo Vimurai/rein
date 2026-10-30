@@ -37,13 +37,13 @@ echo "  [T-CCC-S01] Persona file exists with parseable frontmatter"
 
 assert_status 0 "src/ persona exists"                test -f "$PERSONA_SRC"
 assert_status 0 ".claude/ mirror exists"             test -f "$PERSONA_CLD"
-assert_status 0 "frontmatter opens on line 1"        bash -c "head -1 '$PERSONA_SRC' | grep -q '^---$'"
+assert_status 0 "frontmatter opens on line 1"        bash -c "grep < <(head -1 '$PERSONA_SRC') -q '^---$'"
 assert_status 0 "name: critic_clean_code"            grep -q '^name: critic_clean_code$' "$PERSONA_SRC"
 assert_status 0 "description present"                grep -q '^description: ' "$PERSONA_SRC"
 assert_status 0 "description double-quoted (colon-parse guard)" \
-  bash -c "head -10 '$PERSONA_SRC' | grep -q '^description: \"'"
+  bash -c "grep < <(head -10 '$PERSONA_SRC') -q '^description: \"'"
 assert_status 0 "frontmatter has closing delimiter within 30 lines" \
-  bash -c "awk 'NR>1 && /^---$/{print NR; exit}' '$PERSONA_SRC' | grep -qE '^[2-9]$|^[12][0-9]$|^30$'"
+  bash -c "grep < <(awk 'NR>1 && /^---$/{print NR; exit}' '$PERSONA_SRC') -qE '^[2-9]$|^[12][0-9]$|^30$'"
 assert_status 0 "tools allowlist includes Bash (for shell + git diff; E-295: subagents use tools, not allowed-tools)" \
   grep -q '^tools:.*Bash' "$PERSONA_SRC"
 assert_status 0 "context: fork (parallel-spawnable)"  grep -q '^context: fork' "$PERSONA_SRC"
@@ -97,7 +97,7 @@ echo "  [T-CCC-S05] REIN_SKIP_STANDARDS=1 escape hatch documented"
 assert_status 0 "rollback flag named verbatim"       grep -q 'REIN_SKIP_STANDARDS=1' "$PERSONA_SRC"
 assert_status 0 "STANDARDS_SKIPPED marker referenced" grep -q 'STANDARDS_SKIPPED' "$PERSONA_SRC"
 assert_status 0 "skip-path still emits a stamp"      \
-  bash -c "awk '/^## Rollback/{f=1; next} /^## /{f=0} f' '$PERSONA_SRC' | grep -q 'add_stamp'"
+  bash -c "grep < <(awk '/^## Rollback/{f=1; next} /^## /{f=0} f' '$PERSONA_SRC') -q 'add_stamp'"
 
 # ── T-CCC-S06: Pre-flight reads documented (blueprint + standards.json) ─────
 echo ""
@@ -105,9 +105,9 @@ echo "  [T-CCC-S06] Persona reads the contract files before reviewing"
 
 assert_status 0 "preflight section present"          grep -q '^## Pre-flight' "$PERSONA_SRC"
 assert_status 0 "preflight reads engineering-standards.md blueprint" \
-  bash -c "awk '/^## Pre-flight/,/^## Step 1/' '$PERSONA_SRC' | grep -q 'engineering-standards.md'"
+  bash -c "grep < <(awk '/^## Pre-flight/,/^## Step 1/' '$PERSONA_SRC') -q 'engineering-standards.md'"
 assert_status 0 "preflight reads standards.json registry" \
-  bash -c "awk '/^## Pre-flight/,/^## Step 1/' '$PERSONA_SRC' | grep -q 'standards.json'"
+  bash -c "grep < <(awk '/^## Pre-flight/,/^## Step 1/' '$PERSONA_SRC') -q 'standards.json'"
 assert_status 0 "no-staged-surface short-circuit documented" \
   grep -qE 'no staged surface|no staged changes' "$PERSONA_SRC"
 
@@ -117,17 +117,17 @@ echo "  [T-CCC-S07] rein-review skill invokes critic_clean_code in Tier 2 + Tier
 
 # Tier 2 block — between '## Tier 2' and '## Tier 3'.
 assert_status 0 "Tier 2 section spawns critic_clean_code" \
-  bash -c "awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC' | grep -q 'critic_clean_code'"
+  bash -c "grep < <(awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC') -q 'critic_clean_code'"
 assert_status 0 "Tier 2 section names CLEAN_PASS|CLEAN_WARN|CLEAN_FAIL" \
-  bash -c "awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC' | grep -qE 'CLEAN_PASS|CLEAN_WARN|CLEAN_FAIL'"
+  bash -c "grep < <(awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC') -qE 'CLEAN_PASS|CLEAN_WARN|CLEAN_FAIL'"
 assert_status 0 "Tier 2 documents the pass-gate condition" \
-  bash -c "awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC' | grep -qE 'CLEAN must NOT be .FAIL|CLEAN_FAIL'"
+  bash -c "grep < <(awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC') -qE 'CLEAN must NOT be .FAIL|CLEAN_FAIL'"
 
 # Tier 3 block — from '## Tier 3' to EOF.
 assert_status 0 "Tier 3 spawns critic_clean_code" \
-  bash -c "awk '/^## Tier 3/{f=1} f' '$REVIEW_SRC' | grep -q 'critic_clean_code'"
+  bash -c "grep < <(awk '/^## Tier 3/{f=1} f' '$REVIEW_SRC') -q 'critic_clean_code'"
 assert_status 0 "Tier 3 expected-stamps list mentions CLEAN_*" \
-  bash -c "awk '/^## Tier 3/{f=1} f' '$REVIEW_SRC' | grep -qE 'CLEAN_PASS/WARN/FAIL'"
+  bash -c "grep < <(awk '/^## Tier 3/{f=1} f' '$REVIEW_SRC') -qE 'CLEAN_PASS/WARN/FAIL'"
 
 # ── T-CCC-S08: ~/.rein mirrors byte-identical ──────────────────────────────
 echo ""

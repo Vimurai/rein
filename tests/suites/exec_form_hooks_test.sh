@@ -57,9 +57,9 @@ for spec in "Stop:stop-hook.sh" "PreToolUse:pre-tool-use.sh" "SessionStart:sessi
   assert_match "E-290.01a: ${sc} is exec-form /bin/bash -p <absolute path> with timeout 30" \
     "^${ev}	[^	]*	/bin/bash	-p\|/[^	]*/\.rein/hooks/${sc}(\|engineer)?	30$" "$E"
 done
-assert_status 1 "E-290.01b: no shell-form Rein line survives (incl. a quoted path)" bash -c "printf '%s\n' \"\$1\" | grep -q 'bash .*HOME/.rein/hooks'" _ "$E"
+assert_status 1 "E-290.01b: no shell-form Rein line survives (incl. a quoted path)" bash -c "grep -q 'bash .*HOME/.rein/hooks' <<< \"\$1\"" _ "$E"
 assert_contains "E-290.01c: the user's own hook entry is untouched" "echo users-own-stop-hook" "$E"
-assert_status 1 "E-290.01d: no Rein hook line mentions \$HOME" bash -c "printf '%s\n' \"\$1\" | grep '.rein/hooks' | grep -qF '\$HOME'" _ "$E"
+assert_status 1 "E-290.01d: no Rein hook line mentions \$HOME" bash -c "grep < <(printf '%s\n' \"\$1\" | grep '.rein/hooks') -qF '\$HOME'" _ "$E"
 cp "$SET" "$T/s1"; ( cd "$P" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
 assert_status 0 "E-290.01e: a second sync is byte-identical (idempotent)" cmp -s "$T/s1" "$SET"
 
@@ -123,7 +123,7 @@ G="$T/gitproj"; mkdir -p "$G"; ( cd "$G" && git init -q && printf '#!/bin/sh\nex
 gen_project_settings "$G" >/dev/null
 for stub in pre-commit pre-push post-commit; do
   f="$G/.git/hooks/${stub}"
-  assert_status 0 "E-290.03a: ${stub} stub shebang is #!/bin/bash -p" bash -c "head -1 '$f' | grep -qx '#!/bin/bash -p'"
+  assert_status 0 "E-290.03a: ${stub} stub shebang is #!/bin/bash -p" bash -c "grep < <(head -1 '$f') -qx '#!/bin/bash -p'"
   assert_status 0 "E-290.03b: ${stub} stub runs the canonical via /bin/bash -p" grep -q '/bin/bash -p "\$CANONICAL"' "$f"
   assert_status 1 "E-290.03c: ${stub} stub never names \$HOME for the canonical" grep -q 'CANONICAL="\$HOME' "$f"
 done

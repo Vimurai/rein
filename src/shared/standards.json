@@ -101,6 +101,21 @@
       ]
     },
     {
+      "rule_id": "no_pipe_into_grep_q",
+      "severity": "error",
+      "threshold": 0,
+      "description": "A writer piped into `grep -q` loses the match under `set -o pipefail`: grep exits on the first match, the writer dies of SIGPIPE, the pipeline fails (E-294.R3a on PR #13). Test a match with a here-string (`grep -q P <<< \"$x\"`), process substitution (`grep < <(cmd) -q P`) or `[[ =~ ]]` (D-138 r1, E-400). Comments are prose; `||` is not a pipe. Rollback: REIN_STANDARDS_SKIP=pipe-grep-q.",
+      "auto_fix_available": false,
+      "applies_to": [
+        "tests/**/*.sh",
+        "hooks/**/*.sh"
+      ],
+      "suppression_aliases": [
+        "pipe-grep-q"
+      ],
+      "exempt_files": []
+    },
+    {
       "rule_id": "no_raw_exit_trap_in_tests",
       "severity": "error",
       "threshold": 0,

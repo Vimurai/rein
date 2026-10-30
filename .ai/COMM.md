@@ -718,3 +718,47 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 ### Open risks
 - None new. The 14:10 UTC entry's reinstall risk stands until the operator reinstalls from the branch.
 ---
+## Handoff — 2026-10-30 15:30 UTC
+**From**: Engineer → Architect
+**Trigger**: E-391 merge step done — PR #10 merged, v0.4.0 tagged and released; E-397 and E-391 DONE
+
+### What was built
+- **Reinstall verified** (operator ran it): the install at e4cd5fa, no stale MCP, no `AI_OS_*` in the env → [BUILD_STALE] cleared; E-397 DONE (local CI PASS b675b07 7015/0/25).
+- **Required checks on `main`**: one `gh api` PATCH replaced the eight `ai ci run (…)` contexts with `rein ci run (ubuntu-latest, node {22,24}, {1..4}/4)`; `privacy scan`, `fast`, `CodeQL` kept; macOS informative. Recorded in DEVOPS.md.
+- **PR #10 merged** → 557e016. E-391 DONE.
+- **PR #12** (release/v0.4.0, merged → 509d7e5): CHANGELOG 0.4.0 still described the withdrawn one-release compatibility layer and `release.yml` publishes that section, so it was corrected before the tag: hard cut, upgrade by `install-rein.sh` + `rein sync` + `rein doctor`, no old spellings (rename gate 7/7). Bookkeeping (your D-133 addendum, E-396..E-398) carried. Local CI PASS 291783a 7015/0/25; every required check green; Dependency review green after the operator enabled the graph.
+- **v0.4.0** annotated tag on 509d7e5. The release workflow's publish job was SKIPPED: its `needs: matrix` includes the macOS legs and shard 1/4 failed (node 22 and node 24). With the operator's yes the release was published by hand with the workflow's own notes recipe (CHANGELOG 0.4.0 section + `install-rein.sh` sha256 a9e28a26…8ed98b): https://github.com/Vimurai/rein/releases/tag/v0.4.0
+
+### Migration list (rein-rename.md §Component 4, verbatim)
+1. `bash install-rein.sh` from the merged `main` (installs `~/.rein/bin/rein`; prints that
+   the command is `rein`; then lists every project it can find whose settings name a missing
+   Rein hook path, each with `run: rein sync` — found through Claude Code's per-project
+   session directories, read-only and bounded per D-132 addendum 5; the list may be
+   incomplete and says so, so run `rein doctor` in any project it does not name).
+2. `rein sync` in every project on that list (and any other): rulefiles, hook paths, merge
+   driver and settings re-render from the templates; a Rein-named hook entry with a missing
+   path is rewritten to the install path.
+3. `rein doctor` in each project: no `[HOOK_PATH_MISSING]`, no `[GATE_UNREGISTERED]`,
+   `[REIN_ROLE]` present.
+4. Only now `rm ~/.ai-os` — today's reinstall left it as a symlink to `~/.rein`; it is a
+   symlink, so `rm`, never `rm -r`. The gate rows that protected this path are gone, so it
+   must go.
+5. Remove any `AI_OS_*` export from shell rc files; nothing reads them.
+
+Operator status: steps 1, 2 and 4 done before the merge (operator report); in this repo `rein doctor` shows none of the step-3 lines; no `AI_OS_*` in the rc files. But the old home directory exists again as a real directory holding only `telemetry.sqlite` (14:48 UTC) — see Open risks.
+
+### Decisions made
+- None new. The manual release follows D-133 (macOS informative) — confirm below.
+
+### Blueprint divergence
+- `src/shared/hosted-ci.mjs` `requiredChecks()` returns the four `macos-latest, node 22` shards; DEVOPS.md and the E-391 merge-step text say macOS stays informative. I followed DEVOPS.md. One of the two is wrong — rule which.
+- `release.yml` gates the publish on the full matrix including macOS, contradicting "macOS informative"; with E-388/E-396 open every tag's publish will skip. Rule: drop macOS from the publish gate, or keep it and accept manual publishes until E-388/E-396 land.
+
+### Next action needed (Architect)
+- Rule the two divergences above (a ci_gate change for the Engineer either way).
+- Flaky timing: `tests/unit/operand-scope.test.mjs` "CodeQL's pathological git and path inputs … stay inside the budget" (E-397) failed once on hosted macOS (509d7e5 push run; passed on #10, #12 and a Dependabot PR) — a fixed 200 ms budget when CI=true. Fold into E-396/E-388 or a one-line task.
+- Engineer continues: E-385 (branch e-385-rein-mark, your 289a043 cherry-picked as b3a0e7a; your uncommitted D-136 addendum files ride E-385's bookkeeping commit), then E-390.
+
+### Open risks
+- **The old home directory was recreated by the Engineer's own mistake**: after the #12 merge `git switch main` checked out a stale pre-rename local `main`; the install resolves through this checkout, so pre-rename code ran for a few minutes (the gate failed closed with [SAFE_EXEC_UNAVAILABLE] — correct) and the old telemetry module created `telemetry.sqlite` under the old path. The operator restored the branch with `git switch -f` after a backup (nothing lost). The directory holds only those minutes of rows; the operator is asked to remove it (a real directory this time, not the symlink). Lesson: never check out a pre-rename ref in the framework clone; tag by sha.
+---

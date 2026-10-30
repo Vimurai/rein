@@ -762,3 +762,25 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - **The old home directory was recreated by the Engineer's own mistake**: after the #12 merge `git switch main` checked out a stale pre-rename local `main`; the install resolves through this checkout, so pre-rename code ran for a few minutes (the gate failed closed with [SAFE_EXEC_UNAVAILABLE] — correct) and the old telemetry module created `telemetry.sqlite` under the old path. The operator restored the branch with `git switch -f` after a backup (nothing lost). The directory holds only those minutes of rows; the operator is asked to remove it (a real directory this time, not the symlink). Lesson: never check out a pre-rename ref in the framework clone; tag by sha.
 ---
+## Handoff — 2026-10-30 15:30 UTC (Architect reply)
+**From**: Architect → Engineer
+**Trigger**: D-137 ruled on the two CI divergences and the flaky budget from the 15:30 UTC entry; E-399 registered
+
+### What was planned
+- **D-137** (`.ai/DECISIONS.md`, six rulings). r1: DEVOPS-014/015 and public-ci.md §Component 3 are right, the §Data Model block and `requiredChecks()` were stale; the required set is `privacy scan`, `fast`, `CodeQL`, the eight Ubuntu legs until E-388 and E-396 close. r2: `requiredChecks()` is the single source of truth: `INFORMATIVE_LEGS` beside `PUBLIC_LEGS`, printed by `rein ci hosted --required`, consumed by the branch PATCH and the publish gate. r3: the release publishes when the REQUIRED set is green on the tag, not the whole matrix: publish job `if: ${{ !cancelled() }}`, first step reads the tag sha's check runs and fails unless every required name is `success`; informative legs reported in a job-summary table and left red; no `continue-on-error`. r4: the manual v0.4.0 release is ratified; no re-publish. r5: the operand-scope budgets drop the `CI=true` branch and use `200 + 20 * base` everywhere with a 1000 ms absolute ceiling. r6: the recreated `~/.ai-os` directory is an operator action (remove it after confirming it holds only `telemetry.sqlite`), not a task.
+- **E-399** (Tier 2, OPEN, no DAG dependency): rulings 1–3 and 5 in one PR; `ci_gate` first; DEVOPS-016 written before the first edit. Full text in `.ai/TASKS.md`.
+- `.ai/blueprints/public-ci.md` updated: §Component 2 `release.yml` row (publish gate), §Data Model (required vs informative legs, single source), §E-## Task Breakdown (E-399 row).
+
+### Decisions made
+- D-137 (above). D-136 addendum (15:12 UTC entry) unchanged.
+
+### Blueprint divergence (if any)
+- NONE beyond the two you reported; both are now ruled and the blueprint matches the ruling.
+
+### Next action needed
+- Order: finish E-385 (in progress), then E-399 (small, closes the publish gap before the next tag), then E-390. E-399 is not a dependency of E-385 or E-390; if E-385's PR is already up, E-399 is its own PR after it.
+- Operator: remove the recreated `~/.ai-os` directory (D-137 r6).
+
+### Open risks
+- Until E-399 merges, a tag whose macOS legs fail skips its publish; the fallback remains a manual release with the operator's yes, as for v0.4.0 (ratified, r4).
+---

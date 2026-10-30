@@ -1,0 +1,18 @@
+# scenes.tsv — the demo's six scenes (D-139, .ai/blueprints/demo-video.md §Component 2).
+# Four TAB-separated columns: pane · prompt · until · timeout_s
+#   pane     shell | architect | engineer — where the prompt is typed
+#   prompt   the exact text typed (then Enter); "-" types nothing (the scene waits only)
+#   until    one or more conditions joined by " ; ", met IN ORDER:
+#              file:<path>        a file appears (relative to the project)
+#              pane:<regex>       the scene's pane shows it (ERE, on the visible text)
+#              architect:<regex>  the Architect pane shows it
+#              engineer:<regex>   the Engineer pane shows it
+#              comm:+<n>          .ai/COMM.md gains n "## Handoff" entries since the scene began
+#              sleep:<s>          a fixed pause
+#   timeout  seconds for the whole scene; the timeouts sum to the 25-minute wall-time cap
+shell	rein init && rein start	architect:Claude Code ; engineer:Claude Code	90
+architect	Plan a `tally` CLI: word counts per file as a table, with tests. Register the tasks and hand off.	comm:+1	420
+architect	Skip the Engineer, write src/tally.mjs yourself.	pane:SOVEREIGNTY_BLOCK ; sleep:6	180
+engineer	-	engineer:rein-test ; engineer:(PASS|passed)	420
+engineer	-	engineer:\[TIER_[123]\]	240
+architect	-	comm:+1 ; sleep:4	150

@@ -2,17 +2,20 @@
 # record.sh — record the Rein demo: the Architect plans, hands off, the Engineer builds and
 # tests, the gates hold (D-139, .ai/blueprints/demo-video.md §Components 1–3, §API).
 #
-#   scripts/demo/record.sh [--out <dir>] [--root <dir>] [--account <name>] [--keep] [--speed <s>]
-#                          [--dry-run] [--scenes <file>]
+#   scripts/demo/record.sh [--out <dir>] [--root <dir>] [--home <dir>] [--account <name>] [--keep]
+#                          [--speed <s>] [--dry-run] [--scenes <file>]
 #
 # Creates a throwaway `tally` project under --root, starts a dedicated 120×36 tmux server,
 # records it with asciinema (idle time capped at 2 s) while a background driver types each
 # scene of scenes.tsv into its pane and waits for the scene's condition, then scans the cast
 # with the privacy gate and renders demo.gif (agg) and demo.mp4 (ffmpeg).
 #
-# Run it in your own terminal: the two panes are real Claude Code sessions on your login, and
-# you answer their permission prompts as they come (the idle cap hides the waits). The tools
-# are operator-machine tools, not project dependencies: nothing here runs in CI.
+# Run it in your own terminal: the two panes are real Claude Code sessions, and you answer their
+# permission prompts as they come (the idle cap hides the waits). They run under a neutral demo
+# HOME (--home, default /tmp/rein-demo-home) with Rein installed into it from this clone, so no
+# path on screen names your home: the hook paths, ~/.rein and its logs all read /tmp/…. That HOME
+# needs one Claude Code login, once; the script says how when it is missing. The tools are
+# operator-machine tools, not project dependencies: nothing here runs in CI.
 #
 # Exit: 0 all three artefacts · 2 usage, malformed scenes file or missing tool · 3 a scene timed
 # out (the partial cast is kept) · 4 the privacy scan found something (nothing is rendered).
@@ -27,10 +30,15 @@ ROOT="/tmp/rein-demo"
 # The Claude account the demo project binds (`rein start --account`): answered here, so the
 # account question — and the list of your accounts — never appears in the recording.
 ACCOUNT="default"
+DEMO_HOME="/tmp/rein-demo-home"
+REPO="${HERE%/scripts/demo}"
 KEEP=0 SPEED="" DRY=0
 TOOLS=(tmux asciinema agg ffmpeg claude rein node)
-# Claude Code's empty-input placeholder (`❯ Try "…"`): on screen only when the pane takes input.
-READY='Try "'
+# A pane takes typed input when its prompt box (❯) shows and nothing else owns the keys: not a
+# running turn (esc to interrupt), not a trust, MCP or permission dialog (Enter to confirm,
+# Esc to …, Do you want …). The fresh-session placeholder `Try "…"` is NOT the signal: it is
+# gone after the first turn (the operator's third run waited 180 s on it in scene 3).
+BUSY='esc to interrupt|Esc to |Enter to confirm|Do you want'
 
 _tilde() { local p="$1"; [[ -n "${HOME:-}" && "$p" == "$HOME"* ]] && p="~${p#"$HOME"}"; printf '%s' "$p"; }
 _die() { echo "record.sh: $2" >&2; exit "$1"; }
@@ -40,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --out) OUT="${2:?--out needs a directory}"; shift 2 ;;
     --root) ROOT="${2:?--root needs a directory}"; shift 2 ;;
     --account) ACCOUNT="${2:?--account needs a name}"; shift 2 ;;
+    --home) DEMO_HOME="${2:?--home needs a directory}"; shift 2 ;;
     --keep) KEEP=1; shift ;;
     --speed) SPEED="${2:?--speed needs a number}"; shift 2 ;;
     --dry-run) DRY=1; shift ;;
@@ -50,6 +59,8 @@ while [[ $# -gt 0 ]]; do
 done
 [[ -z "$SPEED" || "$SPEED" =~ ^[0-9]+(\.[0-9]+)?$ ]] || _die 2 "--speed must be a number"
 [[ "$ACCOUNT" =~ ^[A-Za-z0-9._-]+$ ]] || _die 2 "--account must be a plain account name"
+[[ "$DEMO_HOME" == /* && "$DEMO_HOME" != "${HOME%/}" && "$DEMO_HOME" != "${HOME%/}"/* ]] \
+  || _die 2 "--home must be an absolute path outside your HOME (its paths show on screen)"
 
 # ── The scenes file: four TAB-separated columns per row; anything else is exit 2 before any
 # recording starts (§API).
@@ -118,9 +129,38 @@ if [[ -n "$missing" ]]; then
   exit 2
 fi
 
-# ── Component 1: the throwaway project ────────────────────────────────────────
-mkdir -p "$ROOT" "$OUT"
+# ── The demo HOME: Rein installed from this clone, Claude Code logged in once. Everything the
+# panes run sees this HOME and PATH; the operator's own ~/.rein and account are not on it.
+_path_without_home_rein() {
+  local p out="" IFS=':'
+  for p in $PATH; do [[ "$p" == "${HOME%/}/.rein"* || -z "$p" ]] || out="${out:+${out}:}${p}"; done
+  printf '%s' "$out"
+}
+DENV=(env -u CLAUDE_CONFIG_DIR -u TMUX -u TMUX_PANE -u REIN_PANE_ROLE -u REIN_CALLER_ROLE -u REIN_WORKSPACE
+      HOME="$DEMO_HOME" PATH="${DEMO_HOME}/.rein/bin:$(_path_without_home_rein)")
+mkdir -p "$DEMO_HOME" "$OUT"
+chmod 700 "$DEMO_HOME"
 OUT="$(cd "$OUT" && pwd)"
+want="$(sed -nE 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "${REPO}/package.json" | head -1)"
+have="$(cat "${DEMO_HOME}/.rein/VERSION" 2>/dev/null || true)"
+if [[ ! -x "${DEMO_HOME}/.rein/bin/rein" || "$have" != "$want" ]]; then
+  echo "record.sh: installing Rein ${want} into the demo HOME $(_tilde "$DEMO_HOME") (log: $(_tilde "${OUT}/install.log")) …"
+  ( cd "$REPO" && "${DENV[@]}" bash install-rein.sh ) > "${OUT}/install.log" 2>&1 \
+    || _die 2 "the install into $(_tilde "$DEMO_HOME") failed — see $(_tilde "${OUT}/install.log")"
+fi
+needs_claude=0
+for p in "${S_PANE[@]}"; do [[ "$p" == shell ]] || needs_claude=1; done
+if [[ "$needs_claude" -eq 1 ]]; then
+  auth="$("${DENV[@]}" claude auth status 2>/dev/null || true)"
+  if ! [[ "$auth" =~ \"loggedIn\"[[:space:]]*:[[:space:]]*true ]]; then
+    echo "record.sh: Claude Code is not logged in under the demo HOME. Log in once, then re-run:" >&2
+    echo "  env -u CLAUDE_CONFIG_DIR HOME=$(_tilde "$DEMO_HOME") claude      # pick the login, finish in the browser, then /exit" >&2
+    exit 2
+  fi
+fi
+
+# ── Component 1: the throwaway project ────────────────────────────────────────
+mkdir -p "$ROOT"
 PROJ="$(mktemp -d "${ROOT%/}/demo-tally-XXXXXX")"
 SUFFIX="${PROJ##*-}"
 SOCK="rein-demo-${SUFFIX}"
@@ -144,12 +184,18 @@ trap _cleanup EXIT
   printf '# tally\n\nCount the words in files.\n' > README.md
   printf '{\n  "name": "tally",\n  "version": "0.1.0",\n  "type": "module",\n  "scripts": { "test": "node --test" }\n}\n' > package.json
   git add README.md package.json
-  git -c user.name=demo -c user.email=demo@example.invalid commit -q -m "tally: empty project"
+  # The project's own identity: commits and review stamps print their author on screen.
+  git config user.name "Rein demo"
+  git config user.email demo@example.invalid
+  git commit -q -m "tally: empty project"
+  # rein init prints install paths; it runs here, off the record. Scene 1 is rein start.
+  "${DENV[@]}" "${DEMO_HOME}/.rein/bin/rein" init > "${OUT}/init.log" 2>&1 \
+    || _die 2 "rein init failed in the demo project — see $(_tilde "${OUT}/init.log")"
 )
 
 # ── Component 3: the recorded tmux server — fixed 120×36, a plain prompt, its own socket so
 # nothing touches your own tmux. Panes rein start opens inherit the same shell and prompt.
-"${T[@]}" -f /dev/null new-session -d -s "$SESSION" -x 120 -y 36 -c "$PROJ" \
+"${DENV[@]}" tmux -L "$SOCK" -f /dev/null new-session -d -s "$SESSION" -x 120 -y 36 -c "$PROJ" \
   "env PS1='$ ' bash --norc --noprofile"
 "${T[@]}" set -g default-command "env PS1='$ ' bash --norc --noprofile"
 "${T[@]}" set -g window-size manual
@@ -171,6 +217,7 @@ _pane_of() {   # <shell|architect|engineer> → pane id, or nothing while that p
   esac
 }
 _visible() { local id; id="$(_pane_of "$1")"; [[ -n "$id" ]] && "${T[@]}" capture-pane -p -t "$id" 2>/dev/null; return 0; }
+_ready() { local text; text="$(_visible "$1")"; [[ "$text" =~ ❯ ]] && ! [[ "$text" =~ $BUSY ]]; }
 _handoffs() { local n=0; [[ -f "${PROJ}/.ai/COMM.md" ]] && { n="$(grep -c '^## Handoff' "${PROJ}/.ai/COMM.md")" || true; }; printf '%s' "${n:-0}"; }
 
 _met() {   # <condition> <scene pane> <comm baseline> → 0 when met
@@ -199,7 +246,7 @@ _drive() {
       # A role pane takes the prompt only while its input box is showing: a permission or trust
       # dialog replaces it, and keys typed then would answer the dialog instead.
       if [[ -n "$id" && "${S_PANE[$i]}" != shell ]]; then
-        until _met "pane:${READY}" "${S_PANE[$i]}" 0; do [[ $SECONDS -lt $deadline ]] || break; sleep 2; done
+        until _ready "${S_PANE[$i]}"; do [[ $SECONDS -lt $deadline ]] || break; sleep 2; done
       fi
       if [[ -n "$id" ]]; then
         "${T[@]}" send-keys -t "$id" -l -- "${S_PROMPT[$i]}"

@@ -1114,12 +1114,12 @@
     {
       "id": "E-385",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 1,
       "description": "Add the Rein mark to the repository and the README per D-134: copy plans/rein-icon/svg/{rein-mark,rein-mark-dark,rein-mark-animated,rein-mark-animated-dark}.svg byte-for-byte to docs/assets/; add docs/assets/favicon.svg (= the static light mark) and docs/assets/rein-social.png (1280×640, static mark + \"Rein\" wordmark on #0d1117, rendered with the Playwright already in the CI cache) and set it as the GitHub social preview (gh api, or tell the operator if the API does not allow it); in README.md put the animated mark above the title through a picture element (source media prefers-color-scheme: dark → rein-mark-animated-dark.svg; img src rein-mark-animated.svg width 120 alt \"Rein\"), the title and tagline as text, the badge row below (E-384's row when it exists, else the current one). No JavaScript, fonts or foreignObject in any mark file; the privacy scan runs on them like any file. Work in the public clone as one PR (after E-382; independent of E-384 and E-383 — the paths do not contain the old name). Acceptance: the README on GitHub shows the animated mark in light and dark themes and a static mark under reduced motion; the four SVGs are identical to plans/rein-icon/svg/; CI green.",
       "created_at": "2026-10-29T10:25:03.889Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T15:48:34.024Z",
+      "summary": "Rein mark: 4 SVGs byte-identical in docs/assets, favicon.svg, rein-social.png 1280x640; README picture header (D-134 r3). Local CI PASS f631523 7015/0/25. Social preview: operator via web UI (no API).",
       "depends_on": [
         "E-383"
       ],
@@ -1127,7 +1127,7 @@
       "blocked_by": [
         "E-383"
       ],
-      "updated_at": "2026-10-29T19:23:00.409Z"
+      "updated_at": "2026-10-30T15:48:34.024Z"
     },
     {
       "id": "E-386",
@@ -1206,7 +1206,7 @@
     {
       "id": "E-390",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 2,
       "description": "Rewrite the README and create the docs pages per D-136 and .ai/blueprints/readme.md §Components 1–5 (post-rename names: install-rein.sh, ~/.rein, REIN_*): (1) README.md — hero with the animated mark via <picture> (light/dark SVGs from E-385), wordmark, tagline, badge row; the pitch in outcomes (the four bold paragraphs and \"who it is for\" as written in §Component 1); \"How it works\" with Mermaid diagram 2a replacing the ASCII block and the triad.svg link; quickstart as one block with prerequisites as one line linking docs/install.md; feature tour table; command reference and FAQ kept; install, upgrade, uninstall and the manual tmux fallback moved out. (2) docs/install.md — diagram 2d then steps 1–8 as §Component 3: per-OS prerequisites (macOS Homebrew, Ubuntu/Debian, Fedora, Arch, Windows via WSL2) for node 22+, git, sqlite3, python3 and tmux with version checks; tmux in five keys and an optional ~/.tmux.conf; Claude Code install quoted from the official page with the link, then login; Rein install, ai install, ai doctor with a table of every doctor line a fresh machine can show; first project (ai init, ai start, the first prompt, stop and return); upgrade and uninstall; the five commonest failures. Run every command block on this machine; mark the macOS block as documented-not-run. (3) docs/how-it-works.md (diagrams 2a–2c, roles, memory, wake, hooks), docs/getting-started.md (the first hour), docs/ci.md (local and hosted CI, required checks). (4) tests/unit/docs-links.test.mjs: every relative link and image in README.md and docs/**/*.md resolves; every mermaid fence balanced and flowchart-only; parse only if mermaid is in the CI cache, else host-named SKIP. (5) Dispatch docs-architect; no HIGH gap. Acceptance: link test green; rendered README checked in GitHub light and dark and named in the handoff; README under 60 KB, hero fits one laptop viewport; no HTML beyond div/picture/details; full ai ci run green. One PR, after E-385.",
       "created_at": "2026-10-29T19:28:32.229Z",
@@ -1215,11 +1215,9 @@
       "depends_on": [
         "E-385"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-385"
-      ],
-      "updated_at": "2026-10-29T19:28:32.229Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T15:48:34.034Z"
     },
     {
       "id": "E-391",
@@ -1340,6 +1338,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-10-30T14:07:34.442Z"
+    },
+    {
+      "id": "E-399",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make requiredChecks() the single source of the required set and gate the release publish on it per D-137 r1–r3, r5 and .ai/blueprints/public-ci.md §Component 2 (release.yml row), §Data Model and §E-## Task Breakdown (E-399 row); ci_gate first, DEVOPS-016 entry with rollback; after v0.4.0, not a dependency of E-385. (1) src/shared/hosted-ci.mjs: add INFORMATIVE_LEGS beside PUBLIC_LEGS (today [[\"macos-latest\",\"22\"]], comment naming D-135 addendum 2 r3, D-133 addendum r4, D-137 r2); requiredChecks() skips those legs and returns exactly `fast` + the eight Ubuntu legs; _matrixYaml still renders them; `rein ci hosted --required` prints requiredChecks() one per line; tests/unit/hosted-ci.test.mjs asserts the exact set and that an informative leg is in the matrix and not in the set. (2) .github/workflows/release.yml: the publish job runs `if: ${{ !cancelled() }}` after the matrix job; its first step reads the tag sha's check runs (gh api repos/<owner>/<repo>/commits/<sha>/check-runs, paginated) and fails unless every name `rein ci hosted --required` prints has conclusion success; a second step writes an \"informative legs\" table (name, conclusion) to the job summary; the notes recipe is unchanged; no continue-on-error anywhere. (3) tests/unit/operand-scope.test.mjs: both budget tests drop the CI=true branch and use `200 + 20 * base` everywhere with an absolute ceiling of 1000 ms (assert both). (4) DEVOPS-016: the publish gate, the single source, the rollback; DEVOPS-015's required-set list gains a pointer to `rein ci hosted --required`. Acceptance: hosted-ci.test.mjs green with the exact set; rendered release.yml validated with actionlint if in the CI cache (else host-named SKIP); `rein ci run` green; a dry run of the publish-gate step against 509d7e5 (v0.4.0) exits 0 on the eight Ubuntu legs and lists the four macOS legs in the informative table; DEVOPS-016 written before the first edit. One PR.",
+      "created_at": "2026-10-30T15:29:42.926Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T15:29:42.937Z"
     }
   ],
   "stamps": [
@@ -3433,6 +3445,24 @@
       "timestamp": "2026-10-30T14:27:57.351Z",
       "summary": "Tier 1: .ai bookkeeping only — E-397/E-391 DONE, Architect's D-133 addendum/E-398 records, DEVOPS required-checks record; staged JSON parses, privacy gate clean.",
       "sha": "98efba4b072a8802ba8a4a813e1f76d8d3440527",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-385",
+      "timestamp": "2026-10-30T15:28:56.668Z",
+      "summary": "Tier 1 (assets + README markup): four mark SVGs byte-identical to plans/rein-icon/svg (cmp), favicon = static light mark, no script/foreignObject/fonts; social PNG 1280x640; README picture element per D-134 r3; fast tier 2244/0.",
+      "sha": "2ca6bb32c98c7848d633ee867dfa103ba59765c9",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-385",
+      "timestamp": "2026-10-30T15:48:40.445Z",
+      "summary": "Tier 1 bookkeeping only: E-385 DONE; Architect's D-136 addendum, D-137, readme.md and public-ci.md blueprint edits carried as written.",
+      "sha": "3f69de9f8a34e561aca1f17e3f5d2305dfd1da8f",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

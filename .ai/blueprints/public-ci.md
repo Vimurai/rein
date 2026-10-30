@@ -44,7 +44,7 @@ SHAs and declare minimal `permissions` per job.
 | `scorecard.yml` | weekly, push to trunk | OpenSSF Scorecard, results published to the security tab |
 | `dependency-review.yml` | PR | `actions/dependency-review-action`, fail on high severity or a non-allowed licence |
 | `nightly.yml` | 03:00 UTC on trunk, manual | full matrix (reuses Component 1's job via `workflow_call`), `npm audit --audit-level=high`, the D-118 r1 drift line as a job summary; on failure create-or-update ONE issue labelled `nightly` |
-| `release.yml` | tag `v*` | the full matrix on the tag; then a GitHub release from the CHANGELOG section for that version with the sha256 of `install-rein.sh` (`install-rein.sh` until E-383) in the notes |
+| `release.yml` | tag `v*` | the full matrix on the tag; then a GitHub release from the CHANGELOG section for that version with the sha256 of `install-rein.sh` in the notes. The publish job runs `if: ${{ !cancelled() }}` and gates on the REQUIRED set, not the whole matrix: its first step reads the tag sha's check runs from the Checks API and fails unless every name `rein ci hosted --required` prints is `success`; the informative legs (macOS × 22 while E-388/E-396 are open) are reported as a table in the job summary and stay red in the run when they fail (D-137 r3) |
 | `privacy.yml` (E-378) | PR, push | unchanged |
 - `.github/dependabot.yml`: npm for the root and `src/mcp/*` (weekly, grouped minor+patch),
   `github-actions` (weekly). Dependabot PRs run the full CI like any PR.
@@ -96,9 +96,14 @@ source of the strings.
 .ai/publish.json present            → renderer profile = "public"
 .github/workflows/{ci,privacy,codeql,scorecard,dependency-review,nightly,release}.yml
 .github/dependabot.yml
-Required checks: ["privacy", "fast", "CodeQL",
-                  "rein ci run (ubuntu-latest, node 22, i/4)", "rein ci run (ubuntu-latest, node 24, i/4)",
-                  "rein ci run (macos-latest, node 22, i/4)"]           for i in 1..4   (D-135 r5, r7)
+Required checks: ["privacy scan", "fast", "CodeQL",
+                  "rein ci run (ubuntu-latest, node 22, i/4)", "rein ci run (ubuntu-latest, node 24, i/4)"]
+                                                                        for i in 1..4   (D-135 r5, r7; D-137 r1)
+Informative legs (run on every PR and on the tag, NOT required, no continue-on-error — D-135 addendum 2 r3,
+                  D-133 addendum r4, D-137 r2): "rein ci run (macos-latest, node 22, i/4)" for i in 1..4
+                  = INFORMATIVE_LEGS in src/shared/hosted-ci.mjs; emptied by the PR that closes E-388 + E-396.
+Single source of truth: requiredChecks() = PUBLIC_LEGS minus INFORMATIVE_LEGS (+ fast); printed by
+                  `rein ci hosted --required`; consumed by the branch-protection PATCH and the release publish gate (D-137 r2–r3).
 Nightly-only legs: "rein ci run (macos-latest, node 24, i/4)", "rein ci run (ubuntu-latest, node 22)" (unsharded)
 Nightly issue: label "nightly", title "Nightly failed on <date>", body = run link + summary; updated, never duplicated
 ```
@@ -143,3 +148,4 @@ job (the profile switch is one condition); shrink the required-check set to `pri
 | E-386 | 2 | `.ai/blueprints/ci-throughput.md` §Components 1–3, 5: lane default by host, census baseline, `--shard`, `exclusive_seconds` | E-382 |
 | E-387 | 2 | `.ai/blueprints/ci-throughput.md` §Component 5: Rein's exclusive tail under 25 % | E-386 |
 | E-392 | 2 | Component 5: the Windows (WSL2) leg, informative then required; README wording; DEVOPS.md | E-391 (after `v0.4.0`) |
+| E-399 | 2 | D-137 r1–r3, r5: `INFORMATIVE_LEGS` + `requiredChecks()` as the single source (`rein ci hosted --required`), `release.yml` publish gate on the required set with the informative table, `operand-scope.test.mjs` baseline-relative budget with a 1000 ms ceiling; ci_gate first, DEVOPS-016 | E-391 (after `v0.4.0`) |

@@ -91,7 +91,12 @@ export function boundedRel(rawPath, projectRoot) {
   // it as an unresolved tail, and hand back `.ai/link` — inside the allowed root,
   // never resolved to its target. `.ai/link` blocked while `.ai/link/` allowed
   // (E-208 audit round 2).
-  const cleanedPath = String(rawPath).replace(/[\\/]+$/, "") || rawPath;
+  // A loop, not /[\\/]+$/: that regex is quadratic on a long run of separators that does not
+  // end the string (E-397, CodeQL js/polynomial-redos).
+  const s = String(rawPath);
+  let end = s.length;
+  while (end > 0 && (s[end - 1] === "/" || s[end - 1] === "\\")) end--;
+  const cleanedPath = s.slice(0, end) || rawPath;
 
   let rel;
   try {

@@ -119,6 +119,21 @@ export function isInternalPathBuilder(line) {
   return PATH_BUILDER_RE.test(line);
 }
 
+// The `snake_case` identifiers quoted in backticks, as /`(\w+(?:_\w+)+)`/g found them: a word
+// with an underscore that has a word character on both sides. That regex backtracked
+// exponentially on `0_0_0_… (E-397, CodeQL js/redos), since \w also matches `_`. A rejected
+// candidate leaves its closing backtick free to open the next one, as the regex did.
+export function snakeIdentifiers(text) {
+  const re = /`(\w+)(?=`)/g;
+  const out = [];
+  for (let m; (m = re.exec(text)) !== null;) {
+    const w = m[1];
+    const u = w.indexOf("_", 1);
+    if (u !== -1 && u < w.length - 1) { out.push(w); re.lastIndex += 1; }
+  }
+  return out;
+}
+
 const server = new Server(
   { name: "blueprint-aligner-mcp", version: "1.0.0" },
   { capabilities: { tools: {} } }
@@ -230,8 +245,7 @@ function generateDelta(taskId, diff, blueprintSection) {
     }
 
     // Check if blueprint mentions tools/APIs not found in diff
-    const blueprintTools = [...blueprintSection.matchAll(/`(\w+(?:_\w+)+)`/g)]
-      .map(m => m[1])
+    const blueprintTools = snakeIdentifiers(blueprintSection)
       .filter(t => /^[a-z]/.test(t) && t.length > 3);
     const missingTools = blueprintTools.filter(bt =>
       !diff.includes(bt) && !newTools.includes(bt)

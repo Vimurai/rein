@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const { runAnalysis } = await import(resolve(repo, "src/mcp/safe-exec-mcp/index.js"));
 const { stripInertHeredocs, readOnlyLine } = await import(resolve(repo, "src/mcp/safe-exec-mcp/heredoc.mjs"));
+const { boundedRel } = await import(resolve(repo, "src/mcp/safe-exec-mcp/architect-writes.mjs"));
 const cases = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/operand-scope-cases.json"), "utf8"));
 
 const fenced = (file, n) => {
@@ -113,4 +114,23 @@ test("…and an operator override does not lift it (nothing was analysed)", () =
 test("…while a long ordinary command below the cap is still analysed, not refused", () => {
   const r = runAnalysis("echo a && echo b; ".repeat(300), "engineer");
   assert.equal(r.verdict, "PASS");
+});
+
+// E-397: the inputs CodeQL cites against the regexes the git-redirect rules and the write-path
+// trim used (js/redos, js/polynomial-redos), below the cap so they are analysed: same verdict,
+// inside the 50k test's budget. The other spellings are the table's E-350 (iii) rows.
+test("CodeQL's pathological git and path inputs keep their verdict and stay inside the budget", () => {
+  const base = msOf(() => runAnalysis("true; ".repeat(50), "engineer"));
+  const budget = process.env.CI === "true" ? 200 : 200 + 20 * base;
+  for (const [cmd, rule] of [["git " + "-C -! ".repeat(400) + "--git-dir=x status", "ARCH_GIT_DIR_OVERRIDE"],
+    ["GIT_CONFIG_KEY_0=" + "(GIT_CONFIG_KEY_0=".repeat(400) + "core.hooksPath git status", "ARCH_GIT_HOOKS_PATH"]]) {
+    let r;
+    const ms = msOf(() => { r = runAnalysis(cmd, "architect"); });
+    console.log(`  ${rule}: ${ms.toFixed(1)} ms (budget ${budget.toFixed(1)}, baseline ${base.toFixed(2)})`);
+    assert.equal(r.verdict, "BLOCK");
+    assert.ok(r.sovereignty.some((b) => b.id === rule), `rules ${r.sovereignty.map((b) => b.id)}`);
+    assert.ok(ms < budget, `${rule}: ${ms.toFixed(1)} ms ≥ ${budget.toFixed(1)} ms`);
+  }
+  const ms = msOf(() => boundedRel(".ai/" + "/".repeat(50000) + "x", repo));
+  assert.ok(ms < budget, `trailing-separator trim: ${ms.toFixed(1)} ms`);
 });

@@ -134,7 +134,9 @@ const _str = (v) => typeof v === "string";
 const _line = (v) => _str(v) && !/[\r\n]/.test(v);
 // E-331: a claim names its holder in the gate's refusal and the preflight banner.
 // Printable ASCII only: a bidi override or zero-width character would reach the model's context.
-const CLAIM_EMAIL_RE = /^[!#-&(-?A-[\]-_a-~]{1,64}@[!#-&(-?A-[\]-_a-~]{1,190}$/;
+// Every printable but space " ' @ \ ` — spelled out, not as ranges like `(-?` (E-397, CodeQL
+// js/overly-large-range); the set is unchanged.
+const CLAIM_EMAIL_RE = /^[!#$%&()*+,\-./0-9:;<=>?A-Z[\]^_a-z{|}~]{1,64}@[!#$%&()*+,\-./0-9:;<=>?A-Z[\]^_a-z{|}~]{1,190}$/;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 /** The claim fields a task record carries only while set (E-331, D-102 §Component 4). */
 export const CLAIM_KEYS = ["assignee", "claimed_at", "claim_sha", "claim_prev"];

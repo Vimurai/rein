@@ -14,7 +14,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 import { getDbSeeded, completeTask, regenerateViews } from "../../src/mcp/shared/state-db.js";
-import { writeRecord, readRecord, taskRecord } from "../../src/mcp/shared/record-store.mjs";
+import { writeRecord, readRecord, taskRecord, assertTaskRecord } from "../../src/mcp/shared/record-store.mjs";
 import { claimTask, releaseTask, publishDone, claimGate, listClaims, trunkRecord, fetchTrunk } from "../../src/mcp/shared/task-claims.mjs";
 import { runTaskDone } from "../../src/shared/cli-state.mjs";
 import { tcFixtureHome, linkShared } from "../lib/toolchain-fixture.mjs";
@@ -298,4 +298,15 @@ test("the claim push goes through the real pre-push CI gate: an .ai/-only commit
   const refused = claimTask(red.aAi, "E-900");
   assert.equal(refused.code, "CLAIM_PENDING");
   assert.match(refused.message, /\[CI_GATE\]/);
+});
+
+// E-397 (CodeQL js/overly-large-range): the claim email's character class was spelled with ranges
+// such as `(-?`; spelled out, it must still admit every printable but space " ' @ \ ` per side.
+test("a claim email admits printable ASCII but space \" ' @ \\ ` on each side, nothing else", () => {
+  const ok = (local) => { try { assertTaskRecord("E-900", taskRecord(task("E-900", { assignee: `${local}@x.test` }))); return true; } catch { return false; } };
+  for (let c = 0; c < 0x80; c++) {
+    const ch = String.fromCharCode(c);
+    assert.equal(ok(`a${ch}b`), c > 0x20 && c < 0x7f && !" \"'@\\`".includes(ch), `char 0x${c.toString(16)}`);
+  }
+  assert.equal(ok("a\u202eb"), false, "a bidi override");
 });

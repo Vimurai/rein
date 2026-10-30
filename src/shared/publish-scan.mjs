@@ -377,12 +377,15 @@ export function blobText(buf) {
   if (!t.includes("\u0000")) return t;
   return (buf.toString("latin1").match(/[\x20-\x7e]{6,}/g) || []).join("\n");
 }
+const HTML_NAMED = { amp: "&", lt: "<", gt: ">", quot: '"' };
 /** Common encodings undone, so an escaped value is matched too: JSON \uXXXX, percent, HTML entities. */
 export function decodedView(text) {
   let d = text.replace(/\\u([0-9a-fA-F]{4})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)));
   d = d.replace(/%([0-9A-Fa-f]{2})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)));
-  d = d.replace(/&#x([0-9a-f]+);/gi, (_m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n)))
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
+  // HTML entities in ONE pass: chained replaces decoded `&amp;lt;` (and `&#38;lt;`) twice, to `<`
+  // (E-397, CodeQL js/double-escaping). The \u and % layers above still decode into entities.
+  d = d.replace(/&(?:#[xX]([0-9a-fA-F]+)|#(\d+)|(amp|lt|gt|quot));/g, (_m, h, n, name) =>
+    h ? String.fromCodePoint(parseInt(h, 16)) : n ? String.fromCodePoint(Number(n)) : HTML_NAMED[name]);
   return d.normalize("NFKC");
 }
 const FAKE_TOKEN_MARK = "privacy:allow-fake-token";

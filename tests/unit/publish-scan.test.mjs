@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync as _read, rmSync, syml
 import { tmpdir } from "node:os";
 import { dirname as _dirname, join, resolve as _resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ALLOWABLE_FILES, CLASSES, EXEMPT_FILES, checkAllow, doctorLine, exportFiles, identityProblem, isExported, loadScanConfig, precommitProblems, scanFiles, scanText, treeGateProblems, treeProblems } from "../../src/shared/publish-scan.mjs";
+import { ALLOWABLE_FILES, CLASSES, EXEMPT_FILES, checkAllow, decodedView, doctorLine, exportFiles, identityProblem, isExported, loadScanConfig, precommitProblems, scanFiles, scanText, treeGateProblems, treeProblems } from "../../src/shared/publish-scan.mjs";
 
 const classes = (text, opts) => scanText(text, opts).map((h) => h.class);
 
@@ -476,4 +476,11 @@ test("E-370: README and CONTRIBUTING state the licence and the DCO", () => {
   const contributing = _read(_resolve(REPO, "CONTRIBUTING.md"), "utf8");
   assert.match(contributing, /git commit -s/);
   assert.match(contributing, /Developer's Certificate of Origin 1\.1/);
+});
+
+// E-397 (CodeQL js/double-escaping): HTML entities decode in one pass — `&amp;lt;` is the text
+// `&lt;`, not `<` — while every single entity, \u and % escape still decodes.
+test("decodedView decodes each HTML entity once, and the \\u and % layers beneath it", () => {
+  assert.equal(decodedView("&amp;lt; &#38;lt; &amp;#64;"), "&lt; &lt; &#64;");
+  assert.equal(decodedView("&lt;&gt;&quot;&amp; &#64; &#x40; &#X40; %40 \\u0040 %26lt;"), '<>"& @ @ @ @ @ <');
 });

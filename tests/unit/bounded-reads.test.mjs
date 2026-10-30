@@ -54,6 +54,16 @@ test("P-9: +++ diff header lines correctly excluded from addedLines", () => {
   assert.ok(!got.some((l) => l.startsWith("+++")) && got.length === 1, JSON.stringify(got));
 });
 
+// E-397 (CodeQL js/redos): blueprint-aligner's backticked snake_case scan, as /`(\w+(?:_\w+)+)`/g
+// found it, without the exponential backtracking on `0_0_0_… .
+const { snakeIdentifiers } = await import("../../src/mcp/blueprint-aligner-mcp/index.js");
+test("P-9: snakeIdentifiers finds backticked a_b words as the regex did, in linear time", () => {
+  assert.deepEqual(snakeIdentifiers("`run_review` `_x` `x_` `ab`x_y` `a__b` `a_b`c_d`"), ["run_review", "x_y", "a__b", "a_b"]);
+  const t = Date.now();
+  assert.deepEqual(snakeIdentifiers("`0" + "_0".repeat(50000)), []);
+  assert.ok(Date.now() - t < 1000, `${Date.now() - t} ms`);
+});
+
 // ── P-11: run_handover's blueprints/*.md fallback finds a task id the root architect.md lacks ──
 test("P-11: blueprints/*.md fallback finds task ID not in root architect.md", () => {
   const ai = join(T, "p11", ".ai");

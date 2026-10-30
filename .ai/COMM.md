@@ -697,3 +697,24 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 ### Open risks
 - Until the reinstall, every session start in this repo rewrites 34 tracked files back to ai-*; restore to HEAD before any commit.
 ---
+## Handoff — 2026-10-30 15:12 UTC
+**From**: Architect → Engineer
+**Trigger**: D-136 addendum written; E-390's blueprint sharpened (no new task, queue order unchanged)
+
+### What was planned
+- Operator request: the README update must carry the explicit steps for installing the Claude Code CLI in the terminal, not just "have `claude` logged in".
+- `.ai/blueprints/readme.md` updated under the addendum: §Component 3 step 4 is now a full step (native install one-liner for macOS/Linux/WSL2 quoted from the official Get started page with the link, Homebrew and WinGet alternatives, Windows PowerShell/CMD lines quoted for completeness with the WSL2 note, `claude --version` verification in a new terminal, the "Fix your PATH" link and rc one-liner, the first `claude` run and login, *what you should see* at each stage); §Component 4 quickstart line (the README block's first numbered step is the Claude Code one-liner plus `claude --version`, "skip if it already prints a version"); §Security clause (the only remote scripts piped into a shell are Claude Code's own documented installers, each line naming its page); the E-390 row.
+- `.ai/DECISIONS.md`: D-136 addendum, four rulings. Read it before E-390.
+
+### Decisions made
+- D-136 addendum (2026-10-30): the page wins over the blueprint. Re-read the official page while writing E-390 and name any changed install line in your handoff. The Windows lines are quoted, never run, on this Linux/WSL machine.
+
+### Blueprint divergence (if any)
+- NONE — this is a blueprint refinement before implementation; E-390 is still OPEN after E-385.
+
+### Next action needed
+- Continue the OPEN queue in the order already handed off (14:10 UTC entry: v0.4.0 tag and its migration steps, then E-385, then E-390). When E-390 starts, implement §Component 3 step 4 and the quickstart line as amended.
+
+### Open risks
+- None new. The 14:10 UTC entry's reinstall risk stands until the operator reinstalls from the branch.
+---

@@ -1,14 +1,14 @@
 #!/usr/bin/env bash
-# AIOS_INSTALLER_SUBJECT: the installer's Node.js preflight (E-311, D-092)
+# REIN_INSTALLER_SUBJECT: the installer's Node.js preflight (E-311, D-092)
 # installer_node_check_test.sh — Tests for E-69 fail-closed Node.js check.
 #
-# Verifies install-ai-os.sh refuses to proceed when Node.js is absent or
+# Verifies install-rein.sh refuses to proceed when Node.js is absent or
 # older than v22 — preventing silent WAL bloat on degraded systems
 # (system-hardening-phase3.md §Security / §Execution Constraints).
 #
-# Strategy: run install-ai-os.sh under a synthetic PATH so the embedded
+# Strategy: run install-rein.sh under a synthetic PATH so the embedded
 # `command -v node` resolves to a stub we control. The script must exit 1
-# before any file copy occurs (asserted by checking the sandbox AIOS dir
+# before any file copy occurs (asserted by checking the sandbox REIN dir
 # stays empty).
 
 set -uo pipefail
@@ -16,7 +16,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-INSTALL="${REPO_ROOT}/install-ai-os.sh"
+INSTALL="${REPO_ROOT}/install-rein.sh"
 
 echo "===== installer_node_check_test.sh ====="
 
@@ -33,14 +33,14 @@ assert_status 0 "installer probes command -v node" \
 assert_status 0 "installer enforces Node 22 major version" \
   grep -qE '_node_major < 22|Node 22\+' "$INSTALL"
 
-assert_status 0 "guard respects AI_OS_SKIP_NODE_CHECK escape hatch" \
-  grep -q 'AI_OS_SKIP_NODE_CHECK' "$INSTALL"
+assert_status 0 "guard respects REIN_SKIP_NODE_CHECK escape hatch" \
+  grep -q 'REIN_SKIP_NODE_CHECK' "$INSTALL"
 
-# Guard line number must come before the first 'mkdir -p "${AIOS}"' line —
+# Guard line number must come before the first 'mkdir -p "${REIN}"' line —
 # this protects ordering even if the file is later refactored.
 guard_line="$(grep -nE '\[ERROR\] Node\.js is required' "$INSTALL" | head -1 | cut -d: -f1)"
-mkdir_line="$(grep -nE '^mkdir -p "\$\{AIOS\}"' "$INSTALL" | head -1 | cut -d: -f1)"
-assert_status 0 "guard precedes first mkdir -p AIOS (line $guard_line < $mkdir_line)" \
+mkdir_line="$(grep -nE '^mkdir -p "\$\{REIN\}"' "$INSTALL" | head -1 | cut -d: -f1)"
+assert_status 0 "guard precedes first mkdir -p REIN (line $guard_line < $mkdir_line)" \
   bash -c "[[ -n '$guard_line' && -n '$mkdir_line' && '$guard_line' -lt '$mkdir_line' ]]"
 
 # ── T-NODE-S02: Behavioural — missing node aborts before file copy ────────────
@@ -70,8 +70,8 @@ assert_status 0 "installer exits non-zero when node absent" \
 assert_status 0 "stderr names Node.js as the missing requirement" \
   grep -qE 'Node\.js is required' "${SBOX}/stderr"
 
-assert_status 0 "no files copied to fake AIOS (sandbox HOME stays empty of .ai-os)" \
-  bash -c "[[ ! -d '${FAKE_HOME}/.ai-os/contracts' && ! -d '${FAKE_HOME}/.ai-os/shared' ]]"
+assert_status 0 "no files copied to fake REIN (sandbox HOME stays empty of .rein)" \
+  bash -c "[[ ! -d '${FAKE_HOME}/.rein/contracts' && ! -d '${FAKE_HOME}/.rein/shared' ]]"
 
 # ── T-NODE-S03: Behavioural — old node aborts before file copy ────────────────
 echo ""
@@ -107,19 +107,19 @@ assert_status 0 "stderr names Node.js 22+ requirement" \
 assert_status 0 "stderr surfaces the detected old version" \
   grep -q 'v18.19.0' "${SBOX}/stderr2"
 
-assert_status 0 "no files copied on stale node (sandbox HOME stays empty of .ai-os)" \
-  bash -c "[[ ! -d '${FAKE_HOME2}/.ai-os/contracts' && ! -d '${FAKE_HOME2}/.ai-os/shared' ]]"
+assert_status 0 "no files copied on stale node (sandbox HOME stays empty of .rein)" \
+  bash -c "[[ ! -d '${FAKE_HOME2}/.rein/contracts' && ! -d '${FAKE_HOME2}/.rein/shared' ]]"
 
-# ── T-NODE-S04: AI_OS_SKIP_NODE_CHECK escape hatch ────────────────────────────
+# ── T-NODE-S04: REIN_SKIP_NODE_CHECK escape hatch ────────────────────────────
 echo ""
-echo "  [T-NODE-S04] AI_OS_SKIP_NODE_CHECK=1 bypasses the guard"
+echo "  [T-NODE-S04] REIN_SKIP_NODE_CHECK=1 bypasses the guard"
 
 # We do NOT actually run a full install here (slow, and would mutate test HOME).
 # Instead assert the script-level branch exists and reads the env var.
 assert_status 0 "skip-flag respected via [[ != 1 ]] gate" \
-  grep -qE '"\$\{AI_OS_SKIP_NODE_CHECK:-0\}".*!=.*"1"' "$INSTALL"
+  grep -qE '"\$\{REIN_SKIP_NODE_CHECK:-0\}".*!=.*"1"' "$INSTALL"
 
-# ── T-NODE-S05: Hotfix — `sh install-ai-os.sh` re-execs under bash ───────────
+# ── T-NODE-S05: Hotfix — `sh install-rein.sh` re-execs under bash ───────────
 echo ""
 echo "  [T-NODE-S05] Invoking via sh re-execs into bash (POSIX-mode hotfix)"
 
@@ -146,12 +146,12 @@ if bash --posix -c ':' 2>/dev/null; then
   # (the installer regenerates .mcp.json with absolute paths) lands in the
   # sandbox, never the repo working tree. ($INSTALL + redirect paths are
   # absolute, so the cd is safe.)
-  ( cd "${SBOX_POSIX}" && HOME="${SBOX_POSIX}/home" AI_OS_SKIP_NODE_CHECK=1 bash --posix "$INSTALL" ) \
+  ( cd "${SBOX_POSIX}" && HOME="${SBOX_POSIX}/home" REIN_SKIP_NODE_CHECK=1 bash --posix "$INSTALL" ) \
     >"${SBOX_POSIX}/stdout" 2>"${SBOX_POSIX}/stderr"
   posix_rc=$?
   set -e
 
-  assert_status 0 "bash --posix install-ai-os.sh exits 0 via re-exec" \
+  assert_status 0 "bash --posix install-rein.sh exits 0 via re-exec" \
     bash -c "[[ $posix_rc -eq 0 ]]"
 
   assert_status 1 "no 'syntax error near' surfaces on stderr" \

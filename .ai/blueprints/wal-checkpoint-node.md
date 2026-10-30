@@ -1,14 +1,14 @@
 # Blueprint: SQLite WAL Checkpoint Node.js Migration
 
 ## Goal & Architecture
-Replace the `sqlite3` bash binary dependency in `bin/ai` with a deterministic `node:sqlite` helper script. This guarantees WAL checkpoints succeed across all environments (preventing silent DB bloat), as Node.js 22+ is a hard requirement for AI-OS.
+Replace the `sqlite3` bash binary dependency in `bin/rein` with a deterministic `node:sqlite` helper script. This guarantees WAL checkpoints succeed across all environments (preventing silent DB bloat), as Node.js 22+ is a hard requirement for Rein.
 
 ## Core Concept
-Currently, `_wal_checkpoint_state_db()` in `bin/ai` uses `command -v sqlite3` (E-53), failing open if the binary is missing. We will migrate this to a stateless Node.js script using the built-in `node:sqlite` module.
+Currently, `_wal_checkpoint_state_db()` in `bin/rein` uses `command -v sqlite3` (E-53), failing open if the binary is missing. We will migrate this to a stateless Node.js script using the built-in `node:sqlite` module.
 
 ## Components
 1. **wal-flusher.mjs**: A minimal `src/shared/wal-flusher.mjs` script that opens the DB and executes `PRAGMA wal_checkpoint(TRUNCATE)`.
-2. **bin/ai hook**: The bash hook in `src/bin/ai` will invoke `node src/shared/wal-flusher.mjs ~/.ai-os/state.sqlite` instead of the sqlite3 CLI.
+2. **bin/rein hook**: The bash hook in `src/bin/rein` will invoke `node src/shared/wal-flusher.mjs ~/.rein/state.sqlite` instead of the sqlite3 CLI.
 
 ## Data Model
 - Stateless execution against the existing `state.sqlite` database.
@@ -23,11 +23,11 @@ Currently, `_wal_checkpoint_state_db()` in `bin/ai` uses `command -v sqlite3` (E
 - No new npm packages required (`node:sqlite` is core).
 
 ## Execution Constraints
-- Must boot and execute in < 50ms to avoid slowing down `ai sync`.
+- Must boot and execute in < 50ms to avoid slowing down `rein sync`.
 
 ## Rollback Plan
-- Revert `src/bin/ai` to use the legacy bash `sqlite3` fallback hook.
+- Revert `src/bin/rein` to use the legacy bash `sqlite3` fallback hook.
 
 ## E-## Task Breakdown
 - E-57: Create `src/shared/wal-flusher.mjs` using `node:sqlite` to execute the TRUNCATE pragma.
-- E-58: Update `src/bin/ai`'s `_wal_checkpoint_state_db` to invoke the Node script instead of the bash binary.
+- E-58: Update `src/bin/rein`'s `_wal_checkpoint_state_db` to invoke the Node script instead of the bash binary.

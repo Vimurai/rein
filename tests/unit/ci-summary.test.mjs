@@ -1,9 +1,9 @@
 // tests/unit/ci-summary.test.mjs — the suite-step summary parser (E-310, D-091).
 //
 // One runner over the contract table tests/fixtures/ci-summary-cases.json: one row per
-// summary shape (AI-OS, vitest, node --test TAP and spec, pytest, jest), including the
-// downstream-project vitest log shape that `ai ci run` recorded as pass=0 before E-310. Extends nothing:
-// the old parser was a bash sed in src/bin/ai with no test of its own.
+// summary shape (Rein, vitest, node --test TAP and spec, pytest, jest), including the
+// downstream-project vitest log shape that `rein ci run` recorded as pass=0 before E-310. Extends nothing:
+// the old parser was a bash sed in src/bin/rein with no test of its own.
 //
 // Run standalone: node --test tests/unit/ci-summary.test.mjs
 
@@ -21,7 +21,7 @@ const CASES = JSON.parse(readFileSync(join(REPO, "tests", "fixtures", "ci-summar
 
 test("the table has a row for every runner shape", () => {
   const runners = new Set(CASES.map((c) => c.want?.runner).filter(Boolean).flatMap((r) => r.split("+")));
-  for (const r of ["aios", "vitest", "node-test", "pytest", "jest"]) assert.ok(runners.has(r), `no row for ${r}`);
+  for (const r of ["rein", "vitest", "node-test", "pytest", "jest"]) assert.ok(runners.has(r), `no row for ${r}`);
 });
 
 for (const c of CASES) {
@@ -35,7 +35,7 @@ test("sectionAfter reads only the text after the LAST marker line", () => {
 });
 
 test("CLI: one key=value line, runner=none when nothing matched", () => {
-  const d = mkdtempSync(join(tmpdir(), "aios-t-cisum-"));
+  const d = mkdtempSync(join(tmpdir(), "rein-t-cisum-"));
   try {
     const f = join(d, "run.log");
     const cli = join(REPO, "src", "shared", "ci-summary.mjs");

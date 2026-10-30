@@ -1,10 +1,10 @@
 // tests/unit/accounts.test.mjs — the Claude account registry (E-314, D-095, accounts.md §1 and §4)
 //
 // src/shared/accounts.py is the one resolver and validator of account names and config
-// directories; src/bin/ai-account.sh is the `ai account` glue around it. The resolver is a
+// directories; src/bin/rein-account.sh is the `rein account` glue around it. The resolver is a
 // table (name/dir → exit code + first token); the glue is a process boundary (a throwaway
 // HOME, a stub `claude` on PATH), so both are driven from node:test rather than a bash suite.
-// Nothing here reads or writes the operator's ~/.claude, ~/.ai-os or Keychain.
+// Nothing here reads or writes the operator's ~/.claude, ~/.rein or Keychain.
 //
 // Run standalone: node --test tests/unit/accounts.test.mjs
 
@@ -18,10 +18,10 @@ import { fileURLToPath } from "node:url";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const PY = join(REPO, "src", "shared", "accounts.py");
-const AI = join(REPO, "src", "bin", "ai");
+const AI = join(REPO, "src", "bin", "rein");
 
 function fixtureHome() {
-  const h = realpathSync(mkdtempSync(join(tmpdir(), "aios-t-acct-")));
+  const h = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-acct-")));
   mkdirSync(join(h, ".claude", "projects", "p"), { recursive: true });
   mkdirSync(join(h, "stub"));
   return { h, done: () => rmSync(h, { recursive: true, force: true }) };
@@ -54,7 +54,7 @@ const ai = (h, args, env = {}) => {
 test("resolver table: names, directories, registration (accounts.py)", () => {
   const { h, done } = fixtureHome();
   try {
-    const reg = join(h, ".ai-os", "accounts.json");
+    const reg = join(h, ".rein", "accounts.json");
     mkdirSync(join(h, ".claude-work"));
     symlinkSync("/tmp", join(h, "escape"));
     mkdirSync(join(h, "repo", ".git"), { recursive: true });
@@ -75,7 +75,7 @@ test("resolver table: names, directories, registration (accounts.py)", () => {
       ["name with a trailing newline", ["check", h, "work\n", join(h, ".claude-x")], 2, "INVALID"],
       ["symlinked parent of a new dir leaves HOME", ["check", h, "w", join(h, "escape", "acct")], 5, "BADDIR"],
       ["inside ~/.claude", ["check", h, "w", join(h, ".claude", "sub")], 5, "BADDIR"],
-      ["inside ~/.ai-os", ["check", h, "w", join(h, ".ai-os", "hooks")], 5, "BADDIR"],
+      ["inside ~/.rein", ["check", h, "w", join(h, ".rein", "hooks")], 5, "BADDIR"],
       ["inside a git working tree", ["check", h, "w", join(h, "repo", "acct")], 5, "BADDIR"],
       ["under a world-writable dir", ["check", h, "w", join(h, "shared", "acct")], 5, "BADDIR"],
       ["unregistered", ["resolve", reg, h, "work"], 4, "UNREGISTERED"],
@@ -111,7 +111,7 @@ test("resolver table: names, directories, registration (accounts.py)", () => {
   } finally { done(); }
 });
 
-test("ai account add: creates, seeds by copy, registers; ~/.claude untouched, nothing private copied", () => {
+test("rein account add: creates, seeds by copy, registers; ~/.claude untouched, nothing private copied", () => {
   const { h, done } = fixtureHome();
   try {
     stubClaude(h);
@@ -131,7 +131,7 @@ test("ai account add: creates, seeds by copy, registers; ~/.claude untouched, no
     assert.match(r.out, /claude\.ai logins/, "the claude.ai-only notice is printed");
     assert.match(r.out, /CLAUDE_CONFIG_DIR=\S+ claude/, "no TTY → the /login recipe, not a launch");
     assert.equal(readdirSync(c, { recursive: true }).sort().join("\n"), before, "~/.claude is unchanged");
-    const reg = JSON.parse(readFileSync(join(h, ".ai-os", "accounts.json"), "utf8"));
+    const reg = JSON.parse(readFileSync(join(h, ".rein", "accounts.json"), "utf8"));
     assert.equal(reg.accounts.work.config_dir, dir);
 
     // A directory that already holds a seeded file (a prior login) keeps it AND is registered:
@@ -142,7 +142,7 @@ test("ai account add: creates, seeds by copy, registers; ~/.claude untouched, no
     assert.equal(p.code, 0, p.out + p.err);
     assert.match(p.out, /settings\.json: kept the one already in/);
     assert.equal(readFileSync(join(pre, "settings.json"), "utf8"), '{"mine":1}\n');
-    assert.equal(JSON.parse(readFileSync(join(h, ".ai-os", "accounts.json"), "utf8")).accounts.pre.config_dir, pre);
+    assert.equal(JSON.parse(readFileSync(join(h, ".rein", "accounts.json"), "utf8")).accounts.pre.config_dir, pre);
 
     assert.equal(ai(h, ["account", "add", "work"]).code, 2, "a registered name is refused");
     assert.equal(ai(h, ["account", "add", "default"]).code, 2, "the reserved name is refused");
@@ -150,7 +150,7 @@ test("ai account add: creates, seeds by copy, registers; ~/.claude untouched, no
   } finally { done(); }
 });
 
-test("ai account list: default first, login from claude auth status, MISMATCH when it reports another dir", () => {
+test("rein account list: default first, login from claude auth status, MISMATCH when it reports another dir", () => {
   const { h, done } = fixtureHome();
   try {
     stubClaude(h);
@@ -192,15 +192,15 @@ test("copy never writes through a link at the destination (seeding and sync)", (
 test("an exported bash function cannot stand in for the account library (E-223 class)", () => {
   const { h, done } = fixtureHome();
   try {
-    // A copy of ai WITHOUT ai-account.sh beside it — the partial install the guard exists for.
+    // A copy of ai WITHOUT rein-account.sh beside it — the partial install the guard exists for.
     mkdirSync(join(h, "bin"));
-    copyFileSync(AI, join(h, "bin", "ai"));
-    const r = spawnSync("/bin/bash", [join(h, "bin", "ai"), "account", "list"], {
+    copyFileSync(AI, join(h, "bin", "rein"));
+    const r = spawnSync("/bin/bash", [join(h, "bin", "rein"), "account", "list"], {
       encoding: "utf8", input: "",
       env: { HOME: h, PATH: "/usr/bin:/bin", "BASH_FUNC_do_account%%": "() {  echo PWNED; }" },
     });
     assert.doesNotMatch(r.stdout + r.stderr, /PWNED/);
     assert.equal(r.status, 2);
-    assert.match(r.stderr, /ai-account\.sh is missing/);
+    assert.match(r.stderr, /rein-account\.sh is missing/);
   } finally { done(); }
 });

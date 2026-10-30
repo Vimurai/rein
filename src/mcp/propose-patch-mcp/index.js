@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * propose-patch-mcp — AI-OS Human-in-the-Loop Safe Diff Flow (E-141, §30)
+ * propose-patch-mcp — Rein Human-in-the-Loop Safe Diff Flow (E-141, §30)
  *
  * Instead of directly writing files, Claude proposes a formatted diff and
  * waits for explicit human confirmation before applying it.
@@ -359,7 +359,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 instrument(server, "propose-patch-mcp", CallToolRequestSchema);
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  await refreshPolicies();   // E-237: pick up a policy `ai sync` refreshed under us
+  await refreshPolicies();   // E-237: pick up a policy `rein sync` refreshed under us
   const { name, arguments: args } = request.params;
   const cwd = process.cwd();
 
@@ -403,7 +403,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       const db = _patchDb();
       if (!db) {
-        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: ai init" }], isError: true };
+        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: rein init" }], isError: true };
       }
 
       const id = newPatchId();
@@ -452,7 +452,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // stale ids + clean dry-run refusals) stops masquerading as a defect. Genuine apply/write
       // failures below stay UNMARKED → still ERROR.
       if (!db) {
-        return rejection("✗ state.sqlite not found — run: ai init");
+        return rejection("✗ state.sqlite not found — run: rein init");
       }
       const patch = db.prepare("SELECT * FROM patches WHERE id = ?").get(args.patch_id);
       if (!patch) {
@@ -482,11 +482,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         // in it says which project it belonged to. Guessing is exactly the behaviour
         // being removed, so refuse and let the caller re-propose — the diff is not lost,
         // it is still readable via preview_patch.
-        if (process.env.AI_OS_PATCH_LEGACY !== "1") {
+        if (process.env.REIN_PATCH_LEGACY !== "1") {
           return rejection(
             `✗ [LEGACY_PATCH] Patch '${args.patch_id}' predates the project-boundary check ` +
             `(E-221) and records no project root, so it cannot be verified against this ` +
-            `project. Re-propose it here, or set AI_OS_PATCH_LEGACY=1 to accept the ` +
+            `project. Re-propose it here, or set REIN_PATCH_LEGACY=1 to accept the ` +
             `pre-E-221 behaviour for this run.`
           );
         }
@@ -651,7 +651,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "reject_patch": {
       const db = _patchDb();
       if (!db) {
-        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: ai init" }], isError: true };
+        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: rein init" }], isError: true };
       }
       const patch = db.prepare("SELECT id, path, description, project_root, rel_path FROM patches WHERE id = ?").get(args.patch_id);
       if (!patch) {
@@ -664,10 +664,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // owner is waiting to confirm. Refuse rather than delete.
       const rejectRoot = projectRootFor(cwd);
       const rejectScope = rowScope(patch, rejectRoot);
-      if (rejectScope !== "own" && process.env.AI_OS_PATCH_LEGACY !== "1") {
+      if (rejectScope !== "own" && process.env.REIN_PATCH_LEGACY !== "1") {
         return rejection(
           rejectScope === "legacy"
-            ? `✗ [LEGACY_PATCH] Patch '${args.patch_id}' records no project root, so it cannot be verified against this project. Re-propose it here, or set AI_OS_PATCH_LEGACY=1.`
+            ? `✗ [LEGACY_PATCH] Patch '${args.patch_id}' records no project root, so it cannot be verified against this project. Re-propose it here, or set REIN_PATCH_LEGACY=1.`
             : `✗ [PROJECT_MISMATCH] Patch '${args.patch_id}' was proposed in '${rootLabel(patch.project_root)}', not this project — refusing to discard another project's pending patch.`
         );
       }
@@ -691,7 +691,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // id + rel_path + the root's BASENAME — never an absolute path, which is the
       // disclosure T-PROPOSEPATCH-002 records.
       const listRoot = projectRootFor(cwd);
-      const legacyMode = process.env.AI_OS_PATCH_LEGACY === "1";
+      const legacyMode = process.env.REIN_PATCH_LEGACY === "1";
       const own = [], foreign = [], legacyRows = [];
       for (const p of pending) {
         const sc = legacyMode ? "own" : rowScope(p, listRoot);
@@ -733,7 +733,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "preview_patch": {
       const db = _patchDb();
       if (!db) {
-        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: ai init" }], isError: true };
+        return { content: [{ type: "text", text: "✗ state.sqlite not found — run: rein init" }], isError: true };
       }
       const patch = db.prepare("SELECT * FROM patches WHERE id = ?").get(args.patch_id);
       if (!patch) {
@@ -748,7 +748,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // contents into the output.
       const ownRoot = projectRootFor(cwd);
       const scope = rowScope(patch, ownRoot);
-      if (process.env.AI_OS_PATCH_LEGACY === "1") {
+      if (process.env.REIN_PATCH_LEGACY === "1") {
         const formatted = formatDiff(patch.diff_content, patch.path);
         return { content: [{ type: "text", text: renderPatch(patch, formatted) }] };
       }

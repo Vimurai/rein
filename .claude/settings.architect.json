@@ -1,10 +1,10 @@
 {
   "env": {
-    "AI_OS_CALLER_ROLE": "architect"
+    "REIN_CALLER_ROLE": "architect"
   },
   "permissions": {
     "allow": [
-      "Bash(ai add-task *)",
+      "Bash(rein add-task *)",
       "mcp__task-synchronizer-mcp__add_topic_seed",
       "mcp__task-synchronizer-mcp__add_cluster_page",
       "mcp__context-guardian-mcp__check_role_access",

@@ -2,7 +2,7 @@
 /**
  * wal-flusher.mjs — Stateless WAL checkpoint helper (E-57).
  *
- * Replaces the `sqlite3` shell binary in `bin/ai` with the built-in
+ * Replaces the `sqlite3` shell binary in `bin/rein` with the built-in
  * `node:sqlite` module. Removes the silent fail-open path on dev boxes
  * without the sqlite3 CLI installed (Node.js 22+ is the project's
  * baseline, so node:sqlite is always available).
@@ -53,7 +53,7 @@ function validatePath(raw) {
   // After resolve(), `..` segments collapse — but reject anything that
   // resolves outside the user's home or the repo's CWD subtree at the
   // discretion of the caller. Here we only enforce the basic invariants
-  // (exists, regular file, .sqlite extension); the caller (bin/ai) passes
+  // (exists, regular file, .sqlite extension); the caller (bin/rein) passes
   // a hardcoded `.ai/state.sqlite` path so the wider scope check lives
   // there, not in this helper.
   if (!absolute.endsWith(".sqlite")) {

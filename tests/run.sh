@@ -1,61 +1,61 @@
 #!/usr/bin/env bash
-# run.sh — AI-OS Master Test Runner (P-15 / §22)
+# run.sh — Rein Master Test Runner (P-15 / §22)
 # Usage: bash tests/run.sh [--sweep] [--tier fast|full] [--changed <ref>] [--lanes N] [--shard i/N] [suite_pattern]
-#   --lanes N (AIOS_TEST_LANES, default 1): shared suites in N parallel lanes, exclusive ones
+#   --lanes N (REIN_TEST_LANES, default 1): shared suites in N parallel lanes, exclusive ones
 #     after them serially (E-309, D-091); refused above free memory / 1.5 GB.
-#   --tier full (default): every suite — today's matrix; `ai ci run` and pre-push use it.
+#   --tier full (default): every suite — today's matrix; `rein ci run` and pre-push use it.
 #   --tier fast: the node unit layer + every contract-table suite (E-298, D-088; budget 60 s).
 #   --changed <ref>: fast + the suites whose census footprint touches a file changed since <ref>
 #     (tests/tools/select-suites.mjs); with no census it runs the full matrix and says so.
-#   --shard i/N (AIOS_TEST_SHARD): only shard i of N — a deterministic partition by wall hint
+#   --shard i/N (REIN_TEST_SHARD): only shard i of N — a deterministic partition by wall hint
 #     (tests/tools/shard-plan.mjs; E-386, D-135 r3). Not with --tier fast or --changed.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# AIOS_TEST_SUITES_DIR: a fixture suites directory, so the runner's own gates (the leak
+# REIN_TEST_SUITES_DIR: a fixture suites directory, so the runner's own gates (the leak
 # and telemetry checks) can be tested by running it over a known-bad suite (E-257).
-SUITES_DIR="${AIOS_TEST_SUITES_DIR:-${SCRIPT_DIR}/suites}"
+SUITES_DIR="${REIN_TEST_SUITES_DIR:-${SCRIPT_DIR}/suites}"
 # E-240: --sweep removes what a run leaked (locally; on CI a leak FAILS the run instead,
 # because CI has no operator to run a sweep and a green run that leaks is a lie).
-AIOS_SWEEP=0
-AIOS_TIER="full"
-AIOS_CHANGED=""
+REIN_SWEEP=0
+REIN_TIER="full"
+REIN_CHANGED=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --sweep) AIOS_SWEEP=1; shift ;;
+    --sweep) REIN_SWEEP=1; shift ;;
     --tier)
       [[ "${2:-}" == "fast" || "${2:-}" == "full" ]] || { echo "run.sh: --tier needs fast|full" >&2; exit 2; }
-      AIOS_TIER="$2"; shift 2 ;;
+      REIN_TIER="$2"; shift 2 ;;
     --changed)
       [[ -n "${2:-}" ]] || { echo "run.sh: --changed needs a ref" >&2; exit 2; }
-      AIOS_CHANGED="$2"; shift 2 ;;
+      REIN_CHANGED="$2"; shift 2 ;;
     --lanes)
       [[ "${2:-}" =~ ^[1-9][0-9]*$ ]] || { echo "run.sh: --lanes needs a positive integer" >&2; exit 2; }
-      AIOS_TEST_LANES="$2"; shift 2 ;;
+      REIN_TEST_LANES="$2"; shift 2 ;;
     --shard)
       [[ -n "${2:-}" ]] || { echo "run.sh: --shard needs i/N" >&2; exit 2; }
-      AIOS_TEST_SHARD="$2"; shift 2 ;;
+      REIN_TEST_SHARD="$2"; shift 2 ;;
     *) break ;;
   esac
 done
 PATTERN="${1:-*_test.sh}"
-# E-309 (D-091): --lanes N / AIOS_TEST_LANES; 1 (the default) is today's serial run. The lane
+# E-309 (D-091): --lanes N / REIN_TEST_LANES; 1 (the default) is today's serial run. The lane
 # markers are this process's own; a value in the environment never makes a run a lane.
-unset AIOS_LANE_LABEL
+unset REIN_LANE_LABEL
 # The lane settings configure THIS run only: a runner a suite starts (the fixture runs in
 # harness_isolation_test's leaked-state and telemetry-isolation sections) is serial unless it asks — so they are read
 # here and kept, but no longer exported to the suites.
-export -n AIOS_TEST_LANES AIOS_TEST_LANES_AUTO AIOS_TEST_WALL_HINTS AIOS_TEST_FREE_MB AIOS_TEST_SHARD 2>/dev/null || true
-AIOS_LANES="${AIOS_TEST_LANES:-1}"
-[[ "$AIOS_LANES" =~ ^[1-9][0-9]*$ ]] || { echo "run.sh: AIOS_TEST_LANES must be a positive integer" >&2; exit 2; }
+export -n REIN_TEST_LANES REIN_TEST_LANES_AUTO REIN_TEST_WALL_HINTS REIN_TEST_FREE_MB REIN_TEST_SHARD 2>/dev/null || true
+REIN_LANES="${REIN_TEST_LANES:-1}"
+[[ "$REIN_LANES" =~ ^[1-9][0-9]*$ ]] || { echo "run.sh: REIN_TEST_LANES must be a positive integer" >&2; exit 2; }
 # E-386 (D-135 r3): one shard of the run. The fast job is one leg, so a shard of the fast tier
 # or of a change selection has no meaning — refused, like a bad spec.
-AIOS_SHARD="${AIOS_TEST_SHARD:-}"
-if [[ -n "$AIOS_SHARD" ]]; then
-  if [[ ! "$AIOS_SHARD" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
-    echo "run.sh: --shard needs i/N with 1 ≤ i ≤ N (got '${AIOS_SHARD}')" >&2; exit 2
+REIN_SHARD="${REIN_TEST_SHARD:-}"
+if [[ -n "$REIN_SHARD" ]]; then
+  if [[ ! "$REIN_SHARD" =~ ^([1-9][0-9]*)/([1-9][0-9]*)$ ]] || (( BASH_REMATCH[1] > BASH_REMATCH[2] )); then
+    echo "run.sh: --shard needs i/N with 1 ≤ i ≤ N (got '${REIN_SHARD}')" >&2; exit 2
   fi
-  if [[ "$AIOS_TIER" == "fast" || -n "$AIOS_CHANGED" ]]; then
+  if [[ "$REIN_TIER" == "fast" || -n "$REIN_CHANGED" ]]; then
     echo "run.sh: --shard cannot be combined with --tier fast or --changed (the fast job is one leg)" >&2; exit 2
   fi
 fi
@@ -69,8 +69,8 @@ fi
 # carrying the TEST PREFIX. A developer's own tmux session must survive a test run
 # untouched, and a cleanup tool that can kill the operator's work is worse than the leak it
 # fixes. There is a negative test for exactly this.
-AIOS_TEST_SOCK_PREFIX="${AIOS_TEST_SOCK_PREFIX:-aios-test-}"
-AIOS_TEST_TMP_PREFIX="${AIOS_TEST_TMP_PREFIX:-aios-t-}"
+REIN_TEST_SOCK_PREFIX="${REIN_TEST_SOCK_PREFIX:-rein-test-}"
+REIN_TEST_TMP_PREFIX="${REIN_TEST_TMP_PREFIX:-rein-t-}"
 TOTAL_LEAKED=0
 LEAK_REPORTS=()
 
@@ -78,14 +78,14 @@ LEAK_REPORTS=()
 _leak_snapshot() {
   local sockdir="${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)"
   if [[ -d "$sockdir" ]]; then
-    ls -1 "$sockdir" 2>/dev/null | grep "^${AIOS_TEST_SOCK_PREFIX}" \
+    ls -1 "$sockdir" 2>/dev/null | grep "^${REIN_TEST_SOCK_PREFIX}" \
       | sed 's|^|tmux-server\||' || true
   fi
-  ls -1d "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}"* 2>/dev/null \
+  ls -1d "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}"* 2>/dev/null \
     | sed 's|^|temp-dir\||' || true
   # Background processes whose argv names a harness sandbox (attribution key: argv).
   ps -axo pid=,command= 2>/dev/null \
-    | grep -E "${AIOS_TEST_TMP_PREFIX}|${AIOS_TEST_SOCK_PREFIX}" \
+    | grep -E "${REIN_TEST_TMP_PREFIX}|${REIN_TEST_SOCK_PREFIX}" \
     | grep -v 'grep' \
     | awk '{print "process|" $1 "|argv"}' || true
   return 0
@@ -105,11 +105,11 @@ _leak_sweep() {
       tmux-server)
         # Belt and braces: re-check the prefix here as well as at snapshot time, because
         # this is the branch that can destroy someone's session.
-        [[ "$id" == "${AIOS_TEST_SOCK_PREFIX}"* ]] || continue
+        [[ "$id" == "${REIN_TEST_SOCK_PREFIX}"* ]] || continue
         tmux -L "$id" kill-server 2>/dev/null || true
         rm -f "${TMUX_TMPDIR:-/tmp}/tmux-$(id -u)/${id}" 2>/dev/null || true ;;
       temp-dir)
-        [[ "$id" == *"/${AIOS_TEST_TMP_PREFIX}"* ]] || continue
+        [[ "$id" == *"/${REIN_TEST_TMP_PREFIX}"* ]] || continue
         rm -rf "$id" 2>/dev/null || true ;;
       process)
         [[ "$id" =~ ^[0-9]+$ ]] || continue
@@ -140,36 +140,36 @@ fi
 # git working tree is left clean.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # E-297: a runner started BY a suite (harness_isolation_test's leaked-state and launch-vars sections) inherits the outer
-# run's AIOS_TEST_TMPDIR. Such a nested run records its own footprint but never publishes a
+# run's REIN_TEST_TMPDIR. Such a nested run records its own footprint but never publishes a
 # census input — its suites are fixtures or a subset, not this commit's suite.
-AIOS_CENSUS_NESTED=0
-[[ -n "${AIOS_TEST_TMPDIR:-}" || -n "${AIOS_TEST_SUITES_DIR:-}" ]] && AIOS_CENSUS_NESTED=1
-TEST_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/aios-test.XXXXXX")"
+REIN_CENSUS_NESTED=0
+[[ -n "${REIN_TEST_TMPDIR:-}" || -n "${REIN_TEST_SUITES_DIR:-}" ]] && REIN_CENSUS_NESTED=1
+TEST_TMPDIR="$(mktemp -d "${TMPDIR:-/tmp}/rein-test.XXXXXX")"
 MCP_TEST_CONFIG="${TEST_TMPDIR}/.mcp.test.json"
 
-AIOS_LANE_PIDS=(); AIOS_RSS_SAMPLER_PID=""
-_aios_test_cleanup() {
-  [[ -n "${AIOS_RSS_SAMPLER_PID:-}" ]] && kill -TERM "$AIOS_RSS_SAMPLER_PID" 2>/dev/null || true
+REIN_LANE_PIDS=(); REIN_RSS_SAMPLER_PID=""
+_rein_test_cleanup() {
+  [[ -n "${REIN_RSS_SAMPLER_PID:-}" ]] && kill -TERM "$REIN_RSS_SAMPLER_PID" 2>/dev/null || true
   # E-309: an interrupted --lanes run stops its lane workers before their directory goes.
   local _lp
-  for _lp in "${AIOS_LANE_PIDS[@]+"${AIOS_LANE_PIDS[@]}"}"; do kill -TERM "$_lp" 2>/dev/null || true; done
+  for _lp in "${REIN_LANE_PIDS[@]+"${REIN_LANE_PIDS[@]}"}"; do kill -TERM "$_lp" 2>/dev/null || true; done
   rm -rf "$TEST_TMPDIR" 2>/dev/null || true
   rm -f "${REPO_ROOT}/.mcp.test.json" 2>/dev/null || true  # belt-and-suspenders
 }
-trap _aios_test_cleanup EXIT INT TERM
+trap _rein_test_cleanup EXIT INT TERM
 
 # Base the test config on the current .mcp.json (a sandbox copy). Skip silently
-# when no production config exists yet (e.g. CI before `ai mcp-setup`).
+# when no production config exists yet (e.g. CI before `rein mcp-setup`).
 if [[ -f "${REPO_ROOT}/.mcp.json" ]]; then
   cp "${REPO_ROOT}/.mcp.json" "$MCP_TEST_CONFIG"
   export MCP_CONFIG_PATH="$MCP_TEST_CONFIG"
 fi
-export AIOS_TEST_TMPDIR="$TEST_TMPDIR"
+export REIN_TEST_TMPDIR="$TEST_TMPDIR"
 
 # ── E-257 (D-070 §1): the suite must not be recorded as operator behaviour ────
 # Every MCP call a suite makes used to be telemetered into the operator's
-# ~/.ai-os/telemetry.sqlite: 47,391 of 51,382 in-window rows were fixtures on 2026-09-11,
-# and two ai-insights reports read them as the operator's habits. The whole run writes to
+# ~/.rein/telemetry.sqlite: 47,391 of 51,382 in-window rows were fixtures on 2026-09-11,
+# and two rein-insights reports read them as the operator's habits. The whole run writes to
 # a per-run temp store instead (telemetry.mjs honours AI_TELEMETRY_DB_PATH; the
 # interceptor and the post-tool-use hook both go through it). AI_TELEMETRY_DISABLE=1 is
 # the other accepted form and is left alone.
@@ -182,20 +182,20 @@ export AIOS_TEST_TMPDIR="$TEST_TMPDIR"
 # means no suite can verify the operator's real E-129 role token: an unknown id takes the
 # same path as an unset one, which is what CI always had.)
 # ── E-264 (D-071 §4): strip inherited launch variables before any suite is spawned ──
-# A run started from a bound tmux pane inherits AI_OS_PANE_ROLE & co., which the hooks rank
+# A run started from a bound tmux pane inherits REIN_PANE_ROLE & co., which the hooks rank
 # above the test's own inputs. See tests/lib/launch-vars.sh.
 source "${SCRIPT_DIR}/lib/launch-vars.sh"
 strip_launch_vars
 
-AIOS_TELEMETRY_LIVE="${HOME}/.ai-os/telemetry.sqlite"
-AIOS_TELEMETRY_MARKER="aios-test-run-$$-$(date +%s)"
-export CLAUDE_CODE_SESSION_ID="$AIOS_TELEMETRY_MARKER"
+REIN_TELEMETRY_LIVE="${HOME}/.rein/telemetry.sqlite"
+REIN_TELEMETRY_MARKER="rein-test-run-$$-$(date +%s)"
+export CLAUDE_CODE_SESSION_ID="$REIN_TELEMETRY_MARKER"
 if [[ "${AI_TELEMETRY_DISABLE:-0}" != "1" ]]; then
   export AI_TELEMETRY_DB_PATH="${TEST_TMPDIR}/telemetry.sqlite"
 fi
 # _live_telemetry_counts → "<total rows> <rows carrying this run's marker>" (or "0 0").
 _live_telemetry_counts() {
-  [[ -f "$AIOS_TELEMETRY_LIVE" ]] || { echo "0 0"; return 0; }
+  [[ -f "$REIN_TELEMETRY_LIVE" ]] || { echo "0 0"; return 0; }
   node --no-warnings -e '
     const { DatabaseSync } = require("node:sqlite");
     try {
@@ -205,27 +205,27 @@ _live_telemetry_counts() {
       const m = db.prepare("SELECT count(*) AS n FROM tool_executions WHERE session_id = ?").get(process.argv[2]).n;
       console.log(`${t} ${m}`);
     } catch { console.log("0 0"); }
-  ' "$AIOS_TELEMETRY_LIVE" "$AIOS_TELEMETRY_MARKER" 2>/dev/null || echo "0 0"
+  ' "$REIN_TELEMETRY_LIVE" "$REIN_TELEMETRY_MARKER" 2>/dev/null || echo "0 0"
 }
-read -r AIOS_TELEMETRY_BEFORE _ <<< "$(_live_telemetry_counts)"
+read -r REIN_TELEMETRY_BEFORE _ <<< "$(_live_telemetry_counts)"
 # _store_rows <db> → its total row count (E-309: a lane's HOME clone is checked like the run's).
-_store_rows() { AIOS_TELEMETRY_LIVE="$1" _live_telemetry_counts | cut -d' ' -f1; }
+_store_rows() { REIN_TELEMETRY_LIVE="$1" _live_telemetry_counts | cut -d' ' -f1; }
 
 # ── Discovery (bash 3 compatible) ────────────────────────────────────────────
 SUITES=()
-if [[ "$AIOS_TIER" == "full" && -z "$AIOS_CHANGED" ]]; then
+if [[ "$REIN_TIER" == "full" && -z "$REIN_CHANGED" ]]; then
   while IFS= read -r f; do SUITES+=("$f"); done < <(find "$SUITES_DIR" -name "$PATTERN" | sort)
 else
   # E-298: the selection is a pure function in tests/tools/select-suites.mjs (unit-tested);
   # "#NOTE" lines are decisions the runner prints (e.g. the --changed fallback to full).
-  _sel_args=(--suites-dir "$SUITES_DIR" --tier "$AIOS_TIER" --pattern "$PATTERN")
-  [[ -n "$AIOS_CHANGED" ]] && _sel_args+=(--changed "$AIOS_CHANGED")
+  _sel_args=(--suites-dir "$SUITES_DIR" --tier "$REIN_TIER" --pattern "$PATTERN")
+  [[ -n "$REIN_CHANGED" ]] && _sel_args+=(--changed "$REIN_CHANGED")
   _sel_out="$(node --no-warnings "${SCRIPT_DIR}/tools/select-suites.mjs" "${_sel_args[@]}")" || { echo "run.sh: suite selection failed" >&2; exit 2; }
   while IFS= read -r f; do
     case "$f" in "#NOTE "*) echo "   ${f#\#NOTE }" ;; "") ;; *) SUITES+=("$f") ;; esac
   done <<< "$_sel_out"
 fi
-AIOS_RUN_STARTED="$(date +%s)"
+REIN_RUN_STARTED="$(date +%s)"
 
 if [[ ${#SUITES[@]} -eq 0 ]]; then
   echo "No test suites found matching: $PATTERN"
@@ -233,26 +233,26 @@ if [[ ${#SUITES[@]} -eq 0 ]]; then
 fi
 
 # ── E-345 (D-109 r1): every fixture HOME a hook runs under carries the toolchain record ──
-# A suite that sets HOME and runs a hook or `ai` without tc_fixture_home passes only on hosts
+# A suite that sets HOME and runs a hook or `rein` without tc_fixture_home passes only on hosts
 # whose node sits in the pin's fallback list. Static, before any suite starts; exemptions are
 # per rule, with a reason, in tests/fixtures/fixture-home-exemptions.json.
 # The node unit tests spawn hooks too (tcFixtureHome); they are scanned with the suites.
 _census_files=("${SUITES[@]}")
 for _f in "${SCRIPT_DIR}"/unit/*.test.mjs; do [[ -f "$_f" ]] && _census_files+=("$_f"); done
 if ! _census_out="$(node --no-warnings "${SCRIPT_DIR}/tools/fixture-home-census.mjs" \
-      --exemptions "${AIOS_TEST_FIXTURE_HOME_EXEMPTIONS:-${SCRIPT_DIR}/fixtures/fixture-home-exemptions.json}" "${_census_files[@]}" 2>&1)"; then
+      --exemptions "${REIN_TEST_FIXTURE_HOME_EXEMPTIONS:-${SCRIPT_DIR}/fixtures/fixture-home-exemptions.json}" "${_census_files[@]}" 2>&1)"; then
   echo "$_census_out"
   echo "[TEST_FAILED] fixture-home census: use tc_fixture_home (tests/lib/toolchain-fixture.sh), or list the suite with a reason"
   exit 1
 fi
 
 echo ""
-echo "━━ AI-OS Test Runner ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "━━ Rein Test Runner ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo "   Suites found: ${#SUITES[@]}"
 echo ""
 
 # ── E-297 (D-088): census input — per-suite wall time, counts and footprint ──
-# tests/lib/footprint.sh appends one line per node/bash/python3/ai spawn to
+# tests/lib/footprint.sh appends one line per node/bash/python3/rein spawn to
 # ${TEST_TMPDIR}/footprint.log. After each suite the runner folds those lines into the census
 # input under THIS suite's name (exact attribution, whatever $0 the spawning script had),
 # with a count, and empties the log. tests/tools/census.mjs reads the result.
@@ -261,7 +261,7 @@ FOOTPRINT_LOG="${TEST_TMPDIR}/footprint.log"
 : > "$CENSUS_INPUT"; : > "$FOOTPRINT_LOG"
 printf 'CENSUS_RUN\t%s\t%s\t%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
   "$(git -C "$REPO_ROOT" rev-parse HEAD 2>/dev/null || echo unknown)" "$PATTERN" >> "$CENSUS_INPUT"
-# _now_ms → wall clock in ms. bash 5 has EPOCHREALTIME; /bin/bash 3.2 (what `ai ci run`
+# _now_ms → wall clock in ms. bash 5 has EPOCHREALTIME; /bin/bash 3.2 (what `rein ci run`
 # uses on macOS) does not, so perl (~3 ms, part of the base system) and, last, whole seconds.
 _now_ms() {
   if [[ -n "${EPOCHREALTIME:-}" ]]; then
@@ -274,27 +274,27 @@ _now_ms() {
 }
 
 # ── E-309 (D-091): lanes by resource class ───────────────────────────────────
-# A suite is EXCLUSIVE when it uses tmux, has the installer or `ai init` as its
-# subject (# AIOS_INSTALLER_SUBJECT), binds a port, measures host-load-sensitive ratios
-# (assert_perf, E-239), or declares `# AIOS_EXCLUSIVE: tmux|installer|port|perf` in its
+# A suite is EXCLUSIVE when it uses tmux, has the installer or `rein init` as its
+# subject (# REIN_INSTALLER_SUBJECT), binds a port, measures host-load-sensitive ratios
+# (assert_perf, E-239), or declares `# REIN_EXCLUSIVE: tmux|installer|port|perf` in its
 # first 10 lines. Exclusive suites run serially AFTER the shared lanes, under the run's
 # own prefixes and the machine-wide snapshot exactly as today. A false "exclusive" only
 # costs time; a false "shared" can leak across lanes, so the match is deliberately broad.
 # _lane_class <suite> → "shared" or "exclusive <reason>" (data on stdout, no state — D-064 §2).
 # E-312 (D-093): an installer-subject suite is no longer exclusive by its header alone. It
-# shares a lane when its last measured footprint shows every installer / `ai init` spawn with
+# shares a lane when its last measured footprint shows every installer / `rein init` spawn with
 # a HOME of its own — "tmp" (a harness temp dir), or "run" (the suite's starting HOME) when the
-# lanes clone HOME — the rule tests/tools/census.mjs installerLane() prints. `# AIOS_EXCLUSIVE:`
+# lanes clone HOME — the rule tests/tools/census.mjs installerLane() prints. `# REIN_EXCLUSIVE:`
 # and the tmux / port / perf rule still win.
 _lane_class() {
   local f="$1" name homes bad
-  if sed -n '1,10p' "$f" | grep -qE '^# AIOS_EXCLUSIVE:'; then
-    echo "exclusive # AIOS_EXCLUSIVE: $(sed -n '1,10s/^# AIOS_EXCLUSIVE:[[:space:]]*//p' "$f" | head -1)"; return 0
+  if sed -n '1,10p' "$f" | grep -qE '^# REIN_EXCLUSIVE:'; then
+    echo "exclusive # REIN_EXCLUSIVE: $(sed -n '1,10s/^# REIN_EXCLUSIVE:[[:space:]]*//p' "$f" | head -1)"; return 0
   fi
   if grep -qE 'tmux|assert_perf|nc -l|\.listen\(|createServer' "$f"; then
     echo "exclusive tmux / port / perf"; return 0
   fi
-  sed -n '1,10p' "$f" | grep -qE '^# AIOS_INSTALLER_SUBJECT' || { echo "shared"; return 0; }
+  sed -n '1,10p' "$f" | grep -qE '^# REIN_INSTALLER_SUBJECT' || { echo "shared"; return 0; }
   name="$(basename "$f")"
   homes="$(awk -F'\t' -v s="$name" '$1==s {print $2}' "${TEST_TMPDIR}/installer-homes.tsv" 2>/dev/null | sort -u)"
   [[ -n "$homes" ]] || { echo "exclusive no measured installer footprint"; return 0; }
@@ -310,10 +310,10 @@ _lane_class() {
 # 1536), its MB figure and its source, or nothing when unknown.
 _mem_cap() {
   local avail="" src=""
-  # AIOS_TEST_FREE_MB stands in for the host's reading (the lane fixture in harness_isolation_test,
+  # REIN_TEST_FREE_MB stands in for the host's reading (the lane fixture in harness_isolation_test,
   # whose verdicts must not depend on what this machine has free right now).
-  if [[ "${AIOS_TEST_FREE_MB:-}" =~ ^[0-9]+$ ]]; then
-    avail=$(( AIOS_TEST_FREE_MB * 1048576 )); src="AIOS_TEST_FREE_MB"
+  if [[ "${REIN_TEST_FREE_MB:-}" =~ ^[0-9]+$ ]]; then
+    avail=$(( REIN_TEST_FREE_MB * 1048576 )); src="REIN_TEST_FREE_MB"
   elif [[ -r /proc/meminfo ]]; then
     avail="$(awk '/^MemAvailable:/ {print $2 * 1024}' /proc/meminfo)"; src="MemAvailable"
   else
@@ -385,29 +385,29 @@ _lane_mem_mb() {
 }
 
 # _wall_hint <suite name> → its last measured wall time in ms (the newest CENSUS_SUITE line
-# in AIOS_TEST_WALL_HINTS, or in the newest ~/.ai-os/ci log, or — E-386 — in the committed
+# in REIN_TEST_WALL_HINTS, or in the newest ~/.rein/ci log, or — E-386 — in the committed
 # tests/census-baseline.tsv), else 30000. Longest-first placement needs only an order of
-# magnitude; a missing hint is not an error. AIOS_HINTS_FROM says which source answered
+# magnitude; a missing hint is not an error. REIN_HINTS_FROM says which source answered
 # ("log <path>" / "baseline" / "none"); the run prints it once as its `Lane: hints:` line.
-AIOS_HINTS_FROM=""
+REIN_HINTS_FROM=""
 _wall_hints_load() {
-  [[ -n "$AIOS_HINTS_FROM" ]] && return 0   # once per run: the lanes and the shard read the same
-  local src="${AIOS_TEST_WALL_HINTS:-}"
+  [[ -n "$REIN_HINTS_FROM" ]] && return 0   # once per run: the lanes and the shard read the same
+  local src="${REIN_TEST_WALL_HINTS:-}"
   if [[ -z "$src" ]]; then
     # No log with CENSUS lines → the loop's last status is a failed grep, which under
     # pipefail + set -e killed the run silently (E-332). Not finding a hint is not an error.
-    src="$(ls -1t "${HOME}/.ai-os/ci/logs/"*.log 2>/dev/null | head -20 | while IFS= read -r f; do
+    src="$(ls -1t "${HOME}/.rein/ci/logs/"*.log 2>/dev/null | head -20 | while IFS= read -r f; do
       grep -q '^CENSUS_SUITE' "$f" 2>/dev/null && { echo "$f"; break; }; done || :)"
   fi
   # E-386 (D-135 r2): a fresh hosted runner has no log; the baseline is the last full PASS's rows.
   if [[ -n "$src" && -r "$src" ]]; then
-    AIOS_HINTS_FROM="log ${src}"
+    REIN_HINTS_FROM="log ${src}"
   elif grep -q '^CENSUS_SUITE' "${SCRIPT_DIR}/census-baseline.tsv" 2>/dev/null; then
-    src="${SCRIPT_DIR}/census-baseline.tsv"; AIOS_HINTS_FROM="baseline"
+    src="${SCRIPT_DIR}/census-baseline.tsv"; REIN_HINTS_FROM="baseline"
   else
-    src=""; AIOS_HINTS_FROM="none"
+    src=""; REIN_HINTS_FROM="none"
   fi
-  echo "   Lane: hints: ${AIOS_HINTS_FROM}"
+  echo "   Lane: hints: ${REIN_HINTS_FROM}"
   [[ -n "$src" && -r "$src" ]] && grep '^CENSUS_SUITE' "$src" | cut -f2,3 > "${TEST_TMPDIR}/wall-hints.tsv" || : > "${TEST_TMPDIR}/wall-hints.tsv"
   { [[ -n "$src" && -r "$src" ]] && grep -E '^\[(run|ci)\] (peak_sum_rss_mb|resources)' "$src"; } > "${TEST_TMPDIR}/hints-src.log" 2>/dev/null || :
   # E-312: the same log's installer lines, "<suite>\t<HOME class>" (CENSUS_FP … installer
@@ -420,16 +420,16 @@ _wall_hint() {
   echo "${ms:-30000}"
 }
 
-# _lanes_run — run SUITES[] into $RUN_DIR: shared suites longest-first across AIOS_LANES
+# _lanes_run — run SUITES[] into $RUN_DIR: shared suites longest-first across REIN_LANES
 # workers, then the exclusive ones serially in this shell. Each lane owns its prefixes
-# (aios-test-L<n>-, aios-t-L<n>-), its AIOS_TEST_TMPDIR (footprint log) and telemetry store,
-# and — under `ai ci run`, whose HOME is the run's throwaway one — a HOME clone.
+# (rein-test-L<n>-, rein-t-L<n>-), its REIN_TEST_TMPDIR (footprint log) and telemetry store,
+# and — under `rein ci run`, whose HOME is the run's throwaway one — a HOME clone.
 # _lane_clone_home_set — clone HOME per lane only under CI, and NEVER the account's real home
-# (the user record, not $HOME): a local `AI_OS_CI=local bash tests/run.sh --lanes 4` must not
+# (the user record, not $HOME): a local `REIN_CI=local bash tests/run.sh --lanes 4` must not
 # copy it. Sets _lane_clone_home, which _lane_class reads (E-386: the shard pass classes too).
 _lane_clone_home_set() {
   _lane_clone_home=0
-  if [[ -n "${AI_OS_CI:-}" || "${CI:-}" == "true" ]] \
+  if [[ -n "${REIN_CI:-}" || "${CI:-}" == "true" ]] \
      && [[ "$HOME" != "$(node -p 'require("os").userInfo().homedir' 2>/dev/null)" ]]; then
     _lane_clone_home=1
   fi
@@ -444,41 +444,41 @@ _lanes_run() {
     _cls="$(_lane_class "$suite")"
     if [[ "$_cls" == shared ]]; then shared+=("$i"); else excl+=("$i"); fi
     # The installer-subject verdicts are printed: the classification moves with the data.
-    if sed -n '1,10p' "$suite" | grep -qE '^# AIOS_INSTALLER_SUBJECT'; then
+    if sed -n '1,10p' "$suite" | grep -qE '^# REIN_INSTALLER_SUBJECT'; then
       echo "   Lane: $(basename "$suite") ${_cls/exclusive /exclusive — }"
     fi
     i=$((i + 1))
   done
-  for ((l = 1; l <= AIOS_LANES; l++)); do load[l]=0; done
+  for ((l = 1; l <= REIN_LANES; l++)); do load[l]=0; done
   # Longest-first: sort the shared indexes by wall hint, descending; each goes to the
   # least-loaded lane.
   order="$(for i in "${shared[@]+"${shared[@]}"}"; do
     printf '%s\t%s\n' "$(_wall_hint "$(basename "${SUITES[$i]}")")" "$i"; done | sort -t$'\t' -k1,1nr | cut -f2)"
   for i in $order; do
     best=1
-    for ((l = 2; l <= AIOS_LANES; l++)); do (( load[l] < load[best] )) && best=$l; done
+    for ((l = 2; l <= REIN_LANES; l++)); do (( load[l] < load[best] )) && best=$l; done
     lane_of[i]=$best
     load[best]=$(( load[best] + $(_wall_hint "$(basename "${SUITES[$i]}")") ))
   done
-  echo "   Lanes: ${#shared[@]} shared suite(s) in ${AIOS_LANES} lanes, then ${#excl[@]} exclusive suite(s) serially"
+  echo "   Lanes: ${#shared[@]} shared suite(s) in ${REIN_LANES} lanes, then ${#excl[@]} exclusive suite(s) serially"
 
   local pids=() ldir
-  for ((l = 1; l <= AIOS_LANES; l++)); do
+  for ((l = 1; l <= REIN_LANES; l++)); do
     ldir="${TEST_TMPDIR}/lane${l}"; mkdir -p "$ldir"
     (
-      # The lane prefix EXTENDS the run's own (aios-t- → aios-t-L1-), so a runner started by
+      # The lane prefix EXTENDS the run's own (rein-t- → rein-t-L1-), so a runner started by
       # a suite in this lane (harness_isolation_test's leaked-state fixtures) names its own lanes inside it.
-      export AIOS_TEST_SOCK_PREFIX="${AIOS_TEST_SOCK_PREFIX}L${l}-" AIOS_TEST_TMP_PREFIX="${AIOS_TEST_TMP_PREFIX}L${l}-"
-      export AIOS_TEST_TMPDIR="$ldir"
+      export REIN_TEST_SOCK_PREFIX="${REIN_TEST_SOCK_PREFIX}L${l}-" REIN_TEST_TMP_PREFIX="${REIN_TEST_TMP_PREFIX}L${l}-"
+      export REIN_TEST_TMPDIR="$ldir"
       # This shell's own state, NOT exported: a nested runner is a run, not a lane.
-      AIOS_LANE_LABEL="lane ${l}"
+      REIN_LANE_LABEL="lane ${l}"
       [[ "${AI_TELEMETRY_DISABLE:-0}" != "1" ]] && export AI_TELEMETRY_DB_PATH="${ldir}/telemetry.sqlite"
       if [[ "$_lane_clone_home" -eq 1 ]]; then
         # The throwaway HOME, cloned (APFS clonefile when available) so lanes never share
-        # ~/.ai-os/run tokens, locks or stores.
+        # ~/.rein/run tokens, locks or stores.
         cp -c -R "$HOME" "${ldir}/home" 2>/dev/null || cp -R "$HOME" "${ldir}/home"
-        # PHYSICAL, as ai ci run's own HOME is (E-265): TMPDIR ends in "/" on macOS, and a
-        # "tmp//aios-test…" spelling is one node normalises and the shell does not.
+        # PHYSICAL, as rein ci run's own HOME is (E-265): TMPDIR ends in "/" on macOS, and a
+        # "tmp//rein-test…" spelling is one node normalises and the shell does not.
         HOME="$(cd "${ldir}/home" && pwd -P)"; export HOME
       fi
       for i in "${shared[@]+"${shared[@]}"}"; do
@@ -486,18 +486,18 @@ _lanes_run() {
       done
       exit 0
     ) &
-    pids+=("$!"); AIOS_LANE_PIDS+=("$!")
+    pids+=("$!"); REIN_LANE_PIDS+=("$!")
   done
   for n in "${pids[@]}"; do wait "$n" || true; done
-  AIOS_LANE_PIDS=()
+  REIN_LANE_PIDS=()
   # E-257 under CI: a lane's HOME clone is a throwaway store too — any growth is the run's.
   if [[ "$_lane_clone_home" -eq 1 ]]; then
-    for ((l = 1; l <= AIOS_LANES; l++)); do
-      n=$(( $(_store_rows "${TEST_TMPDIR}/lane${l}/home/.ai-os/telemetry.sqlite") - AIOS_TELEMETRY_BEFORE ))
-      AIOS_LANE_TEL_GREW=$(( ${AIOS_LANE_TEL_GREW:-0} + (n > 0 ? n : 0) ))
+    for ((l = 1; l <= REIN_LANES; l++)); do
+      n=$(( $(_store_rows "${TEST_TMPDIR}/lane${l}/home/.rein/telemetry.sqlite") - REIN_TELEMETRY_BEFORE ))
+      REIN_LANE_TEL_GREW=$(( ${REIN_LANE_TEL_GREW:-0} + (n > 0 ? n : 0) ))
     done
   fi
-  # E-386 (D-135 r6): the serial tail, measured — `ai ci run` records it as exclusive_seconds.
+  # E-386 (D-135 r6): the serial tail, measured — `rein ci run` records it as exclusive_seconds.
   local _ex0; _ex0="$(_now_ms)"
   for i in "${excl[@]+"${excl[@]}"}"; do _run_suite "$i" "${SUITES[$i]}"; done
   echo "[run] exclusive_seconds=$(( ($(_now_ms) - _ex0) / 1000 )) exclusive_suites=${#excl[@]}"
@@ -513,22 +513,22 @@ _lanes_run() {
 _run_suite() {
   local idx="$1" suite="$2" suite_name _budget _out _t0 _spid _timed_out _s0 _g _wall_ms
   local suite_exit=0 output summary passes fails skips _leaked _n=0 _kinds="" _keys
-  local _leak_before _leak_after _fp="${AIOS_TEST_TMPDIR}/footprint.log"
+  local _leak_before _leak_after _fp="${REIN_TEST_TMPDIR}/footprint.log"
   suite_name="$(basename "$suite")"
 
   # E-240: snapshot the external state before and after, so a leak is attributed to the
   # SUITE that caused it rather than discovered days later by hand. In a lane the snapshot
   # holds only names carrying the lane's own prefixes (E-309).
   _leak_before="$(mktemp)"; _leak_after="$(mktemp)"
-  if [[ "${AI_OS_TEST_NO_SWEEP:-0}" != "1" ]]; then _leak_snapshot > "$_leak_before" 2>/dev/null; fi
+  if [[ "${REIN_TEST_NO_SWEEP:-0}" != "1" ]]; then _leak_snapshot > "$_leak_before" 2>/dev/null; fi
 
   # Run the suite under a watchdog (E-307, D-091): its own process group (set -m), so a hung
   # suite is killed WITH everything it started; the leak diff and cleanup below still run.
-  # Budget: AIOS_SUITE_TIMEOUT (default 180 s), or the suite's `# AIOS_SUITE_TIMEOUT=<s>` HEADER
+  # Budget: REIN_SUITE_TIMEOUT (default 180 s), or the suite's `# REIN_SUITE_TIMEOUT=<s>` HEADER
   # line — the first 10 lines only, so a fixture suite written by a heredoc further down
   # (harness_isolation_test's hang fixture) does not set the budget of the suite that writes it.
-  _budget="$(sed -n '1,10s/^# AIOS_SUITE_TIMEOUT=\([0-9][0-9]*\).*/\1/p' "$suite" | head -1)"
-  _budget="${_budget:-${AIOS_SUITE_TIMEOUT:-180}}"
+  _budget="$(sed -n '1,10s/^# REIN_SUITE_TIMEOUT=\([0-9][0-9]*\).*/\1/p' "$suite" | head -1)"
+  _budget="${_budget:-${REIN_SUITE_TIMEOUT:-180}}"
   _out="$(mktemp)"
   _t0="$(_now_ms)"
   set -m
@@ -557,15 +557,15 @@ _run_suite() {
   fi
   _wall_ms=$(( $(_now_ms) - _t0 ))
 
-  if [[ "${AI_OS_TEST_NO_SWEEP:-0}" != "1" ]]; then
+  if [[ "${REIN_TEST_NO_SWEEP:-0}" != "1" ]]; then
     _leak_snapshot > "$_leak_after" 2>/dev/null
     _leaked="$(_leak_diff "$_leak_before" "$_leak_after")"
     if [[ -n "$_leaked" ]]; then
       _n="$(printf '%s\n' "$_leaked" | grep -c .)"
       _kinds="$(printf '%s\n' "$_leaked" | cut -d'|' -f1 | sort -u | tr '\n' ',' | sed 's/,$//')"
       _keys="$(printf '%s\n' "$_leaked" | awk -F'|' '$3!=""{print $1 ":" $2 " key=" $3}' | tr '\n' ' ' | sed 's/ $//')"
-      output="${output}"$'\n'"  LEAKED ${_n} ${_kinds}   (${AIOS_LANE_LABEL:+${AIOS_LANE_LABEL} }${suite_name})${_keys:+   [${_keys}]}"
-      if [[ "$AIOS_SWEEP" -eq 1 ]]; then
+      output="${output}"$'\n'"  LEAKED ${_n} ${_kinds}   (${REIN_LANE_LABEL:+${REIN_LANE_LABEL} }${suite_name})${_keys:+   [${_keys}]}"
+      if [[ "$REIN_SWEEP" -eq 1 ]]; then
         _leak_sweep "$_leaked"
         output="${output}"$'\n'"  swept ${_n} leaked item(s) from ${suite_name}"
       fi
@@ -635,10 +635,10 @@ _collect() {
 # ── E-386 (D-135 r3): one shard — the same lane classes, partitioned by wall hint ──
 # tests/tools/shard-plan.mjs is the pure partition (unit-tested): shared and exclusive suites
 # separately, hint descending then name, greedy to the lightest bin, unknown hint = median.
-# The node unit layer goes to shard 1, and shard 1 starts that much heavier (E-389: `ai ci
+# The node unit layer goes to shard 1, and shard 1 starts that much heavier (E-389: `rein ci
 # run` runs the unit layer again there, as its coverage step). Every shard of the same commit and baseline computes
 # the same partition, so shards 1..N together run every suite exactly once.
-if [[ -n "$AIOS_SHARD" ]]; then
+if [[ -n "$REIN_SHARD" ]]; then
   _wall_hints_load
   _lane_clone_home_set
   _shard_in="${TEST_TMPDIR}/shard-classes.tsv"; : > "$_shard_in"
@@ -646,7 +646,7 @@ if [[ -n "$AIOS_SHARD" ]]; then
     _c="$(_lane_class "$_f")"
     printf '%s\t%s\n' "$(basename "$_f")" "${_c%% *}" >> "$_shard_in"
   done
-  _shard_out="$(node --no-warnings "${SCRIPT_DIR}/tools/shard-plan.mjs" --shard "$AIOS_SHARD" \
+  _shard_out="$(node --no-warnings "${SCRIPT_DIR}/tools/shard-plan.mjs" --shard "$REIN_SHARD" \
     --hints "${TEST_TMPDIR}/wall-hints.tsv" --pin node_unit_test.sh --seed node_unit_test.sh < "$_shard_in")" \
     || { echo "run.sh: shard partition failed" >&2; exit 2; }
   # An empty shard selects nothing: grep's status 1 must not end the run under pipefail (E-332).
@@ -654,11 +654,11 @@ if [[ -n "$AIOS_SHARD" ]]; then
   _all=("${SUITES[@]}"); SUITES=()
   for _f in "${_all[@]}"; do [[ "$_keep" == *" $(basename "$_f") "* ]] && SUITES+=("$_f"); done
   read -r _ _sh_k _sh_m _sh_s <<< "$(grep '^#SHARD ' <<< "$_shard_out")"
-  echo "   Shard ${AIOS_SHARD}: ${_sh_k} shared, ${_sh_m} exclusive (est. ${_sh_s} s)"
+  echo "   Shard ${REIN_SHARD}: ${_sh_k} shared, ${_sh_m} exclusive (est. ${_sh_s} s)"
   if [[ ${#SUITES[@]} -eq 0 ]]; then
     # More shards than suites: an empty leg passes (bash 3.2 cannot expand an empty array
     # under set -u, so it stops here rather than in the loops below).
-    echo "   Shard ${AIOS_SHARD}: no suites — nothing to run"
+    echo "   Shard ${REIN_SHARD}: no suites — nothing to run"
     echo "   Total: 0 passed, 0 failed"
     echo "[TEST_PASSED] All tests passed ✓"
     exit 0
@@ -669,30 +669,30 @@ RUN_DIR="${TEST_TMPDIR}/suites"; mkdir -p "$RUN_DIR"
 PG_DIR="${TEST_TMPDIR}/pgids"; mkdir -p "$PG_DIR"
 
 # E-309: memory, not cores, binds the lane count — refuse a request above free / 1.5 GB.
-if [[ "$AIOS_LANES" -gt 1 ]]; then
+if [[ "$REIN_LANES" -gt 1 ]]; then
   _wall_hints_load
   # E-313 (D-094): the per-lane figure is measured — the last run's concurrent sum per lane.
   read -r _per_mb _per_src <<< "$(_lane_mem_mb)"
   read -r _cap _free_mb _mem_src <<< "$(_mem_cap "$_per_mb")"
   # E-312: the kernel figure and the per-lane number, on one line, every multi-lane run.
   [[ -n "${_cap:-}" ]] && echo "   Memory: ${_free_mb} MB available (${_mem_src}) / ${_per_mb} MB per lane (${_per_src}) → cap ${_cap} lane(s)"
-  if [[ -n "${_cap:-}" && "$AIOS_LANES" -gt "$_cap" ]]; then
-    if [[ "${AIOS_TEST_LANES_AUTO:-0}" == "1" ]]; then
-      # A DEFAULT lane count (ai ci run without --lanes) is clamped, never refused.
-      echo "   Lanes: ${AIOS_LANES} requested by default, clamped to the memory cap ${_cap} (${_free_mb} MB free / ${_per_mb} MB per lane)"
-      AIOS_LANES="$_cap"
+  if [[ -n "${_cap:-}" && "$REIN_LANES" -gt "$_cap" ]]; then
+    if [[ "${REIN_TEST_LANES_AUTO:-0}" == "1" ]]; then
+      # A DEFAULT lane count (rein ci run without --lanes) is clamped, never refused.
+      echo "   Lanes: ${REIN_LANES} requested by default, clamped to the memory cap ${_cap} (${_free_mb} MB free / ${_per_mb} MB per lane)"
+      REIN_LANES="$_cap"
     else
-      echo "run.sh: --lanes ${AIOS_LANES} refused — memory cap is ${_cap} lane(s) (${_free_mb} MB free / ${_per_mb} MB per lane)" >&2
+      echo "run.sh: --lanes ${REIN_LANES} refused — memory cap is ${_cap} lane(s) (${_free_mb} MB free / ${_per_mb} MB per lane)" >&2
       exit 2
     fi
   fi
 fi
 
-echo "   Lanes: ${AIOS_LANES}"
+echo "   Lanes: ${REIN_LANES}"
 _rss_out="${TEST_TMPDIR}/rss-sampler.out"; _rss_stop="${TEST_TMPDIR}/rss-sampler.stop"
 _rss_sampler "$_rss_out" "$_rss_stop" &
-AIOS_RSS_SAMPLER_PID=$!
-if [[ "$AIOS_LANES" -eq 1 ]]; then
+REIN_RSS_SAMPLER_PID=$!
+if [[ "$REIN_LANES" -eq 1 ]]; then
   # ── One lane: today's behaviour — every suite in order, output as it finishes ──
   _i=0
   for suite in "${SUITES[@]}"; do
@@ -706,33 +706,33 @@ else
   _i=0
   for suite in "${SUITES[@]}"; do _collect "$_i" "$suite"; _i=$((_i + 1)); done
 fi
-touch "$_rss_stop"; wait "$AIOS_RSS_SAMPLER_PID" 2>/dev/null || true; AIOS_RSS_SAMPLER_PID=""
+touch "$_rss_stop"; wait "$REIN_RSS_SAMPLER_PID" 2>/dev/null || true; REIN_RSS_SAMPLER_PID=""
 read -r _rss_kb _rss_n _rss_cpu < "$_rss_out" 2>/dev/null || { _rss_kb=0; _rss_n=0; _rss_cpu=0; }
-# E-313: the concurrent peak, beside the totals (ai ci run records it as peak_sum_rss_mb).
+# E-313: the concurrent peak, beside the totals (rein ci run records it as peak_sum_rss_mb).
 echo "[run] peak_sum_rss_mb=$(( ${_rss_kb:-0} / 1024 )) samples=${_rss_n:-0} sampler_cpu_ms=${_rss_cpu:-0}"
 
 # ── E-297: publish the census input (TEST_TMPDIR is deleted on exit) ─────────
 # Two copies, because the two kinds of run keep different things:
-#  - `ai ci run` (AI_OS_CI=local / CI=true) runs under a throwaway HOME and TMPDIR that are
-#    deleted with its worktree, and this runner may not write ~/.ai-os (rule 6). What it
-#    KEEPS is this run's stdout, tee'd into ~/.ai-os/ci/logs/<sha>-<started>.log — so the
+#  - `rein ci run` (REIN_CI=local / CI=true) runs under a throwaway HOME and TMPDIR that are
+#    deleted with its worktree, and this runner may not write ~/.rein (rule 6). What it
+#    KEEPS is this run's stdout, tee'd into ~/.rein/ci/logs/<sha>-<started>.log — so the
 #    census lines go into the log, beside the run they describe. They are printed BEFORE
-#    the Results block and start with CENSUS_, so `ai ci log --failed` (failedSections)
-#    never selects them and `ai ci run`'s Total: parse is untouched.
-#  - every top-level run also leaves ${TMPDIR}/aios-census-<stamp>-XXXXXX.tsv (newest 5
+#    the Results block and start with CENSUS_, so `rein ci log --failed` (failedSections)
+#    never selects them and `rein ci run`'s Total: parse is untouched.
+#  - every top-level run also leaves ${TMPDIR}/rein-census-<stamp>-XXXXXX.tsv (newest 5
 #    kept) and prints its path; census.mjs reads those for plain `bash tests/run.sh` runs.
 printf 'CENSUS_TOTAL\t%s\t%s\t%s\t%s\n' "${#SUITES[@]}" "$TOTAL_PASS" "$TOTAL_FAIL" "$TOTAL_SKIP" >> "$CENSUS_INPUT"
-if [[ "$AIOS_CENSUS_NESTED" -eq 0 ]]; then
-  if [[ "${CI:-}" == "true" || "${AI_OS_CI:-}" == "local" ]]; then
+if [[ "$REIN_CENSUS_NESTED" -eq 0 ]]; then
+  if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
     echo "── census input (E-297) ──"
     cat "$CENSUS_INPUT"
     echo ""
   fi
-  _census_copy="$(mktemp "${TMPDIR:-/tmp}/aios-census-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX" 2>/dev/null)" || _census_copy=""
+  _census_copy="$(mktemp "${TMPDIR:-/tmp}/rein-census-$(date -u +%Y%m%dT%H%M%SZ)-XXXXXX" 2>/dev/null)" || _census_copy=""
   if [[ -n "$_census_copy" ]] && cp "$CENSUS_INPUT" "$_census_copy" 2>/dev/null; then
     mv -f "$_census_copy" "${_census_copy}.tsv" 2>/dev/null && _census_copy="${_census_copy}.tsv"
     # Newest five only; the names carry the census prefix, nothing else is touched.
-    ls -1t "${TMPDIR:-/tmp}"/aios-census-*.tsv 2>/dev/null | tail -n +6 | while IFS= read -r _old; do
+    ls -1t "${TMPDIR:-/tmp}"/rein-census-*.tsv 2>/dev/null | tail -n +6 | while IFS= read -r _old; do
       rm -f "$_old" 2>/dev/null || true
     done
     echo "   Census input: ${_census_copy}   (node tests/tools/census.mjs)"
@@ -753,41 +753,41 @@ if [[ "${TOTAL_LEAKED:-0}" -gt 0 ]]; then
   echo ""
   echo "   LEAKED external state: ${TOTAL_LEAKED} item(s)"
   for _r in "${LEAK_REPORTS[@]}"; do echo "     - ${_r}"; done
-  # E-265 (D-072): `ai ci run` sets AI_OS_CI=local and has no operator to sweep either, so
+  # E-265 (D-072): `rein ci run` sets REIN_CI=local and has no operator to sweep either, so
   # a leak fails a local CI run exactly as it fails a hosted one.
-  if [[ "${CI:-}" == "true" || "${AI_OS_CI:-}" == "local" ]]; then
+  if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
     echo "   [LEAK_FAILED] a test run must leave nothing behind (E-240 / D-063 §2)"
     TOTAL_FAIL=$(( TOTAL_FAIL + 1 ))
   else
-    echo "   Run 'bash tests/run.sh --sweep' to remove them (AI_OS_TEST_NO_SWEEP=1 disables this check)."
+    echo "   Run 'bash tests/run.sh --sweep' to remove them (REIN_TEST_NO_SWEEP=1 disables this check)."
   fi
 fi
 
 # E-257: the live telemetry store. Both numbers are printed so a reader can tell "the
 # store grew because other sessions were busy" from "this run wrote into it".
-read -r AIOS_TELEMETRY_AFTER AIOS_TELEMETRY_OURS <<< "$(_live_telemetry_counts)"
-echo "   Live telemetry: ${AIOS_TELEMETRY_BEFORE:-0} rows at start, ${AIOS_TELEMETRY_AFTER:-0} at end; ${AIOS_TELEMETRY_OURS:-0} written by this run"
+read -r REIN_TELEMETRY_AFTER REIN_TELEMETRY_OURS <<< "$(_live_telemetry_counts)"
+echo "   Live telemetry: ${REIN_TELEMETRY_BEFORE:-0} rows at start, ${REIN_TELEMETRY_AFTER:-0} at end; ${REIN_TELEMETRY_OURS:-0} written by this run"
 # Under CI (a throwaway HOME nothing else writes to) ANY growth is this run's: the marker
 # alone missed 56 rows from drivers that spawned servers with a hand-built env, dropping
 # both the redirect and the marker. Locally, other sessions write concurrently, so only
 # the marker is attributable.
-_tel_grew=$(( ${AIOS_TELEMETRY_AFTER:-0} - ${AIOS_TELEMETRY_BEFORE:-0} + ${AIOS_LANE_TEL_GREW:-0} ))
-if [[ "${CI:-}" == "true" || "${AI_OS_CI:-}" == "local" ]]; then
+_tel_grew=$(( ${REIN_TELEMETRY_AFTER:-0} - ${REIN_TELEMETRY_BEFORE:-0} + ${REIN_LANE_TEL_GREW:-0} ))
+if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
   if [[ "$_tel_grew" -gt 0 ]]; then
     echo "   [TELEMETRY_LEAKED] the throwaway HOME's store grew by ${_tel_grew} row(s) — only tests write there under CI"
     echo "   A test wrote to the telemetry store outside AI_TELEMETRY_DB_PATH (E-257 / D-070 §1)."
     TOTAL_FAIL=$(( TOTAL_FAIL + 1 ))
   fi
-elif [[ "${AIOS_TELEMETRY_OURS:-0}" -gt 0 ]]; then
-  echo "   [TELEMETRY_LEAKED] ${AIOS_TELEMETRY_OURS} row(s) with session_id ${AIOS_TELEMETRY_MARKER} reached ${AIOS_TELEMETRY_LIVE}"
+elif [[ "${REIN_TELEMETRY_OURS:-0}" -gt 0 ]]; then
+  echo "   [TELEMETRY_LEAKED] ${REIN_TELEMETRY_OURS} row(s) with session_id ${REIN_TELEMETRY_MARKER} reached ${REIN_TELEMETRY_LIVE}"
   echo "   A test wrote to the operator's telemetry store — it must use AI_TELEMETRY_DB_PATH (E-257 / D-070 §1)."
   TOTAL_FAIL=$(( TOTAL_FAIL + 1 ))
 fi
 
 # E-298 (D-088): the fast tier's budget, E-239 style — both numbers always; the absolute
 # 60 s budget is enforced only on CI (rule 2: a developer machine's speed is not a verdict).
-if [[ "$AIOS_TIER" == "fast" ]]; then
-  _fast_s=$(( $(date +%s) - AIOS_RUN_STARTED ))
+if [[ "$REIN_TIER" == "fast" ]]; then
+  _fast_s=$(( $(date +%s) - REIN_RUN_STARTED ))
   echo "   Fast tier: ${#SUITES[@]} suite(s) in ${_fast_s}s (budget 60s, enforced when CI=true)"
   if [[ "${CI:-}" == "true" && "$_fast_s" -gt 60 ]]; then
     echo "   [FAST_TIER_OVER_BUDGET] ${_fast_s}s > 60s (D-088 r5)"

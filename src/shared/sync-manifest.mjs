@@ -1,10 +1,10 @@
 #!/usr/bin/env node
-// sync-manifest.mjs — record what `ai sync` wrote, so a later sync can remove ONLY
+// sync-manifest.mjs — record what `rein sync` wrote, so a later sync can remove ONLY
 // what it put there and nothing else.
 //
 // WHY THIS EXISTS (E-220, D-056 R2):
-//   `ai sync` has always been purely additive. That is safe but leaky: after E-217
-//   renamed the Architect's `ai-task` to `arch-task`, the old directories survived in
+//   `rein sync` has always been purely additive. That is safe but leaky: after E-217
+//   renamed the Architect's task skill to `arch-task`, the old directories survived in
 //   every workspace forever, holding whichever version happened to win the last copy.
 //   A renamed-away skill lingers until someone deletes it by hand.
 //
@@ -22,7 +22,7 @@
 //
 // `--prune-known` additionally removes an orphan that is BYTE-IDENTICAL to a current
 // canonical skill under a different name. That is the E-217 leftover shape specifically
-// (`.agents/skills/ai-task` holding an exact copy of a skill that now lives elsewhere),
+// (a `.agents/skills/` directory holding an exact copy of a skill that now lives elsewhere),
 // and identity is the evidence: a file that matches a current skill byte for byte
 // carries nothing a user could lose.
 

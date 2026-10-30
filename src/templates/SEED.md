@@ -6,7 +6,7 @@ Purpose: Absolute memory synchronization via `.ai/`.
 
 Run the preflight skill at session start — do NOT manually read files:
 ```
-skill: "ai-preflight"
+skill: "rein-preflight"
 ```
 The skill's `!` lines inject DIGEST freshness, open tasks and live status; it then
 verifies TASKS.md against state.sqlite and surfaces unread deltas.
@@ -14,7 +14,7 @@ verifies TASKS.md against state.sqlite and surfaces unread deltas.
 ## Token Economics (MANDATORY RULE)
 - Do NOT read `.ai/architect.md` during preflight — load it only when your task requires it.
 - Do NOT read `src/**` unless your task involves a specific file.
-- Trust DIGEST.md. If it is stale (preflight will warn you), run `skill: "ai-digest"` first.
+- Trust DIGEST.md. If it is stale (preflight will warn you), run `skill: "rein-digest"` first.
 
 ## Task Creation
 - All tasks live in `state.sqlite` (primary) and are regenerated to `TASKS.md` / `state.json` automatically.

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * orchestrator-mcp — AI-OS Deterministic Workflow Execution
+ * orchestrator-mcp — Rein Deterministic Workflow Execution
  * Replaces LLM-interpreted multi-step workflows with programmatic execution.
  *
  * Tools:
@@ -17,7 +17,7 @@ import { instrument } from "../../shared/mcp-telemetry.mjs";
 import { runHandover, getDiff, today } from "./run-handover.mjs";
 // E-237 (D-061 §5): the traversal POLICY is loaded per request, not once at spawn.
 // This server lives for the whole session and ESM caches a module by URL forever, so a
-// policy refreshed by `ai sync` never reached the running process. Throughout the
+// policy refreshed by `rein sync` never reached the running process. Throughout the
 // 2026-09-09 sprint this reported a P0 PATH_TRAVERSAL on a line the on-disk module graded
 // P1 — every review had to be adjudicated by hand. A gate that cries wolf is worse than
 // one that is merely wrong, because people learn to wave it through.
@@ -66,7 +66,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: "run_intent_cleanup",
       description:
-        "DEPRECATED (E-147): UPDATE.md has been removed from AI-OS. Intent is now provided via conversation context. " +
+        "DEPRECATED (E-147): UPDATE.md has been removed from Rein. Intent is now provided via conversation context. " +
         "This tool is a no-op and returns a deprecation notice. Use `/compact` to manage session context instead.",
       inputSchema: { type: "object", properties: {} },
     },
@@ -171,7 +171,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // resolves a helper cwd-relative (T-LOCATOR-001). Skipping markdown would blind the
       // gate to the only markdown that actually runs. So `src/shared/markdown-exec.mjs`
       // decides per line, and non-markdown files are graded in full as before.
-      const strictTraversal = process.env.AI_OS_REVIEW_STRICT_TRAVERSAL === "1";
+      const strictTraversal = process.env.REIN_REVIEW_STRICT_TRAVERSAL === "1";
       const { classifyDiffTraversal } = await loadPolicy("traversal-policy");
       const { traversal, proseExec } = classifyDiffTraversal(diff, {
         strict: strictTraversal,
@@ -384,7 +384,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       return {
         content: [{
           type: "text",
-          text: "⚠ DEPRECATED (E-147): run_intent_cleanup is a no-op. UPDATE.md has been removed from AI-OS.\n" +
+          text: "⚠ DEPRECATED (E-147): run_intent_cleanup is a no-op. UPDATE.md has been removed from Rein.\n" +
                 "Intent is provided via conversation context. Use `/compact` to manage session context instead.",
         }],
       };

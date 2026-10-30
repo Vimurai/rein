@@ -22,7 +22,7 @@ const REPORT = join(dirname(fileURLToPath(import.meta.url)), "..", "tools", "mut
 const at = (line) => ({ start: { line, column: 1 }, end: { line, column: 2 } });
 
 test("gate survivors split by the tables' verdict; kill-nothing test files are listed", () => {
-  const d = realpathSync(mkdtempSync(join(tmpdir(), "aios-t-mutreport-")));
+  const d = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-mutreport-")));
   try {
     const passA = {
       testFiles: {

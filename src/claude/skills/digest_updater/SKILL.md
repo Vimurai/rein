@@ -82,7 +82,7 @@ Keep it 20–60 lines. Bullets only. No prose.
 
 Required sections (in order):
 ```
-# DIGEST — AI-OS v2 (Updated: YYYY-MM-DD)
+# DIGEST — Rein v2 (Updated: YYYY-MM-DD)
 
 ## Product
 - <one line>
@@ -93,7 +93,7 @@ Required sections (in order):
 ## Triad Health
 - Architect: <status> — last <action> <date>; <open P-## count> open
 - Engineer: <status> — last completed <E-##> (<description>, <date>); <open E-## count> open
-- Tester (headless, skill: ai-test): <status> — <last test result>
+- Tester (headless, skill: rein-test): <status> — <last test result>
 
 ## Current Focus
 - <E-##>: <description> [OPEN]

@@ -3,15 +3,15 @@
 # rows, kept as ONE copy by E-302).
 #
 # Catches the failure class diagnosed in the 2026-04-27 audit: the project registry adds a new
-# MCP, but ~/.ai-os/config/registry.json is never refreshed, so `ai sync` regenerates .mcp.json
+# MCP, but ~/.rein/config/registry.json is never refreshed, so `rein sync` regenerates .mcp.json
 # from a stale registry and silently drops the new server. Detect the divergence early so the
-# contributor remembers to re-run install-ai-os.sh.
+# contributor remembers to re-run install-rein.sh.
 #
 # Two callers, one copy of the checks:
 #   - hooks/pre-commit.sh (check_registry_sync) RUNS it on a commit that touches the registry:
 #     standalone, it sources assert.sh itself, runs from the repository root and exits non-zero
 #     on any failed check (assert_summary);
-#   - tests/suites/ai_sync_test.sh SOURCES it, so the checks count as that suite's assertions.
+#   - tests/suites/rein_sync_test.sh SOURCES it, so the checks count as that suite's assertions.
 # Paths are relative to the repository root; the standalone run cds there.
 _rd_standalone=0
 if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
@@ -27,7 +27,7 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
 fi
 
 REG_LOCAL="src/config/registry.json"
-REG_GLOBAL="${HOME}/.ai-os/config/registry.json"
+REG_GLOBAL="${HOME}/.rein/config/registry.json"
 REG_TEMPLATE="src/templates/.mcp.json"
 
 assert_exists "$REG_LOCAL"
@@ -55,7 +55,7 @@ fi
 
 # 3. If a global install exists, every local registry MCP must be present.
 if [[ -f "$REG_GLOBAL" ]]; then
-  assert_status 0 "global registry covers every local MCP (run install-ai-os.sh if this fails)" \
+  assert_status 0 "global registry covers every local MCP (run install-rein.sh if this fails)" \
     bash -c "python3 - <<'PY'
 import json, sys
 local  = set(json.load(open('$REG_LOCAL')).get('mcp_servers', {}).keys())
@@ -64,7 +64,7 @@ missing = local - glob
 sys.exit(0 if not missing else (sys.stderr.write(f'global registry missing: {sorted(missing)}\n') or 1))
 PY"
 else
-  echo "  ⚠  ~/.ai-os/config/registry.json absent — skipping global drift check"
+  echo "  ⚠  ~/.rein/config/registry.json absent — skipping global drift check"
 fi
 
 # 4. Active .mcp.json (if generated) must wire every registry MCP.
@@ -76,12 +76,12 @@ reg = json.load(open('$REG_LOCAL')).get('mcp_servers', {})
 expected = {n for n, info in reg.items() if 'path' in info}
 active   = set(json.load(open('.mcp.json')).get('mcpServers', {}).keys())
 missing  = expected - active
-sys.exit(0 if not missing else (sys.stderr.write(f'.mcp.json missing: {sorted(missing)} — run: ai sync\n') or 1))
+sys.exit(0 if not missing else (sys.stderr.write(f'.mcp.json missing: {sorted(missing)} — run: rein sync\n') or 1))
 PY"
 fi
 
 # 5. E-38: Sandbox env propagation. If a registry entry declares an `env` block, the generated
-#    .mcp.json must carry every key/value verbatim. Catches the D-002 regression where `ai sync`
+#    .mcp.json must carry every key/value verbatim. Catches the D-002 regression where `rein sync`
 #    silently stripped a server's declared sandbox env (the original case, the GUI server, was
 #    retired by E-279; the mechanism stays for any server that declares env).
 if [[ -f .mcp.json ]]; then

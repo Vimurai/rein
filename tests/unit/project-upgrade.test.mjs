@@ -1,5 +1,5 @@
 // tests/unit/project-upgrade.test.mjs — node:test unit suite for E-270 (D-074,
-// version-lifecycle.md §Components 1-2): the template merge behind `ai init` as an upgrade,
+// version-lifecycle.md §Components 1-2): the template merge behind `rein init` as an upgrade,
 // the provisioning stamp, and the single version source.
 //
 // The merge decides what to DELETE from a user's project files, so the cases that matter
@@ -8,7 +8,7 @@
 // left missing; unknown keys and custom values survive; a re-run never overwrites the
 // pre-merge backup with an already-merged file.
 //
-// The end-to-end layer (installer into a fixture HOME, ai init/--check, doctor lines) is
+// The end-to-end layer (installer into a fixture HOME, rein init/--check, doctor lines) is
 // tests/suites/init_upgrade_test.sh.
 //
 //   node --test tests/unit/project-upgrade.test.mjs
@@ -32,7 +32,7 @@ const TEMPLATES = join(ROOT, "src", "templates");
 const LEGACY = join(ROOT, "src", "config", "legacy-artefacts.json");
 
 function tmp(tag = "upg") {
-  const d = mkdtempSync(join(tmpdir(), `aios-t-${tag}-`));
+  const d = mkdtempSync(join(tmpdir(), `rein-t-${tag}-`));
   return { d, done: () => rmSync(d, { recursive: true, force: true }) };
 }
 const readJson = (p) => JSON.parse(readFileSync(p, "utf8"));
@@ -69,12 +69,12 @@ test("package.json and the CHANGELOG's newest released entry name the same versi
   assert.equal(top[1], pkg);
 });
 
-test("no version literal remains in src/bin/ai or install-ai-os.sh", () => {
-  const ai = readFileSync(join(ROOT, "src", "bin", "ai"), "utf8");
-  const inst = readFileSync(join(ROOT, "install-ai-os.sh"), "utf8");
-  assert.doesNotMatch(ai, /^VERSION="\d+\.\d+\.\d+"/m, "src/bin/ai must not hard-code VERSION");
-  assert.doesNotMatch(inst, /AI-OS v\d+\.\d+\.\d+/, "the installer must not print a typed version");
-  assert.match(inst, /\$\{AIOS\}\/VERSION/, "the installer writes ~/.ai-os/VERSION");
+test("no version literal remains in src/bin/rein or install-rein.sh", () => {
+  const ai = readFileSync(join(ROOT, "src", "bin", "rein"), "utf8");
+  const inst = readFileSync(join(ROOT, "install-rein.sh"), "utf8");
+  assert.doesNotMatch(ai, /^VERSION="\d+\.\d+\.\d+"/m, "src/bin/rein must not hard-code VERSION");
+  assert.doesNotMatch(inst, /Rein v\d+\.\d+\.\d+/, "the installer must not print a typed version");
+  assert.match(inst, /\$\{REIN\}\/VERSION/, "the installer writes ~/.rein/VERSION");
 });
 
 test("provider_history lists every provider the template ever shipped", () => {
@@ -203,7 +203,7 @@ test("runStamp seeds state.sqlite from state.json first, keeps tasks, never touc
     const recs = await runStamp({ aiDir: ai, version: "3.1.0" });
     assert.equal(recs[0].kind, "stamped");
     const s = readJson(join(ai, "state.json"));
-    assert.equal(s.project.aios_version, "3.1.0");
+    assert.equal(s.project.rein_version, "3.1.0");
     assert.equal(s.project.focus, "f");
     assert.equal(s.tasks.length, 1, "the seed import kept the task");
     assert.equal(readFileSync(join(ai, "TASKS.md"), "utf8"), "hand-written\n");
@@ -214,7 +214,7 @@ test("runStamp seeds state.sqlite from state.json first, keeps tasks, never touc
     // D-131: the public line restarts at 0.4.0 — a lower version restamps like any other.
     await runStamp({ aiDir: ai, version: "4.0.0" });
     const down = await runStamp({ aiDir: ai, version: "0.4.0" });
-    assert.deepEqual(down.map((r) => [r.kind, r.detail]), [["stamped", "project.aios_version 4.0.0 → 0.4.0"]]);
+    assert.deepEqual(down.map((r) => [r.kind, r.detail]), [["stamped", "project.rein_version 4.0.0 → 0.4.0"]]);
     assert.equal(readProjectVersion(ai), "0.4.0");
   } finally { t.done(); }
 });
@@ -236,9 +236,9 @@ test("the first-run import carries an existing stamp across", () => {
   const t = tmp("imp");
   try {
     const ai = join(t.d, ".ai"); mkdirSync(ai);
-    writeJson(join(ai, "state.json"), STATE_JSON({ aios_version: "3.0.0", provisioned_at: "2025-01-01T00:00:00Z" }));
+    writeJson(join(ai, "state.json"), STATE_JSON({ rein_version: "3.0.0", provisioned_at: "2025-01-01T00:00:00Z" }));
     const st = readState(getDbSeeded(ai));
-    assert.equal(st.project.aios_version, "3.0.0");
+    assert.equal(st.project.rein_version, "3.0.0");
     assert.equal(st.project.provisioned_at, "2025-01-01T00:00:00Z");
   } finally { t.done(); }
 });
@@ -255,19 +255,19 @@ test("an unstamped project's view has no stamp keys (the view shape is unchanged
 // Extends this suite's "upgrade a user's project files" layer to the .ai/.gitignore that
 // older templates wrote; the probe (src/shared/comm-status.sh) is the one detector doctor,
 // preflight and the Stop hook share. Fixture repos only; the real pre-commit hook runs
-// under a fixture HOME so nothing reaches ~/.ai-os.
+// under a fixture HOME so nothing reaches ~/.rein.
 
 const SKILLS_WITH_HANDOFF = [
-  ".claude/skills/ai-handoff/SKILL.md", ".claude/skills/ai-task/SKILL.md",
+  ".claude/skills/rein-handoff/SKILL.md", ".claude/skills/rein-task/SKILL.md",
   ".claude/skills/arch-task/SKILL.md", ".claude/skills/task-planner/SKILL.md",
-  ".claude/skills/ai-archive/SKILL.md",
-  "src/shared/skills/ai-handoff/SKILL.md", "src/shared/skills/ai-task/SKILL.md",
+  ".claude/skills/rein-archive/SKILL.md",
+  "src/shared/skills/rein-handoff/SKILL.md", "src/shared/skills/rein-task/SKILL.md",
   "src/claude/skills/arch-task/SKILL.md", "src/claude/skills/task-planner/SKILL.md",
-  "src/shared/skills/ai-archive/SKILL.md",
+  "src/shared/skills/rein-archive/SKILL.md",
 ];
 
 function fixtureRepo(t) {
-  const home = mkdtempSync(join(tmpdir(), "aios-t-comm-home-"));
+  const home = mkdtempSync(join(tmpdir(), "rein-t-comm-home-"));
   tcFixtureHome(home);   // E-345 (D-109 r1): the toolchain record the hooks pin
   const dir = join(t.d, "r");
   const env = { PATH: process.env.PATH, HOME: home, GIT_CONFIG_NOSYSTEM: "1", AI_TELEMETRY_DISABLE: "1" };
@@ -280,17 +280,17 @@ function fixtureRepo(t) {
   return { dir, git, bash, env, cleanup: () => rmSync(home, { recursive: true, force: true }) };
 }
 
-// The function under test lives in src/bin/ai (a dispatcher that cannot be sourced): lift it.
+// The function under test lives in src/bin/rein (a dispatcher that cannot be sourced): lift it.
 const liftFn = (name) => {
-  const src = readFileSync(join(ROOT, "src", "bin", "ai"), "utf8");
+  const src = readFileSync(join(ROOT, "src", "bin", "rein"), "utf8");
   const m = src.match(new RegExp(`^${name}\\(\\) \\{[\\s\\S]*?^\\}`, "m"));
-  assert.ok(m, `${name} found in src/bin/ai`);
+  assert.ok(m, `${name} found in src/bin/rein`);
   return m[0];
 };
 const PROBE = `. '${join(ROOT, "src", "shared", "comm-status.sh")}'`;
-const LOCATE_STUB = `ai_os_locate() { printf '%s' '${join(ROOT, "src")}'/"$1"; }`;
+const LOCATE_STUB = `rein_locate() { printf '%s' '${join(ROOT, "src")}'/"$1"; }`;
 
-test("the template .gitignore does not ignore .ai/COMM.md (this repo and an ai init fixture)", () => {
+test("the template .gitignore does not ignore .ai/COMM.md (this repo and a rein init fixture)", () => {
   const t = tmp("comm-tpl");
   const f = fixtureRepo(t);
   try {
@@ -301,7 +301,7 @@ test("the template .gitignore does not ignore .ai/COMM.md (this repo and an ai i
   } finally { f.cleanup(); t.done(); }
 });
 
-test("ai sync removes only the COMM.md pattern from an old .ai/.gitignore", () => {
+test("rein sync removes only the COMM.md pattern from an old .ai/.gitignore", () => {
   const t = tmp("comm-sync");
   const f = fixtureRepo(t);
   try {
@@ -327,7 +327,7 @@ test("every handoff-writing skill commits COMM.md with --only (both copies)", ()
   assert.ok(!existsSync(join(ROOT, ".ai", "COMM_APPEND.md")), "the June orphan is deleted");
 });
 
-test("the ai-handoff commit step commits COMM.md alone and passes the real pre-commit with no stamp", () => {
+test("the rein-handoff commit step commits COMM.md alone and passes the real pre-commit with no stamp", () => {
   const t = tmp("comm-commit");
   const f = fixtureRepo(t);
   try {
@@ -342,7 +342,7 @@ test("the ai-handoff commit step commits COMM.md alone and passes the real pre-c
     // An Engineer mid-task: source staged, then a handoff entry written.
     writeFileSync(join(f.dir, "src", "a.js"), "x\ny\n"); f.git("add", "src/a.js");
     writeFileSync(join(f.dir, ".ai", "COMM.md"), "# COMM\n---\n## Handoff — 2026-10-23 14:00 UTC\n");
-    const skill = readFileSync(join(ROOT, ".claude/skills/ai-handoff/SKILL.md"), "utf8");
+    const skill = readFileSync(join(ROOT, ".claude/skills/rein-handoff/SKILL.md"), "utf8");
     const cmd = skill.split("\n").find((l) => l.startsWith("git add -- .ai/COMM.md && git commit --only .ai/COMM.md"));
     assert.ok(cmd, "the skill's commit line");
     const r = f.bash(cmd.replace("<YYYY-MM-DD HH:MM UTC>", "2026-10-23 14:00 UTC").replace("<Role>", "Engineer"));
@@ -359,7 +359,7 @@ test("doctor: [COMM_IGNORED] with the pattern, [COMM_UNCOMMITTED] when dirty, no
   const f = fixtureRepo(t);
   try {
     const doctor = () => f.bash(`${LOCATE_STUB}\n${liftFn("_doctor_comm_report")}\n_doctor_comm_report`).stdout;
-    const probe = () => f.bash(`${PROBE}; ai_os_comm_status .`).stdout.trim();
+    const probe = () => f.bash(`${PROBE}; rein_comm_status .`).stdout.trim();
     assert.equal(probe(), "absent");
     writeFileSync(join(f.dir, ".ai", ".gitignore"), "COMM.md\n");
     writeFileSync(join(f.dir, ".ai", "COMM.md"), "a\n");

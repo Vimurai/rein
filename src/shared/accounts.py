@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """accounts.py — E-314 (D-095, accounts.md §Components 1 and 4): the Claude account registry.
 
-A project names an ACCOUNT; the operator's registry ~/.ai-os/accounts.json maps the name to a
+A project names an ACCOUNT; the operator's registry ~/.rein/accounts.json maps the name to a
 Claude Code config directory (the directory holds that account's login). This module is the ONE
-reader/writer of the registry and the ONE validator of names and directories, so `ai account`,
-`ai pane`, `ai start` and `ai doctor` cannot disagree about what an account is.
+reader/writer of the registry and the ONE validator of names and directories, so `rein account`,
+`rein pane`, `rein start` and `rein doctor` cannot disagree about what an account is.
 
   registry := {"accounts": {"<name>": {"config_dir": "<abs dir>", "added": "YYYY-MM-DD"}}}
   name     := ^[a-z][a-z0-9-]{0,23}$ ; "default" is reserved (= ~/.claude, inherited) and never stored
   dir      := absolute, strictly under $HOME, no "." / ".." component, no control character;
-              neither lexically nor after resolving symlinks inside ~/.claude or ~/.ai-os, nor
+              neither lexically nor after resolving symlinks inside ~/.claude or ~/.rein, nor
               inside a git working tree; every existing component below $HOME owned by this uid
               and not group/world-writable (the directory's settings.json is a gate config)
 
@@ -76,8 +76,8 @@ def check_dir(home, d):
             raise Refused(5, "BADDIR\tnot under $HOME" + how)
         if _inside(path, os.path.join(h, ".claude")):
             raise Refused(5, "BADDIR\tinside ~/.claude, the default account's directory" + how)
-        if _inside(path, os.path.join(h, ".ai-os")):
-            raise Refused(5, "BADDIR\tinside ~/.ai-os, the installed framework" + how)
+        if _inside(path, os.path.join(h, ".rein")):
+            raise Refused(5, "BADDIR\tinside ~/.rein, the installed framework" + how)
     # Walk the existing components from the directory up to (not including) $HOME.
     uid = os.getuid()
     p = rd

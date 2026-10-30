@@ -1,4 +1,4 @@
-// test-command.mjs — what `skill: ai-test` runs, and on which model the Tester works.
+// test-command.mjs — what `skill: rein-test` runs, and on which model the Tester works.
 //
 // WHY THIS EXISTS (E-255, D-069 / claude-native-consolidation.md §Components 3):
 //   The third-party test cloud is gone. The Tester's default is now the project's OWN test command, and

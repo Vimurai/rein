@@ -1,4 +1,4 @@
-# RULES (AI-OS v2 Triad)
+# RULES (Rein v2 Triad)
 
 Fundamental laws governing the Architect/Engineer/Tester triad. 
 
@@ -23,4 +23,4 @@ The `.ai/` directory is the **Source of Truth**. No agent operates without first
 - The **Lead Engineer** implements the Architect's blueprints.
 - **MANDATORY**: After every significant action, the Engineer MUST update `.ai/LOG.md` and `.ai/TASKS.md`.
 - Responsibility: Code quality, security, DevOps, and state reporting.es.
-- Archive logs when > 200 lines (invoke `skill: ai-archive`).
+- Archive logs when > 200 lines (invoke `skill: rein-archive`).

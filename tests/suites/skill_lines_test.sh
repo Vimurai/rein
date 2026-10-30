@@ -8,7 +8,7 @@
 # Four of them resolved framework helpers cwd-relative — `for c in
 # src/shared/incident-aggregate.mjs ...` — so running a session inside ANY project that
 # planted that file executed THAT file. Worse than the hook form E-223 fixed: no git repo
-# is needed, and `ai-preflight` runs at the start of every single session.
+# is needed, and `rein-preflight` runs at the start of every single session.
 #
 # The assertions are on EXECUTION, not on the text of the SKILL.md. A grep would pass
 # against any rewrite that still resolved cwd-relative by another route.
@@ -24,9 +24,9 @@ STD_MJS="${REPO_ROOT}/src/shared/standards-checker.mjs"
 echo "── Suite: skill_lines_test (E-225, E-232) ───────────────────────────"
 
 SKILLS=(
-  "${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
-  "${REPO_ROOT}/src/shared/skills/ai-insights/SKILL.md"
-  "${REPO_ROOT}/src/shared/skills/ai-review-proposed-skills/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-insights/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-review-proposed-skills/SKILL.md"
 )
 
 # ── E-225.1: THE CANARY — no skill executes a decoy project's helper ────────
@@ -45,12 +45,12 @@ if [[ -n "$_out" ]]; then echo "    executed: $(printf '%s' "$_out" | tr '\n' ' 
 # A test that asserts "the old code was broken" has to carry the old code.
 _old="$(mktemp -d)"; mkdir -p "$_old/prefix"
 cat > "$_old/prefix/SKILL.md" <<'PREFIX'
-# Pre-fix ai-preflight (verbatim shape of the E-225 defect)
+# Pre-fix rein-preflight (verbatim shape of the E-225 defect)
 
-Incident status: !for c in src/shared/incident-aggregate.mjs "${HOME}/.ai-os/shared/incident-aggregate.mjs"; do [ -f "$c" ] && node "$c" 2>/dev/null && break; done 2>/dev/null || echo "(aggregator unavailable)"
+Incident status: !for c in src/shared/incident-aggregate.mjs "${HOME}/.rein/shared/incident-aggregate.mjs"; do [ -f "$c" ] && node "$c" 2>/dev/null && break; done 2>/dev/null || echo "(aggregator unavailable)"
 
 ```bash
-for c in src/shared/insights-staleness.mjs "${HOME}/.ai-os/shared/insights-staleness.mjs"; do
+for c in src/shared/insights-staleness.mjs "${HOME}/.rein/shared/insights-staleness.mjs"; do
   if [ -f "$c" ]; then PROBE="$c"; break; fi
 done
 node "${PROBE}" 2>/dev/null || echo '{"status":"UNAVAILABLE"}'
@@ -67,13 +67,13 @@ rm -rf "$_old"
 
 # ── E-225.1b: the DEGRADED-INSTALL branch (audit F1) ───────────────────────
 # The canary above runs with a healthy HOME, so it only ever exercised the branch where
-# the fix works. With locate.sh unreachable AND an inherited exported `ai_os_locate`, the
+# the fix works. With locate.sh unreachable AND an inherited exported `rein_locate`, the
 # first cut executed the decoy — `declare -f` is satisfied by an environment-supplied
 # function, which is exactly what E-223 F13 fixed for the hooks and E-225 did not port.
-_line="$(grep -m1 '^Incident status:' "${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md" | sed 's/^[^!]*!//')"
+_line="$(grep -m1 '^Incident status:' "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md" | sed 's/^[^!]*!//')"
 _d="$(mktemp -d)"; mkdir -p "$_d/src/shared"
 printf 'console.log(%s);\n' "'{\"status\":\"PWNED\"}'" > "$_d/src/shared/incident-aggregate.mjs"
-_got="$( cd "$_d" && env "BASH_FUNC_ai_os_locate%%=() { printf '%s' \"\$PWD/src/shared/incident-aggregate.mjs\"; }" \
+_got="$( cd "$_d" && env "BASH_FUNC_rein_locate%%=() { printf '%s' \"\$PWD/src/shared/incident-aggregate.mjs\"; }" \
           HOME=/nonexistent bash -c "$_line" 2>/dev/null )"
 assert_not_contains "E-225.01f: a forged resolver cannot run the decoy (degraded install)" \
   "PWNED" "$_got"
@@ -85,18 +85,18 @@ rm -rf "$_d"
 for s in "${SKILLS[@]}"; do
   _n="$(basename "$(dirname "$s")")"
   assert_status 0 "E-225.02 $_n sources the install-rooted locator" \
-    grep -q 'HOME}/.ai-os/shared/locate.sh' "$s"
-  assert_status 0 "E-225.02 $_n resolves via ai_os_locate" \
-    grep -q 'ai_os_locate shared/' "$s"
+    grep -q 'HOME}/.rein/shared/locate.sh' "$s"
+  assert_status 0 "E-225.02 $_n resolves via rein_locate" \
+    grep -q 'rein_locate shared/' "$s"
   assert_status 0 "E-225.02 $_n declares its environment untrusted" \
-    grep -q 'AI_OS_LOCATE_UNTRUSTED_ENV=1' "$s"
+    grep -q 'REIN_LOCATE_UNTRUSTED_ENV=1' "$s"
   # F1: the hooks' guard, which the first cut of E-225 omitted. `declare -f` is satisfied
   # by an inherited EXPORTED bash function, so without this an attacker-supplied
-  # ai_os_locate IS the resolver whenever locate.sh is unreachable.
+  # rein_locate IS the resolver whenever locate.sh is unreachable.
   assert_status 0 "E-225.02 $_n unsets inherited resolver functions" \
-    grep -q 'unset -f ai_os_locate' "$s"
+    grep -q 'unset -f rein_locate' "$s"
   assert_status 0 "E-225.02 $_n gates the source on the file existing" \
-    grep -q '\[ -f "\${HOME}/.ai-os/shared/locate.sh" \]' "$s"
+    grep -q '\[ -f "\${HOME}/.rein/shared/locate.sh" \]' "$s"
   # F5: ORDER is load-bearing — locate.sh fixes its install root at source time, so the
   # untrusted flag set afterwards is too late. Three independent greps would pass on a
   # reordered file, so this is one regex across the sequence.
@@ -110,11 +110,11 @@ import sys
 t = open(sys.argv[1]).read()
 i, ok = 0, True
 while True:
-    i = t.find('. \"${HOME}/.ai-os/shared/locate.sh\"', i)
+    i = t.find('. \"${HOME}/.rein/shared/locate.sh\"', i)
     if i == -1:
         break
     window = t[max(0, i - 500):i]
-    if 'AI_OS_LOCATE_UNTRUSTED_ENV=1' not in window or 'unset -f ai_os_locate' not in window:
+    if 'REIN_LOCATE_UNTRUSTED_ENV=1' not in window or 'unset -f rein_locate' not in window:
         ok = False
         break
     i += 1
@@ -128,9 +128,9 @@ done
 # `src/` and only 5 that executed a framework helper; a rule that flagged all 23 would
 # be the same over-block this sprint keeps removing.
 _t="$(mktemp -d)"; mkdir -p "$_t/src/shared/skills/bad" "$_t/src/shared/skills/good"
-printf 'S: !for c in src/shared/x.mjs "${HOME}/.ai-os/shared/x.mjs"; do [ -f "$c" ] && node "$c"; done\n' \
+printf 'S: !for c in src/shared/x.mjs "${HOME}/.rein/shared/x.mjs"; do [ -f "$c" ] && node "$c"; done\n' \
   > "$_t/src/shared/skills/bad/SKILL.md"
-printf 'S: !. "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"\n' \
+printf 'S: !. "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/x.mjs)"; node "$c"\n' \
   > "$_t/src/shared/skills/good/SKILL.md"
 printf 'A: !cat src/db/schema.sql\nB: !grep -r foo src/\nC: !test -f src/claude/agents/x.md\nD: !node -p "require(%s./package.json%s).version"\n' "'" "'" \
   > "$_t/src/shared/skills/good/DATA.md"
@@ -161,18 +161,18 @@ assert_status 0 "E-225.04a: the rule is in standards.json" \
 assert_status 0 "E-225.04b: the handler reuses the E-224 classifier" \
   bash -c "grep -q 'classifyMarkdown' '$STD_MJS'"
 assert_status 0 "E-225.04c: the documented bypass exists" \
-  bash -c "grep -q 'AI_OS_STANDARDS_SKIP === \"skill-locator\"' '$STD_MJS'"
+  bash -c "grep -q 'REIN_STANDARDS_SKIP === \"skill-locator\"' '$STD_MJS'"
 # The bypass must actually bypass.
 _t2="$(mktemp -d)"; mkdir -p "$_t2/src/shared/skills/bad"
 printf 'S: !for c in src/shared/x.mjs; do node "$c"; done\n' > "$_t2/src/shared/skills/bad/SKILL.md"
-assert_not_contains "E-225.04d: AI_OS_STANDARDS_SKIP=skill-locator bypasses it" "FLAGGED" \
-  "$(AI_OS_STANDARDS_SKIP=skill-locator node --no-warnings "$RULECHK" "$_t2" src/shared/skills/bad/SKILL.md 2>/dev/null)"
+assert_not_contains "E-225.04d: REIN_STANDARDS_SKIP=skill-locator bypasses it" "FLAGGED" \
+  "$(REIN_STANDARDS_SKIP=skill-locator node --no-warnings "$RULECHK" "$_t2" src/shared/skills/bad/SKILL.md 2>/dev/null)"
 rm -rf "$_t2"
 
 # ── E-225.6: the rule's detection, both directions (audit F2) ──────────────
 # The first cut allowlisted two prefixes (`./`, `src/`) and required a known extension,
 # so it missed `node ../shared/x.mjs`, `bash scripts/helper.sh`, `node lib/x.mjs` and —
-# worst — `bash src/bin/ai`, the framework's own EXTENSION-LESS entrypoint. The test is
+# worst — `bash src/bin/rein`, the framework's own EXTENSION-LESS entrypoint. The test is
 # inverted now: does this line hand an interpreter a path the visited project controls?
 _m="$(mktemp -d)"; mkdir -p "$_m/src/shared/skills/x"
 # A CRASH must never read as a CATCH. The round-2 rewrite threw on an undefined constant,
@@ -193,22 +193,22 @@ _probe() {  # <want:FLAGGED|clean> <line>
 _probe FLAGGED 'A: !for c in src/shared/x.mjs; do node "$c"; done'
 _probe FLAGGED 'A: !PROBE=src/shared/y.mjs; node "$PROBE"'
 _probe FLAGGED 'A: !node ../shared/x.mjs'
-_probe FLAGGED 'A: !bash src/bin/ai sync'
+_probe FLAGGED 'A: !bash src/bin/rein sync'
 _probe FLAGGED 'A: !bash scripts/helper.sh'
 _probe FLAGGED 'A: !node lib/x.mjs'
 _probe FLAGGED 'A: !python3 tools/x.py'
 # Legitimate shapes. Over-blocking here would be the same defect this sprint keeps
 # removing, one layer up — a gate that fires on correct code gets routed around.
-_probe clean 'A: !. "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"'
+_probe clean 'A: !. "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/x.mjs)"; node "$c"'
 _probe clean 'A: !node /abs/x.mjs'
-_probe clean 'A: !node "${HOME}/.ai-os/shared/x.mjs"'
+_probe clean 'A: !node "${HOME}/.rein/shared/x.mjs"'
 _probe clean 'A: !cat src/db/schema.sql'
 _probe clean 'A: !grep -r foo src/'
 _probe clean 'A: !test -f src/claude/agents/x.md'
 _probe clean 'A: !bash tests/run.sh'
 _probe clean 'A: !bash tests/suites/x.sh'
 _probe clean 'A: !npm run test'
-# A path-shaped DATA string is not an execution: ai-incident passes a stack signature to
+# A path-shaped DATA string is not an execution: rein-incident passes a stack signature to
 # jq, and the rule flagged a string being recorded rather than a file being run.
 _probe clean '--arg s "task-synchronizer-mcp/index.js:add_task"'
 
@@ -229,9 +229,9 @@ _probe FLAGGED 'A: !node helper.mjs'
 _probe FLAGGED 'A: !bash setup.sh'
 _probe FLAGGED 'A: !cd src/shared && node evil.mjs'
 _probe FLAGGED 'A: !perl src/shared/evil.pl'
-# Laundering a real path through the resolver's exemption. Inert at runtime (ai_os_locate
+# Laundering a real path through the resolver's exemption. Inert at runtime (rein_locate
 # joins onto the install root) but the rule should still say so.
-_probe FLAGGED 'A: !x=$(ai_os_locate src/shared/evil.mjs); node "$x"'
+_probe FLAGGED 'A: !x=$(rein_locate src/shared/evil.mjs); node "$x"'
 
 # Inline CODE is not a path. `-c` / `-e` / `--input-type=module` invocations flagged four
 # real skills once the rule was broadened, because an unparsed flag became the "path".
@@ -247,19 +247,19 @@ _probe FLAGGED 'A: !bash repro.sh'
 
 # ── Round-3 audit shapes. Each passed the round-2 rule. ────────────────────
 # The inline-code skip abandoned the WHOLE match, so every later token went unexamined
-# and only an executable extension could rescue it — leaving `src/bin/ai`, the
+# and only an executable extension could rescue it — leaving `src/bin/rein`, the
 # framework's own extension-less entrypoint, invisible in the very idiom E-225 ships.
-_probe FLAGGED 'A: !node -e "import(process.argv[1])" src/bin/ai'
+_probe FLAGGED 'A: !node -e "import(process.argv[1])" src/bin/rein'
 _probe FLAGGED 'A: !python3 -c "import sys;exec(open(sys.argv[1]).read())" src/bin/tool'
 _probe FLAGGED 'A: !node -e "import(process.argv[1])" src/shared/evil.mjs'
 # `${PWD}` is the MORE idiomatic brace form and fell through as "a variable we cannot
 # read"; $OLDPWD is the same root under another name.
 _probe FLAGGED 'A: !node "${PWD}/src/shared/evil.mjs"'
-_probe FLAGGED 'A: !bash "${PWD}/src/bin/ai"'
+_probe FLAGGED 'A: !bash "${PWD}/src/bin/rein"'
 _probe FLAGGED 'A: !node "$OLDPWD/src/shared/evil.mjs"'
 # A `.` after a shell keyword is still command position — and because `invokes` derives
 # from the same matchers, missing it disabled the SECOND signal too.
-_probe FLAGGED 'A: !if true; then . src/bin/ai; fi'
+_probe FLAGGED 'A: !if true; then . src/bin/rein; fi'
 _probe FLAGGED 'A: !if true; then . src/shared/evil.sh; fi'
 # Regression guards for the two over-blocks the round-3 fixes introduced and removed:
 # a stripped inline-code line leaves `2>/dev/null` (a redirect, not a path), and
@@ -270,22 +270,22 @@ _probe clean 'A: !bash tests/suites/<failing_suite>.sh 2>&1'
 
 # ── Round-4 audit shapes. Each passed the round-3 rule. ────────────────────
 # A `--flag=value` the flags group could not consume ENDED the scan for the whole line,
-# and the pattern is live at ai-review-proposed-skills:40,69 — the rule was blind on a
+# and the pattern is live at rein-review-proposed-skills:40,69 — the rule was blind on a
 # line of a skill E-225 itself rewrote.
-_probe FLAGGED 'A: !node --input-type=module src/bin/ai'
-_probe FLAGGED 'A: !node --input-type=module -e "0" src/bin/ai'
+_probe FLAGGED 'A: !node --input-type=module src/bin/rein'
+_probe FLAGGED 'A: !node --input-type=module -e "0" src/bin/rein'
 _probe FLAGGED 'A: !python3 -X opt=1 src/bin/tool'
 # The inline-code strip required a plain quote, so unquoted code and ANSI-C `$'…'` both
 # re-entered the gap it was written to close.
 _probe FLAGGED 'A: !python3 -c print(1) src/bin/tool'
-_probe FLAGGED "A: !node -e \$'import(\"x\")' src/bin/ai"
+_probe FLAGGED "A: !node -e \$'import(\"x\")' src/bin/rein"
 # Backticks are the third spelling of the project root, after $(pwd) and ${PWD}.
 _probe FLAGGED 'A: !node `pwd`/src/shared/evil.mjs'
 
 # The invocation is TOKENISED rather than regex-matched — four rounds each found a new
 # hole in a single-pattern parser. These pin the tokeniser's own edges.
-_probe FLAGGED 'A: !node   src/bin/ai'
-_probe FLAGGED 'A: !bash "src/bin/ai"'
+_probe FLAGGED 'A: !node   src/bin/rein'
+_probe FLAGGED 'A: !bash "src/bin/rein"'
 _probe clean   'A: !node "$h"'
 _probe clean   'A: !echo "run node src/x.mjs to start"'
 
@@ -298,16 +298,16 @@ _probe clean 'A: !bash tests/run.sh; echo done'
 _probe clean 'A: !bash tests/run.sh | tail -5'
 _probe clean 'A: !bash tests/run.sh && echo ok'
 # P3 — an interpreter named by path is the same invocation.
-_probe FLAGGED 'A: !/usr/local/bin/node src/bin/ai'
-_probe FLAGGED 'A: !./node_modules/.bin/tsx src/bin/ai'
-_probe FLAGGED 'A: !/usr/bin/env node src/bin/ai'
+_probe FLAGGED 'A: !/usr/local/bin/node src/bin/rein'
+_probe FLAGGED 'A: !./node_modules/.bin/tsx src/bin/rein'
+_probe FLAGGED 'A: !/usr/bin/env node src/bin/rein'
 # Q2 — the walk must continue past an operand that was merely REJECTED or ACCEPTED…
-_probe FLAGGED 'A: !bash tests/run.sh src/bin/ai'
-_probe FLAGGED 'A: !node "$HELPER" src/bin/ai'
+_probe FLAGGED 'A: !bash tests/run.sh src/bin/rein'
+_probe FLAGGED 'A: !node "$HELPER" src/bin/rein'
 # …but STOP at a command terminator. Without that the walk ran past
 # `. "${HOME}/…/locate.sh";` into the next command and read the resolver's own logical
 # argument as a path — an over-block on the exact line this task ships.
-_probe clean 'A: !. "${HOME}/.ai-os/shared/locate.sh"; c="$(ai_os_locate shared/x.mjs)"; node "$c"'
+_probe clean 'A: !. "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/x.mjs)"; node "$c"'
 _probe clean 'A: !bash tests/run.sh; node "$c"'
 
 
@@ -344,10 +344,10 @@ rm -rf "$_mm"
 
 # ── E-225.5: mirrors carry the fix ─────────────────────────────────────────
 # A fix that lives only in src/ is not deployed: the harness loads .claude/skills.
-for m in ".claude/skills/ai-preflight/SKILL.md" ".agents/skills/ai-preflight/SKILL.md"; do
+for m in ".claude/skills/rein-preflight/SKILL.md" ".agents/skills/rein-preflight/SKILL.md"; do
   if [[ -f "${REPO_ROOT}/$m" ]]; then
     assert_status 0 "E-225.05 $m carries the resolver" \
-      grep -q 'ai_os_locate shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
+      grep -q 'rein_locate shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
     assert_status 1 "E-225.05 $m has no cwd-relative chain left" \
       grep -q 'for c in src/shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
   fi
@@ -355,7 +355,7 @@ done
 
 # ── E-232 (from skill_consent — E-301; D-060 §3): a `!`-line may inspect, never execute ──
 # A `!`-line runs the moment the file LOADS — before the agent has decided anything and before
-# the operator has been asked. `ai-debug` opened with `!bash tests/run.sh`, so loading the
+# the operator has been asked. `rein-debug` opened with `!bash tests/run.sh`, so loading the
 # debugging skill executed the VISITED project's test script. The rule is a DENYLIST of
 # execution shapes; each catch case is paired with cases that must NOT fire (over-blocking
 # would reject every ordinary git/grep inspection line). `npm outdated` / `npm audit` run none
@@ -390,7 +390,7 @@ make|Build: !make all
 npx|Lint: !npx eslint .
 ./relative script|Run: !./repro.sh
 scripts/ path|Setup: !scripts/setup.sh
-node on src/|Check: !node src/bin/ai doctor
+node on src/|Check: !node src/bin/rein doctor
 python3 on scripts/|Gen: !python3 scripts/gen.py
 hidden after a pipe|Tests: !git status | bash tests/run.sh
 hidden after &&|Tests: !git status && bash tests/run.sh
@@ -417,7 +417,7 @@ command -v probe|Copilot: !command -v gh &>/dev/null && echo yes || echo no
 test -d|Archive: !test -d .ai/archive && echo YES || echo NO
 ls listing|Structure: !ls -1 . | head -20
 python3 inline code|Next: !python3 -c "print(1)"
-framework helper via resolver|Agg: !node "${HOME}/.ai-os/shared/incident-aggregate.mjs" || echo none
+framework helper via resolver|Agg: !node "${HOME}/.rein/shared/incident-aggregate.mjs" || echo none
 CASES
 
 # ── E-232.3: the shipped corpus is clean, and the scan is not vacuous ───────
@@ -467,30 +467,30 @@ assert_contains "E-232.03c: the scanner read the whole corpus (${_corpus_n} file
 
 # ── E-232.4: the three converted skills kept their capability, as STEPS ────
 # Removing the `!` line must not remove the ability — otherwise this "fix" is a deletion.
-for f in src/shared/skills/ai-debug/SKILL.md \
+for f in src/shared/skills/rein-debug/SKILL.md \
          src/claude/skills/bug-reproducer/SKILL.md \
-         src/shared/skills/ai-upgrade/SKILL.md; do
+         src/shared/skills/rein-upgrade/SKILL.md; do
   assert_status 0 "E-232.04: ${f##*/} ($(dirname "$f" | xargs basename)) still instructs the agent to run the suite" \
     grep -q "Step 0" "${REPO_ROOT}/$f"
 done
-assert_status 0 "E-232.04b: ai-debug still names the project's test command" \
-  grep -q "tests/run.sh" "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md"
-assert_status 0 "E-232.04c: ai-upgrade still names npm run test" \
-  grep -q "npm run test" "${REPO_ROOT}/src/shared/skills/ai-upgrade/SKILL.md"
+assert_status 0 "E-232.04b: rein-debug still names the project's test command" \
+  grep -q "tests/run.sh" "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
+assert_status 0 "E-232.04c: rein-upgrade still names npm run test" \
+  grep -q "npm run test" "${REPO_ROOT}/src/shared/skills/rein-upgrade/SKILL.md"
 
 # ── E-232.5: mirrors are byte-identical ────────────────────────────────────
-assert_status 0 "E-232.05a: ai-debug .claude mirror matches src" \
-  diff -q "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md" "${REPO_ROOT}/.claude/skills/ai-debug/SKILL.md"
-assert_mirror_if_present "E-232.05b: ai-debug .agents mirror matches src" "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md" "${REPO_ROOT}/.agents/skills/ai-debug/SKILL.md"
-assert_status 0 "E-232.05c: ai-upgrade .claude mirror matches src" \
-  diff -q "${REPO_ROOT}/src/shared/skills/ai-upgrade/SKILL.md" "${REPO_ROOT}/.claude/skills/ai-upgrade/SKILL.md"
+assert_status 0 "E-232.05a: rein-debug .claude mirror matches src" \
+  diff -q "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-debug/SKILL.md"
+assert_mirror_if_present "E-232.05b: rein-debug .agents mirror matches src" "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" "${REPO_ROOT}/.agents/skills/rein-debug/SKILL.md"
+assert_status 0 "E-232.05c: rein-upgrade .claude mirror matches src" \
+  diff -q "${REPO_ROOT}/src/shared/skills/rein-upgrade/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-upgrade/SKILL.md"
 assert_status 0 "E-232.05d: bug-reproducer .claude mirror matches src" \
   diff -q "${REPO_ROOT}/src/claude/skills/bug-reproducer/SKILL.md" "${REPO_ROOT}/.claude/skills/bug-reproducer/SKILL.md"
 
 # ── E-232.6: the rule is registered, and has a rollback ────────────────────
 assert_status 0 "E-232.06a: registered in standards.json" \
   grep -q "skill_consent_no_project_exec" "${REPO_ROOT}/src/shared/standards.json"
-assert_contains "E-232.06b: AI_OS_STANDARDS_SKIP=skill-consent disables it" "MISS" \
-  "$(AI_OS_STANDARDS_SKIP=skill-consent _verdict 'Failing tests: !bash tests/run.sh')"
+assert_contains "E-232.06b: REIN_STANDARDS_SKIP=skill-consent disables it" "MISS" \
+  "$(REIN_STANDARDS_SKIP=skill-consent _verdict 'Failing tests: !bash tests/run.sh')"
 
 assert_summary

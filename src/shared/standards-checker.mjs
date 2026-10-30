@@ -149,7 +149,7 @@ export const RULE_REGISTRY = {
    * framework helper.
    */
   skill_locator_install_first(ctx) {
-    if (process.env.AI_OS_STANDARDS_SKIP === "skill-locator") return null;
+    if (process.env.REIN_STANDARDS_SKIP === "skill-locator") return null;
     let executable;
     try {
       ({ executable } = classifyMarkdown(ctx.content, ctx.relPath));
@@ -175,16 +175,16 @@ export const RULE_REGISTRY = {
     // D-061 §2 rollback: restores the pre-E-234 walk, which graded every operand as a
     // candidate program. Kept because the narrowing REMOVES findings, and a gate that
     // stops reporting needs a way back to the louder behaviour if that proves wrong.
-    const PROGRAM_POSITION = process.env.AI_OS_STANDARDS_SKIP !== "program-position";
+    const PROGRAM_POSITION = process.env.REIN_STANDARDS_SKIP !== "program-position";
     // Wrappers that RESTART program position: what follows them is a program again.
-    // Without this, `env FOO=1 node src/bin/ai` and `command node src/bin/ai` would read
+    // Without this, `env FOO=1 node src/bin/rein` and `command node src/bin/rein` would read
     // as "a wrapper with arguments" and the real interpreter would never be reached.
     const POSITION_RESTARTERS = new Set([
       "env", "sudo", "nohup", "time", "command", "exec", "xargs", "eval",
     ]);
     // Flags whose OPERAND is code, not a path.
     const INLINE_CODE_FLAG = /^-{1,2}(e|c|p|eval|print|exec|X)$/;
-    // Shell keywords that introduce command position, so `then . src/bin/ai` is a source.
+    // Shell keywords that introduce command position, so `then . src/bin/rein` is a source.
     const CMD_KEYWORDS = new Set(["then", "do", "else", "elif", "in", "{", "!", "&&", "||", ";", "|", "("]);
 
     /**
@@ -231,8 +231,8 @@ export const RULE_REGISTRY = {
 
     // D-061 §2 / E-234: a token with a DATA-typed extension is never a program, in any
     // position. `memory_curator.md` was blocked six times for
-    //   node "${AIOS}/shared/memory-worker-pool.mjs" --dlq-show .ai/memory/dlq.json
-    // where the program is correctly resolved through ${AIOS} and the flagged token is an
+    //   node "${REIN}/shared/memory-worker-pool.mjs" --dlq-show .ai/memory/dlq.json
+    // where the program is correctly resolved through ${REIN} and the flagged token is an
     // argument to a --dlq-show flag. Position alone must not launder one either: putting a
     // .json first does not make it a program, which is why this is tested on the TOKEN and
     // not on where it sits.
@@ -281,11 +281,11 @@ export const RULE_REGISTRY = {
     // E-231 (D-060 §2). Two indirections put a project path beyond the operand walk, and
     // both were recorded as KNOWN UNCAUGHT rather than left to be re-found later as bugs:
     //
-    //   bash -c "node src/bin/ai"   the interpreter is INSIDE a quoted operand
-    //   cat src/bin/ai | bash       the program arrives on stdin, left of the pipe
+    //   bash -c "node src/bin/rein"   the interpreter is INSIDE a quoted operand
+    //   cat src/bin/rein | bash       the program arrives on stdin, left of the pipe
     //
     // Note what kept them invisible: an .mjs/.sh target is still caught by the second
-    // signal below, so ONLY an extension-less target such as `src/bin/ai` slipped through.
+    // signal below, so ONLY an extension-less target such as `src/bin/rein` slipped through.
     // That is why the shipped corpus contains none of these shapes.
     // Strip the wrapping quotes AND un-escape the inner ones. Inside `bash -c "..."` a
     // nested quote is written as an escaped quote, so the operand token arrives beginning
@@ -329,7 +329,7 @@ export const RULE_REGISTRY = {
             if (INLINE_CODE_FLAG.test(t.split("=")[0])) {
               // E-231: this operand is CODE, and code is exactly where the interpreter
               // was hiding. It used to be skipped wholesale, so `bash -c "node
-              // src/bin/ai"` read as "bash, with one operand we ignore".
+              // src/bin/rein"` read as "bash, with one operand we ignore".
               const inner = toks[++j];
               if (inner !== undefined && depth < 1) {
                 const r = walk(tokenise(stripOuterQuotes(inner)), depth + 1);
@@ -358,7 +358,7 @@ export const RULE_REGISTRY = {
           // It deliberately stays OPEN for two kinds of operand, because neither tells us
           // what actually runs: a variable this rule cannot read (`node "$HELPER" …`), and
           // an allowlisted entrypoint (`bash tests/run.sh …`). D-061 keeps both of those
-          // walking, so `bash tests/run.sh src/bin/ai` is still caught. Anything else —
+          // walking, so `bash tests/run.sh src/bin/rein` is still caught. Anything else —
           // an absolute path, a home-anchored path, a plain word — RESOLVES the program,
           // and every token after it is an argument.
           if (PROGRAM_POSITION && !POSITION_RESTARTERS.has(trimOperand(t))) {
@@ -369,7 +369,7 @@ export const RULE_REGISTRY = {
           // Keep walking — but only within THIS command. Breaking unconditionally after
           // the first non-flag token stopped the scan on an operand that was merely
           // REJECTED ("a variable we cannot read") or ACCEPTED (allowlisted), so
-          // `node "$HELPER" src/bin/ai` and `bash tests/run.sh src/bin/ai` went clean.
+          // `node "$HELPER" src/bin/rein` and `bash tests/run.sh src/bin/rein` went clean.
           //
           // A token ENDING in a terminator ends the command, and that matters: without
           // it the walk ran on past `. "${HOME}/…/locate.sh";` into the NEXT command and
@@ -385,8 +385,8 @@ export const RULE_REGISTRY = {
     /**
      * A pipeline whose SINK is an interpreter is handed its program on STDIN, so the path
      * sits to the LEFT of the pipe and never appears as an operand of anything.
-     * `cat src/bin/ai | bash` runs the visited project's file just as surely as
-     * `bash src/bin/ai` does.
+     * `cat src/bin/rein | bash` runs the visited project's file just as surely as
+     * `bash src/bin/rein` does.
      */
     const pipeFed = (toks) => {
       for (let i = 1; i < toks.length; i++) {
@@ -424,8 +424,8 @@ export const RULE_REGISTRY = {
 
       if (!bad && invokes) {
         const scrubbed = line.replace(
-          /ai_os_locate\s+(["'`]?)([\w@-]+\/[\w.@-]+)\1/g,
-          "ai_os_locate _",
+          /rein_locate\s+(["'`]?)([\w@-]+\/[\w.@-]+)\1/g,
+          "rein_locate _",
         );
         const bare = BARE_EXEC_PATH.exec(scrubbed);
         if (bare && isProjectControlled(bare[2]) && !isAccepted(bare[2])) bad = bare[2];
@@ -436,7 +436,7 @@ export const RULE_REGISTRY = {
         rule_id: ctx.rule.rule_id,
         severity: "error",
         line: num,
-        detail: `executable markdown hands an interpreter a project-controlled path ('${bad}') — resolve it with ai_os_locate: ${line.trim().slice(0, 70)}`,
+        detail: `executable markdown hands an interpreter a project-controlled path ('${bad}') — resolve it with rein_locate: ${line.trim().slice(0, 70)}`,
       });
     }
     return out.length ? out : null;
@@ -454,7 +454,7 @@ export const RULE_REGISTRY = {
    * WHAT THIS MUST NOT FLAG, and it is the whole difficulty: a test that ASSERTS something
    * about traps quotes the string it is looking for. `ai_watch_test` greps the watcher for
    * `trap '_release_lock' EXIT`, and `harness_isolation_test` asserts the runner
-   * registers `trap _aios_test_cleanup EXIT INT TERM`. Flagging those would make the rule
+   * registers `trap _rein_test_cleanup EXIT INT TERM`. Flagging those would make the rule
    * reject the tests that verify trap behaviour — the same trap E-224 and E-238 both hit,
    * where a gate blocked the document describing it.
    *
@@ -463,7 +463,7 @@ export const RULE_REGISTRY = {
    * assert_* invocation is data, not an invocation.
    */
   no_raw_exit_trap_in_tests(ctx) {
-    if (process.env.AI_OS_STANDARDS_SKIP === "raw-exit-trap") return null;
+    if (process.env.REIN_STANDARDS_SKIP === "raw-exit-trap") return null;
     if (!/^tests\/.*\.sh$/.test(ctx.relPath)) return null;
     // E-250: the tests/run.sh exemption MOVED to standards.json `exempt_files`, where
     // validateFile applies it and the summary can print it with its reason. It lived here
@@ -508,8 +508,8 @@ export const RULE_REGISTRY = {
    * before the operator has been asked. Such a line may therefore inspect, but must never
    * EXECUTE a program the visited project supplies.
    *
-   * `ai-debug` opened with `!bash tests/run.sh`, so merely loading the debugging skill ran
-   * the visited project's test script. `ai-upgrade` did the same with `!npm run test`,
+   * `rein-debug` opened with `!bash tests/run.sh`, so merely loading the debugging skill ran
+   * the visited project's test script. `rein-upgrade` did the same with `!npm run test`,
    * which the threat model had recorded as "agent-initiated" — it is not; it is a `!`-line.
    *
    * The test is EXECUTION, not mention. `npm outdated` and `npm audit` stay allowed: they
@@ -520,7 +520,7 @@ export const RULE_REGISTRY = {
    * inspection line the moment someone wrote a new one.
    */
   skill_consent_no_project_exec(ctx) {
-    if (process.env.AI_OS_STANDARDS_SKIP === "skill-consent") return null;
+    if (process.env.REIN_STANDARDS_SKIP === "skill-consent") return null;
     let bangLines;
     try {
       ({ bangLines } = classifyMarkdown(ctx.content, ctx.relPath));
@@ -944,7 +944,7 @@ export function validateFiles(filePaths, rules, opts = {}) {
 }
 
 /**
- * Pre-format a ComplianceReport set for the ai-review synthesizer
+ * Pre-format a ComplianceReport set for the rein-review synthesizer
  * (per blueprint §API reportDrift). Returns a structured object the
  * caller can serialize / surface to a human or stamp into REVIEWS.md.
  */

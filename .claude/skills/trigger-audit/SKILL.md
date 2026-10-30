@@ -47,9 +47,9 @@ For each keyword found, record the corresponding mandatory dispatch:
 | `npm install`, `pip install`, `go get`, new entry in `package.json` dependencies | `dependency_gate` (MANDATORY) |
 | `.github/`, `Dockerfile`, `docker-compose`, `workflow`, `CI`, `.yml` in CI path | `ci_gate` (MANDATORY) |
 | new `app.get`, `app.post`, `router.`, `@app.route`, `func.*Handler`, new API endpoint | `obs_baseline` (MANDATORY) |
-| task marked Tier: 3 in TASKS.md | `security_engineer` + `ai-review` (MANDATORY) |
+| task marked Tier: 3 in TASKS.md | `security_engineer` + `rein-review` (MANDATORY) |
 | architectural decision keyword: `chose`, `decided`, `using X instead of Y`, `rationale` | `decision-recorder` (ADVISORY) |
-| E-## task completed | `ai-task` + `digest_updater` (MANDATORY on completion) |
+| E-## task completed | `rein-task` + `digest_updater` (MANDATORY on completion) |
 
 ---
 
@@ -64,7 +64,7 @@ for evidence of dispatch:
 - `ci_gate` → look for `ci_gate`, `DEVOPS.md`
 - `obs_baseline` → look for `obs_baseline`, `[OBS]`
 - `decision-recorder` → look for `decision-recorder`, `DECISIONS.md`, `D-###`
-- `ai-review` → look for `[CRITIC_STAMP]`, `[ARCH_PASS]`, `[SEC_PASS]`
+- `rein-review` → look for `[CRITIC_STAMP]`, `[ARCH_PASS]`, `[SEC_PASS]`
 
 Mark each dispatch as **DISPATCHED** or **OUTSTANDING**.
 

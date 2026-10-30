@@ -9,7 +9,7 @@
 //
 //   The obvious fix — skip `.md` — is the dangerous one, and it is why this file exists
 //   rather than a one-line filter. Skill files carry `!`-prefixed lines that the harness
-//   AUTO-EXECUTES at session start, and `src/shared/skills/ai-preflight/SKILL.md:18` is
+//   AUTO-EXECUTES at session start, and `src/shared/skills/rein-preflight/SKILL.md:18` is
 //   exactly such a line resolving a helper cwd-relative (T-LOCATOR-001, still open at the
 //   time of writing). Skipping markdown would blind the gate to the one class of markdown
 //   that genuinely runs.

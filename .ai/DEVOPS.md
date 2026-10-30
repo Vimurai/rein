@@ -740,3 +740,25 @@ job's exact list, SHA pins, mutants for an installing / skipped / extra job, the
 matrices), `hosted-ci.test.mjs` (profile, shards, required names, `ci.shards` validation),
 `select-suites.test.mjs` (baseline fallback through the CLI), `ai_ci_test` E-268 (the exact
 workflow list, the badge exemptions), the PR's own hosted run: fast job, twelve legs, CodeQL.
+
+## DEVOPS-015 — CI names follow the command: `rein-ci-run`, `rein ci run (…)` (E-391, D-132 addendum 2 r9) — 2026-10-29
+
+**What changes and why.** The command is `rein` (D-132 addendum 2 r1), so the hosted check
+renames with it. `src/templates/ci/github.yml`: job id `ai-ci-run` → `rein-ci-run`, display
+name `rein ci run (<os>, node <n>, i/4)` (`REQUIRED_CHECK` in `src/shared/hosted-ci.mjs`, both
+profiles), cache key prefix and the per-leg artefact `rein-ci-run-<os>-node<n>-<i>`;
+`nightly.yml` downloads `rein-ci-run-*`; `src/templates/ci/azure-pipelines.yml` publishes
+`rein-ci-run-log` and `rein-ci-record`. `.github/workflows/ci.yml` re-rendered with
+`rein ci hosted github --force`; `--check` green. Runner, steps, matrix and shards unchanged.
+
+**Security implications.** None new: no secret, permission, network egress or action is added;
+every action keeps its SHA pin. The one risk is the merge window — `main` requires checks BY
+NAME, so until the list is updated the old names never report and no PR can go green.
+
+**Required checks on `main` (merge step of E-391).** One `gh api` call, right before the merge,
+replaces the eight `ai ci run (ubuntu-latest, node {22,24}, {1..4}/4)` contexts with the same
+eight under `rein ci run (…)`; `privacy scan`, `fast` and `CodeQL` stay; macOS stays
+informative (E-388). Recorded here with the call's output when it runs.
+
+**Rollback.** Revert the commit and run the same `gh api` call with the old names. The old
+cache entries simply expire (the new prefix starts a cold cache once).

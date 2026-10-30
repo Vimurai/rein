@@ -18,7 +18,7 @@ import { join } from "node:path";
 import { stageInstincts } from "../../src/shared/instinct-stager.mjs";
 import { promoteSkill, listProposedSkills } from "../../src/shared/skill-promoter.mjs";
 
-const ROOT = mkdtempSync(join(tmpdir(), "aios-t-promoter-"));
+const ROOT = mkdtempSync(join(tmpdir(), "rein-t-promoter-"));
 after(() => rmSync(ROOT, { recursive: true, force: true }));
 let _n = 0;
 const root = () => { const d = join(ROOT, `r${++_n}`); mkdirSync(d); return d; };

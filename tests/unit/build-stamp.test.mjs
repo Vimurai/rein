@@ -9,7 +9,7 @@
 // prove the mock agrees with itself.
 //
 // The run dir is redirected per test, so nothing here can see, reap or write the machine's
-// real ~/.ai-os/run records.
+// real ~/.rein/run records.
 //
 // Run standalone: node --test tests/unit/build-stamp.test.mjs
 
@@ -97,7 +97,7 @@ test("stampFor changes when a SHARED module changes — the actual E-249 scenari
 });
 
 test("stampFor ignores a touch that does not change bytes", () => {
-  // install-ai-os.sh rewrites files whether or not their content changed (E-229's atomic
+  // install-rein.sh rewrites files whether or not their content changed (E-229's atomic
   // copy). Reporting those as stale would train the operator to ignore the notice.
   const f = serverFixture();
   const before = stampFor(f.entry).hash;
@@ -194,7 +194,7 @@ test("a corrupt record is skipped, not thrown on", () => {
 });
 
 test("non-build files in the run dir are ignored", () => {
-  // ~/.ai-os/run also holds role-<sid>.lock (E-129) and other runtime locks.
+  // ~/.rein/run also holds role-<sid>.lock (E-129) and other runtime locks.
   const runDir = runDirFixture();
   writeFileSync(join(runDir, "role-ABC.lock"), '{"role":"engineer"}');
   writeFileSync(join(runDir, "ci-run.lock"), "123");
@@ -203,16 +203,16 @@ test("non-build files in the run dir are ignored", () => {
 
 // ── the rollback switch ─────────────────────────────────────────────────────────────────
 
-test("AI_OS_BUILD_STAMP=0 disables the scan, the stamp and the gate", (t) => {
+test("REIN_BUILD_STAMP=0 disables the scan, the stamp and the gate", (t) => {
   const f = serverFixture();
   const runDir = runDirFixture();
   writeBootRecord(f.name, stampFor(f.entry), runDir);
   writeFileSync(f.sharedFile, "// v2\n");
   assert.equal(listStaleServers({ runDir }).length, 1, "stale while enabled");
 
-  const prev = process.env.AI_OS_BUILD_STAMP;
-  process.env.AI_OS_BUILD_STAMP = "0";
-  t.after(() => { if (prev === undefined) delete process.env.AI_OS_BUILD_STAMP; else process.env.AI_OS_BUILD_STAMP = prev; });
+  const prev = process.env.REIN_BUILD_STAMP;
+  process.env.REIN_BUILD_STAMP = "0";
+  t.after(() => { if (prev === undefined) delete process.env.REIN_BUILD_STAMP; else process.env.REIN_BUILD_STAMP = prev; });
 
   assert.equal(buildStampEnabled(), false);
   assert.deepEqual(listStaleServers({ runDir }), []);
@@ -285,7 +285,7 @@ test("withTelemetry never lets a stamping failure surface as a tool error", asyn
   // A frozen result cannot take a new _meta. The tool's answer must still come back.
   // The cache is seeded against a FIXTURE run dir first: stampBootedBuild() otherwise
   // resolves bootedBuild()'s defaults — this test file as the entry, and the machine's real
-  // ~/.ai-os/run as the destination — and a unit test that writes into the real run dir is
+  // ~/.rein/run as the destination — and a unit test that writes into the real run dir is
   // the leaked-external-state failure E-240 exists to catch.
   const ff = serverFixture({ name: "frozen-mcp" });
   _resetBootedBuild();
@@ -306,9 +306,9 @@ function repoMirrorFixture() {
   const mirror = tmp("e249-mirror");
   for (const [dir, file, body] of [
     [join(repo, "src", "mcp", "srv"), "index.js", "// server v1\n"],
-    [join(repo, "src", "bin"), "ai", "#!/usr/bin/env bash\n"],
+    [join(repo, "src", "bin"), "rein", "#!/usr/bin/env bash\n"],
     [join(mirror, "mcp", "srv"), "index.js", "// server v1\n"],
-    [join(mirror, "bin"), "ai", "#!/usr/bin/env bash\n"],
+    [join(mirror, "bin"), "rein", "#!/usr/bin/env bash\n"],
   ]) {
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, file), body);
@@ -336,17 +336,17 @@ test("gate BLOCKS when src/mcp/ has not been installed to the mirror", () => {
   assert.equal(g.ok, false);
   assert.equal(g.code, "BUILD_STALE");
   assert.match(g.message, /src\/mcp\/srv\/index\.js/);
-  assert.match(g.message, /bash install-ai-os\.sh/);
-  assert.match(g.message, /AI_OS_BUILD_STAMP=0/);
+  assert.match(g.message, /bash install-rein\.sh/);
+  assert.match(g.message, /REIN_BUILD_STAMP=0/);
 });
 
 test("gate BLOCKS on src/bin/ too, and on a file the mirror lacks entirely", () => {
   const { repo, mirror } = repoMirrorFixture();
-  writeFileSync(join(repo, "src", "bin", "ai"), "#!/usr/bin/env bash\n# new\n");
-  writeFileSync(join(repo, "src", "bin", "ai-brand-new"), "#!/usr/bin/env bash\n");
+  writeFileSync(join(repo, "src", "bin", "rein"), "#!/usr/bin/env bash\n# new\n");
+  writeFileSync(join(repo, "src", "bin", "rein-brand-new"), "#!/usr/bin/env bash\n");
   const d = mirrorDrift({ repoRoot: repo, mirrorRoot: mirror, frameworkOnly: false });
-  assert.ok(d.drift.includes("src/bin/ai"));
-  assert.ok(d.drift.includes("src/bin/ai-brand-new"), "a file absent from the mirror is drift");
+  assert.ok(d.drift.includes("src/bin/rein"));
+  assert.ok(d.drift.includes("src/bin/rein-brand-new"), "a file absent from the mirror is drift");
 });
 
 test("gate BLOCKS when the mirror is current but a running server booted an older build", () => {
@@ -365,7 +365,7 @@ test("gate BLOCKS when the mirror is current but a running server booted an olde
 });
 
 test("lockfiles and node_modules are never drift", () => {
-  // `ai mcp-setup` runs npm install INSIDE the mirror, so every lockfile there differs
+  // `rein mcp-setup` runs npm install INSIDE the mirror, so every lockfile there differs
   // from src/ permanently and by design. A gate that can never be satisfied is one the
   // operator turns off.
   const { repo, mirror } = repoMirrorFixture();
@@ -379,9 +379,9 @@ test("lockfiles and node_modules are never drift", () => {
 
 test("a project that is not the framework clone is never gated", () => {
   // A downstream repo with its own src/bin/ would otherwise be compared against
-  // ~/.ai-os/bin and told all of its own files had drifted.
+  // ~/.rein/bin and told all of its own files had drifted.
   const { repo, mirror } = repoMirrorFixture();
-  writeFileSync(join(repo, "src", "bin", "ai"), "# a downstream project's own script\n");
+  writeFileSync(join(repo, "src", "bin", "rein"), "# a downstream project's own script\n");
   const d = mirrorDrift({ repoRoot: repo, mirrorRoot: mirror });   // frameworkOnly defaults true
   assert.equal(d.installed, false);
   assert.deepEqual(d.drift, []);
@@ -461,8 +461,8 @@ test("run_handover REFUSES with [CI_GATE] when HEAD's run FAILED; task OPEN, LOG
   assert.equal(statusForResult(r), "REJECTED");
   assert.equal(status(), "OPEN");
   assert.equal(readFileSync(join(repo, ".ai", "LOG.md"), "utf8"), "# LOG\n");
-  // …and AI_OS_CI_GATE=0 is the same bypass it is for update_task_status.
-  assert.match(runHandover(repo, { task_id: "E-1", summary: "bypassed" }, opts, { AI_OS_CI_GATE: "0" }).content[0].text, /E-1 marked DONE/);
+  // …and REIN_CI_GATE=0 is the same bypass it is for update_task_status.
+  assert.match(runHandover(repo, { task_id: "E-1", summary: "bypassed" }, opts, { REIN_CI_GATE: "0" }).content[0].text, /E-1 marked DONE/);
 });
 
 test("run_handover PASSES the CI gate on a green run for HEAD (E-320)", async () => {

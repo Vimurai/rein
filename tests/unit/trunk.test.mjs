@@ -21,7 +21,7 @@ const TEAM = { schema: 1, planner: "a@example.com", claim_ttl_days: 7, shared_lo
 
 // refs: the branches under refs/remotes/origin/; head: origin/HEAD's target; trunk: team.json's.
 function repo(t, { refs = [], head = null, trunk } = {}) {
-  const d = mkdtempSync(join(tmpdir(), "aios-trunk-"));
+  const d = mkdtempSync(join(tmpdir(), "rein-trunk-"));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   git(d, "init", "-q", "-b", "work");
   git(d, "-c", "user.email=a@example.com", "-c", "user.name=a", "-c", "commit.gpgsign=false", "commit", "-q", "--allow-empty", "-m", "seed");
@@ -69,11 +69,11 @@ test("validateTeam: trunk must be a plain branch name (r1)", () => {
   }
 });
 
-// discoverTrunk is the operator path `ai state migrate --team` takes for a NEW team.json: it may
+// discoverTrunk is the operator path `rein state migrate --team` takes for a NEW team.json: it may
 // ask origin once (ls-remote), never set-head. The fixture is a real bare origin whose HEAD
 // names main, cloned, with the clone's origin/HEAD removed so only ls-remote can answer.
 test("discoverTrunk: --trunk, else origin/HEAD, else ls-remote; refuses with the flag named", (t) => {
-  const d = mkdtempSync(join(tmpdir(), "aios-trunk-disc-"));
+  const d = mkdtempSync(join(tmpdir(), "rein-trunk-disc-"));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   const origin = join(d, "origin.git"), seed = join(d, "seed"), c = join(d, "c");
   git(d, "init", "-q", "--bare", "-b", "main", origin);

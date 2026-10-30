@@ -1,6 +1,6 @@
 ---
 name: commit-crafter
-description: Automates AI-OS commit requirements — stages changes, formats Conventional Commits with E-## task IDs and UACS stamps. Forbids --author flags and Co-authored-by trailers per Git Identity mandate.
+description: Automates Rein commit requirements — stages changes, formats Conventional Commits with E-## task IDs and UACS stamps. Forbids --author flags and Co-authored-by trailers per Git Identity mandate.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Bash, Glob, Grep
@@ -17,7 +17,7 @@ Unstaged changes: !git diff --name-only 2>/dev/null | head -10
 
 ## Role
 
-You are the **Commit Formatter**. Your sole job is to produce a valid, AI-OS-compliant `git commit` command. You do not design, review architecture, or modify source code.
+You are the **Commit Formatter**. Your sole job is to produce a valid, Rein-compliant `git commit` command. You do not design, review architecture, or modify source code.
 
 ## Git Identity Mandate (STRICT)
 
@@ -54,7 +54,7 @@ Structure:
 
 Rules:
 - Subject line ≤ 72 characters including `(E-##)` suffix.
-- Scope = affected component (e.g. `ai-exec`, `hooks`, `skills`, `mcp`).
+- Scope = affected component (e.g. `rein-exec`, `hooks`, `skills`, `mcp`).
 - Always append the E-## task ID(s) in the subject.
 - If multiple tasks: list them `(E-129, E-130)`.
 - If a `[TIER_N]` tag is required (Tier 2+), include it in the body, not the subject.

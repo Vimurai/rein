@@ -34,7 +34,7 @@ Code itself.
 - [Install and uninstall](#install-and-uninstall)
 - [Command reference](#command-reference)
 - [Gates, critics and budgets](#gates-critics-and-budgets)
-- [Local CI — `ai ci`](#local-ci--ai-ci)
+- [Local CI — `rein ci`](#local-ci--rein-ci)
 - [Configuration](#configuration)
 - [FAQ](#faq)
 - [Troubleshooting](#troubleshooting)
@@ -47,23 +47,23 @@ Deeper guides live in [`docs/`](docs/README.md).
 
 ## Quickstart (60 seconds)
 
-You need macOS or Linux, **Node.js 22.5+**, Python 3.10+, `sqlite3`, `git`, `tmux` and
+You need macOS, Linux or Windows (through WSL2), **Node.js 22.5+**, Python 3.10+, `sqlite3`, `git`, `tmux` and
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (`claude`) logged in.
 
 ```bash
 # 1. Install once per machine
 git clone https://github.com/Vimurai/rein.git && cd rein
-bash install-ai-os.sh          # copies the framework to ~/.ai-os and adds it to PATH
-exec "$SHELL"                  # reload the shell so `ai` is found
-ai install                     # Claude Code settings + hooks
-ai doctor                      # each ✗ names its fix; Copilot and Chromium are optional
+bash install-rein.sh          # copies the framework to ~/.rein and adds it to PATH
+exec "$SHELL"                  # reload the shell so `rein` is found
+rein install                     # Claude Code settings + hooks
+rein doctor                      # each ✗ names its fix; Copilot and Chromium are optional
 
 # 2. Enable it in a project (new or existing)
 cd ~/code/my-project
-ai init                        # creates .ai/, .claude/, .mcp.json; never overwrites your files
+rein init                        # creates .ai/, .claude/, .mcp.json; never overwrites your files
 
 # 3. Launch the team
-ai start                       # tmux: Engineer pane (left) + Architect pane (right)
+rein start                       # tmux: Engineer pane (left) + Architect pane (right)
 ```
 
 Then type your first request into the **Architect** pane:
@@ -75,7 +75,7 @@ wakes the Engineer. The Engineer implements them, runs the tests and the critics
 back. You watch, answer questions, and approve. For an existing codebase, start with
 *"Reverse-engineer this repository into `.ai/DIGEST.md`, `.ai/BRIEF.md` and `.ai/architect.md`."*
 
-No tmux? Open two terminals and run `ai pane engineer` in one and `ai pane architect` in the other
+No tmux? Open two terminals and run `rein pane engineer` in one and `rein pane architect` in the other
 (see the manual fallback under [Starting a session](#starting-a-session)).
 
 ---
@@ -102,12 +102,12 @@ No tmux? Open two terminals and run `ai pane engineer` in one and `ai pane archi
                          │  DECISIONS · LOG · REVIEWS  │  │  arch · security ·     │
                          └─────────────────────────────┘  │  tests · test_engineer │
                                                           └────────────────────────┘
-                 git commit ──▶ pre-commit gate ──▶ ai ci run ──▶ pre-push gate
+                 git commit ──▶ pre-commit gate ──▶ rein ci run ──▶ pre-push gate
 ```
 
 A picture version is in [docs/assets/triad.svg](docs/assets/triad.svg).
 
-**Two roles, one memory.** Each pane is Claude Code bound to a role by `ai pane <role>`: the
+**Two roles, one memory.** Each pane is Claude Code bound to a role by `rein pane <role>`: the
 Architect (model `fable`) owns `.ai/architect.md`, `.ai/blueprints/` and the task list; the
 Engineer (model `opus`) owns the source and the tests. A third role, the **Tester**
 (`test_engineer`, model `sonnet`), has no pane — the Engineer dispatches it to write tests.
@@ -138,10 +138,10 @@ fresh review stamp is rejected. See [docs/how-it-works.md](docs/how-it-works.md)
 | **Critics** | Independent reviewers for architecture, security, tests and clean code, each in its own context, stamping `PASS`/`FAIL`. | [Gates and review](docs/gates-and-review.md#critics) |
 | **Skills** | 40+ procedures the agents run on cue — preflight, task close-out, handoff, debugging, release, dependency and CI gates. | [Agents and skills](docs/agents-and-skills.md) |
 | **Subagents** | 21 specialists — critics, Tester, security, database, DevOps, performance, chaos, UX, SEO, docs. | [Agents and skills](docs/agents-and-skills.md#subagents) |
-| **MCP servers** | 16 local MCP servers (task store, orchestration, safe exec, patching, risk tiers, blueprint alignment, approval, memory…) wired by `ai sync`. | [MCP servers](docs/mcp-servers.md) |
-| **Local CI + ratchet** | `ai ci run` tests a commit in a clean worktree; a test budget that only moves down. | [Local CI](docs/local-ci.md) |
+| **MCP servers** | 16 local MCP servers (task store, orchestration, safe exec, patching, risk tiers, blueprint alignment, approval, memory…) wired by `rein sync`. | [MCP servers](docs/mcp-servers.md) |
+| **Local CI + ratchet** | `rein ci run` tests a commit in a clean worktree; a test budget that only moves down. | [Local CI](docs/local-ci.md) |
 | **Team mode** | Several developers on one repo: task claims on the trunk, per-developer id ranges, shared logs. | [Team mode](docs/team-mode.md) |
-| **Accounts** | Run one project on a second Claude subscription with `ai account` and `ai start --account`. | [Getting started](docs/getting-started.md#a-second-claude-account) |
+| **Accounts** | Run one project on a second Claude subscription with `rein account` and `rein start --account`. | [Getting started](docs/getting-started.md#a-second-claude-account) |
 
 ---
 
@@ -149,71 +149,71 @@ fresh review stamp is rejected. See [docs/how-it-works.md](docs/how-it-works.md)
 
 | Requirement | Why |
 | :--- | :--- |
-| macOS or Linux (bash/zsh) | The installer and hooks are bash. On Windows, use WSL2. |
+| macOS, Linux, or Windows through WSL2 (bash/zsh) | The installer and hooks are bash. Windows is supported through WSL2 (run everything inside the WSL2 distribution, not in PowerShell); a Windows (WSL2) leg in the CI matrix is planned. |
 | **Node.js 22.5+** | The MCP servers use the built-in `node:sqlite`. |
 | Python 3.10+ | Generates `.mcp.json` and runs state fallbacks. |
 | `sqlite3`, `git` | Hooks read `.ai/state.sqlite`; everything is git-aware. |
 | **Claude Code** (`claude`) | Runs every role. |
-| `tmux` (recommended) | `ai start` builds the two-pane layout in tmux. |
-| `gh` (optional) | GitHub issue ingestion (`ai sync --github`). |
+| `tmux` (recommended) | `rein start` builds the two-pane layout in tmux. |
+| `gh` (optional) | GitHub issue ingestion (`rein sync --github`). |
 
 **Install** — once per machine:
 
 ```bash
 git clone https://github.com/Vimurai/rein.git && cd rein
-bash install-ai-os.sh     # copies src/ → ~/.ai-os, installs MCP dependencies, adds ~/.ai-os/bin to PATH
-exec "$SHELL"             # reload the shell so `ai` is found
-ai install                # ~/.claude settings and hooks
-ai doctor
+bash install-rein.sh     # copies src/ → ~/.rein, installs MCP dependencies, adds ~/.rein/bin to PATH
+exec "$SHELL"             # reload the shell so `rein` is found
+rein install                # ~/.claude settings and hooks
+rein doctor
 ```
 
 **Upgrade** — pull, reinstall, then sync each project:
 
 ```bash
-cd rein && git pull && bash install-ai-os.sh
-cd ~/code/my-project && ai init && ai sync && ai doctor
+cd rein && git pull && bash install-rein.sh
+cd ~/code/my-project && rein init && rein sync && rein doctor
 ```
 
-`ai sync` refreshes the rulefiles, `.mcp.json`, `.claude/agents/`, `.claude/skills/` and the git
+`rein sync` refreshes the rulefiles, `.mcp.json`, `.claude/agents/`, `.claude/skills/` and the git
 hooks. It never touches what you wrote: `BRIEF.md`, `TASKS.md`, `DIGEST.md`, `architect.md` and
-your blueprints stay yours. `ai clean` lists what older versions left behind (dry run by default).
+your blueprints stay yours. `rein clean` lists what older versions left behind (dry run by default).
 
-**Uninstall** — `ai uninstall` removes `~/.ai-os` after you type `uninstall`. Your projects'
+**Uninstall** — `rein uninstall` removes `~/.rein` after you type `uninstall`. Your projects'
 `.ai/` directories, `~/.claude/` and the PATH line in your shell rc are left for you to remove.
 
 ### Starting a session
 
 ```bash
 cd /path/to/your-project
-ai start
+rein start
 ```
 
-`ai start` creates or reuses the project's tmux session, binds each pane to its role and launches
+`rein start` creates or reuses the project's tmux session, binds each pane to its role and launches
 Claude Code in both. It is idempotent — run it whenever you come back to a project.
 
 ```bash
-ai start --status        # which panes exist and what each is running
-ai start --kill          # tear the project window down (asks first; --yes skips the prompt)
-ai start --detach        # build the layout without attaching
-ai start --dry-run       # print the tmux commands instead of running them
+rein start --status        # which panes exist and what each is running
+rein start --kill          # tear the project window down (asks first; --yes skips the prompt)
+rein start --detach        # build the layout without attaching
+rein start --dry-run       # print the tmux commands instead of running them
 ```
 
 <details>
 <summary>Manual fallback — the layout by hand</summary>
 
-Without `ai start` (or without tmux), the layout is two panes and two commands. Use one tmux
+Without `rein start` (or without tmux), the layout is two panes and two commands. Use one tmux
 session **per project**, named after it — one session has one current window shared by every
 attached client, so two projects in one session flip each other's terminal:
 
 ```bash
 tmux new-session -s "$(basename "$PWD")"
 # Then, in two panes (split with prefix + %):
-ai pane engineer      # pane 0 — Claude Code bound to the Engineer (opus)
-ai pane architect     # pane 1 — Claude Code bound to the Architect (fable)
+rein pane engineer      # pane 0 — Claude Code bound to the Engineer (opus)
+rein pane architect     # pane 1 — Claude Code bound to the Architect (fable)
 ```
 
 Each pane keeps its shell when Claude Code exits, so you can rerun the command. Use another
-terminal for `ai sync`, `ai doctor` and git.
+terminal for `rein sync`, `rein doctor` and git.
 
 </details>
 
@@ -223,40 +223,40 @@ More: [docs/getting-started.md](docs/getting-started.md) (tmux layout, accounts,
 
 ## Command reference
 
-The `ai` CLI sets things up and keeps them healthy; the day-to-day work happens as prompts and
+The `rein` CLI sets things up and keeps them healthy; the day-to-day work happens as prompts and
 skills inside the two Claude Code panes.
 
 | Command | What it does |
 | :--- | :--- |
-| `ai install` | Write Claude Code settings and hooks under `~/.claude`; run once after `install-ai-os.sh`. |
-| `ai init [--check]` | Create `.ai/` in a project, or upgrade an existing one; `--check` is a dry run. |
-| `ai sync [--github] [--prune-providers]` | Refresh rulefiles, agents, skills, `.mcp.json` and hooks in the project. |
-| `ai start [--status\|--kill\|--detach\|--dry-run\|--account <name>]` | Build or reattach the project's two-pane tmux layout. |
-| `ai pane <architect\|engineer>` | Launch Claude Code in this pane, bound to a role. |
-| `ai doctor [--repair] [--compliance] [--env]` | Diagnose PATH, hooks, MCP servers, roles, state, CI; `--repair` fixes what it can. |
-| `ai add-task <description>` | Add a task from the shell. |
-| `ai task done <id>` | Close a task through the same gates the agents use. |
-| `ai task claim\|release\|claims` | Team mode: claim a task on the trunk before working on it. |
-| `ai team add\|show`, `ai trunk` | Team mode: per-developer id ranges; which branch is the trunk. |
-| `ai state import\|migrate` | Bring this machine's task index up to what git tracks. |
-| `ai ci run\|status\|list\|log\|budget` | Local CI — see [below](#local-ci--ai-ci). |
-| `ai account list\|add\|remove\|sync` | Extra Claude Code accounts (one config directory per login). |
-| `ai clean [--apply] [--restore <date>]` | List, then move to a dated trash, what older versions left behind. |
-| `ai gate off [--minutes N]\|on\|status` | Operator-only, time-boxed escape from the tool-call gate (run it in your own terminal). |
-| `ai uninstall` | Remove `~/.ai-os`. |
-| `ai version`, `ai --help` | Version; full help. |
+| `rein install` | Write Claude Code settings and hooks under `~/.claude`; run once after `install-rein.sh`. |
+| `rein init [--check]` | Create `.ai/` in a project, or upgrade an existing one; `--check` is a dry run. |
+| `rein sync [--github] [--prune-providers]` | Refresh rulefiles, agents, skills, `.mcp.json` and hooks in the project. |
+| `rein start [--status\|--kill\|--detach\|--dry-run\|--account <name>]` | Build or reattach the project's two-pane tmux layout. |
+| `rein pane <architect\|engineer>` | Launch Claude Code in this pane, bound to a role. |
+| `rein doctor [--repair] [--compliance] [--env]` | Diagnose PATH, hooks, MCP servers, roles, state, CI; `--repair` fixes what it can. |
+| `rein add-task <description>` | Add a task from the shell. |
+| `rein task done <id>` | Close a task through the same gates the agents use. |
+| `rein task claim\|release\|claims` | Team mode: claim a task on the trunk before working on it. |
+| `rein team add\|show`, `rein trunk` | Team mode: per-developer id ranges; which branch is the trunk. |
+| `rein state import\|migrate` | Bring this machine's task index up to what git tracks. |
+| `rein ci run\|status\|list\|log\|budget` | Local CI — see [below](#local-ci--rein-ci). |
+| `rein account list\|add\|remove\|sync` | Extra Claude Code accounts (one config directory per login). |
+| `rein clean [--apply] [--restore <date>]` | List, then move to a dated trash, what older versions left behind. |
+| `rein gate off [--minutes N]\|on\|status` | Operator-only, time-boxed escape from the tool-call gate (run it in your own terminal). |
+| `rein uninstall` | Remove `~/.rein`. |
+| `rein version`, `ai --help` | Version; full help. |
 
 Inside Claude Code, the commonly used skills are:
 
 | Skill | When |
 | :--- | :--- |
-| `ai-preflight` | Runs at every session start: snapshot, open tasks, state checks. |
-| `ai-task` | After a task: mark it done (CI must be green), hand over, show the next one. |
-| `ai-handoff` | Write the COMM.md note and wake the other pane. |
-| `ai-test` | Run your tests; `--generate` dispatches the Tester to write new ones. |
-| `ai-review` | Tier-aware review: critics in parallel for risky changes. |
-| `ai-debug` | Hypothesis → test → observe loop; commits stay locked until green. |
-| `ai-digest`, `ai-archive` | Refresh the project snapshot; rotate long logs. |
+| `rein-preflight` | Runs at every session start: snapshot, open tasks, state checks. |
+| `rein-task` | After a task: mark it done (CI must be green), hand over, show the next one. |
+| `rein-handoff` | Write the COMM.md note and wake the other pane. |
+| `rein-test` | Run your tests; `--generate` dispatches the Tester to write new ones. |
+| `rein-review` | Tier-aware review: critics in parallel for risky changes. |
+| `rein-debug` | Hypothesis → test → observe loop; commits stay locked until green. |
+| `rein-digest`, `rein-archive` | Refresh the project snapshot; rotate long logs. |
 
 The full list is in [docs/agents-and-skills.md](docs/agents-and-skills.md).
 
@@ -278,7 +278,7 @@ Three gates enforce it, all as git or Claude Code hooks — not as instructions 
    destructive shell commands, secrets and private keys in commands, writes outside the project.
 2. **Pre-commit gate**: the commit needs a review stamp bound to its parent; bookkeeping-only commits
    are exempt. Conflict markers and broken `.ai/*.json` are refused.
-3. **Pre-push gate**: the tip must have a green `ai ci run`.
+3. **Pre-push gate**: the tip must have a green `rein ci run`.
 
 **Critics** are subagents with a fixed brief and their own context: `critic_arch` compares the
 diff with the blueprint, `critic_security` audits it for OWASP-class issues and leaked secrets,
@@ -293,29 +293,29 @@ budget only moves down; raising it is a recorded decision. Details:
 
 ---
 
-## Local CI — `ai ci`
+## Local CI — `rein ci`
 
-CI runs on your machine; no hosted pipeline is needed. `ai ci run` checks out a **committed** sha
+CI runs on your machine; no hosted pipeline is needed. `rein ci run` checks out a **committed** sha
 in a detached `git worktree` under a throwaway `HOME`, installs the framework from that commit,
 and runs the test suites, the unit tests and a secrets check. The verdict is stored in
-`.ai/state.sqlite`; logs go to `~/.ai-os/ci/logs/`.
+`.ai/state.sqlite`; logs go to `~/.rein/ci/logs/`.
 
 ```bash
-ai ci run                 # test HEAD; exit 0 PASS / 1 FAIL / 2 ERROR
-ai ci run --dirty         # include uncommitted changes (never certifies a commit)
-ai ci status --short      # the recorded verdict for HEAD
-ai ci list -n 10          # recent runs
-ai ci log --failed        # only the failing suites of the last run
-ai ci budget              # the test budget the next run is held to
+rein ci run                 # test HEAD; exit 0 PASS / 1 FAIL / 2 ERROR
+rein ci run --dirty         # include uncommitted changes (never certifies a commit)
+rein ci status --short      # the recorded verdict for HEAD
+rein ci list -n 10          # recent runs
+rein ci log --failed        # only the failing suites of the last run
+rein ci budget              # the test budget the next run is held to
 ```
 
 "CI green" means a non-dirty PASS for that exact commit. Two things read it: closing a task
-(`ai-task` refuses until HEAD is green) and the `pre-push` hook, which refuses to push an untested
+(`rein-task` refuses until HEAD is green) and the `pre-push` hook, which refuses to push an untested
 tip. A commit that only adds `.ai/` bookkeeping on top of a tested one needs no new run. To push in
 an emergency, skip once — it is recorded, and a reason is mandatory:
 
 ```bash
-AI_OS_CI_SKIP=1 AI_OS_CI_SKIP_REASON="prod outage hotfix" git push
+REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="prod outage hotfix" git push
 ```
 
 Machine-specific environment (a local port, a URL only your laptop has) goes in the gitignored
@@ -329,15 +329,15 @@ Machine-specific environment (a local port, a URL only your laptop has) goes in 
 | :--- | :--- | :--- |
 | `.ai/roles.json` | yes | Role → provider, model and pane (`engineer` 0 · `opus`, `architect` 1 · `fable`). |
 | `.ai/providers.json` | yes | Provider definitions (Claude Code). |
-| `.ai/start.json` | yes | `ai start` options, including the bound Claude account. |
+| `.ai/start.json` | yes | `rein start` options, including the bound Claude account. |
 | `.ai/team.json` | yes | Team mode: trunk, developer id ranges, claim expiry, shared log. |
 | `.ai/CAPABILITIES.md` | yes | Paths and commands the agents may read, write and run. |
 | `.ai/ci.local.json` | no | This machine's extra CI environment. |
-| `.mcp.json`, `.claude/` | generated | Regenerated by `ai sync`; edit the sources, not these. |
+| `.mcp.json`, `.claude/` | generated | Regenerated by `rein sync`; edit the sources, not these. |
 
-Useful environment variables: `AI_OS_CI_GATE=0` (close tasks without green CI — say so when you
-do), `AI_OS_KEEP_LEGACY_WORKSPACES=1` (sync lists old files but deletes nothing),
-`AI_OS_DISABLE_REPO_MAP=1` (skip the code map), `AI_TELEMETRY_DISABLE=1` (no local telemetry).
+Useful environment variables: `REIN_CI_GATE=0` (close tasks without green CI — say so when you
+do), `REIN_KEEP_LEGACY_WORKSPACES=1` (sync lists old files but deletes nothing),
+`REIN_DISABLE_REPO_MAP=1` (skip the code map), `AI_TELEMETRY_DISABLE=1` (no local telemetry).
 Full reference: [docs/configuration.md](docs/configuration.md).
 
 ---
@@ -351,7 +351,7 @@ disable.
 **Do I need two Claude subscriptions?** No. Both panes run on your one Claude Code login. A second
 account is optional, for keeping one project on another subscription.
 
-**Can I use it on an existing project?** Yes. `ai init` adds `.ai/` and `.claude/` and never
+**Can I use it on an existing project?** Yes. `rein init` adds `.ai/` and `.claude/` and never
 overwrites your files; ask the Architect to reverse-engineer the codebase first.
 
 **Can I use only one pane?** Yes — the Engineer alone is a disciplined single agent with memory,
@@ -361,7 +361,7 @@ gates and critics. You lose the planning half and the automatic handoff.
 a red master nobody noticed, a role editing the other's plan, a secret in a command line. They
 are hooks, so they cost you nothing until they save you.
 
-**How do I turn a gate off?** In your own terminal, `ai gate off --minutes 15 --reason "…"`.
+**How do I turn a gate off?** In your own terminal, `rein gate off --minutes 15 --reason "…"`.
 Catastrophic commands still block, and every bypassed call is announced. An agent cannot do this
 for you.
 
@@ -373,13 +373,13 @@ More questions: [docs/troubleshooting.md](docs/troubleshooting.md#faq).
 
 | Symptom | First check | Then |
 | :--- | :--- | :--- |
-| `ai: command not found` | Is `~/.ai-os/bin` on `PATH`? | Open a new shell; `ai doctor` prints the export line. |
-| MCP servers fail to start | `node --version` is 22.5+? | `ai mcp-setup`, then `ai doctor --env`. |
-| A pane opens and then fails | `ai doctor` — is `claude` on PATH, are roles mapped? | `ai start --status`. |
-| Commit refused by the pre-commit gate | Was the change reviewed? | Run `skill: ai-review` in the Engineer pane. |
-| Push refused | `ai ci status --short` | `ai ci run`, fix what fails, push again. |
-| Tasks differ between machines | `ai doctor` state health | `ai state import`. |
-| The other pane never wakes | Is it open? A closed pane gets "not reachable". | Relaunch it with `ai start` or `ai pane <role>`. |
+| `ai: command not found` | Is `~/.rein/bin` on `PATH`? | Open a new shell; `rein doctor` prints the export line. |
+| MCP servers fail to start | `node --version` is 22.5+? | `rein mcp-setup`, then `rein doctor --env`. |
+| A pane opens and then fails | `rein doctor` — is `claude` on PATH, are roles mapped? | `rein start --status`. |
+| Commit refused by the pre-commit gate | Was the change reviewed? | Run `skill: rein-review` in the Engineer pane. |
+| Push refused | `rein ci status --short` | `rein ci run`, fix what fails, push again. |
+| Tasks differ between machines | `rein doctor` state health | `rein state import`. |
+| The other pane never wakes | Is it open? A closed pane gets "not reachable". | Relaunch it with `rein start` or `rein pane <role>`. |
 
 More: [docs/troubleshooting.md](docs/troubleshooting.md).
 

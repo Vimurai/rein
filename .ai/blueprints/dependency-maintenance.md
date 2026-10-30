@@ -5,7 +5,7 @@ An intelligent Dependabot alternative that doesn't just bump versions but active
 
 ## Components
 1. **`dependency_manager` (Agent)**: Specialized in resolving `package.json` conflicts, updating lock files safely, and refactoring deprecated API calls.
-2. **`ai-upgrade` (Skill)**: Triggered periodically or on `npm audit` failures to bump packages and run test suites.
+2. **`rein-upgrade` (Skill)**: Triggered periodically or on `npm audit` failures to bump packages and run test suites.
 3. **`TestSprite` (Integration)**: Validates that the application functions correctly post-upgrade.
 
 ## Data Model
@@ -13,7 +13,7 @@ An intelligent Dependabot alternative that doesn't just bump versions but active
 - **Output**: A new branch `upgrade/<package>-<version>` containing the bump and corresponding code fixes.
 
 ## API Contracts
-- `activate_skill({ skill_name: "ai-upgrade", arguments: { package: "react", target_version: "19.0.0" } })`
+- `activate_skill({ skill_name: "rein-upgrade", arguments: { package: "react", target_version: "19.0.0" } })`
 - Engineer delegates to `dependency_manager` if a major breaking change requires multi-file refactoring.
 
 ## Security

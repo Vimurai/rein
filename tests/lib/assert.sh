@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# assert.sh — AI-OS Test Assertion Library (P-15 / §22)
+# assert.sh — Rein Test Assertion Library (P-15 / §22)
 # All functions print pass/fail and update global counters PASS_COUNT / FAIL_COUNT.
 
 PASS_COUNT=0
@@ -46,7 +46,7 @@ assert_summary() {
 #
 # The standing question this exists to answer: does this assertion depend on what the
 # running machine happens to have? Three tests written during the 2026-09-09 sprint did,
-# and each passed on a developer Mac while failing on CI — a `~/.ai-os` mirror in a
+# and each passed on a developer Mac while failing on CI — a `~/.rein` mirror in a
 # pre-strip state, an unpruned node_modules, an ambient tmux server. The fix for a
 # GENUINELY optional dependency is to skip loudly; the fix for an accidental one is to
 # make the test supply what it needs. These helpers are for the first kind only.
@@ -143,8 +143,8 @@ file_mode() {
 # PID is cleared when this library is sourced — PIDs recycle, which is precisely how E-238's
 # tmux sockets went stale.
 _PERF_CACHE_DIR="${TMPDIR:-/tmp}"
-_PERF_CACHE_NODE="${_PERF_CACHE_DIR}/aios-perf-node-$$"
-_PERF_CACHE_HOOK="${_PERF_CACHE_DIR}/aios-perf-hook-$$"
+_PERF_CACHE_NODE="${_PERF_CACHE_DIR}/rein-perf-node-$$"
+_PERF_CACHE_HOOK="${_PERF_CACHE_DIR}/rein-perf-hook-$$"
 rm -f "$_PERF_CACHE_NODE" "$_PERF_CACHE_HOOK" 2>/dev/null || true
 
 perf_baseline_node() {
@@ -206,13 +206,13 @@ perf_time_ms() {
 
 # assert_perf <label> <elapsed_ms> <absolute_ms> <baseline_ms> [k] [slack_ms]
 #
-# CI (or AI_OS_PERF_ABSOLUTE=1) → the declared absolute budget, because the hardware is
+# CI (or REIN_PERF_ABSOLUTE=1) → the declared absolute budget, because the hardware is
 # known and a real regression must not hide behind a slow runner.
 # Anywhere else → elapsed <= k*baseline + slack, which asks the question that actually
 # matters off CI: is this code slow RELATIVE to what this machine can do at all?
-# E-265 (D-072): AI_OS_CI=local (`ai ci run`) deliberately stays RELATIVE. The absolute
+# E-265 (D-072): REIN_CI=local (`rein ci run`) deliberately stays RELATIVE. The absolute
 # budgets were calibrated on the ubuntu runner, and a local CI host is not that machine;
-# the runner unsets CI, so only AI_OS_PERF_ABSOLUTE=1 switches a local run to absolute.
+# the runner unsets CI, so only REIN_PERF_ABSOLUTE=1 switches a local run to absolute.
 # _host_load → "<load1 integer part> <ncpu>". A function, not an env var (E-296: no new env var),
 # so a fixture injects load by redefining it.
 _host_load() {
@@ -229,7 +229,7 @@ _host_load() {
 assert_perf() {
   local label="$1" elapsed="$2" absolute="$3" baseline="$4" k="${5:-2}" slack="${6:-50}" remeasure="${7:-}"
   local mode limit
-  if [[ "${AI_OS_PERF_ABSOLUTE:-0}" == "1" || "${CI:-}" == "true" ]]; then
+  if [[ "${REIN_PERF_ABSOLUTE:-0}" == "1" || "${CI:-}" == "true" ]]; then
     mode="absolute"
     limit="$absolute"
   else
@@ -291,9 +291,9 @@ assert_perf() {
 # BASHPID; a suite run as `bash suite.sh` (BASH_SUBSHELL 0) keeps `$$`, and a plain `$(…)`
 # that does not source this file still inherits and appends to the caller's.
 if [[ "${BASH_SUBSHELL:-0}" -gt 0 ]]; then
-  _CLEANUP_FILE="${TMPDIR:-/tmp}/aios-cleanup-$$-${BASHPID}"
+  _CLEANUP_FILE="${TMPDIR:-/tmp}/rein-cleanup-$$-${BASHPID}"
 else
-  _CLEANUP_FILE="${TMPDIR:-/tmp}/aios-cleanup-$$"
+  _CLEANUP_FILE="${TMPDIR:-/tmp}/rein-cleanup-$$"
 fi
 # PIDs recycle (E-238), so a file left by a previous process with this PID must not be
 # inherited — it would run someone else's stale teardown.
@@ -376,7 +376,7 @@ wait_for() {
 # registry would defer it to the parent's exit and change its meaning. So subshells fall
 # through to the builtin and keep native semantics.
 trap() {
-  if [[ "${AI_OS_TEST_NO_TRAP_CHAIN:-0}" == "1" ]]; then
+  if [[ "${REIN_TEST_NO_TRAP_CHAIN:-0}" == "1" ]]; then
     builtin trap "$@"
     return $?
   fi
@@ -413,8 +413,8 @@ builtin trap '_run_cleanups' EXIT
 
 # The prefixes the runner's leak sweep matches. A suite that uses these gets swept; one
 # that invents its own name does not, which is why the helpers below exist.
-AIOS_TEST_SOCK_PREFIX="${AIOS_TEST_SOCK_PREFIX:-aios-test-}"
-AIOS_TEST_TMP_PREFIX="${AIOS_TEST_TMP_PREFIX:-aios-t-}"
+REIN_TEST_SOCK_PREFIX="${REIN_TEST_SOCK_PREFIX:-rein-test-}"
+REIN_TEST_TMP_PREFIX="${REIN_TEST_TMP_PREFIX:-rein-t-}"
 
 # test_tmux_socket [label] → a socket name that is unique, sweepable, and self-cleaning.
 #
@@ -423,7 +423,7 @@ AIOS_TEST_TMP_PREFIX="${AIOS_TEST_TMP_PREFIX:-aios-t-}"
 # case a name somehow collides anyway.
 test_tmux_socket() {
   local label="${1:-s}"
-  local name="${AIOS_TEST_SOCK_PREFIX}${label}-$(basename "$(mktemp -u)")"
+  local name="${REIN_TEST_SOCK_PREFIX}${label}-$(basename "$(mktemp -u)")"
   # `tmux kill-server` stops the server but LEAVES THE SOCKET FILE. A leftover file is
   # still state a later run can trip over — and it is what the sweep counts — so remove it
   # too, or every run would report a leak it had actually cleaned up.
@@ -442,7 +442,7 @@ test_tmux_socket() {
 
 # A private socket isolates the SERVER, not its CONFIG: every server a test starts still
 # reads the operator's ~/.tmux.conf. With tmux-continuum's `@continuum-restore 'on'`, that
-# restored the operator's saved sessions INTO the test server, so ai_start_test E-252.03e
+# restored the operator's saved sessions INTO the test server, so rein_start_test E-252.03e
 # counted five extra sessions and failed — on every Mac with that plugin, never on CI. It
 # is variety #1 again (what the machine has), and the restore also relaunches whatever the
 # saved panes were running, while continuum's autosave could overwrite the operator's save.
@@ -450,14 +450,14 @@ test_tmux_socket() {
 # Fixed once, here, for every tmux the suites or the code under test invoke by name: a
 # `tmux` shim first on PATH that passes `-f /dev/null`, so no server a test starts loads a
 # config. A suite that needs an option sets it explicitly on its own server.
-# Rollback: AI_OS_TEST_KEEP_TMUX_CONF=1 leaves PATH alone.
+# Rollback: REIN_TEST_KEEP_TMUX_CONF=1 leaves PATH alone.
 # The shim is a checked-in script, not a generated temp dir: suites that exercise the
 # cleanup machinery itself exit in ways that skip cleanups, and a per-suite temp dir leaked.
-AIOS_TEST_TMUX_SHIM="$(cd "$(dirname "${BASH_SOURCE[0]}")/tmux-noconf" 2>/dev/null && pwd -P)"
-if [[ "${AI_OS_TEST_KEEP_TMUX_CONF:-0}" != "1" && -n "$AIOS_TEST_TMUX_SHIM" \
-      && "$(command -v tmux 2>/dev/null)" != "${AIOS_TEST_TMUX_SHIM}/tmux" ]] \
-   && AIOS_TEST_REAL_TMUX="$(command -v tmux 2>/dev/null)"; then
-  export AIOS_TEST_TMUX_SHIM AIOS_TEST_REAL_TMUX PATH="${AIOS_TEST_TMUX_SHIM}:${PATH}"
+REIN_TEST_TMUX_SHIM="$(cd "$(dirname "${BASH_SOURCE[0]}")/tmux-noconf" 2>/dev/null && pwd -P)"
+if [[ "${REIN_TEST_KEEP_TMUX_CONF:-0}" != "1" && -n "$REIN_TEST_TMUX_SHIM" \
+      && "$(command -v tmux 2>/dev/null)" != "${REIN_TEST_TMUX_SHIM}/tmux" ]] \
+   && REIN_TEST_REAL_TMUX="$(command -v tmux 2>/dev/null)"; then
+  export REIN_TEST_TMUX_SHIM REIN_TEST_REAL_TMUX PATH="${REIN_TEST_TMUX_SHIM}:${PATH}"
 fi
 
 # ── E-251 (D-067 §5): the scan that never ran — variety #5 ───────────────────
@@ -537,7 +537,7 @@ corpus_or_fail() {
 test_tmpdir() {
   local label="${1:-d}"
   local d
-  d="$(mktemp -d "${TMPDIR:-/tmp}/${AIOS_TEST_TMP_PREFIX}${label}-XXXXXX")"
+  d="$(mktemp -d "${TMPDIR:-/tmp}/${REIN_TEST_TMP_PREFIX}${label}-XXXXXX")"
   # NORMALISE. macOS sets TMPDIR with a trailing slash, so the raw path contains `//` —
   # harmless to the filesystem, but any assertion comparing it against a path that has been
   # through realpath/resolve() fails on a difference that is not real. Caught by E-242's own
@@ -554,8 +554,8 @@ test_tmpdir() {
 # program, as it did before the recorder existed.
 test_bg() {
   case "${1-}" in
-    node|bash|python3|ai)
-      _aios_fp_record "$@"
+    node|bash|python3|rein)
+      _rein_fp_record "$@"
       exec "$@" >/dev/null 2>&1 & ;;
     *)
       "$@" >/dev/null 2>&1 & ;;
@@ -622,7 +622,7 @@ assert_match() {
 #
 # Many suites assert "the workspace copy of skill X is byte-identical to src/". That check
 # exists to catch an edit to src/ that was never synced — a real and recurring failure. But
-# `ai sync` provisions a provider's workspace only when a role in .ai/roles.json is bound
+# `rein sync` provisions a provider's workspace only when a role in .ai/roles.json is bound
 # to it, so a mirror directory may legitimately not exist. An unconditional assertion on an
 # absent mirror stops testing sync and starts testing whether a directory happens to be
 # there.
@@ -659,8 +659,8 @@ source "$(dirname "${BASH_SOURCE[0]}")/launch-vars.sh"
 strip_launch_vars
 
 # ── E-297 (D-088): the dynamic footprint recorder ────────────────────────────
-# `node`/`bash`/`python3`/`ai` become recording pass-through functions; they write only
-# under AIOS_TEST_TMPDIR (the runner's per-run temp path) and nowhere when it is unset.
+# `node`/`bash`/`python3`/`rein` become recording pass-through functions; they write only
+# under REIN_TEST_TMPDIR (the runner's per-run temp path) and nowhere when it is unset.
 # See tests/lib/footprint.sh for the contract and what it cannot see.
 source "$(dirname "${BASH_SOURCE[0]}")/footprint.sh"
 
@@ -668,9 +668,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/footprint.sh"
 # tests/run.sh points the whole run at one temp store; a suite run directly (bash
 # tests/suites/x_test.sh) gets its own here, BEFORE it can spawn a server or a hook —
 # otherwise every MCP call it makes is recorded in the operator's
-# ~/.ai-os/telemetry.sqlite as if the operator had made it. AI_TELEMETRY_DISABLE=1 is
+# ~/.rein/telemetry.sqlite as if the operator had made it. AI_TELEMETRY_DISABLE=1 is
 # the other accepted form and is left alone.
 if [[ -z "${AI_TELEMETRY_DB_PATH:-}" && "${AI_TELEMETRY_DISABLE:-0}" != "1" ]]; then
-  _AIOS_TELEMETRY_DIR="$(test_tmpdir telemetry)"
-  export AI_TELEMETRY_DB_PATH="${_AIOS_TELEMETRY_DIR}/telemetry.sqlite"
+  _REIN_TELEMETRY_DIR="$(test_tmpdir telemetry)"
+  export AI_TELEMETRY_DB_PATH="${_REIN_TELEMETRY_DIR}/telemetry.sqlite"
 fi

@@ -15,7 +15,7 @@
 //   --changed <ref> — fast, PLUS every suite whose census footprint intersects the files changed
 //                    since <ref>, PLUS any suite file that itself changed. No census JSON → the
 //                    committed tests/census-baseline.tsv's footprints (E-384, D-135 addendum
-//                    r2 — a fresh clone has no ~/.ai-os/ci); neither → the full matrix, with a
+//                    r2 — a fresh clone has no ~/.rein/ci); neither → the full matrix, with a
 //                    NOTE saying so. A suite with no footprint entry in the census
 //                    is never selected by --changed (unknown footprint ⇒ it runs in full only).
 import { execFileSync } from "node:child_process";
@@ -46,7 +46,7 @@ export function selectSuites({ suites, tier = "full", changed = null, census = n
     return { selected: pool.map((s) => s.name), notes };
   }
   if (!census || !Array.isArray(census.suites)) {
-    notes.push("--changed: no census file — running the FULL matrix (run `node tests/tools/census.mjs` after an `ai ci run`)");
+    notes.push("--changed: no census file — running the FULL matrix (run `node tests/tools/census.mjs` after a `rein ci run`)");
     return { selected: pool.map((s) => s.name), notes };
   }
   const fp = new Map();
@@ -69,8 +69,8 @@ export function selectSuites({ suites, tier = "full", changed = null, census = n
   return { selected: picked.map((s) => s.name), notes };
 }
 
-/** Newest census-<date>.json under ~/.ai-os/ci (the full census, not a .since.json). */
-export function newestCensus(dir = join(homedir(), ".ai-os", "ci")) {
+/** Newest census-<date>.json under ~/.rein/ci (the full census, not a .since.json). */
+export function newestCensus(dir = join(homedir(), ".rein", "ci")) {
   try {
     const files = readdirSync(dir).filter((f) => /^census-.*\.json$/.test(f) && !f.endsWith(".since.json"));
     files.sort((a, b) => statSync(join(dir, b)).mtimeMs - statSync(join(dir, a)).mtimeMs);

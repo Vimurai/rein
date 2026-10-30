@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * blueprint-aligner-mcp — AI-OS UACS MCP Server
+ * blueprint-aligner-mcp — Rein UACS MCP Server
  * Compares git diff against architect.md rules to detect sovereignty violations,
  * forbidden patterns, and missing blueprint coverage.
  *
@@ -119,6 +119,21 @@ export function isInternalPathBuilder(line) {
   return PATH_BUILDER_RE.test(line);
 }
 
+// The `snake_case` identifiers quoted in backticks, as /`(\w+(?:_\w+)+)`/g found them: a word
+// with an underscore that has a word character on both sides. That regex backtracked
+// exponentially on `0_0_0_… (E-397, CodeQL js/redos), since \w also matches `_`. A rejected
+// candidate leaves its closing backtick free to open the next one, as the regex did.
+export function snakeIdentifiers(text) {
+  const re = /`(\w+)(?=`)/g;
+  const out = [];
+  for (let m; (m = re.exec(text)) !== null;) {
+    const w = m[1];
+    const u = w.indexOf("_", 1);
+    if (u !== -1 && u < w.length - 1) { out.push(w); re.lastIndex += 1; }
+  }
+  return out;
+}
+
 const server = new Server(
   { name: "blueprint-aligner-mcp", version: "1.0.0" },
   { capabilities: { tools: {} } }
@@ -230,8 +245,7 @@ function generateDelta(taskId, diff, blueprintSection) {
     }
 
     // Check if blueprint mentions tools/APIs not found in diff
-    const blueprintTools = [...blueprintSection.matchAll(/`(\w+(?:_\w+)+)`/g)]
-      .map(m => m[1])
+    const blueprintTools = snakeIdentifiers(blueprintSection)
       .filter(t => /^[a-z]/.test(t) && t.length > 3);
     const missingTools = blueprintTools.filter(bt =>
       !diff.includes(bt) && !newTools.includes(bt)
@@ -554,13 +568,13 @@ const ALIGNMENT_RULES = [
     check: (diff, cwd) => {
       const statePath = resolve(cwd, ".ai/state.json");
       if (!existsSync(statePath)) {
-        return ["state.json missing — run: ai migrate-state before committing"];
+        return ["state.json missing — run: rein migrate-state before committing"];
       }
       let state;
       try {
         state = JSON.parse(readFileSafe(statePath));
       } catch {
-        return ["state.json is corrupt — run: ai migrate-state to rebuild"];
+        return ["state.json is corrupt — run: rein migrate-state to rebuild"];
       }
       const tier3Done = (state.tasks || []).some(t => t.tier === 3 && t.status === "DONE");
       if (!tier3Done) return [];

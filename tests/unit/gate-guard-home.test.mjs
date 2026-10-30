@@ -9,9 +9,9 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, dirname, join } from "node:path";
 
-const M = ".ai-" + "os"; // the mirror's name, assembled so this file's text names no write into it
+const M = ".re" + "in"; // the mirror's name, assembled so this file's text names no write into it
 
-const home = realpathSync(mkdtempSync(join(tmpdir(), "aios-t-ggh-")));
+const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-ggh-")));
 const deep = join(home, "a", "b", "c");
 mkdirSync(join(home, M), { recursive: true });
 mkdirSync(deep, { recursive: true });

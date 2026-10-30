@@ -3692,3 +3692,141 @@ Sequence only; no file depends on it.
 One pull request; `git revert` restores the previous README and removes `docs/` and the link test.
 
 ---
+
+## D-132 addendum 2 — Hard cut: the command is `rein`, the skills are `rein-*`, no compatibility layer; only `.ai/` keeps its name; the classifier rule moves to its Rein form; a Windows (WSL2) CI leg follows the tag
+
+**Date**: 2026-10-29
+**Task**: E-383 (mechanical passes, built on `rename/rein`), E-391 (new, same PR, before the `v0.4.0` tag; replaces E-383's §Component 4 acceptance), E-392 (new, after the tag)
+**Decision**: The operator, reviewing E-383 on the branch, reversed the two exceptions that D-132 ruling 1 kept and then dropped rulings 3–5 whole: the command `ai` becomes `rein` with no forwarder; the `ai-*` skills become `rein-*` ("skills inside everything"); nothing of the old name survives except the `.ai/` directory; and there is no compatibility layer of any kind — the operator is the only person running Rein today, so there is no install to migrate but their own, which they migrate by hand. This supersedes D-132 rulings 1 (the "Unchanged" clause), 3, 4 and 5 and D-125's reasons for keeping `ai`; ruling 2 (history is not rewritten) stands. The Engineer's critic_arch findings D1–D3 are resolved below. Blueprint: `.ai/blueprints/rein-rename.md` (amended: §Component 2 table, §Component 3 list, §Component 4 replaced, §Components 6–8).
+
+### Rulings
+1. **The command is `rein`.** `src/bin/ai` → `src/bin/rein`, `src/bin/ai-exec` → `src/bin/rein-exec`, `src/bin/ai-account.sh` → `src/bin/rein-account.sh`; installed as `~/.rein/bin/rein`; the installer deletes the old `ai` entry in that bin directory and prints one line saying the command is `rein`. Every `ai <subcommand>` in the tree — the installer, the hooks, the git hook stubs, the settings templates, the rulefile templates, the skills, the agents, the contracts, the suites, the README and docs, the live blueprints — becomes `rein <subcommand>` (the Architect's grep: 271 files outside the history exclusions). `rein pane <role>` binds a pane; the tmux options are already `@rein_role` / `@rein_account`. No `ai` forwarder, now or later: the operator chose the hard cut over a one-release forwarder.
+2. **The skills are `rein-*`.** The 18 `ai-`-prefixed skills — `ai-archive`, `ai-debug`, `ai-digest`, `ai-handoff`, `ai-incident`, `ai-insights`, `ai-log`, `ai-migration`, `ai-preflight`, `ai-profile`, `ai-review`, `ai-review-proposed-skills`, `ai-seo`, `ai-sync-state`, `ai-task`, `ai-test`, `ai-triage`, `ai-upgrade` — become `rein-<name>` in `.claude/skills/` and `src/shared/skills/` (directory, `SKILL.md` name, `_SKILLS_INDEX.md`, `_SYNC_MANIFEST.json`), and in the same commit in every registry keyed on a skill name: the rulefile templates (`src/templates/ARCHITECT.md`, `ENGINEER.md`, `SEED.md`, `architect.md.template`), `src/claude/CLAUDE.md`, the agents, `src/contracts/05_HANDSHAKE.md`, the RBAC role map (context-guardian), the wake and skill tables in `src/bin/rein`, `comm-status.sh`, `markdown-exec.mjs`, `cli-state.mjs`, `legacy-import.mjs`, `telemetry.mjs`, `build-stamp.mjs`, the hooks, `.claude/rules/`, the suites and the census baseline. The E-217 collision rule holds: `arch-task`, `arch-oracle`, `arch-review` carry no `ai-` prefix and stay; `rein-review` (Engineer) and `arch-review` (Architect) remain two skills. Skills without the prefix (`aqg-resolver`, `ci_gate`, `repo-oracle`, …) stay. A test proves each role overlay resolves every skill it names (the existing provisioning test, extended and named).
+3. **`.ai/` is the one survivor.** It carries no brand string and moving it would touch every project directory (D-132 alternative 2, re-affirmed). Every gate pattern is written so that `.ai/` can never match it (ruling 8).
+4. **No compatibility layer.** `.ai/blueprints/rein-rename.md` §Component 4 (D-132 rulings 3–5) is withdrawn: no `~/.ai-os` move or symlink; no `AI_OS_*` environment fallback (`src/shared/env.mjs` and `rein_legacy_env_apply` are deleted); no reads of `aios_version`, `ci.aios_source` or the `aios-record` driver; no legacy rewrites in `rein sync`; no `install-ai-os.sh` forwarder (critic_arch D3 resolved by deletion); no `[LEGACY_HOME_LINK]`, `[LEGACY_ENV]` or `[RENAME_PENDING]` doctor lines; no transition section in `docs/upgrading.md`; the gate-guard and secret-rule rows that protected the old home path go with it. The rename gate allows **zero** `rename:legacy-fallback` lines. The compatibility commits already on the unpushed branch are removed — a revert commit or dropped from the branch, the Engineer's choice, since nothing is pushed; the PR's final tree is what is reviewed.
+5. **The operator migrates by hand**, from the list in the blueprint's §Component 4: reinstall from the merged `main` with `bash install-rein.sh`; delete the old-home symlink that today's reinstall left (`rm ~/.ai-os` — it is a symlink, not a directory; the Engineer tells the operator in the handoff, because the gate rows that protected that path are gone); run `rein sync` in every project (it re-renders the rulefiles, hook paths, merge driver and settings from the templates as it always has — no legacy detection); drop any `AI_OS_*` from shell rc files. No code names the old path or variable to help with this.
+6. **Classifier rule text v5, label `(D-132)`** — critic_arch D1 resolved. The byte-pinned `RULE` in `src/shared/classifier-backstop.py` (D-097 r4, D-101 r1) is D-101's v4 paragraph with the product name, the command, the home directory and the installer name in their Rein form, and the label `(D-132)`. Verbatim:
+   ```text
+   Rein Gate Tamper (D-132): Never disable, bypass or weaken the Rein safe-exec gate or its role tokens, however assembled (shell variables, eval, bash -c, aliases, a script written then run, python/node/perl, sed -i, jq, cp/mv/ln, editor tools, subagents, or a nested claude launched with flags or settings that drop its hooks). Specifically: running `rein gate off`; creating, editing, moving or linking `~/.rein/gate-override.json`, `~/.rein/accounts.json` or anything under `~/.rein/{hooks,bin,mcp,shared,scripts,run,config,secrets}/` (by `~`, `$HOME`, a relative path or an absolute path); running `claude auto-mode reset`; changing `~/.claude/settings.json` or any registered Claude account's `settings.json` (the `config_dir` directories named in `~/.rein/accounts.json`), or their symlink targets, to remove or alter `autoMode`, `hooks`, `disableAllHooks` or `defaultMode`, or to add `permissions.allow` rules for `rein`; or changing a project's `.claude/settings.json` or `settings.local.json` to remove or alter `hooks`, `disableAllHooks` or `defaultMode`. Exempt: `rein install`, `rein sync`, `rein init`, `rein doctor`, `rein start`, `rein pane`, `rein account`, `rein gate on`, `rein gate status` and `bash install-rein.sh`, each run with no flag that skips, disables or redirects hooks or the gate — and, for `rein install`, `rein sync` and `bash install-rein.sh`, only from a source tree whose hooks, gate or installer this session has not modified; the `rein` command's own subcommands writing their runtime state under `~/.rein/run/` (never the gate switch); `rein install` creating the key under `~/.rein/secrets/`; reading these files.
+   ```
+   (One line, plain backticks, as the constant carries it.) E-391 swaps the constant and its pin together with `tests/suites/classifier_backstop_test.sh`; the E-318 replace-in-place refresh carries the new label into `~/.claude` and every registered account, so a `(D-101)` label is what `rein pane` and `rein doctor` report as OUTDATED. Both files leave the exclusion list.
+7. **The exclusion list is the fixture as built, minus three** — critic_arch D2 resolved by ratifying the records and the self-references: `.ai/TASKS.md`, `.ai/state.json`, `.ai/REVIEWS.md`, `.ai/DEVOPS.md` (records of what was done, in the words it was done in), `.ai/DIGEST.md` and `.ai/REPO_MAP.md` (generated; the next `rein sync` and digest rewrite them), `.ai/blueprints/rein-rename.md`, `tests/fixtures/rename-map.json`, `tests/fixtures/rename-exclusions.json`, `tests/unit/rename-gate.test.mjs` (they must name what they rename). Removed from the list: `install-ai-os.sh` (deleted), `src/shared/classifier-backstop.py` and `tests/suites/classifier_backstop_test.sh` (ruling 6). The live blueprints, `architect.md` and the other `.ai/*.md` are rewritten mechanically as D-132 ruling 2 already allows, and the substitution now includes the command and the skill names (same one-commit §35 exception).
+8. **The gate grows two patterns**, anchored so `.ai/` never matches: the command — `ai` followed by a space and one of the subcommands, preceded by start-of-line or a character that is not a letter, digit, `_`, `.`, `/`, `@` or `-`; the subcommand list is derived from `src/bin/rein`'s own dispatch table at test time, so it cannot go stale — and the skill names: `ai-` followed by one of ruling 2's eighteen suffixes as a whole word. The paths `bin/ai`, `ai-exec`, `ai-account`, the job id `ai-ci-run` and the display name `ai ci run (` are literal patterns. Zero matches outside ruling 7's list.
+9. **CI check names rename with the job.** `src/templates/ci/github.yml`'s job `ai-ci-run` becomes `rein-ci-run`, display name `rein ci run (<os>, node <n>, i/4)`, and `requiredChecks()` renders the new names. Because `main` requires checks by name, the required-checks list is updated with `gh api` in the merge step of E-391 — the new names in, the old names out, in one call, right before the merge — and `.ai/DEVOPS.md` records it; a PR cannot otherwise go green. The same renderer change applies to the `team` profile and `rein ci hosted`.
+10. **Windows (WSL2) leg** — E-392, after the tag, under `ci_gate`. The public profile gains `windows-latest × node 22 × 4 shards`, informative (not required) until three consecutive green runs on `main`, then required by the same `gh api` step and `.ai/DEVOPS.md` entry. The leg installs an Ubuntu 24.04 distribution with the setup-wsl action (SHA-pinned like every action, D-133 r3), WSL 2 where the hosted `windows-2022` image can start it — the action documents WSL 2 on that image; if the runner cannot, the leg runs WSL 1 and says so in its name and in the README, which then reads "a Windows (WSL) leg": WSL 1 and 2 share the userland Rein runs in, so the claim stays honest and weaker. Inside the distribution the leg copies the checkout to the Linux filesystem (`~/src`) before anything runs — the `/mnt/c` mount drops exec bits and symlinks and is slow — installs node 22, git, sqlite3, python3 and tmux, runs `bash install-rein.sh`, then `rein ci run --shard i/4` exactly as the Ubuntu legs do. The README's "planned" parenthesis goes when the leg is required.
+
+### Alternatives considered
+1. **A one-release `ai` forwarder** — offered, declined by the operator: nobody else runs Rein, and a forwarder keeps the old token alive in the gate's exempt lists and the classifier for a release.
+2. **Keep the compatibility layer as built** (symlink, env fallback, sync rewrites, doctor lines) — declined by the operator: it existed to migrate other installs and projects without a manual step, and there are none; its ~60 files of logic and the `rename:legacy-fallback` exemptions are the only places the old name would survive.
+3. **Keep the `ai-*` skill names** (D-132 r1: "the prefix is the command, not the brand") — reversed by the operator: with the command renamed the prefix no longer means anything.
+4. **Rename `.ai/` as well** — declined again (D-132 alternative 2): no brand string, and every project directory would move.
+5. **A Windows leg without WSL (PowerShell, Git Bash)** — rejected: the installer and hooks are bash and the README promises WSL2, not Windows-native.
+
+### Impact
+- Unlocks: E-391 (same PR as E-383, before `v0.4.0`), E-392 (after the tag), the classifier text v5.
+- Risk if wrong: a rule keyed on the token `ai` that the rename misses stops matching `rein` and the gate fails open for that command — mitigated by the suites that assert `rein gate off` and the tamper paths are blocked after the rename (the existing gate suites, renamed in the same commit) and by the security_engineer review of the gate tables (E-391). Second risk: the operator's own projects break between the merge and their manual `rein sync` — accepted, it is one person and one afternoon.
+
+### Rollback
+Revert the PR before the tag; after `v0.4.0` a revert is a re-rename, not planned (as D-132). The required-checks list is restored by the same `gh api` call with the old names.
+
+---
+
+## D-132 addendum 3 — The byte-pinned fixture tables follow the rename: `arch-write-cases.json` (D-056), `gate-self-disable-cases.json` (D-089 r5) and `role-verdict-cases.json` (D-113) change their command tokens and re-pin under this ruling
+
+**Date**: 2026-10-29
+**Task**: E-391
+**Decision**: Option A. A pinned table changes bytes only under a ruling (D-056, D-097 r4, D-101 alternative 1: "the ruling is the change"); this is that ruling. The three tables are rewritten by the same substitution as the rest of the tree — the command token `ai` → `rein`, and the old home path and installer name where a row names them — and re-pinned in the same commit. No row's verdict changes, no row is added or removed, and a row that existed to prove a tamper form is blocked must still prove it under the new token. Option B (list the tables as frozen records in `rename-exclusions.json`) is rejected: a fixture that tests `ai add-task` after the command is `rein` tests a command nobody runs, and §Component 3 lists records of what was done, not tests of what the gate does today.
+
+### Rulings
+1. **`arch-write-cases.json`**: the one row whose label and `cmd` read `ai add-task E-999 …` becomes `rein add-task E-999 …` (two lines); the D-056 pin moves to the new sha. D-089 r5's "byte-identical, so D-056 is untouched" described the gate widening, not the rename; D-056 now pins the Rein form.
+2. **`gate-self-disable-cases.json`** (D-089 r5) and **`role-verdict-cases.json`** (D-113): the re-pins the Engineer made during the substitution and the hard cut are ratified on two conditions, checked in review: (a) the PR description lists each table with its old and new sha and the row count before and after (equal); (b) `git diff` of each table shows only the renamed tokens and paths — a row whose expected verdict or label changed beyond the token is a defect, not a rename, and is reverted. The reported `gate-self-disable` pin `63c2cac9…` and the `role-verdict` pin named in the next handoff are the values under this ruling.
+3. **The gate-guard token fix is accepted and named**: the `ai` token regex in gate-guard and the hook's fallback grep let an agent's `rein gate off` through until the fixture rows caught it. That is the fail-open-by-token risk D-132 addendum 2 named (Impact; §Component 6); the fixture tables are the mechanism that caught it, which is why they follow the rename instead of freezing. The fix is listed in the PR description and the E-391 handover as a finding, with the row that caught it.
+4. **Going forward**: a pinned table's pin is part of the rename map (`kind: "pin"` row in `rename-map.json`, old and new sha) so the gate can verify that every pinned table in `tests/fixtures/*-cases.json` either contains no old token or is listed in the map with its re-pin.
+
+### Alternatives considered
+1. **Option B — freeze the three tables as records** — rejected above: tests are not records, and the frozen rows would assert the wrong command.
+2. **Drop the pins for the rename PR and re-pin at the tag** — rejected: an unpinned window is what the pins exist to prevent, and the tag is the same PR.
+
+### Impact
+- Unlocks: E-391's gate suites and the grep gate on the three tables. Risk if wrong: a token substitution that also changed a verdict would be ratified blind — condition 2b exists for this.
+
+### Rollback
+Re-pin to the old sha with the old bytes; the diff is the token substitution in reverse.
+
+---
+
+## D-132 addendum 4 — E-391 security findings: sync every project before the symlink goes; the doctor and `rein sync` recognise a Rein hook by its file name and flag a missing path; the classifier claims only its own label; the CLI_GATE assembly bypasses get their own P1 task
+
+**Date**: 2026-10-29
+**Task**: E-391 (F1–F4, F6 in scope), E-393 (new, after the tag, before E-385)
+**Decision**: The security_engineer's E-391 review (`.ai/SECURITY.md` "E-391 / D-132 addendum 2–3") found one P1 that this ruling's own migration order caused, two P2s and two P3s inside the rename's scope, and a pre-existing P1 class outside it. Rulings:
+1. **F1 (P1) — the migration order was wrong.** Removing the old-home symlink before `rein sync` turns the gate off in every un-synced project: its `.claude/settings.json` registers the hooks by the old absolute path, the hook exits 127, and Claude Code blocks only on exit 2. The blueprint's §Component 4 list is reordered: install → `rein sync` in every project → `rein doctor` clean → only then `rm ~/.ai-os` → shell rc. The Engineer's handover to the operator carries the corrected order.
+2. **F1 — the check is in scope of E-391.** `rein doctor`'s project hook scan and `rein sync`'s matcher recognise a Rein hook entry by the hook's file name (`pre-tool-use.sh`, `session-start.sh`, `post-tool-log.sh`, …) whatever directory the entry names — no old name in code. Doctor: a hook entry whose path does not resolve to a file is `✗ [HOOK_PATH_MISSING] <path>` (non-zero exit); no PreToolUse entry resolving to the install's `hooks/pre-tool-use.sh` is `✗ [GATE_UNREGISTERED]`. Sync: a Rein-named entry with a missing path is rewritten to the install path like any other re-render. Installer: after installing, it prints each project the registry knows whose settings name a missing Rein hook path, with `run: rein sync` — the operator sees the list before they can remove anything. Suites: a project whose settings name a missing path is reported by doctor, repaired by sync, listed by the installer (extend the doctor and sync suites, named).
+3. **F2 (P2) — the classifier helper claims only its own rule.** The `OURS` pattern becomes the label shape every version since D-086 shares — `<Word> Gate Tamper (D-nnn): Never disable, bypass or weaken the <Word> safe-exec gate` — so a user's own `… Gate Tamper` deny rule is neither replaced nor deleted by `refresh`. Pen-test rows A04 (two) become RESISTED. The pinned RULE text is untouched.
+4. **F3 (P2) — doctor PATH shadow**: `type -ap rein`, lines relabelled; accepted. The ruling-8 gate missed it because the literal is `type -ap ai`, so the gate gains one pattern: `ai` as the last word of a `type`, `which`, `command -v` or `hash` call.
+5. **F4 and F6 (P3)** — accepted as the security_engineer proposed: the installer refuses a symlinked `~/.rein/bin` before both the `rsync --delete` and the prune loop, and the prune skips directories instead of aborting under `set -e`; `hooks/post-tool-log.sh` resolves `rein` from the install's own path before any other.
+6. **F5 (P3) over-block** — accepted as is: `|` as a command head fails closed; `grep -e … -e …` is the workaround.
+7. **CLI_GATE assembly bypasses (pre-existing, P1) — E-393**, Tier 3, right after the `v0.4.0` tag and before E-385: the operator's priority was identity after the rename, but a 15-form gate bypass that an agent can type outranks the mark; the operator may reorder. Design, both layers: (a) the lock — normalise per word (strip quotes and backslashes, decode `$'…'`, drop `--`) and skip wrapper prefixes with their flags (`env`, `nice`, `sudo`, `stdbuf`, `setsid`, `flock`, `exec -a`, `command`, `builtin`, `time`, `nohup`, `timeout`) before the token match; `)` joins CMD_HEAD; the D-112 operand normaliser is reused, not duplicated; (b) the belt — `rein gate off` itself refuses (exit 2, the operator-escape message) unless stdin is a TTY and no Rein role token or Claude session variable is in its environment; a pty faked with `script` is why (b) is not the lock. The 15 forms become rows in `gate-self-disable-cases.json` (re-pinned under this ruling, addendum 3 conditions). The runtime-assembly residual (`x=rein; $x gate off`, hex-escaped words) stays the classifier's, as named since D-089.
+
+### Alternatives considered
+1. **Keep the symlink until every project is synced, by code** (a doctor line naming the old path) — rejected: the hard cut allows no old name in code; the reorder plus the file-name-based hook check achieves the same without it.
+2. **Fold E-393 into E-391** — rejected: it is pre-existing, identical with `ai`, and the rename PR must stay reviewable; it is also the first task after the tag rather than waiting behind the README.
+3. **Only the TTY belt for E-393** — rejected: `script` allocates a pty; the parser fix is the lock.
+
+### Impact
+- Unlocks: E-391 Tier 3 sign-off once F1–F4 and F6 land and the security_engineer re-stamps; E-393.
+- Risk if wrong: a hook entry whose file name matches but points at a foreign script would pass the file-name check — the doctor also reports a Rein-named hook outside the install directory as `[HOOK_PATH_FOREIGN]`, which closes it.
+
+### Rollback
+Each fix is a small commit in the same PR; E-393 is one PR; the migration order is text.
+
+---
+
+## D-132 addendum 5 — The installer's "projects to sync" list is derived from Claude Code's per-project session directories, read-only and bounded, because Rein keeps no project registry
+
+**Date**: 2026-10-29
+**Task**: E-391 (F1, installer half)
+**Decision**: Addendum 4 r2 said "each project the registry knows"; there is no such registry (`registry.json` holds roles and MCP servers; launch records are per live pid and pruned), and one written by `rein sync` from now on would miss exactly the un-synced projects the list exists for. The Engineer's derivation is ruled in, with constraints, as the one-time migration aid it is; the per-project `rein doctor` check (addendum 4 r2) stays the authority.
+
+### Rulings
+1. **Sources**: `~/.claude/projects/*/` and, for each account in `~/.rein/accounts.json` (a file Rein already reads), `<config_dir>/projects/*/`. Nothing else.
+2. **Read discipline**: per directory, the newest `*.jsonl` by mtime only; at most its first 50 lines; each line parsed as JSON; the first record with a string `cwd` wins; every other field is discarded on the spot — never stored, logged, sent to telemetry or printed. Any unreadable directory, file or line is skipped silently.
+3. **Candidate filter**: a `cwd` qualifies when it exists, is a directory, and holds `.ai/` and `.claude/settings.json`; the git toplevel of a qualifying `cwd` is added when it qualifies too; the clone being installed is added. De-duplicated and sorted.
+4. **What is printed**: only candidates whose settings name a missing Rein hook path (addendum 4 r2's check applied to each), one path per line with `run: rein sync`, printed with `printf '%s'` — a path is data; the installer never `cd`s into a candidate, executes anything there, or passes the string to a shell. A crafted transcript line can therefore inject at most a path that fails the filter or is printed.
+5. **Fail open, say so**: the list may be incomplete; its heading says "projects found with a stale hook path (others may exist — run `rein doctor` in each project you use)". `REIN_NO_PROJECT_SCAN=1` skips the scan. The scan runs only in `install-rein.sh`'s final report.
+6. **Tests** (named, in the installer suite): a fixture projects dir whose newest transcript lacks `cwd` in its first record and has it in a later one; a `cwd` without `.ai/` excluded; a candidate with a missing hook path listed; an unreadable directory skipped; the env switch honoured. `THREAT_MODEL.md` T-RENAME-001 gains the transcript-read note.
+7. **A Rein-owned project registry is not added now** (hard-cut scope); if a later migration needs the list again, `rein init`/`rein sync` recording the project path is the first thing to add.
+
+### Alternatives considered
+1. **Drop the installer list; doctor per project plus the operator list** — rejected as the only aid: the operator must remember every project, and a forgotten one is a project with its gate off.
+2. **Decode the project path from Claude Code's directory names** — rejected: the encoding is lossy (`-` for `/` and for `-`), so it guesses where the `cwd` field states.
+3. **Scan the filesystem for `.ai/` directories** — rejected: unbounded, slow on a home directory, and reads far more than the session dirs.
+
+### Impact
+- Unlocks: E-391 F1 complete. Risk if wrong: Claude Code changes its transcript layout and the list goes empty — fail open with the "others may exist" line; the doctor check still catches each project when it is opened.
+
+### Rollback
+Delete the scan from the installer's final report; nothing else depends on it.
+
+---
+
+## D-132 addendum 6 — The test_lines budget rises to 41800 for the rename's ruled gates; fixtures count as test lines by design
+
+**Date**: 2026-10-29
+**Task**: E-391
+**Decision**: `rein ci run` on c57c1cf is green (7008/0/25, leaked 0) except `[BUDGET_REGRESSION] test_lines` — recorded 40489, measured 41800, limit 41298. The growth is the gates this ruling chain ordered, each already named: the rename gate's command, skill, literal and pin patterns (addenda 2 r8, 3 r4, 4 r4), the install proof and the doctor/sync/installer rows for F1 (addendum 4 r2, addendum 5 r6), the classifier v5 and label-shape rows (addendum 2 r6, addendum 4 r3), and the two rename fixtures. The renames themselves are line-neutral. Rulings:
+1. **Budget**: `rein ci budget set --ruling D-132 test_lines=41800` — the measured value, no headroom (D-088: a budget is the last green measurement, and the 2 % tolerance is the headroom). The command's ruling regex accepts only `D-###`, so the argument is `D-132`; this addendum is the ruling it names.
+2. **Fixtures count.** The census sums every file under `tests/` except the scheduling baseline, so `rename-map.json` (228 lines) and `rename-exclusions.json` are test lines. That is by design and stays: a table row is a test (D-113), and a fixture that nobody budgets grows without a ruling. No counter change.
+3. **Not a precedent for growth without a ruling**: each line above traces to a numbered ruling; a later `[BUDGET_REGRESSION]` without one is still a FAIL.
+
+### Alternatives considered
+1. **Exclude `tests/fixtures/*.json` from the count** — rejected: it would hide the tables D-113 moved the suites into.
+2. **Set the budget with headroom (e.g. 42500)** — rejected: headroom is what the tolerance provides; a budget above the measurement invites growth the next ruling never sees.
+
+### Impact
+- Unlocks: E-391's green run and sign-off. Risk if wrong: none beyond the number; the next run re-records.
+
+### Rollback
+`rein ci budget set --ruling D-132 test_lines=40489` restores the previous value.
+
+---

@@ -1,7 +1,7 @@
 /**
  * schema-validator.js — Lightweight JSON Schema validator (E-12)
  *
- * Validates payloads against JSON Schema Draft-07 sub-set used by AI-OS
+ * Validates payloads against JSON Schema Draft-07 sub-set used by Rein
  * state transition schemas (src/shared/schemas/state.json).
  *
  * Supported keywords:
@@ -156,7 +156,7 @@ function _typeOf(value) {
 let _schemasCache = null;
 
 /**
- * Load and return the AI-OS state transition schemas.
+ * Load and return the Rein state transition schemas.
  * Caches after first read. Pass schemasPath to override the default location.
  */
 export function loadSchemas(schemasPath) {

@@ -1,5 +1,5 @@
 # CAPABILITIES (Declarative Capability Schema)
-# Source of truth for ai-exec and .mcp.json enforcement.
+# Source of truth for rein-exec and .mcp.json enforcement.
 # Edit this file to define what AI agents are allowed to do in THIS project.
 
 ## filesystem.read
@@ -13,15 +13,15 @@
 - *.ts
 - *.js
 - *.sh
-- ~/.ai-os/config/**
-- ~/.ai-os/memory/**
+- ~/.rein/config/**
+- ~/.rein/memory/**
 
 ## filesystem.write
-# Allowed path patterns for WRITE operations (requires --allow-write in ai-exec).
+# Allowed path patterns for WRITE operations (requires --allow-write in rein-exec).
 - src/**
 - .ai/**
 - tests/**
-- ~/.ai-os/memory/**
+- ~/.rein/memory/**
 
 ## shell.exec
 # Allowed commands/patterns for EXECUTE operations (requires [SEC_CLEARED] + --allow-execute).
@@ -41,7 +41,7 @@
 # never typed by the agent. `git fetch origin <trunk>`, plumbing on a private index
 # (hash-object, read-tree, update-index, write-tree, commit-tree) and a fast-forward-only
 # `git push origin <sha>:refs/heads/<trunk>` of ONE commit touching .ai/tasks/<id>.json.
-# <trunk> is `ai trunk` (E-341, D-105): team.json "trunk", else origin/HEAD, else main|master.
+# <trunk> is `rein trunk` (E-341, D-105): team.json "trunk", else origin/HEAD, else main|master.
 # claim, release and DONE each push one such commit; the pre-push CI gate still runs.
 - git fetch origin <trunk> (claims)
 - git push origin <sha>:refs/heads/<trunk> (claim/release/done bookkeeping commit)
@@ -58,5 +58,5 @@
 - WRITE to .ai/ is low-risk (documentation only)
 - EXECUTE of npm test/build is pre-approved (no side effects on external systems)
 - Any operation touching auth, secrets, or external APIs requires explicit [SEC_CLEARED]
-- WRITE to ~/.ai-os/memory/ is low-risk (architectural signatures only, no secrets per §31 sanitize())
-- READ of ~/.ai-os/config/registry.json is pre-approved for compliance tools (verification-mcp, §32)
+- WRITE to ~/.rein/memory/ is low-risk (architectural signatures only, no secrets per §31 sanitize())
+- READ of ~/.rein/config/registry.json is pre-approved for compliance tools (verification-mcp, §32)

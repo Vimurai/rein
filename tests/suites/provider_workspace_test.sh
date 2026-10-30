@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# AIOS_INSTALLER_SUBJECT: ai init in a non-git directory (E-311, D-092)
+# REIN_INSTALLER_SUBJECT: rein init in a non-git directory (E-311, D-092)
 # provider_workspace_test.sh — E-244 (D-066 §4): workspaces follow the role binding.
 #
-# `ai sync` used to provision every vendor workspace on every project, unconditionally,
+# `rein sync` used to provision every vendor workspace on every project, unconditionally,
 # regardless of what .ai/roles.json said. v4 (D-069) ships one built-in provider, `claude`;
 # a provider declared in .ai/providers.json with a `workspace_dir` is still classified, and
 # its workspace is stale when no role is bound to it. The fixtures below use a neutral
@@ -23,9 +23,9 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PW="${REPO_ROOT}/src/shared/provider-workspace.mjs"
 # The AST repo map is irrelevant to provider workspaces and is the most expensive thing
-# a sync does; every `ai sync` below runs the full pipeline otherwise.
-export AI_OS_DISABLE_REPO_MAP=1
-AI="${REPO_ROOT}/src/bin/ai"
+# a sync does; every `rein sync` below runs the full pipeline otherwise.
+export REIN_DISABLE_REPO_MAP=1
+AI="${REPO_ROOT}/src/bin/rein"
 
 echo "── Suite: provider_workspace_test (E-244) ──────────────────────────"
 
@@ -161,12 +161,12 @@ mkdir -p "${_ps}/.acme/skills/only-synced"
 printf '# s\n' > "${_ps}/.acme/skills/only-synced/SKILL.md"
 ( cd "$_ps" && node "${REPO_ROOT}/src/shared/sync-manifest.mjs" record .acme/skills >/dev/null 2>&1 )
 _plain="$( cd "$_ps" && bash "$AI" sync 2>&1 )"
-assert_status 0 "E-244.04a: a PLAIN 'ai sync' deletes nothing" \
+assert_status 0 "E-244.04a: a PLAIN 'rein sync' deletes nothing" \
   test -f "${_ps}/.acme/skills/only-synced/SKILL.md"
 assert_contains "E-244.04b: but it does SAY the workspace is stale" \
   "stale provider workspace: .acme/" "$_plain"
 assert_contains "E-244.04c: and names the command that would remove it" \
-  "ai sync --prune-providers" "$_plain"
+  "rein sync --prune-providers" "$_plain"
 
 # ── E-244.5 / E-254: provisioning is .claude/ and nothing else ───────────────
 # v4 (D-069) has one adapter. A sync must provision .claude/ and must not invent a
@@ -219,9 +219,9 @@ assert_contains "E-244.07c: a clean project says so explicitly" \
 # `GIT_HOOKS_DIR="$(git rev-parse --git-dir 2>/dev/null)/hooks"` is a PLAIN assignment,
 # so under `set -euo pipefail` it carried git's exit 128 and killed the whole script —
 # three lines above the "not a git repo" branch that was written to handle exactly this.
-# That is the long-standing `ai init` exit-128 in a fresh directory.
+# That is the long-standing `rein init` exit-128 in a fresh directory.
 _pn="$(test_tmpdir e244ng)"   # deliberately NOT a git repository
-assert_status 0 "E-244.08a: 'ai init' completes in a NON-git directory (was exit 128)" \
+assert_status 0 "E-244.08a: 'rein init' completes in a NON-git directory (was exit 128)" \
   bash -c "cd '$_pn' && bash '$AI' init >/dev/null 2>&1"
 assert_status 0 "E-244.08b: and it scaffolded .ai/ rather than dying first" \
   test -f "${_pn}/.ai/roles.json"
@@ -235,7 +235,7 @@ assert_status 0 "E-244.08c: the guard is the empty-string one, not a swallowed 1
 # thing, and a stale one would have failed the moment E-247 landed. It did.
 #
 # (1) do_sync's unreachable second half → E-247 restored it under fail-open guards.
-#     Reachability itself is asserted by ai_sync_test.sh, which reads the
+#     Reachability itself is asserted by rein_sync_test.sh, which reads the
 #     OUTPUT of a real sync; a source-text assertion could not tell the difference
 #     between "the call is present" and "the call runs" — that was the whole outage.
 assert_status 1 "E-244.09a: the dead-code note is GONE — E-247 removed its subject" \

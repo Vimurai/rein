@@ -4,7 +4,7 @@
 // derivations are pinned here against a FIXTURE repository whose overlap is known by
 // construction: which suites must come out as merge / move-to-unit / delete / misnamed
 // candidates, and which must not. Everything runs in temp dirs; HOME and TMPDIR are
-// redirected for the CLI run, so nothing here reads or writes the real ~/.ai-os.
+// redirected for the CLI run, so nothing here reads or writes the real ~/.rein.
 //
 // Run standalone: node --test tests/unit/census.test.mjs
 
@@ -25,7 +25,7 @@ import {
 const CENSUS = join(dirname(fileURLToPath(import.meta.url)), "..", "tools", "census.mjs");
 
 function tmp(label) {
-  const d = realpathSync(mkdtempSync(join(tmpdir(), `aios-t-census-${label}-`)));
+  const d = realpathSync(mkdtempSync(join(tmpdir(), `rein-t-census-${label}-`)));
   return { d, done: () => rmSync(d, { recursive: true, force: true }) };
 }
 
@@ -43,12 +43,12 @@ function put(root, rel, text) {
 // gamma        node c.mjs, never failed                                   → delete:table
 // flaky        node d.mjs, FAILED in CI                                   → paid rent: no delete
 // e123_widget  bash hooks/h.sh                                            → misnamed
-// hub1..hub5   ai <subcommand> only — src/bin/ai is a HUB                 → nothing
-// installer    alpha_twin: declared subject with 2 runs; hub1: an UNDECLARED ai init; beta: declared, none measured
+// hub1..hub5   ai <subcommand> only — src/bin/rein is a HUB                 → nothing
+// installer    alpha_twin: declared subject with 2 runs; hub1: an UNDECLARED rein init; beta: declared, none measured
 const SUITES = {
   alpha: 'source tests/lib/assert.sh\nassert_contains "E-1.01a: a" x "$(node src/shared/a.mjs)"\nassert_status 0 "E-1.01b: b" true\n',
-  alpha_twin: '# AIOS_INSTALLER_SUBJECT\nassert_contains "abef" x "$(cat src/shared/a.mjs src/shared/b.mjs src/shared/e.mjs src/shared/f.mjs)"\n',
-  beta: '#!/usr/bin/env bash\n# AIOS_INSTALLER_SUBJECT\nassert_status 0 "plain e" node src/shared/e.mjs\n',
+  alpha_twin: '# REIN_INSTALLER_SUBJECT\nassert_contains "abef" x "$(cat src/shared/a.mjs src/shared/b.mjs src/shared/e.mjs src/shared/f.mjs)"\n',
+  beta: '#!/usr/bin/env bash\n# REIN_INSTALLER_SUBJECT\nassert_status 0 "plain e" node src/shared/e.mjs\n',
   table: 'run_table "${R}/tests/fixtures/x-cases.json"   # node src/shared/c.mjs\nassert_status 0 "table" true\n',
   gamma: 'assert_status 0 "c once" node src/shared/c.mjs\n',
   flaky: 'assert_status 0 "d" node src/shared/d.mjs\n',
@@ -69,12 +69,12 @@ function censusInput(root) {
     ["gamma", "node", "src/shared/c.mjs"],
     ["flaky", "node", `${root}/src/shared/d.mjs`],      // an absolute path the recorder could not strip
     ["e123_widget", "bash", "hooks/h.sh"],
-    ["hub1", "ai", "one"], ["hub2", "ai", "two"], ["hub3", "ai", "three"], ["hub4", "ai", "four"], ["hub5", "ai", "five"],
-    // E-311: installer lines — alpha_twin is a declared subject, hub1 runs `ai init` undeclared.
+    ["hub1", "rein", "one"], ["hub2", "rein", "two"], ["hub3", "rein", "three"], ["hub4", "rein", "four"], ["hub5", "rein", "five"],
+    // E-311: installer lines — alpha_twin is a declared subject, hub1 runs `rein init` undeclared.
     // E-312: …each with its spawn's HOME class: alpha_twin's own temp HOME and run HOME (shared
     // lane), hub1's foreign one (exclusive).
-    ["alpha_twin", "installer", "install-ai-os.sh\ttmp"], ["alpha_twin", "installer", "ai init\trun"],
-    ["hub1", "installer", "ai init\tforeign:/srv/shared"],
+    ["alpha_twin", "installer", "install-rein.sh\ttmp"], ["alpha_twin", "installer", "rein init\trun"],
+    ["hub1", "installer", "rein init\tforeign:/srv/shared"],
   ];
   const lines = ["CENSUS_RUN\t2026-10-04T10:00:00Z\tabc\t*_test.sh"];
   for (const s of Object.keys(SUITES)) lines.push(`CENSUS_SUITE\t${s}_test.sh\t${s === "alpha" ? 2500 : 100}\t2\t0\t0\t0`);
@@ -85,7 +85,7 @@ function censusInput(root) {
 
 function ciLog(root, { sha, started, dirty = 0, failed = [], passed = [], census = "" }) {
   return [
-    "[ci] ai ci run — AI-OS 3.1.0",
+    "[ci] rein ci run — Rein 3.1.0",
     `[ci] sha=${sha} ref=HEAD dirty=${dirty} started_at=${started}`,
     `[ci] repo=${root}`,
     "[ci] ── suite: /bin/bash tests/run.sh",
@@ -102,7 +102,7 @@ function fixtureRepo() {
   const t = tmp("repo");
   const r = t.d;
   for (const f of ["a", "b", "c", "d", "e", "f"]) put(r, `src/shared/${f}.mjs`, `export const ${f} = 1;\n`);
-  put(r, "src/bin/ai", "#!/usr/bin/env bash\necho ai\n");
+  put(r, "src/bin/rein", "#!/usr/bin/env bash\necho ai\n");
   put(r, "hooks/h.sh", "#!/usr/bin/env bash\nexit 0\n");
   put(r, "hooks/h2.sh", "#!/usr/bin/env bash\nexit 0\n");
   put(r, "src/README.md", "not code\n");
@@ -128,8 +128,8 @@ test("inventory: suites, unit files, and line totals (src counts code only)", ()
     const inv = inventory(f.r);
     assert.equal(inv.suites.length, Object.keys(SUITES).length);
     assert.equal(inv.unitFiles.length, 1);
-    assert.equal(inv.srcLines, 6 + 2 + 2 + 2, "6 one-line modules + src/bin/ai + two hooks; README excluded");
-    assert.ok(inv.srcSet.has("hooks/h.sh") && inv.srcSet.has("src/bin/ai"));
+    assert.equal(inv.srcLines, 6 + 2 + 2 + 2, "6 one-line modules + src/bin/rein + two hooks; README excluded");
+    assert.ok(inv.srcSet.has("hooks/h.sh") && inv.srcSet.has("src/bin/rein"));
   } finally { f.done(); }
 });
 
@@ -142,7 +142,7 @@ test("staticFacts: assertions, task labels in assertion text, src/hooks refs, ta
     "assert_summary",
     'bash hooks/h.sh; cat src/shared/missing.mjs; ls src/shared/',
     'run "$R/tests/fixtures/arch-write-cases.json"',
-    "sleep 1   # AIOS_SLEEP_ALLOWED: negative wait",
+    "sleep 1   # REIN_SLEEP_ALLOWED: negative wait",
     "  sleep 0.5",
     "# guessed with `sleep 2` (a comment still counts: the acceptance grep is plain)",
     "wait_for '[ -e f ]' 1000",
@@ -161,27 +161,27 @@ test("misnamed: the blueprint's task-id pattern", () => {
 
 // ── dynamic footprint ────────────────────────────────────────────────────────
 test("resolveTarget: repo-relative, CI worktree, installed mirror, inline programs, ai", () => {
-  const s = new Set(["src/shared/a.mjs", "src/bin/ai", "hooks/h.sh", "src/mcp/x-mcp/index.js"]);
+  const s = new Set(["src/shared/a.mjs", "src/bin/rein", "hooks/h.sh", "src/mcp/x-mcp/index.js"]);
   assert.equal(resolveTarget("node", "src/shared/a.mjs", s), "src/shared/a.mjs");
   assert.equal(resolveTarget("node", "./src/shared/a.mjs", s), "src/shared/a.mjs");
-  assert.equal(resolveTarget("node", "/private/var/T/ai-os-ci.X/wt/src/shared/a.mjs", s), "src/shared/a.mjs");
-  assert.equal(resolveTarget("node", "/tmp/aios-t-h/home/.ai-os/shared/a.mjs", s), "src/shared/a.mjs", "mirror → src");
-  assert.equal(resolveTarget("bash", "/tmp/sbx/.ai-os/hooks/h.sh", s), "hooks/h.sh");
+  assert.equal(resolveTarget("node", "/private/var/T/rein-ci.X/wt/src/shared/a.mjs", s), "src/shared/a.mjs");
+  assert.equal(resolveTarget("node", "/tmp/rein-t-h/home/.rein/shared/a.mjs", s), "src/shared/a.mjs", "mirror → src");
+  assert.equal(resolveTarget("bash", "/tmp/sbx/.rein/hooks/h.sh", s), "hooks/h.sh");
   assert.equal(resolveTarget("node", "/x/mcp/x-mcp/index.js", s), "src/mcp/x-mcp/index.js");
   assert.equal(resolveTarget("node", "-e:src/shared/a.mjs", s), "src/shared/a.mjs");
-  assert.equal(resolveTarget("bash", "-c:src/bin/ai", s), "src/bin/ai");
-  assert.equal(resolveTarget("ai", "status", s), "src/bin/ai");
+  assert.equal(resolveTarget("bash", "-c:src/bin/rein", s), "src/bin/rein");
+  assert.equal(resolveTarget("rein", "status", s), "src/bin/rein");
   for (const a of ["-e", "-c", "-", "-m json.tool", "<inline>", "/tmp/fixture.sh", "tests/lib/assert.sh"]) {
     assert.equal(resolveTarget("node", a, s), null, a);
   }
 });
 
 test("spawnShape: pure-node only when EVERY spawn is node <src module>", () => {
-  const s = new Set(["src/shared/a.mjs", "hooks/h.sh", "src/bin/ai"]);
+  const s = new Set(["src/shared/a.mjs", "hooks/h.sh", "src/bin/rein"]);
   const n = (arg) => ({ cmd: "node", arg, count: 1 });
   assert.equal(spawnShape([n("src/shared/a.mjs"), n("-e:src/shared/a.mjs")], s), "pure-node");
   assert.equal(spawnShape([n("src/shared/a.mjs"), n("-e")], s), "mixed", "an inline program with no src module is a process");
-  assert.equal(spawnShape([{ cmd: "bash", arg: "hooks/h.sh", count: 1 }, { cmd: "ai", arg: "x", count: 1 }], s), "process");
+  assert.equal(spawnShape([{ cmd: "bash", arg: "hooks/h.sh", count: 1 }, { cmd: "rein", arg: "x", count: 1 }], s), "process");
   assert.equal(spawnShape([], s), "none");
   assert.equal(spawnShape(null, s), null, "no dynamic data = unknown, not 'none'");
 });
@@ -309,7 +309,7 @@ test("CLI: --json writes the Data Model shape, markdown on stdout, exit 0, under
   const f = fixtureRepo();
   const home = tmp("home");
   try {
-    put(f.r, "tmp/aios-census-20261004T000000Z-abc.tsv", censusInput(f.r));
+    put(f.r, "tmp/rein-census-20261004T000000Z-abc.tsv", censusInput(f.r));
     const out = join(f.r, "out", "census.json");
     const t0 = Date.now();
     const stdout = execFileSync(process.execPath, [CENSUS, "--repo", f.r, "--ci-logs", f.logs, "--json", out], {
@@ -326,7 +326,7 @@ test("CLI: --json writes the Data Model shape, markdown on stdout, exit 0, under
       assert.ok(k in j.suites[0], k);
     }
     assert.ok(j.sources.data_runs.some((p) => p.endsWith(".tsv")), "the $TMPDIR census input was read");
-    assert.equal(existsSync(join(home.d, ".ai-os")), false, "nothing written under HOME when --json is given");
+    assert.equal(existsSync(join(home.d, ".rein")), false, "nothing written under HOME when --json is given");
   } finally { f.done(); home.done(); }
 });
 
@@ -368,11 +368,11 @@ test("baselineFromLog: the suite step's rows, header first; worktree paths relat
     "── census input (E-297) ──",
     "CENSUS_RUN\t2026-10-29T11:17:47Z\t" + "a".repeat(40) + "\t*_test.sh",
     "CENSUS_SUITE\tcli_test.sh\t42000\t90\t0\t0\t0",
-    "CENSUS_FP\tcli_test.sh\t4\tnode\t/tmp/ai-os-ci.R2zF/wt/scripts/generate_blueprints_index.mjs",
+    "CENSUS_FP\tcli_test.sh\t4\tnode\t/tmp/rein-ci.R2zF/wt/scripts/generate_blueprints_index.mjs",
     "CENSUS_FP\tcli_test.sh\t2\tnode\t-e:src/shared/a.mjs",
-    "CENSUS_FP\tgate_test.sh\t1\tpython3\t/tmp/ai-os-ci.R2zF/tmp/tmp.X/home/.ai-os/shared/g.py",
-    "CENSUS_FP\tinst_test.sh\t1\tinstaller\tinstall-ai-os.sh\tforeign:/tmp/ai-os-ci.R2zF/tmp/tmp.Y/home",
-    "CENSUS_FP\tinit_test.sh\t12\tinstaller\tai init\ttmp",
+    "CENSUS_FP\tgate_test.sh\t1\tpython3\t/tmp/rein-ci.R2zF/tmp/tmp.X/home/.rein/shared/g.py",
+    "CENSUS_FP\tinst_test.sh\t1\tinstaller\tinstall-rein.sh\tforeign:/tmp/rein-ci.R2zF/tmp/tmp.Y/home",
+    "CENSUS_FP\tinit_test.sh\t12\tinstaller\trein init\ttmp",
     "CENSUS_TOTAL\t46\t6921\t0\t25",
     "",
     "━━ Results ━━",
@@ -386,8 +386,8 @@ test("baselineFromLog: the suite step's rows, header first; worktree paths relat
     "CENSUS_SUITE\tcli_test.sh\t42000\t90\t0\t0\t0",
     "CENSUS_FP\tcli_test.sh\t4\tnode\tscripts/generate_blueprints_index.mjs",
     "CENSUS_FP\tcli_test.sh\t2\tnode\t-e:src/shared/a.mjs",
-    "CENSUS_FP\tinst_test.sh\t1\tinstaller\tinstall-ai-os.sh\tforeign",
-    "CENSUS_FP\tinit_test.sh\t12\tinstaller\tai init\ttmp",
+    "CENSUS_FP\tinst_test.sh\t1\tinstaller\tinstall-rein.sh\tforeign",
+    "CENSUS_FP\tinit_test.sh\t12\tinstaller\trein init\ttmp",
   ].join("\n") + "\n");
   assert.equal(baselineFromLog("[ci] ── suite: x\n(no census)"), null, "no suite census → no baseline");
 });

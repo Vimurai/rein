@@ -25,7 +25,7 @@ const SRC = readFileSync(POOL, "utf8");
 const m = await import(POOL);
 
 let SBOX;
-before(() => { SBOX = mkdtempSync(join(tmpdir(), "aios-t-mwp-")); });
+before(() => { SBOX = mkdtempSync(join(tmpdir(), "rein-t-mwp-")); });
 after(() => { if (SBOX) rmSync(SBOX, { recursive: true, force: true }); });
 const readJson = (p) => JSON.parse(readFileSync(p, "utf8"));
 const err = (msg, props) => Object.assign(new Error(msg), props);
@@ -216,7 +216,7 @@ test("T-MWP-S12: --dlq-clear empties the DLQ", () => {
 test("T-MWP-S12: usage mentions --dlq-show", () => assert.match(cli("--bogus").stderr, /--dlq-show/));
 test("T-MWP-S12: usage mentions --dlq-clear", () => assert.match(cli("--bogus").stderr, /--dlq-clear/));
 
-// ── T-MWP-S13: ~/.ai-os mirror matches src (read-only; absent → skip) ──
-const MIRROR = join(homedir(), ".ai-os/shared/memory-worker-pool.mjs");
+// ── T-MWP-S13: ~/.rein mirror matches src (read-only; absent → skip) ──
+const MIRROR = join(homedir(), ".rein/shared/memory-worker-pool.mjs");
 test("T-MWP-S13: mirror is byte-identical to src", { skip: !existsSync(MIRROR) && "mirror absent" }, () =>
   assert.equal(readFileSync(MIRROR, "utf8"), SRC));

@@ -1,10 +1,10 @@
 // ci-record.mjs — the shell side of the local CI run record (E-266, D-072,
-// local-ci.md §Components 3-4). `ai ci` is bash; the ci_runs table is node:sqlite. This
+// local-ci.md §Components 3-4). `rein ci` is bash; the ci_runs table is node:sqlite. This
 // CLI is the bridge, and every command goes through src/mcp/shared/ci-runs.js — the same
 // module get_ci_status and the E-267 gates read — so the shell view and the MCP view
 // cannot drift.
 //
-//   node ci-record.mjs record  --ai-dir <d> --log <path> [--prune-dir <d>] [--aios-version <v>]
+//   node ci-record.mjs record  --ai-dir <d> --log <path> [--prune-dir <d>] [--rein-version <v>]
 //   node ci-record.mjs status  --ai-dir <d> --sha <sha> [--short]   exit 0 PASS / 1 not green / 2 no certifying row
 //
 // E-328 (D-102 §5a): in a team project `record` also writes the tracked .ai/ci/<sha>.json,
@@ -52,7 +52,7 @@ function parseArgs(argv) {
 
 function _db(aiDir) {
   if (!aiDir || !existsSync(aiDir)) {
-    process.stderr.write(`ai ci: no .ai/ directory at ${aiDir} — run: ai init\n`);
+    process.stderr.write(`rein ci: no .ai/ directory at ${aiDir} — run: rein init\n`);
     process.exit(2);
   }
   return getDbSeeded(resolve(aiDir));
@@ -121,10 +121,10 @@ export function run(argv) {
       // E-328: a team project also gets the portable .ai/ci/<sha>.json (counts only).
       const row = db.prepare("SELECT * FROM ci_runs WHERE id = ?").get(id);
       const suites = (readFileSync(o.log, "utf8").match(/^CENSUS_SUITE\t/gm) || []).length || null;
-      const ev = writeCiRecord(resolve(o["ai-dir"]), row, { suites, aiosVersion: o["aios-version"] });
+      const ev = writeCiRecord(resolve(o["ai-dir"]), row, { suites, reinVersion: o["rein-version"] });
       for (const w of ev.warnings) process.stderr.write(`${w}\n`);
-      if (ev.written) process.stderr.write(`ai ci: wrote .ai/ci/${row.sha}.json — commit it so the team sees this run\n`);
-      else if (ev.path) process.stderr.write(`ai ci: .ai/ci/${row.sha.slice(0, 7)}….json not replaced — ${ev.reason}\n`);
+      if (ev.written) process.stderr.write(`rein ci: wrote .ai/ci/${row.sha}.json — commit it so the team sees this run\n`);
+      else if (ev.path) process.stderr.write(`rein ci: .ai/ci/${row.sha.slice(0, 7)}….json not replaced — ${ev.reason}\n`);
       if (o["prune-dir"]) pruneCiLogs(o["prune-dir"], { keep: o.log });
       process.stdout.write(`${id}\n`);
       return 0;
@@ -145,12 +145,12 @@ export function run(argv) {
       } else if (rec) {
         process.stdout.write([
           `CI: ${rec.verdict} ${rec.sha.slice(0, 7)} — certified by the team record .ai/ci/${rec.sha}.json`,
-          `  runner:   ${rec.runner} on ${rec.host || "?"} (ai-os ${rec.aios_version || "?"})`,
+          `  runner:   ${rec.runner} on ${rec.host || "?"} (rein ${rec.rein_version || "?"})`,
           `  started:  ${rec.started} (${ageOf(rec.started)})${rec.finished ? `, finished ${rec.finished}` : ""}`,
           `  suite:    ${_suite(v.row)}${rec.suites != null ? ` in ${rec.suites} suites` : ""}`,
         ].join("\n") + "\n");
       } else if (v.kind === "NONE") {
-        process.stdout.write(`local CI: no run for ${o.sha.slice(0, 7)} — run: ai ci run\n`);
+        process.stdout.write(`local CI: no run for ${o.sha.slice(0, 7)} — run: rein ci run\n`);
       } else {
         const r = v.row;
         process.stdout.write([
@@ -178,7 +178,7 @@ export function run(argv) {
       const db = _db(o["ai-dir"]);
       const rows = listCiRuns(db, Number(o.n) || 10);
       if (!rows.length) {
-        process.stdout.write("local CI: no runs recorded — run: ai ci run\n");
+        process.stdout.write("local CI: no runs recorded — run: rein ci run\n");
         return 0;
       }
       for (const r of rows) {
@@ -195,11 +195,11 @@ export function run(argv) {
       const db = _db(o["ai-dir"]);
       const r = latestCiRun(db, o.sha);
       if (!r) {
-        process.stderr.write(`ai ci log: no run recorded for ${o.sha.slice(0, 7)} — run: ai ci run\n`);
+        process.stderr.write(`rein ci log: no run recorded for ${o.sha.slice(0, 7)} — run: rein ci run\n`);
         return 2;
       }
       if (!r.log_path || !existsSync(r.log_path)) {
-        process.stderr.write(`ai ci log: the log for ${r.sha.slice(0, 7)} was pruned (${r.log_path || "no path"})\n`);
+        process.stderr.write(`rein ci log: the log for ${r.sha.slice(0, 7)} was pruned (${r.log_path || "no path"})\n`);
         return 2;
       }
       const text = readFileSync(r.log_path, "utf8");
@@ -210,7 +210,7 @@ export function run(argv) {
         process.stdout.write(`# ${r.status} ${r.sha.slice(0, 7)} — ${r.log_path}\n`);
         process.stdout.write(secs.length ? secs.join("\n\n") + "\n" : "(no failing sections)\n");
       }
-      // E-285: the skill-eval report `ai ci evals` filed under this sha, when there is one.
+      // E-285: the skill-eval report `rein ci evals` filed under this sha, when there is one.
       const evals = o["evals-dir"] && resolve(o["evals-dir"], `${r.sha}.json`);
       if (evals && existsSync(evals)) process.stdout.write(`# skill evals: ${evals}\n`);
       return 0;
@@ -223,7 +223,7 @@ export function run(argv) {
       const label = o.ref || sha7;
       const aiDir = resolve(o["ai-dir"]);
       if (!ciAdopted(db, aiDir)) {
-        process.stderr.write(`[CI_GATE] ${label}: not enforced — no ai ci run recorded in this project yet\n`);
+        process.stderr.write(`[CI_GATE] ${label}: not enforced — no rein ci run recorded in this project yet\n`);
         return 0;
       }
       const repo = resolve(aiDir, "..");
@@ -244,14 +244,14 @@ export function run(argv) {
       else if (near) why = `nearest tested ancestor ${near.sha.slice(0, 7)} differs outside .ai/: ${c.differs.slice(0, 3).join(", ")}${c.differs.length > 3 ? ", …" : ""}`;
       else why = "no run for it or for a tested ancestor";
       process.stderr.write(
-        `[CI_GATE] ${label}: no green local CI run for ${sha7} (${why}) — run: ai ci run, ` +
-        "or AI_OS_CI_SKIP=1 AI_OS_CI_SKIP_REASON=\"<why>\" git push\n");
+        `[CI_GATE] ${label}: no green local CI run for ${sha7} (${why}) — run: rein ci run, ` +
+        "or REIN_CI_SKIP=1 REIN_CI_SKIP_REASON=\"<why>\" git push\n");
       return 1;
     }
     case "skip": {
       const reason = String(o.reason || "").trim();
       if (!reason) {
-        process.stderr.write("[CI_GATE] AI_OS_CI_SKIP=1 needs AI_OS_CI_SKIP_REASON=\"<why>\" — a skip is recorded, never silent\n");
+        process.stderr.write("[CI_GATE] REIN_CI_SKIP=1 needs REIN_CI_SKIP_REASON=\"<why>\" — a skip is recorded, never silent\n");
         return 1;
       }
       const db = _db(o["ai-dir"]);
@@ -281,7 +281,7 @@ export function run(argv) {
       const values = {};
       for (const a of o._) {
         const m = String(a).match(/^([a-z_]+)=(\d+)$/);
-        if (!m) { process.stderr.write(`ai ci budget set: '${a}' is not field=<whole number>\n`); return 2; }
+        if (!m) { process.stderr.write(`rein ci budget set: '${a}' is not field=<whole number>\n`); return 2; }
         values[m[1]] = Number(m[2]);
       }
       try {
@@ -289,7 +289,7 @@ export function run(argv) {
         process.stdout.write(`test budget set by ${o.ruling} on ${r.sha.slice(0, 7)}: ${Object.entries(values).map(([k, v]) => `${k}=${v}`).join(" ")}\n`);
         return 0;
       } catch (e) {
-        process.stderr.write(`ai ci budget set: ${e.message}\n`);
+        process.stderr.write(`rein ci budget set: ${e.message}\n`);
         return 2;
       }
     }
@@ -307,7 +307,7 @@ export function run(argv) {
 
 // Main-module check on REAL paths: argv[1] may be spelled through a symlink (macOS
 // /var → /private/var) while import.meta.url is resolved — comparing the raw spellings
-// made other helpers silently do nothing under `ai ci run` (E-265).
+// made other helpers silently do nothing under `rein ci run` (E-265).
 function _isMain() {
   try {
     return !!process.argv[1] &&
@@ -319,7 +319,7 @@ if (_isMain()) {
   try {
     process.exitCode = run(process.argv.slice(2));
   } catch (e) {
-    process.stderr.write(`ai ci: ${e.message}\n`);
+    process.stderr.write(`rein ci: ${e.message}\n`);
     process.exitCode = 2;
   }
 }

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # propose_patch_test.sh — the propose→confirm patch path and the write tools around it:
 # propose-patch-mcp (E-141) and GitHub issue ingestion (E-142; E-279 (D-075) retired
-# github-bridge-mcp: `ai sync --github` calls gh directly, tested here against a stubbed gh),
+# github-bridge-mcp: `rein sync --github` calls gh directly, tested here against a stubbed gh),
 # then — merged here by E-302 — confirm_patch apply semantics, the read-only tools' project
 # scope (E-226), the propose→confirm project boundary (E-221) and patch-mcp (E-137).
 # Was e140_e141_e142_test (misnamed for its tasks); its token-budget-mcp section moved to
@@ -20,11 +20,11 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # `architect`, which refuses every write to this fixture project. So the section below re-runs
 # THIS file as a child of as-session.sh (none → engineer, launch unverified) in a throwaway
 # HOME, and the child runs only these cases — never the caller's shell, whose own session
-# would otherwise decide the outcome (it passed locally and failed under `ai ci run`).
+# would otherwise decide the outcome (it passed locally and failed under `rein ci run`).
 if [[ "${1:-}" == "--apply-in-session" ]]; then
 source "${SCRIPT_DIR}/../lib/mcp-client.sh"
 PP_SERVER="${REPO_ROOT}/src/mcp/propose-patch-mcp/index.js"
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 
 PP_TMP="$(mktemp -d)"; on_exit 'rm -rf "$PP_TMP"'
 PROJECT="${PP_TMP}/proj"; mkdir -p "${PROJECT}/.ai"
@@ -132,7 +132,7 @@ assert_not_contains "propose-patch-mcp: no auto-apply on propose" "writeFileSync
 # delta fallback chain present
 assert_contains "propose-patch-mcp: delta formatter attempted" "delta" "$PP_CONTENT"
 
-# ── E-142 → E-279: `ai sync --github` produces intents from a stubbed gh ─────────
+# ── E-142 → E-279: `rein sync --github` produces intents from a stubbed gh ─────────
 # The stub records its argv and answers `auth status` / `issue list` like gh would.
 GH_STUB_DIR="$(test_tmpdir gh-stub)"; GH_PROJ="$(test_tmpdir gh-proj)"
 mkdir -p "${GH_PROJ}/.ai"
@@ -147,7 +147,7 @@ case "\$1 \$2" in
 esac
 STUB
 chmod +x "${GH_STUB_DIR}/gh"
-GH_OUT="$(cd "$GH_PROJ" && PATH="${GH_STUB_DIR}:$PATH" bash "${REPO_ROOT}/src/bin/ai" sync --github --repo o/r --limit 5 2>&1)"
+GH_OUT="$(cd "$GH_PROJ" && PATH="${GH_STUB_DIR}:$PATH" bash "${REPO_ROOT}/src/bin/rein" sync --github --repo o/r --limit 5 2>&1)"
 GH_ARGV="$(cat "${GH_STUB_DIR}/argv.log" 2>/dev/null)"
 assert_contains "sync --github: header"                  "## GitHub Issues — imported"         "$GH_OUT"
 assert_contains "sync --github: first issue block"       "### Issue #7: Fix the parser"       "$GH_OUT"
@@ -172,7 +172,7 @@ assert_status 0 "sync --github: every fence is closed" \
 # close, delete or publish without a prompt.
 GH_SET="$(test_tmpdir gh-settings)"
 printf '%s\n' '{"permissions":{"allow":["Bash(gh *)","Bash(gh:*)","Bash(gh pr *)","Bash(gh pr:*)","Bash(gh issue:*)","Bash(gh auth status *)","Bash(gh auth status:*)","Bash(ls:*)"]}}' > "${GH_SET}/settings.json"
-bash -c "source '${REPO_ROOT}/src/bin/ai' 2>/dev/null; AIOS=\"\$HOME/.ai-os\"; _configure_project_claude_settings '${GH_SET}'" >/dev/null 2>&1
+bash -c "source '${REPO_ROOT}/src/bin/rein' 2>/dev/null; REIN=\"\$HOME/.rein\"; _configure_project_claude_settings '${GH_SET}'" >/dev/null 2>&1
 GH_ALLOW="$(python3 -c 'import json,sys; print("\n".join(json.load(open(sys.argv[1]))["permissions"]["allow"]))' "${GH_SET}/settings.json" 2>/dev/null)"
 for rule in "Bash(gh pr view *)" "Bash(gh pr list *)" "Bash(gh pr checks *)" "Bash(gh issue view *)" "Bash(gh issue list *)"; do
   assert_contains "gh read grant present: ${rule}" "$rule" "$GH_ALLOW"
@@ -192,17 +192,17 @@ for rule in "Bash(gh * --jq*)" "Bash(gh * -q*)" "Bash(gh * --template*)" "Bash(g
   assert_status 0 "gh env-reading flag stays on the prompt: ${rule}" grep -qxF "$rule" <<< "$GH_ASK"
 done
 
-# ── ai sync --github wiring ───────────────────────────────────────────────────
+# ── rein sync --github wiring ───────────────────────────────────────────────────
 
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 BIN_CONTENT=$(cat "$AI_BIN")
 
-assert_contains "ai sync --github: do_sync_github function exists" "do_sync_github" "$BIN_CONTENT"
-assert_contains "ai sync --github: --github flag detected in do_sync" '"--github"' "$BIN_CONTENT"
-assert_contains "ai sync --github: usage line updated" "sync --github" "$BIN_CONTENT"
-assert_contains "ai sync --github: gh auth check present" "gh auth status" "$BIN_CONTENT"
-assert_contains "ai sync --github: --repo flag supported" "--repo" "$BIN_CONTENT"
-assert_contains "ai sync --github: --limit flag supported" "--limit" "$BIN_CONTENT"
+assert_contains "rein sync --github: do_sync_github function exists" "do_sync_github" "$BIN_CONTENT"
+assert_contains "rein sync --github: --github flag detected in do_sync" '"--github"' "$BIN_CONTENT"
+assert_contains "rein sync --github: usage line updated" "sync --github" "$BIN_CONTENT"
+assert_contains "rein sync --github: gh auth check present" "gh auth status" "$BIN_CONTENT"
+assert_contains "rein sync --github: --repo flag supported" "--repo" "$BIN_CONTENT"
+assert_contains "rein sync --github: --limit flag supported" "--limit" "$BIN_CONTENT"
 
 # ── Registry: all 3 new servers registered ───────────────────────────────────
 
@@ -227,7 +227,7 @@ echo ""
 #      (dry-run rejects it before any write) and returns an error.
 # The cases run in a child under a real session (the `--apply-in-session` block at the top);
 # its tally is folded into this suite's counters, and a child that dies without one is a FAIL.
-_PH="$(test_tmpdir pphome)"; mkdir -p "${_PH}/.ai-os"
+_PH="$(test_tmpdir pphome)"; mkdir -p "${_PH}/.rein"
 tc_fixture_home "$_PH"   # E-345 (D-109 r1): the toolchain record the install writes
 _pp_rc=0
 _pp_out="$(HOME="$_PH" CLAUDE_CODE_SESSION_ID=pp-apply bash "${REPO_ROOT}/tests/lib/as-session.sh" none pp-apply -- \
@@ -292,7 +292,7 @@ assert_status 0 "E-226.05a: a single rowScope classifier exists" \
   bash -c "grep -q 'function rowScope' '$SERVER'"
 assert_status 0 "E-226.05b: all three read-only tools use it" \
   bash -c "test \$(grep -c 'rowScope(' '$SERVER') -ge 4"
-# The stored absolute path survives in exactly ONE place — the AI_OS_PATCH_LEGACY
+# The stored absolute path survives in exactly ONE place — the REIN_PATCH_LEGACY
 # rollback branch — and nowhere on the default path. Asserting the string is absent
 # entirely would have been wrong (the rollback needs it), and asserting only that it
 # exists would be vacuous; this pins WHERE it may appear.
@@ -300,7 +300,7 @@ assert_status 0 "E-226.05b: all three read-only tools use it" \
 # leaked, and counting that occurrence made the assertion fail on correct code.
 assert_status 0 "E-226.05c: the stored absolute path is used once, under the rollback flag" \
   bash -c "test \$(grep -v '^\s*\*' '$SERVER' | grep -c 'formatDiff(patch.diff_content, patch.path)') -eq 1"
-assert_status 0 "E-226.05d: that one use sits inside the AI_OS_PATCH_LEGACY branch" \
+assert_status 0 "E-226.05d: that one use sits inside the REIN_PATCH_LEGACY branch" \
   bash -c "python3 - '$SERVER' <<'PYX'
 import sys
 # Comment lines stripped first: the module header QUOTES the call as the thing that
@@ -308,7 +308,7 @@ import sys
 src = [l for l in open(sys.argv[1]).read().split('\n') if not l.lstrip().startswith(('*', '//', '/*'))]
 s = '\n'.join(src)
 i = s.index('formatDiff(patch.diff_content, patch.path)')
-sys.exit(0 if 'AI_OS_PATCH_LEGACY' in s[max(0, i-400):i] else 1)
+sys.exit(0 if 'REIN_PATCH_LEGACY' in s[max(0, i-400):i] else 1)
 PYX"
 
 # ── E-226.6: legacy rows are listed but never read ─────────────────────────
@@ -318,8 +318,8 @@ assert_status 0 "E-226.06b: legacy rows are classified separately from foreign o
   bash -c "grep -q 'return \"legacy\"' '$SERVER'"
 
 # ── E-226.7: the rollback flag restores the old behaviour ──────────────────
-assert_status 0 "E-226.07a: AI_OS_PATCH_LEGACY is honoured by all three tools" \
-  bash -c "test \$(grep -c 'AI_OS_PATCH_LEGACY' '$SERVER') -ge 4"
+assert_status 0 "E-226.07a: REIN_PATCH_LEGACY is honoured by all three tools" \
+  bash -c "test \$(grep -c 'REIN_PATCH_LEGACY' '$SERVER') -ge 4"
 
 # ── E-226.8: the tool descriptions tell the model what to expect ───────────
 # The description is what the model reads before calling; a silent behaviour change here
@@ -376,7 +376,7 @@ assert_status 0 "E-221.04c: the rejection tells the caller to re-propose" \
 
 # ── E-221.5: the rollback flag restores acceptance, but not the hole ────────
 _r="$(_drive_pb legacy-ok)"
-assert_contains "E-221.05a: AI_OS_PATCH_LEGACY=1 accepts an in-project legacy record" "applied" "$_r"
+assert_contains "E-221.05a: REIN_PATCH_LEGACY=1 accepts an in-project legacy record" "applied" "$_r"
 _r="$(_drive_pb legacy-escape)"
 assert_contains "E-221.05b: even then, an out-of-root absolute path is refused" "PROJECT_ESCAPE" "$_r"
 assert_match "E-221.05c: the out-of-root canary was never written" '	-$' "$_r"

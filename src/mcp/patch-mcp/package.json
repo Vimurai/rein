@@ -2,7 +2,7 @@
   "name": "patch-mcp",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "AI-OS Staleness-Aware File Patching (\u00a725) \u2014 MD5-verified atomic file updates.",
+  "description": "Rein Staleness-Aware File Patching (\u00a725) \u2014 MD5-verified atomic file updates.",
   "type": "module",
   "main": "index.js",
   "scripts": {

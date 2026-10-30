@@ -1,15 +1,15 @@
 // ci-summary.mjs — read a test runner's own summary out of a suite step's output (E-310,
-// D-091, test-economics.md §CI Resources Component 11). `ai ci run` used to read only the
-// AI-OS runner's `Total: N passed, M failed` line, so a downstream project whose
+// D-091, test-economics.md §CI Resources Component 11). `rein ci run` used to read only the
+// Rein runner's `Total: N passed, M failed` line, so a downstream project whose
 // tests/run.sh drives vitest (a downstream project) recorded pass=0 on every green run.
 //
 //   node ci-summary.mjs <log> [--after "<marker line prefix>"]
 //     → `runner=<r> pass=<n> fail=<n> skip=<n>` on stdout; `runner=none pass=0 fail=0 skip=0`
 //       when nothing matched. Only the text after the LAST line starting with the marker is
-//       read (ai ci passes its "[ci] ── suite:" header). The log is read as text and never
+//       read (rein ci passes its "[ci] ── suite:" header). The log is read as text and never
 //       executed.
 //
-// Precedence: the AI-OS line, when present, IS the run's total (its runner already folds
+// Precedence: the Rein line, when present, IS the run's total (its runner already folds
 // every suite in) — its last occurrence wins. Otherwise every vitest / node --test / pytest /
 // jest summary in the section is SUMMED: one tests/run.sh may invoke a runner more than once
 // (that project runs vitest twice), and each invocation prints its own summary.
@@ -49,17 +49,17 @@ const NODE_TEST = /^\s*(?:#|ℹ)\s+(pass|fail|skipped|todo|cancelled)\s+(\d+)\s*
 
 /**
  * parseSummary(text) → { runner, pass, fail, skip } or null when no known summary is present.
- * `runner` is "aios", one of the SHAPES names / "node-test", or several joined by "+".
+ * `runner` is "rein", one of the SHAPES names / "node-test", or several joined by "+".
  */
 export function parseSummary(text) {
   const lines = String(text).replace(ANSI, "").split("\n");
 
-  let aios = null;
+  let rein = null;
   for (const l of lines) {
     const m = l.match(/^\s*Total: (\d+) passed, (\d+) failed(?:, (\d+) skipped)?/);
-    if (m) aios = { runner: "aios", pass: +m[1], fail: +m[2], skip: +(m[3] || 0) };
+    if (m) rein = { runner: "rein", pass: +m[1], fail: +m[2], skip: +(m[3] || 0) };
   }
-  if (aios) return aios;
+  if (rein) return rein;
 
   const sum = { pass: 0, fail: 0, skip: 0 };
   const seen = [];

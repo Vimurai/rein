@@ -1,7 +1,7 @@
-// cli-state.mjs — `ai state migrate --team|--legacy` and `ai task done <id>` (E-325, D-102).
+// cli-state.mjs — `rein state migrate --team|--legacy` and `rein task done <id>` (E-325, D-102).
 //
 // Both write through the same library as task-synchronizer-mcp (state-db.js → record-store.mjs),
-// so the shell surface is not a second writer. `ai task done` applies the SAME completion gates
+// so the shell surface is not a second writer. `rein task done` applies the SAME completion gates
 // as update_task_status and run_handover (src/shared/completion-gates.mjs): a third door to DONE
 // without them would reopen what E-319 closed. hooks/post-commit.sh calls it for "Fixes E-##".
 //
@@ -10,30 +10,30 @@
 // call, or a project's settings `env` — and an env switch is an attacker's switch
 // (hooks-contract, E-291). main() removes them before any gate reads them.
 //
-// E-326: `ai state import` brings the index up to the pulled record files (record-import.mjs).
+// E-326: `rein state import` brings the index up to the pulled record files (record-import.mjs).
 // It is run by the post-merge / post-checkout / post-rewrite hooks and at session start, exits
-// 0 whatever happens, and with AI_OS_STATE_IMPORT=0 the hook runs (--hook) are no-ops that
+// 0 whatever happens, and with REIN_STATE_IMPORT=0 the hook runs (--hook) are no-ops that
 // leave one telemetry row. `state parity` is the pre-commit check; `state merge-driver` is the
-// git merge driver for record files (`ai sync` configures it).
+// git merge driver for record files (`rein sync` configures it).
 // E-342 (D-106): in a legacy project (no team.json) `state import` merges HEAD:.ai/state.json
 // into the index per record instead (legacy-import.mjs); --force ignores the imported blob id.
 //
 // Usage: node cli-state.mjs state migrate --team [--trunk <name>] | --legacy
 //        node cli-state.mjs state import [--dry-run] [--force] [--hook <name>]
 //        node cli-state.mjs state parity
-//        node cli-state.mjs state health [--repair] [--short]     (E-344: ai doctor / ai-preflight)
+//        node cli-state.mjs state health [--repair] [--short]     (E-344: rein doctor / rein-preflight)
 //        node cli-state.mjs state merge-driver <base> <ours> <theirs> [<path>]
 //        node cli-state.mjs task done <id> [--summary <text>]
 //        node cli-state.mjs team add <email> --range <P>:<from>-<to>
 //        node cli-state.mjs team show
 //        node cli-state.mjs team planner-check      (one warning line, or nothing)
 //        node cli-state.mjs task claim <id> | release <id> [--reason <text>] | claims [--fetch]
-// E-327: `ai team` edits .ai/team.json, the per-developer id ranges and the planner (D-102 §3).
+// E-327: `rein team` edits .ai/team.json, the per-developer id ranges and the planner (D-102 §3).
 //        node cli-state.mjs trunk [--doctor]
-// E-331: `ai task claim|release` publish a claim on origin/<trunk> (task-claims.mjs, D-102 §4);
-// `ai task claims` lists the IN_PROGRESS tasks there (session start and ai-preflight).
-// E-341 (D-105 r2): `ai trunk` prints the resolved trunk, so skills and agents say $(ai trunk)
-// instead of a literal; `--doctor` is the [TRUNK_UNSET]/[TRUNK_MISMATCH] check `ai doctor` runs.
+// E-331: `rein task claim|release` publish a claim on origin/<trunk> (task-claims.mjs, D-102 §4);
+// `rein task claims` lists the IN_PROGRESS tasks there (session start and rein-preflight).
+// E-341 (D-105 r2): `rein trunk` prints the resolved trunk, so skills and agents say $(rein trunk)
+// instead of a literal; `--doctor` is the [TRUNK_UNSET]/[TRUNK_MISMATCH] check `rein doctor` runs.
 // Exit: 0 done or nothing to do; 1 refused or failed; 2 usage.
 
 import { existsSync } from "node:fs";
@@ -54,7 +54,7 @@ import { resolveTrunk, trunkDoctor } from "../mcp/shared/trunk.mjs";
 
 const SUMMARY_CAP = 200;
 // The completion gates' rollback switches (ci-runs.js checkCiDoneGate, build-stamp.mjs).
-export const GATE_ROLLBACK_VARS = ["AI_OS_CI_GATE", "AI_OS_BUILD_STAMP"];
+export const GATE_ROLLBACK_VARS = ["REIN_CI_GATE", "REIN_BUILD_STAMP"];
 
 function _withoutRollbacks(env) {
   const out = { ...env };
@@ -62,24 +62,24 @@ function _withoutRollbacks(env) {
   return out;
 }
 
-const USAGE = `usage: ai state migrate --team [--trunk <name>] | --legacy
-       ai state import [--dry-run] [--force]
-       ai state parity
-       ai task done <id> [--summary <text>]
-       ai task claim <id>
-       ai task release <id> [--reason <text>]
-       ai task claims [--fetch]
-       ai team add <email> --range <P>:<from>-<to>
-       ai team show
-       ai log path
-       ai log recent [-n <N>]
-       ai trunk [--doctor]`;
+const USAGE = `usage: rein state migrate --team [--trunk <name>] | --legacy
+       rein state import [--dry-run] [--force]
+       rein state parity
+       rein task done <id> [--summary <text>]
+       rein task claim <id>
+       rein task release <id> [--reason <text>]
+       rein task claims [--fetch]
+       rein team add <email> --range <P>:<from>-<to>
+       rein team show
+       rein log path
+       rein log recent [-n <N>]
+       rein trunk [--doctor]`;
 
-/** `ai team add` — appends a range; an overlap with anyone is refused, naming the clash. */
+/** `rein team add` — appends a range; an overlap with anyone is refused, naming the clash. */
 export function runTeamAdd(aiDir, email, spec) {
-  if (!isRecordStore(aiDir)) return { code: 1, out: "ai team: not a team project — run: ai state migrate --team" };
+  if (!isRecordStore(aiDir)) return { code: 1, out: "rein team: not a team project — run: rein state migrate --team" };
   const m = /^([A-Z]{1,4}):(\d+)-(\d+)$/.exec(spec || "");
-  if (!m) return { code: 2, out: "ai team add: --range must look like E:425-524" };
+  if (!m) return { code: 2, out: "rein team add: --range must look like E:425-524" };
   try {
     const existing = readTeam(aiDir);
     const team = existing || newTeam(gitEmail(aiDir), {});
@@ -104,7 +104,7 @@ export function runTeamShow(aiDir) {
   }
 }
 
-/** For `ai pane architect`: one warning line when this git email is not the planner. */
+/** For `rein pane architect`: one warning line when this git email is not the planner. */
 export function runPlannerCheck(aiDir) {
   try {
     const team = readTeam(aiDir);
@@ -118,9 +118,9 @@ export function runPlannerCheck(aiDir) {
 
 /** Never fails: an import runs from git hooks and must not block a pull. @returns {{code:0, out:string}} */
 export function runStateImport(aiDir, { dryRun = false, force = false, hook = null, env = process.env } = {}) {
-  if (hook && env.AI_OS_STATE_IMPORT === "0") {
+  if (hook && env.REIN_STATE_IMPORT === "0") {
     recordToolExecution({ tool_name: "state_import", execution_time_ms: 0, status: "BYPASS", source: "hook" }, { sync: true });
-    return { code: 0, out: `[STATE_IMPORT] skipped (${hook}): AI_OS_STATE_IMPORT=0` };
+    return { code: 0, out: `[STATE_IMPORT] skipped (${hook}): REIN_STATE_IMPORT=0` };
   }
   if (!existsSync(aiDir)) return { code: 0, out: "" };
   try {
@@ -135,8 +135,8 @@ export function runStateImport(aiDir, { dryRun = false, force = false, hook = nu
 }
 
 /**
- * E-344 (D-108 r8): ai doctor's State Health. Observes without seeding; --repair runs the
- * import (never the lossy migrate-state). --short prints only the verdict line (ai-preflight).
+ * E-344 (D-108 r8): rein doctor's State Health. Observes without seeding; --repair runs the
+ * import (never the lossy migrate-state). --short prints only the verdict line (rein-preflight).
  * @returns {{code:0, out:string}}
  */
 export function runStateHealth(aiDir, { repair = false, short = false } = {}) {
@@ -145,9 +145,9 @@ export function runStateHealth(aiDir, { repair = false, short = false } = {}) {
   const lines = short ? [res.lines.at(-1).trim()] : [...res.lines];
   if (repair && res.action === "import") {
     const imp = runStateImport(aiDir, { force: true }).out;
-    lines.push(`  repaired: ai state import${imp ? `\n${imp.split("\n").map((l) => `    ${l}`).join("\n")}` : " (nothing to merge)"}`);
+    lines.push(`  repaired: rein state import${imp ? `\n${imp.split("\n").map((l) => `    ${l}`).join("\n")}` : " (nothing to merge)"}`);
   } else if (repair && res.action === "migrate") {
-    lines.push("  not repaired: rebuilding from TASKS.md loses summaries and stamps — run ai migrate-state yourself");
+    lines.push("  not repaired: rebuilding from TASKS.md loses summaries and stamps — run rein migrate-state yourself");
   }
   return { code: 0, out: lines.join("\n") };
 }
@@ -157,12 +157,12 @@ export function runStateParity(aiDir) {
   if (!existsSync(aiDir) || !isRecordStore(aiDir)) return { code: 0, out: "" };
   const res = checkParity(aiDir, getDbSeeded(aiDir));
   if (res.ok) return { code: 0, out: "" };
-  return { code: 1, out: ["record files and the index disagree:", ...res.lines.map((l) => `  ${l}`), "fix: ai state import"].join("\n") };
+  return { code: 1, out: ["record files and the index disagree:", ...res.lines.map((l) => `  ${l}`), "fix: rein state import"].join("\n") };
 }
 
 /** @returns {{code:number, out:string}} */
 export function runStateMigrate(aiDir, mode, { trunk = null } = {}) {
-  if (!existsSync(aiDir)) return { code: 1, out: `ai state migrate: no .ai/ directory at ${aiDir} — run: ai init` };
+  if (!existsSync(aiDir)) return { code: 1, out: `rein state migrate: no .ai/ directory at ${aiDir} — run: rein init` };
   const res = mode === "--team" ? migrateTeam(aiDir, { trunk }) : migrateLegacy(aiDir);
   if (!res.ok) return { code: 1, out: `✗ [${res.code}] ${res.message}` };
   return { code: 0, out: `✓ ${res.message}` };
@@ -170,7 +170,7 @@ export function runStateMigrate(aiDir, mode, { trunk = null } = {}) {
 
 /** @returns {{code:number, out:string}} */
 export function runTaskDone(aiDir, id, summary, { env = _withoutRollbacks(process.env), buildOpts = {} } = {}) {
-  if (!/^[A-Z]+-\d+$/.test(id || "")) return { code: 2, out: `ai task done: invalid task id ${JSON.stringify(id)}` };
+  if (!/^[A-Z]+-\d+$/.test(id || "")) return { code: 2, out: `rein task done: invalid task id ${JSON.stringify(id)}` };
   const db  = getDbSeeded(aiDir);
   const row = db.prepare("SELECT status FROM tasks WHERE id = ?").get(id);
   if (!row) return { code: 1, out: `✗ ${id} not found in state.` };
@@ -187,21 +187,21 @@ export function runTaskDone(aiDir, id, summary, { env = _withoutRollbacks(proces
   return { code: 0, out: `✓ ${id} → DONE${text ? ": " + text : ""}${unblocked.length ? ` | unblocked: ${unblocked.join(", ")}` : ""}${pub ? ` | ${pub.message}` : ""}` };
 }
 
-/** `ai task claim|release` — @returns {{code:number, out:string}} */
+/** `rein task claim|release` — @returns {{code:number, out:string}} */
 export function runTaskClaim(aiDir, verb, id, reason = null) {
-  if (!existsSync(aiDir)) return { code: 1, out: `ai task ${verb}: no .ai/ directory — run: ai init` };
+  if (!existsSync(aiDir)) return { code: 1, out: `rein task ${verb}: no .ai/ directory — run: rein init` };
   try {
     const res = verb === "claim" ? claimTask(aiDir, id) : releaseTask(aiDir, id, reason);
     if (res.ok) return { code: 0, out: res.message };
     return { code: 1, out: res.message.startsWith("[") ? `✗ ${res.message}` : `✗ [${res.code}] ${res.message}` };
   } catch (e) {
-    return { code: 1, out: `✗ ai task ${verb}: ${String(e.message).replace(/[\r\n]+/g, " ").slice(0, 300)}` };
+    return { code: 1, out: `✗ rein task ${verb}: ${String(e.message).replace(/[\r\n]+/g, " ").slice(0, 300)}` };
   }
 }
 
 /**
- * `ai trunk` — the resolved name on one line (exit 0), else the [NO_TRUNK] line (exit 1).
- * `--doctor` — ai doctor's trunk lines; exit 0 always (advisory).
+ * `rein trunk` — the resolved name on one line (exit 0), else the [NO_TRUNK] line (exit 1).
+ * `--doctor` — rein doctor's trunk lines; exit 0 always (advisory).
  */
 export function runTrunk(root, { doctor = false } = {}) {
   try {
@@ -214,7 +214,7 @@ export function runTrunk(root, { doctor = false } = {}) {
   }
 }
 
-/** `ai task claims [--fetch]` — never fails: it runs at session start. */
+/** `rein task claims [--fetch]` — never fails: it runs at session start. */
 export function runTaskClaims(aiDir, { fetch = false } = {}) {
   if (!existsSync(aiDir)) return { code: 0, out: "" };
   try {
@@ -229,8 +229,8 @@ export function main(argv, cwd = process.cwd()) {
   // build-stamp.mjs reads its switch from process.env directly, so both go from there too.
   for (const k of GATE_ROLLBACK_VARS) delete process.env[k];
   const aiDir = findAiDir(cwd);
-  // E-333 (D-102 §8): where a LOG entry goes (the ai-log skill appends there), and the newest
-  // entries across every developer's file when team.json shared_log is true (ai-preflight).
+  // E-333 (D-102 §8): where a LOG entry goes (the rein-log skill appends there), and the newest
+  // entries across every developer's file when team.json shared_log is true (rein-preflight).
   if (group === "log" && verb === "path" && rest.length === 0) return { code: 0, out: logPath(aiDir) };
   if (group === "log" && verb === "recent" && (rest.length === 0 || (rest.length === 2 && rest[0] === "-n" && /^\d{1,3}$/.test(rest[1])))) {
     return { code: 0, out: recentLog(aiDir, rest.length ? Number(rest[1]) : 5).join("\n") };

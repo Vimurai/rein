@@ -11,7 +11,7 @@
 //
 // Where a stamp may be: the state.sqlite index (or the state.json view when the index is not
 // built yet), the rotated .ai/archive/stamps-*.json, and — in a team project — the record files
-// under .ai/stamps/<YYYY-MM>/, so a teammate's pulled stamp counts before `ai state import`
+// under .ai/stamps/<YYYY-MM>/, so a teammate's pulled stamp counts before `rein state import`
 // has run. A corrupt record is skipped with a warning (it never certifies anything).
 
 import { realpathSync, existsSync, readFileSync, readdirSync } from "node:fs";

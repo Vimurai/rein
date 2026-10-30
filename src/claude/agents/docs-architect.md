@@ -40,7 +40,7 @@ For each doc, check:
 ### README.md
 - [ ] Product description matches `architect.md §1` (product summary).
 - [ ] Listed MCP servers match `.mcp.json` registered servers.
-- [ ] Installation instructions reference `ai install` correctly.
+- [ ] Installation instructions reference `rein install` correctly.
 - [ ] Roles (Architect = Claude on `fable`, Engineer = Claude on `opus`) are described accurately.
 - [ ] No references to deprecated commands or removed features.
 - [ ] Version/sprint references are current.

@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# AI-OS Gate 2 — Quality Gate (pre-commit hook)
+# Rein Gate 2 — Quality Gate (pre-commit hook)
 # Logic: Block git commit unless a [CRITIC_STAMP] exists for the commit's parent HEAD (E-329);
 #        a bookkeeping-only commit (every staged path on the .ai/ bookkeeping allowlist) needs none.
-# Action: Print the 'ai review claude' critic prompt and exit 1.
-# Install: ai init copies this to .git/hooks/pre-commit in the project repo.
+# Action: Print the 'rein review claude' critic prompt and exit 1.
+# Install: rein init copies this to .git/hooks/pre-commit in the project repo.
 
 # ── E-292 (D-082 r2): an ABORTED gate is a BLOCKED call ─────────────────────────────
 # git blocks on any non-zero exit, but an abort (unbound variable = 1, syntax error = 258)
@@ -11,8 +11,8 @@
 # executable line (builtins only; the prologue's `unset -f` cannot delete it). A deliberate
 # exit is `exit` with this hook's own codes (0 allow, 1 block); anything else is an abort and
 # exits 2 with one line. The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_aios_rc=$?; trap - EXIT; case "$_aios_rc:$BASH_COMMAND" in 0:*|1:exit|1:exit[[:space:]]*) exit "$_aios_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-commit aborted (rc %s near line %s) — run: ai doctor\n" "$_aios_rc" "$LINENO" >&2; exit 2' EXIT
-trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-commit interrupted by a signal — run: ai doctor\n" >&2; exit 2' TERM HUP INT PIPE
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*|1:exit|1:exit[[:space:]]*) exit "$_rein_rc" ;; esac; printf "[GATE_INTERNAL_ERROR] pre-commit aborted (rc %s near line %s) — run: rein doctor\n" "$_rein_rc" "$LINENO" >&2; exit 2' EXIT
+trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-commit interrupted by a signal — run: rein doctor\n" >&2; exit 2' TERM HUP INT PIPE
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -22,17 +22,17 @@ trap 'trap "" PIPE; printf "[GATE_INTERNAL_ERROR] pre-commit interrupted by a si
 # variables). See src/shared/toolchain-pin.sh.
 unset -f $(compgen -A function) 2>/dev/null
 for _v in $(compgen -e); do
-  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|AI_OS_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
+  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
 done
 PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin"
-for _p in "${HOME}/.ai-os/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
+for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
   [[ -f "$_p" ]] && { . "$_p"; break; }
 done
 unset _v _p
 
 # ── E-223 (D-057 §3): install-first helper resolution ────────────────────────
 # The locators below used to start at "$(git rev-parse --show-toplevel)/src/...", which
-# names the USER's repository, not the AI-OS install. Any project containing
+# names the USER's repository, not the Rein install. Any project containing
 # src/mcp/safe-exec-mcp/index.js had THAT file executed by node from inside this hook,
 # with its stdout trusted to decide whether a write is allowed — cloning a repo was
 # enough to run its code and disable the gate meant to stop it.
@@ -40,34 +40,34 @@ unset _v _p
 # Bootstrapping the shared resolver must not repeat the mistake, so it is install-mirror
 # first and script-relative second — never the visited repo.
 # The env here may have been chosen by the repo we are visiting (a project's
-# .claude/settings.json `env` block is inherited by hooks), so AI_OS_HOME is NOT read:
+# .claude/settings.json `env` block is inherited by hooks), so REIN_HOME is NOT read:
 # pointing it at a decoy made this bootstrap SOURCE the decoy's own locate.sh, i.e.
 # arbitrary shell inside a fail-closed gate. Assigned here, in the hook's own text, so it
 # overrides anything inherited.
-# Exported so a child process — an `ai` subcommand spawned from this hook — inherits
+# Exported so a child process — a `rein` subcommand spawned from this hook — inherits
 # the same judgement rather than defaulting back to trusting the environment.
-export AI_OS_LOCATE_UNTRUSTED_ENV=1
-_AI_OS_HOME_DIR="${HOME}/.ai-os"
-# The guard below asks `declare -f ai_os_locate`, which means "is a name defined", NOT
+export REIN_LOCATE_UNTRUSTED_ENV=1
+_REIN_HOME_DIR="${HOME}/.rein"
+# The guard below asks `declare -f rein_locate`, which means "is a name defined", NOT
 # "did my source succeed". bash imports exported functions from the environment at
-# startup, so an inherited `ai_os_locate` satisfies it, the safe inline fallback is never
+# startup, so an inherited `rein_locate` satisfies it, the safe inline fallback is never
 # installed, and the attacker's function IS the resolver — reachable whenever
 # shared/locate.sh is absent, i.e. exactly the degraded install the fallback exists for.
-unset -f ai_os_locate ai_os_locate_enable_dev_tree ai_os_is_framework_clone 2>/dev/null || true
-for _l in "${_AI_OS_HOME_DIR}/shared/locate.sh" \
+unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null || true
+for _l in "${_REIN_HOME_DIR}/shared/locate.sh" \
           "$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd)/../src/shared/locate.sh"; do
   [[ -f "$_l" ]] && { . "$_l"; break; }
 done
 # Fail-open: these hooks must still run without the resolver (a missing helper is a
 # degraded gate, an aborted hook is a broken session). The fallback is the install
 # mirror alone — it never falls back to the visited repo.
-if ! declare -f ai_os_locate >/dev/null 2>&1; then
-  ai_os_locate() { local _c="${_AI_OS_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
+if ! declare -f rein_locate >/dev/null 2>&1; then
+  rein_locate() { local _c="${_REIN_HOME_DIR}/${1}"; [[ -f "$_c" ]] && { printf '%s' "$_c"; return 0; }; return 1; }
 fi
 
 AI_DIR="$(git rev-parse --show-toplevel 2>/dev/null)/.ai"
 
-# Not an AI-OS project — skip gate entirely
+# Not a Rein project — skip gate entirely
 [[ -d "$AI_DIR" ]] || exit 0
 
 # ── E-329 (D-102 §Component 6): a [CRITIC_STAMP] is bound to a commit ───────────────────
@@ -95,9 +95,9 @@ check_critic_stamp_for_head() {
     GATE2_WHY="[GATE2] HEAD is not a commit in a repository that has history (an orphan branch?) — a review cannot be bound to it"
     return 1
   fi
-  helper="$(ai_os_locate shared/stamp-gate.mjs 2>/dev/null || true)"
+  helper="$(rein_locate shared/stamp-gate.mjs 2>/dev/null || true)"
   if [[ -z "$helper" ]] || ! command -v node >/dev/null 2>&1; then
-    GATE2_WHY="shared/stamp-gate.mjs or node unavailable — run: bash install-ai-os.sh"
+    GATE2_WHY="shared/stamp-gate.mjs or node unavailable — run: bash install-rein.sh"
     return 1
   fi
   out="$(node --no-warnings "$helper" --ai-dir "$AI_DIR" --sha "$GATE2_HEAD")"; rc=$?
@@ -176,7 +176,7 @@ _conflict_marker_gate() {
     echo "  A conflicted merge/rebase/stash was staged without being resolved." >&2
     echo "  Open each file above, resolve it, and stage the NAMED paths (not 'git add -A')." >&2
     echo "  D-062: move bookkeeping between branches by commit + cherry-pick, never stash." >&2
-    echo "  Rollback (only if you are certain): AI_OS_SKIP_CONFLICT_GATE=1" >&2
+    echo "  Rollback (only if you are certain): REIN_SKIP_CONFLICT_GATE=1" >&2
     return 1
   fi
   return 0
@@ -209,13 +209,13 @@ except Exception as e:
     echo "" >&2
     echo "  .ai/*.json is machine state — an unparseable file breaks every task read and" >&2
     echo "  fails a fresh clone outright (D-062; master carried invalid JSON for 4 commits)." >&2
-    echo "  Rollback (only if you are certain): AI_OS_SKIP_CONFLICT_GATE=1" >&2
+    echo "  Rollback (only if you are certain): REIN_SKIP_CONFLICT_GATE=1" >&2
     return 1
   fi
   return 0
 }
 
-if [[ "${AI_OS_SKIP_CONFLICT_GATE:-0}" != "1" ]]; then
+if [[ "${REIN_SKIP_CONFLICT_GATE:-0}" != "1" ]]; then
   echo "Conflict-marker + .ai JSON gate (E-238)..."
   _cm_ok=0
   _conflict_marker_gate || _cm_ok=1
@@ -227,7 +227,7 @@ if [[ "${AI_OS_SKIP_CONFLICT_GATE:-0}" != "1" ]]; then
   echo "  ✓ no conflict markers; staged .ai/*.json parses"
 else
   # D-087 r3: a kept opt-out is a recorded residual, and it is LOUD when honoured.
-  echo "[GATE_SKIPPED] AI_OS_SKIP_CONFLICT_GATE=1 — conflict-marker + .ai JSON gate (E-238) skipped for this commit" >&2
+  echo "[GATE_SKIPPED] REIN_SKIP_CONFLICT_GATE=1 — conflict-marker + .ai JSON gate (E-238) skipped for this commit" >&2
 fi
 
 # ── E-378 (D-129 §Component 9): the public repository's privacy gate (BLOCKING) ──
@@ -238,16 +238,16 @@ fi
 # Active when the work tree, the index or HEAD carries the marker: deleting it from the work
 # tree does not turn the gate off, and staging its deletion is refused by the gate itself.
 if [[ -f "${AI_DIR}/publish.json" ]] || git cat-file -e :.ai/publish.json 2>/dev/null || git cat-file -e HEAD:.ai/publish.json 2>/dev/null; then
-  _e378_ps="$(ai_os_locate shared/publish-scan.mjs 2>/dev/null || true)"
+  _e378_ps="$(rein_locate shared/publish-scan.mjs 2>/dev/null || true)"
   if [[ -z "$_e378_ps" ]] || ! command -v node >/dev/null 2>&1; then
-    echo "[COMMIT_BLOCKED] [PUBLISH_GATE] shared/publish-scan.mjs or node unavailable — run: bash install-ai-os.sh" >&2
+    echo "[COMMIT_BLOCKED] [PUBLISH_GATE] shared/publish-scan.mjs or node unavailable — run: bash install-rein.sh" >&2
     exit 1
   fi
   # The helper must say [PRIVACY_GATE_OK]: an older helper without this subcommand, or one that
   # ran nothing, exits without it and is a refusal (security_engineer E-378 P0-3).
   _e378_out="$(node --no-warnings "$_e378_ps" precommit "${AI_DIR%/.ai}")" || exit 1
   if [[ "$_e378_out" != "[PRIVACY_GATE_OK]"* ]]; then
-    echo "[COMMIT_BLOCKED] [PUBLISH_GATE] the privacy gate gave no verdict — run: bash install-ai-os.sh" >&2
+    echo "[COMMIT_BLOCKED] [PUBLISH_GATE] the privacy gate gave no verdict — run: bash install-rein.sh" >&2
     exit 1
   fi
   echo "  ✓ privacy gate: staged files clean, public identity"
@@ -257,16 +257,16 @@ fi
 # A team project's views are generated and untracked, so the checks below have nothing to
 # say about it; what must hold is that every task record file agrees with state.sqlite.
 # After a pull the post-merge hook has already imported them; when it has not (hooks not
-# installed, AI_OS_STATE_IMPORT=0) the commit stops and names the one command that fixes it.
+# installed, REIN_STATE_IMPORT=0) the commit stops and names the one command that fixes it.
 check_record_parity() {
   local cs out
-  cs="$(ai_os_locate shared/cli-state.mjs || true)"
+  cs="$(rein_locate shared/cli-state.mjs || true)"
   if [[ -z "$cs" ]] || ! command -v node >/dev/null 2>&1; then
-    echo "[AI-OS GATE 2] team project but cli-state.mjs (or node) is missing — run: bash install-ai-os.sh" >&2
+    echo "[Rein GATE 2] team project but cli-state.mjs (or node) is missing — run: bash install-rein.sh" >&2
     exit 1   # fail closed: a gate whose helper is missing does not wave commits through
   fi
   if ! out="$(cd "${AI_DIR%/.ai}" && node --no-warnings "$cs" state parity 2>&1)"; then
-    printf '\n[AI-OS GATE 2] SYNC GATE — COMMIT BLOCKED\n%s\n\n' "$out" >&2
+    printf '\n[Rein GATE 2] SYNC GATE — COMMIT BLOCKED\n%s\n\n' "$out" >&2
     exit 1
   fi
 }
@@ -283,12 +283,12 @@ check_markdown_sync() {
     cat >&2 <<'SYNC_BLOCK'
 
 ╔══════════════════════════════════════════════════════════════════════════╗
-║  AI-OS GATE 2: SYNC GATE — COMMIT BLOCKED                              ║
+║  Rein GATE 2: SYNC GATE — COMMIT BLOCKED                              ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║  TASKS.md is missing the generated header.                              ║
 ║  It may have been hand-edited, violating the Read-Only contract.        ║
 ║                                                                          ║
-║  Fix: run `ai migrate-state --force` to regenerate TASKS.md from        ║
+║  Fix: run `rein migrate-state --force` to regenerate TASKS.md from        ║
 ║       state.json, then re-stage and commit.                              ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
@@ -311,13 +311,13 @@ SYNC_BLOCK
           cat >&2 <<'REVIEWS_BLOCK'
 
 ╔══════════════════════════════════════════════════════════════════════════╗
-║  AI-OS GATE 2: SYNC GATE — COMMIT BLOCKED                              ║
+║  Rein GATE 2: SYNC GATE — COMMIT BLOCKED                              ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║  REVIEWS.md is missing the generated header but state.json has stamps.  ║
 ║  REVIEWS.md may have been hand-edited, violating the Read-Only contract.║
 ║                                                                          ║
 ║  Fix: regenerate REVIEWS.md via task-synchronizer-mcp::writeState, or   ║
-║       run `ai migrate-state --force` to resync, then re-stage + commit. ║
+║       run `rein migrate-state --force` to resync, then re-stage + commit. ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
 REVIEWS_BLOCK
@@ -330,12 +330,12 @@ REVIEWS_BLOCK
           cat >&2 <<'APPEND_BLOCK'
 
 ╔══════════════════════════════════════════════════════════════════════════╗
-║  AI-OS GATE 2: SYNC GATE — COMMIT BLOCKED                              ║
+║  Rein GATE 2: SYNC GATE — COMMIT BLOCKED                              ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║  REVIEWS.md has manually-appended sections (## headings detected).      ║
 ║  D-001: REVIEWS.md is a generated view — direct edits are forbidden.   ║
 ║                                                                          ║
-║  Fix: run `ai migrate-state --force` to regenerate REVIEWS.md from      ║
+║  Fix: run `rein migrate-state --force` to regenerate REVIEWS.md from      ║
 ║       state.json and remove hand-appended content. Then re-stage.       ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
@@ -369,7 +369,7 @@ check_architect_src_comodification() {
     fi
     cat >&2 <<'ARCH_WARN'
 
-⚠  AI-OS GATE 2: ARCHITECT CO-MODIFICATION WARNING
+⚠  Rein GATE 2: ARCHITECT CO-MODIFICATION WARNING
    Both src/ and .ai/architect.md are staged in the same commit.
    This may indicate the Engineer rewrote the blueprint to match flawed logic (§35).
 
@@ -385,7 +385,7 @@ check_architect_src_comodification
 
 # ── E-33: Registry drift guard ───────────────────────────────────────────────
 # Root cause of 2026-04-27 audit: src/config/registry.json gained a new MCP but
-# ~/.ai-os/config/registry.json was never refreshed, so `ai sync` regenerated
+# ~/.rein/config/registry.json was never refreshed, so `rein sync` regenerated
 # .mcp.json from a stale registry and silently dropped the server.
 # Run the targeted drift suite only when registry-relevant files are staged.
 check_registry_sync() {
@@ -395,7 +395,7 @@ check_registry_sync() {
   local touches_registry=0
   while IFS= read -r f; do
     case "$f" in
-      src/config/registry.json|src/templates/.mcp.json|install-ai-os.sh|src/bin/ai)
+      src/config/registry.json|src/templates/.mcp.json|install-rein.sh|src/bin/rein)
         touches_registry=1
         ;;
     esac
@@ -406,7 +406,7 @@ check_registry_sync() {
   local repo_root
   repo_root="$(git rev-parse --show-toplevel 2>/dev/null)"
   # E-302: the drift checks moved from tests/suites/registry_sync_test.sh into one file the
-  # hook runs and ai_sync_test sources. A project that is not AI-OS itself has neither.
+  # hook runs and rein_sync_test sources. A project that is not Rein itself has neither.
   local suite="${repo_root}/tests/tools/registry-drift.sh"
   [[ -f "$suite" ]] || return 0  # checker missing — nothing to enforce
 
@@ -415,13 +415,13 @@ check_registry_sync() {
     cat >&2 <<REGISTRY_BLOCK
 
 ╔══════════════════════════════════════════════════════════════════════════╗
-║  AI-OS GATE 2: REGISTRY DRIFT — COMMIT BLOCKED                         ║
+║  Rein GATE 2: REGISTRY DRIFT — COMMIT BLOCKED                         ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║  registry-drift.sh failed. The local registry, template .mcp.json,      ║
 ║  or installer is out of sync — shipping this commit would reproduce     ║
 ║  the 2026-04-27 silent-drop class of regression.                         ║
 ║                                                                          ║
-║  Fix: run \`bash install-ai-os.sh\` to refresh ~/.ai-os/config/registry, ║
+║  Fix: run \`bash install-rein.sh\` to refresh ~/.rein/config/registry, ║
 ║       then re-run \`bash tests/tools/registry-drift.sh\` locally.       ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
@@ -452,7 +452,7 @@ check_mcp_stdout_purity() {
     cat >&2 <<MCP_PURITY_BLOCK
 
 ╔══════════════════════════════════════════════════════════════════════════╗
-║  AI-OS GATE 2: MCP STDOUT PURITY — COMMIT BLOCKED                      ║
+║  Rein GATE 2: MCP STDOUT PURITY — COMMIT BLOCKED                      ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║  Newly added console.log / console.info found in src/mcp/.              ║
 ║  MCP servers must keep stdout reserved for JSON-RPC traffic; logging    ║
@@ -477,7 +477,7 @@ check_mcp_stdout_purity
 # encapsulates every rule (file size, mcp stdout purity, secrets, tmp-cruft,
 # kebab-case naming, shared-helper reuse) defined in src/shared/standards.json.
 #
-# Honors the blueprint §Rollback Plan escape hatch: AI_OS_SKIP_STANDARDS=1
+# Honors the blueprint §Rollback Plan escape hatch: REIN_SKIP_STANDARDS=1
 # bypasses the gate (the CLI itself also handles this; we short-circuit
 # here to skip the subprocess fork entirely).
 #
@@ -487,8 +487,8 @@ check_standards_gate() {
   # Rollback flag — silent skip (CLI prints its own STANDARDS_SKIPPED notice
   # when invoked with the flag, but we don't need to spawn the subprocess
   # at all if it's set).
-  if [[ "${AI_OS_SKIP_STANDARDS:-0}" == "1" ]]; then
-    echo "[GATE_SKIPPED] AI_OS_SKIP_STANDARDS=1 — engineering-standards gate skipped for this commit (D-087 r3 residual)" >&2
+  if [[ "${REIN_SKIP_STANDARDS:-0}" == "1" ]]; then
+    echo "[GATE_SKIPPED] REIN_SKIP_STANDARDS=1 — engineering-standards gate skipped for this commit (D-087 r3 residual)" >&2
     return 0
   fi
 
@@ -506,8 +506,8 @@ check_standards_gate() {
   local cli=""
   if [[ -f "${repo_root}/scripts/standards.mjs" ]]; then
     cli="${repo_root}/scripts/standards.mjs"
-  elif [[ -f "${HOME}/.ai-os/scripts/standards.mjs" ]]; then
-    cli="${HOME}/.ai-os/scripts/standards.mjs"
+  elif [[ -f "${HOME}/.rein/scripts/standards.mjs" ]]; then
+    cli="${HOME}/.rein/scripts/standards.mjs"
   else
     # Pre-E-80 install: gate not yet wired. Skip rather than fail.
     return 0
@@ -526,7 +526,7 @@ check_standards_gate() {
   cat >&2 <<'STANDARDS_BLOCK'
 
 ╔══════════════════════════════════════════════════════════════════════════╗
-║  AI-OS GATE 2: ENGINEERING-STANDARDS — COMMIT BLOCKED                  ║
+║  Rein GATE 2: ENGINEERING-STANDARDS — COMMIT BLOCKED                  ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║  scripts/standards.mjs flagged one or more error-severity violations    ║
 ║  in the staged diff. The full report follows.                            ║
@@ -541,7 +541,7 @@ check_standards_gate() {
 ║    • Strip leaked secret patterns (AWS / Stripe / Slack / GitHub PATs / ║
 ║      PRIVATE KEY blocks).                                                ║
 ║                                                                          ║
-║  Rollback (last resort): re-run with AI_OS_SKIP_STANDARDS=1.            ║
+║  Rollback (last resort): re-run with REIN_SKIP_STANDARDS=1.            ║
 ╚══════════════════════════════════════════════════════════════════════════╝
 
 STANDARDS_BLOCK
@@ -565,13 +565,13 @@ check_standards_gate
 #      (CLAUDE_CODE_SESSION_ID=<theirs> git commit) verifies nothing (T-GITLANE-001 r2, closed).
 #   2. A live launch record on THIS process's ancestor chain (launch-record.py walk) →
 #      `chain:<most restricted role>`. Restrict-only, and it needs no environment at all, so
-#      clearing the session id no longer drops an `ai pane` session out of its lane.
+#      clearing the session id no longer drops a `rein pane` session out of its lane.
 #   3. A session id that is present but does not verify → `union:architect` — the lane
 #      restriction applies, no waiver.
 #   4. The advisory env (restrict-only), then `engineer` — the operator's own terminal (no
 #      session id, no record) keeps today's behaviour.
 #
-# Residual (D-087 r3): AI_OS_SKIP_GIT_LANE=1 skips the lane — same strength as --no-verify
+# Residual (D-087 r3): REIN_SKIP_GIT_LANE=1 skips the lane — same strength as --no-verify
 # (D-081 r5) — and says so on stderr.
 ARCHITECT_SCOPED=0
 
@@ -587,14 +587,14 @@ ARCHITECT_SCOPED=0
 # act only on a verified record, because the waiver is a hole in the Engineer's own quality
 # gate: `.ai/` contains REVIEWS.md — the very file Gate 2 reads.
 _resolve_commit_role() {
-  if [[ "${AI_OS_SKIP_GIT_LANE:-0}" == "1" ]]; then
-    echo "[GATE_SKIPPED] AI_OS_SKIP_GIT_LANE=1 — Architect git lane skipped for this commit (D-087 r3 residual)" >&2
+  if [[ "${REIN_SKIP_GIT_LANE:-0}" == "1" ]]; then
+    echo "[GATE_SKIPPED] REIN_SKIP_GIT_LANE=1 — Architect git lane skipped for this commit (D-087 r3 residual)" >&2
     printf 'env:engineer'; return 0
   fi
 
   local se sid role lr walk
   sid="${CLAUDE_CODE_SESSION_ID:-}"
-  se="$(ai_os_locate mcp/safe-exec-mcp/index.js || true)"
+  se="$(rein_locate mcp/safe-exec-mcp/index.js || true)"
   # 1. Verified session token — the ONLY source that may unlock the stamp waiver.
   if [[ -n "$sid" && -n "$se" && -f "$se" ]] && command -v node >/dev/null 2>&1; then
     role="$(node --no-warnings "$se" --verify-role "$sid" 2>/dev/null)" && [[ -n "$role" ]] && {
@@ -602,7 +602,7 @@ _resolve_commit_role() {
   fi
 
   # 2. A live launch record on this process chain — most restricted wins, restrict-only.
-  lr="$(ai_os_locate shared/launch-record.py || true)"
+  lr="$(rein_locate shared/launch-record.py || true)"
   if [[ -n "$lr" ]] && command -v python3 >/dev/null 2>&1; then
     walk="$(python3 -I "$lr" walk 2>/dev/null)"
     case "$walk" in
@@ -621,8 +621,8 @@ _resolve_commit_role() {
   # 4. Advisory env (restrict-only), then the default — unchanged Engineer behaviour.
   # Normalised like the lane's own comparison (E-214.10h): `Architect` or `architect ` restricts too.
   local _pr _cr
-  _pr="$(printf '%s' "${AI_OS_PANE_ROLE:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
-  _cr="$(printf '%s' "${AI_OS_CALLER_ROLE:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+  _pr="$(printf '%s' "${REIN_PANE_ROLE:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
+  _cr="$(printf '%s' "${REIN_CALLER_ROLE:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
   if [[ "$_pr" == "architect" || "$_cr" == "architect" ]]; then
     printf 'env:architect'; return 0
   fi
@@ -656,7 +656,7 @@ check_architect_git_lane() {
       echo ""
       echo "[GIT_LANE] Could not read the staged file list (git diff failed)."
       echo "Blocking rather than assuming the commit is in scope (fail-closed)."
-      echo "Rollback (only if you are certain): AI_OS_SKIP_GIT_LANE=1 git commit ..."
+      echo "Rollback (only if you are certain): REIN_SKIP_GIT_LANE=1 git commit ..."
     } >&2
     exit 1
   fi
@@ -714,10 +714,10 @@ check_architect_git_lane() {
       printf '%s' "$out_of_scope"
       echo ""
       echo "The Architect designs; the Engineer implements (§35 ANTI-DRIFT, D-054)."
-      echo "Hand the change list to the Engineer:  skill: ai-handoff (wakes it with SendMessage, D-099)"
+      echo "Hand the change list to the Engineer:  skill: rein-handoff (wakes it with SendMessage, D-099)"
       echo "Then unstage the out-of-scope paths:   git restore --staged <path>"
       echo ""
-      echo "Rollback (only if you are certain): AI_OS_SKIP_GIT_LANE=1 git commit ..."
+      echo "Rollback (only if you are certain): REIN_SKIP_GIT_LANE=1 git commit ..."
     } >&2
     exit 1
   fi
@@ -735,7 +735,7 @@ check_architect_git_lane() {
     echo "  from the environment rather than a verified session record, so no waiver: the" >&2
     echo "  [CRITIC_STAMP] requirement still applies to a plans/ path (D-055 R4); a commit of .ai/" >&2
     echo "  alone is bookkeeping (E-329). The path restriction was enforced either way." >&2
-    echo "  Start the pane with \`ai pane architect\` so the role is minted and verifiable." >&2
+    echo "  Start the pane with \`rein pane architect\` so the role is minted and verifiable." >&2
   fi
 }
 
@@ -759,7 +759,7 @@ fi
 cat >&2 <<'GATE'
 
 ╔══════════════════════════════════════════════════════════════════════════╗
-║  AI-OS GATE 2: QUALITY GATE — COMMIT BLOCKED                           ║
+║  Rein GATE 2: QUALITY GATE — COMMIT BLOCKED                           ║
 ╠══════════════════════════════════════════════════════════════════════════╣
 ║  No [CRITIC_STAMP] for this commit's parent HEAD (E-329).                ║
 ║                                                                          ║

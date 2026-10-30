@@ -5,17 +5,17 @@
 #
 # E-81 critic_clean_code persona: verifies src/claude/agents/critic_clean_code.md against the contract in
 # .ai/blueprints/engineering-standards.md §Components 2 and the integration
-# pattern documented in src/claude/skills/ai-review/SKILL.md:
+# pattern documented in src/claude/skills/rein-review/SKILL.md:
 #
 #   - Persona file exists with parseable YAML frontmatter
 #   - Persona invokes scripts/standards.mjs (the E-80 CLI) — single source
 #     of truth, never re-implements the rule logic
 #   - Persona stamps via task-synchronizer-mcp::add_stamp (never writes
 #     REVIEWS.md directly) using CLEAN_PASS / CLEAN_WARN / CLEAN_FAIL types
-#   - ai-review SKILL.md Tier 2 + Tier 3 sections wire the persona in
-#   - AI_OS_SKIP_STANDARDS=1 rollback path documented in the persona
+#   - rein-review SKILL.md Tier 2 + Tier 3 sections wire the persona in
+#   - REIN_SKIP_STANDARDS=1 rollback path documented in the persona
 #   - Severity ladder + verdict table match the E-80 envelope schema
-#   - Mirrors byte-identical to .claude/ + ~/.ai-os/claude/
+#   - Mirrors byte-identical to .claude/ + ~/.rein/claude/
 
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -24,10 +24,10 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PERSONA_SRC="${REPO_ROOT}/src/claude/agents/critic_clean_code.md"
 PERSONA_CLD="${REPO_ROOT}/.claude/agents/critic_clean_code.md"
-PERSONA_MIRROR="${HOME}/.ai-os/claude/agents/critic_clean_code.md"
-REVIEW_SRC="${REPO_ROOT}/src/claude/skills/ai-review/SKILL.md"
-REVIEW_CLD="${REPO_ROOT}/.claude/skills/ai-review/SKILL.md"
-REVIEW_MIRROR="${HOME}/.ai-os/claude/skills/ai-review/SKILL.md"
+PERSONA_MIRROR="${HOME}/.rein/claude/agents/critic_clean_code.md"
+REVIEW_SRC="${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md"
+REVIEW_CLD="${REPO_ROOT}/.claude/skills/rein-review/SKILL.md"
+REVIEW_MIRROR="${HOME}/.rein/claude/skills/rein-review/SKILL.md"
 
 echo "── Suite: agent_contracts_test ──────────────────────────────────────"
 
@@ -56,8 +56,8 @@ assert_status 0 "persona references scripts/standards.mjs" \
   grep -q 'scripts/standards.mjs' "$PERSONA_SRC"
 assert_status 0 "persona uses --staged + --json envelope" \
   grep -q 'check --staged --json' "$PERSONA_SRC"
-assert_status 0 "persona documents the locator chain (in-tree + ~/.ai-os fallback)" \
-  grep -qE '\$\{HOME\}/.ai-os/scripts/standards.mjs|HOME.*ai-os' "$PERSONA_SRC"
+assert_status 0 "persona documents the locator chain (in-tree + ~/.rein fallback)" \
+  grep -qE '\$\{HOME\}/.rein/scripts/standards.mjs|HOME.*rein' "$PERSONA_SRC"
 assert_status 0 "persona references standards.json (rule registry)" \
   grep -q 'standards.json' "$PERSONA_SRC"
 assert_status 0 "persona reads the engineering-standards blueprint" \
@@ -92,9 +92,9 @@ assert_status 0 "CLEAN_FAIL is the COMMIT BLOCKED signal" \
 
 # ── T-CCC-S05: Rollback path documented per blueprint §Rollback Plan ───────
 echo ""
-echo "  [T-CCC-S05] AI_OS_SKIP_STANDARDS=1 escape hatch documented"
+echo "  [T-CCC-S05] REIN_SKIP_STANDARDS=1 escape hatch documented"
 
-assert_status 0 "rollback flag named verbatim"       grep -q 'AI_OS_SKIP_STANDARDS=1' "$PERSONA_SRC"
+assert_status 0 "rollback flag named verbatim"       grep -q 'REIN_SKIP_STANDARDS=1' "$PERSONA_SRC"
 assert_status 0 "STANDARDS_SKIPPED marker referenced" grep -q 'STANDARDS_SKIPPED' "$PERSONA_SRC"
 assert_status 0 "skip-path still emits a stamp"      \
   bash -c "awk '/^## Rollback/{f=1; next} /^## /{f=0} f' '$PERSONA_SRC' | grep -q 'add_stamp'"
@@ -111,9 +111,9 @@ assert_status 0 "preflight reads standards.json registry" \
 assert_status 0 "no-staged-surface short-circuit documented" \
   grep -qE 'no staged surface|no staged changes' "$PERSONA_SRC"
 
-# ── T-CCC-S07: ai-review SKILL.md wires critic_clean_code at Tier 2 + Tier 3 ─
+# ── T-CCC-S07: rein-review SKILL.md wires critic_clean_code at Tier 2 + Tier 3 ─
 echo ""
-echo "  [T-CCC-S07] ai-review skill invokes critic_clean_code in Tier 2 + Tier 3"
+echo "  [T-CCC-S07] rein-review skill invokes critic_clean_code in Tier 2 + Tier 3"
 
 # Tier 2 block — between '## Tier 2' and '## Tier 3'.
 assert_status 0 "Tier 2 section spawns critic_clean_code" \
@@ -129,21 +129,21 @@ assert_status 0 "Tier 3 spawns critic_clean_code" \
 assert_status 0 "Tier 3 expected-stamps list mentions CLEAN_*" \
   bash -c "awk '/^## Tier 3/{f=1} f' '$REVIEW_SRC' | grep -qE 'CLEAN_PASS/WARN/FAIL'"
 
-# ── T-CCC-S08: ~/.ai-os mirrors byte-identical ──────────────────────────────
+# ── T-CCC-S08: ~/.rein mirrors byte-identical ──────────────────────────────
 echo ""
 echo "  [T-CCC-S08] Mirrors match src/"
 
 assert_status 0 "persona .claude/ mirror"      diff -q "$PERSONA_SRC" "$PERSONA_CLD"
 if [[ -f "$PERSONA_MIRROR" ]]; then
-  assert_status 0 "persona ~/.ai-os/ mirror"   diff -q "$PERSONA_SRC" "$PERSONA_MIRROR"
+  assert_status 0 "persona ~/.rein/ mirror"   diff -q "$PERSONA_SRC" "$PERSONA_MIRROR"
 else
-  echo "    ⚠  persona ~/.ai-os/ mirror absent — skipping"
+  echo "    ⚠  persona ~/.rein/ mirror absent — skipping"
 fi
-assert_status 0 "ai-review .claude/ mirror"   diff -q "$REVIEW_SRC" "$REVIEW_CLD"
+assert_status 0 "rein-review .claude/ mirror"   diff -q "$REVIEW_SRC" "$REVIEW_CLD"
 if [[ -f "$REVIEW_MIRROR" ]]; then
-  assert_status 0 "ai-review ~/.ai-os/ mirror" diff -q "$REVIEW_SRC" "$REVIEW_MIRROR"
+  assert_status 0 "rein-review ~/.rein/ mirror" diff -q "$REVIEW_SRC" "$REVIEW_MIRROR"
 else
-  echo "    ⚠  ai-review ~/.ai-os/ mirror absent — skipping"
+  echo "    ⚠  rein-review ~/.rein/ mirror absent — skipping"
 fi
 
 # ── T-CCC-S09: Reference resolution — critic_clean_code points to E-80 files ─
@@ -167,7 +167,7 @@ echo ""
 
 # ── E-149..E-152 (from specialist_agents_test — E-302): the four specialist agents ──
 # (performance_engineer, db_architect, dependency_manager, sre_responder) + their
-# skills (ai-profile, ai-migration, ai-upgrade, ai-triage), authored per the new
+# skills (rein-profile, rein-migration, rein-upgrade, rein-triage), authored per the new
 # .ai/blueprints/*.md. Verifies each persona/skill exists with a matching `name:`
 # and carries its blueprint safety invariant. (E-254 removed the separate agent plugin;
 # src/claude/agents/ is the only agent tree.)
@@ -181,7 +181,7 @@ for a in performance_engineer db_architect dependency_manager sre_responder; do
 done
 
 # ── Skills: file exists, name matches ────────────────────────────────────────
-for s in ai-profile ai-migration ai-upgrade ai-triage; do
+for s in rein-profile rein-migration rein-upgrade rein-triage; do
   f="${REPO_ROOT}/src/shared/skills/${s}/SKILL.md"
   assert_status 0 "skill ${s}: SKILL.md exists" test -f "$f"
   assert_contains "skill ${s}: frontmatter name matches" "$s" "$(name_of "$f")"
@@ -304,7 +304,7 @@ assert_status 0 ".claude mirror matches src" \
 
 echo ""
 echo "  [T-SECENG-S11] settings.json no longer grants the retired sandbox tool (E-278)"
-# E-290: .claude/settings.json is generated (gitignored) — read the one `ai sync` writes.
+# E-290: .claude/settings.json is generated (gitignored) — read the one `rein sync` writes.
 source "${SCRIPT_DIR}/../lib/generated-settings.sh"
 _GEN_DIR="$(mktemp -d)"; on_exit "rm -rf '$_GEN_DIR'"
 GEN_SETTINGS="$(gen_project_settings "$_GEN_DIR/proj")"
@@ -320,13 +320,13 @@ assert_status 1 "the generated .claude/settings.json has no execute_code allow" 
 ctx() { grep -E '^context:' "$1" 2>/dev/null | head -1 | awk '{print $2}'; }
 
 # ── Operational skills run in-thread (context: default) — source + .claude exec copy
-for s in ai-digest trigger-audit ai-sync-state; do
+for s in rein-digest trigger-audit rein-sync-state; do
   assert_contains "T-100: $s source is default" "default" "$(ctx "${REPO_ROOT}/src/shared/skills/$s/SKILL.md")"
   assert_contains "T-100: $s .claude exec copy is default" "default" "$(ctx "${REPO_ROOT}/.claude/skills/$s/SKILL.md")"
 done
 
 # ── Review/audit orchestrators legitimately keep context: fork ───────────────
-assert_contains "T-100: ai-review stays fork (review orchestrator)" "fork" "$(ctx "${REPO_ROOT}/src/claude/skills/ai-review/SKILL.md")"
+assert_contains "T-100: rein-review stays fork (review orchestrator)" "fork" "$(ctx "${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md")"
 assert_contains "T-100: architectural-aligner stays fork" "fork" "$(ctx "${REPO_ROOT}/src/claude/skills/architectural-aligner/SKILL.md")"
 
 # ── Critic personas (agents) legitimately keep fork (parallel-spawnable) ─────
@@ -342,7 +342,7 @@ local_hits=$(cd "$REPO_ROOT" && printf '%s\n' "$_ctx_corpus" | grep . | xargs gr
 assert_match "T-100: no invalid 'context: local' anywhere" '^0$' "$local_hits"
 
 # ── No operational skill still forks ─────────────────────────────────────────
-for s in ai-digest trigger-audit ai-sync-state; do   # the compaction skill was retired (E-283)
+for s in rein-digest trigger-audit rein-sync-state; do   # the compaction skill was retired (E-283)
   if grep -qE "^context:[[:space:]]*fork" "${REPO_ROOT}/.claude/skills/$s/SKILL.md" 2>/dev/null; then
     _fail "T-100: $s must NOT be context: fork"
   else
@@ -350,51 +350,51 @@ for s in ai-digest trigger-audit ai-sync-state; do   # the compaction skill was 
   fi
 done
 
-# ── In-thread write-capable: ai-digest must hold Write (it persists DIGEST.md) ─
+# ── In-thread write-capable: rein-digest must hold Write (it persists DIGEST.md) ─
 # Under context: default the skill runs in-thread, so it needs its own write
-# tools — a read-only allowed-tools cannot satisfy "ai-digest updates DIGEST.md".
-assert_contains "T-100: ai-digest can Write (in-thread persistence)" "Write" \
-  "$(grep -E '^allowed-tools:' "${REPO_ROOT}/src/shared/skills/ai-digest/SKILL.md")"
+# tools — a read-only allowed-tools cannot satisfy "rein-digest updates DIGEST.md".
+assert_contains "T-100: rein-digest can Write (in-thread persistence)" "Write" \
+  "$(grep -E '^allowed-tools:' "${REPO_ROOT}/src/shared/skills/rein-digest/SKILL.md")"
 
-# ── E-113 (from vibe_stamp_alignment_test — E-302): ai-test's vibe stamp matches review_synthesizer ──
+# ── E-113 (from vibe_stamp_alignment_test — E-302): rein-test's vibe stamp matches review_synthesizer ──
 # review_synthesizer requires for a Tier-3 release.
-# Before the fix, ai-test emitted [VIBE_REPORT] (by appending to the regenerated
+# Before the fix, rein-test emitted [VIBE_REPORT] (by appending to the regenerated
 # REVIEWS.md view) while review_synthesizer gated Tier 3 on [VIBE_CLEARED] — so a
-# release could never satisfy the prerequisite. ai-test now records [VIBE_CLEARED]
+# release could never satisfy the prerequisite. rein-test now records [VIBE_CLEARED]
 # via add_stamp (persists through SQLite → REVIEWS.md).
-AI_TEST="${REPO_ROOT}/src/shared/skills/ai-test/SKILL.md"
+AI_TEST="${REPO_ROOT}/src/shared/skills/rein-test/SKILL.md"
 SYNTH="${REPO_ROOT}/src/claude/skills/review_synthesizer/SKILL.md"  # E-141: relocated agent→skill; E-254: src/claude
 
 
-# ── ai-test emits the stamp review_synthesizer needs ─────────────────────────
-assert_status 0 "ai-test emits [VIBE_CLEARED]"            grep -qF 'VIBE_CLEARED' "$AI_TEST"
-assert_status 0 "ai-test records vibe verdict via add_stamp" \
+# ── rein-test emits the stamp review_synthesizer needs ─────────────────────────
+assert_status 0 "rein-test emits [VIBE_CLEARED]"            grep -qF 'VIBE_CLEARED' "$AI_TEST"
+assert_status 0 "rein-test records vibe verdict via add_stamp" \
   grep -q 'add_stamp' "$AI_TEST"
-assert_status 1 "ai-test no longer emits [VIBE_REPORT]"   grep -qF 'VIBE_REPORT' "$AI_TEST"
-assert_status 1 "ai-test no longer hand-appends the vibe stamp to REVIEWS.md" \
+assert_status 1 "rein-test no longer emits [VIBE_REPORT]"   grep -qF 'VIBE_REPORT' "$AI_TEST"
+assert_status 1 "rein-test no longer hand-appends the vibe stamp to REVIEWS.md" \
   grep -qE 'Append .*VIBE.* to .*REVIEWS\.md' "$AI_TEST"
 
 # ── the Tier-3 gate list requires [VIBE_CLEARED] ─────────────────────────────
-assert_status 0 "ai-test Tier-3 gate lists [VIBE_CLEARED]" \
+assert_status 0 "rein-test Tier-3 gate lists [VIBE_CLEARED]" \
   grep -qE '\[VIBE_CLEARED\].*7 days|VIBE_CLEARED.*review_synthesizer' "$AI_TEST"
 
 # ── alignment: review_synthesizer requires exactly that stamp ────────────────
 assert_status 0 "review_synthesizer requires [VIBE_CLEARED]" \
   grep -qF 'VIBE_CLEARED' "$SYNTH"
 
-# ── mirror identity for ai-test (.claude + ~/.ai-os) ──────────────────────
-assert_status 0 "ai-test .claude mirror identical" \
-  diff -q "$AI_TEST" "${REPO_ROOT}/.claude/skills/ai-test/SKILL.md"
-assert_status 0 "ai-test ~/.ai-os mirror identical" \
-  diff -q "$AI_TEST" "${HOME}/.ai-os/shared/skills/ai-test/SKILL.md"
+# ── mirror identity for rein-test (.claude + ~/.rein) ──────────────────────
+assert_status 0 "rein-test .claude mirror identical" \
+  diff -q "$AI_TEST" "${REPO_ROOT}/.claude/skills/rein-test/SKILL.md"
+assert_status 0 "rein-test ~/.rein mirror identical" \
+  diff -q "$AI_TEST" "${HOME}/.rein/shared/skills/rein-test/SKILL.md"
 
 # ── E-64 (from task_planner_routing_test — E-302): task-planner teaches path classification ──
 # Verifies that the task-planner skill (Architect-owned) explicitly teaches
 # Step 4 path-classification + the is_framework_task payload contract
 # from .ai/blueprints/task-routing.md, and stays in sync with its
-# ~/.ai-os/ mirror.
+# ~/.rein/ mirror.
 SKILL_SRC="${REPO_ROOT}/src/claude/skills/task-planner/SKILL.md"
-SKILL_MIRROR="${HOME}/.ai-os/claude/skills/task-planner/SKILL.md"
+SKILL_MIRROR="${HOME}/.rein/claude/skills/task-planner/SKILL.md"
 
 
 # ── T-PR-S01: skill teaches the framework-classification step ─────────────────
@@ -407,10 +407,10 @@ assert_status 0 "skill file exists" \
 assert_status 0 "Step 4 — Classify the Workspace section present" \
   grep -q 'Step 4 — Classify the Workspace' "$SKILL_SRC"
 
-assert_status 0 "explicit framework-path triggers (~/.ai-os/, ai-os-v2/src/**)" \
-  grep -q '~/.ai-os/' "$SKILL_SRC"
-assert_status 0 "explicit ai-os-v2/src/** trigger documented" \
-  grep -q 'ai-os-v2/src' "$SKILL_SRC"
+assert_status 0 "explicit framework-path triggers (~/.rein/, @vimurai/rein/src/**)" \
+  grep -q '~/.rein/' "$SKILL_SRC"
+assert_status 0 "explicit @vimurai/rein/src/** trigger documented" \
+  grep -q '@vimurai/rein/src' "$SKILL_SRC"
 
 # ── T-PR-S02: payload contract surfaced ──────────────────────────────────────
 echo ""
@@ -422,8 +422,8 @@ assert_status 0 "skill names is_framework_task in the add_task call" \
 assert_status 0 "skill warns about [WORKSPACE_NOT_FOUND] failure mode" \
   grep -q 'WORKSPACE_NOT_FOUND' "$SKILL_SRC"
 
-assert_status 0 "skill names \$AIOS_WORKSPACE explicitly" \
-  grep -q 'AIOS_WORKSPACE' "$SKILL_SRC"
+assert_status 0 "skill names \$REIN_WORKSPACE explicitly" \
+  grep -q 'REIN_WORKSPACE' "$SKILL_SRC"
 
 # ── T-PR-S03: ambiguity guidance documented ──────────────────────────────────
 echo ""
@@ -439,26 +439,26 @@ echo "  [T-PR-S04] anti-pattern call-out forbids cross-project leakage"
 assert_status 0 "What NOT to Do mentions framework-level routing" \
   grep -qE 'framework-level tasks|framework workspace' "$SKILL_SRC"
 
-# ── T-PR-S05: ~/.ai-os mirror is byte-identical ──────────────────────────────
+# ── T-PR-S05: ~/.rein mirror is byte-identical ──────────────────────────────
 echo ""
-echo "  [T-PR-S05] ~/.ai-os/ mirror tracks src/ verbatim"
+echo "  [T-PR-S05] ~/.rein/ mirror tracks src/ verbatim"
 
 if [[ -f "$SKILL_MIRROR" ]]; then
-  assert_status 0 "src and ~/.ai-os mirror are byte-identical" \
+  assert_status 0 "src and ~/.rein mirror are byte-identical" \
     cmp -s "$SKILL_SRC" "$SKILL_MIRROR"
 else
-  echo "  ⚠ mirror absent — install-ai-os.sh hasn't run since E-64; skipping cmp"
+  echo "  ⚠ mirror absent — install-rein.sh hasn't run since E-64; skipping cmp"
 fi
 
-# ── E-43 (from ai_debug_skill_test — E-302): ai-debug skill TASK_BUDGET upgrade ──
+# ── E-43 (from ai_debug_skill_test — E-302): rein-debug skill TASK_BUDGET upgrade ──
 # Verifies the skill body in src/shared/skills (source of truth) and the tracked
 # .claude/skills mirror carry the contract bits
 # the workflow-optimizations.md blueprint mandates: 3-cycle budget,
 # BUDGET_EXHAUSTED state, advisor-mcp escalation, hypothesis distinctness.
 # The canonical source plus the Claude workspace copy — the only workspace in v4 (E-254).
 SKILL_FILES=(
-  "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md"
-  "${REPO_ROOT}/.claude/skills/ai-debug/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
+  "${REPO_ROOT}/.claude/skills/rein-debug/SKILL.md"
 )
 
 echo ""
@@ -510,8 +510,8 @@ done
 
 echo ""
 echo "  [T-DEBUG-S07] Source-of-truth and mirrors are byte-identical"
-SRC_HASH_AD="$(md5sum "${REPO_ROOT}/src/shared/skills/ai-debug/SKILL.md" | awk '{print $1}')"
-CLAUDE_HASH="$(md5sum "${REPO_ROOT}/.claude/skills/ai-debug/SKILL.md" | awk '{print $1}')"
+SRC_HASH_AD="$(md5sum "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" | awk '{print $1}')"
+CLAUDE_HASH="$(md5sum "${REPO_ROOT}/.claude/skills/rein-debug/SKILL.md" | awk '{print $1}')"
 
 assert_status 0 ".claude mirror matches src" \
   bash -c "[[ '$SRC_HASH_AD' == '$CLAUDE_HASH' ]]"

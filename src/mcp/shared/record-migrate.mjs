@@ -1,5 +1,5 @@
 /**
- * record-migrate.mjs — `ai state migrate --team | --legacy` (E-325, D-102 §Component 1)
+ * record-migrate.mjs — `rein state migrate --team | --legacy` (E-325, D-102 §Component 1)
  *
  * --team explodes the single-operator store (state.sqlite, seeded from state.json when
  * absent) into one tracked record file per task and stamp plus `.ai/project.json`,
@@ -26,18 +26,18 @@ import {
 } from "./record-store.mjs";
 
 export const VIEW_FILES   = ["state.json", "TASKS.md", "REVIEWS.md"];
-// E-326: record files merge through the `aios-record` driver (record-import.mjs mergeRecord,
-// configured per clone by `ai sync`); a clone without it falls back to git's text merge.
+// E-326: record files merge through the `rein-record` driver (record-import.mjs mergeRecord,
+// configured per clone by `rein sync`); a clone without it falls back to git's text merge.
 export const ATTRIBUTES = [
-  "# AI-OS team records (D-102): both-sides changes resolve by the DONE > IN_PROGRESS > OPEN policy",
-  "tasks/**/*.json merge=aios-record",
-  "stamps/**/*.json merge=aios-record",
-  "project.json merge=aios-record",
-  "ci/*.json merge=aios-record",   // E-328: two members' runs of one sha — PASS first
+  "# Rein team records (D-102): both-sides changes resolve by the DONE > IN_PROGRESS > OPEN policy",
+  "tasks/**/*.json merge=rein-record",
+  "stamps/**/*.json merge=rein-record",
+  "project.json merge=rein-record",
+  "ci/*.json merge=rein-record",   // E-328: two members' runs of one sha — PASS first
 ].join("\n") + "\n";
 // What an earlier `migrate --team` wrote; `--legacy` removes any version it wrote, never a hand-edited file.
-const WRITTEN_ATTRIBUTES = new Set([ATTRIBUTES, ATTRIBUTES.replace("ci/*.json merge=aios-record\n", "")]);
-export const IGNORE_BEGIN = "# AI-OS team views (D-102): generated from the record files, never tracked";
+const WRITTEN_ATTRIBUTES = new Set([ATTRIBUTES, ATTRIBUTES.replace("ci/*.json merge=rein-record\n", "")]);
+export const IGNORE_BEGIN = "# Rein team views (D-102): generated from the record files, never tracked";
 
 function _git(root, args) {
   return execFileSync("git", args, { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], timeout: 10000 });
@@ -210,13 +210,13 @@ export function migrateTeam(aiDir, { trunk: trunkFlag = null } = {}) {
     const first = (prefix, size) => { const n = Number(nextId(db, prefix, aiDir).split("-")[1]); return [[n, n + size - 1]]; };
     const ranges = { E: first("E", 100), P: first("P", 20) };
     writeTeam(aiDir, newTeam(planner, ranges, trunk.name));
-    teamNote = `  .ai/team.json: planner ${planner}, ranges E:${ranges.E[0].join("-")} P:${ranges.P[0].join("-")}, trunk ${trunk.name} (from ${trunk.source}) — add teammates with: ai team add <email> --range E:<from>-<to>`;
+    teamNote = `  .ai/team.json: planner ${planner}, ranges E:${ranges.E[0].join("-")} P:${ranges.P[0].join("-")}, trunk ${trunk.name} (from ${trunk.source}) — add teammates with: rein team add <email> --range E:<from>-<to>`;
   }
   _git(root, ["rm", "--cached", "--quiet", "--ignore-unmatch", ...VIEW_FILES.map((f) => `.ai/${f}`)]);
 
   const project = { schema: PROJECT_SCHEMA };
   for (const k of PROJECT_KEYS) {
-    if (!(k in proj) && (k === "aios_version" || k === "provisioned_at")) continue;
+    if (!(k in proj) && (k === "rein_version" || k === "provisioned_at")) continue;
     project[k] = k === "current_tier" && proj[k] != null ? Number(proj[k]) : proj[k] ?? null;
   }
   writeRecord(aiDir, "project", null, project, { fresh: true });

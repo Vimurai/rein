@@ -2,7 +2,7 @@
 // path class (E-301, D-088, D-113). Contract table: tests/fixtures/role-verdict-cases.json, one row
 // per (role, path) → verdict, run in process through pathAnalysis — the function the CLI calls.
 // Carries pane_binding's E-208.05/.06/.08/.10/.11 path verdicts, E-294.05i2 (the union) and
-// gate_override's E-291.05h (~/.ai-os/** for every role); the hook's tool-name branch, the
+// gate_override's E-291.05h (~/.rein/** for every role); the hook's tool-name branch, the
 // claim gate, an unverified or re-minted token and the fault injection stay with their suites.
 //
 // Roles are the D-087 model: a verified `architect` or `engineer` token, or `none` — no verified
@@ -20,9 +20,11 @@ import { join, resolve } from "node:path";
 import { repo } from "../lib/check-table.mjs";
 
 const FILE = resolve(repo, "tests/fixtures/role-verdict-cases.json");
-const SHA256 = "34182edf23ab0cfeb61c596f88625145786d6ce949f213d076905eaca5333d54";
+// E-383 (D-132): re-pinned for the rename (rows name the new install root; pre-rename rows
+// added). The D-113 pin moves only by ruling — the D-ruling that closes E-383 ratifies it.
+const SHA256 = "047024f1110e5376bd26fb7855913b47e70526cfa7a1585ab8043ff31588cdab";
 
-const root = realpathSync(mkdtempSync(join(tmpdir(), "aios-t-rv-")));
+const root = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-rv-")));
 const proj = join(root, "proj"), home = join(root, "home"), outside = join(root, "outside");
 const saved = { home: process.env.HOME, cwd: process.cwd() };
 test.after(() => {
@@ -32,9 +34,9 @@ test.after(() => {
 });
 // The fixture's source file is a plain file named like the CLI; nothing here runs it (the
 // fixture-home census reads the literal path as a loader, so it is spelt as segments).
-const BIN = join("src", "bin", "ai");
+const BIN = join("src", "bin", "rein");
 for (const d of [".ai/blueprints", "plans", "src/bin", "src/__e208_deep", "tests"]) mkdirSync(join(proj, d), { recursive: true });
-mkdirSync(join(home, ".ai-" + "os", "shared"), { recursive: true });
+mkdirSync(join(home, ".re" + "in", "shared"), { recursive: true });
 mkdirSync(outside);
 for (const f of [BIN, "tests/run.sh", "ENGINEER.md", ".ai/DECISIONS.md"]) writeFileSync(join(proj, f), "x\n");
 symlinkSync(join(proj, BIN), join(proj, ".ai/__e208_seclink"));

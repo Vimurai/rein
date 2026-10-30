@@ -4,14 +4,14 @@
 Replaces the two environment opt-outs removed in E-291 (the gate switch and the role-token
 switch), which a project's
 `.claude/settings.json` `env` block could set (the T-LOCATOR-001 channel). The override is a
-FILE, ~/.ai-os/gate-override.json, written by `ai gate off` and honoured by the pre-tool-use
-hook only when every check below holds. ONE implementation for the writer (`ai gate`), the
-reader (the hook, under the pinned `python3 -I`) and the reporters (`ai gate status`,
-`ai doctor`, session-start), so they cannot disagree about what "active" means.
+FILE, ~/.rein/gate-override.json, written by `rein gate off` and honoured by the pre-tool-use
+hook only when every check below holds. ONE implementation for the writer (`rein gate`), the
+reader (the hook, under the pinned `python3 -I`) and the reporters (`rein gate status`,
+`rein doctor`, session-start), so they cannot disagree about what "active" means.
 
 CEILING (D-083 r5): the agent runs as the operator's uid, so nothing here can tell them apart —
 the gate is tamper-RESISTANT, not tamper-proof. The analyzer's GATE_SELF_DISABLE rule and the
-write gate's ~/.ai-os/** block raise the cost; the classifier backstop (E-293) is the layer a
+write gate's ~/.rein/** block raise the cost; the classifier backstop (E-293) is the layer a
 project cannot reach.
 
 Read discipline (security_engineer, E-291 review):

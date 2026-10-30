@@ -16,7 +16,7 @@ import { join, resolve } from "node:path";
 import { stageInstincts } from "../../src/shared/instinct-stager.mjs";
 
 const REPO = resolve(import.meta.dirname, "../..");
-const ROOT = mkdtempSync(join(tmpdir(), "aios-t-instinct-"));
+const ROOT = mkdtempSync(join(tmpdir(), "rein-t-instinct-"));
 after(() => rmSync(ROOT, { recursive: true, force: true }));
 const PDIR = join(ROOT, "proposed");
 

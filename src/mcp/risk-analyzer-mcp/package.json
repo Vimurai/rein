@@ -2,7 +2,7 @@
   "name": "risk-analyzer-mcp",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "AI-OS TSRT: Classifies intent and git changes as Tier 1/2/3 to enable gate skipping and token savings",
+  "description": "Rein TSRT: Classifies intent and git changes as Tier 1/2/3 to enable gate skipping and token savings",
   "type": "module",
   "main": "index.js",
   "scripts": {

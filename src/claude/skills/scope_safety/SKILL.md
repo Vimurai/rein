@@ -19,4 +19,4 @@ Rules:
 - If the PreToolUse secret scan hook blocks a write: do not bypass. Fix the content.
 
 ## Dynamic Context Injection
-Current CAPABILITIES scope: !cat .ai/CAPABILITIES.md 2>/dev/null || echo "(not found — run: ai init)"
+Current CAPABILITIES scope: !cat .ai/CAPABILITIES.md 2>/dev/null || echo "(not found — run: rein init)"

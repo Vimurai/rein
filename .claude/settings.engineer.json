@@ -1,5 +1,5 @@
 {
   "env": {
-    "AI_OS_CALLER_ROLE": "engineer"
+    "REIN_CALLER_ROLE": "engineer"
   }
 }

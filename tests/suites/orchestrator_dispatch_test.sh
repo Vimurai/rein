@@ -19,7 +19,7 @@ ORCH="${REPO_ROOT}/src/mcp/orchestrator-mcp/index.js"
 
 echo "── Suite: orchestrator_dispatch_test (E-92) ────────────────────────"
 
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 
 TMP="$(mktemp -d)"
 PROJECT="${TMP}/proj"

@@ -46,7 +46,7 @@ passive diff scanning to **active payload exercise** with the Bash tool, inside 
 throwaway harness below.
 
 D-075 (E-278) retired the Docker sandbox server: it refused 935/935 calls because no
-host running AI-OS had Docker, so the pen-test step it guarded never ran at all. The
+host running Rein had Docker, so the pen-test step it guarded never ran at all. The
 harness does NOT replace the container's isolation. It enforces resource limits, a
 clean working directory and a cleared environment; filesystem and network isolation are
 NOT enforced — they rest on running only a pasted copy of pure logic. A payload runs as

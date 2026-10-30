@@ -7,10 +7,10 @@ Spawn a team automatically when 2+ independent workstreams exist:
 | Scenario | Spawn these agents in parallel |
 | :------- | :----------------------------- |
 | Tier 3 pre-commit review | `critic_arch` + `critic_security` + `critic_tests` + `blueprint-aligner` |
-| Post-implementation handover | `ai-task` + `digest_updater` + `decision-recorder` |
+| Post-implementation handover | `rein-task` + `digest_updater` + `decision-recorder` |
 | Security audit (Tier 3) | `security_engineer` + `identity_guardian` |
 | Vibe & chaos audit | `chaos_monkey` + `vibe_sentinel` |
-| Full session end | `ai-task` + `digest_updater` + `ai-review` |
+| Full session end | `rein-task` + `digest_updater` + `rein-review` |
 
 ## How to Spawn
 
@@ -39,7 +39,7 @@ Do NOT use ad-hoc prompts — the Agent tool will load agent instructions automa
 
 ```
 # Post-task handover team — all 3 run simultaneously
-skill: "ai-task"  # record completed E-## task (replaces the retired claude_tasks agent — E-148)
+skill: "rein-task"  # record completed E-## task (replaces the retired claude_tasks agent — E-148)
 Agent("Run digest_updater agent: regenerate .ai/DIGEST.md from current state")
 skill: "decision-recorder"  # record decisions (now the decision-recorder skill, not an agent — E-141/E-148)
 ```
@@ -55,9 +55,9 @@ Example: Implement a new auth endpoint (Tier 3)
 2. [write the code]
 3. skill: "obs_baseline"        ← ensure logging is in place
 4. skill: "dependency_gate"     ← if new lib needed
-5. skill: "ai-test"             ← quality gate
+5. skill: "rein-test"             ← quality gate
 6. → SPAWN PARALLEL TEAM (handover)
-7. skill: "ai-review"           ← pre-commit critic
+7. skill: "rein-review"           ← pre-commit critic
 8. skill: "review_synthesizer"  ← Tier 3 release verdict
 ```
 

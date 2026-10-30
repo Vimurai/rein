@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
-# AI-OS state import hook — post-merge / post-checkout / post-rewrite (E-326, D-102 §Component 2)
+# Rein state import hook — post-merge / post-checkout / post-rewrite (E-326, D-102 §Component 2)
 # A pull, checkout or rebase changes the tracked record files of a team project — or, in a
-# legacy project, the tracked state.json (E-342) — and this runs `ai state import` so
+# legacy project, the tracked state.json (E-342) — and this runs `rein state import` so
 # state.sqlite and the views follow them without a manual step.
 # Usage (from the git stubs): state-import.sh <post-merge|post-checkout|post-rewrite> [git args…]
-# Fail-open: it never blocks git. AI_OS_STATE_IMPORT=0 makes it a no-op with a telemetry row.
+# Fail-open: it never blocks git. REIN_STATE_IMPORT=0 makes it a no-op with a telemetry row.
 
 # ── E-292 (D-082 r2): a FAIL-OPEN hook that aborts on its own bug still exits 0 ──────
-# (it never blocks the session) but leaves ONE incident record via ai_os_hook_incident
+# (it never blocks the session) but leaves ONE incident record via rein_hook_incident
 # (src/shared/toolchain-pin.sh; absent before the pin loads → nothing recorded). Inline
 # string on the first executable line, builtins only. A deliberate exit keeps its code.
 # The hook's ONLY EXIT trap — a later one must chain to it.
-trap '_aios_rc=$?; trap - EXIT; case "$_aios_rc:$BASH_COMMAND" in 0:*) exit "$_aios_rc" ;; esac; ai_os_hook_incident state-import "$_aios_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; rein_hook_incident state-import "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin — FIRST, before any external command.
 # A project's settings `env` reaches this process. Drop inherited functions and the
 # variables that steer an interpreter, fix PATH, then load the pin (install mirror first,
@@ -21,10 +21,10 @@ trap '_aios_rc=$?; trap - EXIT; case "$_aios_rc:$BASH_COMMAND" in 0:*) exit "$_a
 # variables). See src/shared/toolchain-pin.sh.
 unset -f $(compgen -A function) 2>/dev/null
 for _v in $(compgen -e); do
-  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|AI_OS_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
+  case "$_v" in NODE_*|PYTHON*|PERL*|DYLD_*|LD_*|REIN_TC_*|BASH_ENV|ENV|CDPATH|GLOBIGNORE|POSIXLY_CORRECT|BASH_COMPAT) unset "$_v" ;; esac
 done
 PATH="/usr/bin:/bin:/usr/sbin:/sbin:/usr/local/bin:/opt/homebrew/bin"
-for _p in "${HOME}/.ai-os/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
+for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/shared/toolchain-pin.sh"; do
   [[ -f "$_p" ]] && { . "$_p"; break; }
 done
 unset _v _p
@@ -48,10 +48,10 @@ if [[ ! -f "${REPO_ROOT}/.ai/project.json" ]]; then
   [[ "$_blob" == "$_last" ]] && exit 0
 fi
 
-# Install mirror only (E-223): never an `ai` resolved from the visited repo or its env.
-AI_BIN="${HOME}/.ai-os/bin/ai"
+# Install mirror only (E-223): never a `rein` resolved from the visited repo or its env.
+AI_BIN="${HOME}/.rein/bin/rein"
 if [[ ! -x "$AI_BIN" ]]; then
-  printf "[STATE_IMPORT] WARN: %s not found — run: bash install-ai-os.sh, then: ai state import\n" "$AI_BIN" >&2
+  printf "[STATE_IMPORT] WARN: %s not found — run: bash install-rein.sh, then: rein state import\n" "$AI_BIN" >&2
   exit 0
 fi
 

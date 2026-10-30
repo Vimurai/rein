@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // resolve-launch.mjs — resolve a ROLE to its provider + launch argv.
 //
-// WHY THIS EXISTS (E-208 review, critic_tests P2): `ai pane <role>` previously
+// WHY THIS EXISTS (E-208 review, critic_tests P2): `rein pane <role>` previously
 // carried this resolution as an inline `node --input-type=module -e '...'` snippet
 // while the test suite exercised provider-adapter.mjs directly. Two copies of the
 // same logic, and neither test would fail if they drifted. This file is the single

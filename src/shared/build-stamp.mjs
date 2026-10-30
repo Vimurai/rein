@@ -3,7 +3,7 @@
 // THE DEFECT THIS ANNOUNCES. ESM caches a module for the lifetime of the process. An MCP
 // server is a LONG-LIVED process: it imports its projector, its policy modules and
 // src/mcp/shared/* once, at startup, and serves that code until something restarts it.
-// `bash install-ai-os.sh` rewrites ~/.ai-os; `git pull` rewrites src/. Neither reaches a
+// `bash install-rein.sh` rewrites ~/.rein; `git pull` rewrites src/. Neither reaches a
 // running server. The task synchroniser went on serving the PRE-E-245 projector and
 // stripped the archive pointer on every write, and E-227's run_review reported a P0 the
 // shipped checker no longer emits. In both cases the gate was reporting on code that was
@@ -20,21 +20,21 @@
 //
 // WHAT A STAMP IS. The CONTENT hash of the entry file plus every file in the server's
 // `mcp/shared/` directory, and the newest mtime among them. Content, not mtime alone:
-// `install-ai-os.sh` rewrites files whether or not their bytes changed (E-229's
+// `install-rein.sh` rewrites files whether or not their bytes changed (E-229's
 // _atomic_copy_tree), and a server serving byte-identical code is not stale — reporting
 // it would train the operator to ignore the notice. The mtime is carried anyway because
 // it is what the message quotes ("mirror changed <ts>"), and it is read in FLOAT
 // milliseconds: whole-second mtime made E-229's watcher re-exec mechanism inert for
-// same-second rewrites, which is the exact `ai sync` case.
+// same-second rewrites, which is the exact `rein sync` case.
 //
-// HOW A SEPARATE PROCESS FINDS OUT. Each server writes ~/.ai-os/run/build-<server>.json at
-// startup. `verify_markdown_sync`, the `ai-preflight` skill, `ai doctor`, `ai sync` and
-// `install-ai-os.sh` read that directory, drop records whose pid is gone, recompute the
+// HOW A SEPARATE PROCESS FINDS OUT. Each server writes ~/.rein/run/build-<server>.json at
+// startup. `verify_markdown_sync`, the `rein-preflight` skill, `rein doctor`, `rein sync` and
+// `install-rein.sh` read that directory, drop records whose pid is gone, recompute the
 // stamp from the SAME paths the record names, and report every mismatch. Comparing
 // booted-against-current-at-the-same-path is what makes the check correct for a server
 // booted from the mirror AND for one booted from a repo checkout.
 //
-// Rollback: AI_OS_BUILD_STAMP=0 — no record is written, no `_meta.booted_build` is
+// Rollback: REIN_BUILD_STAMP=0 — no record is written, no `_meta.booted_build` is
 // attached, and every consumer reports nothing.
 
 import { createHash } from "node:crypto";
@@ -44,13 +44,13 @@ import { basename, dirname, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isFrameworkClone } from "./locate.mjs";
 
-export const RUN_DIR = join(homedir(), ".ai-os", "run");
+export const RUN_DIR = join(homedir(), ".rein", "run");
 const RECORD_PREFIX = "build-";
 const RECORD_SUFFIX = ".json";
 
 /** The rollback switch (D-067 §3). Read live, never cached, so a test can toggle it. */
 export function buildStampEnabled() {
-  return process.env.AI_OS_BUILD_STAMP !== "0";
+  return process.env.REIN_BUILD_STAMP !== "0";
 }
 
 // A server name reaches the filesystem as part of a path, so it is sanitised the same way
@@ -100,7 +100,7 @@ export function stampFor(entryFile) {
     let st, buf;
     try { st = statSync(f); buf = readFileSync(f); } catch { continue; }
     // The path goes into the hash under its BASENAME, not its absolute path: the same
-    // build installed under ~/.ai-os and under a repo checkout must hash identically, or
+    // build installed under ~/.rein and under a repo checkout must hash identically, or
     // every consumer would report a permanent false mismatch after a move.
     h.update(basename(f));
     h.update("\0");
@@ -224,11 +224,11 @@ export function listStaleServers({ runDir = RUN_DIR, reap = true } = {}) {
 // ── The task-completion gate (D-067 §3, third bullet) ────────────────────────────────
 //
 // The ruling asks that a task whose diff touched `src/mcp/**` or `src/bin/**` not be
-// marked DONE without evidence of `bash install-ai-os.sh` plus a server restart, because
+// marked DONE without evidence of `bash install-rein.sh` plus a server restart, because
 // "the three CI-only failures this sprint were all a laptop mirror a release behind".
 //
 // The evidence is taken from STATE, not from prose. A LOG line saying `bash
-// install-ai-os.sh` is evidence that the words were typed; a mirror that matches src/ is
+// install-rein.sh` is evidence that the words were typed; a mirror that matches src/ is
 // evidence that the install happened. The two questions the gate actually asks are
 // therefore direct ones, and neither needs a git diff:
 //
@@ -243,7 +243,7 @@ export const GATED_ROOTS = ["mcp", "bin"];
 
 const SKIP_DIRS = new Set(["node_modules", ".git", "__pycache__"]);
 
-// Files the INSTALL itself rewrites. `ai mcp-setup` runs `npm install` inside the mirror,
+// Files the INSTALL itself rewrites. `rein mcp-setup` runs `npm install` inside the mirror,
 // which regenerates every lockfile there — so a lockfile under the mirror differs from the
 // one in src/ permanently and by design (the repo pins `^1.0.0`, the installed tree
 // resolves `*`). Comparing them would make the gate fire on every task forever, and a gate
@@ -274,15 +274,15 @@ function fileDigest(p) {
  *          there is no mirror to be behind (a fresh clone) — the gate stays silent, since
  *          an absent mirror cannot serve stale code to anyone.
  */
-export function mirrorDrift({ repoRoot, mirrorRoot = join(homedir(), ".ai-os"),
+export function mirrorDrift({ repoRoot, mirrorRoot = join(homedir(), ".rein"),
                               roots = GATED_ROOTS, limit = 20,
                               frameworkOnly = true } = {}) {
   if (!repoRoot || !existsSync(join(repoRoot, "src"))) return { installed: false, drift: [], truncated: false };
   if (!existsSync(mirrorRoot)) return { installed: false, drift: [], truncated: false };
   // Only the framework clone has a src/ tree the mirror is a copy OF. A downstream project
-  // with its own `src/bin/` would otherwise be compared against ~/.ai-os/bin and told every
+  // with its own `src/bin/` would otherwise be compared against ~/.rein/bin and told every
   // one of its own files had "drifted" — the gate would fire on projects that do not ship
-  // AI-OS at all. (`frameworkOnly:false` is the seam the tests use with a fixture pair.)
+  // Rein at all. (`frameworkOnly:false` is the seam the tests use with a fixture pair.)
   if (frameworkOnly && !isFrameworkClone(repoRoot)) return { installed: false, drift: [], truncated: false };
 
   const drift = [];
@@ -322,8 +322,8 @@ export function checkCompletionBuildGate({ repoRoot, mirrorRoot, runDir, framewo
         `  Server and CLI code only reaches a running session through the mirror, and an MCP\n` +
         `  server serves whatever it imported at startup (D-067 §3). Marking this DONE now\n` +
         `  records work that nothing in this session is actually running.\n\n` +
-        `  Fix: bash install-ai-os.sh, then restart the MCP servers, then mark DONE.\n` +
-        `  Rollback: AI_OS_BUILD_STAMP=0 disables this gate.`,
+        `  Fix: bash install-rein.sh, then restart the MCP servers, then mark DONE.\n` +
+        `  Rollback: REIN_BUILD_STAMP=0 disables this gate.`,
     };
   }
 
@@ -338,7 +338,7 @@ export function checkCompletionBuildGate({ repoRoot, mirrorRoot, runDir, framewo
         `  ESM caches modules for the process lifetime, so these servers are still serving the\n` +
         `  code they started with — including any gate that would have reviewed this task.\n\n` +
         `  Fix: restart the MCP servers, then mark DONE.\n` +
-        `  Rollback: AI_OS_BUILD_STAMP=0 disables this gate.`,
+        `  Rollback: REIN_BUILD_STAMP=0 disables this gate.`,
     };
   }
 
@@ -357,10 +357,10 @@ export function staleServerReport(opts = {}) {
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────────────
-// `ai doctor`, `ai sync` and install-ai-os.sh are shell; they read this through the CLI
+// `rein doctor`, `rein sync` and install-rein.sh are shell; they read this through the CLI
 // rather than reimplementing the scan, so there is one definition of "stale" in the tree.
 // Exit code is ALWAYS 0: staleness is an announcement, not a failure, and a non-zero exit
-// here would abort `ai sync` under `set -e` — the exact class of defect E-247 just fixed.
+// here would abort `rein sync` under `set -e` — the exact class of defect E-247 just fixed.
 function main(argv) {
   const args = argv.slice(2);
   if (args.includes("--stale") || args.includes("--stale-json")) {

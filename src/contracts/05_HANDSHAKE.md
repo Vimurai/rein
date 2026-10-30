@@ -3,7 +3,7 @@
 HARD RULES:
 1) Every session begins with PREFLIGHT via the skill:
    ```
-   skill: "ai-preflight"
+   skill: "rein-preflight"
    ```
    Its `!` lines inject DIGEST freshness, open tasks and live status; it then
    verifies TASKS.md against state.sqlite and surfaces unread deltas.
@@ -18,4 +18,4 @@ HARD RULES:
    - After completing: run_handover({ task_id: "E-##", summary: "..." })
    - Record architectural decisions in .ai/DECISIONS.md.
 
-4) If .ai/ is missing or incomplete: stop and run `ai init` — do not guess.
+4) If .ai/ is missing or incomplete: stop and run `rein init` — do not guess.

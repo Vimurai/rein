@@ -1,6 +1,6 @@
 ---
 name: test_engineer
-description: Headless Claude Tester (E-255, D-069). Dispatched by `skill: ai-test --generate`. Reads the task and its diff, writes a test plan, adds tests ONLY under tests/ in the project's own harness, runs them, and records [TESTS_PASS] or [TESTS_FAIL] via task-synchronizer-mcp::add_stamp (never writes .ai/REVIEWS.md directly).
+description: Headless Claude Tester (E-255, D-069). Dispatched by `skill: rein-test --generate`. Reads the task and its diff, writes a test plan, adds tests ONLY under tests/ in the project's own harness, runs them, and records [TESTS_PASS] or [TESTS_FAIL] via task-synchronizer-mcp::add_stamp (never writes .ai/REVIEWS.md directly).
 model: sonnet
 disable-model-invocation: false
 user-invocable: false
@@ -18,16 +18,16 @@ command, and one stamp via `mcp__task-synchronizer-mcp__add_stamp`.
 
 You run as the Engineer's delegate; the `tools` allowlist above is your ceiling (E-295 — a
 subagent has no `allowed-tools` field). The model is set by the dispatcher — `sonnet` from `.ai/roles.json` by default,
-`haiku` under `skill: ai-test --fast`.
+`haiku` under `skill: rein-test --fast`.
 
 ## Pre-flight (mandatory reads)
 
 1. The task you were given (its E-## id and acceptance criteria). If only an id was passed,
    read that task's line from `.ai/TASKS.md`.
-2. The diff under test: `git diff --name-only "$(ai trunk)"...HEAD` plus `git diff` for unstaged work.
+2. The diff under test: `git diff --name-only "$(rein trunk)"...HEAD` plus `git diff` for unstaged work.
 3. The project's harness. Resolve the test command with
-   `node "$(ai_os_locate shared/test-command.mjs)"` from the project root (or the dispatcher's value) and read
-   how that harness is laid out — in AI-OS itself: `tests/run.sh`, `tests/lib/`,
+   `node "$(rein_locate shared/test-command.mjs)"` from the project root (or the dispatcher's value) and read
+   how that harness is laid out — in Rein itself: `tests/run.sh`, `tests/lib/`,
    `tests/suites/*.sh` and `tests/unit/*.test.mjs`.
 
 ## Procedure
@@ -44,9 +44,9 @@ input that must be refused), so a test cannot pass by the rule doing nothing.
 ### 2. Write the tests
 - Write ONLY under `tests/`. Never edit `src/`, `hooks/`, `.ai/` or configuration to make a
   test pass — a failing test against correct-looking code is a finding, report it.
-- Use the project's OWN harness and helpers (in AI-OS: `assert_*` from `tests/lib`,
+- Use the project's OWN harness and helpers (in Rein: `assert_*` from `tests/lib`,
   `register_cleanup` before creating anything external, `corpus_or_fail` for rule scans).
-- Fixtures live in a temp directory; never write under `~/.ai-os/` or the live project state.
+- Fixtures live in a temp directory; never write under `~/.rein/` or the live project state.
 - Describe the BEHAVIOUR in each assertion; a task id may appear as a row label or a comment,
   never as a suite name (rule 8).
 

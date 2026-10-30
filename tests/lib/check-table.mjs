@@ -20,8 +20,8 @@ import { fileURLToPath } from "node:url";
 export const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
 export async function gateInProcess() {
-  const home = realpathSync(mkdtempSync(join(tmpdir(), "aios-t-ctab-")));
-  mkdirSync(join(home, ".ai-" + "os"), { recursive: true });
+  const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-ctab-")));
+  mkdirSync(join(home, ".re" + "in"), { recursive: true });
   const saved = { home: process.env.HOME, cwd: process.cwd() };
   process.env.HOME = home;
   process.chdir(repo);

@@ -78,7 +78,7 @@ export function rulefileForRole(registryPath, role) {
 // Compare the RESOLVED entrypoint URL, not a filename suffix: when this module is
 // imported dynamically (e.g. `node -e 'import(...)'`), argv[1] is the module path
 // itself, so a suffix test wrongly concluded "I am the CLI" and printed usage +
-// exit 2 into an importing caller. Caught by `ai doctor` aborting mid-report.
+// exit 2 into an importing caller. Caught by `rein doctor` aborting mid-report.
 const _isMain = (() => {
   try {
     if (!process.argv[1]) return false;

@@ -80,7 +80,7 @@
       "rule_id": "skill_locator_install_first",
       "severity": "error",
       "threshold": 0,
-      "description": "An EXECUTABLE markdown line (a `!`-prefixed line in a skill/agent file, or a line inside a bash/js/python fence) must not execute a helper by a cwd- or repo-relative path. `!`-lines are auto-executed at session start, so a chain beginning src/shared/x.mjs runs the VISITED project's copy — T-LOCATOR-001. Resolve through `ai_os_locate` after sourcing ${HOME}/.ai-os/shared/locate.sh. Only paths with an EXECUTABLE extension count: reading the project's own src/db/schema.sql or grepping src/ is legitimate and must not be flagged. Bypass: AI_OS_STANDARDS_SKIP=skill-locator.",
+      "description": "An EXECUTABLE markdown line (a `!`-prefixed line in a skill/agent file, or a line inside a bash/js/python fence) must not execute a helper by a cwd- or repo-relative path. `!`-lines are auto-executed at session start, so a chain beginning src/shared/x.mjs runs the VISITED project's copy — T-LOCATOR-001. Resolve through `rein_locate` after sourcing ${HOME}/.rein/shared/locate.sh. Only paths with an EXECUTABLE extension count: reading the project's own src/db/schema.sql or grepping src/ is legitimate and must not be flagged. Bypass: REIN_STANDARDS_SKIP=skill-locator.",
       "auto_fix_available": false,
       "applies_to": [
         "src/**/SKILL.md",
@@ -92,7 +92,7 @@
       "rule_id": "skill_consent_no_project_exec",
       "severity": "error",
       "threshold": 0,
-      "description": "A `!`-prefixed line in a SKILL.md or agents/*.md file is auto-executed by the harness the moment the file LOADS — before the agent decides anything and before the operator is asked. Such a line may INSPECT, but must never EXECUTE a program the visited project supplies: `bash tests/run.sh`, `npm|pnpm|yarn run`, `make`, `npx`, `./x`, `scripts/*`. `ai-debug` opened with `!bash tests/run.sh`, so loading the debugging skill ran the visited project's tests. The test is EXECUTION, not mention: `npm outdated` and `npm audit` remain allowed because they query the manifest and registry and run none of the project's own code. Move project-program execution into a numbered step the agent performs deliberately (D-060 §3, E-232). Rollback: AI_OS_STANDARDS_SKIP=skill-consent.",
+      "description": "A `!`-prefixed line in a SKILL.md or agents/*.md file is auto-executed by the harness the moment the file LOADS — before the agent decides anything and before the operator is asked. Such a line may INSPECT, but must never EXECUTE a program the visited project supplies: `bash tests/run.sh`, `npm|pnpm|yarn run`, `make`, `npx`, `./x`, `scripts/*`. `rein-debug` opened with `!bash tests/run.sh`, so loading the debugging skill ran the visited project's tests. The test is EXECUTION, not mention: `npm outdated` and `npm audit` remain allowed because they query the manifest and registry and run none of the project's own code. Move project-program execution into a numbered step the agent performs deliberately (D-060 §3, E-232). Rollback: REIN_STANDARDS_SKIP=skill-consent.",
       "auto_fix_available": false,
       "applies_to": [
         "src/**/SKILL.md",
@@ -104,7 +104,7 @@
       "rule_id": "no_raw_exit_trap_in_tests",
       "severity": "error",
       "threshold": 0,
-      "description": "A raw `trap 'cmd' EXIT` in a test suite REPLACES any existing EXIT handler, silently discarding the assert.sh cleanup registry — which is how 42 suites disabled their own teardown and E-227/E-228 leaked 50 tmux servers. Use `on_exit <cmd>`, which chains (D-064 / E-241). A test that ASSERTS something about traps is not flagged: comments, `assert_*` lines quoting a trap string, and an explicit `builtin trap` are all exempt, because a gate that rejects the tests verifying trap behaviour is the same failure E-224 and E-238 each had to avoid. Rollback: AI_OS_STANDARDS_SKIP=raw-exit-trap.",
+      "description": "A raw `trap 'cmd' EXIT` in a test suite REPLACES any existing EXIT handler, silently discarding the assert.sh cleanup registry — which is how 42 suites disabled their own teardown and E-227/E-228 leaked 50 tmux servers. Use `on_exit <cmd>`, which chains (D-064 / E-241). A test that ASSERTS something about traps is not flagged: comments, `assert_*` lines quoting a trap string, and an explicit `builtin trap` are all exempt, because a gate that rejects the tests verifying trap behaviour is the same failure E-224 and E-238 each had to avoid. Rollback: REIN_STANDARDS_SKIP=raw-exit-trap.",
       "auto_fix_available": false,
       "applies_to": [
         "tests/**/*.sh"

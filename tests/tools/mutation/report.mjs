@@ -65,7 +65,7 @@ for (const [file, entry] of Object.entries(a.files).sort(([x], [y]) => x.localeC
 const tests = [...kills.keys()].sort().map((f) => ({ test_file: f, kills: kills.get(f), covers: covers.get(f) || 0 }));
 const killNothing = tests.filter((t) => t.kills === 0).map((t) => t.test_file);
 const out = {
-  schema: "aios-mutation-probe/1",
+  schema: "rein-mutation-probe/1",
   date: new Date().toISOString(),
   commit,
   tool: "@stryker-mutator/core + tap-runner 10.0.0 (pass A); tests/tools/mutation/gate-pass.mjs (pass B)",

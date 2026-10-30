@@ -9,10 +9,10 @@
 // 2. Every executed survivor is applied as text to a private sandbox copy of src/ and the tables
 //    run against it (gate-tables.sh, first failing table wins), N workers in parallel —
 //    in-process (inproc-tables.mjs) except for index.js's CLI glue, cross-checked against the
-//    spawn path on the first AIOS_MUTATION_CROSSCHECK mutants (default 20).
+//    spawn path on the first REIN_MUTATION_CROSSCHECK mutants (default 20).
 //
 // Usage: node gate-pass.mjs <pass-a.json> <out.json> <workdir>   (HOME must be throwaway —
-// probe.sh sets it; AIOS_MUTATION_CONCURRENCY workers, default 4)
+// probe.sh sets it; REIN_MUTATION_CONCURRENCY workers, default 4)
 // Read-only over the repo: every write is under <workdir> or <out.json>.
 
 import { spawn } from "node:child_process";
@@ -32,7 +32,7 @@ if (!passA || !outFile || !work) {
   process.stderr.write("usage: gate-pass.mjs <pass-a.json> <out.json> <workdir>\n");
   process.exit(2);
 }
-if (!process.env.AIOS_MUTATION_HOME_OK || process.env.HOME === userInfo().homedir) {
+if (!process.env.REIN_MUTATION_HOME_OK || process.env.HOME === userInfo().homedir) {
   process.stderr.write("gate-pass.mjs: run through probe.sh (throwaway HOME, never the real one)\n");
   process.exit(2);
 }
@@ -79,7 +79,7 @@ const run = (cmd, args, env, deadline) =>
 const workerHome = (name) => {
   const h = join(work, `home-${name}`);
   rmSync(h, { recursive: true, force: true });
-  mkdirSync(join(h, ".ai-os"), { recursive: true });
+  mkdirSync(join(h, ".rein"), { recursive: true });
   return h;
 };
 
@@ -157,8 +157,8 @@ const EXPORT = "\nexport { runAnalysis as __probeRunAnalysis };\n";
 const cliLine = src(INDEX).text.split("\n").findIndex((l) => l.startsWith("function _gateFlags")) + 1;
 if (cliLine < 1) { process.stderr.write("gate-pass: _gateFlags not found in index.js\n"); process.exit(1); }
 const spawnOnly = (file, m) => file === INDEX && m.location.start.line >= cliLine;
-const N = Number(process.env.AIOS_MUTATION_CONCURRENCY || 4);
-let crossLeft = Number(process.env.AIOS_MUTATION_CROSSCHECK ?? 20);
+const N = Number(process.env.REIN_MUTATION_CONCURRENCY || 4);
+let crossLeft = Number(process.env.REIN_MUTATION_CROSSCHECK ?? 20);
 const disagreements = [];
 const verdictOf = (r) => (r.signal ? "Timeout" : r.code === 0 ? "Survived" : "Killed");
 let next = 0, doneCount = 0;

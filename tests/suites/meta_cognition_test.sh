@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # meta_cognition_test.sh — the meta-cognition pipeline's agent, skill and probe surfaces
-# (meta-cognition.md, ecc-integrations.md): the meta_analyst agent + ai-insights skill (E-85);
-# the insights-staleness CLI and its ai-preflight Step 7 wiring (E-86, from insights_staleness);
+# (meta-cognition.md, ecc-integrations.md): the meta_analyst agent + rein-insights skill (E-85);
+# the insights-staleness CLI and its rein-preflight Step 7 wiring (E-86, from insights_staleness);
 # the meta_analyst Instinct-Extraction (E-93, from instinct_stager) and promotion (E-94, from
 # skill_promoter) contracts. Merged in E-302; the pure stager, promoter and probe rows are
 # tests/unit/{instinct-stager,skill-promoter,insights-staleness}.test.mjs.
@@ -14,11 +14,11 @@
 #     telemetry, write-only over INSIGHTS.md, SQL-aggregates-only contract.
 #   • Anti-drift: no source-code edits, no add_task, no proxy_call.
 #   • Cross-reference with E-84 telemetry helper (locator chain).
-#   • src/shared/skills/ai-insights/SKILL.md — single trigger surface,
+#   • src/shared/skills/rein-insights/SKILL.md — single trigger surface,
 #     delegates to meta_analyst, never queries the DB directly.
 #   • Frontmatter parses cleanly (description quoted — colon-parse guard
 #     mirrors E-49 / E-65 / E-77 / E-78).
-#   • Mirrors byte-identical to .claude/ + ~/.ai-os/.
+#   • Mirrors byte-identical to .claude/ + ~/.rein/.
 
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,10 +28,10 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 AGENT_SRC="${REPO_ROOT}/src/claude/agents/meta_analyst.md"
 AGENT_CLAUDE="${REPO_ROOT}/.claude/agents/meta_analyst.md"
-AGENT_MIRROR="${HOME}/.ai-os/claude/agents/meta_analyst.md"
-SKILL_SRC="${REPO_ROOT}/src/shared/skills/ai-insights/SKILL.md"
-SKILL_CLAUDE="${REPO_ROOT}/.claude/skills/ai-insights/SKILL.md"
-SKILL_MIRROR="${HOME}/.ai-os/shared/skills/ai-insights/SKILL.md"
+AGENT_MIRROR="${HOME}/.rein/claude/agents/meta_analyst.md"
+SKILL_SRC="${REPO_ROOT}/src/shared/skills/rein-insights/SKILL.md"
+SKILL_CLAUDE="${REPO_ROOT}/.claude/skills/rein-insights/SKILL.md"
+SKILL_MIRROR="${HOME}/.rein/shared/skills/rein-insights/SKILL.md"
 BLUEPRINT="${REPO_ROOT}/.ai/blueprints/meta-cognition.md"
 TELEMETRY="${REPO_ROOT}/src/shared/telemetry.mjs"
 
@@ -66,8 +66,8 @@ assert_status 0 "forbids source-code generation"     \
   grep -qiE 'do NOT write source code' "$AGENT_SRC"
 assert_status 0 "forbids SELECT * — aggregates only" \
   grep -qE 'SELECT \*' "$AGENT_SRC"
-assert_status 0 "writes only ~/.ai-os/INSIGHTS.md"   \
-  grep -qE '~/\.ai-os/INSIGHTS\.md' "$AGENT_SRC"
+assert_status 0 "writes only ~/.rein/INSIGHTS.md"   \
+  grep -qE '~/\.rein/INSIGHTS\.md' "$AGENT_SRC"
 assert_status 0 "names blueprint §Execution Constraints contract" \
   grep -qE 'Execution Constraints' "$AGENT_SRC"
 
@@ -132,15 +132,15 @@ echo "  [T-META-S05] meta_analyst references telemetry.mjs locator chain"
 
 assert_status 0 "names telemetry.mjs by path"        grep -qE 'src/shared/telemetry\.mjs' "$AGENT_SRC"
 assert_status 0 "installed mirror in locator chain"  \
-  grep -qE '~/\.ai-os/shared/telemetry\.mjs' "$AGENT_SRC"
+  grep -qE '~/\.rein/shared/telemetry\.mjs' "$AGENT_SRC"
 assert_status 0 "uses getTelemetryStats helper"      grep -qE 'getTelemetryStats' "$AGENT_SRC"
 
-# ── T-META-S06: ai-insights skill frontmatter ─────────────────────────────────
+# ── T-META-S06: rein-insights skill frontmatter ─────────────────────────────────
 echo ""
-echo "  [T-META-S06] ai-insights skill frontmatter parses cleanly"
+echo "  [T-META-S06] rein-insights skill frontmatter parses cleanly"
 
 assert_status 0 "src/ skill file exists"             test -f "$SKILL_SRC"
-assert_status 0 "name: ai-insights"                  grep -q '^name: ai-insights$' "$SKILL_SRC"
+assert_status 0 "name: rein-insights"                  grep -q '^name: rein-insights$' "$SKILL_SRC"
 assert_status 0 "description double-quoted"          \
   bash -c "head -10 '$SKILL_SRC' | grep -q '^description: \"'"
 assert_status 0 "user-invocable: true"               grep -q '^user-invocable: true$' "$SKILL_SRC"
@@ -170,7 +170,7 @@ assert_status 0 "skill references telemetry.mjs locator chain" \
 # is install-first by policy. Same INTENT (the installed helper is reachable), asserted
 # where the code now decides it.
 assert_status 0 "skill resolves telemetry via the shared install-first locator" \
-  grep -q 'ai_os_locate shared/telemetry.mjs' "$SKILL_SRC"
+  grep -q 'rein_locate shared/telemetry.mjs' "$SKILL_SRC"
 
 # Skill respects AI_TELEMETRY_DISABLE rollback wiring.
 assert_status 0 "skill documents AI_TELEMETRY_DISABLE rollback" \
@@ -186,8 +186,8 @@ echo "  [T-META-S08] blueprint exists + meta-cognition.md cross-ref"
 
 assert_status 0 "blueprint exists" test -f "$BLUEPRINT"
 assert_status 0 "blueprint names meta_analyst"       grep -qE 'meta_analyst' "$BLUEPRINT"
-assert_status 0 "blueprint names ai insights / ai-insights" \
-  bash -c "grep -qE 'ai-insights|ai insights' '$BLUEPRINT'"
+assert_status 0 "blueprint names ai insights / rein-insights" \
+  bash -c "grep -qE 'rein-insights|ai insights' '$BLUEPRINT'"
 assert_status 0 "blueprint names INSIGHTS.md"        grep -qE 'INSIGHTS\.md' "$BLUEPRINT"
 
 # Telemetry helper must exist (E-84 prereq).
@@ -200,8 +200,8 @@ echo "  [T-META-S09] telemetry --path / --stats smoke (used by skill Step 1)"
 # E-257: the harness redirects telemetry with AI_TELEMETRY_DB_PATH, so the DEFAULT is
 # checked with the override removed — and the override itself is checked beside it.
 PATHOUT="$(env -u AI_TELEMETRY_DB_PATH node "$TELEMETRY" --path)"
-assert_contains "telemetry --path emits expected suffix" ".ai-os/telemetry.sqlite" "$PATHOUT"
-_PROBE="$(cd "${TMPDIR:-/tmp}" && pwd -P)/aios-e257-probe.sqlite"   # overrides live under the temp dir
+assert_contains "telemetry --path emits expected suffix" ".rein/telemetry.sqlite" "$PATHOUT"
+_PROBE="$(cd "${TMPDIR:-/tmp}" && pwd -P)/rein-e257-probe.sqlite"   # overrides live under the temp dir
 PATHOVR="$(AI_TELEMETRY_DB_PATH="$_PROBE" node "$TELEMETRY" --path 2>/dev/null)"
 assert_contains "telemetry --path honours AI_TELEMETRY_DB_PATH (E-257)" "$_PROBE" "$PATHOVR"
 
@@ -215,33 +215,33 @@ echo "  [T-META-S10] mirrors byte-identical"
 assert_status 0 "meta_analyst → .claude mirror"    diff -q "$AGENT_SRC" "$AGENT_CLAUDE"
 # E-248 (D-067 §2): the installed copy is canonical — byte identity, and the three
 # Claude agent-contract keys PRESENT.
-# E-236 (D-061 §4): the INSTALL is genuinely optional — a clone with no `ai install` has
-# no ~/.ai-os to compare against. Asserting unconditionally made the verdict depend on
+# E-236 (D-061 §4): the INSTALL is genuinely optional — a clone with no `rein install` has
+# no ~/.rein to compare against. Asserting unconditionally made the verdict depend on
 # whether this machine happened to be installed, which is the pattern this sprint kept
 # removing. Absent install → SKIP, counted separately; never a fabricated pass.
 if [[ -f "$AGENT_MIRROR" ]]; then
-  assert_status 0 "meta_analyst → ~/.ai-os copy is byte-identical to src/" \
+  assert_status 0 "meta_analyst → ~/.rein copy is byte-identical to src/" \
     diff -q "$AGENT_SRC" "$AGENT_MIRROR"
-  assert_status 0 "meta_analyst → ~/.ai-os copy KEEPS the Claude-only keys (E-248)" \
+  assert_status 0 "meta_analyst → ~/.rein copy KEEPS the Claude-only keys (E-248)" \
     grep -qE '^(disable-model-invocation|user-invocable|allowed-tools):' "$AGENT_MIRROR"
 else
-  _skip "meta_analyst → ~/.ai-os copy comparison (framework not installed)"
-  _skip "meta_analyst → ~/.ai-os Claude-key check (framework not installed)"
+  _skip "meta_analyst → ~/.rein copy comparison (framework not installed)"
+  _skip "meta_analyst → ~/.rein Claude-key check (framework not installed)"
 fi
-assert_status 0 "ai-insights  → .claude mirror"     diff -q "$SKILL_SRC" "$SKILL_CLAUDE"
+assert_status 0 "rein-insights  → .claude mirror"     diff -q "$SKILL_SRC" "$SKILL_CLAUDE"
 # E-236: same reasoning as the agent mirror above — an uninstalled clone has nothing to
 # compare, and asserting anyway makes the verdict a property of the machine.
 if [[ -f "$SKILL_MIRROR" ]]; then
-  assert_status 0 "ai-insights  → ~/.ai-os mirror"  diff -q "$SKILL_SRC" "$SKILL_MIRROR"
+  assert_status 0 "rein-insights  → ~/.rein mirror"  diff -q "$SKILL_SRC" "$SKILL_MIRROR"
 else
-  _skip "ai-insights → ~/.ai-os mirror comparison (framework not installed)"
+  _skip "rein-insights → ~/.rein mirror comparison (framework not installed)"
 fi
 
 echo ""
 
-# ── E-86 (from insights_staleness — E-302): the staleness probe's CLI and the ai-preflight Step 7 wiring ──
+# ── E-86 (from insights_staleness — E-302): the staleness probe's CLI and the rein-preflight Step 7 wiring ──
 # Tests for E-86 insights-staleness.mjs probe
-# and the ai-preflight Step 7 wiring per .ai/blueprints/meta-cognition.md
+# and the rein-preflight Step 7 wiring per .ai/blueprints/meta-cognition.md
 # §Components 4.
 #
 #   • Helper source contract: pure node:* imports, no shell-out, fail-open.
@@ -249,12 +249,12 @@ echo ""
 #   • Threshold of 200 new rows (DEFAULT_THRESHOLD) is the staleness trigger.
 #   • AI_TELEMETRY_DISABLE=1 AND AI_INSIGHTS_STALENESS_DISABLE=1 both short-
 #     circuit to status:DISABLED.
-#   • ai-preflight SKILL.md Step 7 documents the locator chain, the verbatim
+#   • rein-preflight SKILL.md Step 7 documents the locator chain, the verbatim
 #     [INSIGHTS_STALE] block, and the rollback flag.
-#   • Mirrors byte-identical to ~/.ai-os.
+#   • Mirrors byte-identical to ~/.rein.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PROBE="${REPO_ROOT}/src/shared/insights-staleness.mjs"
-PREFLIGHT_SKILL_SRC="${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
+PREFLIGHT_SKILL_SRC="${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
 
 
 # ── T-INS-S02: AI_INSIGHTS_STALENESS_DISABLE=1 → DISABLED ─────────────────────
@@ -287,9 +287,9 @@ assert_status 0 "--quiet still exits 0" \
 assert_status 0 "--quiet produces no stdout" \
   bash -c "[[ -z '$QUIET_OUT' ]]"
 
-# ── T-INS-S09: ai-preflight Step 7 wiring ─────────────────────────────────────
+# ── T-INS-S09: rein-preflight Step 7 wiring ─────────────────────────────────────
 echo ""
-echo "  [T-INS-S09] ai-preflight Step 7 documents the staleness check"
+echo "  [T-INS-S09] rein-preflight Step 7 documents the staleness check"
 
 assert_status 0 "Step 7 heading present"               \
   grep -qE '^### 7\. INSIGHTS\.md Staleness Check' "$PREFLIGHT_SKILL_SRC"
@@ -301,27 +301,27 @@ assert_status 0 "Step 7 references blueprint"          \
 # rewritten to the policy that replaced it rather than relaxed — pinning the old text
 # would have been pinning the bug.
 assert_status 0 "Step 7 resolves the probe via the shared install-first locator" \
-  grep -q 'ai_os_locate shared/insights-staleness.mjs' "$PREFLIGHT_SKILL_SRC"
+  grep -q 'rein_locate shared/insights-staleness.mjs' "$PREFLIGHT_SKILL_SRC"
 assert_status 1 "Step 7 no longer names a cwd-relative candidate" \
   grep -qE 'for c in src/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
 assert_status 0 "Step 7 names locator chain (installed)" \
-  grep -qE '\.ai-os/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
+  grep -qE '\.rein/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
 assert_status 0 "Step 7 documents AI_INSIGHTS_STALENESS_DISABLE" \
   grep -qE 'AI_INSIGHTS_STALENESS_DISABLE' "$PREFLIGHT_SKILL_SRC"
 assert_status 0 "Step 7 emits [INSIGHTS_STALE] block"  \
   grep -qE '\[INSIGHTS_STALE\]' "$PREFLIGHT_SKILL_SRC"
-assert_status 0 "Step 7 prompts skill: ai-insights"    \
-  grep -qE 'skill: \`?ai-insights\`?' "$PREFLIGHT_SKILL_SRC"
+assert_status 0 "Step 7 prompts skill: rein-insights"    \
+  grep -qE 'skill: \`?rein-insights\`?' "$PREFLIGHT_SKILL_SRC"
 assert_status 0 "Step 7 acknowledges other-status silence" \
   grep -qE 'FRESH.*EMPTY.*DISABLED.*UNAVAILABLE' "$PREFLIGHT_SKILL_SRC"
 
 # ── T-INS-S10: mirrors byte-identical ─────────────────────────────────────────
 echo ""
-echo "  [T-INS-S10] ~/.ai-os mirrors byte-identical"
+echo "  [T-INS-S10] ~/.rein mirrors byte-identical"
 
-assert_status 0 "insights-staleness.mjs mirror"   diff -q "$PROBE"   "${HOME}/.ai-os/shared/insights-staleness.mjs"
-assert_status 0 "ai-preflight SKILL.md mirror"    diff -q "$PREFLIGHT_SKILL_SRC" "${HOME}/.ai-os/shared/skills/ai-preflight/SKILL.md"
-assert_status 0 "ai-preflight .claude mirror"     diff -q "$PREFLIGHT_SKILL_SRC" "${REPO_ROOT}/.claude/skills/ai-preflight/SKILL.md"
+assert_status 0 "insights-staleness.mjs mirror"   diff -q "$PROBE"   "${HOME}/.rein/shared/insights-staleness.mjs"
+assert_status 0 "rein-preflight SKILL.md mirror"    diff -q "$PREFLIGHT_SKILL_SRC" "${HOME}/.rein/shared/skills/rein-preflight/SKILL.md"
+assert_status 0 "rein-preflight .claude mirror"     diff -q "$PREFLIGHT_SKILL_SRC" "${REPO_ROOT}/.claude/skills/rein-preflight/SKILL.md"
 
 # ── E-93 (from instinct_stager — E-302): the meta_analyst Instinct-Extraction prompt ──
 # The stager itself is tests/unit/instinct-stager.test.mjs; these rows read the agent text.

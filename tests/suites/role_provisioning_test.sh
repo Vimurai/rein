@@ -7,14 +7,14 @@
 # holds which role). E-254 (D-069): both roles are served from src/claude/*, so the
 # join is now visible in the SERVED-ROLES output rather than in distinct directories.
 #
-# E-302 folds in the rest of the role surface: the runtime rulefiles and `ai doctor` role
+# E-302 folds in the rest of the role surface: the runtime rulefiles and `rein doctor` role
 # lines (E-215/E-254), the roles.json template (E-135), the provider adapter (E-138) and the
 # headless Tester role (E-255).
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 MANIFEST="${REPO_ROOT}/src/shared/role-manifest.mjs"
 REGISTRY="${REPO_ROOT}/src/config/registry.json"
 
@@ -78,7 +78,7 @@ assert_contains "E-212.05b: absent roles.json degrades to shared" "shared/skills
 # "unbound variable" (safe only from 4.4). An unserved provider produces exactly that
 # empty list, so this is the common path. Caught live: sync aborted mid-run and left
 # workspaces unprovisioned.
-assert_status 0 "E-212.06a: src/bin/ai parses under bash 3.2" /bin/bash -n "$AI_BIN"
+assert_status 0 "E-212.06a: src/bin/rein parses under bash 3.2" /bin/bash -n "$AI_BIN"
 assert_status 0 "E-212.06b: array expansions are count-guarded, not bare" \
   grep -q 'NOTE ON BASH 3.2' "$AI_BIN"
 assert_status 0 "E-212.06c: agent_dirs expansion is count-guarded" \
@@ -95,18 +95,18 @@ cat > "$_e212_ws/.ai/roles.json" <<'JSON'
 { "roles": { "architect": { "provider": "acme", "pane_identifier": "1" },
              "engineer":  { "provider": "claude", "pane_identifier": "0" } } }
 JSON
-# E-244: run the WORKING TREE's ai, not ${HOME}/.ai-os/bin/ai. These are assertions about
+# E-244: run the WORKING TREE's ai, not ${HOME}/.rein/bin/rein. These are assertions about
 # how the code BEHAVES, and the installed mirror is whatever version was last installed —
 # so on a developer machine they silently tested the previous release. That is not
 # hypothetical: with the mirror one release behind, a case here passed locally and failed
-# on CI, where `ai install` runs from HEAD. An environment-dependent assertion (E-236) in
+# on CI, where `rein install` runs from HEAD. An environment-dependent assertion (E-236) in
 # the suite that exists to prove provisioning works.
 _e212_out="$(cd "$_e212_ws" && /bin/bash "$AI_BIN" sync 2>&1)"; _e212_rc=$?
 assert_not_contains "E-212.06e: sync completes with no unbound-variable abort (bash 3.2)" \
   "unbound variable" "$_e212_out"
 assert_status 0 "E-212.06e2: and exits 0" test "$_e212_rc" -eq 0
 assert_status 0 "E-212.06g: the Engineer's workspace is still provisioned" \
-  test -f "$_e212_ws/.claude/skills/ai-task/SKILL.md"
+  test -f "$_e212_ws/.claude/skills/rein-task/SKILL.md"
 assert_contains "E-212.06h: and it reports serving the Engineer role" \
   ".claude/ serves role(s): engineer" "$_e212_out"
 
@@ -128,18 +128,18 @@ done
 echo "  [E-217] skill-name collision resolution"
 
 # The Architect's task/history skills are RENAMED, not deduplicated — they do a
-# different job for a different role. Same reason arch-review is not ai-review (E-149).
+# different job for a different role. Same reason arch-review is not rein-review (E-149).
 assert_status 0 "E-217.01a: arch-task exists in the Architect set" \
   test -f "${REPO_ROOT}/src/claude/skills/arch-task/SKILL.md"
 assert_status 0 "E-217.01b: arch-oracle exists in the Architect set" \
   test -f "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
-assert_status 1 "E-217.01c: the Architect set no longer ships ai-task" \
-  test -e "${REPO_ROOT}/src/claude/skills/ai-task"
+assert_status 1 "E-217.01c: the Architect set no longer ships rein-task" \
+  test -e "${REPO_ROOT}/src/claude/skills/rein-task"
 assert_status 1 "E-217.01d: the Architect set no longer ships repo-oracle" \
   test -e "${REPO_ROOT}/src/claude/skills/repo-oracle"
 # The ENGINEER keeps the original names — that is the point of the rename.
-assert_status 0 "E-217.01e: the Engineer keeps ai-task" \
-  test -f "${REPO_ROOT}/src/shared/skills/ai-task/SKILL.md"
+assert_status 0 "E-217.01e: the Engineer keeps rein-task" \
+  test -f "${REPO_ROOT}/src/shared/skills/rein-task/SKILL.md"
 assert_status 0 "E-217.01f: the Engineer keeps repo-oracle" \
   test -f "${REPO_ROOT}/src/shared/skills/repo-oracle/SKILL.md"
 # Frontmatter name must match the directory, or the skill loads under the old name.
@@ -187,12 +187,12 @@ assert_status 0 "E-217.04d: sync returns success explicitly (no stray git status
 
 # ── E-215 (from role_runtime_test — E-302): role runtime — rulefiles and the doctor role report ──
 # ARCHITECT.md runtime ladder (the Skill tool for skills, the Agent tool for agents — E-276) +
-# the `ai doctor` per-role provisioning report.
+# the `rein doctor` per-role provisioning report.
 ARCH_TPL="${REPO_ROOT}/src/templates/ARCHITECT.md"
 ENG_TPL="${REPO_ROOT}/src/templates/ENGINEER.md"
 # ── E-215.1: Session Start ladder mirrors ENGINEER.md ───────────────────────
 assert_status 0 "E-215.01a: ARCHITECT.md step 1 is the Skill tool" \
-  grep -q 'skill: "ai-preflight"' "$ARCH_TPL"
+  grep -q 'skill: "rein-preflight"' "$ARCH_TPL"
 # E-276: the retired MCP rungs are gone from BOTH rulefiles, not merely reordered.
 for _tpl in "$ARCH_TPL" "$ENG_TPL"; do
   assert_status 1 "E-276.01b: no run_preflight rung in ${_tpl##*/}" grep -q 'run_preflight' "$_tpl"
@@ -204,7 +204,7 @@ assert_status 0 "E-215.01d: the DIGEST-first manual read order is retained" \
   grep -q 'DIGEST.md → .ai/architect.md → .ai/TASKS.md' "$ARCH_TPL"
 # Both rulefiles must name the same single path — that is what "mirror" means here.
 assert_status 0 "E-215.01e: ENGINEER.md also starts with the Skill tool" \
-  grep -qF 'skill: "ai-preflight"' "$ENG_TPL"
+  grep -qF 'skill: "rein-preflight"' "$ENG_TPL"
 for _tpl in "$ARCH_TPL" "$ENG_TPL"; do
   assert_status 0 "E-276.01f: §36 in ${_tpl##*/} reads 'Skill tool for skills, Agent tool for agents'" \
     grep -qF '**HOW — the Skill tool for skills, the Agent tool for agents** (D-075)' "$_tpl"
@@ -252,7 +252,7 @@ assert_status 0 "E-215.04f: root ARCHITECT.md matches its template" \
 # ── E-215.5: role-manifest CLI vs import (the _isMain trap) ────────────────
 # argv[1] IS the module path when the module is imported dynamically, so a filename
 # suffix test wrongly concluded "I am the CLI" and printed usage + exit 2 into the
-# importing caller. `ai doctor` aborted mid-report because of it.
+# importing caller. `rein doctor` aborted mid-report because of it.
 assert_status 0 "E-215.05a: the CLI path still prints source dirs" \
   bash -c "node --no-warnings '$MANIFEST' '${REPO_ROOT}/.ai' '${REPO_ROOT}/src/config/registry.json' claude | grep -q 'shared/skills'"
 # A tiny probe script keeps the quoting readable — the point is that IMPORTING the
@@ -320,10 +320,10 @@ assert_contains "E-254.06o: a missing roles.json falls back to architect=claude,
 rm -rf "$_NOROLES"
 
 # ── E-135 (from role_config_test — E-302): the roles.json template and its overrides ──
-# Role Configuration Store (.ai/roles.json) + install flags: sources src/bin/ai to exercise
+# Role Configuration Store (.ai/roles.json) + install flags: sources src/bin/rein to exercise
 # _parse_role_flags / _write_roles_json and validates the template default mapping.
 ROLES_TEMPLATE="${REPO_ROOT}/src/templates/roles.json"
-export AIOS="${HOME}/.ai-os"
+export REIN="${HOME}/.rein"
 # T-1: template exists + is valid JSON with the documented schema
 assert_exists "$ROLES_TEMPLATE"
 assert_status 0 "T-1: roles.json template is valid JSON" \
@@ -370,7 +370,7 @@ assert_status 0 "T-7: ensure_ai_templates wires roles.json scaffold" \
 rm -rf "$tmp_over" "$tmp_def" "$tmp_noai"
 
 # ── E-138 / E-254 (from provider_adapter_test — E-302): the providers.json template and adapter ──
-# AI-OS v4 is Claude-native (D-069): the template and built-in adapters declare `claude` only.
+# Rein v4 is Claude-native (D-069): the template and built-in adapters declare `claude` only.
 PROV_TEMPLATE="${REPO_ROOT}/src/templates/providers.json"
 ADAPTER="${REPO_ROOT}/src/shared/provider-adapter.mjs"
 # ── T-1: providers.json template valid + declares exactly the claude provider ──
@@ -388,10 +388,10 @@ assert_match "T-1d: built-in DEFAULT_ADAPTERS declare exactly claude" "^claude$"
 assert_status 0 "T-2: providers.json wired into ensure_ai_templates" \
   grep -q 'ensure_file_if_missing "$T/providers.json"' "$AI_BIN"
 
-# ── T-3: `ai provider` is removed — exits 2 and points at .ai/providers.json ──
+# ── T-3: `rein provider` is removed — exits 2 and points at .ai/providers.json ──
 PROJ="$(mktemp -d)"; mkdir -p "${PROJ}/.ai"
 out=$(cd "$PROJ" && "$AI_BIN" provider add foo --config-path config/foo.json --mcp-key mcpServers 2>&1; echo "rc=$?")
-assert_contains "T-3a: ai provider add exits 2" "rc=2" "$out"
+assert_contains "T-3a: rein provider add exits 2" "rc=2" "$out"
 assert_contains "T-3b: the refusal names .ai/providers.json" \
   "providers are configured in .ai/providers.json" "$out"
 # The removed subcommand must not have half-run: no registry entry, no generated config.
@@ -399,7 +399,7 @@ assert_status 1 "T-3c: no providers.json written by the removed subcommand" \
   test -f "${PROJ}/.ai/providers.json"
 assert_status 1 "T-3d: no provider MCP config generated" test -f "${PROJ}/config/foo.json"
 bare=$(cd "$PROJ" && "$AI_BIN" provider 2>&1; echo "rc=$?")
-assert_contains "T-3e: bare ai provider also exits 2" "rc=2" "$bare"
+assert_contains "T-3e: bare rein provider also exits 2" "rc=2" "$bare"
 rm -rf "$PROJ"
 
 # ── T-5: generate_mcp_json honors a custom output path + top-level key ────────
@@ -410,9 +410,9 @@ assert_contains "T-5: generate_mcp_json writes the requested top-level key" "ser
 rm -rf "$GP"
 
 # ── E-255 (from headless_tester_test — E-302): the headless Tester role (claude, sonnet, no pane) ──
-# Template/writer, `ai start`/`ai pane`/overlays ignore a headless role, derived labels, ai-test
+# Template/writer, `rein start`/`rein pane`/overlays ignore a headless role, derived labels, rein-test
 # command detection and --fast model selection, and TestSprite gone from registry and .mcp.json.
-AI="${REPO_ROOT}/src/bin/ai"
+AI="${REPO_ROOT}/src/bin/rein"
 TESTCMD="${REPO_ROOT}/src/shared/test-command.mjs"
 SBOX="$(mktemp -d -t headless-tester-XXXXXX)"
 register_cleanup "rm -rf '$SBOX'"
@@ -438,20 +438,20 @@ _w="${SBOX}/writer"; mkdir -p "$_w/.ai"
 _t="$(node -e "const r=require('${_w}/.ai/roles.json').roles; process.stdout.write([r.architect.provider,r.engineer.provider,r.tester.provider,r.tester.model,r.tester.headless].join(','))")"
 assert_contains "E-255.01b: _write_roles_json emits the headless tester beside both panes" "claude,claude,claude,sonnet,true" "$_t"
 
-# ── E-255.2: ai start ignores headless roles ────────────────────────────────
-echo "  [E-255.2] ai start / _start_roles"
+# ── E-255.2: rein start ignores headless roles ────────────────────────────────
+echo "  [E-255.2] rein start / _start_roles"
 # E-384 (D-135 addendum 2, harness rule 1): the dry run plans tmux panes, so it needs tmux;
 # a host without it (the macOS runner image) records one skip for the section.
 # The project is created outside the guard: E-255.3 below reuses it.
 _p="$(_proj start "$V4_ROLES")"
-if skip_unless_cmd tmux "E-255.02: ai start --dry-run plans tmux panes"; then
-  # _start_roles is defined past bin/ai's source guard (E-53), so drive it through the
-  # dry run — the same path an operator's `ai start` takes.
+if skip_unless_cmd tmux "E-255.02: rein start --dry-run plans tmux panes"; then
+  # _start_roles is defined past bin/rein's source guard (E-53), so drive it through the
+  # dry run — the same path an operator's `rein start` takes.
   _out="$(cd "$_p" && bash "$AI" start --dry-run 2>&1)"
-  assert_match "E-255.02a: dry run binds the engineer to the first pane" 'send-keys -t pane0 ai.\ pane.\ engineer' "$_out"
-  assert_match "E-255.02b: …and the architect to the second" 'send-keys -t pane1 ai.\ pane.\ architect' "$_out"
+  assert_match "E-255.02a: dry run binds the engineer to the first pane" 'send-keys -t pane0 rein.\ pane.\ engineer' "$_out"
+  assert_match "E-255.02b: …and the architect to the second" 'send-keys -t pane1 rein.\ pane.\ architect' "$_out"
   assert_not_contains "E-255.02c: no third pane is addressed (the tester occupies none)" "pane2" "$_out"
-  assert_not_contains "E-255.02d: the tester is never sent 'ai pane'" 'pane\ tester' "$_out"
+  assert_not_contains "E-255.02d: the tester is never sent 'rein pane'" 'pane\ tester' "$_out"
 
   # Non-vacuity: the headless FLAG is what excludes a role, not the name "tester". An
   # architect marked headless disappears from the layout too.
@@ -459,15 +459,15 @@ if skip_unless_cmd tmux "E-255.02: ai start --dry-run plans tmux panes"; then
     "architect": { "provider": "claude", "pane_identifier": "1", "headless": true },
     "engineer":  { "provider": "claude", "pane_identifier": "0" } } }')"
   _out2="$(cd "$_p2" && bash "$AI" start --dry-run 2>&1)"
-  assert_match "E-255.02e: headless:true — the engineer is still bound" 'ai.\ pane.\ engineer' "$_out2"
+  assert_match "E-255.02e: headless:true — the engineer is still bound" 'rein.\ pane.\ engineer' "$_out2"
   assert_not_contains "E-255.02f: headless:true removes any role from the layout, the architect included" 'pane\ architect' "$_out2"
 fi
 
-# ── E-255.3: ai pane tester refuses with the pointer to ai-test ─────────────
-echo "  [E-255.3] ai pane tester"
-assert_status 2 "E-255.03a: ai pane tester exits 2" bash -c "cd '$_p' && bash '$AI' pane tester 2>/dev/null"
-assert_contains "E-255.03b: the message says headless and names skill: ai-test" \
-  "tester is headless; run skill: ai-test" "$(cd "$_p" && bash "$AI" pane tester 2>&1)"
+# ── E-255.3: rein pane tester refuses with the pointer to rein-test ─────────────
+echo "  [E-255.3] rein pane tester"
+assert_status 2 "E-255.03a: rein pane tester exits 2" bash -c "cd '$_p' && bash '$AI' pane tester 2>/dev/null"
+assert_contains "E-255.03b: the message says headless and names skill: rein-test" \
+  "tester is headless; run skill: rein-test" "$(cd "$_p" && bash "$AI" pane tester 2>&1)"
 
 # ── E-255.4: no settings overlay for a headless role ────────────────────────
 echo "  [E-255.4] settings overlays"
@@ -480,8 +480,8 @@ assert_status 1 "E-255.04a: no settings.tester.json is written" test -e "${_ov}/
 # ── E-255.5: labels are derived for all three roles ─────────────────────────
 echo "  [E-255.5] derived labels"
 _lab() {
-  AI_OS_MOD="file://${ADAPTER}" node --input-type=module -e '
-const m = await import(process.env.AI_OS_MOD);
+  REIN_MOD="file://${ADAPTER}" node --input-type=module -e '
+const m = await import(process.env.REIN_MOD);
 const d = process.argv[1];
 process.stdout.write(["architect","engineer","tester"].map(r => m.roleLabel(d, r)).join("|") + "|" +
   ["architect","engineer","tester"].map(r => m.isHeadless(d, r)).join(","));
@@ -501,7 +501,7 @@ assert_contains "E-255.05e: banner labels carry three fields, tester from roles.
 assert_status 1 "E-255.05f: the init banner no longer hard-codes a Tester vendor" \
   grep -qE "Tester +%-18s.*\"\\((TestSprite|[A-Za-z]+)\\)\"" "$AI"
 
-# ── E-255.6: ai-test resolves the real test command ─────────────────────────
+# ── E-255.6: rein-test resolves the real test command ─────────────────────────
 echo "  [E-255.6] test-command detection"
 _tc() { node "$TESTCMD" "$@" 2>/dev/null; }
 _d="${SBOX}/npm"; mkdir -p "$_d/tests"; echo '{"scripts":{"test":"vitest run"}}' > "$_d/package.json"; : > "$_d/tests/run.sh"
@@ -530,9 +530,9 @@ assert_contains "E-255.07c: roles.json tester model is honoured" '"model":"opus"
 assert_contains "E-255.07d: --fast still wins over roles.json" '"model":"haiku"' "$(_tc --fast "$_d")"
 
 # ── E-255.8: the agent and the skill ────────────────────────────────────────
-echo "  [E-255.8] test_engineer agent + ai-test skill"
+echo "  [E-255.8] test_engineer agent + rein-test skill"
 AGENT="${REPO_ROOT}/src/claude/agents/test_engineer.md"
-SKILL="${REPO_ROOT}/src/shared/skills/ai-test/SKILL.md"
+SKILL="${REPO_ROOT}/src/shared/skills/rein-test/SKILL.md"
 assert_exists "$AGENT"
 assert_status 0 "E-255.08a: test_engineer frontmatter pins model: sonnet" \
   bash -c "sed -n '1,/^---\$/{/^---\$/!p;}' '$AGENT' | sed -n '1,12p' | grep -qx 'model: sonnet'"
@@ -549,9 +549,9 @@ assert_status 0 "E-255.08b: test_engineer stamps through add_stamp, and only tha
 assert_status 0 "E-255.08c: test_engineer writes only under tests/" grep -q 'Write ONLY under `tests/`' "$AGENT"
 for _flag in -- --generate --fast --vibe; do
   [[ "$_flag" == "--" ]] && continue
-  assert_status 0 "E-255.08d: ai-test documents ${_flag}" grep -q -- "## ${_flag}\|(${_flag} flag)" "$SKILL"
+  assert_status 0 "E-255.08d: rein-test documents ${_flag}" grep -q -- "## ${_flag}\|(${_flag} flag)" "$SKILL"
 done
-assert_status 0 "E-255.08e: ai-test resolves the command through test-command.mjs" grep -q 'shared/test-command.mjs' "$SKILL"
+assert_status 0 "E-255.08e: rein-test resolves the command through test-command.mjs" grep -q 'shared/test-command.mjs' "$SKILL"
 assert_mirror_if_present "E-255.08f: .claude/agents/test_engineer.md mirrors src" "$AGENT" "${REPO_ROOT}/.claude/agents/test_engineer.md"
 
 # ── E-255.9: TestSprite is gone from every generated surface ────────────────

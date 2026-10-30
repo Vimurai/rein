@@ -1,4 +1,4 @@
-// cli-add-task.mjs — the shell-native primitive behind `ai add-task` (E-198,
+// cli-add-task.mjs — the shell-native primitive behind `rein add-task` (E-198,
 // Architect Ruling A / pending D-053).
 //
 // WHY THIS EXISTS:
@@ -6,7 +6,7 @@
 //   the project MCP servers that hand-edits TASKS.md loses those rows: the next
 //   `verify_markdown_sync` regenerates TASKS.md from state.sqlite and DROPS the
 //   unpersisted rows (the "orphaned blueprint" incident). This helper is the
-//   deterministic shell primitive behind `ai add-task`.
+//   deterministic shell primitive behind `rein add-task`.
 //
 //   Both this CLI and task-synchronizer-mcp::add_task route through the SAME
 //   state-db::addTask(), so state.sqlite stays the single writer and the two callers
@@ -18,7 +18,7 @@
 //      addTask() (nextId → DAG validate → INSERT → id high-water → regenerate views).
 //   2. Stamp the caller_role: the created task's owner reflects the resolved Triad
 //      role (architect → "Architect (Claude)", engineer → "Engineer (Claude)"), taken
-//      from the bootloader-injected AI_OS_CALLER_ROLE (E-127) unless overridden.
+//      from the bootloader-injected REIN_CALLER_ROLE (E-127) unless overridden.
 //   3. Respect the sovereignty lock: writes go through getDbSeeded() (node:sqlite WAL,
 //      single-writer) — the same handle discipline the MCP uses; no divergent raw write.
 //
@@ -52,14 +52,14 @@ function _titleProvider(p) {
 
 /**
  * Resolve the owner label. Explicit --owner wins; else map the Triad role
- * (--role, then the bootloader-injected AI_OS_CALLER_ROLE, then 'engineer') and
+ * (--role, then the bootloader-injected REIN_CALLER_ROLE, then 'engineer') and
  * pair it with the provider that role is bound to in .ai/roles.json.
  * Fails soft to the D-050 defaults — an attribution label must never break task
  * creation just because roles.json is missing or unreadable.
  */
 export function resolveOwner({ owner, role, aiDir } = {}) {
   if (typeof owner === "string" && owner.trim()) return owner.trim();
-  const r = String(role || process.env.AI_OS_CALLER_ROLE || "engineer").toLowerCase();
+  const r = String(role || process.env.REIN_CALLER_ROLE || "engineer").toLowerCase();
   const known = r === "architect" ? "architect" : "engineer";
   const label = known === "architect" ? "Architect" : "Engineer";
   try {
@@ -94,7 +94,7 @@ export function findAiDir(startDir) {
 }
 
 /**
- * Parse `ai add-task` argv (tokens AFTER the `add-task` subcommand). Supports
+ * Parse `rein add-task` argv (tokens AFTER the `add-task` subcommand). Supports
  * `--flag value` and `--flag=value`; every non-flag token is part of the description.
  * Recognised flags: --prefix, --owner, --role, --tier, --depends-on (comma-separated).
  * @returns {{prefix,owner,role,tier,depends_on:string[],description:string}}
@@ -146,18 +146,18 @@ export function runAddTask({ aiDir, description, owner, role, tier, prefix, depe
 }
 
 // ── CLI entrypoint ────────────────────────────────────────────────────────────
-// Invoked as: node cli-add-task.mjs <args…>  (from bin/ai `do_add_task`).
+// Invoked as: node cli-add-task.mjs <args…>  (from bin/rein `do_add_task`).
 function main() {
   const argv = process.argv.slice(2);
   const opts = parseArgs(argv);
   if (!opts.description) {
-    process.stderr.write("usage: ai add-task [--prefix E|P] [--owner <name>] [--role architect|engineer] [--tier N] [--depends-on E-1,E-2] <description>\n");
+    process.stderr.write("usage: rein add-task [--prefix E|P] [--owner <name>] [--role architect|engineer] [--tier N] [--depends-on E-1,E-2] <description>\n");
     process.exit(2);
   }
   const aiDir = findAiDir(process.cwd());
   const res = runAddTask({ aiDir, ...opts });
   if (!res.ok) {
-    process.stderr.write(`ai add-task: [${res.code}] ${res.error}\n`);
+    process.stderr.write(`rein add-task: [${res.code}] ${res.error}\n`);
     process.exit(1);
   }
   // stdout: the created id (scriptable) + a human line; full record to stderr for logs.

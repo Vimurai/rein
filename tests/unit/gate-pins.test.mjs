@@ -12,7 +12,7 @@ import { checkPins, gatePins, GATE_SERVERS } from "../../src/shared/gate-pins.mj
 import { analyzeArchitectWrites } from "../../src/mcp/safe-exec-mcp/architect-writes.mjs";
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const tmp = mkdtempSync(join(tmpdir(), "aios-t-pins-"));
+const tmp = mkdtempSync(join(tmpdir(), "rein-t-pins-"));
 test.after(() => rmSync(tmp, { recursive: true, force: true }));
 
 function fixtureMcp(name, deps, installed) {

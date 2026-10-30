@@ -21,7 +21,7 @@
     { "label": "host is one line", "patch": { "host": "h\nPASS" }, "valid": false, "match": "one short line" },
     { "label": "host carries no terminal escape", "patch": { "host": "h\u001b[2Jx" }, "valid": false, "match": "one short line" },
     { "label": "runner carries no control character", "patch": { "runner": "a@x.test\u0007" }, "valid": false, "match": "not a member" },
-    { "label": "aios_version is short", "patch": { "aios_version": "4.0.0-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, "valid": false, "match": "one short line" },
+    { "label": "rein_version is short", "patch": { "rein_version": "4.0.0-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }, "valid": false, "match": "one short line" },
     { "label": "not an object", "replace": [1, 2], "valid": false, "match": "not an object" }
   ]
 }

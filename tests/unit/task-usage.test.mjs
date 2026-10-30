@@ -29,7 +29,7 @@ const MARKER = "PRIVACY-MARKER-7f3a9c";
 
 // A fixture Claude config dir: <cfg>/projects/<proj>/<session>.jsonl
 function fixture() {
-  const d = realpathSync(mkdtempSync(join(tmpdir(), "aios-t-taskusage-")));
+  const d = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-taskusage-")));
   const cfg = join(d, "claude");
   const proj = join(cfg, "projects", "-fixture-project");
   mkdirSync(proj, { recursive: true });
@@ -299,7 +299,7 @@ test("the CLI waits for the DONE line Claude Code appends only after the hook ha
   } finally { f.done(); }
 });
 
-test("the CLI writes nothing for a rejected DONE, or with AI_OS_TASK_USAGE=0", () => {
+test("the CLI writes nothing for a rejected DONE, or with REIN_TASK_USAGE=0", () => {
   const f = fixture();
   try {
     const p = f.write([asst("a1", U(10, 10)), doneUse("a2", "tu1", "E-3", U(1, 1))]);
@@ -309,7 +309,7 @@ test("the CLI writes nothing for a rejected DONE, or with AI_OS_TASK_USAGE=0", (
       env: { ...process.env, CLAUDE_CONFIG_DIR: f.cfg, AI_TELEMETRY_DB_PATH: db, ...extra }, cwd: REPO,
     });
     run([{ type: "text", text: "✗ [CI_GATE] no green run" }]);
-    run([{ type: "text", text: "✓ E-3 → DONE" }], { AI_OS_TASK_USAGE: "0" });
+    run([{ type: "text", text: "✓ E-3 → DONE" }], { REIN_TASK_USAGE: "0" });
     let n = 0;
     try { const h = new DatabaseSync(db, { readOnly: true }); n = h.prepare("SELECT COUNT(*) AS c FROM task_velocity").get().c; h.close(); }
     catch { n = 0; }

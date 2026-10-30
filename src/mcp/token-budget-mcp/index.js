@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /**
- * token-budget-mcp — AI-OS Token Budget & Cost Governance (E-140, §27)
+ * token-budget-mcp — Rein Token Budget & Cost Governance (E-140, §27)
  *
  * Tracks LLM token spend per task in real-time.
- * Persists usage to ~/.ai-os/usage.sqlite.
+ * Persists usage to ~/.rein/usage.sqlite.
  * Warns when output exceeds configurable thresholds.
  *
  * Tools:
@@ -16,7 +16,7 @@
  * Security:
  *   - All DB operations use parameterized queries (no injection vectors).
  *   - execSync forbidden — uses node:sqlite (Node 22+ built-in) synchronous API directly.
- *   - DB path fixed to ~/.ai-os/usage.sqlite (no user-controlled path).
+ *   - DB path fixed to ~/.rein/usage.sqlite (no user-controlled path).
  */
 
 import { isMainModule } from "../shared/is-main.mjs";
@@ -35,7 +35,7 @@ const logger = createLogger("token-budget-mcp");
 
 // ── SQLite setup ──────────────────────────────────────────────────────────────
 
-const STORE_DIR  = resolve(homedir(), ".ai-os");
+const STORE_DIR  = resolve(homedir(), ".rein");
 const DB_PATH    = join(STORE_DIR, "usage.sqlite");
 
 let db = null;

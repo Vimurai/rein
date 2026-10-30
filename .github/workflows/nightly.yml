@@ -68,7 +68,7 @@ jobs:
       - name: Download the run logs
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333   # v8.0.2
         with:
-          pattern: ai-ci-run-*
+          pattern: rein-ci-run-*
           path: logs
 
       - name: Restore the budget history
@@ -102,7 +102,7 @@ jobs:
           script: |
             const run = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
             const date = new Date().toISOString().slice(0, 10);
-            const body = `The nightly run failed on ${date}: ${run}\n\nRead the failed legs' artefacts (\`ai ci log --failed\` locally reads the same log).`;
+            const body = `The nightly run failed on ${date}: ${run}\n\nRead the failed legs' artefacts (\`rein ci log --failed\` locally reads the same log).`;
             const { data: open } = await github.rest.issues.listForRepo({ ...context.repo, labels: "nightly", state: "open", per_page: 1 });
             if (open.length) {
               await github.rest.issues.update({ ...context.repo, issue_number: open[0].number, title: `Nightly failed on ${date}`, body });

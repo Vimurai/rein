@@ -10,7 +10,7 @@ and the process that produced it has an add rule and no delete rule. This bluepr
 suite an economy: a layer rule, a replace-or-justify rule, a deletion rule, a budget that
 ratchets down, and the tools that make those rules checkable. Users: the Engineer (writes and
 runs tests), `critic_tests` / `test_engineer` (enforce), the Architect (rules on deletions of
-security pins), `ai ci run` (records the budget).
+security pins), `rein ci run` (records the budget).
 
 ## Core Concept
 **A test is a claim about a behaviour, at the cheapest layer that can observe it, and it pays
@@ -23,20 +23,20 @@ incident now covered by a contract table is deleted, with a LOG line, not a revi
 ## Components
 1. **Census — `tests/tools/census.mjs`** (E-297). One pass over the suite, machine-readable
    and human-readable. Per suite: assertion count; wall time from the last run (parsed from
-   `tests/run.sh` output or the `~/.ai-os/ci` records); task-label density (labels per
+   `tests/run.sh` output or the `~/.rein/ci` records); task-label density (labels per
    assertion); the *footprint* — the set of `src/`/`hooks/` files the suite exercises, recorded
-   DYNAMICALLY by the harness (`tests/lib` logs every `node <path>` / `bash <path>` / `ai`
+   DYNAMICALLY by the harness (`tests/lib` logs every `node <path>` / `bash <path>` / `rein`
    spawn to a per-run file, so the footprint is what ran, not what was mentioned) plus the
    static references; and `last_real_failure` from the CI records (never failed = never paid
    rent). Derived lists: **merge candidates** (footprint overlap ≥ 80% with another suite),
    **move-to-unit candidates** (every spawn is `node <src module> <args>` with stdout parsed —
    a pure function driven through a process), **delete candidates** (never failed AND
    footprint fully covered by a contract table or another suite), **misnamed** (task id in the
-   suite name). Output: `~/.ai-os/ci/census-<date>.json` + a markdown summary on stdout. The
+   suite name). Output: `~/.rein/ci/census-<date>.json` + a markdown summary on stdout. The
    first census is the input to the Architect's Consolidation Map (P-44).
 2. **Tiers and selection — `tests/run.sh --tier fast|full`, `--changed <ref>`** (E-298).
    `fast` = `tests/unit` + every contract-table suite (`*_cases.json` runners): budget 60 s on
-   CI. `full` = today's matrix, run by `ai ci run` and pre-push only. `--changed <ref>` selects
+   CI. `full` = today's matrix, run by `rein ci run` and pre-push only. `--changed <ref>` selects
    the suites whose census footprint intersects the files changed since `<ref>`, always
    including `fast`. `critic_tests` runs `--tier fast --changed <base>` — never the full matrix
    in a review. A suite with no footprint entry runs in `full` only (no footprint ⇒ unknown).
@@ -50,7 +50,7 @@ incident now covered by a contract table is deleted, with a LOG line, not a revi
    extending a contract table over a new suite. `standards.json` gains `test_suite_naming`
    (no `^e\d+|_e\d+|p\d+_` in `tests/suites/*.sh` names; existing names exempted BY NAME until
    their wave renames them, D-065) and `test_label_density` (a suite with more labels than
-   assertions is a finding). `ai-test` SKILL text follows.
+   assertions is a finding). `rein-test` SKILL text follows.
 4. **Contract tables — the consolidation primitive** (E-301, E-302). The pattern that already
    works: `arch-write-cases.json` + `pipe-shell-cases.json` — a JSON table of `{label, cmd,
    want}` rows, one runner, sha256-pinned where the gate is frozen. Every rule family gets one:
@@ -71,24 +71,24 @@ incident now covered by a contract table is deleted, with a LOG line, not a revi
    deleted by the Engineer on the census alone — the map says so per row, and the row cites
    the table or suite that now carries the behaviour. The map is the acceptance list of waves 1
    and 2.
-7. **Ratchet — `ai ci run` records the budget** (E-303). Each green run records `suites`,
+7. **Ratchet — `rein ci run` records the budget** (E-303). Each green run records `suites`,
    `test_lines`, `fast_tier_seconds`, `full_seconds` in the CI record; a run FAILS when any of
    the first three exceeds the best recorded value by more than the slack (suites +0,
-   test_lines +2%, fast tier +10%), so the numbers can only move down; `ai doctor`/`ai ci
+   test_lines +2%, fast tier +10%), so the numbers can only move down; `rein doctor`/`rein ci
    status` print the current budget. Raising a budget is a D-ruling with the census attached.
    Timing and RSS fields (`full_seconds`, `peak_rss_mb`, `peak_sum_rss_mb`) are RECORDED and
    never ratcheted (D-118 r1: four idle full runs spread 10.3%, so a fixed-slack gate fails on
-   host load). Instead `ai ci status` and `ai doctor` print `[BUDGET_DRIFT] <field> <latest>
+   host load). Instead `rein ci status` and `rein doctor` print `[BUDGET_DRIFT] <field> <latest>
    vs median-of-5 <value> (+N%)` when the latest green run exceeds the median of the last five
    green runs by more than 25% on any of those fields — a line, never a FAIL (E-366).
 
 ## Data Model
 ```
-~/.ai-os/ci/census-<date>.json
+~/.rein/ci/census-<date>.json
 { "generated": "<ISO>", "commit": "<sha>",
   "suites": [ { "name": "pane_binding", "file": "tests/suites/pane_binding_test.sh",
      "assertions": 105, "labels": 98, "wall_ms": 14200,
-     "footprint": ["src/bin/ai", "src/shared/resolve-launch.mjs"],
+     "footprint": ["src/bin/rein", "src/shared/resolve-launch.mjs"],
      "spawn_shape": "process|pure-node|mixed",
      "last_real_failure": "2026-09-10T…|null",
      "candidates": ["merge:pane_option_binding", "misnamed"] } ],
@@ -106,11 +106,11 @@ gate rule family has a table.
 
 ## API / Interface Contracts
 - `node tests/tools/census.mjs [--json <path>] [--since <ref>]` — exit 0; the markdown
-  summary on stdout; the JSON at the path or the default under `~/.ai-os/ci/`.
+  summary on stdout; the JSON at the path or the default under `~/.rein/ci/`.
 - `bash tests/run.sh [--tier fast|full] [--changed <ref>] [pattern]` — defaults unchanged
   (`full`, all suites), so every existing caller keeps its behaviour; `--changed` without a
   census file falls back to `full` and says so.
-- `ai ci run` records the budget block; `ai ci status` prints it; a budget regression is a
+- `rein ci run` records the budget block; `rein ci status` prints it; a budget regression is a
   FAIL with the three numbers (recorded, measured, slack) on one line.
 - A contract table runner: `node tests/unit/<family>-cases.test.mjs` under `node --test`;
   the table's sha256 is asserted where the gate is frozen (D-056).
@@ -124,7 +124,7 @@ gate rule family has a table.
 - A regression pin for a `T-*` threat-model entry is deleted only when the Consolidation Map
   (Architect) names the row that carries it now.
 - The mutation tool is a dev dependency through `dependency_gate` + `critic_security`; it runs
-  locally, never in `ai ci run`, and its report contains no secrets (it reads the suite only).
+  locally, never in `rein ci run`, and its report contains no secrets (it reads the suite only).
 - The footprint recorder in `tests/lib` writes only to the per-run temp path (rule 6, E-257).
 
 ## Execution Constraints
@@ -151,19 +151,19 @@ text reverts with E-299.
   the gate families: tables, moves, merges, deletions per the map.
 - **E-302** (Tier 2, after P-44): wave 2 — everything that is not a gate.
 - **E-303** (Tier 2, after E-301 and E-302): Component 7, the ratchet.
-- **E-366** (Tier 1, after E-303): the `[BUDGET_DRIFT]` line in `ai ci status` and `ai doctor` (D-118 r1).
+- **E-366** (Tier 1, after E-303): the `[BUDGET_DRIFT]` line in `rein ci status` and `rein doctor` (D-118 r1).
 
 ## CI Resources — memory, lanes, fixtures, waiting (D-091, 2026-10-12)
 D-088 gave the suite a delete rule; it did not touch what a run COSTS while it exists. Measured
 on 2026-10-05 (census, 7342fac) and 2026-10-12 (CI logs): `tests/run.sh` runs 152 suites
 strictly serially (summed suite time 1,715 s; 17 suites over 30 s, the ten slowest = 754 s =
-44% of the clock; 70 suites under 2 s); 20 suites run `install-ai-os.sh` and 13 run `ai init`
+44% of the clock; 70 suites under 2 s); 20 suites run `install-rein.sh` and 13 run `rein init`
 as SETUP; 50 `sleep N` sites in 19 suites wait a fixed time instead of polling; the runner has
-no per-suite deadline, so a hung suite holds the run; `ai ci run` records load average but not
-memory, and parses only the AI-OS `SUITE_RESULT` line, so every downstream project (vitest,
+no per-suite deadline, so a hung suite holds the run; `rein ci run` records load average but not
+memory, and parses only the Rein `SUITE_RESULT` line, so every downstream project (vitest,
 node --test) records `pass=0`. The local-ci blueprint deferred parallelisation "if the run
 exceeds ten minutes" — it does, and D-091 funds it. Users: the Engineer (runs the suite many
-times a day), `ai ci run` (the DONE gate), downstream projects (two client projects) whose CI
+times a day), `rein ci run` (the DONE gate), downstream projects (two client projects) whose CI
 records are blind today.
 
 ### Core Concept
@@ -179,35 +179,35 @@ budget) runs alone; everything else shares lanes. Memory caps lanes, not core co
    The 50 `sleep N` sites are replaced by `wait_for` on the condition they were waiting for;
    the few that wait for a NEGATIVE (nothing must happen for N ms) are kept under a named
    allowlist in the suite with the reason on the line. `tests/run.sh` runs each suite under a
-   watchdog (`AIOS_SUITE_TIMEOUT`, default 180 s; a suite may declare a larger budget with a
-   `# AIOS_SUITE_TIMEOUT=<s>` header line read by the runner): a suite past its deadline is
+   watchdog (`REIN_SUITE_TIMEOUT`, default 180 s; a suite may declare a larger budget with a
+   `# REIN_SUITE_TIMEOUT=<s>` header line read by the runner): a suite past its deadline is
    killed with its process group, reported as `[SUITE_TIMEOUT] <suite> after <s>s` and counted
    FAIL; its leak diff and cleanup still run.
 9. **Fixtures built once per run, cloned per suite** (E-308 — SUPERSEDED by D-092, see the amendment at the end of this section; no template is built). The runner builds ONE throwaway
-   HOME template per run (`$AIOS_TEST_TMPDIR/home-template`, `bash install-ai-os.sh` from the
-   tree under test — the same mirror-lag rule as `ai ci run`'s install step) and the harness
+   HOME template per run (`$REIN_TEST_TMPDIR/home-template`, `bash install-rein.sh` from the
+   tree under test — the same mirror-lag rule as `rein ci run`'s install step) and the harness
    gains `test_home_clone [label]`: a per-suite HOME cloned from the template (APFS `cp -c`,
    fallback `cp -R`), registered for cleanup, under the lane's temp prefix. Suites that run the
-   installer or `ai init` as SETUP switch to the clone; suites whose SUBJECT is the installer or
-   `ai init` keep the real call and are listed by name in the suite header
-   (`# AIOS_INSTALLER_SUBJECT`). The footprint recorder already counts installer spawns, so
+   installer or `rein init` as SETUP switch to the clone; suites whose SUBJECT is the installer or
+   `rein init` keep the real call and are listed by name in the suite header
+   (`# REIN_INSTALLER_SUBJECT`). The footprint recorder already counts installer spawns, so
    the census shows the before/after.
 10. **Lanes by resource class, with a per-lane leak diff** (E-309). `tests/run.sh --lanes N`
-   (`AIOS_TEST_LANES`; default 1 = today's behaviour, so every caller is unchanged). Each suite
+   (`REIN_TEST_LANES`; default 1 = today's behaviour, so every caller is unchanged). Each suite
    carries a resource class, derived from the census spawn data plus a header declaration
-   (`# AIOS_EXCLUSIVE: tmux|installer|port|perf`): EXCLUSIVE suites (tmux, `ai watch`, the
+   (`# REIN_EXCLUSIVE: tmux|installer|port|perf`): EXCLUSIVE suites (tmux, `ai watch`, the
    installer as subject, port binders, suites with `assert_perf` — host load changes the ratio,
    E-239) run in one serial lane AFTER the shared lanes finish; every other suite is
    distributed longest-first by its last census `wall_ms`. A lane owns a socket and temp
-   prefix suffix (`aios-test-L2-`, `aios-t-L2-`), and the leak snapshot is filtered by the
+   prefix suffix (`rein-test-L2-`, `rein-t-L2-`), and the leak snapshot is filtered by the
    lane's prefix, so a leak is attributed to a lane AND a suite; per-suite output is captured
-   and printed in suite order, and CENSUS rows are merged. `ai ci run --lanes N` (default
+   and printed in suite order, and CENSUS rows are merged. `rein ci run --lanes N` (default
    `min(4, cores/2)`, recorded in the row) passes it through; the one-run-per-project lock is
    unchanged. The lane count is capped by memory, not cores: the runner refuses more lanes
    than `free_memory / 1.5 GB` and says so.
-11. **Record what is budgeted; read every runner's summary** (E-310). `ai ci run` measures the
+11. **Record what is budgeted; read every runner's summary** (E-310). `rein ci run` measures the
    suite step's peak resident memory (`/usr/bin/time -l` on macOS, `-v` on Linux) and records
-   `peak_rss_mb`, `lanes`, `suite_seconds` and the ten slowest suites in the CI row; `ai ci
+   `peak_rss_mb`, `lanes`, `suite_seconds` and the ten slowest suites in the CI row; `rein ci
    status` prints them. The summary parser gains vitest (`Test Files … / Tests N passed | M
    failed`), node `--test` (`# pass N / # fail N`), pytest (`N passed, M failed`) and jest
    shapes, so a downstream project's row carries its real counts. The E-303 budget block
@@ -218,11 +218,11 @@ budget) runs alone; everything else shares lanes. Memory caps lanes, not core co
 ```
 CI row (ci-record.mjs) gains: { "lanes": N, "peak_rss_mb": N, "suite_seconds": N,
   "slowest": [ { "suite": "pane_binding", "wall_ms": 115600 }, … 10 ] ,
-  "runner": "aios|vitest|node-test|pytest|jest" }
+  "runner": "rein|vitest|node-test|pytest|jest" }
 Suite header declarations (comment lines, read by tests/run.sh and census.mjs):
-  # AIOS_SUITE_TIMEOUT=<seconds>      # AIOS_EXCLUSIVE: tmux|installer|port|perf
-  # AIOS_INSTALLER_SUBJECT            # AIOS_SLEEP_ALLOWED: <reason>
-Lane namespaces: AIOS_TEST_SOCK_PREFIX=aios-test-L<n>-  AIOS_TEST_TMP_PREFIX=aios-t-L<n>-
+  # REIN_SUITE_TIMEOUT=<seconds>      # REIN_EXCLUSIVE: tmux|installer|port|perf
+  # REIN_INSTALLER_SUBJECT            # REIN_SLEEP_ALLOWED: <reason>
+Lane namespaces: REIN_TEST_SOCK_PREFIX=rein-test-L<n>-  REIN_TEST_TMP_PREFIX=rein-t-L<n>-
 ```
 Targets: full run < 6 min on the operator's Mac at 4 lanes BEFORE any consolidation, < 5 min
 after waves 1–2 (the D-088 target, now reachable); installer spawns per run ≤ the subject
@@ -233,16 +233,16 @@ allowlist; `sleep N` sites 0 outside the allowlist; peak RSS recorded on every r
   deadline with `wait_for: <cmd> not true after <ms> ms` on stderr.
 - `test_home_clone [label]` → prints the cloned HOME path; exit 2 when no template exists
   (a suite run outside `tests/run.sh` builds its own via the existing path).
-- `bash tests/run.sh [--lanes N] …`; `ai ci run [--lanes N]`; both refuse `N` above the
+- `bash tests/run.sh [--lanes N] …`; `rein ci run [--lanes N]`; both refuse `N` above the
   memory cap with the cap printed. `--lanes 1` is byte-equivalent in results to today.
-- `ai ci status` prints `lanes`, `peak_rss_mb`, `suite_seconds` and the slowest ten.
+- `rein ci status` prints `lanes`, `peak_rss_mb`, `suite_seconds` and the slowest ten.
 
 ### Security
 - Lanes never share a HOME, socket prefix or temp prefix; a suite that reaches outside its
   lane is a leak and FAILS the run exactly as today (E-240), now attributed to the lane.
 - The watchdog kills the suite's process GROUP only (never by name, never machine-wide).
 - The HOME template is built from the tree under test by the existing installer; no new
-  install path, no write under the real `~/.ai-os` (E-304 holds).
+  install path, no write under the real `~/.rein` (E-304 holds).
 - Summary parsers read log text only; they never execute project code.
 - `tests/fixtures/arch-write-cases.json` stays byte-identical (D-056); the gate suites are
   resource-classed, not changed.
@@ -260,33 +260,33 @@ allowlist; `sleep N` sites 0 outside the allowlist; peak RSS recorded on every r
 `--lanes` defaults to 1 and `wait_for` is additive: reverting E-309 or E-307 is one PR each
 and no suite changes behaviour at `--lanes 1`. The HOME template helper falls back to the
 suite's own installer call when the template is absent. New CI row fields are ignored by
-older readers; the summary parsers fall back to the AI-OS line.
+older readers; the summary parsers fall back to the Rein line.
 
 ### E-## Task Breakdown (D-091)
 - **E-307** (Tier 2): Component 8 — `wait_for`, sleep replacement, per-suite watchdog.
 - **E-308** (Tier 2): Component 9 — HOME template per run, `test_home_clone`, setup suites
   converted, subject suites declared.
 - **E-309** (Tier 2, after E-307 and E-308): Component 10 — lanes by resource class,
-  per-lane leak diff, `ai ci run --lanes`, memory cap.
+  per-lane leak diff, `rein ci run --lanes`, memory cap.
 - **E-310** (Tier 2, after E-309): Component 11 — peak RSS, lanes and slowest-ten in the CI
   row; vitest / node --test / pytest / jest summary parsers; the budget fields.
 - **P-44** is ordered by wall time: the Consolidation Map lists the ten slowest suites first.
 
 ### D-092 amendment (2026-10-12): Component 9 superseded — there is no setup install to clone
-The "20 suites run the installer and 13 run `ai init` as setup" figure in this section came
+The "20 suites run the installer and 13 run `rein init` as setup" figure in this section came
 from `grep`, not from the census spawn data. The Engineer's survey (COMM.md 2026-10-12): 15 of
 the 20 only grep the installer's text or name it in a payload; 12 of the 13 only mention
-`ai init`. The CENSUS_FP rows of the last CI run show real installer spawns in exactly five
+`rein init`. The CENSUS_FP rows of the last CI run show real installer spawns in exactly five
 suites — init_upgrade, mirror_hygiene, exec_form_hooks (under `env`, invisible to the
 recorder), provider_workspace, installer_node_check — and in every one the installer or
-`ai init` IS the subject. A template would cost one install per run and save none. The ~35
-suites that hand-build a partial `~/.ai-os` copy one to three directories, already cheaper
+`rein init` IS the subject. A template would cost one install per run and save none. The ~35
+suites that hand-build a partial `~/.rein` copy one to three directories, already cheaper
 than a clone. This is the fifth census variety again (DIGEST: "the scan that never ran"):
 a count of MENTIONS stood in for a count of RUNS, and the blueprint carried it. **A
 blueprint number about what the suite DOES comes from the footprint, never from grep.**
-What survives of Component 9, as E-311 (Tier 1): the `# AIOS_INSTALLER_SUBJECT` header on
+What survives of Component 9, as E-311 (Tier 1): the `# REIN_INSTALLER_SUBJECT` header on
 the five subject suites (E-309's exclusive-lane classification reads it); the footprint
-recorder taught to see `env … bash <path>` and path-invoked installer / `ai init` spawns;
+recorder taught to see `env … bash <path>` and path-invoked installer / `rein init` spawns;
 the census printing installer spawns per suite. `test_home_clone` and the per-run template
 are not built. E-309 now depends on E-307 and E-311.
 
@@ -305,12 +305,12 @@ reachable. Before consolidation: 926 s at 4 lanes (measured). After E-312: ≤ 1
 1–2: < 5 min (D-088, unchanged). P-44 marks each suite's lane class and puts the exclusive
 suites first within the ten slowest, because the serial phase is what the lanes cannot cut.
 
-**Component 10, classification (amended).** `# AIOS_INSTALLER_SUBJECT` names the subject; it
+**Component 10, classification (amended).** `# REIN_INSTALLER_SUBJECT` names the subject; it
 no longer implies EXCLUSIVE. An installer-subject suite is shared-lane eligible when the
-footprint recorder shows every installer / `ai init` spawn it makes with a HOME under the
+footprint recorder shows every installer / `rein init` spawn it makes with a HOME under the
 lane's HOME clone or the lane's temp prefix (the recorder records the spawn's HOME beside the
 command; the census prints it). Any other HOME on such a spawn, or a tmux / `ai watch` /
-port / `assert_perf` match, keeps the suite exclusive; `# AIOS_EXCLUSIVE: installer` forces it.
+port / `assert_perf` match, keeps the suite exclusive; `# REIN_EXCLUSIVE: installer` forces it.
 The installer copies the mirror and runs no `npm install`, so concurrent installs cost disk
 and memory only; E-312 proves the memory with E-310's measurement (peak RSS at 4 lanes after
 ≤ 1.25 × before, else the four suites get the explicit header back).
@@ -318,20 +318,20 @@ and memory only; E-312 proves the memory with E-310's measurement (peak RSS at 4
 **Component 10, memory cap (amended).** Available memory is the kernel's figure: macOS
 `kern.memorystatus_level` (percent) × `hw.memsize` — on this host 34% × 17 GB ≈ 5.8 GB where
 the vm_stat page sum (free + inactive + speculative + purgeable) read ≈ 3 GB and clamped the
-default `ai ci run` to one lane; Linux `MemAvailable` from `/proc/meminfo`. The per-lane
+default `rein ci run` to one lane; Linux `MemAvailable` from `/proc/meminfo`. The per-lane
 figure is the last recorded `peak_rss_mb / lanes` × 1.25 with a 512 MB floor (read from this
 project's newest CI record, the same source as the wall hints), falling back to 1.5 GB when
-no run has recorded one. `AIOS_TEST_FREE_MB` is a fixture stand-in read by `tests/run.sh`
-only; `ai ci run` does not forward it — there is no operator opt-out of the cap, the cap is
+no run has recorded one. `REIN_TEST_FREE_MB` is a fixture stand-in read by `tests/run.sh`
+only; `rein ci run` does not forward it — there is no operator opt-out of the cap, the cap is
 corrected by measuring better.
 
 **Accepted as built.** The CI-row `lanes` column lands with E-310; the `[ci] lanes=N` log line
-carries it until then. "bash install-ai-os.sh" in acceptance lines means "install from
-`../ai-os-stable` after the merge" (E-304); task text from here on says that.
+carries it until then. "bash install-rein.sh" in acceptance lines means "install from
+`../rein-stable` after the merge" (E-304); task text from here on says that.
 
 - **E-312** (Tier 2, after E-310): the three amendments above — recorder records HOME per
   installer spawn and the census prints it; classification reads it; kernel availability
-  figure; per-lane figure from the last recorded peak; `ai ci run` stops forwarding the
+  figure; per-lane figure from the last recorded peak; `rein ci run` stops forwarding the
   override; wall time at 1 and 4 lanes and peak RSS before/after in LOG.md.
 
 ### D-094 amendment (2026-10-13): the cap reads a sampled concurrent sum, not rusage's largest process
@@ -362,7 +362,7 @@ Measured on c8f7f55 (operator's Mac): 1 lane 1561 s; 4 lanes 753 s (suite_second
 suite time); `peak_rss_mb` 281 at both. The four installer-subject suites now share lanes
 (census: exec_form_hooks tmp×1, init_upgrade tmp×13, mirror_hygiene tmp×7, provider_workspace
 run×1); concurrent memory at 4 lanes 756 MB with them pinned exclusive vs 640 MB shared, so no
-`# AIOS_EXCLUSIVE: installer` pin. gate_abort_test joined the exclusive phase (`perf`: a 10 s
+`# REIN_EXCLUSIVE: installer` pin. gate_abort_test joined the exclusive phase (`perf`: a 10 s
 timer bounded at +1.5 s measured 12.3 s under contention). installer_node_check stays exclusive
 on bare `mktemp -d` HOMEs (E-302 row: `test_tmpdir`, as exec_form_hooks).
 
@@ -374,7 +374,7 @@ a measurement or a formula over measurements, never an estimate.
 
 **Memory line (final form).** `Memory: <avail> MB available (<kernel source>) / <per-lane> MB
 per lane (<last peak_sum_rss_mb at N lanes × 1.25 | fallback>) → cap K lane(s)`, printed on
-every multi-lane run; `ai ci status/list` print `peak RSS <largest process>, <concurrent sum>`.
+every multi-lane run; `rein ci status/list` print `peak RSS <largest process>, <concurrent sum>`.
 
 ## Consolidation Map (P-44, D-112, 2026-10-28 — census on a1b76e4)
 
@@ -385,7 +385,7 @@ every multi-lane run; `ai ci status/list` print `peak RSS <largest process>, <co
   eight runs of evidence). Three misnamed suites. No move-to-unit candidate by the census's
   strict rule (every spawn is `node <src module>`) — the moves below are by inspection of
   the suite's spawn shape (`mixed`, one-module footprint, assertions on parsed stdout).
-- **E-300 mutation report**: `~/.ai-os/ci/mutation-<date>.json` is NOT present on the
+- **E-300 mutation report**: `~/.rein/ci/mutation-<date>.json` is NOT present on the
   planning machine and no packet reached COMM.md. The unit-file deletion candidates it would
   name are therefore deferred: every `tests/unit/*.test.mjs` is `keep` here. E-302 attaches
   the probe report when one is run (`bash tests/tools/mutation/probe.sh`), else reports the
@@ -410,7 +410,7 @@ rows labelled by their task id; the suite's remaining process-boundary rows foll
 | `arch-write-cases.json` (exists) | Architect Write/Edit paths | `arch-write-cases.test.mjs` (new; the D-056 sha256 assertion moves here from architect_write_gate) | YES — sha256 unchanged through both waves |
 | `role-verdict-cases.json` (new) | `--check-path` × role (architect, engineer, none) × path class | `role-verdict-cases.test.mjs` | YES at landing (D-087 role model is frozen; the sha is recorded in E-301's LOG line and asserted) |
 | `gate-self-disable-cases.json` (new) | `GATE_SELF_DISABLE` (`gate-guard.mjs`) | `gate-self-disable-cases.test.mjs` | YES at landing (D-089 r5 froze the rule) |
-| `gate-relative-home-cases.json` (exists) | relative `~/.ai-os` writes after `cd HOME` | `gate-relative-home-cases.test.mjs` (as built in E-301, D-116 r1; `gate-guard-home.test.mjs` keeps its process rows) | YES |
+| `gate-relative-home-cases.json` (exists) | relative `~/.rein` writes after `cd HOME` | `gate-relative-home-cases.test.mjs` (as built in E-301, D-116 r1; `gate-guard-home.test.mjs` keeps its process rows) | YES |
 | `secret-cases.json` (exists) | `SECRET_IN_COMMAND` | `secret-cases.test.mjs` (new; replaces the bash driver run) | YES (D-080 contract) |
 | `pipe-shell-cases.json` (exists) | heredoc lexer and the remote-pipe rules | `pipe-shell-cases.test.mjs` (new; absorbs the E-291 per-task rows around it) | YES (D-083, D-111 r4) |
 | `operand-scope-cases.json` (exists, 240 rows) | sovereignty families × role (git/deploy/rm/mkdir/touch, code-string carriers, git redirects, root forms) | `operand-scope.test.mjs` (exists) | NO — E-350 residuals are still open (D-112 r3); pinned by the ruling that closes them |
@@ -434,7 +434,7 @@ that `select-suites.mjs` would match).
 | pre_tool_use_gate | keep; absorbs safe_exec_unavailable, hook_toolchain and architect_write_gate's hook branch | T-HITL-004 (hook enforcement), T-HOOKENV-001 |
 | safe_exec_unavailable | merge → pre_tool_use_gate_test | E-289 |
 | hook_toolchain | merge → pre_tool_use_gate_test | T-HOOKENV-001, E-286 |
-| gate_abort | keep (its `AIOS_EXCLUSIVE: perf` header and timers stay) | E-292 |
+| gate_abort | keep (its `REIN_EXCLUSIVE: perf` header and timers stay) | E-292 |
 | gate_override | keep; the "agent cannot switch its own gate off" rows table → `gate-self-disable-cases.json` | E-291; D-089 r5 widening rows |
 | role_token | keep (mint, verify, prune through live processes) | E-129..E-294, D-087 |
 | caller_role | merge → mcp_role_interceptors_test (the census delete "covered by role_token" is refused: the suite carries a pin) | T-PATCHMCP-001 |
@@ -474,7 +474,7 @@ checked in as one row per line of `tests/fixtures/wave1-inputs.json`, classed **
   AFTER normalisation (a fixture-temp path whose verdict depends only on being outside the
   project) is `table`, not `boundary`.
 - **`boundary:<suite>`** rows (context-bound: the same input verdicts differently on process
-  state no table runner models — an active `ai gate off` override, the E-331 claim gate in a
+  state no table runner models — an active `rein gate off` override, the E-331 claim gate in a
   team project, an unverified token, `--session` with no value) — the named carrier suite is
   a map `keep`/`rename` target that exists post-wave and its text still contains the input
   verbatim. Each row names its `context` (`override`, `claim_gate`, `unverified_token`,
@@ -488,10 +488,10 @@ checked in as one row per line of `tests/fixtures/wave1-inputs.json`, classed **
 ### Wave 2 — everything else (E-302; 123 suites → 35, +8 unit files)
 | Suite | Disposition | Carries |
 |---|---|---|
-| ai_start | keep; absorbs ai_start_surface, alternate_screen_env, aios_workspace_env | E-227, E-228, E-50, E-62 |
-| ai_start_surface | merge → ai_start_test | — |
-| alternate_screen_env | merge → ai_start_test | — |
-| aios_workspace_env | merge → ai_start_test | — |
+| ai_start | keep; absorbs ai_start_surface, alternate_screen_env, rein_workspace_env | E-227, E-228, E-50, E-62 |
+| ai_start_surface | merge → rein_start_test | — |
+| alternate_screen_env | merge → rein_start_test | — |
+| rein_workspace_env | merge → rein_start_test | — |
 | pane_binding | keep; absorbs pane_option_binding, overlay_path, role_identity (gate rows left in wave 1) | E-208, E-269, E-242, E-213 |
 | pane_option_binding | merge → pane_binding_test | — |
 | overlay_path | merge → pane_binding_test | — |
@@ -508,7 +508,7 @@ checked in as one row per line of `tests/fixtures/wave1-inputs.json`, classed **
 | mirror_hygiene | keep (installer subject) | E-273 |
 | classifier_backstop | keep | E-293 |
 | ai_clean | keep | E-272 |
-| test_harness_isolation | rename → harness_isolation_test; absorbs leaked_state, launch_vars (its `AIOS_SUITE_TIMEOUT` header carries over), skip_accounting, telemetry_isolation, perf_budget | E-156, E-240, E-264, E-236, E-257, E-239 |
+| test_harness_isolation | rename → harness_isolation_test; absorbs leaked_state, launch_vars (its `REIN_SUITE_TIMEOUT` header carries over), skip_accounting, telemetry_isolation, perf_budget | E-156, E-240, E-264, E-236, E-257, E-239 |
 | leaked_state | merge → harness_isolation_test | — |
 | launch_vars | merge → harness_isolation_test | — |
 | skip_accounting | merge → harness_isolation_test | — |
@@ -527,18 +527,18 @@ checked in as one row per line of `tests/fixtures/wave1-inputs.json`, classed **
 | legacy_mention | merge → cli_test | — |
 | mcp_json_user_servers | merge → cli_test | — |
 | agent_logic | merge → cli_test | — |
-| sync_reachability | rename → ai_sync_test; absorbs sync_prune, memory_palace_sync, path_rules, mcp_doc_sync, registry_sync, mcp, skill_prune | E-247, E-220, E-145, E-282, E-52, E-283 |
-| sync_prune | merge → ai_sync_test | — |
-| memory_palace_sync | merge → ai_sync_test | — |
-| path_rules | merge → ai_sync_test | — |
-| mcp_doc_sync | merge → ai_sync_test | — |
-| registry_sync | merge → ai_sync_test | — |
-| mcp | merge → ai_sync_test | — |
-| skill_prune | merge → ai_sync_test | — |
-| ai_ci_run | rename → ai_ci_test; absorbs ai_ci_record, ai_ci_gate, actions_decommission | E-265, E-266, E-267, E-268 |
-| ai_ci_record | merge → ai_ci_test | — |
-| ai_ci_gate | merge → ai_ci_test | — |
-| actions_decommission | merge → ai_ci_test | — |
+| sync_reachability | rename → rein_sync_test; absorbs sync_prune, memory_palace_sync, path_rules, mcp_doc_sync, registry_sync, mcp, skill_prune | E-247, E-220, E-145, E-282, E-52, E-283 |
+| sync_prune | merge → rein_sync_test | — |
+| memory_palace_sync | merge → rein_sync_test | — |
+| path_rules | merge → rein_sync_test | — |
+| mcp_doc_sync | merge → rein_sync_test | — |
+| registry_sync | merge → rein_sync_test | — |
+| mcp | merge → rein_sync_test | — |
+| skill_prune | merge → rein_sync_test | — |
+| ai_ci_run | rename → rein_ci_test; absorbs ai_ci_record, ai_ci_gate, actions_decommission | E-265, E-266, E-267, E-268 |
+| ai_ci_record | merge → rein_ci_test | — |
+| ai_ci_gate | merge → rein_ci_test | — |
+| actions_decommission | merge → rein_ci_test | — |
 | telemetry | keep; pure rows move → `tests/unit/telemetry.test.mjs` (extends `telemetry-naming.test.mjs`); absorbs mcp_telemetry, task_velocity | E-84, E-153, E-259 |
 | telemetry_migration | move → `tests/unit/telemetry.test.mjs` (a fixture sqlite, no process) | E-154 |
 | mcp_telemetry | merge → telemetry_test | — |

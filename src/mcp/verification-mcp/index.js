@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * verification-mcp — AI-OS §32 Verification Audit (E-108)
+ * verification-mcp — Rein §32 Verification Audit (E-108)
  *
  * Programmatic compliance auditing of agent/skill YAML frontmatter.
  * Checks declared `allowed-tools` against registry.json and MCP tool exports.
@@ -223,7 +223,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
           paths: {
             type: "array",
             items: { type: "string" },
-            description: "Override scan directories. Defaults to src/**/agents/, src/**/skills/, ~/.ai-os/**/agents/",
+            description: "Override scan directories. Defaults to src/**/agents/, src/**/skills/, ~/.rein/**/agents/",
           },
         },
       },
@@ -240,13 +240,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   }
 
   const cwd = process.cwd();
-  const aios = resolve(process.env.HOME || "~", ".ai-os");
-  const registryPath = join(aios, "config", "registry.json");
+  const rein = resolve(process.env.HOME || "~", ".rein");
+  const registryPath = join(rein, "config", "registry.json");
   const registry = loadRegistry(registryPath);
   const parentServers = loadParentServers(cwd);
 
   // Determine scan directories — D-009: validate caller-supplied paths against allowed prefixes
-  const allowedPrefixes = [cwd, aios];
+  const allowedPrefixes = [cwd, rein];
   const isAllowedPath = (p) => allowedPrefixes.some(prefix => p === prefix || p.startsWith(prefix + "/"));
 
   const scanDirs = args.paths
@@ -258,9 +258,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         resolve(cwd, "src", "claude", "agents"),
         resolve(cwd, "src", "claude", "skills"),
         resolve(cwd, "src", "shared", "skills"),
-        join(aios, "claude", "agents"),
-        join(aios, "claude", "skills"),
-        join(aios, "shared", "skills"),
+        join(rein, "claude", "agents"),
+        join(rein, "claude", "skills"),
+        join(rein, "shared", "skills"),
       ];
 
   // Collect all .md files

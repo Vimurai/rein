@@ -4,7 +4,7 @@
  *
  * MCP server encapsulating Tree-sitter (WASM, via extractor.mjs). Exposes
  * `parse_workspace`: scans a directory, applies ignore rules (.gitignore +
- * .ai-osignore + .env*), skips node_modules/.git/large/minified files, and
+ * .reinignore + .env*), skips node_modules/.git/large/minified files, and
  * returns a JSON array of extracted symbols per the blueprint Data Model.
  * Symbol ranking (centrality_score) is added by the repo-mapper (E-96).
  *
@@ -13,14 +13,14 @@
  * per-file parse timeout + 1 MB size cap bound CPU (DoS).
  *
  * NOT DEAD CODE — intentionally absent from registry.json / .mcp.json. This is a
- * dual-mode binary: the `--generate-map` CLI path is invoked directly by `ai sync`
- * (src/bin/ai → `node ${AIOS}/mcp/ast-parser-mcp/index.js --generate-map`) to build
+ * dual-mode binary: the `--generate-map` CLI path is invoked directly by `rein sync`
+ * (src/bin/rein → `node ${REIN}/mcp/ast-parser-mcp/index.js --generate-map`) to build
  * .ai/REPO_MAP.md. The MCP-server mode (parse_workspace) is reachable when the SDK
  * is present. Deleting this breaks REPO_MAP generation.
  */
 
 // E-98: the MCP SDK is imported lazily (server mode only) so the
-// `--generate-map` CLI path used by the `ai sync` hook stays dependency-light —
+// `--generate-map` CLI path used by the `rein sync` hook stays dependency-light —
 // it needs only web-tree-sitter + the vendored grammars, no SDK.
 import { isMainModule } from "../shared/is-main.mjs";
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
@@ -38,10 +38,10 @@ const ALWAYS_SKIP_DIRS = new Set(["node_modules", ".git"]);
 
 // ── Ignore rules ─────────────────────────────────────────────────────────────
 
-/** Build an ignore predicate from .gitignore + .ai-osignore (pragmatic glob). */
+/** Build an ignore predicate from .gitignore + .reinignore (pragmatic glob). */
 function buildIgnore(rootDir) {
   const patterns = [];
-  for (const f of [".gitignore", ".ai-osignore"]) {
+  for (const f of [".gitignore", ".reinignore"]) {
     const p = resolve(rootDir, f);
     if (!existsSync(p)) continue;
     for (const raw of readFileSync(p, "utf8").split("\n")) {
@@ -133,9 +133,9 @@ async function parseWorkspace(dirPath, maxFiles) {
 }
 
 // E-97/E-98: parse → rank → serialize → write .ai/REPO_MAP.md. Shared by the
-// generate_map MCP tool and the `--generate-map` CLI mode (ai sync hook).
+// generate_map MCP tool and the `--generate-map` CLI mode (rein sync hook).
 async function generateMap({ dirPath, maxFiles, maxTokens } = {}) {
-  if (process.env.AI_OS_DISABLE_REPO_MAP === "1") return { disabled: true };
+  if (process.env.REIN_DISABLE_REPO_MAP === "1") return { disabled: true };
   const ws = await parseWorkspace(dirPath, maxFiles);
   if (ws.error) return { error: ws.error };
   const ser = serializeRepoMap(ws.symbols, { maxTokens });
@@ -162,7 +162,7 @@ const TOOLS = [
     description:
       "E-95 (ast-repository-map.md): scan a directory and return extracted TS/JS symbols " +
       "(exports, classes+method signatures, imports) per file, ranked by dependency-graph " +
-      "centrality (E-96). Respects .gitignore + .ai-osignore, never indexes .env*/node_modules, " +
+      "centrality (E-96). Respects .gitignore + .reinignore, never indexes .env*/node_modules, " +
       "skips minified and >1MB files.",
     inputSchema: {
       type: "object",
@@ -179,7 +179,7 @@ const TOOLS = [
       "concise markdown skeleton (⋮ for elided function bodies), and write it to .ai/REPO_MAP.md " +
       "within a strict token budget (default 2048) — lowest-centrality files are trimmed first. " +
       "Returns a summary { path, files_included, files_total, estimated_tokens }. " +
-      "Set AI_OS_DISABLE_REPO_MAP=1 to short-circuit (blueprint rollback).",
+      "Set REIN_DISABLE_REPO_MAP=1 to short-circuit (blueprint rollback).",
     inputSchema: {
       type: "object",
       properties: {
@@ -204,7 +204,7 @@ async function dispatchTool(name, args) {
   if (name === "generate_map") {
     const r = await generateMap({ dirPath: args?.dir_path, maxFiles: args?.max_files, maxTokens: args?.max_tokens });
     if (r.disabled) {
-      return { content: [{ type: "text", text: "[REPO_MAP_DISABLED] AI_OS_DISABLE_REPO_MAP=1 — generate_map is a no-op." }] };
+      return { content: [{ type: "text", text: "[REPO_MAP_DISABLED] REIN_DISABLE_REPO_MAP=1 — generate_map is a no-op." }] };
     }
     if (r.error) return rejection(r.error);  // E-179: expected bad-target rejection, not a defect
     return { content: [{ type: "text", text: JSON.stringify(r.summary, null, 2) }] };
@@ -213,13 +213,13 @@ async function dispatchTool(name, args) {
 }
 
 // ── Entry point ──────────────────────────────────────────────────────────────
-// `--generate-map` (the ai sync hook) regenerates .ai/REPO_MAP.md and exits
+// `--generate-map` (the rein sync hook) regenerates .ai/REPO_MAP.md and exits
 // WITHOUT loading the SDK — fail-open. Otherwise start the stdio MCP server,
 // lazily importing the SDK so the CLI path stays self-contained.
 if (process.argv.includes("--generate-map")) {
   const r = await generateMap();
   if (r.disabled) {
-    process.stderr.write("[REPO_MAP_DISABLED] AI_OS_DISABLE_REPO_MAP=1\n");
+    process.stderr.write("[REPO_MAP_DISABLED] REIN_DISABLE_REPO_MAP=1\n");
   } else if (r.error) {
     process.stderr.write(`${r.error}\n`);
     process.exitCode = 1;

@@ -18,7 +18,7 @@
 //   Advisory, not silent: a P1 still appears in the report, so a reviewer sees every
 //   traversal. Only the BLOCKING changes.
 //
-// Rollback: AI_OS_REVIEW_STRICT_TRAVERSAL=1 restores the flat regex (every `../` is P0).
+// Rollback: REIN_REVIEW_STRICT_TRAVERSAL=1 restores the flat regex (every `../` is P0).
 
 /**
  * Bases that make a `../` script-relative rather than input-relative. Kept as ONE
@@ -55,7 +55,7 @@ export const SCRIPT_RELATIVE_ANCHORS = [
   // Install-mirror roots: these are OUR directories, not a path built from input.
   // Bare `~` is deliberately NOT an anchor — too easy to hit in prose, and it does not
   // expand inside the quoted contexts these paths actually appear in.
-  { name: "install mirror",   re: anchored(/(\$\{?AIOS\}?|\$\{?AI_OS_HOME[^}]*\}?|\.ai-os|\$\{?HOME\}?)/) },
+  { name: "install mirror",   re: anchored(/(\$\{?REIN\}?|\$\{?REIN_HOME[^}]*\}?|\.rein|\$\{?HOME\}?)/) },
   // node's own "resolve relative to this module" idiom.
   { name: "new URL(...)",     re: /new URL\(\s*["'`]?$/ },
   // A STATIC MODULE SPECIFIER is script-relative by definition — the runtime resolves it

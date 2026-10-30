@@ -157,7 +157,7 @@ function findings() {
   if (!existsSync(statePath)) {
     report.rationale =
       "No local .ai/state.json — spike cannot evaluate projection round-trip without sample data. " +
-      "Re-run inside an AI-OS project after `ai init` to get a meaningful verdict.";
+      "Re-run inside a Rein project after `rein init` to get a meaningful verdict.";
     return report;
   }
 

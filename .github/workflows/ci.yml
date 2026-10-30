@@ -1,13 +1,13 @@
-# Hosted main check — rendered by `ai ci hosted github` (D-103, team-collaboration.md
+# Hosted main check — rendered by `rein ci hosted github` (D-103, team-collaboration.md
 # §Component 5b; jobs per D-135, .ai/blueprints/ci-throughput.md §Component 4). Do not edit
-# by hand: `ai ci hosted --check` fails when this file is not the current rendering, and
-# `ai ci hosted --force` rewrites it.
+# by hand: `rein ci hosted --check` fails when this file is not the current rendering, and
+# `rein ci hosted --force` rewrites it.
 #
-# The contract: on a pull request into main, every `ai ci run` leg runs exactly two
-# commands — bootstrap AI-OS, then `ai ci run` on the merge result — and keeps the log and
+# The contract: on a pull request into main, every `rein ci run` leg runs exactly two
+# commands — bootstrap Rein, then `rein ci run` on the merge result — and keeps the log and
 # .ai/ci/*.json as artefacts. The `fast` job (when the project's runner has a fast tier) is
 # the first signal: dependencies and `tests/run.sh --tier fast`, no installer. Branches stay
-# local-first (D-072): `ai ci run` before pushing is the developer's gate; this is the one
+# local-first (D-072): `rein ci run` before pushing is the developer's gate; this is the one
 # authority for "nobody merges red into main", made required by the branch policy. A
 # push to main outside .ai/** gets an audit run that gates nothing. A caller
 # (nightly, release) runs the full matrix through workflow_call with `full: true`.
@@ -38,7 +38,7 @@ concurrency:
 jobs:
   # The first signal (D-135 addendum r1): the fast tier — the node unit layer and the
   # contract tables — on the dependencies alone. No installer: suites beyond the fast tier
-  # need the installed mirror and run in the `ai ci run` legs.
+  # need the installed mirror and run in the `rein ci run` legs.
   fast:
     name: fast
     runs-on: ubuntu-latest
@@ -63,8 +63,8 @@ jobs:
       - name: Fast tier
         run: bash tests/run.sh --tier fast
 
-  ai-ci-run:
-    name: ai ci run (${{ matrix.os }}, node ${{ matrix.node }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
+  rein-ci-run:
+    name: rein ci run (${{ matrix.os }}, node ${{ matrix.node }}${{ matrix.shard && format(', {0}', matrix.shard) || '' }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
@@ -76,38 +76,38 @@ jobs:
         exclude: ${{ fromJSON(inputs.full && '[]' || '[{"os":"macos-latest","node":"24"}]') }}
         include: ${{ fromJSON(inputs.full && '[{"os":"ubuntu-latest","node":"22","shard":""}]' || '[]') }}
     steps:
-      # The merge result — exactly what main becomes. `ai ci run` tests HEAD. Full
-      # history, as a local `ai ci run` worktree has it (suites pin files to past commits).
+      # The merge result — exactly what main becomes. `rein ci run` tests HEAD. Full
+      # history, as a local `rein ci run` worktree has it (suites pin files to past commits).
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      # Node 22 is AI-OS's floor (node:sqlite).
+      # Node 22 is Rein's floor (node:sqlite).
       - name: Set up Node.js
         uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
         with:
           node-version: ${{ matrix.node }}
 
-      # The recipe's npm and Playwright caches live under ~/.ai-os/ci/cache.
-      - name: Cache ai ci downloads
+      # The recipe's npm and Playwright caches live under ~/.rein/ci/cache.
+      - name: Cache rein ci downloads
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9   # v6.1.0
         with:
-          path: ~/.ai-os/ci/cache
-          key: ai-ci-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json', 'src/mcp/*/package.json') }}
-          restore-keys: ai-ci-${{ runner.os }}-node${{ matrix.node }}-
+          path: ~/.rein/ci/cache
+          key: rein-ci-${{ runner.os }}-node${{ matrix.node }}-${{ hashFiles('package-lock.json', 'src/mcp/*/package.json') }}
+          restore-keys: rein-ci-${{ runner.os }}-node${{ matrix.node }}-
 
-      # This IS the AI-OS repository: install from the checked-out commit — the code under test.
-      - name: Install AI-OS
-        run: bash install-ai-os.sh
+      # This IS the Rein repository: install from the checked-out commit — the code under test.
+      - name: Install Rein
+        run: bash install-rein.sh
 
-      # `ai ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check. On a
+      # `rein ci run` exits 0 PASS, 1 FAIL, 2 ERROR — the step's exit status is the check. On a
       # hosted runner it uses every core as a lane (D-135 r1); a shard runs one part of the suite.
-      - name: ai ci run
+      - name: rein ci run
         shell: bash
         run: |
-          "$HOME/.ai-os/bin/ai" ci run${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}
+          "$HOME/.rein/bin/rein" ci run${{ matrix.shard && format(' --shard {0}', matrix.shard) || '' }}
 
       # Kept on failure — a red run is the one worth reading. .ai/ci/<sha>.json exists only
       # in a team project; the runner is not a team member, so it is reviewer evidence, not
@@ -116,9 +116,9 @@ jobs:
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9   # v7.0.2
         with:
-          name: ai-ci-run-${{ matrix.os }}-node${{ matrix.node }}-${{ strategy.job-index }}
+          name: rein-ci-run-${{ matrix.os }}-node${{ matrix.node }}-${{ strategy.job-index }}
           path: |
-            ~/.ai-os/ci/logs/
+            ~/.rein/ci/logs/
             .ai/ci/*.json
           if-no-files-found: warn
           retention-days: 14

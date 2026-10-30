@@ -1,24 +1,25 @@
 #!/usr/bin/env bash
-# AIOS_INSTALLER_SUBJECT: ai init upgrades a project in place (and runs the installer it upgrades from) (E-311, D-092)
+# REIN_SUITE_TIMEOUT=480   (E-391/E-397: 80 tests, ~99 s on hosted Linux; hosted macOS measured 212 s, 289 s and >300 s on three runs of one tree)
+# REIN_INSTALLER_SUBJECT: rein init upgrades a project in place (and runs the installer it upgrades from) (E-311, D-092)
 # init_upgrade_test.sh — E-270 (D-074, version-lifecycle.md §Components 1, 2, 6): one version
-# stamped twice, and `ai init` as an idempotent UPGRADE.
+# stamped twice, and `rein init` as an idempotent UPGRADE.
 #
 # The merge rules themselves are pinned in tests/unit/project-upgrade.test.mjs. What has to
-# be proved end to end is what an operator sees when they re-run `ai init` on an old
+# be proved end to end is what an operator sees when they re-run `rein init` on an old
 # project:
 #
-#   * the installer writes ~/.ai-os/VERSION from package.json, and `ai --version` reads it;
-#   * a fresh `ai init` stamps the project and `ai init --check` then has nothing to do;
+#   * the installer writes ~/.rein/VERSION from package.json, and `ai --version` reads it;
+#   * a fresh `rein init` stamps the project and `rein init --check` then has nothing to do;
 #   * a 3.0-shaped project (no tester role, the architect on a removed provider, agy and
 #     gemini in providers.json, a stale bootloader, an outdated hook stub) is upgraded to
 #     the current shape with its custom values and user-added provider intact, the
 #     .pre-<version> copies present and the authored .ai/ files BYTE-IDENTICAL;
-#   * a second `ai init` is a no-op (--check exits 0) and re-running `ai init` no longer
+#   * a second `rein init` is a no-op (--check exits 0) and re-running `rein init` no longer
 #     dies at the state re-seed (it used to `exit 1` on every populated project);
-#   * the doctor version line and the `ai on PATH` shadow line, both branches each.
+#   * the doctor version line and the `rein on PATH` shadow line, both branches each.
 #
 # Everything runs against a fixture HOME (installed by the real installer), a fixture
-# project and a fixture TMPDIR. `npm` is stubbed: `ai init` runs `npm install` for every
+# project and a fixture TMPDIR. `npm` is stubbed: `rein init` runs `npm install` for every
 # MCP server, and a test must not depend on the network (a named nondeterminism).
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -37,11 +38,11 @@ FAKE_TMP="$(test_tmpdir upg-tmp)"
 PROJ="$(test_tmpdir upg-proj)"
 STUBS="$(test_tmpdir upg-stubs)"
 printf '#!/bin/sh\nexit 0\n' > "${STUBS}/npm"; chmod +x "${STUBS}/npm"
-AI_BIN="${FAKE_HOME}/.ai-os/bin/ai"
-BASE_PATH="${STUBS}:${FAKE_HOME}/.ai-os/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")"
+AI_BIN="${FAKE_HOME}/.rein/bin/rein"
+BASE_PATH="${STUBS}:${FAKE_HOME}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")"
 PKG_VERSION="$(node -p 'require(process.argv[1]).version' "${REPO_ROOT}/package.json")"
 
-# _ai <args…> — the INSTALLED ai, run inside the fixture project with the fixture env.
+# _ai <args…> — the INSTALLED rein, run inside the fixture project with the fixture env.
 _ai() { ( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" "$@" ) 2>&1; }
 _ai_rc() { _ai "$@" >/dev/null 2>&1; echo $?; }
 assert_rc() {  # <expected> <label> <ai args…>
@@ -53,10 +54,14 @@ assert_rc() {  # <expected> <label> <ai args…>
 _authored() { ( cd "${PROJ}/.ai" && cksum BRIEF.md RULES.md SEED.md DIGEST.md TASKS.md LOG.md architect.md ) 2>&1; }
 
 # ── E-270.1: the installer records the version ────────────────────────────────
-# From a NEUTRAL cwd: the installer ends with `ai install`, which regenerates the .mcp.json
+# From a NEUTRAL cwd: the installer ends with `rein install`, which regenerates the .mcp.json
 # of the project it is run in. Run from the repo root, it rewrote THIS repository's
 # .mcp.json with the fixture HOME's paths (found by the first run of this suite, E-240).
-_inst="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-ai-os.sh" 2>&1 )"
+# E-391 (D-132 addendum 2 r1, rein-rename.md §Component 6): this install is also the rename's
+# install proof — a bin/ entry left by the pre-rename install must not survive it.
+_old_cmd=ai
+mkdir -p "${FAKE_HOME}/.rein/bin"; printf '#!/bin/sh\nexit 0\n' > "${FAKE_HOME}/.rein/bin/${_old_cmd}"
+_inst="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"
 _irc=$?
 if [[ "$_irc" -ne 0 ]]; then
   _fail "E-270.01a: the installer runs in a fixture HOME (exit=${_irc})"
@@ -64,27 +69,41 @@ if [[ "$_irc" -ne 0 ]]; then
   assert_summary; exit 1
 fi
 _pass "E-270.01a: the installer runs in a fixture HOME"
-assert_status 0 "E-270.01b: ~/.ai-os/VERSION equals package.json (${PKG_VERSION})" \
-  test "$(cat "${FAKE_HOME}/.ai-os/VERSION")" = "$PKG_VERSION"
+assert_status 0 "E-391.01a: the installer installs the command as ~/.rein/bin/rein" test -x "${FAKE_HOME}/.rein/bin/rein"
+assert_status 1 "E-391.01b: the pre-rename command beside it is removed" test -e "${FAKE_HOME}/.rein/bin/${_old_cmd}"
+assert_contains "E-391.01c: the installer says the command is rein" "The command is rein" "$_inst"
+assert_rc 0 "E-391.01d: rein doctor exits 0 on the fresh install" doctor
+# D-132 addendum 4 r5 (security_engineer F4): a symlinked ~/.rein/bin is refused before
+# anything is mirrored or pruned into it, and whatever it points at is left alone.
+_sb_home="$(test_tmpdir upg-symbin)"; tc_fixture_home "$_sb_home"
+_sb_target="$(test_tmpdir upg-symbin-target)"; echo keep > "${_sb_target}/keep"
+mkdir -p "${_sb_home}/.rein"; ln -s "$_sb_target" "${_sb_home}/.rein/bin"
+_sb_out="$( cd "$FAKE_TMP" && HOME="$_sb_home" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"; _sb_rc=$?
+assert_status 0 "E-391.01e: a symlinked ~/.rein/bin is refused with exit 3 (got ${_sb_rc})" test "$_sb_rc" -eq 3
+assert_contains "E-391.01f: …naming it" "[INSTALL_BIN_SYMLINK]" "$_sb_out"
+assert_status 0 "E-391.01g: …and the directory it points at is untouched" \
+  test "$(command ls -A "$_sb_target")" = "keep"
+assert_status 0 "E-270.01b: ~/.rein/VERSION equals package.json (${PKG_VERSION})" \
+  test "$(cat "${FAKE_HOME}/.rein/VERSION")" = "$PKG_VERSION"
 assert_contains "E-270.01c: the installer banner prints the package.json version" \
-  "AI-OS v${PKG_VERSION} installed at" "$_inst"
-assert_status 0 "E-270.01d: ai --version reads the stamp" \
-  test "$(_ai --version)" = "ai-os ${PKG_VERSION}"
-echo "9.8.7" > "${FAKE_HOME}/.ai-os/VERSION"
-assert_status 0 "E-270.01e: ai --version follows ~/.ai-os/VERSION, not a literal" \
-  test "$(_ai --version)" = "ai-os 9.8.7"
-printf '%s\n' "$PKG_VERSION" > "${FAKE_HOME}/.ai-os/VERSION"
+  "Rein v${PKG_VERSION} installed at" "$_inst"
+assert_status 0 "E-270.01d: rein --version reads the stamp" \
+  test "$(_ai --version)" = "rein ${PKG_VERSION}"
+echo "9.8.7" > "${FAKE_HOME}/.rein/VERSION"
+assert_status 0 "E-270.01e: rein --version follows ~/.rein/VERSION, not a literal" \
+  test "$(_ai --version)" = "rein 9.8.7"
+printf '%s\n' "$PKG_VERSION" > "${FAKE_HOME}/.rein/VERSION"
 
 # ── E-270.2: a fresh init stamps; --check then has nothing to do ──────────────
 ( cd "$PROJ" && git init -q )
-assert_rc 1 "E-270.02a: --check outside a project says ai init would provision" init --check
+assert_rc 1 "E-270.02a: --check outside a project says rein init would provision" init --check
 _init1="$(_ai init)"
-assert_status 0 "E-270.02b: a fresh ai init stamps project.aios_version" \
-  test "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["project"].get("aios_version",""))' "${PROJ}/.ai/state.json")" = "$PKG_VERSION"
+assert_status 0 "E-270.02b: a fresh rein init stamps project.rein_version" \
+  test "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["project"].get("rein_version",""))' "${PROJ}/.ai/state.json")" = "$PKG_VERSION"
 assert_status 0 "E-270.02c: the fresh stamp records provisioned_at" \
   python3 -c 'import json,sys;assert json.load(open(sys.argv[1]))["project"]["provisioned_at"]' "${PROJ}/.ai/state.json"
 assert_rc 0 "E-270.02d: --check after a fresh init has nothing to do" init --check
-assert_rc 0 "E-270.02e: a second ai init exits 0 (the re-seed no longer exits the script)" init
+assert_rc 0 "E-270.02e: a second rein init exits 0 (the re-seed no longer exits the script)" init
 _init2="$(_ai init)"
 assert_contains "E-270.02f: the re-init prints the upgrade summary" "Upgrade: 0 refreshed, 0 merged" "$_init2"
 
@@ -109,10 +128,10 @@ cat > "${PROJ}/.ai/providers.json" <<'J'
 }
 J
 ORIG_ROLES="$(cat "${PROJ}/.ai/roles.json")"
-sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='aios_version'"
+sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='rein_version'"
 python3 - "${PROJ}/.ai/state.json" <<'P'
 import json, sys
-p = sys.argv[1]; s = json.load(open(p)); s["project"]["aios_version"] = "3.0.0"
+p = sys.argv[1]; s = json.load(open(p)); s["project"]["rein_version"] = "3.0.0"
 json.dump(s, open(p, "w"), indent=2)
 P
 echo "stale" >> "${PROJ}/ENGINEER.md"
@@ -151,9 +170,9 @@ assert_status 0 "E-270.03q: roles.pre-<version>.json is the ORIGINAL file" \
   test "$(cat "${PROJ}/.ai/roles.pre-${PKG_VERSION}.json")" = "$ORIG_ROLES"
 assert_exists "${PROJ}/.ai/providers.pre-${PKG_VERSION}.json"
 assert_status 0 "E-270.03r: the stale bootloader was refreshed" \
-  cmp -s "${PROJ}/ENGINEER.md" "${FAKE_HOME}/.ai-os/templates/ENGINEER.md"
+  cmp -s "${PROJ}/ENGINEER.md" "${FAKE_HOME}/.rein/templates/ENGINEER.md"
 assert_status 0 "E-270.03s: the project is stamped with the installed version" \
-  test "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["project"]["aios_version"])' "${PROJ}/.ai/state.json")" = "$PKG_VERSION"
+  test "$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["project"]["rein_version"])' "${PROJ}/.ai/state.json")" = "$PKG_VERSION"
 
 # ── E-270.4: idempotent — a second init is a no-op ────────────────────────────
 assert_rc 0 "E-270.04a: --check after the upgrade has nothing to do" init --check
@@ -164,47 +183,179 @@ assert_status 0 "E-270.04c: the second init left the authored files alone" test 
 assert_status 0 "E-270.04d: the backup still holds the original after a re-run" \
   test "$(cat "${PROJ}/.ai/roles.pre-${PKG_VERSION}.json")" = "$ORIG_ROLES"
 
-# ── E-274: user-added MCP servers survive ai init and ai sync ─────────────────
+# ── E-274: user-added MCP servers survive rein init and rein sync ─────────────────
 python3 - "${PROJ}/.mcp.json" <<'P'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p)); s = d["mcpServers"]
 s["my-own-server"] = {"command": "uvx", "args": ["my-own"], "env": {"K": "v"}}
-s["task-synchronizer-mcp"]["env"] = {"AI_OS_DEBUG": "1"}
+s["task-synchronizer-mcp"]["env"] = {"REIN_DEBUG": "1"}
 s["github-bridge-mcp"] = {"command": "node", "args": ["/old/github-bridge-mcp/index.js"]}
 json.dump(d, open(p, "w"), indent=2)
 P
 _mq() { python3 -c 'import json,sys;d=json.load(open(sys.argv[1]))["mcpServers"];print(eval(sys.argv[2]))' "${PROJ}/.mcp.json" "$1"; }
 _ai init >/dev/null
-assert_status 0 "E-274.e2e.a: ai init keeps a user-added server" test "$(_mq "d['my-own-server']['env']['K']")" = "v"
-assert_status 0 "E-274.e2e.b: ai init keeps a user env on an owned server" \
-  test "$(_mq "d['task-synchronizer-mcp']['env']['AI_OS_DEBUG']")" = "1"
-assert_status 0 "E-274.e2e.c: ai init removes a retired registry_history server" \
+assert_status 0 "E-274.e2e.a: rein init keeps a user-added server" test "$(_mq "d['my-own-server']['env']['K']")" = "v"
+assert_status 0 "E-274.e2e.b: rein init keeps a user env on an owned server" \
+  test "$(_mq "d['task-synchronizer-mcp']['env']['REIN_DEBUG']")" = "1"
+assert_status 0 "E-274.e2e.c: rein init removes a retired registry_history server" \
   test "$(_mq "'github-bridge-mcp' in d")" = "False"
 _ai sync >/dev/null
-assert_status 0 "E-274.e2e.d: ai sync keeps them too" \
-  test "$(_mq "d['my-own-server']['args'][0] + d['task-synchronizer-mcp']['env']['AI_OS_DEBUG']")" = "my-own1"
+assert_status 0 "E-274.e2e.d: rein sync keeps them too" \
+  test "$(_mq "d['my-own-server']['args'][0] + d['task-synchronizer-mcp']['env']['REIN_DEBUG']")" = "my-own1"
 assert_rc 0 "E-274.e2e.e: --check does not report the user's servers as pending" init --check
 
 # ── E-270.5: doctor — the version line and the PATH line, both branches ───────
 _ver_line() { printf '%s\n' "$1" | grep -E '^  [✓✗] version:' | head -1; }
-_path_line() { printf '%s\n' "$1" | grep -E '^  [✓✗] ai on PATH:' | head -1; }
+_path_line() { printf '%s\n' "$1" | grep -E '^  [✓✗] rein on PATH:' | head -1; }
 _doc="$(_ai doctor)"
 assert_contains "E-270.05a: doctor: every copy agrees" \
   "✓ version: clone ${PKG_VERSION} · mirror ${PKG_VERSION} · project ${PKG_VERSION}" "$(_ver_line "$_doc")"
-assert_contains "E-270.05b: doctor: ai on PATH is the installed one" "✓ ai on PATH: ~/.ai-os/bin/ai" "$(_path_line "$_doc")"
-sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='aios_version'"
+assert_contains "E-270.05b: doctor: rein on PATH is the installed one" "✓ rein on PATH: ~/.rein/bin/rein" "$(_path_line "$_doc")"
+sqlite3 "${PROJ}/.ai/state.sqlite" "UPDATE project SET value='3.0.0' WHERE key='rein_version'"
 python3 - "${PROJ}/.ai/state.json" <<'P'
 import json, sys
-p = sys.argv[1]; s = json.load(open(p)); s["project"]["aios_version"] = "3.0.0"
+p = sys.argv[1]; s = json.load(open(p)); s["project"]["rein_version"] = "3.0.0"
 json.dump(s, open(p, "w"), indent=2)
 P
-assert_contains "E-270.05c: doctor: a project behind the mirror points at ai init" \
-  "project 3.0.0 — run: ai init" "$(_ver_line "$(_ai doctor)")"
+assert_contains "E-270.05c: doctor: a project behind the mirror points at rein init" \
+  "project 3.0.0 — run: rein init" "$(_ver_line "$(_ai doctor)")"
 SHADOW="$(test_tmpdir upg-shadow)"
-printf '#!/bin/sh\necho shadow\n' > "${SHADOW}/ai"; chmod +x "${SHADOW}/ai"
+printf '#!/bin/sh\necho shadow\n' > "${SHADOW}/rein"; chmod +x "${SHADOW}/rein"
 _shadowed="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="${SHADOW}:${BASE_PATH}" bash "$AI_BIN" doctor 2>&1 )"
-assert_contains "E-270.05d: doctor: another ai earlier on PATH is reported as shadowing" \
-  "(shadowed by ${SHADOW}/ai)" "$(_path_line "$_shadowed")"
+assert_contains "E-270.05d: doctor: another rein earlier on PATH is reported as shadowing" \
+  "(shadowed by ${SHADOW}/rein)" "$(_path_line "$_shadowed")"
+
+# ── E-391.03 (D-132 addendum 4 r2): doctor and sync know a Rein hook by its file name ──
+# A hook entry under a home directory that no longer exists (what removing an earlier
+# install's directory leaves) is reported, fails doctor, and is rewritten by sync; a script
+# with a Rein hook name elsewhere that DOES exist is the user's — reported, never touched.
+_HP="${FAKE_HOME}/.rein/shared/hook-paths.py"
+_set_hook() {  # <event> <script path> — add one exec-form entry to the fixture's settings
+  python3 - "${PROJ}/.claude/settings.json" "$1" "$2" <<'PY'
+import json, sys
+p, ev, script = sys.argv[1:4]
+d = json.load(open(p))
+d.setdefault("hooks", {}).setdefault(ev, []).append(
+    {"matcher": ".*", "hooks": [{"type": "command", "command": "/bin/bash", "args": ["-p", script], "timeout": 30}]})
+json.dump(d, open(p, "w"), indent=2)
+PY
+}
+_gone="${FAKE_TMP}/gone-home/.oldname/hooks"
+_set_hook PreToolUse "${_gone}/pre-tool-use.sh"
+_doc="$(_ai doctor)"
+assert_contains "E-391.03a: doctor reports a Rein hook whose script is gone" "[HOOK_PATH_MISSING] ${_gone}/pre-tool-use.sh" "$_doc"
+assert_rc 1 "E-391.03b: …and doctor exits non-zero" doctor
+_ai sync >/dev/null
+assert_not_contains "E-391.03c: sync rewrites the missing-path entry to the install path" "${_gone}" "$(cat "${PROJ}/.claude/settings.json")"
+assert_not_contains "E-391.03d: …and doctor is clean of it" "[HOOK_PATH_MISSING]" "$(_ai doctor)"
+_mine="$(test_tmpdir upg-own-hooks)"; printf '#!/bin/sh\nexit 0\n' > "${_mine}/post-tool-use.sh"
+_set_hook PostToolUse "${_mine}/post-tool-use.sh"
+assert_contains "E-391.03e: a Rein hook name outside the install dir is reported" "[HOOK_PATH_FOREIGN] ${_mine}/post-tool-use.sh" "$(_ai doctor)"
+_ai sync >/dev/null
+assert_contains "E-391.03f: …and sync leaves the user's own script registered" "${_mine}/post-tool-use.sh" "$(cat "${PROJ}/.claude/settings.json")"
+python3 - "${PROJ}/.claude/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d["hooks"].pop("PreToolUse", None); json.dump(d, open(p, "w"), indent=2)
+PY
+assert_contains "E-391.03g: no PreToolUse entry for the install's gate is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+assert_rc 1 "E-391.03h: …and doctor exits non-zero" doctor
+_ai sync >/dev/null
+# Security re-review N1: an entry counts by the ONE script it runs. The form Claude Code
+# documents ("$CLAUDE_PROJECT_DIR"/…) and a Rein name passed as an ARGUMENT are not missing
+# Rein hooks — doctor does not fail on them and sync keeps them.
+_set_cmd() {  # <event> <shell-form command>
+  python3 - "${PROJ}/.claude/settings.json" "$1" "$2" <<'PY'
+import json, sys
+p, ev, cmd = sys.argv[1:4]
+d = json.load(open(p))
+d.setdefault("hooks", {}).setdefault(ev, []).append({"matcher": ".*", "hooks": [{"type": "command", "command": cmd}]})
+json.dump(d, open(p, "w"), indent=2)
+PY
+}
+mkdir -p "${PROJ}/.claude/hooks"; printf '#!/bin/sh\nexit 0\n' > "${PROJ}/.claude/hooks/session-start.sh"
+_set_cmd SessionStart '"$CLAUDE_PROJECT_DIR"/.claude/hooks/session-start.sh'
+_set_cmd Stop '/usr/local/bin/myaudit --note /nope/stop-hook.sh'
+_doc="$(_ai doctor)"
+assert_not_contains "E-391.03i: a project hook in Claude Code's documented form is not MISSING" "[HOOK_PATH_MISSING]" "$_doc"
+assert_rc 0 "E-391.03j: …and neither entry fails doctor" doctor
+_ai sync >/dev/null
+assert_status 0 "E-391.03k: sync keeps the project's own hook" python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert any(h.get("command") == "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh" for e in d["hooks"].get("SessionStart", []) for h in e.get("hooks", []))' "${PROJ}/.claude/settings.json"
+assert_contains "E-391.03l: sync keeps an entry that only names a Rein hook as an argument" "myaudit --note /nope/stop-hook.sh" "$(cat "${PROJ}/.claude/settings.json")"
+# N2: the gate counts only as it ships — exec form, under a matcher that covers Bash.
+_gate_variant() {  # <python expression for the PreToolUse list, with G = the gate path>
+  python3 - "${PROJ}/.claude/settings.json" "$(cd "${FAKE_HOME}/.rein/hooks" && pwd -P)/pre-tool-use.sh" "$1" <<'PY'
+import json, sys
+p, G, expr = sys.argv[1], sys.argv[2], sys.argv[3]
+d = json.load(open(p)); d["hooks"]["PreToolUse"] = eval(expr); json.dump(d, open(p, "w"), indent=2)
+PY
+}
+_gate_variant '[{"matcher": ".*", "hooks": [{"type": "command", "command": "true " + G}]}]'
+assert_contains "E-391.03m: a PreToolUse entry that names the gate but never runs it is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+_gate_variant '[{"matcher": "NoSuchTool", "hooks": [{"type": "command", "command": "/bin/bash", "args": ["-p", G]}]}]'
+assert_contains "E-391.03n: …and so is the gate under a matcher that never covers Bash" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+_ai sync >/dev/null
+python3 - "${PROJ}/.claude/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d["disableAllHooks"] = True; json.dump(d, open(p, "w"), indent=2)
+PY
+assert_contains "E-391.03o: disableAllHooks is reported" "[HOOKS_DISABLED]" "$(_ai doctor)"
+assert_rc 1 "E-391.03p: …and fails doctor" doctor
+# Third pass M1: a shell-form line that runs more than one thing, or an option's argument,
+# is not a Rein hook to replace — sync keeps the user's entry (and names any it replaces).
+_set_cmd Stop "bash -c '/u/bin/myaudit; /nope/stop-hook.sh'"
+_set_cmd SessionStart 'bash --rcfile /nope/session-start.sh /u/bin/myaudit'
+_ai sync >/dev/null
+assert_contains "E-391.03q: sync keeps a multi-command line that mentions a Rein hook" "/u/bin/myaudit; /nope/stop-hook.sh" "$(cat "${PROJ}/.claude/settings.json")"
+assert_contains "E-391.03r: …and one whose Rein name is an option's argument" "--rcfile /nope/session-start.sh" "$(cat "${PROJ}/.claude/settings.json")"
+# M3: a matcher that leaves a gated tool out does not count as the gate.
+_gate_variant '[{"matcher": "Bash", "hooks": [{"type": "command", "command": "/bin/bash", "args": ["-p", G], "timeout": 30}]}]'
+assert_contains "E-391.03s: a Bash-only matcher (Write/Edit ungated) is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+_ai sync >/dev/null
+python3 - "${PROJ}/.claude/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p)); d.pop("disableAllHooks", None)
+for ev in ("SessionStart", "Stop"):
+    d["hooks"][ev] = [e for e in d["hooks"].get(ev, []) if "myaudit" not in json.dumps(e) and "CLAUDE_PROJECT_DIR" not in json.dumps(e)]
+json.dump(d, open(p, "w"), indent=2)
+PY
+rm -rf "${PROJ}/.claude/hooks"
+
+# ── E-391.04 (D-132 addendum 5): the installer's "projects to sync" list ──────────────
+# Candidates come from Claude Code's per-project session dirs: the newest *.jsonl, its first
+# 50 lines, the first string `cwd`. The fixture HOME carries four session dirs.
+_cp="${FAKE_HOME}/.claude/projects"; mkdir -p "${_cp}/a" "${_cp}/b" "${_cp}/c" "${_cp}/locked"
+printf '%s\n' '{"type":"summary"}' "{\"type\":\"user\",\"cwd\":\"${PROJ}\"}" > "${_cp}/a/s1.jsonl"
+_plain="$(test_tmpdir upg-plain)"; mkdir -p "${_plain}/.claude"; printf '{}\n' > "${_plain}/.claude/settings.json"
+printf '%s\n' "{\"cwd\":\"${_plain}\"}" > "${_cp}/b/s1.jsonl"
+printf '%s\n' '{"cwd":"/nonexistent/project"}' > "${_cp}/c/s1.jsonl"
+printf '%s\n' "{\"cwd\":\"${PROJ}\"}" > "${_cp}/locked/s1.jsonl"; chmod 000 "${_cp}/locked"
+_set_hook PreToolUse "${_gone}/pre-tool-use.sh"
+_scan() { ( cd "$FAKE_TMP" && HOME="$FAKE_HOME" PATH="$BASE_PATH" "$@" python3 -I "$_HP" projects "$FAKE_TMP" "$(cd "${FAKE_HOME}/.rein/hooks" && pwd -P)" ) 2>&1; }
+_list="$(_scan env)"
+_projreal="$(cd "$PROJ" && pwd -P)"
+assert_contains "E-391.04a: a cwd found after the transcript's first record is listed (its hook path is missing)" "$_projreal" "$_list"
+assert_not_contains "E-391.04b: a cwd without .ai/ is not a candidate" "$_plain" "$_list"
+assert_not_contains "E-391.04c: a cwd that does not exist is not a candidate" "/nonexistent/project" "$_list"
+assert_status 0 "E-391.04d: an unreadable session dir is skipped, the scan still answers" test "$(printf '%s\n' "$_list" | grep -c .)" -eq 1
+assert_status 0 "E-391.04e: REIN_NO_PROJECT_SCAN=1 prints nothing" test -z "$(_scan env REIN_NO_PROJECT_SCAN=1)"
+# N4/N5: a transcript line over the per-line cap is skipped unread (the next line still
+# counts); a directory name carrying a control character is never a candidate.
+mkdir -p "${_cp}/d"
+python3 - "${_cp}/d/s1.jsonl" "$PROJ" <<'PY'
+import json, sys
+open(sys.argv[1], "w").write("x" * (3 << 20) + "\n" + json.dumps({"cwd": sys.argv[2]}) + "\n")
+PY
+_esc_dir="${FAKE_TMP}/esc$(printf '\033')[2Jdir"; mkdir -p "${_esc_dir}/.ai" "${_esc_dir}/.claude"; cp "${PROJ}/.claude/settings.json" "${_esc_dir}/.claude/"
+mkdir -p "${_cp}/e"; python3 -c 'import json,sys; print(json.dumps({"cwd": sys.argv[1]}))' "$_esc_dir" > "${_cp}/e/s1.jsonl"
+rm -f "${_cp}/a/s1.jsonl"
+_list="$(_scan env)"
+assert_contains "E-391.04h: a line past the per-line cap is skipped and the next line still read" "$_projreal" "$_list"
+assert_status 1 "E-391.04i: a directory name with a control character is never printed" grep -q "esc" <<< "$_list"
+rm -rf "$_esc_dir" "${_cp}/e"
+_inst3="$( cd "$FAKE_TMP" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "${REPO_ROOT}/install-rein.sh" 2>&1 )"
+assert_contains "E-391.04f: the installer lists the project with run: rein sync" "${_projreal} — run: rein sync" "$_inst3"
+assert_contains "E-391.04g: …under a heading that says the list may be incomplete" "others may exist" "$_inst3"
+chmod 700 "${_cp}/locked"; _ai sync >/dev/null
 
 # ── E-270.6: the suite left the repository alone ─────────────────────────────
 # E-364: .mcp.json is generated and untracked, so a clean checkout may have none (grep would

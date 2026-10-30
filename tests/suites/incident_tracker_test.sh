@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 # incident_tracker_test.sh — the incident tracker (incident-tracker.md): the append helper and
-# ai-incident skill (E-65), and the aggregator plus its ai-preflight wiring (E-66, E-67, from
+# rein-incident skill (E-65), and the aggregator plus its rein-preflight wiring (E-66, E-67, from
 # incident_aggregator — E-302).
 #
-# E-65 — verifies the incident-append.mjs helper + ai-incident skill contract:
+# E-65 — verifies the incident-append.mjs helper + rein-incident skill contract:
 #   • Helper rejects malformed payloads (missing field / non-JSON / wrong shape)
 #   • Helper sanitises PII (HOME paths → ~, emails → [email], tokens → [token])
 #   • Required-field defaults (timestamp injected, source_agent normalised)
 #   • Append + rotate behaviour @ INCIDENT_ROTATE_LINES threshold
 #   • AI_INCIDENT_TRACKER_DISABLE=1 short-circuits with exit 0
 #   • Skill SKILL.md frontmatter + invocation contract intact
-#   • ~/.ai-os mirror byte-identical
+#   • ~/.rein mirror byte-identical
 
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,13 +18,13 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HELPER="${REPO_ROOT}/src/shared/incident-append.mjs"
-SKILL="${REPO_ROOT}/src/shared/skills/ai-incident/SKILL.md"
-SKILL_MIRROR="${HOME}/.ai-os/shared/skills/ai-incident/SKILL.md"
-HELPER_MIRROR="${HOME}/.ai-os/shared/incident-append.mjs"
+SKILL="${REPO_ROOT}/src/shared/skills/rein-incident/SKILL.md"
+SKILL_MIRROR="${HOME}/.rein/shared/skills/rein-incident/SKILL.md"
+HELPER_MIRROR="${HOME}/.rein/shared/incident-append.mjs"
 
 echo "── Suite: incident_tracker_test ─────────────────────────────────────"
 
-# Sandbox HOME so we don't pollute the real ~/.ai-os/incidents.ndjson.
+# Sandbox HOME so we don't pollute the real ~/.rein/incidents.ndjson.
 SBOX="$(mktemp -d -t incident-XXXXXX)"
 on_exit 'rm -rf "$SBOX"'
 
@@ -81,18 +81,18 @@ assert_status 0 "stderr names the missing field" \
 
 # ── T-IN-S05: happy path appends a record ────────────────────────────────────
 echo ""
-echo "  [T-IN-S05] valid payload appends to ~/.ai-os/incidents.ndjson"
+echo "  [T-IN-S05] valid payload appends to ~/.rein/incidents.ndjson"
 
 run_helper '{"incident_type":"MCP_CRASH","message":"hello","stack_signature":"foo.js:1","source_agent":"Claude"}' \
   > "$SBOX/out" 2>"$SBOX/err"; rc=$?
 assert_status 0 "exit 0 on success" \
   bash -c "[[ '$rc' == '0' ]]"
 assert_status 0 "incidents.ndjson created at sandboxed HOME" \
-  test -f "$SBOX/.ai-os/incidents.ndjson"
+  test -f "$SBOX/.rein/incidents.ndjson"
 assert_status 0 "appended line carries incident_type" \
-  grep -q '"incident_type":"MCP_CRASH"' "$SBOX/.ai-os/incidents.ndjson"
+  grep -q '"incident_type":"MCP_CRASH"' "$SBOX/.rein/incidents.ndjson"
 assert_status 0 "appended line carries timestamp injected by helper" \
-  grep -q '"timestamp":"' "$SBOX/.ai-os/incidents.ndjson"
+  grep -q '"timestamp":"' "$SBOX/.rein/incidents.ndjson"
 
 # ── T-IN-S06: PII sanitisation ───────────────────────────────────────────────
 echo ""
@@ -101,7 +101,7 @@ echo "  [T-IN-S06] sanitiser redacts HOME paths, emails, tokens, hex strings"
 # privacy:allow-fake-token (an invented test input)
 run_helper '{"incident_type":"ENV_ERROR","message":"see '"$SBOX"'/foo and admin@example.com or sk_live_abcdef0123456789abcdef","stack_signature":"deadbeefcafebabe1234567890abcdef","source_agent":"Claude"}' \
   > "$SBOX/out" 2>"$SBOX/err" || true
-LAST="$(tail -n1 "$SBOX/.ai-os/incidents.ndjson")"
+LAST="$(tail -n1 "$SBOX/.rein/incidents.ndjson")"
 
 assert_status 0 "HOME path replaced with ~" \
   bash -c "echo '$LAST' | grep -q '~/foo'"
@@ -119,7 +119,7 @@ echo "  [T-IN-S07] unknown source_agent normalised to 'unknown'"
 run_helper '{"incident_type":"X","message":"y","stack_signature":"z:1","source_agent":"BogusBot"}' \
   >/dev/null 2>"$SBOX/err" || true
 assert_status 0 "BogusBot normalised to unknown" \
-  bash -c "tail -n1 '$SBOX/.ai-os/incidents.ndjson' | grep -q '\"source_agent\":\"unknown\"'"
+  bash -c "tail -n1 '$SBOX/.rein/incidents.ndjson' | grep -q '\"source_agent\":\"unknown\"'"
 
 # E-255: the allow-list is Claude | Tester (the headless Claude Tester role, D-069). Pin that allowed agents are PRESERVED, so
 # the BogusBot case above cannot pass merely because every agent became 'unknown'.
@@ -127,7 +127,7 @@ for _agent in Claude Tester; do
   run_helper "{\"incident_type\":\"X\",\"message\":\"y\",\"stack_signature\":\"z:1\",\"source_agent\":\"${_agent}\"}" \
     >/dev/null 2>"$SBOX/err" || true
   assert_status 0 "${_agent} preserved (not normalised to unknown)" \
-    bash -c "tail -n1 '$SBOX/.ai-os/incidents.ndjson' | grep -q '\"source_agent\":\"${_agent}\"'"
+    bash -c "tail -n1 '$SBOX/.rein/incidents.ndjson' | grep -q '\"source_agent\":\"${_agent}\"'"
 done
 
 # ── T-IN-S08: rotation threshold ─────────────────────────────────────────────
@@ -136,7 +136,7 @@ echo "  [T-IN-S08] rotation moves the active log to a monthly archive"
 
 # Reset HOME and lower threshold to make the test fast.
 SBOX2="$(mktemp -d -t incident-rot-XXXXXX)"
-ACTIVE="$SBOX2/.ai-os/incidents.ndjson"
+ACTIVE="$SBOX2/.rein/incidents.ndjson"
 
 # Seed 5 records to the threshold of 5
 for i in 1 2 3 4 5; do
@@ -149,7 +149,7 @@ HOME="$SBOX2" INCIDENT_ROTATE_LINES=5 node "$HELPER" \
   '{"incident_type":"X","message":"m6","stack_signature":"sig:6"}' >/dev/null 2>&1
 
 YM="$(date -u +%Y-%m)"
-ARCHIVE="$SBOX2/.ai-os/incidents-${YM}.ndjson.archive"
+ARCHIVE="$SBOX2/.rein/incidents-${YM}.ndjson.archive"
 assert_status 0 "monthly archive created on rotation" \
   test -f "$ARCHIVE"
 assert_status 0 "active log retains only the post-rotation lines" \
@@ -168,19 +168,19 @@ HOME="$SBOX3" AI_INCIDENT_TRACKER_DISABLE=1 node "$HELPER" \
 assert_status 0 "exit 0 (fail-open)" \
   bash -c "[[ '$rc' == '0' ]]"
 assert_status 0 "no incidents.ndjson created" \
-  bash -c "[[ ! -f '$SBOX3/.ai-os/incidents.ndjson' ]]"
+  bash -c "[[ ! -f '$SBOX3/.rein/incidents.ndjson' ]]"
 assert_status 0 "warning emitted to stderr" \
   grep -q 'AI_INCIDENT_TRACKER_DISABLE' "$SBOX3/err"
 rm -rf "$SBOX3"
 
 # ── T-IN-S10: skill contract ────────────────────────────────────────────────
 echo ""
-echo "  [T-IN-S10] ai-incident SKILL.md publishes the contract"
+echo "  [T-IN-S10] rein-incident SKILL.md publishes the contract"
 
 assert_status 0 "skill file exists" \
   test -f "$SKILL"
-assert_status 0 "frontmatter has name: ai-incident" \
-  grep -q '^name: ai-incident' "$SKILL"
+assert_status 0 "frontmatter has name: rein-incident" \
+  grep -q '^name: rein-incident' "$SKILL"
 assert_status 0 "skill names the NDJSON path" \
   grep -q 'incidents.ndjson' "$SKILL"
 assert_status 0 "skill enumerates incident_type values" \
@@ -190,9 +190,9 @@ assert_status 0 "skill calls out sanitisation contract" \
 assert_status 0 "skill documents disable flag" \
   grep -q 'AI_INCIDENT_TRACKER_DISABLE' "$SKILL"
 
-# ── T-IN-S11: ~/.ai-os mirrors ──────────────────────────────────────────────
+# ── T-IN-S11: ~/.rein mirrors ──────────────────────────────────────────────
 echo ""
-echo "  [T-IN-S11] ~/.ai-os mirrors are byte-identical"
+echo "  [T-IN-S11] ~/.rein mirrors are byte-identical"
 
 if [[ -f "$SKILL_MIRROR" ]]; then
   assert_status 0 "skill mirror identical to src" \
@@ -207,16 +207,16 @@ fi
 # ── E-66 / E-67 (from incident_aggregator — E-302): the aggregator and its preflight wiring ──
 # Tests for E-66 + E-67.
 #
-# E-66: incident-aggregate.mjs reads ~/.ai-os/incidents.ndjson, groups by
+# E-66: incident-aggregate.mjs reads ~/.rein/incidents.ndjson, groups by
 #       stack_signature, surfaces THRESHOLD_REACHED at >=3 occurrences.
-# E-67: ai-preflight SKILL.md wires the aggregator and emits the
+# E-67: rein-preflight SKILL.md wires the aggregator and emits the
 #       [INCIDENT_THRESHOLD_REACHED] context block when the threshold trips.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 AGGR="${REPO_ROOT}/src/shared/incident-aggregate.mjs"
 APPEND="${REPO_ROOT}/src/shared/incident-append.mjs"
-PREFLIGHT_SKILL="${REPO_ROOT}/src/shared/skills/ai-preflight/SKILL.md"
-PREFLIGHT_SKILL_MIRROR="${HOME}/.ai-os/shared/skills/ai-preflight/SKILL.md"
-AGGR_MIRROR="${HOME}/.ai-os/shared/incident-aggregate.mjs"
+PREFLIGHT_SKILL="${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
+PREFLIGHT_SKILL_MIRROR="${HOME}/.rein/shared/skills/rein-preflight/SKILL.md"
+AGGR_MIRROR="${HOME}/.rein/shared/incident-aggregate.mjs"
 
 
 AGG_SBOX="$(mktemp -d -t aggr-XXXXXX)"
@@ -293,8 +293,8 @@ assert_status 0 "bar:42 still below threshold" \
 echo ""
 echo "  [T-AG-S07] malformed NDJSON lines are skipped, not fatal"
 
-echo "{not-json" >> "$AGG_SBOX/.ai-os/incidents.ndjson"
-echo ""        >> "$AGG_SBOX/.ai-os/incidents.ndjson"
+echo "{not-json" >> "$AGG_SBOX/.rein/incidents.ndjson"
+echo ""        >> "$AGG_SBOX/.rein/incidents.ndjson"
 OUT="$(run_aggr)"
 assert_status 0 "aggregator still returns valid JSON" \
   bash -c "echo '$OUT' | python3 -c 'import json,sys; json.loads(sys.stdin.read())'"
@@ -323,14 +323,14 @@ ELAPSED_MS=$(( (END_NS - START_NS) / 1000000 ))
 assert_perf "aggregator on a 100-record log" "$ELAPSED_MS" 200 "$(perf_baseline_node)"
 rm -rf "$AGG_SBOX2"
 
-# ── T-AG-S09: ai-preflight SKILL.md wires the aggregator (E-67) ─────────────
+# ── T-AG-S09: rein-preflight SKILL.md wires the aggregator (E-67) ─────────────
 echo ""
-echo "  [T-AG-S09] ai-preflight skill consumes the aggregator"
+echo "  [T-AG-S09] rein-preflight skill consumes the aggregator"
 
 assert_status 0 "skill names incident-aggregate.mjs in locator chain" \
   grep -q 'incident-aggregate.mjs' "$PREFLIGHT_SKILL"
 
-assert_status 0 "skill names ${HOME}/.ai-os/shared mirror" \
+assert_status 0 "skill names ${HOME}/.rein/shared mirror" \
   grep -q 'shared/incident-aggregate.mjs' "$PREFLIGHT_SKILL"
 
 assert_status 0 "skill emits [INCIDENT_THRESHOLD_REACHED] context block" \
@@ -345,12 +345,12 @@ assert_status 0 "skill defers blueprint drafting to Architect (anti-drift §35)"
 assert_status 0 "skill documents AI_INCIDENT_TRACKER_DISABLE rollback" \
   grep -q 'AI_INCIDENT_TRACKER_DISABLE' "$PREFLIGHT_SKILL"
 
-# ── T-AG-S10: ~/.ai-os mirrors byte-identical ───────────────────────────────
+# ── T-AG-S10: ~/.rein mirrors byte-identical ───────────────────────────────
 echo ""
-echo "  [T-AG-S10] ~/.ai-os/ mirrors track src/ verbatim"
+echo "  [T-AG-S10] ~/.rein/ mirrors track src/ verbatim"
 
 if [[ -f "$PREFLIGHT_SKILL_MIRROR" ]]; then
-  assert_status 0 "ai-preflight skill mirror identical" \
+  assert_status 0 "rein-preflight skill mirror identical" \
     cmp -s "$PREFLIGHT_SKILL" "$PREFLIGHT_SKILL_MIRROR"
 fi
 if [[ -f "$AGGR_MIRROR" ]]; then

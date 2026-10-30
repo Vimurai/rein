@@ -26,6 +26,6 @@
   {"kind": "writer", "writer": "instinct_stager", "label": "a proposed skill is redacted"},
   {"kind": "writer", "writer": "project_focus", "label": "set_project_focus's focus and verdict reach state.json redacted (security P1-2)"},
   {"kind": "writer", "writer": "advisor_ruling", "label": "the advisor's LOG line passes through redact() (security P2-3)"},
-  {"kind": "writer", "writer": "ai_clean_log", "label": "ai clean's LOG line passes through redact() (security P2-3)"},
+  {"kind": "writer", "writer": "ai_clean_log", "label": "rein clean's LOG line passes through redact() (security P2-3)"},
   {"kind": "writer", "writer": "stop_hook", "label": "the stop hook's digest line is redacted (hooks_surface_test, a process boundary)"}
 ]

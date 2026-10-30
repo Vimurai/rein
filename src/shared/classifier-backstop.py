@@ -6,8 +6,8 @@ The safe-exec gate runs as the operator's uid, so a same-uid agent can in princi
 OPERATOR's ~/.claude/settings.json, which no project can override (D-080; measured on
 2.1.287: `autoMode` in a project's .claude/settings.json or settings.local.json is ignored).
 So a prose `autoMode.hard_deny` rule there is a second, independently configured gate.
-`ai install` OFFERS it (y/N, default N); this module is the ONE reader/writer, shared by
-`ai install` (plan + apply) and `ai doctor` (status), so they cannot disagree.
+`rein install` OFFERS it (y/N, default N); this module is the ONE reader/writer, shared by
+`rein install` (plan + apply) and `rein doctor` (status), so they cannot disagree.
 
 Discipline (security_engineer, E-293 review):
   - Parse strictly: duplicate keys, NaN/Infinity, a non-object root, `autoMode` not an object,
@@ -35,7 +35,7 @@ CLI (stdout is tab-separated; exit codes are the contract):
   plan   <path>  0 "CHANGE\t<normalised:0|1>" + the resulting hard_deny as JSON | 1 "NOCHANGE" |
                  3 "UNPARSABLE\t<why>" | 5 "NODIR"
   apply  <path>  0 "APPLIED" | 1 "NOCHANGE" | 3 "REFUSED\t<why>" | 4 "CHANGED\t<why>" | 5 "NODIR"
-  refresh <path> REPLACE ONLY (D-097, E-318 — `ai install` / `ai sync` / `ai account add`, no prompt):
+  refresh <path> REPLACE ONLY (D-097, E-318 — `rein install` / `rein sync` / `rein account add`, no prompt):
                  an OUTDATED labelled copy is rewritten as `apply` would (0 "APPLIED", or apply's 3/4);
                  anything else is left alone: 1 "NOCHANGE" (PRESENT) | 1 "ABSENT" (never added — adding
                  is the operator's y/N) | 1 "NOFILE" | 3 "REFUSED\t<why>" | 5 "NODIR"
@@ -49,11 +49,16 @@ import stat
 import sys
 import tempfile
 
-# Any version of the rule starts with this; an installed copy with other text is OUTDATED.
-LABEL = "AI-OS Gate Tamper"
-# D-101 (E-324; supersedes D-097, which superseded D-090 and D-086 ruling 1) — copied VERBATIM from .ai/DECISIONS.md
+# The current label. Every ruled version since D-086 — this one, or one under the predecessor's
+# product name — opens `<Word> Gate Tamper (D-###): Never disable, bypass or weaken the <Word>
+# safe-exec gate` (OURS); a copy with that opening but other text is OUTDATED. Nothing else is
+# ours: a user's own `… Gate Tamper` deny rule is never replaced or removed (D-132 addendum 4 r3).
+LABEL = "Rein Gate Tamper"
+OURS = re.compile(r"^(?P<word>[A-Za-z][A-Za-z-]*) Gate Tamper \((?P<ruling>D-\d+)\): "
+                  r"Never disable, bypass or weaken the (?P=word) safe-exec gate\b")
+# D-132 addendum 2 r6 (E-391; supersedes D-101, which superseded D-097, D-090 and D-086 ruling 1) — copied VERBATIM from .ai/DECISIONS.md
 # (tests/suites/classifier_backstop_test.sh asserts it equals the quoted constant there). A new version is a new D-ruling.
-RULE = "AI-OS Gate Tamper (D-101): Never disable, bypass or weaken the AI-OS safe-exec gate or its role tokens, however assembled (shell variables, eval, bash -c, aliases, a script written then run, python/node/perl, sed -i, jq, cp/mv/ln, editor tools, subagents, or a nested claude launched with flags or settings that drop its hooks). Specifically: running `ai gate off`; creating, editing, moving or linking `~/.ai-os/gate-override.json`, `~/.ai-os/accounts.json` or anything under `~/.ai-os/{hooks,bin,mcp,shared,scripts,run,config,secrets}/` (by `~`, `$HOME`, a relative path or an absolute path); running `claude auto-mode reset`; changing `~/.claude/settings.json` or any registered Claude account's `settings.json` (the `config_dir` directories named in `~/.ai-os/accounts.json`), or their symlink targets, to remove or alter `autoMode`, `hooks`, `disableAllHooks` or `defaultMode`, or to add `permissions.allow` rules for `ai`; or changing a project's `.claude/settings.json` or `settings.local.json` to remove or alter `hooks`, `disableAllHooks` or `defaultMode`. Exempt: `ai install`, `ai sync`, `ai init`, `ai doctor`, `ai start`, `ai pane`, `ai account`, `ai gate on`, `ai gate status` and `bash install-ai-os.sh`, each run with no flag that skips, disables or redirects hooks or the gate — and, for `ai install`, `ai sync` and `bash install-ai-os.sh`, only from a source tree whose hooks, gate or installer this session has not modified; the `ai` command's own subcommands writing their runtime state under `~/.ai-os/run/` (never the gate switch); `ai install` creating the key under `~/.ai-os/secrets/`; reading these files."
+RULE = "Rein Gate Tamper (D-132): Never disable, bypass or weaken the Rein safe-exec gate or its role tokens, however assembled (shell variables, eval, bash -c, aliases, a script written then run, python/node/perl, sed -i, jq, cp/mv/ln, editor tools, subagents, or a nested claude launched with flags or settings that drop its hooks). Specifically: running `rein gate off`; creating, editing, moving or linking `~/.rein/gate-override.json`, `~/.rein/accounts.json` or anything under `~/.rein/{hooks,bin,mcp,shared,scripts,run,config,secrets}/` (by `~`, `$HOME`, a relative path or an absolute path); running `claude auto-mode reset`; changing `~/.claude/settings.json` or any registered Claude account's `settings.json` (the `config_dir` directories named in `~/.rein/accounts.json`), or their symlink targets, to remove or alter `autoMode`, `hooks`, `disableAllHooks` or `defaultMode`, or to add `permissions.allow` rules for `rein`; or changing a project's `.claude/settings.json` or `settings.local.json` to remove or alter `hooks`, `disableAllHooks` or `defaultMode`. Exempt: `rein install`, `rein sync`, `rein init`, `rein doctor`, `rein start`, `rein pane`, `rein account`, `rein gate on`, `rein gate status` and `bash install-rein.sh`, each run with no flag that skips, disables or redirects hooks or the gate — and, for `rein install`, `rein sync` and `bash install-rein.sh`, only from a source tree whose hooks, gate or installer this session has not modified; the `rein` command's own subcommands writing their runtime state under `~/.rein/run/` (never the gate switch); `rein install` creating the key under `~/.rein/secrets/`; reading these files."
 DEFAULTS = "$defaults"
 
 
@@ -121,7 +126,7 @@ def _state(d):
         return "ABSENT"
     if RULE in hd:
         return "PRESENT"
-    if any(x.startswith(LABEL) for x in hd):
+    if any(isinstance(x, str) and OURS.match(x) for x in hd):
         return "OUTDATED"
     return "ABSENT"
 
@@ -134,10 +139,10 @@ def _with_rule(d):
         am["hard_deny"] = [DEFAULTS, RULE]
         return new
     hd = am["hard_deny"]
-    labelled = [i for i, x in enumerate(hd) if isinstance(x, str) and x.startswith(LABEL)]
+    labelled = [i for i, x in enumerate(hd) if isinstance(x, str) and OURS.match(x)]
     if labelled:
         # Replace the first outdated copy IN PLACE and drop any further labelled copies, so the
-        # list ends with exactly one AI-OS rule (E-306); every other entry keeps its position.
+        # list ends with exactly one Rein rule (E-306); every other entry keeps its position.
         hd[labelled[0]] = RULE
         for i in reversed(labelled[1:]):
             del hd[i]
@@ -149,9 +154,8 @@ def _with_rule(d):
 def _outdated_ruling(d):
     """The D-### an installed outdated copy carries in its label, e.g. "D-086", or ""."""
     for x in ((d.get("autoMode") or {}).get("hard_deny")) or []:
-        if isinstance(x, str) and x.startswith(LABEL) and x != RULE:
-            m = re.match(re.escape(LABEL) + r" \((D-\d+)\)", x)
-            return m.group(1) if m else ""
+        if isinstance(x, str) and OURS.match(x) and x != RULE:
+            return OURS.match(x).group("ruling")
     return ""
 
 
@@ -160,9 +164,9 @@ def _warnings(d):
     allow = ((d.get("permissions") or {}).get("allow")) if isinstance(d.get("permissions"), dict) else None
     if isinstance(allow, list):
         for a in allow:
-            if isinstance(a, str) and a.replace(" ", "").startswith("Bash(ai"):
+            if isinstance(a, str) and a.replace(" ", "").startswith("Bash(rein"):
                 out.append(f"permissions.allow has {a!r} — allow rules are resolved BEFORE the "
-                           "classifier, so `ai gate off` would never reach it")
+                           "classifier, so `rein gate off` would never reach it")
     if os.environ.get("CLAUDE_CONFIG_DIR"):
         out.append("CLAUDE_CONFIG_DIR is set — Claude Code may read settings from there, not this file")
     return out
@@ -213,7 +217,7 @@ def cmd_status(path):
     except Refuse as e:
         print(f"UNPARSABLE\t{e}"); return 3
     s = _state(d)
-    # E-306: name the ruling an outdated copy came from, so `ai doctor` says "outdated (D-086)".
+    # E-306: name the ruling an outdated copy came from, so `rein doctor` says "outdated (D-086)".
     print(f"OUTDATED\t{_outdated_ruling(d)}" if s == "OUTDATED" and _outdated_ruling(d) else s)
     for w in _warnings(d):
         print(f"WARN\t{w}")

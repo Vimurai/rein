@@ -1,5 +1,5 @@
 /**
- * logger.js — Shared structured JSON logger for AI-OS MCP servers.
+ * logger.js — Shared structured JSON logger for Rein MCP servers.
  *
  * Emits one NDJSON line per call to stderr. Stdout is reserved for the
  * MCP JSON-RPC protocol and must never be polluted.

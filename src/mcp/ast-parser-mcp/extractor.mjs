@@ -14,7 +14,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 
 // E-98: grammars are VENDORED into the server dir (grammars/*.wasm) so the
-// installed ~/.ai-os/mcp/ast-parser-mcp copy is self-contained — the installer
+// installed ~/.rein/mcp/ast-parser-mcp copy is self-contained — the installer
 // rsync ships them with the server, no root-hoisted tree-sitter-wasms needed at
 // runtime (tree-sitter-wasms remains a devDependency: the source of these .wasm).
 const GRAMMARS_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "grammars");

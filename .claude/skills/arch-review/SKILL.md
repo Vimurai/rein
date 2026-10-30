@@ -1,6 +1,6 @@
 ---
 name: arch-review
-description: Use this skill when the user requests an architectural review, before a major commit, or when checking blueprint alignment. Audits the codebase against architect.md for orphaned work, deviations, and top architectural risks. (Renamed from ai-review to avoid colliding with the Engineer's tier-aware critic-review skill — E-149.)
+description: Use this skill when the user requests an architectural review, before a major commit, or when checking blueprint alignment. Audits the codebase against architect.md for orphaned work, deviations, and top architectural risks. (Renamed from the review skill name to avoid colliding with the Engineer's tier-aware critic-review skill — E-149.)
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Grep, Glob
@@ -8,7 +8,7 @@ context: fork
 agent: default
 ---
 
-# AI-OS Review — Architectural Audit (Architect)
+# Rein Review — Architectural Audit (Architect)
 
 ## Dynamic Context Injection
 Recent changes: !git log --oneline -10 2>/dev/null || echo "(no git history)"

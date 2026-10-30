@@ -2,8 +2,8 @@
 // every developer's file (E-333, D-102 §8, team-collaboration.md §Component 8).
 //
 // New behaviour of team.mjs with no unit file of its own (E-327's team.json rules are the
-// tests/fixtures/team-cases.json table); the ai-log / ai-preflight skills reach it through
-// `ai log path|recent` (cli-state.mjs), exercised at the end.
+// tests/fixtures/team-cases.json table); the rein-log / rein-preflight skills reach it through
+// `rein log path|recent` (cli-state.mjs), exercised at the end.
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -19,7 +19,7 @@ const A = "dev-a@example.com", B = "Dev.B+laptop@example.com";
 
 /** A project with .ai/ and, when <shared> is not null, a team.json with shared_log = <shared>. */
 function project(t, shared) {
-  const d = mkdtempSync(join(tmpdir(), "aios-teamlog-"));
+  const d = mkdtempSync(join(tmpdir(), "rein-teamlog-"));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   execFileSync("git", ["init", "-q"], { cwd: d });
   execFileSync("git", ["config", "user.email", A], { cwd: d });
@@ -71,7 +71,7 @@ test("a broken team.json never makes a log line fail: it falls back to LOG.md", 
   assert.equal(logPath(ai, A), join(ai, "LOG.md"));
 });
 
-test("ai log path | recent — the CLI the ai-log and ai-preflight skills call", (t) => {
+test("rein log path | recent — the CLI the rein-log and rein-preflight skills call", (t) => {
   const ai = project(t, true);
   const root = join(ai, "..");
   appendLog(ai, "2026-10-22 | Claude | E-6 | b second", B);

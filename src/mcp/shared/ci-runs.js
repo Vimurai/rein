@@ -3,7 +3,7 @@
  *
  * "CI green" from D-072 on means: a NON-DIRTY `ci_runs` row with status PASS exists for the
  * commit. This module owns that table — its schema, its up/down migration and every read
- * and write — so `ai ci run` (writer), `ai ci status/list/log`, `get_ci_status` and the
+ * and write — so `rein ci run` (writer), `rein ci status/list/log`, `get_ci_status` and the
  * E-267 gates all see one definition. It lives beside state-db.js rather than inside it
  * because state-db.js is already past the 500-line warning, and getDb() calls
  * migrateCiRuns() so every opened state store carries the table.
@@ -139,7 +139,7 @@ export function listCiRuns(db, n = 10) {
   return db.prepare("SELECT * FROM ci_runs ORDER BY started_at DESC, id DESC LIMIT ?").all(Math.max(1, n | 0));
 }
 
-/** Row count — the E-267 adoption test ("has this project ever run ai ci?"). */
+/** Row count — the E-267 adoption test ("has this project ever run rein ci?"). */
 export function ciRunCount(db) {
   return db.prepare("SELECT COUNT(*) AS n FROM ci_runs").get().n;
 }
@@ -173,12 +173,12 @@ export function ageOf(iso, now = Date.now()) {
 /** One line: `PASS 321cbcb 7m ago (suite 4744/0/2, unit PASS, leaked 0)`. */
 export function shortLine(verdict, sha, now = Date.now()) {
   const sha7 = String(sha).slice(0, 7);
-  if (verdict.kind === "NONE") return `NONE ${sha7} — no local CI run; run: ai ci run`;
+  if (verdict.kind === "NONE") return `NONE ${sha7} — no local CI run; run: rein ci run`;
   const r = verdict.row;
   const suite = r.suite_pass == null ? "suite -" : `suite ${r.suite_pass}/${r.suite_fail ?? 0}/${r.suite_skip ?? 0}`;
   let line = `${verdict.kind} ${sha7} ${ageOf(r.started_at, now)} (${suite}, unit ${r.unit_status || "-"}, leaked ${r.leaked ?? 0})`;
-  if (verdict.kind === "DIRTY") line += ` — dirty run ${r.status}, not a certification; run: ai ci run`;
-  if (verdict.kind === "SHARD") line = `SHARD ${r.shard} ${line.slice("SHARD ".length)} — shard run ${r.status}, not a certification; run: ai ci run`;
+  if (verdict.kind === "DIRTY") line += ` — dirty run ${r.status}, not a certification; run: rein ci run`;
+  if (verdict.kind === "SHARD") line = `SHARD ${r.shard} ${line.slice("SHARD ".length)} — shard run ${r.status}, not a certification; run: rein ci run`;
   if (r.status === "SKIPPED") line += ` — skipped: ${r.skip_reason}`;
   return line;
 }
@@ -232,7 +232,7 @@ export function parseCiLog(text, logPath = null) {
       const kv = _kv(line.slice(14));
       Object.assign(run, { status: kv.status, finished_at: kv.finished_at, duration_ms: _int(kv.duration_ms) });
     } else if (line.startsWith("[ci] resources ")) {
-      // E-310: `[ci] resources lanes=4 peak_rss_mb=812 suite_seconds=790 runner=aios`
+      // E-310: `[ci] resources lanes=4 peak_rss_mb=812 suite_seconds=790 runner=rein`
       // (peak_rss_mb=- with rss_skip=<why> when no /usr/bin/time could measure it).
       const kv = _kv(line.slice(15));
       Object.assign(run, {
@@ -393,7 +393,7 @@ const ANCESTOR_SEARCH_ROWS = 50;
  *      certifies, a FAIL or SKIPPED record never does;
  *   3. otherwise the newest non-dirty PASS row — or PASS record — for an ANCESTOR counts
  *      when every path that differs between the two is under .ai/ — the bookkeeping commits
- *      ai-task makes after a DONE, and a merge commit whose tree equals the tested tip, are
+ *      rein-task makes after a DONE, and a merge commit whose tree equals the tested tip, are
  *      never CI'd on their own and must not block (local-ci.md §Components 5b).
  *
  * A local row outranks a record for the same sha: this machine's own newest verdict is the
@@ -452,14 +452,14 @@ export function ciAdopted(db, aiDir = null) {
 }
 
 /**
- * The update_task_status(DONE) gate. Active only in a project that has adopted `ai ci`
- * (ciAdopted), so an upgrade never breaks a project that has not; AI_OS_CI_GATE=0 disables
+ * The update_task_status(DONE) gate. Active only in a project that has adopted `rein ci`
+ * (ciAdopted), so an upgrade never breaks a project that has not; REIN_CI_GATE=0 disables
  * it. Returns { ok, active, message }.
  */
 export function checkCiDoneGate(db, repoRoot, env = process.env) {
-  if (env.AI_OS_CI_GATE === "0") return { ok: true, active: false, message: "CI gate disabled (AI_OS_CI_GATE=0)" };
+  if (env.REIN_CI_GATE === "0") return { ok: true, active: false, message: "CI gate disabled (REIN_CI_GATE=0)" };
   const aiDir = join(repoRoot, ".ai");
-  if (!ciAdopted(db, aiDir)) return { ok: true, active: false, message: "CI gate inactive (no ai ci run recorded yet)" };
+  if (!ciAdopted(db, aiDir)) return { ok: true, active: false, message: "CI gate inactive (no rein ci run recorded yet)" };
   let head;
   try { head = _git(repoRoot, ["rev-parse", "--verify", "HEAD"]); }
   catch { return { ok: true, active: false, message: "CI gate inactive (not a git repository)" }; }
@@ -470,8 +470,8 @@ export function checkCiDoneGate(db, repoRoot, env = process.env) {
   else if (c.via === "record") why = `its record from ${c.record.runner} is ${c.kind}`;
   return {
     ok: false, active: true,
-    message: `[CI_GATE] no green local CI run for HEAD ${head.slice(0, 7)} (${why}) — run: ai ci run` +
-      " (bypass: AI_OS_CI_GATE=0)" + (c.warnings.length ? `\n${c.warnings.join("\n")}` : ""),
+    message: `[CI_GATE] no green local CI run for HEAD ${head.slice(0, 7)} (${why}) — run: rein ci run` +
+      " (bypass: REIN_CI_GATE=0)" + (c.warnings.length ? `\n${c.warnings.join("\n")}` : ""),
   };
 }
 

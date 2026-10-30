@@ -32,7 +32,7 @@ import {
 
 // A fresh, isolated state DB in a temp dir. Returns { dir, db, cleanup }.
 function freshDb() {
-  const dir = mkdtempSync(join(tmpdir(), "aios-unit-"));
+  const dir = mkdtempSync(join(tmpdir(), "rein-unit-"));
   // Import lazily so the schema is created via the public entrypoint.
   return import("../../src/mcp/shared/state-db.js").then(({ getDb }) => {
     const db = getDb(dir);

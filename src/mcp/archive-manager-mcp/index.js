@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * archive-manager-mcp — AI-OS Auto-Pilot MCP Server
+ * archive-manager-mcp — Rein Auto-Pilot MCP Server
  * Monitors .ai/ context health and orchestrates autonomous archive operations.
  *
  * Tools:
  *   check_context_health()   → line + token health report; needs_archive: boolean
  *   execute_archive()        → SQLite-aware state rotation (DONE tasks + stamps);
- *                              points to `skill: ai-archive` for log-file rotation
+ *                              points to `skill: rein-archive` for log-file rotation
  */
 
 import { isMainModule } from "../shared/is-main.mjs";
@@ -71,7 +71,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "Rotates SQLite state out of the hot path: archives old DONE tasks and audit " +
         "stamps to .ai/archive/*.json (ACID-safe, via the shared state-db owner) and " +
         "returns { archived_tasks, archived_stamps }. For destructive log-file rotation " +
-        "(LOG.md/COMM.md/SESSION.md) run `skill: ai-archive`. " +
+        "(LOG.md/COMM.md/SESSION.md) run `skill: rein-archive`. " +
         "Call after check_context_health returns needs_archive: true.",
       inputSchema: { type: "object", properties: {} },
     },
@@ -89,7 +89,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
     if (!existsSync(aiDir)) {
       return {
-        content: [{ type: "text", text: JSON.stringify({ error: "No .ai/ directory found. Run: ai init", needs_archive: false }) }],
+        content: [{ type: "text", text: JSON.stringify({ error: "No .ai/ directory found. Run: rein init", needs_archive: false }) }],
         isError: true,
       };
     }
@@ -148,11 +148,11 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const aiDir = resolve(cwd, ".ai");
 
     if (!existsSync(aiDir)) {
-      return { content: [{ type: "text", text: "✗ No .ai/ directory found. Run: ai init" }], isError: true };
+      return { content: [{ type: "text", text: "✗ No .ai/ directory found. Run: rein init" }], isError: true };
     }
 
     // E-111: rotate SQLite state (DONE tasks + audit stamps) through the shared,
-    // ACID-safe owner. Previously this shelled the removed `ai archive` verb
+    // ACID-safe owner. Previously this shelled the removed `rein archive` verb
     // (always exit 1) and wrote the regenerated state.json view (clobbered).
     let taskResult = null;
     let stampResult = null;
@@ -179,10 +179,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     }
     lines.push(`  ${JSON.stringify({ archived_tasks, archived_stamps })}`);
     // Log-file rotation (LOG.md/COMM.md/SESSION.md → .ai/archive/) is a
-    // destructive, HITL-gated operation owned by the ai-archive skill — a bash
+    // destructive, HITL-gated operation owned by the rein-archive skill — a bash
     // MCP cannot invoke a skill, so we point the operator to it rather than
-    // shelling the removed `ai archive` verb.
-    lines.push("  For log-file rotation (LOG.md/COMM.md/SESSION.md) run: skill: ai-archive");
+    // shelling the removed `rein archive` verb.
+    lines.push("  For log-file rotation (LOG.md/COMM.md/SESSION.md) run: skill: rein-archive");
 
     return { content: [{ type: "text", text: lines.join("\n") }] };
   }

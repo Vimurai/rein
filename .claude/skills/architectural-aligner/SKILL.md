@@ -51,7 +51,7 @@ From `architect.md §1`:
 
 ### 5. Security Architecture Compliance
 From `architect.md §5`:
-- `ai-exec` used for all high-risk shell operations?
+- `rein-exec` used for all high-risk shell operations?
 - `CAPABILITIES.md` updated when new permissions are needed?
 - No hardcoded secrets or tokens in `src/`?
 

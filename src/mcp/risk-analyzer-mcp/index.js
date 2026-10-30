@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * risk-analyzer-mcp — AI-OS TSRT MCP Server
+ * risk-analyzer-mcp — Rein TSRT MCP Server
  * Classifies intent and git changes as Tier 1/2/3 using multi-signal analysis.
  * Enables gate skipping and token savings per architect.md §14.
  *
@@ -164,8 +164,8 @@ const TIER_ACTIONS = {
     label: "Tier 3 — High Risk (Auth/Secrets/Breaking Changes)",
     run: [
       "security_engineer agent",
-      "skill: ai-test --vibe (ux_reviewer + chaos_monkey)",
-      "skill: ai-review (Tier 3 = full parallel critics: arch + security + tests)",
+      "skill: rein-test --vibe (ux_reviewer + chaos_monkey)",
+      "skill: rein-review (Tier 3 = full parallel critics: arch + security + tests)",
       "blueprint-aligner-mcp",
       "safe-exec-mcp for shell commands",
     ],

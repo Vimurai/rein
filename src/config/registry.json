@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "comment": "AI-OS v2 MCP Server Registry. All servers must be listed here before they can be used with WRITE or EXECUTE permissions.",
+  "comment": "Rein v2 MCP Server Registry. All servers must be listed here before they can be used with WRITE or EXECUTE permissions.",
   "roles": {
     "_comment": "E-254 (claude-native-consolidation.md §Components 1): the only place that says which source directory serves which role. v4 is Claude-native, so both roles name the same src/claude/ directories, so both receive every skill; role-manifest.mjs unions directories and does not partition by name — role separation is enforced by the role token and the write gate (D-076). do_sync still unions shared with every role a provider serves.",
     "architect": {
@@ -79,7 +79,7 @@
       ],
       "disable-model-invocation": false,
       "_note": "Exclusive State Mutator (P-39): manages .ai/state.json, regenerates TASKS.md and REVIEWS.md as views",
-      "_mandate": "v3.1 (P-44): state.json is the exclusive write target. TASKS.md and REVIEWS.md are generated views only. Write tools reject calls when state.json is absent — run: ai migrate-state to seed it."
+      "_mandate": "v3.1 (P-44): state.json is the exclusive write target. TASKS.md and REVIEWS.md are generated views only. Write tools reject calls when state.json is absent — run: rein migrate-state to seed it."
     },
     "safe-exec-mcp": {
       "path": "src/mcp/safe-exec-mcp/index.js",
@@ -120,7 +120,7 @@
         "get_tier_actions"
       ],
       "disable-model-invocation": false,
-      "_note": "TSRT classifier — invoked automatically by ai update and ai review"
+      "_note": "TSRT classifier — invoked automatically by rein update and rein review"
     },
     "archive-manager-mcp": {
       "path": "src/mcp/archive-manager-mcp/index.js",
@@ -154,7 +154,7 @@
         "query_signatures"
       ],
       "disable-model-invocation": false,
-      "_note": "§31 Cross-Project Memory Palace: stores high-level project signatures in ~/.ai-os/memory/signatures.json"
+      "_note": "§31 Cross-Project Memory Palace: stores high-level project signatures in ~/.rein/memory/signatures.json"
     },
     "verification-mcp": {
       "path": "src/mcp/verification-mcp/index.js",
@@ -189,7 +189,7 @@
         "reset_session"
       ],
       "disable-model-invocation": false,
-      "_note": "§27 Token Budget & Cost Governance: real-time LLM spend tracking persisted in ~/.ai-os/usage.sqlite"
+      "_note": "§27 Token Budget & Cost Governance: real-time LLM spend tracking persisted in ~/.rein/usage.sqlite"
     },
     "propose-patch-mcp": {
       "path": "src/mcp/propose-patch-mcp/index.js",
@@ -213,7 +213,7 @@
         "request_approval"
       ],
       "disable-model-invocation": false,
-      "_note": "E-10 HITL Gate: blocks Tier 3 ops until human types y/Y in terminal. Audit trail in ~/.ai-os/approvals.sqlite. Cannot be bypassed. Blueprint: interop.md §2. SEC_CLEARED 2026-04-24.",
+      "_note": "E-10 HITL Gate: blocks Tier 3 ops until human types y/Y in terminal. Audit trail in ~/.rein/approvals.sqlite. Cannot be bypassed. Blueprint: interop.md §2. SEC_CLEARED 2026-04-24.",
       "_security": "T-HITL-001: ANSI stripped. T-HITL-002: DB_PATH hardcoded. T-HITL-003: stdin.isTTY required. T-HITL-004: SQLite write before response. T-HITL-005: maxLength 200/500 enforced."
     },
     "advisor-mcp": {
@@ -237,7 +237,7 @@
         "get_cache_status"
       ],
       "disable-model-invocation": false,
-      "_note": "E-11 Explicit Context Cache: assembles architect.md plus .ai/blueprints/*.md modified within 7 days into a prompt-cacheable System Context blob capped at 20,000 chars (E-275, D-075). mtime-based invalidation. Cache in ~/.ai-os/cache.sqlite. Blueprint: caching.md."
+      "_note": "E-11 Explicit Context Cache: assembles architect.md plus .ai/blueprints/*.md modified within 7 days into a prompt-cacheable System Context blob capped at 20,000 chars (E-275, D-075). mtime-based invalidation. Cache in ~/.rein/cache.sqlite. Blueprint: caching.md."
     }
   }
 }

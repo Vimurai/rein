@@ -10,7 +10,7 @@
 // Usage: node arch-write-cases.mjs <safe-exec path> <cases.json> [<role>=<sid>:<session pid> ...]
 // Prints one `ok|FAIL <verdict> <command>` line per case; exits 1 on any mismatch.
 //
-// E-294 (D-087): the gate's role is the session token's, never AI_OS_CALLER_ROLE. Each case's
+// E-294 (D-087): the gate's role is the session token's, never REIN_CALLER_ROLE. Each case's
 // role is answered by a REAL session of that role — the suite starts one per role
 // (tests/lib/as-session.sh, a launch record + a token bound to that process) and passes its
 // session id and pid here; the check runs with `--session <sid> --session-pid <pid>`, the same

@@ -1,5 +1,5 @@
-# AI-OS — sensitive .ai/ files should not be committed
-# Rename this to .gitignore inside .ai/ (done by ai init)
+# Rein — sensitive .ai/ files should not be committed
+# Rename this to .gitignore inside .ai/ (done by rein init)
 
 # Contains env var names and secret storage details
 ENV.md
@@ -18,7 +18,7 @@ LOG.md
 
 # COMM.md (the handoff channel) is TRACKED and committed per handoff — D-104.
 
-# One developer's Claude account for this checkout (ai account use — E-333, D-102 §8)
+# One developer's Claude account for this checkout (rein account use — E-333, D-102 §8)
 start.local.json
 
 # Archive directory (LOG/SESSION rotation). Anchored: .ai/tasks/archive/ is tracked (E-330)

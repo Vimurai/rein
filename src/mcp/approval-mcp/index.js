@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * approval-mcp — AI-OS MCP Server
+ * approval-mcp — Rein MCP Server
  * Human-in-the-Loop (HITL) CLI gate for Tier 3 security operations.
  *
  * Blueprint: .ai/blueprints/interop.md §2
@@ -49,8 +49,8 @@ const SERVICE = "approval-mcp";
 const VERSION = "1.0.0";
 
 // T-HITL-002: DB_PATH hardcoded — never derived from user input or env vars.
-// Stored in ~/.ai-os/ alongside other AI-OS state (follows token-budget-mcp pattern).
-const STORE_DIR = resolve(homedir(), ".ai-os");
+// Stored in ~/.rein/ alongside other Rein state (follows token-budget-mcp pattern).
+const STORE_DIR = resolve(homedir(), ".rein");
 const DB_PATH = join(STORE_DIR, "approvals.sqlite");
 
 // Input length limits (T-HITL-005)
@@ -180,7 +180,7 @@ function promptHuman(safeAction, safeReason) {
 
     const divider = "━".repeat(60);
     process.stderr.write(`\n${divider}\n`);
-    process.stderr.write(`  ⚠  AI-OS HITL GATE — TIER 3 APPROVAL REQUIRED\n`);
+    process.stderr.write(`  ⚠  Rein HITL GATE — TIER 3 APPROVAL REQUIRED\n`);
     process.stderr.write(`${divider}\n`);
     process.stderr.write(`  Action : ${safeAction}\n`);
     process.stderr.write(`  Reason : ${safeReason}\n`);
@@ -216,7 +216,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
       description: [
         "Surfaces a blocking Human-in-the-Loop (HITL) Y/N prompt for a Tier 3 operation.",
         "The gate CANNOT be bypassed — it requires explicit human keyboard input ('y'/'Y').",
-        "All approvals and rejections are permanently recorded in ~/.ai-os/approvals.sqlite.",
+        "All approvals and rejections are permanently recorded in ~/.rein/approvals.sqlite.",
         "",
         "Returns { status: 'APPROVED' | 'REJECTED', action, reason, timestamp, id }.",
         "On REJECTED: abort the current E-## task and mark it BLOCKED.",

@@ -1,10 +1,10 @@
 # Domain Blueprint: Interoperability & Security Gates
 
 > [!IMPORTANT]
-> This document specifies the Agent-to-Agent (A2A) Bridge and Human-in-the-Loop (HITL) Security Gates required to bring AI-OS v2 into the 2026 multi-agent orchestration paradigm.
+> This document specifies the Agent-to-Agent (A2A) Bridge and Human-in-the-Loop (HITL) Security Gates required to bring Rein v2 into the 2026 multi-agent orchestration paradigm.
 
 ## 1. The Advisor/Executor Pattern (A2A Bridge)
-To eliminate the bottleneck of "stuck agents" waiting for human mediation, AI-OS implements an Agent-to-Agent (A2A) Bridge, allowing the Engineer (Claude) to dynamically query the Architect (Agy).
+To eliminate the bottleneck of "stuck agents" waiting for human mediation, Rein implements an Agent-to-Agent (A2A) Bridge, allowing the Engineer (Claude) to dynamically query the Architect (Agy).
 
 ### Architecture (`advisor-mcp`)
 - **MCP Server**: `advisor-mcp`.
@@ -22,7 +22,7 @@ To eliminate the bottleneck of "stuck agents" waiting for human mediation, AI-OS
 - Claude must log all A2A queries and responses in `.ai/LOG.md` as `[A2A_RULING]` for auditability.
 
 ## 2. Human-in-the-Loop (HITL) Security Gates
-While AI-OS aims for autonomous execution, Tier 3 operations (e.g., executing structural database migrations, deploying to production) require explicit human consent.
+While Rein aims for autonomous execution, Tier 3 operations (e.g., executing structural database migrations, deploying to production) require explicit human consent.
 
 ### Architecture (`approval-mcp`)
 - **MCP Server**: `approval-mcp`.
@@ -35,5 +35,5 @@ While AI-OS aims for autonomous execution, Tier 3 operations (e.g., executing st
   5. If the user selects 'N', the MCP tool returns a `{ status: "REJECTED" }` payload, and Claude must abort the current `E-##` task and mark it `BLOCKED`.
 
 ### Security Constraints
-- **Bypass Resistance**: Real bypass-resistance is enforced by asserting `stdin.isTTY` (preventing headless non-interactive approvals) and utilizing a hardcoded database path (`~/.ai-os/approvals.sqlite`).
-- **Audit Trail**: All approvals and rejections are permanently recorded in `~/.ai-os/approvals.sqlite` with a timestamp and the exact `CLAUDE_CODE_SESSION_ID` for perfect OASF compliance.
+- **Bypass Resistance**: Real bypass-resistance is enforced by asserting `stdin.isTTY` (preventing headless non-interactive approvals) and utilizing a hardcoded database path (`~/.rein/approvals.sqlite`).
+- **Audit Trail**: All approvals and rejections are permanently recorded in `~/.rein/approvals.sqlite` with a timestamp and the exact `CLAUDE_CODE_SESSION_ID` for perfect OASF compliance.

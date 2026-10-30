@@ -2,7 +2,7 @@
  * record-store.mjs — the single writer of project state (E-325, D-102 §Component 1)
  *
  * Every mutation of a task, a stamp or the project fields goes through this file. In a
- * TEAM project (`.ai/project.json`, created by `ai state migrate --team`)
+ * TEAM project (`.ai/project.json`, created by `rein state migrate --team`)
  * the record FILE is the truth: it is written first (temp-then-rename, rev+1, updated_at,
  * origin), then the sqlite row, which is only an index. A crash between the two leaves a
  * file the row does not reflect yet, and rebuildIndex() repairs it from the files.
@@ -31,10 +31,10 @@ const YM_RE       = /^\d{4}-\d{2}$/;
 const STAMP_ID_RE = /^\d{4}-\d{2}\/[0-9a-f]{7}-[A-Za-z0-9_]{1,40}-\d+$/;
 // The project fields a record carries; anything else in the sqlite project table
 // (id high-water marks, future per-machine keys) stays local.
-export const PROJECT_KEYS = ["focus", "current_tier", "release_verdict", "aios_version", "provisioned_at"];
+export const PROJECT_KEYS = ["focus", "current_tier", "release_verdict", "rein_version", "provisioned_at"];
 
 /**
- * A team project: migrated with `ai state migrate --team`, which writes project.json last.
+ * A team project: migrated with `rein state migrate --team`, which writes project.json last.
  * project.json alone is the marker — git does not carry an empty .ai/tasks/, so a fresh
  * clone of a project with no tasks yet has none.
  */
@@ -134,7 +134,9 @@ const _str = (v) => typeof v === "string";
 const _line = (v) => _str(v) && !/[\r\n]/.test(v);
 // E-331: a claim names its holder in the gate's refusal and the preflight banner.
 // Printable ASCII only: a bidi override or zero-width character would reach the model's context.
-const CLAIM_EMAIL_RE = /^[!#-&(-?A-[\]-_a-~]{1,64}@[!#-&(-?A-[\]-_a-~]{1,190}$/;
+// Every printable but space " ' @ \ ` — spelled out, not as ranges like `(-?` (E-397, CodeQL
+// js/overly-large-range); the set is unchanged.
+const CLAIM_EMAIL_RE = /^[!#$%&()*+,\-./0-9:;<=>?A-Z[\]^_a-z{|}~]{1,64}@[!#$%&()*+,\-./0-9:;<=>?A-Z[\]^_a-z{|}~]{1,190}$/;
 const ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,3})?Z$/;
 /** The claim fields a task record carries only while set (E-331, D-102 §Component 4). */
 export const CLAIM_KEYS = ["assignee", "claimed_at", "claim_sha", "claim_prev"];
@@ -517,7 +519,7 @@ export function rebuildIndex(aiDir, db) {
     const setP = d.prepare("INSERT OR REPLACE INTO project(key, value) VALUES (?, ?)");
     for (const k of PROJECT_KEYS) {
       if (k in project) setP.run(k, project[k] == null ? null : String(project[k]));
-      else if (k === "aios_version" || k === "provisioned_at") d.prepare("DELETE FROM project WHERE key = ?").run(k);
+      else if (k === "rein_version" || k === "provisioned_at") d.prepare("DELETE FROM project WHERE key = ?").run(k);
       else setP.run(k, null);
     }
     for (const t of tasks) recordIdHighWater(d, t.id);
@@ -529,7 +531,7 @@ export function rebuildIndex(aiDir, db) {
 
 /**
  * The one writer of `.ai/state.json`. Everything that produces the file — the views below and
- * the TASKS.md recovery of `ai migrate-state` — calls this.
+ * the TASKS.md recovery of `rein migrate-state` — calls this.
  */
 export function writeStateFile(aiDir, state) {
   writeFileSync(resolve(aiDir, "state.json"), JSON.stringify(state, null, 2) + "\n", "utf8");

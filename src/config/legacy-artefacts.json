@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "comment": "E-272 (D-074, version-lifecycle.md §Components 3-4): the single list of what earlier AI-OS versions created and no longer do. DATA, not code — adding an entry needs no code change. class: safe = provably ours and reproducible (needs known_hashes or a rule); prompt = may hold user content (removed only with --all + confirmation); not-ours = printed, never touched. rule: not-in-src | not-in-manifest | dead-pid | stale-mtime (path predicates) | not-in-registry (kind setting) | orphan-process (kind process). Only the LAST path segment may hold a '*'.",
-  "provider_history_comment": "E-270 (D-074 §Components 2): every provider name .ai/providers.json ever shipped. `ai init` drops a project provider (and any role bound to it) that is listed here but absent from the current template; a name never listed is user-added and kept.",
+  "comment": "E-272 (D-074, version-lifecycle.md §Components 3-4): the single list of what earlier Rein versions created and no longer do. DATA, not code — adding an entry needs no code change. class: safe = provably ours and reproducible (needs known_hashes or a rule); prompt = may hold user content (removed only with --all + confirmation); not-ours = printed, never touched. rule: not-in-src | not-in-manifest | dead-pid | stale-mtime (path predicates) | not-in-registry (kind setting) | orphan-process (kind process). Only the LAST path segment may hold a '*'.",
+  "provider_history_comment": "E-270 (D-074 §Components 2): every provider name .ai/providers.json ever shipped. `rein init` drops a project provider (and any role bound to it) that is listed here but absent from the current template; a name never listed is user-added and kept.",
   "provider_history": ["claude", "agy", "gemini"],
   "registry_history": [
     "TestSprite",
@@ -66,7 +66,7 @@
         "e6c35c887be443c7a874b71c12760e823d827e2f3d836564278188eab3a527e6",
         "ee26f815353d9c0be0e03796225face7843bcd609ce73bbbafb1b66b2c8c00fe"
       ],
-      "note": "D-069/E-254: the GEMINI.md @import shim. `ai sync` wrote it with `cp -f` from src/templates/GEMINI.md, so the sha256 of every version that file ever had in git IS the set of bytes we shipped. A GEMINI.md that hashes to none of them was edited and is reported as prompt instead."
+      "note": "D-069/E-254: the GEMINI.md @import shim. `rein sync` wrote it with `cp -f` from src/templates/GEMINI.md, so the sha256 of every version that file ever had in git IS the set of bytes we shipped. A GEMINI.md that hashes to none of them was edited and is reported as prompt instead."
     },
     {
       "id": "agents-rulefile",
@@ -104,12 +104,12 @@
       "note": "Pre-3.0 .ai/legacy/ holding area. May contain the operator's own notes."
     },
     {
-      "id": "pre-aios-hook-backups",
-      "path": ".git/hooks/*.pre-aios",
+      "id": "pre-rein-hook-backups",
+      "path": ".git/hooks/*.pre-rein",
       "kind": "file",
       "class": "prompt",
       "since": "*",
-      "note": "E-41 backups of a third-party hook AI-OS replaced with a stub. They are the operator's own hooks — never removed without --all."
+      "note": "E-41 backups of a third-party hook Rein replaced with a stub. They are the operator's own hooks — never removed without --all."
     },
     {
       "id": "claude-agents-orphan",
@@ -131,7 +131,7 @@
         "cf8daac51c61254a586eb84d794158ad248bfaaecf1231f112ed3d82b362fd93",
         "db5bf113b301fabce3f60f963b31292f016c1660c43e9db127819fb6a74a57c7"
       ],
-      "note": "E-283 (D-075): the ai-compact skill is retired — Claude Code /compact and auto-compact; SESSION.md carry-over folded into ai-archive. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+      "note": "E-283 (D-075): the ai-compact skill is retired — Claude Code /compact and auto-compact; SESSION.md carry-over folded into rein-archive. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
     },
     {
       "id": "retired-skill-ai-analyze",
@@ -208,11 +208,11 @@
       "class": "prompt",
       "since": "*",
       "rule": "not-in-registry",
-      "note": "mcp__<server>__* allow entries for a server absent from registry.json. A name that was NEVER in any shipped registry (registry_history) is the operator's own server and is kept. REPORT ONLY: `ai clean` moves paths to the trash and a JSON key is not a path — `ai init`/`ai sync` own this file (E-273). settings.local.json is user-owned and is only ever printed."
+      "note": "mcp__<server>__* allow entries for a server absent from registry.json. A name that was NEVER in any shipped registry (registry_history) is the operator's own server and is kept. REPORT ONLY: `rein clean` moves paths to the trash and a JSON key is not a path — `rein init`/`rein sync` own this file (E-273). settings.local.json is user-owned and is only ever printed."
     },
     {
       "id": "mirror-orphan-mcp",
-      "path": "~/.ai-os/mcp/*",
+      "path": "~/.rein/mcp/*",
       "kind": "dir",
       "class": "safe",
       "since": "*",
@@ -222,7 +222,7 @@
     },
     {
       "id": "mirror-orphan-hook",
-      "path": "~/.ai-os/hooks/*",
+      "path": "~/.rein/hooks/*",
       "kind": "file",
       "class": "safe",
       "since": "*",
@@ -232,7 +232,7 @@
     },
     {
       "id": "orphan-v2-contract",
-      "path": "~/.ai-os/contracts/*",
+      "path": "~/.rein/contracts/*",
       "kind": "file",
       "class": "safe",
       "since": "3.0.0",
@@ -242,7 +242,7 @@
     },
     {
       "id": "home-installer-copy",
-      "path": "~/install-ai-os.sh",
+      "path": "~/install-rein.sh",
       "kind": "file",
       "class": "prompt",
       "since": "3.0.0",
@@ -250,7 +250,7 @@
     },
     {
       "id": "dead-role-lock",
-      "path": "~/.ai-os/run/role-*.lock",
+      "path": "~/.rein/run/role-*.lock",
       "kind": "file",
       "class": "safe",
       "since": "*",
@@ -260,7 +260,7 @@
     },
     {
       "id": "dead-build-record",
-      "path": "~/.ai-os/run/build-*.json",
+      "path": "~/.rein/run/build-*.json",
       "kind": "file",
       "class": "safe",
       "since": "*",
@@ -270,18 +270,18 @@
     },
     {
       "id": "abandoned-ci-workdir",
-      "path": "$TMPDIR/ai-os-ci.*",
+      "path": "$TMPDIR/rein-ci.*",
       "kind": "dir",
       "class": "safe",
       "since": "*",
       "rule": "dead-pid",
-      "guard_pids": "~/.ai-os/ci/run-*.lock",
+      "guard_pids": "~/.rein/ci/run-*.lock",
       "guard_pid_source": "file:pid",
-      "note": "The worktree and throwaway HOME of an `ai ci run` that was killed: SIGKILL cannot run the cleanup trap, and one such directory held 1.3G. The directory carries no pid of its own, so the guard is the run lock: while ANY ai ci run lock has a live owner, nothing here is a finding."
+      "note": "The worktree and throwaway HOME of a `rein ci run` that was killed: SIGKILL cannot run the cleanup trap, and one such directory held 1.3G. The directory carries no pid of its own, so the guard is the run lock: while ANY rein ci run lock has a live owner, nothing here is a finding."
     },
     {
       "id": "retired-bin-ai-watch",
-      "path": "~/.ai-os/bin/ai-watch",
+      "path": "~/.rein/bin/ai-watch",
       "kind": "file",
       "class": "safe",
       "since": "4.0.0",
@@ -291,7 +291,7 @@
     },
     {
       "id": "retired-shared-signal-handoff",
-      "path": "~/.ai-os/shared/signal-handoff.mjs",
+      "path": "~/.rein/shared/signal-handoff.mjs",
       "kind": "file",
       "class": "safe",
       "since": "4.0.0",
@@ -338,7 +338,7 @@
       "class": "safe",
       "since": "*",
       "rule": "orphan-process",
-      "note": "An ai-watch process whose cwd is under the temp root and which holds no project watcher lock — a test fixture that outlived its suite. 24 were alive on 2026-09-17, some over a day old. `ai start` runs a watcher from a real project, never from the temp root, and a watcher the operator is using holds .ai/.ai-watch.lock, so both halves are needed and neither is ppid: a process whose parent has exited but not been reaped still reports the zombie as its parent. Processes are signalled TERM then KILL, never trashed."
+      "note": "An ai-watch process whose cwd is under the temp root and which holds no project watcher lock — a test fixture that outlived its suite. 24 were alive on 2026-09-17, some over a day old. `rein start` runs a watcher from a real project, never from the temp root, and a watcher the operator is using holds .ai/.ai-watch.lock, so both halves are needed and neither is ppid: a process whose parent has exited but not been reaped still reports the zombie as its parent. Processes are signalled TERM then KILL, never trashed."
     },
     {
       "id": "gemini-home",
@@ -346,7 +346,7 @@
       "kind": "dir",
       "class": "not-ours",
       "since": "*",
-      "note": "Antigravity's own user data, including OAuth credentials. NOT an AI-OS artefact: printed so the operator can decide, never touched by any flag."
+      "note": "Antigravity's own user data, including OAuth credentials. NOT a Rein artefact: printed so the operator can decide, never touched by any flag."
     }
   ]
 }

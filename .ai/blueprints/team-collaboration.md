@@ -1,12 +1,12 @@
 # Team Collaboration — Shared `.ai/` Memory Across Developers (D-102)
 
-> Blueprint for running one AI-OS project with several developers on several machines
+> Blueprint for running one Rein project with several developers on several machines
 > sharing one git repository. Ruled D-102 on 2026-10-18 from the team-readiness audit
 > (COMM.md handoff 2026-10-18). Supersedes the single-operator assumptions in D-072
 > (CI on the operator's machine — master only), D-095 (one operator, several accounts)
 > and the sqlite-as-truth model of `database-integrity.md` / `drift-resolution-2026.md`.
 > Amended 2026-10-19 by D-103: Component 5b is a provider-neutral hosted-check contract
-> (GitHub + Azure DevOps in 4.1.0; GitLab + Bitbucket after), rendered by `ai ci hosted`.
+> (GitHub + Azure DevOps in 4.1.0; GitLab + Bitbucket after), rendered by `rein ci hosted`.
 
 ## Goal & Architecture
 
@@ -28,7 +28,7 @@ the trunk (`origin/<trunk>`) before an Engineer may touch source for it.
 
 > **D-105 (2026-10-23).** Every `origin/master` / `master` below means the project's
 > TRUNK: `team.json` `trunk` when set, else `origin/HEAD`, else the one of `main`/`master`
-> that exists on origin (`src/mcp/shared/trunk.mjs`, `ai trunk`). `master` is this
+> that exists on origin (`src/mcp/shared/trunk.mjs`, `rein trunk`). `master` is this
 > repository's trunk; no code path or template may name it as a literal (E-341).
 > **D-106 (2026-10-23).** Component 2's import on pull also runs in legacy mode (no
 > `team.json`), per record from `HEAD:.ai/state.json`, and view regeneration is refused
@@ -38,8 +38,8 @@ the trunk (`origin/<trunk>`) before an Engineer may touch source for it.
 > first-opener path (orchestrator `readState`, `run-handover.mjs`, archive-manager,
 > context-guardian, propose-patch, `record-migrate.mjs`) opens through `getDbSeeded`. The
 > ruling-4 guard treats "empty against a populated HEAD" as behind; without git the
-> missing-row auto-fix is refused with `[EMPTY_STATE_DB]`. `ai doctor` recommends
-> `ai state import` ahead of `ai migrate-state` whenever HEAD holds tasks (E-344).
+> missing-row auto-fix is refused with `[EMPTY_STATE_DB]`. `rein doctor` recommends
+> `rein state import` ahead of `rein migrate-state` whenever HEAD holds tasks (E-344).
 
 **Decisions taken by the operator (2026-10-18, "plan them all"):** git-as-the-bus (no
 shared service); hosted CI returns for `master` only; one designated planner per project.
@@ -68,20 +68,20 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
 - `task-synchronizer-mcp` and `orchestrator-mcp run_handover` become the only writers and
   route every mutation through `writeRecord` → sqlite → `renderViews()`.
 - Removed direct writers: `hooks/post-commit.sh` `Fixes E-##` block (now calls
-  `ai task done <id>`, which calls the same library) and `src/mcp/shared/state-writer.js`.
-- `ai state migrate --team` (one-shot): explodes `state.json` + `.ai/archive/state-done-*.json`
+  `rein task done <id>`, which calls the same library) and `src/mcp/shared/state-writer.js`.
+- `rein state migrate --team` (one-shot): explodes `state.json` + `.ai/archive/state-done-*.json`
   into record files, writes `.ai/team.json`, adds the three views to `.ai/.gitignore`,
   stamps `project.json.schema = 2`. Idempotent; refuses on a dirty worktree.
 - Legacy projects (no `.ai/tasks/`) keep the v1 behaviour untouched until migrated.
 
 ### Component 2 — Reconciler: import on pull (E-326)
-- `ai state import`: for every record file, compare `rev`/`updated_at` with the sqlite row.
+- `rein state import`: for every record file, compare `rev`/`updated_at` with the sqlite row.
   File newer → row updated. Row newer and file unchanged since last import → file rewritten
   (local mutation not yet committed). Both changed → conflict policy: DONE beats
   IN_PROGRESS beats OPEN; otherwise latest `updated_at` wins; every resolution prints one
   `[STATE_CONFLICT] <id> kept <side>` line and writes a `STATE_CONFLICT` stamp.
 - Triggered by git hooks `post-merge`, `post-checkout`, `post-rewrite` (installed by
-  `ai sync` as stubs like pre-commit) and by `hooks/session-start.sh`.
+  `rein sync` as stubs like pre-commit) and by `hooks/session-start.sh`.
 - Replaces pre-commit `check_markdown_sync` (count ±2) with `record ↔ sqlite` parity and
   replaces `verify_markdown_sync` so it never deletes a pulled task from the view.
 - The last import's git HEAD is stored in sqlite (`project.last_import_head`), so the
@@ -94,19 +94,19 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
 - `nextId(prefix)` returns the lowest unused id inside the caller's ranges (caller =
   `git config user.email`); `[ID_RANGE_MISSING]` / `[ID_RANGE_EXHAUSTED]` are rejections.
   Without `team.json` the v1 `max+1` path stays (single-operator projects unchanged).
-- `ai team add <email> --range E:425-524` appends ranges without overlap (checked).
-- `ai pane architect` prints a one-line warning when the git email is not the planner;
+- `rein team add <email> --range E:425-524` appends ranges without overlap (checked).
+- `rein pane architect` prints a one-line warning when the git email is not the planner;
   `add_task` with prefix `P` is refused for non-planners with `[NOT_PLANNER]`.
 
 ### Component 4 — Claims and the claim gate (E-331; trunk resolution E-341, D-105)
 - Trunk: every `origin/master` in this component is `origin/<trunk>` resolved by
   `resolveTrunk(root)` (`team.json` `trunk` → `origin/HEAD` → `main`|`master`); unresolvable
   → `[NO_TRUNK] <reason>` on every path, appended to `[CLAIM_REQUIRED]` so the gate is never
-  a silent lock. The framework never runs `git remote set-head`; `ai doctor` prints
+  a silent lock. The framework never runs `git remote set-head`; `rein doctor` prints
   `[TRUNK_UNSET]` / `[TRUNK_MISMATCH]`.
 - Task fields: `assignee` (email), `claimed_at`, `claim_sha`; status gains `IN_PROGRESS`.
-- MCP tools `claim_task(id)` / `release_task(id)`; CLI `ai task claim|release <id>`;
-  `skill: ai-task` gains `claim` as its first step and `release` on abandon.
+- MCP tools `claim_task(id)` / `release_task(id)`; CLI `rein task claim|release <id>`;
+  `skill: rein-task` gains `claim` as its first step and `release` on abandon.
 - Claim protocol: fetch `origin/master`; refuse `[CLAIM_HELD] <id> by <email> since <date>`
   when the record there is claimed by someone else and younger than `claim_ttl_days`;
   else write the record, commit `chore(.ai): claim <id>` on a detached bookkeeping commit
@@ -117,31 +117,31 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
 - Engineer claim gate in `hooks/pre-tool-use.sh`: a `Write`/`Edit`/`Bash` write outside
   `.ai/` on a branch named `engineer/e<N>-*` is refused with `[CLAIM_REQUIRED] E-<N>`
   unless E-<N> is claimed by this user (local record or `origin/master`). Inactive without
-  `team.json`; `AI_OS_CLAIM_GATE=0` disables with a telemetry row.
+  `team.json`; `REIN_CLAIM_GATE=0` disables with a telemetry row.
 
 ### Component 5 — Portable CI evidence and hosted master CI (E-328, E-332)
 - `.ai/ci/<sha>.json` (tracked): `{ sha, verdict, suites, tests, started, finished,
-  runner: <email>, host, aios_version }` written by `ai ci run` beside the sqlite row.
+  runner: <email>, host, rein_version }` written by `rein ci run` beside the sqlite row.
 - `checkCiDoneGate` and `hooks/pre-push.sh` accept a PASS record for the sha from any
   team member when `team.json` exists; the local sqlite row is no longer required.
-- **5b — the hosted check contract (D-103, provider-neutral).** AI-OS projects ship on
+- **5b — the hosted check contract (D-103, provider-neutral).** Rein projects ship on
   GitHub, Azure DevOps and other providers, so the hosted `master` check is a contract,
   not a GitHub workflow: (a) trigger — a pull request targeting `master` (MUST), plus a
   push to `master` touching anything outside `.ai/**` (SHOULD, an audit run that gates
-  nothing); (b) exactly two run steps — bootstrap AI-OS, then `ai ci run` on the merge
+  nothing); (b) exactly two run steps — bootstrap Rein, then `rein ci run` on the merge
   result the provider checked out; no local-recipe command is copied into the wrapper;
   (c) artefacts on every outcome — the run log and `.ai/ci/*.json`, kept ≥ 14 days;
   (d) least privilege — read-only token, no secrets; (e) Linux image with Node 22;
   (f) the runner is not a `team.json` member, so its record is reviewer evidence, not a
-  PASS the local gates accept. Local `ai ci run` stays the pre-push gate; D-072's
+  PASS the local gates accept. Local `rein ci run` stays the pre-push gate; D-072's
   local-first rule stays for branches.
-- **Rendered wrappers (E-335).** `src/templates/ci/<provider>.*` + `ai ci hosted
+- **Rendered wrappers (E-335).** `src/templates/ci/<provider>.*` + `rein ci hosted
   [<provider>] [--check] [--force]` render the wrapper at the provider's canonical path
   (`.github/workflows/ci.yml`, `azure-pipelines.yml`, `.gitlab-ci.yml`,
   `bitbucket-pipelines.yml`); `--check` fails when the file differs from the rendering
-  (sha256) and `ai doctor` reports it. Bootstrap variant chosen at render time: in the
-  AI-OS repo `bash install-ai-os.sh` from the checked-out sha; downstream, clone
-  `team.json.ci.aios_source` at the tag in `project.json.aios_version` and run its
+  (sha256) and `rein doctor` reports it. Bootstrap variant chosen at render time: in the
+  Rein repo `bash install-rein.sh` from the checked-out sha; downstream, clone
+  `team.json.ci.rein_source` at the tag in `project.json.rein_version` and run its
   installer. Provider detected from the `origin` host (GitHub, Azure DevOps cloud, GitLab,
   Bitbucket) or given explicitly; unknown hosts → `[CI_PROVIDER_UNKNOWN]`. The
   equivalence test (`tests/unit/hosted-ci-workflow.test.mjs`) runs over every template.
@@ -152,7 +152,7 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
   Validation policy + "Bypass policies when pushing" for the team group; GitLab — protected
   branch, developers may push and merge, "pipelines must succeed"; Bitbucket — merge check
   "minimum one successful build", no "prevent changes without a pull request".
-  `ai ci hosted` prints the setting for the chosen provider.
+  `rein ci hosted` prints the setting for the chosen provider.
 - **Providers.** GitHub Actions (E-332, hand-written first, adopted as the `github`
   template) and Azure Pipelines (E-336) in 4.1.0; GitLab CI and Bitbucket Pipelines
   (E-337) after a documented run exists — `[CI_PROVIDER_PLANNED]` until then.
@@ -168,29 +168,29 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
   archive pointer read the tracked directory.
 
 ### Component 8 — Per-user overrides and shared log (E-333)
-- `.ai/start.local.json` (gitignored) overrides `account`; `ai init` writes `start.json`
-  without an account key; `ai pane` reads the override first.
-- `team.json.shared_log: true` routes `ai-log` to `.ai/log/<email-localpart>.md`
+- `.ai/start.local.json` (gitignored) overrides `account`; `rein init` writes `start.json`
+  without an account key; `rein pane` reads the override first.
+- `team.json.shared_log: true` routes `rein-log` to `.ai/log/<email-localpart>.md`
   (tracked); default stays the gitignored `LOG.md`.
 - `.ai/RULES.md` §3/§4 stale vendor text is replaced by role names (Architect-owned, P-45).
 
 ### Component 9 — Docs and release (E-334)
-- README "Team setup" section (`ai state migrate --team`, `ai team add`, claim flow,
-  `ai ci hosted <provider>` and the per-provider branch-policy table of Component 5b),
+- README "Team setup" section (`rein state migrate --team`, `rein team add`, claim flow,
+  `rein ci hosted <provider>` and the per-provider branch-policy table of Component 5b),
   CHANGELOG `4.1.0 — Team` with the migration note, blueprint index.
 
 ## Data Model
 
 ```
 .ai/team.json            { schema, planner, claim_ttl_days, shared_log, members{email→ranges},
-                           ci?: { provider: github|azure|gitlab|bitbucket, required_check, aios_source? } }
-.ai/project.json         { schema:2, focus, current_tier, release_verdict, aios_version, rev, updated_at, origin }
+                           ci?: { provider: github|azure|gitlab|bitbucket, required_check, rein_source? } }
+.ai/project.json         { schema:2, focus, current_tier, release_verdict, rein_version, rev, updated_at, origin }
 .ai/tasks/E-325.json     { id, owner, status: OPEN|BLOCKED|IN_PROGRESS|DONE, tier, description,
                            depends_on[], created_at, completed_at, summary,
                            assignee, claimed_at, claim_sha, rev, updated_at, origin }
 .ai/tasks/archive/2026-10/E-300.json   (same shape, DONE only)
 .ai/stamps/2026-10/<sha7>-<type>-<seq>.json  { task_id, type, agent, summary, sha, author, created_at, rev, origin }
-.ai/ci/<sha>.json        { sha, verdict: PASS|FAIL|SKIPPED, suites, tests, started, finished, runner, host, aios_version }
+.ai/ci/<sha>.json        { sha, verdict: PASS|FAIL|SKIPPED, suites, tests, started, finished, runner, host, rein_version }
 state.sqlite             tasks / stamps / ci_runs (index, rebuilt from files) + project.last_import_head
 generated, gitignored    state.json, TASKS.md, REVIEWS.md
 ```
@@ -210,16 +210,16 @@ on 2026-10-23 reordered the regenerated view).
 - `release_task({id, reason?})` → `{ id, status: OPEN }`.
 - `add_task` unchanged, plus `[ID_RANGE_MISSING]`, `[ID_RANGE_EXHAUSTED]`, `[NOT_PLANNER]`.
 - `update_task_status` accepts `IN_PROGRESS`; DONE clears the claim.
-- `ai state import [--dry-run]` prints one line per changed record and one per conflict;
+- `rein state import [--dry-run]` prints one line per changed record and one per conflict;
   exit 0 always (never blocks a pull), `[STATE_CONFLICT]` lines are also stamped.
-- `ai state migrate --team | --legacy` one-shot, refuses on a dirty worktree.
-- `ai team add <email> --range <P>:<from>-<to>`; `ai team show`.
-- `ai ci run` additionally writes `.ai/ci/<sha>.json`; `ai ci status <sha>` reads either source.
-- `ai ci hosted [<provider>] [--check] [--force]` → writes the wrapper + `team.json.ci`,
+- `rein state migrate --team | --legacy` one-shot, refuses on a dirty worktree.
+- `rein team add <email> --range <P>:<from>-<to>`; `rein team show`.
+- `rein ci run` additionally writes `.ai/ci/<sha>.json`; `rein ci status <sha>` reads either source.
+- `rein ci hosted [<provider>] [--check] [--force]` → writes the wrapper + `team.json.ci`,
   prints the provider's branch-policy setting; exit 1 on `--check` mismatch;
   `[CI_PROVIDER_UNKNOWN]` (host not recognised, no argument), `[CI_PROVIDER_PLANNED]`
   (gitlab / bitbucket before E-337), `[WRAPPER_DIFFERS]` (existing file, no `--force`).
-- Hooks: `post-merge`, `post-checkout`, `post-rewrite` call `ai state import`; pre-tool-use
+- Hooks: `post-merge`, `post-checkout`, `post-rewrite` call `rein state import`; pre-tool-use
   claim gate returns `[CLAIM_REQUIRED] <id>` through the existing SAFE_EXEC block channel.
 
 ## Security
@@ -231,7 +231,7 @@ on 2026-10-23 reordered the regenerated view).
   gates are convenience. The hosted runner has no team identity: its `.ai/ci/<sha>.json`
   is evidence for a reviewer, never a PASS a teammate's DONE or pre-push gate accepts.
 - Wrappers reference no secrets and request a read-only token; a downstream project's
-  bootstrap clones AI-OS at the pinned tag, never a moving branch.
+  bootstrap clones Rein at the pinned tag, never a moving branch.
 - No secrets enter records: `team.json` holds emails and ranges only; `start.local.json`
   holds the account name, never a token; `.ai/ci/*.json` holds no log text, only counts.
 - The role token (`role-token.mjs`, per-machine HMAC) is unchanged; it never crosses git.
@@ -243,7 +243,7 @@ on 2026-10-23 reordered the regenerated view).
 
 ## Execution Constraints
 
-- `ai state import` must finish under 300 ms for 500 records (one directory read, one
+- `rein state import` must finish under 300 ms for 500 records (one directory read, one
   sqlite transaction); it runs on every pull and session start.
 - `session-start.sh` fetch of `origin/master` is bounded to 3 s and skipped offline;
   preflight never blocks on the network.
@@ -255,11 +255,11 @@ on 2026-10-23 reordered the regenerated view).
 
 ## Rollback Plan
 
-- `ai state migrate --legacy` folds `.ai/tasks/**`, stamps and project.json back into one
+- `rein state migrate --legacy` folds `.ai/tasks/**`, stamps and project.json back into one
   `state.json`, removes the view entries from `.ai/.gitignore`, and deletes `team.json`
   after printing it; sqlite is rebuilt from the folded file.
-- Each gate has its kill switch, recorded in telemetry: `AI_OS_CLAIM_GATE=0`,
-  `AI_OS_STATE_IMPORT=0` (hooks become no-ops), `AI_OS_CI_GATE=0` (existing).
+- Each gate has its kill switch, recorded in telemetry: `REIN_CLAIM_GATE=0`,
+  `REIN_STATE_IMPORT=0` (hooks become no-ops), `REIN_CI_GATE=0` (existing).
 - The hosted wrapper is one rendered file per project; deleting it and the provider's
   required-check policy restores D-072 exactly (D-103). Reverting E-335 leaves the
   hand-written E-332 workflow working unchanged.
@@ -270,19 +270,19 @@ on 2026-10-23 reordered the regenerated view).
 
 | Task | Component | Tier | Depends on |
 |---|---|---|---|
-| E-325 | 1 Record store, single writer, `ai state migrate` | 3 | — |
+| E-325 | 1 Record store, single writer, `rein state migrate` | 3 | — |
 | E-326 | 2 Reconciler + pull hooks, sync-check replacement | 3 | E-325 |
 | E-327 | 3 team.json, id ranges, planner rule | 2 | E-325 |
 | E-328 | 5a Portable CI records, gates accept team PASS | 2 | E-325 |
 | E-329 | 6 Stamps bound to sha, Gate 2 | 2 | E-325 |
 | E-330 | 7 Archive in git | 1 | E-325 |
-| E-331 | 4 Claims, IN_PROGRESS, claim gate, ai-task claim | 3 | E-326, E-327 |
+| E-331 | 4 Claims, IN_PROGRESS, claim gate, rein-task claim | 3 | E-326, E-327 |
 | E-332 | 5b GitHub wrapper as built, equivalence test, DEVOPS-010 (D-103 r7) | 2 | E-328 |
 | E-333 | 8 start.local.json, shared log opt-in | 1 | E-327 |
-| E-335 | 5b Hosted check contract: templates, `ai ci hosted`, provider detection, test over all templates (D-103 r1-4) | 2 | after E-332 (sequenced in COMM, not a DAG edge) |
+| E-335 | 5b Hosted check contract: templates, `rein ci hosted`, provider detection, test over all templates (D-103 r1-4) | 2 | after E-332 (sequenced in COMM, not a DAG edge) |
 | E-336 | 5b Azure Pipelines template, DEVOPS-011, documented Azure DevOps run (D-103 r5-6) | 2 | E-335 |
 | E-337 | 5b GitLab CI + Bitbucket Pipelines templates (after 4.1.0, D-103 r6) | 1 | E-335 |
-| E-334 | 9 README Team setup (incl. `ai ci hosted` + policy table), CHANGELOG 4.1.0, release | 2 | E-329, E-330, E-331, E-332, E-333, E-335, E-336 |
+| E-334 | 9 README Team setup (incl. `rein ci hosted` + policy table), CHANGELOG 4.1.0, release | 2 | E-329, E-330, E-331, E-332, E-333, E-335, E-336 |
 | P-45 | Team Contract in RULES.md, stale vendor text (Architect) — DONE 2026-10-19 | 1 | — |
 
 Order of value: E-325 → E-326 → E-327 → E-331 stop the overlap and the data loss;

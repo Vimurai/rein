@@ -1,6 +1,6 @@
 ---
 name: dependency_manager
-description: Autonomous dependency resolver. Handles npm/pip/go package upgrades, resolves breaking changes, peer-dependency conflicts, and API deprecations. Validates changes via skill: ai-test before committing. Mandatory critic_security audit on new dependencies before merge.
+description: Autonomous dependency resolver. Handles npm/pip/go package upgrades, resolves breaking changes, peer-dependency conflicts, and API deprecations. Validates changes via skill: rein-test before committing. Mandatory critic_security audit on new dependencies before merge.
 disable-model-invocation: false
 user-invocable: false
 tools: Read, Write, Edit, Glob, Grep, Bash, Skill, WebFetch, mcp__task-synchronizer-mcp__add_task
@@ -91,9 +91,9 @@ If tests fail:
 
 ### Step 7 — Run the Tester
 
-Run the project's real test command through `skill: ai-test` (it detects `package.json`
+Run the project's real test command through `skill: rein-test` (it detects `package.json`
 `test`, `tests/run.sh`, `pytest` or `go test`). For an upgrade that changes a public API,
-use `skill: ai-test --generate` so the headless `test_engineer` agent adds coverage for
+use `skill: rein-test --generate` so the headless `test_engineer` agent adds coverage for
 the migrated call sites before the suite runs.
 
 ### Step 8 — Security Gate — Mandatory Critic Review

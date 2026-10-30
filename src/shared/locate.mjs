@@ -11,19 +11,19 @@ import { execFileSync } from "node:child_process";
 import { join, resolve } from "node:path";
 import { realpathSync } from "node:fs";
 
-// The caller sets AI_OS_LOCATE_UNTRUSTED_ENV=1 to say "the environment I run in may have
+// The caller sets REIN_LOCATE_UNTRUSTED_ENV=1 to say "the environment I run in may have
 // been chosen by the repository I am visiting" — see locate.sh for the full rationale.
 // This twin was NOT updated when the shell side was hardened, so for a round the two
 // implemented different trust models: with the flag set exactly as the hooks set it, the
 // shell returned the install mirror and node returned the decoy, for all three of
-// AI_OS_LOCATE_DEV, AI_OS_HOME and AIOS_WORKSPACE. Nothing imports this module yet, so it
+// REIN_LOCATE_DEV, REIN_HOME and REIN_WORKSPACE. Nothing imports this module yet, so it
 // was not live — but it is the resolver any future node caller is pointed at, and its
 // header claimed "same policy, same env flags", which had become false in the direction
 // that matters. The parity test missed it because it only exercised the TRUSTED branch.
-const UNTRUSTED_ENV = process.env.AI_OS_LOCATE_UNTRUSTED_ENV === "1";
+const UNTRUSTED_ENV = process.env.REIN_LOCATE_UNTRUSTED_ENV === "1";
 const HOME_DIR = UNTRUSTED_ENV
-  ? join(process.env.HOME || "", ".ai-os")
-  : (process.env.AI_OS_HOME || join(process.env.HOME || "", ".ai-os"));
+  ? join(process.env.HOME || "", ".rein")
+  : (process.env.REIN_HOME || join(process.env.HOME || "", ".rein"));
 
 function gitToplevel(cwd) {
   try {
@@ -49,26 +49,26 @@ export function enableDevTree() { devTreeEnabled = true; }
 /** Test seam: restore the default. */
 export function _resetDevTree() { devTreeEnabled = false; }
 
-/** True when `cwd`'s git toplevel is the AI-OS framework clone. */
+/** True when `cwd`'s git toplevel is the Rein framework clone. */
 export function isFrameworkClone(cwd = process.cwd()) {
   const top = gitToplevel(cwd);
   if (!top) return false;
 
   // The installer-written FILE is authoritative; the env var is only a convenience and is
   // consulted second, and not at all under an untrusted env. The reverse precedence is
-  // how `AIOS_WORKSPACE=$(pwd)` in a downstream repo made it read as the framework clone.
+  // how `REIN_WORKSPACE=$(pwd)` in a downstream repo made it read as the framework clone.
   let ws = "";
-  const persisted = join(HOME_DIR, "config", "aios-workspace.txt");
+  const persisted = join(HOME_DIR, "config", "rein-workspace.txt");
   if (existsSync(persisted)) {
     try { ws = readFileSync(persisted, "utf8").split("\n")[0].trim(); } catch { ws = ""; }
   }
-  if (!ws && !UNTRUSTED_ENV) ws = process.env.AIOS_WORKSPACE || "";
+  if (!ws && !UNTRUSTED_ENV) ws = process.env.REIN_WORKSPACE || "";
   if (ws) return canonical(ws) === canonical(top);
 
   // Only reached when the install recorded no workspace at all.
   const pkg = join(top, "package.json");
   if (!existsSync(pkg)) return false;
-  try { return JSON.parse(readFileSync(pkg, "utf8")).name === "ai-os-v2"; } catch { return false; }
+  try { return JSON.parse(readFileSync(pkg, "utf8")).name === "@vimurai/rein"; } catch { return false; }
 }
 
 /**
@@ -82,10 +82,10 @@ export function locate(logical, cwd = process.cwd()) {
   const dev = top ? join(top, "src", logical) : null;
 
   let candidates;
-  // AI_OS_LOCATE_DEV bypasses the framework-clone test entirely, so it is honoured only
+  // REIN_LOCATE_DEV bypasses the framework-clone test entirely, so it is honoured only
   // when the environment is trusted.
   if (devTreeEnabled && dev) candidates = [dev, install];
-  else if (process.env.AI_OS_LOCATE_DEV === "1" && !UNTRUSTED_ENV && dev) candidates = [dev, install];
+  else if (process.env.REIN_LOCATE_DEV === "1" && !UNTRUSTED_ENV && dev) candidates = [dev, install];
   else if (dev && isFrameworkClone(cwd)) candidates = [dev, install];
   else candidates = [install];   // a downstream project's own src/ is never a candidate
 
@@ -96,7 +96,7 @@ export function locate(logical, cwd = process.cwd()) {
 // Used by the cross-implementation parity test and by shell callers that already have node.
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 if (isMainModule(import.meta.url)) {
-  // Position-anchored, like bin/ai: only argv[2], never a later occurrence, so a literal
+  // Position-anchored, like bin/rein: only argv[2], never a later occurrence, so a literal
   // "--dev-tree" arriving as data cannot steer resolution.
   const args = process.argv.slice(2);
   if (args[0] === "--dev-tree") { enableDevTree(); args.shift(); }

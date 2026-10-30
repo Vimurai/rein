@@ -3,7 +3,7 @@
 // `source` column; ISO-8601 'T' timestamps; the staleness probe counting tool rows only.
 //
 // Every test writes to its own temp store through `db_path`, never the operator's
-// ~/.ai-os/telemetry.sqlite. Run standalone:
+// ~/.rein/telemetry.sqlite. Run standalone:
 //   node --test tests/unit/telemetry-naming.test.mjs
 
 import { test } from "node:test";
@@ -25,7 +25,7 @@ const REPO = resolve(import.meta.dirname, "../..");
 const TELEMETRY_CLI = join(REPO, "src/shared/telemetry.mjs");
 
 function store() {
-  const d = mkdtempSync(join(tmpdir(), "aios-t-telname-"));
+  const d = mkdtempSync(join(tmpdir(), "rein-t-telname-"));
   const db = join(d, "telemetry.sqlite");
   return {
     d, db,

@@ -6,13 +6,13 @@
 # `.claude/settings.json` `env` block can set PATH — so the visited project chose the
 # interpreter that runs the gate meant to stop it. The installer now decides instead: it
 # resolves the three tools ONCE, from the operator's own shell, checks each one, and writes
-# their absolute realpaths to ~/.ai-os/shared/toolchain.sh. The hooks read that file
+# their absolute realpaths to ~/.rein/shared/toolchain.sh. The hooks read that file
 # (src/shared/toolchain-pin.sh); they never consult an inherited PATH for an interpreter.
 #
 # Sourceable (functions only, no side effects) so the safety check is unit-testable.
-#   ai_os_tc_realpath <path>                  → absolute realpath on stdout, or status 1
-#   ai_os_tc_check <path> [project_root...]   → status 0 safe | 1 refused (reason on stderr)
-#   ai_os_tc_write <file> <node> <python3> <nice>  → atomic write of the toolchain file
+#   rein_tc_realpath <path>                  → absolute realpath on stdout, or status 1
+#   rein_tc_check <path> [project_root...]   → status 0 safe | 1 refused (reason on stderr)
+#   rein_tc_write <file> <node> <python3> <nice>  → atomic write of the toolchain file
 #
 # What "safe" means (security_engineer threat model, E-286):
 #   - the value is an absolute path in a plain charset (it is written into a shell file);
@@ -24,7 +24,7 @@
 #     members are already sudo-equivalent. Homebrew's Cellar is admin-group-writable, so a
 #     plain "refuse g+w" rule would refuse every Homebrew install; staff-writable is refused.
 
-ai_os_tc_realpath() {
+rein_tc_realpath() {
   local p="$1" d b n=0
   [[ -n "$p" ]] || return 1
   if [[ -x /bin/realpath ]]; then /bin/realpath "$p" 2>/dev/null && return 0; fi
@@ -41,14 +41,14 @@ ai_os_tc_realpath() {
 }
 
 # <path> → "<octal-mode> <uid> <gid>"
-_ai_os_tc_stat() {
+_rein_tc_stat() {
   if stat -f '%Lp %u %g' "$1" >/dev/null 2>&1; then stat -f '%Lp %u %g' "$1"
   else stat -c '%a %u %g' "$1" 2>/dev/null; fi
 }
 
-_ai_os_tc_safe_node() {  # <path> — one filesystem object (file or directory)
+_rein_tc_safe_node() {  # <path> — one filesystem object (file or directory)
   local st mode uid gid me
-  st="$(_ai_os_tc_stat "$1")" || { echo "cannot stat $1" >&2; return 1; }
+  st="$(_rein_tc_stat "$1")" || { echo "cannot stat $1" >&2; return 1; }
   read -r mode uid gid <<< "$st"
   me="$(id -u)"
   if [[ "$uid" != "0" && "$uid" != "$me" ]]; then
@@ -62,11 +62,11 @@ _ai_os_tc_safe_node() {  # <path> — one filesystem object (file or directory)
   return 0
 }
 
-ai_os_tc_check() {
+rein_tc_check() {
   local raw="$1"; shift
   local re='^/[A-Za-z0-9._/@+-]+$'
   if [[ ! "$raw" =~ $re ]]; then echo "refusing '$raw': not an absolute path in a plain charset" >&2; return 1; fi
-  local rp; rp="$(ai_os_tc_realpath "$raw")" || { echo "refusing '$raw': cannot resolve it" >&2; return 1; }
+  local rp; rp="$(rein_tc_realpath "$raw")" || { echo "refusing '$raw': cannot resolve it" >&2; return 1; }
   if [[ ! "$rp" =~ $re ]]; then echo "refusing '$raw': its realpath '$rp' is not in a plain charset" >&2; return 1; fi
   [[ -x "$rp" && -f "$rp" ]] || { echo "refusing '$rp': not an executable file" >&2; return 1; }
   local root r
@@ -77,24 +77,24 @@ ai_os_tc_check() {
   done
   local p="$rp"
   while :; do
-    _ai_os_tc_safe_node "$p" || { echo "refusing '$rp': an ancestor is unsafe" >&2; return 1; }
+    _rein_tc_safe_node "$p" || { echo "refusing '$rp': an ancestor is unsafe" >&2; return 1; }
     [[ "$p" == "/" ]] && break
     p="${p%/*}"; [[ -z "$p" ]] && p="/"
   done
   printf '%s\n' "$rp"
 }
 
-ai_os_tc_write() {  # <file> <node> <python3> <nice>
+rein_tc_write() {  # <file> <node> <python3> <nice>
   local file="$1" dir tmp
   dir="${file%/*}"
   mkdir -p "$dir" || return 1
   tmp="$(mktemp "${dir}/.toolchain.XXXXXX")" || return 1
   {
-    echo "# Written by install-ai-os.sh (E-286). Parsed, never sourced, by the hooks."
-    echo "AI_OS_TC_NODE=$2"
-    echo "AI_OS_TC_PYTHON3=$3"
-    echo "AI_OS_TC_NICE=$4"
-    echo "AI_OS_TC_RECORDED=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "# Written by install-rein.sh (E-286). Parsed, never sourced, by the hooks."
+    echo "REIN_TC_NODE=$2"
+    echo "REIN_TC_PYTHON3=$3"
+    echo "REIN_TC_NICE=$4"
+    echo "REIN_TC_RECORDED=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   } > "$tmp" || { rm -f "$tmp"; return 1; }
   chmod 0644 "$tmp" && mv -f "$tmp" "$file"   # rename replaces a symlink, never follows it
 }

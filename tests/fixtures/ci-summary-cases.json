@@ -1,8 +1,8 @@
 [
   {
-    "label": "AI-OS runner: the Total line is the run's total (last one wins)",
+    "label": "Rein runner: the Total line is the run's total (last one wins)",
     "want": {
-      "runner": "aios",
+      "runner": "rein",
       "pass": 5830,
       "fail": 0,
       "skip": 2
@@ -10,9 +10,9 @@
     "log": "  \u2713 a_test.sh (3 passed)\n   Total: 3 passed, 0 failed\n\u2501\u2501 Results \u2501\u2501\n   Total: 5830 passed, 0 failed, 2 skipped\n"
   },
   {
-    "label": "AI-OS runner without a skipped clause",
+    "label": "Rein runner without a skipped clause",
     "want": {
-      "runner": "aios",
+      "runner": "rein",
       "pass": 3,
       "fail": 1,
       "skip": 0
@@ -20,9 +20,9 @@
     "log": "   Total: 3 passed, 1 failed\n[TEST_FAILED] 1 test(s) failed\n"
   },
   {
-    "label": "AI-OS line wins over node --test lines inside its suites",
+    "label": "Rein line wins over node --test lines inside its suites",
     "want": {
-      "runner": "aios",
+      "runner": "rein",
       "pass": 200,
       "fail": 0,
       "skip": 0
@@ -110,7 +110,7 @@
     "log": "      Tests  10 passed (10)\n3 passed in 0.40s\n"
   },
   {
-    "label": "no known summary \u2192 null (ai ci records runner=none, counts 0)",
+    "label": "no known summary \u2192 null (rein ci records runner=none, counts 0)",
     "want": null,
     "log": "> build\nok\nDone in 3s\n"
   }

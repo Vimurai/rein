@@ -11,7 +11,7 @@ The "Second Brain" currently only sees tools routed via `proxy_call`. By moving 
 1. **`telemetry.mjs` CLI Upgrade**
    - Responsibility: Implement `--record-tool` and `--record-task` flags. The CLI must accept a JSON payload via `stdin`, derive the `project_hash` from the current working directory, and record the event asynchronously.
 2. **Universal Hook Wrapper (`post-tool-use.sh`)**
-   - Responsibility: Update the global hook (installed to `~/.ai-os/hooks/`) to pipe the tool execution JSON to `telemetry.mjs --record-tool`.
+   - Responsibility: Update the global hook (installed to `~/.rein/hooks/`) to pipe the tool execution JSON to `telemetry.mjs --record-tool`.
 3. **Session ID Propagation**
    - Responsibility: Ensure `CLAUDE_CODE_SESSION_ID` is correctly captured from the environment in the hook layer to maintain session-linked task velocity metrics.
 
@@ -39,7 +39,7 @@ The "Second Brain" currently only sees tools routed via `proxy_call`. By moving 
 - DB contention handled by `node:sqlite`'s internal locking (WAL mode).
 
 ## Rollback Plan
-- Revert `~/.ai-os/hooks/post-tool-use.sh` to the previous version (AQG-only).
+- Revert `~/.rein/hooks/post-tool-use.sh` to the previous version (AQG-only).
 - If deduplication fails, selectively disable hook-level recording via environment variable.
 
 ## E-## Task Breakdown

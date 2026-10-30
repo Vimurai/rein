@@ -16,9 +16,9 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const SKILLS = {
-  "ai-handoff": "src/shared/skills/ai-handoff/SKILL.md",
-  "ai-task": "src/shared/skills/ai-task/SKILL.md",
-  "ai-triage": "src/shared/skills/ai-triage/SKILL.md",
+  "rein-handoff": "src/shared/skills/rein-handoff/SKILL.md",
+  "rein-task": "src/shared/skills/rein-task/SKILL.md",
+  "rein-triage": "src/shared/skills/rein-triage/SKILL.md",
   "arch-task": "src/claude/skills/arch-task/SKILL.md",
   "task-planner": "src/claude/skills/task-planner/SKILL.md",
 };

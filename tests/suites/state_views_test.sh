@@ -803,15 +803,15 @@ rm -rf "$VERSION_DIR"
 set +e
 
 
-# ── E-198 (from cli_add_task — E-302): the shell-native ai add-task ──
-# Unit + behavioral tests for the shell-native `ai add-task`
+# ── E-198 (from cli_add_task — E-302): the shell-native rein add-task ──
+# Unit + behavioral tests for the shell-native `rein add-task`
 # (E-198, Architect Ruling A / pending D-053). Verifies the CLI persists tasks through
 # the SAME shared state-db::addTask as task-synchronizer-mcp::add_task (single source of
 # truth), stamps caller_role → owner, and that rows survive verify_markdown_sync.
 set -e   # this section ran under its own suite's error mode
 HELPER="${REPO_ROOT}/src/shared/cli-add-task.mjs"
 STATE_DB="${REPO_ROOT}/src/mcp/shared/state-db.js"
-BIN_AI="${REPO_ROOT}/src/bin/ai"
+BIN_AI="${REPO_ROOT}/src/bin/rein"
 TEMPLATE="${REPO_ROOT}/src/templates/state.json"
 
 # Fresh temp project with a state.json seed (getDb builds state.sqlite from it).
@@ -824,7 +824,7 @@ cp "$TEMPLATE" "${PROJ}/.ai/state.json"
 # Usage: run_add <ROLE> <args...>  → echoes stdout (the created id); stderr suppressed.
 run_add() {
   local role="$1"; shift
-  ( cd "$PROJ" && AI_OS_CALLER_ROLE="$role" node "$HELPER" "$@" 2>/dev/null )
+  ( cd "$PROJ" && REIN_CALLER_ROLE="$role" node "$HELPER" "$@" 2>/dev/null )
 }
 task_field() { # <id> <col>
   node --input-type=module -e "
@@ -839,10 +839,10 @@ echo ""; echo "  [T-01] Structure"
 assert_status 0 "cli-add-task.mjs exists" test -f "$HELPER"
 assert_status 0 "helper parses as ESM" node -e "import('file://${HELPER}').catch(e=>{if(e instanceof SyntaxError)process.exit(1)})"
 
-# ── T-02: wired into bin/ai dispatch ─────────────────────────────────────────
+# ── T-02: wired into bin/rein dispatch ─────────────────────────────────────────
 echo ""; echo "  [T-02] CLI wiring"
-assert_status 0 "bin/ai has add-task dispatch case" grep -qE '^\s*add-task\)\s+do_add_task' "$BIN_AI"
-assert_status 0 "bin/ai defines do_add_task" grep -q 'do_add_task()' "$BIN_AI"
+assert_status 0 "bin/rein has add-task dispatch case" grep -qE '^\s*add-task\)\s+do_add_task' "$BIN_AI"
+assert_status 0 "bin/rein defines do_add_task" grep -q 'do_add_task()' "$BIN_AI"
 
 # ── T-03: single-source write path (no divergence from the MCP) ──────────────
 echo ""; echo "  [T-03] Shared addTask (DRY with MCP)"
@@ -885,7 +885,7 @@ echo ""; echo "  [T-07] Prefix + validation"
 id_p="$(run_add architect --prefix P "Architect plan task")"
 assert_contains "T-07.01: --prefix P → P-id" "P-" "$id_p"
 assert_status 2 "T-07.02: empty description → usage exit 2" \
-  bash -c "cd '$PROJ' && AI_OS_CALLER_ROLE=engineer node '$HELPER' --tier 1 2>/dev/null"
+  bash -c "cd '$PROJ' && REIN_CALLER_ROLE=engineer node '$HELPER' --tier 1 2>/dev/null"
 
 # ── T-08: stdout purity (only the id on stdout; noise → stderr) ──────────────
 echo ""; echo "  [T-08] stdout purity"
@@ -899,14 +899,14 @@ assert_status 1 "T-10.01: a cross-role add writes no handoff queue" test -e "${P
 set +e
 
 
-# ── E-89 (from migrate_state — E-302): ai migrate-state and the P-44 mandate ──
-# Tests for ai migrate-state (E-89/P-43) and P-44 mandate enforcement
+# ── E-89 (from migrate_state — E-302): rein migrate-state and the P-44 mandate ──
+# Tests for rein migrate-state (E-89/P-43) and P-44 mandate enforcement
 # Validates: parser correctness, status preservation, tier detection, guard check,
 #            JSON schema, blueprint-aligner fail-safe, task-synchronizer strict writes,
 #            and post-commit.sh state-first ordering.
 set -e   # this section ran under its own suite's error mode
 TEMPLATE="${REPO_ROOT}/src/templates/state.json"
-AI_BIN="${REPO_ROOT}/src/bin/ai"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 ALIGNER_MCP="${REPO_ROOT}/src/mcp/blueprint-aligner-mcp/index.js"
 POST_COMMIT="${REPO_ROOT}/hooks/post-commit.sh"
 
@@ -1020,7 +1020,7 @@ assert_contains "T-04.05: migration produces valid JSON with correct schema" "ok
 
 # ── T-04.06: blueprint-aligner-mcp TIER3_NO_SECURITY_REVIEW fails when state.json missing ──
 # Verify the source code has the fail-safe return for missing state.json
-aligner_failsafe=$(grep -c 'state.json missing — run: ai migrate-state' "$ALIGNER_MCP" || echo "0")
+aligner_failsafe=$(grep -c 'state.json missing — run: rein migrate-state' "$ALIGNER_MCP" || echo "0")
 assert_contains "T-04.06: blueprint-aligner-mcp has fail-safe for missing state.json" "1" "$aligner_failsafe"
 
 # Verify the TASKS.md fallback regex is gone
@@ -1062,11 +1062,11 @@ sed_mutation=$(grep -c "sed.*TASKS_FILE\|sed.*tasks" "$POST_COMMIT" 2>/dev/null 
 assert_contains "T-04.08: post-commit.sh has no direct sed mutation of TASKS.md" "0" "$sed_mutation"
 
 # E-325 (D-102): the hook no longer writes state.json or TASKS.md at all — that second writer
-# bypassed the completion gates. It closes each "Fixes E-##" task through `ai task done`
+# bypassed the completion gates. It closes each "Fixes E-##" task through `rein task done`
 # (install mirror only), which writes through record-store.mjs.
 own_writes=$(grep -c "writeFileSync\|> *\"\$STATE_FILE\"\|> *\"\$TASKS_FILE\"" "$POST_COMMIT" || true)
 assert_contains "T-04.08b: post-commit.sh writes no state file itself" "0" "${own_writes:-0}"
-assert_status 0 "T-04.08b2: post-commit.sh closes tasks through the mirror's ai task done" \
+assert_status 0 "T-04.08b2: post-commit.sh closes tasks through the mirror's rein task done" \
   grep -q '"\$AI_BIN" task done "\$ID"' "$POST_COMMIT"
 
 # Verify warn-and-exit when the ai binary is missing (no silent fallback)
@@ -1162,7 +1162,7 @@ print('ok' if ok else 'CORRUPTED: '+json.dumps(e1))
 assert_contains "T-04.10: migrate-state --force preserves rich tasks (no corruption)" "ok" "$nd_check"
 rm -rf "$ND_DIR"
 
-# ── E-325: the post-commit hook and `ai state` across the process boundary ───
+# ── E-325: the post-commit hook and `rein state` across the process boundary ───
 # Extends T-04.08 (which reads the hook's text) with the hook actually run on a commit.
 _pc_repo() {  # → a git repo whose HEAD commit message is "$1"
   local d; d="$(test_tmpdir e325pc)"
@@ -1173,18 +1173,18 @@ _pc_repo() {  # → a git repo whose HEAD commit message is "$1"
 }
 _pc_home="$(test_tmpdir e325home)"
 tc_fixture_home "$_pc_home"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "$_pc_home/.ai-os/bin"
-cat > "$_pc_home/.ai-os/bin/ai" <<STUB
+mkdir -p "$_pc_home/.rein/bin"
+cat > "$_pc_home/.rein/bin/rein" <<STUB
 #!/bin/bash
 printf '%s|' "\$@" >> "$_pc_home/args"; printf '\n' >> "$_pc_home/args"
 echo "[CI_GATE] refused for the test"
 exit 1
 STUB
-chmod +x "$_pc_home/.ai-os/bin/ai"
+chmod +x "$_pc_home/.rein/bin/rein"
 _pc="$(_pc_repo "feat: x — Fixes E-1 and Closes P-2")"
 _pc_rc=0; _pc_out="$(cd "$_pc" && HOME="$_pc_home" bash "$POST_COMMIT" 2>&1)" || _pc_rc=$?
-assert_status 0 "E-325.pc1: post-commit exits 0 even when ai task done refuses" test "$_pc_rc" -eq 0
-assert_contains "E-325.pc2: it runs the mirror's ai task done for each referenced id" \
+assert_status 0 "E-325.pc1: post-commit exits 0 even when rein task done refuses" test "$_pc_rc" -eq 0
+assert_contains "E-325.pc2: it runs the mirror's rein task done for each referenced id" \
   "task|done|E-1|--summary|closed by commit" "$(cat "$_pc_home/args" 2>/dev/null)"
 assert_contains "E-325.pc3: …for every id in the message" "task|done|P-2|" "$(cat "$_pc_home/args" 2>/dev/null)"
 assert_contains "E-325.pc4: the refusal is passed through, prefixed" "[TASK-SYNC] [CI_GATE] refused" "$_pc_out"
@@ -1194,23 +1194,23 @@ _pc_rc2=0; _pc_out2="$(cd "$_pc" && HOME="$_pc_bare" bash "$POST_COMMIT" 2>&1)" 
 assert_status 0 "E-325.pc5: with no ai in the mirror it exits 0" test "$_pc_rc2" -eq 0
 assert_contains "E-325.pc6: …and says why" "WARN:" "$_pc_out2"
 
-# `ai state migrate --team` through the binary, then `ai migrate-state` refuses the team project.
+# `rein state migrate --team` through the binary, then `rein migrate-state` refuses the team project.
 _st="$(_pc_repo "seed")"
 cp "$TEMPLATE" "$_st/.ai/state.json"
 printf 'state.sqlite\nstate.sqlite-shm\nstate.sqlite-wal\n' > "$_st/.ai/.gitignore"
 git -C "$_st" add -A && git -C "$_st" -c commit.gpgsign=false commit -q -m "state"
 _st_out="$(cd "$_st" && HOME="$_pc_bare" bash "$AI_BIN" state migrate --team --trunk master 2>&1)" || true
-assert_contains "E-325.st1: ai state migrate --team reaches cli-state.mjs" "migrated to team records" "$_st_out"
+assert_contains "E-325.st1: rein state migrate --team reaches cli-state.mjs" "migrated to team records" "$_st_out"
 assert_status 0 "E-325.st2: …and leaves the team marker" test -f "$_st/.ai/project.json"
 _ms_rc=0; _ms_out="$(cd "$_st" && HOME="$_pc_bare" bash "$AI_BIN" migrate-state 2>&1)" || _ms_rc=$?
-assert_status 0 "E-325.st3: ai migrate-state refuses a team project" test "$_ms_rc" -ne 0
+assert_status 0 "E-325.st3: rein migrate-state refuses a team project" test "$_ms_rc" -ne 0
 assert_contains "E-325.st4: …naming why" "team project" "$_ms_out"
-# E-327: `ai team` reaches cli-state.mjs through the binary (team.json from migrate --team).
+# E-327: `rein team` reaches cli-state.mjs through the binary (team.json from migrate --team).
 _tm_out="$(cd "$_st" && HOME="$_pc_bare" bash "$AI_BIN" team add t2@example.com --range E:500-509 2>&1)" || true
-assert_contains "E-327.tm1: ai team add writes the range" "t2@example.com E:500-509 added" "$_tm_out"
-assert_contains "E-327.tm2: ai team show names the planner and both members" "t2@example.com  E:500-509" \
+assert_contains "E-327.tm1: rein team add writes the range" "t2@example.com E:500-509 added" "$_tm_out"
+assert_contains "E-327.tm2: rein team show names the planner and both members" "t2@example.com  E:500-509" \
   "$(cd "$_st" && HOME="$_pc_bare" bash "$AI_BIN" team show 2>&1)"
-assert_status 0 "E-325.st5: ai task with no verb prints usage and exits 2" \
+assert_status 0 "E-325.st5: rein task with no verb prints usage and exits 2" \
   bash -c "cd '$_st' && HOME='$_pc_bare' bash '$AI_BIN' task >/dev/null 2>&1; test \$? -eq 2"
 set +e
 

@@ -1,9 +1,9 @@
-// tests/unit/record-store.test.mjs — the single writer and `ai state migrate` (E-325, D-102 §1)
+// tests/unit/record-store.test.mjs — the single writer and `rein state migrate` (E-325, D-102 §1)
 //
 // Extends tests/unit/state-db.test.mjs (which covers addTask/nextId/DAG on a legacy store) to
 // the record store: file-before-row ordering, crash repair by rebuildIndex, the --team/--legacy
 // round trip, and the MCP write path. git is the process boundary of the migration, so the
-// fixtures are real throwaway repositories; no test touches ~/.ai-os (HOME is a temp dir for
+// fixtures are real throwaway repositories; no test touches ~/.rein (HOME is a temp dir for
 // the spawned server).
 
 import { test } from "node:test";
@@ -31,12 +31,12 @@ const SYNC_SERVER = join(REPO, "src/mcp/task-synchronizer-mcp/index.js");
 const git = (cwd, ...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 
 function tmp(t, tag) {
-  const d = mkdtempSync(join(tmpdir(), `aios-rs-${tag}-`));
+  const d = mkdtempSync(join(tmpdir(), `rein-rs-${tag}-`));
   t.after(() => rmSync(d, { recursive: true, force: true }));
   return d;
 }
 
-// A git repo with .ai/ (.gitignore keeps the sqlite out, as `ai init` does).
+// A git repo with .ai/ (.gitignore keeps the sqlite out, as `rein init` does).
 function repo(t, tag) {
   const root = tmp(t, tag);
   git(root, "init", "-q", "-b", "master");
@@ -346,7 +346,7 @@ test("seq stays monotonic per origin across a fresh index (archived records coun
 function callTools(cwd, home, calls) {
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, ["--no-warnings", SYNC_SERVER], {
-      cwd, env: { PATH: process.env.PATH, HOME: home, AI_TELEMETRY_DISABLE: "1", AI_OS_CI_GATE: "0", AI_OS_BUILD_STAMP: "0" },
+      cwd, env: { PATH: process.env.PATH, HOME: home, AI_TELEMETRY_DISABLE: "1", REIN_CI_GATE: "0", REIN_BUILD_STAMP: "0" },
       stdio: ["pipe", "pipe", "ignore"],
     });
     const frames = [
@@ -412,7 +412,7 @@ test("a legacy index behind HEAD: verify_markdown_sync is [SYNC_FAIL] and add_ta
   const views = ["TASKS.md", "REVIEWS.md", "state.json"].map((f) => readFileSync(join(ai, f), "utf8"));
   const home = tmp(t, "home");
   const [sync, add] = await callTools(root, home, [["verify_markdown_sync", {}], ["add_task", { owner: "Engineer (Claude)", description: "x" }]]);
-  const line = "[STATE_BEHIND_HEAD] HEAD has E-9 the index lacks — run: ai state import";
+  const line = "[STATE_BEHIND_HEAD] HEAD has E-9 the index lacks — run: rein state import";
   assert.match(sync.content[0].text, /^\[SYNC_FAIL\]/);
   assert.ok(sync.content[0].text.includes(line));
   assert.equal(add.isError, true);
@@ -460,12 +460,12 @@ test("with the seed off (an import on record) an empty index is refused: [STATE_
   const before = views(ai);
   const home = tmp(t, "home");
   const [sync] = await callTools(root, home, [["verify_markdown_sync", {}]]);
-  assert.match(sync.content[0].text, /^\[SYNC_FAIL\][\s\S]*\[STATE_BEHIND_HEAD\] HEAD has E-1\.\.P-1 the index lacks — run: ai state import/);
+  assert.match(sync.content[0].text, /^\[SYNC_FAIL\][\s\S]*\[STATE_BEHIND_HEAD\] HEAD has E-1\.\.P-1 the index lacks — run: rein state import/);
   assert.deepEqual(views(ai), before);
 
   rmSync(join(root, ".git"), { recursive: true, force: true });   // no git: nothing to compare with
   const [nogit] = await callTools(root, home, [["verify_markdown_sync", {}]]);
-  assert.match(nogit.content[0].text, /\[EMPTY_STATE_DB\] index has 0 tasks, TASKS\.md lists 3 — run: ai state import/);
+  assert.match(nogit.content[0].text, /\[EMPTY_STATE_DB\] index has 0 tasks, TASKS\.md lists 3 — run: rein state import/);
   assert.deepEqual(views(ai), before, "no auto-fix from an empty index");
   // …and the advice works: the import takes the working state.json when nothing is committed.
   const imp = spawnSync(process.execPath, ["--no-warnings", join(REPO, "src/shared/cli-state.mjs"), "state", "import"], { cwd: root, encoding: "utf8", env: { ...process.env, AI_TELEMETRY_DISABLE: "1" } }).stdout;
@@ -484,7 +484,7 @@ test("a project whose state.json has zero tasks stays empty, and reseeding never
   }
 });
 
-test("ai doctor's State Health names ai state import for an empty or behind index, and migrate-state only when the view is all there is", (t) => {
+test("rein doctor's State Health names rein state import for an empty or behind index, and migrate-state only when the view is all there is", (t) => {
   const { root, ai } = repo(t, "doctor");
   seedLegacy(ai); commitAll(root, "seed");
   emptyIndex(ai).close();
@@ -492,27 +492,27 @@ test("ai doctor's State Health names ai state import for an empty or behind inde
   const health = (...a) => spawnSync(process.execPath, ["--no-warnings", join(REPO, "src/shared/cli-state.mjs"), "state", "health", ...a], { cwd: root, encoding: "utf8", env: { ...process.env, AI_TELEMETRY_DISABLE: "1" } }).stdout;
   const out = health();
   assert.match(out, /index: tasks=0, stamps=0 · HEAD state\.json: tasks=3/);
-  assert.match(out, /WARN: the index is empty but HEAD has 3 task\(s\) — run: ai state import/);
+  assert.match(out, /WARN: the index is empty but HEAD has 3 task\(s\) — run: rein state import/);
   assert.doesNotMatch(out, /migrate-state/);
-  assert.match(health("--repair"), /repaired: ai state import/);
+  assert.match(health("--repair"), /repaired: rein state import/);
   assert.match(health("--short"), /^OK — the index is in step with HEAD$/m);
 
   const bare = repo(t, "doctor-bare");
   writeFileSync(join(bare.ai, "TASKS.md"), "# TASKS (Generated from state.json)\n\n## Engineer\n- [ ] E-1: only the view\n");
-  assert.match(cliMain(["state", "health"], bare.root).out, /run: ai migrate-state \(rebuilds from the view; lossy\)/);
+  assert.match(cliMain(["state", "health"], bare.root).out, /run: rein migrate-state \(rebuilds from the view; lossy\)/);
 });
 
-test("ai migrate-state refuses [LOSSY_RESEED] when HEAD's state.json holds more tasks than TASKS.md, unless --from-tasks", (t) => {
+test("rein migrate-state refuses [LOSSY_RESEED] when HEAD's state.json holds more tasks than TASKS.md, unless --from-tasks", (t) => {
   const { root, ai } = repo(t, "lossy");
   seedLegacy(ai); commitAll(root, "seed");
   writeFileSync(join(ai, "TASKS.md"), "# TASKS (Generated from state.json)\n\n## Engineer\n- [ ] E-1: build it\n");
   rmSync(join(ai, "state.json"));
   const h = tmp(t, "h");
   tcFixtureHome(h);   // E-345 (D-109 r1): the toolchain record the hooks pin
-  const run = (...a) => spawnSync("bash", [join(REPO, "src/bin/ai"), "migrate-state", ...a], { cwd: root, encoding: "utf8", env: { ...process.env, HOME: h, AI_TELEMETRY_DISABLE: "1" } });
+  const run = (...a) => spawnSync("bash", [join(REPO, "src/bin/rein"), "migrate-state", ...a], { cwd: root, encoding: "utf8", env: { ...process.env, HOME: h, AI_TELEMETRY_DISABLE: "1" } });
   const r = run();
   assert.equal(r.status, 1);
-  assert.match(r.stdout, /\[LOSSY_RESEED\] HEAD:\.ai\/state\.json has 3 tasks, TASKS\.md lists 1 — run: ai state import/);
+  assert.match(r.stdout, /\[LOSSY_RESEED\] HEAD:\.ai\/state\.json has 3 tasks, TASKS\.md lists 1 — run: rein state import/);
   assert.doesNotMatch(run("--from-tasks").stdout, /LOSSY_RESEED/);
 });
 
@@ -531,13 +531,13 @@ test("every opener of a project's state.sqlite outside state-db.js seeds it (get
   assert.deepEqual(offenders, []);
 });
 
-// ── `ai task done` (the post-commit "Fixes E-##" path) ───────────────────────
+// ── `rein task done` (the post-commit "Fixes E-##" path) ───────────────────────
 
-test("ai task done closes through completeTask: record, cascade, views", (t) => {
+test("rein task done closes through completeTask: record, cascade, views", (t) => {
   const { root, ai } = repo(t, "done");
   seedLegacy(ai); commitAll(root, "seed");
   migrateTeam(ai, { trunk: "master" });
-  const env = { AI_OS_CI_GATE: "0" };
+  const env = { REIN_CI_GATE: "0" };
   const res = runTaskDone(ai, "E-1", "closed by commit abc1234", { env });
   assert.equal(res.code, 0, res.out);
   assert.match(res.out, /E-1 → DONE.*unblocked: E-2/);
@@ -557,7 +557,7 @@ test("no file outside record-store.mjs writes .ai/state.json", () => {
     for (const f of readdirSync(d)) {
       const p = join(d, f);
       if (statSync(p).isDirectory()) { if (f !== "node_modules" && f !== "templates") walk(p); }
-      else if (/\.(m?js|sh)$/.test(f) || f === "ai") files.push(p);
+      else if (/\.(m?js|sh)$/.test(f) || f === "rein") files.push(p);
     }
   };
   walk(join(REPO, "src"));
@@ -610,10 +610,10 @@ test("a symlinked record is refused, and its target never appears in the error",
   assert.equal(readFileSync(secret, "utf8"), "TOP-SECRET-CONTENT");
 });
 
-test("ai task done ignores the gates' env rollbacks (an env switch is the caller's switch)", (t) => {
+test("rein task done ignores the gates' env rollbacks (an env switch is the caller's switch)", (t) => {
   const { root, ai } = repo(t, "env");
   seedLegacy(ai); commitAll(root, "seed");
-  // Adopt `ai ci` with a run for some other commit: the CI gate is now active and HEAD uncertified.
+  // Adopt `rein ci` with a run for some other commit: the CI gate is now active and HEAD uncertified.
   getDb(ai).prepare("INSERT INTO ci_runs(sha, status, started_at) VALUES (?, 'PASS', ?)").run("f".repeat(40), new Date().toISOString());
   const saved = { ...process.env };
   t.after(() => { for (const k of GATE_ROLLBACK_VARS) { if (k in saved) process.env[k] = saved[k]; else delete process.env[k]; } });
@@ -652,7 +652,7 @@ test("archiving in a team project moves the records before the rows, and the rou
   assert.equal(stateOf(ai), view);
 });
 
-test("ai task done refuses through the gates with the default env and changes nothing", (t) => {
+test("rein task done refuses through the gates with the default env and changes nothing", (t) => {
   const { root, ai } = repo(t, "refuse");
   seedLegacy(ai); commitAll(root, "seed");
   migrateTeam(ai, { trunk: "master" });
@@ -696,7 +696,7 @@ test("--team writes .ai/.gitattributes; --legacy removes it, but keeps one the u
   // E-328: a project migrated before ci/*.json joined the attributes still gets its file removed.
   commitAll(root, "legacy again");
   migrateTeam(ai, { trunk: "master" });
-  writeFileSync(join(ai, ".gitattributes"), ATTRIBUTES.replace("ci/*.json merge=aios-record\n", ""));
+  writeFileSync(join(ai, ".gitattributes"), ATTRIBUTES.replace("ci/*.json merge=rein-record\n", ""));
   commitAll(root, "pre-E-328 attributes");
   assert.equal(migrateLegacy(ai).ok, true);
   assert.equal(existsSync(join(ai, ".gitattributes")), false);

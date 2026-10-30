@@ -18,9 +18,9 @@ inproc=""; all=""
 for a in "$@"; do case "$a" in --inproc) inproc=1 ;; --all) all="--all" ;; esac; done
 # The flag says probe.sh set HOME; the account's real home (from the user record, not $HOME)
 # says it really is a throwaway one (critic_security P2-1).
-[[ -n "${AIOS_MUTATION_HOME_OK:-}" ]] || { echo "gate-tables.sh: run through probe.sh (throwaway HOME)" >&2; exit 2; }
+[[ -n "${REIN_MUTATION_HOME_OK:-}" ]] || { echo "gate-tables.sh: run through probe.sh (throwaway HOME)" >&2; exit 2; }
 [[ "$HOME" != "$(node -p 'require("os").userInfo().homedir')" ]] || { echo "gate-tables.sh: HOME is the real home — refusing" >&2; exit 2; }
-mkdir -p "${HOME}/.ai-os"
+mkdir -p "${HOME}/.rein"
 as="${_repo}/tests/lib/as-session.sh"
 stop="${HOME}/stop-$$-${RANDOM}"
 failed=0
@@ -37,7 +37,7 @@ for role in architect engineer; do
       bash -c 'i=0; while [ ! -e "$1" ] && [ $i -lt 6000 ]; do sleep 0.1; i=$((i+1)); done' _ "$stop" ) >/dev/null 2>&1 &
   eval "p_${role}=$!"
 done
-i=0; while { [ ! -e "${HOME}/.ai-os/run/role-mut-architect.lock" ] || [ ! -e "${HOME}/.ai-os/run/role-mut-engineer.lock" ]; } && [ $i -lt 100 ]; do sleep 0.1; i=$((i+1)); done
+i=0; while { [ ! -e "${HOME}/.rein/run/role-mut-architect.lock" ] || [ ! -e "${HOME}/.rein/run/role-mut-engineer.lock" ]; } && [ $i -lt 100 ]; do sleep 0.1; i=$((i+1)); done
 sess=("architect=mut-architect:${p_architect}" "engineer=mut-engineer:${p_engineer}")
 
 if [[ -n "$inproc" ]]; then

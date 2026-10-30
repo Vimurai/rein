@@ -384,11 +384,11 @@ assert_status 0 "update_task_status still works" \
 
 # ── T-MVS-S15: Mirror byte-identity ─────────────────────────────────────────
 echo ""
-echo "  [T-MVS-S15] ~/.ai-os mirrors match src/"
+echo "  [T-MVS-S15] ~/.rein mirrors match src/"
 
-assert_status 0 "task-synchronizer-mcp mirror"   diff -q "$SYNC_MCP" "${HOME}/.ai-os/mcp/task-synchronizer-mcp/index.js"
-assert_status 0 "state-db.js mirror"             diff -q "$STATE_DB" "${HOME}/.ai-os/mcp/shared/state-db.js"
-assert_status 0 "seo-cluster-intents.mjs mirror" diff -q "$INTENT_MOD" "${HOME}/.ai-os/shared/seo-cluster-intents.mjs"
+assert_status 0 "task-synchronizer-mcp mirror"   diff -q "$SYNC_MCP" "${HOME}/.rein/mcp/task-synchronizer-mcp/index.js"
+assert_status 0 "state-db.js mirror"             diff -q "$STATE_DB" "${HOME}/.rein/mcp/shared/state-db.js"
+assert_status 0 "seo-cluster-intents.mjs mirror" diff -q "$INTENT_MOD" "${HOME}/.rein/shared/seo-cluster-intents.mjs"
 
 echo ""
 
@@ -400,7 +400,7 @@ echo ""
 #   - §Execution Constraints (1 Pillar + ≤10 Cluster pages, concurrency 3, <120s)
 AGENT_SRC="${REPO_ROOT}/src/claude/agents/seo_manager.md"
 AGENT_CLAUDE="${REPO_ROOT}/.claude/agents/seo_manager.md"
-AGENT_MIRROR="${HOME}/.ai-os/claude/agents/seo_manager.md"
+AGENT_MIRROR="${HOME}/.rein/claude/agents/seo_manager.md"
 BLUEPRINT="${REPO_ROOT}/.ai/blueprints/seo-keyword-multiplier.md"
 
 
@@ -529,21 +529,21 @@ assert_status 0 "Rollback acknowledges content-file purge is out-of-scope" \
 
 # ── T-SEO-S09: Mirror byte-identity ──────────────────────────────────────────
 echo ""
-echo "  [T-SEO-S09] .claude/ + ~/.ai-os/claude/ mirrors match src/"
+echo "  [T-SEO-S09] .claude/ + ~/.rein/claude/ mirrors match src/"
 
 assert_status 0 ".claude/ mirror byte-identical to src/" \
   diff -q "$AGENT_SRC" "$AGENT_CLAUDE"
 if [[ -f "$AGENT_MIRROR" ]]; then
   # E-248 (D-067 §2): the installed copy is canonical — byte identity, and the three
   # Claude agent-contract keys PRESENT (they tell Claude Code what the agent may do).
-  assert_status 0 "~/.ai-os copy is byte-identical to src/ (the mirror is canonical)" \
+  assert_status 0 "~/.rein copy is byte-identical to src/ (the mirror is canonical)" \
     diff -q "$AGENT_SRC" "$AGENT_MIRROR"
-  assert_status 0 "~/.ai-os copy KEEPS the Claude-only keys (E-248)" \
+  assert_status 0 "~/.rein copy KEEPS the Claude-only keys (E-248)" \
     grep -qE '^(disable-model-invocation|user-invocable|allowed-tools):' "$AGENT_MIRROR"
 else
   # E-236: an absent install is a SKIP, counted separately from PASS — a pass here would
   # claim the mirror had been verified when nothing was compared.
-  _skip "~/.ai-os copy comparison (framework not installed)"
+  _skip "~/.rein copy comparison (framework not installed)"
 fi
 
 # ── T-SEO-S10: Blueprint file presence + bidirectional reference ─────────────
@@ -566,7 +566,7 @@ echo ""
 #   - Anti-drift: NOT content generation (generator), NOT orchestration
 AGENT_SRC_SE="${REPO_ROOT}/src/claude/agents/seo_engineer.md"
 AGENT_CLAUDE_SE="${REPO_ROOT}/.claude/agents/seo_engineer.md"
-AGENT_MIRROR_SE="${HOME}/.ai-os/claude/agents/seo_engineer.md"
+AGENT_MIRROR_SE="${HOME}/.rein/claude/agents/seo_engineer.md"
 BLUEPRINT_SE="${REPO_ROOT}/.ai/blueprints/seo-keyword-multiplier.md"
 
 
@@ -666,15 +666,15 @@ assert_status 0 "Rollback references git restore" \
 
 # ── T-SENG-S08: Mirror byte-identity ─────────────────────────────────────────
 echo ""
-echo "  [T-SENG-S08] .claude/ + ~/.ai-os/claude/ mirrors match src/"
+echo "  [T-SENG-S08] .claude/ + ~/.rein/claude/ mirrors match src/"
 
 assert_status 0 ".claude/ mirror byte-identical to src/" \
   diff -q "$AGENT_SRC_SE" "$AGENT_CLAUDE_SE"
 if [[ -f "$AGENT_MIRROR_SE" ]]; then
-  assert_status 0 "~/.ai-os mirror byte-identical to src/" \
+  assert_status 0 "~/.rein mirror byte-identical to src/" \
     diff -q "$AGENT_SRC_SE" "$AGENT_MIRROR_SE"
 else
-  echo "    ⚠  ~/.ai-os mirror absent — skipping"
+  echo "    ⚠  ~/.rein mirror absent — skipping"
 fi
 
 # ── T-SENG-S09: Bidirectional blueprint reference ────────────────────────────
@@ -697,7 +697,7 @@ echo ""
 #   - Honors §Security (duplicate-content, identity_guardian, critic_security)
 AGENT_SRC_SG="${REPO_ROOT}/src/claude/agents/seo_content_generator.md"
 AGENT_CLAUDE_SG="${REPO_ROOT}/.claude/agents/seo_content_generator.md"
-AGENT_MIRROR_SG="${HOME}/.ai-os/claude/agents/seo_content_generator.md"
+AGENT_MIRROR_SG="${HOME}/.rein/claude/agents/seo_content_generator.md"
 MANAGER_SRC="${REPO_ROOT}/src/claude/agents/seo_manager.md"
 BLUEPRINT_SG="${REPO_ROOT}/.ai/blueprints/seo-keyword-multiplier.md"
 
@@ -844,21 +844,21 @@ assert_status 0 "Rollback references git restore for staged content" \
 
 # ── T-SCG-S10: Mirror byte-identity ─────────────────────────────────────────
 echo ""
-echo "  [T-SCG-S10] .claude/ + ~/.ai-os/claude/ mirrors match src/"
+echo "  [T-SCG-S10] .claude/ + ~/.rein/claude/ mirrors match src/"
 
 assert_status 0 ".claude/ mirror byte-identical to src/" \
   diff -q "$AGENT_SRC_SG" "$AGENT_CLAUDE_SG"
 if [[ -f "$AGENT_MIRROR_SG" ]]; then
   # E-248 (D-067 §2): the installed copy is canonical — byte identity, and the three
   # Claude agent-contract keys PRESENT (they tell Claude Code what the agent may do).
-  assert_status 0 "~/.ai-os copy is byte-identical to src/ (the mirror is canonical)" \
+  assert_status 0 "~/.rein copy is byte-identical to src/ (the mirror is canonical)" \
     diff -q "$AGENT_SRC_SG" "$AGENT_MIRROR_SG"
-  assert_status 0 "~/.ai-os copy KEEPS the Claude-only keys (E-248)" \
+  assert_status 0 "~/.rein copy KEEPS the Claude-only keys (E-248)" \
     grep -qE '^(disable-model-invocation|user-invocable|allowed-tools):' "$AGENT_MIRROR_SG"
 else
   # E-236: an absent install is a SKIP, counted separately from PASS — a pass here would
   # claim the mirror had been verified when nothing was compared.
-  _skip "~/.ai-os copy comparison (framework not installed)"
+  _skip "~/.rein copy comparison (framework not installed)"
 fi
 
 # ── T-SCG-S11: Blueprint reference ──────────────────────────────────────────

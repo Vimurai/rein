@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * patch-mcp — AI-OS Staleness-Aware File Patching (E-137, §25)
+ * patch-mcp — Rein Staleness-Aware File Patching (E-137, §25)
  *
  * Prevents race conditions where a linter or human edits a file while the
  * agent is "thinking." Instead of blindly overwriting, patch_file verifies
@@ -158,7 +158,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 
 instrument(server, "patch-mcp", CallToolRequestSchema);
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  await refreshPolicies();   // E-237: pick up a policy `ai sync` refreshed under us
+  await refreshPolicies();   // E-237: pick up a policy `rein sync` refreshed under us
   const { name, arguments: args } = request.params;
   const cwd = process.cwd();
 

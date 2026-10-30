@@ -1,9 +1,9 @@
 # Agents and skills
 
-Both are plain Claude Code files, copied into the project's `.claude/` by `ai sync` — there is no
+Both are plain Claude Code files, copied into the project's `.claude/` by `rein sync` — there is no
 plugin to install.
 
-- A **skill** is a procedure the current session carries out itself (`skill: ai-task`). Only its
+- A **skill** is a procedure the current session carries out itself (`skill: rein-task`). Only its
   one-line description is in context until it is invoked.
 - A **subagent** is a specialist that runs in its own context and reports back, so its file reads
   never land in your session.
@@ -40,27 +40,27 @@ plugin to install.
 
 | Skill | Does |
 | :--- | :--- |
-| `ai-preflight` | Session start: digest, open tasks, state sync, incidents, stale-server check. |
-| `ai-task` | Close a task: mark done (CI must be green), hand over, surface the next. |
-| `ai-handoff` | Write the COMM.md entry, commit it, wake the other pane. |
+| `rein-preflight` | Session start: digest, open tasks, state sync, incidents, stale-server check. |
+| `rein-task` | Close a task: mark done (CI must be green), hand over, surface the next. |
+| `rein-handoff` | Write the COMM.md entry, commit it, wake the other pane. |
 | `arch-task` | The Architect's close-out for planning tasks. |
-| `ai-sync-state` | Re-read `.ai/` from disk when another session changed it. |
-| `ai-log` | Append a structured entry to `.ai/LOG.md`. |
+| `rein-sync-state` | Re-read `.ai/` from disk when another session changed it. |
+| `rein-log` | Append a structured entry to `.ai/LOG.md`. |
 
 ### Building and testing
 
 | Skill | Does |
 | :--- | :--- |
-| `ai-test` | Run the project's tests; `--generate` dispatches the Tester, `--vibe` the UI audit. |
-| `ai-review` | Tier-aware review with the matching critics. |
-| `ai-debug` | Hypothesis → test → observe; commits locked until green; escalates after three cycles. |
+| `rein-test` | Run the project's tests; `--generate` dispatches the Tester, `--vibe` the UI audit. |
+| `rein-review` | Tier-aware review with the matching critics. |
+| `rein-debug` | Hypothesis → test → observe; commits locked until green; escalates after three cycles. |
 | `bug-reproducer` | A failing reproduction before any fix. |
 | `aqg-resolver` | Low-context fixer for a failed quality gate. |
 | `repo-oracle`, `arch-oracle` | History and rationale from git and `.ai/` before an edit. |
 | `trigger-audit` | Which mandatory gates a planned change will trip. |
 | `commit-crafter` | Conventional commit message with task id and tier. |
-| `ai-profile` | CPU and heap profiling in a throwaway directory. |
-| `ai-migration` | Schema changes to the state or telemetry databases. |
+| `rein-profile` | CPU and heap profiling in a throwaway directory. |
+| `rein-migration` | Schema changes to the state or telemetry databases. |
 
 ### Gates
 
@@ -86,13 +86,13 @@ plugin to install.
 
 | Skill | Does |
 | :--- | :--- |
-| `ai-digest`, `digest_updater` | Regenerate `.ai/DIGEST.md`. |
-| `ai-archive` | Rotate long logs (only when you ask). |
+| `rein-digest`, `digest_updater` | Regenerate `.ai/DIGEST.md`. |
+| `rein-archive` | Rotate long logs (only when you ask). |
 | `token-miser` | Trim context before a long session. |
 | `release-manager` | Version bump, changelog, signed tag. |
-| `ai-upgrade` | Dependency upgrades with test runs. |
-| `ai-incident`, `ai-triage` | Record unexpected events; triage recurring ones. |
-| `ai-insights`, `ai-review-proposed-skills` | Telemetry insights; review proposed skills before activation. |
+| `rein-upgrade` | Dependency upgrades with test runs. |
+| `rein-incident`, `rein-triage` | Record unexpected events; triage recurring ones. |
+| `rein-insights`, `rein-review-proposed-skills` | Telemetry insights; review proposed skills before activation. |
 
 ### Product and content
 
@@ -100,7 +100,7 @@ plugin to install.
 | :--- | :--- |
 | `obs_baseline` | Logging, metrics, tracing and health-check standards. |
 | `ux_template` | A UI screen's purpose, states, accessibility and mobile behaviour. |
-| `ai-seo`, `seo_content_checklist` | Answer-engine optimisation; the pre-publish SEO checklist. |
+| `rein-seo`, `seo_content_checklist` | Answer-engine optimisation; the pre-publish SEO checklist. |
 | `copilot` | Shell and `gh` command lookups through GitHub Copilot CLI. |
 
 ## Writing your own

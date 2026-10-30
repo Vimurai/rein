@@ -44,7 +44,7 @@ export const EXEMPT_FILES = {
 // DECISIONS.md and the superseded licensing.md never ship) — what the public mirror receives.
 const EXPORT_INCLUDE = [
   /^src\//, /^hooks\//, /^tests\//, /^scripts\//, /^\.claude\//, /^docs\//, /^\.ai\/blueprints\/(?!licensing\.md$)/,
-  /^(install-ai-os\.sh|package\.json|package-lock\.json|\.gitignore|LICENSE|NOTICE|CHANGELOG\.md|CONTRIBUTING\.md|SECURITY\.md|CODE_OF_CONDUCT\.md)$/, /^README[^/]*$/,
+  /^(install-rein\.sh|package\.json|package-lock\.json|\.gitignore|LICENSE|NOTICE|CHANGELOG\.md|CONTRIBUTING\.md|SECURITY\.md|CODE_OF_CONDUCT\.md)$/, /^README[^/]*$/,
   /^\.ai\/(architect\.md|BRIEF\.md|RULES\.md|SECURITY\.md|THREAT_MODEL\.md|roles\.json|providers\.json)$/,
 ];
 export const isExported = (path) => EXPORT_INCLUDE.some((re) => re.test(path));
@@ -228,7 +228,7 @@ export function identityProblem({ author, committer }, identity) {
   return null;
 }
 
-/** The `ai doctor` line: [PUBLISH_SCAN_OK] classes=5 lists=client:N,operator:N, or the missing line. */
+/** The `rein doctor` line: [PUBLISH_SCAN_OK] classes=5 lists=client:N,operator:N, or the missing line. */
 export function doctorLine(aiDir) {
   try {
     const c = loadScanConfig(aiDir);
@@ -250,13 +250,13 @@ export function doctorLine(aiDir) {
 // so an env switch is the project's switch (E-291's rule; security P1-3). What lives under the install directory (telemetry,
 // incidents, insights, the memory palace) stays on the operator's machine and is not redacted.
 
-/** The writers that call redact(); `ai doctor` counts them. */
+/** The writers that call redact(); `rein doctor` counts them. */
 export const REDACT_WRITERS = [
   "task description and summary (record-store insertTask/updateTask)", "stamp summary (record-store insertStamp)",
   "handover delta (run-handover)", "log line (team appendLog)", "repository map (ast-parser generate_map)",
   "CI evidence (ci-evidence writeCiRecord)", "hosted CI wrapper (hosted-ci)", "proposed skill (instinct-stager)",
   "digest line (stop hook)", "project focus and verdict (record-store setProject)",
-  "advisor ruling (advisor-mcp logRuling)", "ai clean entry (ai-clean logApply)",
+  "advisor ruling (advisor-mcp logRuling)", "rein clean entry (rein-clean logApply)",
 ];
 
 const _lists = new Map();   // aiDir → { mtime, lists }
@@ -274,13 +274,13 @@ export function redactLists(aiDir) {
       const j = JSON.parse(readFileSync(p, "utf8"));
       const strs = (v) => [].concat(v || []).filter((n) => typeof n === "string" && n.trim());
       lists = { clientNames: strs(j.client_names), operatorNames: strs(j.operator_names), allowEmails: strs(j.allow_emails) };
-    } catch { /* unreadable: structural only; ai doctor reports it */ }
+    } catch { /* unreadable: structural only; rein doctor reports it */ }
   }
   _lists.set(aiDir, { mtime, lists });
   return lists;
 }
 
-const _counterFile = (home) => join(home, ".ai-os", "privacy", `redacted-${new Date().toISOString().slice(0, 10)}.count`);
+const _counterFile = (home) => join(home, ".rein", "privacy", `redacted-${new Date().toISOString().slice(0, 10)}.count`);
 function _count(n) {
   try {
     const f = _counterFile(homedir());
@@ -291,7 +291,7 @@ function _count(n) {
   } catch { /* a counter must never break a writer */ }
 }
 
-/** Today's redaction count (`ai doctor`). */
+/** Today's redaction count (`rein doctor`). */
 export function redactedToday(home = homedir()) {
   try { return Number(readFileSync(_counterFile(home), "utf8")) || 0; } catch { return 0; }
 }
@@ -377,12 +377,15 @@ export function blobText(buf) {
   if (!t.includes("\u0000")) return t;
   return (buf.toString("latin1").match(/[\x20-\x7e]{6,}/g) || []).join("\n");
 }
+const HTML_NAMED = { amp: "&", lt: "<", gt: ">", quot: '"' };
 /** Common encodings undone, so an escaped value is matched too: JSON \uXXXX, percent, HTML entities. */
 export function decodedView(text) {
   let d = text.replace(/\\u([0-9a-fA-F]{4})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)));
   d = d.replace(/%([0-9A-Fa-f]{2})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)));
-  d = d.replace(/&#x([0-9a-f]+);/gi, (_m, h) => String.fromCodePoint(parseInt(h, 16))).replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n)))
-    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"');
+  // HTML entities in ONE pass: chained replaces decoded `&amp;lt;` (and `&#38;lt;`) twice, to `<`
+  // (E-397, CodeQL js/double-escaping). The \u and % layers above still decode into entities.
+  d = d.replace(/&(?:#[xX]([0-9a-fA-F]+)|#(\d+)|(amp|lt|gt|quot));/g, (_m, h, n, name) =>
+    h ? String.fromCodePoint(parseInt(h, 16)) : n ? String.fromCodePoint(Number(n)) : HTML_NAMED[name]);
   return d.normalize("NFKC");
 }
 const FAKE_TOKEN_MARK = "privacy:allow-fake-token";

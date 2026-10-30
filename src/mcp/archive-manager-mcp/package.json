@@ -2,7 +2,7 @@
   "name": "archive-manager-mcp",
   "version": "1.0.0",
   "license": "Apache-2.0",
-  "description": "AI-OS Auto-Pilot: Monitors .ai/ context health and orchestrates autonomous archive operations.",
+  "description": "Rein Auto-Pilot: Monitors .ai/ context health and orchestrates autonomous archive operations.",
   "type": "module",
   "main": "index.js",
   "scripts": {

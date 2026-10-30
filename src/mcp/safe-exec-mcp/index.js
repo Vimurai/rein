@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * safe-exec-mcp — AI-OS UACS MCP Server
+ * safe-exec-mcp — Rein UACS MCP Server
  * Analyzes shell commands for destructive or high-risk patterns before execution.
  * Uses token-based parsing (shell-quote) to detect rm -rf, curl|bash, etc.
  *
@@ -29,7 +29,7 @@ import {
   analyzeArchitectWrites,
 } from "./architect-writes.mjs";
 import { containsSecret } from "./secret-rule.mjs";
-import { selfDisableHits, isUnderAiOs } from "./gate-guard.mjs";
+import { selfDisableHits, isUnderRein } from "./gate-guard.mjs";
 import { stripInertHeredocs } from "./heredoc.mjs";
 import { codeStrings } from "./code-strings.mjs";
 import { gitRedirectHits } from "./git-redirect.mjs";
@@ -123,12 +123,12 @@ const BLOCK_RULES = [
     message: "chmod 777 on system path — BLOCKED (privilege escalation vector)",
   },
   {
-    // E-291 (D-083 r5): the agent must not switch its own gate off — `ai gate`, the override
-    // file, or a write into ~/.ai-os/. Every role. See gate-guard.mjs for the ceiling.
+    // E-291 (D-083 r5): the agent must not switch its own gate off — `rein gate`, the override
+    // file, or a write into ~/.rein/. Every role. See gate-guard.mjs for the ceiling.
     id: "GATE_SELF_DISABLE",
     pattern: (tokens, raw) => selfDisableHits(raw).length > 0,
-    message: "agent self-disable of the safe-exec gate (`ai gate`, the override file, or a write under ~/.ai-os/) — " +
-      "BLOCKED for every role. Operator escape — in YOUR terminal, not through the agent: ai gate off",
+    message: "agent self-disable of the safe-exec gate (`rein gate`, the override file, or a write under ~/.rein/) — " +
+      "BLOCKED for every role. Operator escape — in YOUR terminal, not through the agent: rein gate off",
   },
   {
     id: "SECRET_IN_COMMAND",
@@ -225,7 +225,7 @@ function hasRootPaths(tokens, raw) {
 // top-level directories: `$A/$B/*`, `"/"*`, `\/*`, `//*`, `/{bin,usr}`. A word that BEGINS with
 // ${X:?…} fails closed when X is unset (not root-form) — one nested inside $( ) or another ${ }
 // exempts nothing. "$X"/dist names one subdirectory, and so does a glob with a literal part
-// ("$TMPDIR"/aios-*, "$OUT"/*.log): only a bare glob, class or brace list is the whole root.
+// ("$TMPDIR"/rein-*, "$OUT"/*.log): only a bare glob, class or brace list is the whole root.
 const EXPANSION = /\$[A-Za-z_][A-Za-z0-9_]*|\$[0-9@*#?!$-]|\$\([^()]*\)|`[^`]*`/g;
 const INNER_BRACE = /\$\{[^{}]*\}/g;
 const BARE_GLOB = /^(\.?(\*|\?|\[[^\]]*\])+|\{[^}]*\})$/;
@@ -245,7 +245,7 @@ function _emptyExpansionRoot(r) {
   return false;
 }
 
-// E-340 (finding 6, 2026-10-23): `cd /home/dev/Dev/ai-os; …; rm -rf .ai/stale-…` was blocked
+// E-340 (finding 6, 2026-10-23): `cd /home/dev/Dev/rein; …; rm -rf .ai/stale-…` was blocked
 // because hasRootPaths matched the cd's /home path, not an rm operand. The rule now ignores ONE
 // leading `cd <plain absolute dir> ;|&&` when that directory is not one an rm below it could
 // wipe (root, a system tree at any depth, a home tree within two levels of /home): every rm
@@ -559,7 +559,7 @@ export function runAnalysis(original, callerRole, { override = false } = {}) {
 // ── E-294 (D-087, sovereignty-hardening.md Components 8d–8f): the role on the gate path ────
 // The role comes ONLY from the HMAC-verified v2 session token (role-token.mjs), which is bound
 // to its session process and minted from the launch-record walk. No environment input: the
-// AI_OS_CALLER_ROLE fallback is gone (D-087 r3). No verified token → the UNION: every role's
+// REIN_CALLER_ROLE fallback is gone (D-087 r3). No verified token → the UNION: every role's
 // blocks apply (today the Architect rule set — the Engineer has none at the hook), with
 // ROLE_UNVERIFIED_LINE naming the fix.
 //
@@ -582,11 +582,11 @@ function _gateFlags(fromIdx) {
  *   → { blocked: false } | { blocked: true, id: "GATE_SELF_DISABLE" | "ARCH_WRITE_OUTSIDE_SCOPE", reason }
  */
 export function pathAnalysis(target, role, { projectRoot = findProjectRootFrom(process.cwd()), home } = {}) {
-  // E-291 (D-083 r6): ~/.ai-os/** (hooks, gate, secrets, the override file) is protected
+  // E-291 (D-083 r6): ~/.rein/** (hooks, gate, secrets, the override file) is protected
   // for EVERY role — the Write/Edit tools are the other way an agent could disable the gate.
-  let underAiOs = false;
-  try { underAiOs = isUnderAiOs(target, home); } catch { underAiOs = true; }   // fail closed
-  if (underAiOs) return { blocked: true, id: "GATE_SELF_DISABLE", reason: "inside ~/.ai-os/" };
+  let underRein = false;
+  try { underRein = isUnderRein(target, home); } catch { underRein = true; }   // fail closed
+  if (underRein) return { blocked: true, id: "GATE_SELF_DISABLE", reason: "inside ~/.rein/" };
   if (role !== ARCHITECT) return { blocked: false };
   const v = architectPathVerdict(target, projectRoot);
   return v.blocked ? { blocked: true, id: "ARCH_WRITE_OUTSIDE_SCOPE", reason: v.reason } : { blocked: false };
@@ -662,7 +662,7 @@ if (_checkPathIdx !== -1) {
   const { role: pathRole, verified } = gateRole(_checkPathIdx + 2);
   let verdict;
   try {
-    if (pathRole === ARCHITECT && process.env.AI_OS_SAFE_EXEC_SELFTEST_THROW === "1") throw new Error("self-test fault injection");
+    if (pathRole === ARCHITECT && process.env.REIN_SAFE_EXEC_SELFTEST_THROW === "1") throw new Error("self-test fault injection");
     verdict = pathAnalysis(target, pathRole);
   } catch (e) {
     // FAIL-CLOSED, same rule as --check (T-HITL-004): a crash must block, never allow.
@@ -677,8 +677,8 @@ if (_checkPathIdx !== -1) {
     process.stdout.write(
       "## safe-exec-mcp Path Analysis\nVerdict: ✗ BLOCK\n\n" +
       "### BLOCKED — GATE_SELF_DISABLE\n" +
-      `Path: ${target}\nReason: inside ~/.ai-os/ (the AI-OS install: hooks, gate, secrets) — no role writes there; ` +
-      "only `bash install-ai-os.sh`, `ai install`, `ai sync` and `ai doctor` do.\n"
+      `Path: ${target}\nReason: inside ~/.rein/ (the Rein install: hooks, gate, secrets) — no role writes there; ` +
+      "only `bash install-rein.sh`, `rein install`, `rein sync` and `rein doctor` do.\n"
     );
     process.exit(2);
   }
@@ -703,7 +703,7 @@ if (_checkPathIdx !== -1) {
       `Path: ${target}\n` +
       `Reason: ${verdict.reason}.\n\n` +
       "The Architect designs; the Engineer implements (§35 ANTI-DRIFT, D-054).\n" +
-      "Write the blueprint under .ai/ and hand the change-list to the Engineer via `skill: ai-handoff` (SendMessage).\n"
+      "Write the blueprint under .ai/ and hand the change-list to the Engineer via `skill: rein-handoff` (SendMessage).\n"
     );
     process.exit(2);
   }
@@ -729,7 +729,7 @@ if (_checkIdx !== -1) {
     // E-128: fault-injection self-test hook so the suite can verify the
     // fail-closed guarantee deterministically. SAFE — it can only ADD restriction
     // (force a block), never bypass the gate, so honouring it from env is harmless.
-    if (process.env.AI_OS_SAFE_EXEC_SELFTEST_THROW === "1") throw new Error("self-test fault injection");
+    if (process.env.REIN_SAFE_EXEC_SELFTEST_THROW === "1") throw new Error("self-test fault injection");
     result = runAnalysis(cmd, role, { override: process.argv.includes("--override") });
   } catch (e) {
     // E-128 (sovereignty-hardening.md): the error path is FAIL-CLOSED. An internal
@@ -740,7 +740,7 @@ if (_checkIdx !== -1) {
       "## safe-exec-mcp Analysis\nVerdict: ✗ BLOCK\n\n" +
       "### BLOCKED — analyzer error (fail-closed)\n" +
       "The safe-exec analyzer crashed; the command is blocked rather than allowed " +
-      "(fail-closed, T-HITL-004). Operator escape — in YOUR terminal, not through the agent: ai gate off\n"
+      "(fail-closed, T-HITL-004). Operator escape — in YOUR terminal, not through the agent: rein gate off\n"
     );
     process.exit(2);
   }

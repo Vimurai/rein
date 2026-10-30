@@ -47,7 +47,7 @@ export function runHandover(cwd, args, gateOpts = {}, env = process.env) {
   // Unified transaction: task DONE + implementation delta + meta (P-26)
   const dbPath = resolve(ai, "state.sqlite");
   if (!existsSync(dbPath)) {
-    results.push(`⚠ state.sqlite missing — run: ai init`);
+    results.push(`⚠ state.sqlite missing — run: rein init`);
   } else {
     try {
       const db  = getDbSeeded(ai);
@@ -111,7 +111,7 @@ export function runHandover(cwd, args, gateOpts = {}, env = process.env) {
     `Task ${taskId} is complete. DIGEST.md is now stale.\n\n` +
     "**Action required**: Run the digest_updater agent to refresh DIGEST.md:\n" +
     "  skill: 'digest_updater'\n\n" +
-    "Or use the skill: `skill: \"ai-digest\"`"
+    "Or use the skill: `skill: \"rein-digest\"`"
   );
 
   return { content: [{ type: "text", text: results.join("\n") }] };

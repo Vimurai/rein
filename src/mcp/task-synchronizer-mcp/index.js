@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * task-synchronizer-mcp — AI-OS Exclusive State Mutator (E-156: SQLite migration)
+ * task-synchronizer-mcp — Rein Exclusive State Mutator (E-156: SQLite migration)
  * Uses .ai/state.sqlite as the ACID-safe primary store.
  * Automatically migrates existing .ai/state.json on first use.
  * Regenerates state.json (backwards-compat view), TASKS.md, and REVIEWS.md
@@ -61,7 +61,7 @@ const logger = createLogger("task-synchronizer-mcp");
 // ── SQLite Setup (delegated to state-db.js, P-15) ────────────────────────────
 
 // E-270: the first-run state.json → state.sqlite import moved to state-db.js
-// (getDbSeeded) so `ai init`'s version stamp seeds a project exactly as this server does.
+// (getDbSeeded) so `rein init`'s version stamp seeds a project exactly as this server does.
 function _getDb(aiDir) {
   return getDbSeeded(aiDir, {
     warn: (msg, meta) => logger.warn("migrate", msg, meta),
@@ -80,8 +80,8 @@ function _getDb(aiDir) {
 
 // E-107 (token-optimization.md §Components 1 / §Data Model): cap a DONE task's
 // stored summary so state.json stays light. The full narrative lives in LOG.md
-// (Engineer-managed). Rollback: set AI_OS_SUMMARY_CAP=2000.
-const SUMMARY_CAP = Number(process.env.AI_OS_SUMMARY_CAP) || 200;
+// (Engineer-managed). Rollback: set REIN_SUMMARY_CAP=2000.
+const SUMMARY_CAP = Number(process.env.REIN_SUMMARY_CAP) || 200;
 
 // E-342 (D-106 r4): the tools that write the index and then regenerate the views.
 const VIEW_WRITERS = new Set(["add_task", "update_task_status", "add_stamp", "set_project_focus", "archive_done_tasks", "mark_deltas_read"]);
@@ -116,30 +116,30 @@ function _scheduleCloudSync(targetAiDir) {
 
 // ── Error messages ────────────────────────────────────────────────────────────
 
-const STATE_MISSING_ERR = "✗ state.sqlite not found — run: ai init";
+const STATE_MISSING_ERR = "✗ state.sqlite not found — run: rein init";
 const DB_ERR = "✗ state.sqlite could not be opened";
 
 // ── E-63: Framework workspace routing (task-routing.md) ──────────────────────
 // When add_task receives is_framework_task: true, redirect persistence to the
-// canonical AI-OS clone (process.env.AIOS_WORKSPACE) instead of the local
-// project's .ai/. Honours AIOS_WORKSPACE_DISABLE=1 as an emergency override
+// canonical Rein clone (process.env.REIN_WORKSPACE) instead of the local
+// project's .ai/. Honours REIN_WORKSPACE_DISABLE=1 as an emergency override
 // (rollback-plan.md): forces local persistence when cross-workspace writes
 // misbehave. Returns either a string aiDir or an error envelope ready to
 // return from the request handler.
 function _resolveFrameworkAiDir() {
-  if (process.env.AIOS_WORKSPACE_DISABLE === "1") {
+  if (process.env.REIN_WORKSPACE_DISABLE === "1") {
     return {
-      error: "[WORKSPACE_DISABLED] AIOS_WORKSPACE_DISABLE=1 — cross-workspace " +
+      error: "[WORKSPACE_DISABLED] REIN_WORKSPACE_DISABLE=1 — cross-workspace " +
              "writes are temporarily off. Either unset the variable or omit " +
              "is_framework_task and let the task land in the local .ai/.",
     };
   }
-  const ws = (process.env.AIOS_WORKSPACE || "").trim();
+  const ws = (process.env.REIN_WORKSPACE || "").trim();
   if (!ws) {
     return {
-      error: "[WORKSPACE_NOT_FOUND] is_framework_task=true but AIOS_WORKSPACE " +
-             "is unset. Re-run install-ai-os.sh from your AI-OS clone or " +
-             "export AIOS_WORKSPACE=/path/to/ai-os-v2 manually.",
+      error: "[WORKSPACE_NOT_FOUND] is_framework_task=true but REIN_WORKSPACE " +
+             "is unset. Re-run install-rein.sh from your Rein clone or " +
+             "export REIN_WORKSPACE=/path/to/@vimurai/rein manually.",
     };
   }
   // Defence-in-depth path validation (task-routing.md §Security):
@@ -147,15 +147,15 @@ function _resolveFrameworkAiDir() {
   // - must contain a real .ai/ directory (the only thing we'll write to)
   if (!ws.startsWith("/")) {
     return {
-      error: `[WORKSPACE_NOT_FOUND] AIOS_WORKSPACE='${ws}' is not absolute. ` +
+      error: `[WORKSPACE_NOT_FOUND] REIN_WORKSPACE='${ws}' is not absolute. ` +
              `Cross-workspace writes require an absolute path.`,
     };
   }
   const candidate = resolve(ws, ".ai");
   if (!existsSync(candidate)) {
     return {
-      error: `[WORKSPACE_NOT_FOUND] AIOS_WORKSPACE='${ws}' has no .ai/ directory. ` +
-             `Run 'ai init' inside the framework clone before routing framework tasks.`,
+      error: `[WORKSPACE_NOT_FOUND] REIN_WORKSPACE='${ws}' has no .ai/ directory. ` +
+             `Run 'rein init' inside the framework clone before routing framework tasks.`,
     };
   }
   return { aiDir: candidate };
@@ -178,7 +178,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const aiDir = resolve(process.cwd(), ".ai");
 
   if (!existsSync(aiDir)) {
-    return { content: [{ type: "text", text: "✗ No .ai/ directory found. Run: ai init" }], isError: true };
+    return { content: [{ type: "text", text: "✗ No .ai/ directory found. Run: rein init" }], isError: true };
   }
 
   let db;
@@ -314,7 +314,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // E-198: the create sequence (nextId → DAG validate → OPEN/BLOCKED →
       // INSERT → id high-water → regenerate views) now lives in the shared
-      // state-db::addTask so the shell-native `ai add-task` CLI writes through
+      // state-db::addTask so the shell-native `rein add-task` CLI writes through
       // the EXACT same path. Framework-workspace routing is resolved above; we
       // pass the resolved {targetAiDir, targetDb} in.
       const _res = _addTask(targetAiDir, targetDb, {
@@ -364,7 +364,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // the edit lands, it is finished when the mirror carries it and the servers have
       // been restarted. The gate refuses DONE until both are true, and reports which of
       // the two is missing. It runs BEFORE the dependency-revision write so a refusal
-      // leaves no partial mutation behind. Rollback: AI_OS_BUILD_STAMP=0.
+      // leaves no partial mutation behind. Rollback: REIN_BUILD_STAMP=0.
       // E-320 (D-098 r2): the gate list lives in src/shared/completion-gates.mjs, shared with
       // orchestrator-mcp's run_handover — E-267's CI gate runs there after the build gate.
       if (args.status === "DONE") {
@@ -373,7 +373,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       // E-331 (D-102 §4): in a team project IN_PROGRESS means "claimed on origin/<trunk>" (E-341).
       if (args.status === "IN_PROGRESS" && existsSync(resolve(aiDir, "team.json"))) {
-        return rejection(`✗ [CLAIM_VIA_TOOL] ${args.id}: in a team project IN_PROGRESS is set by claim_task, which publishes the claim on the trunk (origin/<trunk> — see: ai trunk).`);
+        return rejection(`✗ [CLAIM_VIA_TOOL] ${args.id}: in a team project IN_PROGRESS is set by claim_task, which publishes the claim on the trunk (origin/<trunk> — see: rein trunk).`);
       }
 
       // E-91: optional dependency revision — validate the new edge set
@@ -398,7 +398,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
 
       // E-91: a DONE transition runs the DAG unblock cascade (BLOCKED tasks whose whole
-      // depends_on set is now DONE become OPEN). E-325: shared with `ai task done` in
+      // depends_on set is now DONE become OPEN). E-325: shared with `rein task done` in
       // state-db::completeTask. E-259 (D-077): task_velocity is not written here; it comes
       // from the transcript, via hooks/post-tool-use.sh → src/shared/task-usage.mjs.
       let unblocked = [];
@@ -559,7 +559,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       let refuse = _checkBehindHead(aiDir, db);
       if (!refuse && db.prepare("SELECT COUNT(*) AS n FROM tasks").get().n === 0 && existsSync(resolve(aiDir, "TASKS.md"))) {
         const listed = (readFileSync(resolve(aiDir, "TASKS.md"), "utf8").match(/^- \[[ xX]\] [A-Z]+-\d+:/gm) || []).length;
-        if (listed > 0) refuse = `[EMPTY_STATE_DB] index has 0 tasks, TASKS.md lists ${listed} — run: ai state import`;
+        if (listed > 0) refuse = `[EMPTY_STATE_DB] index has 0 tasks, TASKS.md lists ${listed} — run: rein state import`;
       }
       if (refuse) {
         return { content: [{ type: "text", text: [

@@ -58,7 +58,7 @@ export function resolveTrunk(root, { team } = {}) {
 }
 
 /**
- * The trunk `ai state migrate --team` records in a NEW team.json (D-105 r1). An operator
+ * The trunk `rein state migrate --team` records in a NEW team.json (D-105 r1). An operator
  * command, so unlike resolveTrunk it may ask origin — once, bounded to 10 s — but it still
  * never runs set-head (r3): --trunk <name>, else origin/HEAD, else `git ls-remote --symref
  * origin HEAD`, else a refusal naming the flag.
@@ -84,7 +84,7 @@ export function discoverTrunk(root, flag = null) {
 }
 
 /**
- * `ai doctor` lines for a team project (D-105 r1, r4): [TRUNK_UNSET] when team.json has no
+ * `rein doctor` lines for a team project (D-105 r1, r4): [TRUNK_UNSET] when team.json has no
  * trunk, [TRUNK_MISMATCH] when it disagrees with origin/HEAD, the resolver's refusal when
  * nothing resolves. [] when all agree. Never edits team.json (a tracked team-wide file).
  */

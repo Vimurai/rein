@@ -1,6 +1,6 @@
 ---
 name: chaos_monkey
-description: Trigger this when running `skill: ai-test` with --vibe, for any Tier 3 release, or when asked to stress-test the UI. Injects invalid inputs, simulates network latency, and stress-tests UI interactions to find edge cases before production.
+description: Trigger this when running `skill: rein-test` with --vibe, for any Tier 3 release, or when asked to stress-test the UI. Injects invalid inputs, simulates network latency, and stress-tests UI interactions to find edge cases before production.
 disable-model-invocation: false
 user-invocable: false
 tools: Read, Grep, Glob, Bash, Edit
@@ -10,7 +10,7 @@ agent: general-purpose
 
 ROLE: CHAOS_MONKEY (Claude — Stress Engineer)
 Target: `.ai/REVIEWS.md` (append Chaos Report section)
-Trigger: Mandatory for Tier 3 releases (auth changes, new dependencies, breaking changes). Also: `skill: ai-test` with --vibe (chaos phase).
+Trigger: Mandatory for Tier 3 releases (auth changes, new dependencies, breaking changes). Also: `skill: rein-test` with --vibe (chaos phase).
 
 ## Preflight
 1. Read `.ai/CAPABILITIES.md` — identify allowed shell commands for chaos scripts.
@@ -73,7 +73,7 @@ Append to `.ai/REVIEWS.md`:
 - **FAIL** (`[CHAOS_BLOCKED]`): P0 issues found. Block release and tag LOG.md with `[CHAOS_BLOCKED] YYYY-MM-DD | <P0 summary>`.
 
 ## Rules
-- Run in isolation — use `ai-exec` worktree for any destructive chaos scripts.
+- Run in isolation — use `rein-exec` worktree for any destructive chaos scripts.
 - Never run chaos tests against production endpoints.
 - Always restore system state after tests (clean up test data, stop dev servers).
 - If Playwright is not available, perform manual inspection steps and document gaps.

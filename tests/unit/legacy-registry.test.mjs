@@ -3,12 +3,12 @@
 //
 // The registry is DATA, so the things that can go wrong with it are data faults: a `safe`
 // entry with no evidence behind it, a rule name nothing implements, a glob in a mid-path
-// segment that matches nothing forever. Each of those would make `ai clean` either
+// segment that matches nothing forever. Each of those would make `rein clean` either
 // dangerous or a permanent silent no-op, and neither shows up in an end-to-end run — the
 // command would simply report less than the operator believes. They are pinned here.
 //
 // The end-to-end layer (fixture HOME + project, apply, restore, exit codes) is
-// tests/suites/ai_clean_test.sh.
+// tests/suites/rein_clean_test.sh.
 //
 //   node --test tests/unit/legacy-registry.test.mjs
 
@@ -32,7 +32,7 @@ import {
 const SHIPPED = join(process.cwd(), "src", "config", "legacy-artefacts.json");
 
 function tmp(tag = "reg") {
-  const d = mkdtempSync(join(tmpdir(), `aios-t-${tag}-`));
+  const d = mkdtempSync(join(tmpdir(), `rein-t-${tag}-`));
   return { d, done: () => rmSync(d, { recursive: true, force: true }) };
 }
 
@@ -131,9 +131,9 @@ test("duplicate ids and a wrong version are refused", () => {
 
 test("registryPath prefers the install mirror over the clone", () => {
   const t = tmp("regpath");
-  mkdirSync(join(t.d, ".ai-os", "config"), { recursive: true });
-  writeFileSync(join(t.d, ".ai-os", "config", "legacy-artefacts.json"), "{}");
-  assert.equal(registryPath({ home: t.d }), join(t.d, ".ai-os", "config", "legacy-artefacts.json"));
+  mkdirSync(join(t.d, ".rein", "config"), { recursive: true });
+  writeFileSync(join(t.d, ".rein", "config", "legacy-artefacts.json"), "{}");
+  assert.equal(registryPath({ home: t.d }), join(t.d, ".rein", "config", "legacy-artefacts.json"));
   t.done();
 });
 
@@ -146,16 +146,16 @@ test("paths expand against the project, HOME or the temp root and must exist", (
   mkdirSync(ctx.home, { recursive: true });
   mkdirSync(ctx.tmp, { recursive: true });
   writeFileSync(join(ctx.project, "GEMINI.md"), "x");
-  writeFileSync(join(ctx.home, "install-ai-os.sh"), "x");
-  mkdirSync(join(ctx.tmp, "ai-os-ci.abc"));
+  writeFileSync(join(ctx.home, "install-rein.sh"), "x");
+  mkdirSync(join(ctx.tmp, "rein-ci.abc"));
 
   assert.deepEqual(expandEntryPaths({ path: "GEMINI.md", kind: "file" }, ctx), [join(ctx.project, "GEMINI.md")]);
-  assert.deepEqual(expandEntryPaths({ path: "~/install-ai-os.sh", kind: "file" }, ctx), [join(ctx.home, "install-ai-os.sh")]);
-  assert.deepEqual(expandEntryPaths({ path: "$TMPDIR/ai-os-ci.*", kind: "dir" }, ctx), [join(ctx.tmp, "ai-os-ci.abc")]);
+  assert.deepEqual(expandEntryPaths({ path: "~/install-rein.sh", kind: "file" }, ctx), [join(ctx.home, "install-rein.sh")]);
+  assert.deepEqual(expandEntryPaths({ path: "$TMPDIR/rein-ci.*", kind: "dir" }, ctx), [join(ctx.tmp, "rein-ci.abc")]);
   // Absent is not a finding, and a glob that matches nothing returns nothing rather than
   // the unexpanded pattern.
   assert.deepEqual(expandEntryPaths({ path: "AGENTS.md", kind: "file" }, ctx), []);
-  assert.deepEqual(expandEntryPaths({ path: "~/.ai-os/run/role-*.lock", kind: "file" }, ctx), []);
+  assert.deepEqual(expandEntryPaths({ path: "~/.rein/run/role-*.lock", kind: "file" }, ctx), []);
   t.done();
 });
 
@@ -168,7 +168,7 @@ function fixture(tag = "regscan") {
   const tmpRoot = join(t.d, "tmp");
   const clone = join(t.d, "clone");
   for (const d of [
-    join(home, ".ai-os", "mcp"), join(home, ".ai-os", "run"), join(home, ".ai-os", "ci"),
+    join(home, ".rein", "mcp"), join(home, ".rein", "run"), join(home, ".rein", "ci"),
     join(project, ".claude", "agents"), tmpRoot,
     join(clone, "src", "mcp", "kept-mcp"), join(clone, "src", "config"), join(clone, "hooks"),
   ]) mkdirSync(d, { recursive: true });
@@ -185,13 +185,13 @@ const reg1 = (entry) => ({ version: 1, registry_history: ["retired-mcp"], entrie
 
 test("not-in-src keeps a mirror dir the source ships and flags one it does not", () => {
   const f = fixture();
-  mkdirSync(join(f.home, ".ai-os", "mcp", "kept-mcp"));
-  mkdirSync(join(f.home, ".ai-os", "mcp", "retired-mcp"));
+  mkdirSync(join(f.home, ".rein", "mcp", "kept-mcp"));
+  mkdirSync(join(f.home, ".rein", "mcp", "retired-mcp"));
   const { findings } = scanFixture(f, reg1({
-    id: "mirror-orphan-mcp", path: "~/.ai-os/mcp/*", kind: "dir", class: "safe",
+    id: "mirror-orphan-mcp", path: "~/.rein/mcp/*", kind: "dir", class: "safe",
     since: "*", rule: "not-in-src", src_root: "src/mcp",
   }));
-  assert.deepEqual(findings.map((x) => x.path), [join(f.home, ".ai-os", "mcp", "retired-mcp")]);
+  assert.deepEqual(findings.map((x) => x.path), [join(f.home, ".rein", "mcp", "retired-mcp")]);
   assert.equal(findings[0].class, "safe");
   f.done();
 });
@@ -201,9 +201,9 @@ test("not-in-src keeps a mirror dir the source ships and flags one it does not",
 // whole mirror on a machine whose clone has moved.
 test("not-in-src reports nothing when no source tree is available", () => {
   const f = fixture();
-  mkdirSync(join(f.home, ".ai-os", "mcp", "retired-mcp"));
+  mkdirSync(join(f.home, ".rein", "mcp", "retired-mcp"));
   const { findings } = scanFixture(f, reg1({
-    id: "m", path: "~/.ai-os/mcp/*", kind: "dir", class: "safe", since: "*",
+    id: "m", path: "~/.rein/mcp/*", kind: "dir", class: "safe", since: "*",
     rule: "not-in-src", src_root: "src/mcp",
   }), { srcRoots: [] });
   assert.deepEqual(findings, []);
@@ -212,11 +212,11 @@ test("not-in-src reports nothing when no source tree is available", () => {
 
 test("dead-pid reads the pid from the record and spares a live one", () => {
   const f = fixture();
-  const run = join(f.home, ".ai-os", "run");
+  const run = join(f.home, ".rein", "run");
   writeFileSync(join(run, "build-dead.json"), JSON.stringify({ server: "d", pid: 2147480000 }));
   writeFileSync(join(run, "build-live.json"), JSON.stringify({ server: "l", pid: process.pid }));
   const { findings } = scanFixture(f, reg1({
-    id: "dead-build-record", path: "~/.ai-os/run/build-*.json", kind: "file", class: "safe",
+    id: "dead-build-record", path: "~/.rein/run/build-*.json", kind: "file", class: "safe",
     since: "*", rule: "dead-pid", pid_source: "json:pid",
   }));
   assert.deepEqual(findings.map((x) => x.path), [join(run, "build-dead.json")]);
@@ -226,12 +226,12 @@ test("dead-pid reads the pid from the record and spares a live one", () => {
 
 test("a guard pid that is alive suppresses the whole entry", () => {
   const f = fixture();
-  mkdirSync(join(f.tmp, "ai-os-ci.abandoned"));
+  mkdirSync(join(f.tmp, "rein-ci.abandoned"));
   const entry = {
-    id: "abandoned-ci-workdir", path: "$TMPDIR/ai-os-ci.*", kind: "dir", class: "safe",
-    since: "*", rule: "dead-pid", guard_pids: "~/.ai-os/ci/run-*.lock", guard_pid_source: "file:pid",
+    id: "abandoned-ci-workdir", path: "$TMPDIR/rein-ci.*", kind: "dir", class: "safe",
+    since: "*", rule: "dead-pid", guard_pids: "~/.rein/ci/run-*.lock", guard_pid_source: "file:pid",
   };
-  const lock = join(f.home, ".ai-os", "ci", "run-1.lock");
+  const lock = join(f.home, ".rein", "ci", "run-1.lock");
 
   mkdirSync(lock); writeFileSync(join(lock, "pid"), String(process.pid));
   assert.deepEqual(scanFixture(f, reg1(entry)).findings, [], "a live run may still own the dir");
@@ -240,19 +240,19 @@ test("a guard pid that is alive suppresses the whole entry", () => {
   const { findings } = scanFixture(f, reg1(entry));
   // The scan resolves the temp root (macOS /var → /private/var): comparing the raw
   // spelling is the E-265 symlink trap, and it is the scan that is right here.
-  assert.deepEqual(findings.map((x) => x.path), [join(realpathSync(f.tmp), "ai-os-ci.abandoned")]);
+  assert.deepEqual(findings.map((x) => x.path), [join(realpathSync(f.tmp), "rein-ci.abandoned")]);
   f.done();
 });
 
 test("stale-mtime flags only what is older than max_age_days", () => {
   const f = fixture();
-  const run = join(f.home, ".ai-os", "run");
+  const run = join(f.home, ".rein", "run");
   writeFileSync(join(run, "role-old.lock"), "{}");
   writeFileSync(join(run, "role-new.lock"), "{}");
   const old = (Date.now() - 9 * 86400000) / 1000;
   utimesSync(join(run, "role-old.lock"), old, old);
   const { findings } = scanFixture(f, reg1({
-    id: "dead-role-lock", path: "~/.ai-os/run/role-*.lock", kind: "file", class: "safe",
+    id: "dead-role-lock", path: "~/.rein/run/role-*.lock", kind: "file", class: "safe",
     since: "*", rule: "stale-mtime", max_age_days: 7,
   }));
   assert.deepEqual(findings.map((x) => x.path), [join(run, "role-old.lock")]);
@@ -325,7 +325,7 @@ test("a symlink is reported as not-ours and never followed", () => {
 
 // Extends the case above to a symlinked PARENT: lstat sees only the last segment, so a
 // project whose `.ai/` links elsewhere looked like an ordinary file under the project and
-// `ai sync`'s watcher reap (D-099, E-322) would have moved it out of the link's target.
+// `rein sync`'s watcher reap (D-099, E-322) would have moved it out of the link's target.
 test("a file under a symlinked parent directory is reported, never moved", () => {
   const f = fixture();
   const outside = join(f.d, "outside-ai");
@@ -345,13 +345,13 @@ test("a file under a symlinked parent directory is reported, never moved", () =>
 test("scope limits the scan to the project or to HOME", () => {
   const f = fixture();
   writeFileSync(join(f.project, "GEMINI.md"), "x");
-  writeFileSync(join(f.home, "install-ai-os.sh"), "x");
+  writeFileSync(join(f.home, "install-rein.sh"), "x");
   const reg = {
     version: 1,
     registry_history: [],
     entries: [
       { id: "p", path: "GEMINI.md", kind: "file", class: "prompt", since: "*" },
-      { id: "h", path: "~/install-ai-os.sh", kind: "file", class: "prompt", since: "*" },
+      { id: "h", path: "~/install-rein.sh", kind: "file", class: "prompt", since: "*" },
     ],
   };
   assert.deepEqual(scanFixture(f, reg, { scope: "project" }).findings.map((x) => x.entry_id), ["p"]);
@@ -370,7 +370,7 @@ test("a retired server's allow is flagged; a user-added server's is kept", () =>
       allow: [
         "mcp__kept-mcp__*",        // current
         "mcp__retired-mcp__*",     // in registry_history, gone from registry.json
-        "mcp__semrush__*",         // never shipped by AI-OS — the operator's own
+        "mcp__semrush__*",         // never shipped by Rein — the operator's own
         "Bash(ls:*)",
       ],
     },
@@ -386,13 +386,13 @@ test("a retired server's allow is flagged; a user-added server's is kept", () =>
     class: "prompt", since: "*", rule: "not-in-registry",
   }));
   assert.equal(findings.length, 1);
-  // Report only: `ai clean` moves paths, and a JSON key is not a path.
+  // Report only: `rein clean` moves paths, and a JSON key is not a path.
   assert.equal(findings[0].action, "report");
   assert.equal(summarize(findings).actionable, 0);
   f.done();
 });
 
-test("summarize separates what ai clean could act on from what it only reports", () => {
+test("summarize separates what rein clean could act on from what it only reports", () => {
   const c = summarize([
     { class: "safe", action: "trash" },
     { class: "prompt", action: "trash" },

@@ -1,19 +1,19 @@
 # Automated Incident Response (SRE) Architecture
 
 ## Core Concept
-To close the loop on unpredictable system events logged to `incidents.ndjson`, the `sre_responder` agent and `ai-triage` skill act as an automated on-call responder.
+To close the loop on unpredictable system events logged to `incidents.ndjson`, the `sre_responder` agent and `rein-triage` skill act as an automated on-call responder.
 
 ## Components
 1. **`sre_responder` (Agent)**: Analyzes logs, groups recurring crashes, drafts post-mortems, and proposes remediation tasks.
-2. **`ai-triage` (Skill)**: Runs daily or when `incidents.ndjson` crosses a size threshold.
+2. **`rein-triage` (Skill)**: Runs daily or when `incidents.ndjson` crosses a size threshold.
 3. **`incident-aggregator` (Job)**: Parses `incidents.ndjson` to extract stack traces and frequency counts.
 
 ## Data Model
-- **Source**: `~/.ai-os/incidents.ndjson`
+- **Source**: `~/.rein/incidents.ndjson`
 - **Output**: `POSTMORTEM.md` reports and new `E-##` tasks appended to `.ai/TASKS.md`.
 
 ## API Contracts
-- `activate_skill({ skill_name: "ai-triage" })`
+- `activate_skill({ skill_name: "rein-triage" })`
 - `sre_responder` utilizes `task-synchronizer-mcp::add_task` to queue fixes directly into the Engineer's workflow.
 
 ## Security

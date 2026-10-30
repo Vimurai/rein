@@ -4,10 +4,10 @@
  *
  * WHY THIS EXISTS. An MCP server is spawned once and lives for the whole session, and ESM
  * caches a module by URL forever. So a policy edited on disk — or, more often, a mirror
- * refreshed by `ai sync` — never reaches the running server. Throughout the 2026-09-09
+ * refreshed by `rein sync` — never reaches the running server. Throughout the 2026-09-09
  * sprint `run_review` reported a P0 PATH_TRAVERSAL on
  * `source "${SCRIPT_DIR}/../lib/assert.sh"` while the on-disk `traversal-policy.mjs`,
- * byte-identical in `src` and the `~/.ai-os` mirror, graded that exact line P1 with
+ * byte-identical in `src` and the `~/.rein` mirror, graded that exact line P1 with
  * anchor=self_dir. Every review had to be adjudicated by hand against the real module.
  *
  * A gate that cries wolf is worse than one that is merely wrong: people learn to wave it
@@ -19,9 +19,9 @@
  *
  * `mtimeMs` is sub-millisecond, deliberately. E-229 shipped a whole-second stamp that made
  * a self re-exec inert for a rewrite landing in the same second the process started —
- * which is precisely the `ai sync` case. Do not coarsen this.
+ * which is precisely the `rein sync` case. Do not coarsen this.
  *
- * Rollback: AI_OS_POLICY_HOT_RELOAD=0 pins the first load for the process lifetime, which
+ * Rollback: REIN_POLICY_HOT_RELOAD=0 pins the first load for the process lifetime, which
  * is exactly the pre-E-237 behaviour.
  */
 import { statSync } from "node:fs";
@@ -63,7 +63,7 @@ export async function loadPolicy(name) {
   const path = POLICY_PATHS[name];
   if (!path) throw new Error(`loadPolicy: unknown policy '${name}'`);
 
-  const hot = process.env.AI_OS_POLICY_HOT_RELOAD !== "0";
+  const hot = process.env.REIN_POLICY_HOT_RELOAD !== "0";
   const hit = cache.get(name);
 
   if (!hot) {
@@ -94,7 +94,7 @@ export function policyLoadCounts() {
 }
 
 /**
- * What this process currently has loaded, versus what is on disk. `ai sync` uses it to
+ * What this process currently has loaded, versus what is on disk. `rein sync` uses it to
  * tell the operator that a running server is serving an older policy than the mirror it
  * just refreshed — the situation that produced a session of phantom P0s.
  */

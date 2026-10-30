@@ -34,7 +34,7 @@
 //   - caps: 256 MB file, 8 MB line (longer lines are skipped whole), lines that mention
 //     neither "usage" nor update_task_status are never parsed, 10 s wall clock in the CLI.
 //
-// Rollback: AI_OS_TASK_USAGE=0 (checked by the hook and here); AI_TELEMETRY_DISABLE=1.
+// Rollback: REIN_TASK_USAGE=0 (checked by the hook and here); AI_TELEMETRY_DISABLE=1.
 
 import { openSync, fstatSync, closeSync, createReadStream, realpathSync, statSync, constants as C } from "node:fs";
 import { userInfo } from "node:os";
@@ -137,7 +137,7 @@ function _isDoneSuccess(content, isError) {
  */
 export async function measureTaskWindow(transcriptPath, taskId, opts = {}) {
   try {
-    if (process.env.AI_OS_TASK_USAGE === "0") return null;
+    if (process.env.REIN_TASK_USAGE === "0") return null;
     if (typeof taskId !== "string" || !TASK_ID_RE.test(taskId)) return null;
     const path = confineTranscriptPath(transcriptPath, opts);
     if (!path) return null;
@@ -230,7 +230,7 @@ async function _readStdin(limit = 1 << 20) {
 
 async function _runCli() {
   if (!process.argv.includes("--record")) return;
-  if (process.env.AI_OS_TASK_USAGE === "0" || process.env.AI_TELEMETRY_DISABLE === "1") return;
+  if (process.env.REIN_TASK_USAGE === "0" || process.env.AI_TELEMETRY_DISABLE === "1") return;
   const timer = setTimeout(() => process.exit(0), 15_000); timer.unref();
   const p = await _readStdin();
   if (!p || typeof p !== "object") return;

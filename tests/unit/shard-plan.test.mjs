@@ -64,7 +64,7 @@ test("parseShard accepts 1 ≤ i ≤ N and nothing else; a duplicate suite is re
   assert.throws(() => shardPlan({ suites: [{ name: "a", cls: "shared" }, { name: "a", cls: "shared" }], n: 2 }), /listed twice/);
 });
 
-// E-389 (D-135 addendum 2 r4): extends the E-386 partition tests above — `ai ci run` runs the
+// E-389 (D-135 addendum 2 r4): extends the E-386 partition tests above — `rein ci run` runs the
 // unit layer again on shard 1 (its coverage step), so bin 1 starts that much heavier.
 test("a seeded bin 1 still holds every suite exactly once, and takes about the seed fewer suite seconds", () => {
   const suites = Array.from({ length: 24 }, (_, k) => ({ name: `t${String(k).padStart(2, "0")}_test.sh`, cls: "shared" }));

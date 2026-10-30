@@ -435,3 +435,238 @@
 ### Next action needed (Engineer)
 - Continue E-383. E-390 opens when E-385 closes. In E-390, run every command block of docs/install.md on this machine and say so in the handoff.
 ---
+
+---
+## Engineer WIP note — 2026-10-29 (E-383 paused: session role unverified after the install)
+**From**: Engineer → next Engineer session (and the Architect, for information)
+**State**
+- E-384 DONE (PR #6 887b366; handover run). E-389 is PR #9 (branch e-389-seed-shard-1, local PASS 77eced2), checks were running — merge it when green.
+- E-383 in progress on branch `rename/rein` (from dff9265), UNCOMMITTED in the working tree: the mechanical pass is applied (374 files, 4694 replacements, script map in order: ai-os-v2→@vimurai/rein, install-ai-os.sh→install-rein.sh, .ai-os→.rein, AI_OS_→REIN_, AIOS→REIN, aios→rein, AI-OS→Rein, ai-os→rein); `git mv` of install-ai-os.sh → install-rein.sh and plans/native-vs-aios-audit.md → native-vs-rein-audit.md; tests/fixtures/rename-exclusions.json written (history + records: DECISIONS, COMM, LOG, TASKS, state.json, REVIEWS, DIGEST, DEVOPS, REPO_MAP, rein-rename.md, archive/, CHANGELOG predecessor section, README "Where this comes from").
+- Paused because `bash install-ai-os.sh` (for E-384's BUILD_STALE gate) left this session with an old role token: every role's blocks apply, so source edits are refused. Relaunch with `ai pane engineer`.
+**Still to do in E-383 (each legacy line marked `rename:legacy-fallback`)**
+1. Fix prose articles: "a Rein" → "a Rein" outside the exclusions.
+2. Stub marker: detect the old "# AI-OS Execution Stub (E-41)" beside "# Rein Execution Stub (E-41)".
+3. Merge driver: sync replaces `merge.aios-record.*` and `.gitattributes` `merge=aios-record` lines (record-migrate WRITTEN_ATTRIBUTES).
+4. State key: read `aios_version` when `rein_version` is absent (state-db, record-store, project-upgrade, hosted-ci pinnedVersion).
+5. team.json: read `ci.aios_source` as a fallback for `ci.rein_source` (team.mjs validation too).
+6. Settings: recognise `~/.ai-os/hooks/…` entries as ours so sync replaces, not duplicates.
+7. Installer: move a real `~/.ai-os` to `~/.rein` once, leave a symlink, doctor `[LEGACY_HOME_LINK]`.
+8. Env: `src/shared/env.mjs` + a locate.sh function mapping AI_OS_X → REIN_X when unset, never for *_TC_*, *_LOCATE_*, CALLER_ROLE/PANE_ROLE; hooks scrub both prefixes; doctor `[LEGACY_ENV]`.
+9. `install-ai-os.sh` one-line forwarder to install-rein.sh (also lets the installed 0.4.0 runner test the branch).
+10. Gate test tests/unit/rename-gate.test.mjs; install proof with a pre-seeded ~/.ai-os; docs/upgrading.md note (removal in 0.5); re-render ci.yml; full suite; security_engineer + critics (Tier 3); one PR; then tag v0.4.0 via release-manager.
+---
+
+---
+## Handoff — 2026-10-29 21:06 UTC
+**From**: Engineer → Architect
+**Trigger**: operator ruling needed — the command and the skills are renamed too (reverses part of D-132); E-383 paused before the PR
+
+### What was built (branch rename/rein, not pushed)
+- 9bb41c1 mechanical code pass (324 files) · 144b8f7 mechanical .ai/ live docs (48) · da0949a compatibility layer, gate, install proof, doctor tests (60 files; critic_arch ARCH_PASS, critic_security SEC_PASS, critic_tests TESTS_PASS).
+- eacd7af two tests that read history records in a clean checkout (rename-gate: gitignored .ai/LOG.md may be absent; E-235.07b accepts DEVOPS.md's old spelling).
+- 5b7f213 README: Windows supported through WSL2; a Windows (WSL2) CI leg "planned" (operator request).
+- 4d390a0 + 0257ee0 the gap the operator spotted: the gate was case-sensitive, so ~430 lowercase `ai_os_*` shell functions (ai_os_locate, ai_os_helper, ai_os_role, ai_os_tc_*, …) and camelCase isUnderAiOs / isAiOsRepo kept the old name. Renamed to rein_* / isUnderRein / isReinRepo; gate now /ai[-_]os|aios/i.
+- ai ci run: 5b7f213 PASS 7010/0/25. 0257ee0 running.
+
+### Operator decisions (2026-10-29, this session) — need a ruling + blueprint amendment
+1. **The command is renamed `ai` → `rein`** (e.g. `rein ci run`, `rein sync`, `rein pane engineer`). **No `ai` fallback** — removed now, not kept until 0.5 (operator chose this over a one-release forwarder).
+2. **Skills renamed `ai-*` → `rein-*`** ("skills inside everything") — ai-preflight, ai-task, ai-handoff, ai-test, … in .claude/skills, src/shared/skills and every reference in rulefiles, agents, hooks and tests.
+3. **Only the `.ai/` directory keeps the old name.**
+4. **In this PR, before the v0.4.0 tag**, as its own commits.
+5. Windows: officially supported through WSL2 plus a Windows (WSL2) CI leg — the leg needs a ruling and a task (ci_gate); the README says "planned" until it is green.
+Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai` file name, the installer's PATH entry, installed git hook stubs, settings.json hook lines, `ai pane` role binding and the tmux options all change. Without a forwarder, an operator who has not re-run the installer gets "command not found" — doctor/installer wording should say what to run.
+
+### Blueprint divergence
+- critic_arch D1 (P1): src/shared/classifier-backstop.py and tests/suites/classifier_backstop_test.sh are whole-file exclusions keeping D-101's rule text verbatim ("AI-OS Gate Tamper", ~/.ai-os/…, install-ai-os.sh) — needs a Rein-form D-101 text.
+- D2 (P2): rename-exclusions.json excludes more than §Data Model lists (TASKS, state.json, REVIEWS, DIGEST, DEVOPS, REPO_MAP, the fixtures/gate themselves) — amend the list.
+- D3 (P2): install-ai-os.sh forwarder exists but is not in §Component 4.
+- rein-rename.md §Component 2 "Unchanged: `ai` (command, bin, the `ai-*` skill names)" — reversed by the operator decisions above.
+
+### Next action needed (Architect)
+- Rule decisions 1–5 (D-132 addendum), amend rein-rename.md (§Component 2 table, Unchanged line, §Component 4 without an `ai` forwarder, §Data Model exclusions, D1–D3), register the work (extend E-383 or add an E-## before the tag) and the Windows CI leg task. Then wake the Engineer.
+
+### Open risks
+- Installed hooks resolve helpers from this clone: a session whose install predates a rename of helper names fails closed until `bash install-rein.sh` (happened today; the operator reinstalled with --allow-dirty — doctor reports the install dirty until a clean reinstall).
+- PR #9 (E-389) mergeable; its macOS shard-1 red is E-388 (also red on main); Dependency review needs the repo's Dependency graph setting.
+---
+## Handoff — 2026-10-29 21:16 UTC
+**From**: Architect → Engineer
+**Trigger**: D-132 addendum 2 ruled on the 21:06 handoff and the two operator addenda (no `ai` forwarder; hard rename everything, no fallbacks); E-391 and E-392 registered
+
+### What was planned
+- **D-132 addendum 2** (`.ai/DECISIONS.md`, ten rulings): command `ai` → `rein` (bin files, installer, every `ai <sub>`, no forwarder); the 18 `ai-*` skills → `rein-*` with every registry keyed on a skill name in the same commit (`arch-*` and unprefixed skills stay, E-217 holds); `.ai/` is the one survivor; **no compatibility layer** — §Component 4 withdrawn whole (symlink, env fallback, legacy reads, sync rewrites, installer forwarder, `[LEGACY_*]`/`[RENAME_PENDING]`, upgrading section, the gate rows for the old path), zero `rename:legacy-fallback` lines; the operator migrates by hand (list in the blueprint §Component 4, carry it verbatim to the operator — including `rm ~/.ai-os`, a symlink); **classifier rule text v5** verbatim in r6, label `(D-132)` (critic_arch D1); **exclusion list** = the fixture as built minus `install-ai-os.sh` and the two classifier files (D2 ratified, D3 resolved by deletion); the gate grows the command pattern (subcommands read from the dispatch table; `.ai/` can never match) and the 18 skill names; CI job `ai-ci-run` → `rein-ci-run` with the required-checks list on `main` updated by one `gh api` call in the merge step; Windows (WSL2) leg ruled (r10).
+- **`.ai/blueprints/rein-rename.md`** rewritten: §Component 2 rows 13–18, §Component 3 (records + self-references), §Component 4 = hard cut + manual migration, §Component 5 merge step, §Component 6 gates, §Component 7 Windows leg, Data Model, contracts, E-## table.
+- **`.ai/blueprints/public-ci.md`** §Component 4 (rename interplay: required-check names) and new §Component 5 (the Windows leg's steps: setup-wsl SHA-pinned, Ubuntu 24.04, WSL 2 where the hosted image can start it else WSL 1 named as such, copy the checkout to the Linux filesystem first, `rein ci run --shard i/4`).
+- **E-391** (Tier 3, OPEN, same PR as E-383, own commits, before the tag; not DAG-chained): the nine numbered steps; replaces E-383's §Component 4 acceptance — close E-383 on its mechanical passes and fixtures.
+- **E-392** (Tier 2, BLOCKED on E-391, after the tag): the Windows leg, informative until three green runs on `main`, then required; README "planned" wording goes then. `ci_gate` first.
+- Commit a8da17c (DECISIONS, both blueprints, TASKS, state). Focus set to E-391.
+
+### Decisions made
+- D-132 addendum 2 (above). D-132 ruling 2 (history not rewritten) stands; rulings 1 "Unchanged", 3, 4, 5 superseded.
+
+### Blueprint divergence
+- D1–D3 from the 21:06 handoff are each ruled (r6, r7, r4). After E-391 the blueprint and the tree must agree exactly: the fixture equals §Component 3, no exemption lines exist.
+
+### Next action needed (Engineer)
+- Execute E-391 on `rename/rein`. Order that keeps the diff reviewable: (a) drop or revert the compatibility commits; (b) command + bin files + installer; (c) skills + registries in one commit; (d) classifier v5 + pin + test; (e) gate extension + fixture; (f) CI job names + `requiredChecks()`; (g) the mechanical pass over the live blueprints and `architect.md` for the command and skill names, one commit; (h) security_engineer on the gate tables and exempt lists; (i) in the merge step, the `gh api` required-checks update right before the merge, then tag `v0.4.0`. Then `skill: rein-task` (its new name) closes E-383 and E-391 and wakes me; E-385 → E-390 follow under the new names.
+- Tell the operator the manual steps from §Component 4 in your handover to them.
+
+### Open risks
+- Fail-open by token: any gate rule or exempt list keyed on `ai` that the pass misses stops matching `rein`; the gate suites must assert the blocks after the rename, not before (r8, §Component 6).
+- Between the required-checks update and the merge no other PR can go green — do both in one sitting.
+- The Windows leg's WSL version is unknown until the first run; r10 names the fallback and the wording that goes with it.
+---
+## Handoff — 2026-10-29 21:24 UTC
+**From**: Architect → Engineer
+**Trigger**: E-391 ruling on the byte-pinned fixture tables (Engineer's question of 21:2x UTC)
+
+### What was ruled
+- **D-132 addendum 3**: option A. `arch-write-cases.json` takes the two-line `rein add-task` change and re-pins (D-056 now pins the Rein form). The `gate-self-disable-cases.json` and `role-verdict-cases.json` re-pins are ratified on two conditions: the PR description lists each table's old and new sha with equal row counts, and each table's diff shows only renamed tokens and paths — any verdict or label change beyond the token is reverted. The gate-guard token fix is accepted and must be named in the PR and the handover as a finding with the row that caught it. `rename-map.json` gains a `kind: "pin"` row per re-pinned table so the gate verifies every `*-cases.json` either has no old token or is listed with its re-pin.
+
+### Blueprint divergence
+- NONE beyond the pin rows added to the rename map (Data Model `kind` list gains `pin`).
+
+### Next action needed (Engineer)
+- Continue E-391 with the three tables renamed and re-pinned; include the pin rows; proceed to the merge step as planned.
+
+### Open risks
+- Condition 2b is the only check that a substitution did not also flip a verdict — do the per-table diff read before requesting review.
+---
+## Handoff — 2026-10-29 22:15 UTC
+**From**: Architect → Engineer
+**Trigger**: E-391 SEC FAIL — rulings on F1 (P1), F2–F6, and the pre-existing CLI_GATE class
+
+### What was ruled (D-132 addendum 4)
+- **F1 in scope of E-391, two parts.** (a) The migration order was mine and wrong: §Component 4 reordered — install → `rein sync` in every project → `rein doctor` clean → only then `rm ~/.ai-os` → shell rc; carry the corrected list to the operator. (b) Build the check: doctor and `rein sync` recognise a Rein hook entry by its file name whatever directory it names; doctor `✗ [HOOK_PATH_MISSING] <path>` (non-zero), `✗ [GATE_UNREGISTERED]` when no PreToolUse entry resolves to the install's pre-tool-use.sh, `[HOOK_PATH_FOREIGN]` for a Rein-named hook outside the install dir; sync rewrites a missing-path entry to the install path; the installer ends by listing each registered project with a missing Rein hook path and `run: rein sync`. Extend the doctor and sync suites (named).
+- **F2** fix ratified (OURS = the D-086 label shape; the pinned RULE untouched). **F3** ratified; the gate gains `ai` as the last word of a `type` / `which` / `command -v` / `hash` call. **F4, F6** ratified as proposed. **F5** accepted as is.
+- **CLI_GATE 15 forms → E-393** (Tier 3, BLOCKED on E-391, right after the tag and before E-385 — security outranks the mark; the operator may reorder): normaliser as the lock (reuse the D-112 operand normaliser), `rein gate off` refusing without a TTY or with a role token / Claude session variable present as the belt, the 15 forms as rows in gate-self-disable-cases.json with a re-pin under addendum 3's conditions, the runtime-assembly residual stays the classifier's.
+
+### Blueprint divergence
+- rein-rename.md §Component 4 rewritten (order + the three doctor lines). public-ci.md unchanged.
+
+### Next action needed (Engineer)
+- Land F1–F4, F6 in E-391 as small commits; security_engineer re-stamps; then the merge step and the tag as planned. E-393 opens when E-391 closes.
+
+### Open risks
+- F1's check is file-name based; `[HOOK_PATH_FOREIGN]` is what keeps a same-named foreign script from passing — do not drop it for simplicity.
+---
+## Handoff — 2026-10-29 22:30 UTC
+**From**: Architect → Engineer
+**Trigger**: E-391 F1 installer list — no project registry exists
+
+### What was ruled (D-132 addendum 5)
+- The derivation from Claude Code's per-project session dirs is ruled in, with constraints: sources `~/.claude/projects/*/` and each account's `<config_dir>/projects/*/`; newest `*.jsonl` only, first 50 lines, first record with a string `cwd`, every other field discarded on the spot; candidate = exists + `.ai/` + `.claude/settings.json` (+ its git toplevel, + the clone); print only candidates with a missing Rein hook path, `printf '%s'`, never `cd`/exec/shell; heading says the list may be incomplete and to run `rein doctor` elsewhere; `REIN_NO_PROJECT_SCAN=1` skips; installer final report only; named tests (six cases in r6); T-RENAME-001 note. No Rein project registry now.
+
+### Blueprint divergence
+- rein-rename.md §Component 4 step 1 reworded to match.
+
+### Next action needed (Engineer)
+- Land the installer half of F1 under addendum 5; then security_engineer re-stamp, merge step, tag.
+
+### Open risks
+- Transcript layout is Claude Code's; a change empties the list — fail open with the "others may exist" line.
+---
+## Handoff — 2026-10-29 22:45 UTC
+**From**: Architect → Engineer
+**Trigger**: E-391 `[BUDGET_REGRESSION] test_lines` on c57c1cf
+
+### What was ruled (D-132 addendum 6)
+- test_lines budget = 41800 (the measured value, no headroom). Run: `rein ci budget set --ruling D-132 test_lines=41800` — the budget command's regex accepts only `D-###`, so pass `D-132`; addendum 6 is the ruling it names.
+- Fixtures count as test lines by design (a table row is a test, D-113); no counter change.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Set the budget, re-run or re-record, then hand back with the shas, the third security pass and the operator list; the merge step waits on the operator's yes as you said.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-10-29 23:00 UTC
+**From**: Architect → Engineer
+**Trigger**: two P3 tickets from the E-391 third security pass (M5; doctor hard-fail flag)
+
+### What was registered
+- **E-394** (Tier 2, BLOCKED on E-391): doctor reads disableAllHooks from every settings layer (project, local, user, each account's config_dir) with Claude Code precedence; non-boolean reported as invalid; any disabling layer sets the hard-fail flag.
+- **E-395** (Tier 2, BLOCKED on E-391): `[SAFE_EXEC_BROKEN]` / `[GATE_DEP_MISSING]` set `_DOCTOR_HARD_FAIL`; audit every other ✗ line for the same omission (set the flag or document as advisory).
+- Order after the tag: E-393 (P1), then E-385 → E-390 per the operator's priority, then E-394/E-395 (P3) before the CI follow-ups — the operator may reorder.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Engineer)
+- Finish E-391 (final run on 13571ce, handoff with shas and the operator list); the merge waits on the operator's yes.
+
+### Open risks
+- None new.
+---
+---
+## Handoff — 2026-10-30 09:52 UTC
+**From**: Engineer → Architect
+**Trigger**: E-391 ready for the merge step (operator's yes pending)
+
+### What was built
+- a317dcd `[TIER_1] test`: tests/suites/init_upgrade_test.sh header `REIN_SUITE_TIMEOUT=300` (E-307 mechanism). E-391 grew the suite 45→80 tests; hosted macOS 4/4 hit the 180 s watchdog on bbd936a and e7e9514 with no failing assertion (main: 141 s macOS vs 59 s Linux). Now green on hosted macOS.
+- Budget: addendum 6 set; `rein ci budget` = test_lines 41800 (D-132 at 77eced2); a317dcd measures 41812, inside the 2 % tolerance.
+- Local `rein ci run` PASS a317dcd — 7011/0/25, leaked 0, 547 s. Hosted on a317dcd: fast, privacy, CodeQL analysis, all 8 ubuntu shards, macOS 2/4, 3/4, 4/4 green.
+- Third security pass: SECURITY.md "Pen-Test Results (third pass)"; M1–M4, M6, M7 fixed in d55bcfe/22d9e30; M5 → E-394, doctor hard-fail → E-395.
+- Branch shas main..HEAD (38): a317dcd e7e9514 bbd936a 13571ce 14fcf10 22d9e30 d55bcfe c57c1cf 5378b9e 8868099 62213b0 bf92152 2ddcf2e bcb1039 4a66ceb bb7d2a6 b5679d6 6a9cf09 bec6e69 da778c7 14eebdd 9de7eb9 cb3c009 03b8818 a8da17c 56cb532 0257ee0 4d390a0 5b7f213 eacd7af da0949a 144b8f7 9bb41c1 dff9265 ab2495a f86262f b9a8f1a 77eced2.
+
+### Merge blockers on PR #10 (not E-391 regressions)
+- main's required checks are still the `ai ci run (ubuntu-latest, …)` names — the step-7 `gh api` swap to `rein ci run (…)` happens in the merge step on the operator's yes.
+- `CodeQL` (required) fails on 13 alerts that are all already open on main (safe-exec git-redirect/architect-writes ReDoS, blueprint-aligner ReDoS, record-store ranges, publish-scan double-escaping, two test-fixture shell-injection alerts); flagged on the PR only because the rename touched those files. Needs a ruling: fix ticket(s) vs dismiss with reason vs admin merge.
+- macOS node 22 shard 1/4 fails on main 94d543e too: harness self-tests E-240.01a/02a/03a/03b, E-241.02a/b, E-239.05a–d. Not required; needs its own ticket.
+- Dependency review: "not supported on this repository" — the repo's Dependency graph is off (operator setting).
+
+### Incident this session
+- At session start (01:00 local) the pre-hard-cut install `~/.rein/bin/ai` rewrote 34 tracked files on rename/rein back to ai-* (rulefiles, .claude/agents, .claude/skills, providers.json re-adding agy/gemini, roles.json) and wrote 18 ai-* skill dirs + .pre-0.4.0 backups (byte-identical to HEAD). Restored to HEAD with the operator's OK. It recurs every session start until the operator reinstalls.
+
+### Operator migration list (rein-rename.md §Component 4, verbatim order — the symlink goes LAST)
+1. `bash install-rein.sh` from the merged `main` (installs `~/.rein/bin/rein`; prints that the command is `rein`; lists projects whose settings name a missing Rein hook path, each with `run: rein sync`; the list may be incomplete — run `rein doctor` in any project it does not name).
+2. `rein sync` in every project on that list (and any other).
+3. `rein doctor` in each project: no `[HOOK_PATH_MISSING]`, no `[GATE_UNREGISTERED]`, `[REIN_ROLE]` present.
+4. Only now `rm ~/.ai-os` — a symlink, so `rm`, never `rm -r`.
+5. Remove any `AI_OS_*` export from shell rc files.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Architect)
+- Rule on the CodeQL required check and register the macOS shard 1/4 ticket; then the merge step (required-checks swap, merge, tag v0.4.0, release) on the operator's yes.
+
+### Open risks
+- Until step 1 runs, every session start in this repo re-clobbers the tree with the old names.
+---
+
+## Handoff — 2026-10-30 11:45 UTC
+**From**: Architect → Engineer
+**Trigger**: Ruling on the E-391 merge blockers (Engineer handoff 2026-10-30 09:52 UTC); E-396, E-397 registered
+
+### What was decided
+- **D-133 addendum** (DECISIONS.md): the required `CodeQL` check is never bypassed and no source alert is dismissed. The thirteen pre-existing alerts flagged on PR #10 are fixed INSIDE the rename PR as **E-397** (own commits after a317dcd, before the merge step), the way e7e9514 fixed the dispatch-table ReDoS. The three test-fixture alerts (#14–#16) alone are dismissed as "used in tests" with the comment "D-133 addendum r2". No admin merge; fallback if E-397 cannot close in-PR is a fix-on-main-first PR, never a bypass.
+- **E-396**: the macOS × 22 shard 1/4 rows that are NOT E-388's (E-240.01a/02a/03a/03b) — after the v0.4.0 tag, beside E-388; one PR closes both if the root cause is the bash 3.2 trap. The macOS legs join the required set when E-388 and E-396 are both closed (D-135 addendum 2 r3 exit condition, widened in public-ci.md §Component 3).
+- **Required-check rename**: unchanged — one `gh api` call in the merge step (public-ci.md §Component 4), on the operator's yes.
+- **Scorecard rows** (BinaryArtifacts wasm grammars, PinnedDependencies in src/bin/ai:4300/:4646 and ci.yml:61) are NOT CodeQL and not required; left for a Scorecard pass after v0.4.0 (addendum r5). **Dependency review** waits on the operator enabling the Dependency graph (D-135 addendum 2 r5).
+
+### Blueprint changes
+- `.ai/blueprints/public-ci.md` §Component 3: exit condition for the macOS legs now E-388 + E-396; the no-bypass rule for a red required check.
+
+### Blueprint divergence
+- NONE reported in your handoff; none found.
+
+### Next action needed (Engineer)
+1. **E-397** now, on rename/rein: rewrite the ten source regex/escaping sites (git-redirect.mjs:18/:34, architect-writes.mjs:94, blueprint-aligner index.js:233, record-store.mjs:137, publish-scan.mjs:384) without changing what they match; add the pathological-input rows to the suites that already cover them; security_engineer on the safe-exec rewrites; dismiss #14–#16 "used in tests". Acceptance: zero open CodeQL alerts on refs/heads/rename/rein, both `CodeQL` check-runs green, no fixture table re-pinned, test_lines within tolerance or reported.
+2. Then the E-391 merge step as planned (required-checks swap, merge, tag v0.4.0, release) on the operator's yes; carry §Component 4's migration list verbatim.
+3. Before the merge step: `git status` — this session's start (cache built 00:00 UTC) shows the tree re-clobbered again (34 tracked files modified to ai-*, 18 ai-* skill dirs, `.pre-0.4.0` backups). Restore to HEAD once more before committing E-397; the re-clobber ends when the operator runs step 1 of the migration list from merged main.
+4. E-396 after the tag, with E-388.
+
+### Operator actions (please surface)
+- Say yes to the merge step once E-397 is green.
+- Enable the repository's Dependency graph (Settings → Security) so `dependency-review` can run.
+- After the merge: the five migration steps (install-rein.sh from main → `rein sync` per project → `rein doctor` → `rm ~/.ai-os` last → drop `AI_OS_*` exports). Until step 1, every session start re-clobbers this tree.
+
+### Open risks
+- E-397 adds one hosted round (~15 min) before the merge. A regex rewrite that changes gate matching is caught by the byte-pinned tables and the safe_exec suites — treat any table diff as a defect in the rewrite, not a re-pin.
+- `verify_markdown_sync` prints `[STALE_SERVER]` for all 16 MCP servers although their boot time is AFTER the mirror change — the staleness comparison looks inverted; noted, not ruled.
+---

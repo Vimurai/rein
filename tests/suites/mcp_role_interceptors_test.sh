@@ -80,16 +80,16 @@ const g = (role, p) => {
   return architectScopeGuard(role, p, cwd) === null ? "allow" : "block";
 };
 
-// With AI_OS_CALLER_ROLE=architect in the environment (set by the runner below), the
+// With REIN_CALLER_ROLE=architect in the environment (set by the runner below), the
 // derived role is architect regardless of what the caller volunteers.
 const results = {
   srcBlocked:      g(undefined, cwd + "/src/mcp/foo.js"),
   aiAllowed:       g(undefined, cwd + "/.ai/TASKS.md"),
   plansAllowed:    g(undefined, cwd + "/plans/foo.md"),
   // THE REGRESSION: omitting the role no longer buys unrestricted access.
-  omittedBlocked:  g(undefined, cwd + "/src/bin/ai"),
+  omittedBlocked:  g(undefined, cwd + "/src/bin/rein"),
   // A volunteered engineer cannot lift the derived architect restriction.
-  claimedEngineer: g("engineer", cwd + "/src/bin/ai"),
+  claimedEngineer: g("engineer", cwd + "/src/bin/rein"),
 };
 
 const ok =
@@ -101,7 +101,7 @@ const ok =
 
 process.stdout.write(ok ? "PASS" : "FAIL " + JSON.stringify(results));
 JSEOF
-  RESULT=$(AI_OS_CALLER_ROLE=architect CLAUDE_CODE_SESSION_ID= node "$GUARD_SCRIPT" 2>/dev/null || echo "error")
+  RESULT=$(REIN_CALLER_ROLE=architect CLAUDE_CODE_SESSION_ID= node "$GUARD_SCRIPT" 2>/dev/null || echo "error")
   rm -rf "$GUARD_DIR"
   if [[ "$RESULT" == "PASS" ]]; then
     _pass "E-143: shipped guard blocks src/ for architect, allows .ai//plans/, and an OMITTED role no longer allows (E-219)"
@@ -133,10 +133,10 @@ SAFE_EXEC="${REPO_ROOT}/src/mcp/safe-exec-mcp/index.js"
 # E-294 (D-087): the role is the HMAC-verified v2 token, minted from a launch record and bound
 # to its session process — never an env var. Each case runs the driver as a DIRECT child of a
 # real session process (tests/lib/as-session.sh), so the patch server it spawns has the token's
-# pid as an ancestor (the --verify-role path). Throwaway HOME: nothing touches ~/.ai-os (rule 6).
+# pid as an ancestor (the --verify-role path). Throwaway HOME: nothing touches ~/.rein (rule 6).
 # The session starts in the SAME project the driver's patch server runs in (_P): the verifier
 # re-walks from the server's cwd, and a live record for another project is the union.
-_H="$(test_tmpdir crhome)"; mkdir -p "${_H}/.ai-os"
+_H="$(test_tmpdir crhome)"; mkdir -p "${_H}/.rein"
 tc_fixture_home "$_H"   # E-345 (D-109 r1): the toolchain record the install writes
 _P="$(test_tmpdir crproj)"; mkdir -p "${_P}/.ai" "${_P}/src"
 _AS="${REPO_ROOT}/tests/lib/as-session.sh"
@@ -166,31 +166,31 @@ assert_contains "E-294.01d: a plain launch (no record → engineer, launch unver
 # ── E-219.2 → E-294 (D-087 r3): the spawn env is NOT evidence any more ─────
 # Was: "env engineer (no record) may write src/". A project's settings `env` reaches the
 # server, so the env branch is removed: with no verified token the default is architect.
-assert_contains "E-294.02a: env AI_OS_CALLER_ROLE=engineer with no token no longer lifts the default" "BLOCK" \
-  "$(_drive src '{}' CLAUDE_CODE_SESSION_ID= AI_OS_CALLER_ROLE=engineer)"
+assert_contains "E-294.02a: env REIN_CALLER_ROLE=engineer with no token no longer lifts the default" "BLOCK" \
+  "$(_drive src '{}' CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=engineer)"
 assert_contains "E-219.02b: env architect (no record) may NOT write src/" "BLOCK" \
-  "$(_drive src '{}' CLAUDE_CODE_SESSION_ID= AI_OS_CALLER_ROLE=architect)"
-assert_contains "E-294.02c: env AI_OS_CALLER_ROLE=engineer does not lift a verified ARCHITECT token" "BLOCK" \
-  "$(_drive_as architect src '{}' AI_OS_CALLER_ROLE=engineer AI_OS_PANE_ROLE=engineer)"
+  "$(_drive src '{}' CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=architect)"
+assert_contains "E-294.02c: env REIN_CALLER_ROLE=engineer does not lift a verified ARCHITECT token" "BLOCK" \
+  "$(_drive_as architect src '{}' REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer)"
 
 # ── E-219.3: NO evidence → architect (fail closed) ─────────────────────────
 # THE REGRESSION THIS TASK EXISTS FOR: omitting caller_role used to mean "unrestricted".
 assert_contains "E-219.03a: no record and no env → src/ is BLOCKED" "BLOCK" \
-  "$(_drive src '{}' CLAUDE_CODE_SESSION_ID= AI_OS_CALLER_ROLE=)"
+  "$(_drive src '{}' CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=)"
 assert_contains "E-219.03b: no record and no env → .ai/ is still allowed" "allow" \
-  "$(_drive ai '{}' CLAUDE_CODE_SESSION_ID= AI_OS_CALLER_ROLE=)"
+  "$(_drive ai '{}' CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=)"
 
 # ── E-294.03c: a session id borrowed from ANOTHER live session verifies nothing ──
 # The token is bound to its session process; a caller that is not its descendant presenting
 # the same CLAUDE_CODE_SESSION_ID gets the fail-closed default (the id is a selector).
 _BSID="e219s-borrowed"; _BSTOP="${_H}/borrowed.stop"
 ( cd "$_P" && HOME="$_H" bash "$_AS" engineer "$_BSID" -- \
-    bash -c 'i=0; while [ ! -e "$1" ] && [ -d "${1%/*}" ] && [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done' _ "$_BSTOP" ) >/dev/null 2>&1 &   # AIOS_SLEEP_ALLOWED: keep-alive loop of a child session shell (no assert.sh there); ends on the stop file
+    bash -c 'i=0; while [ ! -e "$1" ] && [ -d "${1%/*}" ] && [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done' _ "$_BSTOP" ) >/dev/null 2>&1 &   # REIN_SLEEP_ALLOWED: keep-alive loop of a child session shell (no assert.sh there); ends on the stop file
 _BPID=$!
 on_exit "touch '${_BSTOP}'; wait_for '! kill -0 ${_BPID} 2>/dev/null' 3000 100 2>/dev/null; kill ${_BPID} 2>/dev/null || true"
-wait_for "[ -e \"${_H}/.ai-os/run/role-${_BSID}.lock\" ]" 10000 100 || true
+wait_for "[ -e \"${_H}/.rein/run/role-${_BSID}.lock\" ]" 10000 100 || true
 assert_status 0 "E-294.03c0: the other session's engineer token exists while it runs (fixture)" \
-  test -f "${_H}/.ai-os/run/role-${_BSID}.lock"
+  test -f "${_H}/.rein/run/role-${_BSID}.lock"
 assert_contains "E-294.03c: borrowing a live ENGINEER session's id from outside it → src/ BLOCKED" "BLOCK" \
   "$(_drive src '{}' CLAUDE_CODE_SESSION_ID="$_BSID")"
 touch "$_BSTOP"; wait "$_BPID" 2>/dev/null || true
@@ -201,7 +201,7 @@ assert_contains "E-219.04a: claiming engineer against an ARCHITECT record is ign
 assert_contains "E-219.04b: claiming architect against an ENGINEER record self-restricts" "BLOCK" \
   "$(_drive_as engineer src '{"caller_role":"architect"}')"
 assert_contains "E-219.04c: claiming engineer with no evidence does not lift the default" "BLOCK" \
-  "$(_drive src '{"caller_role":"engineer"}' CLAUDE_CODE_SESSION_ID= AI_OS_CALLER_ROLE=)"
+  "$(_drive src '{"caller_role":"engineer"}' CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=)"
 
 # ── E-219.5: symlink / hardlink — the F1 regression ────────────────────────
 # `.ai/link -> ../src/x` is a symlink the Architect may legitimately create INSIDE its
@@ -218,14 +218,14 @@ assert_contains "E-219.05d: the ENGINEER may still write through the same symlin
   "$(_drive_as engineer symlink '{}')"
 
 # ── E-219.6 → E-294 (D-084 r1, D-087 r3): the env rollback is REMOVED ──────
-# Was: "AI_OS_SOVEREIGNTY_LOCK=0 restores the omitted-role allow". The lock variable is gone
+# Was: "REIN_SOVEREIGNTY_LOCK=0 restores the omitted-role allow". The lock variable is gone
 # everywhere; the operator's lift is the time-boxed override file.
-assert_contains "E-294.06a: AI_OS_SOVEREIGNTY_LOCK=0 no longer restores the omitted-role allow" "BLOCK" \
-  "$(_drive src '{}' CLAUDE_CODE_SESSION_ID= AI_OS_CALLER_ROLE= AI_OS_SOVEREIGNTY_LOCK=0)"
+assert_contains "E-294.06a: REIN_SOVEREIGNTY_LOCK=0 no longer restores the omitted-role allow" "BLOCK" \
+  "$(_drive src '{}' CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE= REIN_SOVEREIGNTY_LOCK=0)"
 assert_contains "E-219.06b: a VOLUNTEERED architect outside scope is still blocked with the var set" "BLOCK" \
-  "$(_drive src '{"caller_role":"architect"}' CLAUDE_CODE_SESSION_ID= AI_OS_SOVEREIGNTY_LOCK=0)"
-assert_contains "E-294.06c: AI_OS_SOVEREIGNTY_LOCK=0 does not lift a verified ARCHITECT token" "BLOCK" \
-  "$(_drive_as architect src '{}' AI_OS_SOVEREIGNTY_LOCK=0)"
+  "$(_drive src '{"caller_role":"architect"}' CLAUDE_CODE_SESSION_ID= REIN_SOVEREIGNTY_LOCK=0)"
+assert_contains "E-294.06c: REIN_SOVEREIGNTY_LOCK=0 does not lift a verified ARCHITECT token" "BLOCK" \
+  "$(_drive_as architect src '{}' REIN_SOVEREIGNTY_LOCK=0)"
 
 # ── E-219.7: structure — one rule, one implementation ──────────────────────
 CALLER_ROLE="${REPO_ROOT}/src/mcp/shared/caller-role.mjs"
@@ -254,6 +254,6 @@ for _srv in patch-mcp propose-patch-mcp; do
 done
 
 assert_status 1 "E-294.07h: caller-role.mjs reads no role or lock environment variable" \
-  grep -qE 'process\.env\.AI_OS_(CALLER_ROLE|PANE_ROLE|SOVEREIGNTY_LOCK)' "$CALLER_ROLE"
+  grep -qE 'process\.env\.REIN_(CALLER_ROLE|PANE_ROLE|SOVEREIGNTY_LOCK)' "$CALLER_ROLE"
 
 assert_summary

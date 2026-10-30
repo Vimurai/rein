@@ -16,7 +16,7 @@ A unidirectional sync model where the local `.ai/state.sqlite` remains the absol
 ## Components
 1. **State Projector:** A helper module that reads the current open and blocked tasks from `.ai/state.sqlite` and formats a lightweight JSON snapshot (stripping out detailed logs or reviews to save bandwidth).
 2. **Managed Agents Sync Hook:** A non-blocking asynchronous dispatcher in `src/shared/managed-agents-client.mjs` that pushes the State Projector's payload to Claude's webhook API whenever a task transitions to DONE or OPEN.
-3. **Reconciliation Engine:** A startup check within `ai-preflight` that calculates a hash of the local task state. If the cloud state reports a mismatch, it forces a fresh push of the entire state snapshot to the cloud to resolve the drift.
+3. **Reconciliation Engine:** A startup check within `rein-preflight` that calculates a hash of the local task state. If the cloud state reports a mismatch, it forces a fresh push of the entire state snapshot to the cloud to resolve the drift.
 
 ## Data Model
 ```json

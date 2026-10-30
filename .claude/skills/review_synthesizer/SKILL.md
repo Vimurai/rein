@@ -115,4 +115,4 @@ Then append to `.ai/LOG.md`:
 - Never write `[CRITIC_STAMP]` without first verifying all required distributed stamps.
 - Never skip PII_CLEARED check if the diff touches user data, auth tokens, or logging.
 - If stamps are older than 7 days, treat as MISSING — re-run the relevant audit.
-- For Tier 2: `[CRITIC_STAMP]` is written by the caller (ai-review), not by review_synthesizer.
+- For Tier 2: `[CRITIC_STAMP]` is written by the caller (rein-review), not by review_synthesizer.

@@ -4,13 +4,13 @@
 # hook's task-velocity branch (E-259, from task_velocity — E-302). The module's in-process
 # contract is tests/unit/telemetry.test.mjs. Blueprint: meta-cognition.md §Components 1.
 #
-#   • ~/.ai-os mirrors are byte-identical.
+#   • ~/.rein mirrors are byte-identical.
 
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
-# E-257: this suite tests the DEFAULT path itself (~/.ai-os/telemetry.sqlite under a
+# E-257: this suite tests the DEFAULT path itself (~/.rein/telemetry.sqlite under a
 # sandbox HOME), so the harness's AI_TELEMETRY_DB_PATH redirect would hide exactly what is
 # under test. Every write below goes to a sandbox HOME or an explicit db_path; the
 # harness's marker check still fails the run if one ever reaches the live store.
@@ -31,7 +31,7 @@ echo "  [T-TEL-S08] CLI smoke — --stats + --path"
 
 # --path always prints the canonical telemetry path.
 PATHOUT="$(node "$TELEMETRY" --path)"
-assert_contains "--path includes .ai-os/telemetry.sqlite" ".ai-os/telemetry.sqlite" "$PATHOUT"
+assert_contains "--path includes .rein/telemetry.sqlite" ".rein/telemetry.sqlite" "$PATHOUT"
 
 assert_status 0 "--stats exits 0" \
   bash -c "node '$TELEMETRY' --stats >/dev/null"
@@ -63,8 +63,8 @@ assert_status 0 "--record-tool exits 0 (fail-open)" \
 RC_RT=$?
 assert_status 0 "--record-tool rc==0" bash -c "[[ $RC_RT -eq 0 ]]"
 
-# DB must land at $SBOX7/.ai-os/telemetry.sqlite (HOME-relative)
-DB_RT="${SBOX7}/.ai-os/telemetry.sqlite"
+# DB must land at $SBOX7/.rein/telemetry.sqlite (HOME-relative)
+DB_RT="${SBOX7}/.rein/telemetry.sqlite"
 assert_status 0 "telemetry.sqlite created under sandbox HOME" test -f "$DB_RT"
 
 ROW_RT="$(node -e "
@@ -96,7 +96,7 @@ tc_fixture_home "$SBOX8"   # E-345 (D-109 r1): the toolchain record the hooks pi
 RC_TV=$?
 assert_status 0 "--record-task rc==0" bash -c "[[ $RC_TV -eq 0 ]]"
 
-DB_TV="${SBOX8}/.ai-os/telemetry.sqlite"
+DB_TV="${SBOX8}/.rein/telemetry.sqlite"
 ROW_TV="$(node -e "
 const { DatabaseSync } = require('node:sqlite');
 const db = new DatabaseSync('${DB_TV}');
@@ -119,7 +119,7 @@ tc_fixture_home "$SBOX9"   # E-345 (D-109 r1): the toolchain record the hooks pi
     bash -c ": | node '${TELEMETRY}' --record-tool >/dev/null 2>&1" )
 RC_EMPTY=$?
 assert_status 0 "empty stdin still rc==0" bash -c "[[ $RC_EMPTY -eq 0 ]]"
-assert_status 1 "empty stdin writes no DB" test -f "${SBOX9}/.ai-os/telemetry.sqlite"
+assert_status 1 "empty stdin writes no DB" test -f "${SBOX9}/.rein/telemetry.sqlite"
 
 # Malformed JSON → exit 0, no row written.
 SBOX10="$(mktemp -d)"
@@ -127,7 +127,7 @@ SBOX10="$(mktemp -d)"
     bash -c "echo 'not valid json' | node '${TELEMETRY}' --record-tool >/dev/null 2>&1" )
 RC_BAD=$?
 assert_status 0 "malformed stdin still rc==0" bash -c "[[ $RC_BAD -eq 0 ]]"
-assert_status 1 "malformed stdin writes no DB" test -f "${SBOX10}/.ai-os/telemetry.sqlite"
+assert_status 1 "malformed stdin writes no DB" test -f "${SBOX10}/.rein/telemetry.sqlite"
 
 # Missing tool_name → helper logs and skips, but rc still 0.
 SBOX11="$(mktemp -d)"
@@ -144,7 +144,7 @@ SBOX12="$(mktemp -d)"
 RC_DISABLED=$?
 assert_status 0 "AI_TELEMETRY_DISABLE=1 still rc==0" bash -c "[[ $RC_DISABLED -eq 0 ]]"
 assert_status 1 "AI_TELEMETRY_DISABLE=1 writes no DB via CLI" \
-  test -f "${SBOX12}/.ai-os/telemetry.sqlite"
+  test -f "${SBOX12}/.rein/telemetry.sqlite"
 
 # Pure-node project-root walk-up is required (no child_process per S01).
 # Sanity-grep the source for the walk-up implementation.
@@ -174,7 +174,7 @@ assert_status 0 "hook references --record-tool" \
 # hook. Resolution is now install-first through the shared resolver, and the dev tree is
 # reachable only inside the framework clone.
 assert_status 0 "hook resolves telemetry via the shared install-first locator" \
-  grep -qE 'ai_os_locate shared/telemetry\.mjs' "$HOOK"
+  grep -qE 'rein_locate shared/telemetry\.mjs' "$HOOK"
 assert_status 1 "hook no longer prefers the visited repo's own src/shared copy" \
   bash -c "sed 's/[[:space:]]*#.*\$//' '$HOOK' | grep -qE 'show-toplevel.*src/shared/telemetry'"
 
@@ -197,8 +197,8 @@ echo "  [T-TEL-S15] hook end-to-end: payload → backgrounded write → DB row"
 
 SBOX_H="$(mktemp -d)"
 tc_fixture_home "$SBOX_H"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "${SBOX_H}/.ai-os/shared" "${SBOX_H}/repo/.git"
-cp "$TELEMETRY" "${SBOX_H}/.ai-os/shared/telemetry.mjs"
+mkdir -p "${SBOX_H}/.rein/shared" "${SBOX_H}/repo/.git"
+cp "$TELEMETRY" "${SBOX_H}/.rein/shared/telemetry.mjs"
 
 PAYLOAD_H='{"session_id":"hook-e2e","tool_name":"E105HookSmoke","tool_input":{"x":1},"tool_response":{"isError":false,"duration_ms":27}}'
 
@@ -215,9 +215,9 @@ _tel_has() {  # <db> <tool_name> → 0 when a row for that tool exists
           process.exit(d.prepare("SELECT 1 FROM tool_executions WHERE tool_name = ?").get(process.argv[2]) ? 0 : 1); }
     catch { process.exit(1); }' "$1" "$2"
 }
-wait_for "_tel_has '${SBOX_H}/.ai-os/telemetry.sqlite' E105HookSmoke" 10000 100 || true
+wait_for "_tel_has '${SBOX_H}/.rein/telemetry.sqlite' E105HookSmoke" 10000 100 || true
 
-DB_H="${SBOX_H}/.ai-os/telemetry.sqlite"
+DB_H="${SBOX_H}/.rein/telemetry.sqlite"
 assert_status 0 "background write created sandbox DB" test -f "$DB_H"
 
 ROW_H="$(node -e "
@@ -254,39 +254,39 @@ mkdir -p "${SBOX_NO}/repo/.git"
 ( cd "${SBOX_NO}/repo" && echo "$PAYLOAD_H" \
     | HOME="${SBOX_NO}" bash "$HOOK" >/dev/null 2>&1 )
 RC_NOHELPER=$?
-sleep 1   # AIOS_SLEEP_ALLOWED: negative wait — the detached writer gets the time a write takes, and must write nothing
+sleep 1   # REIN_SLEEP_ALLOWED: negative wait — the detached writer gets the time a write takes, and must write nothing
 assert_status 0 "hook rc==0 even when telemetry.mjs is missing" \
   bash -c "[[ $RC_NOHELPER -eq 0 ]]"
 assert_status 1 "no DB written when helper is missing" \
-  test -f "${SBOX_NO}/.ai-os/telemetry.sqlite"
+  test -f "${SBOX_NO}/.rein/telemetry.sqlite"
 
 # (b) malformed JSON payload → python parse fails → hook rc==0, no row
 SBOX_BAD="$(mktemp -d)"
 tc_fixture_home "$SBOX_BAD"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "${SBOX_BAD}/.ai-os/shared" "${SBOX_BAD}/repo/.git"
-cp "$TELEMETRY" "${SBOX_BAD}/.ai-os/shared/telemetry.mjs"
+mkdir -p "${SBOX_BAD}/.rein/shared" "${SBOX_BAD}/repo/.git"
+cp "$TELEMETRY" "${SBOX_BAD}/.rein/shared/telemetry.mjs"
 ( cd "${SBOX_BAD}/repo" && echo "not json at all" \
     | HOME="${SBOX_BAD}" bash "$HOOK" >/dev/null 2>&1 )
 RC_BADJSON=$?
-sleep 1   # AIOS_SLEEP_ALLOWED: negative wait — the detached writer gets the time a write takes, and must write nothing
+sleep 1   # REIN_SLEEP_ALLOWED: negative wait — the detached writer gets the time a write takes, and must write nothing
 assert_status 0 "hook rc==0 on malformed payload" \
   bash -c "[[ $RC_BADJSON -eq 0 ]]"
 assert_status 1 "no DB written from malformed payload" \
-  test -f "${SBOX_BAD}/.ai-os/telemetry.sqlite"
+  test -f "${SBOX_BAD}/.rein/telemetry.sqlite"
 
 # (c) AI_TELEMETRY_DISABLE=1 → helper short-circuits, no row written
 SBOX_OFF="$(mktemp -d)"
 tc_fixture_home "$SBOX_OFF"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "${SBOX_OFF}/.ai-os/shared" "${SBOX_OFF}/repo/.git"
-cp "$TELEMETRY" "${SBOX_OFF}/.ai-os/shared/telemetry.mjs"
+mkdir -p "${SBOX_OFF}/.rein/shared" "${SBOX_OFF}/repo/.git"
+cp "$TELEMETRY" "${SBOX_OFF}/.rein/shared/telemetry.mjs"
 ( cd "${SBOX_OFF}/repo" && echo "$PAYLOAD_H" \
     | HOME="${SBOX_OFF}" AI_TELEMETRY_DISABLE=1 bash "$HOOK" >/dev/null 2>&1 )
 RC_OFF=$?
-sleep 1   # AIOS_SLEEP_ALLOWED: negative wait — the detached writer gets the time a write takes, and must write nothing
+sleep 1   # REIN_SLEEP_ALLOWED: negative wait — the detached writer gets the time a write takes, and must write nothing
 assert_status 0 "hook rc==0 with AI_TELEMETRY_DISABLE=1" \
   bash -c "[[ $RC_OFF -eq 0 ]]"
 assert_status 1 "no DB written when AI_TELEMETRY_DISABLE=1" \
-  test -f "${SBOX_OFF}/.ai-os/telemetry.sqlite"
+  test -f "${SBOX_OFF}/.rein/telemetry.sqlite"
 
 # ── T-TEL-S17: hook synchronous overhead within blueprint <50ms budget ───────
 echo ""
@@ -294,8 +294,8 @@ echo "  [T-TEL-S17] hook synchronous overhead under <50ms budget (warm)"
 
 SBOX_T="$(mktemp -d)"
 tc_fixture_home "$SBOX_T"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "${SBOX_T}/.ai-os/shared" "${SBOX_T}/repo/.git"
-cp "$TELEMETRY" "${SBOX_T}/.ai-os/shared/telemetry.mjs"
+mkdir -p "${SBOX_T}/.rein/shared" "${SBOX_T}/repo/.git"
+cp "$TELEMETRY" "${SBOX_T}/.rein/shared/telemetry.mjs"
 
 # Cold + warm runs — measure warmer runs (2-5) as the steady-state. A function, so
 # assert_perf can re-take it once when the host is overloaded (E-296).
@@ -329,12 +329,12 @@ ELAPSED_MS_MAX="$(_tel_measure)"
 _TEL_BASELINE=$(( 2 * $(perf_baseline_node) + $(perf_baseline_hook) ))
 assert_perf "hook warm-path (steady-state max)" "$ELAPSED_MS_MAX" 250 "$_TEL_BASELINE" 2 50 _tel_measure
 
-# ── T-TEL-S10: ~/.ai-os mirrors byte-identical ────────────────────────────────
+# ── T-TEL-S10: ~/.rein mirrors byte-identical ────────────────────────────────
 echo ""
-echo "  [T-TEL-S10] ~/.ai-os mirrors byte-identical"
+echo "  [T-TEL-S10] ~/.rein mirrors byte-identical"
 
-assert_status 0 "telemetry.mjs mirror"          diff -q "$TELEMETRY" "${HOME}/.ai-os/shared/telemetry.mjs"
-assert_status 0 "post-tool-use.sh mirror"       diff -q "$HOOK"      "${HOME}/.ai-os/hooks/post-tool-use.sh"
+assert_status 0 "telemetry.mjs mirror"          diff -q "$TELEMETRY" "${HOME}/.rein/shared/telemetry.mjs"
+assert_status 0 "post-tool-use.sh mirror"       diff -q "$HOOK"      "${HOME}/.rein/hooks/post-tool-use.sh"
 
 echo ""
 
@@ -343,7 +343,7 @@ echo ""
 #
 # The hook end to end: a successful update_task_status(DONE) in hooks/post-tool-use.sh reads
 # the task's window of the transcript through src/shared/task-usage.mjs and writes ONE
-# task_velocity row; a rejected DONE, another tool, or AI_OS_TASK_USAGE=0 writes nothing.
+# task_velocity row; a rejected DONE, another tool, or REIN_TASK_USAGE=0 writes nothing.
 # Also the static contract (the E-155 aggregator is gone; the reader is located install-first
 # and fed on stdin) and the 50 MB budget. The reader's own rules — dedupe, window, confinement,
 # privacy, migration — are pinned in tests/unit/task-usage.test.mjs.
@@ -361,9 +361,9 @@ echo "  [E-259.1] static contract"
 assert_status 1 "E-259.01a: the E-155 aggregator is gone from telemetry.mjs and task-synchronizer" \
   grep -qE 'recordTaskVelocityForTask|usage\.sqlite' "$TELEMETRY" "$SYNC"
 assert_status 0 "E-259.01b: the hook locates the reader install-first" \
-  grep -qF 'ai_os_locate shared/task-usage.mjs' "$HOOK"
+  grep -qF 'rein_locate shared/task-usage.mjs' "$HOOK"
 assert_status 0 "E-259.01c: the hook feeds the reader on stdin, not argv" \
-  grep -qE 'printf .%s. "\$TU_JSON" \| "\$\{AI_OS_TC_NICE:-nice\}" -n 10 "\$\{AI_OS_TC_NODE:-node\}" "\$TASK_USAGE_HELPER" --record' "$HOOK"
+  grep -qE 'printf .%s. "\$TU_JSON" \| "\$\{REIN_TC_NICE:-nice\}" -n 10 "\$\{REIN_TC_NODE:-node\}" "\$TASK_USAGE_HELPER" --record' "$HOOK"
 # E-286: nice re-resolves its target through PATH, so both are named by absolute path.
 assert_status 0 "E-259.01d: the branch is backgrounded and silenced (fail-open)" \
   bash -c "sed -n '/Task velocity from the transcript/,/Context-cache rebuild/p' '$HOOK' | grep -q '>/dev/null 2>&1 &'"
@@ -372,9 +372,9 @@ assert_status 0 "E-259.01d: the branch is backgrounded and silenced (fail-open)"
 echo "  [E-259.2] hook end to end"
 FX="$(test_tmpdir taskvel)"
 FHOME="${FX}/home"; CFG="${FX}/claude"; PROJ="${FX}/repo"
-mkdir -p "${FHOME}/.ai-os/shared" "${CFG}/projects/-fx" "${PROJ}/.git"
+mkdir -p "${FHOME}/.rein/shared" "${CFG}/projects/-fx" "${PROJ}/.git"
 tc_fixture_home "$FHOME"   # E-345 (D-109 r1): the toolchain record the hooks pin
-cp "$READER" "$TELEMETRY" "${FHOME}/.ai-os/shared/"
+cp "$READER" "$TELEMETRY" "${FHOME}/.rein/shared/"
 DB="${FX}/telemetry.sqlite"
 TR="${CFG}/projects/-fx/session.jsonl"
 cat > "$TR" <<EOF
@@ -403,11 +403,11 @@ _rows() {  # → "count|turns|tokens|cache_read|source" or "0"
 _wait_rows() { wait_for '[[ "$(_rows)" != "0" ]]' 5000 100 || true; _rows; }
 
 # Negative cases first, while the store is still empty: each waits the same time a write takes.
-_hook "$(_payload '✗ [CI_GATE] no green local CI run for HEAD')"; sleep 1.5   # AIOS_SLEEP_ALLOWED: negative wait — as long as a write takes; nothing may land
+_hook "$(_payload '✗ [CI_GATE] no green local CI run for HEAD')"; sleep 1.5   # REIN_SLEEP_ALLOWED: negative wait — as long as a write takes; nothing may land
 assert_status 0 "E-259.02a: a rejected DONE writes nothing" test "$(_rows)" = "0"
-_hook "$(_payload '✓ E-5 → DONE: ok')" AI_OS_TASK_USAGE=0; sleep 1.5   # AIOS_SLEEP_ALLOWED: negative wait — as long as a write takes; nothing may land
-assert_status 0 "E-259.02b: AI_OS_TASK_USAGE=0 writes nothing" test "$(_rows)" = "0"
-_hook "$(_payload '✓ E-5 → DONE: ok' mcp__task-synchronizer-mcp__get_state)"; sleep 1.5   # AIOS_SLEEP_ALLOWED: negative wait — as long as a write takes; nothing may land
+_hook "$(_payload '✓ E-5 → DONE: ok')" REIN_TASK_USAGE=0; sleep 1.5   # REIN_SLEEP_ALLOWED: negative wait — as long as a write takes; nothing may land
+assert_status 0 "E-259.02b: REIN_TASK_USAGE=0 writes nothing" test "$(_rows)" = "0"
+_hook "$(_payload '✓ E-5 → DONE: ok' mcp__task-synchronizer-mcp__get_state)"; sleep 1.5   # REIN_SLEEP_ALLOWED: negative wait — as long as a write takes; nothing may land
 assert_status 0 "E-259.02c: another task-synchronizer tool writes nothing" test "$(_rows)" = "0"
 
 _hook "$(_payload '✓ E-5 → DONE: shipped')"

@@ -9,11 +9,11 @@
 # ── E-63 (from framework_task_routing): is_framework_task routing ──
 # Drives the real task-synchronizer-mcp via stdio JSON-RPC across the four
 # control paths called out in task-routing.md:
-#   1. is_framework_task=true + AIOS_WORKSPACE unset           → [WORKSPACE_NOT_FOUND]
-#   2. is_framework_task=true + non-absolute AIOS_WORKSPACE    → [WORKSPACE_NOT_FOUND]
+#   1. is_framework_task=true + REIN_WORKSPACE unset           → [WORKSPACE_NOT_FOUND]
+#   2. is_framework_task=true + non-absolute REIN_WORKSPACE    → [WORKSPACE_NOT_FOUND]
 #   3. is_framework_task=true + path with no .ai/              → [WORKSPACE_NOT_FOUND]
-#   4. AIOS_WORKSPACE_DISABLE=1                                → [WORKSPACE_DISABLED]
-#   5. is_framework_task=true + valid AIOS_WORKSPACE           → row lands in framework state.sqlite
+#   4. REIN_WORKSPACE_DISABLE=1                                → [WORKSPACE_DISABLED]
+#   5. is_framework_task=true + valid REIN_WORKSPACE           → row lands in framework state.sqlite
 #   6. is_framework_task omitted/false                         → row lands in local state.sqlite
 #   7. add_task tool schema advertises is_framework_task
 
@@ -71,7 +71,7 @@ for t in d.get('tools', []):
 assert_status 0 "is_framework_task is a known input property" \
   grep -q '"is_framework_task"' "$SCHEMA_FILE"
 assert_status 0 "input schema describes the routing semantics" \
-  grep -q 'AIOS_WORKSPACE' "$SCHEMA_FILE"
+  grep -q 'REIN_WORKSPACE' "$SCHEMA_FILE"
 rm -f "$SCHEMA_FILE"
 
 # Set up two sandboxed .ai/ dirs to compare local vs framework targets.
@@ -82,58 +82,58 @@ mkdir -p "${SBOX}/local/.ai" "${SBOX}/framework/.ai"
 AIDIR="${SBOX}/local/.ai"     REPO_ROOT="${REPO_ROOT}" node --no-warnings "$SEED_LOCAL"
 AIDIR="${SBOX}/framework/.ai" REPO_ROOT="${REPO_ROOT}" node --no-warnings "$SEED_LOCAL"
 
-# ── T-FW-S02: AIOS_WORKSPACE unset → [WORKSPACE_NOT_FOUND] ────────────────────
+# ── T-FW-S02: REIN_WORKSPACE unset → [WORKSPACE_NOT_FOUND] ────────────────────
 echo ""
-echo "  [T-FW-S02] is_framework_task=true with AIOS_WORKSPACE unset → error"
+echo "  [T-FW-S02] is_framework_task=true with REIN_WORKSPACE unset → error"
 
-unset AIOS_WORKSPACE
-unset AIOS_WORKSPACE_DISABLE
+unset REIN_WORKSPACE
+unset REIN_WORKSPACE_DISABLE
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "response includes [WORKSPACE_NOT_FOUND]" \
   bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_NOT_FOUND'"
 
 # ── T-FW-S03: non-absolute path → [WORKSPACE_NOT_FOUND] ──────────────────────
 echo ""
-echo "  [T-FW-S03] non-absolute AIOS_WORKSPACE rejected"
+echo "  [T-FW-S03] non-absolute REIN_WORKSPACE rejected"
 
-export AIOS_WORKSPACE="relative/path"
+export REIN_WORKSPACE="relative/path"
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "non-absolute path rejected" \
   bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_NOT_FOUND'"
 assert_status 0 "error mentions absolute requirement" \
   bash -c "echo \"$RESP\" | grep -q 'absolute'"
-unset AIOS_WORKSPACE
+unset REIN_WORKSPACE
 
 # ── T-FW-S04: path without .ai/ → [WORKSPACE_NOT_FOUND] ──────────────────────
 echo ""
-echo "  [T-FW-S04] AIOS_WORKSPACE without .ai/ rejected"
+echo "  [T-FW-S04] REIN_WORKSPACE without .ai/ rejected"
 
 EMPTY_DIR="$(mktemp -d)"
-export AIOS_WORKSPACE="$EMPTY_DIR"
+export REIN_WORKSPACE="$EMPTY_DIR"
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "missing .ai/ rejected" \
   bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_NOT_FOUND'"
-assert_status 0 "error mentions ai init remediation" \
-  bash -c "echo \"$RESP\" | grep -q 'ai init'"
-unset AIOS_WORKSPACE
+assert_status 0 "error mentions rein init remediation" \
+  bash -c "echo \"$RESP\" | grep -q 'rein init'"
+unset REIN_WORKSPACE
 rm -rf "$EMPTY_DIR"
 
-# ── T-FW-S05: AIOS_WORKSPACE_DISABLE=1 → [WORKSPACE_DISABLED] ────────────────
+# ── T-FW-S05: REIN_WORKSPACE_DISABLE=1 → [WORKSPACE_DISABLED] ────────────────
 echo ""
-echo "  [T-FW-S05] AIOS_WORKSPACE_DISABLE=1 surfaces emergency-disable error"
+echo "  [T-FW-S05] REIN_WORKSPACE_DISABLE=1 surfaces emergency-disable error"
 
-export AIOS_WORKSPACE="${SBOX}/framework"
-export AIOS_WORKSPACE_DISABLE="1"
+export REIN_WORKSPACE="${SBOX}/framework"
+export REIN_WORKSPACE_DISABLE="1"
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "rollback flag surfaces [WORKSPACE_DISABLED]" \
   bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_DISABLED'"
-unset AIOS_WORKSPACE_DISABLE
+unset REIN_WORKSPACE_DISABLE
 
 # ── T-FW-S06: valid framework workspace → row lands in framework DB ──────────
 echo ""
-echo "  [T-FW-S06] valid AIOS_WORKSPACE persists into framework state.sqlite"
+echo "  [T-FW-S06] valid REIN_WORKSPACE persists into framework state.sqlite"
 
-export AIOS_WORKSPACE="${SBOX}/framework"
+export REIN_WORKSPACE="${SBOX}/framework"
 RESP_FILE="$(mktemp)"
 _call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"framework-only task","tier":2,"is_framework_task":true}' > "$RESP_FILE"
 assert_status 0 "response confirms framework routing" \
@@ -164,7 +164,7 @@ assert_status 0 "local state.sqlite still empty"          \
 echo ""
 echo "  [T-FW-S07] non-framework task lands in local state.sqlite"
 
-unset AIOS_WORKSPACE   # prove local routing doesn't depend on the env
+unset REIN_WORKSPACE   # prove local routing doesn't depend on the env
 LOCAL_RESP_FILE="$(mktemp)"
 _call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"local task","tier":1}' > "$LOCAL_RESP_FILE"
 assert_status 1 "no framework-routing suffix on local task" \
@@ -228,11 +228,11 @@ for k in ("TOOL", "ARGS", "WAIT_MS", "WAIT_FOR", "MCP_CWD", "ENV_JSON", "SYNC_MC
     env.pop(k, None)
 # Strip parent-shell env vars that would let the MCP write outside the
 # sandbox cwd. The test's `extra` dict is re-applied after the strip so a
-# test that wants AIOS_WORKSPACE / AIOS_WORKSPACE_DISABLE still gets it.
+# test that wants REIN_WORKSPACE / REIN_WORKSPACE_DISABLE still gets it.
 # Without this guard, a buggy test (or a failing env-builder yielding
-# `{}`) would inherit the parent shell's AIOS_WORKSPACE and pollute the
+# `{}`) would inherit the parent shell's REIN_WORKSPACE and pollute the
 # real repo's .ai/state.sqlite when is_framework_task=true.
-for sensitive_key in ("AIOS_WORKSPACE", "AIOS_WORKSPACE_DISABLE"):
+for sensitive_key in ("REIN_WORKSPACE", "REIN_WORKSPACE_DISABLE"):
     env.pop(sensitive_key, None)
 for k, v in extra.items():
     env[k] = v
@@ -467,9 +467,9 @@ assert_status 1 "stamp mutation does NOT schedule cloud sync" \
 
 # ── T-MAS-S06: Mirror byte-identity ──────────────────────────────────────────
 echo ""
-echo "  [T-MAS-S06] ~/.ai-os mirror matches src"
+echo "  [T-MAS-S06] ~/.rein mirror matches src"
 
-MIRROR="${HOME}/.ai-os/mcp/task-synchronizer-mcp/index.js"
+MIRROR="${HOME}/.rein/mcp/task-synchronizer-mcp/index.js"
 if [[ -f "$MIRROR" ]]; then
   assert_status 0 "mirror is byte-identical to src" \
     diff -q "$SYNC_MCP" "$MIRROR"
@@ -493,7 +493,7 @@ print(json.dumps({
   "AI_MANAGED_AGENT_KEY":"abcdef0123456789",
   "AI_MANAGED_AGENT_HOST":"unresolvable-e74-fw.invalid-tld.local",
   "AI_MANAGED_AGENTS_DEBOUNCE_MS":"30",
-  "AIOS_WORKSPACE": os.environ["FRAMEWORK_DIR"],
+  "REIN_WORKSPACE": os.environ["FRAMEWORK_DIR"],
 }))
 ')"
 
@@ -506,7 +506,7 @@ FW_OUT="${MASH_SBOX}/fw.out"
 FW_ERR="${MASH_SBOX}/fw.err"
 _split_result "$result" "$FW_OUT" "$FW_ERR"
 
-assert_status 0 "framework-routed task lands in AIOS_WORKSPACE" \
+assert_status 0 "framework-routed task lands in REIN_WORKSPACE" \
   grep -q "routed to framework workspace" "$FW_OUT"
 assert_status 0 "cloud sync still fires for framework-routed mutation" \
   grep -q "projection fetch failed" "$FW_ERR"
@@ -538,7 +538,7 @@ assert_status 0 "local state.sqlite has NO copy of the routed row" bash -c "[[ '
 set -e   # this section ran under its own suite's error mode
 SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 NID_TMP="$(test_tmpdir nextid)"
 PROJECT="${NID_TMP}/proj"; mkdir -p "${PROJECT}/.ai"
 cat > "${PROJECT}/.ai/state.json" <<'JSON'
@@ -613,7 +613,7 @@ assert_contains "E-136.10d: 'Tester (claude · sonnet)' -> Tester" "|Tester|" "$
 assert_contains "E-136.10e: '' -> Unassigned" "|Unassigned" "$roles"
 
 # ── E-136.11: regenerated TASKS.md uses provider-agnostic headers ────────────
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 RHV_TMP="$(test_tmpdir rolehdr)"
 PROJECT="${RHV_TMP}/proj"; mkdir -p "${PROJECT}/.ai"
 cat > "${PROJECT}/.ai/state.json" <<'JSON'
@@ -660,7 +660,7 @@ set +e
 set -e   # this section ran under its own suite's error mode
 SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE AI_OS_SUMMARY_CAP AI_OS_SOVEREIGNTY_LOCK 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE REIN_SUMMARY_CAP REIN_SOVEREIGNTY_LOCK 2>/dev/null || true
 TOK_TMP="$(test_tmpdir tokopt)"
 PROJECT="${TOK_TMP}/proj"; mkdir -p "${PROJECT}/.ai"
 cat > "${PROJECT}/.ai/state.json" <<'JSON'
@@ -698,12 +698,12 @@ assert_not_contains "E-107.02: no truncation note for short summary" "[SUMMARY_T
 state=$(call get_state "{}")
 assert_contains "E-107.02: short summary stored verbatim" "all good" "$(task_field "$state" E-2 summary)"
 
-# ── E-107.03: AI_OS_SUMMARY_CAP rollback raises the cap (no truncation) ───────
+# ── E-107.03: REIN_SUMMARY_CAP rollback raises the cap (no truncation) ───────
 call add_task "{\"owner\":\"${OWNER}\",\"description\":\"rollback cap task\",\"tier\":2}" >/dev/null
-export AI_OS_SUMMARY_CAP=2000
-r=$(AI_OS_SUMMARY_CAP=2000 call update_task_status "{\"id\":\"E-3\",\"status\":\"DONE\",\"summary\":\"${LONG}\"}")
+export REIN_SUMMARY_CAP=2000
+r=$(REIN_SUMMARY_CAP=2000 call update_task_status "{\"id\":\"E-3\",\"status\":\"DONE\",\"summary\":\"${LONG}\"}")
 assert_not_contains "E-107.03: cap=2000 → no truncation of 300-char summary" "[SUMMARY_TRUNCATED]" "$r"
-unset AI_OS_SUMMARY_CAP
+unset REIN_SUMMARY_CAP
 
 # ── E-108: stamp rotation ────────────────────────────────────────────────────
 # Bulk-seed 60 stamps into the same state.sqlite the MCP uses (fast path).
@@ -757,7 +757,7 @@ set -e   # this section ran under its own suite's error mode
 SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
 # Framework routing must never engage — these writes target the temp .ai/ only.
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 
 # Isolated project: the MCP resolves aiDir as process.cwd()/.ai (index.js:409).
 DAG_TMP="$(test_tmpdir dagdep)"
@@ -867,16 +867,16 @@ set +e
 #
 # Drives the REAL MCP server over stdio against an isolated temp .ai/ so the
 # behaviour under test is the shipped handler logic. Covers: the [TASK_LOCKED]
-# guard on DONE tasks, the reopen:true override, that AI_OS_SOVEREIGNTY_LOCK=0 is
+# guard on DONE tasks, the reopen:true override, that REIN_SOVEREIGNTY_LOCK=0 is
 # NO LONGER a rollback (removed — D-084 r1, D-087 r3), that non-DONE mutations are unaffected, and that the task_update
 # schema admits `reopen` past additionalProperties:false.
 set -e   # this section ran under its own suite's error mode
 SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
 # Framework routing must never engage — these writes target the temp .ai/ only.
-unset AIOS_WORKSPACE AIOS_WORKSPACE_DISABLE 2>/dev/null || true
+unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 # The lock has no environment switch any more (E-294); unset it so the first cases are clean.
-unset AI_OS_SOVEREIGNTY_LOCK 2>/dev/null || true
+unset REIN_SOVEREIGNTY_LOCK 2>/dev/null || true
 
 SOV_TMP="$(test_tmpdir soverlock)"
 PROJECT="${SOV_TMP}/proj"
@@ -939,24 +939,24 @@ assert_contains "T-101.02: reopen path not an error" "OK" "$e"
 r=$(call update_task_status "{\"id\":\"E-1\",\"status\":\"BLOCKED\"}")
 assert_contains "T-101.03: OPEN→BLOCKED not locked"  "E-1 → BLOCKED" "$r"
 
-# ── T-101.04 → E-294 (D-084 r1, D-087 r3): AI_OS_SOVEREIGNTY_LOCK=0 NO LONGER unlocks ──
+# ── T-101.04 → E-294 (D-084 r1, D-087 r3): REIN_SOVEREIGNTY_LOCK=0 NO LONGER unlocks ──
 # Was: "env rollback bypasses lock". A project's settings `env` could set it, so the variable
 # is removed everywhere; reopen:true is the one documented way to mutate a DONE task.
 # Put E-1 back to DONE (BLOCKED→DONE allowed), then try to mutate it with the old env flag.
 call update_task_status "{\"id\":\"E-1\",\"status\":\"DONE\",\"summary\":\"done again\"}" >/dev/null
-export AI_OS_SOVEREIGNTY_LOCK=0
+export REIN_SOVEREIGNTY_LOCK=0
 r=$(call update_task_status "{\"id\":\"E-1\",\"status\":\"OPEN\"}")
-assert_contains "E-294.T101.04a: AI_OS_SOVEREIGNTY_LOCK=0 no longer unlocks a DONE task" "[TASK_LOCKED]" "$r"
+assert_contains "E-294.T101.04a: REIN_SOVEREIGNTY_LOCK=0 no longer unlocks a DONE task" "[TASK_LOCKED]" "$r"
 e=$(is_error update_task_status "{\"id\":\"E-1\",\"status\":\"OPEN\"}")
 assert_contains "E-294.T101.04b: …and it is still an error result" "ISERROR" "$e"
-assert_not_contains "E-294.T101.04c: the refusal no longer offers the env switch" "AI_OS_SOVEREIGNTY_LOCK" "$r"
+assert_not_contains "E-294.T101.04c: the refusal no longer offers the env switch" "REIN_SOVEREIGNTY_LOCK" "$r"
 state=$(call get_state "{\"status\":\"DONE\"}")
 assert_contains "E-294.T101.04d: E-1 is still DONE" "E-1" "$state"
 r=$(call update_task_status "{\"id\":\"E-1\",\"status\":\"OPEN\",\"reopen\":true}")
 assert_contains "E-294.T101.04e: reopen:true still mutates it (with the var still set)" "E-1 → OPEN" "$r"
-unset AI_OS_SOVEREIGNTY_LOCK
+unset REIN_SOVEREIGNTY_LOCK
 assert_status 1 "E-294.T101.04f: neither the server nor its schemas mention the variable" \
-  grep -q 'AI_OS_SOVEREIGNTY_LOCK' "${SERVER}" "${REPO_ROOT}/src/mcp/task-synchronizer-mcp/tool-schemas.mjs"
+  grep -q 'REIN_SOVEREIGNTY_LOCK' "${SERVER}" "${REPO_ROOT}/src/mcp/task-synchronizer-mcp/tool-schemas.mjs"
 
 # ── T-101.05: task_update schema admits `reopen` past additionalProperties ────
 r=$(call validate_payload "{\"schema_name\":\"task_update\",\"payload\":{\"id\":\"E-1\",\"status\":\"OPEN\",\"reopen\":true}}")
@@ -1396,11 +1396,11 @@ for row in "${CRITICS[@]}"; do
   assert_status 0 "${name}: frontmatter name matches" \
     grep -qE "^name: ${name}$" "$SRC"
 
-  # 3-copy mirror identity (src ↔ .claude ↔ ~/.ai-os/claude).
+  # 3-copy mirror identity (src ↔ .claude ↔ ~/.rein/claude).
   assert_status 0 "${name}: .claude mirror identical" \
     diff -q "$SRC" "${REPO_ROOT}/.claude/agents/${name}.md"
-  assert_status 0 "${name}: ~/.ai-os mirror identical" \
-    diff -q "$SRC" "${HOME}/.ai-os/claude/agents/${name}.md"
+  assert_status 0 "${name}: ~/.rein mirror identical" \
+    diff -q "$SRC" "${HOME}/.rein/claude/agents/${name}.md"
 done
 set +e
 

@@ -57,7 +57,7 @@ Before starting a large task, estimate token cost:
 | :----- | :------------ |
 | Read DIGEST.md | ~500 |
 | Read architect.md (full) | ~3,000 |
-| Read src/bin/ai (full) | ~8,000 |
+| Read src/bin/rein (full) | ~8,000 |
 | Read all skills (all files) | ~15,000 |
 | Read LOG.md (full) | ~2,000 |
 

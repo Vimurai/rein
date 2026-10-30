@@ -4,7 +4,7 @@
 // WHY THIS EXISTS (E-210, D-054 / role-abstraction.md §Same-Provider Triad):
 //   Two callers need exactly this resolution and must never drift apart:
 //     - advisor-mcp::ask_architect  — the SYNCHRONOUS A2A bridge (print mode)
-//     - `ai pane <role>` (src/bin/ai) — the per-pane role binding launcher
+//     - `rein pane <role>` (src/bin/rein) — the per-pane role binding launcher
 //   Before E-210 the bridge hardcoded its executable, so a Triad bound to another
 //   provider silently consulted the WRONG architect. The executable and its argv
 //   both come from .ai/roles.json × .ai/providers.json.
@@ -29,8 +29,8 @@ export const DEFAULT_ROLE_PROVIDERS = { architect: "claude", engineer: "claude",
 // provider has no use for a claude model name.
 export const DEFAULT_ROLE_MODELS = { architect: "fable", engineer: "opus", tester: "sonnet" };
 // Roles that are headless when roles.json does not say otherwise. A headless role is
-// dispatched as a subagent (the Tester via skill: ai-test) and is never laid out as a
-// pane, never bound by `ai pane`, and never minted a role token (claude-native-consolidation.md §Security).
+// dispatched as a subagent (the Tester via skill: rein-test) and is never laid out as a
+// pane, never bound by `rein pane`, and never minted a role token (claude-native-consolidation.md §Security).
 export const DEFAULT_HEADLESS_ROLES = new Set(["tester"]);
 
 // Built-in adapter fallbacks, so a project whose .ai/providers.json predates E-210

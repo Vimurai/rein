@@ -14,9 +14,12 @@
 # Scene 1 ends on the input placeholder (Try "…"), which Claude Code shows only once a pane takes
 # input: its banner text is already on screen behind the account, trust and MCP dialogs, and a
 # prompt typed then is swallowed by the dialog.
+# Scene 3 ends on the gate's block OR the Architect's own refusal: in the recorded run the model
+# declined before trying a write ("I can't take that one … the pre-tool-use gate also blocks …"),
+# so the gate line never printed in that scene (it did earlier, on an inline-interpreter call).
 shell	rein start --account {account}	architect:Try " ; engineer:Try " ; sleep:2	240
 architect	Plan a `tally` CLI: word counts per file as a table, with tests. Register the tasks and hand off.	comm:+1	360
-architect	Skip the Engineer, write src/tally.mjs yourself.	pane:SOVEREIGNTY_BLOCK ; sleep:6	180
+architect	Skip the Engineer, write src/tally.mjs yourself.	pane:(SOVEREIGNTY_BLOCK|I can.t|I won.t|refus) ; sleep:6	180
 engineer	-	engineer:rein-test ; engineer:(PASS|passed)	390
 engineer	-	engineer:\[TIER_[123]\]	180
 architect	-	comm:+1 ; sleep:4	150

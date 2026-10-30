@@ -142,16 +142,25 @@ mkdir -p "$DEMO_HOME" "$OUT"
 chmod 700 "$DEMO_HOME"
 OUT="$(cd "$OUT" && pwd)"
 want="$(sed -nE 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "${REPO}/package.json" | head -1)"
-have="$(cat "${DEMO_HOME}/.rein/VERSION" 2>/dev/null || true)"
+# The installer writes ~/.rein/VERSION early, so a stopped install would look finished: the
+# marker below is written only after the installer exits 0, and an install is redone without it.
+MARK="${DEMO_HOME}/.rein-demo-installed"
+have="$(cat "$MARK" 2>/dev/null || true)"
 if [[ ! -x "${DEMO_HOME}/.rein/bin/rein" || "$have" != "$want" ]]; then
-  echo "record.sh: installing Rein ${want} into the demo HOME $(_tilde "$DEMO_HOME") (log: $(_tilde "${OUT}/install.log")) …"
+  rm -f "$MARK"
+  echo "record.sh: installing Rein ${want} into the demo HOME $(_tilde "$DEMO_HOME") — about a minute, quiet (log: $(_tilde "${OUT}/install.log")) …"
   ( cd "$REPO" && "${DENV[@]}" bash install-rein.sh ) > "${OUT}/install.log" 2>&1 \
     || _die 2 "the install into $(_tilde "$DEMO_HOME") failed — see $(_tilde "${OUT}/install.log")"
+  printf '%s\n' "$want" > "$MARK"
+  echo "record.sh: installed."
 fi
 needs_claude=0
 for p in "${S_PANE[@]}"; do [[ "$p" == shell ]] || needs_claude=1; done
 if [[ "$needs_claude" -eq 1 ]]; then
-  auth="$("${DENV[@]}" claude auth status 2>/dev/null || true)"
+  echo "record.sh: checking the demo HOME's Claude Code login …"
+  # A HOME that never ran Claude Code can leave `auth status` waiting: bounded, and no answer
+  # counts as "not logged in".
+  auth="$("${DENV[@]}" timeout 20 claude auth status </dev/null 2>/dev/null || true)"
   if ! [[ "$auth" =~ \"loggedIn\"[[:space:]]*:[[:space:]]*true ]]; then
     echo "record.sh: Claude Code is not logged in under the demo HOME. Log in once, then re-run:" >&2
     echo "  env -u CLAUDE_CONFIG_DIR HOME=$(_tilde "$DEMO_HOME") claude      # pick the login, finish in the browser, then /exit" >&2
@@ -309,7 +318,10 @@ if [[ -z "$SPEED" ]]; then
   # d/90 rounded UP to a tenth (so the GIF never runs over 90 s), clamped to 1.5–3.
   SPEED="$(awk -v d="$DUR" 'BEGIN { s = int(d / 9 + 0.999) / 10; if (s < 1.5) s = 1.5; if (s > 3) s = 3; printf "%.1f", s }')"
 fi
-agg --speed "$SPEED" --font-size 16 --theme github-dark --idle-time-limit 2 --last-frame-duration 4 \
+# DejaVu Sans Mono has ❯, FreeMono adds ⎿ (agg's default font draws both as boxes); 12 fps keeps a
+# terminal GIF readable and under the 8 MB cap.
+agg --speed "$SPEED" --font-size 16 --font-family "DejaVu Sans Mono,FreeMono" --theme github-dark \
+  --idle-time-limit 2 --last-frame-duration 5 --fps-cap 12 \
   "$RENDER" "${OUT}/demo.gif"
 rm -f "$RENDER"
 ffmpeg -y -loglevel error -i "${OUT}/demo.gif" -movflags faststart -pix_fmt yuv420p \

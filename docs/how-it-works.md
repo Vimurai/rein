@@ -29,6 +29,8 @@ flowchart LR
     G -->|"PR"| H["hosted CI · fast + shards"]
 ```
 
+![Rein: the Architect plans and hands off, the gate holds, the Engineer builds, tests and commits — a real run, 80 seconds](assets/demo.gif)
+
 ## The roles
 
 | Role | Rulefile | Model (default) | Owns | Cannot |

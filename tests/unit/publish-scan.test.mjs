@@ -87,13 +87,21 @@ test("E-365: without .ai/publish-scan.local.json a tree scan FAILS CLOSED; with 
 });
 
 test("E-365: the reviewed exemption covers this file's invented data — never client names", () => {
-  assert.deepEqual(Object.keys(EXEMPT_FILES), ["tests/unit/publish-scan.test.mjs"]);
+  // E-402 (D-139): the demo GIF is the second reviewed exemption — compressed pixels drawn from
+  // docs/assets/demo.cast, which stays fully scanned (docs-links.test.mjs scans it clean).
+  assert.deepEqual(Object.keys(EXEMPT_FILES), ["tests/unit/publish-scan.test.mjs", "docs/assets/demo.gif"]);
   for (const reason of Object.values(EXEMPT_FILES)) assert.ok(reason.length > 20);
   const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, "tests", "unit"), { recursive: true });
-    writeFileSync(join(root, "tests/unit/publish-scan.test.mjs"), "cd /home/frank; Fabrikam\n");
-    assert.deepEqual(scanFiles(root, ["tests/unit/publish-scan.test.mjs"], { clientNames: ["Fabrikam"] }).map((h) => h.class), ["client_name"]);
+    mkdirSync(join(root, "docs", "assets"), { recursive: true });
+    for (const f of ["tests/unit/publish-scan.test.mjs", "docs/assets/demo.gif"]) {
+      writeFileSync(join(root, f), "cd /home/frank; Fabrikam\n");
+      assert.deepEqual(scanFiles(root, [f], { clientNames: ["Fabrikam"] }).map((h) => h.class), ["client_name"], f);
+    }
+    // …and only by name: the same bytes anywhere else are a home_path finding.
+    writeFileSync(join(root, "docs/assets/other.gif"), "cd /home/frank\n");
+    assert.deepEqual(scanFiles(root, ["docs/assets/other.gif"], { clientNames: ["Fabrikam"] }).map((h) => h.class), ["home_path"]);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

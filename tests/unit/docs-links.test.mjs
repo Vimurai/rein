@@ -83,6 +83,30 @@ test("the demo's scenes file parses: six scenes, each with a pane, a prompt, a c
   assert.equal(rows.length, 6, r.stdout);
 });
 
+// demo-video.md §Component 5: the committed GIF stays under 8 MB (GitHub renders inline to 10 MB),
+// and the committed cast — the text the GIF is drawn from — passes the commit gate's privacy check.
+test("the README's demo GIF is at most 8 MB, and its cast scans clean", () => {
+  const gif = join(repo, "docs", "assets", "demo.gif"), cast = join(repo, "docs", "assets", "demo.cast");
+  assert.ok(statSync(gif).size <= 8 * 1024 * 1024, `demo.gif is ${statSync(gif).size} bytes`);
+  const r = spawnSync("node", ["--no-warnings", join(repo, "scripts", "demo", "scan.mjs"), cast, repo], { encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /\[DEMO_SCAN_OK\]/);
+});
+
+// The privacy gate exempts docs/assets/demo.gif by name from the address and path classes
+// (publish-scan.mjs EXEMPT_FILES; security_engineer E-402 P3-2, P3-3). That is only safe while the
+// path holds a real GIF — not a symlink or a text file — and while the GIF is drawn from the cast
+// the gate scans: both change in the same commit, so a re-render cannot land without its cast.
+test("the exempted demo.gif is a regular GIF file, committed together with its cast", () => {
+  const git = (...a) => spawnSync("git", ["-C", repo, ...a], { encoding: "utf8" }).stdout.trim();
+  const gif = join(repo, "docs", "assets", "demo.gif");
+  assert.equal(readFileSync(gif).subarray(0, 6).toString("latin1"), "GIF89a", "not a GIF");
+  const mode = git("ls-files", "-s", "docs/assets/demo.gif").split(/\s+/)[0];
+  if (mode) assert.equal(mode, "100644", "demo.gif must be a regular file in git (not a symlink)");
+  assert.equal(git("log", "-1", "--format=%H", "--", "docs/assets/demo.gif"),
+    git("log", "-1", "--format=%H", "--", "docs/assets/demo.cast"), "demo.gif and demo.cast last changed in different commits");
+});
+
 test("a malformed scenes row is refused (exit 2) before anything is recorded", () => {
   const dir = mkdtempSync(join(tmpdir(), "demo-scenes-"));
   try {

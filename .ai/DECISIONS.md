@@ -3862,3 +3862,67 @@ Delete the scan from the installer's final report; nothing else depends on it.
 Rulings 1–3 are one task; if E-397 cannot close within the PR, the fallback is ruling 1's alternative 3 (fix on `main` first), never the admin merge. Ruling 4 is a second task id; ruling 5 is a note.
 
 ---
+
+## D-136 addendum — The README and `docs/install.md` give the explicit Claude Code terminal install steps, quoted from the official page, instead of a bare link
+
+**Date**: 2026-10-30
+**Task**: E-390
+**Decision**: The operator asked that the README update carry the steps for installing the Claude Code CLI in the terminal, not just "have Claude Code logged in". D-136 §Component 3 step 4 said "install per the official documentation page (link)". Rulings:
+
+1. **`docs/install.md` step 4 becomes a full step** with the same shape as the others (why, command block, *what you should see*), quoting the official Get started page's Terminal tab with the link beside every block: the native install for macOS/Linux/WSL2 (`curl -fsSL https://claude.ai/install.sh | bash`), the Homebrew and WinGet alternatives in one line each, the Windows PowerShell and CMD lines for completeness with the note that Rein runs inside the WSL2 distribution, then the verification (`claude --version` in a new terminal, the "Fix your PATH" link and rc one-liner when the shell cannot find `claude`), then the first `claude` run and login.
+2. **The README quickstart block's first step is Claude Code itself**: the native-install one-liner with the link and `claude --version`, prefixed "skip if `claude --version` already prints a version". The Windows, Homebrew and WinGet variants stay in `docs/install.md`; the README keeps one block.
+3. **The page wins over the blueprint.** The commands are quoted as of 2026-10-30; the Engineer re-reads the page while writing and names any changed line in the handoff. The Windows lines are quoted, never run, on this Linux/WSL machine.
+4. **Security clause widened in kind, not in principle**: the only remote scripts piped into a shell anywhere in the docs are Claude Code's own documented installers (`install.sh`, `install.ps1`, `install.cmd` on `claude.ai`), each line naming its page.
+
+### Alternatives considered
+1. **Keep the bare link** — rejected: the blueprint's own premise is "nothing is assumed installed", and a newcomer who has never run `claude` is exactly the reader `docs/install.md` exists for.
+2. **Put every OS variant in the README quickstart** — rejected: it breaks the one-block, 60-second shape; the README gets the one line most readers need and the install page the rest.
+3. **Full step in `docs/install.md`, one line in the README** — selected.
+
+### Constraints driving this decision
+- D-136 (install guide assumes nothing; every command block run or marked documented-not-run); the §Security clause on remote scripts (only the vendor's own documented installer, with its page named).
+
+### Impact
+- Changes E-390's scope by one step and one quickstart line; no new task, no change to its dependency on E-385. Blueprint §Component 3 step 4, §Component 4 quickstart line, §Security and the E-390 row are updated under this addendum.
+- Risk if wrong: a stale install command in the docs; mitigated by ruling 3 and the docs-architect audit in §Component 5.
+
+### Rollback
+Revert the blueprint lines to the bare-link form; the README and docs change travels with E-390's single PR (D-136 §Rollback).
+
+---
+
+## D-137 — One required set, read from one function: `requiredChecks()` returns exactly what `main` requires, the release publish gates on that same set, and the informative macOS legs stay visible without blocking either
+
+**Date**: 2026-10-30
+**Task**: E-399 (new); confirms the manual v0.4.0 release
+**Decision**: The Engineer's 15:30 UTC handoff reports two divergences after the v0.4.0 tag. (a) `requiredChecks()` in `src/shared/hosted-ci.mjs` returns the four `macos-latest, node 22` shards, while DEVOPS-014/015, public-ci.md §Component 3, D-135 addendum 2 r3 and D-133 addendum r4 all say macOS is informative until E-388 and E-396 close; the Engineer's `gh api` call followed DEVOPS. (b) `release.yml`'s publish job `needs: matrix`, so the macOS shard 1/4 failure on the tag skipped the publish and v0.4.0 was released by hand with the operator's yes. A third item: the E-397 operand-scope budget test failed once on hosted macOS under a fixed 200 ms. Rulings:
+
+1. **DEVOPS and §Component 3 are right; the Data Model block and `requiredChecks()` are stale.** The ruled state is D-135 addendum 2 r3 as widened by D-133 addendum r4: `privacy scan`, `fast`, `CodeQL`, the eight Ubuntu legs. public-ci.md §Data Model is corrected under this ruling; `requiredChecks()` is corrected to return that set, and the E-388/E-396 closing PR flips it (its acceptance already says so).
+2. **`requiredChecks()` is the single source of truth and must say so in code**: `hosted-ci.mjs` gains an `INFORMATIVE_LEGS` constant beside `PUBLIC_LEGS` (today `[["macos-latest", "22"]]`), with a comment naming D-135 addendum 2 r3, D-133 addendum r4 and this ruling; `requiredChecks()` skips those legs; `_matrixYaml` still runs them. `hosted-ci.test.mjs` asserts the exact required set and that an informative leg is in the matrix and not in the set. The branch-protection PATCH and the publish gate both derive from the function; the DEVOPS entry stops restating the list and points at `rein ci hosted --required` (new flag: prints `requiredChecks()` one per line) instead.
+3. **The release publishes when the required set is green on the tag, not when the whole matrix is.** `release.yml`: the publish job runs `if: ${{ !cancelled() }}` after the matrix job and its first step asks the Checks API for the tag sha's check runs (`gh api repos/…/commits/<sha>/check-runs`, paginated) and fails unless every name `rein ci hosted --required` prints has conclusion `success`. The macOS legs still run on the tag and stay red in the run's UI when they fail; the publish step writes an "informative legs" table (name, conclusion) into the job summary and the release notes keep their recipe unchanged. No `continue-on-error` anywhere (public-ci.md §Component 5's rule holds for the release too: a red stays visible). When E-388/E-396 close, ruling 2's constant empties and the publish gate tightens for free.
+4. **The manual v0.4.0 release is ratified.** It carried the workflow's own notes recipe (CHANGELOG 0.4.0 section + `install-rein.sh` sha256) with the operator's yes, and every then-required check was green on 509d7e5. No re-publish; the next tag goes through ruling 3.
+5. **The operand-scope budget is a linear-time tripwire, not an SLA**: the `CI=true ? 200 : 200 + 20 * base` branch goes; both tests in `tests/unit/operand-scope.test.mjs` use the same-run baseline form everywhere plus an absolute ceiling of 1000 ms, which is the actual denial-of-service bound for a 50k-group input. A hosted macOS runner whose baseline is 3× Linux then gets 3× the headroom and still cannot pass a quadratic regex. Harness rule 1 (no host-conditional budgets) is the reason; a flaky required check is D-133 r3's worst case because it invites the bypass that rule forbids.
+6. **Operator action, not a task**: `~/.ai-os` exists again as a real directory holding only the minutes of telemetry rows the stale checkout wrote (handoff 15:30 UTC, open risk). Remove it (`rm -r`, it is a directory this time, after confirming it holds only `telemetry.sqlite`); nothing reads it. Recorded here so it is not mistaken for a gate regression.
+
+### Why needed
+Two sources disagreed about what `main` requires, and the release gate silently used a third (the whole matrix). With E-388/E-396 open, every tag would skip its publish and invite a manual release, which is the habit D-133 r3 exists to prevent.
+
+### Alternatives considered
+1. **Require macOS now and fix forward** — rejected: D-135 addendum 2 alt. 2, nothing merges; the exit condition is concrete and tracked (E-388, E-396).
+2. **Drop macOS from the tag's matrix** — rejected: the macOS leg exists for what only macOS shows (bash 3.2, BSD tools, the installer's directory move); the tag run is the one that matters most for those.
+3. **`continue-on-error` on the macOS legs** — rejected: it paints the job green and hides the red; the blueprint forbids it for exactly that reason.
+4. **Keep manual publishes until E-388/E-396 close** — rejected: a manual release is a bypass with a shorter memory; two or three tags away nobody reads the workflow.
+5. **Derive both gates from `requiredChecks()`; macOS informative but visible** — selected.
+6. **For the budget, raise the CI constant (500 ms) or branch on `runner.os`** — rejected: a constant is a guess that fails again on the next slower runner, and a per-host branch is harness rule 1's forbidden shape; the baseline-relative form with a hard ceiling is the shape the test already uses off-CI.
+
+### Constraints driving this decision
+- D-133 r3 (a required check is never dropped or bypassed to go green); D-135 addendum 2 r3 and D-133 addendum r4 (macOS joins the required set when E-388 and E-396 close); public-ci.md §Component 5 (no `continue-on-error`; informative means not required, still red); D-103 (the hosted contract stays two commands; the publish-gate step is a `gh api` read, not a third build command); harness rule 1 (no host-conditional budgets).
+
+### Impact
+- Unlocks: E-399 (Tier 2, ci_gate first, DEVOPS-016); the next tag publishes without a hand step while macOS is red; the E-388/E-396 closing PR has one constant to empty.
+- Risk if wrong: a publish that should have waited for macOS. Bounded: macOS is informative on `main` today by ruling, so the release is never stricter than the branch it ships from; and the informative table in the job summary keeps the red in view.
+
+### Rollback
+Revert E-399's single PR: `requiredChecks()` and `release.yml` return to their current text; the DEVOPS-016 entry records the revert. The ratification of v0.4.0 (ruling 4) stands regardless.
+
+---

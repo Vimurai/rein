@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="120" height="120" role="img" aria-labelledby="t">
+  <title id="t">Rein</title>
+  <style>
+    @keyframes draw { from { stroke-dashoffset: 80; } to { stroke-dashoffset: 0; } }
+    @keyframes ring { 0% { transform: scale(0.6); opacity: 0; } 60% { transform: scale(1.08); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes tension { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(1.2px, 1.2px); } }
+    @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+    .a { stroke-dasharray: 80; animation: draw 0.9s cubic-bezier(.4,0,.2,1) 0.1s both, tension 3.2s ease-in-out 1.4s infinite; }
+    .b { stroke-dasharray: 80; animation: draw 0.9s cubic-bezier(.4,0,.2,1) 0.3s both, tension 3.2s ease-in-out 1.4s infinite; }
+    .r { transform-origin: 46px 46px; animation: ring 0.6s cubic-bezier(.2,.8,.2,1) 0.9s both, pulse 3.2s ease-in-out 1.5s infinite; }
+    @media (prefers-reduced-motion: reduce) { .a, .b, .r { animation: none; } }
+  </style>
+  <path class="a" d="M8 12 C 28 12, 40 22, 42 38" fill="none" stroke="#1b1d1f" stroke-width="5" stroke-linecap="round"/>
+  <path class="b" d="M8 24 C 24 24, 34 30, 38 42" fill="none" stroke="#1b1d1f" stroke-width="5" stroke-linecap="round"/>
+  <circle class="r" cx="46" cy="46" r="8" fill="none" stroke="#c2612e" stroke-width="5"/>
+</svg>

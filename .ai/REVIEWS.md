@@ -245,3 +245,4 @@
 [CRITIC_STAMP] 2026-10-30 | 509d7e5 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-399: INFORMATIVE_LEGS + requiredChecks() exact set (unit), --required flag, release.yml publish gate on the required set (dry run vs 509d7e5 exit 0; negative exit 1), operand-scope baseline budget + 1000 ms ceiling; fast tier 2244/0; actionlint SKIP (not on Linux x86_64 host).
 [CRITIC_STAMP] 2026-10-30 | afec3af 32126521+Vimurai@users.noreply.github.com | Tier 1 bookkeeping only on afec3af: E-399 DONE, LOG and views.
 [CRITIC_STAMP] 2026-10-30 | 6c4d34b 32126521+Vimurai@users.noreply.github.com | Tier 1 bookkeeping only on 6c4d34b: E-399 DONE, LOG and views.
+[CRITIC_STAMP] 2026-10-30 | 9bff856 32126521+Vimurai@users.noreply.github.com | Tier 1 bookkeeping only: merge origin/main (8c649ee, #14) into e-385-rein-mark; .ai view conflicts (TASKS/REVIEWS/state.json) resolved to main's superset side, E-385 and E-399 both DONE, JSON valid, no markers.

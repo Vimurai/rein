@@ -1,4 +1,8 @@
 <div align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/assets/rein-mark-animated-dark.svg">
+    <img src="docs/assets/rein-mark-animated.svg" width="120" alt="Rein">
+  </picture>
   <h1>Rein</h1>
   <p><b>Rein in your agents.</b></p>
   <p>Claude Code as a small engineering team that plans, builds, reviews and remembers.</p>

@@ -129,9 +129,25 @@ should see*. Nothing is assumed installed.
    `prefix d` detach, `tmux attach -t <name>` return, `prefix [` scroll. A minimal
    `~/.tmux.conf` (mouse on, 256 colours) offered, not required. One session per project,
    named after it (the README's manual-fallback rule).
-4. **Claude Code** — install per the official documentation page (link; the Engineer verifies
-   the current command at the time of writing and quotes it beside the link), then `claude`
-   once to log in; *what you should see*.
+4. **Claude Code** — the explicit terminal steps, not a bare link (D-136 addendum, 2026-10-30).
+   The step quotes the official "Get started" page (`https://docs.anthropic.com/en/docs/claude-code`,
+   Terminal tab) with the link beside every block, and mirrors the OS sections of step 1:
+   - **macOS / Linux / WSL2** (Native install, the page's recommended path):
+     `curl -fsSL https://claude.ai/install.sh | bash`. Alternatives in one line each: Homebrew
+     and WinGet exactly as the page's tabs give them.
+   - **Windows PowerShell**: `irm https://claude.ai/install.ps1 | iex`; **Windows CMD**:
+     `curl -fsSL https://claude.ai/install.cmd -o install.cmd && install.cmd`. Both are listed
+     for completeness only, with the note that Rein itself runs inside the WSL2 Linux
+     distribution, where the macOS/Linux/WSL block applies.
+   - **Verify**: the installer prints no progress; open a NEW terminal and run `claude --version`.
+     *What you should see* is a version number. If the shell says `claude` is not found, the
+     install directory is not on PATH yet: link the page's "Fix your PATH" section and give
+     the one-line rc fix for bash and zsh.
+   - **Log in**: run `claude` once, pick the login method (Claude subscription or Anthropic
+     Console), complete it in the browser, type `/exit`; *what you should see* at each prompt.
+   The Engineer re-reads the page at the time of writing: if a command differs from the text
+   above, the page wins and the changed line is named in the handoff. The commands above are
+   quoted from the page as of 2026-10-30.
 5. **Rein** — clone, `bash install-rein.sh`, `exec "$SHELL"`, `rein install`, `rein doctor`;
    a table of every `rein doctor` line a fresh machine can show and its fix.
 6. **Your first project** — `rein init` in a new and in an existing repository (what it
@@ -150,8 +166,12 @@ should see*. Nothing is assumed installed.
 - `docs/ci.md`: `rein ci run` (worktree, lanes, budget ratchet) and the hosted CI (fast job,
   shards, nightly, release; D-133, D-135) with the required-check table.
 - README body after the hero: **How it works** (2a + four bold paragraphs, each ending in a
-  link to a `docs/` page) → **Quickstart (60 seconds)** (one block, prerequisites as one
-  line linking `docs/install.md`) → **Feature tour** (a table: outcome · how · where to
+  link to a `docs/` page) → **Quickstart (60 seconds)** (one block; prerequisites as one
+  line linking `docs/install.md`; the block's first numbered step is Claude Code itself: the
+  native-install one-liner for macOS/Linux/WSL2 quoted from the official page with the link,
+  then `claude --version`, with "skip if `claude --version` already prints a version"; the
+  Windows PowerShell/CMD, Homebrew and WinGet variants live in `docs/install.md` step 4, not
+  in the README — D-136 addendum) → **Feature tour** (a table: outcome · how · where to
   read) → **Command reference** (the table, kept) → **FAQ** (kept, pruned) → **Where this
   comes from**, **Contributing**, **Security**, **Sponsoring**, **Licence** (kept).
   Install, uninstall, upgrade and the manual tmux fallback leave the README for
@@ -190,10 +210,11 @@ tests/unit/docs-links.test.mjs link and fence check
 
 ## Security
 - No secrets, tokens or personal paths in any example; `~/code/my-project` is the only path.
-- Claude Code's install command is quoted from the official documentation page with the
-  link beside it, never from a third-party mirror; no remote script is piped into a shell
-  anywhere in the docs except Claude Code's own documented installer, and that line names the
-  page it comes from.
+- Claude Code's install commands are quoted from the official documentation page with the
+  link beside them, never from a third-party mirror; no remote script is piped into a shell
+  anywhere in the docs except Claude Code's own documented installers (`install.sh`,
+  `install.ps1`, `install.cmd` on `claude.ai`), and each such line names the page it comes
+  from. The Windows PowerShell/CMD lines are quoted, never run, by the Engineer (Linux/WSL).
 - The privacy gate (E-378) covers the new files like any tracked file.
 
 ## Execution Constraints
@@ -213,4 +234,4 @@ removed with it.
 ## E-## Task Breakdown
 | Task | Tier | Scope | Depends on |
 |---|---|---|---|
-| E-390 | 2 | Components 1–5: README rewrite, four Mermaid diagrams, `docs/install.md` step by step with tmux and Claude Code per OS, three depth pages, link test, docs-architect audit | E-385 |
+| E-390 | 2 | Components 1–5: README rewrite (quickstart step 1 = Claude Code native install + `claude --version`), four Mermaid diagrams, `docs/install.md` step by step with tmux and the explicit Claude Code terminal install, verify and login steps per OS (step 4, D-136 addendum), three depth pages, link test, docs-architect audit | E-385 |

@@ -282,6 +282,12 @@ _keep="$(test_tmpdir keep)"
 ( source "$LIB"; true ) >/dev/null 2>&1
 assert_status 0 "E-240.02c: the parent's cleanup survives a subshell that sources the library" \
   grep -qF "rm -rf '${_keep}'" "$_CLEANUP_FILE"
+# E-388 (extends E-240.02c): bash 3.2 has no BASHPID, and the subshell registry key read it
+# under `set -u`, so every `( source "$LIB"; … )` fixture above died on macOS before its body
+# ran. Unsetting BASHPID is how bash 5 shows bash 3.2's view.
+_nobp="$(bash -c 'set -u; unset BASHPID; ( source "$1"; echo SOURCED_OK ) 2>&1' _ "$LIB")"
+assert_contains "E-240.02d: a sourcing subshell survives set -u without BASHPID (bash 3.2)" \
+  "SOURCED_OK" "$_nobp"
 
 # ── E-240.3: names carry entropy, never $$ ────────────────────────────────
 # `$$` recycles, and a recycled name attaches to whatever the previous owner left running.

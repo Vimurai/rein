@@ -231,16 +231,17 @@ test("the matrix follows the project: --tier → a fast job, --shard → team.js
   assert.deepEqual(requiredChecks(d, team), ["fast", "rein ci run (ubuntu-latest, node 22, 1/2)", "rein ci run (ubuntu-latest, node 22, 2/2)"]);
   writeFileSync(join(d, ".ai", "publish.json"), "{}");
   assert.equal(profileFor(d), "public");
-  // D-137 r1–r2 (E-399): the exact required set — fast + the eight Ubuntu legs; an
-  // INFORMATIVE_LEGS leg (macOS × 22) is rendered into the matrix but never required.
-  const ubuntu = ["22", "24"].flatMap((n) => [1, 2, 3, 4].map((i) => `rein ci run (ubuntu-latest, node ${n}, ${i}/4)`));
-  assert.deepEqual(requiredChecks(d, null), ["fast", ...ubuntu]);
-  assert.deepEqual(INFORMATIVE_LEGS, [["macos-latest", "22"]]);
+  // D-137 r1–r3 (E-399): the exact required set. E-388/E-396 emptied INFORMATIVE_LEGS
+  // (DEVOPS-017): fast + the eight Ubuntu legs + the four macOS × 22 legs.
+  const legs = [["ubuntu-latest", "22"], ["ubuntu-latest", "24"], ["macos-latest", "22"]]
+    .flatMap(([os, n]) => [1, 2, 3, 4].map((i) => `rein ci run (${os}, node ${n}, ${i}/4)`));
+  assert.deepEqual(requiredChecks(d, null), ["fast", ...legs]);
+  assert.deepEqual(INFORMATIVE_LEGS, []);
   const r = hosted(d, { provider: "github" });
   assert.equal(r.code, 0, r.out);
   assert.match(r.out, /^Required checks \(D-135 r7, public profile\): "fast", "rein ci run \(ubuntu-latest, node 22, 1\/4\)", /m);
   assert.match(readFileSync(wrapper(d), "utf8"), /^  fast:\n    name: fast\n/m);
-  assert.match(readFileSync(wrapper(d), "utf8"), /^        os: \[ubuntu-latest, macos-latest\]$/m, "the informative leg still runs");
+  assert.match(readFileSync(wrapper(d), "utf8"), /^        os: \[ubuntu-latest, macos-latest\]$/m, "the macOS leg runs");
 });
 
 test("team.json ci.shards is a whole number 1..8", () => {

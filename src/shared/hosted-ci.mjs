@@ -41,8 +41,8 @@ export const DEFAULT_SHARDS = 4;
 const PUBLIC_LEGS = [["ubuntu-latest", "22"], ["ubuntu-latest", "24"], ["macos-latest", "22"]];
 // D-135 addendum 2 r3, D-133 addendum r4, D-137 r2: legs the matrix runs (and shows red) but
 // no gate requires — neither main's branch protection nor the release publish. requiredChecks()
-// is the one place that decides; it empties when E-388/E-396 make macOS green.
-export const INFORMATIVE_LEGS = [["macos-latest", "22"]];
+// is the one place that decides. Empty since E-388/E-396 made macOS × 22 green (DEVOPS-017).
+export const INFORMATIVE_LEGS = [];
 const _informative = (os, node) => INFORMATIVE_LEGS.some(([o, n]) => o === os && n === node);
 const TEAM_LEGS = [["ubuntu-latest", "22"]];
 const SHA = {

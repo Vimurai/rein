@@ -799,3 +799,24 @@ publish; a red informative leg is listed, never hidden.
 **Rollback.** Revert E-399's PR: `requiredChecks()` and `release.yml` return to their previous
 text and the publish again needs the whole matrix. Branch protection is not touched by this
 change (it already matches the set).
+
+## DEVOPS-017 — macOS × 22 joins the required set (E-388, E-396, D-135 addendum 2 r3, D-137 r3) — 2026-10-30
+
+**What changes and why.** E-388/E-396 closed the macOS-only failures (one root cause:
+`tests/lib/assert.sh` read `${BASHPID}` under `set -u`, and bash 3.2 has no `BASHPID`), and all
+four `rein ci run (macos-latest, node 22, i/4)` legs went green on PR #15. That is the exit
+condition D-135 addendum 2 r3 and D-133 addendum r4 named, so:
+- `src/shared/hosted-ci.mjs`: `INFORMATIVE_LEGS` empties (`[]`); `requiredChecks()` — and so
+  `rein ci hosted --required` and the release publish gate (DEVOPS-016) — now includes the four
+  macOS legs. The mechanism stays for the next leg that needs it.
+- `main`'s branch protection gains the same four contexts with one call (app_id 15368, the
+  GitHub Actions app; `strict` stays false; the existing eleven are kept):
+  `gh api -X PATCH repos/Vimurai/rein/branches/main/protection/required_status_checks --input <json>`
+  with `checks` = the existing eleven + the four printed by `rein ci hosted --required`. Run
+  after this PR's hosted checks are green, before its merge.
+
+**Security implications.** None new: no secret, permission, action or network change. A red
+macOS leg now blocks merges to `main` and the tag's publish, which is the intent.
+
+**Rollback.** Revert the constant to `[["macos-latest", "22"]]` (one line plus the test's
+expected set), and remove the four contexts with the same PATCH call listing only the eleven.

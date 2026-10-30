@@ -760,5 +760,13 @@ replaces the eight `ai ci run (ubuntu-latest, node {22,24}, {1..4}/4)` contexts 
 eight under `rein ci run (…)`; `privacy scan`, `fast` and `CodeQL` stay; macOS stays
 informative (E-388). Recorded here with the call's output when it runs.
 
+Ran 2026-10-30 before merging PR #10 (557e016):
+`gh api -X PATCH repos/Vimurai/rein/branches/main/protection/required_status_checks`
+(strict false, app_id 15368) → `["privacy scan","fast","CodeQL","rein ci run (ubuntu-latest,
+node 22, 1/4)", … "(ubuntu-latest, node 22, 4/4)","rein ci run (ubuntu-latest, node 24, 1/4)",
+… "(ubuntu-latest, node 24, 4/4)"]` — eleven contexts, the eight `ai ci run (…)` names gone.
+Note: `requiredChecks()` in src/shared/hosted-ci.mjs also returns the four
+`macos-latest, node 22` shards; the call followed this entry (macOS informative, E-388).
+
 **Rollback.** Revert the commit and run the same `gh api` call with the old names. The old
 cache entries simply expire (the new prefix starts a cold cache once).

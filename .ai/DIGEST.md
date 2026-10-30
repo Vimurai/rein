@@ -47,3 +47,7 @@
 - 2026-10-19: E-328 portable CI evidence; E-327 team.json + id ranges; E-326 import on pull
 - 2026-10-28: SECURITY.md updated — E-379 privacy redaction pen-test (11 EXPLOITED: normalisation bypass, truncate-before-redact, env kill switch, EMAIL_RE quadratic); T-PRIVACY-001 added
 - 2026-10-28: SECURITY.md updated — E-378 bootstrap/privacy-gate pen-test (P0: tag tagger identity, stale snapshot without gate, CLI fail-open exit 0); T-PRIVACY-002 added
+- 2026-10-29: SECURITY.md updated — E-391 hard-cut review: gate token parity held; P1 old-path hook registrations fail open after rm (doctor ✓); P2 classifier OURS rewrites user 'X Gate Tamper' rules; P2 doctor PATH check still 'type -ap ai'; T-RENAME-001 E-391 addendum
+- 2026-10-29: SECURITY.md updated — E-391 re-review: F1 core/F2/F3/F4/F6 closed; new N1 (P2, sync deletes a user's $CLAUDE_PROJECT_DIR hook by file name) blocks Tier 3; N2–N5 P3.
+- 2026-10-29: SECURITY.md updated — E-391 third pass: N1–N5 + git-config note closed (77/0); new P3 M1–M7 (sync still drops bash -c/operator/$HOMEDIR entries; doctor ✓ on JS-invalid matcher, Bash-only matcher, type/timeout, settings.local disableAllHooks; raw escapes in doctor output); T-RENAME-001 third-pass note
+- 2026-10-30: SECURITY.md updated — E-397 safe-exec ReDoS rewrites SEC_CLEARED (0 differential mismatches, no gate weakening; pre-existing viaConfig quadratic + decodedView RangeError noted).

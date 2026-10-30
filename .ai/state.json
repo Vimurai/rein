@@ -1224,21 +1224,21 @@
     {
       "id": "E-391",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Hard-cut the rename per D-132 addendum 2 and .ai/blueprints/rein-rename.md §Component 2 rows 13–18 and §Components 3–6, in the same PR as E-383 (branch rename/rein) as its own commits, before the v0.4.0 tag; replaces E-383's §Component 4 acceptance. (1) Command: src/bin/ai → rein (also ai-exec, ai-account.sh); installer installs ~/.rein/bin/rein, deletes a stale `ai` beside it, prints that the command is `rein`; every `ai <sub>` becomes `rein <sub>`; no forwarder. (2) Skills: the 18 ai-* skills → rein-* in both skill trees and every registry keyed on a skill name, one commit; arch-* and unprefixed skills stay; extend the named provisioning test. (3) Remove the compatibility layer (revert or drop from the unpushed branch): no symlink, env fallback, legacy reads, sync rewrites, forwarder, [LEGACY_*]/[RENAME_PENDING] lines, upgrading section or gate rows for the old path; zero rename:legacy-fallback lines. (4) Classifier v5: RULE constant and pin = D-132 addendum 2 r6 verbatim, label (D-132); classifier_backstop_test.sh updated; a (D-101) copy reports OUTDATED. (5) rename-exclusions.json equals §Component 3. (6) Gate per §Component 6: command pattern (`.ai/` never matches), the 18 ai-<skill> names, the literals; zero matches outside the exclusions. (7) CI: job ai-ci-run → rein-ci-run, display `rein ci run (…)`, requiredChecks(); one gh api call updates main's required checks in the merge step; DEVOPS.md (ci_gate). (8) Live blueprints and architect.md: mechanical substitution, one commit. (9) security_engineer on gate tables, exempt lists, hooks, installer; suites assert `rein gate off` and tamper paths stay blocked. Then privacy, DCO, full rein ci run green, merge, tag v0.4.0, release; handoff carries §Component 4's migration list. Acceptance: gate green, no exemption; throwaway HOME: `ai` not found, `rein doctor` exit 0; only rein-*/unprefixed skills named; pin matches v5; required checks renamed and green; no suite deleted or skipped. After E-383, not DAG-chained.",
       "created_at": "2026-10-29T21:15:55.992Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T14:27:26.176Z",
+      "summary": "Hard-cut rename merged: PR #10 → main 557e016; required checks swapped to rein ci run (…) in one gh api call (DEVOPS); CodeQL/privacy/fast/ubuntu green; v0.4.0 tag follows the CHANGELOG fix PR",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-29T21:15:56.009Z"
+      "updated_at": "2026-10-30T14:27:26.186Z"
     },
     {
       "id": "E-392",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 2,
       "description": "Add the Windows (WSL2) CI leg per D-132 addendum 2 r10 and .ai/blueprints/public-ci.md §Component 5 (after the v0.4.0 tag; ci_gate first, DEVOPS.md entry with rollback): in src/shared/hosted-ci.mjs's public profile and src/templates/ci/github.yml add `windows-latest × node 22 × 4 shards`, not in the required set (no continue-on-error — a red stays visible); steps: checkout, the setup-wsl action pinned to a full commit SHA with its version in a trailing comment, distribution Ubuntu 24.04, WSL 2 where the hosted windows-2022 image can start it — if the first run shows it cannot, run WSL 1 and say \"WSL\" in the leg's display name and in the README; inside the distribution copy the checkout to the Linux filesystem (~/src) before anything runs, install node 22, git, sqlite3, python3 and tmux, run `bash install-rein.sh`, `rein doctor`, then `rein ci run --shard i/4` as the Ubuntu legs do; `rein ci status` ingests the leg with host= windows-wsl2 or windows-wsl1; the census baseline is not re-seeded from it. Render with `rein ci hosted github` (--check green), timeout 60 minutes. When three consecutive runs on main are green, add the four legs to the required set with one gh api call, record it in .ai/DEVOPS.md, and change the README's \"a Windows (WSL2) leg in the CI matrix is planned\" to state the leg runs (WSL2 or WSL per what runs). Acceptance: the leg appears on the PR with four shards; the handover reports the first run's WSL version, the four times and any suite that fails only there (each as its own follow-up, never skipped silently); required set and README updated only after three green runs; full rein ci run green.",
       "created_at": "2026-10-29T21:16:07.573Z",
@@ -1247,16 +1247,14 @@
       "depends_on": [
         "E-391"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-391"
-      ],
-      "updated_at": "2026-10-29T21:16:07.573Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T14:27:26.188Z"
     },
     {
       "id": "E-393",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 3,
       "description": "Close the CLI_GATE assembly bypasses per D-132 addendum 4 r7 and .ai/SECURITY.md \"E-391 / D-132 addendum 2–3\" (pre-existing: identical on e04bb83 with `ai`; P1; right after the v0.4.0 tag, before E-385). (1) Normalise before the token match in gate-guard's CLI_GATE and the pre-tool-use fallback grep: strip quotes and backslashes per word, decode $'…' words, drop the `--` separator, and skip wrapper prefixes with their flags and arguments (env [-i] [NAME=val…], nice [-n N], sudo [-u x …], stdbuf -oX, setsid, flock f, exec [-a x], command [-p], builtin, time [-p], nohup, timeout N) before matching `rein gate off`; add `)` and the missing prefixes to CMD_HEAD. Reuse the D-112 operand normaliser in src/shared (engineering-standards: no second normaliser). (2) Belt in the command itself: `rein gate off` exits 2 with the operator-escape message unless stdin is a TTY and no Rein role token or Claude session variable is present in its environment; the operator's terminal passes both. (3) Rows: every one of the 15 forms in SECURITY.md's finding, plus the over-block rows that must stay blocked, as rows in tests/fixtures/gate-self-disable-cases.json; the table is byte-pinned (D-089 r5) — re-pin under this ruling with old and new sha and the row counts in the PR description (D-132 addendum 3 r2 conditions). The runtime-assembly residual (`x=rein; $x gate off`, hex-escaped words) stays the classifier's, as named. (4) security_engineer re-runs the A01 payload table; every EXPLOITED row of the 15 is RESISTED; the INCONCLUSIVE residual is recorded as such. Acceptance: all 15 forms blocked by the hook in a throwaway HOME; `rein gate off` refuses under the Bash tool and works in a terminal; gate-self-disable, gate-guard-home and safe_exec suites green; no suite deleted or skipped; full rein ci run green; THREAT_MODEL.md entry updated.",
       "created_at": "2026-10-29T22:14:28.016Z",
@@ -1265,16 +1263,14 @@
       "depends_on": [
         "E-391"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-391"
-      ],
-      "updated_at": "2026-10-29T22:14:28.017Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T14:27:26.191Z"
     },
     {
       "id": "E-394",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 2,
       "description": "Make `rein doctor` read disableAllHooks from every settings layer per .ai/SECURITY.md \"E-391 / D-132 addendum 2–3\" finding M5 (P3, after E-391; behind E-393 and the identity tasks unless the operator reorders): today the doctor reads disableAllHooks only from the project's .claude/settings.json. Extend the check to .claude/settings.local.json, the user-level ~/.claude/settings.json and every registered account's <config_dir>/settings.json (the config_dir entries in ~/.rein/accounts.json), applying Claude Code's precedence so the effective value is what is reported; a non-boolean value (string \"true\", 1, null) is reported as `[HOOKS_DISABLED_INVALID] <file>` rather than treated as false; any layer that disables hooks is `✗ [HOOKS_DISABLED] <file>` and sets the doctor's hard-fail flag. Reuse the settings reader the classifier refresh already uses for the account directories (engineering-standards: no second reader). Extend the doctor suite (named) with one row per layer and one for the non-boolean value. Acceptance: each layer's disableAllHooks is detected in a throwaway HOME; the effective value follows precedence; doctor exit non-zero when any layer disables hooks; full rein ci run green.",
       "created_at": "2026-10-29T22:59:43.479Z",
@@ -1283,16 +1279,14 @@
       "depends_on": [
         "E-391"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-391"
-      ],
-      "updated_at": "2026-10-29T22:59:43.483Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T14:27:26.193Z"
     },
     {
       "id": "E-395",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 2,
       "description": "Make `rein doctor` exit non-zero on [SAFE_EXEC_BROKEN] and [GATE_DEP_MISSING] per the security_engineer's E-391 third pass (P3, after E-391): src/bin/rein's _doctor_gate_report prints both lines but never sets _DOCTOR_HARD_FAIL (the flag E-391 added under D-132 addendum 4 r2), so a doctor run whose gate cannot execute still exits 0 and a scripted check (CI install proof, the operator's migration step 3) reads it as healthy. Set the flag for both lines, and audit every other `✗` line the doctor prints for the same omission — each ✗ either sets the flag or is documented in the doctor's help text as advisory, with a reason; list the audit in the handover. Extend the doctor suite (named): a HOME whose safe-exec dependency is missing → exit non-zero with [GATE_DEP_MISSING]; a broken gate script → exit non-zero with [SAFE_EXEC_BROKEN]; the advisory lines keep exit 0. Acceptance: both lines fail the doctor; the ✗ audit table is in the handover; the CI install proof asserts doctor exit 0 still passes on a healthy install; full rein ci run green.",
       "created_at": "2026-10-29T22:59:50.395Z",
@@ -1301,11 +1295,51 @@
       "depends_on": [
         "E-391"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-391"
-      ],
-      "updated_at": "2026-10-29T22:59:50.395Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T14:27:26.195Z"
+    },
+    {
+      "id": "E-396",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Fix the harness self-tests E-240.01a, E-240.02a, E-240.03a and E-240.03b that fail only on the hosted macOS × 22 shard 1/4 (main 94d543e and PR #10 a317dcd; Linux green) per D-133 addendum r4 and .ai/blueprints/ci-throughput.md §Component 4, worked beside E-388 and after the v0.4.0 tag. Start with bug-reproducer: run the owning suite under the local bash 3.2.57 build E-388 produces (throwaway directory, never on PATH) and under BSD coreutils where the assertion names them; if the root cause is E-388's trap-chaining defect, fix it there and close both in one PR saying so; if it is a BSD/GNU tool difference (sed -i, stat, mktemp, readlink -f) or a path assumption, fix the harness under rule 1 (an optional need is `skip_unless_cmd`; a required one is portable) without changing what the assertions assert; name the test each change extends (D-088). Acceptance: the four rows pass under the local bash 3.2 build and bash 5; macOS × 22 shard 1/4 green on the PR; with E-388 closed too, the PR adds the four `rein ci run (macos-latest, node 22, i/4)` legs to the required set with one gh api call and records it in .ai/DEVOPS.md (D-135 addendum 2 r3 exit condition, now both tasks); no suite deleted or skipped; full rein ci run green.",
+      "created_at": "2026-10-30T11:40:58.239Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T11:40:58.246Z"
+    },
+    {
+      "id": "E-397",
+      "owner": "Engineer (Claude)",
+      "status": "DONE",
+      "tier": 2,
+      "description": "Fix the thirteen pre-existing CodeQL alerts that turn PR #10's required `CodeQL` check red per D-133 addendum r1–r3 and .ai/blueprints/public-ci.md §Component 3, inside the rename PR (branch rename/rein, own commits after a317dcd, before E-391's merge step; no admin merge). (1) Source alerts, fixed: safe-exec git-redirect.mjs:18 (polynomial ReDoS #23), :34 (ReDoS #22, polynomial #24), architect-writes.mjs:94 (polynomial ReDoS #25), blueprint-aligner-mcp/index.js:233 (ReDoS #21), record-store.mjs:137 (four overly-large character ranges #17–#20 on one line — escape the `-`/`[` inside the classes), publish-scan.mjs:384 (double-escaping #13 — unescape in one pass or handle `&` first). Rewrite each regex without a nested or overlapping quantifier as e7e9514 did for the dispatch-table regex; what each pattern matches must not change — the byte-pinned fixture tables (D-089 r5, D-132 addendum 3) and the safe_exec, blueprint-aligner, record-store and publish-scan suites are the proof; add one row per rewritten pattern to the suite that already covers it (named, D-088) with the pathological input CodeQL cites. (2) Test-fixture alerts #14, #15, #16 (tests/lib/toolchain-fixture.mjs:27, :33; tests/unit/footprint-recorder.test.mjs:36): dismiss in the code-scanning UI with reason \"used in tests\" and the comment \"D-133 addendum r2\"; do not change the fixtures for CodeQL's sake. (3) security_engineer reviews the safe-exec regex rewrites (gate surface) before the commit. Acceptance: `gh api repos/Vimurai/rein/code-scanning/alerts?state=open&ref=refs/heads/rename/rein&tool_name=CodeQL` lists zero open alerts; both check-runs named `CodeQL` on the PR head are green; no fixture table re-pinned; test_lines within the 41800 budget's 2 % tolerance or reported; full rein ci run green; hosted matrix green except macOS shard 1/4 (E-388/E-396). Then E-391's merge step proceeds on the operator's yes.",
+      "created_at": "2026-10-30T11:41:17.404Z",
+      "completed_at": "2026-10-30T14:20:39.068Z",
+      "summary": "PR #10's 13 pre-existing CodeQL alerts closed in the rename PR: 86c5d2d linear-time regex rewrites (fuzz 0 mismatches, SEC_CLEARED), aa6c5c6 bounded-reads static import (node 22 temp …[full in LOG.md]",
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T14:20:39.080Z"
+    },
+    {
+      "id": "E-398",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Close the two pre-existing safe-exec residuals the E-397 security pass recorded in .ai/SECURITY.md (after the v0.4.0 tag, before E-393; sovereignty-hardening.md §Components 1, gate surface): (1) decodedView throws RangeError on an out-of-range numeric entity (`&#1114112;`) and the fail-closed path is unverified — catch the RangeError at the decode boundary and return a BLOCK verdict with a reason line (never let the exception leave the gate; a thrown error in the hook must also be shown to produce a block, not a pass), and add the pathological command as a row to the safe_exec suite that already covers decodedView (named, D-088) plus a hook-level row in a throwaway HOME proving the command is blocked end to end; (2) the viaConfig regex is quadratic in the word count (~100 ms at the word cap) — either rewrite it as a single linear pass over the words (same matches, proved by the byte-pinned tables and the existing fuzz harness from 86c5d2d: 0 mismatches) or, if the cap already bounds it, record the bound and the measured worst case in SECURITY.md and add a timing row (fails above 250 ms at the cap) so a future cap change cannot silently remove the bound. security_engineer re-reads both. Acceptance: `&#1114112;` is blocked by the hook with a reason, no RangeError in stderr; viaConfig worst case at the cap under 250 ms with a test asserting it; no fixture table re-pinned; SECURITY.md entries closed; full rein ci run green.",
+      "created_at": "2026-10-30T14:07:34.439Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T14:07:34.442Z"
     }
   ],
   "stamps": [
@@ -3318,6 +3352,87 @@
       "timestamp": "2026-10-29T22:59:13.971Z",
       "summary": "E-391: .gitignore ignores Python bytecode (__pycache__/, *.pyc).",
       "sha": "14fcf105da4cbd6180ab725b0c5a8f5796848ee8",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-29T23:42:33.977Z",
+      "summary": "E-391 CodeQL js/redos on PR #10: rename-gate's dispatch-table regex had a redundant nested quantifier; simplified, gate 7/0.",
+      "sha": "bbd936a0b96d12c96c79d9e769b7dbb509b29808",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-30T00:24:14.467Z",
+      "summary": "[TIER_1] E-391 init_upgrade_test.sh header REIN_SUITE_TIMEOUT=300 (E-307 mechanism): suite grew 45→80 tests, hosted macOS hit the 180 s watchdog on shard 4/4 with no failing assertion; local 80/0 in 86 s. Test-header only.",
+      "sha": "e7e9514f798daba66f3d32a93a653eb25bbd245e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_WARN",
+      "agent": "critic_clean_code",
+      "task_id": "E-397",
+      "timestamp": "2026-10-30T11:56:56.018Z",
+      "summary": "[TIER_2] E-397 standards-checker WARN (per-file --file run, 9 files, 0 errors, 4 warnings; rule_ids: file_size_limit_lines; files: blueprint-aligner-mcp/index.js 767, architect-writes.mjs 730, record-store.mjs 599, publish-scan.mjs 515); elapsed <10ms each",
+      "sha": "1fea72b5a64203ea30c2bd95efa20ac7c57faada",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "blueprint-aligner",
+      "task_id": "E-397",
+      "timestamp": "2026-10-30T11:58:41.959Z",
+      "summary": "[TIER_2] E-397 aligned with public-ci.md §Component 3 / D-133 addendum r1–r3: 5 source rewrites (git-redirect viaEnv + gitDirFlagged, architect-writes trailing-sep loop, blueprint-aligner snakeIdentifiers, record-store CLAIM_EMAIL_RE, publish-scan decodedView one-pass) differentially fuzzed vs old regexes with 0 mismatches (decodedView differs only on double-encoded entities, the intended js/double-escaping fix); each has a named row in its covering suite; tests/fixtures untouched; 4 suites green (8/394/62/13); no source scope creep.",
+      "sha": "1fea72b5a64203ea30c2bd95efa20ac7c57faada",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review-tier2",
+      "task_id": "E-397",
+      "timestamp": "2026-10-30T11:59:05.613Z",
+      "summary": "[TIER_2] E-397 Blueprint aligned + clean-code gate clear — 4 warnings ignored (file_size_limit_lines: blueprint-aligner-mcp/index.js 767, architect-writes.mjs 730, record-store.mjs 599, publish-scan.mjs 515)",
+      "sha": "1fea72b5a64203ea30c2bd95efa20ac7c57faada",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-397",
+      "timestamp": "2026-10-30T13:16:42.414Z",
+      "summary": "[TIER_1] E-397 bounded-reads imports snakeIdentifiers statically: a top-level await import below the before/after hooks made node 22 run the root after() early, and the P-11 tests recreated the removed temp dir (hosted fast-tier LEAK, reproduced in node:22 docker as rein-t-bounded-*; fixed 8/8, nothing left). Test-only.",
+      "sha": "86c5d2d343af431c62387623ca15da39482bc62c",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-397",
+      "timestamp": "2026-10-30T13:38:29.416Z",
+      "summary": "[TIER_1] init_upgrade_test.sh REIN_SUITE_TIMEOUT 300→480: hosted macOS 4/4 measured 212 s (a317dcd), 289 s (86c5d2d), >300 s (aa6c5c6) for the same 80 green tests — runner variance, not a hang; job timeout 60 min. Test-header only.",
+      "sha": "aa6c5c67f82cd7eff85dba66ded2c07ede9997d9",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-30T14:27:47.930Z",
+      "summary": "Tier 1 (run_review SKIP): CHANGELOG 0.4.0 prose corrected to the hard cut; DEVOPS records the required-checks call; .ai bookkeeping only. rename-gate test 7/7 pass; no source change.",
+      "sha": "c719a705a17e18b5f0d027cac719c9fcbced04c2",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-391",
+      "timestamp": "2026-10-30T14:27:57.351Z",
+      "summary": "Tier 1: .ai bookkeeping only — E-397/E-391 DONE, Architect's D-133 addendum/E-398 records, DEVOPS required-checks record; staged JSON parses, privacy gate clean.",
+      "sha": "98efba4b072a8802ba8a4a813e1f76d8d3440527",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

@@ -676,3 +676,25 @@ Gating: N1–N5 and the note are closed. The new rows are P3: none makes doctor 
 untouched install. Every one needs a hand edit of the machine-local settings, and an agent's
 edit to them is classifier-denied. They may be ticketed. M1 is the N1 consequence, a silent
 delete of a user's hook, and the fix is small, so it should be fixed before merge.
+
+## E-397 / D-133 addendum — CodeQL ReDoS rewrites on the safe-exec gate (security_engineer, 2026-10-30)
+
+Verdict: **SEC_CLEARED**. Reviewed the uncommitted rewrites in `src/mcp/safe-exec-mcp/git-redirect.mjs`
+(`viaEnv`, `gitDirFlagged()`) and `architect-writes.mjs` (`boundedRel` trailing-separator loop) against
+the regexes they replace. Each rewrite matches exactly what the old regex matched; no input found where
+the old regex blocked and the new code passes. `tests/fixtures/` unchanged; operand-scope + gate-pins 401/401.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A04 | gitRedirectHits (both rules) | 400k random commands over git tokens, valued flags, `--git-dir[=]`, quotes/backslashes, `(`/`;`/`&`/`\|`, 15 whitespace kinds incl. U+00A0/2028/2029/FEFF/3000/1680/0085/CRLF/VT/FF, lone surrogate | RESISTED | 0 | old vs new id set: 0 mismatches, 27479/27479 positives |
+| A04 | gitDirFlagged edges | `git --git-dir` (end), `git --git-dir ` , `git -C`, `git -C --git-dir`, `git -C '' --git-dir=x`, `gi\t --git-dir=x`, `git\r\n--git-dir=x`, `git -C x --git-dir=y` | RESISTED | 0 | identical to old on every row |
+| A04 | viaEnv nesting | `GIT_CONFIG_KEY_0=(GIT_CONFIG_KEY_1=core.hookspath git x` | RESISTED | 0 | inner value is a suffix of the outer value, so non-overlapping matchAll loses nothing |
+| A04 | boundedRel strip | 100k strings over `/`, `\`, U+2215, U+FF0F, `..`, `.ai` | RESISTED | 0 | 0 mismatches vs `/[\\/]+$/` |
+| DoS | gitDirFlagged / viaEnv / boundedRel at 64 KB | `git ` + `-C -! `×10.9k; `GIT_CONFIG_KEY_0=(`×3.6k; `/`×64k+`x` | RESISTED | 0 | ≤ 10 ms each (old git-dir regex: 1.09 s at n=24, exponential) |
+| DoS | viaConfig (UNCHANGED, pre-existing) | `git `×16k | INFORMATIONAL | 0 | lazy `\bgit\b[^\n;&\|]*?\sconfig\b` is quadratic: 245 ms at 64 KB standalone; runAnalysis refuses >10000 words first (INPUT_TOO_LARGE), so bounded at ~100 ms. Not a CodeQL alert; not E-397 scope |
+
+Context (not gate surface): `record-store.mjs` CLAIM_EMAIL_RE class is set-identical to the old ranges;
+`publish-scan.mjs` decodedView now decodes HTML entities in one pass (intended: `&amp;lt;` → `&lt;`).
+Pre-existing, unchanged: `decodedView("&#1114112;")` throws RangeError (old code too) — follow-up candidate.

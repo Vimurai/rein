@@ -3830,3 +3830,35 @@ Delete the scan from the installer's final report; nothing else depends on it.
 `rein ci budget set --ruling D-132 test_lines=40489` restores the previous value.
 
 ---
+
+## D-133 addendum — The `CodeQL` required check is never bypassed: PR #10's thirteen pre-existing alerts are fixed inside the rename PR (E-397), the three test-fixture alerts are dismissed as test code, and the macOS shard 1/4 self-test failures are E-396 beside E-388
+
+**Date**: 2026-10-30
+**Task**: E-391 (PR #10, a317dcd), E-397, E-396
+**Decision**: The Engineer asked for a ruling on three merge blockers that are not E-391 regressions. (a) The required `CodeQL` check on PR #10 is red because GitHub's code-scanning status reports thirteen alerts, all already open on `main`, in files the rename touched (safe-exec `git-redirect.mjs` and `architect-writes.mjs` ReDoS/polynomial ReDoS, `blueprint-aligner-mcp/index.js` ReDoS, four overly-large character ranges on one line of `record-store.mjs`, a double-escaping in `publish-scan.mjs`, and three shell-command-from-environment findings in test fixtures). (b) macOS × 22 shard 1/4 fails on `main` 94d543e too: harness self-tests E-240.01a/02a/03a/03b, E-241.02a/b, E-239.05a–d. (c) `main`'s required checks still carry the `ai ci run (…)` names. Rulings:
+
+1. **No admin merge and no dismissal of a source alert.** D-133 r3 forbids dropping a required check to go green; a one-time bypass is the same drop with a shorter memory, and every later PR touching those files would ask for it again. The ten source alerts are fixed inside PR #10 as its own commits (E-397), the way e7e9514 already fixed one CodeQL ReDoS in this PR. Safe-exec is the gate that reads every command the agent writes; a regex that backtracks exponentially on a crafted command is a denial of service of the gate, so those five are security fixes in their own right, not lint.
+2. **The three test-fixture alerts (tests/lib/toolchain-fixture.mjs:27, :33; tests/unit/footprint-recorder.test.mjs:36) are dismissed in the code-scanning UI with the reason "used in tests"** and a comment naming this addendum: the commands run fixture paths the test itself created under a throwaway HOME, and the "environment" is the test's own. Dismissal is the honest classification for them; it is not available for the source alerts.
+3. **E-397 lands before the merge step** of E-391 (same PR, after a317dcd), so the `CodeQL` check is green on its own merit and the required set is swapped and honoured as D-132 addendum 2 r9 planned. The merge step itself is unchanged: one `gh api` call renames the required checks immediately before the merge (public-ci.md §Component 4).
+4. **E-396 — macOS shard 1/4**: the E-241/E-239 rows are already E-388's (the bash 3.2 trap defect). The E-240.01a/02a/03a/03b rows are new and get E-396, worked beside E-388; if the reproduction under a local bash 3.2 build shows the same root cause, one PR closes both and says so. The D-135 addendum 2 r3 exit condition widens by exactly this: the four macOS × 22 legs join the required set when all four shards are green on `main`, which now means E-388 and E-396 both closed.
+5. **Scorecard findings are out of scope for the merge**: `BinaryArtifacts` (the three tree-sitter `.wasm` grammars), `PinnedDependencies` (`src/bin/ai:4300`, `:4646`, `ci.yml:61`) and the practice checks are not in the required set (DEVOPS.md) and are left for the first Scorecard pass after v0.4.0; recorded here so they are not mistaken for CodeQL.
+6. **Dependency review** stays unrequired until the operator enables the repository's Dependency graph (D-135 addendum 2 r5, already ruled) — on the operator action list in the handoff.
+
+### Alternatives considered
+1. **Admin merge with the check red** — rejected: it is D-133 r3's forbidden drop in practice, and the alerts resurface on the next PR touching these files.
+2. **Dismiss all thirteen as "won't fix" / pre-existing** — rejected: a ReDoS in the command gate is a real finding; "pre-existing" is a description, not a reason.
+3. **Fix on `main` first in a separate PR, then rebase the rename** — rejected: the rename touched every one of these files; a second PR would conflict with 38 commits for no gain, while in-PR fixes are rebased already.
+4. **Fix in-PR as E-397, dismiss only the test-fixture rows** — selected.
+
+### Constraints driving this decision
+- D-133 r3 (a required check is never dropped to go green); D-132 addendum 2 (the hard cut ships in one PR before the v0.4.0 tag); sovereignty-hardening (safe-exec is the fail-closed gate, so its regexes are security surface).
+- The test_lines budget (D-132 addendum 6, 41800): E-397 adds regex tests to the named suites that already cover these modules; if the measured count exceeds the 2 % tolerance the Engineer reports it in the handover rather than trimming a suite.
+
+### Impact
+- Unlocks: E-391's merge step with an honest green `CodeQL`; E-396 registered; E-388's acceptance now explicitly includes shard 1/4's E-240 rows.
+- Risk if wrong: E-397 costs one more hosted round (about 15 minutes) and a day on the merge; a regex rewrite that changes what the gate matches would be caught by the byte-pinned fixture tables (D-089 r5, D-132 addendum 3) and the safe_exec suites.
+
+### Rollback
+Rulings 1–3 are one task; if E-397 cannot close within the PR, the fallback is ruling 1's alternative 3 (fix on `main` first), never the admin merge. Ruling 4 is a second task id; ruling 5 is a note.
+
+---

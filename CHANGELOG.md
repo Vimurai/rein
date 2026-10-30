@@ -21,9 +21,15 @@ The first release of **Rein** in its public repository. The version line restart
   development repository from its first commit; the predecessor's history stays private
   because it carries personal data. The export pipeline, mirror and import tool planned by
   D-126..D-128 were cancelled before they were built.
-- **The product is named Rein (D-125 addendum, D-132).** Every spelling of the old name
-  becomes the Rein form, with a one-release compatibility layer so existing installs and
-  projects migrate on `rein sync`; the command `rein` and the `.ai/` directory keep their names.
+- **The product is named Rein — a hard cut (D-125 addendum, D-132, D-132 addendum 2).**
+  Every spelling of the old name becomes the Rein form: the command is `rein` (the old
+  command is gone, no forwarder), the install lives in `~/.rein`, the installer is
+  `install-rein.sh`, the skills are `rein-*`, the environment variables are `REIN_*`, the
+  role stamp is `[REIN_ROLE]`, and the hosted check is `rein ci run (…)`. There is no compatibility layer: nothing reads the
+  old install directory or the old environment variables. The `.ai/` directory keeps its
+  name. An existing install upgrades by `bash install-rein.sh`, then `rein sync` and
+  `rein doctor` in every project — the doctor names any hook path still missing
+  (`[HOOK_PATH_MISSING]`, `[GATE_UNREGISTERED]`).
 
 ### Added
 

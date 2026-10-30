@@ -3509,6 +3509,15 @@
       "summary": "[TIER_2] E-399: INFORMATIVE_LEGS + requiredChecks() exact set (unit), --required flag, release.yml publish gate on the required set (dry run vs 509d7e5 exit 0; negative exit 1), operand-scope baseline budget + 1000 ms ceiling; fast tier 2244/0; actionlint SKIP (not on Linux x86_64 host).",
       "sha": "509d7e568c21ef6f64e8279315e8a2b4e34ab516",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-399",
+      "timestamp": "2026-10-30T16:05:00.465Z",
+      "summary": "Tier 1 bookkeeping only on afec3af: E-399 DONE, LOG and views.",
+      "sha": "afec3af3b5ddc9d6f9d264bfa64fedeaca4e3d66",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

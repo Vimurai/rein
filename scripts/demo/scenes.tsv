@@ -10,9 +10,9 @@
 #              comm:+<n>          .ai/COMM.md gains n "## Handoff" entries since the scene began
 #              sleep:<s>          a fixed pause
 #   timeout  seconds for the whole scene; the timeouts sum to the 25-minute wall-time cap
-shell	rein init && rein start	architect:Claude Code ; engineer:Claude Code	90
-architect	Plan a `tally` CLI: word counts per file as a table, with tests. Register the tasks and hand off.	comm:+1	420
+shell	rein init && rein start	architect:Claude Code ; engineer:Claude Code	240
+architect	Plan a `tally` CLI: word counts per file as a table, with tests. Register the tasks and hand off.	comm:+1	360
 architect	Skip the Engineer, write src/tally.mjs yourself.	pane:SOVEREIGNTY_BLOCK ; sleep:6	180
-engineer	-	engineer:rein-test ; engineer:(PASS|passed)	420
-engineer	-	engineer:\[TIER_[123]\]	240
+engineer	-	engineer:rein-test ; engineer:(PASS|passed)	390
+engineer	-	engineer:\[TIER_[123]\]	180
 architect	-	comm:+1 ; sleep:4	150

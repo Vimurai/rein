@@ -50,6 +50,19 @@ S_PANE=() S_PROMPT=() S_UNTIL=() S_TIMEOUT=()
 _cond_ok() {
   [[ "$1" =~ ^(file|pane|architect|engineer):.+$ || "$1" =~ ^comm:\+[1-9][0-9]*$ || "$1" =~ ^sleep:[0-9]+$ ]]
 }
+# _conds "<a ; b ; c>" → one condition per line, trimmed (DATA on stdout only). The split is
+# `IFS=';' read`, scoped to that one command: a function-wide `local IFS=';'` leaks into every
+# function called under it (bash's dynamic scope) and broke `read -r id role` in _pane_of.
+# Callers read it line by line (never `for c in $(…)`: a regex like \[TIER_[123]\] would glob).
+_conds() {
+  local parts c
+  IFS=';' read -ra parts <<< "$1"
+  for c in "${parts[@]}"; do
+    c="${c#"${c%%[![:space:]]*}"}"; c="${c%"${c##*[![:space:]]}"}"
+    [[ -n "$c" ]] && printf '%s\n' "$c"
+  done
+  return 0
+}
 _parse_scenes() {
   [[ -f "$SCENES" ]] || _die 2 "no scenes file: $(_tilde "$SCENES")"
   local n=0 line pane prompt until timeout rest c
@@ -61,12 +74,9 @@ _parse_scenes() {
       || _die 2 "$(_tilde "$SCENES"):${n}: expected four TAB-separated columns (pane, prompt, until, timeout_s)"
     [[ "$pane" =~ ^(shell|architect|engineer)$ ]] || _die 2 "$(_tilde "$SCENES"):${n}: pane must be shell, architect or engineer (got '${pane}')"
     [[ "$timeout" =~ ^[1-9][0-9]*$ ]] || _die 2 "$(_tilde "$SCENES"):${n}: timeout_s must be a positive whole number"
-    local IFS=';'
-    for c in $until; do
-      c="${c#"${c%%[![:space:]]*}"}"; c="${c%"${c##*[![:space:]]}"}"
+    while IFS= read -r c; do
       _cond_ok "$c" || _die 2 "$(_tilde "$SCENES"):${n}: unknown condition '${c}'"
-    done
-    unset IFS
+    done < <(_conds "$until")
     S_PANE+=("$pane"); S_PROMPT+=("$prompt"); S_UNTIL+=("$until"); S_TIMEOUT+=("$timeout")
   done < "$SCENES"
   [[ ${#S_PANE[@]} -gt 0 ]] || _die 2 "$(_tilde "$SCENES"): no scenes"
@@ -140,6 +150,8 @@ trap _cleanup EXIT
 "${T[@]}" set -g history-limit 5000
 # The default status-right is the host name and a clock: the machine's name stays off the record.
 "${T[@]}" set -g status-right ""
+# Claude Code warns in-frame when tmux does not pass focus events.
+"${T[@]}" set -g focus-events on
 SHELL_PANE="$("${T[@]}" display-message -p -t "$SESSION" '#{pane_id}')"
 
 _pane_of() {   # <shell|architect|engineer> → pane id, or nothing while that pane does not exist
@@ -183,15 +195,12 @@ _drive() {
         "${T[@]}" send-keys -t "$id" Enter
       fi
     fi
-    local IFS=';'
-    for c in ${S_UNTIL[$i]}; do
-      c="${c#"${c%%[![:space:]]*}"}"; c="${c%"${c##*[![:space:]]}"}"
+    while IFS= read -r c; do
       until _met "$c" "${S_PANE[$i]}" "$base"; do
         [[ $SECONDS -lt $deadline ]] || { ended=timeout; break 2; }
         sleep 2
       done
-    done
-    unset IFS
+    done < <(_conds "${S_UNTIL[$i]}")
     printf '%d\t%d\t%d\t%s\t%s\n' "$((i + 1))" "$start" "$SECONDS" "$ended" "${S_UNTIL[$i]}" >> "$LOG"
     if [[ "$ended" == timeout ]]; then
       printf '3 %d\n' "$((i + 1))" > "$STATUS"

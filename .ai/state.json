@@ -1178,16 +1178,16 @@
     {
       "id": "E-388",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix the bash 3.2 trap-chaining defect per D-135 addendum 2 r2 and .ai/blueprints/ci-throughput.md §Component 4: under macOS /bin/bash 3.2 a subshell EXIT trap does not fire through tests/assert.sh's trap-chaining wrapper, so harness_isolation_test E-241.02a/b and E-239.05a–f fail (run 40906294420, macOS × 22 shards 1 and 3). Start with bug-reproducer: build bash 3.2.57 from the GNU source tarball into a throwaway directory (never installed, never on PATH) and run the two suites with that interpreter until each failing assertion is reproduced locally; a macOS hosted run is the confirmation, not the loop. Fix the wrapper so the chained trap fires under bash 3.2 and 5 alike without changing what the assertions assert; name the test each change extends (D-088). Acceptance: both suites pass under the local bash 3.2 build and under bash 5; all four macOS × 22 shards green on the PR; the PR adds the four `ai ci run (macos-latest, node 22, i/4)` legs to the required set and records it in .ai/DEVOPS.md (D-135 addendum 2 r3); full ai ci run green; bash install-ai-os.sh.",
       "created_at": "2026-10-29T18:10:54.289Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T20:37:24.358Z",
+      "summary": "bash 3.2 harness fix: assert.sh subshell registry key ${BASHPID} -> ${BASHPID:-$(exec sh -c 'echo $PPID')} (set -u aborted every sourcing subshell; not a trap-chaining defect); E-240 …[full in LOG.md]",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-29T18:10:54.302Z"
+      "updated_at": "2026-10-30T20:37:24.376Z"
     },
     {
       "id": "E-389",
@@ -1300,16 +1300,16 @@
     {
       "id": "E-396",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix the harness self-tests E-240.01a, E-240.02a, E-240.03a and E-240.03b that fail only on the hosted macOS × 22 shard 1/4 (main 94d543e and PR #10 a317dcd; Linux green) per D-133 addendum r4 and .ai/blueprints/ci-throughput.md §Component 4, worked beside E-388 and after the v0.4.0 tag. Start with bug-reproducer: run the owning suite under the local bash 3.2.57 build E-388 produces (throwaway directory, never on PATH) and under BSD coreutils where the assertion names them; if the root cause is E-388's trap-chaining defect, fix it there and close both in one PR saying so; if it is a BSD/GNU tool difference (sed -i, stat, mktemp, readlink -f) or a path assumption, fix the harness under rule 1 (an optional need is `skip_unless_cmd`; a required one is portable) without changing what the assertions assert; name the test each change extends (D-088). Acceptance: the four rows pass under the local bash 3.2 build and bash 5; macOS × 22 shard 1/4 green on the PR; with E-388 closed too, the PR adds the four `rein ci run (macos-latest, node 22, i/4)` legs to the required set with one gh api call and records it in .ai/DEVOPS.md (D-135 addendum 2 r3 exit condition, now both tasks); no suite deleted or skipped; full rein ci run green.",
       "created_at": "2026-10-30T11:40:58.239Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T20:37:25.816Z",
+      "summary": "Same root cause as E-388 (assert.sh ${BASHPID} unbound under set -u on bash 3.2) — E-240.01a/02a/03a/03b green on hosted macOS x 22 shard 1/4 in PR #15 (merged 443104f), closed in on …[full in LOG.md]",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T11:40:58.246Z"
+      "updated_at": "2026-10-30T20:37:25.816Z"
     },
     {
       "id": "E-397",
@@ -3580,6 +3580,15 @@
       "timestamp": "2026-10-30T19:59:44.591Z",
       "summary": "Tier 1 bookkeeping only: merge origin/main (1a38c6c, #13 E-385) into e-388-bash32-subshell-registry; REVIEWS/state.json append conflicts resolved as the union (branch flip stamps kept, main's E-385 stamp auto-merged), JSON valid, no markers.",
       "sha": "068aaffecfe080386aa73322015030bf9925ee68",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-388",
+      "timestamp": "2026-10-30T20:37:42.307Z",
+      "summary": "Tier 1 bookkeeping only on 443104f: E-388 and E-396 DONE, LOG and views.",
+      "sha": "443104f0ed596ae6500af5751b0ea02f83f8d5fe",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

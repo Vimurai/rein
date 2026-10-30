@@ -290,8 +290,11 @@ assert_perf() {
 # harness_isolation leaked 9 items under CI). Such a subshell gets its own registry, keyed on
 # BASHPID; a suite run as `bash suite.sh` (BASH_SUBSHELL 0) keeps `$$`, and a plain `$(…)`
 # that does not source this file still inherits and appends to the caller's.
+# BASHPID does not exist in bash 3.2 (macOS /bin/bash), and `${BASHPID}` under a suite's
+# `set -u` aborted every sourcing subshell there (E-388). Without it, the subshell's own pid
+# is the parent of an exec'd child: `$(exec sh -c 'echo $PPID')`.
 if [[ "${BASH_SUBSHELL:-0}" -gt 0 ]]; then
-  _CLEANUP_FILE="${TMPDIR:-/tmp}/rein-cleanup-$$-${BASHPID}"
+  _CLEANUP_FILE="${TMPDIR:-/tmp}/rein-cleanup-$$-${BASHPID:-$(exec sh -c 'echo $PPID')}"
 else
   _CLEANUP_FILE="${TMPDIR:-/tmp}/rein-cleanup-$$"
 fi

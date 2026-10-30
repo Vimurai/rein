@@ -32,6 +32,10 @@ light and dark SVGs) and the demo GIF under the pitch (D-139; `.ai/blueprints/de
 - Centered: the animated mark (D-134 r2) via `<picture>` (dark SVG under
   `prefers-color-scheme: dark`), the wordmark `Rein`, tagline **Rein in your agents.**, one
   sentence: *Claude Code as a small engineering team that plans, builds, reviews and remembers.*
+- The manifesto line (operator, 2026-10-31; E-406), its own centered line directly under that
+  sentence, verbatim: **Stop prompting the intelligence and start navigating it.** It is a
+  statement, not a tagline: it keeps its full stop, is not italicised, and appears once in the
+  README (the hero) and once as the opening line of `docs/how-it-works.md`.
 - Badge row (D-133 r7) under the tagline.
 - **The pitch, in outcomes, not features** — four short paragraphs, each with a bold lead:
   - **One chat forgets. A team remembers.** A single Claude session loses the plan when the

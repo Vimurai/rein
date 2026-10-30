@@ -11,6 +11,8 @@
 
 Claude Code as a small engineering team that plans, builds, reviews and remembers.
 
+**Stop prompting the intelligence and start navigating it.**
+
 [![CI][ci-badge]][ci]
 [![Privacy][privacy-badge]][privacy]
 [![CodeQL][codeql-badge]][codeql]

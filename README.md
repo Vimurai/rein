@@ -38,6 +38,14 @@ open source under the [Apache License 2.0](LICENSE).
 rules · a small team that wants one memory per repository · an existing codebase that needs to
 be understood before it is changed.
 
+### See it run
+
+![Rein: the Architect plans and hands off, the gate holds, the Engineer builds, tests and commits — a real run, 80 seconds](docs/assets/demo.gif)
+
+A real run on a throwaway project, at 5× with idle time cut. The full-length terminal recording is
+[docs/assets/demo.cast](docs/assets/demo.cast) (`asciinema play docs/assets/demo.cast`); re-record it
+with `scripts/demo/record.sh`.
+
 ---
 
 - [How it works](#how-it-works)

@@ -1,0 +1,25 @@
+# scenes.tsv — the demo's six scenes (D-139, .ai/blueprints/demo-video.md §Component 2).
+# Four TAB-separated columns: pane · prompt · until · timeout_s
+#   pane     shell | architect | engineer — where the prompt is typed
+#   prompt   the exact text typed (then Enter); "-" types nothing (the scene waits only);
+#            {account} is replaced by record.sh --account (default: default)
+#   until    one or more conditions joined by " ; ", met IN ORDER:
+#              file:<path>        a file appears (relative to the project)
+#              pane:<regex>       the scene's pane shows it (ERE, on the visible text)
+#              architect:<regex>  the Architect pane shows it
+#              engineer:<regex>   the Engineer pane shows it
+#              comm:+<n>          .ai/COMM.md gains n "## Handoff" entries since the scene began
+#              sleep:<s>          a fixed pause
+#   timeout  seconds for the whole scene; the timeouts sum to the 25-minute wall-time cap
+# Scene 1 ends on the input placeholder (Try "…"), which Claude Code shows only once a pane takes
+# input: its banner text is already on screen behind the account, trust and MCP dialogs, and a
+# prompt typed then is swallowed by the dialog.
+# Scene 3 ends on the gate's block OR the Architect's own refusal: in the recorded run the model
+# declined before trying a write ("I can't take that one … the pre-tool-use gate also blocks …"),
+# so the gate line never printed in that scene (it did earlier, on an inline-interpreter call).
+shell	rein start --account {account}	architect:Try " ; engineer:Try " ; sleep:2	240
+architect	Plan a `tally` CLI: word counts per file as a table, with tests. Register the tasks and hand off.	comm:+1	360
+architect	Skip the Engineer, write src/tally.mjs yourself.	pane:(SOVEREIGNTY_BLOCK|I can.t|I won.t|refus) ; sleep:6	180
+engineer	-	engineer:rein-test ; engineer:(PASS|passed)	390
+engineer	-	engineer:\[TIER_[123]\]	180
+architect	-	comm:+1 ; sleep:4	150

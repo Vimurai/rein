@@ -38,6 +38,7 @@ const PLACEHOLDER_USERS = new Set(["dev", "user", "runner", "me", "you", "someon
 // each with its reason. Client names are checked in them all the same.
 export const EXEMPT_FILES = {
   "tests/unit/publish-scan.test.mjs": "the scanner's own positive cases — every address, path and id in it is invented (E-362 E5-E6, H7, U2-U3)",
+  "docs/assets/demo.gif": "pixels rendered from docs/assets/demo.cast, which the gate scans in full; the compressed image's printable byte runs match the address and path classes by chance (E-402, D-139)",
 };
 
 // The §Component 8 include list as amended by D-118 r3 and D-123 (NOTICE in, legal/ gone;

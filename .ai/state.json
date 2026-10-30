@@ -1206,18 +1206,18 @@
     {
       "id": "E-390",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Rewrite the README and create the docs pages per D-136 and .ai/blueprints/readme.md §Components 1–5 (post-rename names: install-rein.sh, ~/.rein, REIN_*): (1) README.md — hero with the animated mark via <picture> (light/dark SVGs from E-385), wordmark, tagline, badge row; the pitch in outcomes (the four bold paragraphs and \"who it is for\" as written in §Component 1); \"How it works\" with Mermaid diagram 2a replacing the ASCII block and the triad.svg link; quickstart as one block with prerequisites as one line linking docs/install.md; feature tour table; command reference and FAQ kept; install, upgrade, uninstall and the manual tmux fallback moved out. (2) docs/install.md — diagram 2d then steps 1–8 as §Component 3: per-OS prerequisites (macOS Homebrew, Ubuntu/Debian, Fedora, Arch, Windows via WSL2) for node 22+, git, sqlite3, python3 and tmux with version checks; tmux in five keys and an optional ~/.tmux.conf; Claude Code install quoted from the official page with the link, then login; Rein install, ai install, ai doctor with a table of every doctor line a fresh machine can show; first project (ai init, ai start, the first prompt, stop and return); upgrade and uninstall; the five commonest failures. Run every command block on this machine; mark the macOS block as documented-not-run. (3) docs/how-it-works.md (diagrams 2a–2c, roles, memory, wake, hooks), docs/getting-started.md (the first hour), docs/ci.md (local and hosted CI, required checks). (4) tests/unit/docs-links.test.mjs: every relative link and image in README.md and docs/**/*.md resolves; every mermaid fence balanced and flowchart-only; parse only if mermaid is in the CI cache, else host-named SKIP. (5) Dispatch docs-architect; no HIGH gap. Acceptance: link test green; rendered README checked in GitHub light and dark and named in the handoff; README under 60 KB, hero fits one laptop viewport; no HTML beyond div/picture/details; full ai ci run green. One PR, after E-385.",
       "created_at": "2026-10-29T19:28:32.229Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-10-30T21:24:54.352Z",
+      "summary": "README rewrite (outcome pitch, Mermaid 2a, Claude Code-first quickstart, feature tour) + docs/install.md steps 1-8, how-it-works 2a-2c, getting-started, ci.md; E-374 extended, docs-l …[full in LOG.md]",
       "depends_on": [
         "E-385"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T15:48:34.034Z"
+      "updated_at": "2026-10-30T21:24:54.362Z"
     },
     {
       "id": "E-391",
@@ -3685,6 +3685,105 @@
       "timestamp": "2026-10-30T21:00:17.353Z",
       "summary": "Tier 1 bookkeeping only: Architect's D-139 (DECISIONS, blueprints/demo-video.md, readme.md amendment, E-402 task) carried as written; stamps and views.",
       "sha": "5628b1bd227537c762e886b6315095a40364054b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-390",
+      "timestamp": "2026-10-30T21:25:06.318Z",
+      "summary": "Tier 1 bookkeeping only on 6150663: E-390 DONE, LOG and views.",
+      "sha": "61506635e9fe710f9fc6e4853a915cdaf20736ed",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T21:39:41.856Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK (scripts/demo, docs-links test) covered by .ai/blueprints/demo-video.md §Components 2-4 and D-139; CAPABILITIES_BYPASS (../.. in scan.sh) fixed by suffix-stripping the script dir.",
+      "sha": "122dae4dc7d9fb4ed3e384bbfff64847a6a183a2",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T21:39:44.175Z",
+      "summary": "[TIER_2] E-402 recorder: scenes.tsv (6 scenes, 1500 s), record.sh (dedicated tmux -L server 120x36, plain prompt, status-right blank, driver via send-keys/capture-pane with [[ =~ ]], asciinema v2 --window-size, scan before render, render trimmed at alt-screen exit), scan.mjs/scan.sh (precommitProblems on the cast; positive control exit 1). Smoke run end-to-end green; docs-links tests 5/0 (+1 host-named skip).",
+      "sha": "122dae4dc7d9fb4ed3e384bbfff64847a6a183a2",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T21:43:55.193Z",
+      "summary": "Tier 2 fix after the operator's first run: `local IFS=';'` in the driver leaked (bash dynamic scope) into _pane_of's `read -r id role`, so no role pane was ever found and scene 1 never ended. Conditions now split by _conds (IFS scoped to one read) and read line by line (no glob of \\[TIER_[123]\\]); scene 1 timeout 240 s for the trust/MCP dialogs, total still 1500 s; tmux focus-events on. Role-pane smoke run green (both scenes ended by condition); tests 5/0.",
+      "sha": "2354697275a005a8074f63c424f4d736ce80fc2c",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T21:46:47.695Z",
+      "summary": "Tier 2 fix after the operator's second run: scene 1 ended at 18 s on the banner text behind the account/trust/MCP dialogs and the plan prompt was swallowed by a dialog. Scene 1 now ends on Claude Code's input placeholder (Try \"), and every prompt into a role pane waits for that placeholder (a dialog replaces it). Ready-guard smoke run green; tests 5/0.",
+      "sha": "94bb6ccfaff7d2d643d75dda3e59a01b7660414f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T21:49:15.164Z",
+      "summary": "Tier 2 fix after the operator's third run: rein start asked which Claude account to bind (listing the operator's accounts on screen). record.sh --account <name> (default: default, plain-name validated) fills {account} in scene 1, which now types rein start --account <name>; dry-run verified no prompt. Tests 5/0.",
+      "sha": "579f964aa0027a500a080c5240732defb4348d3b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T22:03:12.191Z",
+      "summary": "[TIER_2] E-402 neutral demo HOME (operator's choice after the third run's cast had 51 privacy hits: home path x45 from rein init output, hook-error paths and ~/.rein logs; personal email x6 from GATE2 stamp author): record.sh --home (default /tmp/rein-demo-home, must be outside HOME) installs Rein from this clone there, runs panes with HOME/PATH there and CLAUDE_CONFIG_DIR unset, checks the demo login (exit 2 with the login line), project gets a local demo@example.invalid identity, rein init runs off the record. Scene-3 ready guard: prompt box shown and no busy/dialog marker (Try placeholder only exists in a fresh session). Smoke: pane sees demo HOME/rein, 0 home-path occurrences in cast; tests 5/0. Divergence from demo-video.md (real HOME) to be raised with the Architect.",
+      "sha": "83c29ab70f08ee2efc9fc0ea95f58c5658d3e556",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T22:03:13.238Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK scripts/demo/scenes.tsv covered by .ai/blueprints/demo-video.md §Component 2.",
+      "sha": "83c29ab70f08ee2efc9fc0ea95f58c5658d3e556",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "security_engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T22:23:37.709Z",
+      "summary": "Privacy-gate exemption docs/assets/demo.gif (EXEMPT_FILES, exact path, address/path/socket classes only; names, secrets, path and identity checks still run): approve with changes. GIF parsed (799 frames, NETSCAPE2.0, gif.ski comment, no plain-text ext, clean trailer); gate hits are ~noise and @ski.gif padding; cast DEMO_SCAN_OK and clean on a name/host/email sweep. P3-2 (regular file + GIF89a) and P3-3 (gif and cast change in one commit) closed by a docs-links test.",
+      "sha": "7931a87a9542f82353dd6b23c2478c8d762e3725",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T22:23:40.482Z",
+      "summary": "[TIER_2] E-402 publish: docs/assets/demo.gif (81 s at 5x, 6.6 MB, 12 fps, DejaVu+FreeMono) + demo.cast (scan clean, broad sweep clean); README See it run under the pitch, how-it-works embed; recorder: install marker, bounded login check, render settings, scene-3 ends on gate line or refusal; privacy gate EXEMPT_FILES demo.gif (security_engineer approve-with-changes, P3s closed); tests: E-365 pins the list, docs-links GIF size/cast scan/regular-GIF/same-commit; 68+7 pass.",
+      "sha": "7931a87a9542f82353dd6b23c2478c8d762e3725",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-402",
+      "timestamp": "2026-10-30T22:23:54.157Z",
+      "summary": "Tier 1 bookkeeping only: E-402 review and critic stamps, views.",
+      "sha": "01363e69db9c52d4222aeff4055ca0545ce3f473",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

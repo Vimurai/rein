@@ -601,3 +601,40 @@ Scale: ~2,100 uses of the `ai` command in 246 files, ~25 skills; the `src/bin/ai
 ### Open risks
 - None new.
 ---
+---
+## Handoff — 2026-10-30 09:52 UTC
+**From**: Engineer → Architect
+**Trigger**: E-391 ready for the merge step (operator's yes pending)
+
+### What was built
+- a317dcd `[TIER_1] test`: tests/suites/init_upgrade_test.sh header `REIN_SUITE_TIMEOUT=300` (E-307 mechanism). E-391 grew the suite 45→80 tests; hosted macOS 4/4 hit the 180 s watchdog on bbd936a and e7e9514 with no failing assertion (main: 141 s macOS vs 59 s Linux). Now green on hosted macOS.
+- Budget: addendum 6 set; `rein ci budget` = test_lines 41800 (D-132 at 77eced2); a317dcd measures 41812, inside the 2 % tolerance.
+- Local `rein ci run` PASS a317dcd — 7011/0/25, leaked 0, 547 s. Hosted on a317dcd: fast, privacy, CodeQL analysis, all 8 ubuntu shards, macOS 2/4, 3/4, 4/4 green.
+- Third security pass: SECURITY.md "Pen-Test Results (third pass)"; M1–M4, M6, M7 fixed in d55bcfe/22d9e30; M5 → E-394, doctor hard-fail → E-395.
+- Branch shas main..HEAD (38): a317dcd e7e9514 bbd936a 13571ce 14fcf10 22d9e30 d55bcfe c57c1cf 5378b9e 8868099 62213b0 bf92152 2ddcf2e bcb1039 4a66ceb bb7d2a6 b5679d6 6a9cf09 bec6e69 da778c7 14eebdd 9de7eb9 cb3c009 03b8818 a8da17c 56cb532 0257ee0 4d390a0 5b7f213 eacd7af da0949a 144b8f7 9bb41c1 dff9265 ab2495a f86262f b9a8f1a 77eced2.
+
+### Merge blockers on PR #10 (not E-391 regressions)
+- main's required checks are still the `ai ci run (ubuntu-latest, …)` names — the step-7 `gh api` swap to `rein ci run (…)` happens in the merge step on the operator's yes.
+- `CodeQL` (required) fails on 13 alerts that are all already open on main (safe-exec git-redirect/architect-writes ReDoS, blueprint-aligner ReDoS, record-store ranges, publish-scan double-escaping, two test-fixture shell-injection alerts); flagged on the PR only because the rename touched those files. Needs a ruling: fix ticket(s) vs dismiss with reason vs admin merge.
+- macOS node 22 shard 1/4 fails on main 94d543e too: harness self-tests E-240.01a/02a/03a/03b, E-241.02a/b, E-239.05a–d. Not required; needs its own ticket.
+- Dependency review: "not supported on this repository" — the repo's Dependency graph is off (operator setting).
+
+### Incident this session
+- At session start (01:00 local) the pre-hard-cut install `~/.rein/bin/ai` rewrote 34 tracked files on rename/rein back to ai-* (rulefiles, .claude/agents, .claude/skills, providers.json re-adding agy/gemini, roles.json) and wrote 18 ai-* skill dirs + .pre-0.4.0 backups (byte-identical to HEAD). Restored to HEAD with the operator's OK. It recurs every session start until the operator reinstalls.
+
+### Operator migration list (rein-rename.md §Component 4, verbatim order — the symlink goes LAST)
+1. `bash install-rein.sh` from the merged `main` (installs `~/.rein/bin/rein`; prints that the command is `rein`; lists projects whose settings name a missing Rein hook path, each with `run: rein sync`; the list may be incomplete — run `rein doctor` in any project it does not name).
+2. `rein sync` in every project on that list (and any other).
+3. `rein doctor` in each project: no `[HOOK_PATH_MISSING]`, no `[GATE_UNREGISTERED]`, `[REIN_ROLE]` present.
+4. Only now `rm ~/.ai-os` — a symlink, so `rm`, never `rm -r`.
+5. Remove any `AI_OS_*` export from shell rc files.
+
+### Blueprint divergence
+- NONE.
+
+### Next action needed (Architect)
+- Rule on the CodeQL required check and register the macOS shard 1/4 ticket; then the merge step (required-checks swap, merge, tag v0.4.0, release) on the operator's yes.
+
+### Open risks
+- Until step 1 runs, every session start in this repo re-clobbers the tree with the old names.
+---

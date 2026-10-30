@@ -21,6 +21,7 @@ rein ci run --keep               # keep the worktree for inspection
 rein ci status [--ref <sha>] [--short]
 rein ci list [-n 10]
 rein ci log [<sha>] [--failed]
+rein ci log --failed             # only the failing suites of the last run
 rein ci budget
 ```
 

@@ -3994,3 +3994,40 @@ The README tells and diagrams; a visitor still cannot see the loop run. One scri
 One PR, one revert (`demo-video.md` §Rollback Plan); delete the release asset; D-136's image rule returns to "the mark only".
 
 ---
+
+## D-140 — The demo runs under a neutral HOME it deletes afterwards; the privacy gate reads a binary's metadata, not its compressed payload; the hand-back scene is required and the cut is re-recorded once the gate and the toolchain probe are in
+
+**Date**: 2026-10-30
+**Task**: E-402 (stays OPEN), E-403, E-404, E-405 (new)
+**Decision**: E-402's first recording merged (PR #17) with six divergences from D-139/`demo-video.md`, each put to the Architect. Rulings:
+
+1. **The neutral HOME is the rule, not a divergence.** D-139 said "the HOME is not throwaway"; the first run showed 51 privacy hits from the operator's HOME path (printed by `rein init`, by every gate-block hook path, by `~/.rein` logs) and the email (the GATE2 stamp author). A HOME outside the operator's (`--home`, default under `/tmp`), with Rein installed into it and one Claude login, is exactly the privacy design working. It holds a Claude credential, so: `chmod 700` (done), and **the script deletes it when the run ends**; `--keep-home` keeps it and prints that it holds a login. The blueprint §Component 3 and §Security are rewritten under this ruling.
+2. **The privacy gate stops scanning compressed payloads and starts reading metadata.** Today the gate turns any binary into its printable runs and scans those; a compressed GIF then matches the path and address classes by chance, and the only way to ship it was an exact-path exemption. An exemption by path is a hole (a later commit can put anything at that path), and chance matches make every binary a coin flip. The rule: a file whose magic bytes name a known media type (GIF, PNG, JPEG, WebP, MP4/MOV, WOFF/WOFF2) has its **textual metadata** scanned — GIF comment and application extensions, PNG `tEXt`/`zTXt`/`iTXt`, JPEG `COM`/EXIF/XMP, MP4 `udta`/`meta`, font `name` tables — and its payload skipped; a file whose extension claims a media type but whose magic does not match is scanned as today. The `docs/assets/demo.gif` exemption is removed in the same change. This is E-403 (Tier 3: gate surface; `security_engineer`). The derived-artefact argument (GIF from a scanned cast) stays recorded as the reason the demo is safe, but the gate's rule is the one above, for every binary.
+3. **Speed and fonts**: the operator chose 5× and 12 fps; the 1.5–3 cap was a guess. The rule becomes: the speed is whatever makes the cut read at a glance and the operator approves the final; the blueprint says so.
+4. **The cut ships as merged; the hand-back is required in the next one.** The loop closing is the point of the demo. Scene 3 accepts either the gate line or the Architect's refusal — both show the boundary, and the `[SOVEREIGNTY_BLOCK]` that printed on the inline-interpreter attempt is in the GIF already. Scene 6 ends on the hand-back in the Architect pane (`pane:Handoff` or `comm:+1`, timeout ≥ 8 min). E-402 stays OPEN for one re-record **after E-403 and E-404** (no exemption, no stale toolchain), with the token cost read from each pane's `/cost` after recording stops and named in the handover.
+5. **The MP4 is rendered from the committed cast at release time, never stored.** The release flow (`release-manager` / `rein publish`) renders `demo.mp4` from `docs/assets/demo.cast` with `agg` + `ffmpeg` when both are present and attaches it with `--asset`; when they are not, the step prints the two commands and the operator attaches by hand. The README caption links `releases/latest/download/demo.mp4`; the link test does not follow external URLs. The local `/tmp` copy can go.
+6. **Permission prompts**: the neutral HOME's `.claude/settings.json` sets `permissions.defaultMode` to `acceptEdits` and allows the demo's command set (`node --test`, `npm test`, `git`, `rein`); anything else prompts and the operator answers live, as documented in the script header. Never `bypassPermissions`: the prompts are part of what the demo shows, and Rein's gates are hooks that run regardless.
+7. **Toolchain staleness becomes a named line.** A Homebrew upgrade of the pinned Python changed the ABI under the gate's parser and every Bash call failed with a bare `[GATE_INTERNAL_ERROR]` until `bash install-rein.sh`. E-404 (Tier 2): `rein doctor` imports the gate's parser modules under the pinned toolchain and reports `[TOOLCHAIN_STALE] <module>: <error> — run: bash install-rein.sh`; the pre-tool-use gate prints the same line on an import failure instead of the bare internal error (still failing closed); the preflight "Stale MCP servers" probe carries it; the Engineer files the event with `rein-incident`.
+8. **Rename and installer residue**: E-405 (Tier 1): `rein --help` still prints "ai —"; the installer accepts Node 22.0–22.4 while `node:sqlite` needs 22.5. The floor becomes 22.5.0 (major 22 with minor ≥ 5, or major ≥ 24) with a version-comparison test; the docs already say 22.5+.
+
+### Why needed
+The first recording did its job: it showed where identifiers leak (the HOME path and the stamp author), that the gate's binary heuristic cannot tell a GIF from a secret, and that a stale toolchain fails without a name. Each becomes a rule or a task instead of a one-off.
+
+### Alternatives considered
+1. **Keep the demo.gif exemption** — rejected: a path exemption is a hole and the chance-match problem returns with the next binary.
+2. **Host the GIF on GitHub (user-attachments URL) to avoid scanning it** — rejected by the operator: the asset leaves the repository and the README depends on an upload nobody can reproduce.
+3. **Ship the partial cut as final** — rejected: a demo of a loop that never closes; one re-record after E-403/E-404 is cheap by comparison.
+4. **`bypassPermissions` for an unattended run** — rejected: hides the prompts the product has, and the gates do not need it.
+5. **Neutral HOME deleted after the run; metadata-only binary scan; hand-back required; MP4 from the cast at release; acceptEdits + allowlist** — selected.
+
+### Constraints driving this decision
+- E-369/E-380 privacy classes (nothing public unscanned — the metadata scan keeps that promise where an identifier can actually live); sovereignty-hardening (the gate fails closed; a named failure is still a failure); D-138 r1 (the new script lines use here-strings); D-088 (new tests name what they extend); D-103 (no new hosted command — the toolchain probe is local).
+
+### Impact
+- Unlocks: E-403, E-404, E-405; E-402's second recording; a gate that can ship binaries by rule.
+- Risk if wrong: a secret hidden inside a GIF's pixel stream would pass the metadata scan — but no gate on text runs would have caught a deliberately encoded one either, and the demo's binaries are derived from scanned text.
+
+### Rollback
+E-403: revert restores the printable-run scan and the exemption. E-404 and E-405: independent reverts. Rulings 1, 3–6 are blueprint text and revert with it.
+
+---

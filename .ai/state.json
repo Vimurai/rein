@@ -3877,6 +3877,33 @@
       "summary": "Tier 1 bookkeeping only: Architect's E-406 (readme.md §Component 1 manifesto line placement, task) carried as written; E-400 stamps and views.",
       "sha": "b3a2c35dc025ef7a5411d35c88a488636217b306",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-406",
+      "timestamp": "2026-10-30T23:23:45.940Z",
+      "summary": "Tier 1 bookkeeping only on bb6ab56: Architect's readme.md §Component 1 manifesto-line placement carried onto the E-406 branch.",
+      "sha": "bb6ab56ca257093be8426008667080fcb320e277",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-406",
+      "timestamp": "2026-10-30T23:24:11.230Z",
+      "summary": "Tier 1 docs: E-406 manifesto line verbatim and bold in the README hero (own centered line under the description, inside the existing div; no new HTML) and plain as the opening line of docs/how-it-works.md; exactly once each; docs-links + publish-scan 69/0.",
+      "sha": "6eccd4a2c9615e1ef9f088a57d3c2cb92aea0425",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-406",
+      "timestamp": "2026-10-30T23:24:18.349Z",
+      "summary": "Tier 1 bookkeeping only: E-406 stamps and regenerated views.",
+      "sha": "07656f4ae9caec7193f348614832dc86eca139e2",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

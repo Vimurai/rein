@@ -4031,3 +4031,38 @@ The first recording did its job: it showed where identifiers leak (the HOME path
 E-403: revert restores the printable-run scan and the exemption. E-404 and E-405: independent reverts. Rulings 1, 3–6 are blueprint text and revert with it.
 
 ---
+
+## D-141 — A feature branch ends at its merge: the repository deletes head branches on merge, every Engineer merge passes `--delete-branch`, the local branch is pruned, and the merged branches on GitHub are cleaned once
+
+**Date**: 2026-11-01
+**Task**: E-407 (new)
+**Decision**: Operator request (2026-11-01): "branches don't get deleted on GitHub, making it messy — when a PR is merged successfully, the merge should also remove the feature branch." Verified on `Vimurai/rein`: the repository setting `deleteBranchOnMerge` is **false**, and fourteen head branches of merged PRs (#1..#17) are still on origin beside `main`, the open `e-406-hero-line` and two dependabot branches. Rulings:
+
+1. **The rule.** A feature branch exists from its first commit to its merge, not a day longer. Three layers, so nobody has to remember it: (a) the repository setting "Automatically delete head branches" is ON (`gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true`) — this covers the merges the operator performs in the browser, which is where the lingering branches came from; (b) every merge the Engineer performs is `gh pr merge <n> --merge --delete-branch` (the repository merges with a merge commit, as the `Merge #17` history shows — the flag is kept explicit so the rule holds even if the setting is ever flipped off, and `gh` then deletes the local branch too); (c) after any merge, from whichever side, the Engineer returns to `main`, fast-forwards it, fetches with `--prune`, and deletes the local branch with `git branch -d` when it is still there. A `-D` is never part of this rule: a branch that `-d` refuses is unmerged and stays until a person decides.
+2. **What is never deleted.** `main`; a branch with an open PR; a branch whose PR was closed without merging (the Engineer asks the operator); tags (`v0.4.0` stays when `release/v0.4.0` goes — a tag is not a branch); dependabot branches (dependabot opens and closes its own; under ruling 1a they vanish when merged). GitHub keeps a deleted head branch restorable from the PR page for ninety days, so ruling 1 is reversible per branch.
+3. **One-time cleanup**, part of E-407: delete on origin the merged head branches listed by `gh pr list --state merged` whose tip is reachable from `origin/main` — today d-135-records, e-382-version-0.4.0, e-384-public-ci, e-385-rein-mark, e-386-census-baseline, e-386-ci-throughput, e-388-bash32-subshell-registry, e-389-seed-shard-1, e-390-readme, e-399-required-set, e-402-demo, port-architect-records, release/v0.4.0, rename/rein — one `git push origin --delete` per branch, each checked with `git merge-base --is-ancestor <tip> origin/main` first; the handoff names every branch deleted and every branch kept with its reason. `e-406-hero-line` is deleted by its own merge (ruling 1), the first branch to go under the rule.
+4. **Where the rule lives.** ENGINEER.md Core Rules gains one line (and the `src/templates` copy of ENGINEER.md the same line), the `rein-task` skill's close-out names the three commands of ruling 1, and `.ai/blueprints/team-collaboration.md` §Component 5 "Branch policy" gains the provider column: GitHub — "Automatically delete head branches"; GitLab — "Enable 'Delete source branch' option by default"; Bitbucket — "Delete branch after merge" on by default in the pull-request settings; Azure DevOps — "Delete after merging" is a completion option the operator leaves on. `rein ci hosted` prints the setting for the chosen provider beside the D-103 r5 policy text.
+5. **The setting is checked, not trusted.** On GitHub, `rein ci hosted --check` (and so `rein doctor`, which already carries it) reads `deleteBranchOnMerge` through `gh` when `gh` is authenticated and prints `[BRANCH_CLEANUP_OFF] run: gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true` when it is false; without `gh` or offline it prints nothing — the check is advisory, it gates no merge. Wherever Rein already applies branch protection with one `gh api` call (the E-378 bootstrap step, DEVOPS-017's PATCH), the same step sets the flag, so a downstream Rein project starts clean.
+
+### Why needed
+Every merged PR left its branch on origin; fourteen are there now and the list grows by one per task. A clone's remote-branch list becomes unreadable, the claim and trunk-resolution paths read more refs than they need, and a stale branch invites a push onto a merged line.
+
+### Alternatives considered
+1. **The repository setting alone** — rejected as the only layer: it does nothing for a clone's local branches, nothing on providers without the flag, and nothing if someone turns it off; it is layer (a), not the rule.
+2. **`--delete-branch` on the Engineer's merges alone** — rejected as the only layer: the lingering branches come from browser merges, which the flag cannot reach.
+3. **A periodic cleanup command (`rein branches prune`)** — rejected: it treats the symptom and adds a command whose only job is to undo a missing default. Ruling 3 is a one-time cleanup by hand, named in the handoff, not a tool.
+4. **All three layers plus the check (chosen)** — the setting catches the browser, the flag catches the terminal, the prune keeps the clone honest, and the doctor line says when the setting drifted.
+
+### Constraints driving this decision
+- D-103 r5: the hosted check is required for merges into the trunk; deleting the head branch after a merge changes nothing about that gate.
+- D-102 §4: claims are bookkeeping commits on the trunk, never on a feature branch; branch deletion cannot lose a claim.
+- Sovereignty (sovereignty-hardening.md §Components 1): branch and remote operations are the Engineer's; the Architect only rules — this session's `git branch -r` was blocked by the gate, as it should be, and the facts above come from `gh` reads.
+
+### Impact
+- Unlocks: E-407. Order: right after E-406 merges, before E-400.
+- Risk if wrong: a branch deleted while someone still had unpushed work on it locally — the local copy is untouched by a remote delete, and GitHub restores the head for ninety days.
+
+### Rollback
+`gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=false`; drop the `--delete-branch` flag from the rulefile line; a deleted branch is restored from its PR page.
+
+---

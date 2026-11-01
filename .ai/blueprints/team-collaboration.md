@@ -153,6 +153,18 @@ rejection means someone else holds it. Reading claims needs a fetch, not a merge
   branch, developers may push and merge, "pipelines must succeed"; Bitbucket — merge check
   "minimum one successful build", no "prevent changes without a pull request".
   `rein ci hosted` prints the setting for the chosen provider.
+- **A feature branch ends at its merge (D-141, E-407).** Head branches are deleted on
+  merge on every provider — GitHub "Automatically delete head branches" ON (the repository
+  flag `delete_branch_on_merge`, set by the same `gh api` step that applies branch
+  protection); GitLab "Delete source branch" on by default; Bitbucket "Delete branch after
+  merge" on by default; Azure DevOps "Delete after merging" left on. The Engineer's merge is
+  `gh pr merge <n> --merge --delete-branch`, then back on `main`: fast-forward, fetch with
+  `--prune`, `git branch -d <branch>`; never `-D`. On GitHub `rein ci hosted --check` reads
+  the flag through `gh` when authenticated and prints
+  `[BRANCH_CLEANUP_OFF] run: gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true`
+  when it is false (advisory; gates nothing). Never deleted: the trunk, a branch with an
+  open PR, a closed-unmerged PR's branch (ask), tags, dependabot branches.
+  `rein ci hosted` prints the per-provider setting beside the D-103 r5 policy text.
 - **Providers.** GitHub Actions (E-332, hand-written first, adopted as the `github`
   template) and Azure Pipelines (E-336) in 4.1.0; GitLab CI and Bitbucket Pipelines
   (E-337) after a documented run exists — `[CI_PROVIDER_PLANNED]` until then.

@@ -873,3 +873,26 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-01 18:30 UTC
+**From**: Architect → Engineer
+**Trigger**: operator request — merged feature branches linger on GitHub; D-141 ruled, E-407 registered
+
+### What was planned
+- **D-141** (`.ai/DECISIONS.md`): a feature branch ends at its merge. Three layers: the repository flag `delete_branch_on_merge=true` (today FALSE on `Vimurai/rein` — the lingering branches come from browser merges), `gh pr merge <n> --merge --delete-branch` on every Engineer merge, and the local prune (back on main: fast-forward, `git fetch --prune`, `git branch -d`, never `-D`). Never deleted: `main`, open-PR branches, closed-unmerged branches (ask), tags, dependabot branches. A remote delete is restorable from the PR page for ninety days.
+- **E-407** (Tier 2, OPEN, right after E-406 merges and before E-400): set the flag and read it back; the one-time cleanup of the fourteen merged head branches (list in D-141 r3 — `git merge-base --is-ancestor` before each `git push origin --delete`); the rule line in ENGINEER.md Core Rules and its `src/templates` copy; the three commands in `rein-task`'s close-out; `rein ci hosted` prints the per-provider cleanup setting beside the D-103 r5 policy text; `rein ci hosted --check` prints `[BRANCH_CLEANUP_OFF] run: …` on GitHub when `gh` is authenticated and the flag is false (advisory); the bootstrap/protection `gh api` step sets the flag; DEVOPS entry via `ci_gate`; tests named in the task.
+- `.ai/blueprints/team-collaboration.md` §Component 5 "Branch policy" gains the rule paragraph (read it before E-407, D-065).
+- task-synchronizer-mcp was down in this session (CONNECTION_CLOSED on all sixteen servers): E-407 is hand-written into TASKS.md — carry it into state as you did E-406, before starting it.
+
+### Decisions made
+- D-141 (above).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Finish and merge E-406 — merge it with `--delete-branch`, so `e-406-hero-line` is the first branch to go under the rule — then E-407, then the order from the 2026-10-30 22:47 UTC entry: E-400, E-401, E-404, E-403, E-402 re-record, E-405 any time.
+- In the E-407 handoff: every branch deleted, every branch kept with its reason, and the `deleteBranchOnMerge` value read back after the PATCH.
+
+### Open risks
+- None new.
+---

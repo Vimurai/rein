@@ -1450,6 +1450,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-10-30T23:21:00.572Z"
+    },
+    {
+      "id": "E-407",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make every merged feature branch disappear per D-141 and .ai/blueprints/team-collaboration.md §Component 5 \"A feature branch ends at its merge\" (operator request, 2026-11-01; right after E-406 merges, before E-400). (1) Set the repository flag: `gh api -X PATCH repos/Vimurai/rein -f delete_branch_on_merge=true`, read it back with `gh repo view --json deleteBranchOnMerge`. (2) One-time cleanup (D-141 r3): for each merged head branch still on origin (the fourteen listed in D-141 r3; re-list with `gh pr list --state merged`), check `git merge-base --is-ancestor <tip> origin/main`, then `git push origin --delete <branch>`; never `main`, an open-PR branch, a closed-unmerged branch (ask), a tag or a dependabot branch; name every branch deleted and every branch kept with its reason in the handoff. (3) The rule line in ENGINEER.md Core Rules and in its src/templates copy: merge with `gh pr merge <n> --merge --delete-branch`, then on main fast-forward, `git fetch --prune`, `git branch -d <branch>`, never `-D`; the same three commands in the rein-task skill's close-out step. (4) `rein ci hosted` prints the per-provider branch-cleanup setting (D-141 r4) beside the D-103 r5 policy text; on GitHub `rein ci hosted --check` reads deleteBranchOnMerge through `gh` when authenticated and prints `[BRANCH_CLEANUP_OFF] run: gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true` when false, nothing when gh is absent or offline (advisory, exit code unchanged). (5) The branch-protection `gh api` step (E-378 bootstrap, DEVOPS-017) also sets the flag. (6) DEVOPS entry via skill ci_gate. (7) Tests (name what each extends, D-088): hosted-ci.test.mjs — the policy text for each provider contains its cleanup setting; the --check path with a stubbed gh answer false prints the line, true prints nothing, gh missing prints nothing; the rulefile line asserted in the template-parity test. Acceptance: deleteBranchOnMerge reads true; `gh api repos/Vimurai/rein/branches` lists only main, open-PR branches and dependabot branches; ENGINEER.md and its template carry the line; `rein ci run` green; all required checks green. One PR; its own branch is deleted by its merge.",
+      "created_at": "2026-11-01T18:38:33.634Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-01T18:38:33.646Z"
     }
   ],
   "stamps": [
@@ -3903,6 +3917,42 @@
       "timestamp": "2026-10-30T23:24:18.349Z",
       "summary": "Tier 1 bookkeeping only: E-406 stamps and regenerated views.",
       "sha": "07656f4ae9caec7193f348614832dc86eca139e2",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-400",
+      "timestamp": "2026-11-01T18:37:22.626Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK on three tests/suites files, covered by D-138 r1 and test-harness-isolation.md (same as b3a2c35).",
+      "sha": "ecc604c87952b62fe51e11d49d1049be446fc6aa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-400",
+      "timestamp": "2026-11-01T18:37:25.646Z",
+      "summary": "[TIER_2] E-400 follow-up: three rewritten sites the full run caught (seo_cluster MAX_CLUSTER_PAGES_PER_SEED and incident_tracker bar:42 had `grep < <(` mid-string; rein_sync E-247.03b here-string broke on apostrophes in the sync output -> passed as $1). Assertions unchanged. rein ci run --dirty PASS 7037/0/25 (first run FAIL 7034/3 on d3b3db6).",
+      "sha": "ecc604c87952b62fe51e11d49d1049be446fc6aa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-400",
+      "timestamp": "2026-11-01T18:38:14.063Z",
+      "summary": "Tier 1 merge of origin/main (#18, E-406) into e-400-sigpipe: README/how-it-works from main; .ai conflicts were unions (main E-406 stamps + this branch E-407 row), resolved by hand, JSON parses, no markers.",
+      "sha": "a4fa45179f152bed1dfe9783ce78e1f8cbca302f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-407",
+      "timestamp": "2026-11-01T18:38:56.158Z",
+      "summary": "Tier 1 bookkeeping only: E-407 (Architect, hand-written in TASKS.md while task-synchronizer-mcp was down) carried into state as written via rein add-task; E-400 stamps and regenerated views.",
+      "sha": "636843fef63a03409c89a26160c506bc7dff20e5",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

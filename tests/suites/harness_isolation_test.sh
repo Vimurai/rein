@@ -1114,6 +1114,66 @@ assert_status 0 "E-239.07d: telemetry's baseline includes its own measurement ov
 assert_status 0 "E-239.07e: critic_tests flags an absolute budget with no baseline" \
   grep -q 'Absolute performance budgets without a baseline' "${REPO_ROOT}/src/claude/agents/critic_tests.md"
 
+# ── E-408 (D-141 addendum r3): the operator's GitHub login never reaches a suite ───────────
+# Extends the E-309 lane fixture above (same copied runner): one suite prints what gh would
+# see; the launching shell carries an operator token and gh config, which is normal. An env
+# file sourced PAST the scrub (REIN_TEST_LANE_ENV) plants a token to prove the guard.
+echo ""
+echo "  [E-408] gh is scrubbed per lane; the guard proves it before the first suite"
+_GH="$(test_tmpdir ghiso)"
+mkdir -p "${_GH}/tests/suites" "${_GH}/tests/tools" "${_GH}/tests/fixtures" "${_GH}/home"
+cp -R "${REPO_ROOT}/tests/lib" "${_GH}/tests/lib"
+cp "$RUNNER" "${_GH}/tests/run.sh"
+cp "${REPO_ROOT}/tests/tools/fixture-home-census.mjs" "${REPO_ROOT}/tests/tools/shard-plan.mjs" "${_GH}/tests/tools/"
+cp "${REPO_ROOT}/tests/fixtures/fixture-home-exemptions.json" "${_GH}/tests/fixtures/"
+for _n in a b; do cat > "${_GH}/tests/suites/${_n}_gh_test.sh" <<'GHEOF'
+#!/usr/bin/env bash
+_under=no; [[ "${GH_CONFIG_DIR:-}" == "${REIN_TEST_TMPDIR}/gh-config" && -d "$GH_CONFIG_DIR" ]] && _under=yes
+echo "gh_under_tmp=${_under} host=${GH_HOST:-} token=${GH_TOKEN:+set}${GITHUB_TOKEN:+set}"
+echo "gh_env=[$(env | grep -oE '^(GH_[A-Z_]*|GITHUB_TOKEN)=' | sort | tr '\n' ' ')]"
+echo "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"
+GHEOF
+done
+# Fixture values, not credentials: the shapes the operator's shell carries.
+_GH_FAKE_TOK="fixture-not-a-credential"
+_gh_run() {
+  env -u CI -u REIN_TEST_NO_SWEEP -u REIN_TEST_KEEP_GH_ENV HOME="${_GH}/home" REIN_TEST_WALL_HINTS=/nonexistent REIN_TEST_FREE_MB=4096 \
+    "GH_TOKEN=${_GH_FAKE_TOK}" "GITHUB_TOKEN=${_GH_FAKE_TOK}" GH_CONFIG_DIR=/operator/gh "$@" bash "${_GH}/tests/run.sh" 2>&1
+}
+_gh_rc=0; _gh_out="$(_gh_run REIN_TEST_LANES=2)" || _gh_rc=$?
+assert_status 0 "E-408.01a: an operator token in the launching shell never blocks the run (rc=${_gh_rc})" test "$_gh_rc" -eq 0
+assert_match "E-408.01b: each lane sees GH_CONFIG_DIR under its own temp root" '(gh_under_tmp=yes.*){2}' "$(tr '\n' ' ' <<< "$_gh_out")"
+assert_not_contains "E-408.01c: no lane sees a token" "token=set" "$_gh_out"
+assert_contains "E-408.01d: inside a lane only the harness values are set" "gh_env=[GH_CONFIG_DIR= GH_HOST= ]" "$_gh_out"
+assert_contains "E-408.01e: GH_HOST is unroutable" "host=gh.invalid" "$_gh_out"
+_gh_rc=0; _gh_out="$(_gh_run REIN_TEST_LANES=1)" || _gh_rc=$?
+assert_contains "E-408.01f: a serial run is scrubbed the same way (rc=${_gh_rc})" "gh_under_tmp=yes host=gh.invalid token=" "$_gh_out"
+assert_not_contains "E-408.01g: …and no token reaches it" "token=set" "$_gh_out"
+printf '[[ -n "${REIN_LANE_LABEL:-}" ]] && export GH_TOKEN=%s\nreturn 0\n' "$_GH_FAKE_TOK" > "${_GH}/lane.env"
+_gh_rc=0; _gh_out="$(_gh_run REIN_TEST_LANES=2 REIN_TEST_LANE_ENV="${_GH}/lane.env")" || _gh_rc=$?
+assert_status 0 "E-408.02a: a token planted past a lane's scrub fails the run (rc=${_gh_rc})" test "$_gh_rc" -eq 1
+assert_match "E-408.02b: …with one line naming the variable and the lane" '\[GH_ENV_LEAKED\] GH_TOKEN survived the scrub in lane [12] ' "$_gh_out"
+assert_not_contains "E-408.02c: …before that lane's first suite" "gh_under_tmp=" "$_gh_out"
+printf 'export GITHUB_TOKEN=%s\n' "$_GH_FAKE_TOK" > "${_GH}/run.env"
+_gh_rc=0; _gh_out="$(_gh_run REIN_TEST_LANES=1 REIN_TEST_LANE_ENV="${_GH}/run.env")" || _gh_rc=$?
+assert_status 0 "E-408.02d: a token planted past the run's scrub stops the run (rc=${_gh_rc})" test "$_gh_rc" -eq 1
+assert_contains "E-408.02e: …naming it" "[GH_ENV_LEAKED] GITHUB_TOKEN survived the scrub in the run" "$_gh_out"
+_gh_rc=0; _gh_out="$(_gh_run REIN_TEST_LANES=1 REIN_TEST_KEEP_GH_ENV=1)" || _gh_rc=$?
+assert_contains "E-408.03: REIN_TEST_KEEP_GH_ENV=1 keeps the operator's gh env (a deliberate live run)" "token=setset" "$_gh_out"
+# E-408 (5c), extends hosted-ci.test.mjs's --check tests at the process boundary: the doctor line
+# for a GitHub-origin project with a current wrapper and NO gh on PATH is the plain verdict.
+_GD="$(test_tmpdir ghdoctor)"; _GB="$(test_tmpdir ghbin)"
+ln -s "$(command -v node)" "${_GB}/node"; ln -s "$(command -v git)" "${_GB}/git"
+git -C "$_GD" init -q && git -C "$_GD" remote add origin https://github.com/acme/app.git \
+  && git -C "$_GD" -c user.name=t -c user.email=t@example.com -c commit.gpgsign=false commit -q --allow-empty -m seed \
+  && git -C "$_GD" update-ref refs/remotes/origin/main HEAD
+mkdir -p "${_GD}/.ai" && printf '{"project":{"rein_version":"4.0.0"},"tasks":[]}' > "${_GD}/.ai/state.json"
+PATH="$_GB" node --no-warnings "${REPO_ROOT}/src/shared/hosted-ci.mjs" --root "$_GD" >/dev/null 2>&1
+_gd_out="$(PATH="$_GB" node --no-warnings "${REPO_ROOT}/src/shared/hosted-ci.mjs" --root "$_GD" --doctor 2>&1)"
+assert_match "E-408.04a: rein doctor's hosted line with no gh on PATH is the plain verdict" '^  ✓ hosted check: github — \.github/workflows/ci\.yml is the current github rendering' "$_gd_out"
+assert_not_contains "E-408.04b: …and no gh error or advisory reaches it" "BRANCH_CLEANUP_OFF" "$_gd_out"
+assert_status 0 "E-408.04c: …on one line" test "$(wc -l <<< "$_gd_out" | tr -d ' ')" -eq 1
+
 echo ""
 
 assert_summary

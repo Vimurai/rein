@@ -43,6 +43,15 @@ review question for `critic_tests` and `rein-review`.
    that skips the helper (exemptions per rule, with a reason, in
    tests/fixtures/fixture-home-exemptions.json); `REIN_TEST_EMPTY_FALLBACK=1` runs the
    fixtures with the fallback emptied, the proof that a suite passes on any host.
+7c. **The operator's GitHub login never reaches a suite (E-408, D-141 addendum r3)**: every
+   lane runs with `GH_CONFIG_DIR` set to an empty dir under its temp root, `GH_TOKEN` and
+   `GITHUB_TOKEN` unset, and `GH_HOST=gh.invalid`. A guard inside each lane, after the scrub and
+   before the first suite, fails the run with `[GH_ENV_LEAKED]` if any survived. A token exported
+   in the launching shell is normal and never blocks a run. A suite that needs a `gh` answer puts a
+   stub `gh` on `PATH` (or injects one, as hosted-ci.test.mjs does). Review question #9
+   (`critic_tests`): "does this test run `gh`, `rein doctor` or `rein ci hosted` — and is the `gh`
+   it reaches a stub on the lane's PATH?" Rollback: `REIN_TEST_KEEP_GH_ENV=1` skips the scrub and
+   the guard, for a deliberate live run only.
 
 ## Test economics (D-088 — rationale in `.ai/blueprints/test-economics.md`)
 A test is a claim about a BEHAVIOUR, at the cheapest layer that can observe it, and it pays rent.

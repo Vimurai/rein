@@ -4036,6 +4036,15 @@
       "summary": "Tier 1 merge of e-407-branch-cleanup (00c5ff8, rein ci PASS) into e-408-gh-isolation so E-408's doctor test exercises the E-407 gh probe: no source conflicts; .ai/state.json and REVIEWS.md stamp hunks were HEAD-only additions (E-401 stamps), kept; E-407 stamps present; JSON parses, no markers.",
       "sha": "07f05b8fe6529128852d266c323aab03c46541ac",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-408",
+      "timestamp": "2026-11-01T20:05:21.530Z",
+      "summary": "[TIER_2] E-408 (D-141 addendum r3): tests/run.sh _gh_isolate (run + each lane: GH_CONFIG_DIR=<tmp>/gh-config, unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN, GH_HOST=gh.invalid) and _gh_guard after the scrub, before the first suite: one [GH_ENV_LEAKED] line, run exits 1; launching-shell tokens never block; REIN_TEST_KEEP_GH_ENV=1 rollback; REIN_TEST_LANE_ENV seam sourced past the scrub for the guard's test. Helpers set state, called as plain commands (D-064 §2). harness_isolation E-408.01a-g/02a-e/03/04a-c (extends E-309 lane fixture and hosted-ci --check tests) 266/0; one test-regex bug fixed in rein-debug cycle 1. Rule 7c and critic_tests question #9, both copies; blueprint section is the Architect's 07f05b8. align WARN only (structural NO_LOG_UPDATE; rule/agent files named by the blueprint section).",
+      "sha": "5a7f58ca880480fb17f8efba39214a4555343812",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

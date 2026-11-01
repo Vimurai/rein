@@ -1394,6 +1394,62 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-10-30T20:54:42.866Z"
+    },
+    {
+      "id": "E-403",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Make the privacy gate read a binary's metadata instead of its compressed payload per D-140 r2 and .ai/blueprints/demo-video.md §Security (gate surface: Tier 3, security_engineer on the scanner; after E-390, before E-402's re-record). In src/shared/publish-scan.mjs: (1) detect known media types by magic bytes — GIF87a/89a, PNG, JPEG, WebP (RIFF/WEBP), MP4/MOV (ftyp), WOFF/WOFF2 — independent of the extension; (2) for a detected type, scan ONLY the textual metadata with the existing classes: GIF comment (0x21 0xFE) and application (0x21 0xFF) extension blocks, PNG tEXt/zTXt/iTXt chunks (inflate zTXt/iTXt), JPEG COM/APP1 (EXIF, XMP) segments, MP4 udta/meta/ilst atoms, font `name` tables; skip the payload; (3) a file whose extension claims a media type but whose magic does not match, or any other binary, is scanned as today (printable runs); (4) remove the docs/assets/demo.gif entry from EXEMPT_FILES and the gate's reason text; (5) tests in the publish-scan suite (name what each extends, D-088): a GIF with a planted address in a comment extension → hit, the same pixels without it → clean; a PNG with a planted path in tEXt → hit; a .gif whose bytes are text → scanned as text and hit; docs/assets/demo.gif → clean with no exemption; mismatched extension → printable-run path; (6) the privacy.yml hosted job and `rein publish --dry-run` both green on the tree without the exemption. Acceptance: EXEMPT_FILES has no demo.gif row; every listed test green; `rein ci run` green; security_engineer pass recorded in .ai/SECURITY.md; all required checks green. One PR.",
+      "created_at": "2026-10-30T22:47:34.919Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T22:47:34.924Z"
+    },
+    {
+      "id": "E-404",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Name toolchain staleness per D-140 r7 (the E-402 run: a Homebrew upgrade of the pinned Python changed the ABI under the gate's parser and every Bash call failed with a bare [GATE_INTERNAL_ERROR] until `bash install-rein.sh`). (1) `rein doctor` gains a probe that imports the pre-tool-use gate's parser modules under the pinned toolchain exactly as the hook does (same interpreter, same env) and prints `✓ toolchain` or `✗ [TOOLCHAIN_STALE] <module>: <first error line> — run: bash install-rein.sh`, non-zero exit like [SAFE_EXEC_BROKEN] (E-395); (2) the pre-tool-use gate, when the parser import fails, prints the same [TOOLCHAIN_STALE] line (still failing closed) instead of the bare internal error; (3) the rein-preflight \"Stale MCP servers\" injection line also runs the probe and prints the line when stale; (4) file the event with `skill: rein-incident` (sanitised: no home path); (5) tests (name what each extends, D-088): a fixture toolchain whose module import throws → doctor prints the line and exits non-zero, the gate prints the line and blocks; a healthy toolchain → ✓. Acceptance: `rein doctor` on this machine prints `✓ toolchain`; the fixture tests green; hooks_surface / exec_form_hooks suites unchanged in what they assert; `rein ci run` green; all required checks green. One PR, before E-402's re-record.",
+      "created_at": "2026-10-30T22:47:35.045Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T22:47:35.046Z"
+    },
+    {
+      "id": "E-405",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Close the rename and installer residue per D-140 r8: (1) `rein --help` (and any other usage/header text in src/bin/rein, ai-exec and ai-account.sh) prints \"rein —\", never \"ai —\"; the E-391 rename gate's literal list gains the \"ai —\" header spelling so it cannot return; (2) install-rein.sh's Node check requires 22.5.0 or newer (major 22 with minor ≥ 5, or major ≥ 24; `node:sqlite` ships in 22.5), with the message naming 22.5; `rein doctor`'s Node line uses the same comparison from one shared function; (3) tests (name what each extends, D-088): the version comparison on v22.4.1 (reject), v22.5.0 (accept), v24.0.0 (accept), v21.9.0 (reject); the help header asserted in cli_test. Acceptance: zero \"ai —\" matches outside the rename exclusions; the comparison tests green; `rein ci run` green; all required checks green. One PR, any time.",
+      "created_at": "2026-10-30T22:47:35.140Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T22:47:35.140Z"
+    },
+    {
+      "id": "E-406",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Add the manifesto line to the README hero per .ai/blueprints/readme.md §Component 1 (operator request, 2026-10-31): directly under the one-sentence description in the hero, its own centered line, verbatim and bold, with the full stop — \"Stop prompting the intelligence and start navigating it.\" — and the same sentence as the opening line of docs/how-it-works.md (plain, not bold). No other README change; the hero must still fit one laptop viewport (D-136); no new HTML beyond what the hero already uses. Acceptance: the line present exactly once in README.md and once in docs/how-it-works.md with the exact spelling and punctuation; docs-links test green; README checked rendered in GitHub light and dark and named in the handoff; `rein ci run` green. Do it next, before E-400 — it is a one-line PR.",
+      "created_at": "2026-10-30T23:21:00.572Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-10-30T23:21:00.572Z"
     }
   ],
   "stamps": [
@@ -3784,6 +3840,69 @@
       "timestamp": "2026-10-30T22:23:54.157Z",
       "summary": "Tier 1 bookkeeping only: E-402 review and critic stamps, views.",
       "sha": "01363e69db9c52d4222aeff4055ca0545ce3f473",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-400",
+      "timestamp": "2026-10-30T23:13:12.938Z",
+      "summary": "Tier 1 bookkeeping only: Architect's D-140 (DECISIONS, demo-video.md rewrite, E-403/E-404/E-405 tasks) carried as written; COMM handoff 22:47 UTC cherry-picked onto a branch from main.",
+      "sha": "c299247799948220acc51034c565f26e06d096fa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-400",
+      "timestamp": "2026-10-30T23:22:24.175Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK (test-harness.md rule copies, hooks/pre-commit.sh) covered by D-138 r1 and test-harness-isolation.md; hook edits are the same here-string/process-substitution rewrite, no behaviour change.",
+      "sha": "e56d427e1c8d0d371f79f472fd492d5bfee3d0eb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-400",
+      "timestamp": "2026-10-30T23:22:27.444Z",
+      "summary": "[TIER_2] E-400: 238 `<writer> | grep -q` sites under tests/ and hooks/ rewritten (109 echo/printf -> grep … <<< X; the rest -> grep < <(W) …; 7 negations moved outside, 2 multi-line and 2 continuation sites by hand; every changed file bash -n clean); fixture E-400.01a-c in harness_isolation (pipe loses a match on a 4 MB multi-line input under pipefail, here-string keeps it; old assert_match fails, new passes); standards rule no_pipe_into_grep_q (tests/** hooks/**) + 11 contract rows; checker count 0 over 68 files; test-harness.md rule 4b (both copies); fast tier 2262/0; harness_isolation 250/0.",
+      "sha": "e56d427e1c8d0d371f79f472fd492d5bfee3d0eb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-406",
+      "timestamp": "2026-10-30T23:23:22.001Z",
+      "summary": "Tier 1 bookkeeping only: Architect's E-406 (readme.md §Component 1 manifesto line placement, task) carried as written; E-400 stamps and views.",
+      "sha": "b3a2c35dc025ef7a5411d35c88a488636217b306",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-406",
+      "timestamp": "2026-10-30T23:23:45.940Z",
+      "summary": "Tier 1 bookkeeping only on bb6ab56: Architect's readme.md §Component 1 manifesto-line placement carried onto the E-406 branch.",
+      "sha": "bb6ab56ca257093be8426008667080fcb320e277",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-406",
+      "timestamp": "2026-10-30T23:24:11.230Z",
+      "summary": "Tier 1 docs: E-406 manifesto line verbatim and bold in the README hero (own centered line under the description, inside the existing div; no new HTML) and plain as the opening line of docs/how-it-works.md; exactly once each; docs-links + publish-scan 69/0.",
+      "sha": "6eccd4a2c9615e1ef9f088a57d3c2cb92aea0425",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-406",
+      "timestamp": "2026-10-30T23:24:18.349Z",
+      "summary": "Tier 1 bookkeeping only: E-406 stamps and regenerated views.",
+      "sha": "07656f4ae9caec7193f348614832dc86eca139e2",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

@@ -1492,6 +1492,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-01T19:43:34.344Z"
+    },
+    {
+      "id": "E-410",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Add `rein incident` as the fifth allowlisted install-tree writer per D-142 and .ai/blueprints/incident-tracker.md §Security (gate surface: Tier 3, security_engineer then critic_security; after E-409 lands on main, before E-404): (1) src/bin/rein gains `rein incident '<json>'` and `rein incident --type <T> --message <m> --signature <s> [--agent <a>]`, both calling src/shared/incident-append.mjs unchanged (validation, sanitisation, atomic append, rotation); no path, output or HOME flag; a rejected record prints `[INCIDENT_REJECTED] <field>: <reason>` and exits non-zero; (2) src/mcp/safe-exec-mcp/gate-guard.mjs allows exactly the `rein incident` command form by the same literal mechanism as `rein doctor` (D-083 r6); the GATE_SELF_DISABLE message lists it as the fifth writer; the D-083 r5 (iii) classifier hard_deny entries are untouched; (3) fixture rows: block-rules / self-disable cases — `rein incident '{…}'` PASS for both roles; `node ~/.rein/shared/incident-append.mjs …` still BLOCK; `rein incident … > ~/.rein/x` BLOCK; `rein incident --home …` rejected by the CLI; report the new sha256 of each fixture touched and of tests/fixtures/role-verdict-cases.json in the closing handoff so the Architect pins them; (4) rewrite the rein-incident skill (both .claude/skills and src/shared/skills copies, and the _SKILLS_INDEX line) to call `rein incident`; its fallback prints the command for the operator when rein is missing; (5) file the 2026-11-01 outage as the first record: type ENV_ERROR, signature mcp-json/foreign-install-rewrite, message naming E-402's smoke run and E-409's fix, no home path; (6) tests (name what each extends, D-088): cli_test — both invocation forms append one sanitised line, a record with a home path is rejected with the line, the subcommand refuses unknown flags; gate suites — the fixture rows above; skill_surface — the skill names `rein incident` and not the helper path. Acceptance: `rein incident` from an Engineer pane appends one line with the gate on; `node <helper>` from the same pane is still blocked; security_engineer PASS in .ai/SECURITY.md; critic_security stamp; full `rein ci run` green; all required checks green. One PR.",
+      "created_at": "2026-11-01T21:23:10.025Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-01T21:23:10.040Z"
     }
   ],
   "stamps": [

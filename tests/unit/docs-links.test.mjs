@@ -81,6 +81,10 @@ test("the demo's scenes file parses: six scenes, each with a pane, a prompt, a c
   assert.equal(r.status, 0, r.stderr);
   const rows = r.stdout.split("\n").filter((l) => /^ {2}\d+ {2}(shell|architect|engineer) /.test(l));
   assert.equal(rows.length, 6, r.stdout);
+  // E-409 (D-141 addendum 2): extends this test — the dry run names where every rein call under
+  // the demo HOME runs; never this clone, whose .mcp.json the 2026-11-01 run rewrote.
+  assert.match(r.stdout, /^cwd: installer in .+; rein init and the scenes in .+\/demo-tally-<suffix> \(cd before the first rein call\)$/m);
+  assert.doesNotMatch(r.stdout.split("\n").find((l) => l.startsWith("cwd: ")) ?? "", new RegExp(repo.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
 // demo-video.md §Component 5: the committed GIF stays under 8 MB (GitHub renders inline to 10 MB),

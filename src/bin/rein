@@ -24,6 +24,9 @@ _resolve_version() {
 }
 VERSION="$(_resolve_version)"
 UPGRADE_MERGED=()   # E-270: filled by ensure_ai_templates, counted by do_init
+# E-409 (D-141 addendum 2 r4): set ONLY by `rein init --adopt`. A plain global, assigned here,
+# so no environment variable can pre-set it — there is deliberately no env bypass.
+_MCP_ADOPT=0
 
 # ── E-223 (D-057 §3): the environment here is UNTRUSTED ──────────────────────
 # `rein` is routinely invoked through Bash from inside the project being worked on, and
@@ -109,6 +112,8 @@ Commands:
                  version: refresh generated files, merge roles/providers, never touch
                  BRIEF/RULES/SEED/DIGEST/TASKS/LOG/architect.md/blueprints
   rein init --check  Dry run: list what rein init would change (exit 1 when anything would)
+  rein init --adopt  Take over a project another install serves ([FOREIGN_PROJECT]): rewrite
+                 .mcp.json for this install, printing the old and the new one (D-141)
   rein sync        Re-sync agents, skills, bootloaders (ENGINEER.md, ARCHITECT.md +
                  CLAUDE.md shim, .mcp.json) and hooks into the project
   rein sync --github   Fetch assigned GitHub issues for the Architect cycle (§28)
@@ -375,6 +380,18 @@ _resolve_rein_workspace() {
   printf ""
 }
 
+# _mcp_claim_check <mcp-file> — E-409 (D-141 addendum 2): may THIS install write <mcp-file>?
+# Status 3 and the [FOREIGN_PROJECT] line when a live different install is registered to the
+# project (its .mcp.json's Rein paths); 0 otherwise, printing any note (adopted, a dead or a
+# mixed install rewritten). The rule lives in shared/mcp-claim.mjs (one copy, also read by
+# rein doctor). Without node or the helper it allows the write: doctor still reports.
+_mcp_claim_check() {
+  local helper; helper="$(_rein_helper shared/mcp-claim.mjs || true)"
+  [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || return 0
+  local adopt=(); [[ "$_MCP_ADOPT" == "1" ]] && adopt=(--adopt)
+  node --no-warnings "$helper" check "$1" "$REIN" "${adopt[@]+"${adopt[@]}"}"
+}
+
 # Generates .mcp.json with absolute paths to ~/.rein/mcp/<server>/index.js
 # Uses registry.json as source of truth. Preserves user-set env values.
 generate_mcp_json() {
@@ -385,6 +402,9 @@ generate_mcp_json() {
   local MCP_FILE="${2:-${DEST_DIR}/.mcp.json}"
   local MCP_KEY="${3:-mcpServers}"
   local REGISTRY="${REIN}/config/registry.json"
+  # E-409: every writer of an MCP config goes through here, so the claim is checked here too.
+  # A refusal leaves the file byte-identical and is the function's status.
+  _mcp_claim_check "$MCP_FILE" || return $?
 
   if ! command -v python3 &>/dev/null; then
     [[ -f "${REIN}/templates/.mcp.json" ]] && cp "${REIN}/templates/.mcp.json" "$MCP_FILE"
@@ -2579,9 +2599,16 @@ do_init() {
   for _arg in "$@"; do
     case "$_arg" in
       --check) _init_check; return $? ;;
-      *) echo "rein init: unknown option '${_arg}' (only --check)" >&2; return 2 ;;
+      --adopt) _MCP_ADOPT=1 ;;   # E-409 (D-141 addendum 2 r4): take a project from another install
+      *) echo "rein init: unknown option '${_arg}' (--check, --adopt)" >&2; return 2 ;;
     esac
   done
+  # E-409: refuse before anything is written when another live install serves this project.
+  if [[ -d ".ai" ]]; then
+    local _claim_msg _claim_rc=0
+    _claim_msg="$(_mcp_claim_check ./.mcp.json 2>&1 >/dev/null)" || _claim_rc=$?
+    if [[ "$_claim_rc" -ne 0 ]]; then echo "$_claim_msg" >&2; return "$_claim_rc"; fi
+  fi
 
   # E-270: an existing project is an UPGRADE — say from what to what, and measure it.
   local _existing=0 _before="" _old_version=""
@@ -3502,6 +3529,11 @@ do_sync() {
 
   # Sync project-scoped dirs only — global ~/.claude is user-owned (§21)
   if [[ -d ".ai" ]]; then
+    # E-409 (D-141 addendum 2 r2): a project another LIVE install serves is not ours to sync —
+    # refuse before the bootloaders, the workspace or .mcp.json are touched.
+    local _claim_msg _claim_rc=0
+    _claim_msg="$(_mcp_claim_check ./.mcp.json 2>&1 >/dev/null)" || _claim_rc=$?
+    if [[ "$_claim_rc" -ne 0 ]]; then echo "$_claim_msg" >&2; return "$_claim_rc"; fi
     echo "Syncing project-scoped .claude/ from ${REIN} ..."
 
     # Always update bootloaders so skill invocation stays current (D-050/E-183:
@@ -3746,6 +3778,13 @@ _report_hosted_ci() {
   node --no-warnings "$helper" --root "$root" --doctor 2>/dev/null || echo "  ✗ hosted check: could not evaluate"
 }
 
+# _report_mcp_claim — E-409: [MCP_PATHS_MISSING] / [FOREIGN_PROJECT] for ./.mcp.json; either fails doctor.
+_report_mcp_claim() {
+  local helper; helper="$(_rein_helper shared/mcp-claim.mjs || true)"
+  [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || { echo "  ✗ mcp-claim.mjs or node unavailable — run: bash install-rein.sh"; return 0; }
+  node --no-warnings "$helper" doctor ./.mcp.json "$REIN" || _DOCTOR_HARD_FAIL=1
+}
+
 # _report_legacy_artefacts — the two E-272 doctor lines (D-074 §Component 6). Runs
 # machine-wide: the mirror and HOME carry findings whether or not this directory is a
 # project, and the count is the only reason an operator would think to run `rein clean`.
@@ -3932,6 +3971,12 @@ doctor() {
     echo "Local CI:"
     _report_local_ci
     _report_hosted_ci
+    echo ""
+
+    # E-409 (D-141 addendum 2 r5): servers pointing at dead paths, or a project another live
+    # install serves — the line that would have named the 2026-11-01 outage at once.
+    echo "MCP servers:"
+    _report_mcp_claim
     echo ""
 
     # E-244 (D-066 §4): a workspace for a provider no role is bound to is dead weight,
@@ -4712,8 +4757,12 @@ for name, info in d.get('mcp_servers', {}).items():
 
   # E-32: Dynamically regenerate .mcp.json with absolute paths if in a project
   if [[ -d ".ai" || -f ".mcp.json" ]]; then
-    generate_mcp_json "."
-    echo "✓ .mcp.json regenerated with absolute paths → $(pwd)/.mcp.json"
+    # E-409: a refusal ([FOREIGN_PROJECT] on stderr) is reported, never printed as a success.
+    if generate_mcp_json "."; then
+      echo "✓ .mcp.json regenerated with absolute paths → $(pwd)/.mcp.json"
+    else
+      echo "  ⚠  .mcp.json in $(pwd) left as it was — it belongs to another install (rein doctor says which)"
+    fi
   fi
   echo "  Registry: ${REGISTRY}"
 }

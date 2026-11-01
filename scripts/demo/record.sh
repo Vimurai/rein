@@ -112,6 +112,8 @@ _install_line() {
 _missing_tools() { local t; for t in "${TOOLS[@]}"; do command -v "$t" >/dev/null 2>&1 || printf '%s\n' "$t"; done; }
 
 if [[ "$DRY" -eq 1 ]]; then
+  # E-409: where every rein call under the demo HOME runs — never this clone.
+  echo "cwd: installer in $(_tilde "$DEMO_HOME"); rein init and the scenes in $(_tilde "${ROOT%/}")/demo-tally-<suffix> (cd before the first rein call)"
   echo "scenes ($(_tilde "$SCENES")):"
   for i in "${!S_PANE[@]}"; do
     printf '  %d  %-9s  %-48.48s  until %s  (%ss)\n' "$((i + 1))" "${S_PANE[$i]}" "${S_PROMPT[$i]}" "${S_UNTIL[$i]}" "${S_TIMEOUT[$i]}"
@@ -149,7 +151,10 @@ have="$(cat "$MARK" 2>/dev/null || true)"
 if [[ ! -x "${DEMO_HOME}/.rein/bin/rein" || "$have" != "$want" ]]; then
   rm -f "$MARK"
   echo "record.sh: installing Rein ${want} into the demo HOME $(_tilde "$DEMO_HOME") — about a minute, quiet (log: $(_tilde "${OUT}/install.log")) …"
-  ( cd "$REPO" && "${DENV[@]}" bash install-rein.sh ) > "${OUT}/install.log" 2>&1 \
+  # E-409 (D-141 addendum 2): never from this clone — under the demo HOME the installer's
+  # rein install would regenerate the CWD project's .mcp.json for the throwaway install (the
+  # 2026-11-01 outage). install-rein.sh finds its files from its own path, not the cwd.
+  ( cd "$DEMO_HOME" && "${DENV[@]}" bash "${REPO}/install-rein.sh" ) > "${OUT}/install.log" 2>&1 \
     || _die 2 "the install into $(_tilde "$DEMO_HOME") failed — see $(_tilde "${OUT}/install.log")"
   printf '%s\n' "$want" > "$MARK"
   echo "record.sh: installed."
@@ -197,6 +202,9 @@ trap _cleanup EXIT
   git config user.name "Rein demo"
   git config user.email demo@example.invalid
   git commit -q -m "tally: empty project"
+  # E-409: the first rein call runs inside the throwaway project, never the host project.
+  [[ "$(pwd -P)" == "$(cd "$ROOT" && pwd -P)"/demo-tally-* ]] \
+    || _die 2 "refusing to run rein outside --root ($(_tilde "$(pwd -P)")) under the demo HOME"
   # rein init prints install paths; it runs here, off the record. Scene 1 is rein start.
   "${DENV[@]}" "${DEMO_HOME}/.rein/bin/rein" init > "${OUT}/init.log" 2>&1 \
     || _die 2 "rein init failed in the demo project — see $(_tilde "${OUT}/init.log")"

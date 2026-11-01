@@ -4045,6 +4045,15 @@
       "summary": "[TIER_2] E-408 (D-141 addendum r3): tests/run.sh _gh_isolate (run + each lane: GH_CONFIG_DIR=<tmp>/gh-config, unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN, GH_HOST=gh.invalid) and _gh_guard after the scrub, before the first suite: one [GH_ENV_LEAKED] line, run exits 1; launching-shell tokens never block; REIN_TEST_KEEP_GH_ENV=1 rollback; REIN_TEST_LANE_ENV seam sourced past the scrub for the guard's test. Helpers set state, called as plain commands (D-064 §2). harness_isolation E-408.01a-g/02a-e/03/04a-c (extends E-309 lane fixture and hosted-ci --check tests) 266/0; one test-regex bug fixed in rein-debug cycle 1. Rule 7c and critic_tests question #9, both copies; blueprint section is the Architect's 07f05b8. align WARN only (structural NO_LOG_UPDATE; rule/agent files named by the blueprint section).",
       "sha": "5a7f58ca880480fb17f8efba39214a4555343812",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-409",
+      "timestamp": "2026-11-01T21:09:37.775Z",
+      "summary": "[TIER_2] E-409 (D-141 addendum 2): mcp-claim.mjs is the one copy of the rule (live foreign install -> [FOREIGN_PROJECT] rc 3, file byte-identical; dead/none/unparsable -> write; mixed -> rewrite + one line; --adopt prints old -> new). generate_mcp_json checks it for every writer; do_sync/do_init check up front before any copy; _MCP_ADOPT is a plain global set only by init --adopt (no env bypass, unit-asserted). doctor 'MCP servers' block hard-fails on [MCP_PATHS_MISSING]/[FOREIGN_PROJECT]; preflight 'MCP paths' line. Root cause: record.sh ran the installer from the host clone under the demo HOME; now from the demo HOME, cwd asserted under --root, --dry-run names it. Tests: mcp-claim 9/0, rein_sync E-409.01-06 294/0 (E-346.03 fixture made unregistered), docs-links dry-run row. align WARN only. Incident filing blocked by the gate.",
+      "sha": "8b94dc3bce5cad1a4cbd19ff5c5935cca21c9717",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

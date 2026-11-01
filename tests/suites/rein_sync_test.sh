@@ -224,6 +224,10 @@ assert_status 1 "E-346.02f: and the step is not run without a log" test -e "$_lt
 _rh="$(test_tmpdir e346home)"
 tc_fixture_home "$_rh"   # E-345 (D-109 r1)
 printf '%s\n' 'process.stderr.write("reaper exploded\n"); process.exit(1);' > "$_rh/.rein/shared/rein-clean.mjs"
+# E-409: _pl's .mcp.json names the install that synced it above, which is alive, so a sync
+# under this second HOME is refused ([FOREIGN_PROJECT]). These rows are about the reaper, not
+# the claim: start the project unregistered.
+rm -f "$_pl/.mcp.json"
 _rout2="$( cd "$_pl" && HOME="$_rh" bash "$AI" sync 2>&1 )"
 _rrc=$?
 assert_match "E-346.03a: a fixture rein-clean.mjs exiting 1 yields ✗ run_reap: <its stderr>" \
@@ -1265,5 +1269,51 @@ assert_status 0 "T-7: scanner exit 1 → exit 1, FAILED (E-339, D-107 r1; _sync_
 assert_status 1 "T-7: scanner exit 1 → no manifest written" test -f "$TMP7/.ai/memory/palace-index.json"
 assert_status 1 "T-7: scanner exit 1 → no .tmp left behind (rollback rm fired)" test -f "$TMP7/.ai/memory/palace-index.json.tmp"
 rm -rf "$TMP6" "$TMP7" 2>/dev/null || true
+
+# ── E-409 (D-141 addendum 2): a run under another install does not rewrite the host project ──
+# Extends the E-247 sync rows above at the process boundary (the rule's own table is
+# tests/unit/mcp-claim.test.mjs). The running install is fixture HOME A; B is another LIVE
+# install (its mcp/ exists). The 2026-11-01 outage was A=a throwaway demo HOME, B=the real one.
+echo ""
+echo "  [E-409] a project registered to another live install is refused, a dead one rewritten"
+_A="$(test_tmpdir e409a)"; tc_link_shared "$_A"; mkdir -p "$_A/.rein/mcp"
+# A is an install rein init can run under: its templates and its registry (which names the
+# servers it OWNS — a writer regenerates those and carries any other entry over, E-274).
+ln -s "${REPO_ROOT}/src/templates" "$_A/.rein/templates"; ln -s "${REPO_ROOT}/src/config" "$_A/.rein/config"
+_B="$(test_tmpdir e409b)"; mkdir -p "$_B/.rein/mcp/task-synchronizer-mcp"
+_pf="$(_proj)"
+_PF="$(cd "$_pf" && pwd -P)"; _BR="$(cd "$_B/.rein" && pwd -P)"; _AR="$(cd "$_A/.rein" && pwd -P)"
+# _e409_mcp <prefix>... — a .mcp.json whose Rein entries (registry-owned names) point into
+# each <prefix>/.rein in turn
+_e409_mcp() {
+  local i=0 p body="" names=(task-synchronizer-mcp approval-mcp)
+  for p in "$@"; do
+    body+="${body:+,}\"${names[$i]}\":{\"command\":\"node\",\"args\":[\"${p}/.rein/mcp/${names[$i]}/index.js\"]}"; i=$((i + 1))
+  done
+  printf '{"mcpServers":{%s}}\n' "$body" > "${_pf}/.mcp.json"
+}
+_e409_mcp "$_B"; _before="$(cat "${_pf}/.mcp.json")"
+_rc=0; _out="$( cd "$_pf" && HOME="$_A" bash "$AI" sync 2>&1 )" || _rc=$?
+assert_status 0 "E-409.01a: rein sync under another install refuses (rc=${_rc})" test "$_rc" -eq 3
+assert_contains "E-409.01b: …with the [FOREIGN_PROJECT] line naming the project and the live install" \
+  "[FOREIGN_PROJECT] ${_PF} is registered to ${_BR} — run rein sync from that HOME, or rein init --adopt" "$_out"
+assert_status 0 "E-409.01c: …and .mcp.json is byte-identical" test "$(cat "${_pf}/.mcp.json")" == "$_before"
+assert_status 1 "E-409.01d: …and nothing else was synced (no bootloader written)" test -e "${_pf}/ENGINEER.md"
+_dout="$( cd "$_pf" && HOME="$_A" bash "$AI" doctor 2>&1 )" || true   # doctor exits 1 on a ✗ line
+assert_contains "E-409.02a: rein doctor names the claim before any writer runs" "✗ [FOREIGN_PROJECT] ${_PF} is registered to ${_BR}" "$_dout"
+_rc=0; _out="$( cd "$_pf" && HOME="$_A" bash "$AI" init --adopt 2>&1 )" || _rc=$?
+assert_contains "E-409.03a: rein init --adopt takes the project, printing the old and the new install" "adopted ${_PF}: ${_BR} → ${_AR}" "$_out"
+assert_not_contains "E-409.03b: …and .mcp.json no longer points into B" "$_BR" "$(cat "${_pf}/.mcp.json")"
+_e409_mcp "${_A}/gone"
+_rc=0; _out="$( cd "$_pf" && HOME="$_A" bash "$AI" sync 2>&1 )" || _rc=$?
+assert_contains "E-409.04a: a DEAD install claims nothing — sync rewrites it (the outage's recovery)" "which no longer exists — rewritten for ${_AR}" "$_out"
+assert_not_contains "E-409.04b: …and the dead paths are gone" "/gone/" "$(cat "${_pf}/.mcp.json")"
+_e409_mcp "$_A" "$_B"
+_rc=0; _out="$( cd "$_pf" && HOME="$_A" bash "$AI" sync 2>&1 )" || _rc=$?
+assert_contains "E-409.05a: mixed installs are a broken file, rewritten with one line naming them" "named several installs (" "$_out"
+assert_not_contains "E-409.05b: …and B's paths are gone" "$_BR" "$(cat "${_pf}/.mcp.json")"
+_e409_mcp "${_A}/gone" "${_A}/gone"
+assert_contains "E-409.06: rein doctor counts servers whose paths do not exist" \
+  "✗ [MCP_PATHS_MISSING] 2 servers point at paths that do not exist — run: rein sync" "$( cd "$_pf" && HOME="$_A" bash "$AI" doctor 2>&1 )"
 
 assert_summary

@@ -117,6 +117,9 @@ assert_status 0 "E-238.05a: the .ai/** rule forbids stashing bookkeeping" \
   grep -q 'Never move bookkeeping with' "${_RULES}/ai-bookkeeping.md"
 assert_status 0 "E-238.05b: and the template matches (they are one file)" \
   diff -q "${REPO_ROOT}/ENGINEER.md" "${REPO_ROOT}/src/templates/ENGINEER.md"
+# E-407 (D-141 r4): extends E-238.05b — the merge rule lives in the rulefile the template ships.
+assert_status 0 "E-407.01: the rulefile merges with --delete-branch and prunes with -d, never -D" \
+  bash -c 'grep -qF "gh pr merge <n> --merge --delete-branch" "$1" && grep -qF "git branch -d <branch>" "$1" && grep -qF "never \`-D\`" "$1"' _ "${REPO_ROOT}/src/templates/ENGINEER.md"
 assert_status 0 "E-238.05c: the triage rule is recorded (tests/** rule)" \
   grep -q 'presumed REAL until you have read its log' "${_RULES}/test-harness.md"
 # The triage rule is only useful if it says what a flake claim REQUIRES; "rerun it" is how

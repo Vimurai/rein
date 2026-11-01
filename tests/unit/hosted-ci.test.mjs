@@ -14,8 +14,14 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { detectProvider, remoteHost, hosted, doctorLine, bootstrapFor, PROVIDERS, matrixFor, requiredChecks, profileFor, INFORMATIVE_LEGS } from "../../src/shared/hosted-ci.mjs";
+import { detectProvider, remoteHost, hosted, doctorLine, bootstrapFor, PROVIDERS, matrixFor, requiredChecks, profileFor, INFORMATIVE_LEGS, cleanupFor, repoSlug, BRANCH_CLEANUP_OFF } from "../../src/shared/hosted-ci.mjs";
 import { newTeam, writeTeam, readTeam, validateTeam } from "../../src/mcp/shared/team.mjs";
+
+// E-407 (D-141 r5): the --check path asks gh only when gh is logged in; an empty gh config
+// and no token keep every test below off the network unless it injects its own answer.
+process.env.GH_CONFIG_DIR = mkdtempSync(join(tmpdir(), "rein-hosted-gh-"));
+process.on("exit", () => rmSync(process.env.GH_CONFIG_DIR, { recursive: true, force: true }));
+delete process.env.GH_TOKEN; delete process.env.GITHUB_TOKEN; delete process.env.GH_ENTERPRISE_TOKEN;
 
 const PLANNER = "planner@example.com", OTHER = "dev@example.com";
 const git = (cwd, ...a) => execFileSync("git", a, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
@@ -249,5 +255,54 @@ test("team.json ci.shards is a whole number 1..8", () => {
   for (const shards of [1, 4, 8]) validateTeam({ ...base, ci: { provider: "github", required_check: "rein ci run", shards } });
   for (const shards of [0, 9, 2.5, "4"]) {
     assert.throws(() => validateTeam({ ...base, ci: { provider: "github", required_check: "rein ci run", shards } }), /ci\.shards/, String(shards));
+  }
+});
+
+// E-407 (D-141 r4, r5): extends the render test ("a downstream project renders …") and the
+// --check test above — each provider's policy carries its branch-cleanup setting, and on
+// GitHub --check reads deleteBranchOnMerge through gh (injected here) without changing the verdict.
+test("branch cleanup: every provider names its setting; the render prints it beside the policy", (t) => {
+  const want = { github: /Automatically delete head branches/, gitlab: /Delete source branch/, bitbucket: /Delete branch after merge/, azure: /Delete after merging/ };
+  for (const [provider, re] of Object.entries(want)) assert.match(cleanupFor(provider), re, provider);
+  assert.deepEqual(Object.keys(want).sort(), Object.keys(PROVIDERS).sort(), "one setting per provider");
+  const d = project(t);
+  const r = hosted(d, { gh: () => { throw new Error("a render never asks gh"); } });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /\nBranch cleanup \(D-141\): GitHub → Settings → General → Pull Requests: "Automatically delete head branches" ON/);
+  const a = project(t, { origin: "https://dev.azure.com/acme/app/_git/app" });
+  assert.match(hosted(a).out, /\nBranch cleanup \(D-141\): Azure DevOps .*"Delete after merging"/);
+});
+
+test("--check on GitHub: the flag false prints [BRANCH_CLEANUP_OFF], true or no gh prints nothing; the exit is the wrapper's", (t) => {
+  const d = project(t, { origin: "git@github.com:acme/app.git" });
+  hosted(d);
+  const asked = [];
+  const off = hosted(d, { check: true, gh: (slug) => { asked.push(slug); return false; } });
+  assert.equal(off.code, 0, "advisory: the wrapper is current, so --check still passes");
+  assert.deepEqual(asked, ["acme/app"]);
+  assert.match(off.out, /\n\[BRANCH_CLEANUP_OFF\] run: gh api -X PATCH repos\/acme\/app -f delete_branch_on_merge=true$/);
+  assert.equal(off.out.split("\n")[1], BRANCH_CLEANUP_OFF("acme/app"));
+  const on = hosted(d, { check: true, gh: () => true });
+  assert.equal(on.code, 0);
+  assert.doesNotMatch(on.out, /BRANCH_CLEANUP_OFF/);
+  const none = hosted(d, { check: true, gh: () => null });   // gh missing, logged out or offline
+  assert.equal(none.out, on.out);
+  assert.equal(hosted(d, { check: true }).out, on.out, "the default probe, with no gh login, prints nothing");
+  writeFileSync(wrapper(d), "edited\n");
+  const bad = hosted(d, { check: true, gh: () => false });
+  assert.equal(bad.code, 1, "a differing wrapper still fails --check");
+  assert.match(bad.out, /\[BRANCH_CLEANUP_OFF\]/);
+  assert.match(doctorLine(d, { gh: () => false }), /\n    \[BRANCH_CLEANUP_OFF\] run: gh api/, "doctor carries the line, indented");
+  const a = project(t, { origin: "https://dev.azure.com/acme/app/_git/app" });
+  hosted(a);
+  assert.doesNotMatch(hosted(a, { check: true, gh: () => false }).out, /BRANCH_CLEANUP_OFF/, "only GitHub has the flag to read");
+});
+
+test("repoSlug: owner/repo from the GitHub remote forms; anything else is null", () => {
+  for (const u of ["https://github.com/acme/app.git", "https://github.com/acme/app", "git@github.com:acme/app.git", "ssh://git@ssh.github.com:443/acme/app.git", "https://x@github.com/acme/app.git"]) {
+    assert.equal(repoSlug(u), "acme/app", u);
+  }
+  for (const u of ["", "https://github.com/acme", "https://github.com/acme/app/extra", "https://github.com/ac me/app", "https://github.com/-x/app;rm"]) {
+    assert.equal(repoSlug(u), null, u);
   }
 });

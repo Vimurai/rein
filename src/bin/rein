@@ -5729,7 +5729,10 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
                  'rein ci run' on the merge result. The provider is the argument, else
                  .ai/team.json ci, else the origin host. --check exits 1 when the file is not
                  the current rendering; an existing differing file needs --force. Prints the
-                 branch-policy setting: required for merge, pushes left open (claims).
+                 branch-policy setting: required for merge, pushes left open (claims), and
+                 the provider's delete-branch-on-merge setting (D-141). On GitHub --check
+                 also prints [BRANCH_CLEANUP_OFF] when gh is logged in and the repository
+                 keeps merged branches (advisory; the exit code is the wrapper's).
                  --required prints the required check names one per line — the source
                  the branch protection and the release publish gate read (D-137).
   evals         Run the core-skill evals (tests/suites/skill_evals_test.sh, E-285) under

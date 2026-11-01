@@ -820,3 +820,40 @@ macOS leg now blocks merges to `main` and the tag's publish, which is the intent
 
 **Rollback.** Revert the constant to `[["macos-latest", "22"]]` (one line plus the test's
 expected set), and remove the four contexts with the same PATCH call listing only the eleven.
+
+## DEVOPS-018 — Merged head branches are deleted; `rein ci hosted --check` says when the setting is off (E-407, D-141) — 2026-11-01
+
+**What changes and why.** Every PR merged on GitHub left its head branch on origin (fourteen by
+#17), because `delete_branch_on_merge` was false and most merges happen in the browser. D-141
+rules that a feature branch ends at its merge, in three layers:
+- **Repository setting** (done 2026-11-01, read back `deleteBranchOnMerge: true`):
+  `gh api -X PATCH repos/Vimurai/rein -f delete_branch_on_merge=true`. From now on it belongs
+  in the same step as the branch protection (DEVOPS-017's PATCH, the E-378 bootstrap): a new
+  repository gets both calls together.
+- **Engineer merges** pass `--delete-branch` (`gh pr merge <n> --merge --delete-branch`), then
+  `git pull --ff-only`, `git fetch --prune`, `git branch -d <branch>` on `main`, never `-D`
+  (ENGINEER.md and its template; the `rein-task` skill, Step 3.5).
+- **Check, not trust**: `src/shared/hosted-ci.mjs` prints each provider's cleanup setting
+  under the D-103 r5 policy line (`Branch cleanup (D-141): …`). On GitHub, `--check` (and so
+  `rein doctor`) asks `gh` for `delete_branch_on_merge` and prints
+  `[BRANCH_CLEANUP_OFF] run: gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true`
+  when it is false.
+- **One-time cleanup** (2026-11-01): fourteen merged head branches deleted on origin, each
+  first checked with `git merge-base --is-ancestor origin/<b> origin/main`: d-135-records,
+  e-382-version-0.4.0, e-384-public-ci, e-385-rein-mark, e-386-census-baseline,
+  e-386-ci-throughput, e-388-bash32-subshell-registry, e-389-seed-shard-1, e-390-readme,
+  e-399-required-set, e-402-demo, port-architect-records, release/v0.4.0, rename/rein.
+  e-406-hero-line went with its own merge (#18, `--delete-branch`). Kept: `main`, the two
+  dependabot branches (open PRs #7, #8), and tag `v0.4.0`.
+
+**Security implications.** The probe needs no new secret or permission. It runs only when
+`gh auth token` (a local read) finds a login, so CI hosts and test HOMEs without one never make
+the network call. It is a read-only `gh api repos/<owner>/<repo>` with a 5 s timeout and
+`GH_PROMPT_DISABLED=1`, `execFileSync` with no shell, and an owner/repo slug checked against
+GitHub's name charset. It is advisory: it never changes an exit code or gates a merge. A branch
+deleted on origin is restorable from its PR page for 90 days. The local clone is untouched.
+
+**Rollback.** `gh api -X PATCH repos/Vimurai/rein -f delete_branch_on_merge=false`; drop the
+`--delete-branch` rule line from ENGINEER.md and its template and the skill's Step 3.5; revert
+the hosted-ci.mjs change (the `cleanup` fields, `cleanupFor`, `repoSlug`,
+`ghDeleteBranchOnMerge` and the advisory in `--check`). Restore any deleted branch from its PR page.

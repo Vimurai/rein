@@ -39,6 +39,10 @@ This applies to ALL first messages including "check for tasks", "what should I w
 - Read `.ai/TASKS.md` for your orders. Execute the open E-## tasks.
 - After every task: **use `skill: "rein-task"`** — marks DONE, runs handover, surfaces next task.
 - Before committing: `run_review({ tier: N })`
+- **A feature branch ends at its merge** (D-141). Merge with
+  `gh pr merge <n> --merge --delete-branch`; then on `main`: `git pull --ff-only`,
+  `git fetch --prune`, `git branch -d <branch>` — never `-D` (a branch `-d` refuses is unmerged
+  and stays until a person decides).
 
 ## Task Lifecycle (MANDATORY)
 After completing ANY E-## implementation, ALWAYS run the task skill:

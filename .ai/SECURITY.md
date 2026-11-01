@@ -698,3 +698,51 @@ the old regex blocked and the new code passes. `tests/fixtures/` unchanged; oper
 Context (not gate surface): `record-store.mjs` CLAIM_EMAIL_RE class is set-identical to the old ranges;
 `publish-scan.mjs` decodedView now decodes HTML entities in one pass (intended: `&amp;lt;` → `&lt;`).
 Pre-existing, unchanged: `decodedView("&#1114112;")` throws RangeError (old code too) — follow-up candidate.
+
+## E-407 / D-141 addendum — `[BRANCH_CLEANUP_OFF]` gh probe in `rein ci hosted --check` (security_engineer, 2026-11-01)
+
+Verdict: **SEC_CLEARED (PASS)**, with three P2 follow-ups. Reviewed the uncommitted diff to `src/shared/hosted-ci.mjs`
+(`repoSlug`, `ghDeleteBranchOnMerge`, `cleanupAdvisory`, `BRANCH_CLEANUP_OFF`, the `gh` injection in `hosted`/`doctorLine`)
+and `tests/unit/hosted-ci.test.mjs` (18/18 pass). The slug is gated by `SLUG_RE`, so only `[A-Za-z0-9._/-]` reaches
+the printed command or the gh argv. Those characters are shell-inert unquoted. Every argv element is prefixed with
+`repos/`, so a slug cannot become a gh flag. `execFileSync` runs no shell. `gh auth token` runs with `stdio: "ignore"`,
+and stderr from `gh api` is discarded, so no token bytes enter the process or the output. A credential in the origin URL
+(`https://tok:secret@github.com/...`) is never echoed. Exit codes are unchanged.
+
+Harness deviation: `ulimit -u 64` crashed node (RC 134). The cap is per-user, and the concurrent CI run already had
+1153 threads open, so it was raised to that count + 200. `ulimit -v` was dropped for node. The other caps were kept:
+env -i, a mktemp dir, and a wall-clock kill. The gh used in the probes was a stub inside `$T`, and no network was used.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | repoSlug → printed command | `acme/app;id`, `$(whoami)`, `` `id` ``, `\|curl evil`, `&&id`, ` >x`, `'`, `"` | RESISTED | 0 | all null: nothing printed, gh not called |
+| A03 | repoSlug | `\n; rm -rf ~`, ESC `[2J`, U+202E, NUL | RESISTED | 0 | null (no `m` flag; `$` anchors at end of string) |
+| A03 | gh argv | `acme/-X`, `acme/--jq=.`, `-acme/app` | RESISTED | 0 | `--jq=.` and `-acme` are null. `acme/-X` passes as `repos/acme/-X`, one positional, not a flag |
+| A01 | repoSlug path | `acme/..`, `acme/.`, `../../user`, `//acme/app`, `%2f..%2f`, `?x=1`, `#frag`, `{owner}` | RESISTED | 0 | null. `acme/...` passes; it is not a dot segment, and the request goes only to GitHub (harmless) |
+| A10 | repoSlug | `file:///etc/passwd`, `git@github.com:/etc/passwd` | RESISTED | 0 | null. The host is also gated by detectProvider (`github.com`/`ssh.github.com` only) |
+| A02/A09 | ghDeleteBranchOnMerge | stub gh prints a fake token on stdout+stderr for `auth token` and stderr for `api` | RESISTED | 0 | returned `false`; no token bytes in the output |
+| A09 | repoSlug | `https://tok:secret@github.com/acme/app.git` | RESISTED | 0 | slug `acme/app`; the credential is dropped |
+| A04 | ghDeleteBranchOnMerge | stub gh `sleep 30` | RESISTED | 0 | null after 5.03 s. Worst case is ~10 s per doctor (two calls) |
+| A04 | ghDeleteBranchOnMerge | `true\nfalse`; `false` + exit 1; auth exit 1 | RESISTED | 0 | all null: fails closed, prints nothing |
+| DoS | repoSlug | 200k-char userinfo + 50k `a/`; 100k `@`; 100k `a:` | RESISTED | 0 | 1 ms total |
+
+Follow-ups (P2, none gating; the probe is advisory):
+- **P2-1** `tests/unit/privacy-cases.test.mjs:175` calls `hosted(..., { check: true })` with a github.com origin
+  (`acme/app`) and no `gh` injection. On a machine where gh is logged in (a direct `node --test`, or `GH_TOKEN`,
+  `GH_CONFIG_DIR` or `XDG_CONFIG_HOME` inherited into a run.sh lane, which only isolates HOME), this makes a real
+  token-authenticated `api.github.com` call to a third-party repository. Fix: pass `gh: () => null`.
+- **P2-2** `tests/run.sh` lane setup (around :482) isolates HOME but not gh. Fix: in each lane, export
+  `GH_CONFIG_DIR="$HOME/.config/gh"` and unset `GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GH_HOST`, so no future
+  suite reaches the network through `rein doctor`.
+- **P2-3** `src/shared/hosted-ci.mjs` `ghDeleteBranchOnMerge` passes the whole `process.env`, so an inherited
+  `GH_HOST`/`GH_ENTERPRISE_TOKEN` could send the query to another host. The token still goes only to that
+  operator-configured gh host, never to the origin URL's host. Fix (optional): add `GH_HOST: "github.com"` to the env
+  override, matching what detectProvider admits.
+
+**Disposition (Engineer, 2026-11-01).** P2-1 fixed: the privacy-cases `--check` call passes
+`gh: () => null`. P2-3 fixed: the probe's env pins `GH_HOST: "github.com"`. P2-2 (gh isolation
+for every lane in tests/run.sh) is outside E-407's scope and goes to the Architect as a harness
+follow-up: lanes already run under a throwaway HOME, so gh is logged out there unless
+GH_TOKEN/GH_CONFIG_DIR/XDG_CONFIG_HOME is inherited.

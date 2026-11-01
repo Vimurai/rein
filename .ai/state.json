@@ -4027,6 +4027,15 @@
       "summary": "[TIER_1] E-401 re-stamped on 28983cc (the Architect's D-141 addendum as-built note landed between stamp and commit; staged diff unchanged): CI-only absolutes -> all-host ceilings at 5x the former value; suite timeouts at 3x slowest green hosted run; test-harness.md rule 2 per blueprint (both copies); E-408/E-409 carried into state.",
       "sha": "28983cc27264a080cc3107b590f49a7a0764b596",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-408",
+      "timestamp": "2026-11-01T19:53:56.336Z",
+      "summary": "Tier 1 merge of e-407-branch-cleanup (00c5ff8, rein ci PASS) into e-408-gh-isolation so E-408's doctor test exercises the E-407 gh probe: no source conflicts; .ai/state.json and REVIEWS.md stamp hunks were HEAD-only additions (E-401 stamps), kept; E-407 stamps present; JSON parses, no markers.",
+      "sha": "07f05b8fe6529128852d266c323aab03c46541ac",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

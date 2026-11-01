@@ -832,7 +832,9 @@ rules that a feature branch ends at its merge, in three layers:
   repository gets both calls together.
 - **Engineer merges** pass `--delete-branch` (`gh pr merge <n> --merge --delete-branch`), then
   `git pull --ff-only`, `git fetch --prune`, `git branch -d <branch>` on `main`, never `-D`
-  (ENGINEER.md and its template; the `rein-task` skill, Step 3.5).
+  (the `rein-task` skill, Step 3.5; ENGINEER.md and its template carry one pointer line, paid
+  for by deleting the self-referential "Project-Scoped Rules" section, so the D-080 r5 cap of
+  6944 bytes holds: 6943, per D-141 addendum r1).
 - **Check, not trust**: `src/shared/hosted-ci.mjs` prints each provider's cleanup setting
   under the D-103 r5 policy line (`Branch cleanup (D-141): …`). On GitHub, `--check` (and so
   `rein doctor`) asks `gh` for `delete_branch_on_merge` and prints
@@ -854,6 +856,6 @@ GitHub's name charset. It is advisory: it never changes an exit code or gates a 
 deleted on origin is restorable from its PR page for 90 days. The local clone is untouched.
 
 **Rollback.** `gh api -X PATCH repos/Vimurai/rein -f delete_branch_on_merge=false`; drop the
-`--delete-branch` rule line from ENGINEER.md and its template and the skill's Step 3.5; revert
+pointer line from ENGINEER.md and its template (restoring the deleted section) and the skill's Step 3.5; revert
 the hosted-ci.mjs change (the `cleanup` fields, `cleanupFor`, `repoSlug`,
 `ghDeleteBranchOnMerge` and the advisory in `--check`). Restore any deleted branch from its PR page.

@@ -39,10 +39,7 @@ This applies to ALL first messages including "check for tasks", "what should I w
 - Read `.ai/TASKS.md` for your orders. Execute the open E-## tasks.
 - After every task: **use `skill: "rein-task"`** — marks DONE, runs handover, surfaces next task.
 - Before committing: `run_review({ tier: N })`
-- **A feature branch ends at its merge** (D-141). Merge with
-  `gh pr merge <n> --merge --delete-branch`; then on `main`: `git pull --ff-only`,
-  `git fetch --prune`, `git branch -d <branch>` — never `-D` (a branch `-d` refuses is unmerged
-  and stays until a person decides).
+- **Merged branches go** (D-141): `gh pr merge <n> --merge --delete-branch`; rest in `rein-task` Step 3.5.
 
 ## Task Lifecycle (MANDATORY)
 After completing ANY E-## implementation, ALWAYS run the task skill:
@@ -123,9 +120,6 @@ Rules during recovery:
 - Do NOT modify `state.json` manually — only via `task-synchronizer-mcp`
 - Do NOT commit until orchestrator-mcp is restored and Gate 2 passes
 - Log the outage in `LOG.md` once tooling is restored
-
-## Project-Scoped Rules
-Full Principal Engineer rules are managed in `ENGINEER.md` within this project.
 
 ## ANTI-DRIFT PROTOCOL (§35 — Mandatory)
 I am the **Principal Software Engineer**. My role is strictly limited to implementation.

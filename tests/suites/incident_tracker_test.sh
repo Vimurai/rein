@@ -287,7 +287,7 @@ OUT="$(run_aggr)"
 assert_status 0 "two distinct signatures reported" \
   bash -c "grep -q '\"distinct_signatures\": 2' <<< '$OUT'"
 assert_status 0 "bar:42 still below threshold" \
-  bash -c "echo '$OUT' | python3 -c \"import json,sys; d=json.load(sys.stdin); print([g for g in d['groups'] if grep < <(g['stack_signature']=='bar:42'][0]['threshold_reached'])\") -qx False"
+  bash -c 'grep -qx False < <(python3 -c "import json,sys; d=json.load(sys.stdin); print([g for g in d[\"groups\"] if g[\"stack_signature\"]==\"bar:42\"][0][\"threshold_reached\"])" <<< "$1")' _ "$OUT"
 
 # ── T-AG-S07: malformed lines skipped ────────────────────────────────────────
 echo ""

@@ -90,7 +90,7 @@ assert_contains "E-247.02e: the Memory Palace candidate index is refreshed" \
 assert_match "E-247.03a: a step summary is printed" \
   'steps: [0-9]+ ok' "$_out"
 assert_status 1 "E-247.03b: and it is not a hardcoded zero" \
-  bash -c "grep -q 'steps: 0 ok' <<< '$_out'"
+  bash -c 'grep -q "steps: 0 ok" <<< "$1"' _ "$_out"
 
 # ── E-247.4 / E-339 (D-107 r1): a broken step is FAILED, loudly, and the rest still run ──
 # The property that separates this restore from the one that had to be reverted: a step

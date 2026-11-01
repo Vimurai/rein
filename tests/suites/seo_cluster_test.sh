@@ -261,10 +261,10 @@ cluster="$(node --no-warnings --input-type=module -e "
 assert_status 0 "TS-1 holds exactly 10 cluster pages (at cap)" bash -c "[[ '$cluster' == '10' ]]"
 
 assert_status 0 "MAX_CLUSTER_PAGES_PER_SEED constant is 10" \
-  bash -c "node --input-type=module -e \"
+  bash -c "grep -q '^10$' < <(node --input-type=module -e \"
     const m = await import('file://${INTENT_MOD}');
     console.log(m.MAX_CLUSTER_PAGES_PER_SEED);
-  grep < <(\" 2>/dev/null) -q '^10$'"
+  \" 2>/dev/null)"
 assert_status 0 "CLUSTER_CAP_REACHED gate present in source" \
   grep -q 'CLUSTER_CAP_REACHED' "$SYNC_MCP"
 

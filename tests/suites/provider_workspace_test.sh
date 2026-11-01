@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=286   (E-401, D-138 r3: 3x the slowest green hosted run, 95 s on macOS x 22; 68 s Linux — hosted main runs 41336593941/41140062255/41130862129, CENSUS_SUITE ms)
 # REIN_INSTALLER_SUBJECT: rein init in a non-git directory (E-311, D-092)
 # provider_workspace_test.sh — E-244 (D-066 §4): workspaces follow the role binding.
 #

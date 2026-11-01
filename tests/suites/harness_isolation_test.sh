@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# REIN_SUITE_TIMEOUT=300   (E-307: launch_vars' acceptance runs ~140 s on an idle host; the 180 s default leaves too little headroom)
+# REIN_SUITE_TIMEOUT=560   (E-401, D-138 r3: 3x the slowest green hosted run, 187 s on macOS x 22; 116 s Linux — hosted main runs 41336593941/41140062255/41130862129, CENSUS_SUITE ms)
 # harness_isolation_test.sh — E-156 / E-157 (test-harness-isolation.md)
 # Verifies tests/run.sh isolates MCP config into an ephemeral .mcp.test.json,
 # exports MCP_CONFIG_PATH, and tears artifacts down via a trap on any exit.

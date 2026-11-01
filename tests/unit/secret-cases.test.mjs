@@ -20,13 +20,13 @@ test("E-287.02/03: the over-block ratio is printed and zero; the table is not va
   assert.ok(rows.length >= 45, `${rows.length} rows`);
 });
 
-// Rule 2 of the harness: the absolute 100 ms applies under CI=true; elsewhere it moves with a
-// same-run baseline.
+// Rule 2 of the harness (E-401, D-138 r2): the budget moves with a same-run baseline on every
+// host; the absolute is a ceiling on every host — 500 ms, five times the former CI-only 100 ms.
 const msOf = (fn) => { const t = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t) / 1e6; };
 test("E-287.01: 80 KB of keyword-brushing prose is scanned inside the budget and not flagged", () => {
   const big = "token usage secret santa password policy a_ api-key docs ".repeat(1400);
   const base = msOf(() => containsSecret("token usage ".repeat(100)));
-  const budget = process.env.CI === "true" ? 100 : 100 + 50 * base;
+  const budget = Math.min(100 + 50 * base, 500);
   let hit;
   const ms = msOf(() => { hit = containsSecret(big); });
   console.log(`  BUDGET ${ms.toFixed(1)} ms for ${big.length} chars (budget ${budget.toFixed(1)}, baseline ${base.toFixed(2)})`);

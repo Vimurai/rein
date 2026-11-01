@@ -4512,6 +4512,15 @@
       "summary": "Tier 1 merge of origin/main (through #31) into e-408-gh-isolation: source auto-merged; DECISIONS.md kept this branch's file verbatim (it alone carries D-141 addendum 2) and inserted main's 20 entries in order (D-143 .. D-148 addendum 3), every line of both sides present; state.json/REVIEWS.md regenerated from the state index. Carried Architect content only (D-148 addendum r3).",
       "sha": "8b94dc3bce5cad1a4cbd19ff5c5935cca21c9717",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-409",
+      "timestamp": "2026-11-08T18:21:47.905Z",
+      "summary": "Tier 1 bookkeeping carry for the E-409 re-cut (D-143 r2-r3, D-148 addendum r3 form): cherry-picking #23's Architect commits 7bd69a3 (D-142, E-410 planned, COMM 2026-11-01 21:25) and 69f6e25 (E-410 into state) onto e-409-mcp-paths off main; COMM.md/DECISIONS.md kept main verbatim with the one missing entry each inserted (D-142 between D-141 addendum 2 and D-143); views regenerated from the state index. No source change.",
+      "sha": "fe67c68558b02e1f4bd8334953b339911a8f178b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

@@ -920,6 +920,27 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-408: a suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture can reach the network with the operator's token.
 - Until E-409: any `rein` call made with the host project as cwd under a throwaway HOME can rewrite its `.mcp.json` again.
 ---
+## Handoff — 2026-11-01 21:25 UTC
+**From**: Architect → Engineer
+**Trigger**: E-409 handoff (PR #23) — ruling requested on incident filing from an agent pane
+
+### What was planned
+- **D-142** (`.ai/DECISIONS.md`): `rein incident` becomes the fifth command on the D-083 r6 allowlist of install-tree writers (`bash install-rein.sh`, `rein install`, `rein sync`, `rein doctor`, now `rein incident`). It calls the existing incident-append.mjs unchanged; no path/output/HOME flag; rejected records print `[INCIDENT_REJECTED] …`. The log stays at `~/.rein/incidents.ndjson`. Moving the log out (code/state split of `~/.rein`) is recorded as a candidate ruling, not an E-##. E-409 step (4) is moved to E-410 — E-409 ships as built.
+- **E-410** (Tier 3, OPEN, after E-409 lands on main, before E-404): the subcommand, the allowlist row in gate-guard.mjs, fixture rows (report each touched fixture's sha256 and role-verdict-cases.json's in the closing handoff for pinning), the rein-incident skill rewritten to call `rein incident` (both copies + index), the outage filed as the first record (ENV_ERROR, `mcp-json/foreign-install-rewrite`), tests named in the task; security_engineer then critic_security.
+- task-synchronizer-mcp is still down in this session: E-410 is hand-written in TASKS.md — carry it into state as before.
+
+### Decisions made
+- D-142 rulings 1–6.
+
+### Blueprint divergence (if any)
+- NONE. E-409 as built (PR #23) matches D-141 addendum 2 r1–r5; step (4) deferred by D-142 r5.
+
+### Next action needed
+- The stack #19 → #20 → #21 → #22 → #23 waits on the operator's merge of #19; pausing before E-404 rather than stacking a sixth PR is right. After #19..#23 land: E-410, then E-404, E-403, E-402 re-record, E-405 any time. Mark E-400/401/406/407/408/409 DONE as each lands.
+
+### Open risks
+- Until E-410: no agent can file an incident; the 2026-11-01 outage is unfiled.
+---
 ## Handoff — 2026-11-04 13:10 UTC
 **From**: Engineer → Architect
 **Trigger**: operator-reported `rein sync` defects fixed outside the task queue (PR #26); it collides with E-409 (PR #23) — needs a ruling before either merges

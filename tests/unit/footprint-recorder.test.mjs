@@ -182,8 +182,10 @@ echo "$(( (e - s) / ${N} )) $(( (b1 - b0) / 5 ))"`, { rec: t.d });
     console.log(`  recorder: ${perCallUs} µs per call; baseline node spawn: ${spawnUs} µs on this host`);
     assert.ok(Number.isFinite(perCallUs) && perCallUs > 0, r.out + r.err);
     assert.equal(log(t.d).trim().split("\n").length, N, "every call recorded");
-    if (process.env.CI === "true") assert.ok(perCallUs < 1000, `${perCallUs} µs ≥ 1 ms budget (CI, absolute)`);
-    else assert.ok(perCallUs <= 0.1 * spawnUs + 500, `${perCallUs} µs > 10% of a node spawn (${spawnUs} µs) + 0.5 ms`);
+    assert.ok(perCallUs <= 0.1 * spawnUs + 500, `${perCallUs} µs > 10% of a node spawn (${spawnUs} µs) + 0.5 ms`);
+    // E-401 (D-138 r2): a per-call ceiling on every host — five times the former CI-only 1 ms
+    // absolute, which every green CI run stayed under, so at least 5× the CI median.
+    assert.ok(perCallUs < 5000, `${perCallUs} µs ≥ 5 ms per-call ceiling`);
   } finally { t.done(); }
 });
 

@@ -118,6 +118,18 @@ mcp__orchestrator-mcp__run_handover({
 
 This stamps the delta so the Architect can review implementation divergence from the blueprint.
 
+## Step 3.5 — The merged branch goes with the merge (D-141)
+
+A feature branch ends at its merge. When you merge the task's PR, merge with the flag; after
+any merge (yours or one made in the browser), clean the clone:
+```bash
+gh pr merge <n> --merge --delete-branch     # deletes the head branch on origin (and locally)
+git switch main && git pull --ff-only && git fetch --prune
+git branch -d <branch>                      # only if still there; never -D
+```
+A branch `-d` refuses is unmerged — leave it and tell the operator. Never delete `main`, a
+branch with an open PR, a closed-unmerged PR's branch, a tag or a dependabot branch.
+
 ## Step 4 — Surface Next Task & Hand Control Back (MANDATORY)
 
 Read `.ai/TASKS.md` and report any remaining open E-## tasks.

@@ -11,9 +11,14 @@ review question for `critic_tests` and `rein-review`.
 1. **What the machine has (E-236)**: every assertion states what it needs from the host. An
    optional need is a recorded SKIP via `skip_unless_cmd` / `skip_unless_env` — never a
    fabricated PASS or FAIL. "It passed in my working tree" is not evidence about the commit.
-2. **How fast it is (E-239)**: a performance assertion names a same-host baseline measured in
-   the same run (`elapsed ≤ k × baseline + slack`); an absolute budget applies only when
-   `CI=true`. Print baseline and elapsed every run.
+2. **How fast it is (E-239, D-138 r2–r3)**: a performance assertion names a same-host baseline
+   measured in the same run (`elapsed ≤ k × baseline + slack`) on every host. An absolute number
+   is allowed only as a declared **ceiling** that states its reason (a linear-time bound, a
+   latency contract), is at least 5× the CI median, and applies on every host — never only under
+   `CI=true`; a `CI=true`-only absolute is a `critic_tests` finding. Print baseline and elapsed
+   every run. A suite timeout is a hang detector, not a budget: a suite whose green hosted time
+   exceeds a third of the default declares `# REIN_SUITE_TIMEOUT=<s>` at 3× its slowest green
+   hosted run, the measurement in a trailing comment.
 3. **What a run leaves behind (E-240)**: register cleanup BEFORE creating external state; name
    temp things with `mktemp` entropy, never `$$`. `tests/run.sh` diffs tmux servers, sandbox
    processes and temp dirs, and a leak fails the run on CI. The detector is
@@ -38,6 +43,15 @@ review question for `critic_tests` and `rein-review`.
    that skips the helper (exemptions per rule, with a reason, in
    tests/fixtures/fixture-home-exemptions.json); `REIN_TEST_EMPTY_FALLBACK=1` runs the
    fixtures with the fallback emptied, the proof that a suite passes on any host.
+7c. **The operator's GitHub login never reaches a suite (E-408, D-141 addendum r3)**: every
+   lane runs with `GH_CONFIG_DIR` set to an empty dir under its temp root, `GH_TOKEN` and
+   `GITHUB_TOKEN` unset, and `GH_HOST=gh.invalid`. A guard inside each lane, after the scrub and
+   before the first suite, fails the run with `[GH_ENV_LEAKED]` if any survived. A token exported
+   in the launching shell is normal and never blocks a run. A suite that needs a `gh` answer puts a
+   stub `gh` on `PATH` (or injects one, as hosted-ci.test.mjs does). Review question #9
+   (`critic_tests`): "does this test run `gh`, `rein doctor` or `rein ci hosted` — and is the `gh`
+   it reaches a stub on the lane's PATH?" Rollback: `REIN_TEST_KEEP_GH_ENV=1` skips the scrub and
+   the guard, for a deliberate live run only.
 
 ## Test economics (D-088 — rationale in `.ai/blueprints/test-economics.md`)
 A test is a claim about a BEHAVIOUR, at the cheapest layer that can observe it, and it pays rent.

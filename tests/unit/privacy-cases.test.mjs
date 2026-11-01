@@ -172,7 +172,7 @@ const WRITERS = {
     const wrapper = read(root, PROVIDERS.github.path);
     assert.ok(!/fabrikam/i.test(wrapper), "the wrapper still names the client");
     assert.match(wrapper, /\[redacted:client_name\]/);
-    assert.equal(hosted(root, { provider: "github", check: true }).code, 0, "a redacted wrapper is the current rendering");
+    assert.equal(hosted(root, { provider: "github", check: true, gh: () => null }).code, 0, "a redacted wrapper is the current rendering");  // E-407: no gh call
   },
   project_focus(t) {
     const { ai } = project(t);

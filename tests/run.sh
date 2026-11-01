@@ -166,6 +166,36 @@ if [[ -f "${REPO_ROOT}/.mcp.json" ]]; then
 fi
 export REIN_TEST_TMPDIR="$TEST_TMPDIR"
 
+# ── E-408 (D-141 addendum r3): the operator's GitHub login never reaches a suite ─────────
+# A suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture
+# would otherwise reach api.github.com as the operator. The scrub runs for the run and again
+# in each lane (its own empty gh config); the guard proves it before the first suite. An
+# exported GH_TOKEN in the launching shell is normal and never blocks a run. A suite that
+# needs a gh answer puts a stub gh on PATH. REIN_TEST_KEEP_GH_ENV=1 skips both (a deliberate
+# live run only). Both helpers set STATE in this shell: call them as plain commands (D-064 §2).
+_gh_isolate() {
+  [[ "${REIN_TEST_KEEP_GH_ENV:-0}" == "1" ]] && return 0
+  mkdir -p "$1/gh-config"
+  export GH_CONFIG_DIR="$1/gh-config" GH_HOST="gh.invalid"   # .invalid never resolves (RFC 6761)
+  unset GH_TOKEN GITHUB_TOKEN GH_ENTERPRISE_TOKEN GITHUB_ENTERPRISE_TOKEN
+}
+# _gh_guard <dir> — status 1 and ONE line when a variable survived the scrub of <dir>.
+_gh_guard() {
+  [[ "${REIN_TEST_KEEP_GH_ENV:-0}" == "1" ]] && return 0
+  local bad=""
+  [[ -n "${GH_TOKEN:-}" ]] && bad+=" GH_TOKEN"
+  [[ -n "${GITHUB_TOKEN:-}" ]] && bad+=" GITHUB_TOKEN"
+  [[ "${GH_CONFIG_DIR:-}" == "$1/gh-config" ]] || bad+=" GH_CONFIG_DIR"
+  [[ -z "$bad" ]] && return 0
+  echo "[GH_ENV_LEAKED]${bad} survived the scrub in ${2:-the run} — a suite could reach GitHub as the operator (D-141 addendum r3)"
+  return 1
+}
+# The test seam the guard's own test uses: an env file sourced AFTER the scrub (harness_isolation E-408).
+_gh_lane_env() { [[ -n "${REIN_TEST_LANE_ENV:-}" && -f "$REIN_TEST_LANE_ENV" ]] && . "$REIN_TEST_LANE_ENV"; return 0; }
+_gh_isolate "$TEST_TMPDIR"
+_gh_lane_env
+_gh_guard "$TEST_TMPDIR" || { echo "[TEST_FAILED] the run stopped before its first suite ✗"; exit 1; }
+
 # ── E-257 (D-070 §1): the suite must not be recorded as operator behaviour ────
 # Every MCP call a suite makes used to be telemetered into the operator's
 # ~/.rein/telemetry.sqlite: 47,391 of 51,382 in-window rows were fixtures on 2026-09-11,
@@ -481,6 +511,11 @@ _lanes_run() {
         # "tmp//rein-test…" spelling is one node normalises and the shell does not.
         HOME="$(cd "${ldir}/home" && pwd -P)"; export HOME
       fi
+      # E-408: the lane's own gh scrub, proven before its first suite.
+      _gh_isolate "$ldir"
+      _gh_lane_env
+      _gh_guard "$ldir" "lane ${l}" > "${ldir}/gh-guard.out" || exit 0
+      rm -f "${ldir}/gh-guard.out"
       for i in "${shared[@]+"${shared[@]}"}"; do
         [[ "${lane_of[i]}" -eq "$l" ]] && _run_suite "$i" "${SUITES[$i]}"
       done
@@ -490,6 +525,12 @@ _lanes_run() {
   done
   for n in "${pids[@]}"; do wait "$n" || true; done
   REIN_LANE_PIDS=()
+  # E-408: a lane whose guard failed ran nothing; the run stops with its line.
+  for ((l = 1; l <= REIN_LANES; l++)); do
+    if [[ -s "${TEST_TMPDIR}/lane${l}/gh-guard.out" ]]; then
+      cat "${TEST_TMPDIR}/lane${l}/gh-guard.out"; echo "[TEST_FAILED] lane ${l} stopped before its first suite ✗"; exit 1
+    fi
+  done
   # E-257 under CI: a lane's HOME clone is a throwaway store too — any growth is the run's.
   if [[ "$_lane_clone_home" -eq 1 ]]; then
     for ((l = 1; l <= REIN_LANES; l++)); do

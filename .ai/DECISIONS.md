@@ -4086,4 +4086,6 @@ Every merged PR left its branch on origin; fourteen are there now and the list g
 ### Rollback
 Ruling 1: restore the section, drop the line (the cap then forces (b)). Rulings 3–4: independent reverts of E-408 and E-409.
 
+> **Ruling 1 wording, as built (2026-11-01, 00c5ff8).** The verbatim line plus the deletion measured 6954 bytes, ten over the cap. The Engineer's shorter tail — `; rest in \`rein-task\` Step 3.5.` — is accepted as the ruling's text (6943 bytes); the merge command and the pointer are unchanged.
+
 ---

@@ -114,3 +114,24 @@ Rules (E-264):
   (`tc_stale_tree`), the only honest "node outside the list" on a host that has node in it.
 - Standing review question #8 (`critic_tests`): "does this test run a hook or `rein` under a
   HOME it created — and did `tc_fixture_home` write that HOME's toolchain record?"
+
+## The Operator's GitHub Token in a Lane — Leaked External State, Shape #2 (D-141 addendum r3, 2026-11-01)
+- Lanes inherited `GH_CONFIG_DIR`, `GH_TOKEN` and `GITHUB_TOKEN`, so a suite that ran
+  `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture could reach
+  api.github.com as the operator (security_engineer P2-2, E-407). The network is external
+  state in the D-063 sense: the test's answer depends on the host's login, and the test can
+  act on the operator's account.
+- The scrub, in the same place the lane isolates HOME and `AI_TELEMETRY_DB_PATH`: export
+  `GH_CONFIG_DIR` to an empty directory under the lane's temp root, unset `GH_TOKEN` and
+  `GITHUB_TOKEN`, set `GH_HOST` to an unroutable name. A suite that needs a `gh` answer puts
+  a stub `gh` on `PATH` (the E-407 hosted-ci tests' stub is the one to reuse).
+- The guard runs INSIDE each lane, after the scrub and before the first suite, and fails the
+  run with one line when any of the three survived — it proves the scrub, it does not police
+  the operator's shell: an exported `GH_TOKEN` outside the lane is normal and never blocks
+  `rein ci run`. The planted-token test therefore plants past the scrub (a lane hook or an
+  env file the lane sources), not in the launching shell.
+- Standing review question #9 (`critic_tests`): "does this test run `gh`, `rein doctor` or
+  `rein ci hosted` — and is the `gh` it reaches a stub on the lane's PATH?"
+- Rollback: `REIN_TEST_KEEP_GH_ENV=1` skips the scrub and the guard, for a deliberate live
+  run only. Rule copy: `.claude/rules/test-harness.md` (one copy, D-082 r5); this section is
+  the rationale.

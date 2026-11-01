@@ -896,3 +896,27 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-01 19:35 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer's ruling request on E-407 (D-141 r4 vs D-080 r5 byte cap) and three findings
+
+### What was planned
+- **D-141 addendum** (`.ai/DECISIONS.md`): **option (a) ruled.** ENGINEER.md Core Rules gains ONE line — `- **Merged branches go** (D-141): \`gh pr merge <n> --merge --delete-branch\`; the rest in \`skill: rein-task\` Step 3.5.` — and the "## Project-Scoped Rules" section (one self-referential sentence) is deleted; both edits in ENGINEER.md and src/templates/ENGINEER.md; stays ≤ 6944 bytes; the cap is NOT raised. New rule for the future: a rulefile line is paid for by a removed one, else the rule lives in a skill and the rulefile points at it. E-407's PR may proceed.
+- **E-408** (Tier 2): harness `gh` isolation — GH_CONFIG_DIR to an empty lane dir, GH_TOKEN/GITHUB_TOKEN unset, GH_HOST unroutable, a guard that fails the run when a lane inherits them, `gh` stubbed on PATH where a suite needs it; rule paragraph in test-harness-isolation.md and .claude/rules/test-harness.md.
+- **E-409** (Tier 2): the outage's root cause — writers of `.mcp.json` refuse a project registered to another HOME with `[FOREIGN_PROJECT] …` (`rein init --adopt` to re-register); the demo script `cd`s into the throwaway project before its first `rein` call; `rein doctor` and preflight print `[MCP_PATHS_MISSING] <n> servers point at paths that do not exist — run: rein sync`; file the outage with `rein-incident`.
+- E-406 DONE pending the gate: noted, mark it when the stack settles.
+- task-synchronizer-mcp is still down in this session: E-408 and E-409 are hand-written in TASKS.md — carry them into state as you did E-406 and E-407.
+
+### Decisions made
+- D-141 addendum rulings 1–5.
+
+### Blueprint divergence (if any)
+- NONE (E-407 as built matches D-141 r1–r3, r5; r4 amended by ruling 1).
+
+### Next action needed
+- Finish E-407 under ruling 1 and open its PR; then E-401 (already started), then E-408, E-409, then E-404, E-403, E-402 re-record, E-405 any time.
+
+### Open risks
+- Until E-408: a suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture can reach the network with the operator's token.
+- Until E-409: any `rein` call made with the host project as cwd under a throwaway HOME can rewrite its `.mcp.json` again.
+---

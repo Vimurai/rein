@@ -4066,3 +4066,24 @@ Every merged PR left its branch on origin; fourteen are there now and the list g
 `gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=false`; drop the `--delete-branch` flag from the rulefile line; a deleted branch is restored from its PR page.
 
 ---
+
+## D-141 addendum — The rulefile carries one pointer line, paid for by the self-referential section; the D-080 r5 byte cap stands; the harness isolates `gh`; a throwaway-HOME run may not rewrite the host project's `.mcp.json`
+
+**Date**: 2026-11-01
+**Task**: E-407 (unblocked), E-408, E-409 (new)
+**Decision**: The Engineer (COMM, 2026-11-01) reports that D-141 r4's four-line rule in ENGINEER.md breaks D-080 r5's byte budget (`rein_sync` E-282.02a: ENGINEER.md ≤ 6944 bytes; it was 6941, the four lines make it 7220), and asks for a ruling between (a) a pointer line funded by deleting the "Project-Scoped Rules" section, (b) the rule in the `rein-task` skill only, (c) a higher cap. Everything else in E-407 is built (f4bd2ad on e-407-branch-cleanup; flag true; fourteen branches gone; DEVOPS-018; security_engineer PASS). Rulings:
+
+1. **Option (a).** ENGINEER.md Core Rules gains ONE line — `- **Merged branches go** (D-141): `gh pr merge <n> --merge --delete-branch`; the rest in `skill: rein-task` Step 3.5.` — and the section "## Project-Scoped Rules" with its single sentence ("Full Principal Engineer rules are managed in `ENGINEER.md` within this project.") is deleted: it tells the reader of ENGINEER.md to read ENGINEER.md and has carried no rule since D-050 made the file canonical. Both edits in both copies (`ENGINEER.md`, `src/templates/ENGINEER.md`); the parity test keeps them equal; the file stays ≤ 6944 bytes. D-141 r4 is amended to this wording.
+2. **Why not (b) or (c).** The rulefile is the one text the Engineer reads every session; a merge command that lives only in a skill is a rule the Engineer meets after the merge is already typed. The cap is the point of D-080 r5 — a rulefile that grows a line per ruling is the drift it measures — so the cap is not raised for a line that fits once a dead section goes. The rule: a new rulefile line is paid for by a removed one; when nothing can go, the rule lives in a skill and the rulefile points at it.
+3. **The harness isolates `gh` (security_engineer P2-2, outside E-407).** `tests/run.sh` lanes inherit `GH_CONFIG_DIR`, `GH_TOKEN` and `GITHUB_TOKEN`, so a suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture can reach api.github.com with the operator's token. The harness rule (test-harness-isolation.md, beside the telemetry and HOME isolation of the Sixth Variety): every lane exports `GH_CONFIG_DIR` to an empty directory under the lane's temp root, unsets `GH_TOKEN` and `GITHUB_TOKEN`, and sets `GH_HOST` to an unroutable name; a suite that needs a `gh` answer stubs the `gh` binary on `PATH` (the E-407 tests already do). The guard is a one-line check in the harness that fails the run when a lane sees any of the three variables set. This is E-408 (Tier 2).
+4. **A throwaway-HOME run may not rewrite the host project's `.mcp.json` (the outage's root cause).** E-402's smoke run under `--home` rewrote this project's gitignored `.mcp.json` so every server pointed into the deleted `/tmp/rein-demo-home-smoke`, and every MCP server failed to connect in the next session until `rein sync` rewrote it. The rule: whatever writes `.mcp.json` (`rein init`, `rein sync`, the hooks' install step) writes it for the project at its own `cwd` ONLY when that project's `.ai/` is registered to the running install's HOME; when `$HOME` names a different install, it refuses with `[FOREIGN_PROJECT] <path> is registered to <other HOME> — run rein sync from that HOME, or rein init --adopt`; and the demo script never has the host project as `cwd` while `HOME` is the throwaway (it `cd`s into the `tally` project before the first `rein` call). `rein doctor` gains `✗ [MCP_PATHS_MISSING] <n> servers point at paths that do not exist — run: rein sync`, the line that would have named this outage at once. The Engineer files the event with `rein-incident` (sanitised). This is E-409 (Tier 2).
+5. **E-406 DONE pending** the green HEAD and fresh-install gate: noted, no action; mark it when the stack settles.
+
+### Impact
+- Unlocks: E-407 (PR may proceed under ruling 1). New: E-408, E-409, both after E-407 and E-401, before E-404.
+- Risk if wrong: ruling 1 deletes a section somebody's tooling greps for — nothing in the tree or tests names "Project-Scoped Rules" (checked by the Engineer in E-407's parity test).
+
+### Rollback
+Ruling 1: restore the section, drop the line (the cap then forces (b)). Rulings 3–4: independent reverts of E-408 and E-409.
+
+---

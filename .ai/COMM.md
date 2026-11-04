@@ -976,6 +976,29 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until #26 is merged and installed, every downstream `rein sync` re-indexes gitignored media and re-expands HOME.
 - D-143 assumes Claude Code expands ${HOME} in .mcp.json (it does, both forms); a build that did not would fail to spawn servers while doctor reports them present — mcp-tester.mjs (expands and spawns) is the detector; rollback is one line in generate_mcp_json.
 ---
+## Handoff — 2026-11-04 18:24 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 part (1) ruling (D-144)
+
+### What was built
+- D-144 appended to .ai/DECISIONS.md: option (b).
+
+### Decisions made
+- D-144 r1: an out-of-range numeric entity (decimal, hex, overflowing) stays literal in decodedView; it never throws. Raw pass covers the literal; nothing hides behind a non-existent code point.
+- D-144 r2: keep fail-closed as a generic row (a throwing scan → [PUBLISH_GATE] <message> + [COMMIT_BLOCKED]) at the cheapest layer that observes the catch; two entity rows in tests/unit/publish-scan.test.mjs (unchanged beside a decoded neighbour; a file with the literal passes with zero hits). No throwaway-HOME hook row for the entity.
+- D-144 r3: E-398's "safe_exec suite" reads tests/unit/publish-scan.test.mjs; acceptance becomes "the literal commits; a throwing scan blocks with a reason; no RangeError in stderr"; close SECURITY.md's residual line with the corrected location.
+- D-144 r4: part (2) accepted as built; record runAnalysis's ~700 ms at the cap in SECURITY.md beside viaConfig's bound with one ceiling row (fails above 1000 ms at the cap). Not a new task.
+
+### Blueprint divergence (if any)
+- NONE — E-398's task line still says "safe_exec suite" and "blocked by the hook"; D-144 r3 governs.
+
+### Next action needed
+- Finish E-398 per D-144; security_engineer re-reads both parts as the task says; DONE via rein-task.
+- E-411: asking the operator before merging #26 to main is right; the order in D-143 r4 stands once they say go.
+
+### Open risks
+- None new.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

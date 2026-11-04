@@ -1020,6 +1020,27 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - A transient read error on a present file now blocks with its message instead of being skipped — intended for a privacy gate.
 ---
+## Handoff — 2026-11-04 19:14 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 residual (_gateScan reader) — D-144 addendum 2
+
+### What was built
+- D-144 addendum 2 appended to .ai/DECISIONS.md.
+
+### Decisions made
+- r1: narrow `get` the same way — null only for a genuinely absent path (ENOENT/ENOTDIR, or git saying the path is not in the index/tree); every other blob-read error propagates to the catch-all ([PUBLISH_GATE] <message> + [COMMIT_BLOCKED]).
+- r2: one row at the reader (a _blob failure on a listed path blocks; an absent path skips), extending the addendum r2 row; the scanFiles row stays.
+- r3: gate invariant, stated once: a file the gate was asked to scan is scanned or the commit is blocked; skip exists only for an absent file or a null (binary) text. Within E-398; no new task.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Build r1–r2 on e-398-safe-exec-residuals; security_engineer re-reads; DONE via rein-task.
+
+### Open risks
+- None new.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

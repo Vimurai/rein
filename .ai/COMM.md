@@ -946,6 +946,36 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Until #26 merges and is installed, every downstream `rein sync` re-expands HOME in .mcp.json and re-indexes gitignored media.
 ---
+## Handoff — 2026-11-04 18:19 UTC
+**From**: Architect → Engineer
+**Trigger**: ruling on PR #26 vs PR #23 (E-409); E-411 registered for #26 (D-143)
+
+### What was built
+- D-143 recorded in .ai/DECISIONS.md (six rulings). Numbering note: D-140..D-142 live on the stacked branches (e-400-sigpipe and above) and are not on main yet; DECISIONS.md is append-only, so the eventual merge keeps D-140, D-141 + addenda, D-142, then D-143 — resolve the tail conflict by keeping both, in that order.
+- E-411 (Tier 2) registered: PR #26 carried to main as built — merge it FIRST, reinstall, confirm `rein doctor` clean. No code change asked of #26.
+- architect.md §2 helper line now names memory-batch-scanner.mjs, mcp-tester.mjs and (when E-409 lands) mcp-paths.mjs — closes the aligner WARN.
+- multimodal-rag-batching.md §Security gains the fail-closed rule (D-143 r5).
+
+### Decisions made
+- D-143 r1: `.mcp.json` paths are the plain literal `${HOME}/.rein/mcp/<server>/index.js`; every Rein reader expands `${VAR}` and `${VAR:-default}` before testing a path.
+- D-143 r2: D-141 addendum 2 rulings 1–4 are RETIRED — no claim, no [FOREIGN_PROJECT], no `rein init --adopt`, no claimCheck/reinPrefixes. Reason: an install-neutral file carries no claim and the hazard it guarded (an absolute throwaway prefix written into the host's file) can no longer be written. Kept from addendum r4: the demo `cd` rule (rein sync writes more than .mcp.json into cwd), the [MCP_PATHS_MISSING] doctor + preflight line after expansion, the rein-incident filing.
+- D-143 r3: one expander — #26's `expandVars` becomes src/shared/mcp-paths.mjs (expandVars + doctorLines); `rein doctor` calls `node mcp-paths.mjs doctor <mcp-file>`; mcp-tester.mjs imports from it; #26's inline os.path.expandvars in doctor (no `:-default` form) is replaced by that call. mcp-claim.mjs + its unit test are renamed and cut to that scope; refusal/--adopt/dead-install/mixed-prefix rows are deleted, not skipped.
+- D-143 r4 (merge order, forced): #26 → #25 → #24 → #19 → #20/#21/#22 → #23 re-cut per r2–r3 after rebasing onto the main that contains #26. Resolve src/bin/rein in #26's favour.
+- D-143 r5: scanner fails closed — confirmed as built; the blueprint always said MUST enforce .gitignore.
+
+### Blueprint divergence (if any)
+- NONE outstanding: the two divergences #26 reported (fail-closed scan; mcp-tester not named) are now blueprint text.
+- E-409's TASKS.md line still carries the addendum-2 wording (--adopt, [FOREIGN_PROJECT]); task text is state-owned and not editable here. D-143 r2–r3 govern — build E-409 to D-143, not to its line.
+
+### Next action needed
+- Execute E-411 (merge #26 first, reinstall, doctor clean, DONE via rein-task).
+- Then E-409 re-cut on e-409-foreign-home per D-143 r2–r3; E-410 and E-404 keep their place after it.
+- E-398 may continue meanwhile as the operator chose.
+
+### Open risks
+- Until #26 is merged and installed, every downstream `rein sync` re-indexes gitignored media and re-expands HOME.
+- D-143 assumes Claude Code expands ${HOME} in .mcp.json (it does, both forms); a build that did not would fail to spawn servers while doctor reports them present — mcp-tester.mjs (expands and spawns) is the detector; rollback is one line in generate_mcp_json.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

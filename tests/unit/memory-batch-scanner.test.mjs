@@ -6,7 +6,9 @@
 //   - Walk discovers PNG/SVG/PDF candidates and prunes node_modules/.git/.rein
 //   - Path-rule rejects (/.env/, /secrets/, /credentials/, /.ssh/, /.aws/, /.gnupg/)
 //   - Sensitive-name regex rejects (secret*, *credential*, *.pem, id_rsa, etc.)
-//   - .gitignore enforcement via batched `git check-ignore --stdin`
+//   - .gitignore enforcement: ignored DIRECTORIES are pruned from the walk (one
+//     `git ls-files --ignored --directory` call); ignored FILES go through one batched
+//     `git check-ignore --stdin` call, which fails closed
 //   - [NO_RAG] sidecar file + inline SVG marker both reject
 //   - 5 MB size cap rejects oversize files
 //   - SHA-256 hashing skips files whose hash already lives in the palette index
@@ -70,9 +72,10 @@ before(() => {
   put("ux/password-reset-screen.svg", "BAD-NAME-2");
   put("docs/id_rsa-backup.pdf", "BAD-NAME-3");
   put("diagrams/staging.pem", "BAD-NAME-4");   // skipped by the extension filter anyway
-  // .gitignore: ignore everything in private/.
-  put(".gitignore", "private/\n");
+  // .gitignore: ignore everything in private/ (a directory rule) and *.draft.png (a file rule).
+  put(".gitignore", "private/\n*.draft.png\n");
   put("private/wireframe.png", "GITIGNORED-PNG");
+  put("diagrams/scratch.draft.png", "GITIGNORED-BY-PATTERN");
   // [NO_RAG] sidecar PNG + inline SVG marker.
   put("diagrams/internal-only.png", "PNG-WITH-SIDECAR");
   put("diagrams/internal-only.png.norag", "marker");
@@ -106,7 +109,7 @@ const reasons = [
   ["leaky.png", "path-rule"], ["diagram.svg", "path-rule"], ["badge.pdf", "path-rule"],
   ["keymap.png", "path-rule"], ["topology.svg", "path-rule"],
   ["secret-handshake.png", "sensitive-name"], ["password-reset-screen.svg", "sensitive-name"],
-  ["id_rsa-backup.pdf", "sensitive-name"], ["wireframe.png", "gitignored"],
+  ["id_rsa-backup.pdf", "sensitive-name"], ["scratch.draft.png", "gitignored"], ["private", "gitignored-dir"],
   ["internal-only.png", "no-rag-tag"], ["internal-flow.svg", "no-rag-tag"], ["oversize.png", "size-cap"],
 ];
 for (const [fname, reason] of reasons) {
@@ -171,6 +174,27 @@ test("T-MBS-S10: non-git project emits the eligible file", () => {
   mkdirSync(join(p2, "img"), { recursive: true });
   writeFileSync(join(p2, "img/clean.png"), "PNG");
   assert.match(JSON.stringify(m.scanWorkspace(p2)), /clean\.png/);
+});
+
+// ── T-MBS-S12 (extends S04/S06): a gitignored directory is pruned, not scanned ──
+// `rein sync` indexed 51,576 screenshots under a gitignored .parity/ (2026-11-04): the batched
+// `git check-ignore` output passed spawnSync's 1 MiB default maxBuffer, the call failed with
+// ENOBUFS, and the failure was read as "nothing is ignored". Pruning the directory keeps the
+// probe's output bounded by the number of ignored DIRECTORIES, not files.
+test("T-MBS-S12: a file inside a gitignored directory is in neither eligible nor skipped", () =>
+  assert.ok(!allNames().includes("wireframe.png")));
+test("T-MBS-S12: thousands of files under a gitignored directory stay out of the index", () => {
+  const p3 = join(SBOX, "parity-proj");
+  mkdirSync(join(p3, ".parity/shots"), { recursive: true });
+  execFileSync("git", ["-C", p3, "init", "-q"]);
+  writeFileSync(join(p3, ".gitignore"), ".parity/\n");
+  // ~9,000 × ~150-byte absolute paths ≈ 1.3 MiB of check-ignore output — past the old limit.
+  const pad = "x".repeat(60);
+  for (let i = 0; i < 9000; i++) writeFileSync(join(p3, `.parity/shots/screenshot-${pad}-${i}.png`), String(i));
+  writeFileSync(join(p3, "kept.png"), "PNG");
+  const r = m.scanWorkspace(p3);
+  assert.deepEqual(r.eligible.map((e) => basename(e.path)), ["kept.png"]);
+  assert.deepEqual(r.skipped, [{ basename: ".parity", reason: "gitignored-dir" }]);
 });
 
 // ── T-MBS-S11: ~/.rein mirror matches src (read-only; absent → skip) ──

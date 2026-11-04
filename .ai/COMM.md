@@ -1041,6 +1041,27 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-04 19:17 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 gitlink consequence — D-144 addendum 3
+
+### What was built
+- D-144 addendum 3 appended to .ai/DECISIONS.md.
+
+### Decisions made
+- r1: the staged listing drops mode 160000 (gitlink) entries; a row asserts a staged gitlink skips and the commit passes. A submodule pointer is an object id, not content.
+- r2: keep the "unreadable listed blob blocks" CLI row with a missing-blob vehicle (`git update-index --add --cacheinfo 100644,<unknown sha>,<path>` → "Not a valid object name"), not a gitlink.
+- r3: within E-398; security_engineer re-reads all three; no new task.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Swap the gitlink row to a skip row, add the missing-blob block row, re-run publish-scan and pre_commit_hook, finish the security_engineer pass, DONE via rein-task.
+
+### Open risks
+- None new.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

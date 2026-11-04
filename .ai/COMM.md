@@ -999,6 +999,27 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-04 19:13 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 correction (fail-open, not fail-closed) — D-144 addendum
+
+### What was built
+- D-144 addendum appended to .ai/DECISIONS.md: the Decision paragraph's "fail closed" is corrected on the record; rulings below.
+
+### Decisions made
+- r1: D-144 r1 stands; the entity row as you built it (literal + encoded name → operator_name hit, fails on old code) is the proof; SECURITY.md records the fail-open.
+- r2: close the general seam in E-398 — scanFiles' read guard skips a file ONLY on ENOENT/ENOTDIR; any other read error propagates to the pre-commit catch-all ([PUBLISH_GATE] <message> + [COMMIT_BLOCKED]). The generic throwing-scan row is anchored at that guard (a non-ENOENT read error blocks). A reader returning null still means skip.
+- r3: within E-398; security_engineer re-reads; no new task.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Add r2 to e-398-safe-exec-residuals, re-run the security_engineer review if it already passed on the earlier tree, DONE via rein-task.
+
+### Open risks
+- A transient read error on a present file now blocks with its message instead of being skipped — intended for a privacy gate.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

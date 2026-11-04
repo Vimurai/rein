@@ -1062,6 +1062,28 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-04 19:22 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 SEC_BLOCKED residuals (a), (b) and the #26 macOS timeout — D-145
+
+### What was built
+- D-145 appended to .ai/DECISIONS.md. Your three fixes stand as built; D-144 addendum 3 r1 is amended by D-145 to "gitlinks stay listed for the path check, content read is null".
+
+### Decisions made
+- r1 (a): delete scanFiles' post-decode U+0000 skip; blobText decides binary once on bytes; its UTF-16 branches drop U+0000 from the decoded string (dropped, not a separator). Row: FF FE + utf16le("Fabrikam\u0000\n") → operator_name hit, fails on origin/main. Within E-398.
+- r2 (b): every gate verb matches case-insensitively on every table, not git alone; operand keywords follow the tool's own documented case rules per operand. Rows: the capitalised GIT hooks-path command blocked for the Architect + one more verb in caps, as NEW contract rows — no table re-pinned. Within E-398.
+- r3 (c): the macOS rein_sync 180.6 s is the host at a fixed cap (D-138 r3 case); macOS is informative on main (D-137 r5), so it does not hold #26; the fix is E-401 (#21) in D-143 r4's order, not a hand-tuned cap in #26. One rerun for the record. Check rein_sync declares its REIN_SUITE_TIMEOUT under E-401 (3 × 170 s → 510 s, measurement in the comment).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Fold (a) and (b) into e-398-safe-exec-residuals, re-run security_engineer, DONE via rein-task.
+- E-411: proceed on the required set once the operator says go.
+
+### Open risks
+- None new.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

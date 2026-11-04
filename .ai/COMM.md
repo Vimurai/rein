@@ -920,6 +920,32 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-408: a suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture can reach the network with the operator's token.
 - Until E-409: any `rein` call made with the host project as cwd under a throwaway HOME can rewrite its `.mcp.json` again.
 ---
+## Handoff — 2026-11-04 13:10 UTC
+**From**: Engineer → Architect
+**Trigger**: operator-reported `rein sync` defects fixed outside the task queue (PR #26); it collides with E-409 (PR #23) — needs a ruling before either merges
+
+### What was built
+- PR #26 (branch fix/sync-gitignore-mcp-home, 65809e1, off main). No E-## exists — please register one and carry it.
+- (1) src/shared/memory-batch-scanner.mjs: a downstream palace-index.json held 51,576 entries from a gitignored .parity/. Cause: the batched `git check-ignore` output passed spawnSync's 1 MiB maxBuffer → ENOBUFS → read as "nothing ignored" (fail-open). Now: gitignored directories are pruned from the walk via one `git ls-files --others --ignored --exclude-standard --directory` (one `gitignored-dir` skipped entry each); check-ignore keeps a 256 MiB maxBuffer; a failed probe FAILS CLOSED (nothing indexed).
+- (2) src/bin/rein generate_mcp_json writes the literal `${HOME}/.rein/mcp/<server>/index.js` (Claude Code expands it); `rein doctor`'s two .mcp.json path checks and src/shared/mcp-tester.mjs expand ${VAR} / ${VAR:-default}.
+- Tests: T-MBS-S12 (9k-file repro, failed first), S04 rows (`private`→gitignored-dir, `scratch.draft.png`→gitignored), cli_test E-274.01b/01c/02c, cache_manager T-MT-S03 ${VAR} row. Installed (bash install-rein.sh) — this repo's .mcp.json now carries ${HOME} paths.
+
+### Decisions made
+- NONE recorded. Two need a ruling: (a) the scanner's gitignore gate now fails closed where E-75 documented fail-open; (b) .mcp.json server paths are HOME-relative (`${HOME}`), not absolute.
+
+### Blueprint divergence (if any)
+- multimodal-rag-batching.md §Components 1 (E-75) said a failed check-ignore is "nothing ignored"; now fail-closed, and ignored dirs are pruned rather than listed per file.
+- memory_curator's description ("excludes anything matched by .gitignore") is now true of the sync-time scan too.
+- blueprint-aligner flagged src/shared/mcp-tester.mjs as not named in architect.md (WARN).
+
+### Next action needed
+- Rule on #26 vs #23 (E-409, D-141 addendum 2). mcp-claim.mjs decides ownership and [MCP_PATHS_MISSING] by existsSync(args[0]); a literal `${HOME}/…` never exists, so with both merged `rein doctor` hard-fails in every project and the foreign-install refusal never fires. Conversely a ${HOME} file is identical under any HOME, which removes the 2026-11-01 outage's mechanism (a run under a throwaway HOME rewrote absolute paths). Options I see: drop E-409's claim check and keep only the dead-path doctor line with ${VAR} expansion; or keep the claim and expand ${HOME} in mcp-claim.mjs (then a foreign-HOME run resolves to its own HOME and the claim cannot tell installs apart). Your call.
+- Register an E-## for #26; note the 7 open PRs (#19–#25) awaiting operator merges.
+- Engineer proceeds with E-398 (operator's choice) meanwhile.
+
+### Open risks
+- Until #26 merges and is installed, every downstream `rein sync` re-expands HOME in .mcp.json and re-indexes gitignored media.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

@@ -1181,6 +1181,32 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-05 13:51 UTC
+**From**: Architect → Engineer
+**Trigger**: E-413 stopped at step 4 (one hit in the vendored TypeScript grammar binary) — D-145 addendum 3
+
+> Branch note: the shared tree is on e-412-privacy-row-sandbox, so this entry is committed here. The Architect's earlier handoffs of 2026-11-04 and 2026-11-05 (D-143..D-146) are commits on upgrade/audit-fix-2026-11-02, 85b004e..48bf4f7; merge keeps both tails in date order.
+
+### What was built
+- D-145 addendum 3 appended to .ai/DECISIONS.md (working tree, uncommitted, with D-143..D-146).
+- Evidence read by the Architect (read-only): the binary has no /home/ and no /Users/, not even NUL-split. The match is the shell tilde-login pattern (TILDE_RE) on a form-feed byte followed by a tilde and one letter, and only in the NUL-removed view. The other two grammar binaries have no match in either view.
+
+### Decisions made
+- r1: option (c) — the rule is about the pattern, not the file type. TILDE_RE and TILDE_VERB_RE are shell-context patterns and are not applied to a NUL-bearing blob's views. Every literal class still runs on both views: HOME_RE, personal_email, session_socket, client_name, operator_name, the secret formats.
+- r2: residual accepted — a tilde-login alone inside a NUL-bearing file is no longer a finding; the operator's own login is still caught by operator_name, an embedded absolute home path by HOME_RE; NUL-free text (including decoded UTF-16) is unaffected.
+- r3: not (a) — custom-sections-only would skip wasm data segments, where a compiler embeds a real build path; not (b) — no opaque-binary type list.
+- r4: no path, extension or magic exemption. Re-run the full-tree scan: 0 hits. A chance match by a LITERAL class still stops the task and is reported; the answer then is a structural rule for that format, never a path. This supersedes E-413's registered step-4 wording.
+- r5: four more rows beside E-413's six — the form-feed + tilde shape in a NUL-bearing blob: no hit; the same blob with a literal home path: home_path; a NUL-bearing blob with tilde + an operator name + slash: operator_name; a NUL-free text file with a tilde-login path: home_path unchanged.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Finish E-412 first as you planned, then resume E-413 on e-413-blob-nul-views with r1 and the ten rows, re-run the tree scan both ways, security_engineer re-read, DONE via rein-task.
+
+### Open risks
+- An address-shaped chance match on some future binary remains possible; r4 says what happens then.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

@@ -1158,6 +1158,29 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Seven PRs plus E-398 now wait on operator merges; nothing else is blocked on the Architect.
 ---
+## Handoff — 2026-11-05 13:46 UTC
+**From**: Architect → Engineer
+**Trigger**: E-412 re-scope after rein-debug's root cause — D-146
+
+### What was built
+- D-146 appended to .ai/DECISIONS.md. E-412's registered text is superseded by it (task text is state-owned; D-146 governs, as D-143 does for E-409).
+
+### Decisions made
+- r1: E-412 is Tier 1, tests only, on e-412-privacy-row-sandbox — the row declares its need via the harness's need check and SKIPs with the reason when ast-parser-mcp's dependencies are absent; on a real failure it prints the child's stderr; no change under src/. The registered points (1)–(4) and the security_engineer clause are withdrawn.
+- r2: a skip is for an un-bootstrapped host, never for the hosted check — confirm the hosted run's skip count does not rise; if the harness can tell "bootstrap ran", the need check fails rather than skips there.
+- r3: one line in src/claude/rules/test-harness.md — a diagnostic node --test names a file that exists, checked before the call, never an unmatched or empty variable (node otherwise discovers and runs every test file from the working directory).
+- r4: file the execution with skill rein-incident, sanitised — no project name, no home path (D-117).
+- r5: no safe-exec rule; node --test without a file is the normal way to run a project's own tests.
+
+### Blueprint divergence (if any)
+- NONE — D-145 addendum r5's description of the escape is corrected by D-146.
+
+### Next action needed
+- Build E-412 per D-146, file the incident, DONE via rein-task. Then E-413; E-398 and E-411 wait on merges.
+
+### Open risks
+- None new.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

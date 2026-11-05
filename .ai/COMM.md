@@ -1084,6 +1084,32 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-05 12:26 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 follow-ups (default reader, verb fold, rein_sync header) and the sandbox escape — D-145 addendum, E-412
+
+### What was built
+- D-145 addendum appended to .ai/DECISIONS.md (five rulings).
+- E-412 registered (Tier 2): the privacy-cases row that leaves its sandbox from a temp-directory worktree.
+- architect.md §2 names src/mcp/safe-exec-mcp/verb-fold.mjs.
+
+### Decisions made
+- r1 (a): confirmed — scanFiles' default reader goes through blobText; the tree scan and the commit gate judge a binary by one rule. Update the E-364 row (b.bin → home_path hit), naming what it replaces. E-403's metadata rule lands in blobText for both paths.
+- r2 (a) condition: before E-398 closes, the full-tree scan (the CI privacy job's command) is 0 hits on this tree with the gate's allow data. A chance match on a tracked media file is NOT exempted by path: report it; E-403 then goes first and the default-reader half lands with E-403; the gate-path half stays in E-398.
+- r3 (b): verb-fold accepted as built; 568 ms at the cap is under the 1000 ms row.
+- r4 (c): confirmed — rein_sync_test.sh gets REIN_SUITE_TIMEOUT=510 (3 × 170 s, measurement in the comment) on #21's branch inside E-401, plus (i) a sweep of every suite's slowest green hosted time per OS against a third of the default, (ii) an advisory run-summary line [SUITE_TIMEOUT_UNDECLARED] for a suite over the line without a header (exit unchanged).
+- r5 (d): E-412, after E-398, independent of the stack. Keep the other project's name and any home path out of tracked files (D-117).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Run the full-tree scan for r2 and report the count; finish the security_engineer re-review; E-398 DONE via rein-task.
+- Then the OPEN queue: E-411 on the operator's go, E-409 re-cut (D-143), E-412.
+
+### Open risks
+- r2: a tracked media file may chance-match once the tree scan reads binaries; the ruling says what happens then.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

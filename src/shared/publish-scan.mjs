@@ -107,7 +107,7 @@ export function checkAllow(allow = {}, operatorNames = [], where = "allow") {
 }
 
 /** Findings in one text: [{ class, match, line }] (1-based lines), in reading order. */
-export function scanText(text, { clientNames = [], operatorNames = [], allowEmails = [] } = {}) {
+export function scanText(text, { clientNames = [], operatorNames = [], allowEmails = [], nulViews = false } = {}) {
   const allow = new Set([...DEFAULT_ALLOW_EMAILS, ...allowEmails].map((e) => e.toLowerCase()));
   const clientRes = clientNames.filter(Boolean).map((n) => new RegExp(`\\b${_esc(n)}\\b`, "i"));
   // Bounded by anything that is not a letter or digit (Unicode-aware, so "Quillić" works):
@@ -128,7 +128,9 @@ export function scanText(text, { clientNames = [], operatorNames = [], allowEmai
       if (!userinfo && !RESERVED_EMAIL.test(m[0]) && !NOREPLY_EMAIL.test(m[0]) && !allow.has(m[0].toLowerCase())) out.push({ class: "personal_email", match: m[0], line });
     }
     const homes = new Set();
-    for (const re of [HOME_RE, TILDE_RE, TILDE_VERB_RE]) {
+    // D-145 addendum 3: a NUL-bearing blob's views are not shell text — a tilde-login shape there is
+    // a byte accident (a form feed, `~`, a letter), so only the literal classes run on them.
+    for (const re of nulViews ? [HOME_RE] : [HOME_RE, TILDE_RE, TILDE_VERB_RE]) {
       for (const m of l.matchAll(re)) {
         const user = m[1].toLowerCase(), key = `${m.index + m[0].indexOf(m[1])}`;
         if (PLACEHOLDER_USERS.has(user) || /^</.test(m[1]) || homes.has(key)) continue;
@@ -165,18 +167,23 @@ export function scanFiles(root, files, opts = {}) {
   const allowed = (f, hit) => (hit.class === "operator_name" || hit.class === "personal_email") && !!allow.get(hit.match.toLowerCase())?.has(f);
   const out = [];
   for (const f of files) {
-    let text;
+    let text, nul = false;
     // Only a file that is GONE is skipped (D-144 addendum). Any other read error propagates to the
     // caller's fail-closed catch-all: this guard used to swallow everything, so decodedView's
     // RangeError skipped a file's whole decoded pass and an encoded value beside it went unseen.
-    try { text = opts.read ? opts.read(f) : blobText(readFileSync(join(root, f))); }
+    try {
+      if (opts.read) { text = opts.read(f); nul = !!opts.nulViewFiles?.has(f); }
+      else { const v = blobViews(readFileSync(join(root, f))); text = v.join("\n"); nul = v.length > 1; }
+    }
     catch (e) { if (e?.code === "ENOENT" || e?.code === "ENOTDIR") continue; throw e; }
     if (typeof text !== "string") continue;   // gone (binary is blobText's call — D-145 r1)
     // An exempt file is still checked for client and operator names: its exemption covers its
     // invented addresses, paths and ids only (critic_security P2, E-365; E-372).
     const exempt = Object.hasOwn(EXEMPT_FILES, f);
-    for (const hit of scanText(text, opts)) {
+    const once = nul ? new Set() : null;   // a NUL-bearing blob: one hit per class (its two views)
+    for (const hit of scanText(text, nul ? { ...opts, nulViews: true } : opts)) {
       if (allowed(f, hit)) continue;
+      if (once) { if (once.has(hit.class)) continue; once.add(hit.class); }
       if (!exempt || hit.class === "client_name" || hit.class === "operator_name") out.push({ file: f, ...hit });
     }
   }
@@ -369,22 +376,29 @@ export function publishConfig(root, ...reads) {
 // ── What the gates read beyond plain UTF-8 (security_engineer, E-378 P1-7 and P2-9) ──
 /** A blob as text: UTF-16 with a BOM, or with every other byte NUL, is decoded; any other binary
  *  yields its printable runs (6+ characters), so a value inside a binary is still seen. */
-// Binary is decided HERE, once (D-145 r1): decoded UTF-16 drops U+0000 (dropped, not a separator —
-// `Fab\0rikam` is the name), so a NUL inside UTF-16 text can no longer make scanFiles skip the file.
-const _u16 = (b) => b.toString("utf16le").replace(/\u0000/g, "");
-export function blobText(buf) {
-  if (typeof buf === "string") return buf;
-  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return _u16(buf.subarray(2));
-  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return _u16(Buffer.from(buf.subarray(2)).swap16());
+// Binary is decided HERE, once, on the bytes (D-145 r1). A decode that carries U+0000 — UTF-8 or
+// either UTF-16 — is scanned as TWO views of the same text (D-145 addendum 2, E-413): U+0000 as a line
+// break, so a NUL-terminated string stays whole and separate, and U+0000 removed, so a value split by
+// a NUL joins. The old printable-ASCII-runs-of-six view dropped every short name and every non-ASCII
+// letter. An odd-length buffer behind a byte-order mark decodes its even prefix and never throws.
+const _even = (b) => (b.length % 2 ? b.subarray(0, b.length - 1) : b);
+function _decode(buf) {
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return _even(buf.subarray(2)).toString("utf16le");
+  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return Buffer.from(_even(buf.subarray(2))).swap16().toString("utf16le");
   if (buf.length >= 4 && buf.length % 2 === 0) {
     let odd = 0;
     for (let i = 1; i < Math.min(buf.length, 512); i += 2) if (buf[i] === 0) odd++;
-    if (odd >= Math.min(buf.length, 512) / 2 - 1) return _u16(buf);
+    if (odd >= Math.min(buf.length, 512) / 2 - 1) return buf.toString("utf16le");
   }
-  const t = buf.toString("utf8");
-  if (!t.includes("\u0000")) return t;
-  return (buf.toString("latin1").match(/[\x20-\x7e]{6,}/g) || []).join("\n");
+  return buf.toString("utf8");
 }
+/** The views the gate scans: one for text, two for a decode carrying U+0000 (see above). */
+export function blobViews(buf) {
+  const t = typeof buf === "string" ? buf : _decode(buf);
+  return t.includes("\u0000") ? [t.replace(/\u0000/g, "\n"), t.replace(/\u0000/g, "")] : [t];
+}
+/** The scanned text: the views, one after the other (a NUL-bearing blob's hits are folded per class). */
+export function blobText(buf) { return blobViews(buf).join("\n"); }
 const HTML_NAMED = { amp: "&", lt: "<", gt: ">", quot: '"' };
 /** Common encodings undone, so an escaped value is matched too: JSON \uXXXX, percent, HTML entities. */
 export function decodedView(text) {
@@ -429,18 +443,24 @@ function _gateScan(root, files, lists, read) {
   // A file the gate was asked to scan is scanned or the commit is blocked (D-144 addendum 2): null
   // (skip) only for a genuinely absent path or a reader's null; any other read error — a git blob
   // read that failed — propagates to the CLI's fail-closed catch-all. This used to swallow all.
+  const twoViews = new Set();   // files whose blob carried U+0000: their hits fold to one per class
   const get = (f) => {
     if (!texts.has(f)) {
       let raw;
       try { raw = read(f); } catch (e) { if (!_absentPath(e, f)) throw e; raw = null; }
-      texts.set(f, raw == null ? null : blobText(raw));
+      let t = null;
+      if (raw != null) { const v = blobViews(raw); if (v.length > 1) twoViews.add(f); t = v.join("\n"); }
+      texts.set(f, t);
     }
     return texts.get(f);
   };
   const seen = new Set(), out = [];
-  const add = (h) => { const k = `${h.class} ${h.file}:${h.line}`; if (!seen.has(k)) { seen.add(k); out.push(k); } };
-  for (const h of scanFiles(root, files, { ...lists, read: get })) add(h);
-  for (const h of scanFiles(root, files, { ...lists, read: (f) => { const t = get(f); return t == null ? t : decodedView(t); } })) add(h);
+  const add = (h) => {
+    const k = twoViews.has(h.file) && h.line !== "path" ? `${h.class} ${h.file}` : `${h.class} ${h.file}:${h.line}`;
+    if (!seen.has(k)) { seen.add(k); out.push(`${h.class} ${h.file}:${h.line}`); }
+  };
+  for (const h of scanFiles(root, files, { ...lists, read: get, nulViewFiles: twoViews })) add(h);
+  for (const h of scanFiles(root, files, { ...lists, read: (f) => { const t = get(f); return t == null ? t : decodedView(t); }, nulViewFiles: twoViews })) add(h);
   for (const f of files) {
     for (const h of scanText(f, lists)) add({ file: f, class: h.class, line: "path" });
     const t = get(f);

@@ -369,5 +369,10 @@
 {"label":"E-216.10: tee -p is boolean","role":"architect","want":"pass","cmd":"tee -p .ai/log"},
 {"label":"E-216.10: -t INTO .ai/ is allowed","role":"architect","want":"pass","cmd":"cp -t .ai/ /tmp/draft"},
 {"label":"E-125 S02/S05: architect git push origin main","role":"architect","want":"BLOCK","cmd":"git push origin main","rule":"ARCH_GIT_PUSH"},
-{"label":"E-125 S02/S05: engineer git push origin main is allowed","role":"engineer","want":"pass","cmd":"git push origin main"}
+{"label":"E-125 S02/S05: engineer git push origin main is allowed","role":"engineer","want":"pass","cmd":"git push origin main"},
+{"label":"D-145 r2: a capitalised GIT setting core.hooksPath is git — blocked for the Architect","role":"architect","want":"BLOCK","cmd":"GIT config core.hooksPath x","rule":"ARCH_GIT_HOOKS_PATH"},
+{"label":"D-145 r2: the basename of a path to a capitalised verb is folded (/usr/bin/GIT -c core.hooksPath=)","role":"architect","want":"BLOCK","cmd":"/usr/bin/GIT -c core.hooksPath=x status","rule":"ARCH_GIT_HOOKS_PATH"},
+{"label":"D-145 r2: a quoted or backslashed capitalised verb is folded after the shell removes the quoting","role":"architect","want":"BLOCK","cmd":"\"Git\" config core.hooksPath x","rule":"ARCH_GIT_HOOKS_PATH"},
+{"label":"D-145 r2: operands are NOT folded — .AI/ is not .ai/ on Linux, so the write stays outside scope","role":"architect","want":"BLOCK","cmd":"cp a .AI/x","rule":"ARCH_SHELL_WRITE"},
+{"label":"D-145 r2: a capitalised git that only reads core.hooksPath passes","role":"architect","want":"pass","cmd":"GIT config --get core.hooksPath"}
 ]

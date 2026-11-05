@@ -63,14 +63,26 @@ test("E-364: every class is reachable (the scanner cannot pass empty)", () => {
   assert.deepEqual([...seen].sort(), [...CLASSES].sort());
 });
 
-test("E-364: scanFiles reports per file and skips binaries", () => {
+// D-145 r1 changed this row: binary is decided once, in blobText — a binary's printable runs are
+// scanned (as the gate path always did), not skipped, so b.bin's `/home/eve` run is a hit now.
+test("E-364: scanFiles reports per file; a binary is scanned by its printable runs", () => {
   const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, ".ai"));
     writeFileSync(join(root, "a.md"), "see /home/dave/x\n");
     writeFileSync(join(root, "b.bin"), "\u0000/home/eve");
-    assert.deepEqual(scanFiles(root, ["a.md", "b.bin", "missing.txt"], { clientNames: [] }).map((h) => [h.file, h.class]), [["a.md", "home_path"]]);
+    assert.deepEqual(scanFiles(root, ["a.md", "b.bin", "missing.txt"], { clientNames: [] }).map((h) => [h.file, h.class]), [["a.md", "home_path"], ["b.bin", "home_path"]]);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+// D-145 r1 (extends the E-364 row above): a UTF-16 file carrying U+0000 is text, not binary — the NUL
+// is dropped (not a separator) and the file is scanned. On origin/main it was skipped whole.
+test("a UTF-16LE file with a NUL is scanned, the NUL dropped", (t) => {
+  const root = publicRepo(t);
+  const u16 = (s) => Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(s, "utf16le")]);
+  const read = (m) => ({ files: Object.keys(m), read: (f) => m[f], author: PUB_ID, committer: PUB_ID });
+  assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Quill\u0000\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:1"]);
+  assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Qu\u0000ill\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:1"], "dropped, not a separator");
 });
 
 test("E-365: without .ai/publish-scan.local.json a tree scan FAILS CLOSED; with it the names are checked", () => {
@@ -493,4 +505,101 @@ test("E-370: README and CONTRIBUTING state the licence and the DCO", () => {
 test("decodedView decodes each HTML entity once, and the \\u and % layers beneath it", () => {
   assert.equal(decodedView("&amp;lt; &#38;lt; &amp;#64;"), "&lt; &lt; &#64;");
   assert.equal(decodedView("&lt;&gt;&quot;&amp; &#64; &#x40; &#X40; %40 \\u0040 %26lt;"), '<>"& @ @ @ @ @ <');
+});
+
+// E-398 / D-144 addendum (extends the scanFiles skip test at the top, "missing.txt"): the read
+// guard skips only a file that is gone (ENOENT/ENOTDIR) or a reader's null; any other read error
+// propagates, so the gate's catch-all turns it into a block instead of a silently unscanned file.
+test("scanFiles skips only a gone file or a null read; any other read error propagates", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-guard-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const err = (code) => Object.assign(new Error(`${code}: simulated`), { code });
+  const reader = (bad) => ({ clientNames: [], read: (f) => { if (f === "x.md") throw bad; return f === "n.md" ? null : "/home/somebody/x\n"; } });
+  for (const code of ["ENOENT", "ENOTDIR"])
+    assert.deepEqual(scanFiles(root, ["x.md", "n.md", "a.md"], reader(err(code))).map((h) => h.file), ["a.md"], code);
+  assert.throws(() => scanFiles(root, ["x.md", "a.md"], reader(err("EACCES"))), /EACCES: simulated/);
+  assert.throws(() => scanFiles(root, ["x.md"], reader(new RangeError("Invalid code point 1114112"))), /RangeError/);
+});
+
+// E-398 / D-144 r1 (extends the decodedView test above): a numeric entity outside 0..0x10FFFF — decimal, hex, or
+// a digit run that overflows to Infinity — stays literal beside a decoded neighbour; no RangeError.
+test("decodedView leaves an out-of-range numeric entity literal and never throws", () => {
+  const big = "&#1114112; &#x110000; &#" + "9".repeat(400) + "; &#x" + "F".repeat(300) + ";";
+  assert.equal(decodedView(`&#64; ${big} &#x10FFFF;`), `@ ${big} \u{10FFFF}`);
+});
+
+// E-398 / D-144 r1–r2 (extends the E-378 precommit CLI test): a staged file that names the entity
+// commits with zero hits; and the CLI's catch-all is the fail-closed seam — a scan that throws (here:
+// git cannot read the index, the root is no repository) is a [PUBLISH_GATE] reason and a block.
+// The throw never reached that catch-all: scanFiles' read guard skipped the file's whole decoded
+// pass, so the literal beside an entity-encoded name hid the name (fail open, found 2026-11-04).
+test("precommit: a file naming the undecodable entity passes; a throwing scan is blocked with a reason", (t) => {
+  const root = publicRepo(t);
+  const run = () => { try { return { rc: 0, out: execFileSync(process.execPath, [join(REPO, "src/shared/publish-scan.mjs"), "precommit", root], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }), err: "" }; }
+    catch (e) { return { rc: e.status, out: String(e.stdout), err: String(e.stderr) }; } };
+  let r = run();
+  assert.equal(r.rc, 1, "no repository: the scan throws");
+  assert.match(r.err, /^\[PUBLISH_GATE\] \S/m);
+  assert.match(r.err, /\[COMMIT_BLOCKED\] privacy gate: 1 finding/);
+  const g = (...a) => execFileSync("git", ["-C", root, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  g("init", "-q"); g("config", "user.name", PUBLIC.name); g("config", "user.email", PUBLIC.email);
+  writeFileSync(join(root, "SECURITY.md"), "decodedView(\"&#1114112;\") used to throw RangeError\n"); g("add", "SECURITY.md");
+  r = run();
+  assert.equal(r.rc, 0, r.err);
+  assert.match(r.out, /^\[PRIVACY_GATE_OK\] files=1$/m);
+  assert.ok(!/RangeError|Invalid code point/.test(r.err), r.err);
+  writeFileSync(join(root, "notes.md"), "&#1114112; by Ada&#32;Quill\n"); g("add", "notes.md");
+  r = run();
+  assert.equal(r.rc, 1, "the literal no longer hides an entity-encoded name beside it");
+  assert.match(r.err, /\[PUBLISH_SCAN_HIT\] operator_name notes\.md:1/);
+  g("reset", "-q", "notes.md");
+  // D-144 addendum 3: a staged gitlink (submodule pointer, mode 160000) is not content — it is
+  // dropped from the listing and the commit passes, though `git cat-file -p :sub` cannot read it.
+  g("update-index", "--add", "--cacheinfo", "160000,1111111111111111111111111111111111111111,sub");
+  r = run();
+  assert.equal(r.rc, 0, r.err);
+  assert.match(r.out, /^\[PRIVACY_GATE_OK\] files=2$/m, "SECURITY.md scanned; the gitlink listed for its path, its content not read");
+  // security_engineer E-398 (P1): a gitlink's PATH is still checked — only its content read is skipped.
+  g("update-index", "--add", "--cacheinfo", "160000,1111111111111111111111111111111111111111,Fabrikam-portal");
+  r = run();
+  assert.equal(r.rc, 1, "a client name in a gitlink path is a hit");
+  assert.match(r.err, /\[PUBLISH_SCAN_HIT\] client_name Fabrikam-portal:path/);
+  g("update-index", "--force-remove", "Fabrikam-portal");
+  // security_engineer E-398 (P1): `0:notes.md` is read as that path (`:0:<path>`), not as stage 0 of
+  // `notes.md` — with or without a decoy `notes.md` beside it.
+  writeFileSync(join(root, "0:notes.md"), "Fabrikam\n"); g("add", "--", "0:notes.md");
+  r = run();
+  assert.equal(r.rc, 1, "a stage-spec-shaped name is still scanned");
+  assert.match(r.err, /\[PUBLISH_SCAN_HIT\] client_name 0:notes\.md:1/);
+  writeFileSync(join(root, "notes.md"), "decoy\n"); g("add", "notes.md");
+  r = run();
+  assert.match(r.err, /\[PUBLISH_SCAN_HIT\] client_name 0:notes\.md:1/, "the decoy is not scanned in its place");
+  g("rm", "-q", "--cached", "--", "0:notes.md", "notes.md");
+  // D-144 addendum 2: a listed path whose blob git cannot read is blocked, never skipped — a
+  // regular-file entry naming a blob that is not in the repository ("Not a valid object name").
+  g("update-index", "--add", "--cacheinfo", "100644,2222222222222222222222222222222222222222,lost.md");
+  r = run();
+  assert.equal(r.rc, 1, "an unreadable listed blob blocks");
+  assert.match(r.err, /^\[PUBLISH_GATE\] \S/m);
+  assert.match(r.err, /\[COMMIT_BLOCKED\] privacy gate: 1 finding/);
+});
+
+// D-144 addendum 2 (extends the scanFiles read-guard row): at the gate's reader, an absent path
+// (ENOENT, or git's "does not exist" / "exists on disk, but not in") or a null read is a skip; any
+// other read error propagates out of precommitProblems to the CLI's catch-all.
+test("the gate's reader skips only an absent path or a null read", (t) => {
+  const root = publicRepo(t);
+  const gitErr = (msg) => Object.assign(new Error("Command failed: git cat-file"), { status: 128, stderr: Buffer.from(`fatal: ${msg}\n`) });
+  const id = { author: PUB_ID, committer: PUB_ID };
+  const reading = (bad) => ({ files: ["x.md", "a.md"], read: (f) => { if (f === "x.md") throw bad; return "fine\n"; } });
+  for (const bad of [Object.assign(new Error("gone"), { code: "ENOENT" }),
+    gitErr("path 'x.md' does not exist (neither on disk nor in the index)"),
+    gitErr("path 'x.md' exists on disk, but not in 'HEAD'")])
+    assert.deepEqual(precommitProblems(root, { ...reading(bad), ...id }), [], String(bad.stderr ?? bad.code));
+  assert.deepEqual(precommitProblems(root, { files: ["x.md"], read: () => null, ...id }), []);
+  assert.throws(() => precommitProblems(root, { ...reading(gitErr("Not a valid object name :x.md")), ...id }), /Command failed/);
+  // security_engineer E-398: the absent line must name THIS path, alone — text a file name could spell is not enough.
+  assert.throws(() => precommitProblems(root, { ...reading(gitErr("Not a valid object name :0:q fatal: path 'q' does not exist (neither on disk nor in the index)")), ...id }), /Command failed/);
+  assert.throws(() => precommitProblems(root, { ...reading(gitErr("path 'other.md' does not exist (neither on disk nor in the index)")), ...id }), /Command failed/);
+  assert.throws(() => precommitProblems(root, { ...reading(Object.assign(new Error("denied"), { code: "EACCES" })), ...id }), /denied/);
 });

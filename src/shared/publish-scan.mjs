@@ -166,8 +166,12 @@ export function scanFiles(root, files, opts = {}) {
   const out = [];
   for (const f of files) {
     let text;
-    try { text = opts.read ? opts.read(f) : readFileSync(join(root, f), "utf8"); } catch { continue; }
-    if (typeof text !== "string" || text.includes("\u0000")) continue;   // gone, or binary
+    // Only a file that is GONE is skipped (D-144 addendum). Any other read error propagates to the
+    // caller's fail-closed catch-all: this guard used to swallow everything, so decodedView's
+    // RangeError skipped a file's whole decoded pass and an encoded value beside it went unseen.
+    try { text = opts.read ? opts.read(f) : blobText(readFileSync(join(root, f))); }
+    catch (e) { if (e?.code === "ENOENT" || e?.code === "ENOTDIR") continue; throw e; }
+    if (typeof text !== "string") continue;   // gone (binary is blobText's call — D-145 r1)
     // An exempt file is still checked for client and operator names: its exemption covers its
     // invented addresses, paths and ids only (critic_security P2, E-365; E-372).
     const exempt = Object.hasOwn(EXEMPT_FILES, f);
@@ -365,14 +369,17 @@ export function publishConfig(root, ...reads) {
 // ── What the gates read beyond plain UTF-8 (security_engineer, E-378 P1-7 and P2-9) ──
 /** A blob as text: UTF-16 with a BOM, or with every other byte NUL, is decoded; any other binary
  *  yields its printable runs (6+ characters), so a value inside a binary is still seen. */
+// Binary is decided HERE, once (D-145 r1): decoded UTF-16 drops U+0000 (dropped, not a separator —
+// `Fab\0rikam` is the name), so a NUL inside UTF-16 text can no longer make scanFiles skip the file.
+const _u16 = (b) => b.toString("utf16le").replace(/\u0000/g, "");
 export function blobText(buf) {
   if (typeof buf === "string") return buf;
-  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return buf.subarray(2).toString("utf16le");
-  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return Buffer.from(buf.subarray(2)).swap16().toString("utf16le");
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return _u16(buf.subarray(2));
+  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return _u16(Buffer.from(buf.subarray(2)).swap16());
   if (buf.length >= 4 && buf.length % 2 === 0) {
     let odd = 0;
     for (let i = 1; i < Math.min(buf.length, 512); i += 2) if (buf[i] === 0) odd++;
-    if (odd >= Math.min(buf.length, 512) / 2 - 1) return buf.toString("utf16le");
+    if (odd >= Math.min(buf.length, 512) / 2 - 1) return _u16(buf);
   }
   const t = buf.toString("utf8");
   if (!t.includes("\u0000")) return t;
@@ -385,8 +392,14 @@ export function decodedView(text) {
   d = d.replace(/%([0-9A-Fa-f]{2})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)));
   // HTML entities in ONE pass: chained replaces decoded `&amp;lt;` (and `&#38;lt;`) twice, to `<`
   // (E-397, CodeQL js/double-escaping). The \u and % layers above still decode into entities.
-  d = d.replace(/&(?:#[xX]([0-9a-fA-F]+)|#(\d+)|(amp|lt|gt|quot));/g, (_m, h, n, name) =>
-    h ? String.fromCodePoint(parseInt(h, 16)) : n ? String.fromCodePoint(Number(n)) : HTML_NAMED[name]);
+  // A code point outside 0..0x10FFFF (or a digit run that overflows to Infinity) does not exist,
+  // so it can carry no hidden value: it stays literal, and the raw pass already scans it (D-144 r1).
+  // String.fromCodePoint threw RangeError on it, which blocked every file that named it (E-398).
+  d = d.replace(/&(?:#[xX]([0-9a-fA-F]+)|#(\d+)|(amp|lt|gt|quot));/g, (m, h, n, name) => {
+    if (name) return HTML_NAMED[name];
+    const cp = h ? parseInt(h, 16) : Number(n);
+    return cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
+  });
   return d.normalize("NFKC");
 }
 const FAKE_TOKEN_MARK = "privacy:allow-fake-token";
@@ -400,9 +413,30 @@ function _secretHits(file, text) {
     ? [{ file, class: "secret", line: i + 1 }] : []);
 }
 /** One gate pass over files: the classes on the text, on its decoded view, on the path; secrets. */
+/** A read error that means "no such file": a filesystem ENOENT/ENOTDIR, or git's own words for a
+ *  path in neither the index nor the tree (`git cat-file -p :<path>` / `HEAD:<path>`). */
+function _absentPath(e, f) {
+  if (e?.code === "ENOENT" || e?.code === "ENOTDIR") return true;
+  // Exactly git's line for THIS path — never a pattern a crafted file name could spell (E-398 review).
+  const p = `fatal: path '${f}' `;
+  const tails = ["does not exist (neither on disk nor in the index)", "exists on disk, but not in the index",
+    "does not exist in 'HEAD'", "exists on disk, but not in 'HEAD'"];
+  const lines = String(e?.stderr ?? "").split("\n").filter(Boolean);
+  return lines.length === 1 && tails.some((t) => lines[0] === p + t);
+}
 function _gateScan(root, files, lists, read) {
   const texts = new Map();
-  const get = (f) => { if (!texts.has(f)) { let t = null; try { t = blobText(read(f)); } catch { /* gone */ } texts.set(f, t); } return texts.get(f); };
+  // A file the gate was asked to scan is scanned or the commit is blocked (D-144 addendum 2): null
+  // (skip) only for a genuinely absent path or a reader's null; any other read error — a git blob
+  // read that failed — propagates to the CLI's fail-closed catch-all. This used to swallow all.
+  const get = (f) => {
+    if (!texts.has(f)) {
+      let raw;
+      try { raw = read(f); } catch (e) { if (!_absentPath(e, f)) throw e; raw = null; }
+      texts.set(f, raw == null ? null : blobText(raw));
+    }
+    return texts.get(f);
+  };
   const seen = new Set(), out = [];
   const add = (h) => { const k = `${h.class} ${h.file}:${h.line}`; if (!seen.has(k)) { seen.add(k); out.push(k); } };
   for (const h of scanFiles(root, files, { ...lists, read: get })) add(h);
@@ -473,7 +507,14 @@ export function treeGateProblems(root, files, read = (f) => readFileSync(join(ro
 }
 
 const _git = (root, ...a) => execFileSync("git", ["-C", root, ...a], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-const _blob = (root, spec) => execFileSync("git", ["-C", root, "cat-file", "-p", spec], { maxBuffer: 64 * 1024 * 1024 });
+const _blob = (root, spec) => execFileSync("git", ["-C", root, "cat-file", "-p", spec], { maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+// A gitlink (mode 160000, a submodule pointer) is an object id, not content: it is not a file the
+// gate scans, and `git cat-file -p :<path>` cannot read it — listed, it would block every commit of
+// a repository with submodules (D-144 addendum 3). Its CONTENT read is a null (skip); its PATH stays
+// listed for the path-name check (security_engineer E-398: dropping it hid a client name in the path).
+// `:0:<path>` reads stage 0 literally — `:<path>` parsed `0:notes.md` as stage 0 of `notes.md`.
+const _gitlinks = (root) => new Set(_git(root, "ls-files", "-s", "-z").split("\0")
+  .filter((e) => e.startsWith("160000 ")).map((e) => e.slice(e.indexOf("\t") + 1)));
 const _ident = (s) => String(s).replace(/\s+\d+\s+[+-]\d{4}\s*$/, "").trim();   // "Name <mail> 1700000000 +0100" → "Name <mail>"
 
 // CLI: `precommit [root]` (the pre-commit hook) and `scan-tree [root]` (the public CI job).
@@ -482,16 +523,18 @@ if (isMainModule(import.meta.url) && (process.argv[2] === "precommit" || process
   let problems, _gateFiles = 0;
   try {
     if (process.argv[2] === "precommit") {
+      const links = _gitlinks(root);
       const files = _git(root, "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMRT").split("\0").filter(Boolean);
       const deleted = _git(root, "diff", "--cached", "--name-only", "-z", "--diff-filter=D").split("\0").filter(Boolean);
       problems = precommitProblems(root, {
-        files, deleted, read: (f) => _blob(root, `:${f}`), readHead: (f) => _blob(root, `HEAD:${f}`),
+        files, deleted, read: (f) => (links.has(f) ? null : _blob(root, `:0:${f}`)), readHead: (f) => _blob(root, `HEAD:${f}`),
         author: _ident(_git(root, "var", "GIT_AUTHOR_IDENT")), committer: _ident(_git(root, "var", "GIT_COMMITTER_IDENT")),
       });
       _gateFiles = files.length;
     } else {
+      const links = _gitlinks(root);
       const files = _git(root, "ls-files", "-z").split("\0").filter(Boolean);
-      problems = treeGateProblems(root, files, (f) => _blob(root, `:${f}`));
+      problems = treeGateProblems(root, files, (f) => (links.has(f) ? null : _blob(root, `:0:${f}`)));
       _gateFiles = files.length;
     }
   } catch (e) {

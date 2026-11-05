@@ -35,6 +35,7 @@ import { codeStrings } from "./code-strings.mjs";
 import { gitRedirectHits } from "./git-redirect.mjs";
 import { ARCHITECT, ENGINEER, mintToken, verifyToken, ROLE_UNVERIFIED_LINE } from "./role-token.mjs";
 import { claimGateFor, claimReport } from "./claim-gate.mjs";
+import { foldVerbs } from "./verb-fold.mjs";
 import { createLogger } from "../shared/logger.js";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, realpathSync, lstatSync } from "node:fs";
@@ -500,7 +501,9 @@ export function runAnalysis(original, callerRole, { override = false } = {}) {
   // The body of a quoted heredoc whose consumer is a plain file sink is TEXT for the
   // HEREDOC_EXEMPT_RULES (heredoc.mjs decides what counts as inert). The report still quotes
   // the command as given.
-  const full = String(original);
+  // D-145 r2: a gate verb matches without regard to case — every rule reads the verb-folded text;
+  // the report still quotes the command as given.
+  const full = foldVerbs(String(original));
   const tooLarge = _tooLarge(full);
   if (tooLarge) {
     const blocked = [{ id: "INPUT_TOO_LARGE", message: tooLarge }];

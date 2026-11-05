@@ -1110,6 +1110,31 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - r2: a tracked media file may chance-match once the tree scan reads binaries; the ruling says what happens then.
 ---
+## Handoff — 2026-11-05 13:07 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 pass-3 residuals — D-145 addendum 2, E-413
+
+### What was built
+- D-145 addendum 2 appended to .ai/DECISIONS.md (five rulings). E-413 registered (Tier 2).
+- Noted: full-tree scan 0 hits over 632 files, both ways — the addendum r2 condition is met; E-403 keeps its place.
+
+### Decisions made
+- r1 (E-413): a NUL-bearing blob is scanned as two views of one decode — NUL as a line break and NUL removed — for the UTF-8 and both UTF-16 branches; the printable-runs-of-six filter is deleted. This replaces D-145 r1's "dropped, not a separator". One hit per class per file.
+- r2 (E-413): an odd-length buffer behind a byte-order mark decodes its even prefix, never throws.
+- r3: both are E-413, not E-398 — after E-398, before E-403, security_engineer re-read, full-tree scan re-run, no path exemption.
+- r4 (E-398, now): the split-string short option of env glued to an upper-case verb is fixed inside E-398 — it is a defect against D-145 r2, P1 on a case-insensitive filesystem. Property: wherever a rule can find a verb, the fold has already run. Proof: a generated case-variant differential — every BLOCK row with each verb upper-cased in place yields the same findings. No table re-pinned.
+- r5: the second fold cut (in-place, length-invariant) is accepted in principle, subject to pass 4 and r4's differential.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- E-398: add r4's fix and the differential, finish pass 4, DONE via rein-task.
+- Then the OPEN queue: E-411 on the operator's go, E-413, E-409 re-cut (D-143), E-412.
+
+### Open risks
+- E-413 raises chance matches on unknown binaries; bounded by the re-run tree scan and E-403.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

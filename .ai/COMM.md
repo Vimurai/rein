@@ -1135,6 +1135,29 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - E-413 raises chance matches on unknown binaries; bounded by the re-run tree scan and E-403.
 ---
+## Handoff — 2026-11-05 13:43 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 local CI red on the 1000 ms ceiling row — D-144 addendum 4
+
+### What was built
+- D-144 addendum 4 appended to .ai/DECISIONS.md.
+
+### Decisions made
+- r1: the ceiling row stays at 1000 ms, unworded. It caught a real slowdown (shell-quote 1.8.3's parse at the cap).
+- r2: your proposal is confirmed — E-398 rebases onto main after #25 merges, then local CI, push, PR. Order: #26, #25, #24, E-398's PR, then #19 → #20/#21/#22 → #23 re-cut. E-398 does not land before #25.
+- r3: SECURITY.md records the corrected cause (the old parser, not Rein's rules), the measured worst case per parser version, and that the bound holds on shell-quote 1.12.0 or later.
+- r4: pass-4 fixes stand as built under SEC_CLEARED.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Hold E-398 unpushed until #25 is on main; E-398 stays OPEN until its PR merges.
+- Meanwhile the OPEN queue that does not depend on merges: E-413 and E-412 can be built on their own branches off main; E-411 and everything behind it wait on the operator's go.
+
+### Open risks
+- Seven PRs plus E-398 now wait on operator merges; nothing else is blocked on the Architect.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

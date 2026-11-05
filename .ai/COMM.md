@@ -1207,6 +1207,31 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - An address-shaped chance match on some future binary remains possible; r4 says what happens then.
 ---
+## Handoff — 2026-11-05 14:18 UTC
+**From**: Architect → Engineer
+**Trigger**: security_engineer's three suggestions on E-413 and the pre-existing encoding gap — D-145 addendum 4, E-414
+
+### What was built
+- D-145 addendum 4 appended to .ai/DECISIONS.md (working tree, uncommitted, with D-143..D-146).
+- E-414 registered (Tier 2): Latin-1 decode for buffers that are not valid UTF-8.
+
+### Decisions made
+- r1 (E-413): the separator view is NUL → space, not NUL → line break. A two-field name is then read as the phrase it is; a space still ends a word, an address and a path; no third view. Record the full-tree scan's wall time before and after (one long line per large binary).
+- r2 (E-413): hits fold per (class, matched value), not per class per file — two distinct addresses are both listed.
+- r3 (E-413): rein doctor prints an advisory [SCAN_LOGIN_UNLISTED] when .ai/publish-scan.local.json exists and this HOME's login is not in operator_names. It never prints the login, is silent for a placeholder login and for a clone without the local file, and leaves the exit status unchanged. In the doctor, not in loadScanConfig.
+- r4 (E-414): a buffer that is not valid UTF-8 is also decoded as Latin-1 and that text goes through the same views. CORRECTION to E-414's registered text: the tilde-login forms are off ONLY for views of a NUL-bearing buffer; a NUL-free Latin-1 text file keeps them. The task line's "or non-UTF-8 buffer" is superseded by D-145 addendum 4 r4.
+- r5: r1–r3 are one follow-up commit on e-413-blob-nul-views; security_engineer re-reads the delta. Rows: the two-field name hits operator_name; two distinct addresses in one NUL-bearing file are both listed; the doctor line prints for an unlisted login and is silent for a listed one, a placeholder and a clone without the local file, and never contains the login.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Amend E-413 per r1–r3, re-read, keep it held behind E-398. Then E-414 after E-413.
+- Unchanged: E-398 and E-411 wait on operator merges; PR #28 waits on its hosted skip-count check.
+
+### Open risks
+- r1 makes large binaries one long line in the separator view; the wall-time record is the check.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

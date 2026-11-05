@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync as _read, rmSync, syml
 import { tmpdir } from "node:os";
 import { dirname as _dirname, join, resolve as _resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ALLOWABLE_FILES, CLASSES, EXEMPT_FILES, checkAllow, decodedView, doctorLine, exportFiles, identityProblem, isExported, loadScanConfig, precommitProblems, scanFiles, scanText, treeGateProblems, treeProblems } from "../../src/shared/publish-scan.mjs";
+import { ALLOWABLE_FILES, CLASSES, EXEMPT_FILES, checkAllow, decodedView, doctorLine, exportFiles, identityProblem, isExported, loadScanConfig, loginAdvisory, precommitProblems, scanFiles, scanText, treeGateProblems, treeProblems } from "../../src/shared/publish-scan.mjs";
 
 const classes = (text, opts) => scanText(text, opts).map((h) => h.class);
 
@@ -83,7 +83,7 @@ test("a UTF-16LE file with a NUL is scanned, the NUL dropped", (t) => {
   const read = (m) => ({ files: Object.keys(m), read: (f) => m[f], author: PUB_ID, committer: PUB_ID });
   assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Quill\u0000\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:1"]);
   // E-413: the line of a NUL file's hit is where it first matches in its joined views.
-  assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Qu\u0000ill\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:4"], "joined in the NUL-removed view");
+  assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Qu\u0000ill\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:3"], "joined in the NUL-removed view");
 });
 
 test("E-365: without .ai/publish-scan.local.json a tree scan FAILS CLOSED; with it the names are checked", () => {
@@ -383,8 +383,8 @@ test("E-378 P1-7/P2-9: paths, UTF-16, binaries' printable runs and encoded value
   const files = { "docs/Fabrikam-notes.md": "clean", "a.txt": utf16, "b.bin": bin,
     "c.json": '{"by": "Ada\\u0020Quill"}', "d.html": "Ada&#32;Quill", "e.txt": "x%2Fho" + "me%2Fcarol%2Fy" };
   const p = precommitProblems(root, { ...staged(files), author: PUB_ID, committer: PUB_ID }).sort();
-  // E-413 changed b.bin's line: its hit is reported at its first match in the two views (1 → 3).
-  assert.deepEqual(p, ["[PUBLISH_SCAN_HIT] client_name b.bin:3", "[PUBLISH_SCAN_HIT] client_name docs/Fabrikam-notes.md:path",
+  // E-413 / D-145 addendum 4: the separator view is NUL → space, so b.bin's hit stays on line 1.
+  assert.deepEqual(p, ["[PUBLISH_SCAN_HIT] client_name b.bin:1", "[PUBLISH_SCAN_HIT] client_name docs/Fabrikam-notes.md:path",
     "[PUBLISH_SCAN_HIT] home_path e.txt:1", "[PUBLISH_SCAN_HIT] operator_name a.txt:1", "[PUBLISH_SCAN_HIT] operator_name c.json:1",
     "[PUBLISH_SCAN_HIT] operator_name d.html:1"]);
 });
@@ -647,4 +647,40 @@ test("E-413 / D-145 addendum 3: in a NUL blob's views the tilde shapes are off, 
   assert.deepEqual(scan("g.wasm", u8("\u0000 ~Jo Müller/x\u0000")).map((x) => x.replace(/:\d+$/, "")),
     ["[PUBLISH_SCAN_HIT] operator_name g.wasm"], "an operator name after a tilde still hits");
   assert.deepEqual(scan("n.md", u8("cd ~carol/src\n")), ["[PUBLISH_SCAN_HIT] home_path n.md:1"], "NUL-free text keeps the tilde-login rule");
+});
+
+// D-145 addendum 4 r1–r3 (extends the E-413 rows above): the separator view is NUL → space, so two
+// NUL-separated fields read as the phrase they are; hits fold per (class, value), so two distinct
+// addresses are both listed; rein doctor's login advisory never prints the login.
+test("D-145 addendum 4: a two-field name hits; two distinct addresses are both listed", (t) => {
+  const root = publicRepo(t);
+  const run = (bytes) => precommitProblems(root, { files: ["b.bin"], read: () => bytes, author: PUB_ID, committer: PUB_ID });
+  assert.deepEqual(run(Buffer.from("x\u0000Ada\u0000Quill\u0000y", "utf8")).map((x) => x.replace(/:\d+$/, "")), ["[PUBLISH_SCAN_HIT] operator_name b.bin"]);
+  const two = run(Buffer.from("\u0000jo.rand@zentrocorp.io\u0000li.kas@nordwerk.de\u0000", "utf8"));
+  assert.equal(two.filter((x) => x.includes("personal_email")).length, 2, JSON.stringify(two));
+});
+test("D-145 addendum 4 r3: the login advisory prints only for an unlisted real login, and never the login", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-login-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const ai = join(root, ".ai");
+  mkdirSync(ai);
+  assert.equal(loginAdvisory(ai, "/home/qzlogin"), "", "no local list (a clone) → silent");
+  writeFileSync(join(ai, "publish-scan.local.json"), JSON.stringify({ client_names: ["Fabrikam"], operator_names: ["Ada Quill"] }));
+  const line = loginAdvisory(ai, "/home/qzlogin");
+  assert.match(line, /^\[SCAN_LOGIN_UNLISTED\] /);
+  assert.ok(!line.toLowerCase().includes("qzlogin"), "never prints the login");
+  assert.equal(loginAdvisory(ai, "/home/runner"), "", "a placeholder login → silent");
+  writeFileSync(join(ai, "publish-scan.local.json"), JSON.stringify({ client_names: ["Fabrikam"], operator_names: ["Ada Quill", "QZLogin"] }));
+  assert.equal(loginAdvisory(ai, "/home/qzlogin"), "", "a listed login (any case) → silent");
+});
+
+// security_engineer on the E-413 delta (extends the E-378 P1-5 sixth-class row): in a NUL-bearing
+// blob the fake-token mark is not honoured — NUL → space put a distant mark on the token's "line".
+test("a NUL-bearing blob: a real token is a secret even with the fake-token mark nearby", (t) => {
+  const root = publicRepo(t, { operatorList: false });
+  const tok = "gh" + "p_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+  const read = (s) => ({ files: ["u.bin"], read: () => Buffer.from(s, "utf8"), author: PUB_ID, committer: PUB_ID });
+  const mark = "privacy:allow" + "-fake-token";
+  assert.ok(precommitProblems(root, read(mark + "\u0000" + "x\u0000".repeat(50) + tok + "\u0000")).some((p) => p.includes("secret u.bin")));
+  assert.ok(precommitProblems(root, read(mark + " " + tok + "\u0000")).some((p) => p.includes("secret u.bin")), "even on the same line");
 });

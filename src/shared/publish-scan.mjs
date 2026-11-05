@@ -17,7 +17,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 import { containsCredentialToken, containsSecret } from "../mcp/safe-exec-mcp/secret-rule.mjs";
 
@@ -180,10 +180,17 @@ export function scanFiles(root, files, opts = {}) {
     // An exempt file is still checked for client and operator names: its exemption covers its
     // invented addresses, paths and ids only (critic_security P2, E-365; E-372).
     const exempt = Object.hasOwn(EXEMPT_FILES, f);
-    const once = nul ? new Set() : null;   // a NUL-bearing blob: one hit per class (its two views)
+    const once = nul ? new Map() : null;   // a NUL-bearing blob: one hit per (class, value) across its two views
     for (const hit of scanText(text, nul ? { ...opts, nulViews: true } : opts)) {
       if (allowed(f, hit)) continue;
-      if (once) { if (once.has(hit.class)) continue; once.add(hit.class); }
+      if (once) {
+        // Per (class, value) — and a value the NUL-removed view glued to a neighbour
+        // (two addresses run together) folds into the value it contains: listing only, never blocking.
+        const v = String(hit.match ?? "").toLowerCase();
+        const seen = once.get(hit.class) || [];
+        if (seen.some((s) => s.includes(v) || v.includes(s))) continue;
+        once.set(hit.class, [...seen, v]);
+      }
       if (!exempt || hit.class === "client_name" || hit.class === "operator_name") out.push({ file: f, ...hit });
     }
   }
@@ -241,6 +248,18 @@ export function identityProblem({ author, committer }, identity) {
 }
 
 /** The `rein doctor` line: [PUBLISH_SCAN_OK] classes=5 lists=client:N,operator:N, or the missing line. */
+/** D-145 addendum 4 r3: advisory when the operator's list exists but this HOME's login is not in
+ *  operator_names — in a NUL-bearing view the tilde shapes are off, so `~login` is then caught only
+ *  as a listed name. Never prints the login; silent for a placeholder login and without the list. */
+export function loginAdvisory(aiDir, home = process.env.HOME || "") {
+  if (!existsSync(join(aiDir, "publish-scan.local.json"))) return "";
+  const login = basename(String(home).replace(/\/+$/, "")).toLowerCase();
+  if (!login || PLACEHOLDER_USERS.has(login)) return "";
+  let names;
+  try { names = loadScanConfig(aiDir).operatorNames.map((n) => String(n).toLowerCase()); } catch { return ""; }
+  return names.includes(login) ? ""
+    : "[SCAN_LOGIN_UNLISTED] this HOME's login is not in operator_names (.ai/publish-scan.local.json) — add it so a ~login path is caught in every view";
+}
 export function doctorLine(aiDir) {
   try {
     const c = loadScanConfig(aiDir);
@@ -377,9 +396,9 @@ export function publishConfig(root, ...reads) {
 /** A blob as text: UTF-16 with a BOM, or with every other byte NUL, is decoded; any other binary
  *  yields its printable runs (6+ characters), so a value inside a binary is still seen. */
 // Binary is decided HERE, once, on the bytes (D-145 r1). A decode that carries U+0000 — UTF-8 or
-// either UTF-16 — is scanned as TWO views of the same text (D-145 addendum 2, E-413): U+0000 as a line
-// break, so a NUL-terminated string stays whole and separate, and U+0000 removed, so a value split by
-// a NUL joins. The old printable-ASCII-runs-of-six view dropped every short name and every non-ASCII
+// either UTF-16 — is scanned as TWO views of the same text (D-145 addenda 2 and 4, E-413): U+0000 as a
+// space, so a NUL-terminated string stays whole and separate and two NUL-separated fields read as
+// the phrase they are (`\0Ada\0Quill\0`), and U+0000 removed, so a value split by a NUL joins. The old printable-ASCII-runs-of-six view dropped every short name and every non-ASCII
 // letter. An odd-length buffer behind a byte-order mark decodes its even prefix and never throws.
 const _even = (b) => (b.length % 2 ? b.subarray(0, b.length - 1) : b);
 function _decode(buf) {
@@ -395,7 +414,7 @@ function _decode(buf) {
 /** The views the gate scans: one for text, two for a decode carrying U+0000 (see above). */
 export function blobViews(buf) {
   const t = typeof buf === "string" ? buf : _decode(buf);
-  return t.includes("\u0000") ? [t.replace(/\u0000/g, "\n"), t.replace(/\u0000/g, "")] : [t];
+  return t.includes("\u0000") ? [t.replace(/\u0000/g, " "), t.replace(/\u0000/g, "")] : [t];
 }
 /** The scanned text: the views, one after the other (a NUL-bearing blob's hits are folded per class). */
 export function blobText(buf) { return blobViews(buf).join("\n"); }
@@ -420,10 +439,13 @@ const FAKE_TOKEN_MARK = "privacy:allow-fake-token";
 /** The gates' sixth class: a vendor-format token or a private key (secret-rule.mjs, high precision).
  *  tests/fixtures/ carries fake tokens by design; elsewhere a fake is marked on its line or within the
  *  three above (a bash statement's continuation lines and a heredoc's opening line cannot carry it). */
-function _secretHits(file, text) {
+// In a NUL-bearing blob the fake-token mark is not honoured (security_engineer E-413 delta): its
+// separator view turns NULs into spaces, so a mark anywhere in a NUL-separated stretch shared a
+// "line" with a real token and excused it. A fake token outside tests/fixtures/ in a binary blocks.
+function _secretHits(file, text, { nul = false } = {}) {
   if (file.startsWith("tests/fixtures/")) return [];
   const lines = text.split("\n");
-  return lines.flatMap((l, i) => (containsCredentialToken(l) && !lines.slice(Math.max(0, i - 3), i + 1).some((x) => x.includes(FAKE_TOKEN_MARK)))
+  return lines.flatMap((l, i) => (containsCredentialToken(l) && (nul || !lines.slice(Math.max(0, i - 3), i + 1).some((x) => x.includes(FAKE_TOKEN_MARK))))
     ? [{ file, class: "secret", line: i + 1 }] : []);
 }
 /** One gate pass over files: the classes on the text, on its decoded view, on the path; secrets. */
@@ -443,7 +465,7 @@ function _gateScan(root, files, lists, read) {
   // A file the gate was asked to scan is scanned or the commit is blocked (D-144 addendum 2): null
   // (skip) only for a genuinely absent path or a reader's null; any other read error — a git blob
   // read that failed — propagates to the CLI's fail-closed catch-all. This used to swallow all.
-  const twoViews = new Set();   // files whose blob carried U+0000: their hits fold to one per class
+  const twoViews = new Set();   // files whose blob carried U+0000: their hits fold per (class, value)
   const get = (f) => {
     if (!texts.has(f)) {
       let raw;
@@ -456,7 +478,8 @@ function _gateScan(root, files, lists, read) {
   };
   const seen = new Set(), out = [];
   const add = (h) => {
-    const k = twoViews.has(h.file) && h.line !== "path" ? `${h.class} ${h.file}` : `${h.class} ${h.file}:${h.line}`;
+    const k = twoViews.has(h.file) && h.line !== "path"
+      ? `${h.class} ${h.file} ${String(h.match ?? "").toLowerCase()}` : `${h.class} ${h.file}:${h.line}`;
     if (!seen.has(k)) { seen.add(k); out.push(`${h.class} ${h.file}:${h.line}`); }
   };
   for (const h of scanFiles(root, files, { ...lists, read: get, nulViewFiles: twoViews })) add(h);
@@ -464,7 +487,7 @@ function _gateScan(root, files, lists, read) {
   for (const f of files) {
     for (const h of scanText(f, lists)) add({ file: f, class: h.class, line: "path" });
     const t = get(f);
-    if (t != null) for (const h of _secretHits(f, t)) add(h);
+    if (t != null) for (const h of _secretHits(f, t, { nul: twoViews.has(f) })) add(h);
   }
   return out.map((k) => `[PUBLISH_SCAN_HIT] ${k}`);
 }
@@ -569,7 +592,10 @@ if (isMainModule(import.meta.url) && (process.argv[2] === "precommit" || process
   console.log(`[PRIVACY_GATE_OK] files=${_gateFiles}`);
 }
 if (isMainModule(import.meta.url) && process.argv[2] === "doctor") {
-  console.log(doctorLine(join(process.argv[3] || process.cwd(), ".ai")));
+  const _ai = join(process.argv[3] || process.cwd(), ".ai");
+  console.log(doctorLine(_ai));
+  const _adv = loginAdvisory(_ai);
+  if (_adv) console.log(_adv);
 }
 // An unknown subcommand is an error, never a silent success (security_engineer E-378 P0-3).
 if (isMainModule(import.meta.url) && !["redact", "privacy", "doctor", "precommit", "scan-tree"].includes(process.argv[2])) {

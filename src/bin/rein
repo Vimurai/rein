@@ -3929,11 +3929,14 @@ doctor() {
       if [[ -z "$_h" ]]; then echo "  ✗ publish-scan.mjs not found — run: rein install"
       else
         echo "  $(node "${_CI_NODE_FLAGS[@]}" "$_h" privacy 2>&1 | head -1)"
-        _scan="$(node "${_CI_NODE_FLAGS[@]}" "$_h" doctor "$PWD" 2>&1 | head -1)"
+        _scan_out="$(node "${_CI_NODE_FLAGS[@]}" "$_h" doctor "$PWD" 2>&1)"
+        _scan="${_scan_out%%$'\n'*}"
         case "$_scan" in
           "[PUBLISH_SCAN_OK]"*) echo "  ✓ ${_scan}" ;;
           *) echo "  ⚠ ${_scan} — warning: only the structural classes (address, home path, session, secret) are redacted; list names in .ai/publish-scan.local.json" ;;
         esac
+        # D-145 addendum 4 r3: advisory only — the exit status is unchanged.
+        case "$_scan_out" in *$'\n''[SCAN_LOGIN_UNLISTED]'*) echo "  ⚠ $(printf '%s\n' "$_scan_out" | grep -m1 '^\[SCAN_LOGIN_UNLISTED\]')" ;; esac
       fi
       echo ""
     fi

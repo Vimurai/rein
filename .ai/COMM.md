@@ -1232,6 +1232,29 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - r1 makes large binaries one long line in the separator view; the wall-time record is the check.
 ---
+## Handoff — 2026-11-05 15:04 UTC
+**From**: Architect → Engineer
+**Trigger**: E-413 amendment accepted; sequencing — D-145 addendum 5
+
+### What was built
+- D-145 addendum 5 appended to .ai/DECISIONS.md (working tree, uncommitted, with D-143..D-146).
+
+### Decisions made
+- r1: E-413's amendment accepted as built — NUL to space, fold per (class, value) with your containment fold, the doctor advisory.
+- r2: confirmed — the fake-token mark is not honoured in a NUL-bearing blob. The mark is about a line of text; such a blob has no lines.
+- r3: the constructed split-and-glued name is an accepted residual, recorded in SECURITY.md. The doctor's pre-existing error lines print the project-relative .ai path instead of the absolute one (it carries the login) — one line and one row, folded into E-414.
+- r4: E-414 next, stacked on E-413. Then the E-401 additions (rein_sync header 510 s, the sweep, the advisory line) as commits on e-401-budgets — they wait on no merge. The held stack stops at three tasks: do NOT stack E-403 on E-414 while E-398 is unpushed.
+- r5: PR #28's skip count equals #26's — D-146 r2 is met; it merges on the operator's go, independent of the other order.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- E-414 (with r3's doctor path line), then the E-401 additions on e-401-budgets. After that, stop and hand back if merges are still pending.
+
+### Open risks
+- Three tasks are held unpushed behind PR #25's merge; the cap in r4 keeps it at three.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

@@ -167,20 +167,23 @@ export function scanFiles(root, files, opts = {}) {
   const allowed = (f, hit) => (hit.class === "operator_name" || hit.class === "personal_email") && !!allow.get(hit.match.toLowerCase())?.has(f);
   const out = [];
   for (const f of files) {
-    let text, nul = false;
+    let text, nul = false, multi = false, starts = null;
     // Only a file that is GONE is skipped (D-144 addendum). Any other read error propagates to the
     // caller's fail-closed catch-all: this guard used to swallow everything, so decodedView's
     // RangeError skipped a file's whole decoded pass and an encoded value beside it went unseen.
     try {
-      if (opts.read) { text = opts.read(f); nul = !!opts.nulViewFiles?.has(f); }
-      else { const v = blobViews(readFileSync(join(root, f))); text = v.join("\n"); nul = v.length > 1; }
+      if (opts.read) { text = opts.read(f); nul = !!opts.nulViewFiles?.has(f); multi = !!opts.multiViewFiles?.has(f); starts = opts.viewStarts?.get(f) ?? null; }
+      else {
+        const b = blobScan(readFileSync(join(root, f)));
+        text = b.views.join("\n"); nul = b.nul; multi = b.views.length > 1; starts = multi ? viewStarts(b.views) : null;
+      }
     }
     catch (e) { if (e?.code === "ENOENT" || e?.code === "ENOTDIR") continue; throw e; }
     if (typeof text !== "string") continue;   // gone (binary is blobText's call — D-145 r1)
     // An exempt file is still checked for client and operator names: its exemption covers its
     // invented addresses, paths and ids only (critic_security P2, E-365; E-372).
     const exempt = Object.hasOwn(EXEMPT_FILES, f);
-    const once = nul ? new Map() : null;   // a NUL-bearing blob: one hit per (class, value) across its two views
+    const once = multi ? new Map() : null;   // a blob scanned as several views: one hit per (class, value) across them
     for (const hit of scanText(text, nul ? { ...opts, nulViews: true } : opts)) {
       if (allowed(f, hit)) continue;
       if (once) {
@@ -191,7 +194,7 @@ export function scanFiles(root, files, opts = {}) {
         if (seen.some((s) => s.includes(v) || v.includes(s))) continue;
         once.set(hit.class, [...seen, v]);
       }
-      if (!exempt || hit.class === "client_name" || hit.class === "operator_name") out.push({ file: f, ...hit });
+      if (!exempt || hit.class === "client_name" || hit.class === "operator_name") out.push({ file: f, ...hit, line: _inView(starts, hit.line) });
     }
   }
   return out;
@@ -265,7 +268,8 @@ export function doctorLine(aiDir) {
     const c = loadScanConfig(aiDir);
     return `[PUBLISH_SCAN_OK] classes=${CLASSES.length} lists=client:${c.clientNames.length},operator:${c.operatorNames.length}`;
   } catch (e) {
-    return String(e.message).replace(/ — .*/, "");
+    // E-414 / D-145 addendum 5: name the project-relative .ai path — the absolute one carries the login.
+    return String(e.message).replace(/ — .*/, "").split(aiDir).join(".ai");
   }
 }
 
@@ -401,21 +405,52 @@ export function publishConfig(root, ...reads) {
 // the phrase they are (`\0Ada\0Quill\0`), and U+0000 removed, so a value split by a NUL joins. The old printable-ASCII-runs-of-six view dropped every short name and every non-ASCII
 // letter. An odd-length buffer behind a byte-order mark decodes its even prefix and never throws.
 const _even = (b) => (b.length % 2 ? b.subarray(0, b.length - 1) : b);
-function _decode(buf) {
-  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return _even(buf.subarray(2)).toString("utf16le");
-  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return Buffer.from(_even(buf.subarray(2))).swap16().toString("utf16le");
+function _decode(buf) {   // → { text, utf16 }
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return { text: _even(buf.subarray(2)).toString("utf16le"), utf16: true };
+  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return { text: Buffer.from(_even(buf.subarray(2))).swap16().toString("utf16le"), utf16: true };
   if (buf.length >= 4 && buf.length % 2 === 0) {
     let odd = 0;
     for (let i = 1; i < Math.min(buf.length, 512); i += 2) if (buf[i] === 0) odd++;
-    if (odd >= Math.min(buf.length, 512) / 2 - 1) return buf.toString("utf16le");
+    if (odd >= Math.min(buf.length, 512) / 2 - 1) return { text: buf.toString("utf16le"), utf16: true };
   }
-  return buf.toString("utf8");
+  return { text: buf.toString("utf8"), utf16: false };
 }
-/** The views the gate scans: one for text, two for a decode carrying U+0000 (see above). */
-export function blobViews(buf) {
-  const t = typeof buf === "string" ? buf : _decode(buf);
-  return t.includes("\u0000") ? [t.replace(/\u0000/g, " "), t.replace(/\u0000/g, "")] : [t];
+const _UTF8_STRICT = new TextDecoder("utf-8", { fatal: true });
+const _CP1252 = new TextDecoder("windows-1252");
+const _nulViews = (t) => (t.includes("\u0000") ? [t.replace(/\u0000/g, " "), t.replace(/\u0000/g, "")] : [t]);
+/**
+ * What the gate scans of a blob: its views and whether a NUL was involved. A decode carrying U+0000
+ * gives the two NUL views (E-413). A buffer that is not valid UTF-8 (and was not taken as UTF-16)
+ * also gives its Windows-1252 decode through the same views (D-145 addendum 4 r4, E-414): Latin-1
+ * text, a Latin-1 name inside UTF-8, a UTF-16 run inside a binary. `nul` alone turns the tilde-login
+ * forms off — a NUL-free Latin-1 text file keeps them.
+ */
+export function blobScan(buf) {
+  if (typeof buf === "string") return { views: _nulViews(buf), nul: buf.includes("\u0000") };
+  const { text: t, utf16 } = _decode(buf);
+  let views = _nulViews(t), nul = t.includes("\u0000");
+  if (!utf16) {
+    let valid = true;
+    try { _UTF8_STRICT.decode(buf); } catch { valid = false; }
+    if (!valid) { const l = _CP1252.decode(buf); views = [...views, ..._nulViews(l)]; nul = nul || l.includes("\u0000"); }
+  }
+  return { views, nul };
 }
+/** The 1-based first line of each view in `views.join("\n")`; a hit's line maps back into its view. */
+export function viewStarts(views) {
+  const starts = [];
+  let line = 1;
+  for (const v of views) { starts.push(line); line += v.split("\n").length; }
+  return starts;
+}
+const _inView = (starts, line) => {
+  if (!starts || typeof line !== "number") return line;
+  let s = 1;
+  for (const st of starts) if (st <= line) s = st;
+  return line - s + 1;
+};
+/** The views the gate scans (see blobScan). */
+export function blobViews(buf) { return blobScan(buf).views; }
 /** The scanned text: the views, one after the other (a NUL-bearing blob's hits are folded per class). */
 export function blobText(buf) { return blobViews(buf).join("\n"); }
 const HTML_NAMED = { amp: "&", lt: "<", gt: ">", quot: '"' };
@@ -465,29 +500,36 @@ function _gateScan(root, files, lists, read) {
   // A file the gate was asked to scan is scanned or the commit is blocked (D-144 addendum 2): null
   // (skip) only for a genuinely absent path or a reader's null; any other read error — a git blob
   // read that failed — propagates to the CLI's fail-closed catch-all. This used to swallow all.
-  const twoViews = new Set();   // files whose blob carried U+0000: their hits fold per (class, value)
+  const twoViews = new Set();     // files whose blob carried U+0000: tilde forms off, fake-token mark ignored
+  const multiViews = new Set();   // files scanned as more than one view: hits fold per (class, value)
+  const starts = new Map();       // …and each hit's line is read inside the view it matched in
   const get = (f) => {
     if (!texts.has(f)) {
       let raw;
       try { raw = read(f); } catch (e) { if (!_absentPath(e, f)) throw e; raw = null; }
       let t = null;
-      if (raw != null) { const v = blobViews(raw); if (v.length > 1) twoViews.add(f); t = v.join("\n"); }
+      if (raw != null) {
+        const b = blobScan(raw);
+        if (b.nul) twoViews.add(f);
+        if (b.views.length > 1) { multiViews.add(f); starts.set(f, viewStarts(b.views)); }
+        t = b.views.join("\n");
+      }
       texts.set(f, t);
     }
     return texts.get(f);
   };
   const seen = new Set(), out = [];
   const add = (h) => {
-    const k = twoViews.has(h.file) && h.line !== "path"
+    const k = multiViews.has(h.file) && h.line !== "path"
       ? `${h.class} ${h.file} ${String(h.match ?? "").toLowerCase()}` : `${h.class} ${h.file}:${h.line}`;
     if (!seen.has(k)) { seen.add(k); out.push(`${h.class} ${h.file}:${h.line}`); }
   };
-  for (const h of scanFiles(root, files, { ...lists, read: get, nulViewFiles: twoViews })) add(h);
-  for (const h of scanFiles(root, files, { ...lists, read: (f) => { const t = get(f); return t == null ? t : decodedView(t); }, nulViewFiles: twoViews })) add(h);
+  for (const h of scanFiles(root, files, { ...lists, read: get, nulViewFiles: twoViews, multiViewFiles: multiViews, viewStarts: starts })) add(h);
+  for (const h of scanFiles(root, files, { ...lists, read: (f) => { const t = get(f); return t == null ? t : decodedView(t); }, nulViewFiles: twoViews, multiViewFiles: multiViews, viewStarts: starts })) add(h);
   for (const f of files) {
     for (const h of scanText(f, lists)) add({ file: f, class: h.class, line: "path" });
     const t = get(f);
-    if (t != null) for (const h of _secretHits(f, t, { nul: twoViews.has(f) })) add(h);
+    if (t != null) for (const h of _secretHits(f, t, { nul: twoViews.has(f) })) add({ ...h, line: _inView(starts.get(f), h.line) });
   }
   return out.map((k) => `[PUBLISH_SCAN_HIT] ${k}`);
 }

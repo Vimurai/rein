@@ -83,7 +83,7 @@ test("a UTF-16LE file with a NUL is scanned, the NUL dropped", (t) => {
   const read = (m) => ({ files: Object.keys(m), read: (f) => m[f], author: PUB_ID, committer: PUB_ID });
   assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Quill\u0000\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:1"]);
   // E-413: the line of a NUL file's hit is where it first matches in its joined views.
-  assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Qu\u0000ill\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:3"], "joined in the NUL-removed view");
+  assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Qu\u0000ill\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:1"], "joined in the NUL-removed view (E-414: line within its view)");
 });
 
 test("E-365: without .ai/publish-scan.local.json a tree scan FAILS CLOSED; with it the names are checked", () => {
@@ -197,7 +197,9 @@ test("E-372: the operator list and its allow block fail closed", () => {
       assert.match(doctorLine(join(root, ".ai")), /^\[SCAN_LIST_MISSING\] .* names no operator value$/);
     }
     writeFileSync(join(root, ".ai", "publish-scan.local.json"), '{"operator_names": ["Ada Quill"');
-    assert.equal(doctorLine(join(root, ".ai")), `[SCAN_CONFIG_UNREADABLE] ${join(root, ".ai", "publish-scan.local.json")} is not valid JSON`, "the file's text is never echoed");
+    // E-414 / D-145 addendum 5 changed this row: the line names the project-relative path — the
+    // absolute one carries the login whenever the project sits under HOME.
+    assert.equal(doctorLine(join(root, ".ai")), "[SCAN_CONFIG_UNREADABLE] .ai/publish-scan.local.json is not valid JSON", "the file's text is never echoed");
     write({ client_names: ["Fabrikam", "Contoso"], operator_names: ["Ada Quill"], allow: { "ada quill": ["NOTICE"] } });
     assert.equal(doctorLine(join(root, ".ai")), "[PUBLISH_SCAN_OK] classes=5 lists=client:2,operator:1");
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -683,4 +685,24 @@ test("a NUL-bearing blob: a real token is a secret even with the fake-token mark
   const mark = "privacy:allow" + "-fake-token";
   assert.ok(precommitProblems(root, read(mark + "\u0000" + "x\u0000".repeat(50) + tok + "\u0000")).some((p) => p.includes("secret u.bin")));
   assert.ok(precommitProblems(root, read(mark + " " + tok + "\u0000")).some((p) => p.includes("secret u.bin")), "even on the same line");
+});
+
+// E-414 / D-145 addendum 4 r4 (extends the E-413 rows above): a buffer that is not valid UTF-8 also
+// gets its Windows-1252 decode through the same views; valid UTF-8 and UTF-16 are unchanged.
+test("E-414: Latin-1 text, a UTF-16 run in a binary and a mixed buffer hit; valid UTF-8 hits once", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-l1-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".ai"));
+  writeFileSync(join(root, ".ai", "publish.json"), JSON.stringify({ author: PUBLIC }));
+  writeFileSync(join(root, ".ai", "publish-scan.local.json"), JSON.stringify({ client_names: ["Acme"], operator_names: ["Jo Müller"] }));
+  const scan = (bytes) => precommitProblems(root, { files: ["f.dat"], read: () => bytes, author: PUB_ID, committer: PUB_ID });
+  const l1 = (s) => Buffer.from(s, "latin1");
+  assert.deepEqual(scan(l1("contact: Jo Müller\n")), ["[PUBLISH_SCAN_HIT] operator_name f.dat:1"], "a Latin-1 text file");
+  assert.deepEqual(scan(Buffer.concat([Buffer.alloc(600, 1), Buffer.from("Jo Müller", "utf16le"), Buffer.from([0, 0])])).map((x) => x.replace(/:\d+$/, "")),
+    ["[PUBLISH_SCAN_HIT] operator_name f.dat"], "a UTF-16LE run inside a NUL-bearing binary");
+  assert.deepEqual(scan(Buffer.concat([Buffer.from("café ok\n", "utf8"), l1("by Jo Müller\n")])).map((x) => x.replace(/:\d+$/, "")),
+    ["[PUBLISH_SCAN_HIT] operator_name f.dat"], "valid UTF-8 beside a Latin-1 name");
+  assert.deepEqual(scan(Buffer.from("by Jo Müller\n", "utf8")), ["[PUBLISH_SCAN_HIT] operator_name f.dat:1"], "valid UTF-8: once, not twice");
+  assert.deepEqual(scan(l1("cd ~carolx/src é\xff\n")).map((x) => x.replace(/:\d+$/, "")), ["[PUBLISH_SCAN_HIT] home_path f.dat"],
+    "a NUL-free Latin-1 text keeps the tilde-login form (D-145 addendum 4 r4)");
 });

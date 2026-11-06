@@ -328,7 +328,8 @@ test("every handoff-writing skill commits COMM.md with --only (both copies)", ()
   for (const p of [".claude/skills/rein-handoff/SKILL.md", "src/shared/skills/rein-handoff/SKILL.md",
     ".claude/skills/task-planner/SKILL.md", "src/claude/skills/task-planner/SKILL.md"]) {
     const s = readFileSync(join(ROOT, p), "utf8");
-    assert.match(s, /git commit --only \.ai\/COMM\.md \$\(git diff --name-only -- \.ai\/ /, p);
+    assert.match(s, /git commit --only \.ai\/COMM\.md \$\(git diff --name-only HEAD -- \.ai\/ /, p);
+    assert.match(s, /added by name by the role that created it/, `${p}: a new .ai/ file is added by name (D-147 addendum r2)`);
     assert.match(s, /cherry-pick/, `${p}: carrying rulings is a cherry-pick`);
   }
   assert.ok(!existsSync(join(ROOT, ".ai", "COMM_APPEND.md")), "the June orphan is deleted");
@@ -336,7 +337,8 @@ test("every handoff-writing skill commits COMM.md with --only (both copies)", ()
 
 // D-147 r1 (extends this D-104 row): the handoff commit names COMM.md AND every other tracked .ai/
 // path the turn dirtied — here DIGEST.md — so the handoff leaves .ai/ clean; staged source
-// still never rides along.
+// still never rides along. DIGEST.md is staged before the step, so the list must be taken
+// against HEAD (D-147 addendum r1): the index diff of d3fd136 fails this row.
 test("the rein-handoff commit step commits COMM.md with the turn's dirty .ai/ paths and passes the real pre-commit with no stamp", () => {
   const t = tmp("comm-commit");
   const f = fixtureRepo(t);
@@ -354,6 +356,7 @@ test("the rein-handoff commit step commits COMM.md with the turn's dirty .ai/ pa
     writeFileSync(join(f.dir, "src", "a.js"), "x\ny\n"); f.git("add", "src/a.js");
     writeFileSync(join(f.dir, ".ai", "COMM.md"), "# COMM\n---\n## Handoff — 2026-10-23 14:00 UTC\n");
     writeFileSync(join(f.dir, ".ai", "DIGEST.md"), "# DIGEST\n- refreshed this turn\n");   // a tracked .ai/ file the turn dirtied
+    f.git("add", "--", ".ai/DIGEST.md");   // D-147 addendum r1: already staged (a retried add) — an index diff would skip it
     const skill = readFileSync(join(ROOT, ".claude/skills/rein-handoff/SKILL.md"), "utf8");
     const cmd = skill.split("\n").find((l) => l.startsWith("git add -- .ai/COMM.md && git commit --only .ai/COMM.md"));
     assert.ok(cmd, "the skill's commit line");

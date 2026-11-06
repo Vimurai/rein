@@ -84,7 +84,7 @@ Append to `.ai/COMM.md` (create if missing):
 
 Immediately after the write, before anything else in the turn, commit the entry:
 ```
-git add -- .ai/COMM.md && git commit --only .ai/COMM.md $(git diff --name-only -- .ai/ ':(exclude).ai/COMM.md') -m "chore(.ai): COMM handoff <YYYY-MM-DD HH:MM UTC> (<Role>)"
+git add -- .ai/COMM.md && git commit --only .ai/COMM.md $(git diff --name-only HEAD -- .ai/ ':(exclude).ai/COMM.md') -m "chore(.ai): COMM handoff <YYYY-MM-DD HH:MM UTC> (<Role>)"
 ```
 The commit names COMM.md **and every other tracked `.ai/` path the turn dirtied** — ruling
 files (DECISIONS.md, architect.md, a blueprint) and the generated views (TASKS.md, REVIEWS.md,
@@ -93,6 +93,10 @@ dirty ruling file left "for the other role to carry" stops the shared tree from 
 branches. `--only` commits exactly those paths whatever else the index holds, so source staged
 mid-task never rides a bookkeeping commit. Carrying the rulings to another branch is a
 cherry-pick of this commit, never a stash and never a dirty tree (D-147 r3).
+The list is taken against `HEAD`, so a path already staged is named too (D-147 addendum r1).
+A new `.ai/` file (a new blueprint) is added by name by the role that created it —
+`git add -- <path>` before this step — which puts it in the list; never a directory-wide add,
+so an untracked scratch file never rides a handoff (D-147 addendum r2).
 The commit stays on the current branch and is not pushed here. If `git add` refuses
 because `.ai/COMM.md` is still gitignored (an un-synced clone), print that one line and
 skip the commit — never `git add -f`; `rein sync` removes the pattern and `rein doctor`

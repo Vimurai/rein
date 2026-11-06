@@ -58,13 +58,21 @@ export const PROVIDERS = {
   github: {
     status: "ready", template: "github.yml", path: ".github/workflows/ci.yml",
     policy: "GitHub → Settings → Branches → {{TRUNK}}: require the status checks listed below (every \"rein ci run\" leg, and \"fast\" when rendered); do NOT restrict pushes (or list the team as bypass actors) — claims push .ai/** to {{TRUNK}}.",
+    cleanup: "GitHub → Settings → General → Pull Requests: \"Automatically delete head branches\" ON (gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true, in the same step as the branch protection).",
   },
   azure: {
     status: "unverified", template: "azure-pipelines.yml", path: "azure-pipelines.yml",
     policy: "Azure DevOps → Project settings → Repositories → {{TRUNK}} → Branch policies: Build Validation with this pipeline, Required (on Azure Repos the YAML pr: trigger is ignored — the policy IS the gate); grant the team group \"Bypass policies when pushing\" so claim commits (.ai/**) reach {{TRUNK}}; optional path filter !/.ai/*. Keep \"Limit job authorization scope to current project\" on.",
+    cleanup: "Azure DevOps → the pull request's Complete dialog: leave \"Delete after merging\" on (a completion option — there is no repository-wide flag).",
   },
-  gitlab: { status: "planned", task: "E-337", path: ".gitlab-ci.yml" },
-  bitbucket: { status: "planned", task: "E-337", path: "bitbucket-pipelines.yml" },
+  gitlab: {
+    status: "planned", task: "E-337", path: ".gitlab-ci.yml",
+    cleanup: "GitLab → Settings → Merge requests: \"Enable 'Delete source branch' option by default\" on.",
+  },
+  bitbucket: {
+    status: "planned", task: "E-337", path: "bitbucket-pipelines.yml",
+    cleanup: "Bitbucket → Repository settings → Pull requests: \"Delete branch after merge\" on by default.",
+  },
 };
 
 /** "public" when .ai/publish.json marks the public repository (the privacy gate's marker), else "team". */
@@ -160,6 +168,50 @@ export function trunkFor(root, team) {
 
 /** A provider's branch-policy line for <trunk>. */
 export const policyFor = (provider, trunk) => PROVIDERS[provider].policy.replaceAll("{{TRUNK}}", () => trunk);
+
+// ── D-141 (E-407): a feature branch ends at its merge ──────────────────────────────────────
+/** A provider's branch-cleanup setting (D-141 r4), printed beside the D-103 r5 policy. */
+export const cleanupFor = (provider) => PROVIDERS[provider].cleanup;
+
+/** The advisory line --check prints when GitHub keeps merged head branches (D-141 r5). */
+export const BRANCH_CLEANUP_OFF = (slug) => `[BRANCH_CLEANUP_OFF] run: gh api -X PATCH repos/${slug} -f delete_branch_on_merge=true`;
+
+// GitHub owner and repository names: letters, digits, '.', '_', '-'; an owner never starts with '-'.
+const SLUG_RE = /^([A-Za-z0-9][A-Za-z0-9-]{0,38})\/([A-Za-z0-9._-]{1,100})$/;
+/** "owner/repo" from a GitHub remote URL (https, scp or ssh form), else null. */
+export function repoSlug(url) {
+  const u = String(url || "").trim();
+  const m = /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]*@)?[^/]+\/(.+)$/i.exec(u) || /^(?:[^@/\s]+@)?[^/:\s]+:(?!\/)(.+)$/.exec(u);
+  if (!m) return null;
+  const s = SLUG_RE.exec(m[1].replace(/\.git$/, "").replace(/\/$/, ""));
+  return s && s[2] !== "." && s[2] !== ".." ? `${s[1]}/${s[2]}` : null;
+}
+
+/**
+ * deleteBranchOnMerge through gh → true | false | null. Null — print nothing — when gh is
+ * missing, not logged in (`gh auth token` is a local read: no login, no network call), offline
+ * or answers anything but a boolean. Advisory: it never gates a merge or changes an exit code.
+ */
+export function ghDeleteBranchOnMerge(slug) {
+  const opts = { timeout: 5000, env: { ...process.env, GH_PROMPT_DISABLED: "1", GH_HOST: "github.com" } };   // the host detectProvider accepted
+  try {
+    // Exit status only: the token is printed to a closed stdout, never read into this process.
+    execFileSync("gh", ["auth", "token"], { ...opts, stdio: "ignore" });
+    const v = execFileSync("gh", ["api", `repos/${slug}`, "--jq", ".delete_branch_on_merge"], { ...opts, encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    return v === "true" ? true : v === "false" ? false : null;
+  } catch { return null; }
+}
+
+/** The --check advisory for <root>: the [BRANCH_CLEANUP_OFF] line, or "" (not GitHub, unknown, on). */
+function cleanupAdvisory(root, provider, gh) {
+  if (provider !== "github") return "";
+  const url = originUrl(root);
+  const slug = detectProvider(url) === "github" ? repoSlug(url) : null;
+  if (!slug) return "";
+  let on = null;
+  try { on = gh(slug); } catch { on = null; }
+  return on === false ? BRANCH_CLEANUP_OFF(slug) : "";
+}
 
 /** The host of a git remote URL (https://, ssh://, scp-like user@host:path), lowercased, or null. */
 export function remoteHost(url) {
@@ -276,7 +328,7 @@ function writeAtomic(root, path, text) {
 }
 
 /** `rein ci hosted` → { code, out }. Never throws for an expected refusal. */
-export function hosted(root, { provider: arg = "", check = false, force = false } = {}) {
+export function hosted(root, { provider: arg = "", check = false, force = false, gh = ghDeleteBranchOnMerge } = {}) {
   const lines = [];
   try {
     const team = readTeam(join(root, ".ai"));
@@ -294,10 +346,13 @@ export function hosted(root, { provider: arg = "", check = false, force = false 
     const have = existsSync(dest) ? readFileSync(dest, "utf8") : null;
     const current = have !== null && sha256(have) === sha256(want);
     if (check) {
-      if (current) return { code: 0, out: `✓ ${p.path} is the current ${provider} rendering (${boot.variant} bootstrap)` };
-      return { code: 1, out: have === null
-        ? `✗ ${p.path} is missing — run: rein ci hosted ${provider}`
-        : `✗ ${p.path} differs from the current ${provider} rendering — run: rein ci hosted ${provider} --force` };
+      const advisory = cleanupAdvisory(root, provider, gh);   // D-141 r5: advisory, exit unchanged
+      const verdict = current
+        ? { code: 0, out: `✓ ${p.path} is the current ${provider} rendering (${boot.variant} bootstrap)` }
+        : { code: 1, out: have === null
+          ? `✗ ${p.path} is missing — run: rein ci hosted ${provider}`
+          : `✗ ${p.path} differs from the current ${provider} rendering — run: rein ci hosted ${provider} --force` };
+      return advisory ? { code: verdict.code, out: `${verdict.out}\n${advisory}` } : verdict;
     }
     if (have !== null && !current && !force) {
       return { code: 1, out: `[WRAPPER_DIFFERS] ${p.path} is not the current rendering — review it, then: rein ci hosted ${provider} --force` };
@@ -317,6 +372,7 @@ export function hosted(root, { provider: arg = "", check = false, force = false 
       }
     }
     lines.push(`Branch policy (D-103 r5): ${policyFor(provider, trunk)}`);
+    lines.push(`Branch cleanup (D-141): ${cleanupFor(provider)}`);
     if (provider === "github") lines.push(`Required checks (D-135 r7, ${matrix.profile} profile): ${requiredChecks(root, team).map((n) => `"${n}"`).join(", ")}`);
     if (p.status === "unverified") {
       lines.push(`[CI_PROVIDER_UNVERIFIED] the ${provider} wrapper has not had a documented run on a real ${provider} instance yet (D-103 r6) — run it once and report the pipeline URL; see .ai/DEVOPS.md DEVOPS-011.`);
@@ -330,15 +386,17 @@ export function hosted(root, { provider: arg = "", check = false, force = false 
 }
 
 /** One `rein doctor` line. A project with no wrapper and no team.json.ci has nothing to report wrong. */
-export function doctorLine(root) {
+export function doctorLine(root, { gh = ghDeleteBranchOnMerge } = {}) {
   let team = null;
   try { team = readTeam(join(root, ".ai")); } catch (e) { return `  ✗ hosted check: ${e.message}`; }
   const configured = team?.ci?.provider || Object.entries(PROVIDERS).find(([, p]) => existsSync(join(root, p.path)))?.[0];
   if (!configured) return "  - hosted check: none (optional — rein ci hosted)";
-  const r = hosted(root, { provider: configured, check: true });
+  const r = hosted(root, { provider: configured, check: true, gh });
   const origin = detectProvider(originUrl(root));
   const warn = origin && origin !== configured ? ` (origin is ${origin}, team.json.ci says ${configured})` : "";
-  return r.code === 0 ? `  ✓ hosted check: ${configured} — ${r.out.replace(/^✓ /, "")}${warn}` : `  ✗ hosted check: ${configured} — ${r.out.replace(/^✗ /, "")}${warn}`;
+  const [head, ...rest] = r.out.split("\n");                  // D-141 r5: the advisory on its own line
+  const more = rest.map((l) => `\n    ${l}`).join("");
+  return r.code === 0 ? `  ✓ hosted check: ${configured} — ${head.replace(/^✓ /, "")}${warn}${more}` : `  ✗ hosted check: ${configured} — ${head.replace(/^✗ /, "")}${warn}${more}`;
 }
 
 function main(argv) {

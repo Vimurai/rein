@@ -4442,6 +4442,59 @@ Ruling 1: NUL → line break again. Ruling 2: fold per class per file. Ruling 3:
 Ruling 2: honour the mark in every blob again (the regression returns). Ruling 4: none — an ordering ruling.
 
 ---
+## D-145 addendum 6 — Client names take the operator-name boundary; the Windows-1252 decoder is built on first use; E-414 and the E-401 headers are accepted as built
+
+**Date**: 2026-11-06
+**Task**: E-414 (accepted, one follow-up commit), E-401 (additions accepted)
+**Decision**: E-414 is committed (174bab0 on `e-414-latin1-decode`, over E-413 and E-398), `SEC_CLEARED`, tree scan 0 hits with and without the operator list (6.9 to 8.5 s; was 5.5 s — the second decode of non-UTF-8 buffers, accepted). The stack is at the cap of addendum 5 r4. Rulings on what the review left:
+
+1. **Client names are bounded exactly as operator names are.** `scanText` builds the client pattern with ASCII `\b` and no `u` flag, so a listed name whose first or last letter is not ASCII (`Ñandú SA`) matches only when glued to a word character and never in ordinary prose — the list reads as covered and is not. One builder makes both patterns: NFC on the listed name, the Unicode lookarounds (not preceded and not followed by a letter or digit), the whitespace-run and non-breaking-hyphen loosening, flags `iu`. Consequences accepted on purpose: a client name inside an identifier (`acme_config`, where `\b` saw `_` as a word character) is now a hit, and a name written with a no-break space is a hit. Both are the name in a tracked file.
+2. **Condition** (addendum 3 r4, unchanged): the full-tree scan with the operator's list is 0 hits after the change. A new hit is a finding — the Engineer stops and reports the file and line, and does not narrow the pattern to pass.
+3. **Rows** in `tests/unit/publish-scan.test.mjs`, extending the existing client-name rows (D-088): a listed name starting and ending in a non-ASCII letter hits in prose; the same name inside a longer word does not; a listed ASCII name followed by `_` hits; the existing rows stay green unchanged.
+4. **Where.** A follow-up commit on `e-414-latin1-decode` inside E-414, as 2aecde7 was for E-413 — same function, same file, and a fourth task would break the cap. `security_engineer` re-reads the follow-up only.
+5. **The Windows-1252 decoder is constructed on first use, not at module load.** At load, a Node built without full ICU fails every commit with a stack trace, whether or not any staged file needs that decode. On first use the failure sits inside the scan, so D-144 r2's path turns it into `[PUBLISH_GATE] <message>` + `[COMMIT_BLOCKED]` only when a non-UTF-8 buffer is actually scanned. Still fail closed (D-144 addendum 2 invariant). No fallback decode and no new row: the generic throwing-scan row already covers the path, and a seam to fake a missing ICU costs more than the case is worth (D-088). Same follow-up commit.
+6. **E-401 headers accepted as measured.** `rein_sync` is 512 s (3 × 170.4 s), not the 510 of addendum r4: D-138's rule is the formula, and a number written in a ruling is the measurement of its day. The nine new and five raised headers and the advisory `[SUITE_TIMEOUT_UNDECLARED]` line (exit unchanged) stand.
+
+### Alternatives considered
+1. **Leave client names on `\b`, document it** — rejected: the operator cannot tell from the list that a name is unmatchable; a silent miss in the one class that exists to protect a third party.
+2. **Add the `u` flag only** — rejected: `\b` stays ASCII under `u`; it changes nothing.
+3. **A hand-written 0x80–0x9F table so no ICU is needed** — rejected: every official and distribution Node carries full ICU; the table is code and a row for a host nobody has reported.
+4. **A separate task for ruling 1** — rejected: it would stack a fourth task on a held stack, or branch from main and conflict with the three held commits on the same lines.
+
+### Impact
+- Unlocks: E-414's follow-up; the E-401 commit once the shared tree can switch (D-147). Risk if wrong: ruling 1 surfaces identifiers that merely contain a short client name — the list holds full names, and ruling 2 reports rather than hides such a hit.
+
+### Rollback
+Ruling 1: the `\b` pattern again (the miss returns). Ruling 5: construct at load again.
+
+---
+
+## D-147 — The Architect commits its ruling files with every handoff; a handoff leaves no tracked `.ai/` path dirty
+
+**Date**: 2026-11-06
+**Task**: E-401 (unblocked), E-415 (skill text)
+**Decision**: Since D-143 the Architect left `.ai/DECISIONS.md`, `.ai/architect.md`, a blueprint and the generated views (`TASKS.md`, `REVIEWS.md`, `state.json`) uncommitted "for the Engineer to carry", and committed only `.ai/COMM.md` (D-104). Six dirty tracked files then blocked the shared working tree from switching to `e-401-budgets`, so no critic stamp could be bound to that HEAD and a finished change sat uncommitted in a scratch worktree. From now on:
+
+1. **The handoff commit names every tracked `.ai/` path the turn dirtied** — the ruling files and the generated views as well as `COMM.md` — with `git commit --only <paths>`, on the current branch. The commit hook already waives the Gate 2 stamp when every staged path is inside `.ai/` or `plans/` (`[ARCHITECT_LANE]`), and the privacy gate still runs on them. Applies to both roles: the rule is that a handoff leaves `git status -- .ai/` clean of tracked changes.
+2. **This round's backlog is committed as 0fc7d6b** on `upgrade/audit-fix-2026-11-02` (D-143..D-146 with addenda, `architect.md`, the scanner blueprint, the views). The privacy gate refused it three times first, on example logins in the Architect's own ruling text (D-145 addendum 3); the examples now use the scanner's placeholder login. Recorded because it is the gate working as ruled: a ruling file is a tracked file.
+3. **Carrying rulings to other branches is a cherry-pick of that commit** (`.claude/rules/ai-bookkeeping.md`), never a stash and never a dirty tree.
+4. **Not ruled here:** a critic stamp binds to the shared tree's HEAD, so a commit made in a second worktree cannot be stamped. With rule 1 the shared tree can always switch, which removes this round's blocker; changing what a stamp binds to is a gate change (Tier 3) and waits for evidence that rule 1 is not enough.
+
+### Why needed
+Two panes share one working tree. Uncommitted bookkeeping in it is a lock on every other branch that carries a different version of those files, and nobody holds the key but the pane that wrote them.
+
+### Alternatives considered
+1. **Keep leaving ruling files for the Engineer** — rejected: it is what blocked E-401, and the Engineer may not write Architect-owned files to resolve it (D-065).
+2. **A dedicated bookkeeping branch** — rejected: D-140..D-142 live only on the stacked branches, so no single base holds the whole decision log until they merge; one more branch to reconcile.
+3. **Let stamps bind to a worktree HEAD now** — rejected for now, see rule 4.
+
+### Impact
+- Unlocks: the E-401 commit. Risk if wrong: bookkeeping commits ride whichever branch the shared tree is on, as `COMM.md` commits already do; they are `.ai/`-only and cherry-pick cleanly.
+
+### Rollback
+Return to committing `COMM.md` only (the lock returns).
+
+---
 ## D-148 — `rein ci run` tells the harness when it is hosted; timing rows use their absolute bound there, as designed
 
 **Date**: 2026-11-06

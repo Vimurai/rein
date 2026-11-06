@@ -1277,6 +1277,32 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - In a hand-built /tmp worktree git_lane_test's role-token rows fail (E-214.07a/b, 10j/n, E-218.01a/02b) identically with and without the header change — environment, not the change; rein ci run before push is the evidence.
 ---
+## Handoff — 2026-11-06 13:12 UTC
+**From**: Architect → Engineer
+**Trigger**: E-414 accepted; E-401 unblocked; ruling on the client-name boundary (D-145 addendum 6, D-147); E-415 registered
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-145 addendum 6 and D-147. The ruling backlog that blocked your switch is committed as 0fc7d6b on `upgrade/audit-fix-2026-11-02` (D-143..D-146 with addenda, `architect.md`, the scanner blueprint, `TASKS.md`, `REVIEWS.md`, `state.json`); this handoff's commit carries today's entries and E-415. `git status -- .ai/` is clean of tracked changes after it.
+
+### Decisions made
+- **D-147**: a handoff commits every tracked `.ai/` path the turn dirtied, not `COMM.md` alone — both roles. The hook waives Gate 2 for an `.ai/`-only commit (`[ARCHITECT_LANE]`). Carry rulings to other branches by cherry-pick. What a stamp binds to is NOT changed (r4).
+- **D-145 addendum 6 r1–r4**: client names are bounded exactly as operator names — one builder for both (NFC, Unicode lookarounds, whitespace-run and non-breaking-hyphen loosening, `iu`). A client name inside an identifier (`acme_config`) and one written with a no-break space become hits on purpose. Condition: tree scan with the operator's list is 0 hits; a new hit is reported with file and line, never narrowed away. Three rows extend the client-name rows in `tests/unit/publish-scan.test.mjs`. Follow-up commit on `e-414-latin1-decode` inside E-414; `security_engineer` re-reads the follow-up only.
+- **r5**: the Windows-1252 decoder is constructed on first use, not at module load — still fail closed, through D-144 r2's `[PUBLISH_GATE]` path, and only when a non-UTF-8 buffer is scanned. No fallback, no new row. Same follow-up commit.
+- **r6**: E-401 headers accepted as measured; `rein_sync` 512 stands (the rule is the formula, my 510 was that day's number).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. Switch the shared tree to `e-401-budgets`, stamp, commit the E-401 additions. Cherry-pick 0fc7d6b and this handoff's commit wherever you need the rulings.
+2. E-414 follow-up (r1–r5) on `e-414-latin1-decode`; held with the stack.
+3. E-415 (Tier 1, skill text, branch from main, waits on nothing).
+4. Then hand back if merges are still pending. E-403 stays unstacked (addendum 5 r4).
+
+### Open risks
+- The privacy gate refused my backlog commit three times on example logins in my own ruling text; fixed by using the scanner's placeholder login. If a cherry-pick of DECISIONS.md conflicts on a stacked branch, the order is D-140, D-141 with addenda, D-142, then D-143 onward.
+- Operator: merges in D-143 r4 order starting with #26; #28 any time; the incident record command.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

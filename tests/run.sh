@@ -719,7 +719,7 @@ echo "[run] peak_sum_rss_mb=$(( ${_rss_kb:-0} / 1024 )) samples=${_rss_n:-0} sam
 
 # ── E-297: publish the census input (TEST_TMPDIR is deleted on exit) ─────────
 # Two copies, because the two kinds of run keep different things:
-#  - `rein ci run` (REIN_CI=local / CI=true) runs under a throwaway HOME and TMPDIR that are
+#  - `rein ci run` (REIN_CI=local|hosted / CI=true) runs under a throwaway HOME and TMPDIR that are
 #    deleted with its worktree, and this runner may not write ~/.rein (rule 6). What it
 #    KEEPS is this run's stdout, tee'd into ~/.rein/ci/logs/<sha>-<started>.log — so the
 #    census lines go into the log, beside the run they describe. They are printed BEFORE
@@ -729,7 +729,7 @@ echo "[run] peak_sum_rss_mb=$(( ${_rss_kb:-0} / 1024 )) samples=${_rss_n:-0} sam
 #    kept) and prints its path; census.mjs reads those for plain `bash tests/run.sh` runs.
 printf 'CENSUS_TOTAL\t%s\t%s\t%s\t%s\n' "${#SUITES[@]}" "$TOTAL_PASS" "$TOTAL_FAIL" "$TOTAL_SKIP" >> "$CENSUS_INPUT"
 if [[ "$REIN_CENSUS_NESTED" -eq 0 ]]; then
-  if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
+  if [[ "${CI:-}" == "true" || -n "${REIN_CI:-}" ]]; then
     echo "── census input (E-297) ──"
     cat "$CENSUS_INPUT"
     echo ""
@@ -759,9 +759,9 @@ if [[ "${TOTAL_LEAKED:-0}" -gt 0 ]]; then
   echo ""
   echo "   LEAKED external state: ${TOTAL_LEAKED} item(s)"
   for _r in "${LEAK_REPORTS[@]}"; do echo "     - ${_r}"; done
-  # E-265 (D-072): `rein ci run` sets REIN_CI=local and has no operator to sweep either, so
-  # a leak fails a local CI run exactly as it fails a hosted one.
-  if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
+  # E-265 (D-072): `rein ci run` sets REIN_CI (local, or hosted under GitHub Actions — D-148 r3)
+  # and has no operator to sweep either, so a leak fails a local CI run exactly as a hosted one.
+  if [[ "${CI:-}" == "true" || -n "${REIN_CI:-}" ]]; then
     echo "   [LEAK_FAILED] a test run must leave nothing behind (E-240 / D-063 §2)"
     TOTAL_FAIL=$(( TOTAL_FAIL + 1 ))
   else
@@ -784,7 +784,7 @@ done
 # both the redirect and the marker. Locally, other sessions write concurrently, so only
 # the marker is attributable.
 _tel_grew=$(( ${REIN_TELEMETRY_AFTER:-0} - ${REIN_TELEMETRY_BEFORE:-0} + ${REIN_LANE_TEL_GREW:-0} ))
-if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
+if [[ "${CI:-}" == "true" || -n "${REIN_CI:-}" ]]; then
   if [[ "$_tel_grew" -gt 0 ]]; then
     echo "   [TELEMETRY_LEAKED] the throwaway HOME's store grew by ${_tel_grew} row(s) — only tests write there under CI"
     echo "   A test wrote to the telemetry store outside AI_TELEMETRY_DB_PATH (E-257 / D-070 §1)."

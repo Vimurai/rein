@@ -206,13 +206,14 @@ perf_time_ms() {
 
 # assert_perf <label> <elapsed_ms> <absolute_ms> <baseline_ms> [k] [slack_ms]
 #
-# CI (or REIN_PERF_ABSOLUTE=1) → the declared absolute budget, because the hardware is
+# CI, REIN_CI=hosted (D-148: a hosted `rein ci run`) or REIN_PERF_ABSOLUTE=1 → the declared absolute budget, because the hardware is
 # known and a real regression must not hide behind a slow runner.
 # Anywhere else → elapsed <= k*baseline + slack, which asks the question that actually
 # matters off CI: is this code slow RELATIVE to what this machine can do at all?
 # E-265 (D-072): REIN_CI=local (`rein ci run`) deliberately stays RELATIVE. The absolute
 # budgets were calibrated on the ubuntu runner, and a local CI host is not that machine;
-# the runner unsets CI, so only REIN_PERF_ABSOLUTE=1 switches a local run to absolute.
+# the runner unsets CI, so only REIN_PERF_ABSOLUTE=1 switches a local run to absolute. Under GitHub
+# Actions the runner sets REIN_CI=hosted instead (D-148 r1-r2): that hardware is the one calibrated.
 # _host_load → "<load1 integer part> <ncpu>". A function, not an env var (E-296: no new env var),
 # so a fixture injects load by redefining it.
 _host_load() {
@@ -229,7 +230,7 @@ _host_load() {
 assert_perf() {
   local label="$1" elapsed="$2" absolute="$3" baseline="$4" k="${5:-2}" slack="${6:-50}" remeasure="${7:-}"
   local mode limit
-  if [[ "${REIN_PERF_ABSOLUTE:-0}" == "1" || "${CI:-}" == "true" ]]; then
+  if [[ "${REIN_PERF_ABSOLUTE:-0}" == "1" || "${CI:-}" == "true" || "${REIN_CI:-}" == "hosted" ]]; then
     mode="absolute"
     limit="$absolute"
   else

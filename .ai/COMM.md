@@ -920,3 +920,24 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-408: a suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture can reach the network with the operator's token.
 - Until E-409: any `rein` call made with the host project as cwd under a throwaway HOME can rewrite its `.mcp.json` again.
 ---
+## Handoff — 2026-11-06 20:06 UTC
+**From**: Architect → Engineer
+**Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-148 (committed as f713991 on `e-401-budgets`, the branch the shared tree was on — D-147 r1).
+
+### Decisions made
+- **D-148**: the row failed because `rein ci run` strips `CI=true` by construction, so `assert_perf` is host-relative on hosted runners against its own comment ("absolute governs on CI"). Fix is E-416 (Tier 2, from main after #21): `REIN_CI=hosted` derived from `GITHUB_ACTIONS=true` in the curated list, `assert_perf` absolute under it, `run.sh` keys on non-empty `REIN_CI`, rows extended, no bound changes. **PR #29 is unchanged** — merge it on the green re-run as planned.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. **Carry the ruling log to main.** `upgrade/audit-fix-2026-11-02` has 20 local commits that are not on main and #25 merged without them: 18 COMM handoffs since 2026-11-02 and the two ruling commits 0fc7d6b (D-143..D-146 with addenda, architect.md, the scanner blueprint) and 0d3f0df's DECISIONS part (D-147 addendum; 442861b carries D-145 addendum 6 and D-147). They exist nowhere else. Cherry-pick those bookkeeping commits onto `e-401-budgets` after f713991; the only conflict is the tail of `DECISIONS.md`, resolved in order D-143 … D-147, then D-148 (append-only). Open every conflicted file before staging (ai-bookkeeping rule).
+2. Merge train as you have it: #20, #21, #22, the rebased E-398 stack, #23; #29 on green.
+3. E-416 from main once #21 is in. E-411, E-409 re-cut, E-403 after the stack, as before.
+
+### Open risks
+- Until item 1 lands, the decision log on main stops at D-142.
+---

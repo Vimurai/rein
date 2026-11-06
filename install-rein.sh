@@ -37,7 +37,7 @@ REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REIN="${HOME}/.rein"
 
 # E-69: Fail-closed Node.js availability check (system-hardening-phase3.md §Security).
-# Runs BEFORE any file copy or env-line append. Node 22+ is required by:
+# Runs BEFORE any file copy or env-line append. Node 22.5+ is required by:
 #   - src/shared/wal-flusher.mjs       (node:sqlite, prevents WAL bloat)
 #   - scripts/generate_mcp_docs.mjs    (regenerates .ai/blueprints/mcp.md on `rein sync`)
 #   - src/shared/incident-append.mjs   (PII-sanitised telemetry)
@@ -48,18 +48,20 @@ REIN="${HOME}/.rein"
 if [[ "${REIN_SKIP_NODE_CHECK:-0}" != "1" ]]; then
   if ! command -v node >/dev/null 2>&1; then
     echo "[ERROR] Node.js is required but not found in PATH." >&2
-    echo "        Install Node 22+ before running this installer." >&2
+    echo "        Install Node 22.5+ before running this installer." >&2
     echo "        See: https://nodejs.org/  or  brew install node" >&2
     exit 1
   fi
+  # E-405 (D-140 r8): one comparison, shared with `rein doctor` — node:sqlite ships in 22.5.
+  # shellcheck source=src/shared/node-version.sh
+  . "${REPO_DIR}/src/shared/node-version.sh"
   _node_version="$(node --version 2>/dev/null || echo "v0.0.0")"
-  _node_major="${_node_version#v}"; _node_major="${_node_major%%.*}"
-  if [[ -z "${_node_major}" ]] || ! [[ "${_node_major}" =~ ^[0-9]+$ ]] || (( _node_major < 22 )); then
-    echo "[ERROR] Node.js 22+ required (found ${_node_version})." >&2
-    echo "        node:sqlite (used by wal-flusher.mjs) ships in Node 22." >&2
+  if ! rein_node_supported "${_node_version}"; then
+    echo "[ERROR] Node.js ${REIN_NODE_FLOOR}+ required (found ${_node_version})." >&2
+    echo "        node:sqlite (used by wal-flusher.mjs) ships in Node ${REIN_NODE_FLOOR}." >&2
     exit 1
   fi
-  echo "✓ Node.js ${_node_version} detected (Node 22+ required)"
+  echo "✓ Node.js ${_node_version} detected (Node ${REIN_NODE_FLOOR}+ required)"
 fi
 
 # E-270 (D-074 §Components 1): package.json is the ONLY place the version is typed. It
@@ -175,7 +177,7 @@ for _t in "${_REIN_TREES[@]}"; do _stage_one "${REPO_DIR}/src/${_t}" "${_STAGE}/
 
 _verify_stage() {  # → 0 when the staged tree is complete and parses; prints what is wrong
   local bad=0 f
-  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/hook-paths.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/gate-probe.sh \
+  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/hook-paths.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/gate-probe.sh shared/node-version.sh \
            mcp/safe-exec-mcp/index.js mcp/safe-exec-mcp/role-token.mjs mcp/safe-exec-mcp/gate-guard.mjs; do
     [[ -f "${_STAGE}/${f}" ]] || { echo "  missing: ${f}"; bad=1; }
   done

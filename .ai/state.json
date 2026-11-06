@@ -1576,6 +1576,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-06T13:08:52.605Z"
+    },
+    {
+      "id": "E-416",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make `rein ci run` tell the harness when it is hosted per D-148 r1-r4: `src/bin/rein` sets `REIN_CI=hosted` in the curated env -i list when its own environment carries GITHUB_ACTIONS=true, else `REIN_CI=local` (one derived bit; CI stays reserved and is never forwarded); `tests/lib/assert.sh` assert_perf takes the absolute bound when REIN_CI=hosted (as for CI=true / REIN_PERF_ABSOLUTE=1), retry-under-load unchanged, no row bound changes (D-138); `tests/run.sh` tests REIN_CI for non-empty where it tests == local (throwaway HOME, leak fails the run, telemetry growth) and keeps the fast tier's CI=true key. Rows extend, no new suite (D-088): the rein_ci_test.sh env row (GITHUB_ACTIONS=true outside yields REIN_CI=hosted inside and still no CI) and the assert_perf row (mode under hosted and under local). Acceptance: rein ci run green locally; on the PR the macOS full legs report the telemetry warm-path row in [absolute] mode. Branch from main after #21 merges; Tier 2.",
+      "created_at": "2026-11-06T20:03:52.591Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-06T20:03:52.594Z"
     }
   ],
   "stamps": [
@@ -4362,6 +4376,87 @@
       "timestamp": "2026-11-06T19:04:26.606Z",
       "summary": "Tier 1 merge of origin/main (#26, #25, #28, #24, #19) into e-415-handoff-commit-all-ai: source auto-merged; .ai conflicts (state.json, REVIEWS.md) were unions, taken from main and regenerated from the state index (a superset of both sides). JSON parses, no markers.",
       "sha": "98463882f49a1b0fc06d849551a88a21245bb4d2",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-407",
+      "timestamp": "2026-11-06T19:14:37.038Z",
+      "summary": "Tier 1 merge of origin/main (through #19) into e-407-branch-cleanup: source auto-merged; .ai conflicts (state.json, REVIEWS.md) were unions, taken from main and regenerated from the state index (a superset of both sides). JSON parses, no markers.",
+      "sha": "00c5ff8763c8a299943b1ab2694c9cf51fb6f937",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T19:24:53.961Z",
+      "summary": "Tier 1 merge of origin/main (through #19) into e-401-budgets: test-harness.md (both copies) keeps main's rule 1b (E-412) followed by this branch's rule 2 (D-138 r2-r3), copies identical; .ai conflicts were unions, taken from main and regenerated from the state index. JSON parses, no markers.",
+      "sha": "d66da52f2d5700fcd6a896555fbf24c5a6ab5478",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:10:17.236Z",
+      "summary": "Tier 1 bookkeeping carry (Architect ruling of 2026-11-06 20:06 UTC): cherry-picking the audit branch's unpushed .ai commits onto e-401-budgets so D-143..D-147 reach main. COMM.md/DECISIONS.md conflicts resolved by keeping this branch's file verbatim and inserting the missing entries (D-143..D-147 before D-148); generated views from this branch, regenerated from the state index. No source change.",
+      "sha": "b5c3468daffeddd27881995fb6cb6de7cba366e0",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:10:38.988Z",
+      "summary": "Tier 1 bookkeeping carry, continued: 442861b (D-147 and its COMM handoff) onto e-401-budgets; COMM.md/DECISIONS.md kept verbatim with the missing entries inserted before D-148. No source change.",
+      "sha": "5ab89b6bedcecccf4fee9ec3df00fe95b8c365ae",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:11:01.626Z",
+      "summary": "Tier 1 bookkeeping carry, last pick: 0d3f0df (D-147 addendum and its COMM handoff) onto e-401-budgets; DECISIONS.md order D-143..D-147 addendum then D-148. No source change.",
+      "sha": "f9aa32cfaf93f50d3d0cd4bc4330ecd19b92d3ae",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:21:20.146Z",
+      "summary": "Tier 1 merge of origin/main (#20 merged) into e-401-budgets: source auto-merged; .ai conflicts (state.json, REVIEWS.md) were unions, regenerated from the state index (a superset of both sides). Carries the Architect's 8965357.",
+      "sha": "8965357050dbaaac46f8ede5c8d0c9c1346d402e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-398",
+      "timestamp": "2026-11-06T20:32:04.971Z",
+      "summary": "[TIER_1] E-398 rebased onto main after #25 (D-144 addendum 4 r2); SECURITY.md and the ceiling row's comment record the corrected cause (r3): runAnalysis at the cap, median/max of 7, shell-quote 1.8.3 Architect 543/571 ms, Engineer 131/136 ms; 1.12.0 Architect 21/42 ms, Engineer 4/7 ms; the bound holds on 1.12.0 or later. Row and ceiling unchanged.",
+      "sha": "f3efb34431568fedb695c14d98310f686287d75b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-398",
+      "timestamp": "2026-11-06T20:32:56.491Z",
+      "summary": "Tier 1 rebase of the E-398/E-413/E-414 stack onto current main (through #20): source applied cleanly; .ai/SECURITY.md conflicts kept both sides (E-398's closing notes after the decodedView paragraph, then main's E-407 section; the recorded-bound paragraph replaced by the measured one); generated views regenerated from the state index.",
+      "sha": "cb99e100e381dfc5bcfd121c4ab626db5869e90b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-415",
+      "timestamp": "2026-11-06T21:07:10.063Z",
+      "summary": "Tier 1 merge of origin/main (#20, #21) into e-415-handoff-commit-all-ai, so #29 carries E-401's suite timeouts (D-145 c; the macOS exec_form_hooks 180 s timeout): source auto-merged; .ai conflicts regenerated from the state index.",
+      "sha": "f9fb680d076830b86eb6dd35d032d21a773af105",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

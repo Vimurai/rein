@@ -132,7 +132,7 @@ test("both clones change the same task: the policy keeps DONE and leaves exactly
   assert.equal(adb.prepare("SELECT COUNT(*) AS n FROM stamps WHERE type = 'STATE_CONFLICT'").get().n, 1);
 });
 
-test("importing 500 records stays within a same-host baseline (300 ms absolute on CI)", (t) => {
+test("importing 500 records stays within a same-host baseline and a 1500 ms linear-time ceiling", (t) => {
   const { aAi } = team(t, "perf");
   const now = Date.now();
   for (let i = 1000; i < 1500; i++) {
@@ -151,7 +151,9 @@ test("importing 500 records stays within a same-host baseline (300 ms absolute o
   assert.equal(res.status, "OK");
   assert.equal(db.prepare("SELECT COUNT(*) AS n FROM tasks").get().n, 502);
   assert.ok(elapsed <= 15 * baseline + 200, `elapsed ${elapsed.toFixed(1)} ms > 15 × ${baseline.toFixed(1)} + 200`);
-  if (process.env.CI === "true") assert.ok(elapsed < 300, `elapsed ${elapsed.toFixed(1)} ms ≥ 300 ms on CI`);
+  // E-401 (D-138 r2): the import's linear-time bound, on every host — five times the CI median
+  // (the former CI-only 300 ms absolute, which every green CI run stayed under).
+  assert.ok(elapsed < 1500, `elapsed ${elapsed.toFixed(1)} ms ≥ 1500 ms (linear-time ceiling)`);
 });
 
 // ── import semantics ─────────────────────────────────────────────────────────

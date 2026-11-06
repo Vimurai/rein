@@ -51,3 +51,4 @@
 - 2026-10-29: SECURITY.md updated — E-391 re-review: F1 core/F2/F3/F4/F6 closed; new N1 (P2, sync deletes a user's $CLAUDE_PROJECT_DIR hook by file name) blocks Tier 3; N2–N5 P3.
 - 2026-10-29: SECURITY.md updated — E-391 third pass: N1–N5 + git-config note closed (77/0); new P3 M1–M7 (sync still drops bash -c/operator/$HOMEDIR entries; doctor ✓ on JS-invalid matcher, Bash-only matcher, type/timeout, settings.local disableAllHooks; raw escapes in doctor output); T-RENAME-001 third-pass note
 - 2026-10-30: SECURITY.md updated — E-397 safe-exec ReDoS rewrites SEC_CLEARED (0 differential mismatches, no gate weakening; pre-existing viaConfig quadratic + decodedView RangeError noted).
+- 2026-11-01: SECURITY.md updated — E-407 [BRANCH_CLEANUP_OFF] gh probe SEC_CLEARED (PASS); 3 P2 follow-ups (test gh isolation, GH_HOST pin)

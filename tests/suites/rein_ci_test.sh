@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=227   (E-401, D-138 r3: 3x the slowest green hosted run — 51 s Linux / 76 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # rein_ci_test.sh — local CI (D-072): `rein ci run` (E-265), the run record and its readers
 # (E-266, from ai_ci_record), the push and DONE gates (E-267, from ai_ci_gate) and the
 # retired hosted CI (E-268, from actions_decommission) — merged in E-302.

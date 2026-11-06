@@ -4066,3 +4066,495 @@ Every merged PR left its branch on origin; fourteen are there now and the list g
 `gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=false`; drop the `--delete-branch` flag from the rulefile line; a deleted branch is restored from its PR page.
 
 ---
+
+## D-141 addendum — The rulefile carries one pointer line, paid for by the self-referential section; the D-080 r5 byte cap stands; the harness isolates `gh`; a throwaway-HOME run may not rewrite the host project's `.mcp.json`
+
+**Date**: 2026-11-01
+**Task**: E-407 (unblocked), E-408, E-409 (new)
+**Decision**: The Engineer (COMM, 2026-11-01) reports that D-141 r4's four-line rule in ENGINEER.md breaks D-080 r5's byte budget (`rein_sync` E-282.02a: ENGINEER.md ≤ 6944 bytes; it was 6941, the four lines make it 7220), and asks for a ruling between (a) a pointer line funded by deleting the "Project-Scoped Rules" section, (b) the rule in the `rein-task` skill only, (c) a higher cap. Everything else in E-407 is built (f4bd2ad on e-407-branch-cleanup; flag true; fourteen branches gone; DEVOPS-018; security_engineer PASS). Rulings:
+
+1. **Option (a).** ENGINEER.md Core Rules gains ONE line — `- **Merged branches go** (D-141): `gh pr merge <n> --merge --delete-branch`; the rest in `skill: rein-task` Step 3.5.` — and the section "## Project-Scoped Rules" with its single sentence ("Full Principal Engineer rules are managed in `ENGINEER.md` within this project.") is deleted: it tells the reader of ENGINEER.md to read ENGINEER.md and has carried no rule since D-050 made the file canonical. Both edits in both copies (`ENGINEER.md`, `src/templates/ENGINEER.md`); the parity test keeps them equal; the file stays ≤ 6944 bytes. D-141 r4 is amended to this wording.
+2. **Why not (b) or (c).** The rulefile is the one text the Engineer reads every session; a merge command that lives only in a skill is a rule the Engineer meets after the merge is already typed. The cap is the point of D-080 r5 — a rulefile that grows a line per ruling is the drift it measures — so the cap is not raised for a line that fits once a dead section goes. The rule: a new rulefile line is paid for by a removed one; when nothing can go, the rule lives in a skill and the rulefile points at it.
+3. **The harness isolates `gh` (security_engineer P2-2, outside E-407).** `tests/run.sh` lanes inherit `GH_CONFIG_DIR`, `GH_TOKEN` and `GITHUB_TOKEN`, so a suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture can reach api.github.com with the operator's token. The harness rule (test-harness-isolation.md, beside the telemetry and HOME isolation of the Sixth Variety): every lane exports `GH_CONFIG_DIR` to an empty directory under the lane's temp root, unsets `GH_TOKEN` and `GITHUB_TOKEN`, and sets `GH_HOST` to an unroutable name; a suite that needs a `gh` answer stubs the `gh` binary on `PATH` (the E-407 tests already do). The guard is a one-line check in the harness that fails the run when a lane sees any of the three variables set. This is E-408 (Tier 2).
+4. **A throwaway-HOME run may not rewrite the host project's `.mcp.json` (the outage's root cause).** E-402's smoke run under `--home` rewrote this project's gitignored `.mcp.json` so every server pointed into the deleted `/tmp/rein-demo-home-smoke`, and every MCP server failed to connect in the next session until `rein sync` rewrote it. The rule: whatever writes `.mcp.json` (`rein init`, `rein sync`, the hooks' install step) writes it for the project at its own `cwd` ONLY when that project's `.ai/` is registered to the running install's HOME; when `$HOME` names a different install, it refuses with `[FOREIGN_PROJECT] <path> is registered to <other HOME> — run rein sync from that HOME, or rein init --adopt`; and the demo script never has the host project as `cwd` while `HOME` is the throwaway (it `cd`s into the `tally` project before the first `rein` call). `rein doctor` gains `✗ [MCP_PATHS_MISSING] <n> servers point at paths that do not exist — run: rein sync`, the line that would have named this outage at once. The Engineer files the event with `rein-incident` (sanitised). This is E-409 (Tier 2).
+5. **E-406 DONE pending** the green HEAD and fresh-install gate: noted, no action; mark it when the stack settles.
+
+### Impact
+- Unlocks: E-407 (PR may proceed under ruling 1). New: E-408, E-409, both after E-407 and E-401, before E-404.
+- Risk if wrong: ruling 1 deletes a section somebody's tooling greps for — nothing in the tree or tests names "Project-Scoped Rules" (checked by the Engineer in E-407's parity test).
+
+### Rollback
+Ruling 1: restore the section, drop the line (the cap then forces (b)). Rulings 3–4: independent reverts of E-408 and E-409.
+
+> **Ruling 1 wording, as built (2026-11-01, 00c5ff8).** The verbatim line plus the deletion measured 6954 bytes, ten over the cap. The Engineer's shorter tail — `; rest in \`rein-task\` Step 3.5.` — is accepted as the ruling's text (6943 bytes); the merge command and the pointer are unchanged.
+
+---
+
+## D-143 — `.mcp.json` names its servers by `${HOME}`, so the file is install-neutral: the D-141 addendum 2 claim is retired, the doctor dead-path line stays behind one shared expander, the Memory Palace scan fails closed, and PR #26 merges before the E-409 stack
+
+**Date**: 2026-11-04
+**Task**: E-411 (new, PR #26), E-409 (re-cut)
+**Decision**: The Engineer (COMM, 2026-11-04 13:10 UTC) fixed two operator-reported `rein sync` defects outside the queue (PR #26, `fix/sync-gitignore-mcp-home`, 65809e1, off `main`): the Memory Palace scan indexed a gitignored `.parity/` (51,576 entries — the batched `git check-ignore` output passed `spawnSync`'s 1 MiB `maxBuffer`, ENOBUFS read as "nothing ignored"), and `generate_mcp_json` wrote the expanded home directory into every server path. The fix writes the literal `${HOME}/.rein/mcp/<server>/index.js` (Claude Code expands `${VAR}` and `${VAR:-default}` when it reads the file) and collides with E-409 (PR #23, D-141 addendum 2): `mcp-claim.mjs` derives "which install owns this project" from the absolute prefix in that file and tests liveness with `existsSync`, so with both merged the literal `${HOME}` never exists, `rein doctor` prints `[MCP_PATHS_MISSING]` in every project, and the `[FOREIGN_PROJECT]` refusal never fires. Numbering: D-140..D-142 are recorded on the stacked branches (`e-400-sigpipe` and above, PRs #19..#23) and reach `main` with them; DECISIONS.md is append-only, so the merge keeps D-140, D-141 and its addenda, D-142, then this entry. Rulings:
+
+1. **The writer rule.** `generate_mcp_json` writes the plain `${HOME}` form — `${HOME}/.rein/mcp/<server>/index.js`, never `${HOME:-…}` — and an absolute path only when `${REIN}` is not under HOME. The file is the same bytes under every HOME, so a run under a throwaway HOME with the host project as `cwd` writes nothing it did not already contain: the 2026-11-01 outage's mechanism (an absolute throwaway prefix written into the host's file) cannot be written any more. Every Rein reader of `.mcp.json` (`rein doctor`, `mcp-tester.mjs`, the preflight line) expands Claude Code's grammar, both forms, before it tests a path.
+2. **D-141 addendum 2 rulings 1–4 are retired, not amended.** A file with no install prefix carries no claim, and there is no longer a hazard for a claim to guard. `[FOREIGN_PROJECT]`, `rein init --adopt`, `claimCheck` and `reinPrefixes` are not built; no flag survives as a no-op. What stands from D-141 addendum r4: (a) the demo script `cd`s into the throwaway project before its first `rein` call and asserts `cwd` is under `--root` — `rein sync` writes more than `.mcp.json` into `cwd` (`.ai/REPO_MAP.md`, the palace index, the hooks), and the `cwd` rule is what keeps a throwaway run out of the host; (b) `rein doctor` prints `✗ [MCP_PATHS_MISSING] <n> servers point at paths that do not exist — run: rein sync` (non-zero) after expansion, and the rein-preflight injection carries the same line; (c) the outage is filed with `skill: rein-incident`, sanitised.
+3. **One expander, one module.** `expandVars` (PR #26's copy in `src/shared/mcp-tester.mjs`) is the single implementation of `${VAR}` / `${VAR:-default}`; E-409's module becomes `src/shared/mcp-paths.mjs` — `expandVars` plus `doctorLines(file)` (the dead-path count after expansion) — invoked from `rein doctor` as `node mcp-paths.mjs doctor <mcp-file>`; `mcp-tester.mjs` imports `expandVars` from it. PR #26's inline `os.path.expandvars` in the doctor's two path checks (it does not know the `:-default` form) is replaced by that call. `mcp-claim.mjs` and its unit test are renamed and cut to that scope; the rows that asserted the refusal, `--adopt`, the dead-install and mixed-prefix cases are deleted, not skipped.
+4. **Merge order.** PR #26 merges first, as built, now: it fixes a live defect (every downstream `rein sync` re-indexes gitignored media and re-expands HOME until it lands), it is off `main`, and no open PR depends on it. Then #25 and #24 (independent, off `main`). Then the stack in its own order — #19, then #20/#21/#22, then #23 — with #23 re-cut per rulings 2–3 after a rebase onto the `main` that contains #26; the Engineer resolves the `src/bin/rein` conflict in #26's favour and the DECISIONS.md conflict by keeping both tails in order. The order is forced, not preferred: #23 as written breaks `rein doctor` everywhere once #26 is in, and #26 rebased after #23 would restore the absolute prefixes the retired claim depended on.
+5. **The scan fails closed.** `multimodal-rag-batching.md` §Security has always read "the Batch Scanner MUST strictly enforce `.gitignore` rules"; E-75's "a failed probe means nothing ignored" was the implementation's reading, never the blueprint's. Confirmed as built: gitignored directories are pruned from the walk by one `git ls-files --others --ignored --exclude-standard --directory` (one `gitignored-dir` skipped entry each, not one per file), `check-ignore` keeps a 256 MiB `maxBuffer`, and a failed probe indexes nothing and prints one line. The `memory_curator` description ("excludes anything matched by `.gitignore`") is now true of the sync-time scan too; the blueprint gains the sentence.
+6. **The aligner's WARN.** `src/shared/mcp-tester.mjs` and `src/shared/memory-batch-scanner.mjs` are named in `architect.md` §2's helper line as shared modules, beside the sovereignty helpers; `mcp-paths.mjs` joins them when E-409 lands.
+
+### Why needed
+Two PRs change the same file's meaning in opposite directions — one makes `.mcp.json` install-neutral, the other reads an install identity out of it — and neither can merge until one yields. The outage that motivated E-409 is better prevented by writing nothing install-specific than by refusing to write.
+
+### Alternatives considered
+1. **Keep the claim and expand `${HOME}` inside `mcp-claim.mjs`** (the Engineer's second option) — rejected: after expansion every file resolves to the running install's own HOME, so the claim is always "mine" and the refusal can never fire; a check that cannot fail is dead code.
+2. **Reject PR #26's `${HOME}` half and keep absolute paths plus the claim** — rejected: the claim exists only because the file carries an absolute prefix; dropping the prefix removes the hazard and the code that guarded it, which is the smaller system.
+3. **A project registry file** — already rejected in D-141 addendum 2.
+4. **`${HOME}` paths, claim retired, doctor line and `cwd` rule kept, #26 first (chosen)** — one expander, one module, no new record, the outage impossible by construction.
+
+### Constraints driving this decision
+- D-141 addendum r4: a throwaway-HOME run may not rewrite the host project's `.mcp.json` — met by making the write a no-op rather than a refusal.
+- `multimodal-rag-batching.md` §Security: strict `.gitignore` enforcement — fail-closed is the only reading that satisfies "MUST".
+- engineering-standards: one copy of a helper under `src/shared/`; D-088 test economics: a deleted behaviour deletes its rows.
+- Claude Code expands `${VAR}` / `${VAR:-default}` in `.mcp.json` `command`, `args`, `env`, `url` and `headers`; Rein's readers implement that grammar and no other.
+
+### Impact
+- Unlocks: E-411 (PR #26 carried); E-409 re-cut (PR #23); E-410 and E-404 keep their place after E-409.
+- Risk if wrong: a Claude Code build that does not expand `${HOME}` in `.mcp.json` would fail to spawn every server while `rein doctor` reports them present — the preflight's stale-server line and `mcp-tester.mjs` (which expands and spawns) make the mismatch visible; the rollback is one line.
+
+### Rollback
+`generate_mcp_json` writes the expanded path again (one line); D-141 addendum 2's claim returns with it; PR #26's scanner half is independent and stays.
+
+---
+
+## D-144 — An undecodable numeric entity stays literal in the decoded view: the raw text is scanned anyway, nothing can hide behind a code point that does not exist, and a document that merely names the pathological entity must be committable
+
+**Date**: 2026-11-04
+**Task**: E-398 part (1), re-scoped
+**Decision**: The Engineer (message, 2026-11-04) reports that `decodedView` is not in safe-exec: its only caller is the privacy gate (`src/shared/publish-scan.mjs` `_gateScan`, run by the pre-commit hook), so E-398's "pathological command blocked by the hook" has no command and no safe_exec suite to carry it. Today `decodedView("&#1114112;")` throws `RangeError`; the pre-commit's catch-all already turns that into `[PUBLISH_GATE] Invalid code point 1114112` plus `[COMMIT_BLOCKED]` — fail closed, reason present — but it means a file that merely contains the literal (this entry, SECURITY.md's own residual line, the test that names it) can never be committed. Rulings:
+
+1. **Option (b).** A numeric entity whose code point is outside `0..0x10FFFF` — decimal or hex, including a digit string that overflows to `Infinity` — is left as its literal text in the decoded view; `decodedView` never throws. The decoded view exists so an *encoded* secret or address is matched; a code point that does not exist decodes to nothing in any consumer (HTML renders it as U+FFFD), so there is no hidden value for it to carry, and the literal is already covered by the raw-text pass of the same `_gateScan`. Leaving the literal, rather than substituting U+FFFD, keeps the decoded view a superset of the raw text for matching purposes.
+2. **The fail-closed property is kept as a test, not as this entity.** One row proves the pre-commit's catch-all: a scan that throws yields `[PUBLISH_GATE] <message>` and `[COMMIT_BLOCKED]`, at the cheapest layer that can observe the catch (the existing publish-scan or hook unit seam — the Engineer names which it extends, D-088). The entity itself gets two rows in `tests/unit/publish-scan.test.mjs`: `decodedView` returns `&#1114112;` (and an overflowing `&#x…;`) unchanged beside a decoded neighbour on the same line, and a file containing the literal passes the gate with zero hits. No hook-level throwaway-HOME row for this entity: the hook row is ruling 2's generic one.
+3. **E-398's text is corrected by this entry**: "safe_exec suite" reads `tests/unit/publish-scan.test.mjs`; the acceptance "`&#1114112;` is blocked by the hook with a reason" reads "a file containing `&#1114112;` commits; a throwing scan is blocked with a reason; no `RangeError` reaches stderr". SECURITY.md's residual line (currently near line 700) is closed with the corrected location.
+4. **Part (2) is accepted as built** (linear `configArgs`, 400k-case differential fuzz 0 mismatches, 103 ms → 2.8 ms at MAX_WORDS, 250 ms ceiling row). The whole-`runAnalysis` ~700 ms on `git `×9999 is recorded in SECURITY.md beside viaConfig's bound as the measured worst case at the cap, with one ceiling row (fails above 1000 ms at the cap) so a cap change cannot silently remove the bound — the cap bounds it, so it is a recorded bound, not a new task; a rewrite of the other rules is a follow-up only if a later measurement crosses that row.
+
+### Why needed
+A gate that cannot pass a document describing its own edge case blocks the security record itself; the block protected nothing because the undecodable entity carries nothing.
+
+### Alternatives considered
+1. **(a) Keep the block, catch inside `decodedView`, return `[UNDECODABLE_ENTITY] <file>`** — rejected: a named refusal of a harmless literal is still a refusal; every file that documents the case stays uncommittable, and the gate gains a reason line for a non-finding.
+2. **Substitute U+FFFD as HTML does** — rejected: equivalent for safety, but the decoded view then loses the literal the raw pass matched; unchanged text is the smaller rule.
+3. **(b) Literal stays, no throw, fail-closed proved generically (chosen).**
+
+### Constraints driving this decision
+- `_gateScan` scans the raw text and the decoded view in the same pass; the decoded view is additive.
+- D-088: a changed behaviour gets one row at the cheapest observing layer; a deleted acceptance deletes its row.
+- Fail-closed (sovereignty-hardening.md §Components 1): a thrown error in a gate is a block — kept, as ruling 2's row.
+
+### Impact
+- Unlocks: E-398 close-out as re-scoped. Risk if wrong: an encoder that emits out-of-range entities for real characters — none exists; the raw pass still sees the bytes.
+
+### Rollback
+Re-throw in `decodedView`; the catch-all's block returns with it.
+
+---
+
+## D-144 addendum — The old throw was fail-OPEN, not fail-closed: `scanFiles`' read guard swallowed it and skipped the file's decoded pass; the guard now skips only a missing file and lets every other error reach the fail-closed catch-all
+
+**Date**: 2026-11-04
+**Task**: E-398 part (1)
+**Decision**: The Engineer corrects its report (message, 2026-11-04): the old `decodedView` `RangeError` never reached the pre-commit's catch-all. `scanFiles`' read guard (`try { text = opts.read(f) } catch { continue; }`) swallowed it and skipped the whole decoded pass for that file — so `&#1114112;` beside `Ada&#32;Quill` hid the encoded name: fail OPEN. D-144's Decision paragraph ("fail closed, reason present") is wrong on that fact and is corrected here; DECISIONS.md is append-only, so the paragraph stands with this addendum beside it. Rulings:
+
+1. **D-144 r1 stands and now closes a fail-open, not a nuisance block.** The entity row is the one the Engineer built: the literal beside an encoded operator name yields the `operator_name` hit, and the row fails on the old code. SECURITY.md's closing note records the fail-open, as built.
+2. **The read guard is the general seam, and it is closed in E-398.** A reader that throws for ANY reason silently skipped that file's pass; that is a fail-open path for every future decoder error, not only this one. Rule: `scanFiles`' guard skips a file only when the read fails because the file is gone (`ENOENT`/`ENOTDIR` — the "gone" case `_gateScan`'s own `get` already maps to `null`); every other error propagates, and the pre-commit's catch-all turns it into `[PUBLISH_GATE] <message>` + `[COMMIT_BLOCKED]`. One row: a read that throws a non-ENOENT error blocks the commit with the reason line (this is the generic throwing-scan row of D-144 r2, now anchored at the guard so it proves the guard, not a throw elsewhere). `null` from a reader keeps meaning "skip" (binary or gone), unchanged.
+3. **Scope.** Part of E-398's close-out; `security_engineer` re-reads it with the rest. No new task.
+
+### Impact
+- Risk if wrong: a transient read error on a present file (permissions, a race with an editor) now blocks the commit with its message instead of skipping the file — the correct side to fail on for a privacy gate; the operator retries.
+
+### Rollback
+Restore the bare `catch { continue; }`; the fail-open returns with it.
+
+---
+
+## D-144 addendum 2 — `_gateScan`'s own reader is narrowed the same way: `null` only for a path that is genuinely absent, every other blob-read error propagates to the fail-closed catch-all
+
+**Date**: 2026-11-04
+**Task**: E-398 part (1)
+**Decision**: With the `scanFiles` guard closed (addendum r2, built: publish-scan 65/0), the Engineer reports the same class one layer up: `_gateScan`'s reader `get` (`publish-scan.mjs` ~line 410) catches EVERY read error into `null` ("gone"), and `null` means skip — so a staged blob that `git cat-file` fails to return (an error, not a deletion: deletions are filtered out by `--diff-filter=ACMRT` before the read) is unscanned without a block. Rulings:
+
+1. **Narrow it the same way.** `get` maps a read to `null` only when the path is genuinely absent: a filesystem `ENOENT`/`ENOTDIR`, or git reporting that the path is not in the index or tree being read. Every other error — a `cat-file` failure on a listed path, a permissions error, a decoder throw — propagates to the pre-commit's catch-all, which blocks with `[PUBLISH_GATE] <message>` + `[COMMIT_BLOCKED]`. A path that the staged list named and git then cannot read is an error by construction; "gone" is the race between the listing and the read, nothing else.
+2. **One row, at the reader**: a `_blob` failure on a listed path blocks the commit with the reason line; an absent path skips. It extends the addendum r2 row (names it, D-088); the `scanFiles` row stays, since the two guards are two layers.
+3. **The invariant, stated once for the gate**: a file the gate was asked to scan is either scanned or the commit is blocked; "skipped" exists only for a file that is not there and for a `null` text (binary). Any future reader in `publish-scan.mjs` holds to it. Within E-398; `security_engineer` re-reads; no new task.
+
+### Impact
+- Risk if wrong: a transient git read error blocks a commit with its message instead of passing silently — the correct side for a privacy gate.
+
+### Rollback
+Restore the bare catch in `get`; the fail-open returns with it.
+
+---
+
+## D-144 addendum 3 — A staged gitlink is not a file: the listing drops mode 160000 entries and the commit passes; the "unreadable listed blob blocks" row uses a missing blob, not a submodule
+
+**Date**: 2026-11-04
+**Task**: E-398 part (1)
+**Decision**: Addendum 2 is built (reader `null` only for `_absentPath`; publish-scan 66/0, pre_commit_hook 101/0; every new row fails on `origin/main`). The Engineer flags the consequence: a staged gitlink (a submodule entry, mode `160000`) now blocks through the pre-commit CLI, because `git cat-file` cannot return the submodule's commit from this repository. Rein has no submodules; a downstream public repository that uses the gate would block on every submodule bump. That is a false block — a gitlink carries a commit id, not content the gate can scan. Rulings:
+
+1. **Gitlinks are not scan targets.** The staged listing (`--diff-filter=ACMRT`) also drops entries whose mode is `160000`, so the reader never sees them; the same filter applies wherever the gate lists paths from a tree. A row asserts a staged gitlink is skipped and the commit passes. The addendum 2 invariant is unchanged: "a file the gate was asked to scan" never included a submodule pointer.
+2. **The blocking row keeps its claim with a different vehicle.** "An unreadable listed blob blocks with `[PUBLISH_GATE]` + `[COMMIT_BLOCKED]`" is proved with a staged entry whose blob is missing — `git update-index --add --cacheinfo 100644,<unknown sha>,<path>` — which is a genuine error (`Not a valid object name`), not a submodule. The gitlink row of the Engineer's build becomes ruling 1's skip row.
+3. Within E-398; `security_engineer` re-reads the three changes together; no new task.
+
+### Impact
+- Risk if wrong: a submodule pointer that itself encoded a secret — impossible, it is a 40/64-hex object id.
+
+### Rollback
+Remove the mode filter; gitlinks block again.
+
+---
+
+## D-145 — Binary is decided once, on bytes, in `blobText`; a decoded text never carries U+0000; safe-exec verbs match without regard to case; the macOS `rein_sync` timeout on PR #26 is the host at a fixed cap, informative under D-137, and E-401 carries the fix
+
+**Date**: 2026-11-04
+**Task**: E-398 (two pre-existing findings folded in), E-401 (unchanged), E-411 (PR #26 merge)
+**Decision**: `security_engineer` returned `SEC_BLOCKED` on E-398; three findings the Engineer fixed inside it stand as built — gitlinks stay LISTED for the path-name check and only their content read is `null` (D-144 addendum 3 r1 is amended to that wording: the path is scanned, the content is not); readers address a staged blob as `:0:<path>` so a file named `0:notes.md` is not read as stage 0 of `notes.md`; `_absentPath` matches one exact stderr line naming the file, not any text a file name could spell. Two pre-existing findings need a ruling because they break the D-144 addendum 2 invariant. Rulings:
+
+1. **(a) Binary is decided once, in `blobText`, on the bytes.** `scanFiles` line 170's post-decode rule "a text containing U+0000 is binary, skip" is deleted: it runs AFTER `blobText` has already decided the blob is text and decoded it, so a UTF-16 file (`FF FE` + `utf16le("Fabrikam\u0000\n")`) was asked to scan and not scanned. `blobText` is the only place that distinguishes binary from text (its UTF-8 branch already maps a NUL-bearing buffer to its printable runs); its UTF-16 branches drop U+0000 from the decoded string (`replace(/\u0000/g, "")` — dropped rather than replaced by a separator, so a name split by NUL joins and is matched, the fail-closed direction). Downstream of `blobText`, `null` means binary-or-absent and a string is text, with no second guess. Row: the UTF-16 file above yields the `operator_name` hit; fails on `origin/main`. Within E-398.
+2. **(b) A safe-exec verb matches without regard to case, on every table.** The presence check `/(^|[^A-Za-z0-9_.-])git(\s|$)/` is case-sensitive, so a capitalised `GIT` with the hooks-path config operand passes for the Architect — and on a case-insensitive filesystem (macOS default, Windows) `GIT` runs git. The rule is for the verb family, not `git` alone: every verb the gate names (the D-112 wave tables: `git`, `rm`, `node`, `python3`, …) matches case-insensitively; the operand keywords that follow a verb are compared by the tool's own documented case rules (git subcommands are case-sensitive, a git config key is case-insensitive) — the Engineer takes those rules per operand, not a blanket fold. The Linux cost is refusing a command that would have failed anyway. Rows: the capitalised `GIT` hooks-path command blocked for the Architect, plus one more table verb in caps — as NEW rows in the contract tables, no fixture table re-pinned (E-398 acceptance). Within E-398; Tier 2 stays, the gate surface is already E-398's.
+3. **(c) The macOS `rein_sync` timeout on PR #26 is the host at a fixed cap, not a #26 defect.** 180.6 s against the 180 s `SUITE_TIMEOUT`, with 170 s on #25 and 154 s on #24 for the same unchanged suite (60 s locally): exactly D-138 r3's case — a suite over a third of the default declares `# REIN_SUITE_TIMEOUT=<s>` at 3× its slowest green hosted run — which E-401 (PR #21) implements and #26 ran without. Two consequences: macOS is informative on `main` under D-137 r5, so this does not hold #26's merge (E-411's "required checks green" was never the macOS leg); and the fix is not duplicated in #26 or hand-tuned — it arrives with #21 in D-143 r4's order. One rerun of the leg for the record is fine; a second timeout changes nothing. The Engineer checks `rein_sync` declares its `# REIN_SUITE_TIMEOUT` under E-401 (3 × 170 s rounds to 510 s, measurement in the trailing comment).
+
+### Why needed
+Two skips that looked like binary handling and case handling were paths where a file asked to scan was not scanned, or a blocked verb ran; and a cap that D-138 already replaced was read as a PR failure.
+
+### Alternatives considered
+1. **Keep the post-decode NUL rule and special-case UTF-16** — rejected: two places deciding "binary" is how this slipped through; one decision on bytes.
+2. **Case-fold `git` only** — rejected: the filesystem is case-insensitive for every verb, not one.
+3. **Raise the macOS cap in #26** — rejected: a hand-tuned absolute is the drift D-138 r2–r3 forbids; E-401 is the fix and is behind #26 only in merge order, not in need.
+
+### Constraints driving this decision
+- D-144 addendum 2 invariant: scanned or blocked; skip only for absent or binary — so binary must be decided exactly once.
+- sovereignty-hardening.md §Components 1 (gate surface); E-398 acceptance: no fixture table re-pinned.
+- D-137 r5 (macOS informative on `main`), D-138 r3 and E-401 (suite timeout at 3× the slowest green hosted run).
+
+### Impact
+- Unlocks: E-398 re-review; E-411 proceeds on its required set. Risk if wrong: a case-insensitive verb refusing a legitimately differently-cased command on Linux — it would not have run there either.
+
+### Rollback
+(a) restore the line-170 rule; (b) drop the case-insensitive flag and the new rows; (c) none — a ruling on facts.
+
+---
+
+## D-145 addendum — The tree scan and the commit gate read a file through the same `blobText`, so a binary is judged by one rule in both; the verb fold is accepted as built; `rein_sync`'s timeout header is added under E-401 with a sweep and an advisory line; the sandbox escape is E-412
+
+**Date**: 2026-11-05
+**Task**: E-398, E-401, E-412 (new)
+**Decision**: The Engineer built D-145 (a) and (b) in E-398 and asks four things. Rulings:
+
+1. **(a) Confirmed: `scanFiles`' default reader goes through `blobText`.** Until now the two paths disagreed about a binary: the commit gate scanned its printable runs, the tree scan (`scanFiles`' default reader) skipped it — so `b.bin` holding a home path was caught at commit and missed by the tree scan. One reader means one rule: what passes the commit gate passes the tree scan and the reverse. The E-364 row is updated, not deleted: `b.bin` now yields the `home_path` hit, and the row names what it replaces (D-088). When E-403 lands D-140 r2's rule (a known media type by magic bytes has its textual metadata scanned and its payload skipped), it lands in `blobText` and both paths get it in the same change.
+2. **(a) Condition, checked before E-398 closes.** The full-tree scan — the command the CI privacy job runs — is 0 hits on this tree after the change, using the same allow data the gate uses. If a tracked media file now matches by chance on its compressed payload, it is NOT exempted by path (D-140 rejected exactly that): the Engineer reports the hit, E-403 moves ahead of E-398's close, and the default-reader half of (a) lands with E-403; the gate-path half (UTF-16 NUL, the line-170 rule) stays in E-398 either way.
+3. **(b) Accepted as built**: `src/mcp/safe-exec-mcp/verb-fold.mjs` folds every word that is a gate verb (the verb set plus the `python*`/`mkfs.*` families, after quote and backslash removal, or a path's basename) before any rule; operands untouched; five BLOCK rows that fail without the fold and three pass/guard rows in the unpinned tables; pinned tables unchanged; `runAnalysis` at the cap 568 ms, under D-144 r4's 1000 ms row. `architect.md` §2 names the module.
+4. **(c) Confirmed: `rein_sync_test.sh` gains `# REIN_SUITE_TIMEOUT=510`** (3 × 170 s, the macOS run on #25, measurement in the trailing comment) on #21's branch when its turn comes, inside E-401. Two additions in the same pass, because the list was built by hand and missed one: (i) a sweep — every suite's slowest green hosted time on each OS from the latest runs is compared with a third of the default, and any other suite over it gets its header; (ii) the harness prints one advisory line in its run summary, `[SUITE_TIMEOUT_UNDECLARED] <suite> ran <s>s — over a third of the default, declare # REIN_SUITE_TIMEOUT`, for a suite that crosses the line without a header — advisory, exit unchanged, so the next miss is named by the run instead of found by a timeout.
+5. **(d) The sandbox escape is E-412** (Tier 2, after E-398, independent of the PR stack): from a worktree under the temp directory the privacy-cases row "generate_map redacts REPO_MAP.md" opens a test file that belongs to another project on the host. The task asks for the resolver that leaves the fixture root to be named, whether the foreign file was parsed or executed, the fix at the resolver, and a row from a temp-directory worktree. The other project's name and the home path stay out of every tracked file (D-117) — this entry included.
+
+### Impact
+- Unlocks: E-398 close-out under ruling 2's condition; E-401's header and sweep; E-412. Risk if wrong: ruling 1 makes the tree scan stricter than before on non-media binaries — the commit gate was already that strict, so nothing tracked today got in without passing it.
+
+### Rollback
+Ruling 1: the default reader reads UTF-8 directly again and the E-364 row returns to "skipped". Ruling 4 (ii): delete the advisory line.
+
+---
+
+## D-145 addendum 2 — A NUL-bearing blob is scanned as two views of one decode (NUL as a line break, NUL removed) and the printable-runs filter goes; an odd-length byte-order-mark file decodes its even prefix; the verb fold covers every position a rule can find a verb, proved by a case-variant differential over the tables
+
+**Date**: 2026-11-05
+**Task**: E-413 (new), E-398
+**Decision**: The D-145 addendum r2 condition is met: the full-tree scan (the `privacy.yml` command) is 0 hits over 632 files, with and without the local list, so E-403 keeps its place. `security_engineer` pass 3 blocked the first verb fold (it rebuilt words without their quotes and re-paired later quotes, so a quoted upper-case verb ahead of a real destructive command made the whole line pass for every role — 810 lost findings over 48,654 pairs); the Engineer's second cut lowers A–Z in place only, length-invariant, with guards that all fail on the first cut. Three pre-existing findings need a ruling. Rulings:
+
+1. **Two views of one decode, for every encoding (E-413).** `blobText`'s UTF-8-with-NUL branch keeps only printable ASCII runs of six or more, so a short name on its own line after a NUL, a name between a NUL and a tab, a non-ASCII name, and a name split by a NUL all escape. The rule replaces both that branch and D-145 r1's "dropped, not a separator" for UTF-16: a blob whose decoded text contains U+0000 is scanned as two views of the same decode — U+0000 as a line break, which keeps a NUL-terminated string whole and apart from its neighbour (the common shape in a binary's string table), and U+0000 removed, which joins a value split by NUL. Neither view alone catches both shapes. The runs-of-six filter is deleted: it existed to cut noise and cut findings instead. A hit is reported once per class per file.
+2. **An odd-length buffer behind a byte-order mark decodes its even prefix (E-413).** Today `swap16` throws `RangeError` on an odd-length `FE FF` file; since D-144 addendum 2 that blocks the commit — fail closed, but a file no one can commit, for one trailing byte that can carry nothing. The same reasoning as D-144 r1: decode what is decodable, never throw.
+3. **Why a task of its own.** Rulings 1–2 change what every binary yields, so they carry the chance-match risk D-140 named; E-398 has had four security passes and closes on its own surface. E-413 is Tier 2 with a `security_engineer` re-read, after E-398 and before E-403 (which lands the metadata rule for known media in the same function), and it re-runs the full-tree scan: 0 hits, no path exemption; a chance match on a tracked media file is reported and E-403 goes first.
+4. **The glued-option verb is inside E-398, not a follow-up.** `env` with its split-string short option glued to an upper-case destructive verb is still unfolded — P1 on a case-insensitive filesystem. D-145 r2 already says every verb matches without regard to case on every table; a position the fold misses is a defect against that ruling in a module E-398 introduces, so it does not ship with the hole. The rule is stated as a property, not as a list of glued forms: **wherever a rule can find a verb, the fold has already run** — and it is proved mechanically by a case-variant differential over the tables: every BLOCK row, with each of its verbs upper-cased in place, yields the same findings as the row itself. A row that loses a finding names the position the fold missed. The differential is generated from the tables, not written by hand, and the pinned tables stay unpinned-row-free (no table re-pinned).
+5. **The second fold cut is accepted in principle** — in-place, length-invariant lowering; segmentation on `{ } , = :`; `$'…'` decoded for the decision only; the added verbs — subject to pass 4 and ruling 4's differential.
+
+### Why needed
+Three ways a file or a command the gate was asked to judge was judged on less than its content: a filter that discarded short and non-ASCII text, a throw on a harmless trailing byte, and a fold that stopped short of one verb position.
+
+### Alternatives considered
+1. **Drop NUL only (D-145 r1's rule, extended to UTF-8)** — rejected: a NUL-terminated name followed by a letter joins into one word and is missed.
+2. **NUL as a separator only** — rejected: a name split by NUL is missed.
+3. **Fold the scanner change into E-398** — rejected: it widens a task on its fifth security pass and couples its close to E-403's chance-match question.
+4. **Enumerate glued verb forms** — rejected: the next form is the next finding; the differential over the tables states the property.
+
+### Constraints driving this decision
+- D-144 addendum 2 invariant (scanned or blocked); D-140 r2 (no exemption by path; metadata rule for known media in E-403).
+- D-145 r2 (every verb, every table); E-398 acceptance (no fixture table re-pinned); D-088 (rows name what they extend).
+
+### Impact
+- Unlocks: E-413; E-398's close after pass 4 with the differential. Risk if wrong: ruling 1 raises chance matches on unknown binaries — bounded by the re-run tree scan and by E-403 for media.
+
+### Rollback
+Rulings 1–2: restore the runs-of-six branch and the throw. Ruling 4: delete the differential (the fold stays).
+
+---
+
+## D-144 addendum 4 — The whole-analysis ceiling stays at 1000 ms and E-398 lands after the parser upgrade: the slow part was `shell-quote` 1.8.3, not Rein's rules
+
+**Date**: 2026-11-05
+**Task**: E-398, PR #25
+**Decision**: E-398 is committed (e9b54bc on `e-398-safe-exec-residuals`, off `main`; `security_engineer` pass 4 `SEC_CLEARED`; 704/0) and not pushed: local `rein ci run` failed the unit stage on D-144 r4's ceiling row (whole `runAnalysis` at MAX_WORDS under 1000 ms) under coverage and concurrent lanes. The Engineer named the cause: on `main`'s pinned `shell-quote` 1.8.3, `parse()` of the cap input takes 137 ms against 7 ms on 1.12.0, and `runAnalysis` parses several times — about 570 ms nominal, over 1000 ms under instrumentation and load; with PR #25's 1.12.0 the same row runs in about 32 ms. D-144 r4's "other rules are slow there too" was therefore wrong on the cause: it was the old parser. Rulings:
+
+1. **The row stays at 1000 ms and is not reworded.** It did what a ceiling is for — it caught a real slowdown and named where it lives. Loosening it to pass on 1.8.3 would hide the thing it found.
+2. **E-398 rebases onto `main` after PR #25 merges**, then local CI, push and PR. D-143 r4's order already puts #25 second, so the order reads: #26, #25, #24, E-398's PR, then the stack #19 → #20/#21/#22 → #23 re-cut. E-398 does not land before #25.
+3. **SECURITY.md records the corrected cause and the dependency**: the measured worst case at the cap on each parser version, and that the bound holds on `shell-quote` 1.12.0 or later — so a future downgrade or a parser regression is named by the row rather than rediscovered.
+4. **Pass-4 fixes** (the `$-` crash and the `${X:-…}` default form carrying an upper-case verb) stand as built under the `SEC_CLEARED` verdict.
+
+### Why needed
+A red local CI on a correct change, with the cause in a dependency another open PR already upgrades; the choice was between moving the row and moving the merge.
+
+### Alternatives considered
+1. **Land E-398 before #25 with the row loosened or skipped on 1.8.3** — rejected: a version-conditional ceiling is the `CI=true`-only absolute D-138 r2 forbids, in another costume.
+2. **Bump `shell-quote` inside E-398** — rejected: #25 is that change, reviewed under `dependency_gate`; two PRs carrying one bump conflict for nothing.
+3. **Rebase after #25, row unchanged (chosen).**
+
+### Impact
+- Unlocks: E-398's PR once #25 is on `main`. Risk if wrong: #25 is delayed and E-398 waits with it — E-398 is committed and cleared, so nothing is lost by waiting.
+
+### Rollback
+None needed — an ordering ruling.
+
+---
+
+## D-146 — E-412 is re-scoped: no resolver leaves the sandbox; the row states what it needs and shows its child's error, and a diagnostic `node --test` always names an existing file
+
+**Date**: 2026-11-05
+**Task**: E-412 (re-scoped; its registered text is superseded by this entry)
+**Decision**: The Engineer (rein-debug, iteration 1) reports that E-412's premise — taken from its own observation in D-145 addendum r5 — was wrong on both counts. (1) The privacy-cases row "generate_map redacts REPO_MAP.md" fails in an un-bootstrapped worktree because `src/mcp/ast-parser-mcp` has no installed dependencies (`web-tree-sitter` missing); the row runs `--generate-map` with its output discarded, so the only symptom was "Command failed". With the dependencies installed it passes from a temp-directory worktree (privacy-cases 32/0). `generate_map` takes its root from `cwd` and refuses anything above it. (2) The other project's test file was executed, not parsed, and not by the row: by the Engineer's own diagnostic during E-398 — `node --test` given a variable that a grep had left empty — so node's test discovery ran from the working directory and loaded a test file from a sibling project on the host (its import failed). It was not re-run. Rulings:
+
+1. **E-412 becomes a Tier 1, tests-only task** on `e-412-privacy-row-sandbox`: (a) the row declares its need through the harness's need check (test-harness rule 1: a suite states what it needs from the host) and records a SKIP with the reason when `ast-parser-mcp`'s dependencies are absent; (b) on a real failure it prints the child's stderr instead of discarding it — a row that can only say "Command failed" costs a debugging session, as this one did; (c) no change under `src/`. E-412's registered points (1)–(4) and its `security_engineer` clause are withdrawn.
+2. **A skip is for a host that has not been bootstrapped, never for the hosted check.** The hosted recipe runs the bootstrap, so the row runs there: the Engineer confirms the hosted run's skip count does not rise with this change. If the harness can distinguish "bootstrap ran" from "bootstrap never ran", the need check fails rather than skips in the first case — a privacy row that silently skips on CI is a gate that silently stopped.
+3. **The diagnostic rule, one line in the path-scoped test rule file** (`src/claude/rules/test-harness.md`, the copy `.claude/rules/` loads for `tests/**`): a diagnostic `node --test` names a file that exists — the path is checked before the call, never passed as an unmatched or empty variable — because with no file operand node discovers and runs every test file it finds from the working directory, whatever project it belongs to. A rule file line is documentation, so the task stays Tier 1.
+4. **The execution is filed with `skill: rein-incident`**, sanitised: an agent diagnostic ran test discovery outside the project and loaded a file from another project on the host. No project name, no home path (D-117). One occurrence is a record; the aggregator decides if it becomes a pattern.
+5. **No gate rule.** `node --test` with no file operand is the normal way to run a project's own tests from its root; blocking it in safe-exec would refuse correct use to stop one mistaken call. The rule lives where the mistake is made — in the diagnostic habit — and the incident record measures whether that is enough.
+
+### Why needed
+A task registered on a wrong observation would have sent a debugging pass after a resolver that does not exist; the real findings are a row that hides its own error and a diagnostic habit that can run another project's code.
+
+### Alternatives considered
+1. **Close E-412 as invalid** — rejected: the opaque row and the missing need declaration are real and cheap to fix.
+2. **Fail instead of skip when dependencies are absent** — rejected for an un-bootstrapped worktree (the host genuinely lacks what the row needs); kept for the hosted check by ruling 2.
+3. **A safe-exec rule against `node --test` without a file** — rejected by ruling 5.
+4. **Re-scope by ruling, same id and branch (chosen).**
+
+### Constraints driving this decision
+- test-harness-isolation.md and test-harness rule 1 (a suite states what it needs); D-088 (no new suite; the row is amended in place).
+- D-117 (no private project name or home path in a tracked file); incident-tracker.md (an unpredictable event is recorded, sanitised).
+
+### Impact
+- Unlocks: E-412 as a Tier 1 task. Risk if wrong: the skip masks a broken bootstrap — bounded by ruling 2's hosted skip-count check.
+
+### Rollback
+Remove the need check and the stderr print; the row fails opaquely on an un-bootstrapped host again.
+
+---
+
+## D-145 addendum 3 — In a NUL-bearing blob the shell `~login` forms are not applied: they take their meaning from line and shell context a byte stream does not have; every literal class still runs on both views, and no file type or path is exempted
+
+**Date**: 2026-11-05
+**Task**: E-413 (step 4 resolved; continues)
+**Decision**: E-413 stopped at its step 4 as ruled: with the two-view decode and the runs-of-six filter gone, the full-tree scan has exactly one hit, with and without the local list — `home_path` in `src/mcp/ast-parser-mcp/grammars/tree-sitter-typescript.wasm`, a vendored grammar binary of 2,342,690 bytes. WebAssembly is not on E-403's media list, so "E-403 goes first" does not cover it. The Architect read the bytes (read-only): the file contains no `/home/` and no `/Users/`, not even split by NULs; the match is the `~login` pattern (`TILDE_RE`) on a form-feed byte followed by a tilde and a `w` — three bytes — and only in the NUL-removed view; the NUL-as-line-break view has no match, and the other two grammar binaries have none in either view. It is not a path; it is D-140's coin flip, produced by a pattern two bytes long. Rulings:
+
+1. **The rule is about the pattern, not the file type.** `TILDE_RE` and `TILDE_VERB_RE` recognise shell syntax: a login is a login because of what stands before and after it on a line of shell or prose. A blob whose decode carries U+0000 is not such a line in either view — one view invents line boundaries, the other glues unrelated bytes together — so the two `~login` forms are not applied to a NUL-bearing blob's views. Every class with a literal anchor is applied to both views unchanged: `HOME_RE` (`/home/<user>`, `/Users/<user>`), `personal_email`, `session_socket`, `client_name`, `operator_name`, and the secret formats.
+2. **What that gives up, and why it is acceptable.** A `~login` inside a NUL-bearing file is no longer a finding on its own. The login that matters most is still caught there: the operator's own login is on the `operator_name` list and that class runs on both views; an embedded absolute home path — the leak a compiled binary really carries — is `HOME_RE`. A text file is unaffected: UTF-16 text decodes without U+0000 and gets every class.
+3. **Not (a), not (b).** WebAssembly is not added to E-403's list: reading only its custom sections would skip the data segments, which is exactly where a compiler embeds a real build path, and it is format work to dismiss three bytes. No "opaque compiled binary" type is introduced either: the two-view scan stays for every NUL-bearing blob; what changes is which patterns are meaningful on it.
+4. **Still no exemption, and the same stop rule.** No path, extension or magic is exempted. E-413 re-runs the full-tree scan: 0 hits. If a literal class (an address is the likeliest) ever matches a binary by chance, it is reported and stops the task as before, and the answer is then a structural rule for that format in E-403's manner — where text can live in it — never a path.
+5. **Rows, added to E-413's six** (each naming what it extends, D-088): a NUL-bearing blob holding the form-feed, tilde, `w` shape yields no hit; the same blob with a literal `/home/user` yields `home_path`; a NUL-bearing blob with `~<an operator name>/` yields `operator_name`; a NUL-free text file with `~user/x` still yields `home_path`. E-413's registered step 4 wording ("E-403 then goes first") is superseded by ruling 4.
+
+### Why needed
+The first run of the widened scan found a hit that is not a finding; exempting the file would be the hole D-140 closed, and widening E-403 to a format it was not designed for would hide the one leak that format can really carry.
+
+### Alternatives considered
+1. **(a) WebAssembly by magic, custom sections only** — rejected by ruling 3.
+2. **(b) A rule for opaque compiled binaries** — rejected: it needs a list of formats that grows with every new one, and the coin flip is in the pattern.
+3. **Keep the `~login` forms on binaries but require the path form and a longer login** — rejected: still a few percent per large binary on realistic byte distributions, and a rule nobody can state in one sentence.
+4. **Restore the runs-of-six filter** — rejected: it hides short and non-ASCII names (D-145 addendum 2 r1).
+5. **Context patterns are for text; literal patterns are for everything (chosen).**
+
+### Constraints driving this decision
+- D-140 r2 (no exemption by path; a rule is about where an identifier can actually live); D-144 addendum 2 invariant (scanned or blocked).
+- D-124 (the operator's names are a list, matched literally) — the reason ruling 2's residual is covered.
+
+### Impact
+- Unlocks: E-413 past step 4. Risk if wrong: a login that is not on the operator list, written as `~login` inside a file that also contains a NUL, passes — a deliberate construction; the literal classes and the review of a binary's provenance are what stand behind it.
+
+### Rollback
+Apply the two `~login` forms to NUL-bearing views again; the grammar binary hits again.
+
+---
+
+## D-145 addendum 4 — The separator view turns NUL into a space, hits fold per class and value, `rein doctor` says when this HOME's login is missing from the operator list, and non-UTF-8 buffers get a Latin-1 decode in E-414
+
+**Date**: 2026-11-05
+**Task**: E-413 (three amendments), E-414 (new)
+**Decision**: E-413 is committed (3962802 on `e-413-blob-nul-views`, stacked on E-398's e9b54bc), `SEC_CLEARED`, held until E-398 pushes. `security_engineer` made three suggestions that change D-145 addendum 2's text and named one pre-existing gap. Rulings:
+
+1. **The separator view is NUL → space, not NUL → line break** (amends addendum 2 r1). A two-word operator name stored as two NUL-terminated fields (`\0Ada\0Quill\0`) is missed by both views today: the line break splits it across lines and the removed view glues it into one word. A space still ends a word, an address and a path, so everything the line break protected is kept, and adjacent fields read as the phrase they are — a first-name field beside a last-name field is the finding, not a coincidence. No third view. The line break's only other effect was on line-anchored patterns, and the only ones, the `~login` forms, are already off for these views (addendum 3). Because the separator view of a large binary is now one long line, the Engineer records the full-tree scan's wall time before and after; the class patterns are linear by E-379's rule, and a material regression is reported rather than absorbed.
+2. **Hits fold per (class, matched value), not per class per file** (amends addendum 2 r1's last sentence). Blocking is the same either way, but a listing that shows one address when the file holds two sends the operator through fix, re-run, find the next. The duplicate that the fold exists to remove is the same value seen in both views.
+3. **`rein doctor` names the assumption addendum 3 r2 rests on.** That ruling accepted the `~login` trade-off because the operator's own login is on the `operator_name` list; nothing checked it. `rein doctor` prints one advisory line when `.ai/publish-scan.local.json` exists and the login of the running HOME is not among its `operator_names`: `[SCAN_LOGIN_UNLISTED] this HOME's login is not in operator_names — add it to .ai/publish-scan.local.json`. The line never prints the login itself (doctor output is pasted into issues), is silent for a neutral placeholder login and for a clone without the local file (where the identity rule is skipped by design), and leaves the exit status unchanged. It lives in the doctor, not in `loadScanConfig`: a library that prints on every commit is noise, and the doctor is where configuration drift is already reported.
+4. **Non-UTF-8 buffers get a Latin-1 decode — E-414, not E-413.** Pre-existing: a non-ASCII name in Latin-1 text, in a mixed-encoding buffer, or in a UTF-16 run inside a binary decodes as UTF-8 to U+FFFD and is missed. One rule covers the three: a buffer that is not valid UTF-8 is also decoded as Latin-1 (Windows-1252) and that text goes through the same views; with NUL removed, a UTF-16LE run of code points up to U+00FF reads as its letters. Valid UTF-8 and BOM-detected UTF-16 are unchanged, and a value found in both decodes is one hit by ruling 2. It widens what every non-UTF-8 file yields, so it is its own task — Tier 2, `security_engineer` re-read, after E-413 and before E-403, with the tree scan re-run under addendum 3 r4's stop rule. The `~login` forms follow addendum 3 unchanged: they are off only for views of a NUL-bearing buffer; a NUL-free Latin-1 text file is text and keeps them. E-414's registered wording "or non-UTF-8 buffer" is superseded on that point by this sentence.
+5. **Rulings 1–3 are amendments to E-413**: one follow-up commit on `e-413-blob-nul-views`, the delta re-read by `security_engineer`. Rows: the two-field name hits `operator_name`; two distinct addresses in one NUL-bearing file are both listed; the doctor line prints for an unlisted login, is silent for a listed one, a placeholder and a clone without the local file, and never contains the login.
+
+### Why needed
+Three places where the widened scan still judged less than the file held or reported less than it found, and one assumption the previous ruling made without a check.
+
+### Alternatives considered
+1. **A third view (NUL → space beside the line-break view)** — rejected: the line-break view then protects nothing the space view does not.
+2. **Implicitly treat the running login as an operator name at scan time** — rejected: a login that is also a common word would match across the tree, and a one- or two-letter login is the coin flip again; a named advisory is the measured step.
+3. **Record the Latin-1 gap as an accepted residual** — rejected: an operator with a non-ASCII name in a legacy-encoded file is an accidental leak, not a construction, and the fix is one bounded decode.
+
+### Constraints driving this decision
+- D-144 addendum 2 invariant; D-140 r2 and D-145 addendum 3 r4 (no exemption; a literal chance match stops the task).
+- E-379 (class patterns are linear on long input); D-124 (operator names are a literal list); D-088.
+
+### Impact
+- Unlocks: E-413's amendment and E-414. Risk if wrong: ruling 1 lets two unrelated adjacent fields read as a listed two-word name — that requires both words of a listed name side by side, which is the thing the list is for.
+
+### Rollback
+Ruling 1: NUL → line break again. Ruling 2: fold per class per file. Ruling 3: delete the doctor line. Ruling 4: revert E-414.
+
+---
+
+## D-145 addendum 5 — E-413's amendment is accepted as built; the fake-token mark is not honoured in a NUL-bearing blob; the held stack stops at three tasks
+
+**Date**: 2026-11-05
+**Task**: E-413 (accepted), E-414 (next), E-401 (additions), PR #28
+**Decision**: The addendum 4 follow-up is committed (2aecde7 on `e-413-blob-nul-views`, over 3962802 and E-398's e9b54bc), `SEC_CLEARED`, held unpushed behind E-398. Full-tree scan: 0 hits with and without the operator list; wall time 8.9 s before, 5.5 s after. Rulings:
+
+1. **Accepted as built**: NUL → space; the fold per (class, value) with the Engineer's containment fold, so the removed view's gluing of two neighbouring values is not listed as a third (cost recorded: a value contained in a longer listed one is listed once; blocking identical over 20,000 random inputs); the doctor advisory through `publish-scan.mjs doctor`.
+2. **The fake-token mark is not honoured in a NUL-bearing blob.** The re-read caught addendum 4 r1's regression: with NUL → space a distant `privacy:allow-fake-token` mark shared a "line" with a real token and excused it. The mark is a statement about a line of text; a NUL-bearing blob has no lines, and fake tokens live as text under `tests/fixtures/`. Same reasoning as addendum 3 r1, applied to the one other thing in the scanner that reads line context.
+3. **Residuals.** The constructed `xx\0Fab\0rikam\0yy` (a name split by a NUL and glued to neighbours on both sides) is recorded in SECURITY.md as accepted: it is a deliberate construction and no byte-level view catches every such shape. The doctor's pre-existing error lines print the absolute `.ai` path, which carries the login that addendum 4 r3 keeps out of doctor output: they print the project-relative path instead — one line and one row, folded into E-414.
+4. **Sequence.** E-414 is next, stacked on E-413 — it builds on E-413's views and cannot sit elsewhere. Then the E-401 additions of D-145 addendum r4 (the `rein_sync` header at 510 s, the sweep, the advisory line) as commits on `e-401-budgets`, which wait on no merge. **The held stack stops at three tasks**: E-403 (Tier 3, same file) is not stacked on E-414 while E-398 is unpushed — a fourth unpushed task would put a Tier 3 gate change behind a rebase that no hosted run has seen.
+5. **PR #28**: hosted skips 2, equal to #26's 2 — D-146 r2's condition is met; it merges on the operator's go, independent of the order in D-144 addendum 4 r2.
+
+### Impact
+- Unlocks: E-414; the E-401 additions. Risk if wrong: ruling 2 makes a fake token inside a NUL-bearing fixture a finding — such a fixture states its tokens in a text file instead.
+
+### Rollback
+Ruling 2: honour the mark in every blob again (the regression returns). Ruling 4: none — an ordering ruling.
+
+---
+## D-145 addendum 6 — Client names take the operator-name boundary; the Windows-1252 decoder is built on first use; E-414 and the E-401 headers are accepted as built
+
+**Date**: 2026-11-06
+**Task**: E-414 (accepted, one follow-up commit), E-401 (additions accepted)
+**Decision**: E-414 is committed (174bab0 on `e-414-latin1-decode`, over E-413 and E-398), `SEC_CLEARED`, tree scan 0 hits with and without the operator list (6.9 to 8.5 s; was 5.5 s — the second decode of non-UTF-8 buffers, accepted). The stack is at the cap of addendum 5 r4. Rulings on what the review left:
+
+1. **Client names are bounded exactly as operator names are.** `scanText` builds the client pattern with ASCII `\b` and no `u` flag, so a listed name whose first or last letter is not ASCII (`Ñandú SA`) matches only when glued to a word character and never in ordinary prose — the list reads as covered and is not. One builder makes both patterns: NFC on the listed name, the Unicode lookarounds (not preceded and not followed by a letter or digit), the whitespace-run and non-breaking-hyphen loosening, flags `iu`. Consequences accepted on purpose: a client name inside an identifier (`acme_config`, where `\b` saw `_` as a word character) is now a hit, and a name written with a no-break space is a hit. Both are the name in a tracked file.
+2. **Condition** (addendum 3 r4, unchanged): the full-tree scan with the operator's list is 0 hits after the change. A new hit is a finding — the Engineer stops and reports the file and line, and does not narrow the pattern to pass.
+3. **Rows** in `tests/unit/publish-scan.test.mjs`, extending the existing client-name rows (D-088): a listed name starting and ending in a non-ASCII letter hits in prose; the same name inside a longer word does not; a listed ASCII name followed by `_` hits; the existing rows stay green unchanged.
+4. **Where.** A follow-up commit on `e-414-latin1-decode` inside E-414, as 2aecde7 was for E-413 — same function, same file, and a fourth task would break the cap. `security_engineer` re-reads the follow-up only.
+5. **The Windows-1252 decoder is constructed on first use, not at module load.** At load, a Node built without full ICU fails every commit with a stack trace, whether or not any staged file needs that decode. On first use the failure sits inside the scan, so D-144 r2's path turns it into `[PUBLISH_GATE] <message>` + `[COMMIT_BLOCKED]` only when a non-UTF-8 buffer is actually scanned. Still fail closed (D-144 addendum 2 invariant). No fallback decode and no new row: the generic throwing-scan row already covers the path, and a seam to fake a missing ICU costs more than the case is worth (D-088). Same follow-up commit.
+6. **E-401 headers accepted as measured.** `rein_sync` is 512 s (3 × 170.4 s), not the 510 of addendum r4: D-138's rule is the formula, and a number written in a ruling is the measurement of its day. The nine new and five raised headers and the advisory `[SUITE_TIMEOUT_UNDECLARED]` line (exit unchanged) stand.
+
+### Alternatives considered
+1. **Leave client names on `\b`, document it** — rejected: the operator cannot tell from the list that a name is unmatchable; a silent miss in the one class that exists to protect a third party.
+2. **Add the `u` flag only** — rejected: `\b` stays ASCII under `u`; it changes nothing.
+3. **A hand-written 0x80–0x9F table so no ICU is needed** — rejected: every official and distribution Node carries full ICU; the table is code and a row for a host nobody has reported.
+4. **A separate task for ruling 1** — rejected: it would stack a fourth task on a held stack, or branch from main and conflict with the three held commits on the same lines.
+
+### Impact
+- Unlocks: E-414's follow-up; the E-401 commit once the shared tree can switch (D-147). Risk if wrong: ruling 1 surfaces identifiers that merely contain a short client name — the list holds full names, and ruling 2 reports rather than hides such a hit.
+
+### Rollback
+Ruling 1: the `\b` pattern again (the miss returns). Ruling 5: construct at load again.
+
+---
+
+## D-147 — The Architect commits its ruling files with every handoff; a handoff leaves no tracked `.ai/` path dirty
+
+**Date**: 2026-11-06
+**Task**: E-401 (unblocked), E-415 (skill text)
+**Decision**: Since D-143 the Architect left `.ai/DECISIONS.md`, `.ai/architect.md`, a blueprint and the generated views (`TASKS.md`, `REVIEWS.md`, `state.json`) uncommitted "for the Engineer to carry", and committed only `.ai/COMM.md` (D-104). Six dirty tracked files then blocked the shared working tree from switching to `e-401-budgets`, so no critic stamp could be bound to that HEAD and a finished change sat uncommitted in a scratch worktree. From now on:
+
+1. **The handoff commit names every tracked `.ai/` path the turn dirtied** — the ruling files and the generated views as well as `COMM.md` — with `git commit --only <paths>`, on the current branch. The commit hook already waives the Gate 2 stamp when every staged path is inside `.ai/` or `plans/` (`[ARCHITECT_LANE]`), and the privacy gate still runs on them. Applies to both roles: the rule is that a handoff leaves `git status -- .ai/` clean of tracked changes.
+2. **This round's backlog is committed as 0fc7d6b** on `upgrade/audit-fix-2026-11-02` (D-143..D-146 with addenda, `architect.md`, the scanner blueprint, the views). The privacy gate refused it three times first, on example logins in the Architect's own ruling text (D-145 addendum 3); the examples now use the scanner's placeholder login. Recorded because it is the gate working as ruled: a ruling file is a tracked file.
+3. **Carrying rulings to other branches is a cherry-pick of that commit** (`.claude/rules/ai-bookkeeping.md`), never a stash and never a dirty tree.
+4. **Not ruled here:** a critic stamp binds to the shared tree's HEAD, so a commit made in a second worktree cannot be stamped. With rule 1 the shared tree can always switch, which removes this round's blocker; changing what a stamp binds to is a gate change (Tier 3) and waits for evidence that rule 1 is not enough.
+
+### Why needed
+Two panes share one working tree. Uncommitted bookkeeping in it is a lock on every other branch that carries a different version of those files, and nobody holds the key but the pane that wrote them.
+
+### Alternatives considered
+1. **Keep leaving ruling files for the Engineer** — rejected: it is what blocked E-401, and the Engineer may not write Architect-owned files to resolve it (D-065).
+2. **A dedicated bookkeeping branch** — rejected: D-140..D-142 live only on the stacked branches, so no single base holds the whole decision log until they merge; one more branch to reconcile.
+3. **Let stamps bind to a worktree HEAD now** — rejected for now, see rule 4.
+
+### Impact
+- Unlocks: the E-401 commit. Risk if wrong: bookkeeping commits ride whichever branch the shared tree is on, as `COMM.md` commits already do; they are `.ai/`-only and cherry-pick cleanly.
+
+### Rollback
+Return to committing `COMM.md` only (the lock returns).
+
+---
+## D-147 addendum — The handoff's path list is taken against HEAD; a new `.ai/` file is added by name; E-401, E-414's follow-up and E-415 reviewed
+
+**Date**: 2026-11-06
+**Task**: E-415 (PR #29, one amendment before merge), E-414 (follow-up accepted), E-401 (accepted)
+**Decision**: Review of the Engineer's 14:00 UTC handoff.
+
+1. **E-415's command lists paths with a worktree-against-index diff, so a path that is already staged is not named.** After any `git add` of an `.ai/` file — the Architect's own retry after a privacy-gate refusal on 2026-11-06 is the case — the list is empty for that file, the commit carries `COMM.md` alone, and the file stays staged and dirty: the lock D-147 exists to remove. The list is taken against `HEAD` (`git diff --name-only HEAD -- .ai/` with the same `COMM.md` exclusion), which names staged and unstaged changes alike. One word in each of the four skill copies and in the row's pattern; the row's fixture stages its dirtied `.ai/` file before the step, so it fails on d3fd136 and passes after.
+2. **A new `.ai/` file is added by name by the role that created it** (a new blueprint: `git add -- <path>` before the step); it is then in the `HEAD` list. No directory-wide add: `.claude/rules/ai-bookkeeping.md` keeps staging to named paths, and an untracked scratch file must not ride a handoff. One sentence in each skill.
+3. **E-414's follow-up (b6f8542) is accepted as built**: one `_namePattern` for both lists; entries trimmed and escaped per word and hyphen part; client matches collected with `matchAll` so redaction covers every spelling on a line; the decoder built on first use. `SEC_CLEARED`, tree scan 0 hits both ways. The reported P3s stand as accepted: the `_` widening is D-145 addendum 6 r1's stated consequence; `straße` against `STRASSE` is case folding the `i` flag does not do, and a listed name is written in the list the way it is written in the world.
+4. **E-401's additions (fae100f on #21) are accepted**: local `rein ci run` 7040/0.
+5. **PR #29's one red hosted job is not its change.** macOS node 22 shard 3/4: `telemetry_test.sh` "hook warm-path (steady-state max)" at 257 ms then 232 ms against a 222 ms relative bound, load1=13 on 3 CPUs. A timing row on a loaded host, informative under D-137; every other job is green. The Engineer re-runs that job once after the amendment push and does not touch the bound. If it fails again on an idle-enough host it is reported, not tuned (D-138).
+
+### Impact
+- Unlocks: PR #29's merge after the amendment. Risk if wrong: none beyond a second push to a Tier 1 PR.
+
+### Rollback
+Ruling 1: the index diff again (staged paths are skipped again).
+
+---
+## D-148 — `rein ci run` tells the harness when it is hosted; timing rows use their absolute bound there, as designed
+
+**Date**: 2026-11-06
+**Task**: E-416 (new), PR #29 (merges on its green re-run, unchanged)
+**Decision**: The second failure of `telemetry_test.sh` "hook warm-path (steady-state max)" on PR #29 (226 then 222 ms against a 214 ms relative bound, load1=15 at the row on 3 CPUs) is reported per D-147 addendum r5. It is not the change and not the bound; it is a lost contract. `assert_perf` (tests/lib/assert.sh) uses the absolute bound when `CI=true` and the host-relative bound otherwise, and the row's own comment says "the absolute 250 ms still governs on CI, where the hardware is known". But every hosted full leg runs through `rein ci run`, whose isolation is by construction (`env -i` with a curated list, `CI` among the reserved names), so the suites see `REIN_CI=local` on GitHub exactly as on a laptop and the row has been host-relative on hosted runners since `rein ci run` became the hosted command (D-072). Only the fast tier, which the workflow runs as `tests/run.sh --tier fast` directly, still sees `CI=true`. The relative bound is the right one for unknown hardware and the wrong one for a known 3-CPU runner at load 15: at 226 ms the absolute bound passes by 24 ms and the relative one fails by 12.
+
+1. **`rein ci run` sets `REIN_CI=hosted` when its own environment carries `GITHUB_ACTIONS=true`, else `REIN_CI=local`.** One derived bit in the curated list; `CI` itself stays reserved and is never forwarded. Isolation by construction is kept: the value is computed, not copied.
+2. **`assert_perf` takes the absolute bound when `REIN_CI=hosted`**, in addition to the existing `CI=true` and `REIN_PERF_ABSOLUTE=1`. The retry-under-load path is unchanged. No bound in any row changes (D-138).
+3. **`tests/run.sh` tests `REIN_CI` for non-empty where it now tests `== local`** (the throwaway-HOME, leak-fails-the-run and telemetry-growth checks), so `hosted` is treated as CI there too; the fast-tier 60 s budget keeps its `CI=true` key, since that tier runs directly.
+4. **Rows (D-088):** the `rein_ci_test.sh` env row is extended — `GITHUB_ACTIONS=true` in the caller's environment yields `REIN_CI=hosted` in the run's environment and still no `CI`; the `assert_perf` row is extended with the mode under `REIN_CI=hosted` and `REIN_CI=local`. No new suite. Tier 2.
+5. **PR #29 is unchanged**: it merges when its one re-run job is green, as the Engineer planned; E-416 is the fix for the class.
+
+### Alternatives considered
+1. **Raise the row's relative slack** — rejected: tuning a bound to a loaded host (D-138), and every other relative row stays exposed.
+2. **Absolute mode whenever `REIN_CI` is set** — rejected: a local `rein ci run` on a slow laptop would then judge by numbers measured on GitHub's hardware; run.sh rule 2 says a developer machine's speed is not a verdict.
+3. **Pass the outer `CI` through** — rejected: `CI` is reserved by the isolation contract, and forwarding a verbatim variable is the hole the curated list closes.
+4. **Skip timing rows when the host is overloaded** — rejected: a skip on a hosted check hides (D-146 r2); the absolute bound was designed for exactly this host and passes.
+
+### Impact
+- Unlocks: no more red hosted legs from this row at this load; the harness finally runs as the row comments describe. Risk if wrong: a hosted runner slower than the absolute bounds assume turns red for real; that is the regression signal the absolute bound exists for.
+
+### Rollback
+Remove the derived bit; the suites see `local` again and the rows go back to relative on hosted runners.
+
+---
+
+## D-148 addendum — The node unit timing rows follow the same rule; the carry is accepted; a Gate 2 self-stamp on a verbatim bookkeeping cherry-pick sets no precedent
+
+**Date**: 2026-11-06
+**Task**: E-416 (scope extended), PR #21, PR #29
+**Decision**:
+
+1. **`tests/unit/operand-scope.test.mjs` is the same class, not the same mechanism.** Its three `assertInside` rows assert both a baseline-relative budget (200 + 20 × a baseline taken an instant earlier) and the 1000 ms ceiling (D-144 r4), always, with no CI key — so E-416 r2 does not reach them, and on PR #21's first push the "CodeQL's pathological git and path inputs" row failed at load 56.72 on 3 CPUs. The rule of D-148 applies: on a known runner the ceiling governs. Under `REIN_CI=hosted` these rows assert the ceiling only and print the relative figure as they do now; elsewhere both. Folded into E-416 (one file, three rows, no bound changes). The reason the relative term exists — a slow developer machine must not pass a real regression by its ceiling alone — is unchanged where it applies.
+2. **The carry (f1d1f7b on #21) is accepted.** The Engineer's checks are the right ones: every COMM and DECISIONS heading from the audit tip present, bc72c89's lines kept in order, D-143 … D-147 addendum then D-148, no stamp or task lost in `state.json`, nothing outside `.ai/` changed.
+3. **The three Gate 2 stamps the Engineer recorded on its own cherry-picks are acceptable for this carry and are not a precedent.** The `[ARCHITECT_LANE]` waiver is role-bound, so an Engineer commit that touches `DECISIONS.md` or `architect.md` is asked for a stamp even when its content is an Architect commit carried verbatim. A committer-written stamp is acceptable exactly when the commit's `.ai/` content is the Architect's own, carried by cherry-pick (D-147 r3) with conflicts resolved by insertion only; an Engineer-authored change to an Architect-owned file remains a §35 violation whatever stamp sits on it. Whether the waiver should recognise a cherry-pick is not decided here; it waits for a second occurrence.
+4. **PR #29**: the Engineer's plan stands — not re-run as is; merge #21 when green, merge main into #29, push. The red re-run is `exec_form_hooks_test.sh` at the 180 s default under load 53.84, the case E-401's 531 s header fixes, which #29 does not carry.
+
+### Impact
+- Unlocks: E-416 covers every timing row the hosted runners have failed under load this week. Risk if wrong: ruling 1 lets a regression between the relative budget and 1000 ms pass on hosted runners only; local runs and the fast tier still see both bounds.
+
+### Rollback
+Ruling 1: assert both bounds under `hosted` again.
+
+---

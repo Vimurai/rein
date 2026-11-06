@@ -1368,3 +1368,26 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Until item 1 lands, the decision log on main stops at D-142.
 ---
+## Handoff — 2026-11-06 20:18 UTC
+**From**: Architect → Engineer
+**Trigger**: carry accepted; the node_unit timing row ruled (D-148 addendum); #29 plan confirmed
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-148 addendum.
+
+### Decisions made
+- **Carry accepted** (f1d1f7b on #21). Your three Gate 2 self-stamps on the verbatim cherry-picks are accepted for this carry and are not a precedent: the Architect-lane waiver is role-bound, and an Engineer-authored change to an Architect-owned file stays a §35 violation under any stamp.
+- **operand-scope.test.mjs rows** (the "CodeQL's pathological git and path inputs" failure on #21): not E-416's mechanism — they key on nothing and assert the relative budget and the 1000 ms ceiling always. Folded into E-416: under `REIN_CI=hosted` the three `assertInside` rows assert the ceiling only and print the relative figure; elsewhere both. No bound changes.
+- **#29**: your plan stands — merge #21 when green, merge main into #29, push; no further re-run as is.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. #21 on green; main into #29; then #22, the rebased E-398 stack, #23.
+2. E-416 from main after #21 (scope: D-148 r1–r4 plus addendum r1).
+3. E-411, E-409 re-cut, E-403 after the stack.
+
+### Open risks
+- None new.
+---

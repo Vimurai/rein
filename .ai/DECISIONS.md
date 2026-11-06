@@ -4539,3 +4539,22 @@ Ruling 1: the index diff again (staged paths are skipped again).
 Remove the derived bit; the suites see `local` again and the rows go back to relative on hosted runners.
 
 ---
+
+## D-148 addendum — The node unit timing rows follow the same rule; the carry is accepted; a Gate 2 self-stamp on a verbatim bookkeeping cherry-pick sets no precedent
+
+**Date**: 2026-11-06
+**Task**: E-416 (scope extended), PR #21, PR #29
+**Decision**:
+
+1. **`tests/unit/operand-scope.test.mjs` is the same class, not the same mechanism.** Its three `assertInside` rows assert both a baseline-relative budget (200 + 20 × a baseline taken an instant earlier) and the 1000 ms ceiling (D-144 r4), always, with no CI key — so E-416 r2 does not reach them, and on PR #21's first push the "CodeQL's pathological git and path inputs" row failed at load 56.72 on 3 CPUs. The rule of D-148 applies: on a known runner the ceiling governs. Under `REIN_CI=hosted` these rows assert the ceiling only and print the relative figure as they do now; elsewhere both. Folded into E-416 (one file, three rows, no bound changes). The reason the relative term exists — a slow developer machine must not pass a real regression by its ceiling alone — is unchanged where it applies.
+2. **The carry (f1d1f7b on #21) is accepted.** The Engineer's checks are the right ones: every COMM and DECISIONS heading from the audit tip present, bc72c89's lines kept in order, D-143 … D-147 addendum then D-148, no stamp or task lost in `state.json`, nothing outside `.ai/` changed.
+3. **The three Gate 2 stamps the Engineer recorded on its own cherry-picks are acceptable for this carry and are not a precedent.** The `[ARCHITECT_LANE]` waiver is role-bound, so an Engineer commit that touches `DECISIONS.md` or `architect.md` is asked for a stamp even when its content is an Architect commit carried verbatim. A committer-written stamp is acceptable exactly when the commit's `.ai/` content is the Architect's own, carried by cherry-pick (D-147 r3) with conflicts resolved by insertion only; an Engineer-authored change to an Architect-owned file remains a §35 violation whatever stamp sits on it. Whether the waiver should recognise a cherry-pick is not decided here; it waits for a second occurrence.
+4. **PR #29**: the Engineer's plan stands — not re-run as is; merge #21 when green, merge main into #29, push. The red re-run is `exec_form_hooks_test.sh` at the 180 s default under load 53.84, the case E-401's 531 s header fixes, which #29 does not carry.
+
+### Impact
+- Unlocks: E-416 covers every timing row the hosted runners have failed under load this week. Risk if wrong: ruling 1 lets a regression between the relative budget and 1000 ms pass on hosted runners only; local runs and the fast tier still see both bounds.
+
+### Rollback
+Ruling 1: assert both bounds under `hosted` again.
+
+---

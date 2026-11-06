@@ -53,6 +53,26 @@ test("E-364: a client name is found only when the operator's local list names it
   assert.deepEqual(classes("contosoportal", { clientNames: ["contoso"] }), [], "whole words only");
 });
 
+// E-414 / D-145 addendum 6 (extends the row above): client names are built like operator names —
+// Unicode letter/digit boundaries (ASCII \b never matched a name starting or ending with a
+// non-ASCII letter), any whitespace run for a space, the non-breaking hyphen for a hyphen.
+test("E-414: a client name starting or ending with a non-ASCII letter is found", () => {
+  assert.deepEqual(classes("signed for Ñandú SA today", { clientNames: ["Ñandú SA"] }), ["client_name"]);
+  assert.deepEqual(classes("the Øresund build", { clientNames: ["Øresund"] }), ["client_name"]);
+  assert.deepEqual(classes("Ñandúes", { clientNames: ["Ñandú"] }), [], "still whole words only");
+});
+test("E-414: a client name's space matches any whitespace run, NBSP included", () => {
+  assert.deepEqual(classes("for Acme Corp and", { clientNames: ["Acme Corp"] }), ["client_name"]);
+  assert.deepEqual(classes("for Acme   Corp and", { clientNames: ["Acme Corp"] }), ["client_name"]);
+});
+test("E-414: a list entry's edge spaces and a backslash-hyphen do not break its pattern", () => {
+  assert.deepEqual(classes("x Acme here", { clientNames: [" Acme "] }), ["client_name"], "edge spaces trimmed");
+  assert.deepEqual(classes("by A\\-B", { clientNames: ["A\\-B"] }), ["client_name"], "no broken pattern");
+});
+test("E-414: a client name's hyphen matches the non-breaking hyphen", () => {
+  assert.deepEqual(classes("see Contoso‑Portal", { clientNames: ["contoso-portal"] }), ["client_name"]);
+});
+
 test("E-364: an allow-listed address passes; findings carry their line", () => {
   assert.deepEqual(classes("releases@vendor.io", { allowEmails: ["releases@vendor.io"] }), []);
   assert.deepEqual(scanText("ok\ncd /home/carol"), [{ class: "home_path", match: "/home/carol", line: 2 }]);

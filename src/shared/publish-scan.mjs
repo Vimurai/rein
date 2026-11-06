@@ -106,16 +106,22 @@ export function checkAllow(allow = {}, operatorNames = [], where = "allow") {
   return out;
 }
 
+// ONE builder for client and operator names (D-145 addendum 6, E-414): bounded by anything that is not
+// a letter or digit — Unicode-aware, so `Quillić` and `Ñandú SA` match (a client name used ASCII \b,
+// which never matched a name beginning or ending with a non-ASCII letter); `name@` and `<name>` still
+// match; a longer word containing the value does not. A space in a listed name matches any run of
+// whitespace (NBSP included) and a hyphen the non-breaking hyphen too (critic_security P2, E-379).
+// Built from the trimmed entry's words and hyphen parts, each escaped on its own: an edge space in
+// the list no longer becomes a required \s+ that can never match, and `A\-B` no longer yields a
+// broken pattern (security_engineer, E-414 follow-up).
+const _loose = (n) => n.normalize("NFC").trim().split(/\s+/)
+  .map((w) => w.split("-").map(_esc).join("[-\\u2011]")).join("\\s+");
+const _namePattern = (n) => new RegExp(`(?<![\\p{L}\\p{N}])${_loose(n)}(?![\\p{L}\\p{N}])`, "giu");
 /** Findings in one text: [{ class, match, line }] (1-based lines), in reading order. */
 export function scanText(text, { clientNames = [], operatorNames = [], allowEmails = [], nulViews = false } = {}) {
   const allow = new Set([...DEFAULT_ALLOW_EMAILS, ...allowEmails].map((e) => e.toLowerCase()));
-  const clientRes = clientNames.filter(Boolean).map((n) => new RegExp(`\\b${_esc(n)}\\b`, "i"));
-  // Bounded by anything that is not a letter or digit (Unicode-aware, so "Quillić" works):
-  // `name@` and `<name>` still match; a longer word containing the value does not.
-  // A space in a listed name matches any run of whitespace (NBSP included, \s covers it) and a
-  // hyphen matches the non-breaking hyphen too (critic_security P2, E-379).
-  const _loose = (n) => _esc(n.normalize("NFC")).replace(/\s+/g, "\\s+").replace(/\\?-/g, "[-\\u2011]");
-  const operatorRes = operatorNames.filter(Boolean).map((n) => new RegExp(`(?<![\\p{L}\\p{N}])${_loose(n)}(?![\\p{L}\\p{N}])`, "giu"));
+  const clientRes = clientNames.filter(Boolean).map(_namePattern);
+  const operatorRes = operatorNames.filter(Boolean).map(_namePattern);
   const out = [];
   String(text).split("\n").forEach((l, i) => {
     const line = i + 1;
@@ -146,10 +152,9 @@ export function scanText(text, { clientNames = [], operatorNames = [], allowEmai
     for (const m of l.matchAll(SOCKET_RE)) out.push({ class: "session_socket", match: m[0], line });
     // Format characters (zero-width space, joiners, bidi marks) cannot split a name past the scan.
     const nfc = l.normalize("NFC").replace(/\p{Cf}/gu, "");
-    for (const re of clientRes) {
-      const m = nfc.match(re);
-      if (m) out.push({ class: "client_name", match: m[0], line });
-    }
+    // Every spelling on the line (matchAll, as for operators): redact() replaces each exact match,
+    // so a second variant of the name on one line (`Acme Corp`, `Acme  Corp`) is redacted too.
+    for (const re of clientRes) for (const m of nfc.matchAll(re)) out.push({ class: "client_name", match: m[0], line });
     for (const re of operatorRes) for (const m of nfc.matchAll(re)) out.push({ class: "operator_name", match: m[0], line });
   });
   return out;
@@ -416,7 +421,10 @@ function _decode(buf) {   // → { text, utf16 }
   return { text: buf.toString("utf8"), utf16: false };
 }
 const _UTF8_STRICT = new TextDecoder("utf-8", { fatal: true });
-const _CP1252 = new TextDecoder("windows-1252");
+// Built on first use (D-145 addendum 6): a Node without ICU then fails closed on a non-UTF-8 blob
+// only, instead of failing every import of this module.
+let _cp1252 = null;
+const _CP1252 = { decode: (b) => (_cp1252 ??= new TextDecoder("windows-1252")).decode(b) };
 const _nulViews = (t) => (t.includes("\u0000") ? [t.replace(/\u0000/g, " "), t.replace(/\u0000/g, "")] : [t]);
 /**
  * What the gate scans of a blob: its views and whether a NUL was involved. A decode carrying U+0000

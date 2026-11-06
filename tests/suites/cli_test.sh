@@ -27,6 +27,8 @@ assert_contains "usage lists 'init'" "init" "$out"
 assert_contains "usage lists 'sync'" "sync" "$out"
 assert_contains "usage lists 'doctor'" "doctor" "$out"
 assert_contains "usage lists 'uninstall'" "uninstall" "$out"
+# E-405 (D-140 r8; extends the usage rows above): the header names the command, rein, not the old binary name.
+assert_match "usage header reads 'rein — Rein v'" '^rein — Rein v' "$out"
 
 # Removed commands are listed in the migration map
 assert_contains "usage references removed 'review' (migration map)" "review" "$out"
@@ -145,7 +147,8 @@ assert_status 0 "_run_env_diagnostics defined" grep -qE '_run_env_diagnostics\(\
 assert_status 0 "--env flag parsed"            grep -qE '"--env"' "$AI_BIN"
 assert_status 0 "doctor dispatches to env diagnostics" \
   grep -qE 'ENVCHECK.*-eq 1|_run_env_diagnostics' "$AI_BIN"
-assert_status 0 "checks Node 22+ requirement" grep -qE '\-ge 22' "$AI_BIN"
+# E-405 (extends this row, D-088): the floor is 22.5 through the shared comparison, not '-ge 22'.
+assert_status 0 "checks Node 22.5+ through the shared comparison" grep -qE 'rein_locate shared/node-version\.sh' "$AI_BIN"
 assert_status 0 "checks read/write bits"       grep -q 'read/write access' "$AI_BIN"
 assert_status 0 "checks state db write access" grep -q 'state database write access' "$AI_BIN"
 assert_status 0 "invokes mcp-tester (E-176)"  grep -qE 'mcp-tester\.mjs' "$AI_BIN"

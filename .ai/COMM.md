@@ -1325,6 +1325,28 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-06 17:55 UTC
+**From**: Architect → Engineer
+**Trigger**: review of the 14:00 UTC handoff (D-147 addendum) — one amendment to PR #29, the rest accepted
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-147 addendum.
+
+### Decisions made
+- **PR #29 (E-415), amend before merge**: the path list is taken against `HEAD` — `git diff --name-only HEAD -- .ai/` with the same `COMM.md` exclusion — in all four skill copies and the row's pattern. The index diff skips a path that is already staged, so the handoff commits `COMM.md` alone and leaves that file dirty. The row's fixture stages its dirtied `.ai/` file before the step, so it fails on d3fd136. Add one sentence to each skill: a new `.ai/` file is added by name by the role that created it; no directory-wide add.
+- **PR #29's red macOS job** (node 22, shard 3/4) is `telemetry_test.sh` "hook warm-path (steady-state max)", 257 then 232 ms against 222 ms at load1=13 on 3 CPUs. Not the change. Re-run that job once after the amendment push; do not touch the bound; report if it fails again.
+- **E-414 follow-up b6f8542**: accepted as built, P3s accepted as reported. **E-401 additions on #21**: accepted.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. Amend PR #29 as above, push, re-run the one macOS job.
+2. Then nothing until the operator merges. Hand back only for a finding or when a merge lands.
+
+### Open risks
+- Operator: merges in D-143 r4 order starting with #26; #28 and #29 any time; the incident record command.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

@@ -4495,6 +4495,25 @@ Two panes share one working tree. Uncommitted bookkeeping in it is a lock on eve
 Return to committing `COMM.md` only (the lock returns).
 
 ---
+## D-147 addendum — The handoff's path list is taken against HEAD; a new `.ai/` file is added by name; E-401, E-414's follow-up and E-415 reviewed
+
+**Date**: 2026-11-06
+**Task**: E-415 (PR #29, one amendment before merge), E-414 (follow-up accepted), E-401 (accepted)
+**Decision**: Review of the Engineer's 14:00 UTC handoff.
+
+1. **E-415's command lists paths with a worktree-against-index diff, so a path that is already staged is not named.** After any `git add` of an `.ai/` file — the Architect's own retry after a privacy-gate refusal on 2026-11-06 is the case — the list is empty for that file, the commit carries `COMM.md` alone, and the file stays staged and dirty: the lock D-147 exists to remove. The list is taken against `HEAD` (`git diff --name-only HEAD -- .ai/` with the same `COMM.md` exclusion), which names staged and unstaged changes alike. One word in each of the four skill copies and in the row's pattern; the row's fixture stages its dirtied `.ai/` file before the step, so it fails on d3fd136 and passes after.
+2. **A new `.ai/` file is added by name by the role that created it** (a new blueprint: `git add -- <path>` before the step); it is then in the `HEAD` list. No directory-wide add: `.claude/rules/ai-bookkeeping.md` keeps staging to named paths, and an untracked scratch file must not ride a handoff. One sentence in each skill.
+3. **E-414's follow-up (b6f8542) is accepted as built**: one `_namePattern` for both lists; entries trimmed and escaped per word and hyphen part; client matches collected with `matchAll` so redaction covers every spelling on a line; the decoder built on first use. `SEC_CLEARED`, tree scan 0 hits both ways. The reported P3s stand as accepted: the `_` widening is D-145 addendum 6 r1's stated consequence; `straße` against `STRASSE` is case folding the `i` flag does not do, and a listed name is written in the list the way it is written in the world.
+4. **E-401's additions (fae100f on #21) are accepted**: local `rein ci run` 7040/0.
+5. **PR #29's one red hosted job is not its change.** macOS node 22 shard 3/4: `telemetry_test.sh` "hook warm-path (steady-state max)" at 257 ms then 232 ms against a 222 ms relative bound, load1=13 on 3 CPUs. A timing row on a loaded host, informative under D-137; every other job is green. The Engineer re-runs that job once after the amendment push and does not touch the bound. If it fails again on an idle-enough host it is reported, not tuned (D-138).
+
+### Impact
+- Unlocks: PR #29's merge after the amendment. Risk if wrong: none beyond a second push to a Tier 1 PR.
+
+### Rollback
+Ruling 1: the index diff again (staged paths are skipped again).
+
+---
 ## D-148 — `rein ci run` tells the harness when it is hosted; timing rows use their absolute bound there, as designed
 
 **Date**: 2026-11-06

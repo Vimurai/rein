@@ -301,7 +301,7 @@ if true; then   # python3 (required above) provides the pty
   assert_status 0 "E-293.07l: …and nothing is created" test ! -e "$T/h/.claude"
 fi
 assert_status 0 "E-293.07m: install_global calls _classifier_offer" \
-  bash -c "awk '/^install_global\\(\\) \\{/,/^}/' '${REPO_ROOT}/src/bin/rein' | grep -q '^  _classifier_offer$'"
+  bash -c "grep < <(awk '/^install_global\\(\\) \\{/,/^}/' '${REPO_ROOT}/src/bin/rein') -q '^  _classifier_offer$'"
 # Without a terminal / under CI: never prompts, never writes.
 for envset in "" "CI=1" "REIN_CI=local"; do
   _home; printf '{}\n' > "$S"; sha="$(_sha "$S")"
@@ -446,7 +446,7 @@ assert_contains "E-318.02l2: …and the offer still declines to prompt without a
 assert_status 0 "E-318.02l3: …the ABSENT account stays untouched" test "$(_sha "$T/h/.claude-none/settings.json")" = "$sha_none"
 assert_contains "E-318.02m: rein sync runs the refresh as a step" "_classifier_refresh_all" "$(grep -nE '_sync_step +classifier +_classifier_refresh_all' "${REPO_ROOT}/src/bin/rein")"
 assert_status 0 "E-318.02n: rein install runs the refresh immediately before the offer" \
-  bash -c "sed -n '/^install_global() {/,/^}/p' '${REPO_ROOT}/src/bin/rein' | grep -A3 -E '^  _classifier_refresh_all( \|\| :)?\$' | grep -qE '^  _classifier_offer\$'"
+  bash -c "grep < <(sed -n '/^install_global() {/,/^}/p' '${REPO_ROOT}/src/bin/rein' | grep -A3 -E '^  _classifier_refresh_all( \|\| :)?\$') -qE '^  _classifier_offer\$'"
 
 # `rein account add` copies ~/.claude's settings, so an outdated label there would be seeded —
 # the new directory is refreshed after seeding.

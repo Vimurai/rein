@@ -289,6 +289,29 @@ _nobp="$(bash -c 'set -u; unset BASHPID; ( source "$1"; echo SOURCED_OK ) 2>&1' 
 assert_contains "E-240.02d: a sourcing subshell survives set -u without BASHPID (bash 3.2)" \
   "SOURCED_OK" "$_nobp"
 
+# ── E-400 (D-138 r1): a writer piped into grep -q loses the match under pipefail ──
+# Extends E-292's here-string rule (.claude/rules/hooks-contract.md) to the harness. grep -q
+# exits on its first match, the writer dies of SIGPIPE, and pipefail reports the pipeline as
+# failed: the match is lost (E-294.R3a on PR #13). The match is the FIRST of 2 million short
+# lines (4 MB), so the loss is certain — grep stops after one buffer while the writer has
+# megabytes left. (One 4 MB line would not do: grep reads a whole line before matching it, so
+# the writer finishes first; and padding made of newlines alone is stripped by `$(…)`.) The
+# writer then dies of SIGPIPE (141) or, where SIGPIPE is ignored, fails its write (1): either
+# way the pipeline is non-zero. The string is built inside the child shell: one argv string
+# is capped at 128 KB.
+_E400_BIG='big="MATCH"$'"'"'\n'"'"'"$(yes x | head -n 2000000)"'
+# standards:allow-pipe-grep-q — this row demonstrates the defect the rule forbids
+_e400_pipe="$(bash -c "set -o pipefail; ${_E400_BIG}; printf '%s' \"\$big\" | grep -q MATCH; echo \"rc=\$?\"")"
+assert_match "E-400.01a: under pipefail, printf piped into grep -q loses a present match on a large input" \
+  '^rc=[1-9]' "$_e400_pipe"
+_e400_here="$(bash -c "set -o pipefail; ${_E400_BIG}; grep -q MATCH <<< \"\$big\"; echo \"rc=\$?\"")"
+assert_contains "E-400.01b: the here-string keeps it" "rc=0" "$_e400_here"
+# The harness primitive itself, in this pipefail suite: assert_match piped its input into grep
+# before E-400 and would have failed this row.
+eval "$_E400_BIG"
+assert_match "E-400.01c: assert_match finds a match at the head of a 4 MB string under pipefail" "^MATCH" "$big"
+unset big
+
 # ── E-240.3: names carry entropy, never $$ ────────────────────────────────
 # `$$` recycles, and a recycled name attaches to whatever the previous owner left running.
 _n1="$( source "$LIB"; test_tmux_socket n )"
@@ -297,7 +320,7 @@ assert_status 1 "E-240.03a: two sockets in a row are not the same name" \
   bash -c "[[ '$_n1' == '$_n2' ]]"
 assert_match "E-240.03b: the name carries the sweepable test prefix" '^rein-test-' "$_n1"
 assert_status 1 "E-240.03c: helpers do not use \$\$ for socket names" \
-  bash -c "sed -n '/^test_tmux_socket() {/,/^}/p' '$LIB' | grep -q '\\\$\\\$'"
+  bash -c "grep < <(sed -n '/^test_tmux_socket() {/,/^}/p' '$LIB') -q '\\\$\\\$'"
 
 # ── E-240.4: THE SAFETY PROPERTY — the sweep spares foreign state ─────────
 # E-384 (D-135 addendum 2, harness rule 1): both probe servers are real tmux servers.
@@ -328,7 +351,7 @@ assert_status 0 "E-240.05a: the runner snapshots external state" \
 assert_status 0 "E-240.05b: it reports LEAKED n <kind> per suite" \
   grep -q 'LEAKED \${_n} \${_kinds}' "$RUNNER"
 assert_status 0 "E-240.05c: a leak FAILS the run on CI" \
-  bash -c "grep -A3 'LEAK_FAILED' '$RUNNER' | grep -q 'TOTAL_FAIL'"
+  bash -c "grep < <(grep -A3 'LEAK_FAILED' '$RUNNER') -q 'TOTAL_FAIL'"
 assert_status 0 "E-240.05d: --sweep is offered locally" \
   grep -q 'tests/run.sh --sweep' "$RUNNER"
 assert_status 0 "E-240.05e: REIN_TEST_NO_SWEEP=1 disables the check" \
@@ -336,7 +359,7 @@ assert_status 0 "E-240.05e: REIN_TEST_NO_SWEEP=1 disables the check" \
 # The sweep re-checks the prefix at the kill site as well as at snapshot time. Defence in
 # depth on the one branch that can destroy an operator's session.
 assert_status 0 "E-240.05f: the sweep re-checks the prefix before killing" \
-  bash -c "sed -n '/^_leak_sweep() {/,/^}/p' '$RUNNER' | grep -q 'REIN_TEST_SOCK_PREFIX}\"\\*'"
+  bash -c "grep < <(sed -n '/^_leak_sweep() {/,/^}/p' '$RUNNER') -q 'REIN_TEST_SOCK_PREFIX}\"\\*'"
 
 # ── E-265: a leak FAILS a local CI run (REIN_CI=local) too ─────────────
 # Behavioural, not a grep: a copy of the real runner drives one suite that leaks a
@@ -650,7 +673,7 @@ assert_status 0 "E-241.02c: the guard uses BASH_SUBSHELL (bash 3.2 safe)" \
 assert_status 0 "E-241.03a: on_exit is the documented spelling" grep -q '^on_exit() {' "$LIB"
 assert_status 0 "E-241.03b: CLEANUP n handlers is printed" grep -q "CLEANUP %d handlers" "$LIB"
 assert_status 0 "E-241.03c: handlers run in their own subshell (one cannot skip the next)" \
-  bash -c "sed -n '/^_run_cleanups() {/,/^}/p' '$LIB' | grep -q '( eval'"
+  bash -c "grep < <(sed -n '/^_run_cleanups() {/,/^}/p' '$LIB') -q '( eval'"
 assert_status 0 "E-241.03d: REIN_TEST_NO_TRAP_CHAIN=1 restores the builtin" \
   grep -q 'REIN_TEST_NO_TRAP_CHAIN' "$LIB"
 # The library's own installation MUST use `builtin`, or the shadow swallows it and no

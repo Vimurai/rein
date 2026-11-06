@@ -830,3 +830,69 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - The recording's model output varies per run; acceptance is the six scenes, not the words. A scene timeout keeps the partial cast and exits non-zero — never commit a partial.
 ---
+## Handoff — 2026-10-30 22:47 UTC
+**From**: Architect → Engineer
+**Trigger**: D-140 ruled on E-402's six divergences and three findings (message after PRs #16/#17); E-403, E-404, E-405 registered; E-402 stays OPEN for one re-record
+
+### What was planned
+- **D-140** (`.ai/DECISIONS.md`, eight rulings). r1: the neutral HOME is the rule; it holds a Claude login, so the script deletes it when the run ends (`--keep-home` keeps it with a warning). r2: the privacy gate reads a known media type's **metadata** (magic-checked: GIF/PNG/JPEG/WebP/MP4/WOFF) and skips the payload; the `demo.gif` path exemption goes — E-403 (Tier 3, security_engineer). r3: 5× and 12 fps accepted; speed is whatever reads at a glance, operator approves. r4: the merged cut ships; the **hand-back scene is required** in the next one; scene 3 accepts the gate line or the refusal; E-402 stays OPEN for one re-record after E-403 and E-404, with `/cost` captured per pane after recording stops. r5: the MP4 is rendered from the committed cast at release time (`--asset`), never stored; README links `releases/latest/download/demo.mp4`; the `/tmp` copy can go. r6: the neutral HOME's settings set `acceptEdits` plus the demo's command allowlist; never `bypassPermissions`. r7: `[TOOLCHAIN_STALE]` — E-404 (Tier 2). r8: `rein --help` header and the Node 22.5 floor — E-405 (Tier 1).
+- `.ai/blueprints/demo-video.md` rewritten where the rulings touch it: §Component 2 scenes 3 and 6 (+ the `/cost` step), §Component 3 (neutral HOME, prompts, render), §Component 5 (MP4 at release), §Security, §E-## Task Breakdown (E-402 scope note, E-403..E-405 rows).
+
+### Decisions made
+- D-140 (above).
+
+### Blueprint divergence (if any)
+- E-402's six, each ruled above; the blueprint now matches the rulings. Nothing else.
+
+### Next action needed
+- Order: **E-400, E-401** (as you planned), then **E-404**, **E-403**, then the **E-402 re-record** (needs both: no exemption, no stale toolchain), **E-405** any time. Run `rein-task` on E-402 only after the re-record lands.
+- Before E-402's re-record: delete `/tmp/rein-demo-home` now if it still exists (it holds a Claude login; D-140 r1) and `/tmp/rein-demo-out/demo.mp4` (regenerable from the cast).
+- The three findings you reported are all tasks now; file the toolchain event with `rein-incident` as part of E-404.
+
+### Open risks
+- Until E-403 merges the gate carries a path exemption for `docs/assets/demo.gif`; nothing else may be added to EXEMPT_FILES in the meantime.
+- Until E-402's re-record, the README demo shows no hand-back; acceptable for now (D-140 r4), not for the next release's notes.
+---
+## Handoff — 2026-10-30 23:21 UTC
+**From**: Architect → Engineer
+**Trigger**: operator request — add the manifesto line to the README; E-406 registered
+
+### What was planned
+- **E-406** (Tier 1, OPEN): the line **Stop prompting the intelligence and start navigating it.** as its own centered line directly under the hero's one-sentence description, verbatim, bold, with the full stop; the same sentence plain as the opening line of `docs/how-it-works.md`. Nothing else in the README changes; the hero still fits one viewport.
+- `.ai/blueprints/readme.md` §Component 1 carries the line and its placement.
+
+### Decisions made
+- None new (a content addition under D-136).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- E-406 next, before E-400: a one-line PR. Then the order from the 22:47 UTC entry: E-400, E-401, E-404, E-403, E-402 re-record, E-405 any time.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-01 18:30 UTC
+**From**: Architect → Engineer
+**Trigger**: operator request — merged feature branches linger on GitHub; D-141 ruled, E-407 registered
+
+### What was planned
+- **D-141** (`.ai/DECISIONS.md`): a feature branch ends at its merge. Three layers: the repository flag `delete_branch_on_merge=true` (today FALSE on `Vimurai/rein` — the lingering branches come from browser merges), `gh pr merge <n> --merge --delete-branch` on every Engineer merge, and the local prune (back on main: fast-forward, `git fetch --prune`, `git branch -d`, never `-D`). Never deleted: `main`, open-PR branches, closed-unmerged branches (ask), tags, dependabot branches. A remote delete is restorable from the PR page for ninety days.
+- **E-407** (Tier 2, OPEN, right after E-406 merges and before E-400): set the flag and read it back; the one-time cleanup of the fourteen merged head branches (list in D-141 r3 — `git merge-base --is-ancestor` before each `git push origin --delete`); the rule line in ENGINEER.md Core Rules and its `src/templates` copy; the three commands in `rein-task`'s close-out; `rein ci hosted` prints the per-provider cleanup setting beside the D-103 r5 policy text; `rein ci hosted --check` prints `[BRANCH_CLEANUP_OFF] run: …` on GitHub when `gh` is authenticated and the flag is false (advisory); the bootstrap/protection `gh api` step sets the flag; DEVOPS entry via `ci_gate`; tests named in the task.
+- `.ai/blueprints/team-collaboration.md` §Component 5 "Branch policy" gains the rule paragraph (read it before E-407, D-065).
+- task-synchronizer-mcp was down in this session (CONNECTION_CLOSED on all sixteen servers): E-407 is hand-written into TASKS.md — carry it into state as you did E-406, before starting it.
+
+### Decisions made
+- D-141 (above).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Finish and merge E-406 — merge it with `--delete-branch`, so `e-406-hero-line` is the first branch to go under the rule — then E-407, then the order from the 2026-10-30 22:47 UTC entry: E-400, E-401, E-404, E-403, E-402 re-record, E-405 any time.
+- In the E-407 handoff: every branch deleted, every branch kept with its reason, and the `deleteBranchOnMerge` value read back after the PATCH.
+
+### Open risks
+- None new.
+---

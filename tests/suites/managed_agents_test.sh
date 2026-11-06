@@ -38,11 +38,11 @@ STATUS_OUT="$(node "$CLIENT" --status 2>/dev/null)"
 assert_status 0 "status JSON parses" \
   node --input-type=module -e "JSON.parse(\`${STATUS_OUT//\`/}\`)"
 assert_status 0 "default status reports enabled=false (feature-flag OFF)" \
-  bash -c "echo '$STATUS_OUT' | grep -q '\"enabled\": false'"
+  bash -c "grep -q '\"enabled\": false' <<< '$STATUS_OUT'"
 assert_status 0 "default status reports key_valid=false (no leak)" \
-  bash -c "echo '$STATUS_OUT' | grep -q '\"key_valid\": false'"
+  bash -c "grep -q '\"key_valid\": false' <<< '$STATUS_OUT'"
 assert_status 0 "API version pinned to managed-agents-2026-04-01" \
-  bash -c "echo '$STATUS_OUT' | grep -q '\"api_version\": \"managed-agents-2026-04-01\"'"
+  bash -c "grep -q '\"api_version\": \"managed-agents-2026-04-01\"' <<< '$STATUS_OUT'"
 
 # ── T-MAC-S07: Live request hits stub server, sends Bearer, posts JSON ────────
 echo ""
@@ -78,7 +78,7 @@ result="$(node --input-type=module -e "
 " 2>/dev/null)"
 
 assert_status 0 "live send to unresolvable host → status=NETWORK_ERROR" \
-  bash -c "echo '$result' | grep -q '\"status\":\"NETWORK_ERROR\"'"
+  bash -c "grep -q '\"status\":\"NETWORK_ERROR\"' <<< '$result'"
 
 # ── T-MAC-S08: Key + tokens are NEVER logged ─────────────────────────────────
 echo ""
@@ -96,7 +96,7 @@ stderr_out="$(node --input-type=module -e "
 " 2>&1 >/dev/null)"
 
 assert_status 1 "stderr does NOT include the key value" \
-  bash -c "echo '$stderr_out' | grep -q 'SUPER_SECRET_KEY_abcdef0123456789'"
+  bash -c "grep -q 'SUPER_SECRET_KEY_abcdef0123456789' <<< '$stderr_out'"
 
 # Sensitive payload fields also redacted in any structured extras
 stderr_payload="$(node --input-type=module -e "
@@ -114,7 +114,7 @@ stderr_payload="$(node --input-type=module -e "
 " 2>&1 >/dev/null)"
 
 assert_status 1 "stderr does NOT include payload-secret values" \
-  bash -c "echo '$stderr_payload' | grep -q 'SECRET_FIELD_VALUE'"
+  bash -c "grep -q 'SECRET_FIELD_VALUE' <<< '$stderr_payload'"
 
 # ── T-MAC-S09: Mirror byte-identity ──────────────────────────────────────────
 echo ""
@@ -194,13 +194,13 @@ stderr_out="$(node --input-type=module -e "
 " 2>&1 >/dev/null)"
 
 assert_status 0 "stderr carries projection-fetch-failed warn" \
-  bash -c "echo '$stderr_out' | grep -q 'projection fetch failed'"
+  bash -c "grep -q 'projection fetch failed' <<< '$stderr_out'"
 assert_status 0 "log line is structured JSON (carries timestamp)" \
-  bash -c "echo '$stderr_out' | grep -q '\"timestamp\":'"
+  bash -c "grep -q '\"timestamp\":' <<< '$stderr_out'"
 assert_status 0 "service tag is managed-agents-client" \
-  bash -c "echo '$stderr_out' | grep -q '\"service\":\"managed-agents-client\"'"
+  bash -c "grep -q '\"service\":\"managed-agents-client\"' <<< '$stderr_out'"
 assert_status 1 "key value is NOT logged" \
-  bash -c "echo '$stderr_out' | grep -q 'abcdef0123456789'"
+  bash -c "grep -q 'abcdef0123456789' <<< '$stderr_out'"
 
 # ── T-STP-S13: CLI smoke — --project + --sync exit codes ─────────────────────
 echo ""
@@ -218,8 +218,8 @@ assert_status 0 "--sync without env exit code 1" bash -c "[[ $rc_sync -eq 1 ]]"
 
 # Unknown flag still prints usage with new entries.
 usage_out="$(node "$CLIENT" --bogus 2>&1 >/dev/null || true)"
-assert_status 0 "usage mentions --project"  bash -c "echo '$usage_out' | grep -q -- '--project'"
-assert_status 0 "usage mentions --sync"     bash -c "echo '$usage_out' | grep -q -- '--sync'"
+assert_status 0 "usage mentions --project"  bash -c "grep -q -- '--project' <<< '$usage_out'"
+assert_status 0 "usage mentions --sync"     bash -c "grep -q -- '--sync' <<< '$usage_out'"
 
 # ── T-STP-S14: ~/.rein mirror byte-identity ─────────────────────────────────
 echo ""
@@ -244,7 +244,7 @@ echo ""
 echo "  [T-MGR-S01] Spike file structure"
 
 assert_status 0 "spike script exists"     test -f "$SPIKE"
-assert_status 0 "spike has node shebang"  bash -c "head -1 '$SPIKE' | grep -q 'node'"
+assert_status 0 "spike has node shebang"  bash -c "grep < <(head -1 '$SPIKE') -q 'node'"
 
 # ── T-MGR-S02: Spike produces valid JSON report ──────────────────────────────
 echo ""

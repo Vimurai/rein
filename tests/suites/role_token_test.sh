@@ -268,7 +268,7 @@ assert_status 0 "R10: session-start mints with its own PPID and no role" grep -q
 assert_status 1 "R10: no gate file reads REIN_CALLER_ROLE / REIN_PANE_ROLE" \
   grep -qE 'process\.env\.REIN_(CALLER|PANE)_ROLE' "$SE" "${REPO_ROOT}/src/mcp/safe-exec-mcp/role-token.mjs" "${REPO_ROOT}/src/mcp/shared/caller-role.mjs"
 assert_status 1 "R10: session-start and pre-tool-use read no role variable outside comments" \
-  bash -c "grep -vE '^[[:space:]]*#' '$SSH_HOOK' '$PTU' | grep -qE '\\\$\\{?REIN_(CALLER|PANE)_ROLE'"
+  bash -c "grep < <(grep -vE '^[[:space:]]*#' '$SSH_HOOK' '$PTU') -qE '\\\$\\{?REIN_(CALLER|PANE)_ROLE'"
 _V_TOKEN="REIN_ROLE""_TOKEN"
 assert_status 1 "R10: no environment rollback for the token layer (E-291)" grep -qF "$_V_TOKEN" "$SE"
 assert_status 0 "R10: install_global provisions the HMAC key" grep -qF 'role-hmac.key' "$AI_BIN"

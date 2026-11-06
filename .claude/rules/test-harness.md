@@ -23,6 +23,10 @@ review question for `critic_tests` and `rein-review`.
    machine-wide: never run suites while a `rein ci run` is in progress.
 4. **Trap chaining (E-241)**: use `on_exit <cmd>`; a raw `trap … EXIT` after sourcing
    `assert.sh` is a finding.
+4b. **No writer piped into `grep -q` (E-400, D-138 r1)**: under `pipefail`, `grep -q` exits on
+   its first match, the writer dies of SIGPIPE, and the match is lost. Test with
+   `grep -q P <<< "$x"`, `grep < <(cmd) -q P` or `[[ =~ ]]` — as hooks-contract.md says for the
+   hooks. The standards checker (`no_pipe_into_grep_q`) blocks it under tests/ and hooks/.
 5. **The scan that never ran (E-251)**: build a scan corpus with `corpus_or_fail <min> <root>…`
    — "can this scan return an empty set and still pass?"
 6. **The instrument recorded the test (E-257)**: a run writes telemetry only to a per-run temp

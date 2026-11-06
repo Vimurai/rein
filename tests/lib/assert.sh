@@ -438,7 +438,7 @@ test_tmux_socket() {
   # alone, which is the signature. Bounded at ~2s so a genuinely stuck child is still
   # reported rather than hung on. E-242 is why it became visible at all: pane argv is now
   # ABSOLUTE, so it contains the sandbox path the leak grep matches.
-  register_cleanup "tmux -L '${name}' kill-server 2>/dev/null || true; _w=0; while [ \$_w -lt 40 ] && ps -axo command= 2>/dev/null | grep -q -- '${name}'; do sleep 0.05; _w=\$((_w+1)); done; rm -f \"\${TMUX_TMPDIR:-/tmp}/tmux-\$(id -u)/${name}\" 2>/dev/null || true"
+  register_cleanup "tmux -L '${name}' kill-server 2>/dev/null || true; _w=0; while [ \$_w -lt 40 ] && grep < <(ps -axo command= 2>/dev/null) -q -- '${name}'; do sleep 0.05; _w=\$((_w+1)); done; rm -f \"\${TMUX_TMPDIR:-/tmp}/tmux-\$(id -u)/${name}\" 2>/dev/null || true"
   tmux -L "$name" kill-server 2>/dev/null || true
   printf '%s' "$name"
 }
@@ -614,7 +614,7 @@ assert_exists() {
 # assert_match <label> <regex> <string>
 assert_match() {
   local label="$1" regex="$2" str="$3"
-  if echo "$str" | grep -qE "$regex"; then
+  if grep -qE "$regex" <<< "$str"; then
     _pass "$label"
   else
     _fail "$label (expected to match regex: '$regex')"

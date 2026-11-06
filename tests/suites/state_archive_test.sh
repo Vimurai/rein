@@ -122,7 +122,7 @@ assert_status 0 "E-245.02b: a missing archive/ directory is not an error" \
 _mixed="$(_ai state-done-2026-09.json stamps-2026-09.json)"
 _mout="$(_pointer "$_mixed")"
 assert_status 1 "E-245.02c: a stamps archive is not listed as task history" \
-  bash -c "printf '%s' '$_mout' | grep -q 'stamps-2026-09'"
+  bash -c "grep -q 'stamps-2026-09' <<< '$_mout'"
 assert_contains "E-245.02d: while the task archive beside it still is" \
   'state-done-2026-09.json' "$_mout"
 
@@ -145,9 +145,9 @@ assert_not_contains "E-330.01c: the gitignored state-done file is not pointed at
 # E-325: the one projector is record-store.mjs renderViews; regenerateViews delegates to it.
 STORE="${REPO_ROOT}/src/mcp/shared/record-store.mjs"
 assert_status 0 "E-245.03a: record-store.mjs renderViews emits the pointer" \
-  bash -c "sed -n '/^export function renderViews/,/^}/p' '$STORE' | grep -q 'archivePointerLines(aiDir)'"
+  bash -c "grep < <(sed -n '/^export function renderViews/,/^}/p' '$STORE') -q 'archivePointerLines(aiDir)'"
 assert_status 0 "E-245.03b: state-db.js regenerateViews delegates to renderViews" \
-  bash -c "sed -n '/^export function regenerateViews/,/^}/p' '$DB' | grep -q 'renderViews(aiDir, db)'"
+  bash -c "grep < <(sed -n '/^export function regenerateViews/,/^}/p' '$DB') -q 'renderViews(aiDir, db)'"
 assert_status 1 "E-245.03c: the second projector (state-writer.js) is gone" \
   test -e "${REPO_ROOT}/src/mcp/shared/state-writer.js"
 
@@ -157,7 +157,7 @@ assert_status 1 "E-245.04a: the stray root file 'bash' is no longer tracked" \
 assert_status 0 "E-245.04b: .DS_Store is gitignored at every depth" \
   bash -c "grep -qx '\*\*/.DS_Store' '${REPO_ROOT}/.gitignore'"
 assert_status 1 "E-245.04c: and no .DS_Store is tracked" \
-  bash -c "cd '$REPO_ROOT' && git ls-files | grep -q 'DS_Store'"
+  bash -c "cd '$REPO_ROOT' && grep < <(git ls-files) -q 'DS_Store'"
 # The live view carries the pointer WHEN THIS CHECKOUT HAS AN ARCHIVE. It usually does not:
 # .ai/archive/ is untracked, so a CI checkout has no archive files at all — and the
 # projector is then CORRECT to emit no section. Asserting unconditionally made this test
@@ -344,7 +344,7 @@ assert_status 0 "helper guards on node availability (fail-open)" \
 assert_status 0 "helper resolves wal-flusher via the shared install-first locator" \
   grep -q '_rein_helper shared/wal-flusher.mjs' "$BIN_AI"
 assert_status 1 "helper no longer prefers a cwd-relative wal-flusher" \
-  bash -c "sed 's/[[:space:]]*#.*\$//' '$BIN_AI' | grep -qE '\"src/shared/wal-flusher'"
+  bash -c "grep < <(sed 's/[[:space:]]*#.*\$//' '$BIN_AI') -qE '\"src/shared/wal-flusher'"
 
 # ── T-WAL-S02: do_sync() and doctor() both call the helper ───────────────────
 echo ""

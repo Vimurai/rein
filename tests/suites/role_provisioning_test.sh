@@ -119,9 +119,9 @@ for a in ux_reviewer docs-architect knowledge_architect meta_analyst memory_cura
   # NOT widened: these are advisory Architect personas (Forbidden Zone), so the contract
   # must not hand them Bash/Write/Edit.
   assert_status 1 "E-212.07 [$a]: allowed-tools does not add Bash" \
-    bash -c "grep -E '^allowed-tools:' '$f' | grep -q 'Bash'"
+    bash -c "grep < <(grep -E '^allowed-tools:' '$f') -q 'Bash'"
   assert_status 1 "E-212.07 [$a]: allowed-tools does not add Write/Edit" \
-    bash -c "grep -E '^allowed-tools:' '$f' | grep -qE '\\bWrite\\b|\\bEdit\\b'"
+    bash -c "grep < <(grep -E '^allowed-tools:' '$f') -qE '\\bWrite\\b|\\bEdit\\b'"
 done
 
 # ── E-217 (D-055 R2): collision resolved by renaming; guard is now fatal ────
@@ -254,7 +254,7 @@ assert_status 0 "E-215.04f: root ARCHITECT.md matches its template" \
 # suffix test wrongly concluded "I am the CLI" and printed usage + exit 2 into the
 # importing caller. `rein doctor` aborted mid-report because of it.
 assert_status 0 "E-215.05a: the CLI path still prints source dirs" \
-  bash -c "node --no-warnings '$MANIFEST' '${REPO_ROOT}/.ai' '${REPO_ROOT}/src/config/registry.json' claude | grep -q 'shared/skills'"
+  bash -c "grep < <(node --no-warnings '$MANIFEST' '${REPO_ROOT}/.ai' '${REPO_ROOT}/src/config/registry.json' claude) -q 'shared/skills'"
 # A tiny probe script keeps the quoting readable — the point is that IMPORTING the
 # module must print only the returned value, with no CLI usage banner leaking in.
 # .cjs extension: node needs it to pick a module format for a temp file.
@@ -535,17 +535,17 @@ AGENT="${REPO_ROOT}/src/claude/agents/test_engineer.md"
 SKILL="${REPO_ROOT}/src/shared/skills/rein-test/SKILL.md"
 assert_exists "$AGENT"
 assert_status 0 "E-255.08a: test_engineer frontmatter pins model: sonnet" \
-  bash -c "sed -n '1,/^---\$/{/^---\$/!p;}' '$AGENT' | sed -n '1,12p' | grep -qx 'model: sonnet'"
+  bash -c "grep < <(sed -n '1,/^---\$/{/^---\$/!p;}' '$AGENT' | sed -n '1,12p') -qx 'model: sonnet'"
 # D-110 r1/r2: the rule-matchers pin sonnet, every other agent inherits — the pinned set is
 # exactly this list, and no agent pins below sonnet.
 _pinned="$(cd "${REPO_ROOT}/src/claude/agents" && for _f in *.md; do
-  sed -n '2,/^---$/p' "$_f" | grep -qE '^model:' && printf '%s=%s ' "${_f%.md}" "$(sed -n '2,/^---$/p' "$_f" | sed -n 's/^model: *//p')"
+  grep < <(sed -n '2,/^---$/p' "$_f") -qE '^model:' && printf '%s=%s ' "${_f%.md}" "$(sed -n '2,/^---$/p' "$_f" | sed -n 's/^model: *//p')"
 done)"
 _want="critic_arch=sonnet critic_clean_code=sonnet critic_security=sonnet critic_tests=sonnet docs-architect=sonnet memory_curator=sonnet sre_responder=sonnet test_engineer=sonnet "
 assert_status 0 "D-110.01: exactly the seven rule-matchers and test_engineer pin model: sonnet (got: ${_pinned})" \
   test "$_pinned" = "$_want"
 assert_status 0 "E-255.08b: test_engineer stamps through add_stamp, and only that MCP tool" \
-  bash -c "grep -E '^tools:' '$AGENT' | grep -q 'mcp__task-synchronizer-mcp__add_stamp' && [ \"\$(grep -E '^tools:' '$AGENT' | grep -oE 'mcp__[a-z-]+__[a-z_]+' | wc -l | tr -d ' ')\" = 1 ]"
+  bash -c "grep < <(grep -E '^tools:' '$AGENT') -q 'mcp__task-synchronizer-mcp__add_stamp' && [ \"\$(grep -E '^tools:' '$AGENT' | grep -oE 'mcp__[a-z-]+__[a-z_]+' | wc -l | tr -d ' ')\" = 1 ]"
 assert_status 0 "E-255.08c: test_engineer writes only under tests/" grep -q 'Write ONLY under `tests/`' "$AGENT"
 for _flag in -- --generate --fast --vibe; do
   [[ "$_flag" == "--" ]] && continue

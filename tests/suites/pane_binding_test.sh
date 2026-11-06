@@ -37,7 +37,7 @@ echo "── Suite: pane_binding_test (E-208) ───────────�
 
 # ── E-208.1: `rein pane` argument contract ─────────────────────────────────────
 assert_status 0 "E-208.01a: 'rein pane --help' prints usage" \
-  bash -c "bash '$AI_BIN' pane --help | grep -q 'Usage: rein pane'"
+  bash -c "grep < <(bash '$AI_BIN' pane --help) -q 'Usage: rein pane'"
 assert_status 2 "E-208.01b: unknown role exits 2" \
   bash -c "bash '$AI_BIN' pane bogus 2>/dev/null"
 assert_contains "E-208.01c: unknown role names the valid roles" "architect | engineer" \
@@ -767,7 +767,7 @@ assert_status 0 "E-242.01f: the argv does not depend on cwd (root == subdir == o
 # NON-VACUITY: a relative path must be absent, or 01a-f could pass on a broken build that
 # emitted both forms.
 assert_status 1 "E-242.01g: no bare relative '.claude/settings' survives (non-vacuity)" \
-  bash -c "printf '%s' '$_from_root' | grep -q -- '--settings \.claude/'"
+  bash -c "grep -q -- '--settings \.claude/' <<< '$_from_root'"
 
 # The engineer role resolves the same way, with its own model.
 _eng="$(_argv "$_p/deep/nested" engineer "$_p/.ai")"
@@ -792,7 +792,7 @@ _abs="$(PA="file://${REPO_ROOT}/src/shared/provider-adapter.mjs" node --input-ty
 assert_contains "E-242.02a: an absolute operand is untouched" "/etc/x.json" "$_abs"
 assert_contains "E-242.02b: a ~-anchored operand is untouched" "~/R.md" "$_abs"
 assert_status 1 "E-242.02c: and neither was rewritten under the project root" \
-  bash -c "printf '%s' '$_abs' | grep -q '/proj/'"
+  bash -c "grep -q '/proj/' <<< '$_abs'"
 # A non-path flag's operand must never be treated as a path.
 _np="$(PA="file://${REPO_ROOT}/src/shared/provider-adapter.mjs" node --input-type=module -e '
   const { absolutisePathOperands } = await import(process.env.PA);
@@ -800,7 +800,7 @@ _np="$(PA="file://${REPO_ROOT}/src/shared/provider-adapter.mjs" node --input-typ
 ' 2>/dev/null)"
 assert_contains "E-242.02d: --model's operand is not a path and is untouched" "opus" "$_np"
 assert_status 1 "E-242.02e: a prompt is not rewritten either" \
-  bash -c "printf '%s' '$_np' | grep -q '/proj/hello'"
+  bash -c "grep -q '/proj/hello' <<< '$_np'"
 
 # ── E-242.3: self-heal — a MISSING overlay is regenerated ─────────────────
 # Distinct from the path bug: a project cloned before E-208, or one whose .claude/ was
@@ -838,14 +838,14 @@ assert_status 1 "E-242.03b-dry: and does NOT write the overlay" \
 assert_status 0 "E-242.03c: rein pane self-heals the same way" \
   grep -q 'missing — regenerating it' "$AI"
 assert_status 0 "E-242.03d: only the ROLE overlay is written, never settings.json" \
-  bash -c "grep -A3 'missing — regenerating it' '$AI' | grep -q '_write_role_settings_overlays'"
+  bash -c "grep < <(grep -A3 'missing — regenerating it' '$AI') -q '_write_role_settings_overlays'"
 
 # ── E-242.4: nothing regenerates when the overlays are already present ────
 # A pre-check that fires every run would rewrite files on every launch.
 _q="$(_proj)"
 _quiet="$( cd "$_q" && bash "$AI" start --dry-run 2>&1 )"
 assert_status 1 "E-242.04a: no regeneration when both overlays exist" \
-  bash -c "printf '%s' '$_quiet' | grep -q 'regenerating missing'"
+  bash -c "grep -q 'regenerating missing' <<< '$_quiet'"
 
 echo ""
 

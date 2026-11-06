@@ -97,6 +97,20 @@ It runs the unit layer without the installer, so a broken change fails in about 
 full run is then split into shards (`--shard i/N`; four by default, `ci.shards` in
 `.ai/team.json`).
 
+### Merged branches are deleted
+
+A feature branch ends at its merge. `rein ci hosted` prints the provider's setting for that
+next to the branch policy: on GitHub, "Automatically delete head branches" (set it in the same
+step as the branch protection):
+
+```bash
+gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true
+```
+
+On GitHub, `rein ci hosted --check` (and so `rein doctor`) reads the setting through `gh` when
+`gh` is logged in. If the repository keeps merged branches, it prints `[BRANCH_CLEANUP_OFF]` with
+that command. The line is advisory: it never changes the exit code.
+
 ### Rein's own pipeline
 
 Rein's repository uses the public profile of the same renderer, plus a few hand-written

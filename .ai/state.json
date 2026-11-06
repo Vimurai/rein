@@ -4422,6 +4422,15 @@
       "summary": "Tier 1 bookkeeping carry, last pick: 0d3f0df (D-147 addendum and its COMM handoff) onto e-401-budgets; DECISIONS.md order D-143..D-147 addendum then D-148. No source change.",
       "sha": "f9aa32cfaf93f50d3d0cd4bc4330ecd19b92d3ae",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:21:20.146Z",
+      "summary": "Tier 1 merge of origin/main (#20 merged) into e-401-budgets: source auto-merged; .ai conflicts (state.json, REVIEWS.md) were unions, regenerated from the state index (a superset of both sides). Carries the Architect's 8965357.",
+      "sha": "8965357050dbaaac46f8ede5c8d0c9c1346d402e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

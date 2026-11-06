@@ -4089,3 +4089,29 @@ Ruling 1: restore the section, drop the line (the cap then forces (b)). Rulings 
 > **Ruling 1 wording, as built (2026-11-01, 00c5ff8).** The verbatim line plus the deletion measured 6954 bytes, ten over the cap. The Engineer's shorter tail — `; rest in \`rein-task\` Step 3.5.` — is accepted as the ruling's text (6943 bytes); the merge command and the pointer are unchanged.
 
 ---
+
+## D-148 — `rein ci run` tells the harness when it is hosted; timing rows use their absolute bound there, as designed
+
+**Date**: 2026-11-06
+**Task**: E-416 (new), PR #29 (merges on its green re-run, unchanged)
+**Decision**: The second failure of `telemetry_test.sh` "hook warm-path (steady-state max)" on PR #29 (226 then 222 ms against a 214 ms relative bound, load1=15 at the row on 3 CPUs) is reported per D-147 addendum r5. It is not the change and not the bound; it is a lost contract. `assert_perf` (tests/lib/assert.sh) uses the absolute bound when `CI=true` and the host-relative bound otherwise, and the row's own comment says "the absolute 250 ms still governs on CI, where the hardware is known". But every hosted full leg runs through `rein ci run`, whose isolation is by construction (`env -i` with a curated list, `CI` among the reserved names), so the suites see `REIN_CI=local` on GitHub exactly as on a laptop and the row has been host-relative on hosted runners since `rein ci run` became the hosted command (D-072). Only the fast tier, which the workflow runs as `tests/run.sh --tier fast` directly, still sees `CI=true`. The relative bound is the right one for unknown hardware and the wrong one for a known 3-CPU runner at load 15: at 226 ms the absolute bound passes by 24 ms and the relative one fails by 12.
+
+1. **`rein ci run` sets `REIN_CI=hosted` when its own environment carries `GITHUB_ACTIONS=true`, else `REIN_CI=local`.** One derived bit in the curated list; `CI` itself stays reserved and is never forwarded. Isolation by construction is kept: the value is computed, not copied.
+2. **`assert_perf` takes the absolute bound when `REIN_CI=hosted`**, in addition to the existing `CI=true` and `REIN_PERF_ABSOLUTE=1`. The retry-under-load path is unchanged. No bound in any row changes (D-138).
+3. **`tests/run.sh` tests `REIN_CI` for non-empty where it now tests `== local`** (the throwaway-HOME, leak-fails-the-run and telemetry-growth checks), so `hosted` is treated as CI there too; the fast-tier 60 s budget keeps its `CI=true` key, since that tier runs directly.
+4. **Rows (D-088):** the `rein_ci_test.sh` env row is extended — `GITHUB_ACTIONS=true` in the caller's environment yields `REIN_CI=hosted` in the run's environment and still no `CI`; the `assert_perf` row is extended with the mode under `REIN_CI=hosted` and `REIN_CI=local`. No new suite. Tier 2.
+5. **PR #29 is unchanged**: it merges when its one re-run job is green, as the Engineer planned; E-416 is the fix for the class.
+
+### Alternatives considered
+1. **Raise the row's relative slack** — rejected: tuning a bound to a loaded host (D-138), and every other relative row stays exposed.
+2. **Absolute mode whenever `REIN_CI` is set** — rejected: a local `rein ci run` on a slow laptop would then judge by numbers measured on GitHub's hardware; run.sh rule 2 says a developer machine's speed is not a verdict.
+3. **Pass the outer `CI` through** — rejected: `CI` is reserved by the isolation contract, and forwarding a verbatim variable is the hole the curated list closes.
+4. **Skip timing rows when the host is overloaded** — rejected: a skip on a hosted check hides (D-146 r2); the absolute bound was designed for exactly this host and passes.
+
+### Impact
+- Unlocks: no more red hosted legs from this row at this load; the harness finally runs as the row comments describe. Risk if wrong: a hosted runner slower than the absolute bounds assume turns red for real; that is the regression signal the absolute bound exists for.
+
+### Rollback
+Remove the derived bit; the suites see `local` again and the rows go back to relative on hosted runners.
+
+---

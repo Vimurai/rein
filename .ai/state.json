@@ -1576,6 +1576,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-06T13:08:52.605Z"
+    },
+    {
+      "id": "E-416",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make `rein ci run` tell the harness when it is hosted per D-148 r1-r4: `src/bin/rein` sets `REIN_CI=hosted` in the curated env -i list when its own environment carries GITHUB_ACTIONS=true, else `REIN_CI=local` (one derived bit; CI stays reserved and is never forwarded); `tests/lib/assert.sh` assert_perf takes the absolute bound when REIN_CI=hosted (as for CI=true / REIN_PERF_ABSOLUTE=1), retry-under-load unchanged, no row bound changes (D-138); `tests/run.sh` tests REIN_CI for non-empty where it tests == local (throwaway HOME, leak fails the run, telemetry growth) and keeps the fast tier's CI=true key. Rows extend, no new suite (D-088): the rein_ci_test.sh env row (GITHUB_ACTIONS=true outside yields REIN_CI=hosted inside and still no CI) and the assert_perf row (mode under hosted and under local). Acceptance: rein ci run green locally; on the PR the macOS full legs report the telemetry warm-path row in [absolute] mode. Branch from main after #21 merges; Tier 2.",
+      "created_at": "2026-11-06T20:03:52.591Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-06T20:03:52.594Z"
     }
   ],
   "stamps": [

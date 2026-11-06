@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=201   (E-401, D-138 r3: 3x the slowest green hosted run — 48 s Linux / 67 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # propose_patch_test.sh — the propose→confirm patch path and the write tools around it:
 # propose-patch-mcp (E-141) and GitHub issue ingestion (E-142; E-279 (D-075) retired
 # github-bridge-mcp: `rein sync --github` calls gh directly, tested here against a stubbed gh),

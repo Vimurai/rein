@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # REIN_INSTALLER_SUBJECT: the installer's mirror and rein init's provisioning (E-311, D-092)
-# REIN_SUITE_TIMEOUT=402   (E-401, D-138 r3: 3x the slowest green hosted run, 134 s on macOS x 22; 74 s Linux — hosted main runs 41336593941/41140062255/41130862129, CENSUS_SUITE ms)
+# REIN_SUITE_TIMEOUT=492   (E-401, D-138 r3: 3x the slowest green hosted run — 87 s Linux / 164 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # mirror_hygiene_test.sh — E-273 (D-074, version-lifecycle.md §Component 5): the install
 # mirror and project provisioning under the same hygiene as everything else.
 #

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# REIN_SUITE_TIMEOUT=560   (E-401, D-138 r3: 3x the slowest green hosted run, 187 s on macOS x 22; 116 s Linux — hosted main runs 41336593941/41140062255/41130862129, CENSUS_SUITE ms)
+# REIN_SUITE_TIMEOUT=601   (E-401, D-138 r3: 3x the slowest green hosted run — 125 s Linux / 200 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # harness_isolation_test.sh — E-156 / E-157 (test-harness-isolation.md)
 # Verifies tests/run.sh isolates MCP config into an ephemeral .mcp.test.json,
 # exports MCP_CONFIG_PATH, and tears artifacts down via a trap on any exit.
@@ -427,6 +427,16 @@ assert_status 1 "E-307.W5: the hung suite's child is gone with it" pgrep -f "$_W
 assert_status 0 "E-307.W6: the run fails and ends well before the child's 100 s (${_wd_s}s, rc=${_wd_rc})" \
   test "$_wd_rc" -ne 0 -a "$_wd_s" -lt 30
 pkill -f "$_WD_MARK" 2>/dev/null || true
+# E-401 / D-138 r3 (extends the E-307 rows above, same fixture runner): a suite that runs over
+# a third of the default budget with no header of its own is named in the run summary —
+# advisory only; a suite that declares its header is not named, and the run still passes.
+rm -f "${_WD}/tests/suites/a_hang_test.sh" "${_WD}/tests/suites/b_after_test.sh"
+printf '#!/usr/bin/env bash\nsleep 1.5   # REIN_SLEEP_ALLOWED: the duration under test\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_WD}/tests/suites/c_slow_test.sh"
+printf '#!/usr/bin/env bash\n# REIN_SUITE_TIMEOUT=3\nsleep 1.5   # REIN_SLEEP_ALLOWED: the duration under test\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_WD}/tests/suites/d_declared_test.sh"
+_ud_out="$(env -u CI -u REIN_CI -u REIN_TEST_NO_SWEEP REIN_SUITE_TIMEOUT=3 bash "${_WD}/tests/run.sh" 2>&1)"; _ud_rc=$?
+assert_contains "E-401.U1: an undeclared suite over a third of the default is named" "[SUITE_TIMEOUT_UNDECLARED] c_slow_test.sh" "$_ud_out"
+assert_not_contains "E-401.U2: a suite with its own header is not" "[SUITE_TIMEOUT_UNDECLARED] d_declared_test.sh" "$_ud_out"
+assert_status 0 "E-401.U3: the advisory leaves the exit status alone (rc=${_ud_rc})" test "$_ud_rc" -eq 0
 rm -rf "${_WD}"
 
 # ── E-309 (D-091): lanes — a leak is attributed to its lane AND suite ──────────────────

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=239   (E-401, D-138 r3: 3x the slowest green hosted run — 27 s Linux / 80 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # gate_override_test.sh — E-291 (D-081 r2, D-083 r5-8): the operator's time-boxed override
 # replaces the two environment opt-outs, and the agent cannot switch its own gate off.
 #

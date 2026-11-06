@@ -81,7 +81,7 @@ if skip_unless_cmd tmux "E-227.01–02, E-269.S: rein start --dry-run plans tmux
   # which the overlay pre-check legitimately names — so the assertion failed on a path, not on
   # a launch. Match an invocation instead: the provider in command position.
   assert_status 1 "E-227.02a: no provider binary is launched directly" \
-    bash -c "printf '%s' \"\$_out\" | grep -qE '(^|[;&|]|send-keys .)[[:space:]]*claude[[:space:]]'"
+    bash -c "grep -qE '(^|[;&|]|send-keys .)[[:space:]]*claude[[:space:]]' <<< \"\$_out\""
   # The dry run prints commands through `printf %q`, so the sent string appears as
   # `ai\ pane\ engineer`. An assertion written against a literal space silently matched
   # nothing and passed for the wrong reason.
@@ -274,7 +274,7 @@ assert_contains "E-252.01b: a leading dash is stripped (tmux would read it as a 
 # legal tmux session name, because the rewrite is a WHITELIST rather than a blocklist.
 _uber="$(_sname_direct /tmp/über)"
 assert_status 0 "E-252.01c: a non-ASCII name yields a legal tmux name ('${_uber}')" \
-  bash -c "printf '%s' '${_uber}' | grep -qE '^[A-Za-z0-9_][A-Za-z0-9_-]*$'"
+  bash -c "grep -qE '^[A-Za-z0-9_][A-Za-z0-9_-]*$' <<< '${_uber}'"
 _long="$(_sname_direct "/tmp/$(printf 'a%.0s' $(seq 1 40))")"
 assert_contains "E-252.01d: a 40-character name is truncated to 32" "32" "${#_long}"
 assert_contains "E-252.01e: an explicit start.json session wins verbatim" \
@@ -292,7 +292,7 @@ assert_contains "E-252.02a: --dry-run creates the DERIVED session, not 'rein'" \
 assert_contains "E-252.02b: and stamps it with the project path" \
   "set-environment -t ${_derived} REIN_PROJECT" "$_out"
 assert_status 1 "E-252.02c: select-window is no longer composed (it moves OTHER clients)" \
-  bash -c "printf '%s' \"\$_out\" | grep -q 'select-window'"
+  bash -c "grep -q 'select-window' <<< \"\$_out\""
 rm -rf "$_p"
 fi
 
@@ -679,9 +679,9 @@ assert_contains "E-256.01b: the recipe binds the Architect pane" "rein pane arch
 # D-099 (E-323): the watcher is removed — the recipe is two panes and must not start it.
 assert_not_contains "E-256.01c: the recipe does not start the removed watcher" "ai watch" "$_recipe"
 assert_status 1 "E-256.01d: no pane is sent a bare CLI name" \
-  bash -c "printf '%s\n' \"\$1\" | grep -qE \"send-keys( -t [0-9]+)? '[a-z]+'\"" _ "$_recipe"
+  bash -c "grep -qE \"send-keys( -t [0-9]+)? '[a-z]+'\" <<< \"\$1\"" _ "$_recipe"
 assert_status 0 "E-256.01e: ai --help lists rein start and rein pane" \
-  bash -c "'$AI' --help | grep -q '^  rein start' && '$AI' --help | grep -q '^  rein pane'"
+  bash -c "grep < <('$AI' --help) -q '^  rein start' && grep < <('$AI' --help) -q '^  rein pane'"
 
 # ── E-228.7: init/sync surface the launcher ───────────────────────────────
 assert_status 0 "E-228.07a: rein init prints an 'rein start' hint" \

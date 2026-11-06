@@ -1,5 +1,5 @@
-// standards-test-rules.mjs — E-299 (D-088, .ai/blueprints/test-economics.md Component 3): the two
-// standards rules that make the test economy checkable. Merged into RULE_REGISTRY by
+// standards-test-rules.mjs — E-299 (D-088, .ai/blueprints/test-economics.md Component 3): the
+// standards rules that make the test economy checkable, and E-400's (D-138 r1) pipe rule. Merged into RULE_REGISTRY by
 // standards-checker.mjs (split out because that file is at its size limit).
 //
 // Each handler is `(ctx) => Violation | Violation[] | null`, ctx = { relPath, content, lines, rule }.
@@ -52,5 +52,31 @@ export const TEST_RULES = {
       line: 1,
       detail: `${labels} task-id labels across ${assertions} assertions — organise by behaviour; a label belongs on a table row, at most one per assertion (D-088 r1)`,
     };
+  },
+  /**
+   * D-138 r1 / E-400 — NO WRITER PIPED INTO `grep -q`. Under `set -o pipefail`, `grep -q` exits
+   * on its first match, the writer then dies of SIGPIPE, and the pipeline reports failure: the
+   * match is lost exactly when the input is large (E-294.R3a on PR #13). A match is tested with
+   * a here-string (`grep -q P <<< "$x"`), process substitution (`grep < <(cmd) -q P`) or
+   * `[[ =~ ]]`. Comments are prose. `||` is not a pipe. The pipe counts inside a quoted
+   * `bash -c "…"` too: the rule is "never write it", not "only where pipefail is on".
+   */
+  no_pipe_into_grep_q(ctx) {
+    if (process.env.REIN_STANDARDS_SKIP === "pipe-grep-q") return null;
+    if (!/^(tests|hooks)\/.*\.sh$/.test(ctx.relPath)) return null;
+    const out = [];
+    const lines = ctx.lines ?? String(ctx.content ?? "").split("\n");
+    for (let i = 0; i < lines.length; i++) {
+      const line = String(lines[i]);
+      if (/^\s*#/.test(line)) continue;
+      if (!/(?<!\|)\|(?!\|)\s*grep\s+(?:-[A-Za-z]+\s+)*(?:-[A-Za-z]*q[A-Za-z]*|--quiet)\b/.test(line)) continue;
+      out.push({
+        rule_id: ctx.rule.rule_id,
+        severity: "error",
+        line: i + 1,
+        detail: `a writer piped into grep -q loses the match under pipefail (SIGPIPE) — use grep … <<< "$x" or grep < <(cmd) …: ${line.trim().slice(0, 70)}`,
+      });
+    }
+    return out.length ? out : null;
   },
 };

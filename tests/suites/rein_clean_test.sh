@@ -264,7 +264,7 @@ if command -v pgrep >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
   ( cd "$LIVE_CWD" && bash -c 'echo $$ > .ai/.ai-watch.lock/pid; exec "$0" 120' "$WATCH_BIN" >/dev/null 2>&1 & )
   _ac_both_up() {  # the live watcher wrote its pid AND a second (orphaned) watcher is running
     local lp; lp="$(cat "${LIVE_CWD}/.ai/.ai-watch.lock/pid" 2>/dev/null)"; [[ -n "$lp" ]] || return 1
-    pgrep -f "${FAKE_TMP}/bin/ai-watch" 2>/dev/null | grep -qv "^${lp}$"
+    grep < <(pgrep -f "${FAKE_TMP}/bin/ai-watch" 2>/dev/null) -qv "^${lp}$"
   }
   wait_for _ac_both_up 5000 100 || true
   LIVE_PID="$(cat "${LIVE_CWD}/.ai/.ai-watch.lock/pid" 2>/dev/null || echo 0)"

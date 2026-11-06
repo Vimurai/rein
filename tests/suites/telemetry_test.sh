@@ -78,7 +78,7 @@ assert_contains "execution_time_ms persisted"   "\"execution_time_ms\":17"     "
 assert_contains "status SUCCESS persisted"      "\"status\":\"SUCCESS\""       "$ROW_RT"
 assert_contains "session_id derived from env"   "\"session_id\":\"${CCID}\""   "$ROW_RT"
 assert_status 0 "project_hash is 12 hex chars from sandbox repo cwd" \
-  bash -c "echo '$ROW_RT' | grep -qE '\"project_hash\":\"[0-9a-f]{12}\"'"
+  bash -c "grep -qE '\"project_hash\":\"[0-9a-f]{12}\"' <<< '$ROW_RT'"
 
 # Privacy: raw sandbox path must not leak.
 assert_not_contains "sandbox path NOT in row" "${SBOX7_REPO}" "$ROW_RT"
@@ -176,7 +176,7 @@ assert_status 0 "hook references --record-tool" \
 assert_status 0 "hook resolves telemetry via the shared install-first locator" \
   grep -qE 'rein_locate shared/telemetry\.mjs' "$HOOK"
 assert_status 1 "hook no longer prefers the visited repo's own src/shared copy" \
-  bash -c "sed 's/[[:space:]]*#.*\$//' '$HOOK' | grep -qE 'show-toplevel.*src/shared/telemetry'"
+  bash -c "grep < <(sed 's/[[:space:]]*#.*\$//' '$HOOK') -qE 'show-toplevel.*src/shared/telemetry'"
 
 # Fail-open: backgrounded via & + disown, stderr/stdout swallowed.
 assert_status 0 "telemetry call is backgrounded (& + disown)" \
@@ -366,7 +366,7 @@ assert_status 0 "E-259.01c: the hook feeds the reader on stdin, not argv" \
   grep -qE 'printf .%s. "\$TU_JSON" \| "\$\{REIN_TC_NICE:-nice\}" -n 10 "\$\{REIN_TC_NODE:-node\}" "\$TASK_USAGE_HELPER" --record' "$HOOK"
 # E-286: nice re-resolves its target through PATH, so both are named by absolute path.
 assert_status 0 "E-259.01d: the branch is backgrounded and silenced (fail-open)" \
-  bash -c "sed -n '/Task velocity from the transcript/,/Context-cache rebuild/p' '$HOOK' | grep -q '>/dev/null 2>&1 &'"
+  bash -c "grep < <(sed -n '/Task velocity from the transcript/,/Context-cache rebuild/p' '$HOOK') -q '>/dev/null 2>&1 &'"
 
 # ── E-259.2: the hook end to end ────────────────────────────────────────────
 echo "  [E-259.2] hook end to end"

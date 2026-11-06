@@ -223,7 +223,7 @@ assert_status 0 "E-265.09b: the suite runs under /bin/bash, the shell users have
 assert_status 0 "E-265.09c: the caller's ~/.rein is stripped from PATH" \
   grep -q '_ci_clean_path' "$AI"
 assert_status 0 "E-265.09d: ai --help lists rein ci run" \
-  bash -c "HOME='$FAKE_HOME' bash '$AI' --help | grep -q 'rein ci run'"
+  bash -c "grep < <(HOME='$FAKE_HOME' bash '$AI' --help) -q 'rein ci run'"
 assert_status 0 "E-265.09e: DEVOPS.md carries the ci_gate entry" \
   grep -q 'DEVOPS-007 — Local CI runner' "${REPO_ROOT}/.ai/DEVOPS.md"
 
@@ -858,7 +858,7 @@ _e268_root="$(git -C "$REPO_ROOT" rev-list --max-parents=0 HEAD 2>/dev/null | he
 if [[ -n "$_e268_root" && "$(git -C "$REPO_ROOT" log -1 --format=%s "$_e268_root")" != "Rein — successor of the private "* ]] \
    && [[ "$(git -C "$REPO_ROOT" rev-list --count HEAD 2>/dev/null)" -gt 1 ]]; then
   assert_status 0 "E-268.01d: the workflow is still in git history — that is the rollback" \
-    bash -c "cd '$REPO_ROOT' && git log --oneline -1 -- .github/workflows/test.yml | grep -q ."
+    bash -c "cd '$REPO_ROOT' && grep < <(git log --oneline -1 -- .github/workflows/test.yml) -q ."
 else
   _skip "E-268.01d: the removed workflow's history is not in this checkout"
 fi
@@ -899,7 +899,7 @@ assert_status 0 "E-268.02b: the CHANGELOG records the removal for the release no
   grep -qE 'GitHub Actions workflow removed; CI runs locally via `[a-z]+ ci`' "${REPO_ROOT}/CHANGELOG.md"  # released under the predecessor's command name
 # E-382 (D-131): E-263 released it in [4.0.0], now under "Private predecessor"; no [Unreleased].
 assert_status 0 "E-268.02c: under the 4.0.0 BREAKING heading, where E-263 released it" \
-  bash -c "sed -n '/^## \[4\.0\.0\]/,/^## \[3/p' '${REPO_ROOT}/CHANGELOG.md' | grep -q 'Changed — BREAKING'"
+  bash -c "grep < <(sed -n '/^## \[4\.0\.0\]/,/^## \[3/p' '${REPO_ROOT}/CHANGELOG.md') -q 'Changed — BREAKING'"
 
 # ── E-268.3: README and the CI page ──────────────────────────────────────
 # E-374 (D-125): a live GitHub Actions badge reflects real runs and is allowed; a static
@@ -912,7 +912,7 @@ assert_status 0 "E-268.03b: a Local CI section documents the runner" \
   grep -q '^## Local CI$' "$CI_DOC"
 for needle in 'rein ci run' 'rein ci status' 'rein ci log --failed' 'REIN_CI_SKIP_REASON' 'pre-push'; do
   assert_status 0 "E-268.03c: the CI page documents ${needle}" \
-    bash -c "sed -n '/^## Local CI/,/^## Hosted CI/p' '$CI_DOC' | grep -qF '$needle'"
+    bash -c "grep < <(sed -n '/^## Local CI/,/^## Hosted CI/p' '$CI_DOC') -qF '$needle'"
 done
 
 # ── E-268.4: CONTRIBUTING ────────────────────────────────────────────────

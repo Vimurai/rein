@@ -27,6 +27,8 @@ assert_contains "usage lists 'init'" "init" "$out"
 assert_contains "usage lists 'sync'" "sync" "$out"
 assert_contains "usage lists 'doctor'" "doctor" "$out"
 assert_contains "usage lists 'uninstall'" "uninstall" "$out"
+# E-405 (D-140 r8; extends the usage rows above): the header names the command, rein, not the old binary name.
+assert_match "usage header reads 'rein — Rein v'" '^rein — Rein v' "$out"
 
 # Removed commands are listed in the migration map
 assert_contains "usage references removed 'review' (migration map)" "review" "$out"
@@ -145,7 +147,8 @@ assert_status 0 "_run_env_diagnostics defined" grep -qE '_run_env_diagnostics\(\
 assert_status 0 "--env flag parsed"            grep -qE '"--env"' "$AI_BIN"
 assert_status 0 "doctor dispatches to env diagnostics" \
   grep -qE 'ENVCHECK.*-eq 1|_run_env_diagnostics' "$AI_BIN"
-assert_status 0 "checks Node 22+ requirement" grep -qE '\-ge 22' "$AI_BIN"
+# E-405 (extends this row, D-088): the floor is 22.5 through the shared comparison, not '-ge 22'.
+assert_status 0 "checks Node 22.5+ through the shared comparison" grep -qE 'rein_locate shared/node-version\.sh' "$AI_BIN"
 assert_status 0 "checks read/write bits"       grep -q 'read/write access' "$AI_BIN"
 assert_status 0 "checks state db write access" grep -q 'state database write access' "$AI_BIN"
 assert_status 0 "invokes mcp-tester (E-176)"  grep -qE 'mcp-tester\.mjs' "$AI_BIN"
@@ -325,8 +328,12 @@ _gen >/dev/null
 N_OWNED="$(_q "len(d['mcpServers'])")"
 assert_status 0 "E-274.01a: the generated file carries the registry's servers" \
   test "$N_OWNED" -gt 5
-assert_status 0 "E-274.01b: task-synchronizer-mcp points into the fixture mirror" \
-  test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = "${FAKE_HOME}/.rein/mcp/task-synchronizer-mcp/index.js"
+assert_status 0 "E-274.01b: task-synchronizer-mcp points into the mirror as a literal \${HOME} path" \
+  test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = '${HOME}/.rein/mcp/task-synchronizer-mcp/index.js'
+# Extends E-274.01b: `rein sync` used to expand HOME, so a committed .mcp.json carried one
+# operator's home directory and every other machine's sync rewrote it (2026-11-04).
+assert_status 0 "E-274.01c: the generated file never contains the expanded home directory" \
+  bash -c '! grep -qF "$1" "$2"' _ "$FAKE_HOME" "${PROJ}/.mcp.json"
 
 # ── E-274.2: the fixture — a foreign server, a user env, a retired server ─────
 python3 - "${PROJ}/.mcp.json" <<'P'
@@ -347,7 +354,7 @@ assert_status 0 "E-274.02a: a user-added server survives byte-for-byte" test "$_
 assert_status 0 "E-274.02b: a user env block on an owned server survives" \
   test "$(_q "d['mcpServers']['task-synchronizer-mcp'].get('env',{}).get('REIN_DEBUG')")" = "1"
 assert_status 0 "E-274.02c: the owned server is still regenerated (args from the registry)" \
-  test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = "${FAKE_HOME}/.rein/mcp/task-synchronizer-mcp/index.js"
+  test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = '${HOME}/.rein/mcp/task-synchronizer-mcp/index.js'
 assert_status 0 "E-274.02d: a retired registry_history server is removed" \
   test "$(_q "'mcp-router' in d['mcpServers']")" = "False"
 assert_status 0 "E-274.02e: other top-level keys are kept" \
@@ -429,8 +436,8 @@ run_gate() {
   WORD_COUNT=$(echo "$CONTENT" | wc -w | tr -d ' ')
 
   local HAS_ACTION=0
-  echo "$CONTENT" | grep -qiE \
-    '\b(add|implement|fix|create|update|refactor|remove|delete|migrate|deploy|build|write|change|replace|integrate|scaffold|install|configure|test|debug|review|audit)\b' \
+  grep -qiE \
+    '\b(add|implement|fix|create|update|refactor|remove|delete|migrate|deploy|build|write|change|replace|integrate|scaffold|install|configure|test|debug|review|audit)\b' <<< "$CONTENT" \
     && HAS_ACTION=1
 
   # VOTU OVERRIDE: long + action verb → pass
@@ -444,8 +451,8 @@ run_gate() {
   fi
 
   # High-risk detection
-  echo "$CONTENT" | grep -qiE \
-    '\b(auth|oauth|jwt|secret|api.?key|token|password|credential|passphrase|env.var|deploy|production|migration|breaking.?change|drop.?table|delete.?all|rm -rf|truncate)\b' \
+  grep -qiE \
+    '\b(auth|oauth|jwt|secret|api.?key|token|password|credential|passphrase|env.var|deploy|production|migration|breaking.?change|drop.?table|delete.?all|rm -rf|truncate)\b' <<< "$CONTENT" \
     && return 2
 
   return 0
@@ -582,13 +589,13 @@ check_tier3_security() {
   local log_content="$2"
 
   # Only trigger if TASKS.md is in the diff
-  echo "$diff" | grep -q "TASKS.md" || return 1
+  grep -q "TASKS.md" <<< "$diff" || return 1
 
   # Check for added lines that close a Tier 3 task (Tier: 3 + Status: DONE on same line)
   local tier3_closing=false
   while IFS= read -r line; do
     if [[ "$line" == +* && "$line" != +++* ]]; then
-      if echo "$line" | grep -qiE 'Tier:[[:space:]]*3' && echo "$line" | grep -qiE 'Status:[[:space:]]*DONE'; then
+      if grep -qiE 'Tier:[[:space:]]*3' <<< "$line" && grep -qiE 'Status:[[:space:]]*DONE' <<< "$line"; then
         tier3_closing=true
         break
       fi
@@ -598,7 +605,7 @@ check_tier3_security() {
   # Also detect: +- [x] checkbox on a line that contains Tier: 3
   local checkbox_closed=false
   while IFS= read -r line; do
-    if echo "$line" | grep -qE '^\+- \[x\]' && echo "$line" | grep -qiE 'Tier:[[:space:]]*3'; then
+    if grep -qE '^\+- \[x\]' <<< "$line" && grep -qiE 'Tier:[[:space:]]*3' <<< "$line"; then
       checkbox_closed=true
       break
     fi
@@ -609,7 +616,7 @@ check_tier3_security() {
   fi
 
   # Check LOG.md content for security evidence
-  echo "$log_content" | grep -qiE 'security_engineer|THREAT_MODEL|\[SECURITY\]|\[SEC_PASS\]' && return 1
+  grep -qiE 'security_engineer|THREAT_MODEL|\[SECURITY\]|\[SEC_PASS\]' <<< "$log_content" && return 1
 
   return 0  # Violation: Tier 3 closed without security evidence
 }
@@ -828,7 +835,7 @@ done
 # ── Test 7: do_sync also rewrites the bootloaders ────────────────────────────
 # Static check: do_sync must also call cp -f on these files (its copies echo "updated").
 SYNC_CP_F=$(sed -n '/^do_sync()/,/^}/p' "${AI_BIN}" | grep -E 'cp -f .*"CLAUDE.md"' || true)
-if echo "$SYNC_CP_F" | grep -q 'cp -f'; then
+if grep -q 'cp -f' <<< "$SYNC_CP_F"; then
   _pass "do_sync section also contains 'cp -f' bootloader overwrites"
 else
   _fail "do_sync does not contain 'cp -f' bootloader overwrites — rein sync may leave stale files"

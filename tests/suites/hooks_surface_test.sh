@@ -149,7 +149,7 @@ assert_status 0 "hook uses --emit-context"                   grep -qF -- '--emit
 
 # ── S02: --emit-context emits the compiled blob; rollback emits nothing ───────
 assert_status 0 "S02: --emit-context emits the System Context blob" bash -c \
-  "node --no-warnings '$CM' --emit-context 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
+  "grep < <(node --no-warnings '$CM' --emit-context 2>/dev/null) -q 'Rein SYSTEM CONTEXT CACHE'"
 assert_status 0 "S02: REIN_DISABLE_CACHE=1 emits nothing" bash -c \
   "[ -z \"\$(REIN_DISABLE_CACHE=1 node --no-warnings '$CM' --emit-context 2>/dev/null)\" ]"
 
@@ -171,9 +171,9 @@ assert len(h[\"additionalContext\"]) > 1000, \"non-trivial blob\"
 # would silently lose its persona binding (gap G1 would reopen) purely as a
 # side-effect of a caching rollback. The cache blob itself must still be absent.
 assert_status 0 "S04: rollback flag → cache blob suppressed" bash -c \
-  "! REIN_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
+  "! grep < <(REIN_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null) -q 'Rein SYSTEM CONTEXT CACHE'"
 assert_status 0 "S04: rollback flag → role stamp still emitted (E-208)" bash -c \
-  "REIN_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null | grep -q 'REIN_ROLE'"
+  "grep < <(REIN_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null) -q 'REIN_ROLE'"
 
 # ── S05: fail-open — node unavailable → hook exits 0, emits nothing (no block) ─
 # E-286: the hook pins its own PATH, so "no node" is simulated the way production meets
@@ -191,17 +191,17 @@ if [[ -x /usr/bin/env && -x "$_S05/bin/python3" ]]; then
   # E-208: no node → no cache blob, but the role stamp still binds the persona
   # (building it needs only python3).
   assert_status 0 "S05: no node → cache blob suppressed" bash -c \
-    "! HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
+    "! grep < <(HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null) -q 'Rein SYSTEM CONTEXT CACHE'"
   # The comment above promises the role stamp still binds without node (building it
   # needs only python3) — assert it rather than leaving the claim untested.
   assert_status 0 "S05: no node → role stamp still emitted (E-208)" bash -c \
-    "HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'REIN_ROLE'"
+    "grep < <(HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null) -q 'REIN_ROLE'"
   # Non-vacuity: the same tree WITH node recorded does emit the cache blob, so the
   # suppression above is caused by the missing node and nothing else.
   ( . "${SCRIPT_DIR}/../../src/shared/toolchain-record.sh"
     rein_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/bin/node" "$_S05/bin/python3" /usr/bin/nice )
   assert_status 0 "S05: (non-vacuity) with node recorded the same tree emits the blob" bash -c \
-    "cd '${REPO_ROOT:-$PWD}' && HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null | grep -q 'Rein SYSTEM CONTEXT CACHE'"
+    "cd '${REPO_ROOT:-$PWD}' && grep < <(HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null) -q 'Rein SYSTEM CONTEXT CACHE'"
 else
   _skip "S05: fail-open without node — the fixture could not record a python3 to keep"
 fi

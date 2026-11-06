@@ -256,7 +256,7 @@ DRIVER
 
   # ACCEPTANCE: the same tool, on the same process, reports the staleness the rewrite created.
   assert_status 1 "E-249.01e: verify_markdown_sync was CLEAN before the rewrite" \
-    bash -c "printf '%s' \"\${_first}\" | grep -q STALE_SERVER"
+    bash -c "grep -q STALE_SERVER <<< \"\${_first}\""
   assert_contains "E-249.01f: and reports [STALE_SERVER] after it" "STALE_SERVER" "${_second:-}"
   assert_contains "E-249.01g: the notice names the restart requirement" "restart required" "${_second:-}"
   # The structured tail carries it too, for the skills and hooks that parse rather than read.
@@ -295,9 +295,9 @@ assert_contains "E-249.02a: the fixture is stale while the stamp is enabled" "ST
       import(process.env.E249_MOD).then(m => console.log(m.staleServerReport({ runDir: process.env.E249_RUN }).join("\n")));
     ' 2>/dev/null || true)"
 assert_status 1 "E-249.02b: REIN_BUILD_STAMP=0 silences it" \
-  bash -c "REIN_BUILD_STAMP=0 E249_MOD='$STAMP' E249_RUN='${_rb}/run' node --no-warnings -e '
+  bash -c "grep -q STALE_SERVER < <(REIN_BUILD_STAMP=0 E249_MOD='$STAMP' E249_RUN='${_rb}/run' node --no-warnings -e '
       import(process.env.E249_MOD).then(m => console.log(m.staleServerReport({ runDir: process.env.E249_RUN }).join(\"\n\")));
-    ' 2>/dev/null | grep -q STALE_SERVER"
+    ' 2>/dev/null)"
 
 # The CLI must ALWAYS exit 0. `rein sync` runs under `set -euo pipefail`, and a non-zero exit
 # from an advisory probe is the exact class of defect E-247 had just finished removing.
@@ -326,7 +326,7 @@ assert_status 0 "E-249.03f: doctor names the healthy case explicitly" \
   grep -q 'every running server booted the build that is on disk' "$AI"
 # The install notice must not be able to fail the install.
 assert_status 0 "E-249.03g: the installer's probe is guarded and non-fatal" \
-  bash -c "grep -A1 'build-stamp.mjs\" --stale' '$INSTALLER' | grep -q '|| true'"
+  bash -c "grep < <(grep -A1 'build-stamp.mjs\" --stale' '$INSTALLER') -q '|| true'"
 
 # The interceptor stamps every server, not a hand-maintained list of them.
 assert_status 0 "E-249.03h: the stamp rides on the shared instrument() interceptor" \
@@ -410,7 +410,7 @@ assert_contains "E-249.05d: and names its own rollback" "REIN_BUILD_STAMP=0" "${
 # refuses EVERYTHING passes them all while making the tool unusable.
 _gate_clean="$(_gate_verdict yes)"
 assert_status 1 "E-249.05e: DONE is ALLOWED when the mirror is current" \
-  bash -c "printf '%s' \"\${_gate_clean}\" | grep -q BUILD_STALE"
+  bash -c "grep -q BUILD_STALE <<< \"\${_gate_clean}\""
 assert_contains "E-249.05f: and the task really transitions" "DONE" "${_gate_clean}"
 
 # The rollback releases the gate rather than requiring the mirror to be fixed.
@@ -422,7 +422,7 @@ _gate_off="$( cd "$_gp_d" && env -u REIN_HOME HOME="$_gp_h" REIN_BUILD_STAMP=0 b
     mcp_call_tool '$SYNCHRONIZER' update_task_status '{\"id\":\"E-1\",\"status\":\"DONE\"}' 2>/dev/null
   " )"
 assert_status 1 "E-249.05g: REIN_BUILD_STAMP=0 releases the gate" \
-  bash -c "printf '%s' \"\${_gate_off}\" | grep -q BUILD_STALE"
+  bash -c "grep -q BUILD_STALE <<< \"\${_gate_off}\""
 
 # A refusal must leave NOTHING behind: the gate runs before the dependency-revision write,
 # so a blocked DONE is not a half-applied mutation. This needs its OWN fixture — the
@@ -1425,7 +1425,7 @@ assert_status 0 "E-235.01b: the download is gated on WANT_BROWSERS" \
 assert_status 0 "E-235.01c: the download still exists, inside the bounded helper" \
   grep -q 'npx playwright install chromium' "$AI_BO"
 assert_status 0 "E-235.01d: and lives in _install_browsers, not the install loop" \
-  bash -c "sed -n '/^_install_browsers()/,/^}/p' '$AI_BO' | grep -q 'npx playwright install chromium'"
+  bash -c "grep < <(sed -n '/^_install_browsers()/,/^}/p' '$AI_BO') -q 'npx playwright install chromium'"
 
 # ── E-235.2: --browsers and the env rollback both opt in ──────────────────
 assert_status 0 "E-235.02a: --browsers sets the flag" \
@@ -1440,18 +1440,18 @@ assert_status 0 "E-235.02b: REIN_INSTALL_BROWSERS=1 restores the old behaviour" 
 assert_status 0 "E-235.03a: a timeout budget exists and is configurable" \
   grep -q 'REIN_BROWSER_TIMEOUT:-600' "$AI_BO"
 assert_status 0 "E-235.03b: enforced by a watchdog, not by the absent timeout(1)" \
-  bash -c "sed -n '/^_install_browsers()/,/^}/p' '$AI_BO' | grep -q 'kill -TERM'"
+  bash -c "grep < <(sed -n '/^_install_browsers()/,/^}/p' '$AI_BO') -q 'kill -TERM'"
 assert_status 1 "E-235.03c: it does NOT rely on timeout(1) being installed" \
-  bash -c "sed -n '/^_install_browsers()/,/^}/p' '$AI_BO' | grep -qE '^\s*timeout '"
+  bash -c "grep < <(sed -n '/^_install_browsers()/,/^}/p' '$AI_BO') -qE '^\s*timeout '"
 # Progress: output piped through `tail -2` made a long download look exactly like a hung
 # one. Nothing tells an operator less than a silent process.
 assert_status 1 "E-235.03d: progress is not swallowed by tail" \
-  bash -c "sed -n '/^_install_browsers()/,/^}/p' '$AI_BO' | grep -q 'tail -2'"
+  bash -c "grep < <(sed -n '/^_install_browsers()/,/^}/p' '$AI_BO') -q 'tail -2'"
 assert_status 0 "E-235.03e: the operator is told what is happening and for how long" \
-  bash -c "sed -n '/^_install_browsers()/,/^}/p' '$AI_BO' | grep -q 'bounded to'"
+  bash -c "grep < <(sed -n '/^_install_browsers()/,/^}/p' '$AI_BO') -q 'bounded to'"
 # An optional browser must never fail the install.
 assert_status 0 "E-235.03f: a failed download does not fail the install" \
-  bash -c "sed -n '/^_install_browsers()/,/^}/p' '$AI_BO' | grep -q 'return 0'"
+  bash -c "grep < <(sed -n '/^_install_browsers()/,/^}/p' '$AI_BO') -q 'return 0'"
 
 # ── E-235.4: first use fails FAST and says what to run ────────────────────
 assert_status 0 "E-235.04a: the browser-check helper exists" test -f "${VC}/browser-check.mjs"
@@ -1484,18 +1484,18 @@ assert_contains "E-235.04g: REIN_SKIP_BROWSER_CHECK=1 bypasses the probe" "ok" \
 assert_status 0 "E-235.05a: doctor has a browser section" \
   grep -q 'Vibe-check browsers' "$AI_BO"
 assert_status 0 "E-235.05b: and tells the operator how to fix it" \
-  bash -c "grep -A12 'Vibe-check browsers' '$AI_BO' | grep -q 'rein mcp-setup --browsers'"
+  bash -c "grep < <(grep -A12 'Vibe-check browsers' '$AI_BO') -q 'rein mcp-setup --browsers'"
 
 # ── E-235.6: CI installs them explicitly, and caches ──────────────────────
 # E-268 (D-072): the GitHub workflow that used to do this is gone — `rein ci run` is CI now,
 # and its `browsers` step keeps the same two properties: explicit install, persistent cache.
 AI_BIN="${REPO_ROOT}/src/bin/rein"
 assert_status 0 "E-235.06a: the local CI runner installs Chromium explicitly" \
-  bash -c "sed -n '/── browsers ──/,/── install ──/p' '$AI_BIN' | grep -q 'playwright install chromium'"
+  bash -c "grep < <(sed -n '/── browsers ──/,/── install ──/p' '$AI_BIN') -q 'playwright install chromium'"
 assert_status 0 "E-235.06b: cached under ~/.rein/ci, so it is a download once per version" \
   grep -q 'PLAYWRIGHT_BROWSERS_PATH=\${ci_home}/cache/ms-playwright' "$AI_BIN"
 assert_status 0 "E-235.06c: a cache hit is reported rather than silently re-downloaded" \
-  bash -c "sed -n '/── browsers ──/,/── install ──/p' '$AI_BIN' | grep -q 'cache hit'"
+  bash -c "grep < <(sed -n '/── browsers ──/,/── install ──/p' '$AI_BIN') -q 'cache hit'"
 # E-332 (D-103): the hosted master check runs `rein ci run`, so the browsers step above is the
 # only place Chromium is installed — no workflow downloads it on its own.
 assert_status 1 "E-235.06d: no workflow installs browsers itself" \
@@ -1505,7 +1505,7 @@ assert_status 1 "E-235.06d: no workflow installs browsers itself" \
 assert_status 0 "E-235.07a: DEVOPS-006 exists" \
   grep -q 'DEVOPS-006' "${REPO_ROOT}/.ai/DEVOPS.md"
 assert_status 0 "E-235.07b: with a rollback plan" \
-  bash -c "grep -A4 'Rollback plan' '${REPO_ROOT}/.ai/DEVOPS.md' | grep -q '_INSTALL_BROWSERS=1'"  # DEVOPS.md is a record: the variable keeps the name it had when DEVOPS-006 was written
+  bash -c "grep < <(grep -A4 'Rollback plan' '${REPO_ROOT}/.ai/DEVOPS.md') -q '_INSTALL_BROWSERS=1'"  # DEVOPS.md is a record: the variable keeps the name it had when DEVOPS-006 was written
 
 echo ""
 

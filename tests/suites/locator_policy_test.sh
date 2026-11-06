@@ -99,7 +99,7 @@ fi
 # Comment lines are stripped first: the replacement carries an explanation that QUOTES
 # the old idiom, and matching that would make this assertion fail on its own documentation.
 _no_locator_idiom() {  # <file...>
-  ! sed 's/[[:space:]]*#.*$//' "$@" | grep -qE 'rev-parse --show-toplevel.*/src/'
+  ! grep < <(sed 's/[[:space:]]*#.*$//' "$@") -qE 'rev-parse --show-toplevel.*/src/'
 }
 assert_status 0 "E-223.06a: no hook locates a framework helper via the visited repo" \
   _no_locator_idiom ${REPO_ROOT}/hooks/*.sh
@@ -145,7 +145,7 @@ assert_status 0 "E-223.08d: every hook declares its environment untrusted" \
 # `_REIN_HOME_DIR` that holds the hardcoded path — an earlier version of this assertion
 # matched the variable NAME and failed on correct code.
 assert_status 1 "E-223.08e: no hook reads the REIN_HOME env var any more" \
-  bash -c "sed 's/[[:space:]]*#.*\$//' ${REPO_ROOT}/hooks/*.sh | grep -qE '[\\\$]\\{?REIN_HOME[}:]'"
+  bash -c "grep < <(sed 's/[[:space:]]*#.*\$//' ${REPO_ROOT}/hooks/*.sh) -qE '[\\\$]\\{?REIN_HOME[}:]'"
 # The recorded workspace file outranks the env var even when the env IS trusted.
 assert_status 0 "E-223.08f: the installer-recorded workspace outranks REIN_WORKSPACE" \
   bash -c "grep -q 'rein-workspace.txt' '$LOC_SH' &&
@@ -309,7 +309,7 @@ for _h in shared/memory-batch-scanner.mjs shared/wal-flusher.mjs shared/cli-add-
   assert_not_contains "E-223.14 ${_h#shared/} does not resolve the visited repo" "$_D2" "$_r"
 done
 assert_status 1 "E-223.14g: no cwd-relative helper chain survives in src/bin/rein" \
-  bash -c "sed 's/[[:space:]]*#.*\$//' '$AI_BIN' | grep -qE 'for (c|candidate) in \"?(src|scripts)/'"
+  bash -c "grep < <(sed 's/[[:space:]]*#.*\$//' '$AI_BIN') -qE 'for (c|candidate) in \"?(src|scripts)/'"
 assert_status 0 "E-223.14h: helper lookups share one function" \
   bash -c "test \$(grep -c '_rein_helper ' '$AI_BIN') -ge 8"
 rm -rf "$_D2"

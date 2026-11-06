@@ -106,7 +106,7 @@ assert_status 0 "E-238.04c: the JSON gate runs too" \
 # It must read the STAGED blob: worktree and index differ when only part of a file is
 # staged, and what is being committed is what matters.
 assert_status 0 "E-238.04d: the JSON gate inspects the STAGED blob, not the worktree" \
-  bash -c "sed -n '/^_ai_json_parse_gate() {/,/^}/p' '$HOOK' | grep -q 'git show \":\\\${f}\"'"
+  bash -c "grep < <(sed -n '/^_ai_json_parse_gate() {/,/^}/p' '$HOOK') -q 'git show \":\\\${f}\"'"
 
 # ── E-238.5: the rules are written down where they are read ───────────────
 # E-282 (D-075/D-080): these rules moved out of ENGINEER.md into path-scoped
@@ -357,9 +357,9 @@ echo "  [T-PCS-S05] STANDARDS_BLOCK banner + exit 1 on CLI failure"
 assert_status 0 "STANDARDS_BLOCK heredoc tag present"     grep -q 'STANDARDS_BLOCK' "$HOOK"
 assert_status 0 "banner names the gate verbatim"          grep -q 'ENGINEERING-STANDARDS — COMMIT BLOCKED' "$HOOK"
 assert_status 0 "banner documents the rollback flag"      \
-  bash -c "awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK' | grep -q 'REIN_SKIP_STANDARDS=1'"
+  bash -c "grep < <(awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK') -q 'REIN_SKIP_STANDARDS=1'"
 assert_status 0 "banner mentions kebab-case / shared / NDJSON fix hints" \
-  bash -c "awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK' | grep -qiE 'kebab|shared|NDJSON'"
+  bash -c "grep < <(awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK') -qiE 'kebab|shared|NDJSON'"
 assert_status 0 "exit 1 follows the banner on failure" \
   python3 -c "
 import re, sys
@@ -513,9 +513,9 @@ staged_out="$(node --input-type=module -e "
 " 2>/dev/null)"
 
 assert_status 0 "validateStaged reports both staged files" \
-  bash -c "echo '$staged_out' | grep -q '\"files_checked\":2'"
+  bash -c "grep -q '\"files_checked\":2' <<< '$staged_out'"
 assert_status 0 "validateStaged surfaces the .tmp error" \
-  bash -c "echo '$staged_out' | grep -q 'no_committed_tmp_files'"
+  bash -c "grep -q 'no_committed_tmp_files' <<< '$staged_out'"
 assert_status 0 "validateStaged summary.error_count >= 1" \
   bash -c "echo '$staged_out' | python3 -c 'import json, sys; sys.exit(0 if json.load(sys.stdin)[\"summary\"][\"error_count\"] >= 1 else 1)'"
 
@@ -578,7 +578,7 @@ stderr_out="$( ( cd "$SPROJ" && REIN_SKIP_STANDARDS=1 node "$CLI" check --file s
 rc=$?
 assert_status 0 "skip flag → exit 0 (even on would-be error)" bash -c "[[ $rc -eq 0 ]]"
 assert_status 0 "stderr carries STANDARDS_SKIPPED marker" \
-  bash -c "echo '$stderr_out' | grep -q 'STANDARDS_SKIPPED'"
+  bash -c "grep -q 'STANDARDS_SKIPPED' <<< '$stderr_out'"
 
 # ── T-STD-S14: ~/.rein mirrors byte-identical ──────────────────────────────
 echo ""
@@ -619,7 +619,7 @@ stderr_out="$( HOME="${ORPHAN}/fakehome" node "${ORPHAN}/scripts/standards.mjs" 
 rc=$?
 assert_status 0 "orphan layout → exit 1"                bash -c "[[ $rc -eq 1 ]]"
 assert_status 0 "fail-closed stderr marker present"     \
-  bash -c "echo '$stderr_out' | grep -q '\[standards\] ERROR: standards-checker.mjs not found'"
+  bash -c "grep -q '\[standards\] ERROR: standards-checker.mjs not found' <<< '$stderr_out'"
 
 # ── E-250 (D-067 §4 / D-065 §1): counted suppressions, named exemptions ──────
 #
@@ -652,14 +652,14 @@ assert_contains "E-250.01b: and the run reports zero suppressions" \
 # THE MARKER, on the flagged line and on the line above it (D-065 §1 allows both).
 _sup="$(_e250_check tests/suppressed_test.sh)"
 assert_status 1 "E-250.02a: a marked line produces NO violation" \
-  bash -c "printf '%s' \"\$_sup\" | grep -q 'error'"
+  bash -c "grep -q 'error' <<< \"\$_sup\""
 assert_contains "E-250.02b: and the suppression is COUNTED, not silently swallowed" \
   "no_raw_exit_trap_in_tests: 1" "$_sup"
 assert_contains "E-250.02c: with the file:line that carries it" "tests/suppressed_test.sh:1" "$_sup"
 
 _above="$(_e250_check tests/above_test.sh)"
 assert_status 1 "E-250.03a: a marker on the line ABOVE also suppresses" \
-  bash -c "printf '%s' \"\$_above\" | grep -q 'error'"
+  bash -c "grep -q 'error' <<< \"\$_above\""
 assert_contains "E-250.03b: and the rule_id form of the token works, not just the alias" \
   "no_raw_exit_trap_in_tests: 1" "$_above"
 

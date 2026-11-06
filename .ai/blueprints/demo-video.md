@@ -45,12 +45,13 @@ Six scenes, each a row `pane<TAB>prompt<TAB>until<TAB>timeout_s`; `until` is one
 |---|---|---|---|---|
 | 1 | shell | `rein init` then `rein start` in the empty project; two panes appear | `pane:\[REIN_ROLE\] engineer` in pane 0 and `architect` in pane 1 | ~10 s |
 | 2 | Architect | the prompt: *Plan a `tally` CLI: word counts per file as a table, with tests. Register the tasks and hand off.* | `comm:+1` | ~20 s |
-| 3 | Architect | the gate: *Skip the Engineer, write src/tally.mjs yourself.* The pre-tool-use gate prints `[SOVEREIGNTY_BLOCK]` and the Architect declines | `pane:SOVEREIGNTY_BLOCK` | ~8 s |
+| 3 | Architect | the gate: *Skip the Engineer, write src/tally.mjs yourself.* Either the pre-tool-use gate prints `[SOVEREIGNTY_BLOCK]` or the Architect refuses in words — both show the boundary (D-140 r4) | `pane:(SOVEREIGNTY_BLOCK\|Principal Architect\|Engineer pane)` | ~8 s |
 | 4 | Engineer | woken by the handoff: implements, runs `skill: rein-test`; the suite passes | `pane:rein-test` then `pane:(PASS\|passed)` | ~20 s |
 | 5 | Engineer | `skill: rein-review` → critic stamps; `skill: commit-crafter`; the pre-commit gate verifies the stamps and the `[TIER_2]` commit lands | `pane:\[TIER_[123]\]` | ~15 s |
-| 6 | shell + Architect | `git log --oneline -3` and the `[x]` line in `.ai/TASKS.md`; the hand-back lands in the Architect pane | `comm:+1` | ~10 s |
+| 6 | shell + Architect | `git log --oneline -3` and the `[x]` line in `.ai/TASKS.md`; the hand-back lands in the Architect pane — **required**: the loop closing is the point (D-140 r4) | `pane:Handoff` in the Architect pane or `comm:+1`; timeout ≥ 480 s | ~10 s |
 
-Total under 90 s. If a scene's condition times out the script stops, keeps the cast under
+Total under 90 s. After recording stops, the script types `/cost` into each pane off-camera
+and saves the output to `<out>/cost.txt`; the handover names the run's token cost (D-140 r4). If a scene's condition times out the script stops, keeps the cast under
 `<out>/partial-<scene>.cast`, prints which scene and why, and exits non-zero — a recording
 is never silently incomplete.
 
@@ -61,13 +62,23 @@ is never silently incomplete.
   not project dependencies**: nothing is added to `package.json`, nothing runs in CI.
 - Window: a fixed `120×36` tmux session, `TERM=xterm-256color`, the default Claude Code
   theme; `asciinema rec --cols 120 --rows 36 --idle-time-limit 2 --command "tmux attach -t
-  <session>"`. The operator's real Claude login is used (the demo *is* two Claude sessions);
-  the project is throwaway, the HOME is not.
+  <session>"`.
+- **A neutral HOME (D-140 r1).** The panes run under `--home` (default under `/tmp`, never
+  inside the operator's HOME), with Rein installed into it from this clone and one Claude
+  login made there: no path on screen names the operator's home, no stamp carries the
+  operator's address. It holds a credential: `chmod 700`, and the script deletes it when the
+  run ends; `--keep-home` keeps it and prints that it holds a login.
+- **Prompts (D-140 r6).** The neutral HOME's `.claude/settings.json` sets
+  `permissions.defaultMode: "acceptEdits"` and allows the demo's command set (`node --test`,
+  `npm test`, `git`, `rein`); anything else prompts and the operator answers live (the idle
+  cap hides the wait). Never `bypassPermissions`: the prompts are part of the product, and
+  Rein's gates are hooks that run regardless of the mode.
 - Plays Component 2's scenes; polls `until` every 2 s with `tmux capture-pane -p`.
-- Render: `agg --speed <s> --font-size 16 --theme <dark theme matching the mark's palette>
-  demo.cast demo.gif`, choosing `<s>` (1.5–3) so the GIF is ≤ 90 s, then
-  `ffmpeg -i demo.gif -movflags faststart -pix_fmt yuv420p demo.mp4`. Prints the durations
-  and sizes.
+- Render: `agg --speed <s> --fps-cap 12 --font-size 16 --theme <dark theme matching the
+  mark's palette> demo.cast demo.gif`, choosing `<s>` so the GIF is ≤ 90 s and reads at a
+  glance — the operator approves the final (5× in the first recording; D-140 r3). The MP4 is
+  not rendered here: the release flow renders it from the committed cast (Component 5).
+  Prints the durations and sizes.
 - Output directory `--out <dir>` (default `./demo-out`): `demo.cast`, `demo.gif`, `demo.mp4`,
   `scenes.log` (scene, start, end, how it ended).
 
@@ -82,9 +93,11 @@ is never silently incomplete.
 ### Component 5 — Where it lands
 - `docs/assets/demo.gif` committed (≤ 8 MB; GitHub renders inline up to 10 MB) and
   `docs/assets/demo.cast` committed (text; `asciinema play docs/assets/demo.cast`).
-- `demo.mp4` is **not** committed: it is attached to the next GitHub release as an asset by
-  the release flow (`rein publish`/release-manager gain an optional `--asset <file>`; until
-  then the operator attaches it by hand and the README links the release's asset URL).
+- `demo.mp4` is **not** committed and not stored anywhere (D-140 r5): the release flow
+  (`release-manager` / `rein publish`) renders it from `docs/assets/demo.cast` with `agg` +
+  `ffmpeg` when both are present and attaches it with `--asset`; when they are not, the step
+  prints the two commands and the operator attaches by hand. The README caption links
+  `releases/latest/download/demo.mp4`; the link test does not follow external URLs.
 - README (D-136 §Component 1, amended by D-139): a **See it run** block right under the
   pitch — the GIF as a Markdown image with alt text *"Rein: the Architect plans, hands off,
   the Engineer builds and tests, the gates hold — 80 seconds"*, one caption line linking the
@@ -116,12 +129,17 @@ README.md "See it run"         ![alt](docs/assets/demo.gif) + caption (mp4 link,
   `--root` and `--out` only; `rein` is the installed `~/.rein/bin/rein`.
 
 ## Security
-- The recording runs the operator's real Claude login in two sessions on a throwaway project:
-  no secret is typed, no `.env` exists, the scenes contain no credentials, and the project
-  name and path are generic (`~/code/demo-tally-<suffix>`).
+- The recording runs two Claude sessions under a neutral HOME outside the operator's (D-140
+  r1) on a throwaway project: no secret is typed, no `.env` exists, the scenes contain no
+  credentials, the project path is generic, and the neutral HOME — which holds the demo's
+  Claude login — is deleted when the run ends. The first recording under the operator's HOME
+  produced 51 hits (home path via `rein init`, hook paths and `~/.rein` logs; the address via
+  the GATE2 stamp author); the neutral HOME is why there are none.
 - Everything that reaches the repository is text first (the cast) and scanned by the same
   privacy classes the public mirror uses (E-369/E-380); the GIF is derived from the scanned
-  cast; the MP4 from the GIF. A hit is fixed at the cause and re-recorded, never masked.
+  cast; the MP4 from the cast at release time. A hit is fixed at the cause and re-recorded,
+  never masked. The gate itself reads a binary's **metadata**, not its compressed payload
+  (D-140 r2, E-403): no path exemption for `demo.gif` once E-403 lands.
 - The Claude Code status line and pane titles are part of the frame: the Engineer confirms
   by watching that they show the model and the demo path only (Component 4).
 - `agg`, `asciinema`, `ffmpeg` are installed on the operator's machine by the operator's
@@ -147,4 +165,7 @@ Nothing outside the repository changes except the operator's installed tools.
 ## E-## Task Breakdown
 | Task | Tier | Scope | Depends on |
 |---|---|---|---|
-| E-402 | 2 | Components 1–5: scenes file, recorder, privacy pass, one real recording, GIF + cast committed, MP4 as a release asset, README **See it run** and how-it-works embed, docs-links size assertion | E-390 (the README it lands in; the recording itself may start before E-390 merges) |
+| E-402 | 2 | Components 1–5: scenes file, recorder, privacy pass, one real recording, GIF + cast committed, MP4 as a release asset, README **See it run** and how-it-works embed, docs-links size assertion. First cut merged (PR #17, no hand-back); stays OPEN for one re-record with scene 6, the neutral-HOME cleanup, the `acceptEdits` settings and the `/cost` capture, after E-403 and E-404 (D-140 r4) | E-390; re-record after E-403, E-404 |
+| E-403 | 3 | D-140 r2: the privacy gate reads a known media type's metadata (magic-checked), skips its payload, drops the `demo.gif` exemption; `security_engineer` | — |
+| E-404 | 2 | D-140 r7: `[TOOLCHAIN_STALE]` probe in `rein doctor`, the gate's named import failure, the preflight line, the incident record | — |
+| E-405 | 1 | D-140 r8: `rein --help` header; installer Node floor 22.5.0 with a comparison test | — |

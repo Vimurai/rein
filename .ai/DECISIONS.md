@@ -3994,3 +3994,75 @@ The README tells and diagrams; a visitor still cannot see the loop run. One scri
 One PR, one revert (`demo-video.md` §Rollback Plan); delete the release asset; D-136's image rule returns to "the mark only".
 
 ---
+
+## D-140 — The demo runs under a neutral HOME it deletes afterwards; the privacy gate reads a binary's metadata, not its compressed payload; the hand-back scene is required and the cut is re-recorded once the gate and the toolchain probe are in
+
+**Date**: 2026-10-30
+**Task**: E-402 (stays OPEN), E-403, E-404, E-405 (new)
+**Decision**: E-402's first recording merged (PR #17) with six divergences from D-139/`demo-video.md`, each put to the Architect. Rulings:
+
+1. **The neutral HOME is the rule, not a divergence.** D-139 said "the HOME is not throwaway"; the first run showed 51 privacy hits from the operator's HOME path (printed by `rein init`, by every gate-block hook path, by `~/.rein` logs) and the email (the GATE2 stamp author). A HOME outside the operator's (`--home`, default under `/tmp`), with Rein installed into it and one Claude login, is exactly the privacy design working. It holds a Claude credential, so: `chmod 700` (done), and **the script deletes it when the run ends**; `--keep-home` keeps it and prints that it holds a login. The blueprint §Component 3 and §Security are rewritten under this ruling.
+2. **The privacy gate stops scanning compressed payloads and starts reading metadata.** Today the gate turns any binary into its printable runs and scans those; a compressed GIF then matches the path and address classes by chance, and the only way to ship it was an exact-path exemption. An exemption by path is a hole (a later commit can put anything at that path), and chance matches make every binary a coin flip. The rule: a file whose magic bytes name a known media type (GIF, PNG, JPEG, WebP, MP4/MOV, WOFF/WOFF2) has its **textual metadata** scanned — GIF comment and application extensions, PNG `tEXt`/`zTXt`/`iTXt`, JPEG `COM`/EXIF/XMP, MP4 `udta`/`meta`, font `name` tables — and its payload skipped; a file whose extension claims a media type but whose magic does not match is scanned as today. The `docs/assets/demo.gif` exemption is removed in the same change. This is E-403 (Tier 3: gate surface; `security_engineer`). The derived-artefact argument (GIF from a scanned cast) stays recorded as the reason the demo is safe, but the gate's rule is the one above, for every binary.
+3. **Speed and fonts**: the operator chose 5× and 12 fps; the 1.5–3 cap was a guess. The rule becomes: the speed is whatever makes the cut read at a glance and the operator approves the final; the blueprint says so.
+4. **The cut ships as merged; the hand-back is required in the next one.** The loop closing is the point of the demo. Scene 3 accepts either the gate line or the Architect's refusal — both show the boundary, and the `[SOVEREIGNTY_BLOCK]` that printed on the inline-interpreter attempt is in the GIF already. Scene 6 ends on the hand-back in the Architect pane (`pane:Handoff` or `comm:+1`, timeout ≥ 8 min). E-402 stays OPEN for one re-record **after E-403 and E-404** (no exemption, no stale toolchain), with the token cost read from each pane's `/cost` after recording stops and named in the handover.
+5. **The MP4 is rendered from the committed cast at release time, never stored.** The release flow (`release-manager` / `rein publish`) renders `demo.mp4` from `docs/assets/demo.cast` with `agg` + `ffmpeg` when both are present and attaches it with `--asset`; when they are not, the step prints the two commands and the operator attaches by hand. The README caption links `releases/latest/download/demo.mp4`; the link test does not follow external URLs. The local `/tmp` copy can go.
+6. **Permission prompts**: the neutral HOME's `.claude/settings.json` sets `permissions.defaultMode` to `acceptEdits` and allows the demo's command set (`node --test`, `npm test`, `git`, `rein`); anything else prompts and the operator answers live, as documented in the script header. Never `bypassPermissions`: the prompts are part of what the demo shows, and Rein's gates are hooks that run regardless.
+7. **Toolchain staleness becomes a named line.** A Homebrew upgrade of the pinned Python changed the ABI under the gate's parser and every Bash call failed with a bare `[GATE_INTERNAL_ERROR]` until `bash install-rein.sh`. E-404 (Tier 2): `rein doctor` imports the gate's parser modules under the pinned toolchain and reports `[TOOLCHAIN_STALE] <module>: <error> — run: bash install-rein.sh`; the pre-tool-use gate prints the same line on an import failure instead of the bare internal error (still failing closed); the preflight "Stale MCP servers" probe carries it; the Engineer files the event with `rein-incident`.
+8. **Rename and installer residue**: E-405 (Tier 1): `rein --help` still prints "ai —"; the installer accepts Node 22.0–22.4 while `node:sqlite` needs 22.5. The floor becomes 22.5.0 (major 22 with minor ≥ 5, or major ≥ 24) with a version-comparison test; the docs already say 22.5+.
+
+### Why needed
+The first recording did its job: it showed where identifiers leak (the HOME path and the stamp author), that the gate's binary heuristic cannot tell a GIF from a secret, and that a stale toolchain fails without a name. Each becomes a rule or a task instead of a one-off.
+
+### Alternatives considered
+1. **Keep the demo.gif exemption** — rejected: a path exemption is a hole and the chance-match problem returns with the next binary.
+2. **Host the GIF on GitHub (user-attachments URL) to avoid scanning it** — rejected by the operator: the asset leaves the repository and the README depends on an upload nobody can reproduce.
+3. **Ship the partial cut as final** — rejected: a demo of a loop that never closes; one re-record after E-403/E-404 is cheap by comparison.
+4. **`bypassPermissions` for an unattended run** — rejected: hides the prompts the product has, and the gates do not need it.
+5. **Neutral HOME deleted after the run; metadata-only binary scan; hand-back required; MP4 from the cast at release; acceptEdits + allowlist** — selected.
+
+### Constraints driving this decision
+- E-369/E-380 privacy classes (nothing public unscanned — the metadata scan keeps that promise where an identifier can actually live); sovereignty-hardening (the gate fails closed; a named failure is still a failure); D-138 r1 (the new script lines use here-strings); D-088 (new tests name what they extend); D-103 (no new hosted command — the toolchain probe is local).
+
+### Impact
+- Unlocks: E-403, E-404, E-405; E-402's second recording; a gate that can ship binaries by rule.
+- Risk if wrong: a secret hidden inside a GIF's pixel stream would pass the metadata scan — but no gate on text runs would have caught a deliberately encoded one either, and the demo's binaries are derived from scanned text.
+
+### Rollback
+E-403: revert restores the printable-run scan and the exemption. E-404 and E-405: independent reverts. Rulings 1, 3–6 are blueprint text and revert with it.
+
+---
+
+## D-141 — A feature branch ends at its merge: the repository deletes head branches on merge, every Engineer merge passes `--delete-branch`, the local branch is pruned, and the merged branches on GitHub are cleaned once
+
+**Date**: 2026-11-01
+**Task**: E-407 (new)
+**Decision**: Operator request (2026-11-01): "branches don't get deleted on GitHub, making it messy — when a PR is merged successfully, the merge should also remove the feature branch." Verified on `Vimurai/rein`: the repository setting `deleteBranchOnMerge` is **false**, and fourteen head branches of merged PRs (#1..#17) are still on origin beside `main`, the open `e-406-hero-line` and two dependabot branches. Rulings:
+
+1. **The rule.** A feature branch exists from its first commit to its merge, not a day longer. Three layers, so nobody has to remember it: (a) the repository setting "Automatically delete head branches" is ON (`gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true`) — this covers the merges the operator performs in the browser, which is where the lingering branches came from; (b) every merge the Engineer performs is `gh pr merge <n> --merge --delete-branch` (the repository merges with a merge commit, as the `Merge #17` history shows — the flag is kept explicit so the rule holds even if the setting is ever flipped off, and `gh` then deletes the local branch too); (c) after any merge, from whichever side, the Engineer returns to `main`, fast-forwards it, fetches with `--prune`, and deletes the local branch with `git branch -d` when it is still there. A `-D` is never part of this rule: a branch that `-d` refuses is unmerged and stays until a person decides.
+2. **What is never deleted.** `main`; a branch with an open PR; a branch whose PR was closed without merging (the Engineer asks the operator); tags (`v0.4.0` stays when `release/v0.4.0` goes — a tag is not a branch); dependabot branches (dependabot opens and closes its own; under ruling 1a they vanish when merged). GitHub keeps a deleted head branch restorable from the PR page for ninety days, so ruling 1 is reversible per branch.
+3. **One-time cleanup**, part of E-407: delete on origin the merged head branches listed by `gh pr list --state merged` whose tip is reachable from `origin/main` — today d-135-records, e-382-version-0.4.0, e-384-public-ci, e-385-rein-mark, e-386-census-baseline, e-386-ci-throughput, e-388-bash32-subshell-registry, e-389-seed-shard-1, e-390-readme, e-399-required-set, e-402-demo, port-architect-records, release/v0.4.0, rename/rein — one `git push origin --delete` per branch, each checked with `git merge-base --is-ancestor <tip> origin/main` first; the handoff names every branch deleted and every branch kept with its reason. `e-406-hero-line` is deleted by its own merge (ruling 1), the first branch to go under the rule.
+4. **Where the rule lives.** ENGINEER.md Core Rules gains one line (and the `src/templates` copy of ENGINEER.md the same line), the `rein-task` skill's close-out names the three commands of ruling 1, and `.ai/blueprints/team-collaboration.md` §Component 5 "Branch policy" gains the provider column: GitHub — "Automatically delete head branches"; GitLab — "Enable 'Delete source branch' option by default"; Bitbucket — "Delete branch after merge" on by default in the pull-request settings; Azure DevOps — "Delete after merging" is a completion option the operator leaves on. `rein ci hosted` prints the setting for the chosen provider beside the D-103 r5 policy text.
+5. **The setting is checked, not trusted.** On GitHub, `rein ci hosted --check` (and so `rein doctor`, which already carries it) reads `deleteBranchOnMerge` through `gh` when `gh` is authenticated and prints `[BRANCH_CLEANUP_OFF] run: gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=true` when it is false; without `gh` or offline it prints nothing — the check is advisory, it gates no merge. Wherever Rein already applies branch protection with one `gh api` call (the E-378 bootstrap step, DEVOPS-017's PATCH), the same step sets the flag, so a downstream Rein project starts clean.
+
+### Why needed
+Every merged PR left its branch on origin; fourteen are there now and the list grows by one per task. A clone's remote-branch list becomes unreadable, the claim and trunk-resolution paths read more refs than they need, and a stale branch invites a push onto a merged line.
+
+### Alternatives considered
+1. **The repository setting alone** — rejected as the only layer: it does nothing for a clone's local branches, nothing on providers without the flag, and nothing if someone turns it off; it is layer (a), not the rule.
+2. **`--delete-branch` on the Engineer's merges alone** — rejected as the only layer: the lingering branches come from browser merges, which the flag cannot reach.
+3. **A periodic cleanup command (`rein branches prune`)** — rejected: it treats the symptom and adds a command whose only job is to undo a missing default. Ruling 3 is a one-time cleanup by hand, named in the handoff, not a tool.
+4. **All three layers plus the check (chosen)** — the setting catches the browser, the flag catches the terminal, the prune keeps the clone honest, and the doctor line says when the setting drifted.
+
+### Constraints driving this decision
+- D-103 r5: the hosted check is required for merges into the trunk; deleting the head branch after a merge changes nothing about that gate.
+- D-102 §4: claims are bookkeeping commits on the trunk, never on a feature branch; branch deletion cannot lose a claim.
+- Sovereignty (sovereignty-hardening.md §Components 1): branch and remote operations are the Engineer's; the Architect only rules — this session's `git branch -r` was blocked by the gate, as it should be, and the facts above come from `gh` reads.
+
+### Impact
+- Unlocks: E-407. Order: right after E-406 merges, before E-400.
+- Risk if wrong: a branch deleted while someone still had unpushed work on it locally — the local copy is untouched by a remote delete, and GitHub restores the head for ninety days.
+
+### Rollback
+`gh api -X PATCH repos/<owner>/<repo> -f delete_branch_on_merge=false`; drop the `--delete-branch` flag from the rulefile line; a deleted branch is restored from its PR page.
+
+---

@@ -30,8 +30,8 @@ assert_status 0 "installer references fail-closed node check (E-69)" \
 assert_status 0 "installer probes command -v node" \
   grep -qE 'command -v node' "$INSTALL"
 
-assert_status 0 "installer enforces Node 22 major version" \
-  grep -qE '_node_major < 22|Node 22\+' "$INSTALL"
+assert_status 0 "installer enforces Node 22.5 through the shared comparison (E-405)" \
+  grep -qE 'rein_node_supported' "$INSTALL"
 
 assert_status 0 "guard respects REIN_SKIP_NODE_CHECK escape hatch" \
   grep -q 'REIN_SKIP_NODE_CHECK' "$INSTALL"
@@ -101,8 +101,8 @@ set -e
 assert_status 0 "installer exits non-zero on Node 18" \
   bash -c "[[ $exit_code2 -ne 0 ]]"
 
-assert_status 0 "stderr names Node.js 22+ requirement" \
-  grep -qE 'Node\.js 22\+ required' "${SBOX}/stderr2"
+assert_status 0 "stderr names Node.js 22.5+ requirement" \
+  grep -qE 'Node\.js 22\.5\+ required' "${SBOX}/stderr2"
 
 assert_status 0 "stderr surfaces the detected old version" \
   grep -q 'v18.19.0' "${SBOX}/stderr2"
@@ -161,6 +161,17 @@ if bash --posix -c ':' 2>/dev/null; then
 else
   echo "  ⚠  bash --posix not supported on this bash — skipping behavioural sub-tests"
 fi
+
+# ── T-NODE-S06: the shared comparison (E-405, D-140 r8; extends T-NODE-S03) ──────
+echo ""
+echo "  [T-NODE-S06] rein_node_supported: 22.5.0 is the floor (node:sqlite)"
+
+NODE_VERSION_SH="${REPO_ROOT}/src/shared/node-version.sh"
+for row in "v22.4.1:1" "v22.5.0:0" "v24.0.0:0" "v21.9.0:1" "22.10.3:0" "v18.19.0:1" ":1" "vnope:1"; do
+  ver="${row%:*}"; want="${row##*:}"
+  assert_status "$want" "rein_node_supported '${ver}' → ${want}" \
+    bash -c '. "$1" && rein_node_supported "$2"' _ "$NODE_VERSION_SH" "$ver"
+done
 
 echo ""
 assert_summary

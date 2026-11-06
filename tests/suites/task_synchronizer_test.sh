@@ -90,7 +90,7 @@ unset REIN_WORKSPACE
 unset REIN_WORKSPACE_DISABLE
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "response includes [WORKSPACE_NOT_FOUND]" \
-  bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_NOT_FOUND'"
+  bash -c "grep -q 'WORKSPACE_NOT_FOUND' <<< \"$RESP\""
 
 # ── T-FW-S03: non-absolute path → [WORKSPACE_NOT_FOUND] ──────────────────────
 echo ""
@@ -99,9 +99,9 @@ echo "  [T-FW-S03] non-absolute REIN_WORKSPACE rejected"
 export REIN_WORKSPACE="relative/path"
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "non-absolute path rejected" \
-  bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_NOT_FOUND'"
+  bash -c "grep -q 'WORKSPACE_NOT_FOUND' <<< \"$RESP\""
 assert_status 0 "error mentions absolute requirement" \
-  bash -c "echo \"$RESP\" | grep -q 'absolute'"
+  bash -c "grep -q 'absolute' <<< \"$RESP\""
 unset REIN_WORKSPACE
 
 # ── T-FW-S04: path without .ai/ → [WORKSPACE_NOT_FOUND] ──────────────────────
@@ -112,9 +112,9 @@ EMPTY_DIR="$(mktemp -d)"
 export REIN_WORKSPACE="$EMPTY_DIR"
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "missing .ai/ rejected" \
-  bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_NOT_FOUND'"
+  bash -c "grep -q 'WORKSPACE_NOT_FOUND' <<< \"$RESP\""
 assert_status 0 "error mentions rein init remediation" \
-  bash -c "echo \"$RESP\" | grep -q 'rein init'"
+  bash -c "grep -q 'rein init' <<< \"$RESP\""
 unset REIN_WORKSPACE
 rm -rf "$EMPTY_DIR"
 
@@ -126,7 +126,7 @@ export REIN_WORKSPACE="${SBOX}/framework"
 export REIN_WORKSPACE_DISABLE="1"
 RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
 assert_status 0 "rollback flag surfaces [WORKSPACE_DISABLED]" \
-  bash -c "echo \"$RESP\" | grep -q 'WORKSPACE_DISABLED'"
+  bash -c "grep -q 'WORKSPACE_DISABLED' <<< \"$RESP\""
 unset REIN_WORKSPACE_DISABLE
 
 # ── T-FW-S06: valid framework workspace → row lands in framework DB ──────────
@@ -346,15 +346,15 @@ assert_status 0 "syncToCloud imported from shared client" \
 assert_status 0 "_scheduleCloudSync helper defined" \
   grep -q 'function _scheduleCloudSync' "$SYNC_MCP"
 assert_status 0 "_scheduleCloudSync called from add_task" \
-  bash -c "awk '/case \"add_task\":/,/case \"update_task_status\":/' '$SYNC_MCP' | grep -q '_scheduleCloudSync'"
+  bash -c "grep < <(awk '/case \"add_task\":/,/case \"update_task_status\":/' '$SYNC_MCP') -q '_scheduleCloudSync'"
 assert_status 0 "_scheduleCloudSync called from update_task_status" \
-  bash -c "awk '/case \"update_task_status\":/,/case \"add_stamp\":/' '$SYNC_MCP' | grep -q '_scheduleCloudSync'"
+  bash -c "grep < <(awk '/case \"update_task_status\":/,/case \"add_stamp\":/' '$SYNC_MCP') -q '_scheduleCloudSync'"
 assert_status 1 "_scheduleCloudSync NOT called from add_stamp" \
-  bash -c "awk '/case \"add_stamp\":/,/case \"set_project_focus\":/' '$SYNC_MCP' | grep -q '_scheduleCloudSync'"
+  bash -c "grep < <(awk '/case \"add_stamp\":/,/case \"set_project_focus\":/' '$SYNC_MCP') -q '_scheduleCloudSync'"
 assert_status 1 "_scheduleCloudSync NOT called from set_project_focus" \
-  bash -c "awk '/case \"set_project_focus\":/,/case \"archive_done_tasks\":/' '$SYNC_MCP' | grep -q '_scheduleCloudSync'"
+  bash -c "grep < <(awk '/case \"set_project_focus\":/,/case \"archive_done_tasks\":/' '$SYNC_MCP') -q '_scheduleCloudSync'"
 assert_status 1 "_scheduleCloudSync NOT called from mark_deltas_read" \
-  bash -c "awk '/case \"mark_deltas_read\":/,/default:/' '$SYNC_MCP' | grep -q '_scheduleCloudSync'"
+  bash -c "grep < <(awk '/case \"mark_deltas_read\":/,/default:/' '$SYNC_MCP') -q '_scheduleCloudSync'"
 assert_status 0 "blueprint reference present in comments" \
   grep -q 'managed-agents-state-reconciliation.md' "$SYNC_MCP"
 

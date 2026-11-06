@@ -95,5 +95,16 @@
 {"label":"E-299: a behaviour-named suite passes (e2e_smoke_test.sh)","path":"tests/suites/e2e_smoke_test.sh","content":"assert_status 0 \"x\" true\n","only":"test_","ids":[]},
 {"label":"E-299: more labels than assertions is a WARNING finding","path":"tests/suites/density_test.sh","content":"assert_status 0 \"E-1.1 E-1.2 T-ROLE-001: x\" true\n","only":"test_","ids":["test_label_density"],"severity":"warning"},
 {"label":"E-299: at most one label per assertion is fine","path":"tests/suites/density_ok_test.sh","content":"assert_status 0 \"E-1.1: x\" true\nassert_status 0 \"plain\" true\n","only":"test_","ids":[]},
-{"label":"E-299: labels outside assertions (comments, setup) are not counted","path":"tests/suites/comments_test.sh","content":"# E-1 E-2 E-3 E-4 D-088\nassert_status 0 \"x\" true\n","only":"test_","ids":[]}
+{"label":"E-299: labels outside assertions (comments, setup) are not counted","path":"tests/suites/comments_test.sh","content":"# E-1 E-2 E-3 E-4 D-088\nassert_status 0 \"x\" true\n","only":"test_","ids":[]},
+{"label":"E-400 flags: echo piped into grep -q","rule":"no_pipe_into_grep_q","path":"tests/suites/x_test.sh","line":"echo \"$out\" | grep -q BLOCK && l=BLOCK","want":"HIT"},
+{"label":"E-400 flags: a pipe inside a bash -c string","rule":"no_pipe_into_grep_q","path":"tests/suites/x_test.sh","line":"assert_status 0 \"l\" bash -c \"head -1 '$f' | grep -q '^---$'\"","want":"HIT"},
+{"label":"E-400 flags: -q among split flags","rule":"no_pipe_into_grep_q","path":"tests/suites/x_test.sh","line":"sed -n 1p f | grep -E -q 'x'","want":"HIT"},
+{"label":"E-400 flags: --quiet","rule":"no_pipe_into_grep_q","path":"tests/lib/x.sh","line":"cat f | grep --quiet x","want":"HIT"},
+{"label":"E-400 flags: a hook","rule":"no_pipe_into_grep_q","path":"hooks/x.sh","line":"if head -1 \"$F\" | grep -qx y; then","want":"HIT"},
+{"label":"E-400 allows: a here-string","rule":"no_pipe_into_grep_q","path":"tests/suites/x_test.sh","line":"grep -q BLOCK <<< \"$out\" && l=BLOCK","want":"MISS"},
+{"label":"E-400 allows: process substitution","rule":"no_pipe_into_grep_q","path":"tests/suites/x_test.sh","line":"grep < <(sed -n 1p f) -qE 'x'","want":"MISS"},
+{"label":"E-400 allows: || is not a pipe","rule":"no_pipe_into_grep_q","path":"tests/suites/x_test.sh","line":"! grep -qE x f || grep -qE y f","want":"MISS"},
+{"label":"E-400 allows: a comment","rule":"no_pipe_into_grep_q","path":"hooks/x.sh","line":"# here-strings, not `printf | grep -q`","want":"MISS"},
+{"label":"E-400 allows: grep without -q","rule":"no_pipe_into_grep_q","path":"tests/suites/x_test.sh","line":"out=$(sed -n 1p f | grep -c x)","want":"MISS"},
+{"label":"E-400 allows: outside tests/ and hooks/","rule":"no_pipe_into_grep_q","path":"src/bin/x.sh","line":"echo \"$a\" | grep -q b","want":"MISS"}
 ]

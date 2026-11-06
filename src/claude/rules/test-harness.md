@@ -11,6 +11,9 @@ review question for `critic_tests` and `rein-review`.
 1. **What the machine has (E-236)**: every assertion states what it needs from the host. An
    optional need is a recorded SKIP via `skip_unless_cmd` / `skip_unless_env` — never a
    fabricated PASS or FAIL. "It passed in my working tree" is not evidence about the commit.
+1b. **A diagnostic `node --test` names a file that exists (E-412, D-146)**: check the path
+   before the call (`[[ -f "$f" ]]`), never pass an unmatched or empty variable — an empty
+   argument sends node's test discovery off the checkout, and it executes what it finds.
 2. **How fast it is (E-239, D-138 r2–r3)**: a performance assertion names a same-host baseline
    measured in the same run (`elapsed ≤ k × baseline + slack`) on every host. An absolute number
    is allowed only as a declared **ceiling** that states its reason (a linear-time bound, a

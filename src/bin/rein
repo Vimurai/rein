@@ -96,7 +96,7 @@ fi
 
 usage() {
   cat <<USAGE
-ai — Rein v${VERSION}
+rein — Rein v${VERSION}
 
 The shell CLI is a thin bootloader. Operational commands (planning, review,
 testing, archive, digest) now run as prompts inside Claude Code.
@@ -375,7 +375,9 @@ _resolve_rein_workspace() {
   printf ""
 }
 
-# Generates .mcp.json with absolute paths to ~/.rein/mcp/<server>/index.js
+# Generates .mcp.json pointing at ${HOME}/.rein/mcp/<server>/index.js — written with the
+# literal `${HOME}` (Claude Code expands it), so the file is the same on every machine and
+# committing it does not leak or hard-code one operator's home directory.
 # Uses registry.json as source of truth. Preserves user-set env values.
 generate_mcp_json() {
   local DEST_DIR="${1:-.}"
@@ -415,12 +417,20 @@ servers = {
   }
 }
 
+# The install root as written into the file: `${HOME}/…` whenever it lives under HOME (it
+# always does — REIN is ${HOME}/.rein), an absolute path only if it somehow does not.
+_home = home.rstrip("/")
+if _home and (rein == _home or rein.startswith(_home + "/")):
+    rein_ref = "${HOME}" + rein[len(_home):]
+else:
+    rein_ref = rein
+
 if os.path.exists(registry_path):
     with open(registry_path) as f:
         reg = json.load(f)
     for name, info in reg.get("mcp_servers", {}).items():
         if "path" in info:
-            abs_path = os.path.join(rein, "mcp", name, "index.js")
+            abs_path = rein_ref + "/mcp/" + name + "/index.js"
             entry = {"command": "node", "args": [abs_path]}
             # E-38: propagate registry-declared env (a server that declares an
             # env block, e.g. a sandbox DISPLAY/HOME). Without this, `rein sync`
@@ -4041,7 +4051,7 @@ print('  PostToolUse hook:', 'yes ✓' if hooks.get('PostToolUse') else 'NO - ru
 
   echo "MCP Servers:"
   if command -v node &>/dev/null; then
-    echo "  ✓ node $(node --version) (required for MCP servers)"
+    _doctor_node_line "  ✓" "  ✗" || true
   else
     echo "  ✗ node not found — MCP servers need Node.js: brew install node"
   fi
@@ -4082,7 +4092,7 @@ for name, info in d.get('mcp_servers', {}).items():
 
   if [[ -f ".mcp.json" ]]; then
     echo "  ✓ .mcp.json present ($(pwd))"
-    # Verify absolute paths in .mcp.json are valid
+    # Verify the server paths in .mcp.json are valid (`${HOME}/…` expanded first)
     python3 - <<'PY' 2>/dev/null || true
 import json, os
 with open(".mcp.json") as f:
@@ -4090,6 +4100,7 @@ with open(".mcp.json") as f:
 broken = []
 for name, srv in cfg.get("mcpServers", {}).items():
     for a in srv.get("args", []):
+        a = os.path.expandvars(a) if isinstance(a, str) else ""
         if a.startswith("/") and not os.path.exists(a):
             broken.append(f"{name}: {a}")
 if broken:
@@ -4244,7 +4255,7 @@ for name, info in reg.get("mcp_servers", {}).items():
     elif "path" in info:
         args = mcp_servers[name].get("args", [])
         expected = os.path.join(REIN, "mcp", name, "index.js")
-        if args and args[0] != expected:
+        if args and os.path.expandvars(args[0]) != expected:
             print(f"  ✗ {name}: .mcp.json path mismatch")
             print(f"      expected: {expected}")
             print(f"      actual:   {args[0]}")
@@ -4340,6 +4351,23 @@ for name, info in d.get('mcp_servers', {}).items():
   [[ "${_DOCTOR_HARD_FAIL:-0}" -eq 0 ]]
 }
 
+# E-405 (D-140 r8): both doctor Node lines and the installer use one comparison,
+# src/shared/node-version.sh. Prints one line with <ok> or <bad> as its mark; returns 1 when
+# the version is below the floor or the comparison is not installed.
+_doctor_node_line() {
+  local ok="$1" bad="$2" nv nvs
+  nv="$(node --version 2>/dev/null)"
+  nvs="$(rein_locate shared/node-version.sh 2>/dev/null || true)"
+  [[ -n "$nvs" ]] || { echo "${bad} node version (${nv:-unknown}) — version check not installed — run: bash install-rein.sh"; return 1; }
+  # shellcheck source=src/shared/node-version.sh
+  . "$nvs"
+  if rein_node_supported "$nv"; then
+    echo "${ok} node version (${nv}) — Node ${REIN_NODE_FLOOR}+ required"
+  else
+    echo "${bad} node version (${nv:-unknown}) — Node ${REIN_NODE_FLOOR}+ required (node:sqlite)"; return 1
+  fi
+}
+
 # E-175: Deep environment & connectivity diagnostics (doctor-and-cache-optimizations.md
 # §Components 1-2). Verifies the host can actually run Rein — Node 22+, essential
 # global binaries, read/write bits on the framework + project
@@ -4351,18 +4379,11 @@ _run_env_diagnostics() {
   echo ""
   local fail=0
 
-  # Node version — 22+ required (node:sqlite, structuredClone, native test runner).
+  # Node version — 22.5+ required (node:sqlite ships in 22.5; E-405 shared comparison).
   if command -v node >/dev/null 2>&1; then
-    local nv major
-    nv="$(node --version 2>/dev/null)"      # e.g. v26.0.0
-    major="${nv#v}"; major="${major%%.*}"
-    if [[ "${major:-0}" =~ ^[0-9]+$ ]] && [[ "${major:-0}" -ge 22 ]]; then
-      echo "  [OK]   node version (${nv})"
-    else
-      echo "  [FAIL] node version (${nv:-unknown}) — Node 22+ required"; fail=1
-    fi
+    _doctor_node_line "  [OK]  " "  [FAIL]" || fail=1
   else
-    echo "  [FAIL] node not found — Node 22+ required"; fail=1
+    echo "  [FAIL] node not found — Node 22.5+ required"; fail=1
   fi
 
   # Essential global binaries. git is critical; the rest degrade gracefully → [WARN].
@@ -5074,7 +5095,7 @@ do_start() {
   # creates an account; an unregistered name exits 2 with the `rein account add` recipe.
   if ! declare -F _account_dir >/dev/null; then
     [[ -z "$want_account" && -z "$account" ]] \
-      || { echo "rein start: rein-account.sh is missing beside ai — run: bash install-rein.sh" >&2; return 2; }
+      || { echo "rein start: rein-account.sh is missing beside rein — run: bash install-rein.sh" >&2; return 2; }
   elif [[ -n "$want_account" ]]; then
     _account_dir "$want_account" >/dev/null || return 2
     if [[ "$dry" -eq 1 ]]; then
@@ -5606,7 +5627,7 @@ do_pane() {
   _acct="${_pcfg##*|}"
   if [[ -n "$_acct" && "$provider" == "claude" ]]; then
     if ! declare -F _account_dir >/dev/null; then
-      echo "rein pane: rein-account.sh is missing beside ai — run: bash install-rein.sh" >&2
+      echo "rein pane: rein-account.sh is missing beside rein — run: bash install-rein.sh" >&2
       return 2
     fi
     _acct_dir="$(_account_dir "$_acct")" || { echo "rein pane: refusing to launch ${role} under account '${_acct}'." >&2; return 2; }
@@ -6609,7 +6630,7 @@ case "$cmd" in
   start)         do_start "${@:2}" ;;
   # E-314 (D-095, accounts.md): Claude accounts — one config directory per claude.ai login.
   account)
-    declare -F do_account >/dev/null || { echo "rein account: rein-account.sh is missing beside ai — run: bash install-rein.sh" >&2; exit 2; }
+    declare -F do_account >/dev/null || { echo "rein account: rein-account.sh is missing beside rein — run: bash install-rein.sh" >&2; exit 2; }
     do_account "${@:2}" ;;
   # E-265 (D-072, local-ci.md): local CI — tests a committed sha in an isolated worktree.
   ci)            do_ci "${@:2}" ;;

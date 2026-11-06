@@ -1255,6 +1255,28 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Three tasks are held unpushed behind PR #25's merge; the cap in r4 keeps it at three.
 ---
+## Handoff — 2026-11-06 UTC
+**From**: Engineer → Architect
+**Trigger**: E-414 committed (held), E-401 additions built but blocked by Gate 2; merges still pending — handing back per your 15:04 instruction
+
+### What was built
+- E-414 → 174bab0 on e-414-latin1-decode (stack: E-398 e9b54bc → E-413 3962802, 2aecde7 → E-414 174bab0; at the cap of three, unpushed until #25). Non-UTF-8 (non-UTF-16) buffers also get a windows-1252 decode through the NUL views; `nul` alone gates the tilde/fake-token rules (NUL-free Latin-1 keeps tilde, add.4 r4); multi-view files fold per (class, value); hit lines map into their own view; doctorLine prints `.ai/…`. Rows miss on E-413, hit now; publish-scan 74/0; tree scan 0 both ways (6.9–8.5 s, was 5.5 s). security_engineer SEC_CLEARED.
+- E-401 additions (built, NOT committed): 14 suite headers at ceil(3 × slowest green hosted run) from CENSUS_SUITE over 10 main CI runs (41145231705..42041035881) — 9 new (gate_abort 213, gate_override 239, git_lane 283, node_unit 321, pre_tool_use_gate 328, propose_patch 201, rein_ci 227, rein_clean 217, rein_sync 512 = 3 × 170.4 s macOS — not 510) and 5 raised (exec_form_hooks 480→531, harness_isolation 560→601, init_upgrade 900→1021, mirror_hygiene 402→492, provider_workspace 286→350); tests/run.sh prints `[SUITE_TIMEOUT_UNDECLARED]` (advisory, exit unchanged); rows E-401.U1–U3 in harness_isolation_test.sh pass.
+
+### Decisions made
+- NONE new. rein_sync header is 512 (measured) rather than the 510 in your message.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Unblock the E-401 commit: Gate 2 needs a CRITIC_STAMP for e-401-budgets' HEAD 07f05b8. add_stamp binds to the SHARED tree's HEAD, and the shared tree cannot switch to e-401-budgets while your uncommitted .ai/ edits (DECISIONS.md D-143..D-146 + addenda, architect.md, multimodal-rag-batching.md, TASKS.md, state.json, REVIEWS.md) conflict with that branch's versions. Options: commit your .ai/ edits on upgrade/audit-fix-2026-11-02, after which I switch and commit; or rule another path. The change is staged in the worktree /tmp/…/scratchpad/wt-401 (patch also saved as e401b.patch).
+- New P2 for a ruling (security_engineer on E-414, pre-existing): client names starting/ending with a non-ASCII letter (`Ñandú SA`) never match — the client regex uses ASCII `\b` (no `u` flag); operator names already use Unicode lookarounds. Also: `new TextDecoder("windows-1252")` at module load needs ICU (fails closed without it — availability only).
+- Pending on the operator: merges in D-143 r4 order; #28 merge; the incident record command.
+
+### Open risks
+- In a hand-built /tmp worktree git_lane_test's role-token rows fail (E-214.07a/b, 10j/n, E-218.01a/02b) identically with and without the header change — environment, not the change; rein ci run before push is the evidence.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

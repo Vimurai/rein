@@ -159,9 +159,10 @@ test("the git-config hooksPath scan at the word cap stays linear: same verdict, 
     assertInside(ms, budget, "viaConfig at the cap");
     assert.ok(ms < 250, `viaConfig at the cap: ${ms.toFixed(1)} ms ≥ the 250 ms ceiling`);
   }
-  // D-144 r4: the whole analysis of the same input is bounded by the cap, not linear — ~550 ms for
-  // the Architect, ~130 ms for the Engineer (2026-11-04, this host). Recorded in SECURITY.md; this
-  // row fails if a cap or rule change pushes it past the 1000 ms ceiling.
+  // D-144 r4: the whole analysis of the same input is bounded by the cap, not linear. The cost is the
+  // parser (D-144 addendum 4): ~540 / ~130 ms (Architect / Engineer) on shell-quote 1.8.3, ~21 / ~4 ms
+  // on 1.12.0 (2026-11-06, one host). Recorded in SECURITY.md; this row fails if a cap, rule or parser
+  // change pushes it past the 1000 ms ceiling.
   for (const role of ["architect", "engineer"]) {
     let r;
     const ms = msOf(() => { r = runAnalysis("git ".repeat(9999), role); });

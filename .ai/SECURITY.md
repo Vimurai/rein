@@ -747,10 +747,14 @@ Pre-existing, unchanged: `decodedView("&#1114112;")` throws RangeError (old code
   400k-case differential fuzz (git/config tokens, 15 whitespace kinds incl. `\n` as the `\s`,
   separators) 0 mismatches, 20,281 positives; at MAX_WORDS (`git `×9999) 103 ms → ~3 ms. Row with a
   250 ms ceiling in `tests/unit/operand-scope.test.mjs`.
-- *Recorded bound (not linear):* the whole `runAnalysis` on `git `×9999 measures ~550–580 ms for the
-  Architect and ~130–150 ms for the Engineer (this host); the 10000-word cap bounds it. Ceiling row:
-  fails above 1000 ms at the cap, both roles. A rewrite of the slower rules is a follow-up only if a
-  later measurement crosses that row.
+- *Recorded bound (not linear):* the whole `runAnalysis` on `git `×9999, the 10000-word cap. Ceiling
+  row: fails above 1000 ms at the cap, both roles. The cost is the parser, not Rein's rules (D-144
+  addendum 4). Measured 2026-11-06, same host, same commit, median / max of 7:
+  `shell-quote` 1.8.3 — Architect 543 / 571 ms, Engineer 131 / 136 ms;
+  `shell-quote` 1.12.0 — Architect 21 / 42 ms, Engineer 4 / 7 ms.
+  The bound holds on `shell-quote` 1.12.0 or later (pinned in `src/mcp/safe-exec-mcp/package.json`).
+  On 1.8.3 the Architect case sits about half the ceiling and failed it under coverage and concurrent
+  lanes; a downgrade or a parser regression is named by the row, not rediscovered.
 
 ## E-407 / D-141 addendum — `[BRANCH_CLEANUP_OFF]` gh probe in `rein ci hosted --check` (security_engineer, 2026-11-01)
 

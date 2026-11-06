@@ -1576,6 +1576,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-06T13:08:52.605Z"
+    },
+    {
+      "id": "E-416",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make `rein ci run` tell the harness when it is hosted per D-148 r1-r4: `src/bin/rein` sets `REIN_CI=hosted` in the curated env -i list when its own environment carries GITHUB_ACTIONS=true, else `REIN_CI=local` (one derived bit; CI stays reserved and is never forwarded); `tests/lib/assert.sh` assert_perf takes the absolute bound when REIN_CI=hosted (as for CI=true / REIN_PERF_ABSOLUTE=1), retry-under-load unchanged, no row bound changes (D-138); `tests/run.sh` tests REIN_CI for non-empty where it tests == local (throwaway HOME, leak fails the run, telemetry growth) and keeps the fast tier's CI=true key. Rows extend, no new suite (D-088): the rein_ci_test.sh env row (GITHUB_ACTIONS=true outside yields REIN_CI=hosted inside and still no CI) and the assert_perf row (mode under hosted and under local). Acceptance: rein ci run green locally; on the PR the macOS full legs report the telemetry warm-path row in [absolute] mode. Branch from main after #21 merges; Tier 2.",
+      "created_at": "2026-11-06T20:03:52.591Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-06T20:03:52.594Z"
     }
   ],
   "stamps": [
@@ -4371,6 +4385,51 @@
       "timestamp": "2026-11-06T19:14:37.038Z",
       "summary": "Tier 1 merge of origin/main (through #19) into e-407-branch-cleanup: source auto-merged; .ai conflicts (state.json, REVIEWS.md) were unions, taken from main and regenerated from the state index (a superset of both sides). JSON parses, no markers.",
       "sha": "00c5ff8763c8a299943b1ab2694c9cf51fb6f937",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T19:24:53.961Z",
+      "summary": "Tier 1 merge of origin/main (through #19) into e-401-budgets: test-harness.md (both copies) keeps main's rule 1b (E-412) followed by this branch's rule 2 (D-138 r2-r3), copies identical; .ai conflicts were unions, taken from main and regenerated from the state index. JSON parses, no markers.",
+      "sha": "d66da52f2d5700fcd6a896555fbf24c5a6ab5478",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:10:17.236Z",
+      "summary": "Tier 1 bookkeeping carry (Architect ruling of 2026-11-06 20:06 UTC): cherry-picking the audit branch's unpushed .ai commits onto e-401-budgets so D-143..D-147 reach main. COMM.md/DECISIONS.md conflicts resolved by keeping this branch's file verbatim and inserting the missing entries (D-143..D-147 before D-148); generated views from this branch, regenerated from the state index. No source change.",
+      "sha": "b5c3468daffeddd27881995fb6cb6de7cba366e0",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:10:38.988Z",
+      "summary": "Tier 1 bookkeeping carry, continued: 442861b (D-147 and its COMM handoff) onto e-401-budgets; COMM.md/DECISIONS.md kept verbatim with the missing entries inserted before D-148. No source change.",
+      "sha": "5ab89b6bedcecccf4fee9ec3df00fe95b8c365ae",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:11:01.626Z",
+      "summary": "Tier 1 bookkeeping carry, last pick: 0d3f0df (D-147 addendum and its COMM handoff) onto e-401-budgets; DECISIONS.md order D-143..D-147 addendum then D-148. No source change.",
+      "sha": "f9aa32cfaf93f50d3d0cd4bc4330ecd19b92d3ae",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-401",
+      "timestamp": "2026-11-06T20:21:20.146Z",
+      "summary": "Tier 1 merge of origin/main (#20 merged) into e-401-budgets: source auto-merged; .ai conflicts (state.json, REVIEWS.md) were unions, regenerated from the state index (a superset of both sides). Carries the Architect's 8965357.",
+      "sha": "8965357050dbaaac46f8ede5c8d0c9c1346d402e",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

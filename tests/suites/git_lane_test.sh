@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=283   (E-401, D-138 r3: 3x the slowest green hosted run — 33 s Linux / 94 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # git_lane_test.sh — E-214 (architect-provider-parity.md §Git Lane, D-054):
 # the Architect-scoped commit lane.
 #

@@ -14,9 +14,14 @@ review question for `critic_tests` and `rein-review`.
 1b. **A diagnostic `node --test` names a file that exists (E-412, D-146)**: check the path
    before the call (`[[ -f "$f" ]]`), never pass an unmatched or empty variable — an empty
    argument sends node's test discovery off the checkout, and it executes what it finds.
-2. **How fast it is (E-239)**: a performance assertion names a same-host baseline measured in
-   the same run (`elapsed ≤ k × baseline + slack`); an absolute budget applies only when
-   `CI=true`. Print baseline and elapsed every run.
+2. **How fast it is (E-239, D-138 r2–r3)**: a performance assertion names a same-host baseline
+   measured in the same run (`elapsed ≤ k × baseline + slack`) on every host. An absolute number
+   is allowed only as a declared **ceiling** that states its reason (a linear-time bound, a
+   latency contract), is at least 5× the CI median, and applies on every host — never only under
+   `CI=true`; a `CI=true`-only absolute is a `critic_tests` finding. Print baseline and elapsed
+   every run. A suite timeout is a hang detector, not a budget: a suite whose green hosted time
+   exceeds a third of the default declares `# REIN_SUITE_TIMEOUT=<s>` at 3× its slowest green
+   hosted run, the measurement in a trailing comment.
 3. **What a run leaves behind (E-240)**: register cleanup BEFORE creating external state; name
    temp things with `mktemp` entropy, never `$$`. `tests/run.sh` diffs tmux servers, sandbox
    processes and temp dirs, and a leak fails the run on CI. The detector is

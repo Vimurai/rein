@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=321   (E-401, D-138 r3: 3x the slowest green hosted run — 56 s Linux / 107 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # node_unit_test.sh — bridge the node:test unit layer into the master runner (E-206)
 #
 # Runs every tests/unit/*.test.mjs file through Node's built-in test runner and

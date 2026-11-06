@@ -528,6 +528,7 @@ _run_suite() {
   # line — the first 10 lines only, so a fixture suite written by a heredoc further down
   # (harness_isolation_test's hang fixture) does not set the budget of the suite that writes it.
   _budget="$(sed -n '1,10s/^# REIN_SUITE_TIMEOUT=\([0-9][0-9]*\).*/\1/p' "$suite" | head -1)"
+  _declared="$_budget"
   _budget="${_budget:-${REIN_SUITE_TIMEOUT:-180}}"
   _out="$(mktemp)"
   _t0="$(_now_ms)"
@@ -556,6 +557,11 @@ _run_suite() {
     suite_exit=124
   fi
   _wall_ms=$(( $(_now_ms) - _t0 ))
+  # D-145 addendum 5 / D-138 r3: a suite over a third of the default with no header is named in
+  # the run summary (advisory — the exit status is unchanged).
+  if [[ -z "$_declared" ]] && (( _wall_ms > ${REIN_SUITE_TIMEOUT:-180} * 1000 / 3 )); then
+    printf '%s\t%s\n' "$suite_name" "$_wall_ms" > "${RUN_DIR}/${idx}.undeclared"
+  fi
 
   if [[ "${REIN_TEST_NO_SWEEP:-0}" != "1" ]]; then
     _leak_snapshot > "$_leak_after" 2>/dev/null
@@ -767,6 +773,12 @@ fi
 # store grew because other sessions were busy" from "this run wrote into it".
 read -r REIN_TELEMETRY_AFTER REIN_TELEMETRY_OURS <<< "$(_live_telemetry_counts)"
 echo "   Live telemetry: ${REIN_TELEMETRY_BEFORE:-0} rows at start, ${REIN_TELEMETRY_AFTER:-0} at end; ${REIN_TELEMETRY_OURS:-0} written by this run"
+# D-138 r3: advisory only — a long suite without its own budget runs on the default's margin.
+for _u in "${RUN_DIR}"/*.undeclared; do
+  [[ -f "$_u" ]] || continue
+  IFS=$'\t' read -r _un _ums < "$_u"
+  echo "   [SUITE_TIMEOUT_UNDECLARED] ${_un} ran $(( _ums / 1000 )) s, over a third of the ${REIN_SUITE_TIMEOUT:-180} s default, with no '# REIN_SUITE_TIMEOUT=<s>' header (D-138 r3: 3x its slowest green hosted run)"
+done
 # Under CI (a throwaway HOME nothing else writes to) ANY growth is this run's: the marker
 # alone missed 56 rows from drivers that spawned servers with a hand-built env, dropping
 # both the redirect and the marker. Locally, other sessions write concurrently, so only

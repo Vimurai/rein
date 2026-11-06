@@ -84,10 +84,15 @@ Append to `.ai/COMM.md` (create if missing):
 
 Immediately after the write, before anything else in the turn, commit the entry:
 ```
-git add -- .ai/COMM.md && git commit --only .ai/COMM.md -m "chore(.ai): COMM handoff <YYYY-MM-DD HH:MM UTC> (<Role>)"
+git add -- .ai/COMM.md && git commit --only .ai/COMM.md $(git diff --name-only -- .ai/ ':(exclude).ai/COMM.md') -m "chore(.ai): COMM handoff <YYYY-MM-DD HH:MM UTC> (<Role>)"
 ```
-`--only` commits that one path whatever else the index holds, so source staged mid-task
-never rides a bookkeeping commit (no critic stamp needed — `.ai/COMM.md` is bookkeeping).
+The commit names COMM.md **and every other tracked `.ai/` path the turn dirtied** — ruling
+files (DECISIONS.md, architect.md, a blueprint) and the generated views (TASKS.md, REVIEWS.md,
+state.json) — so a handoff leaves `git status -- .ai/` clean of tracked changes (D-147 r1): a
+dirty ruling file left "for the other role to carry" stops the shared tree from switching
+branches. `--only` commits exactly those paths whatever else the index holds, so source staged
+mid-task never rides a bookkeeping commit. Carrying the rulings to another branch is a
+cherry-pick of this commit, never a stash and never a dirty tree (D-147 r3).
 The commit stays on the current branch and is not pushed here. If `git add` refuses
 because `.ai/COMM.md` is still gitignored (an un-synced clone), print that one line and
 skip the commit — never `git add -f`; `rein sync` removes the pattern and `rein doctor`

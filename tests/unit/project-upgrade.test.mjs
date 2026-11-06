@@ -324,10 +324,20 @@ test("every handoff-writing skill commits COMM.md with --only (both copies)", ()
   for (const p of SKILLS_WITH_HANDOFF) {
     assert.match(readFileSync(join(ROOT, p), "utf8"), /git commit --only \.ai\/COMM\.md/, p);
   }
+  // D-147 r1/r3: the two handoff steps the ruling names also commit the turn's other dirty .ai/ paths.
+  for (const p of [".claude/skills/rein-handoff/SKILL.md", "src/shared/skills/rein-handoff/SKILL.md",
+    ".claude/skills/task-planner/SKILL.md", "src/claude/skills/task-planner/SKILL.md"]) {
+    const s = readFileSync(join(ROOT, p), "utf8");
+    assert.match(s, /git commit --only \.ai\/COMM\.md \$\(git diff --name-only -- \.ai\/ /, p);
+    assert.match(s, /cherry-pick/, `${p}: carrying rulings is a cherry-pick`);
+  }
   assert.ok(!existsSync(join(ROOT, ".ai", "COMM_APPEND.md")), "the June orphan is deleted");
 });
 
-test("the rein-handoff commit step commits COMM.md alone and passes the real pre-commit with no stamp", () => {
+// D-147 r1 (extends this D-104 row): the handoff commit names COMM.md AND every other tracked .ai/
+// path the turn dirtied — here DIGEST.md — so the handoff leaves .ai/ clean; staged source
+// still never rides along.
+test("the rein-handoff commit step commits COMM.md with the turn's dirty .ai/ paths and passes the real pre-commit with no stamp", () => {
   const t = tmp("comm-commit");
   const f = fixtureRepo(t);
   try {
@@ -335,6 +345,7 @@ test("the rein-handoff commit step commits COMM.md alone and passes the real pre
     mkdirSync(join(f.dir, "src"));
     writeFileSync(join(f.dir, "src", "a.js"), "x\n");
     writeFileSync(join(f.dir, ".ai", "COMM.md"), "# COMM\n");
+    writeFileSync(join(f.dir, ".ai", "DIGEST.md"), "# DIGEST\n");
     f.git("add", "-A"); f.git("commit", "-q", "-m", "seed", "--no-verify");
     const hook = join(f.dir, ".git", "hooks", "pre-commit");
     writeFileSync(hook, `#!/bin/bash\nexec /bin/bash -p '${join(ROOT, "hooks", "pre-commit.sh")}' "$@"\n`);
@@ -342,14 +353,15 @@ test("the rein-handoff commit step commits COMM.md alone and passes the real pre
     // An Engineer mid-task: source staged, then a handoff entry written.
     writeFileSync(join(f.dir, "src", "a.js"), "x\ny\n"); f.git("add", "src/a.js");
     writeFileSync(join(f.dir, ".ai", "COMM.md"), "# COMM\n---\n## Handoff — 2026-10-23 14:00 UTC\n");
+    writeFileSync(join(f.dir, ".ai", "DIGEST.md"), "# DIGEST\n- refreshed this turn\n");   // a tracked .ai/ file the turn dirtied
     const skill = readFileSync(join(ROOT, ".claude/skills/rein-handoff/SKILL.md"), "utf8");
     const cmd = skill.split("\n").find((l) => l.startsWith("git add -- .ai/COMM.md && git commit --only .ai/COMM.md"));
     assert.ok(cmd, "the skill's commit line");
     const r = f.bash(cmd.replace("<YYYY-MM-DD HH:MM UTC>", "2026-10-23 14:00 UTC").replace("<Role>", "Engineer"));
     assert.equal(r.status, 0, r.stdout + r.stderr);
-    assert.equal(f.git("status", "--porcelain", "--", ".ai/COMM.md"), "");
+    assert.equal(f.git("status", "--porcelain", "--", ".ai/"), "", "the handoff leaves .ai/ clean (D-147 r1)");
     assert.match(f.git("log", "-1", "--format=%s"), /^chore\(\.ai\): COMM handoff /);
-    assert.equal(f.git("show", "--name-only", "--format=", "HEAD").trim(), ".ai/COMM.md", "nothing else rode along");
+    assert.equal(f.git("show", "--name-only", "--format=", "HEAD").trim(), ".ai/COMM.md\n.ai/DIGEST.md", "COMM.md and the dirtied .ai/ file, nothing else");
     assert.equal(f.git("diff", "--cached", "--name-only").trim(), "src/a.js", "the staged source is still staged");
   } finally { f.cleanup(); t.done(); }
 });

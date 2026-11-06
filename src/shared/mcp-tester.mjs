@@ -35,6 +35,13 @@ import { resolve, isAbsolute } from "node:path";
 const DEFAULT_TIMEOUT_MS = 2000;
 const DEFAULT_CONCURRENCY = 8;
 
+/** Expand ${VAR} and ${VAR:-default} against process.env (non-strings pass through). */
+export function expandVars(value) {
+  if (typeof value !== "string") return value;
+  return value.replace(/\$\{(\w+)(?::-([^}]*))?\}/g,
+    (_, name, dflt) => process.env[name] ?? dflt ?? "");
+}
+
 /**
  * Read an MCP config file and return [{ name, command, args, env }].
  * Supports the standard `{ "mcpServers": { name: { command, args, env } } }`
@@ -46,10 +53,12 @@ export function loadServerConfigs(configPath, mcpKey = "mcpServers") {
   }
   const cfg = JSON.parse(readFileSync(configPath, "utf8"));
   const servers = cfg[mcpKey] || {};
+  // Expand ${VAR} / ${VAR:-default} in command and args the way Claude Code does when it
+  // reads the same file: `rein sync` writes `${HOME}/.rein/mcp/<server>/index.js`.
   return Object.entries(servers).map(([name, s]) => ({
     name,
-    command: s.command,
-    args: Array.isArray(s.args) ? s.args : [],
+    command: expandVars(s.command),
+    args: Array.isArray(s.args) ? s.args.map(expandVars) : [],
     env: s.env && typeof s.env === "object" ? s.env : {},
   }));
 }

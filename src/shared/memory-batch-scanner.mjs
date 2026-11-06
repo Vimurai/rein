@@ -17,8 +17,13 @@
  *   3. Sensitive-name reject — basename matches the credential regex
  *      (secret|credential|token|apikey|password|kubeconfig|id_rsa|
  *       id_ed25519|.pem|.p12|.pfx).
- *   4. .gitignore reject — single batched `git check-ignore --stdin` call
- *      per scan (no per-file subprocess fork) per blueprint §Security.
+ *   4. .gitignore reject — a gitignored DIRECTORY is pruned from the walk
+ *      (one `git ls-files --others --ignored --directory` call lists them,
+ *      collapsed, so its output is bounded by directories, not files) and
+ *      surfaces as ONE skipped entry; the remaining candidates go through a
+ *      single batched `git check-ignore --stdin` call per scan (no per-file
+ *      subprocess fork) per blueprint §Security. A failed probe fails CLOSED:
+ *      every candidate is skipped rather than every candidate indexed.
  *   5. [NO_RAG] reject — sidecar file `<name>.norag` exists, or the file
  *      is an SVG carrying the literal [NO_RAG] string in its XML body.
  *   6. Size-cap reject — file > maxSizeBytes (default 5 MB per
@@ -75,6 +80,11 @@ const PATH_RULE_SEGMENTS = [
 ];
 
 // Filename pattern — mirrors memory_curator.md §"Sensitive-naming reject".
+// Output cap for the git probes. spawnSync's 1 MiB default was the 2026-11-04 leak: on a
+// tree with ~50k ignored screenshots the check-ignore output passed it, the call died with
+// ENOBUFS, and the old code read that as "nothing is ignored" and indexed all of them.
+const GIT_MAX_BUFFER = 256 * 1024 * 1024;
+
 const SENSITIVE_NAME_RE = /(secret|credential|token|apikey|password|kubeconfig|id_rsa|id_ed25519|\.pem|\.p12|\.pfx)/i;
 
 // ── Structured stderr logger (obs_baseline §Logging) ────────────────────────
@@ -134,7 +144,8 @@ export function hasNoRagTag(absPath) {
  * Single subprocess for the entire candidate list — keeps the scanner
  * cheap on repos with thousands of media files. If git is not on PATH
  * or the project root is not a git work tree, returns an empty Set
- * (gitignore rules simply do not apply).
+ * (gitignore rules simply do not apply). If the probe itself fails inside a
+ * work tree, returns null — the caller must then treat every path as ignored.
  */
 export function batchGitignoreCheck(projectRoot, absPaths) {
   if (absPaths.length === 0) return new Set();
@@ -150,15 +161,15 @@ export function batchGitignoreCheck(projectRoot, absPaths) {
   const res = spawnSync(
     "git",
     ["-C", projectRoot, "check-ignore", "--stdin", "--no-index"],
-    { input, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"] },
+    { input, encoding: "utf8", stdio: ["pipe", "pipe", "pipe"], maxBuffer: GIT_MAX_BUFFER },
   );
   // `git check-ignore` exits:
   //   0 — at least one path is ignored
   //   1 — no paths are ignored
-  //   128 — fatal (e.g., non-repo)
-  // Any other status means the call itself failed; treat as "nothing
-  // ignored" rather than over-rejecting eligible files.
-  if (res.error || (res.status !== 0 && res.status !== 1)) return new Set();
+  //   128 — fatal
+  // Any other outcome (including ENOBUFS) means the call itself failed. This gate keeps
+  // private files out of the index, so a failure fails CLOSED (null), never "nothing ignored".
+  if (res.error || (res.status !== 0 && res.status !== 1)) return null;
 
   const ignored = new Set();
   for (const line of (res.stdout || "").split("\n")) {
@@ -170,9 +181,35 @@ export function batchGitignoreCheck(projectRoot, absPaths) {
   return ignored;
 }
 
-// ── Walker (depth-first, skip-dir pruning) ───────────────────────────────────
+/**
+ * List the gitignored directories under projectRoot as a Set of absolute paths.
+ * `--directory` collapses a fully ignored directory to one line, so the output
+ * stays small however many files it holds. Returns an empty Set outside a git
+ * work tree, and null when the probe fails inside one.
+ */
+export function listIgnoredDirs(projectRoot) {
+  const probe = spawnSync(
+    "git",
+    ["-C", projectRoot, "rev-parse", "--is-inside-work-tree"],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+  );
+  if (probe.error || probe.status !== 0) return new Set();
+  const res = spawnSync(
+    "git",
+    ["-C", projectRoot, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory"],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], maxBuffer: GIT_MAX_BUFFER },
+  );
+  if (res.error || res.status !== 0) return null;
+  const dirs = new Set();
+  for (const rel of (res.stdout || "").split("\0")) {
+    if (rel.endsWith("/")) dirs.add(resolve(projectRoot, rel.slice(0, -1)));
+  }
+  return dirs;
+}
 
-function* _walk(dir, projectRoot) {
+// ── Walker (depth-first, skip-dir + gitignored-dir pruning) ──────────────────
+
+function* _walk(dir, projectRoot, ignoredDirs, onPrune) {
   let entries;
   try {
     entries = readdirSync(dir, { withFileTypes: true });
@@ -183,9 +220,10 @@ function* _walk(dir, projectRoot) {
     const full = resolve(dir, ent.name);
     if (ent.isDirectory()) {
       if (isSkippableDir(ent.name)) continue;
+      if (ignoredDirs.has(full)) { onPrune(ent.name); continue; }
       // Defence-in-depth: even if the walker descended via a symlink, the
       // path-rule will catch sensitive segments at the file level.
-      yield* _walk(full, projectRoot);
+      yield* _walk(full, projectRoot, ignoredDirs, onPrune);
     } else if (ent.isFile()) {
       yield full;
     }
@@ -228,20 +266,34 @@ export function scanWorkspace(projectRoot, opts = {}) {
     ? opts.indexedHashes
     : new Set();
 
+  const eligible = [];
+  const skipped  = [];
+
+  // Stage 0: gitignored directories are pruned from the walk — one skipped entry each.
+  const ignoredDirs = listIgnoredDirs(root);
+  if (ignoredDirs === null) {
+    log("warn", "gitignore directory probe failed — nothing indexed (fail closed)");
+    return { eligible, skipped: [{ basename: basename(root), reason: "gitignore-check-failed" }] };
+  }
+  const onPrune = (name) => skipped.push({ basename: name, reason: "gitignored-dir" });
+
   // Stage 1: enumerate candidates by extension (cheap — extension test
   // happens during the directory walk, no I/O per non-match).
   const candidates = [];
-  for (const file of _walk(root, root)) {
+  for (const file of _walk(root, root, ignoredDirs, onPrune)) {
     if (!extensions.includes(extname(file).toLowerCase())) continue;
     candidates.push(file);
   }
 
   // Stage 2: single batched gitignore probe before per-file gates.
   const gitignored = batchGitignoreCheck(root, candidates);
+  if (gitignored === null) {
+    log("warn", "git check-ignore failed — every candidate skipped (fail closed)", { candidates: candidates.length });
+    for (const abs of candidates) skipped.push({ basename: basename(abs), reason: "gitignore-check-failed" });
+    return { eligible, skipped };
+  }
 
   // Stage 3: per-file gating.
-  const eligible = [];
-  const skipped  = [];
 
   for (const abs of candidates) {
     const name = basename(abs);

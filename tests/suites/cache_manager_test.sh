@@ -509,6 +509,20 @@ assert_contains "live server reports ok:true"      '"ok":true'                 "
 assert_contains "live server names the server"     'cache-manager-mcp'         "$PROBE_OK"
 assert_match    "live server reports a tool count" '"toolCount":[1-9]'         "$PROBE_OK"
 
+# Extends T-MT-S03: `rein sync` writes args as `${HOME}/.rein/mcp/<server>/index.js`
+# (2026-11-04), so the tester must expand ${VAR} in args the way Claude Code does.
+CFG_VAR="${SBOX}/var.mcp.json"
+cat > "$CFG_VAR" <<'JSON'
+{ "mcpServers": { "cache-manager-mcp": { "command": "node", "args": ["${MT_SRV_DIR}/index.js"] } } }
+JSON
+PROBE_VAR="$(MT_SRV_DIR="$(dirname "$LOCAL_SERVER")" node -e "
+import('${TESTER}').then(async (m) => {
+  const r = await m.testMcpServers({ configPath: '${CFG_VAR}', timeoutMs: 6000 });
+  process.stdout.write(JSON.stringify(r));
+}).catch(e => { console.error(e); process.exit(1); });
+")"
+assert_contains "a \${VAR} in args is expanded before the spawn" '"ok":true' "$PROBE_VAR"
+
 # ── T-MT-S04: behavioural — bogus command fails (fail-closed result) ──────────
 echo ""
 echo "  [T-MT-S04] behavioural: unlaunchable server → ok:false with error"

@@ -12,6 +12,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, 
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { tcFixtureHome } = await import("../lib/toolchain-fixture.mjs");
@@ -142,10 +143,27 @@ const WRITERS = {
     clean(read(ai, "LOG.md"), "LOG.md");
   },
   repo_map(t) {
+    // E-412 / D-146 (extends this row): the writer needs ast-parser-mcp's own dependencies, which a
+    // checkout that was never bootstrapped (a fresh worktree) does not have — a recorded SKIP there
+    // (test-harness rule 1). `rein ci run` (REIN_CI=local) and the hosted check (CI=true) bootstrap
+    // first, so under them a missing dependency is a FAILURE, never a skip.
+    const ast = join(REPO, "src/mcp/ast-parser-mcp");
+    let deps = true;
+    try { createRequire(join(ast, "extractor.mjs")).resolve("web-tree-sitter"); } catch { deps = false; }
+    if (!deps) {
+      const bootstrapped = process.env.CI === "true" || process.env.REIN_CI === "local";
+      assert.ok(!bootstrapped, "ast-parser-mcp's dependencies are missing after a bootstrap (web-tree-sitter unresolvable)");
+      t.skip("ast-parser-mcp's dependencies are not installed in this checkout (web-tree-sitter) — run its npm ci");
+      return;
+    }
     const { root, ai } = project(t);
     mkdirSync(join(root, "src", "fabrikam"), { recursive: true });
     writeFileSync(join(root, "src", "fabrikam", "client.js"), "export function connect(url) { return url; }\n");
-    execFileSync(process.execPath, [join(REPO, "src/mcp/ast-parser-mcp/index.js"), "--generate-map"], { cwd: root, stdio: "ignore", env: process.env });
+    try {
+      execFileSync(process.execPath, [join(ast, "index.js"), "--generate-map"], { cwd: root, stdio: ["ignore", "pipe", "pipe"], env: process.env });
+    } catch (e) {   // a real failure says why (the child's stderr), not just "Command failed"
+      assert.fail(`--generate-map exited ${e.status}: ${String(e.stderr || "").trim().split("\n").slice(-5).join(" | ")}`);
+    }
     const map = read(ai, "REPO_MAP.md");
     assert.ok(!/fabrikam/i.test(map), "REPO_MAP.md still names the client");
     assert.match(map, /\[redacted:client_name\]/);

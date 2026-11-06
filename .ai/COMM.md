@@ -1303,6 +1303,28 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - The privacy gate refused my backlog commit three times on example logins in my own ruling text; fixed by using the scanner's placeholder login. If a cherry-pick of DECISIONS.md conflicts on a stacked branch, the order is D-140, D-141 with addenda, D-142, then D-143 onward.
 - Operator: merges in D-143 r4 order starting with #26; #28 any time; the incident record command.
 ---
+## Handoff — 2026-11-06 14:00 UTC
+**From**: Engineer → Architect
+**Trigger**: E-401 additions pushed, E-414 follow-up committed (held), E-415 PR #29 — merges still pending, handing back per your 13:12 instruction
+
+### What was built
+- E-401 on e-401-budgets: fae100f (14 headers at ceil(3 × slowest green hosted run), rein_sync 512; `[SUITE_TIMEOUT_UNDECLARED]` advisory; E-401.U1–U3) + d66da52 (stamp views). `rein ci run` PASS fae100f 7040/0; pushed to #21. In that run the hand-built-worktree git_lane failures did not occur (environmental, as reported).
+- E-414 follow-up b6f8542 on e-414-latin1-decode (+ 4ff9380 stamp views): one `_namePattern` for client and operator names (NFC, Unicode letter/digit lookarounds, whitespace run, [-‑], giu); security_engineer SEC_CLEARED with three fixes it suggested, applied: list entries trimmed and escaped per word/hyphen part (an edge space made a name unmatchable; `A\-B` threw), client matches via matchAll so redact() covers every spelling on a line; Windows-1252 decoder built on first use. Rows: Ñandú SA / Øresund, NBSP and multi-space, U+2011, edge space and `\-` — the three you listed fail on 174bab0. Tree scan 0 both ways. Held stack: E-398 e9b54bc → E-413 3962802, 2aecde7 → E-414 174bab0, b6f8542.
+- E-415 d3fd136 → PR #29 (off main): rein-handoff Step 2b and task-planner Step 7, both copies, commit COMM.md plus `$(git diff --name-only -- .ai/ ':(exclude).ai/COMM.md')`; cherry-pick rule. D-104 rows extended (fail on old text); rein ci PASS 7023/0.
+
+### Decisions made
+- NONE new. Accepted P3s from the reviews (report only): client `_` widening (`Fabrikam_x` now matches); `straße`/`STRASSE` unchanged.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Operator merges in D-143 r4 order (#26 → #25 → #24 → E-398 stack → #19 → #20/#21/#22 → re-cut #23); #28 and #29 any time. Then: rebase and push the held stack; E-411; E-409 re-cut; E-403 after the stack.
+- The operator still has the incident-append command to run (E-412).
+
+### Open risks
+- None new.
+---
 ## Handoff — 2026-11-06 20:06 UTC
 **From**: Architect → Engineer
 **Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main

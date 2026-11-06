@@ -16,6 +16,7 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const { runAnalysis } = await import(resolve(repo, "src/mcp/safe-exec-mcp/index.js"));
 const { stripInertHeredocs, readOnlyLine } = await import(resolve(repo, "src/mcp/safe-exec-mcp/heredoc.mjs"));
 const { boundedRel } = await import(resolve(repo, "src/mcp/safe-exec-mcp/architect-writes.mjs"));
+const { gitRedirectHits } = await import(resolve(repo, "src/mcp/safe-exec-mcp/git-redirect.mjs"));
 const cases = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/operand-scope-cases.json"), "utf8"));
 
 const fenced = (file, n) => {
@@ -141,4 +142,114 @@ test("CodeQL's pathological git and path inputs keep their verdict and stay insi
   }
   const ms = msOf(() => boundedRel(".ai/" + "/".repeat(50000) + "x", repo));
   assertInside(ms, budget, "trailing-separator trim");
+});
+
+// E-398 (extends the CodeQL test above): the viaConfig scan for `git … config core.hooksPath`
+// was a lazy regex retried from every `git` word — quadratic, ~100 ms at MAX_WORDS on `git `×10k.
+// configArgs is one forward pass; the 250 ms ceiling at the cap is ruled in the task, so a later
+// change to MAX_WORDS or to the scan cannot silently remove the bound.
+test("the git-config hooksPath scan at the word cap stays linear: same verdict, under 250 ms", () => {
+  const base = msOf(() => runAnalysis("true; ".repeat(50), "engineer"));
+  const budget = budgetOf(base);
+  for (const [cmd, hit] of [["git ".repeat(9999), false], ["git ".repeat(9997) + "config core.hooksPath x", true]]) {
+    let hits;
+    const ms = msOf(() => { hits = gitRedirectHits(cmd); });
+    console.log(`  viaConfig at the cap (hit=${hit}): ${ms.toFixed(1)} ms (budget ${budget.toFixed(1)}, ceiling 250)`);
+    assert.equal(hits.some((h) => h.id === "ARCH_GIT_HOOKS_PATH"), hit);
+    assertInside(ms, budget, "viaConfig at the cap");
+    assert.ok(ms < 250, `viaConfig at the cap: ${ms.toFixed(1)} ms ≥ the 250 ms ceiling`);
+  }
+  // D-144 r4: the whole analysis of the same input is bounded by the cap, not linear. The cost is the
+  // parser (D-144 addendum 4): ~540 / ~130 ms (Architect / Engineer) on shell-quote 1.8.3, ~21 / ~4 ms
+  // on 1.12.0 (2026-11-06, one host). Recorded in SECURITY.md; this row fails if a cap, rule or parser
+  // change pushes it past the 1000 ms ceiling.
+  for (const role of ["architect", "engineer"]) {
+    let r;
+    const ms = msOf(() => { r = runAnalysis("git ".repeat(9999), role); });
+    console.log(`  runAnalysis at the cap (${role}): ${ms.toFixed(0)} ms (ceiling ${CEILING_MS})`);
+    assert.equal(r.verdict, "PASS");
+    assert.ok(ms < CEILING_MS, `runAnalysis at the cap (${role}): ${ms.toFixed(0)} ms ≥ the ${CEILING_MS} ms ceiling`);
+  }
+});
+
+// D-145 r2 (extends the D-145 rows in operand-scope-cases.json and block-rules-cases.json): the
+// verb fold lowers A–Z in place and never adds or removes a byte. A first cut dropped the quotes
+// around a folded verb, re-paired every later quote and turned `echo "a RM" ; rm -rf "/"` into a
+// PASS for every role (security_engineer E-398 pass 3, P0). Two guards: the byte invariant, and
+// every row of both tables behind a quote-carrying verb prefix keeps all of its findings.
+const { foldVerbs } = await import(resolve(repo, "src/mcp/safe-exec-mcp/verb-fold.mjs"));
+test("the verb fold only lowers A–Z in place", () => {
+  for (const s of [`echo "a RM" ; rm -rf "/"`, `X="a RM" rm -rf "/"`, `$'GIT' -c core.hooksPath=x commit`,
+    `{BASH,} <<EOF`, `\${X:-BASH} -c x`, `su --command='MKDIR src/x' root`, `G\\IT "Git" /usr/bin/GIT .AI/GIT`]) {
+    const f = foldVerbs(s);
+    assert.equal(f.length, s.length, s);
+    for (let i = 0; i < s.length; i++) if (f[i] !== s[i]) assert.ok(/[A-Z]/.test(s[i]) && f[i] === s[i].toLowerCase(), `${s} @${i}`);
+  }
+  assert.equal(foldVerbs("cp a .AI/x"), "cp a .AI/x", "an operand directory keeps its case");
+});
+test("the pass-3 openings and the capitalised verb forms block", () => {
+  for (const [cmd, role, rule] of [[`echo "a RM" ; rm -rf "/"`, "engineer", "RM_RF_ROOT"], [`X="a RM" rm -rf "/"`, "architect", "RM_RF_ROOT"],
+    [`$'GIT' -c core.hooksPath=/tmp/h commit -m x`, "architect", "ARCH_GIT_HOOKS_PATH"], [`RUNUSER root -c 'rm -rf src'`, "architect", null],
+    [`su --command='MKDIR src/x' root`, "architect", null]]) {
+    const r = runAnalysis(cmd, role);
+    assert.equal(r.verdict, "BLOCK", `${role}: ${cmd}`);
+    if (rule) assert.ok([...r.blocked, ...r.sovereignty].some((b) => b.id === rule), `${cmd}: ${[...r.blocked, ...r.sovereignty].map((b) => b.id)}`);
+  }
+});
+test("every table row behind a quoted capitalised verb keeps all of its findings", () => {
+  const block = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/block-rules-cases.json"), "utf8"));
+  const ids = (r) => new Set([...r.blocked, ...r.sovereignty].map((b) => b.id));
+  for (const c of [...cases, ...block]) {
+    if (!c.cmd || c.repeat) continue;
+    const role = c.role === "none" ? "engineer" : c.role;
+    const base = ids(runAnalysis(c.cmd, role));
+    for (const pre of [`echo "a RM" ; `, `echo 'a GIT' && `]) {
+      const got = ids(runAnalysis(pre + c.cmd, role));
+      for (const id of base) assert.ok(got.has(id), `${role} lost ${id}: ${pre}${c.cmd}`);
+    }
+  }
+});
+
+// D-145 addendum 2 (extends the row above): wherever a rule can find a verb, the fold has already
+// run. Generated from the tables: every BLOCK row, with each of its verbs — and then all of them —
+// upper-cased IN PLACE, yields exactly the findings of the row as written. The generator finds verbs
+// by its own split (shell words, a path's basename, a one-letter option's glued value), so a word
+// the fold's segmentation missed shows up here as a lost or changed finding.
+const { isVerb } = await import(resolve(repo, "src/mcp/safe-exec-mcp/verb-fold.mjs"));
+function verbVariants(cmd) {
+  const spans = [];
+  for (const m of cmd.matchAll(/[^\s;&|()<>`]+/g)) {
+    const w = m[0], plain = w.replace(/["'\\]/g, "");
+    const base = plain.slice(plain.lastIndexOf("/") + 1);
+    const opt = /^-[A-Za-z](.+)$/.exec(base);
+    const name = isVerb(base) ? base : opt && isVerb(opt[1]) ? opt[1] : null;
+    if (!name || name !== name.toLowerCase()) continue;
+    const at = w.lastIndexOf(name.slice(-1)) - name.length + 1;   // the verb's letters inside the raw word
+    if (at < 0 || w.slice(at, at + name.length) !== name) continue;
+    spans.push([m.index + at, m.index + at + name.length]);
+  }
+  const up = (s, [a, b]) => s.slice(0, a) + s.slice(a, b).toUpperCase() + s.slice(b);
+  return [...spans.map((sp) => up(cmd, sp)), ...(spans.length > 1 ? [spans.reduce(up, cmd)] : [])];
+}
+// security_engineer E-398 pass 4: `$-` (bash's flags parameter) before a verb crashed the fold, and
+// the sign of a `${X:-…}` default hid the verb behind it.
+test("the fold survives `$-` before a verb and reaches a verb behind `${X:-`", () => {
+  for (const c of ["$-SRM", "echo $-SRM; ls", "x=$-SRM", "{$-SRM,}", "\"$-SRM\"", "$-cBASH"]) assert.doesNotThrow(() => foldVerbs(c), c);
+  const ids = (r) => [...new Set([...r.blocked, ...r.sovereignty].map((b) => b.id))].sort().join(",");
+  for (const [up, low] of [["${X:-PYTHON3} <<EOF\nimport os\nEOF", "${X:-python3} <<EOF\nimport os\nEOF"], ["${X:+BASH} -c 'touch src/x'", "${X:+bash} -c 'touch src/x'"]])
+    assert.equal(ids(runAnalysis(up, "architect")), ids(runAnalysis(low, "architect")), up);
+});
+
+test("every BLOCK row with its verbs upper-cased in place keeps exactly its findings", () => {
+  const block = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/block-rules-cases.json"), "utf8"));
+  const ids = (r) => [...new Set([...r.blocked, ...r.sovereignty].map((b) => b.id))].sort().join(",");
+  let variants = 0;
+  for (const c of [...cases, ...block]) {
+    if (!c.cmd || c.repeat || c.want !== "BLOCK") continue;
+    const role = c.role === "none" ? "engineer" : c.role;
+    const want = ids(runAnalysis(c.cmd, role));
+    for (const v of verbVariants(c.cmd)) { variants++; assert.equal(ids(runAnalysis(v, role)), want, `${role}: ${v}`); }
+  }
+  console.log(`  case variants checked: ${variants}`);
+  assert.ok(variants > 100, "the generator found the tables' verbs");
 });

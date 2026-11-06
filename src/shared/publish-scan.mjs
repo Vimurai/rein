@@ -17,7 +17,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 import { containsCredentialToken, containsSecret } from "../mcp/safe-exec-mcp/secret-rule.mjs";
 
@@ -106,16 +106,22 @@ export function checkAllow(allow = {}, operatorNames = [], where = "allow") {
   return out;
 }
 
+// ONE builder for client and operator names (D-145 addendum 6, E-414): bounded by anything that is not
+// a letter or digit — Unicode-aware, so `Quillić` and `Ñandú SA` match (a client name used ASCII \b,
+// which never matched a name beginning or ending with a non-ASCII letter); `name@` and `<name>` still
+// match; a longer word containing the value does not. A space in a listed name matches any run of
+// whitespace (NBSP included) and a hyphen the non-breaking hyphen too (critic_security P2, E-379).
+// Built from the trimmed entry's words and hyphen parts, each escaped on its own: an edge space in
+// the list no longer becomes a required \s+ that can never match, and `A\-B` no longer yields a
+// broken pattern (security_engineer, E-414 follow-up).
+const _loose = (n) => n.normalize("NFC").trim().split(/\s+/)
+  .map((w) => w.split("-").map(_esc).join("[-\\u2011]")).join("\\s+");
+const _namePattern = (n) => new RegExp(`(?<![\\p{L}\\p{N}])${_loose(n)}(?![\\p{L}\\p{N}])`, "giu");
 /** Findings in one text: [{ class, match, line }] (1-based lines), in reading order. */
-export function scanText(text, { clientNames = [], operatorNames = [], allowEmails = [] } = {}) {
+export function scanText(text, { clientNames = [], operatorNames = [], allowEmails = [], nulViews = false } = {}) {
   const allow = new Set([...DEFAULT_ALLOW_EMAILS, ...allowEmails].map((e) => e.toLowerCase()));
-  const clientRes = clientNames.filter(Boolean).map((n) => new RegExp(`\\b${_esc(n)}\\b`, "i"));
-  // Bounded by anything that is not a letter or digit (Unicode-aware, so "Quillić" works):
-  // `name@` and `<name>` still match; a longer word containing the value does not.
-  // A space in a listed name matches any run of whitespace (NBSP included, \s covers it) and a
-  // hyphen matches the non-breaking hyphen too (critic_security P2, E-379).
-  const _loose = (n) => _esc(n.normalize("NFC")).replace(/\s+/g, "\\s+").replace(/\\?-/g, "[-\\u2011]");
-  const operatorRes = operatorNames.filter(Boolean).map((n) => new RegExp(`(?<![\\p{L}\\p{N}])${_loose(n)}(?![\\p{L}\\p{N}])`, "giu"));
+  const clientRes = clientNames.filter(Boolean).map(_namePattern);
+  const operatorRes = operatorNames.filter(Boolean).map(_namePattern);
   const out = [];
   String(text).split("\n").forEach((l, i) => {
     const line = i + 1;
@@ -128,7 +134,9 @@ export function scanText(text, { clientNames = [], operatorNames = [], allowEmai
       if (!userinfo && !RESERVED_EMAIL.test(m[0]) && !NOREPLY_EMAIL.test(m[0]) && !allow.has(m[0].toLowerCase())) out.push({ class: "personal_email", match: m[0], line });
     }
     const homes = new Set();
-    for (const re of [HOME_RE, TILDE_RE, TILDE_VERB_RE]) {
+    // D-145 addendum 3: a NUL-bearing blob's views are not shell text — a tilde-login shape there is
+    // a byte accident (a form feed, `~`, a letter), so only the literal classes run on them.
+    for (const re of nulViews ? [HOME_RE] : [HOME_RE, TILDE_RE, TILDE_VERB_RE]) {
       for (const m of l.matchAll(re)) {
         const user = m[1].toLowerCase(), key = `${m.index + m[0].indexOf(m[1])}`;
         if (PLACEHOLDER_USERS.has(user) || /^</.test(m[1]) || homes.has(key)) continue;
@@ -144,10 +152,9 @@ export function scanText(text, { clientNames = [], operatorNames = [], allowEmai
     for (const m of l.matchAll(SOCKET_RE)) out.push({ class: "session_socket", match: m[0], line });
     // Format characters (zero-width space, joiners, bidi marks) cannot split a name past the scan.
     const nfc = l.normalize("NFC").replace(/\p{Cf}/gu, "");
-    for (const re of clientRes) {
-      const m = nfc.match(re);
-      if (m) out.push({ class: "client_name", match: m[0], line });
-    }
+    // Every spelling on the line (matchAll, as for operators): redact() replaces each exact match,
+    // so a second variant of the name on one line (`Acme Corp`, `Acme  Corp`) is redacted too.
+    for (const re of clientRes) for (const m of nfc.matchAll(re)) out.push({ class: "client_name", match: m[0], line });
     for (const re of operatorRes) for (const m of nfc.matchAll(re)) out.push({ class: "operator_name", match: m[0], line });
   });
   return out;
@@ -165,15 +172,34 @@ export function scanFiles(root, files, opts = {}) {
   const allowed = (f, hit) => (hit.class === "operator_name" || hit.class === "personal_email") && !!allow.get(hit.match.toLowerCase())?.has(f);
   const out = [];
   for (const f of files) {
-    let text;
-    try { text = opts.read ? opts.read(f) : readFileSync(join(root, f), "utf8"); } catch { continue; }
-    if (typeof text !== "string" || text.includes("\u0000")) continue;   // gone, or binary
+    let text, nul = false, multi = false, starts = null;
+    // Only a file that is GONE is skipped (D-144 addendum). Any other read error propagates to the
+    // caller's fail-closed catch-all: this guard used to swallow everything, so decodedView's
+    // RangeError skipped a file's whole decoded pass and an encoded value beside it went unseen.
+    try {
+      if (opts.read) { text = opts.read(f); nul = !!opts.nulViewFiles?.has(f); multi = !!opts.multiViewFiles?.has(f); starts = opts.viewStarts?.get(f) ?? null; }
+      else {
+        const b = blobScan(readFileSync(join(root, f)));
+        text = b.views.join("\n"); nul = b.nul; multi = b.views.length > 1; starts = multi ? viewStarts(b.views) : null;
+      }
+    }
+    catch (e) { if (e?.code === "ENOENT" || e?.code === "ENOTDIR") continue; throw e; }
+    if (typeof text !== "string") continue;   // gone (binary is blobText's call — D-145 r1)
     // An exempt file is still checked for client and operator names: its exemption covers its
     // invented addresses, paths and ids only (critic_security P2, E-365; E-372).
     const exempt = Object.hasOwn(EXEMPT_FILES, f);
-    for (const hit of scanText(text, opts)) {
+    const once = multi ? new Map() : null;   // a blob scanned as several views: one hit per (class, value) across them
+    for (const hit of scanText(text, nul ? { ...opts, nulViews: true } : opts)) {
       if (allowed(f, hit)) continue;
-      if (!exempt || hit.class === "client_name" || hit.class === "operator_name") out.push({ file: f, ...hit });
+      if (once) {
+        // Per (class, value) — and a value the NUL-removed view glued to a neighbour
+        // (two addresses run together) folds into the value it contains: listing only, never blocking.
+        const v = String(hit.match ?? "").toLowerCase();
+        const seen = once.get(hit.class) || [];
+        if (seen.some((s) => s.includes(v) || v.includes(s))) continue;
+        once.set(hit.class, [...seen, v]);
+      }
+      if (!exempt || hit.class === "client_name" || hit.class === "operator_name") out.push({ file: f, ...hit, line: _inView(starts, hit.line) });
     }
   }
   return out;
@@ -230,12 +256,25 @@ export function identityProblem({ author, committer }, identity) {
 }
 
 /** The `rein doctor` line: [PUBLISH_SCAN_OK] classes=5 lists=client:N,operator:N, or the missing line. */
+/** D-145 addendum 4 r3: advisory when the operator's list exists but this HOME's login is not in
+ *  operator_names — in a NUL-bearing view the tilde shapes are off, so `~login` is then caught only
+ *  as a listed name. Never prints the login; silent for a placeholder login and without the list. */
+export function loginAdvisory(aiDir, home = process.env.HOME || "") {
+  if (!existsSync(join(aiDir, "publish-scan.local.json"))) return "";
+  const login = basename(String(home).replace(/\/+$/, "")).toLowerCase();
+  if (!login || PLACEHOLDER_USERS.has(login)) return "";
+  let names;
+  try { names = loadScanConfig(aiDir).operatorNames.map((n) => String(n).toLowerCase()); } catch { return ""; }
+  return names.includes(login) ? ""
+    : "[SCAN_LOGIN_UNLISTED] this HOME's login is not in operator_names (.ai/publish-scan.local.json) — add it so a ~login path is caught in every view";
+}
 export function doctorLine(aiDir) {
   try {
     const c = loadScanConfig(aiDir);
     return `[PUBLISH_SCAN_OK] classes=${CLASSES.length} lists=client:${c.clientNames.length},operator:${c.operatorNames.length}`;
   } catch (e) {
-    return String(e.message).replace(/ — .*/, "");
+    // E-414 / D-145 addendum 5: name the project-relative .ai path — the absolute one carries the login.
+    return String(e.message).replace(/ — .*/, "").split(aiDir).join(".ai");
   }
 }
 
@@ -365,19 +404,63 @@ export function publishConfig(root, ...reads) {
 // ── What the gates read beyond plain UTF-8 (security_engineer, E-378 P1-7 and P2-9) ──
 /** A blob as text: UTF-16 with a BOM, or with every other byte NUL, is decoded; any other binary
  *  yields its printable runs (6+ characters), so a value inside a binary is still seen. */
-export function blobText(buf) {
-  if (typeof buf === "string") return buf;
-  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return buf.subarray(2).toString("utf16le");
-  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return Buffer.from(buf.subarray(2)).swap16().toString("utf16le");
+// Binary is decided HERE, once, on the bytes (D-145 r1). A decode that carries U+0000 — UTF-8 or
+// either UTF-16 — is scanned as TWO views of the same text (D-145 addenda 2 and 4, E-413): U+0000 as a
+// space, so a NUL-terminated string stays whole and separate and two NUL-separated fields read as
+// the phrase they are (`\0Ada\0Quill\0`), and U+0000 removed, so a value split by a NUL joins. The old printable-ASCII-runs-of-six view dropped every short name and every non-ASCII
+// letter. An odd-length buffer behind a byte-order mark decodes its even prefix and never throws.
+const _even = (b) => (b.length % 2 ? b.subarray(0, b.length - 1) : b);
+function _decode(buf) {   // → { text, utf16 }
+  if (buf.length >= 2 && buf[0] === 0xff && buf[1] === 0xfe) return { text: _even(buf.subarray(2)).toString("utf16le"), utf16: true };
+  if (buf.length >= 2 && buf[0] === 0xfe && buf[1] === 0xff) return { text: Buffer.from(_even(buf.subarray(2))).swap16().toString("utf16le"), utf16: true };
   if (buf.length >= 4 && buf.length % 2 === 0) {
     let odd = 0;
     for (let i = 1; i < Math.min(buf.length, 512); i += 2) if (buf[i] === 0) odd++;
-    if (odd >= Math.min(buf.length, 512) / 2 - 1) return buf.toString("utf16le");
+    if (odd >= Math.min(buf.length, 512) / 2 - 1) return { text: buf.toString("utf16le"), utf16: true };
   }
-  const t = buf.toString("utf8");
-  if (!t.includes("\u0000")) return t;
-  return (buf.toString("latin1").match(/[\x20-\x7e]{6,}/g) || []).join("\n");
+  return { text: buf.toString("utf8"), utf16: false };
 }
+const _UTF8_STRICT = new TextDecoder("utf-8", { fatal: true });
+// Built on first use (D-145 addendum 6): a Node without ICU then fails closed on a non-UTF-8 blob
+// only, instead of failing every import of this module.
+let _cp1252 = null;
+const _CP1252 = { decode: (b) => (_cp1252 ??= new TextDecoder("windows-1252")).decode(b) };
+const _nulViews = (t) => (t.includes("\u0000") ? [t.replace(/\u0000/g, " "), t.replace(/\u0000/g, "")] : [t]);
+/**
+ * What the gate scans of a blob: its views and whether a NUL was involved. A decode carrying U+0000
+ * gives the two NUL views (E-413). A buffer that is not valid UTF-8 (and was not taken as UTF-16)
+ * also gives its Windows-1252 decode through the same views (D-145 addendum 4 r4, E-414): Latin-1
+ * text, a Latin-1 name inside UTF-8, a UTF-16 run inside a binary. `nul` alone turns the tilde-login
+ * forms off — a NUL-free Latin-1 text file keeps them.
+ */
+export function blobScan(buf) {
+  if (typeof buf === "string") return { views: _nulViews(buf), nul: buf.includes("\u0000") };
+  const { text: t, utf16 } = _decode(buf);
+  let views = _nulViews(t), nul = t.includes("\u0000");
+  if (!utf16) {
+    let valid = true;
+    try { _UTF8_STRICT.decode(buf); } catch { valid = false; }
+    if (!valid) { const l = _CP1252.decode(buf); views = [...views, ..._nulViews(l)]; nul = nul || l.includes("\u0000"); }
+  }
+  return { views, nul };
+}
+/** The 1-based first line of each view in `views.join("\n")`; a hit's line maps back into its view. */
+export function viewStarts(views) {
+  const starts = [];
+  let line = 1;
+  for (const v of views) { starts.push(line); line += v.split("\n").length; }
+  return starts;
+}
+const _inView = (starts, line) => {
+  if (!starts || typeof line !== "number") return line;
+  let s = 1;
+  for (const st of starts) if (st <= line) s = st;
+  return line - s + 1;
+};
+/** The views the gate scans (see blobScan). */
+export function blobViews(buf) { return blobScan(buf).views; }
+/** The scanned text: the views, one after the other (a NUL-bearing blob's hits are folded per class). */
+export function blobText(buf) { return blobViews(buf).join("\n"); }
 const HTML_NAMED = { amp: "&", lt: "<", gt: ">", quot: '"' };
 /** Common encodings undone, so an escaped value is matched too: JSON \uXXXX, percent, HTML entities. */
 export function decodedView(text) {
@@ -385,32 +468,76 @@ export function decodedView(text) {
   d = d.replace(/%([0-9A-Fa-f]{2})/g, (_m, h) => String.fromCharCode(parseInt(h, 16)));
   // HTML entities in ONE pass: chained replaces decoded `&amp;lt;` (and `&#38;lt;`) twice, to `<`
   // (E-397, CodeQL js/double-escaping). The \u and % layers above still decode into entities.
-  d = d.replace(/&(?:#[xX]([0-9a-fA-F]+)|#(\d+)|(amp|lt|gt|quot));/g, (_m, h, n, name) =>
-    h ? String.fromCodePoint(parseInt(h, 16)) : n ? String.fromCodePoint(Number(n)) : HTML_NAMED[name]);
+  // A code point outside 0..0x10FFFF (or a digit run that overflows to Infinity) does not exist,
+  // so it can carry no hidden value: it stays literal, and the raw pass already scans it (D-144 r1).
+  // String.fromCodePoint threw RangeError on it, which blocked every file that named it (E-398).
+  d = d.replace(/&(?:#[xX]([0-9a-fA-F]+)|#(\d+)|(amp|lt|gt|quot));/g, (m, h, n, name) => {
+    if (name) return HTML_NAMED[name];
+    const cp = h ? parseInt(h, 16) : Number(n);
+    return cp <= 0x10ffff ? String.fromCodePoint(cp) : m;
+  });
   return d.normalize("NFKC");
 }
 const FAKE_TOKEN_MARK = "privacy:allow-fake-token";
 /** The gates' sixth class: a vendor-format token or a private key (secret-rule.mjs, high precision).
  *  tests/fixtures/ carries fake tokens by design; elsewhere a fake is marked on its line or within the
  *  three above (a bash statement's continuation lines and a heredoc's opening line cannot carry it). */
-function _secretHits(file, text) {
+// In a NUL-bearing blob the fake-token mark is not honoured (security_engineer E-413 delta): its
+// separator view turns NULs into spaces, so a mark anywhere in a NUL-separated stretch shared a
+// "line" with a real token and excused it. A fake token outside tests/fixtures/ in a binary blocks.
+function _secretHits(file, text, { nul = false } = {}) {
   if (file.startsWith("tests/fixtures/")) return [];
   const lines = text.split("\n");
-  return lines.flatMap((l, i) => (containsCredentialToken(l) && !lines.slice(Math.max(0, i - 3), i + 1).some((x) => x.includes(FAKE_TOKEN_MARK)))
+  return lines.flatMap((l, i) => (containsCredentialToken(l) && (nul || !lines.slice(Math.max(0, i - 3), i + 1).some((x) => x.includes(FAKE_TOKEN_MARK))))
     ? [{ file, class: "secret", line: i + 1 }] : []);
 }
 /** One gate pass over files: the classes on the text, on its decoded view, on the path; secrets. */
+/** A read error that means "no such file": a filesystem ENOENT/ENOTDIR, or git's own words for a
+ *  path in neither the index nor the tree (`git cat-file -p :<path>` / `HEAD:<path>`). */
+function _absentPath(e, f) {
+  if (e?.code === "ENOENT" || e?.code === "ENOTDIR") return true;
+  // Exactly git's line for THIS path — never a pattern a crafted file name could spell (E-398 review).
+  const p = `fatal: path '${f}' `;
+  const tails = ["does not exist (neither on disk nor in the index)", "exists on disk, but not in the index",
+    "does not exist in 'HEAD'", "exists on disk, but not in 'HEAD'"];
+  const lines = String(e?.stderr ?? "").split("\n").filter(Boolean);
+  return lines.length === 1 && tails.some((t) => lines[0] === p + t);
+}
 function _gateScan(root, files, lists, read) {
   const texts = new Map();
-  const get = (f) => { if (!texts.has(f)) { let t = null; try { t = blobText(read(f)); } catch { /* gone */ } texts.set(f, t); } return texts.get(f); };
+  // A file the gate was asked to scan is scanned or the commit is blocked (D-144 addendum 2): null
+  // (skip) only for a genuinely absent path or a reader's null; any other read error — a git blob
+  // read that failed — propagates to the CLI's fail-closed catch-all. This used to swallow all.
+  const twoViews = new Set();     // files whose blob carried U+0000: tilde forms off, fake-token mark ignored
+  const multiViews = new Set();   // files scanned as more than one view: hits fold per (class, value)
+  const starts = new Map();       // …and each hit's line is read inside the view it matched in
+  const get = (f) => {
+    if (!texts.has(f)) {
+      let raw;
+      try { raw = read(f); } catch (e) { if (!_absentPath(e, f)) throw e; raw = null; }
+      let t = null;
+      if (raw != null) {
+        const b = blobScan(raw);
+        if (b.nul) twoViews.add(f);
+        if (b.views.length > 1) { multiViews.add(f); starts.set(f, viewStarts(b.views)); }
+        t = b.views.join("\n");
+      }
+      texts.set(f, t);
+    }
+    return texts.get(f);
+  };
   const seen = new Set(), out = [];
-  const add = (h) => { const k = `${h.class} ${h.file}:${h.line}`; if (!seen.has(k)) { seen.add(k); out.push(k); } };
-  for (const h of scanFiles(root, files, { ...lists, read: get })) add(h);
-  for (const h of scanFiles(root, files, { ...lists, read: (f) => { const t = get(f); return t == null ? t : decodedView(t); } })) add(h);
+  const add = (h) => {
+    const k = multiViews.has(h.file) && h.line !== "path"
+      ? `${h.class} ${h.file} ${String(h.match ?? "").toLowerCase()}` : `${h.class} ${h.file}:${h.line}`;
+    if (!seen.has(k)) { seen.add(k); out.push(`${h.class} ${h.file}:${h.line}`); }
+  };
+  for (const h of scanFiles(root, files, { ...lists, read: get, nulViewFiles: twoViews, multiViewFiles: multiViews, viewStarts: starts })) add(h);
+  for (const h of scanFiles(root, files, { ...lists, read: (f) => { const t = get(f); return t == null ? t : decodedView(t); }, nulViewFiles: twoViews, multiViewFiles: multiViews, viewStarts: starts })) add(h);
   for (const f of files) {
     for (const h of scanText(f, lists)) add({ file: f, class: h.class, line: "path" });
     const t = get(f);
-    if (t != null) for (const h of _secretHits(f, t)) add(h);
+    if (t != null) for (const h of _secretHits(f, t, { nul: twoViews.has(f) })) add({ ...h, line: _inView(starts.get(f), h.line) });
   }
   return out.map((k) => `[PUBLISH_SCAN_HIT] ${k}`);
 }
@@ -473,7 +600,14 @@ export function treeGateProblems(root, files, read = (f) => readFileSync(join(ro
 }
 
 const _git = (root, ...a) => execFileSync("git", ["-C", root, ...a], { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 });
-const _blob = (root, spec) => execFileSync("git", ["-C", root, "cat-file", "-p", spec], { maxBuffer: 64 * 1024 * 1024 });
+const _blob = (root, spec) => execFileSync("git", ["-C", root, "cat-file", "-p", spec], { maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+// A gitlink (mode 160000, a submodule pointer) is an object id, not content: it is not a file the
+// gate scans, and `git cat-file -p :<path>` cannot read it — listed, it would block every commit of
+// a repository with submodules (D-144 addendum 3). Its CONTENT read is a null (skip); its PATH stays
+// listed for the path-name check (security_engineer E-398: dropping it hid a client name in the path).
+// `:0:<path>` reads stage 0 literally — `:<path>` parsed `0:notes.md` as stage 0 of `notes.md`.
+const _gitlinks = (root) => new Set(_git(root, "ls-files", "-s", "-z").split("\0")
+  .filter((e) => e.startsWith("160000 ")).map((e) => e.slice(e.indexOf("\t") + 1)));
 const _ident = (s) => String(s).replace(/\s+\d+\s+[+-]\d{4}\s*$/, "").trim();   // "Name <mail> 1700000000 +0100" → "Name <mail>"
 
 // CLI: `precommit [root]` (the pre-commit hook) and `scan-tree [root]` (the public CI job).
@@ -482,16 +616,18 @@ if (isMainModule(import.meta.url) && (process.argv[2] === "precommit" || process
   let problems, _gateFiles = 0;
   try {
     if (process.argv[2] === "precommit") {
+      const links = _gitlinks(root);
       const files = _git(root, "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMRT").split("\0").filter(Boolean);
       const deleted = _git(root, "diff", "--cached", "--name-only", "-z", "--diff-filter=D").split("\0").filter(Boolean);
       problems = precommitProblems(root, {
-        files, deleted, read: (f) => _blob(root, `:${f}`), readHead: (f) => _blob(root, `HEAD:${f}`),
+        files, deleted, read: (f) => (links.has(f) ? null : _blob(root, `:0:${f}`)), readHead: (f) => _blob(root, `HEAD:${f}`),
         author: _ident(_git(root, "var", "GIT_AUTHOR_IDENT")), committer: _ident(_git(root, "var", "GIT_COMMITTER_IDENT")),
       });
       _gateFiles = files.length;
     } else {
+      const links = _gitlinks(root);
       const files = _git(root, "ls-files", "-z").split("\0").filter(Boolean);
-      problems = treeGateProblems(root, files, (f) => _blob(root, `:${f}`));
+      problems = treeGateProblems(root, files, (f) => (links.has(f) ? null : _blob(root, `:0:${f}`)));
       _gateFiles = files.length;
     }
   } catch (e) {
@@ -506,7 +642,10 @@ if (isMainModule(import.meta.url) && (process.argv[2] === "precommit" || process
   console.log(`[PRIVACY_GATE_OK] files=${_gateFiles}`);
 }
 if (isMainModule(import.meta.url) && process.argv[2] === "doctor") {
-  console.log(doctorLine(join(process.argv[3] || process.cwd(), ".ai")));
+  const _ai = join(process.argv[3] || process.cwd(), ".ai");
+  console.log(doctorLine(_ai));
+  const _adv = loginAdvisory(_ai);
+  if (_adv) console.log(_adv);
 }
 // An unknown subcommand is an error, never a silent success (security_engineer E-378 P0-3).
 if (isMainModule(import.meta.url) && !["redact", "privacy", "doctor", "precommit", "scan-tree"].includes(process.argv[2])) {

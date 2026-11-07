@@ -4431,6 +4431,33 @@
       "summary": "Tier 1 merge of origin/main (#20 merged) into e-401-budgets: source auto-merged; .ai conflicts (state.json, REVIEWS.md) were unions, regenerated from the state index (a superset of both sides). Carries the Architect's 8965357.",
       "sha": "8965357050dbaaac46f8ede5c8d0c9c1346d402e",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-398",
+      "timestamp": "2026-11-06T20:32:04.971Z",
+      "summary": "[TIER_1] E-398 rebased onto main after #25 (D-144 addendum 4 r2); SECURITY.md and the ceiling row's comment record the corrected cause (r3): runAnalysis at the cap, median/max of 7, shell-quote 1.8.3 Architect 543/571 ms, Engineer 131/136 ms; 1.12.0 Architect 21/42 ms, Engineer 4/7 ms; the bound holds on 1.12.0 or later. Row and ceiling unchanged.",
+      "sha": "f3efb34431568fedb695c14d98310f686287d75b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-398",
+      "timestamp": "2026-11-06T20:32:56.491Z",
+      "summary": "Tier 1 rebase of the E-398/E-413/E-414 stack onto current main (through #20): source applied cleanly; .ai/SECURITY.md conflicts kept both sides (E-398's closing notes after the decodedView paragraph, then main's E-407 section; the recorded-bound paragraph replaced by the measured one); generated views regenerated from the state index.",
+      "sha": "cb99e100e381dfc5bcfd121c4ab626db5869e90b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-415",
+      "timestamp": "2026-11-06T21:07:10.063Z",
+      "summary": "Tier 1 merge of origin/main (#20, #21) into e-415-handoff-commit-all-ai, so #29 carries E-401's suite timeouts (D-145 c; the macOS exec_form_hooks 180 s timeout): source auto-merged; .ai conflicts regenerated from the state index.",
+      "sha": "f9fb680d076830b86eb6dd35d032d21a773af105",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

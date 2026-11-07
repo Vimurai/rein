@@ -4476,6 +4476,15 @@
       "summary": "[TIER_2] E-416 per D-148 r1-r4 and addendum r1: REIN_CI=hosted derived from GITHUB_ACTIONS=true in the curated env (CI never forwarded); assert_perf absolute under hosted; run.sh's three == local checks are non-empty; operand-scope assertInside asserts the ceiling only under hosted; the privacy repo_map row counts hosted as bootstrapped (it would otherwise skip on GitHub); marker exemption for the new rein line. No bound changes. Rows E-416.01a-b (extends E-386.H3 / E-265.02), E-416.P4-P6 (extends E-265.P1-P3). rein_ci 245/0, harness_isolation 256/0, operand-scope 394/0, privacy-cases 32/0.",
       "sha": "e04cdcf7c2e4c80dea4c04ee33f343000efffc61",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-416",
+      "timestamp": "2026-11-07T12:48:16.759Z",
+      "summary": "Tier 1 merge of origin/main (#29 merged) into e-416-hosted-perf: source auto-merged (skills only); .ai conflicts regenerated from the state index.",
+      "sha": "ab0b4abe763031b997f568b3ed698c4b7124e71b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

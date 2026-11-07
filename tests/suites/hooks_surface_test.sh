@@ -79,7 +79,10 @@ print(int(best))
 PY
 }
 base="$(_ms - "$DB")"; el="$(_ms "$HOOK" "$DB")"
-assert_perf "E-284.01f: PermissionDenied hook foreground latency" "$el" 20 "$base" 2 30
+# D-148: on a hosted runner the 20 ms absolute governs; under load (load1 > ncpu) the row measures
+# once more, as every other timing row does (E-296, D-085 r3). The bound is unchanged.
+_el_again() { _ms "$HOOK" "$DB"; }
+assert_perf "E-284.01f: PermissionDenied hook foreground latency" "$el" 20 "$base" 2 30 _el_again
 
 # ── E-284.2: rein sync registers the hook ─────────────────────────────────────
 TA="$T/proj"; mkdir -p "$TA/.ai"

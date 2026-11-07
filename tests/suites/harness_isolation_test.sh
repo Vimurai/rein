@@ -1026,6 +1026,8 @@ _verdict() {  # <env-assignments> <elapsed> <absolute> <baseline> [k] [slack] â†
   ( set +u
     source "${REPO_ROOT}/tests/lib/assert.sh"
     PASS_COUNT=0; FAIL_COUNT=0; SKIP_COUNT=0
+    # D-148: the outer run may be hosted (REIN_CI=hosted); each row states its own mode.
+    unset REIN_CI REIN_PERF_ABSOLUTE
     eval "$env_pre"
     assert_perf "probe" "$@" >/dev/null 2>&1
     [[ "$FAIL_COUNT" -eq 0 ]] && echo PASS || echo FAIL )
@@ -1073,7 +1075,7 @@ assert_contains "E-239.04b: a looser k=4 accepts it" \
 # A perf assertion that prints only a verdict cannot distinguish "the code got slower" from
 # "the machine is busy" â€” which is the entire question this task exists to answer.
 _out="$( ( source "${REPO_ROOT}/tests/lib/assert.sh"; PASS_COUNT=0; FAIL_COUNT=0
-           CI= assert_perf "printed" 59 200 35 ) 2>&1 )"
+           CI= REIN_CI= REIN_PERF_ABSOLUTE= assert_perf "printed" 59 200 35 ) 2>&1 )"
 assert_contains "E-239.05a: elapsed is printed"   "elapsed=59ms"   "$_out"
 assert_contains "E-239.05b: baseline is printed"  "baseline=35ms"  "$_out"
 assert_contains "E-239.05c: the limit is printed" "limit=120ms"    "$_out"

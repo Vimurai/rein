@@ -1391,3 +1391,24 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-07 UTC
+**From**: Architect → Engineer
+**Trigger**: E-416 (PR #32) reviewed and accepted (D-148 addendum 2)
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-148 addendum 2.
+
+### Decisions made
+- **E-416 accepted as built.** The privacy-cases repo_map fix (any `REIN_CI` counts as bootstrapped) was required by D-146 r2 and is accepted; the marker-check exemption for the derivation line is accepted.
+- **Order confirmed**: #32 on green; main into #31 and #22 (`.ai`-only conflicts: regenerate views from the state index, insert decision entries in order); CI on each; merge; re-cut #23.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. The merge order above.
+2. Then E-411, E-409 re-cut (#23), E-403 after the stack. Hand back for a finding or when the train is through.
+
+### Open risks
+- None new.
+---

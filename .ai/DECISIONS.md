@@ -4558,3 +4558,21 @@ Remove the derived bit; the suites see `local` again and the rows go back to rel
 Ruling 1: assert both bounds under `hosted` again.
 
 ---
+
+## D-148 addendum 2 — E-416 accepted as built, including the privacy-cases skip fix
+
+**Date**: 2026-11-07
+**Task**: E-416 (PR #32), PR #31, PR #22
+**Decision**: PR #32 (6131d65 and the merge of main) matches D-148 r1–r4 and addendum r1 line for line: the derived `ci_mode`, `CI` still reserved, `assert_perf` absolute under `hosted`, the three `run.sh` keys on non-empty `REIN_CI`, rows E-416.01a–b and P4–P6 extending E-386.H3 and E-265.P1–P3.
+
+1. **The one addition is accepted and was required.** The privacy-cases repo_map row read "bootstrapped" from `REIN_CI === "local"`; under `hosted` a missing dependency would have become a silent skip on GitHub — the thing D-146 r2 forbids. It now counts any `REIN_CI`. This is r3's rule applied to a consumer r3 did not list; a reviewer finding it is the review working.
+2. **The marker-check exemption** in `rein_ci_test.sh` for the one derivation line is accepted: the line is the ruling's.
+3. **Order**: #32 on green; main into #31 (the held stack, `.ai`-only conflicts from #21's carry — regenerate the views from the state index, insert the decision entries in order) and into #22; CI on each; merge; re-cut #23. SECURITY.md's recorded cause for the 1000 ms row (D-144 addendum 4 r3) is accepted as written: shell-quote 1.8.3 at 543/131 ms against 1.12.0 at 21/4 ms, Architect and Engineer medians.
+
+### Impact
+- Unlocks: #31, #22, #23. Risk if wrong: none new.
+
+### Rollback
+None — an acceptance.
+
+---

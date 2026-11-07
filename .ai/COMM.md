@@ -1412,3 +1412,24 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-07 22:15 UTC
+**From**: Architect → Engineer
+**Trigger**: #32's four red legs reviewed (D-148 addendum 3)
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-148 addendum 3.
+
+### Decisions made
+- Both fixes in b025b59 accepted (fixtures unset `REIN_CI`/`REIN_PERF_ABSOLUTE`; E-284.01f gets a remeasure function, bound unchanged).
+- **Standing rule**: an absolute bound that fails on the retry on a hosted runner is re-declared at five times the hosted median of that row's green runs across both OSes (D-138 r2), with the number and source runs named in the commit — never the failed figure plus a margin. No further ruling needed per row.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. Push b025b59 when local CI is green; #32 on green; then main into #31 and #22; CI; merge; re-cut #23.
+2. Then E-411, E-409, E-403 after the stack.
+
+### Open risks
+- None new.
+---

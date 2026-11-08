@@ -4558,3 +4558,40 @@ Remove the derived bit; the suites see `local` again and the rows go back to rel
 Ruling 1: assert both bounds under `hosted` again.
 
 ---
+
+## D-148 addendum 2 — E-416 accepted as built, including the privacy-cases skip fix
+
+**Date**: 2026-11-07
+**Task**: E-416 (PR #32), PR #31, PR #22
+**Decision**: PR #32 (6131d65 and the merge of main) matches D-148 r1–r4 and addendum r1 line for line: the derived `ci_mode`, `CI` still reserved, `assert_perf` absolute under `hosted`, the three `run.sh` keys on non-empty `REIN_CI`, rows E-416.01a–b and P4–P6 extending E-386.H3 and E-265.P1–P3.
+
+1. **The one addition is accepted and was required.** The privacy-cases repo_map row read "bootstrapped" from `REIN_CI === "local"`; under `hosted` a missing dependency would have become a silent skip on GitHub — the thing D-146 r2 forbids. It now counts any `REIN_CI`. This is r3's rule applied to a consumer r3 did not list; a reviewer finding it is the review working.
+2. **The marker-check exemption** in `rein_ci_test.sh` for the one derivation line is accepted: the line is the ruling's.
+3. **Order**: #32 on green; main into #31 (the held stack, `.ai`-only conflicts from #21's carry — regenerate the views from the state index, insert the decision entries in order) and into #22; CI on each; merge; re-cut #23. SECURITY.md's recorded cause for the 1000 ms row (D-144 addendum 4 r3) is accepted as written: shell-quote 1.8.3 at 543/131 ms against 1.12.0 at 21/4 ms, Architect and Engineer medians.
+
+### Impact
+- Unlocks: #31, #22, #23. Risk if wrong: none new.
+
+### Rollback
+None — an acceptance.
+
+---
+
+## D-148 addendum 3 — The fixture isolation fix is accepted; an absolute bound that fails on the retry is re-declared by D-138 r2's formula, not nudged
+
+**Date**: 2026-11-07
+**Task**: E-416 (PR #32, b025b59)
+**Decision**: Four red legs on #32's first hosted run, two causes, both fixed by the Engineer:
+
+1. **Accepted**: the `harness_isolation` verdict fixture and the E-239.05 printer cleared only `CI` and inherited `REIN_CI=hosted` from the run, so rows that state their own mode took the absolute path. Both now unset `REIN_CI` and `REIN_PERF_ABSOLUTE` before each row. This is the one place a fixture must not see the run's hosted bit: it is asserting the mode logic itself.
+2. **Accepted**: `hooks_surface` E-284.01f (PermissionDenied foreground latency, best of five, 20 ms absolute) passed no remeasure function, so the retry-under-load path of E-296 never ran; it now has one. Bound unchanged. 23 ms at load1=36 on 3 CPUs is a loaded host, not a verdict.
+3. **The standing rule for the next failure, so no round trip is needed.** If an absolute bound fails on the retry too, on a hosted runner, it is re-declared by D-138 r2: a ceiling at five times the hosted median of that row's green runs, measured over the recorded hosted logs across both OSes, with the number and the runs it came from named in the commit. It is never set to "the failed figure plus a little": that is the tune D-138 exists to stop. The baseline-relative assertion beside it keeps catching regressions below the ceiling. E-284.01f at 20 ms and the warm-path row at 250 ms (276 ms first measurement at load 95 on #29, retry 222) are both under this rule; neither moves until it fails on a retry.
+4. **The scan is noted**: E-284.01f was the only `assert_perf` row within 25 % of its absolute bound across #32's hosted legs. No other row needs attention from this run.
+
+### Impact
+- Unlocks: #32's push and merge. Risk if wrong: ruling 3 lets a bound rise to 5× median in one step; the relative assertion beside it is the regression catch (D-138 r2's own reasoning).
+
+### Rollback
+None — acceptances and a restatement of D-138 r2.
+
+---

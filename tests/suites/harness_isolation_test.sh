@@ -1026,6 +1026,8 @@ _verdict() {  # <env-assignments> <elapsed> <absolute> <baseline> [k] [slack] �
   ( set +u
     source "${REPO_ROOT}/tests/lib/assert.sh"
     PASS_COUNT=0; FAIL_COUNT=0; SKIP_COUNT=0
+    # D-148: the outer run may be hosted (REIN_CI=hosted); each row states its own mode.
+    unset REIN_CI REIN_PERF_ABSOLUTE
     eval "$env_pre"
     assert_perf "probe" "$@" >/dev/null 2>&1
     [[ "$FAIL_COUNT" -eq 0 ]] && echo PASS || echo FAIL )
@@ -1073,7 +1075,7 @@ assert_contains "E-239.04b: a looser k=4 accepts it" \
 # A perf assertion that prints only a verdict cannot distinguish "the code got slower" from
 # "the machine is busy" — which is the entire question this task exists to answer.
 _out="$( ( source "${REPO_ROOT}/tests/lib/assert.sh"; PASS_COUNT=0; FAIL_COUNT=0
-           CI= assert_perf "printed" 59 200 35 ) 2>&1 )"
+           CI= REIN_CI= REIN_PERF_ABSOLUTE= assert_perf "printed" 59 200 35 ) 2>&1 )"
 assert_contains "E-239.05a: elapsed is printed"   "elapsed=59ms"   "$_out"
 assert_contains "E-239.05b: baseline is printed"  "baseline=35ms"  "$_out"
 assert_contains "E-239.05c: the limit is printed" "limit=120ms"    "$_out"
@@ -1108,6 +1110,15 @@ assert_contains "E-265.P2: REIN_CI=local still fails a genuinely slow path" \
   "FAIL" "$(_verdict 'CI=; REIN_CI=local' 500 200 35)"
 assert_contains "E-265.P3: REIN_PERF_ABSOLUTE=1 still wins under REIN_CI=local" \
   "FAIL" "$(_verdict 'CI=; REIN_CI=local; REIN_PERF_ABSOLUTE=1' 381 200 197)"
+# D-148 r2/r4 (extends E-265.P1-P3): a hosted `rein ci run` (REIN_CI=hosted, CI still unset) judges
+# by the absolute bound. The warm-path case of PR #29: 226 ms against a 214 ms relative limit
+# (k=2, 82 ms baseline, 50 ms slack) and the row's 250 ms absolute.
+assert_contains "E-416.P4: REIN_CI=hosted takes the absolute bound (226 ms ≤ 250 ms passes)" \
+  "PASS" "$(_verdict 'CI=; REIN_CI=hosted' 226 250 82)"
+assert_contains "E-416.P5: …the same figures under REIN_CI=local stay relative and fail" \
+  "FAIL" "$(_verdict 'CI=; REIN_CI=local' 226 250 82)"
+assert_contains "E-416.P6: …and REIN_CI=hosted still fails past the absolute bound" \
+  "FAIL" "$(_verdict 'CI=; REIN_CI=hosted' 381 200 197)"
 
 # ── E-239.7: the converted assertions, and the checklist ─────────────────
 assert_status 0 "E-239.07a: incident_aggregator uses assert_perf" \

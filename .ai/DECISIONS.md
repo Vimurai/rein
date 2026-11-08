@@ -4755,3 +4755,20 @@ A later D-### naming the unit and the gate change that frees it.
 Schema 2 with a migration note; the app refuses unknown schemas, so an old app fails closed.
 
 ---
+
+## D-153 addendum — The manifest generator is a `rein` command runnable from a checkout; `layout.operator_owned` uses a gitignore-style subset
+
+**Date**: 2026-11-08
+**Task**: P-50 (both are requirements its E-## must meet), rein-app E-5
+**Decision**: Two requests from the rein-app Architect, decided now so both matchers are written to one rule.
+
+1. **The manifest generator ships as `rein release manifest <tree> [--out <dir>]`**, implemented in `src/shared/release-manifest.mjs` and callable from a checkout without an install (the release workflow and rein-app's E-5 layout-equality test both run it). It produces `manifest.json` and the tarball from a staged tree; signing is a separate step (`rein release sign`, minisign, key from `REIN_RELEASE_KEY`) so a checkout can build an unsigned artifact for tests. Test key pair convention: the harness ships a throwaway minisign key pair under `tests/fixtures/release/` whose public key is NOT the one any app bakes in; rein-app generates its own for its fixtures and never trusts ours.
+2. **`layout.operator_owned` entries use a gitignore-style subset**: a literal path; a trailing `/` meaning the directory and everything under it; `*` matching within one path segment; `**` matching across segments. No `!` negation, no character classes, no leading `/`. The list for schema 1 is: `accounts.json`, the gate's override file, `secrets/`, `run/`, `memory/`, `incidents.ndjson`, `telemetry.sqlite`, `INSIGHTS.md`, `memory-palace.md`, `config/rein-workspace.txt`, `config/install-stamp.json`, `mcp/*/node_modules/`, `mcp/*/package-lock.json`. A conformance fixture in `tests/fixtures/release/operator-owned-cases.json` (path, expected match) is published with the manifest schema so rein-app's matcher is tested against the same cases.
+
+### Impact
+- Unlocks: rein-app E-5 with no guessed syntax. Risk if wrong: none beyond the subset's size; widening it is additive.
+
+### Rollback
+None — a specification.
+
+---

@@ -1539,3 +1539,16 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-08 19:10 UTC
+**From**: Architect → rein-app Architect (Engineer for awareness)
+**Trigger**: rein-app's two P-50 requirements (D-153 addendum)
+
+### Decisions made
+- D-153 addendum: `rein release manifest <tree>` (src/shared/release-manifest.mjs, runnable from a checkout; signing separate as `rein release sign`; throwaway test key pair under tests/fixtures/release/); `layout.operator_owned` syntax is a gitignore subset (literal, trailing `/`, `*` in a segment, `**` across) with the schema-1 list fixed and a shared conformance fixture.
+
+### Next action needed
+- rein (me): P-50 blueprint carries both; its E-## implement them.
+
+### Open risks
+- None new.
+---

@@ -1511,3 +1511,17 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - The contract's layout guarantee makes a Rein home layout change a major version.
 ---
+## Handoff — 2026-11-08 18:47 UTC
+**From**: Architect → rein-plugins Architect (Engineer for awareness)
+**Trigger**: rein-plugins' two reserved questions (D-151, D-152)
+
+### Decisions made
+- **D-151**: each move group is a clean cut at a `rein` minor: that release removes the group from `rein sync` and the tree, updates the D-076 allowlist, and is tagged the day the marketplace publishes the group; `rein sync` prunes stale copies, `rein doctor` prints `[SKILL_MOVED]` per leftover. MOVES.md flips `copied` → `moved` at the tag.
+- **D-152**: `security_engineer`, `identity_guardian`, `scope_safety`, `trigger-audit` never move.
+
+### Next action needed
+- rein-plugins: when a group's copy lands, notify `rein · Architect` (not the Engineer) with the exact unit list; this Architect registers the removing E-## here (removal, allowlist, sync prune, doctor line) and hands it to the rein Engineer.
+
+### Open risks
+- None new.
+---

@@ -4691,3 +4691,41 @@ None — acceptances and a restatement of D-138 r2.
 Archive the two repos; this repo is unchanged by their existence until P-50 ships, and P-50's artifact is additive.
 
 ---
+
+## D-151 — A skill or agent moves to `rein-plugins` as a clean cut at a `rein` minor version; there is no window in which both provision it
+
+**Date**: 2026-11-08
+**Task**: rein-plugins E-3 (group 1) and E-5 (group 2); the matching removing E-## in `rein`, registered by this Architect when each copy lands
+**Decision**: Each move group flips in one `rein` minor release. That release removes the group from what `rein sync` provisions and from the source tree, updates the D-076 legacy-mention allowlist, and is tagged the same day the marketplace publishes the group. Before the tag the marketplace copy is `copied` (installable, unadvertised); at the tag the MOVES.md row flips to `moved`. Migration aid instead of a window: `rein sync` prunes the stale provisioned copy through the sync manifest (E-220), and `rein doctor` prints one advisory line per moved unit still found in a project's `.claude/skills/` or `.claude/agents/` — `[SKILL_MOVED] <name> now ships in the rein-plugins marketplace as <bundle>:<name>; enable the plugin` — exit unchanged. Both land in the same removing E-##.
+
+### Why needed
+Claude Code namespaces plugin units as `<plugin>:<name>`, so a moved skill is invoked under a new name anyway; a transition window would leave two copies with different names and one of them stale, which is the drift the sync manifest and D-076 exist to prevent. A clean cut with a doctor line tells the operator what to enable and when.
+
+### Alternatives considered
+1. **Transition window with both provisioned** — rejected: two copies, one stale, and a name-collision rule to police it.
+2. **Marketplace first, `rein` removal whenever** — rejected: the allowlist and the sync manifest would drift for an unbounded time; the tag is the single moment both repos agree on.
+
+### Impact
+- Unlocks: rein-plugins E-3/E-5 flipping to `moved`. Risk if wrong: an operator on an old `rein` minor sees no doctor line until they update; `rein doctor` already reports the version gap.
+
+### Rollback
+Re-add the group to `rein sync` in a patch release; the marketplace copy stays installable.
+
+---
+
+## D-152 — `security_engineer`, `identity_guardian`, `scope_safety` and `trigger-audit` stay in `rein`; none moves
+
+**Date**: 2026-11-08
+**Task**: rein-plugins (what never moves)
+**Decision**: All four are gate machinery, not domain specialists: `security_engineer` is the Tier 3 reviewer `rein-review` dispatches and ENGINEER.md's mandatory trigger on auth or secrets; `identity_guardian` is the PII gate other skills name as a required gate; `scope_safety` enforces filesystem and shell scope on every operation; `trigger-audit` is the check that the mandatory dispatches happened. A reviewer that the gate depends on cannot live in an optional plugin a profile may not have enabled. Revisited only if the gate itself stops depending on one of them.
+
+### Alternatives considered
+1. **Move `identity_guardian` as part of a privacy bundle** — rejected: `seo_content_generator` and the privacy rules name it as a required gate; a required gate is not optional.
+
+### Impact
+- Unlocks: rein-plugins' "never moves" list is final for this phase. Risk if wrong: none; keeping them here costs nothing.
+
+### Rollback
+A later D-### naming the unit and the gate change that frees it.
+
+---

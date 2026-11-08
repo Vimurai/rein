@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=512   (E-401, D-138 r3: 3x the slowest green hosted run — 93 s Linux / 170 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # rein_sync_test.sh — `rein sync`: every step runs (E-247, D-067 §1), and what it prunes, mirrors
 # and regenerates (sync_prune, path_rules, mcp_doc_sync, registry_sync, mcp, skill_prune,
 # memory_palace_sync sections, merged in E-302).

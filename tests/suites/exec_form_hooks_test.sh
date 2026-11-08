@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=531   (E-401, D-138 r3: 3x the slowest green hosted run — 90 s Linux / 177 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # REIN_INSTALLER_SUBJECT: the installer writes the exec-form hook commands (E-311, D-092)
 # exec_form_hooks_test.sh — E-290 (D-081 r1, D-083 r1–4; THREAT_MODEL T-HOOKENV-002).
 #

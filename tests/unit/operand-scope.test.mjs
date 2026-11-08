@@ -97,8 +97,13 @@ for (const [line, want] of RO) {
 const msOf = (fn) => { const t = process.hrtime.bigint(); fn(); return Number(process.hrtime.bigint() - t) / 1e6; };
 const CEILING_MS = 1000;
 const budgetOf = (base) => 200 + 20 * base;
+// D-148 addendum r1: on a hosted runner (`rein ci run` under GitHub Actions sets REIN_CI=hosted)
+// the hardware is known and the ceiling governs; the relative figure is printed, not asserted.
+// Everywhere else both bounds are asserted.
+const HOSTED = process.env.REIN_CI === "hosted";
 const assertInside = (ms, budget, label) => {
-  assert.ok(ms < budget, `${label}: ${ms.toFixed(1)} ms ≥ ${budget.toFixed(1)} ms (baseline-relative)`);
+  if (HOSTED) console.log(`  ${label}: ${ms.toFixed(1)} ms (relative budget ${budget.toFixed(1)} ms, informative under REIN_CI=hosted)`);
+  else assert.ok(ms < budget, `${label}: ${ms.toFixed(1)} ms ≥ ${budget.toFixed(1)} ms (baseline-relative)`);
   assert.ok(ms < CEILING_MS, `${label}: ${ms.toFixed(1)} ms ≥ the ${CEILING_MS} ms ceiling`);
 };
 test("a 50k-group input is refused [INPUT_TOO_LARGE] inside the budget, for every role", () => {

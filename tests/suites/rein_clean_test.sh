@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=217   (E-401, D-138 r3: 3x the slowest green hosted run — 4 s Linux / 72 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # rein_clean_test.sh — E-272 (D-074, version-lifecycle.md §Components 3-4): `rein clean`.
 #
 # The end-to-end layer for the one command in Rein that REMOVES things. The registry's

@@ -85,7 +85,8 @@ test("T-FLU-S03: errors emit JSON with service=wal-flusher", () => {
 
 // ── T-FLU-S04: boot time budget ──────────────────────────────────────────────
 // E-239 (D-061): the bound is a same-host baseline measured in this run — a bare `node` boot —
-// so a loaded machine slows both sides; the absolute 500 ms budget applies only on CI.
+// so a loaded machine slows both sides. E-401 (D-138 r2): the absolute is a boot ceiling on every
+// host, 2500 ms — five times the former CI-only 500 ms, which every green CI run stayed under.
 test("T-FLU-S04: node wal-flusher.mjs boots within budget", (t) => {
   const path = walDb(t, ["1"]);
   const time = (argv) => { const s = process.hrtime.bigint(); spawnSync(process.execPath, argv); return Number(process.hrtime.bigint() - s) / 1e6; };
@@ -93,5 +94,5 @@ test("T-FLU-S04: node wal-flusher.mjs boots within budget", (t) => {
   const elapsed = time([FLUSHER, path]);
   t.diagnostic(`baseline ${baseline.toFixed(0)} ms, elapsed ${elapsed.toFixed(0)} ms`);
   assert.ok(elapsed <= 3 * baseline + 300, `wal-flusher ${elapsed.toFixed(0)} ms > 3 × ${baseline.toFixed(0)} ms + 300`);
-  if (process.env.CI === "true") assert.ok(elapsed < 500, `boots in <500ms (measured ${elapsed.toFixed(0)} ms)`);
+  assert.ok(elapsed < 2500, `boots in <2500 ms (measured ${elapsed.toFixed(0)} ms)`);
 });

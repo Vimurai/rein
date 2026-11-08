@@ -145,13 +145,13 @@ const WRITERS = {
   repo_map(t) {
     // E-412 / D-146 (extends this row): the writer needs ast-parser-mcp's own dependencies, which a
     // checkout that was never bootstrapped (a fresh worktree) does not have — a recorded SKIP there
-    // (test-harness rule 1). `rein ci run` (REIN_CI=local) and the hosted check (CI=true) bootstrap
+    // (test-harness rule 1). `rein ci run` (REIN_CI=local|hosted) and the hosted check (CI=true) bootstrap
     // first, so under them a missing dependency is a FAILURE, never a skip.
     const ast = join(REPO, "src/mcp/ast-parser-mcp");
     let deps = true;
     try { createRequire(join(ast, "extractor.mjs")).resolve("web-tree-sitter"); } catch { deps = false; }
     if (!deps) {
-      const bootstrapped = process.env.CI === "true" || process.env.REIN_CI === "local";
+      const bootstrapped = process.env.CI === "true" || !!process.env.REIN_CI;   // local or hosted (D-148)
       assert.ok(!bootstrapped, "ast-parser-mcp's dependencies are missing after a bootstrap (web-tree-sitter unresolvable)");
       t.skip("ast-parser-mcp's dependencies are not installed in this checkout (web-tree-sitter) — run its npm ci");
       return;

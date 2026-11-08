@@ -6169,6 +6169,10 @@ _ci_run() {
   fi
 
   # ── env ──
+  # D-148 r1: one derived bit — `hosted` when this run is a GitHub Actions job, else `local`.
+  # Computed, never copied: CI itself stays reserved and is not forwarded (isolation by construction).
+  local ci_mode="local"
+  [[ "${GITHUB_ACTIONS:-}" == "true" ]] && ci_mode="hosted"
   CI_ENV=(
     "PATH=$(_ci_clean_path)"
     "HOME=${ci_homedir}"
@@ -6178,12 +6182,12 @@ _ci_run() {
     "LOGNAME=${LOGNAME:-$(id -un)}"
     "SHELL=/bin/bash"
     "TERM=dumb"
-    "REIN_CI=local"
+    "REIN_CI=${ci_mode}"
     "PLAYWRIGHT_BROWSERS_PATH=${ci_home}/cache/ms-playwright"
     "npm_config_cache=${ci_home}/cache/npm"
     ${CI_LOCAL_ENV[@]+"${CI_LOCAL_ENV[@]}"}
   )
-  _ci_step env ok "HOME=${ci_homedir} REIN_CI=local${CI_LOCAL_NOTE}"
+  _ci_step env ok "HOME=${ci_homedir} REIN_CI=${ci_mode}${CI_LOCAL_NOTE}"
   _ci_step load info "start: $(_ci_load)"
 
   # ── deps ──

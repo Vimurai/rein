@@ -178,6 +178,14 @@ assert_match "E-339.07g: and both failures are counted" \
 _dout="$( cd "$_pb" && HOME="$_ph" bash "$AI" doctor 2>&1 )"
 assert_contains "E-339.07c: doctor prints the same [SAFE_EXEC_BROKEN] finding" \
   "[SAFE_EXEC_BROKEN]" "$_dout"
+# E-409 (D-143 r2b/r3, extends E-339.07c at the process boundary; the rule's table is
+# tests/unit/mcp-paths.test.mjs): doctor counts servers whose path is dead AFTER expansion. The
+# `${VAR:-default}` form is the case the old os.path.expandvars check could not see.
+printf '%s\n' '{"mcpServers":{"a":{"command":"node","args":["${REIN_E409_GONE:-/nonexistent-e409}/a/index.js"]},"b":{"command":"node","args":["${REIN_E409_GONE:-/nonexistent-e409}/b/index.js"]}}}' > "${_pb}/.mcp.json"
+_drc=0; _dout="$( cd "$_pb" && HOME="$_ph" bash "$AI" doctor 2>&1 )" || _drc=$?
+assert_contains "E-409.06a: rein doctor counts servers whose expanded paths do not exist" \
+  "✗ [MCP_PATHS_MISSING] 2 servers point at paths that do not exist — run: rein sync" "$_dout"
+assert_status 0 "E-409.06b: …and fails (rc=${_drc})" test "$_drc" -ne 0
 assert_status 1 "E-339.07d: the hook and src/bin/rein carry no analyzer invocation of their own" \
   grep -nE -- '--check(-path)? "\$' "${REPO_ROOT}/hooks/pre-tool-use.sh" "${REPO_ROOT}/src/bin/rein"
 assert_status 0 "E-339.07e: gate-probe.sh carries it" \

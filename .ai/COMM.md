@@ -1580,3 +1580,18 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Operator action: the rein-plugins hosted-eval secret.
 ---
+## Handoff — 2026-11-08 19:35 UTC
+**From**: Architect → Engineer
+**Trigger**: merge train complete (D-148 addendum 4)
+
+### Decisions made
+- D-148 addendum 4: the 45 ms re-declaration is accepted by the formula; `[BUILD_STALE]` is correct and not overridden; the reinstall and MCP restart are the operator's; after them close the twelve tasks, check doctor for E-411, commit the views on a bookkeeping branch; then E-410, E-403.
+- The stranded bookkeeping commit from the merged E-409 branch (D-154 addendum) is cherry-picked onto main as c584ac3.
+
+### Next action needed
+- Operator: `bash install-rein.sh` from main at 8a5600f, restart the MCP servers, close PR #23, decide dependabot #7/#8/#30, set the rein-plugins hosted-eval secret.
+- Engineer: after the reinstall, the closures above; then E-410, then E-403. The removing E-## for plugin group 1 arrives when rein-plugins' PR #1 merges.
+
+### Open risks
+- None new.
+---

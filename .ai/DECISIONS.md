@@ -4810,3 +4810,17 @@ Ruling 1: a later D-### when the palace MCP tool exists. Ruling 2: none.
 Drop the enum; call-time rejection remains.
 
 ---
+
+## D-148 addendum 4 — E-284.01f's absolute bound is 45 ms by the formula; the merge train is through; task closure waits on the operator's reinstall
+
+**Date**: 2026-11-08
+**Task**: E-284.01f (d4d3bdc), the DONE closures listed below, E-411
+**Decision**: (1) The re-declaration is accepted as the formula requires: 45 ms = 5 × the 9 ms median of 11 green hosted legs over four named runs (6 7 8 8 9 9 9 10 10 12 20), after a failure on the retry (21 then 31 ms at load1=6). The relative assertion stays beside it. First use of D-148 addendum 3 r3, applied exactly. (2) Main is 8a5600f with PR #33 (the E-409 re-cut) merged; the D-143 r4 order is complete. (3) `update_task_status(DONE)` refuses with `[BUILD_STALE]` because the install mirror is behind main; the Engineer correctly does not override the stamp. The reinstall from main and the MCP restart are the operator's (E-411's step; the gate blocks agent writes under the Rein home). After it the Engineer closes E-398, E-400, E-401, E-405, E-407, E-408, E-409, E-412, E-413, E-414, E-415, E-416, checks `rein doctor` for E-411, and commits the views on a bookkeeping branch. (4) PR #23 is superseded by #33 and is closed by the operator; dependabot PRs #7, #8, #30 are the operator's to merge. (5) Queue after closure: E-410, then E-403.
+
+### Impact
+- Unlocks: closure of twelve tasks once the mirror is current. Risk if wrong: none; the stale stamp is doing its job.
+
+### Rollback
+None — acceptances and sequencing.
+
+---

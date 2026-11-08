@@ -4729,3 +4729,29 @@ Re-add the group to `rein sync` in a patch release; the marketplace copy stays i
 A later D-### naming the unit and the gate change that frees it.
 
 ---
+
+## D-153 — P-50 contract answers for rein-app: minisign with the public key baked into the app, manifest schema 1, doctor JSON shape, accounts.json surface, and what an upgrade preserves
+
+**Date**: 2026-11-08
+**Task**: P-50 (these rulings are its decisions; the blueprint records them), rein-app E-3/E-5
+**Decision**: Answers to the rein-app Architect's five open items. They bind both repos from now; the P-50 blueprint and its E-## tasks implement the `rein` side.
+
+1. **Signature scheme: minisign.** Each release publishes `rein-X.Y.Z.tar.gz`, `rein-X.Y.Z.tar.gz.minisig` and `manifest.json` (the manifest is inside the signed tarball AND beside it; the app verifies the tarball signature, then the per-file sha256 from the manifest inside). **Trust root: the public key is baked into the app at build time.** A key rotation is therefore an app release, on purpose: the installer is the trust anchor, and an installer that fetches its own trust root verifies nothing. The manifest carries `key_id` (the minisign key id) so an app with an older key fails with one line naming the newer app it needs, never a bare signature error. Sigstore rejected: it needs network to a transparency log at install time and identity-based trust that a self-contained installer cannot pin.
+2. **manifest.json schema 1** (paths relative to the Rein home, forward slashes, no `..`):
+   `{ "schema": 1, "version": "X.Y.Z", "min_node": "22.5.0", "key_id": "<minisign key id>", "layout": { "mirrored": ["bin","hooks","mcp","shared","claude","contracts","templates","copilot","scripts","config"], "operator_owned": [see r5] }, "files": [ { "path": "bin/rein", "sha256": "<hex>", "size": 123, "mode": "0755" } ] }`.
+   `mode` is present because `install-rein.sh` marks `bin/rein` and `hooks/*.sh` executable; the app applies it rather than guessing. The app rejects an unknown `schema`, a path outside the layout, or a file in the tarball that the manifest does not list.
+3. **`rein doctor --json`** (P-50 adds it): `{ "version": "X.Y.Z", "status": "ok|warn|fail", "checks": [ { "id": "<stable snake_case id>", "status": "ok|warn|fail", "line": "<the text line doctor prints>", "fix": "<the fix line, or null>" } ] }`. Every check that prints a fix in text form has it in `fix`. Until it ships the app passes the text through verbatim and parses nothing — confirmed as the right interim.
+4. **accounts.json**: the only field the contract guarantees is `accounts.<name>.config_dir` (absolute path of that profile's Claude config directory); `default` means the default config dir and is not listed. Everything else is opaque and preserved byte-for-byte by anything that rewrites the file. P-50 publishes the schema as `docs/accounts.md` plus a JSON schema the test harness pins; until then the app's reading is correct.
+5. **What an upgrade preserves** — the rein-app assumption is corrected: `config/` is MIRRORED (replaced), with exactly two files kept: `config/rein-workspace.txt` and `config/install-stamp.json`. Operator-owned and never touched by an install: `accounts.json`, the gate's override file, `secrets/`, `run/`, `memory/`, `incidents.ndjson`, `telemetry.sqlite`, `INSIGHTS.md`, `memory-palace.md`, and inside `mcp/` the `node_modules/` directories and `package-lock.json` that `npm install` wrote (protected during the mirror). Everything else under the mirrored directories is replaced; a file in a mirrored directory that the tarball does not ship is deleted (`bin/` is pruned explicitly). `VERSION` is written after the copy, tmp-and-rename. The reference is `install-rein.sh`; the layout-equality test in rein-app E-5 compares against it on the same version, and P-50's manifest `layout.operator_owned` lists exactly these so the app reads the rule from the artifact, not from this text.
+6. **Marketplace registration** (rein-app D-002: github source, ref `stable`, `enabledPlugins` `<plugin>@rein-plugins: true`): accepted; the `stable` ref is rein-plugins' to maintain and is not part of this contract.
+
+### Alternatives considered
+1. **Sigstore keyless** — rejected (r1). 2. **Fetch the public key from the release** — rejected: a trust root fetched from the thing it verifies is not a trust root. 3. **Preserve all of `config/`** — rejected: it ships templates the install must update; only the two stamp files are the operator's.
+
+### Impact
+- Unlocks: rein-app E-3 (manifest parse), E-5 (layout writer), the verifier seam's real implementation. Risk if wrong: a key rotation forces an app update before a `rein` update installs; acceptable and visible by the `key_id` line.
+
+### Rollback
+Schema 2 with a migration note; the app refuses unknown schemas, so an old app fails closed.
+
+---

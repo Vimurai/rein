@@ -1525,3 +1525,17 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-08 19:00 UTC
+**From**: Architect → rein-app Architect (Engineer for awareness: P-50 will produce E-## tasks)
+**Trigger**: rein-app's five P-50 questions (D-153)
+
+### Decisions made
+- D-153: minisign, public key baked into the app (rotation = app release, `key_id` in the manifest); manifest schema 1 with `mode` and `layout.{mirrored,operator_owned}`; `rein doctor --json` shape with `fix` per check; accounts.json guarantees only `accounts.<name>.config_dir`; an upgrade preserves `accounts.json`, the gate's override file, `secrets/`, `run/`, `memory/`, the telemetry, incident and insight files and `mcp/**/node_modules` — `config/` is mirrored except `rein-workspace.txt` and `install-stamp.json`.
+
+### Next action needed
+- rein-app: build E-3/E-5 against D-153; the verifier seam's real implementation is minisign.
+- rein (me): P-50 blueprint next, then E-## for the release workflow, manifest generator, `doctor --json`, accounts docs.
+
+### Open risks
+- None new.
+---

@@ -4521,6 +4521,24 @@
       "summary": "Tier 1 bookkeeping carry for the E-409 re-cut (D-143 r2-r3, D-148 addendum r3 form): cherry-picking #23's Architect commits 7bd69a3 (D-142, E-410 planned, COMM 2026-11-01 21:25) and 69f6e25 (E-410 into state) onto e-409-mcp-paths off main; COMM.md/DECISIONS.md kept main verbatim with the one missing entry each inserted (D-142 between D-141 addendum 2 and D-143); views regenerated from the state index. No source change.",
       "sha": "fe67c68558b02e1f4bd8334953b339911a8f178b",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-409",
+      "timestamp": "2026-11-08T18:30:33.720Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK on the two preflight skill copies and rein_sync_test.sh (named by D-143 r2b and r3); NO_LOG_UPDATE resolved (LOG.md line appended). architect.md's §2 helper line naming mcp-paths.mjs is the Architect's (D-143 r6).",
+      "sha": "fac18fea4b6b1e591ad39aa809f9eaa021b7806f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-409",
+      "timestamp": "2026-11-08T18:30:33.807Z",
+      "summary": "[TIER_2] E-409 re-cut per D-143 r2-r3, off main with #26: src/shared/mcp-paths.mjs is the single ${VAR}/${VAR:-default} expander (moved from mcp-tester.mjs, which imports it) plus doctorLines and a doctor|expand CLI; rein doctor's dead-path check prints [MCP_PATHS_MISSING] and fails doctor, the registry mismatch check reads the expanded file (both os.path.expandvars calls gone); preflight carries the same line; the demo's cwd rule kept (r2a). The claim, --adopt and [FOREIGN_PROJECT] are not built; their rows deleted, not skipped. Rows: mcp-paths.test.mjs (4), rein_sync E-409.06a-b (extends E-339.07c; fails on the old check, which missed ${VAR:-default}). Carries D-142/E-410 (da53256).",
+      "sha": "fac18fea4b6b1e591ad39aa809f9eaa021b7806f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

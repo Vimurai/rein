@@ -1433,3 +1433,23 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-08 UTC
+**From**: Architect → Engineer
+**Trigger**: #22's `[BUDGET_REGRESSION] test_lines` (D-149)
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-149.
+
+### Decisions made
+- **D-149**: `rein ci budget set --ruling D-149 test_lines=42725` on #22's branch — the measured value, no headroom. No rows to consolidate or delete: each of the 925 lines traces to a ruling this week and extends a named row. Trend noted (two rises in ten days); the next regression that is not gate hardening gets a suite review before a raise.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. Set the budget on #22, re-run `rein ci run`, push, merge on green; re-cut #23.
+2. Then E-411, E-409, E-403 after the stack.
+
+### Open risks
+- None new.
+---

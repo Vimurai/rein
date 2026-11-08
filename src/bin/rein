@@ -4095,23 +4095,14 @@ for name, info in d.get('mcp_servers', {}).items():
 
   if [[ -f ".mcp.json" ]]; then
     echo "  ✓ .mcp.json present ($(pwd))"
-    # Verify the server paths in .mcp.json are valid (`${HOME}/…` expanded first)
-    python3 - <<'PY' 2>/dev/null || true
-import json, os
-with open(".mcp.json") as f:
-    cfg = json.load(f)
-broken = []
-for name, srv in cfg.get("mcpServers", {}).items():
-    for a in srv.get("args", []):
-        a = os.path.expandvars(a) if isinstance(a, str) else ""
-        if a.startswith("/") and not os.path.exists(a):
-            broken.append(f"{name}: {a}")
-if broken:
-    for b in broken:
-        print(f"    ✗ broken path — {b} — run: rein mcp-setup")
-else:
-    print("  ✓ .mcp.json paths: all valid")
-PY
+    # E-409 (D-143 r2b/r3): the server paths after `${VAR}` / `${VAR:-default}` expansion — one
+    # expander, in shared/mcp-paths.mjs. Dead paths are [MCP_PATHS_MISSING] and fail doctor.
+    local _mcp_paths; _mcp_paths="$(_rein_helper shared/mcp-paths.mjs || true)"
+    if [[ -n "$_mcp_paths" ]] && command -v node >/dev/null 2>&1; then
+      node --no-warnings "$_mcp_paths" doctor ./.mcp.json || _DOCTOR_HARD_FAIL=1
+    else
+      echo "  ✗ mcp-paths.mjs or node unavailable — run: bash install-rein.sh"
+    fi
   else
     echo "  ✗ .mcp.json not found in $(pwd) — run: rein init"
   fi
@@ -4242,15 +4233,16 @@ for name, info in d.get('mcp_servers', {}).items():
         print(name + '|' + info['path'])
 " 2>/dev/null || true)
 
-    # Registry ↔ .mcp.json path consistency check
-    if [[ -f ".mcp.json" ]]; then
-      python3 - <<'PY' 2>/dev/null || true
-import json, os
+    # Registry ↔ .mcp.json path consistency check. E-409 (D-143 r3): the file is read through
+    # mcp-paths.mjs expand, so `${HOME}` and `${VAR:-default}` resolve as Claude Code resolves them.
+    local _mcp_exp; _mcp_exp="$(_rein_helper shared/mcp-paths.mjs || true)"
+    if [[ -f ".mcp.json" && -n "$_mcp_exp" ]]; then
+      node --no-warnings "$_mcp_exp" expand ./.mcp.json 2>/dev/null | python3 -c '
+import json, os, sys
 REIN = os.path.expanduser("~/.rein")
 with open(os.path.join(REIN, "config/registry.json")) as f:
     reg = json.load(f)
-with open(".mcp.json") as f:
-    mcp = json.load(f)
+mcp = json.load(sys.stdin)
 mcp_servers = mcp.get("mcpServers", {})
 for name, info in reg.get("mcp_servers", {}).items():
     if name not in mcp_servers:
@@ -4258,11 +4250,11 @@ for name, info in reg.get("mcp_servers", {}).items():
     elif "path" in info:
         args = mcp_servers[name].get("args", [])
         expected = os.path.join(REIN, "mcp", name, "index.js")
-        if args and os.path.expandvars(args[0]) != expected:
+        if args and args[0] != expected:
             print(f"  ✗ {name}: .mcp.json path mismatch")
             print(f"      expected: {expected}")
             print(f"      actual:   {args[0]}")
-PY
+' 2>/dev/null || true
     fi
 
     [[ "$deep_fail" -eq 0 ]] && echo "  ✓ all MCP servers: dependencies OK, syntax OK, paths consistent"

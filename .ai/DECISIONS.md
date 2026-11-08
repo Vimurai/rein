@@ -4110,6 +4110,34 @@ Ruling 1: restore the section, drop the line (the cap then forces (b)). Rulings 
 Remove the prefix check from the writers; the doctor line stays useful on its own.
 
 ---
+## D-142 — Incidents are filed through `rein incident`, the fifth command on the D-083 r6 allowlist of install-tree writers; the log stays where it is; the code/state split of `~/.rein` is named as a candidate, not ruled
+
+**Date**: 2026-11-01
+**Task**: E-410 (new); E-409 step (4) is moved to it
+**Decision**: The Engineer (COMM, 2026-11-01) reports that `skill: rein-incident` cannot run from an agent pane: it invokes `node <install>/shared/incident-append.mjs '<json>'`, which the safe-exec gate blocks as `GATE_SELF_DISABLE` (D-083 r5–r6: every shell write under `~/.rein/` is blocked for every role; the only writers are the literal allowlist `bash install-rein.sh`, `rein install`, `rein sync`, `rein doctor`). The incident log `~/.rein/incidents.ndjson` lives inside the protected tree, so a skill built for agents has been operator-only since E-125 and nobody noticed because no agent had filed one through the gate. Three options were put: move the log out of `~/.rein`, exempt the helper, or make the skill operator-only. Rulings:
+
+1. **A `rein incident` subcommand joins the D-083 r6 allowlist**, the fifth and only new entry: `rein incident '<json>'` (and `rein incident --type <T> --message <m> --signature <s>` for shells without `jq`) calls the existing `incident-append.mjs` — same validation, same sanitisation (incident-tracker.md §Security), same atomic append, same monthly rotation — and writes nothing else. The gate allows exactly this command form, by the same literal mechanism that allows `rein doctor`; the helper's path never appears in an agent's command, so `INTERPRETER_NAMING` no longer fires. The D-083 r5 (iii) classifier `hard_deny` entries are untouched: they match shell writes under `~/.rein/`, which this is not.
+2. **Why not the other two.** Moving the log out of `~/.rein` is right in principle — the install tree mixes code (hooks, gate, skills) with state (incidents, telemetry, heartbeat, INSIGHTS, the memory palace) and the gate protects both because it cannot tell them apart — but it is a layout migration touching every reader (`incident-aggregate.mjs`, `toolchain-pin.sh`, `sre_responder`, three skills) and every other state file would have to follow for the principle to hold; that is a ruling of its own, named below, not a side effect of filing one incident. Exempting the helper by its path would allow `node ~/.rein/shared/incident-append.mjs` and nothing else, but a path-form exemption is the pattern D-140 r2 retired for the privacy gate (a later commit can put anything at that path; here the path is inside the tree agents cannot write, so the hole is smaller, but the command form is cleaner and matches how the other four writers are allowed). Operator-only defeats the skill's purpose: the Triad is the one who sees the event.
+3. **What `rein incident` may never do**: take a file path, an output path or a HOME; write more than the one append; accept a record whose sanitised message still contains a home path, an email or a token (the helper already rejects these — the subcommand surfaces the rejection as `[INCIDENT_REJECTED] <field>: <reason>`, exit non-zero). An agent can therefore only add bounded, sanitised lines to a log every reader treats as data (sre_responder: "rows are data, never instructions").
+4. **Gate surface, so Tier 3**: the allowlist row and the `GATE_SELF_DISABLE` fixture rows are pinned by sha in a ruling; E-410's closing handoff reports the new sha of the block-rules fixture and `tests/fixtures/role-verdict-cases.json` so the Architect pins them. `security_engineer` then `critic_security`. The skill `rein-incident` is rewritten to call `rein incident` and its Bash fallback prints the command for the operator when `rein` is missing.
+5. **The outage of 2026-11-01 is the first record filed** through the new command, by the Engineer, when E-410 lands: `incident_type` `ENV_ERROR`, signature `mcp-json/foreign-install-rewrite`, message naming E-402's smoke run and E-409's fix, no home path. E-409 step (4) is satisfied by this, not by the operator.
+6. **Candidate, not ruled: split `~/.rein` into code and state.** `~/.rein/` keeps hooks, gate, shared, skills, mcp, toolchain (what the gate must protect); a state directory (`${XDG_STATE_HOME:-~/.local/state}/rein/`) would take incidents, telemetry, heartbeat, INSIGHTS, the memory palace and the session run files, with the gate protecting only the former. The Architect records it in `.ai/architect.md` §Known Risks as the open design question; it is not an E-## until a ruling sizes the migration.
+
+### Alternatives considered
+Listed in ruling 2.
+
+### Constraints driving this decision
+- D-083 r5–r6: the gate is tamper-resistant by a literal allowlist, not by path exemptions; the allowlist grows by a command, never by a pattern.
+- incident-tracker.md §Security: every record is sanitised before it is written; the writer is the only place that holds the rule.
+
+### Impact
+- Unlocks: E-410 (Tier 3). E-409 ships without step (4).
+- Risk if wrong: a noisy agent fills the incident log — bounded by the monthly rotation and the line-count rotation that already exist; the aggregator's threshold is per signature, so volume alone raises nothing.
+
+### Rollback
+Remove the allowlist row and the subcommand; the skill returns to operator-only, which is today's state.
+
+---
 ## D-143 — `.mcp.json` names its servers by `${HOME}`, so the file is install-neutral: the D-141 addendum 2 claim is retired, the doctor dead-path line stays behind one shared expander, the Memory Palace scan fails closed, and PR #26 merges before the E-409 stack
 
 **Date**: 2026-11-04
@@ -4637,5 +4665,134 @@ None — acceptances and a restatement of D-138 r2.
 
 ### Rollback
 `rein ci budget set --ruling D-149 test_lines=41800` restores the previous value.
+
+---
+
+## D-150 — Rein becomes three repos: `rein` keeps the logic, `rein-app` (Rust) is the shell, `rein-plugins` is a Claude Code marketplace
+
+**Date**: 2026-11-08
+**Task**: P-50 (the release-artifact and doctor-JSON contract owed by this repo); plans handed to the `rein-app` and `rein-plugins` Architects
+**Decision**: The operator wants an installable application (brew, Windows installer) that carries the whole setup — panes, plugins, commands — and asked how hard a Rust wrapper is. Ruling: Rust is the shell, not a rewrite. The logic (bash CLI 6,671 lines, 17 Node MCP servers of about 25,000 lines, 10 hooks, the gate, 7,100 test rows) stays here and ships as a signed release artifact the app installs into the stable Rein home layout; the app owns distribution, updates, process supervision, per-profile settings in a fixed allow-list of keys, and the window. tmux stays the multiplexer through the app's phase 2; Windows runs Rein inside WSL2 (tmux and the gate are POSIX; native Windows is out of scope until the gate is ported, not decided). Specialist agents, optional skills and templates move to a plugin marketplace in groups; the gate, the role machinery and the critics never move. The shared contract is `plans/rein-ecosystem-contract.md`; the per-repo plans are `plans/rein-app-plan.md` and `plans/rein-plugins-plan.md`. A change to the contract is a D-### here and a notice to both repos.
+
+### Alternatives considered
+1. **Full Rust port of the logic** — rejected: four to six months, forks 25,000 tested lines and a POSIX security model, no user-visible gain over a shell.
+2. **Replace tmux with app-drawn panes from the start** — rejected for phases 1–2: doubles phase 2 and changes `rein pane`'s contract before the app has users; a later phase with its own ruling.
+3. **Native Windows** — rejected: the hooks and gate assume bash, file modes and POSIX tokens; the WSL2 shape (Docker Desktop, VS Code) is days, not months.
+4. **One repo for everything** — rejected: the app's release cadence (signing, installers) and the plugins' cadence are both unlike the gate's; the test harness here must keep describing the installed layout.
+
+### Constraints driving this decision
+- D-132 hard-deny (no agent weakens the gate or its settings): the app writes only `hooks` via `rein install`, `enabledPlugins`, `extraKnownMarketplaces`, `attribution`.
+- D-055 (skill names must not collide across a shared `.claude/skills/`); D-076 (legacy-mention allowlist when files leave this repo); D-117 (no operator identity in tracked files, enforced in all three repos).
+
+### Impact
+- Unlocks: the two repos' first blueprints and E-## bootstraps; P-50 here. Risk if wrong: the layout guarantee in §2.2 of the contract becomes a tax on this repo's refactors; a layout change is a major version, which is the right price.
+
+### Rollback
+Archive the two repos; this repo is unchanged by their existence until P-50 ships, and P-50's artifact is additive.
+
+---
+
+## D-151 — A skill or agent moves to `rein-plugins` as a clean cut at a `rein` minor version; there is no window in which both provision it
+
+**Date**: 2026-11-08
+**Task**: rein-plugins E-3 (group 1) and E-5 (group 2); the matching removing E-## in `rein`, registered by this Architect when each copy lands
+**Decision**: Each move group flips in one `rein` minor release. That release removes the group from what `rein sync` provisions and from the source tree, updates the D-076 legacy-mention allowlist, and is tagged the same day the marketplace publishes the group. Before the tag the marketplace copy is `copied` (installable, unadvertised); at the tag the MOVES.md row flips to `moved`. Migration aid instead of a window: `rein sync` prunes the stale provisioned copy through the sync manifest (E-220), and `rein doctor` prints one advisory line per moved unit still found in a project's `.claude/skills/` or `.claude/agents/` — `[SKILL_MOVED] <name> now ships in the rein-plugins marketplace as <bundle>:<name>; enable the plugin` — exit unchanged. Both land in the same removing E-##.
+
+### Why needed
+Claude Code namespaces plugin units as `<plugin>:<name>`, so a moved skill is invoked under a new name anyway; a transition window would leave two copies with different names and one of them stale, which is the drift the sync manifest and D-076 exist to prevent. A clean cut with a doctor line tells the operator what to enable and when.
+
+### Alternatives considered
+1. **Transition window with both provisioned** — rejected: two copies, one stale, and a name-collision rule to police it.
+2. **Marketplace first, `rein` removal whenever** — rejected: the allowlist and the sync manifest would drift for an unbounded time; the tag is the single moment both repos agree on.
+
+### Impact
+- Unlocks: rein-plugins E-3/E-5 flipping to `moved`. Risk if wrong: an operator on an old `rein` minor sees no doctor line until they update; `rein doctor` already reports the version gap.
+
+### Rollback
+Re-add the group to `rein sync` in a patch release; the marketplace copy stays installable.
+
+---
+
+## D-152 — `security_engineer`, `identity_guardian`, `scope_safety` and `trigger-audit` stay in `rein`; none moves
+
+**Date**: 2026-11-08
+**Task**: rein-plugins (what never moves)
+**Decision**: All four are gate machinery, not domain specialists: `security_engineer` is the Tier 3 reviewer `rein-review` dispatches and ENGINEER.md's mandatory trigger on auth or secrets; `identity_guardian` is the PII gate other skills name as a required gate; `scope_safety` enforces filesystem and shell scope on every operation; `trigger-audit` is the check that the mandatory dispatches happened. A reviewer that the gate depends on cannot live in an optional plugin a profile may not have enabled. Revisited only if the gate itself stops depending on one of them.
+
+### Alternatives considered
+1. **Move `identity_guardian` as part of a privacy bundle** — rejected: `seo_content_generator` and the privacy rules name it as a required gate; a required gate is not optional.
+
+### Impact
+- Unlocks: rein-plugins' "never moves" list is final for this phase. Risk if wrong: none; keeping them here costs nothing.
+
+### Rollback
+A later D-### naming the unit and the gate change that frees it.
+
+---
+
+## D-153 — P-50 contract answers for rein-app: minisign with the public key baked into the app, manifest schema 1, doctor JSON shape, accounts.json surface, and what an upgrade preserves
+
+**Date**: 2026-11-08
+**Task**: P-50 (these rulings are its decisions; the blueprint records them), rein-app E-3/E-5
+**Decision**: Answers to the rein-app Architect's five open items. They bind both repos from now; the P-50 blueprint and its E-## tasks implement the `rein` side.
+
+1. **Signature scheme: minisign.** Each release publishes `rein-X.Y.Z.tar.gz`, `rein-X.Y.Z.tar.gz.minisig` and `manifest.json` (the manifest is inside the signed tarball AND beside it; the app verifies the tarball signature, then the per-file sha256 from the manifest inside). **Trust root: the public key is baked into the app at build time.** A key rotation is therefore an app release, on purpose: the installer is the trust anchor, and an installer that fetches its own trust root verifies nothing. The manifest carries `key_id` (the minisign key id) so an app with an older key fails with one line naming the newer app it needs, never a bare signature error. Sigstore rejected: it needs network to a transparency log at install time and identity-based trust that a self-contained installer cannot pin.
+2. **manifest.json schema 1** (paths relative to the Rein home, forward slashes, no `..`):
+   `{ "schema": 1, "version": "X.Y.Z", "min_node": "22.5.0", "key_id": "<minisign key id>", "layout": { "mirrored": ["bin","hooks","mcp","shared","claude","contracts","templates","copilot","scripts","config"], "operator_owned": [see r5] }, "files": [ { "path": "bin/rein", "sha256": "<hex>", "size": 123, "mode": "0755" } ] }`.
+   `mode` is present because `install-rein.sh` marks `bin/rein` and `hooks/*.sh` executable; the app applies it rather than guessing. The app rejects an unknown `schema`, a path outside the layout, or a file in the tarball that the manifest does not list.
+3. **`rein doctor --json`** (P-50 adds it): `{ "version": "X.Y.Z", "status": "ok|warn|fail", "checks": [ { "id": "<stable snake_case id>", "status": "ok|warn|fail", "line": "<the text line doctor prints>", "fix": "<the fix line, or null>" } ] }`. Every check that prints a fix in text form has it in `fix`. Until it ships the app passes the text through verbatim and parses nothing — confirmed as the right interim.
+4. **accounts.json**: the only field the contract guarantees is `accounts.<name>.config_dir` (absolute path of that profile's Claude config directory); `default` means the default config dir and is not listed. Everything else is opaque and preserved byte-for-byte by anything that rewrites the file. P-50 publishes the schema as `docs/accounts.md` plus a JSON schema the test harness pins; until then the app's reading is correct.
+5. **What an upgrade preserves** — the rein-app assumption is corrected: `config/` is MIRRORED (replaced), with exactly two files kept: `config/rein-workspace.txt` and `config/install-stamp.json`. Operator-owned and never touched by an install: `accounts.json`, the gate's override file, `secrets/`, `run/`, `memory/`, `incidents.ndjson`, `telemetry.sqlite`, `INSIGHTS.md`, `memory-palace.md`, and inside `mcp/` the `node_modules/` directories and `package-lock.json` that `npm install` wrote (protected during the mirror). Everything else under the mirrored directories is replaced; a file in a mirrored directory that the tarball does not ship is deleted (`bin/` is pruned explicitly). `VERSION` is written after the copy, tmp-and-rename. The reference is `install-rein.sh`; the layout-equality test in rein-app E-5 compares against it on the same version, and P-50's manifest `layout.operator_owned` lists exactly these so the app reads the rule from the artifact, not from this text.
+6. **Marketplace registration** (rein-app D-002: github source, ref `stable`, `enabledPlugins` `<plugin>@rein-plugins: true`): accepted; the `stable` ref is rein-plugins' to maintain and is not part of this contract.
+
+### Alternatives considered
+1. **Sigstore keyless** — rejected (r1). 2. **Fetch the public key from the release** — rejected: a trust root fetched from the thing it verifies is not a trust root. 3. **Preserve all of `config/`** — rejected: it ships templates the install must update; only the two stamp files are the operator's.
+
+### Impact
+- Unlocks: rein-app E-3 (manifest parse), E-5 (layout writer), the verifier seam's real implementation. Risk if wrong: a key rotation forces an app update before a `rein` update installs; acceptable and visible by the `key_id` line.
+
+### Rollback
+Schema 2 with a migration note; the app refuses unknown schemas, so an old app fails closed.
+
+---
+
+## D-153 addendum — The manifest generator is a `rein` command runnable from a checkout; `layout.operator_owned` uses a gitignore-style subset
+
+**Date**: 2026-11-08
+**Task**: P-50 (both are requirements its E-## must meet), rein-app E-5
+**Decision**: Two requests from the rein-app Architect, decided now so both matchers are written to one rule.
+
+1. **The manifest generator ships as `rein release manifest <tree> [--out <dir>]`**, implemented in `src/shared/release-manifest.mjs` and callable from a checkout without an install (the release workflow and rein-app's E-5 layout-equality test both run it). It produces `manifest.json` and the tarball from a staged tree; signing is a separate step (`rein release sign`, minisign, key from `REIN_RELEASE_KEY`) so a checkout can build an unsigned artifact for tests. Test key pair convention: the harness ships a throwaway minisign key pair under `tests/fixtures/release/` whose public key is NOT the one any app bakes in; rein-app generates its own for its fixtures and never trusts ours.
+2. **`layout.operator_owned` entries use a gitignore-style subset**: a literal path; a trailing `/` meaning the directory and everything under it; `*` matching within one path segment; `**` matching across segments. No `!` negation, no character classes, no leading `/`. The list for schema 1 is: `accounts.json`, the gate's override file, `secrets/`, `run/`, `memory/`, `incidents.ndjson`, `telemetry.sqlite`, `INSIGHTS.md`, `memory-palace.md`, `config/rein-workspace.txt`, `config/install-stamp.json`, `mcp/*/node_modules/`, `mcp/*/package-lock.json`. A conformance fixture in `tests/fixtures/release/operator-owned-cases.json` (path, expected match) is published with the manifest schema so rein-app's matcher is tested against the same cases.
+
+### Impact
+- Unlocks: rein-app E-5 with no guessed syntax. Risk if wrong: none beyond the subset's size; widening it is additive.
+
+### Rollback
+None — a specification.
+
+---
+
+## D-154 — `knowledge_architect` stays in `rein` until the palace is reachable through an MCP; `seo-cluster-intents.mjs` stays in `rein` because the task synchronizer imports it
+
+**Date**: 2026-11-08
+**Task**: rein-plugins E-3 (group 1, 12 units) and E-6; the removing E-## here (registered when the copy is on rein-plugins' main)
+**Decision**:
+
+1. **`knowledge_architect` does not move in group 1.** It writes the palace file and reads the embeddings index directly, and `rein init`'s text-only seed dispatches it. Contract §4 (no plugin touches the Rein home; Rein state only through MCP servers) is not given an exception on its first test: a read exception for one agent becomes the precedent every later plugin cites. It stays in `rein` with the D-152 agents for now. The path to moving it is alternative (c): when `memory-manager-mcp` gains a palace query tool (today it exposes only the signatures store), the agent moves reading through that tool and without its maintenance write, which `memory_curator` (stays in `rein`) already owns. That MCP tool is a `rein` E-## to be planned with the next memory work, not now.
+2. **`src/shared/seo-cluster-intents.mjs` stays in `rein`.** `task-synchronizer-mcp` imports it to validate `add_cluster_page` and the topic-seed tools; it is MCP contract, not plugin data, and `tests/suites/seo_cluster_test.sh` stays as the MCP's test. The removing E-## does not remove it. The rein-seo plugin (E-6) may ship a copy of the intent list for its agents' own prompts, marked as a mirror of the `rein` version it was copied from; the MCP refuses any value outside its canonical set, so drift fails closed at the call and no cross-repo test is needed.
+3. **Plugin agents must not depend on `rein` source paths.** `seo_manager` and `seo_content_generator` abort unless two `rein` files exist; after the move they get the intent set from the MCP (its tool schema names the canonical set) and their blueprint reference from the consumer project's `.ai/blueprints/`, or they say which is missing. rein-plugins fixes that in E-3/E-6; the `rein` copies are deleted at the tag either way.
+4. **Body edits on moved units are rein-plugins' to make** from the moment of the copy, as D-151 implies: names stay invariant; bodies are not required to stay byte-identical, since the `rein` copies are deleted at the tag.
+5. **Group 1 as landing**: 12 units — rein-seo (`seo_manager`, `seo_engineer`, `seo_content_generator`, `rein-seo`, `seo_content_checklist`), rein-ux (`ux_reviewer`, `vibe_sentinel`, `chaos_monkey`, `ux_template`), rein-ops (`performance_engineer`, `devops_engineer`, `rein-profile`, `obs_baseline`). Accepted. The removing E-## here covers exactly these and the D-076 allowlist, sync prune and `[SKILL_MOVED]` doctor line of D-151.
+
+### Alternatives considered
+1. **Read-only move with a direct-read exception** — rejected (r1): the contract's first exception on its first test.
+2. **Move `seo-cluster-intents.mjs` with the plugin and have the MCP import nothing** — rejected: the MCP's validation is the thing that makes the intent set canonical.
+
+### Impact
+- Unlocks: rein-plugins E-3 commit with 12 units; the removing E-## here. Risk if wrong: `knowledge_architect` stays an unmoved specialist for one more phase; no user-visible cost.
+
+### Rollback
+Ruling 1: a later D-### when the palace MCP tool exists. Ruling 2: none.
 
 ---

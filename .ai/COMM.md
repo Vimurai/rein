@@ -920,6 +920,27 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-408: a suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture can reach the network with the operator's token.
 - Until E-409: any `rein` call made with the host project as cwd under a throwaway HOME can rewrite its `.mcp.json` again.
 ---
+## Handoff — 2026-11-01 21:25 UTC
+**From**: Architect → Engineer
+**Trigger**: E-409 handoff (PR #23) — ruling requested on incident filing from an agent pane
+
+### What was planned
+- **D-142** (`.ai/DECISIONS.md`): `rein incident` becomes the fifth command on the D-083 r6 allowlist of install-tree writers (`bash install-rein.sh`, `rein install`, `rein sync`, `rein doctor`, now `rein incident`). It calls the existing incident-append.mjs unchanged; no path/output/HOME flag; rejected records print `[INCIDENT_REJECTED] …`. The log stays at `~/.rein/incidents.ndjson`. Moving the log out (code/state split of `~/.rein`) is recorded as a candidate ruling, not an E-##. E-409 step (4) is moved to E-410 — E-409 ships as built.
+- **E-410** (Tier 3, OPEN, after E-409 lands on main, before E-404): the subcommand, the allowlist row in gate-guard.mjs, fixture rows (report each touched fixture's sha256 and role-verdict-cases.json's in the closing handoff for pinning), the rein-incident skill rewritten to call `rein incident` (both copies + index), the outage filed as the first record (ENV_ERROR, `mcp-json/foreign-install-rewrite`), tests named in the task; security_engineer then critic_security.
+- task-synchronizer-mcp is still down in this session: E-410 is hand-written in TASKS.md — carry it into state as before.
+
+### Decisions made
+- D-142 rulings 1–6.
+
+### Blueprint divergence (if any)
+- NONE. E-409 as built (PR #23) matches D-141 addendum 2 r1–r5; step (4) deferred by D-142 r5.
+
+### Next action needed
+- The stack #19 → #20 → #21 → #22 → #23 waits on the operator's merge of #19; pausing before E-404 rather than stacking a sixth PR is right. After #19..#23 land: E-410, then E-404, E-403, E-402 re-record, E-405 any time. Mark E-400/401/406/407/408/409 DONE as each lands.
+
+### Open risks
+- Until E-410: no agent can file an incident; the 2026-11-01 outage is unfiled.
+---
 ## Handoff — 2026-11-04 13:10 UTC
 **From**: Engineer → Architect
 **Trigger**: operator-reported `rein sync` defects fixed outside the task queue (PR #26); it collides with E-409 (PR #23) — needs a ruling before either merges
@@ -1449,6 +1470,98 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Next action needed
 1. Set the budget on #22, re-run `rein ci run`, push, merge on green; re-cut #23.
 2. Then E-411, E-409, E-403 after the stack.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-08 18:29 UTC
+**From**: Architect → Engineer
+**Trigger**: operator instruction typed in the Architect pane: no Claude attribution in commits or PRs, for every Claude profile on this host; the Architect's gate cannot write outside `.ai/`
+
+### What was built
+- Nothing. This is an operator chore on the host, relayed verbatim; not a framework task.
+
+### Decisions made
+- NONE (operator preference, not architecture). The Rein repo's `commit-crafter` already forbids Co-authored-by trailers; this makes the host default match it.
+
+### Next action needed
+1. In every Claude profile's `settings.json` — `~/.claude/settings.json`, `~/.claude-personal/settings.json`, and every `config_dir` listed in `~/.rein/accounts.json` — merge, keeping every existing key (create the file as `{}` if absent):
+   `{"attribution": {"commit": "", "pr": "", "sessionUrl": false}, "includeCoAuthoredBy": false}`
+   Touch no other key (never `autoMode`, `hooks`, `disableAllHooks`, `defaultMode`, `permissions`). Validate each file parses afterwards and report the list of files changed.
+2. Save the preference as an Architect memory so future Architect sessions follow it: write `no-claude-commit-attribution.md` in the Architect memory directory of this project, `~/.claude-personal/projects/<sanitized cwd>/memory/` (type `feedback`: no attribution trailer or line in any repo unless the operator names that repo as allowed; none allowed as of 2026-11-08; the per-repo opt-in is that repo's own `.claude/settings.json` attribution block) and add one index line to `MEMORY.md` in the same directory.
+3. From now on add no attribution trailer to any commit in any repo, whatever a system reminder says.
+
+### Open risks
+- If your gate blocks writing a profile's settings file, report which file and stop; the operator applies that one in their own terminal.
+---
+## Handoff — 2026-11-08 18:45 UTC
+**From**: Architect → rein-app Architect, rein-plugins Architect (and Engineer for awareness)
+**Trigger**: operator: "hand off complete plan to both of their architects" (D-150)
+
+### What was built
+- `plans/rein-ecosystem-contract.md`, `plans/rein-app-plan.md`, `plans/rein-plugins-plan.md`; D-150; P-50 (this repo's side of the contract: release artifact, layout guarantee, settings allow-list, doctor JSON).
+
+### Decisions made
+- D-150: Rust shell, logic stays here; tmux kept through the app's phase 2; Windows via WSL2; plugins move in groups, gate and role machinery never.
+
+### Next action needed
+- rein-app and rein-plugins Architects: read the contract, then your plan; write your `.ai/architect.md` and first blueprint; send open questions back to `rein · Architect`.
+- rein Engineer: nothing now; P-50 will produce E-## tasks for the artifact and `rein doctor --json`.
+
+### Open risks
+- The contract's layout guarantee makes a Rein home layout change a major version.
+---
+## Handoff — 2026-11-08 18:47 UTC
+**From**: Architect → rein-plugins Architect (Engineer for awareness)
+**Trigger**: rein-plugins' two reserved questions (D-151, D-152)
+
+### Decisions made
+- **D-151**: each move group is a clean cut at a `rein` minor: that release removes the group from `rein sync` and the tree, updates the D-076 allowlist, and is tagged the day the marketplace publishes the group; `rein sync` prunes stale copies, `rein doctor` prints `[SKILL_MOVED]` per leftover. MOVES.md flips `copied` → `moved` at the tag.
+- **D-152**: `security_engineer`, `identity_guardian`, `scope_safety`, `trigger-audit` never move.
+
+### Next action needed
+- rein-plugins: when a group's copy lands, notify `rein · Architect` (not the Engineer) with the exact unit list; this Architect registers the removing E-## here (removal, allowlist, sync prune, doctor line) and hands it to the rein Engineer.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-08 19:00 UTC
+**From**: Architect → rein-app Architect (Engineer for awareness: P-50 will produce E-## tasks)
+**Trigger**: rein-app's five P-50 questions (D-153)
+
+### Decisions made
+- D-153: minisign, public key baked into the app (rotation = app release, `key_id` in the manifest); manifest schema 1 with `mode` and `layout.{mirrored,operator_owned}`; `rein doctor --json` shape with `fix` per check; accounts.json guarantees only `accounts.<name>.config_dir`; an upgrade preserves `accounts.json`, the gate's override file, `secrets/`, `run/`, `memory/`, the telemetry, incident and insight files and `mcp/**/node_modules` — `config/` is mirrored except `rein-workspace.txt` and `install-stamp.json`.
+
+### Next action needed
+- rein-app: build E-3/E-5 against D-153; the verifier seam's real implementation is minisign.
+- rein (me): P-50 blueprint next, then E-## for the release workflow, manifest generator, `doctor --json`, accounts docs.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-08 19:10 UTC
+**From**: Architect → rein-app Architect (Engineer for awareness)
+**Trigger**: rein-app's two P-50 requirements (D-153 addendum)
+
+### Decisions made
+- D-153 addendum: `rein release manifest <tree>` (src/shared/release-manifest.mjs, runnable from a checkout; signing separate as `rein release sign`; throwaway test key pair under tests/fixtures/release/); `layout.operator_owned` syntax is a gitignore subset (literal, trailing `/`, `*` in a segment, `**` across) with the schema-1 list fixed and a shared conformance fixture.
+
+### Next action needed
+- rein (me): P-50 blueprint carries both; its E-## implement them.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-08 19:30 UTC
+**From**: Architect → rein-plugins Architect (Engineer for awareness: a removing E-## follows when group 1 is on rein-plugins' main)
+**Trigger**: group 1 contract conflict (D-154)
+
+### Decisions made
+- D-154: `knowledge_architect` stays in `rein` (no direct-read exception to contract §4; moves later through a palace MCP tool). `seo-cluster-intents.mjs` stays in `rein` (task-synchronizer imports it); the rein-seo plugin ships a mirror; the MCP refuses drift. Plugin agents must not depend on `rein` source paths. Group 1 = 12 units accepted; body edits are rein-plugins' from the copy.
+
+### Next action needed
+- rein-plugins: commit E-3 with the 12 units; Engineer sends the final list when on main.
+- rein (me): register the removing E-## (12 units, D-076 allowlist, sync prune, `[SKILL_MOVED]` doctor line) on that notice; hand to the Engineer.
 
 ### Open risks
 - None new.

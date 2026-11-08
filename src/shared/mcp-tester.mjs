@@ -31,16 +31,12 @@
 import { spawn } from "node:child_process";
 import { readFileSync, existsSync } from "node:fs";
 import { resolve, isAbsolute } from "node:path";
+// D-143 r3: one expander — mcp-paths.mjs owns `${VAR}` / `${VAR:-default}`.
+import { expandVars } from "./mcp-paths.mjs";
 
 const DEFAULT_TIMEOUT_MS = 2000;
 const DEFAULT_CONCURRENCY = 8;
 
-/** Expand ${VAR} and ${VAR:-default} against process.env (non-strings pass through). */
-export function expandVars(value) {
-  if (typeof value !== "string") return value;
-  return value.replace(/\$\{(\w+)(?::-([^}]*))?\}/g,
-    (_, name, dflt) => process.env[name] ?? dflt ?? "");
-}
 
 /**
  * Read an MCP config file and return [{ name, command, args, env }].
@@ -58,7 +54,7 @@ export function loadServerConfigs(configPath, mcpKey = "mcpServers") {
   return Object.entries(servers).map(([name, s]) => ({
     name,
     command: expandVars(s.command),
-    args: Array.isArray(s.args) ? s.args.map(expandVars) : [],
+    args: Array.isArray(s.args) ? s.args.map((a) => expandVars(a)) : [],
     env: s.env && typeof s.env === "object" ? s.env : {},
   }));
 }

@@ -4772,3 +4772,27 @@ Schema 2 with a migration note; the app refuses unknown schemas, so an old app f
 None — a specification.
 
 ---
+
+## D-154 — `knowledge_architect` stays in `rein` until the palace is reachable through an MCP; `seo-cluster-intents.mjs` stays in `rein` because the task synchronizer imports it
+
+**Date**: 2026-11-08
+**Task**: rein-plugins E-3 (group 1, 12 units) and E-6; the removing E-## here (registered when the copy is on rein-plugins' main)
+**Decision**:
+
+1. **`knowledge_architect` does not move in group 1.** It writes the palace file and reads the embeddings index directly, and `rein init`'s text-only seed dispatches it. Contract §4 (no plugin touches the Rein home; Rein state only through MCP servers) is not given an exception on its first test: a read exception for one agent becomes the precedent every later plugin cites. It stays in `rein` with the D-152 agents for now. The path to moving it is alternative (c): when `memory-manager-mcp` gains a palace query tool (today it exposes only the signatures store), the agent moves reading through that tool and without its maintenance write, which `memory_curator` (stays in `rein`) already owns. That MCP tool is a `rein` E-## to be planned with the next memory work, not now.
+2. **`src/shared/seo-cluster-intents.mjs` stays in `rein`.** `task-synchronizer-mcp` imports it to validate `add_cluster_page` and the topic-seed tools; it is MCP contract, not plugin data, and `tests/suites/seo_cluster_test.sh` stays as the MCP's test. The removing E-## does not remove it. The rein-seo plugin (E-6) may ship a copy of the intent list for its agents' own prompts, marked as a mirror of the `rein` version it was copied from; the MCP refuses any value outside its canonical set, so drift fails closed at the call and no cross-repo test is needed.
+3. **Plugin agents must not depend on `rein` source paths.** `seo_manager` and `seo_content_generator` abort unless two `rein` files exist; after the move they get the intent set from the MCP (its tool schema names the canonical set) and their blueprint reference from the consumer project's `.ai/blueprints/`, or they say which is missing. rein-plugins fixes that in E-3/E-6; the `rein` copies are deleted at the tag either way.
+4. **Body edits on moved units are rein-plugins' to make** from the moment of the copy, as D-151 implies: names stay invariant; bodies are not required to stay byte-identical, since the `rein` copies are deleted at the tag.
+5. **Group 1 as landing**: 12 units — rein-seo (`seo_manager`, `seo_engineer`, `seo_content_generator`, `rein-seo`, `seo_content_checklist`), rein-ux (`ux_reviewer`, `vibe_sentinel`, `chaos_monkey`, `ux_template`), rein-ops (`performance_engineer`, `devops_engineer`, `rein-profile`, `obs_baseline`). Accepted. The removing E-## here covers exactly these and the D-076 allowlist, sync prune and `[SKILL_MOVED]` doctor line of D-151.
+
+### Alternatives considered
+1. **Read-only move with a direct-read exception** — rejected (r1): the contract's first exception on its first test.
+2. **Move `seo-cluster-intents.mjs` with the plugin and have the MCP import nothing** — rejected: the MCP's validation is the thing that makes the intent set canonical.
+
+### Impact
+- Unlocks: rein-plugins E-3 commit with 12 units; the removing E-## here. Risk if wrong: `knowledge_architect` stays an unmoved specialist for one more phase; no user-visible cost.
+
+### Rollback
+Ruling 1: a later D-### when the palace MCP tool exists. Ruling 2: none.
+
+---

@@ -1552,3 +1552,17 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-08 19:30 UTC
+**From**: Architect → rein-plugins Architect (Engineer for awareness: a removing E-## follows when group 1 is on rein-plugins' main)
+**Trigger**: group 1 contract conflict (D-154)
+
+### Decisions made
+- D-154: `knowledge_architect` stays in `rein` (no direct-read exception to contract §4; moves later through a palace MCP tool). `seo-cluster-intents.mjs` stays in `rein` (task-synchronizer imports it); the rein-seo plugin ships a mirror; the MCP refuses drift. Plugin agents must not depend on `rein` source paths. Group 1 = 12 units accepted; body edits are rein-plugins' from the copy.
+
+### Next action needed
+- rein-plugins: commit E-3 with the 12 units; Engineer sends the final list when on main.
+- rein (me): register the removing E-## (12 units, D-076 allowlist, sync prune, `[SKILL_MOVED]` doctor line) on that notice; hand to the Engineer.
+
+### Open risks
+- None new.
+---

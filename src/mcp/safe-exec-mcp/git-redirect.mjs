@@ -32,6 +32,40 @@ function gitDirFlagged(r) {
   return false;
 }
 
+// The argument text of every `git … config …` on the line: what
+// r.matchAll(/\bgit\b[^\n;&|]*?\sconfig\b([^\n;&|]*)/gi) captured, in linear time (E-398). The
+// lazy regex retried its scan from every `git` word, quadratic in the word count (~100 ms at
+// MAX_WORDS on `git `×10k). Here the `git` words, the `\sconfig\b` starts and the separators
+// are each listed once and walked with forward-only cursors. Exactly the regex's semantics: the
+// whitespace before `config` may itself be a newline (\s), nothing between the `git` word and it
+// may be one of \n ; & |, the capture runs to the next of those, and the next `git` is looked
+// for after the capture (non-overlapping matches).
+export function configArgs(r) {
+  const gits = [...r.matchAll(/\bgit\b/gi)].map((m) => m.index);
+  const cfgs = [...r.matchAll(/\s(?=config\b)/gi)].map((m) => m.index);
+  const seps = [...r.matchAll(/[\n;&|]/g)].map((m) => m.index);
+  const out = [];
+  let gi = 0, ci = 0, si = 0, from = 0;
+  while (gi < gits.length) {
+    const g = gits[gi++];
+    if (g < from) continue;
+    const gEnd = g + 3;
+    while (si < seps.length && seps[si] < gEnd) si++;
+    const segEnd = si < seps.length ? seps[si] : r.length;   // the lazy run may not cross it…
+    while (ci < cfgs.length && cfgs[ci] < gEnd) ci++;
+    if (ci >= cfgs.length) break;                            // no `config` after any later git either
+    const s = cfgs[ci];
+    if (s > segEnd) continue;                                // …but the \s may BE it (a newline)
+    const argStart = s + 7;                                  // \s + "config"
+    let k = si;
+    while (k < seps.length && seps[k] < argStart) k++;
+    const argEnd = k < seps.length ? seps[k] : r.length;
+    out.push(r.slice(argStart, argEnd));
+    from = argEnd;
+  }
+  return out;
+}
+
 export function gitRedirectHits(raw) {
   const r = String(raw ?? "").replace(/["'\\]/g, "");
   if (!/(^|[^A-Za-z0-9_.-])git(\s|$)/.test(r)) return [];
@@ -45,11 +79,8 @@ export function gitRedirectHits(raw) {
   const viaEnv = [...r.matchAll(/(^|[\s;&|(])(export\s+)?GIT_CONFIG_(PARAMETERS|KEY_[0-9]+)=([^\s;&|]*)/gi)]
     .some((m) => HOOKS_KEY.test(m[4]));
   // git [global options] config [scope flags] core.hooksPath <value> — unless it only reads it.
-  let viaConfig = false;
-  for (const m of r.matchAll(/\bgit\b[^\n;&|]*?\sconfig\b([^\n;&|]*)/gi)) {
-    const args = m[1];
-    if (HOOKS_KEY.test(args) && !/(^|\s)(--get|--get-all|--get-regexp|-l|--list)(\s|$)/.test(args)) viaConfig = true;
-  }
+  const viaConfig = configArgs(r).some((args) =>
+    HOOKS_KEY.test(args) && !/(^|\s)(--get|--get-all|--get-regexp|-l|--list)(\s|$)/.test(args));
   if (viaFlag || viaEnv || viaConfig) {
     hits.push({ id: "ARCH_GIT_HOOKS_PATH",
       message: "setting core.hooksPath is a forbidden Architect operation — a hooks directory is code git executes, whatever its path" });

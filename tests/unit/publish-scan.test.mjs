@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync as _read, rmSync, syml
 import { tmpdir } from "node:os";
 import { dirname as _dirname, join, resolve as _resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ALLOWABLE_FILES, CLASSES, EXEMPT_FILES, checkAllow, decodedView, doctorLine, exportFiles, identityProblem, isExported, loadScanConfig, precommitProblems, scanFiles, scanText, treeGateProblems, treeProblems } from "../../src/shared/publish-scan.mjs";
+import { ALLOWABLE_FILES, CLASSES, EXEMPT_FILES, checkAllow, decodedView, doctorLine, exportFiles, identityProblem, isExported, loadScanConfig, loginAdvisory, precommitProblems, scanFiles, scanText, treeGateProblems, treeProblems } from "../../src/shared/publish-scan.mjs";
 
 const classes = (text, opts) => scanText(text, opts).map((h) => h.class);
 
@@ -53,6 +53,26 @@ test("E-364: a client name is found only when the operator's local list names it
   assert.deepEqual(classes("contosoportal", { clientNames: ["contoso"] }), [], "whole words only");
 });
 
+// E-414 / D-145 addendum 6 (extends the row above): client names are built like operator names —
+// Unicode letter/digit boundaries (ASCII \b never matched a name starting or ending with a
+// non-ASCII letter), any whitespace run for a space, the non-breaking hyphen for a hyphen.
+test("E-414: a client name starting or ending with a non-ASCII letter is found", () => {
+  assert.deepEqual(classes("signed for Ñandú SA today", { clientNames: ["Ñandú SA"] }), ["client_name"]);
+  assert.deepEqual(classes("the Øresund build", { clientNames: ["Øresund"] }), ["client_name"]);
+  assert.deepEqual(classes("Ñandúes", { clientNames: ["Ñandú"] }), [], "still whole words only");
+});
+test("E-414: a client name's space matches any whitespace run, NBSP included", () => {
+  assert.deepEqual(classes("for Acme Corp and", { clientNames: ["Acme Corp"] }), ["client_name"]);
+  assert.deepEqual(classes("for Acme   Corp and", { clientNames: ["Acme Corp"] }), ["client_name"]);
+});
+test("E-414: a list entry's edge spaces and a backslash-hyphen do not break its pattern", () => {
+  assert.deepEqual(classes("x Acme here", { clientNames: [" Acme "] }), ["client_name"], "edge spaces trimmed");
+  assert.deepEqual(classes("by A\\-B", { clientNames: ["A\\-B"] }), ["client_name"], "no broken pattern");
+});
+test("E-414: a client name's hyphen matches the non-breaking hyphen", () => {
+  assert.deepEqual(classes("see Contoso‑Portal", { clientNames: ["contoso-portal"] }), ["client_name"]);
+});
+
 test("E-364: an allow-listed address passes; findings carry their line", () => {
   assert.deepEqual(classes("releases@vendor.io", { allowEmails: ["releases@vendor.io"] }), []);
   assert.deepEqual(scanText("ok\ncd /home/carol"), [{ class: "home_path", match: "/home/carol", line: 2 }]);
@@ -63,14 +83,27 @@ test("E-364: every class is reachable (the scanner cannot pass empty)", () => {
   assert.deepEqual([...seen].sort(), [...CLASSES].sort());
 });
 
-test("E-364: scanFiles reports per file and skips binaries", () => {
+// D-145 r1 changed this row: binary is decided once, in blobText — a binary's printable runs are
+// scanned (as the gate path always did), not skipped, so b.bin's `/home/eve` run is a hit now.
+test("E-364: scanFiles reports per file; a binary is scanned by its printable runs", () => {
   const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-"));
   try {
     mkdirSync(join(root, ".ai"));
     writeFileSync(join(root, "a.md"), "see /home/dave/x\n");
     writeFileSync(join(root, "b.bin"), "\u0000/home/eve");
-    assert.deepEqual(scanFiles(root, ["a.md", "b.bin", "missing.txt"], { clientNames: [] }).map((h) => [h.file, h.class]), [["a.md", "home_path"]]);
+    assert.deepEqual(scanFiles(root, ["a.md", "b.bin", "missing.txt"], { clientNames: [] }).map((h) => [h.file, h.class]), [["a.md", "home_path"], ["b.bin", "home_path"]]);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+// D-145 r1 (extends the E-364 row above): a UTF-16 file carrying U+0000 is text, not binary — the NUL
+// is dropped (not a separator) and the file is scanned. On origin/main it was skipped whole.
+test("a UTF-16LE file with a NUL is scanned, the NUL dropped", (t) => {
+  const root = publicRepo(t);
+  const u16 = (s) => Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(s, "utf16le")]);
+  const read = (m) => ({ files: Object.keys(m), read: (f) => m[f], author: PUB_ID, committer: PUB_ID });
+  assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Quill\u0000\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:1"]);
+  // E-413: the line of a NUL file's hit is where it first matches in its joined views.
+  assert.deepEqual(precommitProblems(root, read({ "w.txt": u16("Ada Qu\u0000ill\n") })), ["[PUBLISH_SCAN_HIT] operator_name w.txt:1"], "joined in the NUL-removed view (E-414: line within its view)");
 });
 
 test("E-365: without .ai/publish-scan.local.json a tree scan FAILS CLOSED; with it the names are checked", () => {
@@ -184,7 +217,9 @@ test("E-372: the operator list and its allow block fail closed", () => {
       assert.match(doctorLine(join(root, ".ai")), /^\[SCAN_LIST_MISSING\] .* names no operator value$/);
     }
     writeFileSync(join(root, ".ai", "publish-scan.local.json"), '{"operator_names": ["Ada Quill"');
-    assert.equal(doctorLine(join(root, ".ai")), `[SCAN_CONFIG_UNREADABLE] ${join(root, ".ai", "publish-scan.local.json")} is not valid JSON`, "the file's text is never echoed");
+    // E-414 / D-145 addendum 5 changed this row: the line names the project-relative path — the
+    // absolute one carries the login whenever the project sits under HOME.
+    assert.equal(doctorLine(join(root, ".ai")), "[SCAN_CONFIG_UNREADABLE] .ai/publish-scan.local.json is not valid JSON", "the file's text is never echoed");
     write({ client_names: ["Fabrikam", "Contoso"], operator_names: ["Ada Quill"], allow: { "ada quill": ["NOTICE"] } });
     assert.equal(doctorLine(join(root, ".ai")), "[PUBLISH_SCAN_OK] classes=5 lists=client:2,operator:1");
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -370,6 +405,7 @@ test("E-378 P1-7/P2-9: paths, UTF-16, binaries' printable runs and encoded value
   const files = { "docs/Fabrikam-notes.md": "clean", "a.txt": utf16, "b.bin": bin,
     "c.json": '{"by": "Ada\\u0020Quill"}', "d.html": "Ada&#32;Quill", "e.txt": "x%2Fho" + "me%2Fcarol%2Fy" };
   const p = precommitProblems(root, { ...staged(files), author: PUB_ID, committer: PUB_ID }).sort();
+  // E-413 / D-145 addendum 4: the separator view is NUL → space, so b.bin's hit stays on line 1.
   assert.deepEqual(p, ["[PUBLISH_SCAN_HIT] client_name b.bin:1", "[PUBLISH_SCAN_HIT] client_name docs/Fabrikam-notes.md:path",
     "[PUBLISH_SCAN_HIT] home_path e.txt:1", "[PUBLISH_SCAN_HIT] operator_name a.txt:1", "[PUBLISH_SCAN_HIT] operator_name c.json:1",
     "[PUBLISH_SCAN_HIT] operator_name d.html:1"]);
@@ -493,4 +529,200 @@ test("E-370: README and CONTRIBUTING state the licence and the DCO", () => {
 test("decodedView decodes each HTML entity once, and the \\u and % layers beneath it", () => {
   assert.equal(decodedView("&amp;lt; &#38;lt; &amp;#64;"), "&lt; &lt; &#64;");
   assert.equal(decodedView("&lt;&gt;&quot;&amp; &#64; &#x40; &#X40; %40 \\u0040 %26lt;"), '<>"& @ @ @ @ @ <');
+});
+
+// E-398 / D-144 addendum (extends the scanFiles skip test at the top, "missing.txt"): the read
+// guard skips only a file that is gone (ENOENT/ENOTDIR) or a reader's null; any other read error
+// propagates, so the gate's catch-all turns it into a block instead of a silently unscanned file.
+test("scanFiles skips only a gone file or a null read; any other read error propagates", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-guard-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const err = (code) => Object.assign(new Error(`${code}: simulated`), { code });
+  const reader = (bad) => ({ clientNames: [], read: (f) => { if (f === "x.md") throw bad; return f === "n.md" ? null : "/home/somebody/x\n"; } });
+  for (const code of ["ENOENT", "ENOTDIR"])
+    assert.deepEqual(scanFiles(root, ["x.md", "n.md", "a.md"], reader(err(code))).map((h) => h.file), ["a.md"], code);
+  assert.throws(() => scanFiles(root, ["x.md", "a.md"], reader(err("EACCES"))), /EACCES: simulated/);
+  assert.throws(() => scanFiles(root, ["x.md"], reader(new RangeError("Invalid code point 1114112"))), /RangeError/);
+});
+
+// E-398 / D-144 r1 (extends the decodedView test above): a numeric entity outside 0..0x10FFFF — decimal, hex, or
+// a digit run that overflows to Infinity — stays literal beside a decoded neighbour; no RangeError.
+test("decodedView leaves an out-of-range numeric entity literal and never throws", () => {
+  const big = "&#1114112; &#x110000; &#" + "9".repeat(400) + "; &#x" + "F".repeat(300) + ";";
+  assert.equal(decodedView(`&#64; ${big} &#x10FFFF;`), `@ ${big} \u{10FFFF}`);
+});
+
+// E-398 / D-144 r1–r2 (extends the E-378 precommit CLI test): a staged file that names the entity
+// commits with zero hits; and the CLI's catch-all is the fail-closed seam — a scan that throws (here:
+// git cannot read the index, the root is no repository) is a [PUBLISH_GATE] reason and a block.
+// The throw never reached that catch-all: scanFiles' read guard skipped the file's whole decoded
+// pass, so the literal beside an entity-encoded name hid the name (fail open, found 2026-11-04).
+test("precommit: a file naming the undecodable entity passes; a throwing scan is blocked with a reason", (t) => {
+  const root = publicRepo(t);
+  const run = () => { try { return { rc: 0, out: execFileSync(process.execPath, [join(REPO, "src/shared/publish-scan.mjs"), "precommit", root], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }), err: "" }; }
+    catch (e) { return { rc: e.status, out: String(e.stdout), err: String(e.stderr) }; } };
+  let r = run();
+  assert.equal(r.rc, 1, "no repository: the scan throws");
+  assert.match(r.err, /^\[PUBLISH_GATE\] \S/m);
+  assert.match(r.err, /\[COMMIT_BLOCKED\] privacy gate: 1 finding/);
+  const g = (...a) => execFileSync("git", ["-C", root, ...a], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  g("init", "-q"); g("config", "user.name", PUBLIC.name); g("config", "user.email", PUBLIC.email);
+  writeFileSync(join(root, "SECURITY.md"), "decodedView(\"&#1114112;\") used to throw RangeError\n"); g("add", "SECURITY.md");
+  r = run();
+  assert.equal(r.rc, 0, r.err);
+  assert.match(r.out, /^\[PRIVACY_GATE_OK\] files=1$/m);
+  assert.ok(!/RangeError|Invalid code point/.test(r.err), r.err);
+  writeFileSync(join(root, "notes.md"), "&#1114112; by Ada&#32;Quill\n"); g("add", "notes.md");
+  r = run();
+  assert.equal(r.rc, 1, "the literal no longer hides an entity-encoded name beside it");
+  assert.match(r.err, /\[PUBLISH_SCAN_HIT\] operator_name notes\.md:1/);
+  g("reset", "-q", "notes.md");
+  // D-144 addendum 3: a staged gitlink (submodule pointer, mode 160000) is not content — it is
+  // dropped from the listing and the commit passes, though `git cat-file -p :sub` cannot read it.
+  g("update-index", "--add", "--cacheinfo", "160000,1111111111111111111111111111111111111111,sub");
+  r = run();
+  assert.equal(r.rc, 0, r.err);
+  assert.match(r.out, /^\[PRIVACY_GATE_OK\] files=2$/m, "SECURITY.md scanned; the gitlink listed for its path, its content not read");
+  // security_engineer E-398 (P1): a gitlink's PATH is still checked — only its content read is skipped.
+  g("update-index", "--add", "--cacheinfo", "160000,1111111111111111111111111111111111111111,Fabrikam-portal");
+  r = run();
+  assert.equal(r.rc, 1, "a client name in a gitlink path is a hit");
+  assert.match(r.err, /\[PUBLISH_SCAN_HIT\] client_name Fabrikam-portal:path/);
+  g("update-index", "--force-remove", "Fabrikam-portal");
+  // security_engineer E-398 (P1): `0:notes.md` is read as that path (`:0:<path>`), not as stage 0 of
+  // `notes.md` — with or without a decoy `notes.md` beside it.
+  writeFileSync(join(root, "0:notes.md"), "Fabrikam\n"); g("add", "--", "0:notes.md");
+  r = run();
+  assert.equal(r.rc, 1, "a stage-spec-shaped name is still scanned");
+  assert.match(r.err, /\[PUBLISH_SCAN_HIT\] client_name 0:notes\.md:1/);
+  writeFileSync(join(root, "notes.md"), "decoy\n"); g("add", "notes.md");
+  r = run();
+  assert.match(r.err, /\[PUBLISH_SCAN_HIT\] client_name 0:notes\.md:1/, "the decoy is not scanned in its place");
+  g("rm", "-q", "--cached", "--", "0:notes.md", "notes.md");
+  // D-144 addendum 2: a listed path whose blob git cannot read is blocked, never skipped — a
+  // regular-file entry naming a blob that is not in the repository ("Not a valid object name").
+  g("update-index", "--add", "--cacheinfo", "100644,2222222222222222222222222222222222222222,lost.md");
+  r = run();
+  assert.equal(r.rc, 1, "an unreadable listed blob blocks");
+  assert.match(r.err, /^\[PUBLISH_GATE\] \S/m);
+  assert.match(r.err, /\[COMMIT_BLOCKED\] privacy gate: 1 finding/);
+});
+
+// D-144 addendum 2 (extends the scanFiles read-guard row): at the gate's reader, an absent path
+// (ENOENT, or git's "does not exist" / "exists on disk, but not in") or a null read is a skip; any
+// other read error propagates out of precommitProblems to the CLI's catch-all.
+test("the gate's reader skips only an absent path or a null read", (t) => {
+  const root = publicRepo(t);
+  const gitErr = (msg) => Object.assign(new Error("Command failed: git cat-file"), { status: 128, stderr: Buffer.from(`fatal: ${msg}\n`) });
+  const id = { author: PUB_ID, committer: PUB_ID };
+  const reading = (bad) => ({ files: ["x.md", "a.md"], read: (f) => { if (f === "x.md") throw bad; return "fine\n"; } });
+  for (const bad of [Object.assign(new Error("gone"), { code: "ENOENT" }),
+    gitErr("path 'x.md' does not exist (neither on disk nor in the index)"),
+    gitErr("path 'x.md' exists on disk, but not in 'HEAD'")])
+    assert.deepEqual(precommitProblems(root, { ...reading(bad), ...id }), [], String(bad.stderr ?? bad.code));
+  assert.deepEqual(precommitProblems(root, { files: ["x.md"], read: () => null, ...id }), []);
+  assert.throws(() => precommitProblems(root, { ...reading(gitErr("Not a valid object name :x.md")), ...id }), /Command failed/);
+  // security_engineer E-398: the absent line must name THIS path, alone — text a file name could spell is not enough.
+  assert.throws(() => precommitProblems(root, { ...reading(gitErr("Not a valid object name :0:q fatal: path 'q' does not exist (neither on disk nor in the index)")), ...id }), /Command failed/);
+  assert.throws(() => precommitProblems(root, { ...reading(gitErr("path 'other.md' does not exist (neither on disk nor in the index)")), ...id }), /Command failed/);
+  assert.throws(() => precommitProblems(root, { ...reading(Object.assign(new Error("denied"), { code: "EACCES" })), ...id }), /denied/);
+});
+
+// E-413 / D-145 addenda 2–3 (extends the E-364 and D-145 r1 UTF-16 rows above): a decode carrying
+// U+0000 — UTF-8 or UTF-16 — is scanned as two views (NUL as a line break, NUL removed); the old
+// printable-runs-of-six view is gone; an odd-length byte-order-mark buffer decodes its even prefix;
+// in those views only the literal classes run (no tilde-login shape: a byte accident there).
+function nulRepo(t) {
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-nul-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".ai"));
+  writeFileSync(join(root, ".ai", "publish.json"), JSON.stringify({ author: PUBLIC }));
+  writeFileSync(join(root, ".ai", "publish-scan.local.json"), JSON.stringify({ client_names: ["Acme"], operator_names: ["Jo Müller"] }));
+  return (name, bytes) => precommitProblems(root, { files: [name], read: () => bytes, author: PUB_ID, committer: PUB_ID });
+}
+const u8 = (s) => Buffer.from(s, "utf8");
+test("E-413: a NUL-bearing UTF-8 blob is scanned whole — short, tab-delimited, non-ASCII, NUL-split and NUL-terminated names hit", (t) => {
+  const scan = nulRepo(t);
+  for (const [label, bytes, cls] of [
+    ["a short name on its own line after a NUL", u8("x\u0000\nAcme\n"), "client_name"],
+    ["a name between a NUL and a tab", u8("a\u0000\tAcme\t1"), "client_name"],
+    ["a non-ASCII name after a NUL", u8("x\u0000 contact Jo Müller\n"), "operator_name"],
+    ["a name split by a NUL", u8("Ac\u0000me\n"), "client_name"],
+    ["a NUL-terminated string table: the name, then NUL and a letter", u8("Acme\u0000x\u0000"), "client_name"]]) {
+    const p = scan("b.bin", bytes);
+    assert.equal(p.length, 1, `${label}: ${JSON.stringify(p)}`);
+    assert.match(p[0], new RegExp(`^\\[PUBLISH_SCAN_HIT\\] ${cls} b\\.bin:`), label);
+  }
+});
+test("E-413: an odd-length byte-order-mark file decodes its even prefix and its name hits", (t) => {
+  const scan = nulRepo(t);
+  const be = Buffer.from(Buffer.from("Acme\n", "utf16le")).swap16();
+  for (const bytes of [Buffer.concat([Buffer.from([0xfe, 0xff]), be, Buffer.from([0x41])]),
+    Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from("Acme\n", "utf16le"), Buffer.from([0x41])])])
+    assert.deepEqual(scan("w.txt", bytes).map((x) => x.replace(/:\d+$/, "")), ["[PUBLISH_SCAN_HIT] client_name w.txt"]);
+});
+test("E-413 / D-145 addendum 3: in a NUL blob's views the tilde shapes are off, every literal class still runs", (t) => {
+  const scan = nulRepo(t);
+  assert.deepEqual(scan("g.wasm", u8("\u0000x\f~ab/c\u0000")), [], "form feed + tilde + a letter is a byte accident");
+  assert.deepEqual(scan("g.wasm", u8("\u0000x\f~ab/c /home/carol/src\u0000")).map((x) => x.replace(/:\d+$/, "")),
+    ["[PUBLISH_SCAN_HIT] home_path g.wasm"], "a literal home path still hits");
+  assert.deepEqual(scan("g.wasm", u8("\u0000 ~Jo Müller/x\u0000")).map((x) => x.replace(/:\d+$/, "")),
+    ["[PUBLISH_SCAN_HIT] operator_name g.wasm"], "an operator name after a tilde still hits");
+  assert.deepEqual(scan("n.md", u8("cd ~carol/src\n")), ["[PUBLISH_SCAN_HIT] home_path n.md:1"], "NUL-free text keeps the tilde-login rule");
+});
+
+// D-145 addendum 4 r1–r3 (extends the E-413 rows above): the separator view is NUL → space, so two
+// NUL-separated fields read as the phrase they are; hits fold per (class, value), so two distinct
+// addresses are both listed; rein doctor's login advisory never prints the login.
+test("D-145 addendum 4: a two-field name hits; two distinct addresses are both listed", (t) => {
+  const root = publicRepo(t);
+  const run = (bytes) => precommitProblems(root, { files: ["b.bin"], read: () => bytes, author: PUB_ID, committer: PUB_ID });
+  assert.deepEqual(run(Buffer.from("x\u0000Ada\u0000Quill\u0000y", "utf8")).map((x) => x.replace(/:\d+$/, "")), ["[PUBLISH_SCAN_HIT] operator_name b.bin"]);
+  const two = run(Buffer.from("\u0000jo.rand@zentrocorp.io\u0000li.kas@nordwerk.de\u0000", "utf8"));
+  assert.equal(two.filter((x) => x.includes("personal_email")).length, 2, JSON.stringify(two));
+});
+test("D-145 addendum 4 r3: the login advisory prints only for an unlisted real login, and never the login", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-login-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const ai = join(root, ".ai");
+  mkdirSync(ai);
+  assert.equal(loginAdvisory(ai, "/home/qzlogin"), "", "no local list (a clone) → silent");
+  writeFileSync(join(ai, "publish-scan.local.json"), JSON.stringify({ client_names: ["Fabrikam"], operator_names: ["Ada Quill"] }));
+  const line = loginAdvisory(ai, "/home/qzlogin");
+  assert.match(line, /^\[SCAN_LOGIN_UNLISTED\] /);
+  assert.ok(!line.toLowerCase().includes("qzlogin"), "never prints the login");
+  assert.equal(loginAdvisory(ai, "/home/runner"), "", "a placeholder login → silent");
+  writeFileSync(join(ai, "publish-scan.local.json"), JSON.stringify({ client_names: ["Fabrikam"], operator_names: ["Ada Quill", "QZLogin"] }));
+  assert.equal(loginAdvisory(ai, "/home/qzlogin"), "", "a listed login (any case) → silent");
+});
+
+// security_engineer on the E-413 delta (extends the E-378 P1-5 sixth-class row): in a NUL-bearing
+// blob the fake-token mark is not honoured — NUL → space put a distant mark on the token's "line".
+test("a NUL-bearing blob: a real token is a secret even with the fake-token mark nearby", (t) => {
+  const root = publicRepo(t, { operatorList: false });
+  const tok = "gh" + "p_" + "A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8";
+  const read = (s) => ({ files: ["u.bin"], read: () => Buffer.from(s, "utf8"), author: PUB_ID, committer: PUB_ID });
+  const mark = "privacy:allow" + "-fake-token";
+  assert.ok(precommitProblems(root, read(mark + "\u0000" + "x\u0000".repeat(50) + tok + "\u0000")).some((p) => p.includes("secret u.bin")));
+  assert.ok(precommitProblems(root, read(mark + " " + tok + "\u0000")).some((p) => p.includes("secret u.bin")), "even on the same line");
+});
+
+// E-414 / D-145 addendum 4 r4 (extends the E-413 rows above): a buffer that is not valid UTF-8 also
+// gets its Windows-1252 decode through the same views; valid UTF-8 and UTF-16 are unchanged.
+test("E-414: Latin-1 text, a UTF-16 run in a binary and a mixed buffer hit; valid UTF-8 hits once", (t) => {
+  const root = mkdtempSync(join(tmpdir(), "rein-t-pscan-l1-"));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  mkdirSync(join(root, ".ai"));
+  writeFileSync(join(root, ".ai", "publish.json"), JSON.stringify({ author: PUBLIC }));
+  writeFileSync(join(root, ".ai", "publish-scan.local.json"), JSON.stringify({ client_names: ["Acme"], operator_names: ["Jo Müller"] }));
+  const scan = (bytes) => precommitProblems(root, { files: ["f.dat"], read: () => bytes, author: PUB_ID, committer: PUB_ID });
+  const l1 = (s) => Buffer.from(s, "latin1");
+  assert.deepEqual(scan(l1("contact: Jo Müller\n")), ["[PUBLISH_SCAN_HIT] operator_name f.dat:1"], "a Latin-1 text file");
+  assert.deepEqual(scan(Buffer.concat([Buffer.alloc(600, 1), Buffer.from("Jo Müller", "utf16le"), Buffer.from([0, 0])])).map((x) => x.replace(/:\d+$/, "")),
+    ["[PUBLISH_SCAN_HIT] operator_name f.dat"], "a UTF-16LE run inside a NUL-bearing binary");
+  assert.deepEqual(scan(Buffer.concat([Buffer.from("café ok\n", "utf8"), l1("by Jo Müller\n")])).map((x) => x.replace(/:\d+$/, "")),
+    ["[PUBLISH_SCAN_HIT] operator_name f.dat"], "valid UTF-8 beside a Latin-1 name");
+  assert.deepEqual(scan(Buffer.from("by Jo Müller\n", "utf8")), ["[PUBLISH_SCAN_HIT] operator_name f.dat:1"], "valid UTF-8: once, not twice");
+  assert.deepEqual(scan(l1("cd ~carolx/src é\xff\n")).map((x) => x.replace(/:\d+$/, "")), ["[PUBLISH_SCAN_HIT] home_path f.dat"],
+    "a NUL-free Latin-1 text keeps the tilde-login form (D-145 addendum 4 r4)");
 });

@@ -699,6 +699,63 @@ Context (not gate surface): `record-store.mjs` CLAIM_EMAIL_RE class is set-ident
 `publish-scan.mjs` decodedView now decodes HTML entities in one pass (intended: `&amp;lt;` → `&lt;`).
 Pre-existing, unchanged: `decodedView("&#1114112;")` throws RangeError (old code too) — follow-up candidate.
 
+**Closed by E-398 (D-144), 2026-11-04.**
+- *decodedView* — the location was the privacy gate (`src/shared/publish-scan.mjs`, run by the
+  pre-commit hook), not safe-exec. The throw never reached the CLI's fail-closed catch-all:
+  `scanFiles`' read guard (`catch { continue; }`) skipped the file's whole decoded pass, so the
+  literal beside an entity-encoded name or address hid it (fail OPEN). Now a numeric entity outside
+  0..0x10FFFF (decimal, hex, or overflowing to Infinity) stays literal and `decodedView` never throws.
+  Rows in `tests/unit/publish-scan.test.mjs`: the literal unchanged beside a decoded neighbour; a
+  staged file naming it commits with zero hits; the same literal beside `Ada&#32;Quill` is a hit;
+  a throwing scan (no repository) is `[PUBLISH_GATE] …` + `[COMMIT_BLOCKED]`. Both entity rows fail
+  on the old code.
+- *The gate's skips (D-144 addenda 1–2)* — invariant: a file the gate was asked to scan is scanned
+  or the commit is blocked. `scanFiles`' guard skips only ENOENT/ENOTDIR (or a null read);
+  `_gateScan`'s reader returns null only for a genuinely absent path (ENOENT/ENOTDIR, or git's
+  "does not exist" / "exists on disk, but not in"); every other read error — e.g. a staged blob
+  `git cat-file` cannot read — propagates to the CLI's catch-all and blocks. Both used to swallow
+  every error into a silent skip. A gitlink (mode 160000, a submodule pointer) is an object id, not
+  content: it is dropped from both listings (precommit and scan-tree) by the index's modes, so a
+  repository with submodules is not falsely blocked (D-144 addendum 3). Rows: the scanFiles guard;
+  the gate's reader; through the precommit CLI, a staged gitlink passes and a regular-file entry
+  naming a missing blob ("Not a valid object name") blocks.
+- *security_engineer pass 1: SEC_BLOCKED → fixed, pass 2: SEC_CLEARED (2026-11-04).* Fixed: a gitlink
+  stays LISTED (its path is name-checked; only its content read is null — dropping it hid
+  `Fabrikam-portal`); readers address `:0:<path>` (`0:notes.md` was read as stage 0 of `notes.md`);
+  `_absentPath` accepts only git's single exact line naming the file. `_blob` captures git's stderr.
+- *D-145 r1:* binary is decided once, in `blobText`; its UTF-16 branches drop U+0000 (not a
+  separator), and `scanFiles`' post-decode NUL skip is gone (`FF FE` + utf16le("…\u0000") was skipped
+  whole). `scanFiles`' default reader goes through `blobText` too, so a NUL-bearing binary is scanned
+  by its printable runs (E-364's row changed to say so).
+- *D-145 r2:* `verb-fold.mjs` — `runAnalysis` lowers every word that is a gate verb (after quote and
+  backslash removal, or the basename of a path to one) before any rule runs; operands keep their case
+  (`cp a .AI/x` still blocks for the Architect). `GIT config core.hooksPath x`, `/usr/bin/GIT -c …`,
+  `"Git" …`, `RM -rf /`, `/bin/RM -rf ~` now block; new rows in operand-scope-cases.json and
+  block-rules-cases.json (unpinned); arch-write, role-verdict and gate-self-disable tables unchanged.
+- *security_engineer pass 3: SEC_BLOCKED (P0, the first fold).* It rebuilt a verb word without its
+  quotes, so later quotes re-paired and `echo "a RM" ; rm -rf "/"` PASSED for every role (810 lost
+  findings over 48,654 differential pairs). Fixed: the fold lowers A–Z in place and never adds or
+  removes a byte (length invariant, tested); segments on `{ } , = :` (`{BASH,}`, `${X:-BASH}`,
+  `--command='MKDIR`), decodes `$'` for the decision, folds a verb glued to a one-letter option
+  (`env -S'RM …'`, the option letter keeps its case — D-145 addendum 2); VERBS + runuser, watch,
+  script, node[0-9]+. Guards in operand-scope.test.mjs: the byte invariant; every table row behind
+  `echo "a RM" ; ` / `echo 'a GIT' && ` keeps its findings; a generated differential — every BLOCK
+  row with each of its verbs upper-cased in place keeps exactly its findings (407 variants). Each
+  guard fails on the first cut or with the fold disabled. NUL handling in blobText's UTF-8 branch and
+  the odd-length BOM are E-413.
+- *viaConfig* — rewritten as `configArgs()`, one forward pass with the regex's exact semantics:
+  400k-case differential fuzz (git/config tokens, 15 whitespace kinds incl. `\n` as the `\s`,
+  separators) 0 mismatches, 20,281 positives; at MAX_WORDS (`git `×9999) 103 ms → ~3 ms. Row with a
+  250 ms ceiling in `tests/unit/operand-scope.test.mjs`.
+- *Recorded bound (not linear):* the whole `runAnalysis` on `git `×9999, the 10000-word cap. Ceiling
+  row: fails above 1000 ms at the cap, both roles. The cost is the parser, not Rein's rules (D-144
+  addendum 4). Measured 2026-11-06, same host, same commit, median / max of 7:
+  `shell-quote` 1.8.3 — Architect 543 / 571 ms, Engineer 131 / 136 ms;
+  `shell-quote` 1.12.0 — Architect 21 / 42 ms, Engineer 4 / 7 ms.
+  The bound holds on `shell-quote` 1.12.0 or later (pinned in `src/mcp/safe-exec-mcp/package.json`).
+  On 1.8.3 the Architect case sits about half the ceiling and failed it under coverage and concurrent
+  lanes; a downgrade or a parser regression is named by the row, not rediscovered.
+
 ## E-407 / D-141 addendum — `[BRANCH_CLEANUP_OFF]` gh probe in `rein ci hosted --check` (security_engineer, 2026-11-01)
 
 Verdict: **SEC_CLEARED (PASS)**, with three P2 follow-ups. Reviewed the uncommitted diff to `src/shared/hosted-ci.mjs`

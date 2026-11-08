@@ -1494,3 +1494,20 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - If your gate blocks writing a profile's settings file, report which file and stop; the operator applies that one in their own terminal.
 ---
+## Handoff — 2026-11-08 18:45 UTC
+**From**: Architect → rein-app Architect, rein-plugins Architect (and Engineer for awareness)
+**Trigger**: operator: "hand off complete plan to both of their architects" (D-150)
+
+### What was built
+- `plans/rein-ecosystem-contract.md`, `plans/rein-app-plan.md`, `plans/rein-plugins-plan.md`; D-150; P-50 (this repo's side of the contract: release artifact, layout guarantee, settings allow-list, doctor JSON).
+
+### Decisions made
+- D-150: Rust shell, logic stays here; tmux kept through the app's phase 2; Windows via WSL2; plugins move in groups, gate and role machinery never.
+
+### Next action needed
+- rein-app and rein-plugins Architects: read the contract, then your plan; write your `.ai/architect.md` and first blueprint; send open questions back to `rein · Architect`.
+- rein Engineer: nothing now; P-50 will produce E-## tasks for the artifact and `rein doctor --json`.
+
+### Open risks
+- The contract's layout guarantee makes a Rein home layout change a major version.
+---

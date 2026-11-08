@@ -4667,3 +4667,27 @@ None — acceptances and a restatement of D-138 r2.
 `rein ci budget set --ruling D-149 test_lines=41800` restores the previous value.
 
 ---
+
+## D-150 — Rein becomes three repos: `rein` keeps the logic, `rein-app` (Rust) is the shell, `rein-plugins` is a Claude Code marketplace
+
+**Date**: 2026-11-08
+**Task**: P-50 (the release-artifact and doctor-JSON contract owed by this repo); plans handed to the `rein-app` and `rein-plugins` Architects
+**Decision**: The operator wants an installable application (brew, Windows installer) that carries the whole setup — panes, plugins, commands — and asked how hard a Rust wrapper is. Ruling: Rust is the shell, not a rewrite. The logic (bash CLI 6,671 lines, 17 Node MCP servers of about 25,000 lines, 10 hooks, the gate, 7,100 test rows) stays here and ships as a signed release artifact the app installs into the stable Rein home layout; the app owns distribution, updates, process supervision, per-profile settings in a fixed allow-list of keys, and the window. tmux stays the multiplexer through the app's phase 2; Windows runs Rein inside WSL2 (tmux and the gate are POSIX; native Windows is out of scope until the gate is ported, not decided). Specialist agents, optional skills and templates move to a plugin marketplace in groups; the gate, the role machinery and the critics never move. The shared contract is `plans/rein-ecosystem-contract.md`; the per-repo plans are `plans/rein-app-plan.md` and `plans/rein-plugins-plan.md`. A change to the contract is a D-### here and a notice to both repos.
+
+### Alternatives considered
+1. **Full Rust port of the logic** — rejected: four to six months, forks 25,000 tested lines and a POSIX security model, no user-visible gain over a shell.
+2. **Replace tmux with app-drawn panes from the start** — rejected for phases 1–2: doubles phase 2 and changes `rein pane`'s contract before the app has users; a later phase with its own ruling.
+3. **Native Windows** — rejected: the hooks and gate assume bash, file modes and POSIX tokens; the WSL2 shape (Docker Desktop, VS Code) is days, not months.
+4. **One repo for everything** — rejected: the app's release cadence (signing, installers) and the plugins' cadence are both unlike the gate's; the test harness here must keep describing the installed layout.
+
+### Constraints driving this decision
+- D-132 hard-deny (no agent weakens the gate or its settings): the app writes only `hooks` via `rein install`, `enabledPlugins`, `extraKnownMarketplaces`, `attribution`.
+- D-055 (skill names must not collide across a shared `.claude/skills/`); D-076 (legacy-mention allowlist when files leave this repo); D-117 (no operator identity in tracked files, enforced in all three repos).
+
+### Impact
+- Unlocks: the two repos' first blueprints and E-## bootstraps; P-50 here. Risk if wrong: the layout guarantee in §2.2 of the contract becomes a tax on this repo's refactors; a layout change is a major version, which is the right price.
+
+### Rollback
+Archive the two repos; this repo is unchanged by their existence until P-50 ships, and P-50's artifact is additive.
+
+---

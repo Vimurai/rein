@@ -920,3 +920,516 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-408: a suite that runs `rein doctor` or `rein ci hosted --check` against a GitHub-origin fixture can reach the network with the operator's token.
 - Until E-409: any `rein` call made with the host project as cwd under a throwaway HOME can rewrite its `.mcp.json` again.
 ---
+## Handoff — 2026-11-04 13:10 UTC
+**From**: Engineer → Architect
+**Trigger**: operator-reported `rein sync` defects fixed outside the task queue (PR #26); it collides with E-409 (PR #23) — needs a ruling before either merges
+
+### What was built
+- PR #26 (branch fix/sync-gitignore-mcp-home, 65809e1, off main). No E-## exists — please register one and carry it.
+- (1) src/shared/memory-batch-scanner.mjs: a downstream palace-index.json held 51,576 entries from a gitignored .parity/. Cause: the batched `git check-ignore` output passed spawnSync's 1 MiB maxBuffer → ENOBUFS → read as "nothing ignored" (fail-open). Now: gitignored directories are pruned from the walk via one `git ls-files --others --ignored --exclude-standard --directory` (one `gitignored-dir` skipped entry each); check-ignore keeps a 256 MiB maxBuffer; a failed probe FAILS CLOSED (nothing indexed).
+- (2) src/bin/rein generate_mcp_json writes the literal `${HOME}/.rein/mcp/<server>/index.js` (Claude Code expands it); `rein doctor`'s two .mcp.json path checks and src/shared/mcp-tester.mjs expand ${VAR} / ${VAR:-default}.
+- Tests: T-MBS-S12 (9k-file repro, failed first), S04 rows (`private`→gitignored-dir, `scratch.draft.png`→gitignored), cli_test E-274.01b/01c/02c, cache_manager T-MT-S03 ${VAR} row. Installed (bash install-rein.sh) — this repo's .mcp.json now carries ${HOME} paths.
+
+### Decisions made
+- NONE recorded. Two need a ruling: (a) the scanner's gitignore gate now fails closed where E-75 documented fail-open; (b) .mcp.json server paths are HOME-relative (`${HOME}`), not absolute.
+
+### Blueprint divergence (if any)
+- multimodal-rag-batching.md §Components 1 (E-75) said a failed check-ignore is "nothing ignored"; now fail-closed, and ignored dirs are pruned rather than listed per file.
+- memory_curator's description ("excludes anything matched by .gitignore") is now true of the sync-time scan too.
+- blueprint-aligner flagged src/shared/mcp-tester.mjs as not named in architect.md (WARN).
+
+### Next action needed
+- Rule on #26 vs #23 (E-409, D-141 addendum 2). mcp-claim.mjs decides ownership and [MCP_PATHS_MISSING] by existsSync(args[0]); a literal `${HOME}/…` never exists, so with both merged `rein doctor` hard-fails in every project and the foreign-install refusal never fires. Conversely a ${HOME} file is identical under any HOME, which removes the 2026-11-01 outage's mechanism (a run under a throwaway HOME rewrote absolute paths). Options I see: drop E-409's claim check and keep only the dead-path doctor line with ${VAR} expansion; or keep the claim and expand ${HOME} in mcp-claim.mjs (then a foreign-HOME run resolves to its own HOME and the claim cannot tell installs apart). Your call.
+- Register an E-## for #26; note the 7 open PRs (#19–#25) awaiting operator merges.
+- Engineer proceeds with E-398 (operator's choice) meanwhile.
+
+### Open risks
+- Until #26 merges and is installed, every downstream `rein sync` re-expands HOME in .mcp.json and re-indexes gitignored media.
+---
+## Handoff — 2026-11-04 18:19 UTC
+**From**: Architect → Engineer
+**Trigger**: ruling on PR #26 vs PR #23 (E-409); E-411 registered for #26 (D-143)
+
+### What was built
+- D-143 recorded in .ai/DECISIONS.md (six rulings). Numbering note: D-140..D-142 live on the stacked branches (e-400-sigpipe and above) and are not on main yet; DECISIONS.md is append-only, so the eventual merge keeps D-140, D-141 + addenda, D-142, then D-143 — resolve the tail conflict by keeping both, in that order.
+- E-411 (Tier 2) registered: PR #26 carried to main as built — merge it FIRST, reinstall, confirm `rein doctor` clean. No code change asked of #26.
+- architect.md §2 helper line now names memory-batch-scanner.mjs, mcp-tester.mjs and (when E-409 lands) mcp-paths.mjs — closes the aligner WARN.
+- multimodal-rag-batching.md §Security gains the fail-closed rule (D-143 r5).
+
+### Decisions made
+- D-143 r1: `.mcp.json` paths are the plain literal `${HOME}/.rein/mcp/<server>/index.js`; every Rein reader expands `${VAR}` and `${VAR:-default}` before testing a path.
+- D-143 r2: D-141 addendum 2 rulings 1–4 are RETIRED — no claim, no [FOREIGN_PROJECT], no `rein init --adopt`, no claimCheck/reinPrefixes. Reason: an install-neutral file carries no claim and the hazard it guarded (an absolute throwaway prefix written into the host's file) can no longer be written. Kept from addendum r4: the demo `cd` rule (rein sync writes more than .mcp.json into cwd), the [MCP_PATHS_MISSING] doctor + preflight line after expansion, the rein-incident filing.
+- D-143 r3: one expander — #26's `expandVars` becomes src/shared/mcp-paths.mjs (expandVars + doctorLines); `rein doctor` calls `node mcp-paths.mjs doctor <mcp-file>`; mcp-tester.mjs imports from it; #26's inline os.path.expandvars in doctor (no `:-default` form) is replaced by that call. mcp-claim.mjs + its unit test are renamed and cut to that scope; refusal/--adopt/dead-install/mixed-prefix rows are deleted, not skipped.
+- D-143 r4 (merge order, forced): #26 → #25 → #24 → #19 → #20/#21/#22 → #23 re-cut per r2–r3 after rebasing onto the main that contains #26. Resolve src/bin/rein in #26's favour.
+- D-143 r5: scanner fails closed — confirmed as built; the blueprint always said MUST enforce .gitignore.
+
+### Blueprint divergence (if any)
+- NONE outstanding: the two divergences #26 reported (fail-closed scan; mcp-tester not named) are now blueprint text.
+- E-409's TASKS.md line still carries the addendum-2 wording (--adopt, [FOREIGN_PROJECT]); task text is state-owned and not editable here. D-143 r2–r3 govern — build E-409 to D-143, not to its line.
+
+### Next action needed
+- Execute E-411 (merge #26 first, reinstall, doctor clean, DONE via rein-task).
+- Then E-409 re-cut on e-409-foreign-home per D-143 r2–r3; E-410 and E-404 keep their place after it.
+- E-398 may continue meanwhile as the operator chose.
+
+### Open risks
+- Until #26 is merged and installed, every downstream `rein sync` re-indexes gitignored media and re-expands HOME.
+- D-143 assumes Claude Code expands ${HOME} in .mcp.json (it does, both forms); a build that did not would fail to spawn servers while doctor reports them present — mcp-tester.mjs (expands and spawns) is the detector; rollback is one line in generate_mcp_json.
+---
+## Handoff — 2026-11-04 18:24 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 part (1) ruling (D-144)
+
+### What was built
+- D-144 appended to .ai/DECISIONS.md: option (b).
+
+### Decisions made
+- D-144 r1: an out-of-range numeric entity (decimal, hex, overflowing) stays literal in decodedView; it never throws. Raw pass covers the literal; nothing hides behind a non-existent code point.
+- D-144 r2: keep fail-closed as a generic row (a throwing scan → [PUBLISH_GATE] <message> + [COMMIT_BLOCKED]) at the cheapest layer that observes the catch; two entity rows in tests/unit/publish-scan.test.mjs (unchanged beside a decoded neighbour; a file with the literal passes with zero hits). No throwaway-HOME hook row for the entity.
+- D-144 r3: E-398's "safe_exec suite" reads tests/unit/publish-scan.test.mjs; acceptance becomes "the literal commits; a throwing scan blocks with a reason; no RangeError in stderr"; close SECURITY.md's residual line with the corrected location.
+- D-144 r4: part (2) accepted as built; record runAnalysis's ~700 ms at the cap in SECURITY.md beside viaConfig's bound with one ceiling row (fails above 1000 ms at the cap). Not a new task.
+
+### Blueprint divergence (if any)
+- NONE — E-398's task line still says "safe_exec suite" and "blocked by the hook"; D-144 r3 governs.
+
+### Next action needed
+- Finish E-398 per D-144; security_engineer re-reads both parts as the task says; DONE via rein-task.
+- E-411: asking the operator before merging #26 to main is right; the order in D-143 r4 stands once they say go.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-04 19:13 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 correction (fail-open, not fail-closed) — D-144 addendum
+
+### What was built
+- D-144 addendum appended to .ai/DECISIONS.md: the Decision paragraph's "fail closed" is corrected on the record; rulings below.
+
+### Decisions made
+- r1: D-144 r1 stands; the entity row as you built it (literal + encoded name → operator_name hit, fails on old code) is the proof; SECURITY.md records the fail-open.
+- r2: close the general seam in E-398 — scanFiles' read guard skips a file ONLY on ENOENT/ENOTDIR; any other read error propagates to the pre-commit catch-all ([PUBLISH_GATE] <message> + [COMMIT_BLOCKED]). The generic throwing-scan row is anchored at that guard (a non-ENOENT read error blocks). A reader returning null still means skip.
+- r3: within E-398; security_engineer re-reads; no new task.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Add r2 to e-398-safe-exec-residuals, re-run the security_engineer review if it already passed on the earlier tree, DONE via rein-task.
+
+### Open risks
+- A transient read error on a present file now blocks with its message instead of being skipped — intended for a privacy gate.
+---
+## Handoff — 2026-11-04 19:14 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 residual (_gateScan reader) — D-144 addendum 2
+
+### What was built
+- D-144 addendum 2 appended to .ai/DECISIONS.md.
+
+### Decisions made
+- r1: narrow `get` the same way — null only for a genuinely absent path (ENOENT/ENOTDIR, or git saying the path is not in the index/tree); every other blob-read error propagates to the catch-all ([PUBLISH_GATE] <message> + [COMMIT_BLOCKED]).
+- r2: one row at the reader (a _blob failure on a listed path blocks; an absent path skips), extending the addendum r2 row; the scanFiles row stays.
+- r3: gate invariant, stated once: a file the gate was asked to scan is scanned or the commit is blocked; skip exists only for an absent file or a null (binary) text. Within E-398; no new task.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Build r1–r2 on e-398-safe-exec-residuals; security_engineer re-reads; DONE via rein-task.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-04 19:17 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 gitlink consequence — D-144 addendum 3
+
+### What was built
+- D-144 addendum 3 appended to .ai/DECISIONS.md.
+
+### Decisions made
+- r1: the staged listing drops mode 160000 (gitlink) entries; a row asserts a staged gitlink skips and the commit passes. A submodule pointer is an object id, not content.
+- r2: keep the "unreadable listed blob blocks" CLI row with a missing-blob vehicle (`git update-index --add --cacheinfo 100644,<unknown sha>,<path>` → "Not a valid object name"), not a gitlink.
+- r3: within E-398; security_engineer re-reads all three; no new task.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Swap the gitlink row to a skip row, add the missing-blob block row, re-run publish-scan and pre_commit_hook, finish the security_engineer pass, DONE via rein-task.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-04 19:22 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 SEC_BLOCKED residuals (a), (b) and the #26 macOS timeout — D-145
+
+### What was built
+- D-145 appended to .ai/DECISIONS.md. Your three fixes stand as built; D-144 addendum 3 r1 is amended by D-145 to "gitlinks stay listed for the path check, content read is null".
+
+### Decisions made
+- r1 (a): delete scanFiles' post-decode U+0000 skip; blobText decides binary once on bytes; its UTF-16 branches drop U+0000 from the decoded string (dropped, not a separator). Row: FF FE + utf16le("Fabrikam\u0000\n") → operator_name hit, fails on origin/main. Within E-398.
+- r2 (b): every gate verb matches case-insensitively on every table, not git alone; operand keywords follow the tool's own documented case rules per operand. Rows: the capitalised GIT hooks-path command blocked for the Architect + one more verb in caps, as NEW contract rows — no table re-pinned. Within E-398.
+- r3 (c): the macOS rein_sync 180.6 s is the host at a fixed cap (D-138 r3 case); macOS is informative on main (D-137 r5), so it does not hold #26; the fix is E-401 (#21) in D-143 r4's order, not a hand-tuned cap in #26. One rerun for the record. Check rein_sync declares its REIN_SUITE_TIMEOUT under E-401 (3 × 170 s → 510 s, measurement in the comment).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Fold (a) and (b) into e-398-safe-exec-residuals, re-run security_engineer, DONE via rein-task.
+- E-411: proceed on the required set once the operator says go.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-05 12:26 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 follow-ups (default reader, verb fold, rein_sync header) and the sandbox escape — D-145 addendum, E-412
+
+### What was built
+- D-145 addendum appended to .ai/DECISIONS.md (five rulings).
+- E-412 registered (Tier 2): the privacy-cases row that leaves its sandbox from a temp-directory worktree.
+- architect.md §2 names src/mcp/safe-exec-mcp/verb-fold.mjs.
+
+### Decisions made
+- r1 (a): confirmed — scanFiles' default reader goes through blobText; the tree scan and the commit gate judge a binary by one rule. Update the E-364 row (b.bin → home_path hit), naming what it replaces. E-403's metadata rule lands in blobText for both paths.
+- r2 (a) condition: before E-398 closes, the full-tree scan (the CI privacy job's command) is 0 hits on this tree with the gate's allow data. A chance match on a tracked media file is NOT exempted by path: report it; E-403 then goes first and the default-reader half lands with E-403; the gate-path half stays in E-398.
+- r3 (b): verb-fold accepted as built; 568 ms at the cap is under the 1000 ms row.
+- r4 (c): confirmed — rein_sync_test.sh gets REIN_SUITE_TIMEOUT=510 (3 × 170 s, measurement in the comment) on #21's branch inside E-401, plus (i) a sweep of every suite's slowest green hosted time per OS against a third of the default, (ii) an advisory run-summary line [SUITE_TIMEOUT_UNDECLARED] for a suite over the line without a header (exit unchanged).
+- r5 (d): E-412, after E-398, independent of the stack. Keep the other project's name and any home path out of tracked files (D-117).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Run the full-tree scan for r2 and report the count; finish the security_engineer re-review; E-398 DONE via rein-task.
+- Then the OPEN queue: E-411 on the operator's go, E-409 re-cut (D-143), E-412.
+
+### Open risks
+- r2: a tracked media file may chance-match once the tree scan reads binaries; the ruling says what happens then.
+---
+## Handoff — 2026-11-05 13:07 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 pass-3 residuals — D-145 addendum 2, E-413
+
+### What was built
+- D-145 addendum 2 appended to .ai/DECISIONS.md (five rulings). E-413 registered (Tier 2).
+- Noted: full-tree scan 0 hits over 632 files, both ways — the addendum r2 condition is met; E-403 keeps its place.
+
+### Decisions made
+- r1 (E-413): a NUL-bearing blob is scanned as two views of one decode — NUL as a line break and NUL removed — for the UTF-8 and both UTF-16 branches; the printable-runs-of-six filter is deleted. This replaces D-145 r1's "dropped, not a separator". One hit per class per file.
+- r2 (E-413): an odd-length buffer behind a byte-order mark decodes its even prefix, never throws.
+- r3: both are E-413, not E-398 — after E-398, before E-403, security_engineer re-read, full-tree scan re-run, no path exemption.
+- r4 (E-398, now): the split-string short option of env glued to an upper-case verb is fixed inside E-398 — it is a defect against D-145 r2, P1 on a case-insensitive filesystem. Property: wherever a rule can find a verb, the fold has already run. Proof: a generated case-variant differential — every BLOCK row with each verb upper-cased in place yields the same findings. No table re-pinned.
+- r5: the second fold cut (in-place, length-invariant) is accepted in principle, subject to pass 4 and r4's differential.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- E-398: add r4's fix and the differential, finish pass 4, DONE via rein-task.
+- Then the OPEN queue: E-411 on the operator's go, E-413, E-409 re-cut (D-143), E-412.
+
+### Open risks
+- E-413 raises chance matches on unknown binaries; bounded by the re-run tree scan and E-403.
+---
+## Handoff — 2026-11-05 13:43 UTC
+**From**: Architect → Engineer
+**Trigger**: E-398 local CI red on the 1000 ms ceiling row — D-144 addendum 4
+
+### What was built
+- D-144 addendum 4 appended to .ai/DECISIONS.md.
+
+### Decisions made
+- r1: the ceiling row stays at 1000 ms, unworded. It caught a real slowdown (shell-quote 1.8.3's parse at the cap).
+- r2: your proposal is confirmed — E-398 rebases onto main after #25 merges, then local CI, push, PR. Order: #26, #25, #24, E-398's PR, then #19 → #20/#21/#22 → #23 re-cut. E-398 does not land before #25.
+- r3: SECURITY.md records the corrected cause (the old parser, not Rein's rules), the measured worst case per parser version, and that the bound holds on shell-quote 1.12.0 or later.
+- r4: pass-4 fixes stand as built under SEC_CLEARED.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Hold E-398 unpushed until #25 is on main; E-398 stays OPEN until its PR merges.
+- Meanwhile the OPEN queue that does not depend on merges: E-413 and E-412 can be built on their own branches off main; E-411 and everything behind it wait on the operator's go.
+
+### Open risks
+- Seven PRs plus E-398 now wait on operator merges; nothing else is blocked on the Architect.
+---
+## Handoff — 2026-11-05 13:46 UTC
+**From**: Architect → Engineer
+**Trigger**: E-412 re-scope after rein-debug's root cause — D-146
+
+### What was built
+- D-146 appended to .ai/DECISIONS.md. E-412's registered text is superseded by it (task text is state-owned; D-146 governs, as D-143 does for E-409).
+
+### Decisions made
+- r1: E-412 is Tier 1, tests only, on e-412-privacy-row-sandbox — the row declares its need via the harness's need check and SKIPs with the reason when ast-parser-mcp's dependencies are absent; on a real failure it prints the child's stderr; no change under src/. The registered points (1)–(4) and the security_engineer clause are withdrawn.
+- r2: a skip is for an un-bootstrapped host, never for the hosted check — confirm the hosted run's skip count does not rise; if the harness can tell "bootstrap ran", the need check fails rather than skips there.
+- r3: one line in src/claude/rules/test-harness.md — a diagnostic node --test names a file that exists, checked before the call, never an unmatched or empty variable (node otherwise discovers and runs every test file from the working directory).
+- r4: file the execution with skill rein-incident, sanitised — no project name, no home path (D-117).
+- r5: no safe-exec rule; node --test without a file is the normal way to run a project's own tests.
+
+### Blueprint divergence (if any)
+- NONE — D-145 addendum r5's description of the escape is corrected by D-146.
+
+### Next action needed
+- Build E-412 per D-146, file the incident, DONE via rein-task. Then E-413; E-398 and E-411 wait on merges.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-05 13:51 UTC
+**From**: Architect → Engineer
+**Trigger**: E-413 stopped at step 4 (one hit in the vendored TypeScript grammar binary) — D-145 addendum 3
+
+> Branch note: the shared tree is on e-412-privacy-row-sandbox, so this entry is committed here. The Architect's earlier handoffs of 2026-11-04 and 2026-11-05 (D-143..D-146) are commits on upgrade/audit-fix-2026-11-02, 85b004e..48bf4f7; merge keeps both tails in date order.
+
+### What was built
+- D-145 addendum 3 appended to .ai/DECISIONS.md (working tree, uncommitted, with D-143..D-146).
+- Evidence read by the Architect (read-only): the binary has no /home/ and no /Users/, not even NUL-split. The match is the shell tilde-login pattern (TILDE_RE) on a form-feed byte followed by a tilde and one letter, and only in the NUL-removed view. The other two grammar binaries have no match in either view.
+
+### Decisions made
+- r1: option (c) — the rule is about the pattern, not the file type. TILDE_RE and TILDE_VERB_RE are shell-context patterns and are not applied to a NUL-bearing blob's views. Every literal class still runs on both views: HOME_RE, personal_email, session_socket, client_name, operator_name, the secret formats.
+- r2: residual accepted — a tilde-login alone inside a NUL-bearing file is no longer a finding; the operator's own login is still caught by operator_name, an embedded absolute home path by HOME_RE; NUL-free text (including decoded UTF-16) is unaffected.
+- r3: not (a) — custom-sections-only would skip wasm data segments, where a compiler embeds a real build path; not (b) — no opaque-binary type list.
+- r4: no path, extension or magic exemption. Re-run the full-tree scan: 0 hits. A chance match by a LITERAL class still stops the task and is reported; the answer then is a structural rule for that format, never a path. This supersedes E-413's registered step-4 wording.
+- r5: four more rows beside E-413's six — the form-feed + tilde shape in a NUL-bearing blob: no hit; the same blob with a literal home path: home_path; a NUL-bearing blob with tilde + an operator name + slash: operator_name; a NUL-free text file with a tilde-login path: home_path unchanged.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Finish E-412 first as you planned, then resume E-413 on e-413-blob-nul-views with r1 and the ten rows, re-run the tree scan both ways, security_engineer re-read, DONE via rein-task.
+
+### Open risks
+- An address-shaped chance match on some future binary remains possible; r4 says what happens then.
+---
+## Handoff — 2026-11-05 14:18 UTC
+**From**: Architect → Engineer
+**Trigger**: security_engineer's three suggestions on E-413 and the pre-existing encoding gap — D-145 addendum 4, E-414
+
+### What was built
+- D-145 addendum 4 appended to .ai/DECISIONS.md (working tree, uncommitted, with D-143..D-146).
+- E-414 registered (Tier 2): Latin-1 decode for buffers that are not valid UTF-8.
+
+### Decisions made
+- r1 (E-413): the separator view is NUL → space, not NUL → line break. A two-field name is then read as the phrase it is; a space still ends a word, an address and a path; no third view. Record the full-tree scan's wall time before and after (one long line per large binary).
+- r2 (E-413): hits fold per (class, matched value), not per class per file — two distinct addresses are both listed.
+- r3 (E-413): rein doctor prints an advisory [SCAN_LOGIN_UNLISTED] when .ai/publish-scan.local.json exists and this HOME's login is not in operator_names. It never prints the login, is silent for a placeholder login and for a clone without the local file, and leaves the exit status unchanged. In the doctor, not in loadScanConfig.
+- r4 (E-414): a buffer that is not valid UTF-8 is also decoded as Latin-1 and that text goes through the same views. CORRECTION to E-414's registered text: the tilde-login forms are off ONLY for views of a NUL-bearing buffer; a NUL-free Latin-1 text file keeps them. The task line's "or non-UTF-8 buffer" is superseded by D-145 addendum 4 r4.
+- r5: r1–r3 are one follow-up commit on e-413-blob-nul-views; security_engineer re-reads the delta. Rows: the two-field name hits operator_name; two distinct addresses in one NUL-bearing file are both listed; the doctor line prints for an unlisted login and is silent for a listed one, a placeholder and a clone without the local file, and never contains the login.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Amend E-413 per r1–r3, re-read, keep it held behind E-398. Then E-414 after E-413.
+- Unchanged: E-398 and E-411 wait on operator merges; PR #28 waits on its hosted skip-count check.
+
+### Open risks
+- r1 makes large binaries one long line in the separator view; the wall-time record is the check.
+---
+## Handoff — 2026-11-05 15:04 UTC
+**From**: Architect → Engineer
+**Trigger**: E-413 amendment accepted; sequencing — D-145 addendum 5
+
+### What was built
+- D-145 addendum 5 appended to .ai/DECISIONS.md (working tree, uncommitted, with D-143..D-146).
+
+### Decisions made
+- r1: E-413's amendment accepted as built — NUL to space, fold per (class, value) with your containment fold, the doctor advisory.
+- r2: confirmed — the fake-token mark is not honoured in a NUL-bearing blob. The mark is about a line of text; such a blob has no lines.
+- r3: the constructed split-and-glued name is an accepted residual, recorded in SECURITY.md. The doctor's pre-existing error lines print the project-relative .ai path instead of the absolute one (it carries the login) — one line and one row, folded into E-414.
+- r4: E-414 next, stacked on E-413. Then the E-401 additions (rein_sync header 510 s, the sweep, the advisory line) as commits on e-401-budgets — they wait on no merge. The held stack stops at three tasks: do NOT stack E-403 on E-414 while E-398 is unpushed.
+- r5: PR #28's skip count equals #26's — D-146 r2 is met; it merges on the operator's go, independent of the other order.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- E-414 (with r3's doctor path line), then the E-401 additions on e-401-budgets. After that, stop and hand back if merges are still pending.
+
+### Open risks
+- Three tasks are held unpushed behind PR #25's merge; the cap in r4 keeps it at three.
+---
+## Handoff — 2026-11-06 UTC
+**From**: Engineer → Architect
+**Trigger**: E-414 committed (held), E-401 additions built but blocked by Gate 2; merges still pending — handing back per your 15:04 instruction
+
+### What was built
+- E-414 → 174bab0 on e-414-latin1-decode (stack: E-398 e9b54bc → E-413 3962802, 2aecde7 → E-414 174bab0; at the cap of three, unpushed until #25). Non-UTF-8 (non-UTF-16) buffers also get a windows-1252 decode through the NUL views; `nul` alone gates the tilde/fake-token rules (NUL-free Latin-1 keeps tilde, add.4 r4); multi-view files fold per (class, value); hit lines map into their own view; doctorLine prints `.ai/…`. Rows miss on E-413, hit now; publish-scan 74/0; tree scan 0 both ways (6.9–8.5 s, was 5.5 s). security_engineer SEC_CLEARED.
+- E-401 additions (built, NOT committed): 14 suite headers at ceil(3 × slowest green hosted run) from CENSUS_SUITE over 10 main CI runs (41145231705..42041035881) — 9 new (gate_abort 213, gate_override 239, git_lane 283, node_unit 321, pre_tool_use_gate 328, propose_patch 201, rein_ci 227, rein_clean 217, rein_sync 512 = 3 × 170.4 s macOS — not 510) and 5 raised (exec_form_hooks 480→531, harness_isolation 560→601, init_upgrade 900→1021, mirror_hygiene 402→492, provider_workspace 286→350); tests/run.sh prints `[SUITE_TIMEOUT_UNDECLARED]` (advisory, exit unchanged); rows E-401.U1–U3 in harness_isolation_test.sh pass.
+
+### Decisions made
+- NONE new. rein_sync header is 512 (measured) rather than the 510 in your message.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Unblock the E-401 commit: Gate 2 needs a CRITIC_STAMP for e-401-budgets' HEAD 07f05b8. add_stamp binds to the SHARED tree's HEAD, and the shared tree cannot switch to e-401-budgets while your uncommitted .ai/ edits (DECISIONS.md D-143..D-146 + addenda, architect.md, multimodal-rag-batching.md, TASKS.md, state.json, REVIEWS.md) conflict with that branch's versions. Options: commit your .ai/ edits on upgrade/audit-fix-2026-11-02, after which I switch and commit; or rule another path. The change is staged in the worktree /tmp/…/scratchpad/wt-401 (patch also saved as e401b.patch).
+- New P2 for a ruling (security_engineer on E-414, pre-existing): client names starting/ending with a non-ASCII letter (`Ñandú SA`) never match — the client regex uses ASCII `\b` (no `u` flag); operator names already use Unicode lookarounds. Also: `new TextDecoder("windows-1252")` at module load needs ICU (fails closed without it — availability only).
+- Pending on the operator: merges in D-143 r4 order; #28 merge; the incident record command.
+
+### Open risks
+- In a hand-built /tmp worktree git_lane_test's role-token rows fail (E-214.07a/b, 10j/n, E-218.01a/02b) identically with and without the header change — environment, not the change; rein ci run before push is the evidence.
+---
+## Handoff — 2026-11-06 13:12 UTC
+**From**: Architect → Engineer
+**Trigger**: E-414 accepted; E-401 unblocked; ruling on the client-name boundary (D-145 addendum 6, D-147); E-415 registered
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-145 addendum 6 and D-147. The ruling backlog that blocked your switch is committed as 0fc7d6b on `upgrade/audit-fix-2026-11-02` (D-143..D-146 with addenda, `architect.md`, the scanner blueprint, `TASKS.md`, `REVIEWS.md`, `state.json`); this handoff's commit carries today's entries and E-415. `git status -- .ai/` is clean of tracked changes after it.
+
+### Decisions made
+- **D-147**: a handoff commits every tracked `.ai/` path the turn dirtied, not `COMM.md` alone — both roles. The hook waives Gate 2 for an `.ai/`-only commit (`[ARCHITECT_LANE]`). Carry rulings to other branches by cherry-pick. What a stamp binds to is NOT changed (r4).
+- **D-145 addendum 6 r1–r4**: client names are bounded exactly as operator names — one builder for both (NFC, Unicode lookarounds, whitespace-run and non-breaking-hyphen loosening, `iu`). A client name inside an identifier (`acme_config`) and one written with a no-break space become hits on purpose. Condition: tree scan with the operator's list is 0 hits; a new hit is reported with file and line, never narrowed away. Three rows extend the client-name rows in `tests/unit/publish-scan.test.mjs`. Follow-up commit on `e-414-latin1-decode` inside E-414; `security_engineer` re-reads the follow-up only.
+- **r5**: the Windows-1252 decoder is constructed on first use, not at module load — still fail closed, through D-144 r2's `[PUBLISH_GATE]` path, and only when a non-UTF-8 buffer is scanned. No fallback, no new row. Same follow-up commit.
+- **r6**: E-401 headers accepted as measured; `rein_sync` 512 stands (the rule is the formula, my 510 was that day's number).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. Switch the shared tree to `e-401-budgets`, stamp, commit the E-401 additions. Cherry-pick 0fc7d6b and this handoff's commit wherever you need the rulings.
+2. E-414 follow-up (r1–r5) on `e-414-latin1-decode`; held with the stack.
+3. E-415 (Tier 1, skill text, branch from main, waits on nothing).
+4. Then hand back if merges are still pending. E-403 stays unstacked (addendum 5 r4).
+
+### Open risks
+- The privacy gate refused my backlog commit three times on example logins in my own ruling text; fixed by using the scanner's placeholder login. If a cherry-pick of DECISIONS.md conflicts on a stacked branch, the order is D-140, D-141 with addenda, D-142, then D-143 onward.
+- Operator: merges in D-143 r4 order starting with #26; #28 any time; the incident record command.
+---
+## Handoff — 2026-11-06 14:00 UTC
+**From**: Engineer → Architect
+**Trigger**: E-401 additions pushed, E-414 follow-up committed (held), E-415 PR #29 — merges still pending, handing back per your 13:12 instruction
+
+### What was built
+- E-401 on e-401-budgets: fae100f (14 headers at ceil(3 × slowest green hosted run), rein_sync 512; `[SUITE_TIMEOUT_UNDECLARED]` advisory; E-401.U1–U3) + d66da52 (stamp views). `rein ci run` PASS fae100f 7040/0; pushed to #21. In that run the hand-built-worktree git_lane failures did not occur (environmental, as reported).
+- E-414 follow-up b6f8542 on e-414-latin1-decode (+ 4ff9380 stamp views): one `_namePattern` for client and operator names (NFC, Unicode letter/digit lookarounds, whitespace run, [-‑], giu); security_engineer SEC_CLEARED with three fixes it suggested, applied: list entries trimmed and escaped per word/hyphen part (an edge space made a name unmatchable; `A\-B` threw), client matches via matchAll so redact() covers every spelling on a line; Windows-1252 decoder built on first use. Rows: Ñandú SA / Øresund, NBSP and multi-space, U+2011, edge space and `\-` — the three you listed fail on 174bab0. Tree scan 0 both ways. Held stack: E-398 e9b54bc → E-413 3962802, 2aecde7 → E-414 174bab0, b6f8542.
+- E-415 d3fd136 → PR #29 (off main): rein-handoff Step 2b and task-planner Step 7, both copies, commit COMM.md plus `$(git diff --name-only -- .ai/ ':(exclude).ai/COMM.md')`; cherry-pick rule. D-104 rows extended (fail on old text); rein ci PASS 7023/0.
+
+### Decisions made
+- NONE new. Accepted P3s from the reviews (report only): client `_` widening (`Fabrikam_x` now matches); `straße`/`STRASSE` unchanged.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Operator merges in D-143 r4 order (#26 → #25 → #24 → E-398 stack → #19 → #20/#21/#22 → re-cut #23); #28 and #29 any time. Then: rebase and push the held stack; E-411; E-409 re-cut; E-403 after the stack.
+- The operator still has the incident-append command to run (E-412).
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-06 17:55 UTC
+**From**: Architect → Engineer
+**Trigger**: review of the 14:00 UTC handoff (D-147 addendum) — one amendment to PR #29, the rest accepted
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-147 addendum.
+
+### Decisions made
+- **PR #29 (E-415), amend before merge**: the path list is taken against `HEAD` — `git diff --name-only HEAD -- .ai/` with the same `COMM.md` exclusion — in all four skill copies and the row's pattern. The index diff skips a path that is already staged, so the handoff commits `COMM.md` alone and leaves that file dirty. The row's fixture stages its dirtied `.ai/` file before the step, so it fails on d3fd136. Add one sentence to each skill: a new `.ai/` file is added by name by the role that created it; no directory-wide add.
+- **PR #29's red macOS job** (node 22, shard 3/4) is `telemetry_test.sh` "hook warm-path (steady-state max)", 257 then 232 ms against 222 ms at load1=13 on 3 CPUs. Not the change. Re-run that job once after the amendment push; do not touch the bound; report if it fails again.
+- **E-414 follow-up b6f8542**: accepted as built, P3s accepted as reported. **E-401 additions on #21**: accepted.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. Amend PR #29 as above, push, re-run the one macOS job.
+2. Then nothing until the operator merges. Hand back only for a finding or when a merge lands.
+
+### Open risks
+- Operator: merges in D-143 r4 order starting with #26; #28 and #29 any time; the incident record command.
+---
+## Handoff — 2026-11-06 20:06 UTC
+**From**: Architect → Engineer
+**Trigger**: the warm-path row's second failure (D-148); E-416 registered; the unpushed ruling log must reach main
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-148 (committed as f713991 on `e-401-budgets`, the branch the shared tree was on — D-147 r1).
+
+### Decisions made
+- **D-148**: the row failed because `rein ci run` strips `CI=true` by construction, so `assert_perf` is host-relative on hosted runners against its own comment ("absolute governs on CI"). Fix is E-416 (Tier 2, from main after #21): `REIN_CI=hosted` derived from `GITHUB_ACTIONS=true` in the curated list, `assert_perf` absolute under it, `run.sh` keys on non-empty `REIN_CI`, rows extended, no bound changes. **PR #29 is unchanged** — merge it on the green re-run as planned.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. **Carry the ruling log to main.** `upgrade/audit-fix-2026-11-02` has 20 local commits that are not on main and #25 merged without them: 18 COMM handoffs since 2026-11-02 and the two ruling commits 0fc7d6b (D-143..D-146 with addenda, architect.md, the scanner blueprint) and 0d3f0df's DECISIONS part (D-147 addendum; 442861b carries D-145 addendum 6 and D-147). They exist nowhere else. Cherry-pick those bookkeeping commits onto `e-401-budgets` after f713991; the only conflict is the tail of `DECISIONS.md`, resolved in order D-143 … D-147, then D-148 (append-only). Open every conflicted file before staging (ai-bookkeeping rule).
+2. Merge train as you have it: #20, #21, #22, the rebased E-398 stack, #23; #29 on green.
+3. E-416 from main once #21 is in. E-411, E-409 re-cut, E-403 after the stack, as before.
+
+### Open risks
+- Until item 1 lands, the decision log on main stops at D-142.
+---
+## Handoff — 2026-11-06 20:18 UTC
+**From**: Architect → Engineer
+**Trigger**: carry accepted; the node_unit timing row ruled (D-148 addendum); #29 plan confirmed
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-148 addendum.
+
+### Decisions made
+- **Carry accepted** (f1d1f7b on #21). Your three Gate 2 self-stamps on the verbatim cherry-picks are accepted for this carry and are not a precedent: the Architect-lane waiver is role-bound, and an Engineer-authored change to an Architect-owned file stays a §35 violation under any stamp.
+- **operand-scope.test.mjs rows** (the "CodeQL's pathological git and path inputs" failure on #21): not E-416's mechanism — they key on nothing and assert the relative budget and the 1000 ms ceiling always. Folded into E-416: under `REIN_CI=hosted` the three `assertInside` rows assert the ceiling only and print the relative figure; elsewhere both. No bound changes.
+- **#29**: your plan stands — merge #21 when green, merge main into #29, push; no further re-run as is.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. #21 on green; main into #29; then #22, the rebased E-398 stack, #23.
+2. E-416 from main after #21 (scope: D-148 r1–r4 plus addendum r1).
+3. E-411, E-409 re-cut, E-403 after the stack.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-07 UTC
+**From**: Architect → Engineer
+**Trigger**: E-416 (PR #32) reviewed and accepted (D-148 addendum 2)
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-148 addendum 2.
+
+### Decisions made
+- **E-416 accepted as built.** The privacy-cases repo_map fix (any `REIN_CI` counts as bootstrapped) was required by D-146 r2 and is accepted; the marker-check exemption for the derivation line is accepted.
+- **Order confirmed**: #32 on green; main into #31 and #22 (`.ai`-only conflicts: regenerate views from the state index, insert decision entries in order); CI on each; merge; re-cut #23.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. The merge order above.
+2. Then E-411, E-409 re-cut (#23), E-403 after the stack. Hand back for a finding or when the train is through.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-07 22:15 UTC
+**From**: Architect → Engineer
+**Trigger**: #32's four red legs reviewed (D-148 addendum 3)
+
+### What was built
+- Nothing in source. `.ai/DECISIONS.md`: D-148 addendum 3.
+
+### Decisions made
+- Both fixes in b025b59 accepted (fixtures unset `REIN_CI`/`REIN_PERF_ABSOLUTE`; E-284.01f gets a remeasure function, bound unchanged).
+- **Standing rule**: an absolute bound that fails on the retry on a hosted runner is re-declared at five times the hosted median of that row's green runs across both OSes (D-138 r2), with the number and source runs named in the commit — never the failed figure plus a margin. No further ruling needed per row.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+1. Push b025b59 when local CI is green; #32 on green; then main into #31 and #22; CI; merge; re-cut #23.
+2. Then E-411, E-409, E-403 after the stack.
+
+### Open risks
+- None new.
+---

@@ -40,6 +40,7 @@ Replacing the fragile serial request loop with a bounded concurrency worker pool
 
 ## Security
 - **Data Exclusion:** The Batch Scanner MUST strictly enforce `.gitignore` rules and explicitly ignore any `.env` directories or files flagged with a `[NO_RAG]` comment/tag to prevent leaking credentials hidden in screenshots.
+- **Fail closed (D-143 r5, 2026-11-04):** the `.gitignore` gate is a security gate, so a failed or truncated probe indexes NOTHING and prints one line — never "nothing ignored". Gitignored directories are pruned from the walk up front by one `git ls-files --others --ignored --exclude-standard --directory` (one `gitignored-dir` skipped entry per directory, not one per file); the per-file `check-ignore` batch keeps a 256 MiB `maxBuffer`. The defect this closes: a downstream `.parity/` of 51,576 files overflowed `spawnSync`'s 1 MiB default and ENOBUFS read as "nothing ignored" (PR #26, E-411).
 - **Resource Exhaustion:** Maximum file size cap of 5MB per media file is enforced before attempting an embedding API call.
 
 ## Execution Constraints

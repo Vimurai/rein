@@ -569,6 +569,7 @@ _run_suite() {
   # line — the first 10 lines only, so a fixture suite written by a heredoc further down
   # (harness_isolation_test's hang fixture) does not set the budget of the suite that writes it.
   _budget="$(sed -n '1,10s/^# REIN_SUITE_TIMEOUT=\([0-9][0-9]*\).*/\1/p' "$suite" | head -1)"
+  _declared="$_budget"
   _budget="${_budget:-${REIN_SUITE_TIMEOUT:-180}}"
   _out="$(mktemp)"
   _t0="$(_now_ms)"
@@ -597,6 +598,11 @@ _run_suite() {
     suite_exit=124
   fi
   _wall_ms=$(( $(_now_ms) - _t0 ))
+  # D-145 addendum 5 / D-138 r3: a suite over a third of the default with no header is named in
+  # the run summary (advisory — the exit status is unchanged).
+  if [[ -z "$_declared" ]] && (( _wall_ms > ${REIN_SUITE_TIMEOUT:-180} * 1000 / 3 )); then
+    printf '%s\t%s\n' "$suite_name" "$_wall_ms" > "${RUN_DIR}/${idx}.undeclared"
+  fi
 
   if [[ "${REIN_TEST_NO_SWEEP:-0}" != "1" ]]; then
     _leak_snapshot > "$_leak_after" 2>/dev/null
@@ -754,7 +760,7 @@ echo "[run] peak_sum_rss_mb=$(( ${_rss_kb:-0} / 1024 )) samples=${_rss_n:-0} sam
 
 # ── E-297: publish the census input (TEST_TMPDIR is deleted on exit) ─────────
 # Two copies, because the two kinds of run keep different things:
-#  - `rein ci run` (REIN_CI=local / CI=true) runs under a throwaway HOME and TMPDIR that are
+#  - `rein ci run` (REIN_CI=local|hosted / CI=true) runs under a throwaway HOME and TMPDIR that are
 #    deleted with its worktree, and this runner may not write ~/.rein (rule 6). What it
 #    KEEPS is this run's stdout, tee'd into ~/.rein/ci/logs/<sha>-<started>.log — so the
 #    census lines go into the log, beside the run they describe. They are printed BEFORE
@@ -764,7 +770,7 @@ echo "[run] peak_sum_rss_mb=$(( ${_rss_kb:-0} / 1024 )) samples=${_rss_n:-0} sam
 #    kept) and prints its path; census.mjs reads those for plain `bash tests/run.sh` runs.
 printf 'CENSUS_TOTAL\t%s\t%s\t%s\t%s\n' "${#SUITES[@]}" "$TOTAL_PASS" "$TOTAL_FAIL" "$TOTAL_SKIP" >> "$CENSUS_INPUT"
 if [[ "$REIN_CENSUS_NESTED" -eq 0 ]]; then
-  if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
+  if [[ "${CI:-}" == "true" || -n "${REIN_CI:-}" ]]; then
     echo "── census input (E-297) ──"
     cat "$CENSUS_INPUT"
     echo ""
@@ -794,9 +800,9 @@ if [[ "${TOTAL_LEAKED:-0}" -gt 0 ]]; then
   echo ""
   echo "   LEAKED external state: ${TOTAL_LEAKED} item(s)"
   for _r in "${LEAK_REPORTS[@]}"; do echo "     - ${_r}"; done
-  # E-265 (D-072): `rein ci run` sets REIN_CI=local and has no operator to sweep either, so
-  # a leak fails a local CI run exactly as it fails a hosted one.
-  if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
+  # E-265 (D-072): `rein ci run` sets REIN_CI (local, or hosted under GitHub Actions — D-148 r3)
+  # and has no operator to sweep either, so a leak fails a local CI run exactly as a hosted one.
+  if [[ "${CI:-}" == "true" || -n "${REIN_CI:-}" ]]; then
     echo "   [LEAK_FAILED] a test run must leave nothing behind (E-240 / D-063 §2)"
     TOTAL_FAIL=$(( TOTAL_FAIL + 1 ))
   else
@@ -808,12 +814,18 @@ fi
 # store grew because other sessions were busy" from "this run wrote into it".
 read -r REIN_TELEMETRY_AFTER REIN_TELEMETRY_OURS <<< "$(_live_telemetry_counts)"
 echo "   Live telemetry: ${REIN_TELEMETRY_BEFORE:-0} rows at start, ${REIN_TELEMETRY_AFTER:-0} at end; ${REIN_TELEMETRY_OURS:-0} written by this run"
+# D-138 r3: advisory only — a long suite without its own budget runs on the default's margin.
+for _u in "${RUN_DIR}"/*.undeclared; do
+  [[ -f "$_u" ]] || continue
+  IFS=$'\t' read -r _un _ums < "$_u"
+  echo "   [SUITE_TIMEOUT_UNDECLARED] ${_un} ran $(( _ums / 1000 )) s, over a third of the ${REIN_SUITE_TIMEOUT:-180} s default, with no '# REIN_SUITE_TIMEOUT=<s>' header (D-138 r3: 3x its slowest green hosted run)"
+done
 # Under CI (a throwaway HOME nothing else writes to) ANY growth is this run's: the marker
 # alone missed 56 rows from drivers that spawned servers with a hand-built env, dropping
 # both the redirect and the marker. Locally, other sessions write concurrently, so only
 # the marker is attributable.
 _tel_grew=$(( ${REIN_TELEMETRY_AFTER:-0} - ${REIN_TELEMETRY_BEFORE:-0} + ${REIN_LANE_TEL_GREW:-0} ))
-if [[ "${CI:-}" == "true" || "${REIN_CI:-}" == "local" ]]; then
+if [[ "${CI:-}" == "true" || -n "${REIN_CI:-}" ]]; then
   if [[ "$_tel_grew" -gt 0 ]]; then
     echo "   [TELEMETRY_LEAKED] the throwaway HOME's store grew by ${_tel_grew} row(s) — only tests write there under CI"
     echo "   A test wrote to the telemetry store outside AI_TELEMETRY_DB_PATH (E-257 / D-070 §1)."

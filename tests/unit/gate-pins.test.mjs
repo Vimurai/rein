@@ -59,10 +59,11 @@ test("a RANGE in a gate server's package.json is refused outright", () => {
 
 // ── the two-parser-generation regression pin (b36a818) ───────────────────────────────────
 test("the pinned parser's tokens for the redirect shapes are the recorded ones", () => {
-  // shell-quote 1.8.3 splits `&>` and `>|`; >= 1.10 returns them as ONE operator. A bump that
-  // changes these shapes must come with the gate's contract tables re-run (mcp-servers rule).
-  assert.deepEqual(parse("echo x &> f"), ["echo", "x", { op: "&" }, { op: ">" }, "f"]);
-  assert.deepEqual(parse("echo x >| f"), ["echo", "x", { op: ">" }, { op: "|" }, "f"]);
+  // shell-quote 1.8.3 split `&>` and `>|`; >= 1.10 (pinned: 1.12.0) returns each as ONE operator.
+  // A bump that changes these shapes must come with the gate's contract tables re-run
+  // (mcp-servers rule) — done for 1.8.3 → 1.12.0 with tests/tools/mutation/gate-tables.sh --all.
+  assert.deepEqual(parse("echo x &> f"), ["echo", "x", { op: "&>" }, "f"]);
+  assert.deepEqual(parse("echo x >| f"), ["echo", "x", { op: ">|" }, "f"]);
 });
 
 test("the Architect write gate blocks every redirect shape into src/ (either parser generation)", () => {

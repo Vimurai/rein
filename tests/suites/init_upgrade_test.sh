@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# REIN_SUITE_TIMEOUT=900   (E-401, D-138 r3: 3x the slowest green hosted run, >300 s on macOS x 22 at E-397; 295 s macOS / 134 s Linux on hosted main runs 41336593941/41140062255/41130862129, CENSUS_SUITE ms)
+# REIN_SUITE_TIMEOUT=1021   (E-401, D-138 r3: 3x the slowest green hosted run — 146 s Linux / 340 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # REIN_INSTALLER_SUBJECT: rein init upgrades a project in place (and runs the installer it upgrades from) (E-311, D-092)
 # init_upgrade_test.sh — E-270 (D-074, version-lifecycle.md §Components 1, 2, 6): one version
 # stamped twice, and `rein init` as an idempotent UPGRADE.

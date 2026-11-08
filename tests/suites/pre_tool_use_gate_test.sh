@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=328   (E-401, D-138 r3: 3x the slowest green hosted run — 63 s Linux / 109 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # pre_tool_use_gate_test.sh — E-125 (sovereignty-hardening.md / THREAT_MODEL
 # T-HITL-004): the FAIL-CLOSED pre-execution gate. Verifies that safe-exec BLOCK
 # verdicts are ENFORCED (not advisory) — the --check CLI exits 2 on BLOCK and the

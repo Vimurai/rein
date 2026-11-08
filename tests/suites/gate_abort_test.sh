@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=213   (E-401, D-138 r3: 3x the slowest green hosted run — 58 s Linux / 71 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # REIN_EXCLUSIVE: perf   (E-312: E-292.05f bounds a 10 s timer at +1.5 s; 4-lane contention measured 12309 ms on 7b33882)
 # gate_abort_test.sh — E-292 (D-082 ruling 2, sovereignty-hardening.md §Hook Toolchain Pinning
 # Component 7): an ABORTED gate is a BLOCKED call; the analyzer answers within 10 s; a

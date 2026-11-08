@@ -38,5 +38,8 @@
 {"label":"E-291: true passes","role":"none","cmd":"true","want":"pass"},
 {"label":"E-223: echo hi passes","role":"none","cmd":"echo hi","want":"pass"},
 {"label":"E-125 S03: npm test passes","role":"none","cmd":"npm test","want":"pass"},
-{"label":"E-125 S08: quoted spaces survive and pass","role":"none","cmd":"echo \"hello   world\"","want":"pass"}
+{"label":"E-125 S08: quoted spaces survive and pass","role":"none","cmd":"echo \"hello   world\"","want":"pass"},
+{"label":"D-145 r2: a capitalised RM is rm — RM_RF_ROOT","role":"none","cmd":"RM -rf /","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"D-145 r2: /bin/RM -rf ~ — the verb's basename is folded","role":"none","cmd":"/bin/RM -rf ~","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"D-145 r2: a verb name as a plain operand changes nothing","role":"none","cmd":"echo GIT RM","want":"pass"}
 ]

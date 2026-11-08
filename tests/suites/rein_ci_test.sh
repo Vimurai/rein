@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# REIN_SUITE_TIMEOUT=227   (E-401, D-138 r3: 3x the slowest green hosted run — 51 s Linux / 76 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # rein_ci_test.sh — local CI (D-072): `rein ci run` (E-265), the run record and its readers
 # (E-266, from ai_ci_record), the push and DONE gates (E-267, from ai_ci_gate) and the
 # retired hosted CI (E-268, from actions_decommission) — merged in E-302.
@@ -283,6 +284,9 @@ echo github > "${LREPO}/tracked.txt"
 git -C "$LREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qam github
 OUT="$(cd "$LREPO" && env -u CI -u TF_BUILD HOME="$FAKE_HOME" TMPDIR="${RUN_TMP}/" GITHUB_ACTIONS=true bash "$AI" ci run 2>&1)"
 assert_contains "E-386.H3: a GitHub runner's own marker, without CI=true, is hosted too" "PROBE_LANES=${_cores} AUTO=1" "$OUT"
+# D-148 r1/r4 (extends E-265.02a/d): the run is told it is hosted by one derived bit, and CI stays reserved.
+assert_contains "E-416.01a: …and the run sees REIN_CI=hosted, still without CI" "CI=unset TMUX=unset ROLE=unset REIN_CI=hosted" "$OUT"
+assert_contains "E-416.01b: …and the env step names it" "REIN_CI=hosted" "$(grep -E '^ *env +ok' <<< "$OUT")"
 LLOGH="$(command ls -1t "${FAKE_HOME}/.rein/ci/logs/$(git -C "$LREPO" rev-parse HEAD)"-*.log | head -1)"
 assert_status 0 "E-386.H4: …named hosted:github" grep -qE '^\[ci\] resources .* host=hosted:github runner=' "$LLOGH"
 
@@ -880,11 +884,13 @@ _hits="$(cd "$REPO_ROOT" && grep -rnE --exclude-dir=node_modules --exclude-dir=.
   | grep -vE '^README\.md:[0-9]+:\[privacy(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/privacy\.yml(/badge\.svg)?$' \
   | grep -vE '^README\.md:[0-9]+:\[codeql(-badge)?\]: https://github\.com/Vimurai/rein/actions/workflows/codeql\.yml(/badge\.svg)?$' \
   | grep -vE '^src/bin/rein:[0-9]+:  if \[\[ -n "\$\{GITHUB_ACTIONS:-\}" \]\]; then echo "hosted:github"$' \
+  | grep -vE '^src/bin/rein:[0-9]+:  \[\[ "\$\{GITHUB_ACTIONS:-\}" == "true" \]\] && ci_mode="hosted"$' \
   | grep -vE '^tests/unit/rename-gate\.test\.mjs:' \
   || true)"   # E-335 (D-103): the rendered hosted-check templates ARE a hosted run.
 # E-384 (D-135 r5): so is the renderer that builds their matrix, and the two suites that pin it.
 # E-386 (D-135 r1): _ci_host_class reads the GitHub runner's marker to widen its lanes — the
 # one src/bin/rein line allowed to name it; detecting a runner is not an instruction to read one.
+# D-148 r1: the second such line derives REIN_CI=hosted from the same marker — detection again.
 # E-374 (D-125, D-129): the public repo's live CI badge and its link are the two README lines
 # allowed to name a workflow — a status display, not an instruction to read a hosted run.
 # E-384 (D-133 §Component 3): likewise the privacy and CodeQL badges and their links, each

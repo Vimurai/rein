@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# REIN_SUITE_TIMEOUT=560   (E-401, D-138 r3: 3x the slowest green hosted run, 187 s on macOS x 22; 116 s Linux — hosted main runs 41336593941/41140062255/41130862129, CENSUS_SUITE ms)
+# REIN_SUITE_TIMEOUT=601   (E-401, D-138 r3: 3x the slowest green hosted run — 125 s Linux / 200 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # harness_isolation_test.sh — E-156 / E-157 (test-harness-isolation.md)
 # Verifies tests/run.sh isolates MCP config into an ephemeral .mcp.test.json,
 # exports MCP_CONFIG_PATH, and tears artifacts down via a trap on any exit.
@@ -427,6 +427,16 @@ assert_status 1 "E-307.W5: the hung suite's child is gone with it" pgrep -f "$_W
 assert_status 0 "E-307.W6: the run fails and ends well before the child's 100 s (${_wd_s}s, rc=${_wd_rc})" \
   test "$_wd_rc" -ne 0 -a "$_wd_s" -lt 30
 pkill -f "$_WD_MARK" 2>/dev/null || true
+# E-401 / D-138 r3 (extends the E-307 rows above, same fixture runner): a suite that runs over
+# a third of the default budget with no header of its own is named in the run summary —
+# advisory only; a suite that declares its header is not named, and the run still passes.
+rm -f "${_WD}/tests/suites/a_hang_test.sh" "${_WD}/tests/suites/b_after_test.sh"
+printf '#!/usr/bin/env bash\nsleep 1.5   # REIN_SLEEP_ALLOWED: the duration under test\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_WD}/tests/suites/c_slow_test.sh"
+printf '#!/usr/bin/env bash\n# REIN_SUITE_TIMEOUT=3\nsleep 1.5   # REIN_SLEEP_ALLOWED: the duration under test\necho "SUITE_RESULT PASS=1 FAIL=0 SKIP=0"\n' > "${_WD}/tests/suites/d_declared_test.sh"
+_ud_out="$(env -u CI -u REIN_CI -u REIN_TEST_NO_SWEEP REIN_SUITE_TIMEOUT=3 bash "${_WD}/tests/run.sh" 2>&1)"; _ud_rc=$?
+assert_contains "E-401.U1: an undeclared suite over a third of the default is named" "[SUITE_TIMEOUT_UNDECLARED] c_slow_test.sh" "$_ud_out"
+assert_not_contains "E-401.U2: a suite with its own header is not" "[SUITE_TIMEOUT_UNDECLARED] d_declared_test.sh" "$_ud_out"
+assert_status 0 "E-401.U3: the advisory leaves the exit status alone (rc=${_ud_rc})" test "$_ud_rc" -eq 0
 rm -rf "${_WD}"
 
 # ── E-309 (D-091): lanes — a leak is attributed to its lane AND suite ──────────────────
@@ -1016,6 +1026,8 @@ _verdict() {  # <env-assignments> <elapsed> <absolute> <baseline> [k] [slack] �
   ( set +u
     source "${REPO_ROOT}/tests/lib/assert.sh"
     PASS_COUNT=0; FAIL_COUNT=0; SKIP_COUNT=0
+    # D-148: the outer run may be hosted (REIN_CI=hosted); each row states its own mode.
+    unset REIN_CI REIN_PERF_ABSOLUTE
     eval "$env_pre"
     assert_perf "probe" "$@" >/dev/null 2>&1
     [[ "$FAIL_COUNT" -eq 0 ]] && echo PASS || echo FAIL )
@@ -1063,7 +1075,7 @@ assert_contains "E-239.04b: a looser k=4 accepts it" \
 # A perf assertion that prints only a verdict cannot distinguish "the code got slower" from
 # "the machine is busy" — which is the entire question this task exists to answer.
 _out="$( ( source "${REPO_ROOT}/tests/lib/assert.sh"; PASS_COUNT=0; FAIL_COUNT=0
-           CI= assert_perf "printed" 59 200 35 ) 2>&1 )"
+           CI= REIN_CI= REIN_PERF_ABSOLUTE= assert_perf "printed" 59 200 35 ) 2>&1 )"
 assert_contains "E-239.05a: elapsed is printed"   "elapsed=59ms"   "$_out"
 assert_contains "E-239.05b: baseline is printed"  "baseline=35ms"  "$_out"
 assert_contains "E-239.05c: the limit is printed" "limit=120ms"    "$_out"
@@ -1098,6 +1110,15 @@ assert_contains "E-265.P2: REIN_CI=local still fails a genuinely slow path" \
   "FAIL" "$(_verdict 'CI=; REIN_CI=local' 500 200 35)"
 assert_contains "E-265.P3: REIN_PERF_ABSOLUTE=1 still wins under REIN_CI=local" \
   "FAIL" "$(_verdict 'CI=; REIN_CI=local; REIN_PERF_ABSOLUTE=1' 381 200 197)"
+# D-148 r2/r4 (extends E-265.P1-P3): a hosted `rein ci run` (REIN_CI=hosted, CI still unset) judges
+# by the absolute bound. The warm-path case of PR #29: 226 ms against a 214 ms relative limit
+# (k=2, 82 ms baseline, 50 ms slack) and the row's 250 ms absolute.
+assert_contains "E-416.P4: REIN_CI=hosted takes the absolute bound (226 ms ≤ 250 ms passes)" \
+  "PASS" "$(_verdict 'CI=; REIN_CI=hosted' 226 250 82)"
+assert_contains "E-416.P5: …the same figures under REIN_CI=local stay relative and fail" \
+  "FAIL" "$(_verdict 'CI=; REIN_CI=local' 226 250 82)"
+assert_contains "E-416.P6: …and REIN_CI=hosted still fails past the absolute bound" \
+  "FAIL" "$(_verdict 'CI=; REIN_CI=hosted' 381 200 197)"
 
 # ── E-239.7: the converted assertions, and the checklist ─────────────────
 assert_status 0 "E-239.07a: incident_aggregator uses assert_perf" \

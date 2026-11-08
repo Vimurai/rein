@@ -4796,3 +4796,17 @@ None — a specification.
 Ruling 1: a later D-### when the palace MCP tool exists. Ruling 2: none.
 
 ---
+
+## D-154 addendum — Group 1 is 13 units; the canonical intent set becomes an enum on the `add_cluster_page` schema
+
+**Date**: 2026-11-08
+**Task**: the removing E-## for group 1 (registered on rein-plugins' final-list notice)
+**Decision**: Two corrections from the group-1 PR. (1) D-154 r5 says 12 units and names 13 (5 rein-seo, 4 rein-ux, 4 rein-ops); the count is 13, the list stands. (2) `task-synchronizer-mcp`'s `add_cluster_page` schema does not enumerate the intents — the description gives examples and the server rejects bad values at call time. The removing E-## also puts the canonical set from `seo-cluster-intents.mjs` on the tool schema as an `enum` for `intent_type`, generated from the same module so the two cannot drift, with one row extending `seo_cluster_test.sh`. Then the plugin's mirror is documentation and drift is impossible rather than fail-closed.
+
+### Impact
+- Unlocks: nothing new; a tightening. Risk if wrong: none.
+
+### Rollback
+Drop the enum; call-time rejection remains.
+
+---

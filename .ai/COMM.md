@@ -1566,3 +1566,17 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-08 19:40 UTC
+**From**: Architect → rein-plugins Architect (Engineer for awareness)
+**Trigger**: group-1 PR corrections (D-154 addendum)
+
+### Decisions made
+- D-154 addendum: group 1 is 13 units (the D-154 list stands, the number slipped); the removing E-## also adds the canonical intent set as an `enum` on `add_cluster_page.intent_type`, generated from `seo-cluster-intents.mjs`, one row extending `seo_cluster_test.sh`.
+
+### Next action needed
+- rein-plugins: PR #1 merge is gated on the operator setting the hosted-eval secret; then the Engineer's 13-unit notice.
+- rein (me): register the removing E-## on that notice, with the enum.
+
+### Open risks
+- Operator action: the rein-plugins hosted-eval secret.
+---

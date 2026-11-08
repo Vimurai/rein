@@ -4090,6 +4090,26 @@ Ruling 1: restore the section, drop the line (the cap then forces (b)). Rulings 
 
 ---
 
+## D-141 addendum 2 — "Registered to an install" is derived from the project's own `.mcp.json`, not from a new record: a live foreign install claims the project, a dead one claims nothing
+
+**Date**: 2026-11-01
+**Task**: E-409
+**Decision**: The Engineer asks what addendum r4's "the project at cwd is registered to the running install's HOME" means, since no project registry exists; the only record is the absolute server paths (`<HOME>/.rein/mcp/<server>/index.js`) that `generate_mcp_json` writes into the gitignored `.mcp.json`. Option (A) — derive it from that file — is ruled; option (B), a new `.ai/install.local.json`, is rejected: a file in every project, a migration whose missing-record case must mean "adopt silently", and it still needs the dead-install rule or the outage's own recovery path is blocked. Rulings:
+
+1. **The registered install is the `<prefix>/.rein` the existing `.mcp.json`'s Rein server entries share**, compared by canonical real path (symlinks resolved on both sides) against the running install's `${REIN}`.
+2. **A writer refuses with `[FOREIGN_PROJECT] <project> is registered to <prefix>/.rein — run rein sync from that HOME, or rein init --adopt` only when the prefix differs AND that install is alive** — alive means `<prefix>/.rein/mcp/` exists on disk. A dead install claims nothing, so a real-HOME `rein sync` over a file that points into a deleted throwaway HOME rewrites it: this is exactly the outage's recovery and it must keep working. The refusal exits non-zero and leaves the file byte-identical.
+3. **No `.mcp.json`, or one with no Rein entries, is unregistered: the writer writes.** A file whose Rein entries name more than one prefix is a broken file, not a claim: the writer rewrites it and prints one line naming the prefixes it replaced.
+4. **`--adopt` overrides a live foreign claim deliberately** and is the only way to; it prints the old and new prefix. No environment variable bypass.
+5. **The doctor line** (`[MCP_PATHS_MISSING] <n> servers point at paths that do not exist — run: rein sync`) and the demo script's `cd` rule stand as written in addendum r4; `rein doctor` additionally prints `[FOREIGN_PROJECT] …` (non-zero) when rule 2 would refuse, so the state is visible before any writer runs.
+
+### Impact
+- Unlocks: E-409 as ruled; no new file, no migration. E-409's tests gain the dead-install and mixed-prefix rows.
+- Risk if wrong: a project deliberately served by an install at a path the running one cannot see (a network mount down at the moment of the check) reads as dead and is rewritten; `--adopt` back is one command and the file is regenerated, never hand-edited.
+
+### Rollback
+Remove the prefix check from the writers; the doctor line stays useful on its own.
+
+---
 ## D-143 — `.mcp.json` names its servers by `${HOME}`, so the file is install-neutral: the D-141 addendum 2 claim is retired, the doctor dead-path line stays behind one shared expander, the Memory Palace scan fails closed, and PR #26 merges before the E-409 stack
 
 **Date**: 2026-11-04
@@ -4593,5 +4613,29 @@ None — an acceptance.
 
 ### Rollback
 None — acceptances and a restatement of D-138 r2.
+
+---
+
+## D-149 — The test_lines budget rises to 42725 for this week's ruled rows; nothing is consolidated to pay for them
+
+**Date**: 2026-11-08
+**Task**: E-408 (PR #22, 3760774), then #23
+**Decision**: `rein ci run` on #22's merge of main is green (7111/0/25, leaked 0, unit PASS) except `[BUDGET_REGRESSION] test_lines` — recorded 41800 (D-132 addendum 6), measured 42725, limit 42636 at the 2 % slack. Main alone after #31 measures 42546, inside the slack; #22's E-408 rows take the merged tree past it. Every line of the 925 traces to a numbered ruling that ordered it: the E-398, E-413 and E-414 contract and unit rows (D-144 and D-145 with addenda), E-412 (D-146), E-415's D-104 rows (D-147), E-401's U1–U3 and the suite headers (D-138), E-416's rows (D-148 and addenda), E-407 and E-408 (D-141 addendum r3).
+
+1. **Budget**: `rein ci budget set --ruling D-149 test_lines=42725` — the measured value, no headroom, as D-132 addendum 6 r1 set it and for the same reason: the 2 % tolerance is the headroom. On #22's branch, since that is the tree that measures it; #31 and main pass as they are.
+2. **No consolidation is ordered.** D-088 r11 lets the Architect name rows to merge or delete instead of raising. The rows this week were each ordered to extend a named existing row rather than open a suite, which is the consolidation D-088 asks for at the time of writing; the Architect finds no two rows asserting one behaviour from the list above. Deleting a row to pay for another is not an economy, it is a trade of coverage for a number.
+3. **The trend is the finding to carry, not to act on yet.** The budget has risen twice in ten days (D-132 addendum 6: +1311; this: +925), each time by rulings. The rows were the week's gate hardening and are the cheapest layer each could sit at. If the next regression comes from rows that do not harden a gate, the Architect reviews the suites for rows that pin the same behaviour at two layers before raising again.
+4. **Not a precedent for growth without a ruling** (D-132 addendum 6 r3 restated): a later `[BUDGET_REGRESSION]` that does not trace to numbered rulings is a FAIL.
+
+### Alternatives considered
+1. **Name rows for deletion** — rejected: no duplicate found; every row traces to a ruling this week and extends a named row (D-088 r3).
+2. **Set the budget with headroom** — rejected (D-132 addendum 6 alt 2): the tolerance is the headroom.
+3. **Merge #22 before #31 so main carries the growth in two steps under the slack each time** — rejected: the sum is the same tree; sequencing the measurements to dodge the gate is the regression hidden, not avoided.
+
+### Impact
+- Unlocks: #22's push and merge, then the #23 re-cut. Risk if wrong: none beyond the number; the next run re-records.
+
+### Rollback
+`rein ci budget set --ruling D-149 test_lines=41800` restores the previous value.
 
 ---

@@ -4503,6 +4503,15 @@
       "summary": "Tier 1 merge of origin/main (#21, #29, #32) into e-398-stack: source auto-merged (operand-scope.test.mjs takes both E-398's comment and E-416's hosted assertInside); .ai conflicts regenerated from the state index (a superset of both sides).",
       "sha": "7d6246e8c973da019cbce67ef98f60d69e4a04c0",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-408",
+      "timestamp": "2026-11-08T17:25:04.463Z",
+      "summary": "Tier 1 merge of origin/main (through #31) into e-408-gh-isolation: source auto-merged; DECISIONS.md kept this branch's file verbatim (it alone carries D-141 addendum 2) and inserted main's 20 entries in order (D-143 .. D-148 addendum 3), every line of both sides present; state.json/REVIEWS.md regenerated from the state index. Carried Architect content only (D-148 addendum r3).",
+      "sha": "8b94dc3bce5cad1a4cbd19ff5c5935cca21c9717",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

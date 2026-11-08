@@ -219,6 +219,18 @@ per-call `env -u` for a listed variable (folklore — the strip is central); a s
 a launch variable and inherits it instead of setting it explicitly. Never teach a hook to
 ignore launch variables under a test flag: that tests a path production never takes.
 
+### The operator's GitHub login reached a test (review question #9 — E-408, D-141 addendum r3) — **P1**
+
+> **Does this test run `gh`, `rein doctor` or `rein ci hosted` — and is the `gh` it reaches a
+> stub on the lane's PATH?**
+
+`tests/run.sh` scrubs `GH_CONFIG_DIR`, `GH_TOKEN` and `GITHUB_TOKEN` per lane and points
+`GH_HOST` at `gh.invalid`, and a guard fails the run with `[GH_ENV_LEAKED]` if one survived.
+Look for: a suite or unit test that restores the operator's gh env (`REIN_TEST_KEEP_GH_ENV=1`
+outside a deliberate live run); a `--check`/doctor call against a GitHub-origin fixture with
+neither a stub `gh` on PATH nor an injected answer; a node test that reads `process.env.GH_*`
+without first emptying it (hosted-ci.test.mjs sets an empty `GH_CONFIG_DIR` at the top).
+
 ### 4. Coverage Gaps (Advisory)
 Identify any `src/` logic that has ZERO test coverage (not just in this diff, but overall). List as P2 advisory items — not blocking.
 

@@ -4909,3 +4909,28 @@ None needed — nothing is built yet; revert the blueprint bullets.
 None — a correction of wording; no behaviour changes.
 
 ---
+
+## D-142 addendum 2 — The gate never blocked the helper's plain form; E-410 records that, adds no gate rule, and `rein incident` stays as the form the skill uses
+
+**Date**: 2026-11-09
+**Task**: E-410 (items 2, 3 and the acceptance)
+**Decision**: The Engineer ran `node ~/.rein/shared/incident-append.mjs '{…}'` through `runAnalysis` on main in a throwaway HOME: PASS for both roles, with `$HOME` spelled either way. `gate-guard.mjs` says so in its header ("Reading ~/.rein (cat, ls, node ~/.rein/shared/x.mjs) stays allowed"), and preflight runs such probes at every session start. D-142's premise, that the gate blocks the helper as `GATE_SELF_DISABLE`, does not hold for that form, and there is no allowlist mechanism for `rein incident` to join: `rein install`, `rein sync` and `rein doctor` pass because they do not name the mirror in a write position, and `rein incident '<json>'` passes today for the same reason.
+
+1. **Option A: record the truth; no new gate rule.** The fixture row `node ~/.rein/shared/incident-append.mjs …` is pinned as PASS for both roles, labelled: the helper is a sanitising single-append writer to one fixed path; running it directly grants nothing `rein incident` does not. Option B (a rule against an interpreter running that file) is declined: it is a path-form rule (D-140 r2, D-142 r2), and it would protect nothing. The Architect checked what the helper takes from its caller: the log path is `homedir()/.rein/incidents.ndjson` with no path variable; the only variables read are the rotation threshold and the disable switch.
+2. **`rein incident` is still built**, for what it is: one stable command the skill and an agent can type, with a flag form that needs no `jq` and no resolver function in the command line. D-142 r1's title is corrected by this entry: it is not "the fifth command on an allowlist". `gate-guard.mjs` changes in its header comment only, which is restated to what is true: shell commands that write the mirror without naming it (`bash install-rein.sh`, `rein install`, `rein sync`, `rein doctor`, `rein incident`), and programs inside the mirror that write their own state when run (the hooks, the MCP servers, the helpers). No pattern, no message text and no verdict changes. E-410 item 2's "by the same literal mechanism" and "lists it as the fifth writer" are withdrawn.
+3. **Fixture rows, replacing E-410 item 3**: `rein incident '{…}'` PASS both roles; `node ~/.rein/shared/incident-append.mjs '{…}'` PASS both roles with the label above; `rein incident '{}' > ~/.rein/x` BLOCK (`REDIRECT_INTO`); `rein incident --home …` is a `cli_test` row (the CLI refuses it), not a gate row. One more, measured and pinned as it comes out: `rein incident --message "… -> ~/.rein/mcp/x"`. The Architect expects BLOCK, because `REDIRECT_INTO` cannot tell a `>` inside an argument from a redirection without a shell parser; if so the row is labelled an over-block kept on purpose, and the skill tells the agent to write "the install mirror" and never the path after a `>`. Report the verdict in the closing handoff with the fixture shas.
+4. **Acceptance, restated**: `rein incident` from an Engineer pane appends one line with the gate on; the fixture rows of r3 hold; the sentence "`node <helper>` from the same pane is still blocked" is removed. Tier 3 stays: fixtures pinned by sha are gate surface, and `security_engineer` confirms that no rule changed.
+5. **What blocked the skill on 2026-11-01 is not established.** The plain form passes, so it was something else in the composed command. The Architect's guess, unverified: the message described where `.mcp.json` pointed and put the mirror path after a `>`, which is the case r3's last row pins. If the Engineer still has the blocked command, quote it in the handoff; if not, the row is the record.
+
+### Alternatives considered
+1. **Option B, block the helper by path** — rejected in r1.
+2. **Drop `rein incident` now that the helper passes** — rejected: the skill's composed command (resolver function plus `jq` substitution) is what failed in practice, whatever the exact trigger; a plain command with flags removes both moving parts, and most of it is built.
+3. **Teach the gate to exempt a `>` inside a quoted argument of `rein incident`** — rejected: that is a shell tokenizer inside a tamper-resistance rule, bought to save an agent from rewording one sentence.
+
+### Impact
+- Unlocks: E-410's last fixture row and its closing. Risk if wrong: none added; no verdict changes.
+
+### Rollback
+None — corrections and a pinned measurement.
+
+---

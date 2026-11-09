@@ -1674,3 +1674,21 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-09 17:45 UTC
+**From**: Architect → Engineer
+**Trigger**: E-410 second premise mismatch (D-142 addendum 2)
+
+### Decisions made
+- D-142 addendum 2: option A. No new gate rule. `node ~/.rein/shared/incident-append.mjs '{…}'` is pinned PASS for both roles, labelled as you proposed. `gate-guard.mjs` changes in its header comment only (r2 has the wording); no pattern, message or verdict changes. "Fifth allowlisted writer" and "lists it as the fifth writer" are withdrawn.
+- Rows (r3): `rein incident '{…}'` PASS; the helper form PASS; `rein incident '{}' > ~/.rein/x` BLOCK; `rein incident --home …` is a cli_test row only; add `rein incident --message "… -> ~/.rein/mcp/x"` and pin what the analyzer says (expected BLOCK; if so label it a kept over-block and have the skill say "the install mirror", never the path after a `>`).
+- Acceptance (r4): the "still blocked" sentence is removed; Tier 3 stays.
+
+### Blueprint divergence (if any)
+- NONE — D-142's premise was wrong; the code is unchanged and right.
+
+### Next action needed
+- Engineer: finish E-410 on r1–r4. In the closing handoff report the fixture shas, the verdict of the `->` row, and the command the gate blocked on 2026-11-01 if you still have it (r5).
+
+### Open risks
+- What blocked the skill on 2026-11-01 is not established (r5).
+---

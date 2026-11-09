@@ -63,6 +63,10 @@ convenience copy that nothing trusts.
   `SOURCE_DATE_EPOCH` or 0; mode from the manifest. gzip level 9. The promise is identical
   *members* across hosts; byte-identical gzip output is promised only for one Node major on
   one platform, which is all the release runner needs.
+- The writer never emits a pax or GNU extension record (`x`, `g`, `L`, `K`), a directory
+  entry or a link; a path that would need one is refused at generation. Readers may reject
+  all of them, and rein-app's does. Lifting this is a `schema` change with a notice to
+  rein-app first (D-155 addendum r4).
 - `rein release verify <tarball> [--pubkey <file>]` (same module): reads the tarball with the
   matching reader, which accepts only what the writer emits; checks that the first member is
   `manifest.json`, that the member set equals `files` exactly, and each size, sha256 and
@@ -97,8 +101,14 @@ convenience copy that nothing trusts.
   profile lines (§3). `install-rein.sh` sources it from the clone and calls the same
   functions in the same order; its output and exit codes do not change.
 - **Artifact mode** is detected by `rein install`, never passed as a flag: `~/.rein/manifest.json`
-  exists, parses as schema 1, and its `version` equals `~/.rein/VERSION`. In that mode, before
-  the existing `install_global` body:
+  exists. A clone install removes that file, so its presence always means the tree came from
+  an artifact. Present but unreadable, not schema 1, or with a `version` that differs from
+  `~/.rein/VERSION` (or no `VERSION`) is a refusal, not a fallback to the clone path
+  (D-155 addendum r2): `[INSTALL_INCOMPLETE] manifest.json says <a>, VERSION says <b> — the
+  release was not fully unpacked; reinstall it`, exit 3, nothing else done. This is also what a
+  second `rein install` meets while an installer is between its last two renames; during the
+  file sync itself it meets the tree check below. Both windows fail closed, so schema 1 needs
+  no lock shared with the installer. In artifact mode, before the existing `install_global` body:
   1. Tree check: every `files` entry exists under `~/.rein` with the manifest's size and
      sha256, and its mode is applied (`chmod`) if it differs. A missing or different file:
      `[INSTALL_TREE_MISMATCH] <n> file(s) differ from the manifest — reinstall the release`,
@@ -114,6 +124,25 @@ convenience copy that nothing trusts.
      clone, and a record left by an earlier clone install would point `rein sync` and the
      task router at a tree that is no longer what is installed.
   6. Profile lines.
+- **Removals beyond the mirror rule** (D-155 addendum r1), after the six steps, artifact mode
+  only. The installer's `purge_retired_mcp_mirrors` and its legacy-mirror loop move into
+  `install-finalize.sh` as one function each, taking the set of live server names as
+  arguments: the installer passes the directory names of `src/mcp`, artifact mode passes the
+  distinct `mcp/<name>/` prefixes of the manifest's `files`. A directory `~/.rein/mcp/<name>`
+  with no shipped file beneath it is a retired server and is removed whole, `node_modules`
+  included; the top-level `gemini/` and `agents/` mirrors of v3 are removed. Guards, as today
+  and one more: nothing is removed when the name set holds no server with an `index.js`; an
+  entry that is a symlink is unlinked, never followed. The mirror rule itself does not change:
+  an installer leaves a retired server's `node_modules` in place (it matches `operator_owned`)
+  and `rein install` removes it, so a layout comparison between an artifact install and a
+  clone install is taken after `rein install` on both sides.
+- **A stamp never contradicts the tree** (D-155 addendum r3). In any mode, when
+  `config/install-stamp.json` names a `version` other than `VERSION`, or says `artifact` while
+  no `manifest.json` exists, `rein install` rewrites it as `{"source":"restored","version":<VERSION>,
+  "commit":null,"dirty":false,"installed_at":…}`. That is the state a rollback to a snapshot
+  taken from a clone install leaves. `rein doctor` prints `○ install: restored tree, origin not
+  recorded — reinstall from a clone or a release to record it`. The clone record
+  (`config/rein-workspace.txt`) is not recreated; only `bash install-rein.sh` writes it.
 - A clone install removes `~/.rein/manifest.json` after its live sync, so a later `rein install`
   is not mistaken for artifact mode.
 - `rein doctor` gains two lines from the same data: `✓ install: artifact <version> (key <key_id>),
@@ -153,7 +182,8 @@ convenience copy that nothing trusts.
   manifest from a stage of the checkout, the doctor document from a fixture project, a
   registry written by `accounts.py add`.
 - Fixtures other repos test against, under `tests/fixtures/release/`:
-  `operator-owned-cases.json` (path, shipped yes/no, expected: kept / replaced / deleted),
+  `operator-owned-cases.json` (path, shipped yes/no, expected: kept / replaced / deleted; it
+  describes the mirror step only, so a retired server's `node_modules` is `kept` there),
   `profile-settings-cases.json` (settings before, the write the app attempts, accept / refuse),
   `layout-v1.json` (the pinned `layout` object), `cli-surface.json` (the eight entry points of
   contract §2.6 with every flag `rein help` documents for them today), `doctor-sample.json`
@@ -243,7 +273,7 @@ and `rein sync` with this machine's absolute paths, and the app writes no file i
 | `rein release manifest <tree> [--out <dir>] [--no-tarball] --pubkey <file>` | staged tree | `manifest.json`, tarball | 0; 2 usage; 3 refused path (named) |
 | `rein release sign <tarball> --pubkey <file>` | `REIN_RELEASE_KEY` | `<tarball>.minisig` | 0; 3 no key, no `minisign`, or self-check failed |
 | `rein release verify <tarball> [--pubkey <file>]` | tarball, `.minisig` | one line per finding | 0; 2 usage; 3 mismatch or bad signature |
-| `rein install` (artifact mode) | `~/.rein/manifest.json` | the installer's lines | 0; 1 Node floor or `[HOOK_BASH_MISSING]`; 3 `[INSTALL_TREE_MISMATCH]` or a gate dependency off its pin (E-305, unchanged) |
+| `rein install` (artifact mode) | `~/.rein/manifest.json` | the installer's lines | 0; 1 Node floor or `[HOOK_BASH_MISSING]`; 3 `[INSTALL_INCOMPLETE]`, `[INSTALL_TREE_MISMATCH]` or a gate dependency off its pin (E-305, unchanged) |
 | `rein doctor --json` | cwd | one JSON document and a newline on stdout; nothing else on stdout | 0 or 1 (1 = a check that means the gate cannot run here failed, as in text mode); any other status means stdout is not a document |
 
 `rein help` lists `rein release stage|manifest|sign|verify` and `rein doctor [--json]`.

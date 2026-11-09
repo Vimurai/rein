@@ -29,7 +29,7 @@ Rules: `rein-app` never contains a copy of Rein logic. `rein-plugins` never cont
 
 ## 3. What the app guarantees to `rein`
 
-- Installs the verified artifact into the Rein home directory (unpacked `manifest.json` included, `VERSION` written last) and then runs `rein install` and `rein doctor` from it. The app does not reimplement them. `rein install` recognises the unpacked artifact and performs every post-copy step itself: tree check against the manifest, toolchain pin, install stamp, shell profile lines (D-155 r4).
+- Installs the verified artifact into the Rein home directory (unpacked `manifest.json` included, `VERSION` written last) and then runs `rein install` and `rein doctor` from it. The app does not reimplement them. `rein install` recognises the unpacked artifact and performs every post-copy step itself: tree check against the manifest, toolchain pin, install stamp, shell profile lines, removal of retired server mirrors (D-155 r4 and addendum). A `manifest.json` that disagrees with `VERSION` is refused (`[INSTALL_INCOMPLETE]`, exit 3); a layout comparison with a clone install is taken after `rein install` on both sides.
 - Runs Rein inside WSL2 on Windows; tmux and the gate stay POSIX. Native Windows is out of scope (see rein-app plan §Non-goals).
 - Keeps tmux underneath through phase 2 (`rein pane`, `rein start` unchanged). Replacing tmux with app-drawn panes is a later phase with its own contract change.
 

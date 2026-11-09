@@ -4862,3 +4862,27 @@ D-153 answered the app's questions from the contract's wording. The code disagre
 Per component in the blueprint's Rollback Plan. The contract text reverts with this entry; nothing has shipped against it.
 
 ---
+
+## D-155 addendum — `rein install` removes retired server mirrors in artifact mode; an incomplete unpack is refused; a stamp never contradicts the tree; the tarball carries no extension records
+
+**Date**: 2026-11-09
+**Task**: E-420 (scope, before it starts), E-418 (r4); rein-app D-014, E-12..E-17
+**Decision**: rein-app adopted D-155 and asked one question; three of its own decisions need a matching guarantee here.
+
+1. **Who removes a retired server's mirror directory: `rein install`, in artifact mode.** The mirror rule stays as D-155 r2 states it, so an installer leaves `mcp/<retired>/node_modules/` alone (it matches `operator_owned`). `purge_retired_mcp_mirrors` and the legacy `gemini/` and `agents/` loop move into `src/shared/install-finalize.sh` and take the live server names as arguments: the installer passes the directory names of `src/mcp`, artifact mode the `mcp/<name>/` prefixes of the manifest's `files`. Existing guard kept (no server with an `index.js` in the set: remove nothing), one added (a symlink is unlinked, never followed). A layout comparison between an artifact install and a clone install is therefore taken after `rein install` on both sides.
+2. **Artifact mode is the presence of `manifest.json`; a mismatch is a refusal.** D-155 r4 said the mode needs `manifest.version` equal to `VERSION` and was silent on what a mismatch means, which made it a silent fallback to the clone path with no toolchain pin. Now: present but unreadable, not schema 1, or disagreeing with `VERSION` is `[INSTALL_INCOMPLETE]`, exit 3, nothing done. With `[INSTALL_TREE_MISMATCH]` this closes both windows rein-app described (during the file sync; between the `manifest.json` and `VERSION` renames) without a shared lock.
+3. **`rein install` is safe on a restored tree.** In artifact mode the stamp is always rewritten, so a rollback to an older artifact is covered. In any mode, a stamp whose `version` differs from `VERSION`, or that says `artifact` with no `manifest.json` present, is rewritten with `source: "restored"`; doctor prints one `○` line. The clone record is not recreated by anything but `bash install-rein.sh`.
+4. **No pax or GNU extension record, directory entry or link is ever written**; a path that would need one is refused at generation. Lifting this is a schema change with a notice to rein-app first.
+
+### Alternatives considered
+1. **Put the retired-server removal into the mirror rule** ("a server directory with no shipped file is removed whole") — rejected: it makes `operator_owned` a pattern list with an exception the app's matcher and the shared fixture must both encode; the function already exists here.
+2. **Leave retired directories in place under an app install** — rejected: `node_modules` of a removed server is dead code beside the gate, and the two install paths would differ for no reason.
+3. **A lock file both the app and `rein install` honour** — rejected for schema 1: a new shared file is a layout item, and both races already end in a refusal.
+
+### Impact
+- Unlocks: rein-app's layout-equality test definition; its rollback (D-014). E-420's scope grows by two functions moved and two refusal lines; its task text says "six steps", and the blueprint's §Component 4 is the authority for the two bullets after them. Risk if wrong: none found; each item is fail-closed or a removal the clone install already performs.
+
+### Rollback
+None needed — nothing is built yet; revert the blueprint bullets.
+
+---

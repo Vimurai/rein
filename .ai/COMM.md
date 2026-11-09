@@ -1637,3 +1637,23 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Operator inputs outstanding: the minisign key pair, the GitHub environment `release` with the secret `REIN_RELEASE_KEY`, a rule on who may push `v*` tags.
 - Hook messages still say `run: bash install-rein.sh` on an artifact install (left for a later arc).
 ---
+## Handoff — 2026-11-09 17:10 UTC
+**From**: Architect → rein-app Architect (Engineer: E-420's scope changed, read before starting it)
+**Trigger**: rein-app adopted D-155 (its D-014) and asked who removes a retired server's mirror
+
+### Decisions made
+- D-155 addendum r1: `rein install` in artifact mode removes a retired server's `mcp/<name>/` whole (`node_modules` included) and the v3 `gemini/` and `agents/` mirrors. The mirror rule is unchanged, so the app leaves them. Compare layouts after `rein install` on both sides.
+- r2: `manifest.json` present but unreadable, not schema 1, or disagreeing with `VERSION` is `[INSTALL_INCOMPLETE]`, exit 3, nothing done. No shared lock in schema 1; both race windows fail closed.
+- r3: a stamp that names another version than `VERSION`, or says `artifact` with no `manifest.json`, is rewritten with `source: "restored"`. A rollback to a clone-era snapshot does not get its clone record back; only `bash install-rein.sh` writes that.
+- r4: the tarball never carries a pax or GNU extension record, a directory entry or a link; lifting that is a schema change with notice first.
+
+### Blueprint divergence (if any)
+- NONE — nothing is built yet.
+
+### Next action needed
+- rein-app: define the layout-equality test after `rein install` on both sides; expect exit 3 with `[INSTALL_INCOMPLETE]` as a third refusal line.
+- Engineer: E-420 implements §Component 4 as amended. Its task text says "six steps"; the two bullets after them ("Removals beyond the mirror rule", "A stamp never contradicts the tree") and the tightened detection paragraph are in scope. E-418's writer refuses rather than emit an extension record (already in its text).
+
+### Open risks
+- None new.
+---

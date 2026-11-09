@@ -4886,3 +4886,26 @@ Per component in the blueprint's Rollback Plan. The contract text reverts with t
 None needed — nothing is built yet; revert the blueprint bullets.
 
 ---
+
+## D-142 addendum — The incident writer redacts, it does not reject; D-142 r3's parenthetical was wrong and `[INCIDENT_REJECTED]` covers the helper's own refusals only
+
+**Date**: 2026-11-09
+**Task**: E-410 (item 6, the cli_test row; item 1, the rejection line)
+**Decision**: The Engineer measured `incident-append.mjs` before wiring it: a message holding this user's home path, another user's home path and an email is appended with exit 0 as `~/x [redacted:home_path]/y [email]`. The helper refuses only invalid JSON, a payload that is not an object, and a missing or empty field. D-142 r3 said "the helper already rejects these", and E-410's test row followed it. The ruling's sentence was wrong about the mechanism; the invariant it protects is right and already holds.
+
+1. **The invariant, restated**: no line reaches the incident log with a home path, an email or a token in it. The helper keeps it by redaction (E-379, D-130: an automated writer redacts what it writes), and stays byte-for-byte unchanged, as E-410 says.
+2. **No pre-check in the CLI** (the Engineer's option A is declined, with thanks for putting it). A refusal there would have to detect the same three classes. Built on the shared redactor it catches exactly what the redactor catches and adds no protection; built on its own patterns it is a second copy of the policy (D-130, engineering standards: reuse `src/shared/`). What it does add is a lost record: an agent filing during an outage pastes an error line with a path in it, is refused, and the event the log exists for is not written. Redaction keeps the event and removes the path.
+3. **`[INCIDENT_REJECTED] <field>: <reason>`** is printed, exit non-zero, for the helper's own refusals: invalid JSON, a non-object payload, a missing or empty field. And for what the subcommand itself refuses before calling the helper: an unknown flag, a path, output or HOME flag.
+4. **E-410 item 6, cli_test, reads**: both invocation forms append one sanitised line; a record whose message holds this user's home path, another user's home path, an email and a token is appended with exit 0 and the line shows `~`, `[redacted:home_path]`, `[email]` and `[token]` in their places and none of the raw values; a record with an empty `message` prints `[INCIDENT_REJECTED] message: …` and appends nothing; the subcommand refuses unknown flags. Everything else in E-410 stands.
+
+### Alternatives considered
+1. **CLI pre-check on the raw fields (option A)** — rejected in r2.
+2. **Make the helper reject** — rejected: it changes the one writer every other caller uses (the skill's operator path, tests) and discards records for a class it can clean.
+
+### Impact
+- Unlocks: E-410's subcommand wiring and its test row. Risk if wrong: the redactor misses a form of one of the three classes and it is written; that risk is the same under option A, which would use the same detector.
+
+### Rollback
+None — a correction of wording; no behaviour changes.
+
+---

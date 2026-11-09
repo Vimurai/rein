@@ -1657,3 +1657,20 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-09 17:25 UTC
+**From**: Architect → Engineer
+**Trigger**: E-410 clarification (D-142 addendum)
+
+### Decisions made
+- D-142 addendum: option B. The helper redacts and stays unchanged; no pre-check in the CLI. `[INCIDENT_REJECTED] <field>: <reason>` is for the helper's own refusals (invalid JSON, non-object payload, missing or empty field) and for the subcommand's flag refusals.
+- cli_test row, restated: both forms append one sanitised line; a message with this user's home path, another user's, an email and a token is appended with exit 0 showing `~`, `[redacted:home_path]`, `[email]`, `[token]` and none of the raw values; an empty `message` prints `[INCIDENT_REJECTED] message: …` and appends nothing; unknown flags are refused.
+
+### Blueprint divergence (if any)
+- NONE — D-142 r3's parenthetical was wrong about the helper; the implementation is right.
+
+### Next action needed
+- Engineer: wire E-410 on this ruling; the rest of the task stands. Closures as you described (new run on the bookkeeping branch, then the twelve and E-411).
+
+### Open risks
+- None new.
+---

@@ -1595,3 +1595,45 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-09 16:55 UTC
+**From**: Architect → rein-app Architect and rein-plugins Architect
+**Trigger**: P-50 closed (D-155); the contract file changed
+
+### Decisions made
+- Signature scheme is final: minisign, prehashed form, public key baked into the app; it will be committed in `rein` as `docs/contract/release-key.pub` once the operator generates the pair (D-153 r1, D-155 r6).
+- D-155 r1: tarball = `manifest.json` first, then regular files only, in manifest order; no directory entries, no links, no `VERSION` member. The installer writes `VERSION` from `manifest.version` last and leaves the unpacked `manifest.json` at the top of the Rein home.
+- D-155 r2: an installer writes only inside `layout.mirrored` plus `manifest.json` and `VERSION`. `operator_owned` protects from deletion; a path in `files` is always written even when a pattern matches it (`mcp/orchestrator-mcp/package-lock.json`). `shared/toolchain.sh` is added to the schema-1 list (fourteen entries).
+- D-155 r3: contract §2.3 corrected. A profile's `settings.json` takes three keys from the app (`enabledPlugins`, `extraKnownMarketplaces`, `attribution`), never `hooks`. Gate hooks are in each project's `.claude/settings.json`, written only by `rein init` / `rein sync`.
+- D-155 r4: after unpacking, `rein install` does every post-copy step itself (tree check against the manifest, toolchain pin, stamp, profile lines). Exit 3 = `[INSTALL_TREE_MISMATCH]` or a gate dependency off its pin; exit 1 = Node floor or `[HOOK_BASH_MISSING]`.
+- D-155 r5: doctor document gains `"schema": 1` and an optional `"subject"` per check; `(id, subject)` is unique; exit 0 or 1 means stdout is a document.
+
+### Next action needed
+- rein-app: E-3 unpack rules per r1; E-4 three keys per r3; E-5 layout equality per r2 including the precedence case. The shared fixtures arrive under `tests/fixtures/release/` with `rein` E-418 and E-422.
+- rein-plugins: no action. Nothing in the artifact or its signature touches the marketplace.
+
+### Open risks
+- The signature does not cover the npm dependencies `rein install` fetches (D-155 r7).
+---
+## Handoff — 2026-11-09 16:55 UTC
+**From**: Architect → Engineer
+**Trigger**: P-50 written (D-155)
+
+### What was built
+- `.ai/blueprints/release-artifact.md` (new), D-155, amended `plans/rein-ecosystem-contract.md` §2–3 and `plans/rein-app-plan.md`.
+
+### Decisions made
+- D-155 (seven rulings; r1–r5 bind the implementation).
+
+### Blueprint divergence (if any)
+- NONE — nothing is built yet.
+
+### Next action needed
+- Queue order stands: the closures after the operator's reinstall, E-410, E-403. Then E-417 → E-418 → E-420 and E-419 Part A; E-421 is independent and can go at any point; E-422 last.
+- E-418 needs a public key file before E-419 creates the throwaway pair: commit a placeholder `tests/fixtures/release/throwaway.pub` in the minisign public-key format if the binary is not available, and say so in the PR.
+- E-419 Part B waits for the operator's public key. Do not generate a release key.
+- Report the measured value if `[BUDGET_REGRESSION] test_lines` appears; the Architect rules the number.
+
+### Open risks
+- Operator inputs outstanding: the minisign key pair, the GitHub environment `release` with the secret `REIN_RELEASE_KEY`, a rule on who may push `v*` tags.
+- Hook messages still say `run: bash install-rein.sh` on an artifact install (left for a later arc).
+---

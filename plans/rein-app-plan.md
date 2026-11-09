@@ -17,7 +17,7 @@ Components:
 1. **Fetcher/verifier**: downloads `rein-X.Y.Z.tar.gz` + signature + `manifest.json` from the `rein` release, verifies signature and per-file sha256, refuses otherwise (fail closed).
 2. **Layout writer**: unpacks into the Rein home directory exactly as `install-rein.sh`; then runs `rein install` and `rein doctor` from the installed tree and shows the doctor output. Never edits files in that tree itself after unpacking.
 3. **Runtime check**: Node 22+, git, sqlite3, tmux, Claude Code. Phase 1 declares Node as a package dependency (brew/apt); bundling a pinned Node is phase 2 work.
-4. **Profile manager**: lists Claude profiles (the default config dir, `.claude-personal`, every `config_dir` in `accounts.json`) and writes only the keys contract §2.3 allows (`hooks` via `rein install`, `enabledPlugins`, `extraKnownMarketplaces` for `rein-plugins`, `attribution`). Reads before writes, merges, never replaces, validates JSON after.
+4. **Profile manager**: lists Claude profiles (the default config dir, `.claude-personal`, every `config_dir` in `accounts.json`) and writes only the keys contract §2.3 allows (`enabledPlugins`, `extraKnownMarketplaces` for `rein-plugins`, `attribution`; never `hooks` — amended by D-155 r3: gate hooks live in each project's `.claude/settings.json` and only `rein init`/`rein sync` write them). Reads before writes, merges, never replaces, validates JSON after.
 5. **Updater**: `rein-app update` checks the newest `rein` tag, shows the changelog, installs on confirm; `rein-app rollback` restores the previous tree (keep N=2).
 6. **Windows path**: `rein-app` on Windows is a thin launcher: checks `wsl --status`, installs Ubuntu if absent, runs the Linux `rein-app` inside WSL, opens Windows Terminal into the project's tmux session.
 
@@ -44,7 +44,7 @@ Tests: Tauri e2e for the pane attach/detach cycle; snapshot tests of status rend
 - E-1: `cargo init` workspace: `rein-app` (bin), `rein-release` (fetch/verify lib), `rein-profiles` (settings lib); cargo-dist config for mac/linux/windows; CI matrix building all three.
 - E-2: `rein-release`: fetch + verify against a fixture server; fail closed on every bad input.
 - E-3: layout writer + `rein install`/`doctor` invocation; equality test against `install-rein.sh`.
-- E-4: `rein-profiles`: merge/validate; the four allowed keys only.
+- E-4: `rein-profiles`: merge/validate; the three allowed keys only (D-155 r3).
 - E-5: Homebrew formula + cargo-dist release; the Windows WSL launcher.
 
 Tier each as the contract suggests; the profile manager and anything touching hooks is Tier 3 (security_engineer review).

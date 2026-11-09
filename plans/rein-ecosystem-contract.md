@@ -16,16 +16,20 @@ Rules: `rein-app` never contains a copy of Rein logic. `rein-plugins` never cont
 
 ## 2. What `rein` guarantees to the app (owed by this repo — P-50)
 
-1. **Release artifact**: every tag `vX.Y.Z` publishes `rein-X.Y.Z.tar.gz` plus a detached signature (minisign or sigstore; decided in P-50) and a `manifest.json`: version, minimum Node, the file list with sha256 per file, and the install layout below. The tarball is exactly what `install-rein.sh` lays out today.
-2. **Install layout is stable**: everything under the Rein home directory (`$HOME/.rein`) as the install-first locator (`shared/locate.sh`, E-223/E-225) expects — `bin/`, `hooks/`, `mcp/`, `shared/`, `scripts/`, `config/`, `secrets/`, `run/`, `accounts.json`, `gate-override.json`. A layout change is a major version.
-3. **Settings the app may own per profile** (`<config_dir>/settings.json`): `hooks` (the gate's PreToolUse/PostToolUse/Stop/SessionStart entries, byte-identical to what `rein install` writes), `enabledPlugins`, `extraKnownMarketplaces`, `attribution`. The app never writes `autoMode`, `permissions`, `defaultMode`; those stay with `rein install` and the operator (hard-deny rule, D-132).
-4. **Health is machine-readable**: `rein doctor` gains or confirms a `--json` mode (P-50) and `rein state health --short` exists today. The app renders these; it never re-implements a check.
+> Amended 2026-11-09 by D-153 and D-155. The normative text for items 1–4 is
+> `.ai/blueprints/release-artifact.md` in `rein` (published for readers as `docs/app-contract.md`
+> by E-422); this section is the summary.
+
+1. **Release artifact**: every tag `vX.Y.Z` publishes `rein-X.Y.Z.tar.gz`, `rein-X.Y.Z.tar.gz.minisig` (minisign, prehashed form; the public key is baked into the app and committed here as `docs/contract/release-key.pub`) and `manifest.json` (schema 1: version, minimum Node, `key_id`, the layout, and path, sha256, size and mode per file). The tarball is the installer's own staged tree: `manifest.json` first, then regular files only. The manifest beside the tarball is an untrusted copy of the one inside.
+2. **Install layout is stable**: the Rein home directory (`$HOME/.rein`) holds ten mirrored directories — `bin/`, `hooks/`, `mcp/`, `shared/`, `claude/`, `contracts/`, `templates/`, `copilot/`, `scripts/`, `config/` — plus `VERSION` and `manifest.json`. An installer writes nowhere else. Inside a mirrored directory a shipped path is written, and an unshipped path is deleted unless it matches `layout.operator_owned`; a shipped path wins over a pattern. A layout change is a major version (the minor, before 1.0.0).
+3. **Settings the app may write in a profile** (`<config_dir>/settings.json`): `enabledPlugins`, `extraKnownMarketplaces`, `attribution`. Never `autoMode`, `permissions`, `defaultMode` (hard-deny rule, D-132), and never `hooks`: the gate's hook entries are not in a profile, they are in each project's `.claude/settings.json`, written only by `rein init` and `rein sync`. The app writes no file inside a project.
+4. **Health is machine-readable**: `rein doctor --json` (schema 1: `version`, `status`, `checks[]` of `id`, `subject`, `status`, `line`, `fix`) and `rein state health --short`. The app renders these; it never re-implements a check. Doctor is not a polling probe; `state health` is.
 5. **Panes**: `rein pane <role>` is the only way a role is bound to a pane. The app calls it; it never mints a role token itself.
 6. **Headless entry points stay stable**: `rein install`, `rein sync`, `rein init`, `rein doctor`, `rein start`, `rein pane`, `rein account`, `rein gate on|status`. Flags may be added, never removed, inside a major version.
 
 ## 3. What the app guarantees to `rein`
 
-- Installs the verified artifact into the Rein home directory and then runs `rein install` and `rein doctor` from it. The app does not reimplement them.
+- Installs the verified artifact into the Rein home directory (unpacked `manifest.json` included, `VERSION` written last) and then runs `rein install` and `rein doctor` from it. The app does not reimplement them. `rein install` recognises the unpacked artifact and performs every post-copy step itself: tree check against the manifest, toolchain pin, install stamp, shell profile lines (D-155 r4).
 - Runs Rein inside WSL2 on Windows; tmux and the gate stay POSIX. Native Windows is out of scope (see rein-app plan §Non-goals).
 - Keeps tmux underneath through phase 2 (`rein pane`, `rein start` unchanged). Replacing tmux with app-drawn panes is a later phase with its own contract change.
 

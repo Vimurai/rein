@@ -37,9 +37,10 @@ assert_status 0 "guard respects REIN_SKIP_NODE_CHECK escape hatch" \
   grep -q 'REIN_SKIP_NODE_CHECK' "$INSTALL"
 
 # Guard line number must come before the first 'mkdir -p "${REIN}"' line —
-# this protects ordering even if the file is later refactored.
+# this protects ordering even if the file is later refactored. E-417: the mkdir may be guarded
+# (stage mode writes nothing under HOME), so it is found anywhere on its line, not only at col 1.
 guard_line="$(grep -nE '\[ERROR\] Node\.js is required' "$INSTALL" | head -1 | cut -d: -f1)"
-mkdir_line="$(grep -nE '^mkdir -p "\$\{REIN\}"' "$INSTALL" | head -1 | cut -d: -f1)"
+mkdir_line="$(grep -nE 'mkdir -p "\$\{REIN\}"' "$INSTALL" | head -1 | cut -d: -f1)"
 assert_status 0 "guard precedes first mkdir -p REIN (line $guard_line < $mkdir_line)" \
   bash -c "[[ -n '$guard_line' && -n '$mkdir_line' && '$guard_line' -lt '$mkdir_line' ]]"
 

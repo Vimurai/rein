@@ -36,6 +36,31 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REIN="${HOME}/.rein"
 
+# E-417 (D-155 r1, release-artifact.md §Component 1): `--stage <dir>` runs steps 0 and 1 up to
+# and including _verify_stage with <dir> as the stage, then exits 0 having written nothing
+# under $HOME. <dir> must not exist or must be an empty directory (refused exit 3 otherwise).
+_REIN_STAGE_DIR=""
+_rein_args=("$@")
+for ((_i = 0; _i < ${#_rein_args[@]}; _i++)); do
+  if [[ "${_rein_args[$_i]}" == "--stage" ]]; then
+    _REIN_STAGE_DIR="${_rein_args[$((_i + 1))]:-}"
+    if [[ -z "$_REIN_STAGE_DIR" || "$_REIN_STAGE_DIR" == -* ]]; then
+      echo "usage: bash install-rein.sh --stage <dir> [--allow-dirty]" >&2
+      exit 2
+    fi
+  fi
+done
+unset _rein_args _i
+if [[ -n "$_REIN_STAGE_DIR" ]]; then
+  if [[ -e "$_REIN_STAGE_DIR" || -L "$_REIN_STAGE_DIR" ]]; then
+    if [[ -L "$_REIN_STAGE_DIR" || ! -d "$_REIN_STAGE_DIR" ]] \
+       || [[ -n "$(ls -A "$_REIN_STAGE_DIR" 2>/dev/null)" ]]; then
+      echo "[INSTALL_STAGE_NOT_EMPTY] ${_REIN_STAGE_DIR} exists and is not an empty directory — nothing was staged" >&2
+      exit 3
+    fi
+  fi
+fi
+
 # E-69: Fail-closed Node.js availability check (system-hardening-phase3.md §Security).
 # Runs BEFORE any file copy or env-line append. Node 22.5+ is required by:
 #   - src/shared/wal-flusher.mjs       (node:sqlite, prevents WAL bloat)
@@ -77,7 +102,7 @@ fi
 
 echo "Rein v${REIN_VERSION} installer"
 echo "Source: ${REPO_DIR}/src"
-echo "Target: ${REIN}"
+if [[ -n "$_REIN_STAGE_DIR" ]]; then echo "Stage:  ${_REIN_STAGE_DIR}"; else echo "Target: ${REIN}"; fi
 echo ""
 
 # ── 0a) E-304 (D-089 r2): install only a COMMITTED tree ─────────────────────────────
@@ -121,7 +146,9 @@ fi
 # installer only, never by a hook (the T-LOCATOR-001 lesson).
 _HOOK_BASH="${_REIN_TEST_HOOK_BASH:-/bin/bash}"
 _HOOKS_REFUSED=0
-if ! { [[ -f "$_HOOK_BASH" && -x "$_HOOK_BASH" ]] \
+# E-417: the probe is a property of the installing host, not of an artifact — stage mode
+# always stages hooks/ and never runs it.
+if [[ -z "$_REIN_STAGE_DIR" ]] && ! { [[ -f "$_HOOK_BASH" && -x "$_HOOK_BASH" ]] \
        && env -i "$_HOOK_BASH" -p -c 'case $- in *p*) exit 0 ;; esac; exit 1' >/dev/null 2>&1; }; then
   _HOOKS_REFUSED=1
   echo "[HOOK_BASH_MISSING] ${_HOOK_BASH} not found, not executable, or rejects -p — Rein hooks NOT installed (no PATH fallback, D-081/D-083). On NixOS link /bin/bash (e.g. a systemd tmpfile or environment.binsh) and re-run: bash install-rein.sh" >&2
@@ -129,7 +156,7 @@ fi
 
 # ── 1) Copy src tree to ~/.rein ─────────────────────────────────────────────
 
-mkdir -p "${REIN}"
+[[ -n "$_REIN_STAGE_DIR" ]] || mkdir -p "${REIN}"
 
 # E-229: a MIRROR WRITE MUST BE ATOMIC PER FILE. bash reads a script by byte offset as it
 # runs, so overwriting a bin/ script in place moves the ground under a live process — the
@@ -151,7 +178,7 @@ _atomic_copy_tree() {  # <src-dir> <dst-dir>
     else
       rm -f "$tmp"
     fi
-  done < <(cd "$src" && find . -type f | sed 's|^\./||')
+  done < <(cd "$src" && find . \( -name node_modules -o -name __pycache__ \) -prune -o -type f -print | sed 's|^\./||')
 }
 
 # ── E-304 (D-089 r2): STAGE the whole tree, VERIFY it, then sync it live — hooks LAST ───
@@ -161,8 +188,16 @@ _atomic_copy_tree() {  # <src-dir> <dst-dir>
 # (rsync renames; _atomic_copy_tree below) rather than a directory swap: a renamed-away hooks/
 # would leave a window in which every gate hook is missing, and mcp/ carries node_modules the
 # source tree does not have.
-_STAGE="$(mktemp -d "${REIN}/.stage.XXXXXX")"
-trap 'rm -rf "${_STAGE}"' EXIT
+if [[ -n "$_REIN_STAGE_DIR" ]]; then
+  # E-417: the operator's stage. Kept on success; on a failure only what this run put there
+  # is removed (the directory was absent or empty when it was checked above).
+  mkdir -p "$_REIN_STAGE_DIR"
+  _STAGE="$(cd "$_REIN_STAGE_DIR" && pwd -P)"
+  trap '_rc=$?; [[ $_rc -eq 0 ]] || find "${_STAGE}" -mindepth 1 -delete 2>/dev/null; exit $_rc' EXIT
+else
+  _STAGE="$(mktemp -d "${REIN}/.stage.XXXXXX")"
+  trap 'rm -rf "${_STAGE}"' EXIT
+fi
 _REIN_TREES=(contracts templates shared claude copilot config mcp bin)   # src/<tree> → <tree>
 _stage_one() {  # <src-dir> <stage-dir>
   if command -v rsync &>/dev/null; then
@@ -174,6 +209,30 @@ _stage_one() {  # <src-dir> <stage-dir>
 for _t in "${_REIN_TREES[@]}"; do _stage_one "${REPO_DIR}/src/${_t}" "${_STAGE}/${_t}"; done
 [[ -d "${REPO_DIR}/scripts" ]] && _stage_one "${REPO_DIR}/scripts" "${_STAGE}/scripts"
 [[ "$_HOOKS_REFUSED" -eq 0 ]] && _stage_one "${REPO_DIR}/hooks" "${_STAGE}/hooks"
+
+if [[ -n "$_REIN_STAGE_DIR" ]]; then
+  # E-417: an artifact carries only what git tracks — an untracked package-lock.json from a
+  # local `npm install` (or any other untracked or ignored file) never reaches a stage.
+  if git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    _stage_src=()
+    for _t in "${_REIN_TREES[@]}"; do _stage_src+=("src/${_t}"); done
+    _stage_src+=(scripts hooks)
+    while IFS= read -r -d '' _u; do
+      _u="${_u%/}"
+      case "$_u" in
+        src/*) _u="${_u#src/}" ;;
+        scripts/*|hooks/*) ;;
+        *) continue ;;
+      esac
+      # git prints paths relative to the work tree root, never with a dot-dot segment.
+      rm -rf -- "${_STAGE:?}/${_u}"
+    done < <(git -C "$REPO_DIR" ls-files -z --others --directory -- "${_stage_src[@]}")
+    unset _stage_src _u
+  fi
+  # Same execute bits as a live install sets after its copy.
+  chmod +x "${_STAGE}/bin/rein" 2>/dev/null || true
+  chmod +x "${_STAGE}/hooks/"*.sh 2>/dev/null || true
+fi
 
 _verify_stage() {  # → 0 when the staged tree is complete and parses; prints what is wrong
   local bad=0 f
@@ -211,6 +270,10 @@ if ! _verify_report="$(_verify_stage)"; then
   exit 3
 fi
 echo "✓ Staged and verified the tree from ${REPO_DIR}"
+if [[ -n "$_REIN_STAGE_DIR" ]]; then
+  echo "✓ Stage written to ${_STAGE} — nothing was installed"
+  exit 0
+fi
 
 # Live sync, dependencies first, hooks LAST.
 _live_one() {  # <tree> [rsync filter args…]

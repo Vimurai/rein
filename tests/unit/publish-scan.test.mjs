@@ -161,7 +161,7 @@ test("E-365: the export list follows §Component 8 as amended by D-118 r3 and D-
 });
 
 test("E-365/E-372: the exported tree carries no personal address, home path, session id, socket path or operator value outside D-124's files", () => {
-  // Client names are the operator's list (gitignored): `ai release` checks them; here the other
+  // Client names are the operator's list (gitignored): the pre-publication audit checks them; here the other
   // three classes are pinned at zero so a regression shows up in CI, not at release time.
   // E-372 (D-124): the operator values this file may know without spelling them — the root
   // package.json author's name and address — are scanned as operator_name, allowed only where

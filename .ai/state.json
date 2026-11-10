@@ -4832,6 +4832,15 @@
       "summary": "[TIER_3] E-420 critics: ARCH_PASS; SEC_PASS; security_engineer SEC_BLOCKED (F1 symlinked parent/hard link in the tree check, F2-F6 P3) then SEC_CLEARED on re-verify after the fixes (realpath + nlink, no-follow fchmod, key_id/top-level/required/sealed bin+hooks, quoted output, chmod only when clean); TESTS_FAIL was taken on the dirty working tree (installer refused [INSTALL_DIRTY_TREE]; DW worktree of HEAD lacked E-420) — gaps 1-3 now covered by unit E-420.04-05 and contract E-420.02e-f, 03c-d; verdict to be re-taken on a clean rein ci run of this commit",
       "sha": "442833c0c47bc97f75b2dd5075bebf1fda63957e",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-420",
+      "timestamp": "2026-11-10T22:07:39.551Z",
+      "summary": "[TIER_1] run_review SKIP: E-420 CI fbd270f fix — the legacy-mention allowlist entry follows the v3 mirror purge from install-rein.sh to src/shared/install-finalize.sh (same 1 hit, reason updated); E-256.04b green locally",
+      "sha": "fbd270f31a94e927aee7379bae92b1263d2a90cb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

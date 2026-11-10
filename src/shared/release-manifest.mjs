@@ -22,7 +22,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 
 export class ReleaseRefusal extends Error {
   constructor(refusals) {
-    super(refusals.map((r) => `${r.path}: ${r.reason}`).join("\n"));
+    super(refusals.map((r) => (r.kind === "case" ? `${r.path} and ${r.other}: a case collision` : `${r.path}: ${r.reason}`)).join("\n"));
     this.refusals = refusals;
   }
 }
@@ -66,9 +66,34 @@ export function nameProblem(rel) {
   if (segs.some((s) => s === ".." || s === "." || s === "")) return "a '..', '.' or empty path segment";
   if (rel.includes("\\")) return "a backslash in the name";
   if (/[\u0000-\u001f\u007f]/.test(rel)) return "a control character in the name";
+  // D-155 addendum 3 r3: printable ASCII only, so a case fold is 26 letters in every reader.
+  if (/[^\u0020-\u007e]/.test(rel)) return "a character outside printable ASCII (0x20-0x7E)";
   if (!ustarSplit(rel)) return "a name longer than a ustar header holds (100 + 155)";
   if (INSTALL_GENERATED.includes(rel)) return "install-generated on the installing host, never shipped";
   return null;
+}
+
+/**
+ * D-155 addendum 3 r1-r2: pairs of names a case-insensitive volume (default macOS APFS) would hold
+ * as one — equal after lowering A-Z, different in bytes. Every path and every directory prefix of
+ * it is a name, so a file beside a directory of the same folded name, and two directories that
+ * differ in case, collide too. → [[a, b], …], each pair once, in input order.
+ */
+export function caseCollisions(paths) {
+  const seen = new Map();  // folded name → the first spelling met
+  const pairs = [];
+  const reported = new Set();
+  for (const p of paths) {
+    const segs = p.split("/");
+    for (let i = 1; i <= segs.length; i++) {
+      const name = segs.slice(0, i).join("/");
+      const fold = name.replace(/[A-Z]/g, (c) => c.toLowerCase());
+      const first = seen.get(fold);
+      if (first === undefined) seen.set(fold, name);
+      else if (first !== name && !reported.has(fold)) { reported.add(fold); pairs.push([first, name]); }
+    }
+  }
+  return pairs;
 }
 
 const byteOrder = (a, b) => Buffer.compare(Buffer.from(a.path, "utf8"), Buffer.from(b.path, "utf8"));
@@ -100,6 +125,7 @@ export function collectTree(tree) {
     else if (st.isSymbolicLink() || !st.isDirectory()) refusals.push({ path: top, reason: "a mirrored entry that is not a directory" });
     else walk(join(tree, top), top);
   }
+  for (const [a, b] of caseCollisions(files.map((f) => f.path))) refusals.push({ path: a, other: b, kind: "case" });
   if (refusals.length) throw new ReleaseRefusal(refusals);
   return files.sort(byteOrder);
 }
@@ -216,7 +242,9 @@ function cmdManifest(args) {
     files = collectTree(tree);
   } catch (e) {
     if (!(e instanceof ReleaseRefusal)) return usage(`${tree}: ${e.message}`);
-    for (const r of e.refusals) process.stderr.write(`[RELEASE_PATH_REFUSED] ${r.path}: ${r.reason}\n`);
+    for (const r of e.refusals) {
+      process.stderr.write(r.kind === "case" ? `[RELEASE_CASE_COLLISION] ${r.path} and ${r.other}\n` : `[RELEASE_PATH_REFUSED] ${r.path}: ${r.reason}\n`);
+    }
     return 3;
   }
   const { text } = buildManifest(files, { version, minNode, keyId });

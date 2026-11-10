@@ -1,0 +1,13 @@
+{
+  "description": "E-422 (D-153, D-155; plans/rein-ecosystem-contract.md §2.6): the eight headless entry points rein-app calls, with every subcommand and flag `rein help` documents for them on 2026-11-10. Flags may be added, never removed, inside a major version (the minor, before 1.0.0). A guard row (cli_test.sh, E-422.02) fails when one of these no longer appears in `rein help` on a line for its command.",
+  "entry_points": [
+    { "command": "install", "subcommands": [], "flags": [] },
+    { "command": "sync", "subcommands": [], "flags": ["--github", "--prune-providers"] },
+    { "command": "init", "subcommands": [], "flags": ["--check"] },
+    { "command": "doctor", "subcommands": [], "flags": ["--json", "--repair", "--compliance", "--env"] },
+    { "command": "start", "subcommands": [], "flags": ["--status", "--kill", "--yes", "--account", "--detach", "--dry-run"] },
+    { "command": "pane", "subcommands": ["architect", "engineer"], "flags": ["--"] },
+    { "command": "account", "subcommands": ["list", "add", "remove", "sync"], "flags": ["--dir"] },
+    { "command": "gate", "subcommands": ["on", "status"], "flags": [] }
+  ]
+}

@@ -289,6 +289,10 @@ console.log(out.join("\n") || "OK");
 ' "$_djson" "$_dtext" 2>&1)"
 assert_status 0 "E-421.01b: one document; records = the text run's check lines; (id, subject) unique; gate_registered fails with fix rein sync${_dcheck:+ — ${_dcheck:0:600}}" \
   test "$_dcheck" = "OK"
+# E-422 (D-153 r3, D-155 r5): extends E-421.01b — that document against the published schema.
+_dsf="$(mktemp "${FAKE_TMP}/doctor-json.XXXXXX")"; printf '%s\n' "$_djson" > "$_dsf"
+_dval="$(node "$REPO_ROOT/tests/lib/json-schema-lite.mjs" "$REPO_ROOT/docs/contract/doctor.schema.json" "$_dsf" 2>&1)"; _dvrc=$?
+assert_status 0 "E-422.02a: the fixture project's doctor document is valid against docs/contract/doctor.schema.json${_dval:+ — ${_dval:0:300}}" test "$_dvrc" -eq 0
 _dusage="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --json --repair 2>&1 >/dev/null )"; _durc=$?
 assert_status 0 "E-421.01c: --json with --repair is a usage error, exit 2 (rc=${_durc})" test "$_durc" -eq 2
 assert_contains "E-421.01d: …with one line on stderr" "--json runs the default doctor only" "$_dusage"

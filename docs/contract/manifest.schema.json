@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Vimurai/rein/blob/main/docs/contract/manifest.schema.json",
+  "title": "Rein release manifest, schema 1",
+  "description": "manifest.json, the first member of rein-X.Y.Z.tar.gz (D-153 r2, D-155 r1-r2, D-155 addendum 3; docs/app-contract.md). Any change to this shape raises schema.",
+  "type": "object",
+  "required": ["schema", "version", "min_node", "key_id", "layout", "files"],
+  "additionalProperties": false,
+  "properties": {
+    "schema": { "const": 1 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+([-+][0-9A-Za-z.-]+)?$" },
+    "min_node": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "key_id": { "type": "string", "pattern": "^[0-9A-F]{16}$" },
+    "layout": {
+      "type": "object",
+      "required": ["mirrored", "operator_owned"],
+      "additionalProperties": false,
+      "properties": {
+        "mirrored": { "type": "array", "items": { "type": "string", "pattern": "^[a-z]+$" }, "minItems": 1, "uniqueItems": true },
+        "operator_owned": { "type": "array", "items": { "type": "string", "minLength": 1 }, "uniqueItems": true }
+      }
+    },
+    "files": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/file" }
+    }
+  },
+  "$defs": {
+    "file": {
+      "type": "object",
+      "required": ["path", "sha256", "size", "mode"],
+      "additionalProperties": false,
+      "properties": {
+        "path": { "type": "string", "pattern": "^[\\x21-\\x2e\\x30-\\x5b\\x5d-\\x7e][\\x20-\\x5b\\x5d-\\x7e]*$" },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "size": { "type": "integer", "minimum": 0 },
+        "mode": { "enum": ["0755", "0644"] }
+      }
+    }
+  }
+}

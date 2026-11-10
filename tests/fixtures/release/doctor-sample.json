@@ -1,0 +1,511 @@
+{
+  "schema": 1,
+  "version": "0.4.0",
+  "status": "fail",
+  "checks": [
+    {
+      "id": "path_has_rein_bin",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ yes",
+      "fix": null
+    },
+    {
+      "id": "version",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ version: clone 0.4.0 · mirror 0.4.0 · project 0.4.0",
+      "fix": null
+    },
+    {
+      "id": "rein_on_path",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ rein on PATH: ~/.rein/bin/rein",
+      "fix": null
+    },
+    {
+      "id": "claude_home",
+      "subject": null,
+      "status": "fail",
+      "line": "✗ ~/.claude missing",
+      "fix": null
+    },
+    {
+      "id": "mcp_builds",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ every running server booted the build that is on disk",
+      "fix": null
+    },
+    {
+      "id": "safe_exec_gate",
+      "subject": null,
+      "status": "fail",
+      "line": "✗ safe-exec gate: [SAFE_EXEC_BROKEN] safe-exec exited 1: Node.js v26.12.1 — run: bash install-rein.sh",
+      "fix": "bash install-rein.sh"
+    },
+    {
+      "id": "legacy_artefacts",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ legacy artefacts: none",
+      "fix": null
+    },
+    {
+      "id": "legacy_artefacts",
+      "subject": "#2",
+      "status": "ok",
+      "line": "✓ watchers: 0 live, 0 orphaned",
+      "fix": null
+    },
+    {
+      "id": "legacy_artefacts",
+      "subject": "#3",
+      "status": "ok",
+      "line": "✓ mirror orphans: none",
+      "fix": null
+    },
+    {
+      "id": "wal_checkpoint",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ WAL checkpoint complete (.ai/state.sqlite-wal flushed)",
+      "fix": null
+    },
+    {
+      "id": "role_skills",
+      "subject": "architect",
+      "status": "ok",
+      "line": "✓ skills   .claude/skills (42)",
+      "fix": null
+    },
+    {
+      "id": "role_agents",
+      "subject": "architect",
+      "status": "ok",
+      "line": "✓ agents   .claude/agents (21)",
+      "fix": null
+    },
+    {
+      "id": "role_overlay",
+      "subject": "architect",
+      "status": "ok",
+      "line": "✓ overlay  .claude/settings.architect.json",
+      "fix": null
+    },
+    {
+      "id": "role_rulefile",
+      "subject": "architect",
+      "status": "ok",
+      "line": "✓ rulefile ARCHITECT.md",
+      "fix": null
+    },
+    {
+      "id": "role_skills",
+      "subject": "engineer",
+      "status": "ok",
+      "line": "✓ skills   .claude/skills (42)",
+      "fix": null
+    },
+    {
+      "id": "role_agents",
+      "subject": "engineer",
+      "status": "ok",
+      "line": "✓ agents   .claude/agents (21)",
+      "fix": null
+    },
+    {
+      "id": "role_overlay",
+      "subject": "engineer",
+      "status": "ok",
+      "line": "✓ overlay  .claude/settings.engineer.json",
+      "fix": null
+    },
+    {
+      "id": "role_rulefile",
+      "subject": "engineer",
+      "status": "ok",
+      "line": "✓ rulefile ENGINEER.md",
+      "fix": null
+    },
+    {
+      "id": "comm_channel",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ no handoff written yet",
+      "fix": null
+    },
+    {
+      "id": "privacy_redactions",
+      "subject": null,
+      "status": "ok",
+      "line": "[PRIVACY_OK] writers=12 redacted_today=0",
+      "fix": null
+    },
+    {
+      "id": "privacy_lists",
+      "subject": null,
+      "status": "warn",
+      "line": "⚠ [SCAN_LIST_MISSING] .ai/publish-scan.local.json is missing — warning: only the structural classes (address, home path, session, secret) are redacted; list names in .ai/publish-scan.local.json",
+      "fix": null
+    },
+    {
+      "id": "local_ci",
+      "subject": null,
+      "status": "ok",
+      "line": "- not a git repository",
+      "fix": null
+    },
+    {
+      "id": "hosted_ci",
+      "subject": null,
+      "status": "ok",
+      "line": "- hosted check: none (optional — rein ci hosted)",
+      "fix": null
+    },
+    {
+      "id": "provider_workspaces",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ every provider workspace present serves a bound role",
+      "fix": null
+    },
+    {
+      "id": "claude_agents",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ .claude/agents: 22 files",
+      "fix": null
+    },
+    {
+      "id": "claude_rules",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ .claude/rules: 6 path-scoped rule(s) current",
+      "fix": null
+    },
+    {
+      "id": "hook_form",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ .claude/settings.json: Rein hooks in exec form (/bin/bash -p, absolute path)",
+      "fix": null
+    },
+    {
+      "id": "claude_skills",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ .claude/skills: 44 entries",
+      "fix": null
+    },
+    {
+      "id": "hook_present",
+      "subject": "stop-hook.sh",
+      "status": "ok",
+      "line": "✓ stop-hook.sh present (auto SESSION stamp)",
+      "fix": null
+    },
+    {
+      "id": "hook_present",
+      "subject": "post-tool-log.sh",
+      "status": "ok",
+      "line": "✓ post-tool-log.sh present (auto LOG append)",
+      "fix": null
+    },
+    {
+      "id": "hook_present",
+      "subject": "post-tool-use.sh",
+      "status": "ok",
+      "line": "✓ post-tool-use.sh present (AQG: auto test gate)",
+      "fix": null
+    },
+    {
+      "id": "hook_present",
+      "subject": "pre-commit.sh",
+      "status": "ok",
+      "line": "✓ pre-commit.sh present (Gate 2: Quality Gate)",
+      "fix": null
+    },
+    {
+      "id": "git_pre_commit_gate",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ .git/hooks/pre-commit: Gate 2 installed",
+      "fix": null
+    },
+    {
+      "id": "settings_json",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ present\nagent teams: 1\nStop hook: yes ✓\nPostToolUse hook: yes ✓",
+      "fix": null
+    },
+    {
+      "id": "gh_cli",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ gh installed: gh version 2.103.0 (2026-10-21)",
+      "fix": null
+    },
+    {
+      "id": "gh_copilot",
+      "subject": null,
+      "status": "fail",
+      "line": "✗ gh copilot not installed — run: gh extension install github/gh-copilot",
+      "fix": "gh extension install github/gh-copilot"
+    },
+    {
+      "id": "copilot_md",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ COPILOT.md installed",
+      "fix": null
+    },
+    {
+      "id": "node_version",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ node version (v26.12.1) — Node 22.5+ required",
+      "fix": null
+    },
+    {
+      "id": "npx_present",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ npx available",
+      "fix": null
+    },
+    {
+      "id": "mcp_server",
+      "subject": "vibe-check-mcp",
+      "status": "fail",
+      "line": "✗ vibe-check-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "task-synchronizer-mcp",
+      "status": "fail",
+      "line": "✗ task-synchronizer-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "safe-exec-mcp",
+      "status": "fail",
+      "line": "✗ safe-exec-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "blueprint-aligner-mcp",
+      "status": "fail",
+      "line": "✗ blueprint-aligner-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "context-guardian-mcp",
+      "status": "fail",
+      "line": "✗ context-guardian-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "risk-analyzer-mcp",
+      "status": "fail",
+      "line": "✗ risk-analyzer-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "archive-manager-mcp",
+      "status": "fail",
+      "line": "✗ archive-manager-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "orchestrator-mcp",
+      "status": "fail",
+      "line": "✗ orchestrator-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "memory-manager-mcp",
+      "status": "fail",
+      "line": "✗ memory-manager-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "verification-mcp",
+      "status": "fail",
+      "line": "✗ verification-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "patch-mcp",
+      "status": "fail",
+      "line": "✗ patch-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "token-budget-mcp",
+      "status": "fail",
+      "line": "✗ token-budget-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "propose-patch-mcp",
+      "status": "fail",
+      "line": "✗ propose-patch-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "approval-mcp",
+      "status": "fail",
+      "line": "✗ approval-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "advisor-mcp",
+      "status": "fail",
+      "line": "✗ advisor-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_server",
+      "subject": "cache-manager-mcp",
+      "status": "fail",
+      "line": "✗ cache-manager-mcp: node_modules missing — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "mcp_json",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ .mcp.json present (/home/user/project)",
+      "fix": null
+    },
+    {
+      "id": "mcp_paths",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ .mcp.json paths: all valid (16 server(s))",
+      "fix": null
+    },
+    {
+      "id": "vibe_check_browsers",
+      "subject": null,
+      "status": "fail",
+      "line": "✗ Chromium not installed — vibe-check tools will report [BROWSER_MISSING]\nrun: rein mcp-setup --browsers",
+      "fix": "rein mcp-setup --browsers"
+    },
+    {
+      "id": "hook_toolchain",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ hook toolchain: node v26.12.1 · python3 3.14.4",
+      "fix": null
+    },
+    {
+      "id": "gate_override",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ no override — the safe-exec gate is fully on",
+      "fix": null
+    },
+    {
+      "id": "classifier_backstop",
+      "subject": null,
+      "status": "ok",
+      "line": "○ classifier backstop: not configured — rein install offers it",
+      "fix": null
+    },
+    {
+      "id": "launch_records",
+      "subject": null,
+      "status": "ok",
+      "line": "ⓘ launch record: none on this process chain — a session here runs as engineer (unverified launch)",
+      "fix": null
+    },
+    {
+      "id": "install",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ install: /home/user/src/rein @ 89efde4 (clean tree)",
+      "fix": null
+    },
+    {
+      "id": "gate_dependencies",
+      "subject": null,
+      "status": "fail",
+      "line": "✗ [GATE_DEP_MISSING] @modelcontextprotocol/sdk not installed (pinned 1.32.2) — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "gate_dependencies",
+      "subject": "#2",
+      "status": "fail",
+      "line": "✗ [GATE_DEP_MISSING] shell-quote not installed (pinned 1.12.0) — run: rein mcp-setup",
+      "fix": "rein mcp-setup"
+    },
+    {
+      "id": "tmux",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ tmux present (tmux 3.6)",
+      "fix": null
+    },
+    {
+      "id": "start_account",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ account: default (~/.claude, login: unknown (claude not found))",
+      "fix": null
+    },
+    {
+      "id": "roles_mapped",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ roles mapped (2): engineer architect",
+      "fix": null
+    },
+    {
+      "id": "role_provider",
+      "subject": "engineer",
+      "status": "fail",
+      "line": "✗ engineer → claude NOT on PATH — its pane will open but the agent will not start",
+      "fix": null
+    },
+    {
+      "id": "role_provider",
+      "subject": "architect",
+      "status": "fail",
+      "line": "✗ architect → claude NOT on PATH — its pane will open but the agent will not start",
+      "fix": null
+    },
+    {
+      "id": "mcp_deep_audit",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ all MCP servers: dependencies OK, syntax OK, paths consistent",
+      "fix": null
+    },
+    {
+      "id": "copilot_instructions",
+      "subject": null,
+      "status": "ok",
+      "line": "✓ present (read automatically by GitHub Copilot Chat)\nindex: tasks=2, stamps=0 · HEAD state.json: not committed · working state.json: tasks=2 · TASKS.md: 2 listed\nOK — the index is in step with HEAD",
+      "fix": null
+    }
+  ]
+}

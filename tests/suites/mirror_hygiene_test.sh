@@ -197,6 +197,53 @@ if [[ -d "$DW/hooks" ]]; then
   DH0="$(test_tmpdir hyg-npm-home)"
   ( cd "$FAKE_TMP" && HOME="$DH0" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" ) >/dev/null 2>&1; _nrc=$?
   assert_status 0 "E-304.04z: untracked npm artifacts under src/mcp do not make the tree dirty (rc=${_nrc})" test "$_nrc" -eq 0
+
+  # E-417 (D-155 r1, release-artifact.md §Component 1): extends E-304.04z — the same worktree,
+  # its untracked npm artifacts still in place, staged instead of installed. The stage must be
+  # the install minus what the install writes for its host, and --stage writes nothing in HOME.
+  _tree_list() {  # <root> → "rel x|- sha256" per file under the ten mirrored dirs, npm's files and the host records excluded
+    python3 -I - "$1" <<'PYLIST'
+import hashlib, os, sys
+root = sys.argv[1]
+skip = {"config/rein-workspace.txt", "config/install-stamp.json", "shared/toolchain.sh"}
+for top in ("contracts", "templates", "shared", "claude", "copilot", "config", "mcp", "bin", "scripts", "hooks"):
+    for d, dirs, files in os.walk(os.path.join(root, top)):
+        dirs[:] = [x for x in dirs if x != "node_modules"]
+        for f in files:
+            p = os.path.join(d, f); rel = os.path.relpath(p, root)
+            if rel in skip or f == "package-lock.json":
+                continue
+            x = "x" if os.stat(p).st_mode & 0o111 else "-"
+            print(rel, x, hashlib.sha256(open(p, "rb").read()).hexdigest())
+PYLIST
+  }
+  _home_sum() { ( cd "$1" && find . -print | sort; find . -type f -print0 | sort -z | xargs -0 shasum 2>/dev/null ) | shasum; }
+  SH="$(test_tmpdir hyg-stage-home)"; tc_fixture_home "$SH"
+  ST="$(test_tmpdir hyg-stage)"; rmdir "$ST"
+  _sh_before="$(_home_sum "$SH")"
+  _sout="$( cd "$FAKE_TMP" && HOME="$SH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" --stage "$ST" 2>&1 )"; _src=$?
+  assert_status 0 "E-417.01a: --stage of a clean checkout exits 0 (rc=${_src})" test "$_src" -eq 0
+  assert_status 0 "E-417.01b: …and the fixture HOME is byte-unchanged" test "$(_home_sum "$SH")" = "$_sh_before"
+  assert_status 0 "E-417.01c: the stage holds exactly the ten mirrored directories" \
+    test "$(cd "$ST" 2>/dev/null && find . -mindepth 1 -maxdepth 1 | sed 's|^\./||' | sort | tr '\n' ' ')" = "bin claude config contracts copilot hooks mcp scripts shared templates "
+  _ldiff="$(diff <(_tree_list "$ST") <(_tree_list "${DH0}/.rein") 2>&1)"
+  assert_status 0 "E-417.01d: same file set, bytes and execute bits as a normal install of the same tree${_ldiff:+ — ${_ldiff:0:400}}" test -z "$_ldiff"
+  assert_status 1 "E-417.01e: the untracked src/mcp/safe-exec-mcp/package-lock.json is not staged" \
+    test -e "${ST}/mcp/safe-exec-mcp/package-lock.json"
+  assert_status 1 "E-417.01f: nor is node_modules/" test -e "${ST}/mcp/safe-exec-mcp/node_modules"
+  _nout="$( cd "$FAKE_TMP" && HOME="$SH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" --stage "$ST" 2>&1 )"; _nrc2=$?
+  assert_status 0 "E-417.01g: a non-empty stage directory is refused with exit 3 (rc=${_nrc2})" test "$_nrc2" -eq 3
+  assert_contains "E-417.01h: …naming the refusal" "[INSTALL_STAGE_NOT_EMPTY]" "$_nout"
+  # `rein release stage`: the checkout's own rein stages; a mirror with no clone refuses.
+  ST2="$(test_tmpdir hyg-stage2)"; rmdir "$ST2"
+  ( cd "$FAKE_TMP" && HOME="$SH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" env -u REIN_WORKSPACE bash "$DW/src/bin/rein" release stage "$ST2" ) >/dev/null 2>&1; _rrc=$?
+  assert_status 0 "E-417.02a: rein release stage from the checkout writes the same stage (rc=${_rrc})" \
+    test "$_rrc" -eq 0 -a "$(_tree_list "$ST2")" = "$(_tree_list "$ST")"
+  _mout="$( cd "$FAKE_TMP" && HOME="$SH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" env -u REIN_WORKSPACE bash "${DH0}/.rein/bin/rein" release stage "${FAKE_TMP}/never" 2>&1 )"; _mrc=$?
+  assert_status 0 "E-417.02b: from a mirror with no clone it refuses with exit 2 (rc=${_mrc})" test "$_mrc" -eq 2
+  assert_contains "E-417.02c: …saying it needs a checkout" "rein release stage: needs a checkout" "$_mout"
+  assert_status 0 "E-417.02d: rein help lists rein release stage" \
+    bash -c "grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release stage'"
   echo "# uncommitted" >> "$DW/hooks/stop-hook.sh"
   DH="$(test_tmpdir hyg-dirty-home)"
   _dout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" 2>&1 )"; _drc=$?

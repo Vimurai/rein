@@ -4751,6 +4751,24 @@
       "summary": "[TIER_1] run_review SKIP: E-423 adds .gitattributes (docs/contract/release-key.pub -text) and rows E-423.01a-c extending E-228.06 docs rows in rein_start_test.sh; key blob untouched (sha256 8e0c6bd7…9166 on origin/main and raw URL)",
       "sha": "96fbe81b702bc8c51d2d19ce45353aeb1e23278b",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-417",
+      "timestamp": "2026-11-10T19:24:14.094Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK on install-rein.sh and mirror_hygiene_test.sh (named by release-artifact.md §Component 1, D-155 r1); NO_LOG_UPDATE resolved (LOG.md line appended, file is gitignored)",
+      "sha": "075f67a44eab112bc35614e087f43fb7db142bf7",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-417",
+      "timestamp": "2026-11-10T19:24:15.936Z",
+      "summary": "[TIER_2] E-417 install-rein.sh --stage <dir> (absent/empty or [INSTALL_STAGE_NOT_EMPTY] exit 3; no HOME writes; hooks always staged, probe skipped; untracked files dropped; exec bits as a live install) and rein release stage <dir> (needs a checkout, exit 2; in rein help). Rows E-417.01a-h, 02a-d extend E-304.04z in mirror_hygiene_test.sh",
+      "sha": "075f67a44eab112bc35614e087f43fb7db142bf7",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

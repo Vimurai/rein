@@ -165,6 +165,10 @@ Commands:
                  List (and, with --apply, remove) what earlier Rein versions left
                  behind. Dry run by default; removals move to ~/.rein/trash/<date>/
                  and 'rein clean --restore <date>' puts them back
+  rein release stage <dir>
+                 Stage the release tree of the clone this rein belongs to into <dir>
+                 (absent or empty): the ten mirrored directories, tracked files only,
+                 verified; nothing under ~/.rein is written (needs a checkout)
   rein gate off [--minutes N] [--reason TEXT] | on | status
                  Operator-only escape from the safe-exec policy gate (E-291): a
                  time-boxed override (default 15, max 60 min). Catastrophic commands
@@ -6605,6 +6609,33 @@ _ci_cleanup() {
   rm -rf "$_CI_CLEAN_LOCK" 2>/dev/null || true
 }
 
+# E-417 (D-155 r1, release-artifact.md §Component 1): the clone the running `rein` belongs to —
+# this file's own checkout when it runs from src/bin/, else the clone the mirror was installed
+# from (the installer's record). Prints nothing when neither holds install-rein.sh.
+_rein_release_clone() {
+  local sd c
+  sd="$(cd "$(dirname "${BASH_SOURCE[0]}")" 2>/dev/null && pwd -P)" || return 0
+  for c in "$(dirname "$(dirname "$sd")")" "$(_resolve_rein_workspace)"; do
+    [[ -n "$c" && -f "${c}/install-rein.sh" && -f "${c}/src/bin/rein" ]] || continue
+    (cd "$c" && pwd -P)
+    return 0
+  done
+}
+
+do_release() {
+  local sub="${1:-}"
+  case "$sub" in
+    stage)
+      [[ $# -eq 2 && -n "$2" && "$2" != -* ]] || { echo "usage: rein release stage <dir>" >&2; return 2; }
+      local clone; clone="$(_rein_release_clone)"
+      [[ -n "$clone" ]] || { echo "rein release stage: needs a checkout" >&2; return 2; }
+      bash "${clone}/install-rein.sh" --stage "$2" ;;
+    ""|-h|--help|help)
+      echo "usage: rein release stage <dir>" ;;
+    *) echo "rein release: unknown subcommand '${sub}' (usage: rein release stage <dir>)" >&2; return 2 ;;
+  esac
+}
+
 cmd="${1:-}"
 case "$cmd" in
   # Bootloader / installer surface (the only working commands)
@@ -6636,6 +6667,8 @@ case "$cmd" in
     do_account "${@:2}" ;;
   # E-265 (D-072, local-ci.md): local CI — tests a committed sha in an isolated worktree.
   ci)            do_ci "${@:2}" ;;
+  # E-417 (D-155 r1): build a release artifact's stage from the clone this rein belongs to.
+  release)       do_release "${@:2}" ;;
   # E-272 (D-074, version-lifecycle.md §Component 4): remove what earlier versions left
   # behind. Dry run by default; every removal is reversible via the trash.
   clean)         do_clean "${@:2}" ;;

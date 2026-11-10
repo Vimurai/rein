@@ -1,6 +1,6 @@
 // publish-scan.mjs — what must never leave in a published tree (E-364, D-117, licensing.md
 // §Component 8). One scanner for the four classes the public mirror refuses, shared by E-362's
-// pre-publication audit (`ai release --scan`) and E-360's export, so the two cannot drift:
+// pre-publication audit (its full-history scan) and E-360's export, so the two cannot drift:
 //
 //   personal_email   an address outside the reserved example/test domains and the allow list
 //   home_path        /home/<user>, /Users/<user> or ~<user> for a user that is not a neutral placeholder

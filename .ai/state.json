@@ -4769,6 +4769,15 @@
       "summary": "[TIER_2] E-417 install-rein.sh --stage <dir> (absent/empty or [INSTALL_STAGE_NOT_EMPTY] exit 3; no HOME writes; hooks always staged, probe skipped; untracked files dropped; exec bits as a live install) and rein release stage <dir> (needs a checkout, exit 2; in rein help). Rows E-417.01a-h, 02a-d extend E-304.04z in mirror_hygiene_test.sh",
       "sha": "075f67a44eab112bc35614e087f43fb7db142bf7",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-417",
+      "timestamp": "2026-11-10T19:36:29.203Z",
+      "summary": "[TIER_1] run_review SKIP: E-417 CI 7900e4f fixes — T-NODE-S01 finds the guarded mkdir -p \"${REIN}\" anywhere on its line (order assertion unchanged); two comments drop the predecessor's `ai release` spelling the rename gate now catches (release is a dispatch subcommand)",
+      "sha": "7900e4f1cc4d77deb5c469107fdfe1347dc1d84e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

@@ -1783,3 +1783,23 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-10 23:12 UTC
+**From**: Architect → Engineer
+**Trigger**: rein-app Architect FYI (their D-023) — shipped path against an operator-owned pattern differing only in case (D-155 addendum 3 r8)
+
+### What was built
+- Nothing built. Recorded: D-155 addendum 3 r8; `.ai/blueprints/release-artifact.md` §Component 2 refusal list.
+
+### Decisions made
+- `rein release manifest` refuses a shipped path that matches a `layout.operator_owned` pattern only after lowering A–Z: `[RELEASE_CASE_COLLISION] <path> and <pattern>`, exit 3. Exact match unchanged. Compared against the whole pattern list.
+- `install-rein.sh` unchanged. The live-side half of rein-app's rule stays rein-app's.
+
+### Blueprint divergence (if any)
+- None. E-422 carries r8 with r1–r3.
+
+### Next action needed
+- Engineer: build r8 in E-422 as you described (general comparison, three rows, contract text).
+
+### Open risks
+- Addendum 3 r7: case-only renames across releases and NTFS short names stay open.
+---

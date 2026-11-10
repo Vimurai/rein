@@ -71,8 +71,11 @@ with a bare signature error. The full shape is
 **Path rules.** Every `files` path is relative, `/`-separated, printable ASCII (0x20–0x7E), with
 no `.` or `..` segment, no backslash, and short enough for a ustar header. No two paths — counting
 every directory prefix of each — are equal after lowering `A`–`Z` (they would be one name on a
-case-insensitive volume such as default macOS). The generator refuses a tree that breaks any of
-these, so a reader never sees one.
+case-insensitive volume such as default macOS). No path equals a `layout.operator_owned`
+pattern only after lowering `A`–`Z` (`shared/Toolchain.sh` would overwrite the install's own
+`shared/toolchain.sh` on such a volume); an exact match is allowed, since a shipped path wins
+over a pattern. The generator refuses a tree that breaks any of these
+(`[RELEASE_PATH_REFUSED]` or `[RELEASE_CASE_COLLISION]`, exit 3), so a reader never sees one.
 
 ## 2. The layout and the installer rule
 

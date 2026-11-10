@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const { installerAction, operatorOwned } = await import(resolve(repo, "src/shared/release-layout.mjs"));
+const { installerAction, operatorOwned, OPERATOR_OWNED } = await import(resolve(repo, "src/shared/release-layout.mjs"));
 const { readTarGz, writeTarGz } = await import(resolve(repo, "src/shared/release-tar.mjs"));
 const M = await import(resolve(repo, "src/shared/release-manifest.mjs"));
 const table = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/release/operator-owned-cases.json"), "utf8"));
@@ -66,6 +66,17 @@ test("E-418.02: each path a release must not carry is refused, named", () => {
   assert.deepEqual(M.caseCollisions(["shared/Lib/a.mjs", "shared/lib/b.mjs"]), [["shared/Lib", "shared/lib"]], "two directories differing in case");
   assert.deepEqual(M.caseCollisions(["bin/A", "hooks/a", "shared/x/y", "shared/x/z"]), [], "case differs only across directories: no collision");
   assert.deepEqual(refusedPaths(tree({ ...ok, "bin/A": "x", "hooks/a": "y" })), [], "…and collectTree passes it");
+  // r8: a shipped path equal to an operator_owned pattern only after lowering A-Z is refused —
+  // for every pattern in the list, so one added later is covered without a second edit.
+  assert.deepEqual(M.ownedCaseCollisions(["shared/Toolchain.sh"]), [["shared/Toolchain.sh", "shared/toolchain.sh"]], "an install-generated name in another case");
+  assert.deepEqual(M.ownedCaseCollisions(["mcp/x/Package-Lock.json"]), [["mcp/x/Package-Lock.json", "mcp/*/package-lock.json"]], "npm's lock in another case");
+  assert.deepEqual(M.ownedCaseCollisions(["mcp/x/package-lock.json", "mcp/x/index.js"]), [], "the exact pattern match still ships");
+  assert.deepEqual(refusedPaths(tree({ ...ok, "shared/Toolchain.sh": "x" })), ["shared/Toolchain.sh"], "…and collectTree refuses it");
+  for (const pat of OPERATOR_OWNED) {
+    const shipped = pat.replace(/\*\*/g, "a/b").replace(/\*/g, "x").replace(/\/$/, "/f");
+    const upper = shipped.replace(/[a-z]/g, (c) => c.toUpperCase());
+    assert.equal(M.ownedCaseCollisions([upper]).length, 1, `every pattern is covered: ${pat} → ${upper}`);
+  }
 });
 
 test("E-418.03: the manifest is schema 1 in canonical form; mode by the stated rule; key_id from the key file", () => {

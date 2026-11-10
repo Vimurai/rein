@@ -4904,6 +4904,33 @@
       "summary": "[TIER_1] checkpoint, not the E-422 review: commits the E-422 work in progress on its branch so the shared tree can switch to e-420 for the main merge. Full Tier 2 review and local CI run before the E-422 PR",
       "sha": "366228373815a030be17e5a2d83c92f01d479e34",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-420",
+      "timestamp": "2026-11-10T23:04:23.705Z",
+      "summary": "[TIER_1] merge of origin/main (23315a1: E-418 merged, incl. its macOS test fix dba0a15) into e-420-artifact-install; no code beyond what PR #36 merged; .ai/ stamps unioned",
+      "sha": "89efde4aa0783995e4d14237d9e0d6fe4401701b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-420",
+      "timestamp": "2026-11-10T23:04:52.372Z",
+      "summary": "[TIER_1] merge of origin/main (23315a1, PR #36 = E-418 incl. dba0a15) into e-420-artifact-install; code already reviewed and merged on main; .ai/ stamps unioned (base + both sides, time order)",
+      "sha": "c284743e71608a836d92a429a42f8080cd0eeb5f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-10T23:29:43.355Z",
+      "summary": "[TIER_1] checkpoint, not the E-422 review: r8 (D-155 addendum 3) implementation and rows committed on the task branch so the tree can switch to e-420 for a CI fix. Full Tier 2 review and local CI before the E-422 PR",
+      "sha": "c8824f39aa36ef02c5f641db589fec87eabc45f5",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

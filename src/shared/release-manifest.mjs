@@ -15,7 +15,7 @@ import { createHash } from "node:crypto";
 import { closeSync, constants, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { INSTALL_GENERATED, MIRRORED, OPERATOR_OWNED } from "./release-layout.mjs";
+import { INSTALL_GENERATED, MIRRORED, OPERATOR_OWNED, operatorOwned } from "./release-layout.mjs";
 import { readTarGz, TarError, ustarSplit, writeTarGz } from "./release-tar.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -96,6 +96,23 @@ export function caseCollisions(paths) {
   return pairs;
 }
 
+/**
+ * D-155 addendum 3 r8: a shipped path that matches a layout.operator_owned pattern only after
+ * lowering A-Z in both would, on a case-insensitive home, overwrite (and a later release prune)
+ * what the operator or the install owns — shared/Toolchain.sh over shared/toolchain.sh. An exact
+ * match is unchanged (a shipped path wins over a pattern). → [[path, pattern], …]
+ */
+export function ownedCaseCollisions(paths, patterns = OPERATOR_OWNED) {
+  const fold = (x) => x.replace(/[A-Z]/g, (c) => c.toLowerCase());
+  const out = [];
+  for (const p of paths) {
+    for (const pat of patterns) {
+      if (!operatorOwned(p, [pat]) && operatorOwned(fold(p), [fold(pat)])) { out.push([p, pat]); break; }
+    }
+  }
+  return out;
+}
+
 const byteOrder = (a, b) => Buffer.compare(Buffer.from(a.path, "utf8"), Buffer.from(b.path, "utf8"));
 
 /** Every file under `tree` with its bytes, or ReleaseRefusal naming each path that cannot ship. */
@@ -126,6 +143,7 @@ export function collectTree(tree) {
     else walk(join(tree, top), top);
   }
   for (const [a, b] of caseCollisions(files.map((f) => f.path))) refusals.push({ path: a, other: b, kind: "case" });
+  for (const [a, pat] of ownedCaseCollisions(files.map((f) => f.path))) refusals.push({ path: a, other: pat, kind: "case" });
   if (refusals.length) throw new ReleaseRefusal(refusals);
   return files.sort(byteOrder);
 }

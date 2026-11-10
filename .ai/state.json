@@ -4841,6 +4841,33 @@
       "summary": "[TIER_1] run_review SKIP: E-420 CI fbd270f fix — the legacy-mention allowlist entry follows the v3 mirror purge from install-rein.sh to src/shared/install-finalize.sh (same 1 hit, reason updated); E-256.04b green locally",
       "sha": "fbd270f31a94e927aee7379bae92b1263d2a90cb",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-420",
+      "timestamp": "2026-11-10T22:17:58.811Z",
+      "summary": "[TEST_PASSED] re-taken on committed 89efde4: rein ci run PASS 7165 passed/0 failed/25 skipped, leaked 0; checkInstalled unit rows E-420.04-05, contract rows E-420.01-03 (restored stamp, hard-linked hook) cover each changed behaviour; earlier failures were a dirty working tree",
+      "sha": "89efde4aa0783995e4d14237d9e0d6fe4401701b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-421",
+      "timestamp": "2026-11-10T22:26:35.522Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK on src/shared/doctor-json.mjs and its tests (named by release-artifact.md §Component 5, D-153 r3, D-155 r5); NO_LOG_UPDATE resolved (LOG.md line appended, gitignored)",
+      "sha": "89efde4aa0783995e4d14237d9e0d6fe4401701b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-421",
+      "timestamp": "2026-11-10T22:26:38.061Z",
+      "summary": "[TIER_2] E-421 rein doctor --json: every check line in doctor and its helpers goes through _dr (145 call sites, ids snake_case at the call site, subjects for per-item checks) or _dr_lines (17 helper-program outputs); records go to a mktemp -d file so subshell/pipeline checks report; doctor-json.mjs renders schema 1 (fail > warn > ok, fix after 'run: ', (id, subject) unique). Text output byte-identical on four fixture goldens captured before the first edit. --json + --repair/--env/--compliance exit 2. Unit E-421.02-05, contract E-421.01a-e extend E-391.03g-h",
+      "sha": "89efde4aa0783995e4d14237d9e0d6fe4401701b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

@@ -117,10 +117,12 @@ Commands:
                  providers no role in .ai/roles.json is bound to. Manifest-aware:
                  only files sync wrote and nobody edited are deleted; anything else
                  is reported and kept. Never runs implicitly (E-244).
-  rein doctor [--repair] [--compliance] [--env]
+  rein doctor [--json] [--repair] [--compliance] [--env]
                  Diagnose PATH, configs, hooks, MCP; --compliance audits agent
                  frontmatter for Ghost Tools; --env deep-checks Node/binaries/
-                 permissions and live MCP connectivity (exit 1 on critical fail)
+                 permissions and live MCP connectivity (exit 1 on critical fail);
+                 --json prints one document {schema, version, status, checks[]}
+                 (default doctor only)
   rein uninstall   Remove the global ~/.rein install (project .ai/ stays)
   rein start [--status | --kill [--yes] | --account <name> | --detach | --dry-run]
                  Build or reattach the project's tmux Triad (one session per
@@ -285,7 +287,7 @@ _wal_checkpoint_state_db() {
     return 2
   fi
   node "$SCRIPT" "$DB" || return 1   # E-339: stderr reaches the ✗ line
-  echo "  ✓ WAL checkpoint complete (.ai/state.sqlite-wal flushed)"
+  _dr wal_checkpoint - "  ✓ WAL checkpoint complete (.ai/state.sqlite-wal flushed)"
 }
 
 # E-98: Regenerate .ai/REPO_MAP.md (AST repository map) during `rein sync`.
@@ -1210,7 +1212,7 @@ _doctor_toolchain_report() {
   local f="${REIN}/shared/toolchain.sh" line node="" py=""
   local re='^REIN_TC_(NODE|PYTHON3)=(/[A-Za-z0-9._/@+:-]+)$'
   if [[ ! -f "$f" ]]; then
-    echo "  ✗ hook toolchain: ${f} missing — $(_rein_fix_install)"
+    _dr hook_toolchain - "  ✗ hook toolchain: ${f} missing — $(_rein_fix_install)"
     return 0
   fi
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -1220,11 +1222,11 @@ _doctor_toolchain_report() {
   local p
   for p in "${node:-node (unrecorded)}" "${py:-python3 (unrecorded)}"; do
     if [[ "$p" != /* || ! -x "$p" ]]; then
-      echo "  ✗ hook toolchain: ${p} missing — $(_rein_fix_install)"
+      _dr hook_toolchain - "  ✗ hook toolchain: ${p} missing — $(_rein_fix_install)"
       return 0
     fi
   done
-  echo "  ✓ hook toolchain: node $("$node" --version 2>/dev/null) · python3 $("$py" -I -c 'import platform;print(platform.python_version())' 2>/dev/null)"
+  _dr hook_toolchain - "  ✓ hook toolchain: node $("$node" --version 2>/dev/null) · python3 $("$py" -I -c 'import platform;print(platform.python_version())' 2>/dev/null)"
 }
 
 # E-290 (D-083 r2-4): `rein doctor` lines for the hook form. Since E-290 .claude/settings.json
@@ -1234,7 +1236,7 @@ _doctor_toolchain_report() {
 _doctor_hook_form_report() {
   local f=".claude/settings.json"
   if [[ ! -f "$f" ]]; then
-    echo "  ✗ .claude/settings.json missing (generated since E-290) — run: rein sync"
+    _dr project_settings_json - "  ✗ .claude/settings.json missing (generated since E-290) — run: rein sync"
   else
     # E-391 (D-132 addendum 4 r2): Rein hooks are recognised by file name in any directory
     # (shared/hook-paths.py, the rule sync and the installer use too). A missing script or an
@@ -1242,34 +1244,34 @@ _doctor_hook_form_report() {
     local hp findings kind ev p stale="" bad=0
     hp="$(_rein_helper shared/hook-paths.py || true)"
     if [[ -z "$hp" ]]; then
-      echo "  ✗ .claude/settings.json: shared/hook-paths.py not found — $(_rein_fix_install)"; _DOCTOR_HARD_FAIL=1
+      _dr project_settings_json - "  ✗ .claude/settings.json: shared/hook-paths.py not found — $(_rein_fix_install)"; _DOCTOR_HARD_FAIL=1
     else
       findings="$(python3 -I "$hp" check "$f" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)"
       while IFS=$'\t' read -r kind ev p; do
         case "$kind" in
-          MISSING)      echo "  ✗ [HOOK_PATH_MISSING] ${p} (${ev}) — the hook cannot run; run: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
-          FOREIGN)      echo "  ✗ [HOOK_PATH_FOREIGN] ${p} (${ev}) — a Rein hook name outside ${REIN}/hooks; check it, then: rein sync"; bad=1 ;;
+          MISSING)      _dr hook_path_missing - "  ✗ [HOOK_PATH_MISSING] ${p} (${ev}) — the hook cannot run; run: rein sync" "" "$p"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
+          FOREIGN)      _dr hook_path_foreign - "  ✗ [HOOK_PATH_FOREIGN] ${p} (${ev}) — a Rein hook name outside ${REIN}/hooks; check it, then: rein sync" "" "$p"; bad=1 ;;
           FORM)         stale="${stale:+${stale} }${ev}:${p}" ;;
-          UNREGISTERED) echo "  ✗ [GATE_UNREGISTERED] no PreToolUse entry runs ${REIN}/hooks/pre-tool-use.sh — run: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
-          DISABLED)     echo "  ✗ [HOOKS_DISABLED] .claude/settings.json sets disableAllHooks — no Rein hook runs here; remove it, then: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
+          UNREGISTERED) _dr gate_registered - "  ✗ [GATE_UNREGISTERED] no PreToolUse entry runs ${REIN}/hooks/pre-tool-use.sh — run: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
+          DISABLED)     _dr hooks_disabled - "  ✗ [HOOKS_DISABLED] .claude/settings.json sets disableAllHooks — no Rein hook runs here; remove it, then: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
           UNPARSEABLE)  stale="unparseable" ;;
         esac
       done <<< "$findings"
       if [[ -n "$stale" ]]; then
-        echo "  ✗ .claude/settings.json: stale Rein hook entries (not exec-form /bin/bash -p under ${REIN}/hooks): ${stale} — run: rein sync"
+        _dr hook_form - "  ✗ .claude/settings.json: stale Rein hook entries (not exec-form /bin/bash -p under ${REIN}/hooks): ${stale} — run: rein sync"
       elif [[ "$bad" -eq 0 ]]; then
-        echo "  ✓ .claude/settings.json: Rein hooks in exec form (/bin/bash -p, absolute path)"
+        _dr hook_form - "  ✓ .claude/settings.json: Rein hooks in exec form (/bin/bash -p, absolute path)"
       fi
     fi
     if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
-      echo "  ! .claude/settings.json is tracked but machine-specific — run: git rm --cached .claude/settings.json"
+      _dr settings_json_tracked - "  ! .claude/settings.json is tracked but machine-specific — run: git rm --cached .claude/settings.json"
     fi
   fi
   local gd stub
   gd="$(git rev-parse --git-path hooks 2>/dev/null)" || return 0
   for stub in pre-commit pre-push post-commit post-merge post-checkout post-rewrite; do
     [[ -f "${gd}/${stub}" ]] && _is_rein_stub "${gd}/${stub}" || continue
-    head -1 "${gd}/${stub}" | grep -qx '#!/bin/bash -p' || echo "  ✗ git ${stub} stub predates E-290 (not #!/bin/bash -p) — run: rein sync"
+    head -1 "${gd}/${stub}" | grep -qx '#!/bin/bash -p' || _dr git_stub - "  ✗ git ${stub} stub predates E-290 (not #!/bin/bash -p) — run: rein sync" "" "$stub"
   done
   return 0
 }
@@ -1281,14 +1283,14 @@ _doctor_gate_report() {
   local gp st
   gp="$(_rein_helper shared/gate-probe.sh || true)"
   if [[ -z "$gp" ]]; then
-    echo "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — $(_rein_fix_install)"; return 0
+    _dr safe_exec_gate - "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — $(_rein_fix_install)"; return 0
   fi
   # shellcheck source=src/shared/gate-probe.sh
   . "$gp"
   if st="$(rein_gate_probe)"; then
-    echo "  ✓ safe-exec gate: ${st}"
+    _dr safe_exec_gate - "  ✓ safe-exec gate: ${st}"
   else
-    echo "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — $(_rein_fix_install)"
+    _dr safe_exec_gate - "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — $(_rein_fix_install)"
   fi
 }
 
@@ -1297,16 +1299,16 @@ _doctor_gate_report() {
 _doctor_comm_report() {
   local cs st
   cs="$(rein_locate shared/comm-status.sh 2>/dev/null || true)"
-  [[ -n "$cs" ]] || { echo "  ! comm-status probe not installed — $(_rein_fix_install)"; return 0; }
+  [[ -n "$cs" ]] || { _dr comm_channel - "  ! comm-status probe not installed — $(_rein_fix_install)"; return 0; }
   # shellcheck source=src/shared/comm-status.sh
   . "$cs"
   st="$(rein_comm_status .)"
   case "$st" in
-    IGNORED)       echo "  [COMM_IGNORED] .ai/COMM.md is gitignored — run: rein sync" ;;
-    UNCOMMITTED*)  echo "  [COMM_UNCOMMITTED] .ai/COMM.md has uncommitted changes — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;;
-    tracked)       echo "  ✓ tracked and committed" ;;
-    absent)        echo "  ✓ no handoff written yet" ;;
-    *)             echo "  - not a git work tree" ;;
+    IGNORED)       _dr comm_channel warn "  [COMM_IGNORED] .ai/COMM.md is gitignored — run: rein sync" ;;
+    UNCOMMITTED*)  _dr comm_channel warn "  [COMM_UNCOMMITTED] .ai/COMM.md has uncommitted changes — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;;
+    tracked)       _dr comm_channel - "  ✓ tracked and committed" ;;
+    absent)        _dr comm_channel - "  ✓ no handoff written yet" ;;
+    *)             _dr comm_channel ok "  - not a git work tree" ;;
   esac
 }
 
@@ -1320,11 +1322,11 @@ _doctor_rules_report() {
     elif ! cmp -s "$f" ".claude/rules/${name}"; then stale=$((stale + 1)); fi
   done
   if [[ "$missing" -gt 0 ]]; then
-    echo "  ✗ .claude/rules: ${missing} of ${total} path-scoped rule(s) missing — run: rein sync"
+    _dr claude_rules - "  ✗ .claude/rules: ${missing} of ${total} path-scoped rule(s) missing — run: rein sync"
   elif [[ "$stale" -gt 0 ]]; then
-    echo "  ! .claude/rules: ${stale} of ${total} rule(s) differ from the shipped copy — run: rein sync (rules you edited are kept)"
+    _dr claude_rules - "  ! .claude/rules: ${stale} of ${total} rule(s) differ from the shipped copy — run: rein sync (rules you edited are kept)"
   else
-    echo "  ✓ .claude/rules: ${total} path-scoped rule(s) current"
+    _dr claude_rules - "  ✓ .claude/rules: ${total} path-scoped rule(s) current"
   fi
 }
 
@@ -2045,24 +2047,24 @@ _classifier_report_one() {  # <settings.json> <account name, "" = default>
   fi
   py="$(_cb_py)"
   if [[ ! -f "$py" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "  ⚠ ${lbl}: cannot check (helper or python3 missing — $(_rein_fix_install))"
+    _dr classifier_backstop - "  ⚠ ${lbl}: cannot check (helper or python3 missing — $(_rein_fix_install))" "" "$2"
     return 0
   fi
   out="$(python3 -I "$py" status "$settings" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
   case "$(printf '%s\n' "$out" | sed -n '1p')" in
-    PRESENT)   echo "  ✓ ${lbl}: present" ;;
+    PRESENT)   _dr classifier_backstop - "  ✓ ${lbl}: present" "" "$2" ;;
     OUTDATED*) _cb_old="${out%%$'\n'*}"; _cb_old="${_cb_old#OUTDATED}"; _cb_old="${_cb_old#$'\t'}"
-               echo "  ○ ${lbl}: outdated${_cb_old:+ (${_cb_old})} wording — rein install offers the current rule" ;;
-    UNPARSABLE*) echo "  ✗ ${lbl}: ${shown} is not valid JSON — Claude Code ignores it, so NO autoMode rules are active (${out#UNPARSABLE$'\t'})" ;;
-    ERROR*)    echo "  ✗ ${lbl}: could not check ${shown} (${out#ERROR$'\t'})" ;;
+               _dr classifier_backstop - "  ○ ${lbl}: outdated${_cb_old:+ (${_cb_old})} wording — rein install offers the current rule" "" "$2" ;;
+    UNPARSABLE*) _dr classifier_backstop - "  ✗ ${lbl}: ${shown} is not valid JSON — Claude Code ignores it, so NO autoMode rules are active (${out#UNPARSABLE$'\t'})" "" "$2" ;;
+    ERROR*)    _dr classifier_backstop - "  ✗ ${lbl}: could not check ${shown} (${out#ERROR$'\t'})" "" "$2" ;;
     *)         if [[ -n "$2" ]]; then
-                 echo "  ○ ${lbl}: not configured in ${shown} — run: rein account sync $2 (copies ~/.claude/settings.json)"
+                 _dr classifier_backstop - "  ○ ${lbl}: not configured in ${shown} — run: rein account sync $2 (copies ~/.claude/settings.json)" "" "$2"
                else
-                 echo "  ○ ${lbl}: not configured — rein install offers it"
+                 _dr classifier_backstop - "  ○ ${lbl}: not configured — rein install offers it" "" "$2"
                fi ;;
   esac
-  printf '%s\n' "$out" | sed -n "s/^WARN\t/  ⚠ ${lbl}: /p"
-  printf '%s\n' "$out" | sed -n 's/^INFO\t/  ⓘ /p'   # D-086: $defaults off, effective default mode
+  printf '%s\n' "$out" | sed -n "s/^WARN\t/  ⚠ ${lbl}: /p" | _dr_lines classifier_backstop
+  printf '%s\n' "$out" | sed -n 's/^INFO\t/  ⓘ /p' | _dr_lines classifier_info   # D-086: $defaults off, effective default mode
   return 0
 }
 
@@ -2081,12 +2083,12 @@ _launch_record_prune() {  # quiet: prints the module's JSON counts or nothing
 _gate_pins_report() {
   local gp out rc=0
   gp="$(rein_locate shared/gate-pins.mjs 2>/dev/null || true)"
-  [[ -n "$gp" ]] && command -v node >/dev/null 2>&1 || { echo "  ⚠ gate dependencies: cannot check (gate-pins.mjs or node missing)"; return 0; }
+  [[ -n "$gp" ]] && command -v node >/dev/null 2>&1 || { _dr gate_dependencies - "  ⚠ gate dependencies: cannot check (gate-pins.mjs or node missing)"; return 0; }
   out="$(node --no-warnings "$gp" check "${REIN}/mcp" 2>&1)" || rc=$?
   if [[ "$rc" -eq 0 ]]; then
-    echo "  ✓ gate dependencies pinned: $(node --no-warnings "$gp" list "${REIN}/mcp" 2>/dev/null | tr '\n' ' ')"
+    _dr gate_dependencies - "  ✓ gate dependencies pinned: $(node --no-warnings "$gp" list "${REIN}/mcp" 2>/dev/null | tr '\n' ' ')"
   else
-    printf '%s\n' "$out" | sed 's/^/  ✗ /'
+    printf '%s\n' "$out" | sed 's/^/  ✗ /' | _dr_lines gate_dependencies
   fi
   return 0
 }
@@ -2096,7 +2098,7 @@ _install_report() {
   local stamp="${REIN}/config/install-stamp.json" ws_file=""
   [[ -f "${REIN}/config/rein-workspace.txt" ]] && ws_file="$(head -1 "${REIN}/config/rein-workspace.txt" 2>/dev/null)"
   if [[ -n "${REIN_WORKSPACE:-}" && -n "$ws_file" && "${REIN_WORKSPACE%/}" != "${ws_file%/}" ]]; then
-    echo "  ⚠ workspace: exported REIN_WORKSPACE=${REIN_WORKSPACE} disagrees with the installed record ${ws_file} — the record wins (E-304); remove the export from your shell profile"
+    _dr workspace_record - "  ⚠ workspace: exported REIN_WORKSPACE=${REIN_WORKSPACE} disagrees with the installed record ${ws_file} — the record wins (E-304); remove the export from your shell profile"
   fi
   # E-420 (D-155 r4, addendum r3): an artifact install is reported from its manifest; a
   # restored tree says its origin is not recorded.
@@ -2104,19 +2106,19 @@ _install_report() {
     local rm_mod="${REIN}/shared/release-manifest.mjs" info err
     if [[ -f "$rm_mod" ]] && command -v node >/dev/null 2>&1; then
       if info="$(node --no-warnings "$rm_mod" installed "$REIN" --check-only 2>/dev/null)"; then
-        echo "  ✓ install: artifact $(sed -n 's/^version\t//p' <<< "$info") (key $(sed -n 's/^key_id\t//p' <<< "$info")), $(sed -n 's/^count\t//p' <<< "$info") files match the manifest"
+        _dr install - "  ✓ install: artifact $(sed -n 's/^version\t//p' <<< "$info") (key $(sed -n 's/^key_id\t//p' <<< "$info")), $(sed -n 's/^count\t//p' <<< "$info") files match the manifest"
       else
         err="$(node --no-warnings "$rm_mod" installed "$REIN" --check-only 2>&1 >/dev/null || true)"
-        printf '%s\n' "$err" | sed '1s/^/  ✗ install: /; 2,$s/^/  /'
+        printf '%s\n' "$err" | sed '1s/^/  ✗ install: /; 2,$s/^/  /' | _dr_lines install
         _DOCTOR_HARD_FAIL=1
       fi
     else
-      echo "  ⚠ install: artifact — cannot check it against its manifest (node or release-manifest.mjs missing)"
+      _dr install - "  ⚠ install: artifact — cannot check it against its manifest (node or release-manifest.mjs missing)"
     fi
     return 0
   fi
   if grep -qE '"source": *"restored"' "$stamp" 2>/dev/null; then
-    echo "  ○ install: restored tree, origin not recorded — reinstall from a clone or a release to record it"
+    _dr install - "  ○ install: restored tree, origin not recorded — reinstall from a clone or a release to record it"
     return 0
   fi
   if [[ -f "$stamp" ]] && command -v python3 >/dev/null 2>&1; then
@@ -2128,9 +2130,9 @@ if d.get("dirty"):
     print("  ⚠ install: installed from an UNCOMMITTED tree (--allow-dirty) — %s @ %s; reinstall from a clean commit" % (src, sha))
 else:
     print("  ✓ install: %s @ %s (clean tree)" % (src, sha))
-' "$stamp" 2>/dev/null || echo "  ⚠ install: install-stamp.json unreadable"
+' "$stamp" 2>/dev/null | _dr_lines install || _dr install - "  ⚠ install: install-stamp.json unreadable"
   else
-    echo "  ○ install: no install stamp (installed before E-304) — $(_rein_fix_install)"
+    _dr install - "  ○ install: no install stamp (installed before E-304) — $(_rein_fix_install)"
   fi
   return 0
 }
@@ -2139,11 +2141,11 @@ _launch_record_report() {
   local lr out
   lr="$(rein_locate shared/launch-record.py || true)"
   if [[ -z "$lr" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "  ⚠ launch records: cannot check (launch-record.py or python3 missing — $(_rein_fix_install))"
+    _dr launch_records - "  ⚠ launch records: cannot check (launch-record.py or python3 missing — $(_rein_fix_install))"
     return 0
   fi
   out="$(python3 -I "$lr" status 2>/dev/null)" || out=""
-  [[ -z "$out" ]] && { echo "  ⚠ launch records: status unavailable"; return 0; }
+  [[ -z "$out" ]] && { _dr launch_records - "  ⚠ launch records: status unavailable"; return 0; }
   printf '%s' "$out" | python3 -c '
 import json, sys
 d = json.load(sys.stdin)
@@ -2161,7 +2163,7 @@ if d.get("v1_tokens"):
 stale = (d.get("records") or 0) + (d.get("tokens") or 0)
 if stale:
     print("  ○ launch records: %d stale record(s)/token(s) whose process is gone — pruned now" % stale)
-' 2>/dev/null || echo "  ⚠ launch records: status unreadable"
+' 2>/dev/null | _dr_lines launch_records || _dr launch_records - "  ⚠ launch records: status unreadable"
   _launch_record_prune >/dev/null
   return 0
 }
@@ -3760,7 +3762,7 @@ _report_role_provisioning() {
 
   local roles_json=".ai/roles.json"
   if [[ ! -f "$roles_json" ]]; then
-    echo "  ! .ai/roles.json missing — falling back to the D-050 defaults (architect=claude, engineer=claude)"
+    _dr roles_json - "  ! .ai/roles.json missing — falling back to the D-050 defaults (architect=claude, engineer=claude)"
   fi
 
   # Role -> provider straight from roles.json, defaults applied by the shared helper.
@@ -3781,7 +3783,7 @@ import(pathToFileURL(process.argv[1]).href).then(m =>
 
     echo "  ${role} → ${provider}"
     if [[ -z "$ws" ]]; then
-      echo "      ! no known workspace directory for provider '${provider}'"
+      _dr role_workspace - "      ! no known workspace directory for provider '${provider}'" "" "$role"
       continue
     fi
 
@@ -3789,29 +3791,29 @@ import(pathToFileURL(process.argv[1]).href).then(m =>
     skills_dir="${ws}/skills"
     if [[ -d "$skills_dir" ]]; then
       n_sk="$(find "$skills_dir" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | tr -d " ")"
-      echo "      ✓ skills   ${skills_dir} (${n_sk})"
+      _dr role_skills - "      ✓ skills   ${skills_dir} (${n_sk})" "" "$role"
     else
-      echo "      ✗ skills   ${skills_dir} missing — run: rein sync"
+      _dr role_skills - "      ✗ skills   ${skills_dir} missing — run: rein sync" "" "$role"
     fi
 
     # Agents
     agents_dir="${ws}/agents"
     if [[ -d "$agents_dir" ]]; then
       n_ag="$(find "$agents_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d " ")"
-      echo "      ✓ agents   ${agents_dir} (${n_ag})"
+      _dr role_agents - "      ✓ agents   ${agents_dir} (${n_ag})" "" "$role"
     else
-      echo "      ✗ agents   ${agents_dir} missing — run: rein sync"
+      _dr role_agents - "      ✗ agents   ${agents_dir} missing — run: rein sync" "" "$role"
     fi
 
     # Settings overlay (E-208) — only meaningful for a claude-hosted role.
     if [[ "$provider" == "claude" ]]; then
       if [[ -f "${ws}/settings.${role}.json" ]]; then
-        echo "      ✓ overlay  ${ws}/settings.${role}.json"
+        _dr role_overlay - "      ✓ overlay  ${ws}/settings.${role}.json" "" "$role"
       else
-        echo "      ✗ overlay  ${ws}/settings.${role}.json missing — run: rein sync"
+        _dr role_overlay - "      ✗ overlay  ${ws}/settings.${role}.json missing — run: rein sync" "" "$role"
       fi
     else
-      echo "      - overlay  n/a for provider '${provider}'"
+      _dr role_overlay ok "      - overlay  n/a for provider '${provider}'" "" "$role"
     fi
 
     # Rulefile, named by the registry manifest rather than hardcoded here.
@@ -3822,9 +3824,9 @@ import(pathToFileURL(process.argv[1]).href).then(m =>
 ' "${REIN}/shared/role-manifest.mjs" "${REIN}/config/registry.json" "$role" 2>/dev/null || true)"
     [[ -z "$rulefile" ]] && rulefile="$( [[ "$role" == "architect" ]] && echo ARCHITECT.md || echo ENGINEER.md )"
     if [[ -f "$rulefile" ]]; then
-      echo "      ✓ rulefile ${rulefile}"
+      _dr role_rulefile - "      ✓ rulefile ${rulefile}" "" "$role"
     else
-      echo "      ✗ rulefile ${rulefile} missing — run: rein sync"
+      _dr role_rulefile - "      ✗ rulefile ${rulefile} missing — run: rein sync" "" "$role"
     fi
   done
   echo ""
@@ -3840,29 +3842,29 @@ _CI_NODE_FLAGS=(--disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning
 # _report_local_ci — one doctor line for HEAD's newest certifying ci_runs row.
 _report_local_ci() {
   local sha helper line
-  sha="$(git rev-parse --verify --quiet HEAD 2>/dev/null)" || { echo "  - not a git repository"; return 0; }
+  sha="$(git rev-parse --verify --quiet HEAD 2>/dev/null)" || { _dr local_ci ok "  - not a git repository"; return 0; }
   helper="$(_rein_helper shared/ci-record.mjs || true)"
   if [[ -z "$helper" ]] || ! command -v node >/dev/null 2>&1; then
-    echo "  ✗ local CI: ci-record.mjs or node unavailable — run: rein install"; return 0
+    _dr local_ci - "  ✗ local CI: ci-record.mjs or node unavailable — run: rein install"; return 0
   fi
   line="$(node "${_CI_NODE_FLAGS[@]}" "$helper" status --ai-dir ".ai" --sha "$sha" --short 2>/dev/null || true)"
   set -- $line
   case "${1:-}" in
-    PASS) echo "  ✓ local CI: HEAD ${2} PASS ${3} ${4}" ;;
-    FAIL|ERROR|SKIPPED) echo "  ✗ local CI: HEAD ${2} ${1} ${3} ${4} — run: rein ci log --failed" ;;
-    DIRTY) echo "  ✗ local CI: HEAD ${2} has only a dirty run — run: rein ci run" ;;
-    SHARD) echo "  ✗ local CI: HEAD ${3} has only shard run ${2} (E-386: a shard never certifies) — run: rein ci run" ;;
-    *) echo "  ✗ local CI: no run for HEAD ${sha:0:7} — run: rein ci run" ;;
+    PASS) _dr local_ci - "  ✓ local CI: HEAD ${2} PASS ${3} ${4}" ;;
+    FAIL|ERROR|SKIPPED) _dr local_ci - "  ✗ local CI: HEAD ${2} ${1} ${3} ${4} — run: rein ci log --failed" ;;
+    DIRTY) _dr local_ci - "  ✗ local CI: HEAD ${2} has only a dirty run — run: rein ci run" ;;
+    SHARD) _dr local_ci - "  ✗ local CI: HEAD ${3} has only shard run ${2} (E-386: a shard never certifies) — run: rein ci run" ;;
+    *) _dr local_ci - "  ✗ local CI: no run for HEAD ${sha:0:7} — run: rein ci run" ;;
   esac
   # E-303: the test budget the next run is held to.
   line="$(node "${_CI_NODE_FLAGS[@]}" "$helper" budget --ai-dir ".ai" 2>/dev/null || true)"
   # E-366: the budget, then any [BUDGET_DRIFT] lines — one doctor line each.
-  [[ -n "$line" ]] && printf '%s\n' "$line" | sed 's/^/  - /'
+  [[ -n "$line" ]] && printf '%s\n' "$line" | sed 's/^/  - /' | _dr_lines local_ci
   # E-386 (D-135 r2): the census baseline a fresh hosted runner packs its lanes by.
   line="$(node "${_CI_NODE_FLAGS[@]}" "$helper" census-stale --ai-dir ".ai" --sha "$sha" 2>/dev/null || true)"
   case "$line" in
-    STALE*) echo "  ✗ [CENSUS_BASELINE_STALE] ${line#STALE } full runs since tests/census-baseline.tsv — run: rein ci run, then commit it" ;;
-    MISSING) echo "  - census baseline: none committed — the next green rein ci run writes tests/census-baseline.tsv" ;;
+    STALE*) _dr census_baseline - "  ✗ [CENSUS_BASELINE_STALE] ${line#STALE } full runs since tests/census-baseline.tsv — run: rein ci run, then commit it" ;;
+    MISSING) _dr census_baseline ok "  - census baseline: none committed — the next green rein ci run writes tests/census-baseline.tsv" ;;
   esac
   return 0
 }
@@ -3873,8 +3875,8 @@ _report_hosted_ci() {
   local root helper
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || return 0
   helper="$(_rein_helper shared/hosted-ci.mjs || true)"
-  [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || { echo "  ✗ hosted check: hosted-ci.mjs or node unavailable — run: rein install"; return 0; }
-  node --no-warnings "$helper" --root "$root" --doctor 2>/dev/null || echo "  ✗ hosted check: could not evaluate"
+  [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || { _dr hosted_ci - "  ✗ hosted check: hosted-ci.mjs or node unavailable — run: rein install"; return 0; }
+  node --no-warnings "$helper" --root "$root" --doctor 2>/dev/null | _dr_lines hosted_ci || _dr hosted_ci - "  ✗ hosted check: could not evaluate"
 }
 
 # _report_legacy_artefacts — the two E-272 doctor lines (D-074 §Component 6). Runs
@@ -3884,12 +3886,12 @@ _report_legacy_artefacts() {
   local helper root=""
   helper="$(_rein_helper shared/rein-clean.mjs || true)"
   if [[ -z "$helper" ]] || ! command -v node >/dev/null 2>&1; then
-    echo "  ✗ legacy artefacts: rein-clean.mjs or node unavailable — run: rein install"; return 0
+    _dr legacy_artefacts - "  ✗ legacy artefacts: rein-clean.mjs or node unavailable — run: rein install"; return 0
   fi
   root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
   local args=(); [[ -n "$root" ]] && args=(--project "$root")
-  node "${_CI_NODE_FLAGS[@]}" "$helper" doctor ${args[@]+"${args[@]}"} 2>/dev/null \
-    || echo "  ✗ legacy artefacts: the scan failed — run: rein clean"
+  node "${_CI_NODE_FLAGS[@]}" "$helper" doctor ${args[@]+"${args[@]}"} 2>/dev/null | _dr_lines legacy_artefacts \
+    || _dr legacy_artefacts - "  ✗ legacy artefacts: the scan failed — run: rein clean"
 }
 
 # ── E-270 (D-074 §Components 6): the version and PATH doctor lines ───────────
@@ -3903,13 +3905,13 @@ _report_versions() {
   if [[ -d ".ai" ]]; then pv="$(_project_version)"; project="${pv:-unstamped}"; else project="-"; fi
   local line="clone ${clone:-?} · mirror ${mirror:-missing} · project ${project}"
   if [[ -z "$mirror" ]]; then
-    echo "  ✗ version: ${line} — $(_rein_fix_install)"
+    _dr version - "  ✗ version: ${line} — $(_rein_fix_install)"
   elif [[ -n "$clone" && "$clone" != "$mirror" ]]; then
-    echo "  ✗ version: ${line} — the mirror is behind the clone; run: bash install-rein.sh"
+    _dr version - "  ✗ version: ${line} — the mirror is behind the clone; run: bash install-rein.sh"
   elif [[ "$project" != "-" && "$project" != "$mirror" ]]; then
-    echo "  ✗ version: ${line} — run: rein init"
+    _dr version - "  ✗ version: ${line} — run: rein init"
   else
-    echo "  ✓ version: ${line}"
+    _dr version - "  ✓ version: ${line}"
   fi
   _report_path_shadow
 }
@@ -3936,17 +3938,69 @@ _report_path_shadow() {
   local tilde='~' short
   short="${want/#$HOME/$tilde}"
   if [[ -z "$first" ]]; then
-    echo "  ✗ rein on PATH: not found — add: export PATH=\"\$HOME/.rein/bin:\$PATH\""
+    _dr rein_on_path - "  ✗ rein on PATH: not found — add: export PATH=\"\$HOME/.rein/bin:\$PATH\""
   elif [[ "$first" != "$want_real" ]]; then
-    echo "  ✗ rein on PATH: ${short} (shadowed by ${first}) — remove it or put ~/.rein/bin first"
+    _dr rein_on_path - "  ✗ rein on PATH: ${short} (shadowed by ${first}) — remove it or put ~/.rein/bin first"
   elif [[ "${#others[@]}" -gt 0 ]]; then
-    echo "  ✓ rein on PATH: ${short} (also on PATH, unused: ${others[*]})"
+    _dr rein_on_path - "  ✓ rein on PATH: ${short} (also on PATH, unused: ${others[*]})"
   else
-    echo "  ✓ rein on PATH: ${short}"
+    _dr rein_on_path - "  ✓ rein on PATH: ${short}"
   fi
 }
 
+# ── E-421 (D-153 r3, D-155 r5; release-artifact.md §Component 5): one reporting path ────────
+# Every check line doctor prints goes through _dr (or _dr_lines for text a helper program or a
+# captured helper produced). Text mode prints the line unchanged. JSON mode (_DR_FILE set by
+# `rein doctor --json`) appends a NUL-separated record to a file — a file, so a check running in
+# a subshell or a pipeline still reports (D-064 §2) — and prints nothing; one node call renders
+# the document. Status "-" means "from the line's glyph": ✓ ok, ⚠ and ! warn, ✗ fail, ○ ok; the
+# markers doctor also prints map as - ok (n/a), ? warn (unknown), ⓘ ok (info), — ok (skipped).
+_dr() {  # <id> <ok|warn|fail|-> <line> [<fix>] [<subject>]
+  if [[ -n "${_DR_FILE:-}" ]]; then
+    printf '%s\0%s\0%s\0%s\0%s\0' "$1" "$2" "$3" "${4:-}" "${5:-}" >> "$_DR_FILE"
+  else
+    printf '%s\n' "$3"
+  fi
+}
+_dr_lines() {  # <id> — stdin: lines a helper printed. Glyph lines are records; an indented line
+  # without a glyph joins the record before it; headers and blank lines are not records.
+  if [[ -z "${_DR_FILE:-}" ]]; then cat; return 0; fi
+  local l t
+  while IFS= read -r l || [[ -n "$l" ]]; do
+    t="${l#"${l%%[![:space:]]*}"}"
+    case "$t" in
+      "✓ "*|"⚠ "*|"! "*|"✗ "*|"○ "*|"- "*|"? "*|"ⓘ "*|"— "*|"✓"|"✗") printf '%s\0%s\0%s\0%s\0%s\0' "$1" - "$l" "" "" >> "$_DR_FILE" ;;
+      "") ;;
+      *) [[ "$l" != "$t" ]] && printf '%s\0%s\0%s\0%s\0%s\0' "+" - "$l" "" "" >> "$_DR_FILE" ;;
+    esac
+  done
+  return 0
+}
+
 doctor() {
+  local a json=0 other=0
+  for a in "$@"; do
+    case "$a" in --json) json=1 ;; --repair|--env|--compliance) other=1 ;; esac
+  done
+  [[ "$json" -eq 1 ]] || { _doctor_text "$@"; return $?; }
+  if [[ "$other" -eq 1 ]]; then
+    echo "rein doctor: --json runs the default doctor only; it cannot be combined with --repair, --env or --compliance" >&2
+    return 2
+  fi
+  local render; render="$(_rein_helper shared/doctor-json.mjs || true)"
+  if [[ -z "$render" ]] || ! command -v node >/dev/null 2>&1; then
+    echo "rein doctor --json: shared/doctor-json.mjs or node missing — $(_rein_fix_install)" >&2
+    return 2
+  fi
+  local dir rc=0; dir="$(mktemp -d "${TMPDIR:-/tmp}/rein-doctor.XXXXXX")"
+  _DR_FILE="${dir}/records"; : > "$_DR_FILE"
+  _doctor_text >/dev/null || rc=$?
+  node --no-warnings "$render" "$_DR_FILE" "$VERSION" || rc=2
+  _DR_FILE=""; rm -rf -- "$dir"
+  return "$rc"
+}
+
+_doctor_text() {
   # E-391 (D-132 addendum 4 r2): a check that means "the gate cannot run here" sets this, and
   # doctor then exits 1 — [HOOK_PATH_MISSING], [GATE_UNREGISTERED].
   _DOCTOR_HARD_FAIL=0
@@ -3982,9 +4036,9 @@ doctor() {
 
   echo "PATH contains ~/.rein/bin?"
   if echo "$PATH" | tr ':' '\n' | grep -q "\.rein/bin"; then
-    echo "  ✓ yes"
+    _dr path_has_rein_bin - "  ✓ yes"
   else
-    echo "  ✗ NO — add to shell: export PATH=\"\$HOME/.rein/bin:\$PATH\""
+    _dr path_has_rein_bin - "  ✗ NO — add to shell: export PATH=\"\$HOME/.rein/bin:\$PATH\""
   fi
   echo ""
 
@@ -3994,7 +4048,7 @@ doctor() {
   echo ""
 
   echo "Claude (Global — user-owned, not managed by Rein):"
-  [[ -d "${HOME}/.claude" ]] && echo "  ✓ ~/.claude exists" || echo "  ✗ ~/.claude missing"
+  [[ -d "${HOME}/.claude" ]] && _dr claude_home - "  ✓ ~/.claude exists" || _dr claude_home - "  ✗ ~/.claude missing"
   echo ""
 
   # E-249 (D-067 §3): machine-level, so it runs whether or not this directory is a
@@ -4005,14 +4059,14 @@ doctor() {
   _stale_srv_rc=0
   _stale_srv_report="$(_stale_server_lines 2>&1)" || _stale_srv_rc=$?
   if [[ "$_stale_srv_rc" -eq 1 ]]; then
-    echo "  ✗ the build-stamp scan failed: $(printf '%s' "$_stale_srv_report" | tail -1 | cut -c1-200)"
+    _dr mcp_builds - "  ✗ the build-stamp scan failed: $(printf '%s' "$_stale_srv_report" | tail -1 | cut -c1-200)"
   elif [[ "$_stale_srv_rc" -eq 2 ]]; then
-    echo "  ⚠ cannot check (node or shared/build-stamp.mjs missing — $(_rein_fix_install))"
+    _dr mcp_builds - "  ⚠ cannot check (node or shared/build-stamp.mjs missing — $(_rein_fix_install))"
   elif [[ -n "$_stale_srv_report" ]]; then
-    printf '%s\n' "$_stale_srv_report"
-    echo "  These do NOT hot-reload (D-067 §3) — restart the MCP servers or the session."
+    printf '%s\n' "$_stale_srv_report" | _dr_lines mcp_builds
+    _dr + - "  These do NOT hot-reload (D-067 §3) — restart the MCP servers or the session."
   else
-    echo "  ✓ every running server booted the build that is on disk"
+    _dr mcp_builds - "  ✓ every running server booted the build that is on disk"
   fi
   echo ""
 
@@ -4047,17 +4101,18 @@ doctor() {
     if [[ -d .ai ]]; then
       echo "Privacy:"
       _h="$(_rein_helper shared/publish-scan.mjs || true)"
-      if [[ -z "$_h" ]]; then echo "  ✗ publish-scan.mjs not found — run: rein install"
+      if [[ -z "$_h" ]]; then _dr privacy_scanner - "  ✗ publish-scan.mjs not found — run: rein install"
       else
-        echo "  $(node "${_CI_NODE_FLAGS[@]}" "$_h" privacy 2>&1 | head -1)"
+        _prv="$(node "${_CI_NODE_FLAGS[@]}" "$_h" privacy 2>&1 | head -1)"
+        _dr privacy_redactions "$( [[ "$_prv" == "[PRIVACY_OK]"* ]] && echo ok || echo warn )" "  ${_prv}"
         _scan_out="$(node "${_CI_NODE_FLAGS[@]}" "$_h" doctor "$PWD" 2>&1)"
         _scan="${_scan_out%%$'\n'*}"
         case "$_scan" in
-          "[PUBLISH_SCAN_OK]"*) echo "  ✓ ${_scan}" ;;
-          *) echo "  ⚠ ${_scan} — warning: only the structural classes (address, home path, session, secret) are redacted; list names in .ai/publish-scan.local.json" ;;
+          "[PUBLISH_SCAN_OK]"*) _dr privacy_lists - "  ✓ ${_scan}" ;;
+          *) _dr privacy_lists - "  ⚠ ${_scan} — warning: only the structural classes (address, home path, session, secret) are redacted; list names in .ai/publish-scan.local.json" ;;
         esac
         # D-145 addendum 4 r3: advisory only — the exit status is unchanged.
-        case "$_scan_out" in *$'\n''[SCAN_LOGIN_UNLISTED]'*) echo "  ⚠ $(printf '%s\n' "$_scan_out" | grep -m1 '^\[SCAN_LOGIN_UNLISTED\]')" ;; esac
+        case "$_scan_out" in *$'\n''[SCAN_LOGIN_UNLISTED]'*) _dr privacy_login - "  ⚠ $(printf '%s\n' "$_scan_out" | grep -m1 '^\[SCAN_LOGIN_UNLISTED\]')" ;; esac
       fi
       echo ""
     fi
@@ -4073,48 +4128,48 @@ doctor() {
     echo "Provider workspaces:"
     _stale_ws_report="$(_report_stale_provider_workspaces)"
     if [[ -n "$_stale_ws_report" ]]; then
-      printf '%s\n' "$_stale_ws_report"
+      printf '%s\n' "$_stale_ws_report" | _dr_lines provider_workspaces
     else
-      echo "  ✓ every provider workspace present serves a bound role"
+      _dr provider_workspaces - "  ✓ every provider workspace present serves a bound role"
     fi
     echo ""
 
     echo "Project-Scoped (.claude/):"
     if [[ -d ".claude/agents" ]]; then
-      echo "  ✓ .claude/agents: $(ls ".claude/agents" | wc -l | tr -d ' ') files"
+      _dr claude_agents - "  ✓ .claude/agents: $(ls ".claude/agents" | wc -l | tr -d ' ') files"
     else
-      echo "  ✗ .claude/agents: missing — run: rein init"
+      _dr claude_agents - "  ✗ .claude/agents: missing — run: rein init"
     fi
     _doctor_rules_report
     _doctor_hook_form_report
     if [[ -d ".claude/skills" ]]; then
-      echo "  ✓ .claude/skills: $(ls ".claude/skills" | wc -l | tr -d ' ') entries"
+      _dr claude_skills - "  ✓ .claude/skills: $(ls ".claude/skills" | wc -l | tr -d ' ') entries"
     else
-      echo "  ✗ .claude/skills: missing — run: rein init"
+      _dr claude_skills - "  ✗ .claude/skills: missing — run: rein init"
     fi
     echo ""
   fi
 
   echo "Hooks:"
   if [[ -f "${HOME}/.rein/hooks/stop-hook.sh" ]]; then
-    echo "  ✓ stop-hook.sh present (auto SESSION stamp)"
+    _dr hook_present - "  ✓ stop-hook.sh present (auto SESSION stamp)" "" "stop-hook.sh"
   else
-    echo "  ✗ stop-hook.sh missing — run: rein install"
+    _dr hook_present - "  ✗ stop-hook.sh missing — run: rein install" "" "stop-hook.sh"
   fi
   if [[ -f "${HOME}/.rein/hooks/post-tool-log.sh" ]]; then
-    echo "  ✓ post-tool-log.sh present (auto LOG append)"
+    _dr hook_present - "  ✓ post-tool-log.sh present (auto LOG append)" "" "post-tool-log.sh"
   else
-    echo "  ✗ post-tool-log.sh missing — run: rein install"
+    _dr hook_present - "  ✗ post-tool-log.sh missing — run: rein install" "" "post-tool-log.sh"
   fi
   if [[ -f "${HOME}/.rein/hooks/post-tool-use.sh" ]]; then
-    echo "  ✓ post-tool-use.sh present (AQG: auto test gate)"
+    _dr hook_present - "  ✓ post-tool-use.sh present (AQG: auto test gate)" "" "post-tool-use.sh"
   else
-    echo "  ✗ post-tool-use.sh missing — run: rein install"
+    _dr hook_present - "  ✗ post-tool-use.sh missing — run: rein install" "" "post-tool-use.sh"
   fi
   if [[ -f "${HOME}/.rein/hooks/pre-commit.sh" ]]; then
-    echo "  ✓ pre-commit.sh present (Gate 2: Quality Gate)"
+    _dr hook_present - "  ✓ pre-commit.sh present (Gate 2: Quality Gate)" "" "pre-commit.sh"
   else
-    echo "  ✗ pre-commit.sh missing — run: rein install"
+    _dr hook_present - "  ✗ pre-commit.sh missing — run: rein install" "" "pre-commit.sh"
   fi
   # Check git hook in current repo
   if git rev-parse --git-dir &>/dev/null; then
@@ -4124,9 +4179,9 @@ doctor() {
     # carries the REIN_STUB_MARKER, while legacy copies carry "Rein Gate 2".
     # Accept either so a correctly-installed stub is not reported missing.
     if [[ -f "$pc_hook" ]] && { _is_rein_stub "$pc_hook" || grep -q "Rein Gate 2" "$pc_hook" 2>/dev/null; }; then
-      echo "  ✓ .git/hooks/pre-commit: Gate 2 installed"
+      _dr git_pre_commit_gate - "  ✓ .git/hooks/pre-commit: Gate 2 installed"
     else
-      echo "  ✗ .git/hooks/pre-commit: Gate 2 NOT installed — run: rein init"
+      _dr git_pre_commit_gate - "  ✗ .git/hooks/pre-commit: Gate 2 NOT installed — run: rein init"
     fi
   fi
   echo ""
@@ -4141,7 +4196,7 @@ doctor() {
     echo "  (Global Fallback)"
   fi
   if [[ -f "$settings" ]]; then
-    echo "  ✓ present"
+    _dr settings_json - "  ✓ present"
     python3 -c "
 import json
 with open('$settings') as f:
@@ -4151,38 +4206,38 @@ print('  agent teams:', env.get('CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS', 'NOT SET
 hooks = d.get('hooks', {})
 print('  Stop hook:', 'yes ✓' if hooks.get('Stop') else 'NO - run: rein install')
 print('  PostToolUse hook:', 'yes ✓' if hooks.get('PostToolUse') else 'NO - run: rein install')
-" 2>/dev/null || echo "  ✗ could not parse settings.json"
+" 2>/dev/null | _dr_lines settings_json || _dr settings_json - "  ✗ could not parse settings.json"
   else
-    echo "  ✗ missing — run: rein install"
+    _dr settings_json - "  ✗ missing — run: rein install"
   fi
   echo ""
 
   echo "GitHub Copilot CLI:"
   if command -v gh &>/dev/null; then
-    echo "  ✓ gh installed: $(gh --version 2>/dev/null | head -1)"
+    _dr gh_cli - "  ✓ gh installed: $(gh --version 2>/dev/null | head -1)"
     if gh extension list 2>/dev/null | grep -q "github/gh-copilot"; then
-      echo "  ✓ gh copilot extension installed"
+      _dr gh_copilot - "  ✓ gh copilot extension installed"
     else
-      echo "  ✗ gh copilot not installed — run: gh extension install github/gh-copilot"
+      _dr gh_copilot - "  ✗ gh copilot not installed — run: gh extension install github/gh-copilot"
     fi
   else
-    echo "  ✗ gh not installed — run: brew install gh && gh auth login"
+    _dr gh_cli - "  ✗ gh not installed — run: brew install gh && gh auth login"
   fi
   [[ -f "${HOME}/.config/github-copilot/COPILOT.md" ]] \
-    && echo "  ✓ COPILOT.md installed" \
-    || echo "  ✗ COPILOT.md missing — run: rein install"
+    && _dr copilot_md - "  ✓ COPILOT.md installed" \
+    || _dr copilot_md - "  ✗ COPILOT.md missing — run: rein install"
   echo ""
 
   echo "MCP Servers:"
   if command -v node &>/dev/null; then
-    _doctor_node_line "  ✓" "  ✗" || true
+    _doctor_node_line "  ✓" "  ✗" | _dr_lines node_version || true
   else
-    echo "  ✗ node not found — MCP servers need Node.js: brew install node"
+    _dr node_present - "  ✗ node not found — MCP servers need Node.js: brew install node"
   fi
   if command -v npx &>/dev/null; then
-    echo "  ✓ npx available"
+    _dr npx_present - "  ✓ npx available"
   else
-    echo "  ✗ npx not found — install Node.js"
+    _dr npx_present - "  ✗ npx not found — install Node.js"
   fi
 
   # E-34: Per-server health check from registry
@@ -4194,15 +4249,15 @@ print('  PostToolUse hook:', 'yes ✓' if hooks.get('PostToolUse') else 'NO - ru
       [[ -z "$srv_name" ]] && continue
       local sdir="${MCP_DIR}/${srv_name}"
       if [[ ! -d "$sdir" ]]; then
-        echo "    ✗ ${srv_name}: source missing at ${sdir} — run: rein install"
+        _dr mcp_server - "    ✗ ${srv_name}: source missing at ${sdir} — run: rein install" "" "$srv_name"
       elif [[ ! -f "${sdir}/package.json" ]]; then
-        echo "    ✗ ${srv_name}: package.json missing"
+        _dr mcp_server - "    ✗ ${srv_name}: package.json missing" "" "$srv_name"
       elif [[ ! -d "${sdir}/node_modules" ]]; then
-        echo "    ✗ ${srv_name}: node_modules missing — run: rein mcp-setup"
+        _dr mcp_server - "    ✗ ${srv_name}: node_modules missing — run: rein mcp-setup" "" "$srv_name"
       elif [[ ! -f "${sdir}/index.js" ]]; then
-        echo "    ✗ ${srv_name}: index.js missing"
+        _dr mcp_server - "    ✗ ${srv_name}: index.js missing" "" "$srv_name"
       else
-        echo "    ✓ ${srv_name}"
+        _dr mcp_server - "    ✓ ${srv_name}" "" "$srv_name"
       fi
     done < <(python3 -c "
 import json
@@ -4215,17 +4270,17 @@ for name, info in d.get('mcp_servers', {}).items():
   fi
 
   if [[ -f ".mcp.json" ]]; then
-    echo "  ✓ .mcp.json present ($(pwd))"
+    _dr mcp_json - "  ✓ .mcp.json present ($(pwd))"
     # E-409 (D-143 r2b/r3): the server paths after `${VAR}` / `${VAR:-default}` expansion — one
     # expander, in shared/mcp-paths.mjs. Dead paths are [MCP_PATHS_MISSING] and fail doctor.
     local _mcp_paths; _mcp_paths="$(_rein_helper shared/mcp-paths.mjs || true)"
     if [[ -n "$_mcp_paths" ]] && command -v node >/dev/null 2>&1; then
-      node --no-warnings "$_mcp_paths" doctor ./.mcp.json || _DOCTOR_HARD_FAIL=1
+      node --no-warnings "$_mcp_paths" doctor ./.mcp.json | _dr_lines mcp_paths || _DOCTOR_HARD_FAIL=1
     else
-      echo "  ✗ mcp-paths.mjs or node unavailable — $(_rein_fix_install)"
+      _dr mcp_json_paths - "  ✗ mcp-paths.mjs or node unavailable — $(_rein_fix_install)"
     fi
   else
-    echo "  ✗ .mcp.json not found in $(pwd) — run: rein init"
+    _dr mcp_json - "  ✗ .mcp.json not found in $(pwd) — run: rein init"
   fi
   echo ""
 
@@ -4233,16 +4288,16 @@ for name, info in d.get('mcp_servers', {}).items():
   echo "Vibe-check browsers (rein mcp-setup --browsers):"
   local _vdir="${REIN}/mcp/vibe-check-mcp"
   if [[ ! -d "$_vdir" ]]; then
-    echo "  ⚠  vibe-check-mcp not installed"
+    _dr vibe_check_browsers - "  ⚠  vibe-check-mcp not installed"
   elif node --input-type=module -e "
     const { browserStatus } = await import('file://${_vdir}/browser-check.mjs');
     const { chromium } = await import('file://${_vdir}/node_modules/@playwright/test/index.js');
     process.exit(browserStatus(chromium).ok ? 0 : 1);
   " >/dev/null 2>&1; then
-    echo "  ✓ Chromium present"
+    _dr vibe_check_browsers - "  ✓ Chromium present"
   else
-    echo "  ✗ Chromium not installed — vibe-check tools will report [BROWSER_MISSING]"
-    echo "    run: rein mcp-setup --browsers"
+    _dr vibe_check_browsers - "  ✗ Chromium not installed — vibe-check tools will report [BROWSER_MISSING]"
+    _dr + - "    run: rein mcp-setup --browsers"
   fi
   echo ""
 
@@ -4254,7 +4309,7 @@ for name, info in d.get('mcp_servers', {}).items():
   _doctor_toolchain_report
   echo ""
   echo "Safe-exec gate override (E-291):"
-  echo "  $(do_gate status 2>&1)"
+  _dr gate_override - "  $(do_gate status 2>&1)"
   _classifier_report
   _launch_record_report
   _install_report
@@ -4262,9 +4317,9 @@ for name, info in d.get('mcp_servers', {}).items():
   echo ""
   echo "Triad launcher (rein start):"
   if command -v tmux >/dev/null 2>&1; then
-    echo "  ✓ tmux present ($(tmux -V 2>/dev/null || echo 'version unknown'))"
+    _dr tmux - "  ✓ tmux present ($(tmux -V 2>/dev/null || echo 'version unknown'))"
   else
-    echo "  ✗ tmux not found — 'rein start' exits 2 and prints the manual recipe instead"
+    _dr tmux - "  ✗ tmux not found — 'rein start' exits 2 and prints the manual recipe instead"
   fi
 
   local _d_ai; _d_ai="$(_find_ai_dir 2>/dev/null)"
@@ -4272,15 +4327,15 @@ for name, info in d.get('mcp_servers', {}).items():
   if [[ -n "$_d_ai" && -d "$_d_ai" ]] && declare -F _account_dir >/dev/null; then
     local _d_acfg _d_acct _d_adir
     if ! _d_acfg="$(_start_config "$_d_ai" 2>/dev/null)"; then
-      echo "  ✗ account: .ai/start.json rejected — run 'rein start --dry-run' for the reason"
+      _dr start_account - "  ✗ account: .ai/start.json rejected — run 'rein start --dry-run' for the reason"
     else
       _d_acct="${_d_acfg##*|}"
       if [[ -z "$_d_acct" ]]; then
-        echo "  ✓ account: default ($(_acct_tilde "${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"), login: $(_acct_login ""))"
+        _dr start_account - "  ✓ account: default ($(_acct_tilde "${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"), login: $(_acct_login ""))"
       elif _d_adir="$(_account_dir "$_d_acct" 2>/dev/null)"; then
-        echo "  ✓ account: ${_d_acct} ($(_acct_tilde "$_d_adir"), login: $(_acct_login "$_d_adir"))"
+        _dr start_account - "  ✓ account: ${_d_acct} ($(_acct_tilde "$_d_adir"), login: $(_acct_login "$_d_adir"))"
       else
-        echo "  ✗ account: ${_d_acct} does not resolve — $(_account_dir "$_d_acct" 2>&1 >/dev/null | sed 's/^rein: //')"
+        _dr start_account - "  ✗ account: ${_d_acct} does not resolve — $(_account_dir "$_d_acct" 2>&1 >/dev/null | sed 's/^rein: //')"
       fi
     fi
   fi
@@ -4289,7 +4344,7 @@ for name, info in d.get('mcp_servers', {}).items():
     _d_roles="$(_start_roles "$_d_ai" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')"
     _d_n="$(printf '%s' "$_d_roles" | wc -w | tr -d ' ')"
     if [[ "${_d_n:-0}" -gt 0 ]]; then
-      echo "  ✓ roles mapped (${_d_n}): ${_d_roles}"
+      _dr roles_mapped - "  ✓ roles mapped (${_d_n}): ${_d_roles}"
       # A role whose provider is not on PATH produces a pane that opens and then fails at
       # the first keystroke, which looks like a launcher bug rather than a missing binary.
       local _d_r _d_prov
@@ -4304,18 +4359,18 @@ r=d.get('roles',{}).get('${_d_r}',{})
 print(r.get('provider',''))
 " 2>/dev/null)"
         if [[ -z "$_d_prov" ]]; then
-          echo "    ? ${_d_r}: no provider recorded"
+          _dr role_provider - "    ? ${_d_r}: no provider recorded" "" "$_d_r"
         elif command -v "$_d_prov" >/dev/null 2>&1; then
-          echo "    ✓ ${_d_r} → ${_d_prov} (on PATH)"
+          _dr role_provider - "    ✓ ${_d_r} → ${_d_prov} (on PATH)" "" "$_d_r"
         else
-          echo "    ✗ ${_d_r} → ${_d_prov} NOT on PATH — its pane will open but the agent will not start"
+          _dr role_provider - "    ✗ ${_d_r} → ${_d_prov} NOT on PATH — its pane will open but the agent will not start" "" "$_d_r"
         fi
       done
     else
-      echo "  ✗ roles.json has no usable roles — run: rein init"
+      _dr roles_mapped - "  ✗ roles.json has no usable roles — run: rein init"
     fi
   else
-    echo "  ✗ .ai/roles.json not found — run: rein init"
+    _dr roles_mapped - "  ✗ .ai/roles.json not found — run: rein init"
   fi
   echo ""
 
@@ -4332,15 +4387,15 @@ print(r.get('provider',''))
       local npm_out
       npm_out=$(cd "$sdir" && npm list --depth=0 2>&1)
       if echo "$npm_out" | grep -q "missing\|UNMET\|invalid"; then
-        echo "  ✗ ${srv_name}: dependency issues — run: rein mcp-setup"
-        echo "      $(echo "$npm_out" | grep -E 'missing|UNMET|invalid' | head -3 | sed 's/^/      /')"
+        _dr mcp_dependencies - "  ✗ ${srv_name}: dependency issues — run: rein mcp-setup" "" "$srv_name"
+        _dr + - "      $(echo "$npm_out" | grep -E 'missing|UNMET|invalid' | head -3 | sed 's/^/      /')"
         deep_fail=1
       fi
 
       # Connectivity probe: node -c syntax check
       if [[ -f "${sdir}/index.js" ]]; then
         if ! node -c "${sdir}/index.js" &>/dev/null; then
-          echo "  ✗ ${srv_name}: index.js syntax error (CRITICAL_FAILURE)"
+          _dr mcp_syntax - "  ✗ ${srv_name}: index.js syntax error (CRITICAL_FAILURE)" "" "$srv_name"
           deep_fail=1
         fi
       fi
@@ -4375,27 +4430,27 @@ for name, info in reg.get("mcp_servers", {}).items():
             print(f"  ✗ {name}: .mcp.json path mismatch")
             print(f"      expected: {expected}")
             print(f"      actual:   {args[0]}")
-' 2>/dev/null || true
+' 2>/dev/null | _dr_lines mcp_path_consistency || true
     fi
 
-    [[ "$deep_fail" -eq 0 ]] && echo "  ✓ all MCP servers: dependencies OK, syntax OK, paths consistent"
+    [[ "$deep_fail" -eq 0 ]] && _dr mcp_deep_audit - "  ✓ all MCP servers: dependencies OK, syntax OK, paths consistent"
   else
-    echo "  — skipped (requires node + python3)"
+    _dr mcp_deep_audit ok "  — skipped (requires node + python3)"
   fi
   echo ""
 
   echo "Copilot repo instructions (.github/copilot-instructions.md in current dir):"
   if [[ -f ".github/copilot-instructions.md" ]]; then
-    echo "  ✓ present (read automatically by GitHub Copilot Chat)"
+    _dr copilot_instructions - "  ✓ present (read automatically by GitHub Copilot Chat)"
   else
-    echo "  ✗ not found in $(pwd) — run: rein init to scaffold it"
+    _dr copilot_instructions - "  ✗ not found in $(pwd) — run: rein init to scaffold it"
   fi
   echo ""
 
   echo "Orphaned v2 contracts (should be gone):"
   for f in 10_WORKFLOW.md 20_OWNERSHIP.md 30_TOKEN_DISCIPLINE.md 40_SECURITY.md 50_DEVOPS.md 60_SEO_COMPLIANCE.md; do
     if [[ -f "${REIN}/contracts/$f" ]]; then
-      echo "  ✗ ORPHAN: ${REIN}/contracts/$f — run: rein install to remove"
+      _dr orphan_contract - "  ✗ ORPHAN: ${REIN}/contracts/$f — run: rein install to remove" "" "$f"
     fi
   done
   echo "  (if nothing listed above, contracts are clean ✓)"
@@ -4408,10 +4463,10 @@ for name, info in reg.get("mcp_servers", {}).items():
   local _sh
   _sh="$(_rein_helper shared/cli-state.mjs || true)"
   if [[ -d ".ai" ]] && [[ -n "$_sh" ]] && command -v node &>/dev/null; then
-    node --no-warnings "$_sh" state health $( [[ "$REPAIR" -eq 1 ]] && printf -- '--repair' ) 2>&1 \
-      || echo "  ✗ state health check failed"
+    node --no-warnings "$_sh" state health $( [[ "$REPAIR" -eq 1 ]] && printf -- '--repair' ) 2>&1 | _dr_lines state_health \
+      || _dr state_health - "  ✗ state health check failed"
   else
-    echo "  — skipped (not in a project dir, or node / cli-state.mjs missing)"
+    _dr state_health ok "  — skipped (not in a project dir, or node / cli-state.mjs missing)"
   fi
   echo ""
 
@@ -4423,7 +4478,7 @@ for name, info in reg.get("mcp_servers", {}).items():
       echo ""
       echo "Team trunk (.ai/team.json):"
       _trl="$(node --no-warnings "$_tr" trunk --doctor 2>/dev/null || true)"
-      if [[ -n "$_trl" ]]; then printf '  %s\n' "$_trl"; else echo "  ✓ trunk $(node --no-warnings "$_tr" trunk 2>/dev/null || echo '?')"; fi
+      if [[ -n "$_trl" ]]; then printf '  %s\n' "$_trl" | _dr_lines team_trunk; else _dr team_trunk - "  ✓ trunk $(node --no-warnings "$_tr" trunk 2>/dev/null || echo '?')"; fi
     fi
   fi
 

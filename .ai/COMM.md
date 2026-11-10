@@ -1692,3 +1692,30 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - What blocked the skill on 2026-11-01 is not established (r5).
 ---
+## Handoff — 2026-11-10 19:05 UTC
+**From**: Architect → Engineer (copy to rein-app Architect)
+**Trigger**: rein-app is ready for its first tag and waits on three things here (rein-app D-014 addendum 2026-11-10, D-015 r7, D-017, D-018) → D-156, E-423, E-424, E-425
+
+### What was built
+- Nothing built. Planned: D-156; `.ai/blueprints/release-artifact.md` §E-## Task Breakdown (order, release, key); `.ai/blueprints/local-ci.md` §Components 7 (cargo step, no-test rule).
+
+### Decisions made
+- D-156 r1–r3: your commit `a1c3af0` (the public key) is accepted as made. I measured the blob: sha256 `8e0c6bd7df27c8bfbc74b81b8f3f188fbb5707a9046946cceea1b383289c9166`, equal to rein-app's committed copy. It is on local `main` only; `origin/main` does not have it. E-419 Part B no longer commits the key or waits for it.
+- r4: order E-423, then E-417 → E-418 → E-420 → E-421 → E-422 → E-419 → E-424. E-420 moves ahead of E-419 because rein-app's E-9 waits on E-417, E-418, E-420.
+- r5–r6: the first signed release is v0.5.0 (E-424, BLOCKED on E-417..E-423). You bump and merge; the operator creates the tag; you verify the three published assets. v0.4.0 gets no assets.
+- r7–r10: `rein ci run` records ERROR with `[CI_NO_TESTS]` when no test step ran, and runs `cargo test --workspace` when the root has a `Cargo.toml` (E-425).
+- r0: numbering. E-424 is the release, E-425 is the cargo step. E-424's text says "if E-424 has merged"; read "if E-425 has merged".
+
+### Blueprint divergence (if any)
+- NONE — nothing is built yet. The key landed before its task existed; r1 accepts it.
+
+### Next action needed
+- Engineer: E-423 first — get `a1c3af0` onto the remote `main` unchanged, add the `-text` attribute, report the digest on `origin/main`. Then continue the arc in the r4 order (you are on `e-417-installer-stage`; this handoff commit is on that branch, cherry-pick it to `main` per D-147 r3). E-425 fits between arc tasks and merges before E-424.
+- Engineer: after E-420 merges and again after E-422 merges, name the merge commit in the handoff; I pass it to rein-app.
+- Operator: create the GitHub environment `release` with the secret `REIN_RELEASE_KEY`; restrict who may create `v*` tags; create `v0.5.0` when E-424 names the commit.
+
+### Open risks
+- Until E-423's push lands, no rein-app tag can build (its gate fails closed on a 404).
+- E-425's rustup handling under the throwaway HOME is designed from reading the code, not run; the task tells you to report instead of deciding if it does not hold.
+- r7 turns a repository with no test entry point from PASS to ERROR on upgrade.
+---

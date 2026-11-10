@@ -1708,6 +1708,64 @@
         "E-421"
       ],
       "updated_at": "2026-11-09T16:54:16.133Z"
+    },
+    {
+      "id": "E-423",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Publish the operator's release public key on `main` per D-156 r1-r2 and .ai/blueprints/release-artifact.md §E-## Task Breakdown (\"The key\"): get commit a1c3af0 (already on local main; adds docs/contract/release-key.pub) onto the remote main by the route main takes today, after the local CI run the pre-push gate asks for; do not re-create, reformat or re-commit the file. Then add `.gitattributes` with the one line `docs/contract/release-key.pub -text` and one row, extending an existing docs/ or release-fixture row (D-088), that asserts the committed file has no CR byte and ends with exactly one LF. Never read, copy or reference the secret key. Acceptance: the blob at origin/main:docs/contract/release-key.pub has sha256 8e0c6bd7df27c8bfbc74b81b8f3f188fbb5707a9046946cceea1b383289c9166 and the same digest comes back from the raw.githubusercontent.com URL for main; `git check-attr text docs/contract/release-key.pub` says unset; `rein ci run` green; the closing handoff states the digest and the main commit so the Architect can tell rein-app. Do this first, ahead of the closures still in flight if they would delay the push.",
+      "created_at": "2026-11-10T19:02:03.276Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-10T19:02:03.284Z"
+    },
+    {
+      "id": "E-424",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 2,
+      "description": "Release v0.5.0 as the first signed artifact per D-156 r5-r6 and .ai/blueprints/release-artifact.md §E-## Task Breakdown (\"Release v0.5.0\"), using skill release-manager for the bump and the CHANGELOG only. Before starting, confirm with the operator that the GitHub environment `release` holds the secret REIN_RELEASE_KEY and that `v*` tags are restricted; if either is missing, stop and say so. Bump package.json and every version mirror to 0.5.0, write the CHANGELOG 0.5.0 section (the release commands, artifact-mode `rein install`, `rein doctor --json`, the app contract documents, `rein ci run` cargo step and [CI_NO_TESTS] if E-424 has merged), merge by pull request, then STOP: name the merge commit and ask the operator to create the `v0.5.0` tag on it. Do not create or push the tag, do not run `rein release sign` with any key other than the throwaway fixture, and never read the secret key. After the release workflow publishes: download rein-0.5.0.tar.gz, rein-0.5.0.tar.gz.minisig and manifest.json from the GitHub release into a temp directory and run `rein release verify --pubkey docs/contract/release-key.pub`. Acceptance: the v0.5.0 release has exactly those three assets; verify exits 0 with the signature checked; manifest.json says version 0.5.0 and key_id 5C9C75A7C8FA8056; the release notes carry the tarball sha256 and the key id; v0.4.0 is left without assets; the closing handoff gives the release URL, the tarball sha256 and the tagged commit for the Architect to pass to rein-app.",
+      "created_at": "2026-11-10T19:02:22.769Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-417",
+        "E-418",
+        "E-419",
+        "E-420",
+        "E-421",
+        "E-422",
+        "E-423"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-417",
+        "E-418",
+        "E-419",
+        "E-420",
+        "E-421",
+        "E-422",
+        "E-423"
+      ],
+      "updated_at": "2026-11-10T19:02:22.769Z"
+    },
+    {
+      "id": "E-425",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Add the cargo step and the no-test rule to `rein ci run` per D-156 r7-r10 and .ai/blueprints/local-ci.md §Components 7 (skill repo-oracle on _ci_run in src/bin/rein first). (1) When suite, unit and cargo all end as skip, for absence or by flag, print the [CI_NO_TESTS] line of r7, record the row ERROR, exit 2. (2) With a Cargo.toml at the worktree root, run a `cargo` step after `unit`: `cargo test --workspace`, plus `--locked` when Cargo.lock is tracked; FAIL fails the run; no cargo on the curated PATH is ERROR exit 2; --suite-only and --unit-only skip it. (3) Only when the step applies, set CARGO_HOME, CARGO_TARGET_DIR and RUSTUP_HOME as r9 states and add the three names to the [CI_ENV_RESERVED] refusal. (4) Toolchain line, `[ci] result` cargo= field and row counts as r10 states (a `cargo` runner in src/shared/ci-summary.mjs; no ci_runs migration). Report to the Architect, do not decide, if `rein ci status --short` needs a column or rustup fails under the throwaway HOME. Acceptance, as rows extending the rein_ci_test.sh rows (D-088; cargo rows skip, counted, without cargo): a fixture repository with no test entry point is ERROR exit 2 with [CI_NO_TESTS] and a written row; a fixture crate with one passing test is PASS pass=1, with a failing one FAIL exit 1; Cargo.toml with cargo off PATH is ERROR; CARGO_HOME in .ai/ci.local.json is refused; the operator's ~/.cargo is unchanged by a run; a unit row for the cargo summary parser over a recorded multi-crate output; `rein ci run` green here with unchanged step lines; one recorded `rein ci run` in the rein-app checkout (~/Dev/rein-app; no commit there) whose counts match `cargo test --workspace`. Queue: after E-423, between arc tasks, merged before the E-424 release.",
+      "created_at": "2026-11-10T19:02:36.339Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-10T19:02:36.340Z"
     }
   ],
   "stamps": [

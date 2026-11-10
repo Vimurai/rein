@@ -353,7 +353,25 @@ and `rein sync` with this machine's absolute paths, and the app writes no file i
 | E-420 | 3 | Component 4: `install-finalize.sh`, artifact mode, stamp, doctor install line, fix-line helper | E-418 |
 | E-421 | 2 | Component 5: `_dr`, `rein doctor --json` | — |
 | E-422 | 2 | Component 6: documents, schemas, fixtures, the two guard rows | E-418, E-420, E-421 |
+| E-423 | 1 | Publish `docs/contract/release-key.pub` on `main` (committed in `a1c3af0`) and mark it `-text` | — |
+| E-424 | 2 | Release v0.5.0, the first signed artifact; the operator creates the tag | E-417..E-423 |
 
-Operator inputs, none of which an agent may perform: generate the minisign key pair; hand the
-`.pub` file to the Engineer; create the GitHub environment `release` with the secret
-`REIN_RELEASE_KEY`; restrict who may push `v*` tags.
+**Build order (D-156 r4):** E-423 now, then E-417 → E-418 → E-420 → E-421 → E-422 → E-419 →
+E-424. E-420 precedes E-419 because rein-app's layout-equality test waits on E-417, E-418 and
+E-420, and nothing needs a signature before a tag exists. The handoffs after E-420 and after
+E-422 merge name the merge commit for `rein-app · Architect`.
+
+**Release v0.5.0 (D-156 r5–r6, E-424).** The Engineer bumps the version, writes the CHANGELOG
+section and merges; the operator creates the `v0.5.0` tag on that merge commit, which starts
+the workflow of Component 3 in the `release` environment. The Engineer then downloads
+`rein-0.5.0.tar.gz`, its `.minisig` and `manifest.json` from the release and runs
+`rein release verify --pubkey docs/contract/release-key.pub`. v0.4.0 gets no assets.
+
+**The key (D-156 r1–r3).** The operator generated the pair on 2026-11-10 (key id
+`5C9C75A7C8FA8056`). The public key is committed in `a1c3af0`, sha256
+`8e0c6bd7df27c8bfbc74b81b8f3f188fbb5707a9046946cceea1b383289c9166`, identical to rein-app's
+copy. E-419 Part B no longer commits it and no longer waits for it.
+
+Operator inputs still outstanding, none of which an agent may perform: create the GitHub
+environment `release` with the secret `REIN_RELEASE_KEY`; restrict who may push `v*` tags;
+create the `v0.5.0` tag.

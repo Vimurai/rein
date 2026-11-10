@@ -277,7 +277,12 @@ PYLIST
   assert_contains "E-420.01b: …after checking it against its manifest" "matches its manifest (manifest key_id 5C9C75A7C8FA8056) and is finished" "$_ai_out"
   _adiff="$(diff <(_tree_list "${AH}/.rein") <(_tree_list "${DH0}/.rein") 2>&1)"
   assert_status 0 "E-420.01c: the same files under the mirrored directories as the clone install${_adiff:+ — ${_adiff:0:400}}" test -z "$_adiff"
-  assert_status 0 "E-420.01d: the hook toolchain is pinned" grep -q '^REIN_TC_NODE=' "${AH}/.rein/shared/toolchain.sh"
+  # The pin is the host's to give: the toolchain check refuses an interpreter it cannot vouch for
+  # (a hosted runner's /opt/hostedtoolcache node is one), so the claim is "as the clone install
+  # of the same commit on the same host" — pinned to the same node, or refused by both.
+  _pin() { sed -n 's/^REIN_TC_NODE=//p' "$1/.rein/shared/toolchain.sh" 2>/dev/null; }
+  assert_status 0 "E-420.01d: the hook toolchain is pinned as the clone install pins it (artifact '$(_pin "$AH")', clone '$(_pin "$DH0")')" \
+    test "$(_pin "$AH")" = "$(_pin "$DH0")"
   assert_status 0 "E-420.01e: the stamp says artifact, with the key id" \
     python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["source"]=="artifact" and d["key_id"]=="5C9C75A7C8FA8056" and d["version"]==sys.argv[2], d' \
     "${AH}/.rein/config/install-stamp.json" "$_ver"

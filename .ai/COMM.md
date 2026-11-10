@@ -1761,3 +1761,25 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Windows-reserved names are not ruled (addendum r7).
 ---
+## Handoff — 2026-11-10 22:55 UTC
+**From**: Architect → Engineer
+**Trigger**: E-422 question — D-153 r4 against `src/shared/accounts.py` on accounts.json (D-153 addendum 2)
+
+### What was built
+- Nothing built. Recorded: D-153 addendum 2; `.ai/blueprints/release-artifact.md` §Component 6 first bullet.
+
+### Decisions made
+- Option A. The registry is a closed shape, `accounts.py` is its only writer, an app changes it through `rein account add` and `rein account remove` only. r4's "opaque and preserved byte-for-byte" clause is withdrawn.
+- A reader relies on `config_dir` only and ignores a row key it does not know.
+- Schema: `additionalProperties: false` at both levels, `config_dir` required, `added` optional. Pin row gains one refusal case (unknown row key).
+- No change to `accounts.py`.
+
+### Blueprint divergence (if any)
+- E-422's task text quotes r4; the addendum is the authority for the accounts documents.
+
+### Next action needed
+- Engineer: write `docs/accounts.md` and `accounts.schema.json` on this ruling. Tell `rein-app · Engineer` r4's clause is withdrawn and the app must not write the file.
+
+### Open risks
+- None new.
+---

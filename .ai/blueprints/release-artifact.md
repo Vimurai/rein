@@ -180,7 +180,11 @@ convenience copy that nothing trusts.
 ### Component 6 — The published contract: documents, schemas, shared fixtures (E-422)
 - `docs/app-contract.md`: the layout and its version rule, the upgrade rule, the settings
   allow-list, the headless entry points, the three release files and how to verify them by
-  hand. `docs/accounts.md`: the registry (D-153 r4).
+  hand. `docs/accounts.md`: the registry (D-153 r4 as corrected by D-153 addendum 2): the
+  shape is closed (`{"accounts": {"<name>": {"config_dir", "added"?}}}`, nothing else at
+  either level), `accounts.py` is its only writer, an app reads `config_dir` and changes the
+  registry through `rein account add|remove` only. `accounts.schema.json` has
+  `additionalProperties: false` at both levels and `added` optional.
 - `docs/contract/manifest.schema.json`, `doctor.schema.json`, `accounts.schema.json` (JSON
   Schema 2020-12). Each is pinned by a row that validates a real output against it: the
   manifest from a stage of the checkout, the doctor document from a fixture project, a

@@ -5048,3 +5048,30 @@ Inline `install-finalize.sh` back into `install-rein.sh` and point the five rows
 Remove the two checks and their rows; no artifact or manifest changes.
 
 ---
+
+## D-153 addendum 2 — accounts.json is a closed shape with one writer; r4's "everything else is opaque and preserved" is withdrawn
+
+**Date**: 2026-11-10
+**Task**: E-422 (`docs/accounts.md`, `accounts.schema.json`); corrects D-153 r4; D-095, E-314
+**Decision**: The Engineer found D-153 r4 and `src/shared/accounts.py` in disagreement, and the code is right. r4 said every field other than `accounts.<name>.config_dir` is "opaque and preserved byte-for-byte by anything that rewrites the file". `accounts.py` (D-095, E-314, security-reviewed) refuses the whole registry, `UNPARSABLE` exit 3, on any top-level key besides `accounts` and any row key besides `config_dir` and `added`, and `add`/`remove` write only those two. r4's sentence assumed a second writer; there is none and there must not be one. The registry names directories that hold a gate configuration, and "refused whole, never half-read" is the property the review approved.
+
+### Rulings
+1. **The shape is closed**: `{"accounts": {"<name>": {"config_dir": "<absolute path>", "added": "YYYY-MM-DD"}}}`. `added` is optional on read (the code accepts a row without it) and always written. No other key at either level. `default` is never a row. A missing file is an empty registry.
+2. **`accounts.py` is the only writer.** An app, or any other tool, never writes `accounts.json`; it adds and removes accounts through `rein account add` and `rein account remove`. A file with an extra key is refused by `rein account`, `rein pane`, `rein start` and `rein doctor` for every account, and the documents say so in those words.
+3. **What a reader may rely on is unchanged from r4**: `accounts.<name>.config_dir`. `added` is documented and not guaranteed to be present.
+4. **A reader ignores a row key it does not know.** This repository may add a row field later; that is a change to `accounts.schema.json` announced to rein-app first, and a reader that already ignores unknown keys does not break on it. The asymmetry is deliberate: strict where the file selects a gate configuration, tolerant where it is only displayed.
+5. **`accounts.schema.json`**: `additionalProperties: false` at the root and on a row; `required: ["config_dir"]` on a row; `added` with the date pattern; the name pattern on the property names as `accounts.py` checks it. The pin row stays as §Component 6 has it (a registry written by `accounts.py add` validates), extended with one refusal case: a row with an unknown key fails the schema and is refused by `accounts.py load`.
+6. **No code change** to `accounts.py`. Option B (accept and preserve unknown keys) is declined.
+7. **rein-app is told**: r4's "opaque and preserved" clause is withdrawn; its reading of `config_dir` stays correct; it must not write the file.
+
+### Alternatives considered
+1. **Option B, make `accounts.py` accept and preserve unknown keys** — rejected: it loosens a reviewed parser in a security-relevant file to serve a field nobody has, and "preserve what you do not understand" in a file that picks a config directory is how a planted key survives a rewrite.
+2. **A reserved extension key (`x-*`) for apps** — rejected: same loosening, smaller; an app that needs per-account state keeps it in its own file.
+
+### Impact
+- Unlocks: `docs/accounts.md` and the schema in E-422 with one statement. Risk if wrong: rein-app later wants a field in the registry; that is a request to this repository and a schema change, which r4 covers.
+
+### Rollback
+Reinstate r4's clause and build option B as its own Tier 3 task with security review.
+
+---

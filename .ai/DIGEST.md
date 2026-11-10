@@ -52,3 +52,5 @@
 - 2026-10-29: SECURITY.md updated — E-391 third pass: N1–N5 + git-config note closed (77/0); new P3 M1–M7 (sync still drops bash -c/operator/$HOMEDIR entries; doctor ✓ on JS-invalid matcher, Bash-only matcher, type/timeout, settings.local disableAllHooks; raw escapes in doctor output); T-RENAME-001 third-pass note
 - 2026-10-30: SECURITY.md updated — E-397 safe-exec ReDoS rewrites SEC_CLEARED (0 differential mismatches, no gate weakening; pre-existing viaConfig quadratic + decodedView RangeError noted).
 - 2026-11-01: SECURITY.md updated — E-407 [BRANCH_CLEANUP_OFF] gh probe SEC_CLEARED (PASS); 3 P2 follow-ups (test gh isolation, GH_HOST pin)
+- 2026-11-10: SECURITY.md updated — E-420 artifact-mode review SEC_BLOCKED on F1 (P2: tree check follows symlinked ancestors/hard links; chmod/rm -rf outside the home); P3 F2–F6; T-ARTIFACT-001 added
+- 2026-11-10: SECURITY.md updated — E-420 re-verify SEC_CLEARED (F1–F6 closed, 11 probes RESISTED; P3 residual legacy purge on symlinked home)

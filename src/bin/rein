@@ -1168,7 +1168,7 @@ do_gate() {
   local sub="${1:-status}"; shift || true
   local f="${REIN}/gate-override.json" py out rc
   py="$(_gate_py)"
-  [[ -f "$py" ]] || { echo "rein gate: ${py} missing — run: bash install-rein.sh" >&2; return 2; }
+  [[ -f "$py" ]] || { echo "rein gate: ${py} missing — $(_rein_fix_install)" >&2; return 2; }
   case "$sub" in
     off)
       local minutes=15 reason=""
@@ -1210,7 +1210,7 @@ _doctor_toolchain_report() {
   local f="${REIN}/shared/toolchain.sh" line node="" py=""
   local re='^REIN_TC_(NODE|PYTHON3)=(/[A-Za-z0-9._/@+:-]+)$'
   if [[ ! -f "$f" ]]; then
-    echo "  ✗ hook toolchain: ${f} missing — run: bash install-rein.sh"
+    echo "  ✗ hook toolchain: ${f} missing — $(_rein_fix_install)"
     return 0
   fi
   while IFS= read -r line || [[ -n "$line" ]]; do
@@ -1220,7 +1220,7 @@ _doctor_toolchain_report() {
   local p
   for p in "${node:-node (unrecorded)}" "${py:-python3 (unrecorded)}"; do
     if [[ "$p" != /* || ! -x "$p" ]]; then
-      echo "  ✗ hook toolchain: ${p} missing — run: bash install-rein.sh"
+      echo "  ✗ hook toolchain: ${p} missing — $(_rein_fix_install)"
       return 0
     fi
   done
@@ -1242,7 +1242,7 @@ _doctor_hook_form_report() {
     local hp findings kind ev p stale="" bad=0
     hp="$(_rein_helper shared/hook-paths.py || true)"
     if [[ -z "$hp" ]]; then
-      echo "  ✗ .claude/settings.json: shared/hook-paths.py not found — run: bash install-rein.sh"; _DOCTOR_HARD_FAIL=1
+      echo "  ✗ .claude/settings.json: shared/hook-paths.py not found — $(_rein_fix_install)"; _DOCTOR_HARD_FAIL=1
     else
       findings="$(python3 -I "$hp" check "$f" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)"
       while IFS=$'\t' read -r kind ev p; do
@@ -1281,14 +1281,14 @@ _doctor_gate_report() {
   local gp st
   gp="$(_rein_helper shared/gate-probe.sh || true)"
   if [[ -z "$gp" ]]; then
-    echo "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — run: bash install-rein.sh"; return 0
+    echo "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — $(_rein_fix_install)"; return 0
   fi
   # shellcheck source=src/shared/gate-probe.sh
   . "$gp"
   if st="$(rein_gate_probe)"; then
     echo "  ✓ safe-exec gate: ${st}"
   else
-    echo "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — run: bash install-rein.sh"
+    echo "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — $(_rein_fix_install)"
   fi
 }
 
@@ -1297,7 +1297,7 @@ _doctor_gate_report() {
 _doctor_comm_report() {
   local cs st
   cs="$(rein_locate shared/comm-status.sh 2>/dev/null || true)"
-  [[ -n "$cs" ]] || { echo "  ! comm-status probe not installed — run: bash install-rein.sh"; return 0; }
+  [[ -n "$cs" ]] || { echo "  ! comm-status probe not installed — $(_rein_fix_install)"; return 0; }
   # shellcheck source=src/shared/comm-status.sh
   . "$cs"
   st="$(rein_comm_status .)"
@@ -1769,8 +1769,93 @@ PY
 }
 
 
+# ── E-420 (D-155 r4, addenda r1-r3; release-artifact.md §Component 4): artifact mode ─────
+# ~/.rein/manifest.json present means the tree was unpacked from a release (a clone install
+# removes the file). `rein install` then finishes it with the steps install-rein.sh runs after
+# its copy, from ~/.rein/shared/install-finalize.sh — never a flag, never a clone fallback.
+_REIN_ARTIFACT=0
+_install_artifact() {
+  local fin="${REIN}/shared/install-finalize.sh" rm_mod="${REIN}/shared/release-manifest.mjs" info ver key _s
+  local -a servers=()
+  command -v node >/dev/null 2>&1 || {
+    echo "[ERROR] Node.js is required but not found in PATH." >&2
+    echo "        Install Node 22.5+ before running this installer." >&2; return 1; }
+  [[ -f "$rm_mod" && -f "$fin" ]] || { echo "[INSTALL_TREE_MISMATCH] shared/release-manifest.mjs or shared/install-finalize.sh is missing — reinstall the release" >&2; return 3; }
+  # 1. The tree check: every listed file present with its size and sha256; modes applied.
+  info="$(node --no-warnings "$rm_mod" installed "$REIN")" || return 3
+  ver="$(sed -n 's/^version\t//p' <<< "$info")"; key="$(sed -n 's/^key_id\t//p' <<< "$info")"
+  while IFS= read -r _s; do [[ -n "$_s" ]] && servers+=("$_s"); done < <(sed -n 's/^server\t//p' <<< "$info")
+  # 2. The Node floor (the installer's comparison and lines).
+  if [[ "${REIN_SKIP_NODE_CHECK:-0}" != "1" ]]; then
+    # shellcheck source=src/shared/node-version.sh
+    . "${REIN}/shared/node-version.sh"
+    local nv; nv="$(node --version 2>/dev/null || echo "v0.0.0")"
+    if ! rein_node_supported "$nv"; then
+      echo "[ERROR] Node.js ${REIN_NODE_FLOOR}+ required (found ${nv})." >&2
+      echo "        node:sqlite (used by wal-flusher.mjs) ships in Node ${REIN_NODE_FLOOR}." >&2
+      return 1
+    fi
+    echo "✓ Node.js ${nv} detected (Node ${REIN_NODE_FLOOR}+ required)"
+  fi
+  # shellcheck source=src/shared/install-finalize.sh
+  . "$fin"
+  rein_fin_probe_hook_bash                                                     # 3. sets _HOOKS_REFUSED
+  rein_fin_record_toolchain "$REIN" "${REIN}/shared/toolchain-record.sh"      # 4. roots: cwd only
+  mkdir -p "${REIN}/config"
+  rein_fin_write_stamp "${REIN}/config/install-stamp.json" artifact "" 0 "$ver" "$key"   # 5.
+  rm -f -- "${REIN}/config/rein-workspace.txt"
+  rein_fin_profile_lines                                                       # 6.
+  # Removals beyond the mirror rule (addendum r1): retired servers, the v3 mirrors.
+  rein_fin_purge_retired_mcp "${REIN}/mcp" ${servers[@]+"${servers[@]}"}
+  rein_fin_purge_legacy_mirrors "$REIN"
+  # The manifest's key_id is what the manifest says; the signature is checked by whatever
+  # downloaded the release (E-419, the app), not here (security_engineer E-420 F5).
+  echo "✓ Release ${ver} matches its manifest (manifest key_id ${key}) and is finished"
+}
+
+# Addendum r3: a stamp never contradicts the tree. A version other than VERSION, or "artifact"
+# with no manifest.json, is rewritten as "restored" (a rollback to a snapshot leaves exactly that).
+_install_stamp_reconcile() {
+  local stamp="${REIN}/config/install-stamp.json"
+  [[ -f "$stamp" && -f "${REIN}/VERSION" ]] && command -v python3 >/dev/null 2>&1 || return 0
+  python3 -I - "$stamp" "${REIN}/VERSION" "${REIN}/manifest.json" <<'PY' || true
+import json, os, sys, time
+stamp, vfile, mf = sys.argv[1:4]
+ver = open(vfile).read().split("\n")[0].strip()
+try:
+    d = json.load(open(stamp))
+except Exception:
+    d = {}
+if d.get("version") == ver and not (d.get("source") == "artifact" and not os.path.exists(mf)):
+    sys.exit(0)
+tmp = stamp + ".tmp.%d" % os.getpid()
+json.dump({"source": "restored", "version": ver, "commit": None, "dirty": False,
+           "installed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, open(tmp, "w"))
+os.replace(tmp, stamp)
+print("  ○ install stamp rewritten as 'restored': it did not match the installed tree")
+PY
+}
+
+# The fix a line gives when the install itself is the problem: a clone reinstalls with its
+# installer; an artifact install is reinstalled by whatever installed the release.
+_rein_fix_install() {
+  if grep -qE '"source": *"artifact"' "${REIN}/config/install-stamp.json" 2>/dev/null; then
+    printf '%s' "reinstall the Rein release with the tool that installed it"
+  else
+    printf '%s' "run: bash install-rein.sh"
+  fi
+}
+
 install_global() {
   _parse_role_flags "$@"   # E-135: --architect/--engineer overrides (validated; bad format aborts)
+  _HOOKS_REFUSED=0
+  if [[ -e "${REIN}/manifest.json" || -L "${REIN}/manifest.json" ]]; then
+    _REIN_ARTIFACT=1
+    local _ar=0
+    _install_artifact || _ar=$?
+    [[ "$_ar" -eq 0 ]] || return "$_ar"
+  fi
+  _install_stamp_reconcile
   echo "Preparing Rein v${VERSION} installation..."
 
   # Copilot CLI
@@ -1838,6 +1923,12 @@ install_global() {
   echo ""
   echo "✓ Rein global installation complete → ${REIN}"
   echo "  Run 'rein init' inside any project to scaffold .ai/ and .claude/."
+  # E-420: as the installer does — the hooks were refused (no privileged /bin/bash); say so last.
+  if [[ "$_REIN_ARTIFACT" -eq 1 && "${_HOOKS_REFUSED:-0}" -eq 1 ]]; then
+    echo "" >&2
+    echo "[HOOK_BASH_MISSING] the install finished WITHOUT the Rein hooks — see the message above." >&2
+    return 1
+  fi
 }
 
 # ── E-293 (D-083 r5(iii), D-080): the auto-mode classifier backstop ─────────────────────
@@ -1954,7 +2045,7 @@ _classifier_report_one() {  # <settings.json> <account name, "" = default>
   fi
   py="$(_cb_py)"
   if [[ ! -f "$py" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "  ⚠ ${lbl}: cannot check (helper or python3 missing — run: bash install-rein.sh)"
+    echo "  ⚠ ${lbl}: cannot check (helper or python3 missing — $(_rein_fix_install))"
     return 0
   fi
   out="$(python3 -I "$py" status "$settings" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
@@ -2007,6 +2098,27 @@ _install_report() {
   if [[ -n "${REIN_WORKSPACE:-}" && -n "$ws_file" && "${REIN_WORKSPACE%/}" != "${ws_file%/}" ]]; then
     echo "  ⚠ workspace: exported REIN_WORKSPACE=${REIN_WORKSPACE} disagrees with the installed record ${ws_file} — the record wins (E-304); remove the export from your shell profile"
   fi
+  # E-420 (D-155 r4, addendum r3): an artifact install is reported from its manifest; a
+  # restored tree says its origin is not recorded.
+  if grep -qE '"source": *"artifact"' "$stamp" 2>/dev/null; then
+    local rm_mod="${REIN}/shared/release-manifest.mjs" info err
+    if [[ -f "$rm_mod" ]] && command -v node >/dev/null 2>&1; then
+      if info="$(node --no-warnings "$rm_mod" installed "$REIN" --check-only 2>/dev/null)"; then
+        echo "  ✓ install: artifact $(sed -n 's/^version\t//p' <<< "$info") (key $(sed -n 's/^key_id\t//p' <<< "$info")), $(sed -n 's/^count\t//p' <<< "$info") files match the manifest"
+      else
+        err="$(node --no-warnings "$rm_mod" installed "$REIN" --check-only 2>&1 >/dev/null || true)"
+        printf '%s\n' "$err" | sed '1s/^/  ✗ install: /; 2,$s/^/  /'
+        _DOCTOR_HARD_FAIL=1
+      fi
+    else
+      echo "  ⚠ install: artifact — cannot check it against its manifest (node or release-manifest.mjs missing)"
+    fi
+    return 0
+  fi
+  if grep -qE '"source": *"restored"' "$stamp" 2>/dev/null; then
+    echo "  ○ install: restored tree, origin not recorded — reinstall from a clone or a release to record it"
+    return 0
+  fi
   if [[ -f "$stamp" ]] && command -v python3 >/dev/null 2>&1; then
     python3 -c '
 import json, sys
@@ -2018,7 +2130,7 @@ else:
     print("  ✓ install: %s @ %s (clean tree)" % (src, sha))
 ' "$stamp" 2>/dev/null || echo "  ⚠ install: install-stamp.json unreadable"
   else
-    echo "  ○ install: no install stamp (installed before E-304) — run: bash install-rein.sh"
+    echo "  ○ install: no install stamp (installed before E-304) — $(_rein_fix_install)"
   fi
   return 0
 }
@@ -2027,7 +2139,7 @@ _launch_record_report() {
   local lr out
   lr="$(rein_locate shared/launch-record.py || true)"
   if [[ -z "$lr" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "  ⚠ launch records: cannot check (launch-record.py or python3 missing — run: bash install-rein.sh)"
+    echo "  ⚠ launch records: cannot check (launch-record.py or python3 missing — $(_rein_fix_install))"
     return 0
   fi
   out="$(python3 -I "$lr" status 2>/dev/null)" || out=""
@@ -2884,7 +2996,7 @@ PY
   # E-325: state.json has one writer, record-store.mjs writeStateFile.
   local _rs; _rs="$(_rein_helper mcp/shared/record-store.mjs || true)"
   if [[ -z "$_rs" ]]; then
-    echo "✗ record-store.mjs not found (run: bash install-rein.sh)"
+    echo "✗ record-store.mjs not found ($(_rein_fix_install))"
     rm -rf "$PARSED_TMPDIR"
     exit 1
   fi
@@ -3387,14 +3499,14 @@ _sync_reap_step_logs() {
 _sync_gate_check() {
   local gp st
   gp="$(_rein_helper shared/gate-probe.sh || true)"
-  [[ -n "$gp" ]] || { echo "[SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — run: bash install-rein.sh" >&2; return 1; }
+  [[ -n "$gp" ]] || { echo "[SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — $(_rein_fix_install)" >&2; return 1; }
   # shellcheck source=src/shared/gate-probe.sh
   . "$gp"
   if st="$(rein_gate_probe)"; then
     echo "  ✓ safe-exec gate: ${st}"
     return 0
   fi
-  echo "[SAFE_EXEC_BROKEN] ${st} — run: bash install-rein.sh" >&2
+  echo "[SAFE_EXEC_BROKEN] ${st} — $(_rein_fix_install)" >&2
   return 1
 }
 
@@ -3791,7 +3903,7 @@ _report_versions() {
   if [[ -d ".ai" ]]; then pv="$(_project_version)"; project="${pv:-unstamped}"; else project="-"; fi
   local line="clone ${clone:-?} · mirror ${mirror:-missing} · project ${project}"
   if [[ -z "$mirror" ]]; then
-    echo "  ✗ version: ${line} — run: bash install-rein.sh"
+    echo "  ✗ version: ${line} — $(_rein_fix_install)"
   elif [[ -n "$clone" && "$clone" != "$mirror" ]]; then
     echo "  ✗ version: ${line} — the mirror is behind the clone; run: bash install-rein.sh"
   elif [[ "$project" != "-" && "$project" != "$mirror" ]]; then
@@ -3895,7 +4007,7 @@ doctor() {
   if [[ "$_stale_srv_rc" -eq 1 ]]; then
     echo "  ✗ the build-stamp scan failed: $(printf '%s' "$_stale_srv_report" | tail -1 | cut -c1-200)"
   elif [[ "$_stale_srv_rc" -eq 2 ]]; then
-    echo "  ⚠ cannot check (node or shared/build-stamp.mjs missing — run: bash install-rein.sh)"
+    echo "  ⚠ cannot check (node or shared/build-stamp.mjs missing — $(_rein_fix_install))"
   elif [[ -n "$_stale_srv_report" ]]; then
     printf '%s\n' "$_stale_srv_report"
     echo "  These do NOT hot-reload (D-067 §3) — restart the MCP servers or the session."
@@ -4110,7 +4222,7 @@ for name, info in d.get('mcp_servers', {}).items():
     if [[ -n "$_mcp_paths" ]] && command -v node >/dev/null 2>&1; then
       node --no-warnings "$_mcp_paths" doctor ./.mcp.json || _DOCTOR_HARD_FAIL=1
     else
-      echo "  ✗ mcp-paths.mjs or node unavailable — run: bash install-rein.sh"
+      echo "  ✗ mcp-paths.mjs or node unavailable — $(_rein_fix_install)"
     fi
   else
     echo "  ✗ .mcp.json not found in $(pwd) — run: rein init"
@@ -4362,7 +4474,7 @@ _doctor_node_line() {
   local ok="$1" bad="$2" nv nvs
   nv="$(node --version 2>/dev/null)"
   nvs="$(rein_locate shared/node-version.sh 2>/dev/null || true)"
-  [[ -n "$nvs" ]] || { echo "${bad} node version (${nv:-unknown}) — version check not installed — run: bash install-rein.sh"; return 1; }
+  [[ -n "$nvs" ]] || { echo "${bad} node version (${nv:-unknown}) — version check not installed — $(_rein_fix_install)"; return 1; }
   # shellcheck source=src/shared/node-version.sh
   . "$nvs"
   if rein_node_supported "$nv"; then
@@ -5099,7 +5211,7 @@ do_start() {
   # creates an account; an unregistered name exits 2 with the `rein account add` recipe.
   if ! declare -F _account_dir >/dev/null; then
     [[ -z "$want_account" && -z "$account" ]] \
-      || { echo "rein start: rein-account.sh is missing beside rein — run: bash install-rein.sh" >&2; return 2; }
+      || { echo "rein start: rein-account.sh is missing beside rein — $(_rein_fix_install)" >&2; return 2; }
   elif [[ -n "$want_account" ]]; then
     _account_dir "$want_account" >/dev/null || return 2
     if [[ "$dry" -eq 1 ]]; then
@@ -5631,7 +5743,7 @@ do_pane() {
   _acct="${_pcfg##*|}"
   if [[ -n "$_acct" && "$provider" == "claude" ]]; then
     if ! declare -F _account_dir >/dev/null; then
-      echo "rein pane: rein-account.sh is missing beside rein — run: bash install-rein.sh" >&2
+      echo "rein pane: rein-account.sh is missing beside rein — $(_rein_fix_install)" >&2
       return 2
     fi
     _acct_dir="$(_account_dir "$_acct")" || { echo "rein pane: refusing to launch ${role} under account '${_acct}'." >&2; return 2; }
@@ -5871,7 +5983,7 @@ _ci_hosted() {
   root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "rein ci hosted: not inside a git repository" >&2; return 2; }
   helper="$(_rein_helper shared/hosted-ci.mjs || true)"
   [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || {
-    echo "rein ci hosted: hosted-ci.mjs or node unavailable — run: bash install-rein.sh" >&2; return 2; }
+    echo "rein ci hosted: hosted-ci.mjs or node unavailable — $(_rein_fix_install)" >&2; return 2; }
   node --no-warnings "$helper" --root "$root" "$@"
 }
 
@@ -6644,7 +6756,7 @@ do_release() {
       elif [[ "$sub" == verify ]]; then mod="$(_rein_helper shared/release-manifest.mjs || true)"
       else echo "rein release manifest: needs a checkout" >&2; return 2
       fi
-      [[ -f "$mod" ]] || { echo "rein release ${sub}: release-manifest.mjs not found (run: bash install-rein.sh)" >&2; return 2; }
+      [[ -f "$mod" ]] || { echo "rein release ${sub}: release-manifest.mjs not found ($(_rein_fix_install))" >&2; return 2; }
       node --no-warnings "$mod" "$@" ;;
     ""|-h|--help|help)
       echo "usage: rein release stage <dir> | manifest <tree> [--out <dir>] [--no-tarball] --pubkey <file> | verify <tarball>" ;;
@@ -6670,7 +6782,7 @@ case "$cmd" in
   # E-341 (D-105 r2): `rein trunk` — the project's trunk (team.json → origin/HEAD → main|master).
   state|task|team|log|trunk)
     _st="$(_rein_helper shared/cli-state.mjs || true)"
-    [[ -n "$_st" ]] || { echo "rein ${cmd}: cli-state.mjs not found (run: bash install-rein.sh)" >&2; exit 1; }
+    [[ -n "$_st" ]] || { echo "rein ${cmd}: cli-state.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
     command -v node >/dev/null 2>&1 || { echo "rein ${cmd}: node not found" >&2; exit 1; }
     node --no-warnings "$_st" "$cmd" "${@:2}" ;;
   # E-208 (role-abstraction.md §Same-Provider Triad): bind THIS tmux pane to a role
@@ -6679,7 +6791,7 @@ case "$cmd" in
   start)         do_start "${@:2}" ;;
   # E-314 (D-095, accounts.md): Claude accounts — one config directory per claude.ai login.
   account)
-    declare -F do_account >/dev/null || { echo "rein account: rein-account.sh is missing beside rein — run: bash install-rein.sh" >&2; exit 2; }
+    declare -F do_account >/dev/null || { echo "rein account: rein-account.sh is missing beside rein — $(_rein_fix_install)" >&2; exit 2; }
     do_account "${@:2}" ;;
   # E-265 (D-072, local-ci.md): local CI — tests a committed sha in an isolated worktree.
   ci)            do_ci "${@:2}" ;;

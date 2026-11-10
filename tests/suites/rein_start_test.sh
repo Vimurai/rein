@@ -733,11 +733,18 @@ else
   _fail "T-ALT-S02: rein sync did not generate .claude/settings.json"
 fi
 
-# ── T-ALT-S03: install-rein.sh exports the env via shell rc ─────────────────
+# ── T-ALT-S03: install-finalize.sh exports the env via shell rc ─────────────
+# E-420 (D-155 addendum 2): the profile-line helpers moved from install-rein.sh into
+# src/shared/install-finalize.sh, which both the installer and artifact-mode `rein install`
+# run; these rows follow the source. The last two pin one implementation in place.
 echo ""
-echo "  [T-ALT-S03] install-rein.sh writes shell rc export"
+echo "  [T-ALT-S03] install-finalize.sh writes shell rc export"
 
-ALT_INSTALL="${REPO_ROOT}/install-rein.sh"
+ALT_INSTALL="${REPO_ROOT}/src/shared/install-finalize.sh"
+assert_status 0 "E-420: install-rein.sh sources install-finalize.sh from the clone" \
+  grep -qF '. "${REPO_DIR}/src/shared/install-finalize.sh"' "${REPO_ROOT}/install-rein.sh"
+assert_status 1 "E-420: install-rein.sh no longer defines ensure_env_line()" \
+  grep -q 'ensure_env_line()' "${REPO_ROOT}/install-rein.sh"
 assert_status 0 "install script defines ensure_env_line helper" \
   grep -q 'ensure_env_line()' "$ALT_INSTALL"
 

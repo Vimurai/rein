@@ -6,7 +6,7 @@
 // mirror_hygiene_test.sh, beside the E-417 stage rows it extends.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, linkSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -117,4 +117,57 @@ test("E-418.05: the reader returns exactly what the writer wrote", () => {
     members().map((m) => [m.path, m.mode, 1700000000, m.data.toString()]));
   const longPath = `shared/${"d".repeat(120)}/${"f".repeat(90)}`;
   assert.equal(readTarGz(writeTarGz([{ path: longPath, mode: 0o644, data: Buffer.from("z") }]))[0].path, longPath, "prefix + name split");
+});
+
+// E-420 (D-155 r4; security_engineer E-420 F1-F6): checkInstalled, the tree check `rein install`
+// runs on an unpacked artifact. Extends E-418.03 (the same manifest builder); the process
+// boundary (exit 3 before any pin) is E-420.02 in mirror_hygiene_test.sh.
+function home(extra = {}) {
+  const files = Object.fromEntries(M.INSTALL_REQUIRED.map((p) => [p, `# ${p}\n`]));
+  files["shared/node-version.sh"] = 'REIN_NODE_FLOOR="22.5"\n';
+  const root = tree({ ...files, "mcp/a-mcp/index.js": "a\n", ...extra });
+  const { text } = M.buildManifest(M.collectTree(root), { version: "0.5.0", minNode: "22.5.0", keyId: "5C9C75A7C8FA8056" });
+  writeFileSync(join(root, "manifest.json"), text);
+  writeFileSync(join(root, "VERSION"), "0.5.0\n");
+  return root;
+}
+const editManifest = (root, fn) => {
+  const m = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8")); fn(m);
+  writeFileSync(join(root, "manifest.json"), JSON.stringify(m, null, 2) + "\n");
+};
+const why = (root) => { const r = M.checkInstalled(root); return r.status === "incomplete" ? r.message : r.findings.join("\n"); };
+
+test("E-420.04: checkInstalled — a matching home is ok; modes applied only when every file matches", () => {
+  const root = home();
+  const r = M.checkInstalled(root);
+  assert.equal(r.status, "ok", why(root));
+  assert.deepEqual(r.servers, ["a-mcp"]);
+  chmodSync(join(root, "bin/rein"), 0o644);
+  M.checkInstalled(root, { fixModes: true });
+  assert.equal(statSync(join(root, "bin/rein")).mode & 0o777, 0o755, "the manifest mode is applied");
+  chmodSync(join(root, "bin/rein"), 0o644);
+  writeFileSync(join(root, "shared/release-tar.mjs"), "tampered\n");
+  M.checkInstalled(root, { fixModes: true });
+  assert.equal(statSync(join(root, "bin/rein")).mode & 0o777, 0o644, "F6: nothing is chmod'ed while a file differs");
+});
+
+test("E-420.05: checkInstalled refuses links, unlisted and unsafe entries, and an incomplete unpack", () => {
+  const sym = home(); const outside = tree({ "pre-tool-use.sh": "x" });
+  rmSync(join(sym, "hooks"), { recursive: true }); cpSync(join(home(), "hooks"), join(outside, "hooks"), { recursive: true });
+  symlinkSync(join(outside, "hooks"), join(sym, "hooks"));
+  assert.match(why(sym), /hooks\/pre-tool-use\.sh: reached through a symbolic link/, "F1: a symlinked parent");
+  const hard = home(); linkSync(join(hard, "bin/rein"), join(tmp, `hard-${n++}`));
+  assert.match(why(hard), /bin\/rein: a hard link/, "F1: a second name for the inode");
+  const extraHook = home(); writeFileSync(join(extraHook, "hooks/evil.sh"), "x");
+  assert.match(why(extraHook), /hooks\/evil\.sh: present but not listed/, "F5: hooks/ is sealed");
+  const missingReq = home(); editManifest(missingReq, (m) => { m.files = m.files.filter((f) => f.path !== "shared/install-finalize.sh"); });
+  assert.match(why(missingReq), /shared\/install-finalize\.sh: required by the install/, "F5: required files");
+  const outsideTop = home(); editManifest(outsideTop, (m) => m.files.push({ path: "secrets/k", sha256: "0".repeat(64), size: 1, mode: "0644" }));
+  assert.match(why(outsideTop), /"secrets\/k": not a path a release may carry/, "F4: only mirrored directories");
+  const badKey = home(); editManifest(badKey, (m) => { m.key_id = "5C9C75A7C8FA8056\nserver\tx"; });
+  assert.match(why(badKey), /key_id .* is not 16 hex digits/, "F2: key_id cannot inject lines");
+  const vers = home(); writeFileSync(join(vers, "VERSION"), "0.4.0\n");
+  assert.match(why(vers), /manifest\.json says "0\.5\.0", VERSION says "0\.4\.0"/, "[INSTALL_INCOMPLETE]: version differs");
+  const nullEntry = home(); editManifest(nullEntry, (m) => m.files.push(null));
+  assert.match(why(nullEntry), /null: not a path a release may carry/, "a malformed entry is a finding, not a crash");
 });

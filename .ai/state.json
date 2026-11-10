@@ -4868,6 +4868,24 @@
       "summary": "[TIER_2] E-421 rein doctor --json: every check line in doctor and its helpers goes through _dr (145 call sites, ids snake_case at the call site, subjects for per-item checks) or _dr_lines (17 helper-program outputs); records go to a mktemp -d file so subshell/pipeline checks report; doctor-json.mjs renders schema 1 (fail > warn > ok, fix after 'run: ', (id, subject) unique). Text output byte-identical on four fixture goldens captured before the first edit. --json + --repair/--env/--compliance exit 2. Unit E-421.02-05, contract E-421.01a-e extend E-391.03g-h",
       "sha": "89efde4aa0783995e4d14237d9e0d6fe4401701b",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-418",
+      "timestamp": "2026-11-10T22:27:50.726Z",
+      "summary": "[TIER_1] run_review SKIP: E-418.03 on PR #36's macOS leg wrote shared/b.mjs and shared/B.mjs, one file on a case-insensitive volume; the row uses shared/C.mjs (still before the lower case bytewise). Test-only change",
+      "sha": "bbfc245f82afc9f358c8b9b113363017d8065dcf",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-421",
+      "timestamp": "2026-11-10T22:38:32.948Z",
+      "summary": "[TIER_1] run_review SKIP: E-421 CI 0835cd2 fixes — T-WAL-S01 reads _doctor_text (doctor() is now the --json wrapper); project-upgrade's COMM row lifts _dr beside _doctor_comm_report. Test-only change",
+      "sha": "c07b4e4ae3ab46043159efcf001d360d6e680781",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

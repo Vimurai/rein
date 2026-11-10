@@ -362,7 +362,8 @@ assert_status 0 "doctor() body invokes _wal_checkpoint_state_db" \
   python3 -c "
 import re,sys
 src=open('${BIN_AI}').read()
-m=re.search(r'^doctor\(\)\s*\{(.*?)^\}', src, re.S|re.M)
+# E-421: doctor() is the --json wrapper; the checks it runs are in _doctor_text.
+m=re.search(r'^_doctor_text\(\)\s*\{(.*?)^\}', src, re.S|re.M)
 sys.exit(0 if m and '_wal_checkpoint_state_db' in m.group(1) else 1)
 "
 

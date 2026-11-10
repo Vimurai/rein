@@ -244,6 +244,25 @@ PYLIST
   assert_contains "E-417.02c: …saying it needs a checkout" "rein release stage: needs a checkout" "$_mout"
   assert_status 0 "E-417.02d: rein help lists rein release stage" \
     bash -c "grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release stage'"
+
+  # E-418 (D-153 r2, D-155 r1-r2): extends E-417.01 — the contract row over the real stage.
+  # The unit rows (tests/unit/release-manifest.test.mjs) cover each refusal and each verify
+  # finding; this one is the process boundary: the CLI, the checkout's version, a real tree.
+  _rm() { ( cd "$FAKE_TMP" && HOME="$SH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" env -u REIN_WORKSPACE bash "$DW/src/bin/rein" release "$@" ) 2>&1; }
+  RO1="$(test_tmpdir hyg-rel1)"; RO2="$(test_tmpdir hyg-rel2)"
+  _m1="$(_rm manifest "$ST" --out "$RO1" --pubkey "$DW/docs/contract/release-key.pub")"; _m1rc=$?
+  _rm manifest "$ST" --out "$RO2" --pubkey "$DW/docs/contract/release-key.pub" >/dev/null
+  _ver="$(sed -nE 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' "$DW/package.json" | head -1)"
+  assert_status 0 "E-418.06a: rein release manifest of the stage exits 0 and writes rein-${_ver}.tar.gz (rc=${_m1rc})" \
+    test "$_m1rc" -eq 0 -a -f "${RO1}/rein-${_ver}.tar.gz" -a -f "${RO1}/manifest.json"
+  assert_status 0 "E-418.06b: two runs give a byte-identical manifest.json" cmp -s "${RO1}/manifest.json" "${RO2}/manifest.json"
+  _v="$(_rm verify "${RO1}/rein-${_ver}.tar.gz")"; _vrc=$?
+  assert_status 0 "E-418.06c: rein release verify of that tarball exits 0 (rc=${_vrc})" test "$_vrc" -eq 0
+  assert_contains "E-418.06d: …and says the signature was not checked" "signature not checked" "$_v"
+  assert_status 0 "E-418.06f: rein help lists rein release manifest and verify" \
+    bash -c "grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release manifest' && grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release verify'"
+  assert_status 0 "E-418.06e: the manifest lists every staged file, no more" \
+    test "$(python3 -I -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["files"]))' "${RO1}/manifest.json")" = "$(cd "$ST" && find . -type f | wc -l | tr -d ' ')"
   echo "# uncommitted" >> "$DW/hooks/stop-hook.sh"
   DH="$(test_tmpdir hyg-dirty-home)"
   _dout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" 2>&1 )"; _drc=$?

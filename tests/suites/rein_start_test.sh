@@ -669,6 +669,15 @@ assert_status 1 "E-252.07b: the shared 'rein' session name is gone from the reci
   grep -q 'new-session -s rein' "$INSTALL_DOC"
 assert_status 0 "E-228.06f: CONTRIBUTING points at rein start" \
   grep -q 'rein start' "${REPO_ROOT}/CONTRIBUTING.md"
+# E-423 (D-156 r2): extends the docs/ rows above. rein-app fetches docs/contract/release-key.pub
+# from main and fails closed unless the bytes equal its copy, so no checkout may rewrite its
+# line ending: .gitattributes marks it -text, and the file holds no CR and ends with one LF.
+RELEASE_KEY="${REPO_ROOT}/docs/contract/release-key.pub"
+assert_status 1 "E-423.01a: the release public key holds no CR byte" grep -q $'\r' "$RELEASE_KEY"
+assert_status 0 "E-423.01b: and ends with exactly one LF" \
+  bash -c '[[ "$(tail -c 1 "$1" | od -An -tx1 | tr -d " \n")" == 0a && "$(tail -c 2 "$1" | head -c 1 | od -An -tx1 | tr -d " \n")" != 0a ]]' _ "$RELEASE_KEY"
+assert_contains "E-423.01c: .gitattributes unsets text on it" "text: unset" \
+  "$(git -C "$REPO_ROOT" check-attr text docs/contract/release-key.pub 2>&1)"
 # E-256 (D-069): the manual recipe binds each pane through `rein pane <role>`, as `rein start`
 # does. It used to send a bare one-word CLI name to each pane, which launches an UNBOUND
 # session: no role token, no model, no permission overlay — the recipe that tmux-less hosts

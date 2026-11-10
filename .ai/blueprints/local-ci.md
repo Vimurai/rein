@@ -90,6 +90,31 @@ writes a `ci_runs` row keyed by the SHA. "CI green" from D-072 on means: *a non-
    `src/contracts/40_DEVOPS.md`, README (badge removed; a "Local CI" section added),
    CONTRIBUTING and the copilot instructions follow. `.github/workflows/test.yml` is deleted;
    the directory goes with it.
+7. **Cargo step and the no-test rule (D-156 r7–r10, E-425).** A repository whose root holds a
+   `Cargo.toml` gets a `cargo` step after `unit`: `cargo test --workspace`, plus `--locked`
+   when `Cargo.lock` is tracked. FAIL fails the run; `Cargo.toml` with no `cargo` on the
+   curated PATH is ERROR. `--suite-only` and `--unit-only` skip it. The `env` step adds
+   `CARGO_HOME=~/.rein/ci/cache/cargo`, `CARGO_TARGET_DIR=~/.rein/ci/cache/cargo-target/<repo
+   basename>` and `RUSTUP_HOME` (the caller's value, else the operator's `~/.rustup` when it
+   exists) only when the step applies; the three names are `[CI_ENV_RESERVED]`. `toolchain`
+   records `cargo --version` and `rustc --version`. **No test step, no PASS:** when `suite`,
+   `unit` and `cargo` all end as `skip` (for absence or by flag), the run prints
+   `[CI_NO_TESTS] no test step ran for <sha7> — nothing certifies this commit`, is recorded
+   ERROR and exits 2. Overall PASS now reads: at least one of suite, unit and cargo ran,
+   every one that ran passed, and secrets passed.
+   Data: no new column (D-156 r10). A cargo failure is the row's `status`; the `[ci] result`
+   log line gains `cargo=PASS|FAIL|SKIPPED`; when `suite` did not run and `cargo` did,
+   `suite_pass`, `suite_fail` and `suite_skip` hold the sums of cargo's `test result:` lines
+   (runner `cargo` in `ci-summary.mjs`).
+   Security: `CARGO_HOME` is a cache directory with no `credentials.toml`, so a test cannot
+   publish with the operator's registry token. The operator's `~/.rustup` is the one
+   directory outside the throwaway HOME the step reads; a `rust-toolchain.toml` in the commit
+   under test can make rustup install a toolchain there, as it would on a hosted runner.
+   Constraints: the worktree path changes per run, so workspace crates rebuild and
+   dependencies do not; the first run needs network, as `npm ci` does.
+   Rollback: remove the step and the `[CI_NO_TESTS]` check from `_ci_run`; the two cache
+   directories can be deleted at will; rows already written stay valid.
+   Task: **E-425**, Tier 2.
 
 ## Data Model
 ```

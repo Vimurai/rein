@@ -4934,3 +4934,54 @@ None — a correction of wording; no behaviour changes.
 None — corrections and a pinned measurement.
 
 ---
+
+## D-156 — The release key is accepted as committed and is published on `main`; the artifact arc runs E-417, E-418, E-420, E-421, E-422, E-419; the first signed release is v0.5.0 and the operator creates its tag; `rein ci run` gains a cargo step and a run with no test step is ERROR
+
+**Date**: 2026-11-10
+**Task**: rein-app Architect request 2026-11-10 (rein-app D-014 addendum 2026-11-10, D-015 r7, D-017, D-018) → E-423, E-424, E-425; amends E-419
+**Decision**: Publish the operator's public key on `main` unchanged, build the release-artifact arc in the order that unblocks rein-app soonest, release v0.5.0 as the first signed artifact with the tag created by the operator, and make `rein ci run` test a Cargo project and refuse to call an untested commit PASS.
+
+### Why needed
+rein-app's first tag waits on three things in this repository. Its release workflow fetches `docs/contract/release-key.pub` from this repository's `main` and fails closed unless the bytes equal its own copy. Its layout-equality test and shared fixtures need E-417, E-418, E-420 and E-422, and a real install needs a published signed artifact (v0.4.0 has no assets). And `rein ci run` in a Rust repository skips every step and still records PASS, so rein-app cannot use it as evidence (its D-015 r7).
+
+### Facts measured for this ruling (2026-11-10)
+- The key is committed: `a1c3af0` on local `main` adds `docs/contract/release-key.pub` (113 bytes, ASCII, no CR). Its sha256 is `8e0c6bd7df27c8bfbc74b81b8f3f188fbb5707a9046946cceea1b383289c9166`, equal to the working-tree file, to rein-app's working-tree file and to rein-app's committed blob.
+- Local `main` is eight commits ahead of `origin/main`; `origin/main` does not carry the file. This repository has no `.gitattributes`.
+- `rein ci run` (`_ci_run` in `src/bin/rein`) starts with status PASS and changes it only when a step that ran fails. With no `package.json`, `install-rein.sh`, `tests/run.sh` or `tests/suites/node_unit_test.sh`, every step prints `skip`, `secrets` passes and the row is PASS.
+
+### Rulings
+1. **The key commit is accepted as made.** `a1c3af0` satisfies the "commit it as `docs/contract/release-key.pub`" clause of E-419 Part B; E-419 no longer waits on the operator for the key and does not commit it again. E-423 gets the commit onto the remote `main` by the route `main` takes today, after the local CI run the pre-push gate asks for (`a1c3af0` and `cea7cf9` touch paths outside `.ai/`). Any merge method keeps the blob; the acceptance is the blob's sha256 on `origin/main`, not the commit id.
+2. **The file is marked `-text`.** E-423 adds `.gitattributes` with the one line `docs/contract/release-key.pub -text`, as rein-app did, so no checkout on any host rewrites its line ending. The blob does not change. One row asserts the committed file has no CR byte and ends with one LF.
+3. **No agent touches the secret key.** Unchanged from D-155 r6. The secret reaches the workflow only as the environment secret `REIN_RELEASE_KEY` on the GitHub environment `release`, which the operator creates.
+0. **Task numbers.** E-423 publishes the key, E-424 is the v0.5.0 release, E-425 is the cargo step. In E-424's registered text, "if E-424 has merged" is a slip for "if E-425 has merged".
+4. **Order of the arc: E-417 → E-418 → E-420 → E-421 → E-422 → E-419 → E-424.** E-425 is independent of the arc: after E-423, between arc tasks, merged before E-424. It runs ahead of every other OPEN task once the closures in flight on 2026-11-10 are merged. E-420 goes before E-419 because rein-app's E-9 waits on E-417, E-418 and E-420 and nothing waits on signing until a tag exists. E-421 goes before E-422 because E-422 records a doctor document. Each task merges to `main` on its own pull request. The Engineer's handoff after E-420 merges and again after E-422 merges names the merge commit, and the Architect passes it to `rein-app · Architect`.
+5. **The first signed release is v0.5.0 (E-424).** New commands and a new install path make it a minor version; the blueprint's manifest example already says `0.5.0`. v0.4.0 gets no assets after the fact: its tag predates the tooling, and a tarball built from another commit under that name would be false.
+6. **The operator creates the `v0.5.0` tag; the Engineer does not.** The Engineer prepares and merges the version bump and the CHANGELOG, then stops and names the commit to tag. The signature is made by the workflow in the `release` environment with the operator's secret, so the tag is the act that signs. This matches the outstanding operator input "restrict who may push `v*` tags" and rein-app D-018 r6. After the workflow publishes, the Engineer downloads the three assets and verifies them with the committed public key.
+7. **A run in which no test step ran is ERROR, not PASS.** When `suite`, `unit` and `cargo` all end as `skip`, `rein ci run` prints `[CI_NO_TESTS] no test step ran for <sha7> — nothing certifies this commit`, records status ERROR and exits 2. A skip chosen by flag counts the same: `--unit-only` in a repository without the unit suite certifies nothing.
+8. **`cargo` step.** When the worktree root has a `Cargo.toml`, a `cargo` step runs after `unit`: `cargo test --workspace`, with `--locked` when `Cargo.lock` is tracked. FAIL sets the run to FAIL. `Cargo.toml` present and no `cargo` on the curated PATH is ERROR, exit 2, like any step that cannot start. `--suite-only` and `--unit-only` skip it. The `toolchain` line gains `cargo --version` and `rustc --version` when the step applies.
+9. **Cargo's environment keeps the isolation and the caches.** `CARGO_HOME` is `~/.rein/ci/cache/cargo` (a registry cache with no credentials file, so a test cannot publish with the operator's token). `CARGO_TARGET_DIR` is `~/.rein/ci/cache/cargo-target/<basename of the repository root>`, so dependencies are not rebuilt for every commit. `RUSTUP_HOME` is the invoking environment's value, or the operator's `~/.rustup` when that directory exists and the variable is unset; it is the one path outside the throwaway HOME the step reads, because the toolchains live there. All three names join the `[CI_ENV_RESERVED]` list.
+10. **No `ci_runs` migration.** The row's status carries a cargo failure. The `[ci] result` log line gains `cargo=PASS|FAIL|SKIPPED`. When the `suite` step did not run and `cargo` did, the row's pass, fail and skip counts are the sums of cargo's `test result:` lines, read by `ci-summary.mjs` as runner `cargo`; when both ran, the counts stay the suite's and cargo's totals appear in its step line. If `rein ci status --short` cannot show a cargo result without a column, the Engineer reports it and the Architect rules.
+11. **Out of scope:** `cargo fmt`, `cargo clippy`, a Rust install step in the hosted wrappers `rein ci hosted` renders, and any other language. rein-app keeps its own hosted matrix.
+
+### Alternatives considered
+1. **Ruling 1: a pull request for the key alone** — rejected as a requirement: the commit already sits on local `main` between bookkeeping commits that travel the same way, and the byte check is the same either way. The Engineer may use one if the remote refuses.
+2. **Ruling 4: E-419 straight after E-418, as the dependency table reads** — rejected: it puts a Tier 3 task with a workflow change ahead of the three tasks another repository is waiting on, and buys nothing until E-424.
+3. **Ruling 6: the Engineer creates the tag** — rejected: the tag is now what causes a signature with the operator's key.
+4. **Ruling 7: keep PASS and add a doctor warning** — rejected: the DONE gate and the pre-push gate read the row's status, so a warning leaves both open on an untested commit.
+5. **Ruling 9: pass the operator's `~/.cargo` through as `CARGO_HOME`** — rejected: it holds `credentials.toml` and is writable by the tests. **A fresh `CARGO_HOME` and target directory per run** — rejected: a full dependency download and build on every run.
+6. **Ruling 8: a generic "extra test command" key in a project file** — rejected for now: one more configuration surface for one known case; a third language would reopen it.
+
+### Constraints driving this decision
+- rein-app's gate fails closed on a missing or different key, so the file must reach `main` byte for byte.
+- No agent reads, copies or signs with the secret key (D-155 r6, rein-app D-014).
+- "Unknown is not green" (D-060): a record that says PASS must mean a test ran.
+- D-088: rows extend existing rows; no suite named for a task.
+
+### Impact
+- Unlocks: rein-app E-6 (key on `main`), E-9 (after E-420), E-17 (after E-422), a real install (after E-424). New: E-423, E-424, E-425.
+- Risk if wrong: ruling 7 turns a downstream project that has only a `secrets` step from PASS to ERROR on upgrade; the sole operator's projects all carry `tests/run.sh`, and the message names the cause. Ruling 9's shared target directory can serve a stale artefact if two checkouts share a basename; deleting `~/.rein/ci/cache/cargo-target/` is the fix.
+
+### Rollback
+Rulings 1–2: none needed; a public key and an attribute. Rulings 4–6: scheduling. Rulings 7–10: remove the `cargo` step and the `[CI_NO_TESTS]` check from `_ci_run`; rows already written stay valid.
+
+---

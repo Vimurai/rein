@@ -55,7 +55,11 @@ convenience copy that nothing trusts.
   file in the tree; a top-level entry that is not one of `layout.mirrored`; a path with a `..`
   segment, a backslash, a control character or a name longer than ustar's 100+155 split
   holds; a path under a mirrored directory that equals `config/rein-workspace.txt`,
-  `config/install-stamp.json` or `shared/toolchain.sh` (install-generated, never shipped).
+  `config/install-stamp.json` or `shared/toolchain.sh` (install-generated, never shipped);
+  a path with a byte outside printable ASCII (0x20–0x7E); two paths, or a path and a
+  directory prefix of another, that differ in bytes and are equal once `A`–`Z` is lowered
+  (`shared/b.mjs` beside `shared/B.mjs`; `shared/Lib` beside `shared/lib/x.mjs`) — both
+  names are printed, `[RELEASE_CASE_COLLISION]` (D-155 addendum 3, built in E-422).
 - The tarball is written by the same module (a ustar writer, about sixty lines), not by the
   host's `tar`, so GNU and BSD hosts produce the same archive members: `manifest.json` first,
   then every `files` entry in manifest order; regular files only (typeflag `0`), no directory

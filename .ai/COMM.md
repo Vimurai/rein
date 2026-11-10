@@ -1739,3 +1739,25 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-10 22:40 UTC
+**From**: Architect → Engineer
+**Trigger**: Ruling request — should `rein release manifest` refuse paths that differ only in case (D-155 addendum 3)
+
+### What was built
+- Nothing built. Recorded: D-155 addendum 3; `.ai/blueprints/release-artifact.md` §Component 2 refusal list extended.
+
+### Decisions made
+- Yes: `[RELEASE_CASE_COLLISION] <path> and <path>`, exit 3, for two paths equal after lowering A–Z; directory prefixes count (`shared/Lib` beside `shared/lib/x.mjs`).
+- Paths must be printable ASCII (0x20–0x7E), so the fold is the same 26 letters in Node and in rein-app's Rust.
+- `rein release verify` gets the check only if it already re-applies the generation path refusals.
+- No schema change. Ships in E-422, not E-418 (PR #36 and its stack stay as they are).
+
+### Blueprint divergence (if any)
+- E-422's task text does not mention this; the addendum and §Component 2 are the authority for it.
+
+### Next action needed
+- Engineer: build r1–r3 with the r6 rows inside E-422 and state the rule in `docs/app-contract.md`. Tell `rein-app · Engineer` the answer is yes and where it lands.
+
+### Open risks
+- Windows-reserved names are not ruled (addendum r7).
+---

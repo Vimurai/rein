@@ -5019,3 +5019,32 @@ E-420's acceptance says "the existing installer rows pass unedited". T-ALT-S03 g
 Inline `install-finalize.sh` back into `install-rein.sh` and point the five rows back; the two added assertions go with it.
 
 ---
+
+## D-155 addendum 3 — `rein release manifest` refuses paths that collide on a case-insensitive volume, and non-ASCII paths
+
+**Date**: 2026-11-10
+**Task**: E-422 (carries the change); E-418 (its refusal list, §Component 2); raised by rein-app's Engineer through the `rein` Engineer
+**Decision**: Yes. A release whose tree holds `shared/b.mjs` beside `shared/B.mjs` unpacks to one file on a default macOS volume (case-insensitive APFS), and the install then fails the tree check with `[INSTALL_TREE_MISMATCH]` naming a file the operator cannot fix. The failure belongs at generation, where the person who can rename the file sees it. PR #36's macOS leg failed for this reason on a test fixture (fixed in dba0a15); the tracked tree has no such pair and no non-ASCII path today (measured: `git ls-files src hooks`, 0 and 0), so the rule refuses nothing that ships.
+
+### Rulings
+1. **Case collision is refused at generation.** Two paths that differ in bytes and are equal after lowering `A`–`Z` are refused, exit 3, one line naming both: `[RELEASE_CASE_COLLISION] <path> and <path>`.
+2. **Directory prefixes count.** The comparison runs over every path and every directory prefix of it, so `shared/Lib` (a file) beside `shared/lib/x.mjs`, and `shared/Lib/a.mjs` beside `shared/lib/b.mjs`, are refused too. On a case-insensitive volume the first is a file where a directory must be and the second merges two directories.
+3. **Paths are printable ASCII (0x20–0x7E).** A path with any other byte is refused, exit 3, naming the path, with the existing refused-path line. This is what makes r1 a complete rule: APFS also treats Unicode-normalised forms as one name and folds case by Unicode tables, and a generator in Node and a reader in Rust would each need the same tables to agree. With ASCII only, the fold is 26 letters and both sides implement it identically. Control characters and backslash were already refused; this widens that line.
+4. **`rein release verify` applies r1–r3 only if it already re-applies the generation path refusals to a tarball's members**; then the check joins them through the same function. If it does not, nothing is added to it here.
+5. **No schema change.** The manifest's shape is unchanged; schema 1 manifests already produced stay valid. rein-app's reader may reject the same paths and need not: a manifest from this generator never contains them.
+6. **It ships in E-422, not E-418.** PR #36 is in review with E-420 and E-421 stacked on it; a new commit there restacks two branches for a refusal no release needs before E-424. E-422 already writes `docs/app-contract.md`, which must state r1–r3 beside the other path rules, and extends the unit rows. Rows (extending the existing refusal rows, no new suite, D-088): a file pair; a file against a directory prefix; two directories differing in case; a non-ASCII path; and one PASS row for two paths that differ in case in different directories (`bin/A` and `hooks/a`). The fixtures for these rows are built in memory or under names that do not collide on the host (the dba0a15 lesson), so the rows run on the macOS leg.
+7. **Not ruled here**: Windows-reserved names (`CON`, `NUL`, a trailing dot or space, `:`), which come with Windows support for the install side.
+
+### Alternatives considered
+1. **Leave it to the tree check at install** — rejected: it fails on the operator's machine, late, with a message about a file that was never the problem.
+2. **Unicode case folding and NFC normalisation instead of ASCII only** — rejected: two implementations of Unicode tables in two repositories for file names this tree has never had.
+3. **Lowercase-only paths** — rejected: it refuses names that ship today (`VERSION`-style and mixed-case files under `claude/` and `templates/`) to prevent a collision that a comparison detects.
+4. **Fold into E-418** — rejected in r6.
+
+### Impact
+- Unlocks: nothing blocked; closes a macOS install failure before the first signed release. Risk if wrong: a future file with a non-ASCII name is refused at generation with its name printed; lifting r3 is additive.
+
+### Rollback
+Remove the two checks and their rows; no artifact or manifest changes.
+
+---

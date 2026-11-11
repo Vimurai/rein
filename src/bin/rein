@@ -6158,7 +6158,8 @@ _ci_wall_hints() {
 # CI_LOCAL_NOTE (names only — never a value) and CI_LOCAL_ERR; returns 2 on an error. Called as
 # a plain command (it sets state — D-064 §2). The reserved names mirror tests/lib/launch-vars.sh
 # LAUNCH_VARS (E-264); rein_ci_test.sh fails when the two lists drift.
-CI_ENV_RESERVED_NAMES="PATH HOME TMPDIR SHELL TERM USER LOGNAME LANG CI TMUX REIN_PANE_ROLE REIN_CALLER_ROLE REIN_WORKSPACE CLAUDE_CONFIG_DIR"
+# E-425 (D-156 r9): the cargo step sets CARGO_HOME, CARGO_TARGET_DIR and RUSTUP_HOME itself.
+CI_ENV_RESERVED_NAMES="PATH HOME TMPDIR SHELL TERM USER LOGNAME LANG CI TMUX REIN_PANE_ROLE REIN_CALLER_ROLE REIN_WORKSPACE CLAUDE_CONFIG_DIR CARGO_HOME CARGO_TARGET_DIR RUSTUP_HOME"
 CI_ENV_RESERVED_PREFIXES="REIN_ npm_config_ PLAYWRIGHT_"
 _ci_local_env() {
   CI_LOCAL_ENV=(); CI_LOCAL_NOTE=""; CI_LOCAL_ERR=""
@@ -6409,8 +6410,33 @@ _ci_run() {
   v_bash="$(/bin/bash -c 'echo $BASH_VERSION' 2>/dev/null || echo none)"
   v_patch="$(env -i "${CI_ENV[@]}" patch --version 2>/dev/null | head -1 || echo none)"
   v_os="$(uname -sr)"
-  printf '[ci] toolchain node=%s bash=%s patch=%s os=%s\n' "$v_node" "$v_bash" "${v_patch:-none}" "$v_os" >> "$CI_LOG"
-  _ci_step toolchain ok "node ${v_node}, bash ${v_bash}, ${v_os}"
+  # E-425 (D-156 r8-r9): a Rust project (Cargo.toml at the worktree root) gets a cargo step after
+  # unit. Its environment keeps the isolation and the caches: CARGO_HOME is a registry cache of
+  # its own (nothing of the operator's ~/.cargo, so a test cannot publish as the operator),
+  # CARGO_TARGET_DIR is per repository so dependencies are not rebuilt every run, and RUSTUP_HOME
+  # is the one path outside the throwaway HOME the step reads — the toolchains live there.
+  local cargo_applies=0 cargo_bin="" v_cargo="" v_rustc=""
+  local -a CARGO_ENV=()
+  if [[ -f "${CI_WT}/Cargo.toml" ]]; then
+    cargo_applies=1
+    CARGO_ENV=("CARGO_HOME=${ci_home}/cache/cargo" "CARGO_TARGET_DIR=${ci_home}/cache/cargo-target/$(basename "$CI_ROOT")")
+    if [[ -n "${RUSTUP_HOME:-}" ]]; then CARGO_ENV+=("RUSTUP_HOME=${RUSTUP_HOME}")
+    elif [[ -d "${HOME}/.rustup" ]]; then CARGO_ENV+=("RUSTUP_HOME=${HOME}/.rustup")
+    fi
+    cargo_bin="$(env -i "${CI_ENV[@]}" /bin/bash -c 'command -v cargo' 2>/dev/null || true)"
+    if [[ -n "$cargo_bin" ]]; then
+      v_cargo="$(env -i "${CI_ENV[@]}" "${CARGO_ENV[@]}" cargo --version 2>/dev/null | head -1 || true)"
+      v_rustc="$(env -i "${CI_ENV[@]}" "${CARGO_ENV[@]}" rustc --version 2>/dev/null | head -1 || true)"
+    fi
+  fi
+  if [[ "$cargo_applies" -eq 1 ]]; then
+    printf '[ci] toolchain node=%s bash=%s patch=%s os=%s cargo=%s rustc=%s\n' "$v_node" "$v_bash" "${v_patch:-none}" "$v_os" \
+      "$(printf '%s' "${v_cargo:-none}" | tr ' ' '_')" "$(printf '%s' "${v_rustc:-none}" | tr ' ' '_')" >> "$CI_LOG"
+    _ci_step toolchain ok "node ${v_node}, bash ${v_bash}, ${v_os}, ${v_cargo:-no cargo}, ${v_rustc:-no rustc}"
+  else
+    printf '[ci] toolchain node=%s bash=%s patch=%s os=%s\n' "$v_node" "$v_bash" "${v_patch:-none}" "$v_os" >> "$CI_LOG"
+    _ci_step toolchain ok "node ${v_node}, bash ${v_bash}, ${v_os}"
+  fi
 
   # ── suite ──
   local suite_status="SKIPPED" s_pass=0 s_fail=0 s_skip=0 leaked=0
@@ -6499,6 +6525,49 @@ _ci_run() {
     _ci_step unit skip "--suite-only"
   fi
 
+  # ── cargo ── E-425 (D-156 r8, r10): `cargo test --workspace` (+ --locked when Cargo.lock is
+  # tracked) after unit. FAIL fails the run; Cargo.toml with no cargo on the curated PATH is an
+  # ERROR like any step that cannot start. --suite-only / --unit-only skip it; on a shard it runs
+  # with the unit layer, on shard 1.
+  local cargo_status="SKIPPED" c_pass=0 c_fail=0 c_skip=0
+  if [[ "$cargo_applies" -eq 0 ]]; then
+    :   # not a Rust project: no line, so a repository without Cargo.toml prints what it did before
+  elif [[ "$do_suite" -eq 0 ]]; then
+    _ci_step cargo skip "--unit-only"
+  elif [[ "$do_unit" -eq 0 ]]; then
+    _ci_step cargo skip "--suite-only"
+  elif [[ -n "$shard" && "${shard%%/*}" != "1" ]]; then
+    _ci_step cargo skip "shard ${shard} — the cargo step runs on shard 1"
+  elif [[ -z "$cargo_bin" ]]; then
+    _ci_step cargo ERROR "Cargo.toml is present and no cargo is on the PATH"
+    _ci_finish ERROR "$sha" "$t0"; return 2
+  else
+    local -a cargo_cmd=(cargo test --workspace)
+    git -C "$CI_WT" ls-files --error-unmatch Cargo.lock >/dev/null 2>&1 && cargo_cmd+=(--locked)
+    mkdir -p "${ci_home}/cache/cargo" "${ci_home}/cache/cargo-target"
+    printf '\n[ci] ── cargo: %s\n' "${cargo_cmd[*]}" >> "$CI_LOG"
+    if ( cd "$CI_WT" && env -i "${CI_ENV[@]}" "${CARGO_ENV[@]}" "${cargo_cmd[@]}" ) >> "$CI_LOG" 2>&1; then
+      cargo_status="PASS"
+    else
+      cargo_status="FAIL"; status="FAIL"
+    fi
+    local ctot="" sumh; sumh="$(_rein_helper shared/ci-summary.mjs || true)"
+    [[ -n "$sumh" ]] && ctot="$(node --no-warnings "$sumh" "$CI_LOG" --after "[ci] ── cargo:" 2>/dev/null || true)"
+    c_pass="$(sed -nE 's/.* pass=([0-9]+).*/\1/p' <<< "$ctot")"; c_fail="$(sed -nE 's/.* fail=([0-9]+).*/\1/p' <<< "$ctot")"
+    c_skip="$(sed -nE 's/.* skip=([0-9]+).*/\1/p' <<< "$ctot")"
+    c_pass="${c_pass:-0}"; c_fail="${c_fail:-0}"; c_skip="${c_skip:-0}"
+    _ci_step cargo "$cargo_status" "${c_pass} passed, ${c_fail} failed, ${c_skip} ignored (${cargo_cmd[*]})"
+    # r10: with no suite step, the row's counts are cargo's.
+    if [[ "$suite_status" == "SKIPPED" ]]; then s_pass="$c_pass"; s_fail="$c_fail"; s_skip="$c_skip"; fi
+  fi
+
+  # ── no test step, no PASS ── E-425 (D-156 r7): a run in which suite, unit and cargo all ended
+  # as skip — for absence or by flag — certifies nothing.
+  if [[ "$suite_status" == "SKIPPED" && "$unit_status" == "SKIPPED" && "$cargo_status" == "SKIPPED" ]]; then
+    echo "[CI_NO_TESTS] no test step ran for ${sha:0:7} — nothing certifies this commit" | tee -a "$CI_LOG" >&2
+    _ci_finish ERROR "$sha" "$t0"; return 2
+  fi
+
   # ── budget ── E-303 (D-088, test-economics.md §Component 7): the ratchet. A full run (suite and
   # unit) of a repository that carries the census measures suites and test_lines (the census's
   # own inventory), the fast tier's wall seconds (`tests/run.sh --tier fast`, timed alone) and
@@ -6567,8 +6636,8 @@ _ci_run() {
   fi
 
   _ci_step load info "end: $(_ci_load)"
-  printf '[ci] result status=%s suite=%s pass=%s fail=%s skip=%s leaked=%s unit=%s secrets=%s\n' \
-    "$status" "$suite_status" "$s_pass" "$s_fail" "$s_skip" "$leaked" "$unit_status" "$secrets_status" >> "$CI_LOG"
+  printf '[ci] result status=%s suite=%s pass=%s fail=%s skip=%s leaked=%s unit=%s secrets=%s cargo=%s\n' \
+    "$status" "$suite_status" "$s_pass" "$s_fail" "$s_skip" "$leaked" "$unit_status" "$secrets_status" "$cargo_status" >> "$CI_LOG"
   _ci_finish "$status" "$sha" "$t0"
   [[ "$status" == "PASS" ]] && return 0 || return 1
 }

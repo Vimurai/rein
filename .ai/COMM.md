@@ -1844,3 +1844,27 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - rein-app's matcher was tested against the old rows; it may delete unlisted top-level entries. Its Architect is told.
 ---
+## Handoff — 2026-11-11 12:50 UTC
+**From**: Architect → Engineer
+**Trigger**: rein-app's layout-equality test against 3f68eff (rein-app D-028): every artifact install ends in failure; plus the three records owed from 2026-11-10
+
+### What was built
+- Nothing built. Recorded: D-158; D-156 addendum (status labels, already built as 89dbccc); D-153 addendum 3 (rein-app's manifest limits). Blueprints: release-artifact.md §Component 4, §Component 5, §API, task table and build order; local-ci.md §Components 7.
+- Registered: E-426 (Tier 3), E-427 (Tier 2).
+
+### Decisions made
+- D-158 r1: no `rein` command writes a path in `manifest.files`; the tree check exempts nothing.
+- D-158 r2–r3: a server with a shipped lock is installed with `npm ci`, skipped when `node_modules/.rein-lock.sha256` equals the lock's sha256. Both install modes.
+- D-158 r8–r11: every doctor check has a scope from one table keyed by id; the document gains `scope` (schema stays 1); `rein doctor --scope install` is what an installer judges by.
+- D-158 r12: order is E-425 → E-426 → E-427 → E-419 → E-424.
+
+### Blueprint divergence (if any)
+- E-420 as built rewrites a shipped file through `npm install`; its rows never ran the tree check after the dependency step. E-426 closes it.
+
+### Next action needed
+- Engineer: finish E-425's PR, then E-426, then E-427. E-426 item 1 (why npm rewrites the lock) is reported before the change is built. Name each merge commit for `rein-app · Architect`.
+
+### Open risks
+- `npm ci` may refuse the tracked orchestrator lock; E-426 item 1 finds out.
+- The scope of some doctor ids is a judgment call; E-427 lists them in its handoff.
+---

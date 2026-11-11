@@ -33,7 +33,7 @@ import { resolve } from "node:path";
 import { getDbSeeded } from "../mcp/shared/state-db.js";
 import {
   recordCiRunFromLog, ciVerdict, shortLine, listCiRuns, latestCiRun, failedSections,
-  pruneCiLogs, ageOf, certifyingRunFor, certifiedBy, ciAdopted, recordCiSkip,
+  pruneCiLogs, ageOf, certifyingRunFor, certifiedBy, ciAdopted, recordCiSkip, cargoView,
 } from "../mcp/shared/ci-runs.js";
 import { writeCiRecord, readCiRecord } from "../mcp/shared/ci-evidence.mjs";
 import { budgetBest, budgetCheck, budgetDrift, budgetSet, budgetSummary, driftLine, parseBudgetLine, regressionLine } from "../mcp/shared/ci-budget.js";
@@ -157,8 +157,9 @@ export function run(argv) {
           `local CI: ${v.kind} ${r.sha.slice(0, 7)}${r.dirty ? " (dirty — not a certification)" : ""}${r.shard ? ` (shard ${r.shard} — not a certification)` : ""}`,
           `  ref:      ${r.ref || "-"}${r.branch ? ` (${r.branch})` : ""}`,
           `  started:  ${r.started_at} (${ageOf(r.started_at)})${r.duration_ms != null ? `, ${Math.round(r.duration_ms / 1000)}s` : ""}`,
-          `  suite:    ${_suite(r)}, leaked ${r.leaked ?? 0}`,
+          `  ${cargoView(r)?.only ? "cargo: " : "suite: "}   ${_suite(r)}, leaked ${r.leaked ?? 0}`,
           `  unit:     ${r.unit_status || "-"}${r.unit_coverage ? ` (${r.unit_coverage})` : ""}`,
+          ...(cargoView(r) && !cargoView(r).only ? [`  cargo:    ${cargoView(r).status}`] : []),
           `  secrets:  ${r.secrets_status || "-"}`,
           `  spent:    ${_resources(r)}`,
           `  slowest:  ${_slowest(r)}`,

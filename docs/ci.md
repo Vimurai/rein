@@ -28,6 +28,13 @@ rein ci budget
 Exit codes: `0` PASS, `1` FAIL, `2` ERROR (the run itself could not complete). Verdicts are rows
 in `.ai/state.sqlite`; logs are in `~/.rein/ci/logs/`. `rein doctor` prints the verdict for HEAD.
 
+A repository with a `Cargo.toml` at its root also gets a `cargo` step after `unit`
+(`cargo test --workspace`, plus `--locked` when `Cargo.lock` is tracked). A run in which no test
+step ran at all — suite, unit and cargo all skipped — is not a PASS: it prints `[CI_NO_TESTS]`
+and records ERROR. `rein ci status` labels the counts by the step they came from (`cargo 132/0/0`
+when only cargo ran, `…, cargo PASS` beside a suite), read from the run's log; once that log is
+pruned, a cargo-only run's counts are shown under the old `suite` label.
+
 ### What reads the verdict
 
 "CI green" means a non-dirty PASS for that exact commit.

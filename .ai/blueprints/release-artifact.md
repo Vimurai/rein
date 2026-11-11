@@ -131,6 +131,18 @@ convenience copy that nothing trusts.
      clone, and a record left by an earlier clone install would point `rein sync` and the
      task router at a tree that is no longer what is installed.
   6. Profile lines.
+- **No `rein` command writes a path listed in `manifest.files`** (D-158 r1–r6, E-426). The
+  tree check exempts nothing. The dependency step of `install_global` therefore treats a
+  server whose `package-lock.json` is shipped differently: `npm ci` (installs exactly the
+  lock, never writes it) instead of `npm install`. "Shipped" is one function with two
+  sources: the manifest's `files` in artifact mode, the clone's tracked files in a clone
+  install, so both leave the same lock. After a successful `npm ci` the lock's sha256 is
+  written to `mcp/<server>/node_modules/.rein-lock.sha256`; `rein install` skips `npm ci`
+  when that marker equals the current lock's sha256, so a second run fetches nothing.
+  Servers without a shipped lock keep `npm install`. A failure prints `✗ <server>: npm ci
+  failed` and the install continues, as the `npm install` line does. Row (extends the
+  artifact-install rows): `rein install` twice then `rein doctor` — both exit 0, the second
+  runs no `npm ci`, the install line is `✓`, the lock's bytes equal the manifest's.
 - **Removals beyond the mirror rule** (D-155 addendum r1), after the six steps, artifact mode
   only. The installer's `purge_retired_mcp_mirrors` and its legacy-mirror loop move into
   `install-finalize.sh` as one function each, taking the set of live server names as
@@ -179,6 +191,26 @@ convenience copy that nothing trusts.
   on every doctor row the suites already run, and a new row asserts that the set of
   `checks[].line` values in JSON mode equals the glyph-carrying lines of the text run in the
   same fixture.
+- **Scopes** (D-158 r8–r11, E-427). Every check has a scope, `install`, `host` or `project`,
+  taken from ONE table keyed by check `id`, `src/shared/doctor-scopes.json`, never from the
+  call site. `install`: judges only files under the Rein home and what the gate needs to run
+  from it (tree against the manifest, stamp, `VERSION`, hook files and form, hook toolchain,
+  gate dependencies and pins, server dependencies and builds, Node floor, `rein` on PATH).
+  `host`: the machine outside the Rein home and outside any project (`~/.claude`, `gh`,
+  Copilot, tmux, browsers, accounts). `project`: reads the current directory or its git
+  toplevel. Guard row: an id emitted by any doctor fixture and missing from the table fails,
+  and so does a table id no call site has.
+- The document's check records gain `scope`. `schema` stays 1 (no release has carried a doctor
+  document; after v0.5.0 such a field raises it).
+- `rein doctor --scope install [--json]`: runs and reports only install-scope checks, reads
+  nothing relative to the current directory, needs no project; `status` is computed over
+  those records; the exit code keeps doctor's rule applied to those records. `--scope` takes
+  `install` only; another value is a usage error, exit 2. Without `--scope` doctor is
+  unchanged apart from the field.
+- An installer, after install, update or rollback, runs `rein install` then `rein doctor
+  --scope install --json` from any directory and judges by `status`: `fail` is a failed
+  install. Host and project checks are never an install failure. `docs/app-contract.md` §2
+  rule 5 and §5 say so.
 
 ### Component 6 — The published contract: documents, schemas, shared fixtures (E-422)
 - `docs/app-contract.md`: the layout and its version rule, the upgrade rule, the settings
@@ -286,6 +318,7 @@ and `rein sync` with this machine's absolute paths, and the app writes no file i
 | `rein release verify <tarball> [--pubkey <file>]` | tarball, `.minisig` | one line per finding | 0; 2 usage; 3 mismatch or bad signature |
 | `rein install` (artifact mode) | `~/.rein/manifest.json` | the installer's lines | 0; 1 Node floor or `[HOOK_BASH_MISSING]`; 3 `[INSTALL_INCOMPLETE]`, `[INSTALL_TREE_MISMATCH]` or a gate dependency off its pin (E-305, unchanged) |
 | `rein doctor --json` | cwd | one JSON document and a newline on stdout; nothing else on stdout | 0 or 1 (1 = a check that means the gate cannot run here failed, as in text mode); any other status means stdout is not a document |
+| `rein doctor --scope install [--json]` | the Rein home; cwd is not read | install-scope checks only | as `rein doctor`, over those checks; 2 for another `--scope` value |
 
 `rein help` lists `rein release stage|manifest|sign|verify` and `rein doctor [--json]`.
 `rein release` with no key material configured is usable for everything except `sign`.
@@ -365,12 +398,16 @@ and `rein sync` with this machine's absolute paths, and the app writes no file i
 | E-421 | 2 | Component 5: `_dr`, `rein doctor --json` | — |
 | E-422 | 2 | Component 6: documents, schemas, fixtures, the two guard rows | E-418, E-420, E-421 |
 | E-423 | 1 | Publish `docs/contract/release-key.pub` on `main` (committed in `a1c3af0`) and mark it `-text` | — |
-| E-424 | 2 | Release v0.5.0, the first signed artifact; the operator creates the tag | E-417..E-423 |
+| E-424 | 2 | Release v0.5.0, the first signed artifact; the operator creates the tag | E-417..E-423, E-426, E-427 |
+| E-426 | 3 | Component 4, D-158 r1–r6: `npm ci` for a server with a shipped lock, the marker, the twice-installed row | E-420 |
+| E-427 | 2 | Component 5, D-158 r8–r11: `doctor-scopes.json`, `scope` field, `rein doctor --scope install`, contract text | E-421, E-422 |
 
 **Build order (D-156 r4):** E-423 now, then E-417 → E-418 → E-420 → E-421 → E-422 → E-419 →
 E-424. E-420 precedes E-419 because rein-app's layout-equality test waits on E-417, E-418 and
 E-420, and nothing needs a signature before a tag exists. The handoffs after E-420 and after
-E-422 merge name the merge commit for `rein-app · Architect`.
+E-422 merge name the merge commit for `rein-app · Architect`. D-158 r12 inserts E-426 → E-427
+after E-425 and before E-419 → E-424: rein-app cannot install a release cleanly without them.
+The handoff after each of the two merges names the merge commit for `rein-app · Architect`.
 
 **Release v0.5.0 (D-156 r5–r6, E-424).** The Engineer bumps the version, writes the CHANGELOG
 section and merges; the operator creates the `v0.5.0` tag on that merge commit, which starts

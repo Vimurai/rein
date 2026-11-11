@@ -239,6 +239,30 @@ test("shortLine: PASS, FAIL, DIRTY, NONE and SKIPPED", () => {
   assert.equal(ageOf("garbage", now), "?");
 });
 
+// E-425 (D-156 r10 addendum): extends the shortLine row — the counts are labelled by the runner
+// they came from, read from the row's log ([ci] result suite= cargo=). No log, or no cargo= in it
+// (a row older than E-425), keeps today's label byte for byte.
+test("shortLine labels the counts by their runner: cargo-only, suite + cargo, cargo FAIL, unreadable log", () => {
+  const now = Date.parse("2026-09-17T10:07:00Z");
+  const dir = mkdtempSync(join(tmpdir(), "rein-t-cargo-label-"));
+  try {
+    const log = (name, result) => { const f = join(dir, name); writeFileSync(f, `[ci] header\n${result}\n`); return f; };
+    const r = (extra) => base({ suite_pass: 132, suite_fail: 0, suite_skip: 0, unit_status: "SKIPPED", leaked: 0, ...extra });
+    const only = r({ log_path: log("a.log", "[ci] result status=PASS suite=SKIPPED pass=132 fail=0 skip=0 leaked=0 unit=SKIPPED secrets=PASS cargo=PASS") });
+    assert.equal(shortLine({ kind: "PASS", row: only }, SHA, now), "PASS aaaaaaa 7m ago (cargo 132/0/0, unit SKIPPED, leaked 0)");
+    const both = r({ unit_status: "PASS", log_path: log("b.log", "[ci] result status=PASS suite=PASS pass=132 fail=0 skip=0 leaked=0 unit=PASS secrets=PASS cargo=PASS") });
+    assert.equal(shortLine({ kind: "PASS", row: both }, SHA, now), "PASS aaaaaaa 7m ago (suite 132/0/0, unit PASS, cargo PASS, leaked 0)");
+    const cfail = r({ unit_status: "PASS", log_path: log("c.log", "[ci] result status=FAIL suite=PASS pass=132 fail=0 skip=0 leaked=0 unit=PASS secrets=PASS cargo=FAIL") });
+    assert.equal(shortLine({ kind: "FAIL", row: cfail }, SHA, now), "FAIL aaaaaaa 7m ago (suite 132/0/0, unit PASS, cargo FAIL, leaked 0)");
+    const skipped = r({ unit_status: "PASS", log_path: log("d.log", "[ci] result status=PASS suite=PASS pass=132 fail=0 skip=0 leaked=0 unit=PASS secrets=PASS cargo=SKIPPED") });
+    assert.equal(shortLine({ kind: "PASS", row: skipped }, SHA, now), "PASS aaaaaaa 7m ago (suite 132/0/0, unit PASS, leaked 0)", "cargo skipped: unchanged");
+    const gone = r({ log_path: join(dir, "pruned.log") });
+    assert.equal(shortLine({ kind: "PASS", row: gone }, SHA, now), "PASS aaaaaaa 7m ago (suite 132/0/0, unit SKIPPED, leaked 0)", "unreadable log: today's label");
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
+
 test("failedSections: only the failing suite, the summary, and nothing that passed", () => {
   const secs = failedSections(LOG).join("\n");
   assert.match(secs, /broken thing/);

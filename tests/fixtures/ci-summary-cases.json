@@ -113,5 +113,25 @@
     "label": "no known summary \u2192 null (rein ci records runner=none, counts 0)",
     "want": null,
     "log": "> build\nok\nDone in 3s\n"
+  },
+  {
+    "label": "cargo test --workspace: one test result line per test binary and doc-test run, summed; ignored is skip (recorded from rein-app, 16 binaries)",
+    "want": {
+      "runner": "cargo",
+      "pass": 140,
+      "fail": 0,
+      "skip": 0
+    },
+    "log": "     Running unittests src/main.rs (\u2026\nrunning 28 tests\ntest result: ok. 28 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.10s\n     Running tests/cli_usage.rs (\u2026\nrunning 2 tests\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n     Running tests/owner_guard_cli.rs (\u2026\nrunning 1 test\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n     Running tests/profiles_cli.rs (\u2026\nrunning 8 tests\ntest result: ok. 8 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n     Running unittests src/lib.rs (\u2026\nrunning 4 tests\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n     Running tests/apply_and_undo.rs (\u2026\nrunning 16 tests\ntest result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n     Running tests/merge_preserves_keys.rs (\u2026\nrunning 1 test\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s\n     Running unittests src/lib.rs (\u2026\nrunning 37 tests\ntest result: ok. 37 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.17s\n     Running tests/fetch_release.rs (\u2026\nrunning 4 tests\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.06s\n     Running tests/layout_writer.rs (\u2026\nrunning 27 tests\ntest result: ok. 27 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.08s\n     Running tests/operator_owned_conformance.rs (\u2026\nrunning 1 test\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\n     Running tests/verify_release.rs (\u2026\nrunning 5 tests\ntest result: ok. 5 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.11s\n   Doc-tests rein_profiles\nrunning 1 test\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\nrunning 2 tests\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.04s\n   Doc-tests rein_release\nrunning 1 test\ntest result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s\nrunning 2 tests\ntest result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.03s\n"
+  },
+  {
+    "label": "cargo: a FAILED binary counts its failures; ignored is skip; the line is cargo's, not pytest's",
+    "want": {
+      "runner": "cargo",
+      "pass": 5,
+      "fail": 1,
+      "skip": 3
+    },
+    "log": "running 3 tests\ntest result: ok. 3 passed; 0 failed; 2 ignored; 0 measured; 0 filtered out; finished in 0.01s\n\nrunning 3 tests\ntest result: FAILED. 2 passed; 1 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.02s\n"
   }
 ]

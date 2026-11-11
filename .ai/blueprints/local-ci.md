@@ -106,6 +106,10 @@ writes a `ci_runs` row keyed by the SHA. "CI green" from D-072 on means: *a non-
    log line gains `cargo=PASS|FAIL|SKIPPED`; when `suite` did not run and `cargo` did,
    `suite_pass`, `suite_fail` and `suite_skip` hold the sums of cargo's `test result:` lines
    (runner `cargo` in `ci-summary.mjs`).
+   Status (D-156 addendum): `rein ci status` labels the counts by their runner, read from the
+   row's log (`[ci] result` line, `suite=` and `cargo=`): cargo only prints `(cargo N/N/N,
+   unit …, leaked N)`; suite and cargo both adds `, cargo PASS|FAIL` after `unit`; no cargo
+   step, a cargo skip, or an unreadable or pre-E-425 log leaves the line byte-identical.
    Security: `CARGO_HOME` is a cache directory with no `credentials.toml`, so a test cannot
    publish with the operator's registry token. The operator's `~/.rustup` is the one
    directory outside the throwaway HOME the step reads; a `rust-toolchain.toml` in the commit

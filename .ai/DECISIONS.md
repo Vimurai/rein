@@ -5107,3 +5107,79 @@ Composition, measured by the Architect (`git diff --numstat 1517921 HEAD -- test
 `rein ci budget set --ruling D-157 test_lines=42725` restores the previous value.
 
 ---
+
+## D-156 addendum — `rein ci status` labels the counts by the runner they came from; no column
+
+**Date**: 2026-11-11 (ruled 2026-11-10 by message, built in E-425 as 89dbccc before this entry could be written on a branch that held the day's rulings)
+**Task**: E-425; answers the question D-156 r10 left open
+**Decision**: The cargo step ran on rein-app at 10faf3b (cargo 1.99.1, 132/0/0 over 16 binaries, equal to the raw sum of the `test result:` lines), and `rein ci status --short` printed the counts as `suite 132/0/0` in a repository with no suite step.
+
+1. **Cargo only** (suite did not run, cargo did): `PASS <sha7> … (cargo 132/0/0, unit SKIPPED, leaked 0)`. `suite` is not printed for a step that did not run.
+2. **Suite and cargo both ran**: the counts stay the suite's; one field is added after `unit`: `cargo PASS` or `cargo FAIL`.
+3. **No cargo step, or cargo skipped with a suite present**: the line is byte-identical to before E-425. Existing status rows pass unedited.
+4. **One source for the label**: the row's own log, its `[ci] result` line's `suite=` and `cargo=` fields (the Engineer's choice, `cargoView(row)`).
+5. **Unreadable source** (log pruned, row older than E-425): the label is `suite`. Right for every row before E-425; wrong for a later cargo-only row whose log is gone. `docs/ci.md` says so in one sentence.
+6. The long form follows the same labels (`cargo:`). `rein ci log` is unchanged. No `ci_runs` column, no migration.
+
+### Rollback
+Remove `cargoView` and its rows; the line returns to `suite N/N/N` for every row.
+
+---
+
+## D-153 addendum 3 — rein-app's manifest size limits are accepted, with a notice duty at half of any limit; a multi-segment owned pattern extends the generator's case rule in the same change
+
+**Date**: 2026-11-11 (agreed by message 2026-11-10)
+**Task**: none to build; rein-app D-026, D-027
+**Decision**:
+1. **Limits rein-app's verifier enforces on a manifest**: 128 `layout.mirrored` names, 256 `layout.operator_owned` patterns, 100000 `files`, 1024 bytes per path or pattern, 64 path segments. The generator at 3f68eff emits 10, 14, 252, 55 bytes and depth 4 (rein-app's measurement of a real manifest). A path can never exceed 255 bytes: ustar's 100+155 split is already a generation refusal.
+2. **Notice duty**: a release whose manifest passes about half of any limit is announced to rein-app before it is tagged, because exceeding a limit needs a rein-app release first. The generator does not enforce the limits.
+3. **A case-variant directory prefix cannot occur under schema 1**: `mirrored` and `operator_owned` are constants, all lowercase, every owned pattern under a mirrored directory has one leading literal segment, and a top-level entry that is not exactly a mirrored name is refused. If an owned pattern with two or more leading literal segments is ever added, the generator's case rule (D-155 addendum 3 r8) is extended to directory prefixes of that literal lead in the same change, and rein-app is told first.
+4. **r8 is applied per pattern** (confirmed): a path one pattern matches only after folding is refused whatever another pattern does.
+
+### Rollback
+None — a record of limits another repository enforces.
+
+---
+
+## D-158 — `rein install` never changes a shipped file: a server with a shipped lock is installed with `npm ci`; `rein doctor --scope install` is the verdict an installer reads, from any directory
+
+**Date**: 2026-11-11
+**Task**: E-426, E-427 (both before E-424); found by rein-app's layout-equality test against 3f68eff (rein-app D-028)
+**Decision**: rein-app installed a real artifact through its production path. The artifact verified and the trees matched, and every install still ended in failure, for three reasons that are all this repository's.
+
+**Finding 1.** `rein install` runs `npm install` in each server directory. In `mcp/orchestrator-mcp`, the one server with a tracked lock, npm rewrote the shipped `package-lock.json` (40170 → 40196 bytes). The tree check of D-155 r4 then reports `[INSTALL_TREE_MISMATCH]` on every later `rein install` and in `rein doctor`'s install line. A clone install gets the same rewrite and has no manifest to notice it. The E-420 rows did not catch it because none ran the tree check a second time after the dependency step.
+
+**Findings 2 and 3.** `rein doctor` in a clean home fails on host checks (no `~/.claude`, no `gh copilot`, no Chromium) and on project checks of whatever directory it was started in. An installer cannot tell "the install is broken" from "this machine has no Copilot" without knowing what each check means, and contract §1 says an app holds no Rein logic.
+
+### Rulings
+1. **Invariant: no `rein` command writes a path listed in `manifest.files`.** The tree check stays strict; no path is exempted from it, owned pattern or not. A shipped file that differs from the manifest is a broken install by definition, and an exemption for the lock would make the one shipped file that selects dependencies the one file nothing verifies.
+2. **A server whose `package-lock.json` is shipped is installed with `npm ci`**, which installs exactly the lock and never writes it. Servers without a shipped lock keep `npm install` as today (their lock is npm's, operator-owned). "Shipped" has one function with two sources: in artifact mode the manifest's `files`; in a clone install the clone's tracked files. Both modes use it, so an artifact install and a clone install of one commit leave the same lock.
+3. **`npm ci` runs only when needed.** After a successful `npm ci` the sha256 of the lock is written to `mcp/<server>/node_modules/.rein-lock.sha256` (inside an operator-owned directory; `npm ci` removes it with `node_modules`). `rein install` skips `npm ci` for a server whose marker equals the current lock's sha256. A second `rein install` therefore needs no network and reinstalls nothing, as today.
+4. **The Engineer first finds out why npm rewrites the lock** (stale against `package.json`, or npm-version metadata) and reports it. If `npm ci` refuses the tracked lock as out of sync, the lock is regenerated and committed in E-426; a lock that `npm ci` accepts is left as it is.
+5. **Failure output is unchanged in kind**: `✗ <server>: npm ci failed`, the install continues, as the `npm install` line does today.
+6. **The row that was missing**: in artifact mode, `rein install` twice, then `rein doctor`: both installs exit 0, the second performs no `npm ci`, the install line is `✓`, and the lock's bytes equal the manifest's. It extends the artifact-install rows (no new suite, D-088).
+7. **Not chosen for finding 1**: exempting owned paths from the tree check (r1); stopping the lock from shipping (D-155 alternative 4, unchanged).
+8. **Every doctor check has a scope: `install`, `host` or `project`.** `install`: it judges only files under the Rein home and what the gate needs in order to run from it (the tree against the manifest, the stamp, `VERSION`, the hook files and their form, the hook toolchain, the gate's dependencies and pins, server dependencies and builds, the Node floor, `rein` on PATH). `host`: it judges the machine outside the Rein home and outside any project (`~/.claude`, `gh`, Copilot, tmux, browsers, accounts). `project`: it reads the current directory or its git toplevel. The mapping lives in ONE table keyed by check `id` (`src/shared/doctor-scopes.json`), not at the 164 call sites; a row fails when a check id emitted by any doctor fixture is missing from the table, and when the table names an id no call site has.
+9. **The doctor document gains `scope` on every check record** (`"install" | "host" | "project"`). The document's `schema` stays 1: no release has carried a doctor document yet (v0.5.0 is the first), so there is nothing in the field to break; rein-app is told and its mirrored schema follows. After v0.5.0 a field like this raises `schema`.
+10. **`rein doctor --scope install`** (with or without `--json`): runs and reports only the install-scope checks; reads nothing relative to the current directory and needs no project; the document's `status` is computed over those records only; the exit code keeps doctor's existing rule, applied to those records. `--scope` accepts `install` only for now; another value is a usage error, exit 2. Without `--scope`, doctor is unchanged apart from the new field.
+11. **What an installer does after install, update or rollback**: `rein install`, then `rein doctor --scope install --json`, from any directory, and it judges by the document's `status`: `fail` is a failed install, `warn` and `ok` are not. It may show a full `rein doctor` to the operator for a project they choose; it never turns host or project checks into an install failure. `docs/app-contract.md` §2 rule 5 and §5 are rewritten to say this.
+12. **Order**: E-425 (in review) → E-426 → E-427 → E-419 → E-424. Both new tasks precede the first signed release because rein-app cannot install it cleanly without them.
+
+### Alternatives considered
+1. **Exempt operator-owned paths from the tree check** — rejected (r1).
+2. **`npm ci` on every `rein install`** — rejected: it removes and refetches `node_modules` each time, so a re-run needs the network and minutes; r3's marker keeps the second run free.
+3. **`npm install --no-package-lock`** — rejected: it ignores the lock when choosing versions, which gives up the reason the lock is tracked.
+4. **Publish a list of install-check ids for apps to filter on** — rejected: that is Rein logic in the app, and the list changes with every doctor check added.
+5. **A `scope` argument at each `_dr` call site** — rejected: 164 edits and a scope that can differ between two sites of one id; a table keyed by id has one row per check and a guard.
+6. **Doctor schema 2** — rejected for now (r9): nothing released reads schema 1 yet.
+
+### Constraints driving this decision
+- Contract §1: the app contains no Rein logic. D-155 r4: the tree check. D-155 addendum r3: a stamp never contradicts the tree. D-088: extend rows.
+
+### Impact
+- Unlocks: rein-app's install path reaching exit 0 (its D-028 test), and E-424. Risk if wrong: `npm ci` is stricter than `npm install` and fails where the lock and `package.json` disagree, which r4 turns into a finding before release instead of a silent rewrite after it.
+
+### Rollback
+E-426: restore `npm install` for every server and accept the mismatch by reverting r1 with an exemption ruling. E-427: remove `--scope` and the table; the `scope` field can stay, it is additive.
+
+---

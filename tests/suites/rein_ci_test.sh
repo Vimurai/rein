@@ -186,6 +186,67 @@ OUT="$(_ci "$REPO" run --dirty --ref HEAD)"; RC=$?
 assert_status 0 "E-265.06f: --dirty with --ref is refused (exit 2)" test "$RC" -eq 2
 OUT="$(_ci "$REPO" run --suite-only --unit-only)"; RC=$?
 assert_status 0 "E-265.06g: --suite-only with --unit-only is refused (exit 2)" test "$RC" -eq 2
+# E-425 (D-156 r7): extends E-265.06 — a repository with no test entry point (no tests/run.sh,
+# no unit suite, no Cargo.toml) used to record PASS on the secrets step alone. It is ERROR now,
+# with [CI_NO_TESTS], and the row is still written (a gate reading it sees ERROR, not nothing).
+TREPO="$(test_tmpdir ci-notests)"
+mkdir -p "${TREPO}/.ai"; echo keep > "${TREPO}/.ai/keep"; printf '.env\nnode_modules\n.ai/ci.local.json\n' > "${TREPO}/.gitignore"
+git -C "$TREPO" init -q && git -C "$TREPO" add -A && git -C "$TREPO" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm notests
+OUT="$(_ci "$TREPO" run)"; RC=$?
+assert_status 0 "E-425.01a: no test step ran — ERROR, exit 2 (rc=${RC})" test "$RC" -eq 2
+assert_contains "E-425.01b: …with [CI_NO_TESTS] naming the commit" "[CI_NO_TESTS] no test step ran for $(git -C "$TREPO" rev-parse --short=7 HEAD)" "$OUT"
+assert_contains "E-425.01c: …and the row is written as ERROR" "ERROR" \
+  "$( cd "$TREPO" && HOME="$FAKE_HOME" bash "$AI" ci status --ref HEAD --short 2>&1 )"
+
+# E-425 (D-156 r8-r10): the cargo step, on a one-crate fixture. Needs a working cargo (with its
+# toolchain reachable through RUSTUP_HOME); skipped, counted, where there is none — including
+# inside `rein ci run`, whose throwaway HOME has no ~/.rustup.
+_RUSTUP="${RUSTUP_HOME:-${HOME}/.rustup}"
+if command -v cargo >/dev/null 2>&1 && RUSTUP_HOME="$_RUSTUP" cargo --version >/dev/null 2>&1; then
+  _mk_crate() {  # <dir> <assert expression>
+    mkdir -p "$1/src" "$1/.ai"; echo keep > "$1/.ai/keep"
+    printf '[package]\nname = "fixture"\nversion = "0.1.0"\nedition = "2021"\n' > "$1/Cargo.toml"
+    printf '#[cfg(test)]\nmod t {\n    #[test]\n    fn one() { assert!(%s); }\n    #[test]\n    #[ignore]\n    fn later() {}\n}\n' "$2" > "$1/src/lib.rs"
+    printf '.env\nnode_modules\n.ai/ci.local.json\ntarget\n' > "$1/.gitignore"
+    git -C "$1" init -q && git -C "$1" add -A && git -C "$1" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm crate
+  }
+  mkdir -p "${FAKE_HOME}/.cargo"; echo "operator" > "${FAKE_HOME}/.cargo/config.toml"
+  _cargo_sig() { ( cd "${FAKE_HOME}/.cargo" && find . -print0 | sort -z | xargs -0 cksum 2>/dev/null ); }
+  _CARGO_BEFORE="$(_cargo_sig)"
+  CREPO="$(test_tmpdir ci-crate)"; _mk_crate "$CREPO" "1 + 1 == 2"
+  OUT="$( RUSTUP_HOME="$_RUSTUP" _ci "$CREPO" run )"; RC=$?
+  assert_status 0 "E-425.02a: a crate with one passing test is PASS (rc=${RC})" test "$RC" -eq 0
+  assert_contains "E-425.02b: …the cargo step reports cargo's own counts" "1 passed, 0 failed, 1 ignored (cargo test --workspace)" "$OUT"
+  _clog="$(command ls -t "${FAKE_HOME}/.rein/ci/logs/"*.log | head -1)"
+  assert_status 0 "E-425.02c: …and with no suite step the row's counts are cargo's (pass=1)" \
+    grep -q '^\[ci\] result status=PASS suite=SKIPPED pass=1 fail=0 skip=1 .* cargo=PASS$' "$_clog"
+  assert_status 0 "E-425.02d: the toolchain line records cargo and rustc" grep -q '^\[ci\] toolchain .* cargo=cargo_.* rustc=rustc_' "$_clog"
+  assert_status 0 "E-425.02e: the invoking HOME's ~/.cargo is unchanged by a run" test "$(_cargo_sig)" = "$_CARGO_BEFORE"
+  assert_status 0 "E-425.02f: …because CARGO_HOME is the CI cache" test -d "${FAKE_HOME}/.rein/ci/cache/cargo"
+  FCRATE="$(test_tmpdir ci-crate-fail)"; _mk_crate "$FCRATE" "1 + 1 == 3"
+  OUT="$( RUSTUP_HOME="$_RUSTUP" _ci "$FCRATE" run )"; RC=$?
+  assert_status 0 "E-425.02g: a failing crate test is FAIL, exit 1 (rc=${RC})" test "$RC" -eq 1
+  assert_contains "E-425.02h: …and says so in the cargo step" "cargo      FAIL" "$OUT"
+  OUT="$( RUSTUP_HOME="$_RUSTUP" _ci "$CREPO" run --unit-only )"; RC=$?
+  assert_contains "E-425.02i: --unit-only skips the cargo step" "cargo      skip    --unit-only" "$OUT"
+  assert_contains "E-425.02j: …and with every test step skipped the run certifies nothing" "[CI_NO_TESTS]" "$OUT"
+else
+  _skip "E-425.02: no working cargo on this host (the cargo step rows)"
+fi
+# Cargo.toml with no cargo on the curated PATH is ERROR, exit 2 — testable without cargo.
+NCRATE="$(test_tmpdir ci-crate-nocargo)"
+mkdir -p "${NCRATE}/.ai"; echo keep > "${NCRATE}/.ai/keep"; printf '[package]\nname = "x"\nversion = "0.1.0"\n' > "${NCRATE}/Cargo.toml"
+printf '.env\nnode_modules\n.ai/ci.local.json\n' > "${NCRATE}/.gitignore"
+git -C "$NCRATE" init -q && git -C "$NCRATE" add -A && git -C "$NCRATE" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -qm nocargo
+_NOCARGO_PATH="$(dirname "$(command -v node)"):/usr/bin:/bin"
+if ! PATH="$_NOCARGO_PATH" command -v cargo >/dev/null 2>&1; then
+  OUT="$( PATH="$_NOCARGO_PATH" _ci "$NCRATE" run )"; RC=$?
+  assert_status 0 "E-425.03a: Cargo.toml with no cargo on the PATH is ERROR, exit 2 (rc=${RC})" test "$RC" -eq 2
+  assert_contains "E-425.03b: …naming it" "Cargo.toml is present and no cargo is on the PATH" "$OUT"
+else
+  _skip "E-425.03: cargo is in /usr/bin on this host — no PATH without it"
+fi
+
 NOGIT="$(test_tmpdir ci-nogit)"
 OUT="$(_ci "$NOGIT" run)"; RC=$?
 assert_status 0 "E-265.06h: outside a git repository is ERROR (exit 2)" test "$RC" -eq 2
@@ -316,7 +377,8 @@ assert_contains "E-343.02a: an unset bare NAME is skipped with a note" "(BAR uns
 assert_contains "E-343.02b: and does not reach the run" "BAR=unset" "$OUT"
 
 for _bad in '{"env":["HOME=/x"]}|HOME' '{"env":["REIN_CI=hosted"]}|REIN_CI' '{"env":["npm_config_cache"]}|npm_config_cache' \
-            '{"env":["PLAYWRIGHT_BROWSERS_PATH=/x"]}|PLAYWRIGHT_BROWSERS_PATH' '{"env":["REIN_WORKSPACE"]}|REIN_WORKSPACE'; do
+            '{"env":["PLAYWRIGHT_BROWSERS_PATH=/x"]}|PLAYWRIGHT_BROWSERS_PATH' '{"env":["REIN_WORKSPACE"]}|REIN_WORKSPACE' \
+            '{"env":["CARGO_HOME=/x"]}|CARGO_HOME' '{"env":["RUSTUP_HOME"]}|RUSTUP_HOME'; do   # E-425 (D-156 r9)
   printf '%s\n' "${_bad%|*}" > "${EREPO}/.ai/ci.local.json"
   OUT="$(_eci)"; RC=$?
   assert_status 0 "E-343.03a: ${_bad##*|} is reserved — the run is ERROR (exit 2)" test "$RC" -eq 2

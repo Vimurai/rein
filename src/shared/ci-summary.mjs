@@ -32,8 +32,17 @@ function _counts(list) {
   return c;
 }
 
-// One entry per runner: a line test and the counts it carries. Order is the report order.
+// One entry per runner: a line test and the counts it carries. Order is the report order, and the
+// first shape that matches a line wins.
 const SHAPES = [
+  // cargo (E-425, D-156 r10): one line per test binary and doc-test run, summed —
+  //   "test result: ok. 3 passed; 0 failed; 1 ignored; 0 measured; 0 filtered out; finished in 0.01s"
+  // Before pytest, whose "N passed … in Ns" shape this line also has; ignored → skip.
+  { runner: "cargo", match: (l) => /^\s*test result: (?:ok|FAILED)\. \d+ passed; \d+ failed;/.test(l),
+    counts: (l) => {
+      const n = (k) => Number((l.match(new RegExp(`(\\d+) ${k}`)) || [0, 0])[1]);
+      return { pass: n("passed"), fail: n("failed"), skip: n("ignored") };
+    } },
   // vitest:  "      Tests  3 failed | 2513 passed | 7 skipped (2523)"  (never "Test Files")
   { runner: "vitest", match: (l) => /^\s*Tests\s{2,}\d+\s+(passed|failed|skipped|todo)\b/.test(l) && /\(\d+\)\s*$/.test(l),
     counts: (l) => _counts(l) },

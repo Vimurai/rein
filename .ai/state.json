@@ -4949,6 +4949,69 @@
       "summary": "[TIER_1] merge of origin/main (3f68eff: E-418 #36 and E-420 #37, both reviewed and merged) into e-421-doctor-json; .ai/ stamps unioned (base + both sides, time order)",
       "sha": "7e080cb2140155dedba474b4cffa36cc964cc10a",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-11T08:37:55.916Z",
+      "summary": "[TIER_1] merge of e-421-doctor-json (9eae996: E-421 with main #36 #37 merged, local CI PASS) into e-422-app-contract; .ai/ stamps unioned",
+      "sha": "c784e410eb8b3d769b7d18aaf957003cc080bb26",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-11T08:38:59.769Z",
+      "summary": "[TIER_2] align_diff (17 files, e-421..HEAD) WARN only: ORPHANED_WORK on docs/app-contract.md, docs/accounts.md, docs/README.md (named by release-artifact.md §Component 6, D-153 r4 + addendum 2); NO_LOG_UPDATE resolved (LOG.md line, gitignored)",
+      "sha": "e266683c15aabfe3028c17beee9ca06911ccbdc6",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-11T08:38:59.870Z",
+      "summary": "[TIER_2] E-422 review: app contract and accounts documents; three closed 2020-12 schemas each pinned by a row validating a real output (stage manifest, fixture doctor document, accounts.py add registry + an unknown-key refusal); layout-v1 and cli-surface guard rows; profile-settings, doctor-sample fixtures; D-155 addendum 3 r1-r3, r8 refusals with rows (in-memory collisions, host-safe names). Privacy scan clean; unit rows 18/18; no new dependency",
+      "sha": "e266683c15aabfe3028c17beee9ca06911ccbdc6",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-11T12:00:21.639Z",
+      "summary": "[TIER_1] run_review SKIP: tests/fixtures/release/doctor-sample.json rewritten one check per line (511 → 75 lines; same document, still valid against doctor.schema.json) — fixture data counts toward the test_lines budget",
+      "sha": "3b52957c6529b6e1473ec2c51dd12d3101315571",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-11T12:03:29.923Z",
+      "summary": "[TIER_1] D-155 addendum 3 r10: operator-owned-cases.json corrected (runner.json, insights.md → kept; shared/Toolchain.sh deleted; ci/x.json kept; two glob_cases; description per r10) and installerAction returns kept for a path outside the mirrored directories (rule 1). install-rein.sh deletes no unlisted top-level entry (only the stage, mirrored dirs, manifest.json and the named v3 mirrors)",
+      "sha": "8975c8885490a34e112a43df3d83f3d94929ad86",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-425",
+      "timestamp": "2026-11-11T12:27:34.746Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK on ci-summary.mjs, ci-summary-cases.json, rein_ci_test.sh (named by local-ci.md §Components 7, D-156 r7-r10); UNAPPROVED_DEP is JSON fixture keys (no dependency); NO_LOG_UPDATE resolved (LOG.md line, gitignored)",
+      "sha": "f11d270eb454713a6f8460747279d92f8f62ec22",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-425",
+      "timestamp": "2026-11-11T12:27:37.395Z",
+      "summary": "[TIER_2] E-425: rein ci run cargo step (cargo test --workspace [--locked]; FAIL fails; no cargo ERROR exit 2; flag/shard skips), cargo env (CARGO_HOME/CARGO_TARGET_DIR in the CI cache, RUSTUP_HOME passed through; three names reserved), [CI_NO_TESTS] ERROR exit 2, toolchain cargo/rustc, result cargo=, cargo runner in ci-summary (before pytest). rein_ci_test 266/0/1 locally incl. real crates; ci-summary 17/0; rein-app run 10faf3b PASS 132 = raw log sum. Unchanged step lines for a repo without Cargo.toml",
+      "sha": "f11d270eb454713a6f8460747279d92f8f62ec22",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

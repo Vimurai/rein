@@ -21,7 +21,8 @@ const CASES = JSON.parse(readFileSync(join(REPO, "tests", "fixtures", "ci-summar
 
 test("the table has a row for every runner shape", () => {
   const runners = new Set(CASES.map((c) => c.want?.runner).filter(Boolean).flatMap((r) => r.split("+")));
-  for (const r of ["rein", "vitest", "node-test", "pytest", "jest"]) assert.ok(runners.has(r), `no row for ${r}`);
+  // cargo: E-425 (D-156 r10).
+  for (const r of ["rein", "vitest", "node-test", "pytest", "jest", "cargo"]) assert.ok(runners.has(r), `no row for ${r}`);
 });
 
 for (const c of CASES) {

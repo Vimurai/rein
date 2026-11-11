@@ -5103,6 +5103,15 @@
       "summary": "[TESTS_FAIL] local CI of 77595de: suite 7198 pass/4 fail; mirror_hygiene E-426.01b/01c/01e/02a fail rc 127 because their line continuations are written `\\\\` (double backslash) at tests/suites/mirror_hygiene_test.sh:348,350,353(+354),363(+364); 01d/01f pass vacuously-adjacent. Also untested: npm ci failure line, no-shipped-lock npm install path, doctor --repair path — COMMIT BLOCKED",
       "sha": "77595de28c38d4a03919190ffbed24735d909e60",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-426",
+      "timestamp": "2026-11-11T13:19:42.962Z",
+      "summary": "[TIER_1] critic_tests E-426 P1: rows E-426.03a-d — a server with no shipped lock keeps npm install; a failing npm ci prints the ✗ line and the install continues; doctor --repair runs npm ci for a shipped lock despite a matching marker (F3). Test-only; 91a82a0 PASS 7202/0/26",
+      "sha": "91a82a061aad5ff0c8a50187c8dea611dbca93b9",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

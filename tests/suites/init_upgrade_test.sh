@@ -293,6 +293,28 @@ assert_status 0 "E-421.01b: one document; records = the text run's check lines; 
 _dsf="$(mktemp "${FAKE_TMP}/doctor-json.XXXXXX")"; printf '%s\n' "$_djson" > "$_dsf"
 _dval="$(node "$REPO_ROOT/tests/lib/json-schema-lite.mjs" "$REPO_ROOT/docs/contract/doctor.schema.json" "$_dsf" 2>&1)"; _dvrc=$?
 assert_status 0 "E-422.02a: the fixture project's doctor document is valid against docs/contract/doctor.schema.json${_dval:+ — ${_dval:0:300}}" test "$_dvrc" -eq 0
+# E-427 (D-158 r8-r11): extends E-421.01 / E-422.02a. Every id a real doctor run emits has a scope
+# from src/shared/doctor-scopes.json (the schema requires it; a missing id is null and fails), and
+# `--scope install --json` from an empty directory, in a home with no ~/.claude and no project,
+# reports install-scope records only.
+assert_status 0 "E-427.02a: every record of the fixture project's document has a scope from the table" \
+  node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); const bad=d.checks.filter((c)=>!["install","host","project"].includes(c.scope)).map((c)=>c.id); if (bad.length) { console.log(bad.join(" ")); process.exit(1); }' "$_dsf"
+_EMPTY="$(test_tmpdir upg-scope-empty)"
+_claude_moved=""; [[ -e "${FAKE_HOME}/.claude" ]] && { mv "${FAKE_HOME}/.claude" "${FAKE_HOME}/.claude.e427"; _claude_moved=1; }
+_sjson="$( cd "$_EMPTY" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --scope install --json 2>/dev/null )"; _sjrc=$?
+_stext="$( cd "$_EMPTY" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --scope install 2>/dev/null )"
+[[ -n "$_claude_moved" ]] && mv "${FAKE_HOME}/.claude.e427" "${FAKE_HOME}/.claude"
+_ssf="$(mktemp "${FAKE_TMP}/doctor-scope.XXXXXX")"; printf '%s\n' "$_sjson" > "$_ssf"
+assert_status 0 "E-427.02b: doctor --scope install --json from an empty directory exits 0 or 1 (rc=${_sjrc})" test "$_sjrc" -le 1
+_sval="$(node "$REPO_ROOT/tests/lib/json-schema-lite.mjs" "$REPO_ROOT/docs/contract/doctor.schema.json" "$_ssf" 2>&1)"; _svrc=$?
+assert_status 0 "E-427.02c: …a schema-valid document${_sval:+ — ${_sval:0:300}}" test "$_svrc" -eq 0
+assert_status 0 "E-427.02d: …holding install-scope records only, at least one" \
+  node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); process.exit(d.checks.length>0 && d.checks.every((c)=>c.scope==="install") ? 0 : 1)' "$_ssf"
+assert_not_contains "E-427.02e: the text form reports no host or project line" "~/.claude" "$_stext"
+assert_contains "E-427.02f: …and does report install checks" "hook toolchain" "$_stext"
+_bad="$( cd "$_EMPTY" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --scope host 2>&1 >/dev/null )"; _brc=$?
+assert_status 0 "E-427.02g: --scope with any value but install is a usage error, exit 2 (rc=${_brc})" test "$_brc" -eq 2
+assert_contains "E-427.02h: …saying so" "--scope takes install" "$_bad"
 _dusage="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --json --repair 2>&1 >/dev/null )"; _durc=$?
 assert_status 0 "E-421.01c: --json with --repair is a usage error, exit 2 (rc=${_durc})" test "$_durc" -eq 2
 assert_contains "E-421.01d: …with one line on stderr" "--json runs the default doctor only" "$_dusage"

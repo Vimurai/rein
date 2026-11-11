@@ -5112,6 +5112,69 @@
       "summary": "[TIER_1] critic_tests E-426 P1: rows E-426.03a-d — a server with no shipped lock keeps npm install; a failing npm ci prints the ✗ line and the install continues; doctor --repair runs npm ci for a shipped lock despite a matching marker (F3). Test-only; 91a82a0 PASS 7202/0/26",
       "sha": "91a82a061aad5ff0c8a50187c8dea611dbca93b9",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-426",
+      "timestamp": "2026-11-11T13:21:12.751Z",
+      "summary": "[TESTS_PASS] local CI of 91a82a0: suite 7202/0 fail/26 skip, unit PASS, leaked 0; E-426.01a-f, 02a and gate-pins row pass (continuations fixed); 7c82a71 adds E-426.03a-d for the P1 gaps (npm ci failure, no-shipped-lock, --repair --force), reviewed by diff, awaiting its own CI on 64c150d",
+      "sha": "64c150d6100ac1800bfde661a8d99b903790cd3b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T13:35:41.709Z",
+      "summary": "[TIER_2] align_diff WARN only: ORPHANED_WORK on docs/app-contract.md, doctor.schema.json, doctor-json.mjs (named by release-artifact.md §Component 5 'Scopes', D-158 r8-r11); UNAPPROVED_DEP is JSON keys (no dependency); NO_LOG_UPDATE resolved (LOG.md line, gitignored)",
+      "sha": "60e0537b20697cb882b89c91c824a73a2bc2f3bc",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T13:35:44.363Z",
+      "summary": "[TIER_2] E-427: doctor-scopes.json is the one scope source (68 ids, install 18 / host 9 / project 41); every record gains scope via the renderer; rein doctor --scope install [--json] runs from its own empty dir (nothing read relative to the caller's cwd), reports install records only, status and exit over those; other values exit 2; help, cli-surface, schema (scope required, schema 1), doctor-sample, app-contract §2 r5 + §5 updated. Plain doctor text byte-identical on the four E-421 goldens. Guard row + E-427.02a-h; unit 5/5",
+      "sha": "60e0537b20697cb882b89c91c824a73a2bc2f3bc",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T13:48:06.290Z",
+      "summary": "[TIER_2] E-427 follow-ups (Architect review points 2-3 and CI 3f9d334): under --scope install the gh and Triad-launcher sections are not executed (gh may contact GitHub; the account probe runs claude auth status); GIT_CEILING_DIRECTORIES stops git above doctor's empty dir (a TMPDIR inside a repo is not a project); _dr/_dr_lines inline the scope test so a lifted _dr stays self-contained (project-upgrade COMM row)",
+      "sha": "3f9d334a5610460295e6ee485b77ad81b1edeca2",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T13:48:18.705Z",
+      "summary": "[TIER_1] merge of origin/main (f7b3554: E-426 #41, reviewed and merged) into e-427-doctor-scopes; .ai/ stamps unioned",
+      "sha": "469260d21f1592e05ce841483ee19250337e7530",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T13:48:49.951Z",
+      "summary": "[TIER_1] E-427.03a (Architect review point 1): a healthy artifact install in a clean home (no ~/.claude, no project) is not fail under doctor --scope install and its install check is ok; server dependencies come from the checkout via an npm stub; skipped, counted, without them or without a pinnable toolchain. Test-only",
+      "sha": "81a3b48cddccc0ab2d3bb5ad9ea0342b5e647dea",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T14:01:16.642Z",
+      "summary": "[TIER_1] CI c69afbc: the E-427.01 guard read a trailing comment ('tests lift _dr alone') as a call site with id 'alone'; comment reworded. Comment-only. All E-427.02a-h and 03a passed in that run (03a: ok, install=ok, no install check not ok)",
+      "sha": "c69afbc60cda7d874f89d39aad663be187781541",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

@@ -5184,3 +5184,32 @@ None — a record of limits another repository enforces.
 E-426: restore `npm install` for every server and accept the mismatch by reverting r1 with an exemption ruling. E-427: remove `--scope` and the table; the `scope` field can stay, it is additive.
 
 ---
+
+## D-155 addendum 4 — E-419: minisign does not enter the rendered CI workflow; the signing rows run locally and a dispatchable dry-run job in `release.yml` is the hosted proof before a tag
+
+**Date**: 2026-11-11
+**Task**: E-419 (its acceptance line "run on the hosted Linux leg" is replaced); E-424 (one precondition added)
+**Decision**: The Engineer asked how `minisign` reaches the hosted Linux leg, since `ubuntu-latest` has none and `.github/workflows/ci.yml` is rendered by `rein ci hosted github` under a contract of exactly two run steps (team-collaboration.md §Component 5b). The Engineer recommended an `apt-get install minisign` step emitted by the renderer (option A).
+
+### Rulings
+1. **Option A is declined.** The renderer is not this repository's workflow file; it renders the hosted check of every project that uses Rein. A minisign step in it either installs a signing tool in every downstream project's CI or needs a per-project host-tool mechanism, which is a feature nobody has asked for. The two-step contract was held for the same question once already: D-135 addendum 2 refused `brew install tmux` on the macOS legs and let the tmux rows skip, host-named. One answer for both.
+2. **Option B is declined** with it: a pinned download in the same rendered step has the same problem and more code.
+3. **The rows that need the binary run where it is installed and skip, counted and host-named, elsewhere** (`skip_unless_cmd minisign`, harness rule 1), hosted legs included. The local run is the pre-push gate (D-072), and the Engineer's machine has `minisign`, so the rows guard every push. E-419's acceptance line "run on the hosted Linux leg" is withdrawn.
+4. **The hosted proof is a dry-run job in `release.yml`**, hand-written, under the same `ci_gate` entry as the release job. Trigger: `workflow_dispatch` only. Steps: install `minisign` from the Ubuntu archive, bootstrap Rein from the commit, `rein release stage` → `rein release manifest --pubkey tests/fixtures/release/throwaway.pub` → `rein release sign` with `REIN_RELEASE_KEY` set from `tests/fixtures/release/throwaway.key` → `rein release verify --pubkey` the same file → print the tarball's sha256 and `minisign -v`. It publishes nothing and uploads nothing.
+5. **Separation of the two jobs, which the security review checks**: the dry-run job is not bound to the `release` environment, references no secret, and has `contents: read` only; the release job runs only for a `v*` tag push (an explicit `if:` on the event and the ref, not only the workflow trigger), so a dispatch can never reach the real key or `gh release create`. The real job installs `minisign` the same way, so the dry run exercises the same binary version the release will use.
+6. **E-424 precondition**: after E-419 merges, the Engineer dispatches the dry run on `main` and names the green run in the handoff. E-424 does not start, and the operator is not asked for a tag, before that. A tag whose release job fails for a reason a dry run would have shown is the cost this buys off.
+7. **`rein ci hosted --check` and the rendered `ci.yml` are untouched.**
+
+### Alternatives considered
+1. **A — renderer emits an apt step on Ubuntu legs** — rejected (r1).
+2. **B — pinned binary by sha256 in the rendered step** — rejected (r2).
+3. **C as proposed, the release job alone as the hosted proof** — rejected as incomplete: its first hosted execution would be the first real tag, with the operator's key.
+4. **A second pull-request workflow that runs the signing rows on every PR** — rejected for now: the local gate already runs them on every push, and a new required check is a branch-protection change for one module. It is the next step if a signing regression ever reaches `main`.
+
+### Impact
+- Unlocks: E-419 without a change to the hosted contract. Risk if wrong: a signing regression that only shows on Ubuntu's minisign is found at the dry run before a tag, not on the pull request.
+
+### Rollback
+Remove the dry-run job; the rows keep skipping where the binary is absent.
+
+---

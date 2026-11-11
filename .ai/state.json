@@ -4976,6 +4976,15 @@
       "summary": "[TIER_2] E-422 review: app contract and accounts documents; three closed 2020-12 schemas each pinned by a row validating a real output (stage manifest, fixture doctor document, accounts.py add registry + an unknown-key refusal); layout-v1 and cli-surface guard rows; profile-settings, doctor-sample fixtures; D-155 addendum 3 r1-r3, r8 refusals with rows (in-memory collisions, host-safe names). Privacy scan clean; unit rows 18/18; no new dependency",
       "sha": "e266683c15aabfe3028c17beee9ca06911ccbdc6",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-11T12:00:21.639Z",
+      "summary": "[TIER_1] run_review SKIP: tests/fixtures/release/doctor-sample.json rewritten one check per line (511 → 75 lines; same document, still valid against doctor.schema.json) — fixture data counts toward the test_lines budget",
+      "sha": "3b52957c6529b6e1473ec2c51dd12d3101315571",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

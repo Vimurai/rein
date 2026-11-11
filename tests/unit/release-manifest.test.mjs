@@ -215,3 +215,56 @@ test("E-422.04: layout-v1.json is the generator's layout; profile-settings-cases
     assert.ok(ps.cases.some((c) => c.expected === "refuse" && k in c.after && !(k in c.before)), `a refused write of ${k}`);
   }
 });
+
+// E-419 (D-153 r1, D-155 r6, addendum 4): extends E-418.04 — signing and the signature check,
+// through the real CLIs (the key arrives through the environment, which is the boundary). Needs
+// the minisign binary: skipped, counted, on a host without it (D-155 addendum 4 r1).
+const { spawnSync } = await import("node:child_process");
+const { existsSync, readdirSync } = await import("node:fs");
+const hasMinisign = !spawnSync("minisign", ["-v"]).error;
+const SIGN = resolve(repo, "src/shared/release-sign.mjs");
+const MAN = resolve(repo, "src/shared/release-manifest.mjs");
+const PUB = resolve(repo, "tests/fixtures/release/throwaway.pub");
+const KEY = readFileSync(resolve(repo, "tests/fixtures/release/throwaway.key"), "utf8");
+
+test("E-419.01: sign, then verify --pubkey; a flipped byte, another key's signature and a missing key exit 3; no key file is left", { skip: !hasMinisign && "minisign is not installed on this host" }, () => {
+  const work = join(tmp, `sign-${n++}`); mkdirSync(work);
+  const ktmp = join(work, "tmp"); mkdirSync(ktmp);   // TMPDIR of every child: must end empty
+  const files = M.collectTree(tree({ "bin/rein": "#!/bin/bash\n", "shared/node-version.sh": 'REIN_NODE_FLOOR="22.5"\n' }));
+  const { text } = M.buildManifest(files, { version: "0.5.0", minNode: "22.5.0", keyId: "0000000000000000" });
+  const tgz = join(work, "rein-0.5.0.tar.gz");
+  writeFileSync(tgz, M.buildTarball(files, text));
+  const run = (mod, args, key) => spawnSync(process.execPath, [mod, ...args], {
+    encoding: "utf8", env: { PATH: process.env.PATH, TMPDIR: ktmp, ...(key === undefined ? {} : { REIN_RELEASE_KEY: key }) } });
+
+  const s = run(SIGN, ["sign", tgz, "--pubkey", PUB], KEY);
+  assert.equal(s.status, 0, s.stderr);
+  const sig = readFileSync(`${tgz}.minisig`, "utf8");
+  assert.match(sig, /trusted comment: .*file:rein-0\.5\.0\.tar\.gz version:0\.5\.0/, "the trusted comment names file and version");
+  assert.equal(Buffer.from(sig.split("\n")[1], "base64").subarray(0, 2).toString("latin1"), "ED", "the prehashed form");
+  assert.doesNotMatch(s.stdout + s.stderr, /RWQ|untrusted comment: THROWAWAY/, "no key material in the output");
+  assert.deepEqual(readdirSync(ktmp), [], "the key's temp directory is gone after a signature");
+  const v = run(MAN, ["verify", tgz, "--pubkey", PUB]);
+  assert.equal(v.status, 0, v.stderr);
+  assert.match(v.stdout, /signature verified/);
+
+  const flipped = Buffer.from(readFileSync(tgz)); flipped[flipped.length - 20] ^= 1;
+  const ftgz = join(work, "flipped.tar.gz"); writeFileSync(ftgz, flipped); writeFileSync(`${ftgz}.minisig`, sig);
+  const vf = run(MAN, ["verify", ftgz, "--pubkey", PUB]);
+  assert.equal(vf.status, 3, "a flipped tarball byte");
+  assert.match(vf.stderr, /\[RELEASE_SIGNATURE_BAD\]/);
+
+  spawnSync("minisign", ["-G", "-W", "-p", join(work, "other.pub"), "-s", join(work, "other.key")]);
+  const o = run(SIGN, ["sign", tgz, "--pubkey", join(work, "other.pub")], readFileSync(join(work, "other.key"), "utf8"));
+  assert.equal(o.status, 0, o.stderr);
+  assert.equal(run(MAN, ["verify", tgz, "--pubkey", PUB]).status, 3, "another key's signature against the published key");
+  const wrong = run(SIGN, ["sign", tgz, "--pubkey", PUB], readFileSync(join(work, "other.key"), "utf8"));
+  assert.equal(wrong.status, 3, "a key that is not the published key's pair fails the self-check");
+
+  rmSync(`${tgz}.minisig`);
+  const none = run(SIGN, ["sign", tgz, "--pubkey", PUB]);
+  assert.equal(none.status, 3, "no REIN_RELEASE_KEY");
+  assert.match(none.stderr, /\[RELEASE_SIGN_REFUSED\] REIN_RELEASE_KEY is not set/);
+  assert.equal(existsSync(`${tgz}.minisig`), false, "…and nothing is left beside the tarball");
+  assert.deepEqual(readdirSync(ktmp), [], "the key's temp directory is gone after a refusal too");
+});

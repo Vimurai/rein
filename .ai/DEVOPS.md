@@ -859,3 +859,43 @@ deleted on origin is restorable from its PR page for 90 days. The local clone is
 pointer line from ENGINEER.md and its template (restoring the deleted section) and the skill's Step 3.5; revert
 the hosted-ci.mjs change (the `cleanup` fields, `cleanupFor`, `repoSlug`,
 `ghDeleteBranchOnMerge` and the advisory in `--check`). Restore any deleted branch from its PR page.
+
+## DEVOPS-019 — The release job signs the artifact; a dispatchable dry run proves the path (E-419, D-153 r1, D-155 r6, addendum 4) — 2026-11-11
+
+**What changes.** `.github/workflows/release.yml` (hand-written; the rendered `ci.yml` is not
+touched, D-155 addendum 4):
+- The `release` job is bound to the GitHub environment `release` and gains, after "Required
+  checks are green" and before "Publish the release": install minisign (apt) → `rein release
+  stage` → `rein release manifest --pubkey docs/contract/release-key.pub` → assert
+  `v<manifest.version>` equals the tag → `rein release sign` (REIN_RELEASE_KEY from the
+  environment secret, in that one step's env) → `rein release verify --pubkey`. "Publish the
+  release" attaches `rein-X.Y.Z.tar.gz`, its `.minisig` and `manifest.json`, and the notes gain
+  the tarball's sha256 and the key_id. A missing secret fails the job before anything is built
+  or published.
+- A new `workflow_dispatch` trigger and a `dry-run` job (dispatch only): the same stage →
+  manifest → sign → verify path with the committed THROWAWAY pair
+  (`tests/fixtures/release/throwaway.*`), then the tarball's sha256 and `minisign -v`. It
+  publishes and uploads nothing.
+- `matrix` and `release` carry an explicit `if:` for a push of a `v*` tag, so a dispatch never
+  reaches the real key or `gh release create`.
+
+**Why.** From the first tag after E-419 merges, a release without a signature does not exist
+(release-artifact.md §Component 3); rein-app installs only what verifies against the key baked
+into it.
+
+**Security implications.**
+- New secret: `REIN_RELEASE_KEY` (a password-free copy of the operator's key, same key id), on
+  the environment `release`, which deploys only from `v*` tags; `v*` tags are restricted to
+  repository admins by the "release tags" ruleset (both set up 2026-11-10). The secret is read
+  in one step's `env:`, never interpolated into a script, never echoed; `rein release sign`
+  writes it to a 0600 file in a private temp dir removed on every exit path.
+- The dry-run job has no `environment:`, references no secret and has `contents: read` only.
+- New network access: `apt-get install minisign` from the Ubuntu archive (apt-signed) in both
+  jobs. Actions stay pinned to commit SHAs; no new action.
+- Permissions: `release` keeps `contents: write` (create the release with its assets),
+  `checks: read`, `actions: read`; nothing added.
+
+**Rollback.** Revert the workflow change: the `release` job publishes notes only, as before
+(a release without assets, like v0.4.0). A bad release is `gh release delete <tag>`; a
+compromised key is rotated by committing a new public key and releasing the app with it before
+the next tag (release-artifact.md §Security).

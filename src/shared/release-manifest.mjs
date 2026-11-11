@@ -13,10 +13,11 @@
 
 import { createHash } from "node:crypto";
 import { closeSync, constants, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { INSTALL_GENERATED, MIRRORED, OPERATOR_OWNED, operatorOwned } from "./release-layout.mjs";
 import { readTarGz, TarError, ustarSplit, writeTarGz } from "./release-tar.mjs";
+import { verifySignature } from "./release-sign.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -219,7 +220,7 @@ function writeAtomic(path, data) {
 
 const USAGE =
   "usage: rein release manifest <tree> [--out <dir>] [--no-tarball] --pubkey <file>\n" +
-  "       rein release verify <tarball>";
+  "       rein release verify <tarball> [--pubkey <file>]";
 
 function usage(msg) {
   process.stderr.write(`${msg ? `rein release: ${msg}\n` : ""}${USAGE}\n`);
@@ -279,15 +280,31 @@ function cmdManifest(args) {
 }
 
 function cmdVerify(args) {
-  if (args.includes("--pubkey")) return usage("--pubkey: signature checking is not built yet (E-419)");
-  if (args.length !== 1 || args[0].startsWith("-")) return usage();
+  // E-419 (D-155 r6): with --pubkey the signature is checked FIRST (`minisign -V` on
+  // <tarball>.minisig); a bad or missing signature is exit 3 before any member is read.
+  let file, pubkey;
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--pubkey") { pubkey = args[++i]; if (!pubkey) return usage("--pubkey needs a value"); }
+    else if (args[i].startsWith("-") || file) return usage(`unexpected argument '${args[i]}'`);
+    else file = args[i];
+  }
+  if (!file) return usage();
   let gz;
   try {
-    gz = readFileSync(args[0]);
+    gz = readFileSync(file);
   } catch (e) {
-    return usage(`${args[0]}: ${e.code === "ENOENT" ? "no such file" : e.message}`);
+    return usage(`${file}: ${e.code === "ENOENT" ? "no such file" : e.message}`);
   }
-  console.log("signature not checked");
+  if (pubkey) {
+    const bad = verifySignature(file, pubkey);
+    if (bad) {
+      process.stderr.write(`[RELEASE_SIGNATURE_BAD] ${basename(file)}: ${bad}\n`);
+      return 3;
+    }
+    console.log(`✓ signature verified against ${basename(pubkey)}`);
+  } else {
+    console.log("signature not checked");
+  }
   const { findings, count } = verifyTarball(gz);
   if (!findings.length) {
     console.log(`✓ ${count} files match the manifest`);

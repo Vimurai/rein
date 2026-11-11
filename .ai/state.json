@@ -5148,6 +5148,15 @@
       "summary": "[TIER_2] E-427 follow-ups (Architect review points 2-3 and CI 3f9d334): under --scope install the gh and Triad-launcher sections are not executed (gh may contact GitHub; the account probe runs claude auth status); GIT_CEILING_DIRECTORIES stops git above doctor's empty dir (a TMPDIR inside a repo is not a project); _dr/_dr_lines inline the scope test so a lifted _dr stays self-contained (project-upgrade COMM row)",
       "sha": "3f9d334a5610460295e6ee485b77ad81b1edeca2",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T13:48:18.705Z",
+      "summary": "[TIER_1] merge of origin/main (f7b3554: E-426 #41, reviewed and merged) into e-427-doctor-scopes; .ai/ stamps unioned",
+      "sha": "469260d21f1592e05ce841483ee19250337e7530",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

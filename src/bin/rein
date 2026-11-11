@@ -4551,8 +4551,8 @@ for name, info in reg.get("mcp_servers", {}).items():
         local sdir="${MCP_DIR}/${srv_name}"
         [[ ! -d "$sdir" ]] && continue
         if [[ ! -d "${sdir}/node_modules" ]] || (cd "$sdir" && npm list --depth=0 2>&1 | grep -q "missing\|UNMET\|invalid"); then
-          echo "  → npm install: ${srv_name}..."
-          (cd "$sdir" && npm install --silent 2>&1) && echo "    ✓ done" || echo "    ✗ failed"
+          echo "  → installing dependencies: ${srv_name}..."
+          _mcp_deps "$srv_name" "$sdir" --force >/dev/null && echo "    ✓ done" || echo "    ✗ failed"   # E-426: never rewrites a shipped lock; --force: F3
         fi
       done < <(python3 -c "
 import json
@@ -4853,6 +4853,57 @@ _install_browsers() {
   return 0   # never fail the install over an optional browser
 }
 
+# ── E-426 (D-158 r1-r6, r13; release-artifact.md §Component 4): no rein command writes a shipped
+# file. `npm install` rewrites a package-lock.json whose root entry is out of date, and that lock
+# is listed in manifest.files, so every later tree check failed. A server whose lock is SHIPPED
+# installs with `npm ci`, which installs the lock as written and never changes it.
+#
+# _mcp_lock_shipped <server> — status 0 when mcp/<server>/package-lock.json is shipped. One
+# function, two sources: manifest.files in artifact mode (~/.rein/manifest.json), else the clone
+# the install came from (a tracked src/mcp/<server>/package-lock.json).
+_mcp_lock_shipped() {
+  local server="$1" ws
+  if [[ -f "${REIN}/manifest.json" ]]; then
+    command -v node >/dev/null 2>&1 || return 1
+    node -e 'const m=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8"));
+      process.exit((m.files||[]).some((f)=>f&&f.path===process.argv[2])?0:1)' \
+      "${REIN}/manifest.json" "mcp/${server}/package-lock.json" 2>/dev/null
+    return $?
+  fi
+  ws="$(_resolve_rein_workspace)"
+  [[ -n "$ws" ]] && git --literal-pathspecs -C "$ws" ls-files --error-unmatch "src/mcp/${server}/package-lock.json" >/dev/null 2>&1
+}
+
+_lock_sha256() {  # <file> → hex on stdout
+  node -e 'process.stdout.write(require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' "$1" 2>/dev/null
+}
+
+# _mcp_deps <server> <dir> [--force] — install one server's dependencies. A shipped lock: `npm ci`, then
+# the lock's sha256 is written to node_modules/.rein-lock.sha256, and a later run whose marker
+# still equals the lock's sha256 skips npm entirely. No shipped lock: `npm install`, as before.
+# --force (doctor --repair) ignores the marker: repair runs because node_modules is broken.
+# Prints npm's last two lines; status 1 after printing the ✗ line.
+_mcp_deps() {
+  local server="$1" sdir="$2" force="${3:-}" want have=""
+  if [[ -f "${sdir}/package-lock.json" ]] && _mcp_lock_shipped "$server"; then
+    want="$(_lock_sha256 "${sdir}/package-lock.json")"
+    [[ "$force" != "--force" && -f "${sdir}/node_modules/.rein-lock.sha256" ]] && have="$(head -c 64 "${sdir}/node_modules/.rein-lock.sha256")"
+    if [[ -n "$want" && "$want" == "$have" ]]; then
+      echo "  ○ ${server}: node_modules match the shipped lock — npm ci skipped"
+      return 0
+    fi
+    if (cd "$sdir" && npm ci --silent 2>&1 | tail -2); then
+      # security_engineer E-426 F1: replace the marker, never write through a link planted there.
+      rm -f -- "${sdir}/node_modules/.rein-lock.sha256"
+      [[ -n "$want" ]] && printf '%s\n' "$want" > "${sdir}/node_modules/.rein-lock.sha256"
+      return 0
+    fi
+    echo "  ✗ ${server}: npm ci failed"
+    return 1
+  fi
+  (cd "$sdir" && npm install --silent 2>&1 | tail -2) || { echo "  ✗ ${server}: npm install failed"; return 1; }
+}
+
 do_mcp_setup() {
   local MCP_DIR="${REIN}/mcp"
   local REGISTRY="${REIN}/config/registry.json"
@@ -4909,7 +4960,7 @@ for name, info in d.get('mcp_servers', {}).items():
     local sdir="${MCP_DIR}/${server}"
     if [[ -d "$sdir" && -f "${sdir}/package.json" ]]; then
       echo "  Installing ${server}..."
-      (cd "$sdir" && npm install --silent 2>&1 | tail -2) || echo "  ✗ ${server}: npm install failed"
+      _mcp_deps "$server" "$sdir" || true   # E-426: npm ci for a shipped lock; the install continues
       # E-235 (D-061 §3): the browser download is NO LONGER part of the default install.
       #
       # `npx playwright install chromium` is an unbounded ~150MB network fetch. On

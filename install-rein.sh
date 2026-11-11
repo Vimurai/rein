@@ -36,6 +36,11 @@ set -euo pipefail
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REIN="${HOME}/.rein"
 
+# E-420 (D-155 r4, release-artifact.md §Component 4): the post-copy steps live in one file that
+# `rein install` also runs for an unpacked release artifact; sourced from THIS clone.
+# shellcheck source=src/shared/install-finalize.sh
+. "${REPO_DIR}/src/shared/install-finalize.sh"
+
 # E-417 (D-155 r1, release-artifact.md §Component 1): `--stage <dir>` runs steps 0 and 1 up to
 # and including _verify_stage with <dir> as the stage, then exits 0 having written nothing
 # under $HOME. <dir> must not exist or must be an empty directory (refused exit 3 otherwise).
@@ -138,21 +143,11 @@ if git -C "$REPO_DIR" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 fi
 
 # ── 0b) E-290 (D-081 r1, D-083): the hooks run under PRIVILEGED /bin/bash ──────────
-# Every generated hook entry is the exec form {"command":"/bin/bash","args":["-p",…]}
-# and every git stub is `#!/bin/bash -p`. A host without a /bin/bash that accepts -p (e.g.
-# NixOS) gets NO hooks rather than hooks resolved through PATH: a gate's interpreter never
-# falls back to PATH. The rest of the install proceeds; the exit status says it failed.
-# _REIN_TEST_HOOK_BASH lets the test suite simulate such a host — it is read by THIS
-# installer only, never by a hook (the T-LOCATOR-001 lesson).
-_HOOK_BASH="${_REIN_TEST_HOOK_BASH:-/bin/bash}"
+# rein_fin_probe_hook_bash (install-finalize.sh). The rest of the install proceeds; the exit
+# status says it failed. E-417: the probe is a property of the installing host, not of an
+# artifact — stage mode always stages hooks/ and never runs it.
 _HOOKS_REFUSED=0
-# E-417: the probe is a property of the installing host, not of an artifact — stage mode
-# always stages hooks/ and never runs it.
-if [[ -z "$_REIN_STAGE_DIR" ]] && ! { [[ -f "$_HOOK_BASH" && -x "$_HOOK_BASH" ]] \
-       && env -i "$_HOOK_BASH" -p -c 'case $- in *p*) exit 0 ;; esac; exit 1' >/dev/null 2>&1; }; then
-  _HOOKS_REFUSED=1
-  echo "[HOOK_BASH_MISSING] ${_HOOK_BASH} not found, not executable, or rejects -p — Rein hooks NOT installed (no PATH fallback, D-081/D-083). On NixOS link /bin/bash (e.g. a systemd tmpfile or environment.binsh) and re-run: bash install-rein.sh" >&2
-fi
+if [[ -z "$_REIN_STAGE_DIR" ]]; then rein_fin_probe_hook_bash; fi
 
 # ── 1) Copy src tree to ~/.rein ─────────────────────────────────────────────
 
@@ -300,6 +295,9 @@ for _t in contracts templates shared claude copilot config bin; do _live_one "$_
 _live_one mcp --filter='P node_modules/' --filter='P package-lock.json'
 [[ -d "${_STAGE}/scripts" ]] && _live_one scripts
 [[ "$_HOOKS_REFUSED" -eq 0 ]] && _live_one hooks
+# E-420 (D-155 r4): a clone install is never an artifact install. manifest.json is what makes
+# `rein install` treat the tree as an unpacked release, so a clone install removes it.
+rm -f -- "${REIN}/manifest.json"
 
 # E-270: the version stamp. Written after the copy so a failed copy never advertises a
 # version whose files are not there; tmp + rename so a reader sees old or new, never half.
@@ -329,14 +327,7 @@ echo "✓ Recorded REIN_WORKSPACE=${REPO_DIR}"
 
 # E-304: the install stamp — which tree, which commit, and whether it was dirty. `rein doctor`
 # reads it ("installed from an uncommitted tree"). tmp + rename: a reader sees old or new.
-python3 - "${REIN}/config/install-stamp.json" "$REPO_DIR" "$_REIN_COMMIT" "$_REIN_DIRTY" "$REIN_VERSION" <<'PYSTAMP' || true
-import json, os, sys, time
-p, src, commit, dirty, ver = sys.argv[1:6]
-tmp = p + ".tmp.%d" % os.getpid()
-json.dump({"source": src, "commit": commit or None, "dirty": dirty == "1", "version": ver,
-           "installed_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, open(tmp, "w"))
-os.replace(tmp, p)
-PYSTAMP
+rein_fin_write_stamp "${REIN}/config/install-stamp.json" "$REPO_DIR" "$_REIN_COMMIT" "$_REIN_DIRTY" "$REIN_VERSION"
 
 echo "✓ Files copied to ${REIN}"
 
@@ -389,22 +380,20 @@ purge_tree_orphans() {
 # skipped silently, and every mirror dir would then look retired (critic_security, E-273).
 # A partial or sparse clone must never wipe the working mirror.
 purge_retired_mcp_mirrors() {  # <src-mcp-dir> <mirror-mcp-dir>
-  local src="$1" dst="$2" s d n count=0
+  # E-420: the src guard stays here; the removal is rein_fin_purge_retired_mcp (install-finalize.sh),
+  # which artifact mode calls with the manifest's server names.
+  local src="$1" dst="$2" s count=0
+  local -a live=()
   for s in "${src}/"*/; do
-    if [[ -f "${s}index.js" ]]; then count=$((count + 1)); fi
+    [[ -d "$s" ]] || continue
+    [[ -f "${s}index.js" ]] && count=$((count + 1))
+    s="${s%/}"; live+=("${s##*/}")
   done
   if [[ "$count" -eq 0 ]]; then
     echo "⚠  ${src} has no servers — retired-mirror cleanup skipped"
     return 0
   fi
-  for d in "${dst}/"*/; do
-    [[ -d "$d" ]] || continue
-    n="$(basename "$d")"
-    if [[ -z "$n" || -d "${src}/${n}" ]]; then continue; fi
-    rm -rf -- "${dst:?}/${n:?}"
-    echo "✓ Removed retired MCP server mirror ${dst}/${n}"
-  done
-  return 0
+  rein_fin_purge_retired_mcp "$dst" "${live[@]}"
 }
 
 # Always run dynamic orphan cleanup (rsync --delete handles this for rsync path;
@@ -427,12 +416,7 @@ fi
 
 # E-254 (D-069): v3 mirrored two provider trees that v4 no longer ships. Both were written
 # with rsync --delete from src/, so nothing user-owned lives in them — remove on upgrade.
-for legacy_mirror in gemini agents; do
-  if [[ -d "${REIN}/${legacy_mirror}" ]]; then
-    rm -rf "${REIN:?}/${legacy_mirror}"
-    echo "✓ Removed legacy install mirror ${REIN}/${legacy_mirror}"
-  fi
-done
+rein_fin_purge_legacy_mirrors "${REIN}"
 
 # ── 2b) E-286 (D-078, T-HOOKENV-001): record the hook toolchain ─────────────────
 # The hooks no longer resolve node/python3/nice through an inherited PATH (a project's
@@ -443,72 +427,11 @@ done
 # both of which would otherwise delete it (it is not in src/shared/).
 # A refused interpreter is NOT recorded: the hooks then use the fixed fallback PATH and a
 # fail-closed gate blocks with [TOOLCHAIN_STALE] rather than run something unvetted.
-_record_hook_toolchain() {
-  # shellcheck source=src/shared/toolchain-record.sh
-  . "${REPO_DIR}/src/shared/toolchain-record.sh" || return 1
-  # Project roots: the framework clone, the git toplevel of the cwd, and the cwd only when
-  # it IS a Rein project — an installer run from $HOME must not refuse ~/.nvm's node.
-  local -a roots=("$REPO_DIR")
-  local top; top="$(git rev-parse --show-toplevel 2>/dev/null)" && roots+=("$top")
-  [[ -d .ai ]] && roots+=("$(pwd -P)")
-  local n p nc rn rp rnc ok=1
-  n="$(command -v node 2>/dev/null)"; p="$(command -v python3 2>/dev/null)"
-  nc="$(command -v nice 2>/dev/null)"; [[ -n "$nc" ]] || nc=/usr/bin/nice
-  rn="$(rein_tc_check "$n" "${roots[@]}")"   || { echo "✗ hook toolchain: node not recorded (${n:-not found})" >&2; ok=0; }
-  rp="$(rein_tc_check "$p" "${roots[@]}")"   || { echo "✗ hook toolchain: python3 not recorded (${p:-not found})" >&2; ok=0; }
-  rnc="$(rein_tc_check "$nc" "${roots[@]}")" || { echo "✗ hook toolchain: nice not recorded (${nc})" >&2; ok=0; }
-  if [[ "$ok" -eq 1 ]] && rein_tc_write "${REIN}/shared/toolchain.sh" "$rn" "$rp" "$rnc"; then
-    echo "✓ Hook toolchain pinned: node ${rn} · python3 ${rp}"
-    # E-305 (D-089 r3): the gate path's pinned dependencies, recorded beside the interpreters
-    # (readers skip any line they do not recognise; `rein doctor` prints the set).
-    if command -v node >/dev/null 2>&1 && [[ -f "${REIN}/shared/gate-pins.mjs" ]]; then
-      node --no-warnings "${REIN}/shared/gate-pins.mjs" list "${REIN}/mcp" 2>/dev/null \
-        | sed 's/^/REIN_TC_GATEDEP=/' >> "${REIN}/shared/toolchain.sh" || true
-    fi
-  else
-    rm -f "${REIN}/shared/toolchain.sh"
-    echo "! Hook toolchain NOT pinned — the hooks fall back to a fixed system PATH and the gate" >&2
-    echo "  blocks with [TOOLCHAIN_STALE] if it finds no interpreter there. Fix the path above and re-run." >&2
-  fi
-}
-_record_hook_toolchain
+rein_fin_record_toolchain "${REIN}" "${REPO_DIR}/src/shared/toolchain-record.sh" "$REPO_DIR"
 
 # ── 3) PATH setup ─────────────────────────────────────────────────────────────
 
-ensure_path_line() {
-  local rc="$1"
-  local line='export PATH="$HOME/.rein/bin:$PATH"'
-  [[ -f "$rc" ]] || touch "$rc"
-  if ! grep -qF "$line" "$rc" 2>/dev/null; then
-    printf "\n# Rein\n%s\n" "$line" >> "$rc"
-    echo "✓ Added PATH to ${rc}"
-  fi
-}
-
-# E-50: restore native terminal scrollback for tmux users by disabling
-# Claude Code's TUI alternate-screen mode at the shell level. This ensures
-# `claude` invoked outside a Rein project still inherits the flag. Per
-# claude-obsidian-optimizations §Rollback: comment the export out if a
-# specific OS shows rendering bugs.
-ensure_env_line() {
-  local rc="$1" var="$2" value="$3"
-  local line="export ${var}=\"${value}\""
-  [[ -f "$rc" ]] || touch "$rc"
-  # Match on the variable name so re-runs don't append duplicates even if
-  # the value has been edited.
-  if ! grep -qE "^export[[:space:]]+${var}=" "$rc" 2>/dev/null; then
-    printf "%s\n" "$line" >> "$rc"
-    echo "✓ Added ${var} to ${rc}"
-  fi
-}
-
-ensure_path_line "${HOME}/.zprofile"
-ensure_path_line "${HOME}/.zshrc"
-ensure_path_line "${HOME}/.bashrc"
-
-ensure_env_line "${HOME}/.zprofile" "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" "1"
-ensure_env_line "${HOME}/.zshrc"    "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" "1"
-ensure_env_line "${HOME}/.bashrc"   "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN" "1"
+rein_fin_profile_lines   # PATH and CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN (install-finalize.sh)
 
 # E-304 (D-089 r2): the installer no longer exports REIN_WORKSPACE from shell profiles. The
 # persisted ~/.rein/config/rein-workspace.txt is the record (`rein` reads it first, and `rein sync`

@@ -4985,3 +4985,37 @@ rein-app's first tag waits on three things in this repository. Its release workf
 Rulings 1–2: none needed; a public key and an attribute. Rulings 4–6: scheduling. Rulings 7–10: remove the `cargo` step and the `[CI_NO_TESTS]` check from `_ci_run`; rows already written stay valid.
 
 ---
+
+## D-155 addendum 2 — E-420: rows that assert where the profile-line helper's source lives follow it to `install-finalize.sh`; "pass unedited" protects behaviour
+
+**Date**: 2026-11-10
+**Task**: E-420 (Engineer question 2026-11-10; D-155 r4, .ai/blueprints/release-artifact.md §Component 4)
+**Decision**: The five T-ALT-S03 rows in `tests/suites/rein_start_test.sh` are retargeted from `install-rein.sh` to `src/shared/install-finalize.sh`; no other existing row is edited.
+
+### Why needed
+E-420's acceptance says "the existing installer rows pass unedited". T-ALT-S03 greps `install-rein.sh` for the `ensure_env_line()` definition and its three `CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN` calls (`.zprofile`, `.zshrc`, `.bashrc`). §Component 4 moves exactly that code into `install-finalize.sh`, so the two statements cannot both hold.
+
+### Rulings
+1. **"Pass unedited" means behaviour**: output, exit codes and files written by the installer. A row that asserts which file holds a piece of source follows the source when a ruling moves it.
+2. **The five T-ALT-S03 rows change in their file variable and section label only**, with a comment naming E-420. No copy of `ensure_env_line` stays in `install-rein.sh`.
+3. **Two assertions are added to T-ALT-S03** (it is extended; no new suite, D-088): `install-rein.sh` sources `install-finalize.sh` from the clone, and `install-rein.sh` does not contain `ensure_env_line()`. They pin one implementation, which is what the old rows pinned by location.
+4. **T-ALT-S04 and every behavioural installer row stay unedited and must pass.** This ruling covers these five rows; another row that needs an edit comes back to the Architect.
+5. **`purge_retired_mcp_mirrors` stays in `install-rein.sh` as a thin wrapper** that applies the src guard and calls the finalize function (rows E-273.06c–e extract it by that name). A call is not a second implementation. `_rein_remove_workspace_export` and the `REIN_WORKSPACE` prompt stay in `install-rein.sh`: they are clone-only.
+
+### Alternatives considered
+1. **Keep a copy of the helper in `install-rein.sh` so the rows pass** — rejected: two implementations of one policy (engineering standards), and artifact mode would run the other one.
+2. **Leave the profile lines out of `install-finalize.sh`** — rejected: an artifact install would then write no PATH or alternate-screen line, which §Component 4 step 6 requires.
+3. **Retarget the rows (chosen)** — they keep asserting the same text in the file that now owns it.
+
+### Constraints driving this decision
+- One implementation of the post-copy steps, shared by the clone path and artifact mode (D-155 r4).
+- D-088: extend rows, no suite named for a task.
+
+### Impact
+- Unlocks: E-420. The Engineer lists the retargeted rows in the closing handoff as a divergence from the task text.
+- Risk if wrong: none to behaviour; the rows assert text, and T-ALT-S04 plus the installer rows still assert what the code does.
+
+### Rollback
+Inline `install-finalize.sh` back into `install-rein.sh` and point the five rows back; the two added assertions go with it.
+
+---

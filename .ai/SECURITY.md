@@ -803,3 +803,141 @@ Follow-ups (P2, none gating; the probe is advisory):
 for every lane in tests/run.sh) is outside E-407's scope and goes to the Architect as a harness
 follow-up: lanes already run under a throwaway HOME, so gh is logged out there unless
 GH_TOKEN/GH_CONFIG_DIR/XDG_CONFIG_HOME is inherited.
+
+## E-420 / D-155 r4, addenda r1–r3 — `rein install` artifact mode and `install-finalize.sh` (security_engineer, 2026-11-10)
+
+Verdict: **SEC_BLOCKED**, on one P2 (F1) whose fix is small. Everything else is P3. I reviewed the staged diff (`git diff --cached`)
+and the unstaged follow-ups in the working tree: `python3 -I` in `rein_fin_write_stamp`, and the `typeof`/`nameProblem`
+check moved ahead of the `mcp/` regex in `checkInstalled`. **Both unstaged changes must be staged before the commit.**
+Without the second one, a `null` entry in `files` throws in node. That still fails closed (`|| return 3`), but it prints a
+stack trace instead of `[INSTALL_TREE_MISMATCH]`.
+
+Harness deviation: `ulimit -u 64` makes even `fork` fail on this host, because the user already has about 1480 threads
+and the cap is per user. It was dropped. `ulimit -v` was raised to 2 GB for node. The other caps were kept: `ulimit -t 5 -f 10240`,
+`env -i PATH=/usr/bin:/bin HOME=$T`, a mktemp dir and a 10 s wall-clock kill. The fixtures were copies of
+`release-{manifest,layout,tar}.mjs` and `install-finalize.sh`. The real `~/.rein` was never touched.
+
+### Answers to the four review questions
+1. **Can a crafted manifest reach outside `~/.rein`?** Not by itself. `nameProblem` (release-manifest.mjs:64-72) refuses
+   absolute paths (they produce an empty first segment), `..`, `.`, empty segments, backslashes and control characters.
+   `join(rein, path)` therefore stays under the home *as a string*. Server names come only from validated paths
+   (`^mcp/([^/]+)/`), so they cannot contain `/`, `..`, a tab or a newline. The bash purge quotes them, and they match as
+   literals (`case " $* " in *" ${n} "*`, install-finalize.sh:147). A symlinked entry is unlinked and never followed
+   (:148-149). An empty live set removes nothing. A crafted manifest **combined with a crafted tree** does reach outside
+   (F1): an ancestor directory that is a symlink is followed by `lstatSync`/`readFileSync`/`chmodSync`
+   (release-manifest.mjs:287-292), and a hard-linked file is accepted. When `~/.rein/mcp` is itself a symlink,
+   `rein_fin_purge_retired_mcp` lists and runs `rm -rf` inside the link's target (install-finalize.sh:144-151). Modes are
+   limited to 0755/0644 and are applied only after size and sha256 match (:292), so a `4755` is ignored. Nothing
+   operator-owned under a mirrored directory is deleted: the purge acts only on `mcp/<name>` directories with no shipped
+   file, and `mcp/*/node_modules` goes with its retired server, which addendum r1 specifies.
+2. **Can artifact mode be forged into weakening the gate?** The ordering holds. The tree check (src/bin/rein:1785,
+   `|| return 3`) runs before the Node floor, the probe, the pin and the stamp. Each failure path fails closed: an
+   unreadable manifest, a dangling-symlink manifest (`-e || -L`), a directory where the manifest should be, the wrong
+   schema, a version other than `VERSION`, a missing `release-manifest.mjs` or `install-finalize.sh`, and node absent. There
+   is no fallback to the clone path. Deleting `manifest.json` drops the install into clone mode, which pins nothing, and
+   doing so needs a write under `~/.rein`, which the gate already refuses. The gap is F1. Because the check accepts a
+   symlinked ancestor or a hard link, the statement "only files under `~/.rein` enter it" is not actually verified. The
+   doctor's `✓ … files match the manifest` can then appear over hook bytes that live at a path the ~/.rein write rule does
+   not name (symlink target), or at a second name an agent can write (hard link). The clone path's rsync replaces a
+   symlinked directory with a real one. The artifact path neither does that nor detects it.
+3. **What the sha256 check is worth.** It is an integrity and completeness check, not an authenticity check. The manifest
+   sits beside the files it describes, so anyone who can change a file can also rewrite the manifest. It catches a partial
+   or interrupted unpack, the window an installer leaves between file renames, bit rot, a stale file left by a failed
+   sync, and a hand edit made after unpacking (the flipped byte in `hooks/pre-tool-use.sh`). It does **not** catch a
+   coordinated rewrite of a file and the manifest, extra unlisted files, or a downgrade to a different validly-shaped tree.
+   It also cannot prove that a signature was ever checked. `key_id` in the stamp and in the line
+   `✓ Release … (key …) verified against its manifest` (rein:1811) is the manifest's own claim. Authenticity belongs to E-419
+   and the app, which verify the minisign signature over the tarball before the first byte reaches the home.
+4. **Shell injection and word splitting.** None found. All expansions in install-finalize.sh, `_install_artifact`,
+   `_install_stamp_reconcile`, `_rein_fix_install` and `_install_report` are quoted. Arrays are expanded as
+   `${a[@]+"${a[@]}"}`. Data is passed to python as argv with `-I`, never by interpolating it into the code. Glob characters
+   in names are matched literally (probe 2 below). One parsing weakness remains: `key_id` is not validated (F2). A newline
+   in it injects `version` and `server` lines into the tab-separated output that bash parses. The effect is that extra live
+   names are kept, which is the fail-safe direction, and that the stamp's version becomes two lines, which the next
+   `rein install` rewrites as `restored`.
+
+### Findings
+- **F1 (P2, blocking: an EXPLOITED pen-test row)**: release-manifest.mjs:285-292 accepts a listed file reached through a
+  symlinked ancestor or a hard link, and `chmodSync` then changes the mode of a file outside the home (probe A: the
+  outside file went from 0600 to 0755). install-finalize.sh:136-151 also runs `rm -rf` inside a symlinked
+  `<home>/mcp` (probe 5).
+  *Fix:* in `checkInstalled`, take `const base = realpathSync(rein)` once. For each entry, require
+  `realpathSync(p) === join(base, f.path)` and `st.nlink === 1`, and otherwise record a finding: "not a regular file
+  under the Rein home". Apply modes through `openSync(p, O_RDONLY|O_NOFOLLOW)` and `fchmodSync` on the fd after an
+  `fstat` that matches `st.ino`/`st.dev`. That also closes the lstat→chmod TOCTOU. In `rein_fin_purge_retired_mcp` and
+  `rein_fin_purge_legacy_mirrors`, return without removing anything when `[[ -L "$dst" ]]` or the home itself resolves
+  through a link, unless the operator chose a symlinked home. A `realpath`-based base keeps that case working. Add
+  contract rows for a symlinked `hooks/` and a hard-linked `hooks/pre-tool-use.sh`, both exit 3, with no pin written.
+- **F2 (P3)**: `key_id` is unvalidated (release-manifest.mjs:294, 314). Newlines inject `server`/`version` lines
+  (probe E). Control bytes reach the terminal and the stamp. *Fix:* in `checkInstalled`, treat anything other than
+  `/^[0-9A-F]{16}$/i` (the Data Model's "16 hex") as `incomplete`.
+- **F3 (P3)**: untrusted strings are printed raw. `manifest.version` appears in `[INSTALL_INCOMPLETE]` (:272, probe J:
+  an OSC title sequence) and the bad path appears in the "not a path a release may carry" finding (:280, the exact case
+  where it holds control bytes). Both reach `rein install` stderr and the `rein doctor` `✗ install:` line. *Fix:*
+  `JSON.stringify()` both strings in messages.
+- **F4 (P3)**: `checkInstalled` accepts top-level segments outside `layout.mirrored`, such as `secrets/k`. When the
+  attacker knows a file's bytes, the manifest can set it to 0644 (probe H: `secrets/k` went from 0600 to 0644). Knowing
+  the hash is the precondition. *Fix:* refuse a path whose first segment is not in `MIRRORED` (installer rule 1).
+- **F5 (P3)**: nothing requires the files artifact mode executes to be listed: `shared/install-finalize.sh`,
+  `node-version.sh`, `toolchain-record.sh`, `gate-pins.mjs`, `release-manifest.mjs`, `bin/rein` and `hooks/*.sh`. An
+  unlisted file runs unchecked. Also, "verified … (key X)" overstates what was checked (Q3). *Fix:* add these paths to a
+  required set in `checkInstalled` (missing → mismatch), and reword the line to `✓ Release X (manifest key_id K) matches
+  its manifest`.
+- **F6 (P3, informational)**: on a mismatch, files earlier in the list have already been chmod'ed (fixModes is applied
+  during the walk), so "nothing else done" is slightly untrue. This is harmless, because only hash-verified files are
+  touched. Apply modes in a second pass after `findings.length === 0`. `_s` in `_install_artifact` (rein:1787) is not
+  declared `local`.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A01 | checkInstalled | `hooks` → symlink to an outside dir, matching bytes | EXPLOITED | 0 | status ok; outside file chmod'ed 0600→0755 (F1) |
+| A01 | checkInstalled | `hooks/pre-tool-use.sh` hard link to an outside file | EXPLOITED | 0 | status ok; nlink not checked (F1) |
+| A01 | checkInstalled | leaf `hooks/pre-tool-use.sh` is a symlink | RESISTED | 0 | `not a regular file` → mismatch |
+| A01 | checkInstalled | `../escape`, `/etc/passwd`, `hooks/./x`, `config/install-stamp.json` | RESISTED | 0 | all `not a path a release may carry` |
+| A01 | checkInstalled | `secrets/k` (operator-owned, hash known) mode `0644` | EXPLOITED | 0 | 0600→0644; needs the file's bytes (F4, P3) |
+| A03 | checkInstalled → bash | `key_id` = `X\nserver\tinjected\nversion\t9.9.9` | EXPLOITED | 0 | `ver=0.5.0\n9.9.9`, extra live name `injected`; fail-safe (F2, P3) |
+| A03 | purge_retired_mcp | live name `*`; entries `*`, `-x`, `a b` | RESISTED | 0 | literal match; `-x` handled by `--` |
+| A03 | purge_retired_mcp | live name `x a` | RESISTED | 0 | keeps `a` and `x` (fail-safe over-keep only) |
+| A04 | purge_retired_mcp | entry `linkdir` → symlink to an outside dir | RESISTED | 0 | link unlinked, target content kept |
+| A04 | purge_retired_mcp | empty live set | RESISTED | 0 | nothing removed |
+| A04 | purge_retired_mcp | `<home>/mcp` itself a symlink | EXPLOITED | 0 | `rm -rf` inside the link target (F1) |
+| A04 | purge_legacy_mirrors | `gemini` → symlink | RESISTED | 0 | link removed, target kept |
+| A08 | checkInstalled | `null` entry; `{path: 7}`; mode `4755` | RESISTED | 0 | mismatch; mismatch; mode ignored |
+| A09 | checkInstalled message | version `ESC]0;pwn BEL`; path with `ESC[31m` | EXPLOITED | 0 | raw control bytes in the message (F3, P3) |
+
+Disposition: F1 blocks. Re-run probes A/B and probe 5 after the fix; they must fail with `[INSTALL_TREE_MISMATCH]`, or the
+purge must skip. Fix F2–F5 in the same pass if convenient. They are P3 and do not gate. P0: none. T-ARTIFACT-001 was added
+to THREAT_MODEL.md.
+
+### E-420 re-verification (security_engineer, 2026-11-10)
+
+Verdict: **SEC_CLEARED.** I re-ran the probes against the staged blobs (`git show :path`; the working tree equals the
+index for `src/` and the test). Both earlier P2 fixes are staged: `python3 -I` at install-finalize.sh:80, and
+`typeof`/`nameProblem` before the `mcp/` regex. Each probe starts from a baseline tree that holds all 11
+`INSTALL_REQUIRED` paths, so it can only fail on its own payload. The baseline returns `ok`, and so does a baseline
+whose home is a symlink, because `base = realpathSync(home)`. The harness was the same as before, again without
+`ulimit -u`. `tests/unit/release-manifest.test.mjs` passes 7/7.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A01 | checkInstalled | A: `hooks` → symlink to an outside dir | RESISTED | 0 | 3× `reached through a symbolic link`, CLI exit 3; outside file stays 0644 |
+| A01 | checkInstalled | A2: `mcp` → symlink | RESISTED | 0 | mismatch before any purge can run |
+| A01 | checkInstalled | B: hard link to `hooks/pre-tool-use.sh` | RESISTED | 0 | `a hard link (link count 2)` |
+| A01 | checkInstalled | K: unlisted `hooks/evil.sh` | RESISTED | 0 | `present but not listed in the manifest` |
+| A01 | checkInstalled | H: operator-owned `…/k` mode 0644 | RESISTED | 0 | `not a path a release may carry`; file stays 0600 |
+| A03 | checkInstalled → bash | E: `key_id` with `\nserver\t…\nversion\t…`; 17 hex | RESISTED | 0 | `[INSTALL_INCOMPLETE]` exit 3, value JSON-quoted |
+| A04 | purge_retired_mcp | 5: `<home>/mcp` is a symlink | RESISTED | 0 | `⚠ … symbolic link — retired-mirror cleanup skipped`; target intact |
+| A04 | purge_retired_mcp | 5b: real dir (regression) | RESISTED | 0 | retired `old` still removed |
+| A04 | purge_legacy_mirrors | 6b: `gemini` → symlink | RESISTED | 0 | link removed, target kept |
+| A08 | checkInstalled | L: tampered `hooks/session-start.sh` + mode drift elsewhere | RESISTED | 0 | mismatch; no chmod applied (`bin/rein` stays 0644; baseline gets 0755) |
+| A09 | messages | J: version `ESC]0;pwn BEL`; J2: path with `ESC[31m` | RESISTED | 0 | printed as `\u001b…` JSON escapes |
+
+The ordering is unchanged: the tree check (`|| return 3`) comes before the Node floor, the probe, the pin, the stamp,
+and the purges.
+
+Residual, P3, not gating: `rein_fin_purge_legacy_mirrors` returns early when the home itself is a symlink (probe 6).
+An operator who chose a symlinked `~/.rein` keeps v3's `gemini/` and `agents/` mirrors, although the tree check accepts
+that home. The behaviour is safe but inconsistent. If it matters, resolve the home with `cd -P` and purge there.
+F1–F6 are closed.

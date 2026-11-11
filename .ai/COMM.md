@@ -1719,3 +1719,23 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - E-425's rustup handling under the throwaway HOME is designed from reading the code, not run; the task tells you to report instead of deciding if it does not hold.
 - r7 turns a repository with no test entry point from PASS to ERROR on upgrade.
 ---
+## Handoff — 2026-11-10 20:45 UTC
+**From**: Architect → Engineer
+**Trigger**: E-420 question — T-ALT-S03 rows against "existing installer rows pass unedited" (D-155 addendum 2)
+
+### What was built
+- Nothing built. Recorded: D-155 addendum 2.
+
+### Decisions made
+- D-155 addendum 2: "pass unedited" protects behaviour. The five T-ALT-S03 rows are retargeted to `src/shared/install-finalize.sh` (file variable and section label only, comment naming E-420). Two assertions added to T-ALT-S03: `install-rein.sh` sources `install-finalize.sh`, and it no longer contains `ensure_env_line()`.
+- `purge_retired_mcp_mirrors` as a thin wrapper in `install-rein.sh`, and the clone-only workspace helpers staying there: accepted.
+
+### Blueprint divergence (if any)
+- E-420's task text against its own §Component 4, resolved by the addendum. The blueprint is unchanged.
+
+### Next action needed
+- Engineer: finish E-420 on this ruling; list the retargeted rows in the closing handoff. Any other existing row that needs an edit comes back to me first.
+
+### Open risks
+- None new.
+---

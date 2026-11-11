@@ -1101,6 +1101,23 @@ Separately, some shapes still let sync delete a user's own hook entry without a 
 `$HOMEDIR/…`. Each needs an edit to machine-local settings, which the classifier denies to an
 agent. Proofs of concept are the M-rows of that table.
 
+### T-ARTIFACT-001 — `rein install` trusts an unpacked release tree (security_engineer, E-420 review, 2026-11-10)
+
+- **Boundary:** `~/.rein/manifest.json` together with the files beside it is an input to `rein install`, which then
+  chmods, pins the toolchain, stamps the install and deletes retired `mcp/<name>` directories. The manifest is
+  unauthenticated at this point. The signature over the tarball (E-419/app) is checked only before unpacking.
+- **What it is:** an integrity and completeness check (size and sha256 per listed file). It is not authenticity: anyone
+  able to write a file under the home can also rewrite the manifest.
+- **Threats:** (a) a symlinked ancestor or a hard link puts verified bytes outside the path-based `~/.rein` write rule,
+  and chmod or `rm -rf` follow the link (E-420 F1, PoC in SECURITY.md probes A/B/5). (b) An unvalidated `key_id`
+  injects lines into the tab-separated output bash parses (F2). (c) Control bytes from the manifest are printed (F3).
+  (d) Paths outside `layout.mirrored` are accepted (F4).
+- **Mitigations:** the tree check runs before the pin, every failure exits 3, there is no clone fallback, `nameProblem`
+  validates paths, a symlinked purge entry is unlinked rather than followed, and an empty live set removes nothing.
+- **Residual:** F1–F6 were fixed and re-verified the same day (SEC_CLEARED): realpath equality plus nlink == 1,
+  `INSTALL_REQUIRED`, sealed `bin/` and `hooks/`, a 16-hex `key_id`, and no purge through a symlinked `mcp/`. A coordinated rewrite of file plus manifest by a party
+  already able to write the home is out of scope; the gate's `[GATE_SELF_DISABLE]` covers that.
+
 ## New Integration Checklist
 
 When a new external integration is added to Rein v2, create a new T-### entry in this file covering:

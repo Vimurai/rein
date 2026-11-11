@@ -261,6 +261,66 @@ PYLIST
   assert_contains "E-418.06d: …and says the signature was not checked" "signature not checked" "$_v"
   assert_status 0 "E-418.06f: rein help lists rein release manifest and verify" \
     bash -c "grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release manifest' && grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release verify'"
+  # E-420 (D-155 r4, addenda r1-r3): extends E-418.06 — the tarball above, unpacked into a fixture
+  # HOME by the §Data Model installer rule (tests/lib/release-unpack.mjs), finished by `rein
+  # install`, then used: init, sync and doctor in a project with no workspace record. The tree
+  # must equal the clone install of the same commit (DH0, E-304.04z), both taken after `rein install`.
+  _ai_in() {  # <home> <cwd> <rein args…>
+    local h="$1" d="$2"; shift 2
+    ( cd "$d" && HOME="$h" TMPDIR="$FAKE_TMP" CI=1 REIN_NO_PROJECT_SCAN=1 PATH="${STUBS}:${h}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" \
+        env -u REIN_WORKSPACE bash "${h}/.rein/bin/rein" "$@" ) </dev/null 2>&1
+  }
+  AH="$(test_tmpdir hyg-art-home)"; APROJ="$(test_tmpdir hyg-art-proj)"; ( cd "$APROJ" && git init -q )
+  node "$REPO_ROOT/tests/lib/release-unpack.mjs" "$DW" "${RO1}/rein-${_ver}.tar.gz" "${AH}/.rein"
+  _ai_out="$(_ai_in "$AH" "$FAKE_TMP" install)"; _ai_rc=$?
+  assert_status 0 "E-420.01a: rein install finishes the unpacked artifact (rc=${_ai_rc})" test "$_ai_rc" -eq 0
+  assert_contains "E-420.01b: …after checking it against its manifest" "matches its manifest (manifest key_id 5C9C75A7C8FA8056) and is finished" "$_ai_out"
+  _adiff="$(diff <(_tree_list "${AH}/.rein") <(_tree_list "${DH0}/.rein") 2>&1)"
+  assert_status 0 "E-420.01c: the same files under the mirrored directories as the clone install${_adiff:+ — ${_adiff:0:400}}" test -z "$_adiff"
+  # The pin is the host's to give: the toolchain check refuses an interpreter it cannot vouch for
+  # (a hosted runner's /opt/hostedtoolcache node is one), so the claim is "as the clone install
+  # of the same commit on the same host" — pinned to the same node, or refused by both.
+  _pin() { sed -n 's/^REIN_TC_NODE=//p' "$1/.rein/shared/toolchain.sh" 2>/dev/null; }
+  assert_status 0 "E-420.01d: the hook toolchain is pinned as the clone install pins it (artifact '$(_pin "$AH")', clone '$(_pin "$DH0")')" \
+    test "$(_pin "$AH")" = "$(_pin "$DH0")"
+  assert_status 0 "E-420.01e: the stamp says artifact, with the key id" \
+    python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["source"]=="artifact" and d["key_id"]=="5C9C75A7C8FA8056" and d["version"]==sys.argv[2], d' \
+    "${AH}/.rein/config/install-stamp.json" "$_ver"
+  assert_status 1 "E-420.01f: and there is no clone record" test -e "${AH}/.rein/config/rein-workspace.txt"
+  _ai_in "$AH" "$APROJ" init >/dev/null; _ai_in "$AH" "$APROJ" sync >/dev/null
+  _adoc="$(_ai_in "$AH" "$APROJ" doctor)"; _adrc=$?
+  assert_status 0 "E-420.01g: rein doctor in the project exits 0 (rc=${_adrc})" test "$_adrc" -eq 0
+  assert_contains "E-420.01h: …and reports the artifact install" "install: artifact ${_ver} (key 5C9C75A7C8FA8056)" "$_adoc"
+  # A flipped byte in a gate hook is refused before anything is pinned or stamped.
+  AH2="$(test_tmpdir hyg-art-home2)"
+  node "$REPO_ROOT/tests/lib/release-unpack.mjs" "$DW" "${RO1}/rein-${_ver}.tar.gz" "${AH2}/.rein"
+  python3 -I -c 'import sys; p=sys.argv[1]; b=bytearray(open(p,"rb").read()); b[10]^=1; open(p,"wb").write(b)' "${AH2}/.rein/hooks/pre-tool-use.sh"
+  _ai2="$(_ai_in "$AH2" "$FAKE_TMP" install)"; _ai2rc=$?
+  assert_status 0 "E-420.02a: a flipped byte in hooks/pre-tool-use.sh exits 3 (rc=${_ai2rc})" test "$_ai2rc" -eq 3
+  assert_contains "E-420.02b: …naming the mismatch and the file" "hooks/pre-tool-use.sh" "$_ai2"
+  assert_contains "E-420.02c: …as [INSTALL_TREE_MISMATCH]" "[INSTALL_TREE_MISMATCH]" "$_ai2"
+  assert_status 1 "E-420.02d: …before any pin or stamp is written" \
+    test -e "${AH2}/.rein/shared/toolchain.sh" -o -e "${AH2}/.rein/config/install-stamp.json"
+  # security_engineer E-420 F1: a second name for a gate hook is refused the same way.
+  AH3="$(test_tmpdir hyg-art-home3)"
+  node "$REPO_ROOT/tests/lib/release-unpack.mjs" "$DW" "${RO1}/rein-${_ver}.tar.gz" "${AH3}/.rein"
+  ln "${AH3}/.rein/hooks/pre-tool-use.sh" "${AH3}/hard-link"
+  _ai3="$(_ai_in "$AH3" "$FAKE_TMP" install)"; _ai3rc=$?
+  assert_status 0 "E-420.02e: a hard-linked hooks/pre-tool-use.sh exits 3 (rc=${_ai3rc})" test "$_ai3rc" -eq 3
+  assert_status 1 "E-420.02f: …before any pin is written" test -e "${AH3}/.rein/shared/toolchain.sh"
+  # A clone install over the artifact install leaves no manifest.json and a clone stamp.
+  ( cd "$FAKE_TMP" && HOME="$AH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" REIN_NO_PROJECT_SCAN=1 bash "$DW/install-rein.sh" ) >/dev/null 2>&1
+  assert_status 1 "E-420.03a: a clone install afterwards removes manifest.json" test -e "${AH}/.rein/manifest.json"
+  assert_status 0 "E-420.03b: …and stamps the clone" \
+    python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d["source"]==sys.argv[2] and "key_id" not in d, d' \
+    "${AH}/.rein/config/install-stamp.json" "$DW"
+  # D-155 addendum r3: a stamp that contradicts the tree ("artifact" with no manifest.json, as a
+  # rollback to an older snapshot leaves) is rewritten as "restored", and doctor says so.
+  printf '{"source": "artifact", "version": "%s", "key_id": "5C9C75A7C8FA8056"}' "$_ver" > "${AH}/.rein/config/install-stamp.json"
+  _ai_in "$AH" "$FAKE_TMP" install >/dev/null
+  assert_status 0 "E-420.03c: rein install rewrites a contradicting stamp as restored" \
+    python3 -I -c 'import json,sys; assert json.load(open(sys.argv[1]))["source"]=="restored"' "${AH}/.rein/config/install-stamp.json"
+  assert_contains "E-420.03d: …and doctor reports a restored tree" "install: restored tree, origin not recorded" "$(_ai_in "$AH" "$APROJ" doctor)"
   assert_status 0 "E-418.06e: the manifest lists every staged file, no more" \
     test "$(python3 -I -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["files"]))' "${RO1}/manifest.json")" = "$(cd "$ST" && find . -type f | wc -l | tr -d ' ')"
   echo "# uncommitted" >> "$DW/hooks/stop-hook.sh"

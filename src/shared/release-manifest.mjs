@@ -12,7 +12,7 @@
 // node: modules only; runnable from a checkout. The version is the checkout's package.json.
 
 import { createHash } from "node:crypto";
-import { lstatSync, mkdirSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
+import { closeSync, constants, fchmodSync, fstatSync, lstatSync, mkdirSync, openSync, readdirSync, readFileSync, realpathSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { INSTALL_GENERATED, MIRRORED, OPERATOR_OWNED } from "./release-layout.mjs";
@@ -252,10 +252,116 @@ function cmdVerify(args) {
   return 3;
 }
 
+/**
+ * E-420 (D-155 r4, addendum r2; release-artifact.md §Component 4): an unpacked artifact under
+ * the Rein home against its manifest.json. "incomplete" when the manifest is unreadable, not
+ * schema 1, or its version differs from VERSION (or there is none); "mismatch" when a listed
+ * file is missing, not a regular file, or differs in size or sha256. With fixModes, a file
+ * whose mode differs is chmod'ed to the manifest's mode (step 1). Read-only otherwise.
+ */
+// What artifact mode sources or runs before (or as) the gate: each must be listed and match
+// (security_engineer E-420 F5). bin/ and hooks/ may hold nothing the manifest does not list.
+export const INSTALL_REQUIRED = Object.freeze([
+  "bin/rein", "shared/install-finalize.sh", "shared/node-version.sh", "shared/toolchain-record.sh",
+  "shared/release-manifest.mjs", "shared/release-tar.mjs", "shared/release-layout.mjs", "shared/gate-pins.mjs",
+  "hooks/pre-tool-use.sh", "hooks/session-start.sh", "hooks/pre-commit.sh",
+]);
+const SEALED_DIRS = ["bin", "hooks"];
+
+export function checkInstalled(rein, { fixModes = false } = {}) {
+  let manifest, version = null, base;
+  try {
+    version = readFileSync(join(rein, "VERSION"), "utf8").split("\n")[0].trim() || null;
+  } catch { /* no VERSION */ }
+  try {
+    base = realpathSync(rein);
+    manifest = JSON.parse(readFileSync(join(base, "manifest.json"), "utf8"));
+  } catch {
+    manifest = null;
+  }
+  const q = (v) => JSON.stringify(v ?? null);  // never print a manifest value raw (F3)
+  const said = manifest ? (manifest.schema === 1 ? q(manifest.version) : `schema ${q(manifest.schema)}`) : "nothing readable";
+  if (!manifest || manifest.schema !== 1 || !Array.isArray(manifest.files) || manifest.version !== version) {
+    return { status: "incomplete", message: `manifest.json says ${said}, VERSION says ${q(version)} — the release was not fully unpacked; reinstall it` };
+  }
+  if (typeof manifest.key_id !== "string" || !/^[0-9A-F]{16}$/i.test(manifest.key_id)) {  // F2
+    return { status: "incomplete", message: `manifest.json key_id ${q(manifest.key_id)} is not 16 hex digits — reinstall the release` };
+  }
+  const findings = [];
+  const servers = new Set();
+  const listed = new Set();
+  const toChmod = [];
+  for (const f of manifest.files) {
+    const path = f?.path;
+    if (typeof path !== "string" || nameProblem(path) || !MIRRORED.includes(path.split("/")[0])) {  // F4
+      findings.push(`${q(path)}: not a path a release may carry`);
+      continue;
+    }
+    listed.add(path);
+    const m = /^mcp\/([^/]+)\//.exec(path);
+    if (m) servers.add(m[1]);
+    const p = join(base, path);
+    let st;
+    try { st = lstatSync(p); } catch { findings.push(`${path}: missing`); continue; }
+    if (!st.isFile()) { findings.push(`${path}: not a regular file`); continue; }
+    // F1: the file itself, under the home — no symlinked parent, no second name for the inode.
+    let real;
+    try { real = realpathSync(p); } catch { real = null; }
+    if (real !== p) { findings.push(`${path}: reached through a symbolic link`); continue; }
+    if (st.nlink !== 1) { findings.push(`${path}: a hard link (link count ${st.nlink})`); continue; }
+    if (st.size !== f.size) { findings.push(`${path}: size ${st.size}, manifest says ${q(f.size)}`); continue; }
+    if (createHash("sha256").update(readFileSync(p)).digest("hex") !== f.sha256) { findings.push(`${path}: sha256 differs from the manifest`); continue; }
+    if ((f.mode === "0755" || f.mode === "0644") && (st.mode & 0o7777) !== parseInt(f.mode, 8)) toChmod.push({ p, st, mode: parseInt(f.mode, 8) });
+  }
+  for (const r of INSTALL_REQUIRED) if (!listed.has(r)) findings.push(`${r}: required by the install, not listed in the manifest`);
+  for (const d of SEALED_DIRS) {
+    let names = [];
+    try { names = readdirSync(join(base, d)); } catch { /* absent: the required list says so */ }
+    for (const n of names) if (!listed.has(`${d}/${n}`)) findings.push(`${d}/${n}: present but not listed in the manifest`);
+  }
+  // F6: modes only once everything matches; F1: through a no-follow fd that is the file checked.
+  if (fixModes && !findings.length) {
+    for (const { p, st, mode } of toChmod) {
+      const fd = openSync(p, constants.O_RDONLY | constants.O_NOFOLLOW);
+      try {
+        const now = fstatSync(fd);
+        if (now.ino !== st.ino || now.dev !== st.dev) { findings.push(`${p.slice(base.length + 1)}: replaced during the check`); continue; }
+        fchmodSync(fd, mode);
+      } finally {
+        closeSync(fd);
+      }
+    }
+  }
+  const out = { version, keyId: manifest.key_id, count: manifest.files.length, servers: [...servers].sort(), findings };
+  return { status: findings.length ? "mismatch" : "ok", ...out };
+}
+
+// `installed <rein> [--check-only]`: exit 0 and "version|key_id|count|server\t…" lines on
+// stdout; 3 with [INSTALL_INCOMPLETE] or [INSTALL_TREE_MISMATCH] (first five named) on stderr.
+function cmdInstalled(args) {
+  const checkOnly = args.includes("--check-only");
+  const rest = args.filter((a) => a !== "--check-only");
+  if (rest.length !== 1) return usage("installed <rein-home> [--check-only]");
+  const r = checkInstalled(rest[0], { fixModes: !checkOnly });
+  if (r.status === "incomplete") {
+    process.stderr.write(`[INSTALL_INCOMPLETE] ${r.message}\n`);
+    return 3;
+  }
+  if (r.status === "mismatch") {
+    process.stderr.write(`[INSTALL_TREE_MISMATCH] ${r.findings.length} file(s) differ from the manifest — reinstall the release\n`);
+    for (const f of r.findings.slice(0, 5)) process.stderr.write(`  ${f}\n`);
+    return 3;
+  }
+  console.log(`version\t${r.version}\nkey_id\t${r.keyId}\ncount\t${r.count}`);
+  for (const s of r.servers) console.log(`server\t${s}`);
+  return 0;
+}
+
 export function main(argv) {
   const [sub, ...rest] = argv;
   if (sub === "manifest") return cmdManifest(rest);
   if (sub === "verify") return cmdVerify(rest);
+  if (sub === "installed") return cmdInstalled(rest);
   return usage(sub ? `unknown subcommand '${sub}'` : "");
 }
 

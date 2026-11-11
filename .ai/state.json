@@ -4985,6 +4985,15 @@
       "summary": "[TIER_1] run_review SKIP: tests/fixtures/release/doctor-sample.json rewritten one check per line (511 → 75 lines; same document, still valid against doctor.schema.json) — fixture data counts toward the test_lines budget",
       "sha": "3b52957c6529b6e1473ec2c51dd12d3101315571",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-11T12:03:29.923Z",
+      "summary": "[TIER_1] D-155 addendum 3 r10: operator-owned-cases.json corrected (runner.json, insights.md → kept; shared/Toolchain.sh deleted; ci/x.json kept; two glob_cases; description per r10) and installerAction returns kept for a path outside the mirrored directories (rule 1). install-rein.sh deletes no unlisted top-level entry (only the stage, mirrored dirs, manifest.json and the named v3 mirrors)",
+      "sha": "8975c8885490a34e112a43df3d83f3d94929ad86",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

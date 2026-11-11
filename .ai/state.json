@@ -5166,6 +5166,15 @@
       "summary": "[TIER_1] E-427.03a (Architect review point 1): a healthy artifact install in a clean home (no ~/.claude, no project) is not fail under doctor --scope install and its install check is ok; server dependencies come from the checkout via an npm stub; skipped, counted, without them or without a pinnable toolchain. Test-only",
       "sha": "81a3b48cddccc0ab2d3bb5ad9ea0342b5e647dea",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T14:01:16.642Z",
+      "summary": "[TIER_1] CI c69afbc: the E-427.01 guard read a trailing comment ('tests lift _dr alone') as a call site with id 'alone'; comment reworded. Comment-only. All E-427.02a-h and 03a passed in that run (03a: ok, install=ok, no install check not ok)",
+      "sha": "c69afbc60cda7d874f89d39aad663be187781541",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

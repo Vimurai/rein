@@ -3964,7 +3964,7 @@ _report_path_shadow() {
 _DR_LAST_IN=1
 _dr() {  # <id> <ok|warn|fail|-> <line> [<fix>] [<subject>]
   if [[ "$1" == "+" ]]; then [[ "$_DR_LAST_IN" -eq 1 ]] || return 0
-  elif [[ -z "${_DR_SCOPE:-}" || " ${_DR_INSTALL_IDS:-} " == *" $1 "* ]]; then _DR_LAST_IN=1   # self-contained: tests lift _dr alone
+  elif [[ -z "${_DR_SCOPE:-}" || " ${_DR_INSTALL_IDS:-} " == *" $1 "* ]]; then _DR_LAST_IN=1   # self-contained: a test may lift this function alone
   else _DR_LAST_IN=0; return 0
   fi
   if [[ -n "${_DR_FILE:-}" ]]; then

@@ -5058,6 +5058,60 @@
       "summary": "[TIER_1] merge of origin/main (d84dd17: E-422 #39, reviewed and merged) into e-425-cargo-step; .ai/ stamps unioned",
       "sha": "89dbccc8d22232014ba1184b22fd483429b81cef",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-426",
+      "timestamp": "2026-11-11T12:56:26.321Z",
+      "summary": "[TIER_1] checkpoint, not the E-426 review: commits E-426 so local CI and the Tier 3 reviewers (critic_arch, critic_security, critic_tests, security_engineer) read the committed diff, not a dirty tree. [SEC_CLEARED] and the review stamps follow before the PR",
+      "sha": "65f6d89bafb7e51f83e4bd1895b3df8f40af255c",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-426",
+      "timestamp": "2026-11-11T12:57:06.730Z",
+      "summary": "No P0/P1: _mcp_lock_shipped/_lock_sha256/_mcp_deps (src/bin/rein:4802-4848) pass server names as quoted argv (no interpolation into node -e or shell), marker is a fixed-name sha256 hex inside the server's own node_modules; P2 only: server name from registry.json is not validated for '..' (rein:4806-4818)",
+      "sha": "77595de28c38d4a03919190ffbed24735d909e60",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-426",
+      "timestamp": "2026-11-11T12:57:09.137Z",
+      "summary": "No sovereignty violations; _mcp_lock_shipped is one function with two sources (manifest.files / clone ls-files); npm ci for shipped lock, npm install otherwise; sha256 marker skip; failure line per r5; tree check untouched; lock diff limited to root-entry license and sdk spec (D-158 r13). Rows extend existing suites (D-088).",
+      "sha": "77595de28c38d4a03919190ffbed24735d909e60",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-426",
+      "timestamp": "2026-11-11T13:08:28.015Z",
+      "summary": "[TIER_3] E-426 follow-up on review: security_engineer SEC_CLEARED (F1-F3 P3) — F1 the marker is removed before it is written (no write through a planted link), F2 git --literal-pathspecs for the server name, F3 doctor --repair passes --force so a matching marker cannot skip a needed reinstall; CI 77595de fix: four E-426 rows had '\\\\' line continuations (exit 127). ARCH_PASS, SEC_PASS recorded",
+      "sha": "77595de28c38d4a03919190ffbed24735d909e60",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_FAIL",
+      "agent": "critic_tests",
+      "task_id": "E-426",
+      "timestamp": "2026-11-11T13:08:31.083Z",
+      "summary": "[TESTS_FAIL] local CI of 77595de: suite 7198 pass/4 fail; mirror_hygiene E-426.01b/01c/01e/02a fail rc 127 because their line continuations are written `\\\\` (double backslash) at tests/suites/mirror_hygiene_test.sh:348,350,353(+354),363(+364); 01d/01f pass vacuously-adjacent. Also untested: npm ci failure line, no-shipped-lock npm install path, doctor --repair path — COMMIT BLOCKED",
+      "sha": "77595de28c38d4a03919190ffbed24735d909e60",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-426",
+      "timestamp": "2026-11-11T13:19:42.962Z",
+      "summary": "[TIER_1] critic_tests E-426 P1: rows E-426.03a-d — a server with no shipped lock keeps npm install; a failing npm ci prints the ✗ line and the install continues; doctor --repair runs npm ci for a shipped lock despite a matching marker (F3). Test-only; 91a82a0 PASS 7202/0/26",
+      "sha": "91a82a061aad5ff0c8a50187c8dea611dbca93b9",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

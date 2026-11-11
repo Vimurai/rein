@@ -941,3 +941,90 @@ Residual, P3, not gating: `rein_fin_purge_legacy_mirrors` returns early when the
 An operator who chose a symlinked `~/.rein` keeps v3's `gemini/` and `agents/` mirrors, although the tree check accepts
 that home. The behaviour is safe but inconsistent. If it matters, resolve the home with `cd -P` and purge there.
 F1–F6 are closed.
+
+## E-426 / D-158 r1–r6, r13 — `npm ci` for a shipped lock and the `.rein-lock.sha256` skip marker (security_engineer, 2026-11-11)
+
+Verdict: **SEC_CLEARED.** No blocking findings and no P0. Reviewed `77595de` (`src/bin/rein:4497-4501`,
+`4802-4848`, `4906`; orchestrator lock root entry; gate-pins row; E-426 suite rows). The change adds no new external
+input, trust boundary or credential, so THREAT_MODEL.md is unchanged.
+
+**Q1, marker abuse (`rein:4835-4838`).** To exploit the marker, an attacker needs write access to
+`~/.rein/mcp/<server>/node_modules/`. With that access they already control every module the server `require`s. They
+can tamper with files, and the marker is not needed. The marker is not a new weakness. Before E-426, `npm install`
+on an existing `node_modules` did not re-hash installed package contents either. It trusts `node_modules/.package-lock.json`
+and only adds or replaces packages whose version is wrong. Tampered bytes at the right version survived then too. E-426
+improves on this: the first run after a lock change (or with no marker) is `npm ci`, which deletes `node_modules` and
+re-verifies every tarball against the lock's `integrity`. Gate coverage does not depend on the marker. `do_mcp_setup`
+runs `gate-pins.mjs check "$MCP_DIR"` after the server loop on every run (`rein:4938-4950`): drift means refuse (return 3),
+missing means warn, and the gate fails closed (`[SAFE_EXEC_UNAVAILABLE]`). `rein doctor` reports it through
+`_gate_pins_report` (`rein:2083`, called at `4316`). Gate-pins compares VERSION fields only, not content (this was already
+true before E-426). Content integrity of `node_modules` is outside the tree check (by design, D-158) and outside gate-pins.
+
+**Q2, injection.** RESISTED. `_mcp_lock_shipped` (`rein:4813-4815`) and `_lock_sha256` (`4823`) use static
+single-quoted `node -e` programs and take the manifest path, the `mcp/<server>/package-lock.json` string and the lock
+path as `process.argv` values. Nothing is interpolated into code. Payloads `orch"); require("fs")…`, `$(touch …)` and
+backticks produced no side effect. The git pathspec (`rein:4820`) is a single argument, so it cannot inject an option
+(`--version` → not shipped). It is still a *pathspec*, though: glob characters in the server name match (finding F2).
+
+**Q3, `rein-workspace.txt` (`rein:376-390`, `4819-4820`).** Nothing new. The same file already decides where
+`rein sync` copies hooks from, which is a stronger trust grant than "which npm verb to use". Running
+`git -C "$ws" ls-files` means the clone's `.git/config` applies (for example `core.fsmonitor`). Git's `safe.directory`
+ownership check covers clones owned by other users, and anyone who can write the operator's own clone config or the
+workspace file already has code execution through `rein sync`. A wrong or absent workspace only changes `npm ci` to
+`npm install`. The shipped-file rewrite that follows is caught by the unchanged tree check, so the failure is visible.
+
+**Q4, symlinked marker (`rein:4841`).** The `>` redirect follows a symlink (confirmed: a planted
+`node_modules/.rein-lock.sha256 → ../victim` caused 65 bytes of hex to be written to `victim`). Exploiting this
+requires a symlink inside the freshly recreated `node_modules`. npm package names cannot start with `.`, so a package
+directory cannot occupy that name, and `.bin` links go to `.bin/`. That leaves a lifecycle (`postinstall`) script, which
+already runs arbitrary code as the operator, or an attacker who already has operator write access. Neither gains
+anything. The written content is a fixed 64-hex string. This is P3 hardening only (F1).
+
+### Findings (none block)
+
+- **F1 (P3)** `rein:4841`: the marker write follows a symlink. Fix: `rm -f "${sdir}/node_modules/.rein-lock.sha256"`
+  before the `printf`, or write it with node using `flag: "wx"`. Optionally pass `--ignore-scripts` to `npm ci` if no
+  shipped server needs install scripts. That is a separate decision because it changes behaviour.
+- **F2 (P3)** `rein:4820`: `git ls-files --error-unmatch "src/mcp/${server}/…"` reads `${server}` as a pathspec, so
+  `*` or `?rch` match any tracked lock. The server name comes from the shipped `registry.json`, and a false "shipped"
+  only selects the stricter `npm ci`, so there is no impact. Fix: add `git --literal-pathspecs` (or a `:(literal)` prefix)
+  so the check means exactly one path.
+- **F3 (P3, robustness)** `rein:4498-4501` with `4836-4839`: `doctor --repair` calls `_mcp_deps` only when `npm list`
+  reports missing, UNMET or invalid. If the marker still matches the lock, `_mcp_deps` skips npm and the repair prints
+  `✓ done` for a `node_modules` it did not repair. Before E-426, `npm install` would have re-added the missing packages.
+  Gate dependencies stay covered (gate-pins reports `[GATE_DEP_MISSING]`, and the gate fails closed), so this is not a
+  security gap. Fix: in the repair path, remove the marker before calling `_mcp_deps` (repair means re-run `npm ci`), or
+  give `_mcp_deps` a force argument.
+- **F4 (informational)** `rein:4835`: `head -c 64` accepts a marker with trailing bytes. The comparison is still against
+  64 hex characters, so this has no impact.
+- **F5 (informational)** `rein:4813-4817`: a malformed `manifest.json` (or no `node` on PATH) falls back to `npm install`.
+  It fails visibly, because the tree check flags the rewritten lock.
+- Pipeline status is correct: `set -euo pipefail` (`rein:2`) means a failed `npm ci … | tail -2` takes the `✗` branch
+  and writes no marker (probe below).
+- The orchestrator lock diff changes only the root entry: `license` was added and the sdk spec went from `^1.0.0` to `*`,
+  matching package.json. No `resolved` or `integrity` value changed. orchestrator-mcp is not a `GATE_SERVERS` member,
+  so the `*` spec does not reach a gate path, and the lock still pins the resolved sdk version for `npm ci`.
+
+### Pen-Test Results
+
+Harness: `mktemp -d` under the session scratchpad, `env -i PATH=<node dir>:/usr/bin:/bin HOME=$T`, `ulimit -t 5 -f 10240`,
+10 s wall-clock kill, and a fixture containing only `rein:4810-4848` with the `npm` and `_resolve_rein_workspace` stubs
+(no network, no real `~/.rein`). Two deviations, both on resource caps only. `ulimit -u` was 2200 instead of 64:
+RLIMIT_NPROC counts every thread the user owns, about 2000 live because of a concurrent `rein ci run`, so 64 made every
+fork fail. `ulimit -v` was dropped: V8 aborts with SIGTRAP under 512 MB of virtual memory, which masked every
+node-based probe (first run: all INCONCLUSIVE, exit 133).
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | `_mcp_lock_shipped` artifact (node argv) | `orch"); require("fs").writeFileSync("PWNED1"…` | RESISTED | 0 | not shipped; no file written |
+| A03 | `_mcp_lock_shipped` artifact | `$(touch PWNED2)`, `` `touch PWNED3` `` | RESISTED | 0 | not shipped; no side effect |
+| A01 | `_mcp_lock_shipped` artifact | `../mcp/orch`, `orch/../orch` | RESISTED | 0 | exact string match only |
+| A08 | `_mcp_lock_shipped` artifact | malformed `manifest.json` | RESISTED | 0 | falls back to `npm install` (F5) |
+| A03 | `_mcp_lock_shipped` clone (pathspec) | `--version`, `$(touch PWNED4)`, `:(glob)**` | RESISTED | 0 | not shipped; no side effect |
+| A03 | `_mcp_lock_shipped` clone (pathspec) | `*`, `?rch` | RESISTED | 0 | glob matches → shipped. Only selects `npm ci` (F2, no impact) |
+| A04 | `_mcp_deps` marker write | `node_modules/.rein-lock.sha256` → symlink to `../victim` | RESISTED | 0 | `victim` receives the 64-hex hash; needs code exec already (F1) |
+| A04 | `_mcp_deps` | stub `npm ci` exits 7 | RESISTED | 0 | `✗ x: npm ci failed`, rc 1, no marker written |
+| A08 | `_mcp_deps` marker | matching marker; marker + `EXTRA` | RESISTED | 0 | skip in both cases (F4, no impact) |
+| A08 | `_mcp_deps` marker | lock bytes changed after the marker | RESISTED | 0 | `npm ci` re-runs |
+
+Disposition: cleared for merge. F1–F3 are P3 and can go in a follow-up. P0: none.

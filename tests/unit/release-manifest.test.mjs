@@ -254,17 +254,38 @@ test("E-419.01: sign, then verify --pubkey; a flipped byte, another key's signat
   assert.equal(vf.status, 3, "a flipped tarball byte");
   assert.match(vf.stderr, /\[RELEASE_SIGNATURE_BAD\]/);
 
-  spawnSync("minisign", ["-G", "-W", "-p", join(work, "other.pub"), "-s", join(work, "other.key")]);
+  assert.equal(spawnSync("minisign", ["-G", "-W", "-p", join(work, "other.pub"), "-s", join(work, "other.key")]).status, 0, "minisign -G for the second pair");
   const o = run(SIGN, ["sign", tgz, "--pubkey", join(work, "other.pub")], readFileSync(join(work, "other.key"), "utf8"));
   assert.equal(o.status, 0, o.stderr);
   assert.equal(run(MAN, ["verify", tgz, "--pubkey", PUB]).status, 3, "another key's signature against the published key");
   const wrong = run(SIGN, ["sign", tgz, "--pubkey", PUB], readFileSync(join(work, "other.key"), "utf8"));
   assert.equal(wrong.status, 3, "a key that is not the published key's pair fails the self-check");
+  assert.equal(existsSync(`${tgz}.minisig`), false, "…and no earlier .minisig survives a refusal (security_engineer F2)");
 
-  rmSync(`${tgz}.minisig`);
   const none = run(SIGN, ["sign", tgz, "--pubkey", PUB]);
   assert.equal(none.status, 3, "no REIN_RELEASE_KEY");
   assert.match(none.stderr, /\[RELEASE_SIGN_REFUSED\] REIN_RELEASE_KEY is not set/);
   assert.equal(existsSync(`${tgz}.minisig`), false, "…and nothing is left beside the tarball");
   assert.deepEqual(readdirSync(ktmp), [], "the key's temp directory is gone after a refusal too");
+});
+
+// critic_tests E-419 gap 1: the refusal when no minisign binary can be found needs no minisign, so
+// it runs on every host — PATH is an empty directory (node is started by its absolute path).
+test("E-419.02: with no minisign on PATH, sign and verify --pubkey refuse (exit 3) and leave nothing", () => {
+  const work = join(tmp, `nominisign-${n++}`); mkdirSync(work);
+  const empty = join(work, "bin"); mkdirSync(empty);
+  const ktmp = join(work, "tmp"); mkdirSync(ktmp);
+  const files = M.collectTree(tree({ "bin/rein": "#!/bin/bash\n", "shared/node-version.sh": 'REIN_NODE_FLOOR="22.5"\n' }));
+  const tgz = join(work, "rein-0.5.0.tar.gz");
+  writeFileSync(tgz, M.buildTarball(files, M.buildManifest(files, { version: "0.5.0", minNode: "22.5.0", keyId: "0000000000000000" }).text));
+  const env = { PATH: empty, TMPDIR: ktmp, REIN_RELEASE_KEY: KEY };
+  const s = spawnSync(process.execPath, [SIGN, "sign", tgz, "--pubkey", PUB], { encoding: "utf8", env });
+  assert.equal(s.status, 3, s.stderr);
+  assert.match(s.stderr, /\[RELEASE_SIGN_REFUSED\] minisign is not on PATH/);
+  assert.equal(existsSync(`${tgz}.minisig`), false, "nothing beside the tarball");
+  assert.deepEqual(readdirSync(ktmp), [], "no key file was written");
+  writeFileSync(`${tgz}.minisig`, "untrusted comment: x\nRUQAAAAAAAAAAA==\n");
+  const v = spawnSync(process.execPath, [MAN, "verify", tgz, "--pubkey", PUB], { encoding: "utf8", env });
+  assert.equal(v.status, 3, "verify --pubkey cannot check a signature without minisign — a refusal, not a pass");
+  assert.match(v.stderr, /\[RELEASE_SIGNATURE_BAD\] .*minisign is not on PATH/);
 });

@@ -15,7 +15,7 @@
 // leaves nothing beside the tarball. node: modules only.
 
 import { spawnSync } from "node:child_process";
-import { chmodSync, copyFileSync, existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, constants, copyFileSync, existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { basename, join } from "node:path";
 import { realpathSync } from "node:fs";
@@ -24,9 +24,16 @@ import { readTarGz } from "./release-tar.mjs";
 
 export class SignRefusal extends Error {}
 
+// security_engineer E-419 F4: minisign never inherits the key's environment variable.
+function minisignEnv() {
+  const env = { ...process.env };
+  delete env.REIN_RELEASE_KEY;
+  return env;
+}
+
 /** Status 0 when a `minisign` binary answers on PATH. */
 export function haveMinisign() {
-  const r = spawnSync("minisign", ["-v"], { encoding: "utf8" });
+  const r = spawnSync("minisign", ["-v"], { encoding: "utf8", env: minisignEnv() });
   return !r.error && r.status === 0;
 }
 
@@ -37,7 +44,7 @@ export function haveMinisign() {
 export function verifySignature(file, pubkey, sig = `${file}.minisig`) {
   if (!haveMinisign()) return "minisign is not on PATH";
   if (!existsSync(sig)) return `${basename(sig)} is missing`;
-  const r = spawnSync("minisign", ["-V", "-q", "-p", pubkey, "-m", file, "-x", sig], { encoding: "utf8" });
+  const r = spawnSync("minisign", ["-V", "-q", "-p", pubkey, "-m", file, "-x", sig], { encoding: "utf8", env: minisignEnv() });
   if (r.status !== 0) return `the signature does not verify against ${basename(pubkey)}`;
   return null;
 }
@@ -64,6 +71,8 @@ export function signTarball(tarball, pubkey, keyText) {
   if (typeof version !== "string" || !/^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$/.test(version)) {
     throw new SignRefusal(`${basename(tarball)}: the manifest's version ${JSON.stringify(version)} is not semver`);
   }
+  // F2: a signature from an earlier run never survives a refusal of this one.
+  rmSync(`${tarball}.minisig`, { force: true });
   const dir = mkdtempSync(join(tmpdir(), "rein-sign-"));
   const cleanup = () => rmSync(dir, { recursive: true, force: true });
   const onSignal = (sig) => { cleanup(); process.exit(sig === "SIGINT" ? 130 : 143); };
@@ -75,14 +84,16 @@ export function signTarball(tarball, pubkey, keyText) {
     writeFileSync(key, String(keyText).endsWith("\n") ? keyText : `${keyText}\n`, { mode: 0o600, flag: "wx" });
     const sig = join(dir, "sig");
     const r = spawnSync("minisign", ["-S", "-W", "-s", key, "-m", tarball, "-x", sig,
-      "-t", `file:rein-${version}.tar.gz version:${version}`], { encoding: "utf8" });
+      "-t", `file:rein-${version}.tar.gz version:${version}`], { encoding: "utf8", env: minisignEnv() });
     // minisign's own output can name the key file path; neither stream is passed on.
     if (r.status !== 0 || !existsSync(sig)) throw new SignRefusal("minisign could not sign with REIN_RELEASE_KEY (wrong format, or a password-protected key)");
     if (signatureAlgorithm(readFileSync(sig, "utf8")) !== "ED") throw new SignRefusal("minisign produced a legacy (non-prehashed) signature — refusing");
     const bad = verifySignature(tarball, pubkey, sig);
     if (bad) throw new SignRefusal(`self-check failed: ${bad} — the key does not match ${basename(pubkey)}`);
     const out = `${tarball}.minisig`;
-    copyFileSync(sig, `${out}.tmp`);
+    // F1: never write through a link planted at the temporary name.
+    rmSync(`${out}.tmp`, { force: true });
+    copyFileSync(sig, `${out}.tmp`, constants.COPYFILE_EXCL);
     renameSync(`${out}.tmp`, out);
     return { out, version };
   } finally {

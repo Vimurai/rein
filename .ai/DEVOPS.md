@@ -868,7 +868,7 @@ touched, D-155 addendum 4):
   checks are green" and before "Publish the release": install minisign (apt) → `rein release
   stage` → `rein release manifest --pubkey docs/contract/release-key.pub` → assert
   `v<manifest.version>` equals the tag → `rein release sign` (REIN_RELEASE_KEY from the
-  environment secret, in that one step's env) → `rein release verify --pubkey`. "Publish the
+  environment secret) → `rein release verify --pubkey`. "Publish the
   release" attaches `rein-X.Y.Z.tar.gz`, its `.minisig` and `manifest.json`, and the notes gain
   the tarball's sha256 and the key_id. A missing secret fails the job before anything is built
   or published.
@@ -887,7 +887,8 @@ into it.
 - New secret: `REIN_RELEASE_KEY` (a password-free copy of the operator's key, same key id), on
   the environment `release`, which deploys only from `v*` tags; `v*` tags are restricted to
   repository admins by the "release tags" ruleset (both set up 2026-11-10). The secret is read
-  in one step's `env:`, never interpolated into a script, never echoed; `rein release sign`
+  in two steps' `env:` (the presence check, which fails the job before anything is built and
+  prints nothing, and the sign step), never interpolated into a script, never echoed; `rein release sign`
   writes it to a 0600 file in a private temp dir removed on every exit path.
 - The dry-run job has no `environment:`, references no secret and has `contents: read` only.
 - New network access: `apt-get install minisign` from the Ubuntu archive (apt-signed) in both

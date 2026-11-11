@@ -4498,7 +4498,7 @@ for name, info in reg.get("mcp_servers", {}).items():
         [[ ! -d "$sdir" ]] && continue
         if [[ ! -d "${sdir}/node_modules" ]] || (cd "$sdir" && npm list --depth=0 2>&1 | grep -q "missing\|UNMET\|invalid"); then
           echo "  → installing dependencies: ${srv_name}..."
-          _mcp_deps "$srv_name" "$sdir" >/dev/null && echo "    ✓ done" || echo "    ✗ failed"   # E-426: never rewrites a shipped lock
+          _mcp_deps "$srv_name" "$sdir" --force >/dev/null && echo "    ✓ done" || echo "    ✗ failed"   # E-426: never rewrites a shipped lock; --force: F3
         fi
       done < <(python3 -c "
 import json
@@ -4817,27 +4817,30 @@ _mcp_lock_shipped() {
     return $?
   fi
   ws="$(_resolve_rein_workspace)"
-  [[ -n "$ws" ]] && git -C "$ws" ls-files --error-unmatch "src/mcp/${server}/package-lock.json" >/dev/null 2>&1
+  [[ -n "$ws" ]] && git --literal-pathspecs -C "$ws" ls-files --error-unmatch "src/mcp/${server}/package-lock.json" >/dev/null 2>&1
 }
 
 _lock_sha256() {  # <file> → hex on stdout
   node -e 'process.stdout.write(require("crypto").createHash("sha256").update(require("fs").readFileSync(process.argv[1])).digest("hex"))' "$1" 2>/dev/null
 }
 
-# _mcp_deps <server> <dir> — install one server's dependencies. A shipped lock: `npm ci`, then
+# _mcp_deps <server> <dir> [--force] — install one server's dependencies. A shipped lock: `npm ci`, then
 # the lock's sha256 is written to node_modules/.rein-lock.sha256, and a later run whose marker
 # still equals the lock's sha256 skips npm entirely. No shipped lock: `npm install`, as before.
+# --force (doctor --repair) ignores the marker: repair runs because node_modules is broken.
 # Prints npm's last two lines; status 1 after printing the ✗ line.
 _mcp_deps() {
-  local server="$1" sdir="$2" want have=""
+  local server="$1" sdir="$2" force="${3:-}" want have=""
   if [[ -f "${sdir}/package-lock.json" ]] && _mcp_lock_shipped "$server"; then
     want="$(_lock_sha256 "${sdir}/package-lock.json")"
-    [[ -f "${sdir}/node_modules/.rein-lock.sha256" ]] && have="$(head -c 64 "${sdir}/node_modules/.rein-lock.sha256")"
+    [[ "$force" != "--force" && -f "${sdir}/node_modules/.rein-lock.sha256" ]] && have="$(head -c 64 "${sdir}/node_modules/.rein-lock.sha256")"
     if [[ -n "$want" && "$want" == "$have" ]]; then
       echo "  ○ ${server}: node_modules match the shipped lock — npm ci skipped"
       return 0
     fi
     if (cd "$sdir" && npm ci --silent 2>&1 | tail -2); then
+      # security_engineer E-426 F1: replace the marker, never write through a link planted there.
+      rm -f -- "${sdir}/node_modules/.rein-lock.sha256"
       [[ -n "$want" ]] && printf '%s\n' "$want" > "${sdir}/node_modules/.rein-lock.sha256"
       return 0
     fi

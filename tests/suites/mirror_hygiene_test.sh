@@ -345,13 +345,13 @@ PYLIST
   _i1="$(_ai_npm "$AH4" "$FAKE_TMP" install)"; _i1rc=$?
   _i2="$(_ai_npm "$AH4" "$FAKE_TMP" install)"; _i2rc=$?
   assert_status 0 "E-426.01a: artifact mode — two rein install runs both exit 0 (rc ${_i1rc}, ${_i2rc})" test "$_i1rc" -eq 0 -a "$_i2rc" -eq 0
-  assert_status 0 "E-426.01b: …the shipped orchestrator lock is installed with npm ci, never npm install" \\
+  assert_status 0 "E-426.01b: …the shipped orchestrator lock is installed with npm ci, never npm install" \
     bash -c "grep -q '/orchestrator-mcp ci' '$NPMLOG' && ! grep -q '/orchestrator-mcp install' '$NPMLOG'"
-  assert_status 0 "E-426.01c: …and the second run calls no npm ci (the lock marker matches)" \\
+  assert_status 0 "E-426.01c: …and the second run calls no npm ci (the lock marker matches)" \
     test "$(grep -c '/orchestrator-mcp ci' "$NPMLOG")" -eq 1
   assert_contains "E-426.01d: …saying so" "orchestrator-mcp: node_modules match the shipped lock — npm ci skipped" "$_i2"
-  assert_status 0 "E-426.01e: the lock's bytes equal the manifest's sha256" \\
-    python3 -I -c 'import hashlib,json,sys; m=json.load(open(sys.argv[1])); f=[x for x in m["files"] if x["path"]=="mcp/orchestrator-mcp/package-lock.json"][0]; assert hashlib.sha256(open(sys.argv[2],"rb").read()).hexdigest()==f["sha256"]' \\
+  assert_status 0 "E-426.01e: the lock's bytes equal the manifest's sha256" \
+    python3 -I -c 'import hashlib,json,sys; m=json.load(open(sys.argv[1])); f=[x for x in m["files"] if x["path"]=="mcp/orchestrator-mcp/package-lock.json"][0]; assert hashlib.sha256(open(sys.argv[2],"rb").read()).hexdigest()==f["sha256"]' \
     "${AH4}/.rein/manifest.json" "${AH4}/.rein/mcp/orchestrator-mcp/package-lock.json"
   APROJ4="$(test_tmpdir hyg-art-proj4)"; ( cd "$APROJ4" && git init -q )
   _ai_npm "$AH4" "$APROJ4" init >/dev/null
@@ -360,7 +360,7 @@ PYLIST
   DH5="$(test_tmpdir hyg-clone-npm)"
   ( cd "$FAKE_TMP" && HOME="$DH5" TMPDIR="$FAKE_TMP" PATH="${NPMS}:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" REIN_NO_PROJECT_SCAN=1 \
       bash "$DW/install-rein.sh" ) >/dev/null 2>&1
-  assert_status 0 "E-426.02a: a clone install leaves the mirror's orchestrator lock equal to the tracked one" \\
+  assert_status 0 "E-426.02a: a clone install leaves the mirror's orchestrator lock equal to the tracked one" \
     cmp -s "${DH5}/.rein/mcp/orchestrator-mcp/package-lock.json" <(git -C "$DW" show HEAD:src/mcp/orchestrator-mcp/package-lock.json)
   assert_status 0 "E-418.06e: the manifest lists every staged file, no more" \
     test "$(python3 -I -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["files"]))' "${RO1}/manifest.json")" = "$(cd "$ST" && find . -type f | wc -l | tr -d ' ')"

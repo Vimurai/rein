@@ -4,12 +4,18 @@
 # The publish gates on the REQUIRED set (`rein ci hosted --required`, D-137 r3), not on the
 # whole matrix: an informative leg (macOS while E-388/E-396 are open) still runs, stays red in
 # the UI and is listed in the job summary, but does not hold the release. No continue-on-error.
+# E-419 (D-153 r1, D-155 r6, addendum 4; DEVOPS-019): the release job builds, signs and verifies
+# the artifact (rein-X.Y.Z.tar.gz, its .minisig, manifest.json) in the environment `release`; a
+# missing REIN_RELEASE_KEY fails it before anything is published. `workflow_dispatch` runs only
+# the dry-run job: the same path with the committed THROWAWAY pair, publishing nothing. The
+# matrix and release jobs run only for a pushed `v*` tag, so a dispatch never reaches the key.
 # Rollback: delete this file; a release can be deleted with `gh release delete <tag>`.
 name: Release
 
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -17,6 +23,7 @@ permissions:
 jobs:
   matrix:
     name: Full matrix
+    if: ${{ github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     uses: ./.github/workflows/ci.yml
     with:
       full: true
@@ -24,9 +31,10 @@ jobs:
   release:
     name: GitHub release
     needs: matrix
-    if: ${{ !cancelled() }}
+    if: ${{ !cancelled() && github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v') }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
+    environment: release   # REIN_RELEASE_KEY lives here; the environment deploys only from v* tags
     permissions:
       contents: write   # create the release
       checks: read      # the tag's check runs
@@ -83,6 +91,44 @@ jobs:
             done < runs.tsv
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # E-419: the artifact. A missing secret stops the job here, before anything is built.
+      - name: Signing key is configured
+        env:
+          REIN_RELEASE_KEY: ${{ secrets.REIN_RELEASE_KEY }}
+        run: |
+          if [ -z "${REIN_RELEASE_KEY:-}" ]; then
+            echo "REIN_RELEASE_KEY is not set on the environment 'release' — refusing to publish an unsigned release" >&2
+            exit 1
+          fi
+
+      - name: Install minisign
+        run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends minisign
+
+      - name: Build the artifact
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          stage="$(mktemp -d)/stage"
+          bash src/bin/rein release stage "$stage"
+          bash src/bin/rein release manifest "$stage" --out dist --pubkey docs/contract/release-key.pub
+          version="$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("dist/manifest.json","utf8")).version)')"
+          if [ "v${version}" != "$TAG" ]; then
+            echo "manifest version ${version} does not match the tag ${TAG} — refusing" >&2
+            exit 1
+          fi
+          echo "VERSION=${version}" >> "$GITHUB_ENV"
+
+      # The secret reaches this step only, as an environment variable; rein release sign writes it
+      # to a 0600 file in a private temp dir and removes it, and verifies its own signature.
+      - name: Sign the artifact
+        env:
+          REIN_RELEASE_KEY: ${{ secrets.REIN_RELEASE_KEY }}
+        run: bash src/bin/rein release sign "dist/rein-${VERSION}.tar.gz" --pubkey docs/contract/release-key.pub
+
+      - name: Verify the artifact
+        run: bash src/bin/rein release verify "dist/rein-${VERSION}.tar.gz" --pubkey docs/contract/release-key.pub
+
       # The tag arrives as an environment variable, never interpolated into the script.
       - name: Publish the release
         env:
@@ -99,5 +145,51 @@ jobs:
           installer=install-rein.sh
           [ -f "$installer" ] || installer=install-rein.sh   # until E-383 renames it
           printf '\n---\n\n`%s` sha256: `%s`\n' "$installer" "$(sha256sum "$installer" | cut -d' ' -f1)" >> notes.md
-          gh release create "$TAG" --verify-tag --title "Rein ${TAG}" --notes-file notes.md
+          tarball="dist/rein-${VERSION}.tar.gz"
+          key_id="$(node -e 'process.stdout.write(JSON.parse(require("fs").readFileSync("dist/manifest.json","utf8")).key_id)')"
+          printf '\n`%s` sha256: `%s`  \nSigned with minisign key `%s` (docs/contract/release-key.pub)\n' \
+            "rein-${VERSION}.tar.gz" "$(sha256sum "$tarball" | cut -d' ' -f1)" "$key_id" >> notes.md
+          gh release create "$TAG" --verify-tag --title "Rein ${TAG}" --notes-file notes.md \
+            "$tarball" "${tarball}.minisig" dist/manifest.json
           echo "Release: $(gh release view "$TAG" --json url --jq .url)" >> "$GITHUB_STEP_SUMMARY"
+
+  # E-419 (D-155 addendum 4): the hosted proof of the signing path, by hand (`gh workflow run
+  # release.yml --ref main`). The committed THROWAWAY pair only: no environment, no secret,
+  # contents: read; it publishes and uploads nothing.
+  dry-run:
+    name: Signing dry run (throwaway key)
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1   # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1   # v7.1.0
+        with:
+          node-version: '22'
+
+      - name: Install minisign
+        run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends minisign
+
+      - name: Stage, manifest, sign and verify with the throwaway pair
+        run: |
+          set -euo pipefail
+          stage="$(mktemp -d)/stage"
+          bash src/bin/rein release stage "$stage"
+          bash src/bin/rein release manifest "$stage" --out dist --pubkey tests/fixtures/release/throwaway.pub
+          set -- dist/rein-*.tar.gz; tarball="$1"
+          REIN_RELEASE_KEY="$(cat tests/fixtures/release/throwaway.key)" \
+            bash src/bin/rein release sign "$tarball" --pubkey tests/fixtures/release/throwaway.pub
+          bash src/bin/rein release verify "$tarball" --pubkey tests/fixtures/release/throwaway.pub
+          {
+            echo "### Signing dry run — throwaway key, nothing published"
+            echo
+            echo "- \`$(basename "$tarball")\` sha256: \`$(sha256sum "$tarball" | cut -d' ' -f1)\`"
+            echo "- $(minisign -v)"
+          } | tee -a "$GITHUB_STEP_SUMMARY"

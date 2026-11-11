@@ -91,11 +91,21 @@ convenience copy that nothing trusts.
 - `.github/workflows/release.yml` (hand-written, `ci_gate` first): after "Required checks are
   green" and before "Publish the release", in a job bound to the GitHub environment `release`:
   `rein release stage` → `rein release manifest --pubkey docs/contract/release-key.pub` →
-  `rein release sign` → `rein release verify --pubkey …` → assert `v<manifest.version>` equals
-  the tag → `gh release create` with the three assets. The release notes gain the tarball's
+  assert `v<manifest.version>` equals the tag → `rein release sign` → `rein release verify
+  --pubkey …` → `gh release create` with the three assets (the assertion precedes signing, so
+  a mismatched tag never receives a signature: D-155 addendum 4 r8; the secret-presence check
+  is the job's first step). The release notes gain the tarball's
   sha256 and the `key_id` under the existing installer line. A missing secret fails the job
   before anything is published: from the tag after E-419 merges, a release without a
   signature does not exist.
+- `minisign` on hosted CI (D-155 addendum 4). The rendered `ci.yml` is not changed: rows that
+  need the binary `skip_unless_cmd minisign`, counted and host-named, and run in the local
+  gate. `release.yml` gains a second job, `workflow_dispatch` only, not bound to the
+  `release` environment, no secret, `contents: read`: apt-install `minisign`, bootstrap Rein,
+  stage → manifest → sign → verify with the throwaway pair, print the sha256 and `minisign
+  -v`; nothing published or uploaded. The release job carries an explicit `if:` for a `v*`
+  tag push, so a dispatch never reaches the real key. After E-419 merges the dry run is
+  dispatched on `main`; its green run is a precondition of E-424.
 - The public key is committed as `docs/contract/release-key.pub` by the Engineer from the file
   the operator hands over; the manifest's `key_id` is read from it. The throwaway pair for
   tests lives in `tests/fixtures/release/` (`throwaway.pub`, `throwaway.key`, generated with

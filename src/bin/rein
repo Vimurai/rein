@@ -175,8 +175,12 @@ Commands:
   rein release manifest <tree> [--out <dir>] [--no-tarball] --pubkey <file>
                  Write manifest.json (schema 1) and rein-<version>.tar.gz from a stage;
                  a path a release must not carry is refused, named, exit 3
-  rein release verify <tarball>
-                 Check every member against the manifest inside the tarball (exit 0/3)
+  rein release sign <tarball> --pubkey <file>
+                 Sign with minisign; the secret key comes only from REIN_RELEASE_KEY, and
+                 the signature is verified against <file> before it is written (exit 0/3)
+  rein release verify <tarball> [--pubkey <file>]
+                 With --pubkey, check the .minisig first; then every member against the
+                 manifest inside the tarball (exit 0/3)
   rein gate off [--minutes N] [--reason TEXT] | on | status
                  Operator-only escape from the safe-exec policy gate (E-291): a
                  time-boxed override (default 15, max 60 min). Catastrophic commands
@@ -6987,9 +6991,16 @@ do_release() {
       fi
       [[ -f "$mod" ]] || { echo "rein release ${sub}: release-manifest.mjs not found ($(_rein_fix_install))" >&2; return 2; }
       node --no-warnings "$mod" "$@" ;;
+    # E-419 (D-153 r1, D-155 r6): signing wraps minisign; the key comes only from REIN_RELEASE_KEY.
+    sign)
+      command -v node >/dev/null 2>&1 || { echo "rein release sign: node not found" >&2; return 2; }
+      local smod; smod="$(_rein_release_clone)"
+      if [[ -n "$smod" ]]; then smod="${smod}/src/shared/release-sign.mjs"; else smod="$(_rein_helper shared/release-sign.mjs || true)"; fi
+      [[ -f "$smod" ]] || { echo "rein release sign: release-sign.mjs not found ($(_rein_fix_install))" >&2; return 2; }
+      node --no-warnings "$smod" "$@" ;;
     ""|-h|--help|help)
-      echo "usage: rein release stage <dir> | manifest <tree> [--out <dir>] [--no-tarball] --pubkey <file> | verify <tarball>" ;;
-    *) echo "rein release: unknown subcommand '${sub}' (usage: rein release stage|manifest|verify)" >&2; return 2 ;;
+      echo "usage: rein release stage <dir> | manifest <tree> [--out <dir>] [--no-tarball] --pubkey <file> | sign <tarball> --pubkey <file> | verify <tarball> [--pubkey <file>]" ;;
+    *) echo "rein release: unknown subcommand '${sub}' (usage: rein release stage|manifest|sign|verify)" >&2; return 2 ;;
   esac
 }
 

@@ -1028,3 +1028,126 @@ node-based probe (first run: all INCONCLUSIVE, exit 133).
 | A08 | `_mcp_deps` marker | lock bytes changed after the marker | RESISTED | 0 | `npm ci` re-runs |
 
 Disposition: cleared for merge. F1–F3 are P3 and can go in a follow-up. P0: none.
+
+## E-419 / D-153 r1, D-155 r6 + addendum 4 — `rein release sign`, `verify --pubkey`, release.yml signing (security_engineer, 2026-11-11)
+
+Verdict: **SEC_CLEARED.** No P0, P1 or P2. Reviewed `1fa72e2` (`src/shared/release-sign.mjs`, `release-manifest.mjs:283-307`,
+`src/bin/rein:6940-6946`, `.github/workflows/release.yml`, `.gitignore:79-81`, `tests/fixtures/release/throwaway.*`) and
+the live GitHub configuration, read-only through `gh api`. The `release` environment has one deployment policy,
+`v*` of **type tag**. `REIN_RELEASE_KEY` is an environment secret; the repository has no repo-level secrets. Ruleset
+26990644 ("release tags", active) blocks creation, update and deletion of `refs/tags/v*` for everyone except the
+admin role. The repo has one collaborator. THREAT_MODEL.md is unchanged: the trust boundary and the key custody are
+the ones `release-artifact.md §Security` already describes, and no probe was EXPLOITED.
+
+**Q1, key leakage.** RESISTED.
+- **argv:** none. minisign gets `-s <tmp>/key` (`release-sign.mjs:77-78`). The fake-minisign argv log (P02) never
+  contained the key line.
+- **Logs:** minisign's stdout and stderr are captured and never printed (`:77-79`). The refusal text is fixed. No
+  refusal output in P10-P17 contained key bytes. Unexpected exceptions are re-thrown (`:107`), but their messages
+  name paths only.
+- **Workflow:** the secret appears only in `env:` (`release.yml:97`, `:126`). It is never `${{ }}`-interpolated
+  into a script, never echoed, and there is no `set -x`. It is not written to the workspace or `$GITHUB_ENV`. Only
+  the check step and the sign step see it. `VERSION` goes to `$GITHUB_ENV` only after `v$version == $TAG` holds
+  (`:113-118`). A tag ref cannot contain a newline, so `$GITHUB_ENV` cannot be injected.
+- **Temp dir:** `mkdtemp` 0700, key written 0600 with `wx` (`:67-75`), removed in `finally` (`:88-92`). Paths tested:
+  success, refusal, minisign SIGSEGV, minisign exit 0 with no signature, SIGINT or SIGTERM to the process group.
+  The temp dir was empty after each one (P01, P10-P17, P25, P26).
+- **SIGKILL:** this path cannot be cleaned. It leaves `rein-sign-*/key` behind (P27, expected; F3).
+- **Runner `TMPDIR`:** unset on GitHub-hosted runners, so the dir is under `/tmp` on a single-job ephemeral VM shared
+  with nothing. Locally it is the operator's `$TMPDIR`.
+
+**Q2, can a dispatch or another branch reach the key?** No.
+- `matrix` (`:26`) and `release` (`:34`) both require `event_name == 'push' && startsWith(ref, 'refs/tags/v')`.
+  When `matrix` is skipped on a dispatch, `!cancelled()` is true, but the event clause in `release`'s own `if`
+  keeps it skipped. A dispatch on a tag ref is still `workflow_dispatch`, so it is excluded too.
+- `on.push` lists only `tags: ['v*']`, so a branch push does not trigger the workflow.
+- The real boundary is on the server side. A writer could put `environment: release` into a workflow on a branch,
+  but the environment's tag-type `v*` policy refuses the deployment, and only an admin can create a `v*` tag.
+- `dry-run` has no `environment`, no `secrets.*` reference and `contents: read`. Its checkout uses
+  `persist-credentials: false`. `matrix` is called without `secrets: inherit`.
+- A failed required check stops the job before signing: only "Informative legs" carries `!cancelled()`.
+
+**Q3, supply chain.** Acceptable.
+- All `uses:` are SHA-pinned, with the same pins as ci.yml.
+- apt `minisign` comes from the Ubuntu archive, which is signed and is the same trust root as the runner image. The
+  version is unpinned and follows `ubuntu-latest`.
+- A version drift cannot weaken the output. `signatureAlgorithm` refuses a legacy `Ed` signature (P15), and the
+  self-check against the committed public key refuses a wrong key (P12).
+- No other downloads.
+- Inherent risk: a malicious minisign binary sees the key. The image and apt trust root accept that risk.
+
+**Q4, the committed throwaway key.** Safe.
+- `throwaway.pub` key id `6D41B7B1E32133D1` differs from `docs/contract/release-key.pub` (`5C9C75A7C8FA8056`,
+  added by the operator in a1c3af0).
+- Only `tests/unit/release-manifest.test.mjs:227-228` and the `dry-run` job reference the throwaway pair. No source
+  file does, and `verify` has no default public key.
+- If the throwaway key were ever loaded into the secret, the release job would refuse: sign self-verifies against
+  `release-key.pub`.
+- `no_secrets_in_diff` excludes `tests/**`, and none of its five patterns matches the key file.
+  `publish-scan scan-tree` on the pair returned `[PRIVACY_GATE_OK]`. **No standards.json exemption is needed.**
+
+**Q5, trusted comment injection.** RESISTED. `-t` is a single argv element; no shell is involved. The semver check
+runs before the temp dir exists (`:63-66`). It uses a JS regex without the `m` flag, so `$` does not match before a
+trailing `\n`. Twelve payloads were refused with exit 3 (P18): `\n`, `\r`, U+2028, NUL, a space, `$(id)`, a
+backtick, `../`, a leading `-`, a number and null. The signature format cannot gain a line.
+
+### Findings (all P3, non-blocking)
+- **F1, follows a symlink at `<tarball>.minisig.tmp`** (`release-sign.mjs:85-86`). `copyFileSync` writes the
+  signature through a planted symlink (P23), and `renameSync` then installs the symlink as `.minisig`. Exploiting
+  this needs write access to the tarball's directory, which already allows replacing the tarball, and the bytes
+  written are public. **Fix:** `rmSync(tmp,{force:true})`, then `copyFileSync(sig, tmp, constants.COPYFILE_EXCL)`.
+- **F2, a pre-existing `.minisig` survives a refusal** (P22; `main` `:109` removes only `.tmp`). The run writes
+  nothing, but the task's acceptance wording ("leaving no .minisig") is not literally met. The stale signature
+  cannot verify against new bytes, and CI's `dist/` is fresh, where an exit 3 stops the job. **Fix:** remove
+  `${tarball}.minisig` when `signTarball` starts, after argument validation.
+- **F3, the key reaches disk, and SIGKILL leaves it** (P27). **Hardening:** minisign 0.12 accepts the key on a pipe.
+  `-s /dev/stdin` with `spawnSync(..., {input: keyText})` signed and verified here, so the key never touches disk and
+  the temp-file trap becomes moot (`/dev/stdin` also exists on macOS).
+- **F4, the key is inherited by children.** `REIN_RELEASE_KEY` stays in the env that `spawnSync` gives minisign
+  (`:29`, `:40`, `:77`). **Fix:** pass `env` without it.
+- **F5, SIGTERM to node alone during `spawnSync` is swallowed** (P24). Signing completes with exit 0 and the temp
+  dir is clean. This is benign. A group signal, which is how the runner cancels, aborts the run cleanly (P25, P26).
+- **F6, no required reviewer on the `release` environment.** This is acceptable for a sole operator: the admin-only
+  tag ruleset is the gate. Add a reviewer if a second maintainer ever gets admin.
+- **Note, by design:** `verify` does not compare the trusted comment with `manifest.version`. Per §Security, the
+  installer compares `manifest.version` itself.
+
+### Pen-Test Results
+Harness: fixture copies of `release-sign.mjs`, `release-manifest.mjs`, `release-tar.mjs` and `release-layout.mjs`;
+a bash wrapper `minisign` (argv log; crash, sleep, legacy and nosig modes) in front of `/usr/bin/minisign` 0.12; the
+throwaway pair and a pair generated for the review. Run with `env -i`, `HOME` and `TMPDIR` inside the fixture,
+`ulimit -t 5 -f 10240`, a 10 s wall kill and no network.
+
+Deviation from the standard harness: `ulimit -u` was raised to 8192. Linux `RLIMIT_NPROC` counts every thread of the
+uid, which was about 1950 here with `rein ci run` in progress. At 64 or 512, node aborted in `uv_thread_create`.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A02 | sign | throwaway key + pub (control) | RESISTED | 0 | rc 0, `ED`, trusted comment exact, tmp empty |
+| A09 | sign → minisign argv | argv log scanned for key | RESISTED | 0 | key never in argv |
+| A08 | verify --pubkey | flipped tarball byte | RESISTED | 0 | rc 3 `[RELEASE_SIGNATURE_BAD]` |
+| A08 | verify --pubkey | other key's pub | RESISTED | 0 | rc 3 |
+| A08 | verify --pubkey | `.minisig` missing | RESISTED | 0 | rc 3 |
+| A08 | verify --pubkey | trusted comment edited to `version:9.9.9` | RESISTED | 0 | rc 3 (global sig) |
+| A08 | verify --pubkey | valid sig (control) | RESISTED | 0 | signature ✓; member check rc 3 is the synthetic manifest (harness artefact) |
+| A07 | sign | no key / blank key | RESISTED | 0 | rc 3, tmp empty |
+| A07 | sign | other key vs throwaway.pub | RESISTED | 0 | rc 3 self-check, no `.minisig` |
+| A07 | sign | garbage key text | RESISTED | 0 | rc 3, no key bytes in output |
+| A04 | sign | minisign SIGSEGV / exit 0 without sig | RESISTED | 0 | rc 3, tmp empty |
+| A02 | sign | minisign forced `-l` (legacy `Ed`) | RESISTED | 0 | rc 3 legacy refused |
+| A05 | sign | no minisign on PATH | RESISTED | 0 | rc 3 |
+| A03 | sign `-t` | 12 version payloads (`\n`, `\r`, U+2028, NUL, `$(id)`, …) | RESISTED | 0 | rc 3 semver refusal before mkdtemp |
+| A03 | sign paths | `-x/…tar.gz`, `a;touch id-ran;.tar.gz`, `--pubkey -V` | RESISTED | 0 | argv only; no side effect |
+| A04 | sign | stale `.minisig` present, then refusal | RESISTED | 0 | rc 3; stale file left (F2, no capability gained) |
+| A01 | sign | symlink at `.minisig.tmp` → victim | RESISTED | 0 | victim overwritten with public sig bytes; needs dir write = can replace tarball (F1) |
+| A04 | sign | SIGTERM node only mid-sign | RESISTED | 0 | signal swallowed, rc 0, tmp empty (F5) |
+| A04 | sign | SIGINT / SIGTERM process group mid-sign | RESISTED | 0 | rc 3, tmp empty, no `.minisig` |
+| A04 | sign | SIGKILL node mid-sign | INCONCLUSIVE (expected) | 0 | uncatchable; key file left 0600 in 0700 dir (F3); ephemeral on runner |
+| A01 | release.yml / env | dispatch, branch push, branch env deploy | RESISTED | n/a | static `if:` + env tag policy `v*` (type tag) + admin-only tag ruleset (read via gh api) |
+
+On the SIGKILL row: no handler can clean up after SIGKILL, so the row records the known residue rather than a defect
+in the code under test. It is marked INCONCLUSIVE because the agent rule has no "expected" verdict, and it does not
+gate: on the hosted runner the VM is destroyed. F3 removes it entirely.
+
+Disposition: cleared for merge. F1-F4 are small follow-ups. F1 and F2 are two lines each and could go in the same PR.
+P0: none.

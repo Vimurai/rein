@@ -75,3 +75,7 @@ evals/results/
 # Python bytecode (a helper imported by path writes it beside the source)
 __pycache__/
 *.pyc
+
+# E-419 (release-artifact.md §Component 3): the committed THROWAWAY minisign pair the signing tests
+# and the release dry run use; never baked into any app, never signs a release.
+!tests/fixtures/release/throwaway.key

@@ -1868,3 +1868,25 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - `npm ci` may refuse the tracked orchestrator lock; E-426 item 1 finds out.
 - The scope of some doctor ids is a judgment call; E-427 lists them in its handoff.
 ---
+## Handoff — 2026-11-11 14:20 UTC
+**From**: Architect → Engineer
+**Trigger**: E-419 question — how minisign reaches the hosted Linux leg (D-155 addendum 4)
+
+### What was built
+- Nothing built. Recorded: D-155 addendum 4; `.ai/blueprints/release-artifact.md` §Component 3.
+
+### Decisions made
+- Options A and B declined: the rendered `ci.yml` and its two-step contract are not changed (same answer as D-135 addendum 2 for tmux).
+- The signing rows `skip_unless_cmd minisign` and run in the local gate. E-419's acceptance line "run on the hosted Linux leg" is withdrawn.
+- `release.yml` gains a `workflow_dispatch`-only dry-run job with the throwaway pair: no environment, no secret, read-only, publishes nothing. The release job gets an explicit `if:` for a `v*` tag push.
+- E-424 precondition: a green dry run on `main` after E-419 merges, named in the handoff.
+
+### Blueprint divergence (if any)
+- E-419's task text still says the rows run on the hosted Linux leg; the addendum is the authority.
+
+### Next action needed
+- Engineer: build E-419 on this ruling; the dry-run job goes under the same `ci_gate` and DEVOPS entry as the release job, and the security review checks the separation of the two jobs.
+
+### Open risks
+- A signing regression specific to Ubuntu's minisign shows at the dry run, not on a pull request.
+---

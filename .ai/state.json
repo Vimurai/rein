@@ -5157,6 +5157,15 @@
       "summary": "[TIER_1] merge of origin/main (f7b3554: E-426 #41, reviewed and merged) into e-427-doctor-scopes; .ai/ stamps unioned",
       "sha": "469260d21f1592e05ce841483ee19250337e7530",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-427",
+      "timestamp": "2026-11-11T13:48:49.951Z",
+      "summary": "[TIER_1] E-427.03a (Architect review point 1): a healthy artifact install in a clean home (no ~/.claude, no project) is not fail under doctor --scope install and its install check is ok; server dependencies come from the checkout via an npm stub; skipped, counted, without them or without a pinnable toolchain. Test-only",
+      "sha": "81a3b48cddccc0ab2d3bb5ad9ea0342b5e647dea",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

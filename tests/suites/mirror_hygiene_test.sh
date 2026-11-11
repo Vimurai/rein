@@ -378,6 +378,29 @@ PYLIST
       env -u REIN_WORKSPACE bash "${AH4}/.rein/bin/rein" doctor --repair ) </dev/null >/dev/null 2>&1
   assert_status 0 "E-426.03d: doctor --repair runs npm ci for a shipped lock even when its marker matches" \
     test "$(grep -c '/orchestrator-mcp ci' "$NPMLOG")" -gt "$_ci_before"
+
+  # E-427 (D-158 r8-r11; the case rein-app hit): extends E-426.01 — a HEALTHY artifact install in a
+  # clean home (no ~/.claude, no project) is never `fail` under `doctor --scope install`. Healthy
+  # needs real server dependencies: this npm takes them from the checkout (`rein ci run`'s deps
+  # step installed them) — `ci` copies, `install` links. Skipped, counted, when the checkout has
+  # none, or when this host's toolchain cannot be pinned (then the install is not healthy here).
+  _have_deps=1
+  for _s in "$REPO_ROOT"/src/mcp/*/; do [[ -f "${_s}package.json" && ! -d "${_s}node_modules" ]] && _have_deps=0; done
+  if [[ "$_have_deps" -eq 1 && -f "${DH0}/.rein/shared/toolchain.sh" ]]; then
+    NPMH="$(test_tmpdir hyg-npm-healthy)"
+    printf '#!/bin/sh\nsrc="%s/src/mcp/$(basename "$PWD")/node_modules"\ncase "$1" in\n  ci) [ -e node_modules ] || cp -R "$src" node_modules ;;\n  install) [ -e node_modules ] || ln -s "$src" node_modules ;;\nesac\nexit 0\n' "$REPO_ROOT" > "${NPMH}/npm"
+    chmod +x "${NPMH}/npm"
+    AH7="$(test_tmpdir hyg-art-home7)"; EMPTY7="$(test_tmpdir hyg-art-empty7)"
+    node "$REPO_ROOT/tests/lib/release-unpack.mjs" "$DW" "${RO1}/rein-${_ver}.tar.gz" "${AH7}/.rein"
+    _p7="${NPMH}:${AH7}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")"
+    ( cd "$EMPTY7" && HOME="$AH7" TMPDIR="$FAKE_TMP" CI=1 REIN_NO_PROJECT_SCAN=1 PATH="$_p7" env -u REIN_WORKSPACE bash "${AH7}/.rein/bin/rein" install ) </dev/null >/dev/null 2>&1
+    _h7="$( cd "$EMPTY7" && HOME="$AH7" TMPDIR="$FAKE_TMP" PATH="$_p7" env -u REIN_WORKSPACE bash "${AH7}/.rein/bin/rein" doctor --scope install --json 2>/dev/null )"
+    _h7v="$(node -e 'const d=JSON.parse(process.argv[1]); const i=d.checks.find((c)=>c.id==="install"); const w=d.checks.filter((c)=>c.status!=="ok").map((c)=>c.id+":"+c.status); console.log(d.status+" install="+(i?i.status:"none")+(w.length?" not-ok="+w.join(","):""))' "$_h7" 2>&1)"
+    assert_status 0 "E-427.03a: a healthy artifact install in a clean home is not fail under --scope install (${_h7v})" \
+      bash -c '[[ "$1" != fail* && "$1" == *" install=ok"* ]]' _ "$_h7v"
+  else
+    _skip "E-427.03a: no server dependencies in the checkout, or no pinnable toolchain on this host"
+  fi
   assert_status 0 "E-418.06e: the manifest lists every staged file, no more" \
     test "$(python3 -I -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["files"]))' "${RO1}/manifest.json")" = "$(cd "$ST" && find . -type f | wc -l | tr -d ' ')"
   echo "# uncommitted" >> "$DW/hooks/stop-hook.sh"

@@ -60,8 +60,9 @@ test("E-418.02: each path a release must not carry is refused, named", () => {
 });
 
 test("E-418.03: the manifest is schema 1 in canonical form; mode by the stated rule; key_id from the key file", () => {
+  // C, not B beside b: a macOS volume is case-insensitive and would hold one file.
   const root = tree({
-    "shared/b.mjs": "b", "shared/a.mjs": "a", "shared/B.mjs": "B", "hooks/x.sh": "h", "bin/rein": "r",
+    "shared/b.mjs": "b", "shared/a.mjs": "a", "shared/C.mjs": "C", "hooks/x.sh": "h", "bin/rein": "r",
     "shared/node-version.sh": 'REIN_NODE_FLOOR="22.5"\n',
   });
   const files = M.collectTree(root);
@@ -71,7 +72,7 @@ test("E-418.03: the manifest is schema 1 in canonical form; mode by the stated r
   assert.deepEqual(Object.keys(manifest), ["schema", "version", "min_node", "key_id", "layout", "files"]);
   assert.equal(manifest.min_node, "22.5.0");
   assert.equal(manifest.layout.operator_owned.length, 14);
-  assert.deepEqual(manifest.files.map((f) => f.path), ["bin/rein", "hooks/x.sh", "shared/B.mjs", "shared/a.mjs", "shared/b.mjs", "shared/node-version.sh"], "bytewise order");
+  assert.deepEqual(manifest.files.map((f) => f.path), ["bin/rein", "hooks/x.sh", "shared/C.mjs", "shared/a.mjs", "shared/b.mjs", "shared/node-version.sh"], "bytewise order (upper case first)");
   assert.deepEqual(Object.keys(manifest.files[0]), ["path", "sha256", "size", "mode"]);
   assert.equal(manifest.files.find((f) => f.path === "bin/rein").mode, "0755");
   assert.equal(manifest.files.find((f) => f.path === "hooks/x.sh").mode, "0755");

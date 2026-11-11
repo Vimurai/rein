@@ -4886,6 +4886,69 @@
       "summary": "[TIER_1] run_review SKIP: E-421 CI 0835cd2 fixes — T-WAL-S01 reads _doctor_text (doctor() is now the --json wrapper); project-upgrade's COMM row lifts _dr beside _doctor_comm_report. Test-only change",
       "sha": "c07b4e4ae3ab46043159efcf001d360d6e680781",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-410",
+      "timestamp": "2026-11-10T22:52:37.034Z",
+      "summary": "[TIER_1] run_review SKIP: parking commit on branch e-410-wip (not for main) — src/shared/cli-incident.mjs, unfinished E-410 work found untracked in the tree; not wired into rein, no tests; E-410 (Tier 3) still owns it",
+      "sha": "6acb4965e6403771ae719ae1b35bcb508a7d8f44",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-10T23:04:12.509Z",
+      "summary": "[TIER_1] checkpoint, not the E-422 review: commits the E-422 work in progress on its branch so the shared tree can switch to e-420 for the main merge. Full Tier 2 review and local CI run before the E-422 PR",
+      "sha": "366228373815a030be17e5a2d83c92f01d479e34",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-420",
+      "timestamp": "2026-11-10T23:04:23.705Z",
+      "summary": "[TIER_1] merge of origin/main (23315a1: E-418 merged, incl. its macOS test fix dba0a15) into e-420-artifact-install; no code beyond what PR #36 merged; .ai/ stamps unioned",
+      "sha": "89efde4aa0783995e4d14237d9e0d6fe4401701b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-420",
+      "timestamp": "2026-11-10T23:04:52.372Z",
+      "summary": "[TIER_1] merge of origin/main (23315a1, PR #36 = E-418 incl. dba0a15) into e-420-artifact-install; code already reviewed and merged on main; .ai/ stamps unioned (base + both sides, time order)",
+      "sha": "c284743e71608a836d92a429a42f8080cd0eeb5f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-422",
+      "timestamp": "2026-11-10T23:29:43.355Z",
+      "summary": "[TIER_1] checkpoint, not the E-422 review: r8 (D-155 addendum 3) implementation and rows committed on the task branch so the tree can switch to e-420 for a CI fix. Full Tier 2 review and local CI before the E-422 PR",
+      "sha": "c8824f39aa36ef02c5f641db589fec87eabc45f5",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-420",
+      "timestamp": "2026-11-10T23:30:00.606Z",
+      "summary": "[TIER_1] run_review SKIP: E-420.01d on PR #37's Ubuntu legs assumed the host's node pins; the toolchain check refuses /opt/hostedtoolcache's node (a correct refusal). The row now asserts the artifact install pins exactly as the clone install of the same commit on the same host does. Test-only",
+      "sha": "6cf876a0ca2325f836be1c6d4a019b9d19296220",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-421",
+      "timestamp": "2026-11-11T08:26:05.416Z",
+      "summary": "[TIER_1] merge of origin/main (3f68eff: E-418 #36 and E-420 #37, both reviewed and merged) into e-421-doctor-json; .ai/ stamps unioned (base + both sides, time order)",
+      "sha": "7e080cb2140155dedba474b4cffa36cc964cc10a",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

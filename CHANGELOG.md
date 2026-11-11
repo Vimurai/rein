@@ -3,6 +3,61 @@
 All notable changes to **@vimurai/rein** are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — First signed release
+
+The first release published as a signed artifact (D-153, D-155, D-156): every `v*` tag from
+here on carries `rein-X.Y.Z.tar.gz`, its minisign signature `rein-X.Y.Z.tar.gz.minisig`, and
+`manifest.json`. An installer — rein-app, or anyone by hand — verifies the signature against the
+public key in [`docs/contract/release-key.pub`](docs/contract/release-key.pub) (key id
+`5C9C75A7C8FA8056`), then every file against the manifest inside the tarball. The contract an
+installer can rely on is [`docs/app-contract.md`](docs/app-contract.md). v0.4.0 has no assets and
+gets none: its tag predates the tooling.
+
+### Added
+
+- **The release commands (E-417, E-418, E-419).** `rein release stage <dir>` builds the release
+  tree from the checkout (tracked files only, nothing written under `~/.rein`);
+  `rein release manifest <tree> --pubkey <file>` writes `manifest.json` (schema 1) and a
+  reproducible ustar `rein-<version>.tar.gz`, refusing any path a release must not carry
+  (links, non-ASCII or case-colliding names, install-generated files);
+  `rein release sign <tarball> --pubkey <file>` signs with minisign, the key coming only from
+  `REIN_RELEASE_KEY`; `rein release verify <tarball> [--pubkey <file>]` checks the signature,
+  then every member's size, sha256 and mode.
+- **The release workflow signs (E-419).** A `v*` tag runs the full matrix, then — in the GitHub
+  environment `release`, which holds the key — stages, writes the manifest, checks the tag
+  equals the manifest's version, signs, verifies and publishes the three files, with the
+  tarball's sha256 and the key id in the notes. A dispatchable dry run proves the path with a
+  throwaway key and publishes nothing.
+- **`rein install` finishes an unpacked release (E-420).** With `~/.rein/manifest.json` present it
+  checks every file against the manifest (`[INSTALL_TREE_MISMATCH]` / `[INSTALL_INCOMPLETE]`,
+  exit 3, nothing else done), checks Node, probes `/bin/bash -p`, pins the hook toolchain,
+  stamps the install as `artifact` with its key id, adds the shell profile lines and removes
+  retired server mirrors. A clone install removes `manifest.json`, so the two never mix.
+- **`rein doctor --json` and `--scope install` (E-421, E-427).** One JSON document
+  (`schema`, `version`, `status`, `checks[]` of `id`, `scope`, `subject`, `status`, `line`, `fix`);
+  text output is unchanged. Every check has a scope — `install`, `host` or `project` — and
+  `rein doctor --scope install --json` runs only the install checks, from any directory: what
+  an installer judges an install by.
+- **The app contract (E-422).** `docs/app-contract.md` and `docs/accounts.md`; JSON Schemas for
+  the manifest, the doctor document and `accounts.json` in `docs/contract/`; shared fixtures in
+  `tests/fixtures/release/` (layout, operator-owned rules, profile-settings rules, the CLI
+  surface, a sample doctor document) that rein-app tests against.
+- **`rein ci run` tests Rust projects (E-425).** A worktree with `Cargo.toml` gets a `cargo`
+  step (`cargo test --workspace`, `--locked` when `Cargo.lock` is tracked), with its own
+  `CARGO_HOME` and target cache; `rein ci status` labels the counts by the step they came from.
+
+### Changed
+
+- **A run that tested nothing is not a PASS (E-425).** When suite, unit and cargo all skip,
+  `rein ci run` prints `[CI_NO_TESTS]`, records ERROR and exits 2 — a downstream project with
+  only a secrets step now reads ERROR instead of PASS.
+- **`rein install` never rewrites a shipped file (E-426).** A server whose `package-lock.json` is
+  shipped installs with `npm ci` and is skipped while its lock is unchanged; the orchestrator
+  lock's root entry now matches its `package.json`.
+- **Fix lines name the right reinstall (E-420).** A doctor or CLI line that used to say
+  `run: bash install-rein.sh` says to reinstall the release instead when the install came from
+  one.
+
 ## [0.4.0] — First public release
 
 The first release of **Rein** in its public repository. The version line restarts at

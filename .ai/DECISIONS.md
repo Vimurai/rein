@@ -5076,3 +5076,32 @@ Remove the two checks and their rows; no artifact or manifest changes.
 Reinstate r4's clause and build option B as its own Tier 3 task with security review.
 
 ---
+
+## D-157 — The test_lines budget rises to the measured value of the E-422 tree (expected 43602) for the release-artifact arc; fixture data is not compacted further to fit
+
+**Date**: 2026-11-10
+**Task**: E-422 (3b52957, before its merge of main and its PR); covers the rows of E-417, E-418, E-420, E-421
+**Decision**: `rein ci run` on 3b52957 passes every test (7180/0/25) and fails `[BUDGET_REGRESSION] test_lines`: recorded 42725 (D-149), measured 44038, limit 43579. After the Engineer reformatted `doctor-sample.json` to one check per line (511 → 75 lines) the measure is 43602, 23 over. D-155 said in advance that this regression is "ruled at its measured value when it appears".
+
+Composition, measured by the Architect (`git diff --numstat 1517921 HEAD -- tests`, net +879): the shared fixtures another repository tests against, 174 lines (`doctor-sample`, `operator-owned-cases`, `layout-v1`, `profile-settings-cases`, `cli-surface`); two test libraries, 103 (`json-schema-lite.mjs`, which E-422 requires so the schemas are pinned without a dependency, and `release-unpack.mjs`); generator and reader rows at the unit layer, 217 (`release-manifest.test.mjs`, D-153 r2, D-155 r1–r2 and addendum 3); artifact-install rows at the suite layer, 132 (`mirror_hygiene_test.sh`, D-155 r4 and addendum r1–r3); doctor JSON, accounts and guard rows, about 100 (D-153 r3–r4, addendum 2); the remainder small extensions of existing rows from D-143 and D-155 addendum 2.
+
+### Rulings
+1. **Budget**: `rein ci budget set --ruling D-157 test_lines=<measured>` on the E-422 branch after main is merged in, with the value that run measures. 43602 is expected; if the merged tree measures differently the measured value is used and named in the handoff. No headroom (D-132 addendum 6 r1, D-149 r1): the 2 % tolerance is the headroom.
+2. **Nothing for E-425 or E-419 in advance.** Each is measured when it lands; inside the tolerance it passes, outside it comes back with its own composition.
+3. **No further compaction of fixture JSON.** Reformatting data until the count fits changes the number and nothing else, which is D-149 alternative 3 in another form. `doctor-sample.json` stays at one check per line because that is a sound format for a list of records (one record per line reads and diffs well) and it stays schema-valid; it is accepted as formatting, and is the last such change made for the budget.
+4. **The D-149 r3 review, at the depth it was done.** D-149 r3 asked for a review for one behaviour pinned at two layers before the next raise when the growth is not gate hardening; 277 of these lines are fixtures and libraries. The Architect compared the added files by layer and subject, not row by row: the generator and reader sit at the unit layer only, the artifact install at the suite layer only, the doctor document at the unit layer only, and the fixtures are data that rows read, each pinned once. No duplicate was found at that depth. A row-by-row census of the release rows is not ordered now; it is the first step if E-419 or E-425 crosses the tolerance.
+5. **Fixtures count as test lines** (D-132 addendum 6) — unchanged. Published contract fixtures are still lines someone maintains.
+6. **Not a precedent for growth without a ruling** (D-149 r4 restated).
+
+### Alternatives considered
+1. **Compact `layout-v1.json` and others to get under by 25 lines (the Engineer's option 2, which the Engineer also advised against)** — rejected in r3.
+2. **A figure with room for E-425 and E-419** — rejected (r2; D-149 alternative 2).
+3. **Exclude `tests/fixtures/release/` from the census** — rejected: it reopens D-132 addendum 6 for the files most likely to grow unwatched.
+
+### Impact
+- Unlocks: E-422's merge of main, push and PR. Risk if wrong: none beyond the number; the budget has now risen three times in a month (+1311, +925, +877), each by ruled rows, and r4 names the next step.
+
+### Rollback
+`rein ci budget set --ruling D-157 test_lines=42725` restores the previous value.
+
+---

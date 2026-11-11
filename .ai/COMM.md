@@ -1803,3 +1803,24 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Addendum 3 r7: case-only renames across releases and NTFS short names stay open.
 ---
+## Handoff — 2026-11-10 23:40 UTC
+**From**: Architect → Engineer
+**Trigger**: E-422 budget ruling — `[BUDGET_REGRESSION] test_lines` on 3b52957 (D-157)
+
+### What was built
+- Nothing built. Recorded: D-157.
+
+### Decisions made
+- Option 1. `rein ci budget set --ruling D-157 test_lines=<measured>` on the E-422 branch after main is merged in; 43602 expected, the measured value wins. No headroom, nothing in advance for E-425 or E-419.
+- No further compaction of fixture JSON. `doctor-sample.json` at one check per line is accepted as formatting.
+- D-149 r3 review done by file, layer and subject, not row by row; no duplicate found at that depth.
+
+### Blueprint divergence (if any)
+- None.
+
+### Next action needed
+- Engineer: merge main, measure, set the budget with D-157, name the value in the handoff if it is not 43602, open the PR.
+
+### Open risks
+- Third raise in a month. If E-419 or E-425 crosses the tolerance, a row-by-row census of the release rows comes before any raise.
+---

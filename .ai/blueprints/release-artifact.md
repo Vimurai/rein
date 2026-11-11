@@ -59,7 +59,10 @@ convenience copy that nothing trusts.
   a path with a byte outside printable ASCII (0x20–0x7E); two paths, or a path and a
   directory prefix of another, that differ in bytes and are equal once `A`–`Z` is lowered
   (`shared/b.mjs` beside `shared/B.mjs`; `shared/Lib` beside `shared/lib/x.mjs`) — both
-  names are printed, `[RELEASE_CASE_COLLISION]` (D-155 addendum 3, built in E-422).
+  names are printed, `[RELEASE_CASE_COLLISION]` (D-155 addendum 3, built in E-422); a
+  path that matches a `layout.operator_owned` pattern once `A`–`Z` is lowered in both and
+  does not match it exactly (`shared/Toolchain.sh`, `mcp/x/Package-Lock.json`) — same tag,
+  path and pattern printed (addendum 3 r8). An exact match is unchanged.
 - The tarball is written by the same module (a ustar writer, about sixty lines), not by the
   host's `tar`, so GNU and BSD hosts produce the same archive members: `manifest.json` first,
   then every `files` entry in manifest order; regular files only (typeflag `0`), no directory
@@ -180,7 +183,11 @@ convenience copy that nothing trusts.
 ### Component 6 — The published contract: documents, schemas, shared fixtures (E-422)
 - `docs/app-contract.md`: the layout and its version rule, the upgrade rule, the settings
   allow-list, the headless entry points, the three release files and how to verify them by
-  hand. `docs/accounts.md`: the registry (D-153 r4).
+  hand. `docs/accounts.md`: the registry (D-153 r4 as corrected by D-153 addendum 2): the
+  shape is closed (`{"accounts": {"<name>": {"config_dir", "added"?}}}`, nothing else at
+  either level), `accounts.py` is its only writer, an app reads `config_dir` and changes the
+  registry through `rein account add|remove` only. `accounts.schema.json` has
+  `additionalProperties: false` at both levels and `added` optional.
 - `docs/contract/manifest.schema.json`, `doctor.schema.json`, `accounts.schema.json` (JSON
   Schema 2020-12). Each is pinned by a row that validates a real output against it: the
   manifest from a stage of the checkout, the doctor document from a fixture project, a

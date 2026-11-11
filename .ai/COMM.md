@@ -1761,3 +1761,86 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Windows-reserved names are not ruled (addendum r7).
 ---
+## Handoff — 2026-11-10 22:55 UTC
+**From**: Architect → Engineer
+**Trigger**: E-422 question — D-153 r4 against `src/shared/accounts.py` on accounts.json (D-153 addendum 2)
+
+### What was built
+- Nothing built. Recorded: D-153 addendum 2; `.ai/blueprints/release-artifact.md` §Component 6 first bullet.
+
+### Decisions made
+- Option A. The registry is a closed shape, `accounts.py` is its only writer, an app changes it through `rein account add` and `rein account remove` only. r4's "opaque and preserved byte-for-byte" clause is withdrawn.
+- A reader relies on `config_dir` only and ignores a row key it does not know.
+- Schema: `additionalProperties: false` at both levels, `config_dir` required, `added` optional. Pin row gains one refusal case (unknown row key).
+- No change to `accounts.py`.
+
+### Blueprint divergence (if any)
+- E-422's task text quotes r4; the addendum is the authority for the accounts documents.
+
+### Next action needed
+- Engineer: write `docs/accounts.md` and `accounts.schema.json` on this ruling. Tell `rein-app · Engineer` r4's clause is withdrawn and the app must not write the file.
+
+### Open risks
+- None new.
+---
+## Handoff — 2026-11-10 23:12 UTC
+**From**: Architect → Engineer
+**Trigger**: rein-app Architect FYI (their D-023) — shipped path against an operator-owned pattern differing only in case (D-155 addendum 3 r8)
+
+### What was built
+- Nothing built. Recorded: D-155 addendum 3 r8; `.ai/blueprints/release-artifact.md` §Component 2 refusal list.
+
+### Decisions made
+- `rein release manifest` refuses a shipped path that matches a `layout.operator_owned` pattern only after lowering A–Z: `[RELEASE_CASE_COLLISION] <path> and <pattern>`, exit 3. Exact match unchanged. Compared against the whole pattern list.
+- `install-rein.sh` unchanged. The live-side half of rein-app's rule stays rein-app's.
+
+### Blueprint divergence (if any)
+- None. E-422 carries r8 with r1–r3.
+
+### Next action needed
+- Engineer: build r8 in E-422 as you described (general comparison, three rows, contract text).
+
+### Open risks
+- Addendum 3 r7: case-only renames across releases and NTFS short names stay open.
+---
+## Handoff — 2026-11-10 23:40 UTC
+**From**: Architect → Engineer
+**Trigger**: E-422 budget ruling — `[BUDGET_REGRESSION] test_lines` on 3b52957 (D-157)
+
+### What was built
+- Nothing built. Recorded: D-157.
+
+### Decisions made
+- Option 1. `rein ci budget set --ruling D-157 test_lines=<measured>` on the E-422 branch after main is merged in; 43602 expected, the measured value wins. No headroom, nothing in advance for E-425 or E-419.
+- No further compaction of fixture JSON. `doctor-sample.json` at one check per line is accepted as formatting.
+- D-149 r3 review done by file, layer and subject, not row by row; no duplicate found at that depth.
+
+### Blueprint divergence (if any)
+- None.
+
+### Next action needed
+- Engineer: merge main, measure, set the budget with D-157, name the value in the handoff if it is not 43602, open the PR.
+
+### Open risks
+- Third raise in a month. If E-419 or E-425 crosses the tolerance, a row-by-row census of the release rows comes before any raise.
+---
+## Handoff — 2026-11-10 23:55 UTC
+**From**: Architect → Engineer
+**Trigger**: rein-app Architect question — should operator-owned matching fold ASCII case (D-155 addendum 3 r9, r10)
+
+### What was built
+- Nothing built. Recorded: D-155 addendum 3 r9 and r10.
+
+### Decisions made
+- r9: no fold. Operator-owned matching stays case-sensitive; `install-rein.sh` unchanged.
+- r10: `tests/fixtures/release/operator-owned-cases.json` rows `runner.json` and `insights.md` (top-level, unshipped, `deleted`) contradict rule 1 of the installer rule (nothing outside the mirrored directories is deleted). Corrected in E-422: both become `kept`; their pattern facts move to `glob_cases`; `shared/Toolchain.sh` unshipped `deleted` and `ci/x.json` unshipped `kept` are added; the description's last clause is rewritten.
+
+### Blueprint divergence (if any)
+- The fixture diverged from §Data Model rule 1; the blueprint is right and unchanged.
+
+### Next action needed
+- Engineer: apply r10 a–e in E-422 before its PR. Check first what the runner of this table does with a top-level path in `install-rein.sh` terms, and report if the installer itself deletes a top-level unlisted entry: that would be a defect, not a fixture error.
+
+### Open risks
+- rein-app's matcher was tested against the old rows; it may delete unlisted top-level entries. Its Architect is told.
+---

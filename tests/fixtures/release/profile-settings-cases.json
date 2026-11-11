@@ -1,0 +1,19 @@
+{
+  "description": "E-422 (D-155 r3; release-artifact.md §Data Model 'Settings a profile's settings.json may receive from the app'; contract §2.3): what the app may write into a Claude profile's <config_dir>/settings.json. A write is accepted only when every top-level key it adds, changes or removes is one of enabledPlugins, extraKnownMarketplaces, attribution; every other key must come out byte-for-byte as it went in. hooks, autoMode, permissions and defaultMode are refused by name: the gate's hook entries live in each project's .claude/settings.json (rein init / rein sync), never in a profile. before = the file as found; after = the file the app would write; expected = accept | refuse.",
+  "allowed_keys": ["enabledPlugins", "extraKnownMarketplaces", "attribution"],
+  "cases": [
+    { "label": "enable a plugin in an empty profile", "before": {}, "after": { "enabledPlugins": { "triad@rein-plugins": true } }, "expected": "accept" },
+    { "label": "register the marketplace", "before": { "model": "opus" }, "after": { "model": "opus", "extraKnownMarketplaces": { "rein-plugins": { "source": { "source": "github", "repo": "Vimurai/rein-plugins", "ref": "stable" } } } }, "expected": "accept" },
+    { "label": "set attribution, leave the operator's other keys alone", "before": { "permissions": { "allow": ["Bash(ls *)"] }, "env": { "X": "1" } }, "after": { "permissions": { "allow": ["Bash(ls *)"] }, "env": { "X": "1" }, "attribution": { "commit": "", "pr": "" } }, "expected": "accept" },
+    { "label": "disable a plugin it enabled", "before": { "enabledPlugins": { "triad@rein-plugins": true } }, "after": { "enabledPlugins": { "triad@rein-plugins": false } }, "expected": "accept" },
+    { "label": "remove an allowed key", "before": { "attribution": { "commit": "" } }, "after": {}, "expected": "accept" },
+    { "label": "add a hooks block", "before": {}, "after": { "hooks": { "PreToolUse": [] } }, "expected": "refuse" },
+    { "label": "change an existing hooks block", "before": { "hooks": { "Stop": [] } }, "after": { "hooks": {} }, "expected": "refuse" },
+    { "label": "remove hooks", "before": { "hooks": { "Stop": [] } }, "after": {}, "expected": "refuse" },
+    { "label": "set autoMode", "before": {}, "after": { "autoMode": { "hard_deny": [] } }, "expected": "refuse" },
+    { "label": "change permissions", "before": { "permissions": { "allow": [] } }, "after": { "permissions": { "allow": ["Bash(*)"] } }, "expected": "refuse" },
+    { "label": "set defaultMode", "before": {}, "after": { "defaultMode": "bypassPermissions" }, "expected": "refuse" },
+    { "label": "any other key outside the allow-list", "before": {}, "after": { "env": { "PATH": "/x" } }, "expected": "refuse" },
+    { "label": "an allowed key together with a refused one", "before": {}, "after": { "enabledPlugins": {}, "permissions": {} }, "expected": "refuse" }
+  ]
+}

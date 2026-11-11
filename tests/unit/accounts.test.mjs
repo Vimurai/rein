@@ -204,3 +204,29 @@ test("an exported bash function cannot stand in for the account library (E-223 c
     assert.match(r.stderr, /rein-account\.sh is missing/);
   } finally { done(); }
 });
+
+// E-422 (D-153 r4, addendum 2): extends the resolver table — a registry accounts.py writes is
+// valid against the published docs/contract/accounts.schema.json, and the shape is closed: a row
+// with a key it does not know fails the schema and is refused whole by accounts.py.
+test("accounts.json written by accounts.py add matches the published schema; an unknown row key is refused by both", async () => {
+  const { validate } = await import(join(REPO, "tests", "lib", "json-schema-lite.mjs"));
+  const schema = JSON.parse(readFileSync(join(REPO, "docs", "contract", "accounts.schema.json"), "utf8"));
+  const { h, done } = fixtureHome();
+  try {
+    const reg = join(h, "registry.json");
+    mkdirSync(join(h, ".claude-work"));
+    assert.equal(py("add", reg, h, "work", join(h, ".claude-work"), "2026-11-10").code, 0);
+    const doc = JSON.parse(readFileSync(reg, "utf8"));
+    assert.deepEqual(validate(schema, doc), [], "the written registry is valid");
+    doc.accounts.work.note = "an app wrote this";
+    writeFileSync(reg, JSON.stringify(doc));
+    assert.notDeepEqual(validate(schema, doc), [], "the schema refuses an unknown row key");
+    const r = py("list", reg, h);
+    assert.equal(r.code, 3, "accounts.py refuses the registry whole");
+    assert.match(r.out, /^UNPARSABLE/);
+    assert.notDeepEqual(validate(schema, { accounts: {}, extra: 1 }), [], "…and an unknown top-level key");
+    assert.notDeepEqual(validate(schema, { accounts: { Work: { config_dir: "/x" } } }), [], "…and a name outside the pattern");
+  } finally {
+    done();
+  }
+});

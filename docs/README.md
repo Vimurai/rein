@@ -15,6 +15,8 @@ topic each.
 | [MCP servers](mcp-servers.md) | What each local MCP server provides. |
 | [Configuration](configuration.md) | Every config file and environment variable. |
 | [Troubleshooting and FAQ](troubleshooting.md) | Something is off, or you have a question. |
+| [App contract](app-contract.md) | You build an installer or app on Rein: the signed release, the layout, settings an app may write, the headless commands, `rein doctor --json`. |
+| [Accounts](accounts.md) | You read `~/.rein/accounts.json` from outside Rein. |
 
 The design itself is not copied here: Rein is developed with Rein, so the system blueprint
 ([`.ai/architect.md`](../.ai/architect.md)), the per-domain blueprints

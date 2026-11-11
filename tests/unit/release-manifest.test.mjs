@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { gunzipSync, gzipSync } from "node:zlib";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const { installerAction, operatorOwned } = await import(resolve(repo, "src/shared/release-layout.mjs"));
+const { installerAction, operatorOwned, OPERATOR_OWNED } = await import(resolve(repo, "src/shared/release-layout.mjs"));
 const { readTarGz, writeTarGz } = await import(resolve(repo, "src/shared/release-tar.mjs"));
 const M = await import(resolve(repo, "src/shared/release-manifest.mjs"));
 const table = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/release/operator-owned-cases.json"), "utf8"));
@@ -57,6 +57,26 @@ test("E-418.02: each path a release must not carry is refused, named", () => {
   const hard = tree(ok); linkSync(join(hard, "bin", "rein"), join(hard, "bin", "rein2"));
   assert.deepEqual(refusedPaths(hard).sort(), ["bin/rein", "bin/rein2"], "hard link pair");
   assert.match(M.nameProblem(["shared", "..", "x"].join("/")), /'\.\.'/, "a dot-dot segment");
+  // D-155 addendum 3: extends this row. Paths are printable ASCII; a non-ASCII name is refused.
+  const nonAscii = "shared/caf\u00e9.mjs";
+  assert.deepEqual(refusedPaths(tree({ ...ok, [nonAscii]: "x" })).map((p) => p.normalize("NFC")), [nonAscii], "a non-ASCII path");
+  // Case collisions, in memory: the colliding names cannot both exist on a case-insensitive host.
+  assert.deepEqual(M.caseCollisions(["shared/b.mjs", "shared/B.mjs"]), [["shared/b.mjs", "shared/B.mjs"]], "a file pair");
+  assert.deepEqual(M.caseCollisions(["shared/Lib", "shared/lib/x.mjs"]), [["shared/Lib", "shared/lib"]], "a file against a directory prefix");
+  assert.deepEqual(M.caseCollisions(["shared/Lib/a.mjs", "shared/lib/b.mjs"]), [["shared/Lib", "shared/lib"]], "two directories differing in case");
+  assert.deepEqual(M.caseCollisions(["bin/A", "hooks/a", "shared/x/y", "shared/x/z"]), [], "case differs only across directories: no collision");
+  assert.deepEqual(refusedPaths(tree({ ...ok, "bin/A": "x", "hooks/a": "y" })), [], "…and collectTree passes it");
+  // r8: a shipped path equal to an operator_owned pattern only after lowering A-Z is refused —
+  // for every pattern in the list, so one added later is covered without a second edit.
+  assert.deepEqual(M.ownedCaseCollisions(["shared/Toolchain.sh"]), [["shared/Toolchain.sh", "shared/toolchain.sh"]], "an install-generated name in another case");
+  assert.deepEqual(M.ownedCaseCollisions(["mcp/x/Package-Lock.json"]), [["mcp/x/Package-Lock.json", "mcp/*/package-lock.json"]], "npm's lock in another case");
+  assert.deepEqual(M.ownedCaseCollisions(["mcp/x/package-lock.json", "mcp/x/index.js"]), [], "the exact pattern match still ships");
+  assert.deepEqual(refusedPaths(tree({ ...ok, "shared/Toolchain.sh": "x" })), ["shared/Toolchain.sh"], "…and collectTree refuses it");
+  for (const pat of OPERATOR_OWNED) {
+    const shipped = pat.replace(/\*\*/g, "a/b").replace(/\*/g, "x").replace(/\/$/, "/f");
+    const upper = shipped.replace(/[a-z]/g, (c) => c.toUpperCase());
+    assert.equal(M.ownedCaseCollisions([upper]).length, 1, `every pattern is covered: ${pat} → ${upper}`);
+  }
 });
 
 test("E-418.03: the manifest is schema 1 in canonical form; mode by the stated rule; key_id from the key file", () => {
@@ -171,4 +191,27 @@ test("E-420.05: checkInstalled refuses links, unlisted and unsafe entries, and a
   assert.match(why(vers), /manifest\.json says "0\.5\.0", VERSION says "0\.4\.0"/, "[INSTALL_INCOMPLETE]: version differs");
   const nullEntry = home(); editManifest(nullEntry, (m) => m.files.push(null));
   assert.match(why(nullEntry), /null: not a path a release may carry/, "a malformed entry is a finding, not a crash");
+});
+
+// E-422 (D-153, D-155 r3; release-artifact.md §Component 6): extends E-418.01 — the shared
+// fixtures other repositories test against agree with this repository. layout-v1.json is the
+// layout the generator writes; every profile-settings case matches the allow-list rule.
+test("E-422.04: layout-v1.json is the generator's layout; profile-settings-cases follow the allow-list rule", async () => {
+  const { MIRRORED, OPERATOR_OWNED } = await import(resolve(repo, "src/shared/release-layout.mjs"));
+  const pinned = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/release/layout-v1.json"), "utf8"));
+  assert.deepEqual(pinned, { mirrored: [...MIRRORED], operator_owned: [...OPERATOR_OWNED] },
+    "a layout change is a breaking version — contract §2.2");
+  const ps = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/release/profile-settings-cases.json"), "utf8"));
+  const allowed = new Set(ps.allowed_keys);
+  assert.deepEqual([...allowed].sort(), ["attribution", "enabledPlugins", "extraKnownMarketplaces"]);
+  const judge = (before, after) => {
+    const keys = new Set([...Object.keys(before), ...Object.keys(after)]);
+    for (const k of keys) if (!allowed.has(k) && JSON.stringify(before[k]) !== JSON.stringify(after[k])) return "refuse";
+    return "accept";
+  };
+  assert.ok(ps.cases.length >= 10);
+  for (const c of ps.cases) assert.equal(judge(c.before, c.after), c.expected, c.label);
+  for (const k of ["hooks", "autoMode", "permissions", "defaultMode"]) {
+    assert.ok(ps.cases.some((c) => c.expected === "refuse" && k in c.after && !(k in c.before)), `a refused write of ${k}`);
+  }
 });

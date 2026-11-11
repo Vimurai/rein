@@ -5033,7 +5033,10 @@ Inline `install-finalize.sh` back into `install-rein.sh` and point the five rows
 4. **`rein release verify` applies r1–r3 only if it already re-applies the generation path refusals to a tarball's members**; then the check joins them through the same function. If it does not, nothing is added to it here.
 5. **No schema change.** The manifest's shape is unchanged; schema 1 manifests already produced stay valid. rein-app's reader may reject the same paths and need not: a manifest from this generator never contains them.
 6. **It ships in E-422, not E-418.** PR #36 is in review with E-420 and E-421 stacked on it; a new commit there restacks two branches for a refusal no release needs before E-424. E-422 already writes `docs/app-contract.md`, which must state r1–r3 beside the other path rules, and extends the unit rows. Rows (extending the existing refusal rows, no new suite, D-088): a file pair; a file against a directory prefix; two directories differing in case; a non-ASCII path; and one PASS row for two paths that differ in case in different directories (`bin/A` and `hooks/a`). The fixtures for these rows are built in memory or under names that do not collide on the host (the dba0a15 lesson), so the rows run on the macOS leg.
-7. **Not ruled here**: Windows-reserved names (`CON`, `NUL`, a trailing dot or space, `:`), which come with Windows support for the install side.
+7. **Not ruled here**: Windows-reserved names (`CON`, `NUL`, a trailing dot or space, `:`), which come with Windows support for the install side. Two more, reported by rein-app's Architect the same day and left open on purpose: (a) a case-only rename between two releases (`shared/locate.sh` then `shared/Locate.sh`) passes, because the generator sees one release; rein-app fixes its own sync for it (rein-app D-021, E-27), and this repository avoids such renames by convention until a generator check against the previous manifest is worth building; (b) NTFS 8.3 short names (`LONGFI~1.SH`) alias long names; a Rein home on NTFS is not an install target, so it waits with the Windows names.
+8. **A shipped path that is a case variant of an operator-owned pattern is refused** (added 2026-11-10, from rein-app's Architect, their D-023). r1 compares shipped paths with each other; on a case-insensitive home a release shipping `shared/Toolchain.sh` writes over the install-generated `shared/toolchain.sh`, and a later release that drops it prunes it. `rein release manifest` compares each shipped path with each `layout.operator_owned` pattern after lowering `A`–`Z` in both, and refuses, exit 3, a path that matches lowered and does not match exactly: `[RELEASE_CASE_COLLISION] <path> and <pattern>`. An exact match is unchanged: the tracked `mcp/*/package-lock.json` still ships, the three install-generated names are refused as before. The comparison runs over the whole pattern list, so a pattern added later is covered without a second edit. Rows, extending the r6 rows: `shared/Toolchain.sh` refused; `mcp/x/Package-Lock.json` refused; `mcp/x/package-lock.json` passes. `docs/app-contract.md` states it beside r1–r3. `install-rein.sh` is not changed: the checkout's stage passes through the generator in the manifest pin row on every CI run, so the tracked tree is checked there. The live-side half of rein-app's rule (a live case variant of an owned pattern is treated as owned) is the installer's and stays rein-app's.
+9. **Operator-owned matching stays case-sensitive; no ASCII fold on the live side** (added 2026-11-10; rein-app withdrew its fold, their D-025, and asked). Every name the patterns protect is written by a tool under its exact name: the installer writes `shared/toolchain.sh` and the two `config/` files, npm writes `node_modules` and `package-lock.json`, Rein writes the top-level files. A case variant exists only if someone creates it by hand inside a mirrored directory, where an unshipped file is removed by rule 2 of the installer rule. On a case-insensitive home, `shared/Toolchain.sh` is the same file as `shared/toolchain.sh`; removing it loses nothing, because `rein install` regenerates it. A fold would buy that case and cost a second matching rule in two repositories and a table that says one thing per volume type. r8 keeps a release from shipping such a variant, which is the direction that could destroy data.
+10. **Two rows of `operator-owned-cases.json` contradict rule 1 of the installer rule and are corrected in E-422.** Rule 1 (release-artifact.md §Data Model): an installer writes and deletes only inside the `mirrored` directories; every other top-level entry is left alone, listed or not. The fixture at 3f68eff has `runner.json` and `insights.md`, both top-level and unshipped, as `deleted`, and its description ends "anything else is deleted". Read literally, an installer removes `ci/`, `trash/` and any top-level file a later version adds. Corrections: (a) both rows become `kept`, labelled "outside the mirrored directories: left alone, matched or not"; (b) the two pattern facts they carried move to `glob_cases`: pattern `run/` against `runner.json`, no match; pattern `INSIGHTS.md` against `insights.md`, no match; (c) one row is added inside a mirrored directory: `shared/Toolchain.sh`, unshipped, `deleted`, "matching is case-sensitive" (r9); (d) the description's last clause reads "an unshipped path inside a mirrored directory that matches no pattern is deleted; a path outside the mirrored directories is never written or deleted, except `manifest.json` and `VERSION`"; (e) one more row: `ci/x.json`, unshipped, `kept`, "an unlisted top-level directory". rein-app is told before E-422 merges, since its matcher was tested against the old rows.
 
 ### Alternatives considered
 1. **Leave it to the tree check at install** — rejected: it fails on the operator's machine, late, with a message about a file that was never the problem.
@@ -5046,5 +5049,61 @@ Inline `install-finalize.sh` back into `install-rein.sh` and point the five rows
 
 ### Rollback
 Remove the two checks and their rows; no artifact or manifest changes.
+
+---
+
+## D-153 addendum 2 — accounts.json is a closed shape with one writer; r4's "everything else is opaque and preserved" is withdrawn
+
+**Date**: 2026-11-10
+**Task**: E-422 (`docs/accounts.md`, `accounts.schema.json`); corrects D-153 r4; D-095, E-314
+**Decision**: The Engineer found D-153 r4 and `src/shared/accounts.py` in disagreement, and the code is right. r4 said every field other than `accounts.<name>.config_dir` is "opaque and preserved byte-for-byte by anything that rewrites the file". `accounts.py` (D-095, E-314, security-reviewed) refuses the whole registry, `UNPARSABLE` exit 3, on any top-level key besides `accounts` and any row key besides `config_dir` and `added`, and `add`/`remove` write only those two. r4's sentence assumed a second writer; there is none and there must not be one. The registry names directories that hold a gate configuration, and "refused whole, never half-read" is the property the review approved.
+
+### Rulings
+1. **The shape is closed**: `{"accounts": {"<name>": {"config_dir": "<absolute path>", "added": "YYYY-MM-DD"}}}`. `added` is optional on read (the code accepts a row without it) and always written. No other key at either level. `default` is never a row. A missing file is an empty registry.
+2. **`accounts.py` is the only writer.** An app, or any other tool, never writes `accounts.json`; it adds and removes accounts through `rein account add` and `rein account remove`. A file with an extra key is refused by `rein account`, `rein pane`, `rein start` and `rein doctor` for every account, and the documents say so in those words.
+3. **What a reader may rely on is unchanged from r4**: `accounts.<name>.config_dir`. `added` is documented and not guaranteed to be present.
+4. **A reader ignores a row key it does not know.** This repository may add a row field later; that is a change to `accounts.schema.json` announced to rein-app first, and a reader that already ignores unknown keys does not break on it. The asymmetry is deliberate: strict where the file selects a gate configuration, tolerant where it is only displayed.
+5. **`accounts.schema.json`**: `additionalProperties: false` at the root and on a row; `required: ["config_dir"]` on a row; `added` with the date pattern; the name pattern on the property names as `accounts.py` checks it. The pin row stays as §Component 6 has it (a registry written by `accounts.py add` validates), extended with one refusal case: a row with an unknown key fails the schema and is refused by `accounts.py load`.
+6. **No code change** to `accounts.py`. Option B (accept and preserve unknown keys) is declined.
+7. **rein-app is told**: r4's "opaque and preserved" clause is withdrawn; its reading of `config_dir` stays correct; it must not write the file.
+
+### Alternatives considered
+1. **Option B, make `accounts.py` accept and preserve unknown keys** — rejected: it loosens a reviewed parser in a security-relevant file to serve a field nobody has, and "preserve what you do not understand" in a file that picks a config directory is how a planted key survives a rewrite.
+2. **A reserved extension key (`x-*`) for apps** — rejected: same loosening, smaller; an app that needs per-account state keeps it in its own file.
+
+### Impact
+- Unlocks: `docs/accounts.md` and the schema in E-422 with one statement. Risk if wrong: rein-app later wants a field in the registry; that is a request to this repository and a schema change, which r4 covers.
+
+### Rollback
+Reinstate r4's clause and build option B as its own Tier 3 task with security review.
+
+---
+
+## D-157 — The test_lines budget rises to the measured value of the E-422 tree (expected 43602) for the release-artifact arc; fixture data is not compacted further to fit
+
+**Date**: 2026-11-10
+**Task**: E-422 (3b52957, before its merge of main and its PR); covers the rows of E-417, E-418, E-420, E-421
+**Decision**: `rein ci run` on 3b52957 passes every test (7180/0/25) and fails `[BUDGET_REGRESSION] test_lines`: recorded 42725 (D-149), measured 44038, limit 43579. After the Engineer reformatted `doctor-sample.json` to one check per line (511 → 75 lines) the measure is 43602, 23 over. D-155 said in advance that this regression is "ruled at its measured value when it appears".
+
+Composition, measured by the Architect (`git diff --numstat 1517921 HEAD -- tests`, net +879): the shared fixtures another repository tests against, 174 lines (`doctor-sample`, `operator-owned-cases`, `layout-v1`, `profile-settings-cases`, `cli-surface`); two test libraries, 103 (`json-schema-lite.mjs`, which E-422 requires so the schemas are pinned without a dependency, and `release-unpack.mjs`); generator and reader rows at the unit layer, 217 (`release-manifest.test.mjs`, D-153 r2, D-155 r1–r2 and addendum 3); artifact-install rows at the suite layer, 132 (`mirror_hygiene_test.sh`, D-155 r4 and addendum r1–r3); doctor JSON, accounts and guard rows, about 100 (D-153 r3–r4, addendum 2); the remainder small extensions of existing rows from D-143 and D-155 addendum 2.
+
+### Rulings
+1. **Budget**: `rein ci budget set --ruling D-157 test_lines=<measured>` on the E-422 branch after main is merged in, with the value that run measures. 43602 is expected; if the merged tree measures differently the measured value is used and named in the handoff. No headroom (D-132 addendum 6 r1, D-149 r1): the 2 % tolerance is the headroom.
+2. **Nothing for E-425 or E-419 in advance.** Each is measured when it lands; inside the tolerance it passes, outside it comes back with its own composition.
+3. **No further compaction of fixture JSON.** Reformatting data until the count fits changes the number and nothing else, which is D-149 alternative 3 in another form. `doctor-sample.json` stays at one check per line because that is a sound format for a list of records (one record per line reads and diffs well) and it stays schema-valid; it is accepted as formatting, and is the last such change made for the budget.
+4. **The D-149 r3 review, at the depth it was done.** D-149 r3 asked for a review for one behaviour pinned at two layers before the next raise when the growth is not gate hardening; 277 of these lines are fixtures and libraries. The Architect compared the added files by layer and subject, not row by row: the generator and reader sit at the unit layer only, the artifact install at the suite layer only, the doctor document at the unit layer only, and the fixtures are data that rows read, each pinned once. No duplicate was found at that depth. A row-by-row census of the release rows is not ordered now; it is the first step if E-419 or E-425 crosses the tolerance.
+5. **Fixtures count as test lines** (D-132 addendum 6) — unchanged. Published contract fixtures are still lines someone maintains.
+6. **Not a precedent for growth without a ruling** (D-149 r4 restated).
+
+### Alternatives considered
+1. **Compact `layout-v1.json` and others to get under by 25 lines (the Engineer's option 2, which the Engineer also advised against)** — rejected in r3.
+2. **A figure with room for E-425 and E-419** — rejected (r2; D-149 alternative 2).
+3. **Exclude `tests/fixtures/release/` from the census** — rejected: it reopens D-132 addendum 6 for the files most likely to grow unwatched.
+
+### Impact
+- Unlocks: E-422's merge of main, push and PR. Risk if wrong: none beyond the number; the budget has now risen three times in a month (+1311, +925, +877), each by ruled rows, and r4 names the next step.
+
+### Rollback
+`rein ci budget set --ruling D-157 test_lines=42725` restores the previous value.
 
 ---

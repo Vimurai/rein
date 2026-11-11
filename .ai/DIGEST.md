@@ -55,3 +55,4 @@
 - 2026-11-10: SECURITY.md updated — E-420 artifact-mode review SEC_BLOCKED on F1 (P2: tree check follows symlinked ancestors/hard links; chmod/rm -rf outside the home); P3 F2–F6; T-ARTIFACT-001 added
 - 2026-11-10: SECURITY.md updated — E-420 re-verify SEC_CLEARED (F1–F6 closed, 11 probes RESISTED; P3 residual legacy purge on symlinked home)
 - 2026-11-11: SECURITY.md updated — E-419 release signing SEC_CLEARED (21 probe rows, 0 EXPLOITED; P3 F1–F6: symlink-follow on .minisig.tmp, stale .minisig, key via /dev/stdin, env strip)
+- 2026-11-11: SECURITY.md updated — E-419 addendum pinned minisign SEC_CLEARED (digest before tar/install, 8 probes RESISTED; P3 N2-N4; T-RELEASE-TOOL-001)

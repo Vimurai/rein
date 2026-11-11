@@ -1118,6 +1118,18 @@ agent. Proofs of concept are the M-rows of that table.
   `INSTALL_REQUIRED`, sealed `bin/` and `hooks/`, a 16-hex `key_id`, and no purge through a symlinked `mcp/`. A coordinated rewrite of file plus manifest by a party
   already able to write the home is out of scope; the gate's `[GATE_SELF_DISABLE]` covers that.
 
+### T-RELEASE-TOOL-001 — the signing job runs a third-party binary fetched at release time (security_engineer, E-419b review, 2026-11-11)
+
+- **Boundary:** `release.yml` downloads minisign 0.12 from github.com/jedisct1/minisign (and its asset CDN by
+  redirect), installs it as root to `/usr/local/bin`, and runs it with the release key file in the `release` job.
+- **Threats:** (a) the asset is replaced or a redirect is hijacked, so a different binary signs; (b) upstream was
+  compromised before the pin was taken; (c) the two pinned copies (release, dry-run) drift apart.
+- **Mitigations:** sha256 pinned in the workflow and checked before extraction under `set -euo pipefail`; the pin was
+  taken after verifying upstream's minisign signature with the author's key `RWQf6LRC…7GFO3`; the child env does not
+  carry `REIN_RELEASE_KEY` (`minisignEnv`); the release self-verifies against the committed public key.
+- **Residual:** (b) is accepted, as with any pinned upstream binary. (c) is a P3 follow-up (SECURITY.md E-419 addendum
+  N3). A bump means a new digest, verified the same way, and a new DEVOPS-019 entry.
+
 ## New Integration Checklist
 
 When a new external integration is added to Rein v2, create a new T-### entry in this file covering:

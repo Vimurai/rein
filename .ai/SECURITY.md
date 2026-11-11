@@ -1151,3 +1151,76 @@ gate: on the hosted runner the VM is destroyed. F3 removes it entirely.
 
 Disposition: cleared for merge. F1-F4 are small follow-ups. F1 and F2 are two lines each and could go in the same PR.
 P0: none.
+
+## E-419 addendum — pinned minisign (D-155 addendum 4 r10 b; security_engineer, 2026-11-11)
+
+Scope: `ce8f0f6`, `.github/workflows/release.yml` L104-117 (`release`) and L189-202 (`dry-run`), plus the
+DEVOPS-019 addendum. Both jobs now take minisign 0.12 from the upstream GitHub release, pinned by sha256, in place
+of apt. **Verdict: SEC_CLEARED.** No P0, P1 or P2 findings.
+
+**Independent re-check of the pin.** The Engineer's download hashes to
+`9a599b48…57e73`, which matches L109/L194. `minisign -Vm … -P RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3`
+returns "Signature and comment signature verified", trusted comment `timestamp:1737030580 file:minisign-0.12-linux.tar.gz
+hashed` (2025-01-16, the 0.12 release date). The archive holds `minisign-linux/{x86_64,aarch64}/minisign` and
+AppleDouble `._*` files. The x86_64 member is a static, stripped ELF x86-64. It was not executed.
+
+### Answers
+1. **Is the digest checked before use?** Yes. Under `set -euo pipefail` (L111), the hash check (L114) runs before
+   `tar` (L115), `install` (L116) and the first execution (L117). Any mismatch, an empty or truncated body, an HTML
+   error page, or an empty digest variable exits 1 at L114 (pen-test below). A redirect cannot get past this either.
+   `curl -fsSL` (L113) follows GitHub's redirect to its asset CDN, and `-f` turns HTTP errors into failures. Whatever
+   bytes arrive, from any host or protocol, must hash to the pinned value before `tar` sees them. The URL and digest
+   are literals in `env:` (L108-109). They contain no `${{ }}` expression, so nothing that can be injected reaches the
+   script. `tar` extracts one fixed member from bytes that are already pinned, so path traversal is not a concern.
+   GNU tar warns about the `LIBARCHIVE.xattr` headers but exits 0 (checked locally).
+2. **Is `sudo install` acceptable, and does the binary see more than before?** It is acceptable. The runner user
+   already has passwordless sudo, and `apt-get install` ran dpkg and its maintainer scripts as root, so this grants
+   less root execution than before (one `install` copy versus package scripts). What the binary sees is unchanged.
+   `minisignEnv()` (`src/shared/release-sign.mjs:28-32`) removes `REIN_RELEASE_KEY` from the child env, so minisign
+   gets the 0600 key-file path, the tarball and the signature path, exactly as the apt binary did. The binary runs in
+   the install step (`-v`, with no secret in env), the sign step, the verify step and the dry-run summary. No step that
+   holds `GH_TOKEN` runs it. `/usr/local/bin` comes before `/usr/bin` on the runner PATH, so if the image ever ships
+   minisign again, the pinned copy still wins.
+3. **Is the trust anchor right?** `RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3` matches what I know as
+   Frank Denis's (jedisct1) published minisign key. It appears in the minisign README and is the key libsodium's
+   release tarballs are verified with. That confirmation comes from my training knowledge, not from a fetch in this
+   review. The Engineer read the key from the README on the same GitHub origin that serves the asset, so the
+   signature check alone does not prove independent provenance. My recollection is the second, independent source,
+   and it agrees. The pinned hash makes the decision one-time: later changes to the asset or the account cannot
+   affect the job.
+4. **Does anything else weaken D-155?** Nothing blocks. Notes:
+   - **N1 (P3, trust shift).** The build's trust moves from the Ubuntu archive key (an Ubuntu rebuild) to upstream's
+     own Zig-built binary, as it stood on 2025-01-16. If upstream had been compromised before then, the pin would
+     capture it. That risk is inherent and comparable to the old path. I know of no advisory against minisign 0.12.
+   - **N2 (P3, hardening, optional).** `curl --proto '=https' --proto-redir '=https'` would refuse a downgrade on
+     redirect. Integrity does not depend on it because of the pin, and no secret is present in the step.
+   - **N3 (P3, drift).** The URL and digest are written twice (L108-109, L193-194). A bump must change both, or the
+     dry run stops proving the release path. A one-line CI grep that asserts the two are equal, or a shared
+     composite step, would prevent that.
+   - **N4 (process).** The dry run proves this path only once it is dispatched on a ref that contains `ce8f0f6`. A tag
+     push runs the workflow file at the tag, so v0.5.0's failed run (43055239673) cannot be re-run into this path.
+     The tag has to point at a commit that contains the fix, which means a new tag or a re-pushed v0.5.0 under the
+     admin-only tag ruleset.
+   - The pin is architecture-specific. On a non-x86_64 runner the binary fails to execute and the job fails closed.
+
+### Pen-Test Results
+Harness: the L111-117 script, with the download replaced by a local copy and `sudo install` replaced by an
+unprivileged install into the fixture. It ran under `env -i` with `HOME` in the fixture, `ulimit -t 5 -f 10240
+-v 524288`, a 10 s wall-clock kill and no network. The binary was never executed. Deviation: `ulimit -u` was set to
+the uid's current thread count plus 64, because Linux `RLIMIT_NPROC` counts threads and a `rein ci` run was in
+progress, so 64 blocked every fork. This matches the E-419 deviation.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A08 | install step | genuine 0.12 tarball (control) | RESISTED | 0 | digest OK, extracted, installed |
+| A08 | install step | one byte flipped at offset 1000 | RESISTED | 1 | stopped at L114; no tar, no install |
+| A08 | install step | truncated body (100000 B) | RESISTED | 1 | stopped at L114 |
+| A08 | install step | empty body | RESISTED | 1 | stopped at L114 |
+| A08 | install step | HTML error page in place of the asset | RESISTED | 1 | stopped at L114 |
+| A08 | install step | one byte appended | RESISTED | 1 | stopped at L114 |
+| A05 | install step | `MINISIGN_SHA256` empty | RESISTED | 1 | "no properly formatted checksum lines" |
+| A03 | install step | digest value with a newline and a second path | RESISTED | 1 | mismatch; not reachable anyway (literal `env:`) |
+| A10 | install step | redirect to a different host | INCONCLUSIVE (not run) | n/a | needs network; covered by the pin (rows above), see T-RELEASE-TOOL-001 |
+
+Disposition: cleared. The A10 row cannot hold the gate in practice: any bytes a redirect delivers face the same
+L114 check as the tamper rows. N2-N3 are optional follow-ups. P0: none.

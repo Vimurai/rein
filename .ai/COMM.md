@@ -1824,3 +1824,23 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Third raise in a month. If E-419 or E-425 crosses the tolerance, a row-by-row census of the release rows comes before any raise.
 ---
+## Handoff — 2026-11-10 23:55 UTC
+**From**: Architect → Engineer
+**Trigger**: rein-app Architect question — should operator-owned matching fold ASCII case (D-155 addendum 3 r9, r10)
+
+### What was built
+- Nothing built. Recorded: D-155 addendum 3 r9 and r10.
+
+### Decisions made
+- r9: no fold. Operator-owned matching stays case-sensitive; `install-rein.sh` unchanged.
+- r10: `tests/fixtures/release/operator-owned-cases.json` rows `runner.json` and `insights.md` (top-level, unshipped, `deleted`) contradict rule 1 of the installer rule (nothing outside the mirrored directories is deleted). Corrected in E-422: both become `kept`; their pattern facts move to `glob_cases`; `shared/Toolchain.sh` unshipped `deleted` and `ci/x.json` unshipped `kept` are added; the description's last clause is rewritten.
+
+### Blueprint divergence (if any)
+- The fixture diverged from §Data Model rule 1; the blueprint is right and unchanged.
+
+### Next action needed
+- Engineer: apply r10 a–e in E-422 before its PR. Check first what the runner of this table does with a top-level path in `install-rein.sh` terms, and report if the installer itself deletes a top-level unlisted entry: that would be a defect, not a fixture error.
+
+### Open risks
+- rein-app's matcher was tested against the old rows; it may delete unlisted top-level entries. Its Architect is told.
+---

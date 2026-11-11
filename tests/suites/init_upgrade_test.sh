@@ -259,6 +259,41 @@ p = sys.argv[1]; d = json.load(open(p)); d["hooks"].pop("PreToolUse", None); jso
 PY
 assert_contains "E-391.03g: no PreToolUse entry for the install's gate is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
 assert_rc 1 "E-391.03h: …and doctor exits non-zero" doctor
+# E-421 (D-153 r3, D-155 r5): extends E-391.03g-h — the same fixture, read as `doctor --json`.
+# The document is the only stdout; its records are exactly the text run's check lines; a
+# failing record names its fix unless its id is one whose line names no command (the list).
+_dtext="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor 2>/dev/null )"
+_djson="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --json 2>/dev/null )"; _djrc=$?
+assert_status 0 "E-421.01a: doctor --json exits 1 on [GATE_UNREGISTERED], as text mode does (rc=${_djrc})" test "$_djrc" -eq 1
+_dcheck="$(node -e '
+const [json, text] = process.argv.slice(1);
+const NO_AUTO_FIX = new Set(["classifier_backstop", "claude_home", "hook_path_foreign", "hooks_disabled", "hosted_ci",
+  "mcp_builds", "mcp_server", "mcp_syntax", "node_present", "npx_present", "path_has_rein_bin", "rein_on_path",
+  "role_provider", "settings_json", "start_account", "state_health", "tmux", "vibe_check_browsers",
+  "install", "mcp_paths", "mcp_path_consistency"]);
+let d; try { d = JSON.parse(json); } catch (e) { console.log("parse: " + e.message); process.exit(0); }
+const out = [];
+if (d.schema !== 1 || typeof d.version !== "string" || !Array.isArray(d.checks)) out.push("shape");
+const G = /^(✓|⚠|!|✗|○|-|\?|ⓘ|—)( |$)|^\[[A-Z][A-Z_]*\] /;
+const tl = new Set(text.split("\n").map((l) => l.trimStart()).filter((l) => G.test(l)));
+const jl = new Set(d.checks.map((c) => c.line.split("\n")[0]));
+for (const l of tl) if (!jl.has(l)) out.push("text only: " + l);
+for (const l of jl) if (!tl.has(l)) out.push("json only: " + l);
+const keys = d.checks.map((c) => c.id + "\u0000" + c.subject);
+if (new Set(keys).size !== keys.length) out.push("duplicate (id, subject)");
+for (const c of d.checks) if (!/^[a-z][a-z0-9_]*$/.test(c.id)) out.push("id not snake_case: " + c.id);
+for (const c of d.checks) if (c.status === "fail" && !c.fix && !NO_AUTO_FIX.has(c.id)) out.push("fail without fix: " + c.id);
+const g = d.checks.find((c) => c.id === "gate_registered");
+if (d.status !== "fail" || !g || g.status !== "fail" || g.fix !== "rein sync") out.push("gate_registered: " + JSON.stringify(g));
+console.log(out.join("\n") || "OK");
+' "$_djson" "$_dtext" 2>&1)"
+assert_status 0 "E-421.01b: one document; records = the text run's check lines; (id, subject) unique; gate_registered fails with fix rein sync${_dcheck:+ — ${_dcheck:0:600}}" \
+  test "$_dcheck" = "OK"
+_dusage="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --json --repair 2>&1 >/dev/null )"; _durc=$?
+assert_status 0 "E-421.01c: --json with --repair is a usage error, exit 2 (rc=${_durc})" test "$_durc" -eq 2
+assert_contains "E-421.01d: …with one line on stderr" "--json runs the default doctor only" "$_dusage"
+assert_status 0 "E-421.01e: rein help shows doctor [--json]" \
+  bash -c "grep < <(bash '$AI_BIN' help 2>&1) -qF 'rein doctor [--json]'"
 _ai sync >/dev/null
 # Security re-review N1: an entry counts by the ONE script it runs. The form Claude Code
 # documents ("$CLAUDE_PROJECT_DIR"/…) and a Rein name passed as an ARGUMENT are not missing

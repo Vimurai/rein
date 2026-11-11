@@ -373,7 +373,7 @@ test("doctor: [COMM_IGNORED] with the pattern, [COMM_UNCOMMITTED] when dirty, no
   const t = tmp("comm-doc");
   const f = fixtureRepo(t);
   try {
-    const doctor = () => f.bash(`${LOCATE_STUB}\n${liftFn("_doctor_comm_report")}\n_doctor_comm_report`).stdout;
+    const doctor = () => f.bash(`${LOCATE_STUB}\n${liftFn("_dr")}\n${liftFn("_doctor_comm_report")}\n_doctor_comm_report`).stdout;
     const probe = () => f.bash(`${PROBE}; rein_comm_status .`).stdout.trim();
     assert.equal(probe(), "absent");
     writeFileSync(join(f.dir, ".ai", ".gitignore"), "COMM.md\n");

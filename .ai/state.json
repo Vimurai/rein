@@ -4940,6 +4940,15 @@
       "summary": "[TIER_1] run_review SKIP: E-420.01d on PR #37's Ubuntu legs assumed the host's node pins; the toolchain check refuses /opt/hostedtoolcache's node (a correct refusal). The row now asserts the artifact install pins exactly as the clone install of the same commit on the same host does. Test-only",
       "sha": "6cf876a0ca2325f836be1c6d4a019b9d19296220",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-421",
+      "timestamp": "2026-11-11T08:26:05.416Z",
+      "summary": "[TIER_1] merge of origin/main (3f68eff: E-418 #36 and E-420 #37, both reviewed and merged) into e-421-doctor-json; .ai/ stamps unioned (base + both sides, time order)",
+      "sha": "7e080cb2140155dedba474b4cffa36cc964cc10a",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

@@ -5229,6 +5229,24 @@
       "summary": "[TIER_1] merge of origin/main (cac86a4: E-427 #42, reviewed and merged) into e-419-release-signing; .ai/ stamps unioned",
       "sha": "5ad6b5ff5e0a8e0387a655ff0acdeb46e7a2913a",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-419",
+      "timestamp": "2026-11-11T14:46:02.937Z",
+      "summary": "[TESTS_PASS] E-419.02 (no minisign, un-skipped) closes the gap; E-419.01 now asserts minisign -G status and no stale .minisig after a refusal; local CI on a1bdd6e PASS 7218/0/26, unit PASS, leaked 0. P2: F1 (COPYFILE_EXCL on a planted .tmp link) and F4 (REIN_RELEASE_KEY stripped from minisign's env) have no row.",
+      "sha": "6ac531862b2c3b20b0cc6e7a171130e9405dd36e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-424",
+      "timestamp": "2026-11-11T15:11:45.816Z",
+      "summary": "[TIER_1] run_review SKIP: E-424 version bump 0.4.0 → 0.5.0 (package.json, the only version source, and package-lock.json's root) and the CHANGELOG [0.5.0] section (release commands, signed workflow, artifact-mode rein install, doctor --json/--scope, app contract, cargo step, [CI_NO_TESTS], npm ci for shipped locks). No tag (the operator creates v0.5.0)",
+      "sha": "3b631f590e4b9fcef6bed83658cc597acfbd5add",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

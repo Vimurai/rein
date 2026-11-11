@@ -47,3 +47,21 @@ test("E-421.05: a fix may sit on a continuation line, and ends with it", () => {
     rec("+", "-", "    more text", "", ""), "1");
   assert.equal(d.checks[0].fix, "rein mcp-setup --browsers");
 });
+
+// E-427 (D-158 r8-r11): extends E-421.04 — every record's scope comes from ONE table. The guard:
+// an id a call site emits (`_dr <id>` / `_dr_lines <id>` in src/bin/rein) that the table lacks
+// fails, and so does a table id no call site has. The E-421.01 contract row checks the ids a real
+// doctor run emits.
+test("E-427.01: doctor-scopes.json covers exactly the ids src/bin/rein emits; render takes scope from it", async () => {
+  const { readFileSync } = await import("node:fs");
+  const { loadScopes } = await import(resolve(repo, "src/shared/doctor-json.mjs"));
+  const scopes = loadScopes(resolve(repo, "src/shared/doctor-scopes.json"));
+  const src = readFileSync(resolve(repo, "src/bin/rein"), "utf8").split("\n").filter((l) => !/^\s*#/.test(l)).join("\n");
+  const emitted = new Set([...src.matchAll(/(?:^|[\s;|(&])_dr(?:_lines)? ([a-z][a-z0-9_]*)\b/gm)].map((m) => m[1]));
+  assert.ok(emitted.size >= 50, `only ${emitted.size} call-site ids found — the scan is broken`);
+  assert.deepEqual([...emitted].filter((id) => !(id in scopes)).sort(), [], "call-site ids missing from doctor-scopes.json");
+  assert.deepEqual(Object.keys(scopes).filter((id) => !emitted.has(id)).sort(), [], "table ids no call site emits");
+  for (const [id, s] of Object.entries(scopes)) assert.ok(["install", "host", "project"].includes(s), `${id}: ${s}`);
+  const d = render(rec("version", "-", "  ✓ version: x", "", "") + rec("tmux", "-", "  ✓ tmux", "", ""), "1", scopes);
+  assert.deepEqual(d.checks.map((c) => c.scope), ["install", "host"]);
+});

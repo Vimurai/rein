@@ -4,7 +4,7 @@
     { "command": "install", "subcommands": [], "flags": [] },
     { "command": "sync", "subcommands": [], "flags": ["--github", "--prune-providers"] },
     { "command": "init", "subcommands": [], "flags": ["--check"] },
-    { "command": "doctor", "subcommands": [], "flags": ["--json", "--repair", "--compliance", "--env"] },
+    { "command": "doctor", "subcommands": [], "flags": ["--json", "--scope", "--repair", "--compliance", "--env"] },
     { "command": "start", "subcommands": [], "flags": ["--status", "--kill", "--yes", "--account", "--detach", "--dry-run"] },
     { "command": "pane", "subcommands": ["architect", "engineer"], "flags": ["--"] },
     { "command": "account", "subcommands": ["list", "add", "remove", "sync"], "flags": ["--dir"] },

@@ -2,7 +2,8 @@
 // doctor-json.mjs — renders `rein doctor --json` (E-421; D-153 r3, D-155 r5;
 // .ai/blueprints/release-artifact.md §Component 5, §Data Model "Doctor document").
 //
-//   node doctor-json.mjs <records-file> <version>
+//   node doctor-json.mjs <records-file> <version> [<doctor-scopes.json>]
+//   node doctor-json.mjs --scope-ids <doctor-scopes.json> <scope>   → the ids of that scope, one line
 //
 // The records file holds what _dr / _dr_lines appended in src/bin/rein: five NUL-terminated
 // fields per record — id, status (ok|warn|fail, or "-" for the line's glyph), line, fix,
@@ -36,7 +37,12 @@ export function fixOf(line) {
   return f || null;
 }
 
-export function render(raw, version) {
+/** E-427 (D-158 r8-r11): id → scope, from src/shared/doctor-scopes.json — the one source. */
+export function loadScopes(file) {
+  return JSON.parse(readFileSync(file, "utf8")).scopes;
+}
+
+export function render(raw, version, scopes = null) {
   const fields = raw.split("\0");
   const checks = [];
   for (let i = 0; i + 5 <= fields.length; i += 5) {
@@ -48,6 +54,7 @@ export function render(raw, version) {
     }
     checks.push({
       id,
+      ...(scopes ? { scope: scopes[id] ?? null } : {}),
       subject: subject || null,
       status: st === "ok" || st === "warn" || st === "fail" ? st : statusOf(line),
       line: line.trimStart(),
@@ -68,10 +75,16 @@ export function render(raw, version) {
 }
 
 if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
-  const [file, version] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  if (args[0] === "--scope-ids") {
+    const table = loadScopes(args[1]);
+    process.stdout.write(Object.keys(table).filter((id) => table[id] === args[2]).join(" "));
+    process.exit(0);
+  }
+  const [file, version, scopesFile] = args;
   if (!file || !version) {
-    process.stderr.write("usage: doctor-json.mjs <records-file> <version>\n");
+    process.stderr.write("usage: doctor-json.mjs <records-file> <version> [<doctor-scopes.json>]\n");
     process.exit(2);
   }
-  process.stdout.write(`${JSON.stringify(render(readFileSync(file, "utf8"), version))}\n`);
+  process.stdout.write(`${JSON.stringify(render(readFileSync(file, "utf8"), version, scopesFile ? loadScopes(scopesFile) : null))}\n`);
 }

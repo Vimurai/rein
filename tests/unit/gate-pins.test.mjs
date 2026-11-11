@@ -35,6 +35,23 @@ test("the repo's gate servers carry exact versions only (no ^ or ~)", () => {
   }
 });
 
+// E-426 (D-158 r13): extends the row above — a tracked lock is shipped, and `npm ci` installs it
+// as written, so its root entry must say what package.json says: a stale root entry is what the
+// next `npm install` rewrites (orchestrator-mcp's license and sdk spec were). No npm call.
+test("every tracked src/mcp/*/package-lock.json root entry equals its package.json", async () => {
+  const { execFileSync } = await import("node:child_process");
+  const locks = execFileSync("git", ["-C", REPO, "ls-files", "src/mcp/*/package-lock.json"], { encoding: "utf8" })
+    .split("\n").filter(Boolean);
+  assert.ok(locks.length >= 1, "no tracked lock found — the row would check nothing");
+  for (const lock of locks) {
+    const root = JSON.parse(readFileSync(join(REPO, lock), "utf8")).packages[""];
+    const pkg = JSON.parse(readFileSync(join(REPO, dirname(lock), "package.json"), "utf8"));
+    for (const k of ["dependencies", "devDependencies", "license"]) {
+      assert.deepEqual(root[k], pkg[k], `${lock}: packages[""].${k} differs from package.json`);
+    }
+  }
+});
+
 test("installed == pinned passes", () => {
   const mcp = fixtureMcp("ok", { "shell-quote": "1.8.3" }, { "shell-quote": "1.8.3" });
   assert.deepEqual(checkPins(mcp).map((r) => r.ok), [true]);

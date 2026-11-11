@@ -1,5 +1,5 @@
 {
-  "description": "E-418 (D-153 addendum r2, D-155 r2; release-artifact.md §Data Model): what an installer does with an existing path under the Rein home. shipped = the path is in the manifest's files. A shipped path is written even when a pattern matches it (rule 3); an unshipped path matching operator_owned is kept; anything else is deleted.",
+  "description": "E-418 (D-153 addendum r2, D-155 r2; release-artifact.md §Data Model): what an installer does with an existing path under the Rein home. shipped = the path is in the manifest's files. A shipped path is written even when a pattern matches it (rule 3); an unshipped path matching operator_owned is kept; an unshipped path inside a mirrored directory that matches no pattern is deleted; a path outside the mirrored directories is never written or deleted, except `manifest.json` and `VERSION` (D-155 addendum 3 r10).",
   "cases": [
     { "path": "mcp/orchestrator-mcp/package-lock.json", "shipped": "yes", "expected": "replaced", "label": "tracked and shipped, also matches mcp/*/package-lock.json — a shipped path wins" },
     { "path": "mcp/task-synchronizer-mcp/package-lock.json", "shipped": "no", "expected": "kept", "label": "npm's lock in a server dir, not shipped" },
@@ -15,7 +15,7 @@
     { "path": "shared/toolchain.sh", "shipped": "no", "expected": "kept", "label": "literal" },
     { "path": "shared/toolchain.sh.bak", "shipped": "no", "expected": "deleted", "label": "a literal is the whole path" },
     { "path": "run/build-1.json", "shipped": "no", "expected": "kept", "label": "under run/" },
-    { "path": "runner.json", "shipped": "no", "expected": "deleted", "label": "run/ is a directory, not a prefix" },
+    { "path": "runner.json", "shipped": "no", "expected": "kept", "label": "outside the mirrored directories: left alone, matched or not" },
     { "path": "secrets/token", "shipped": "no", "expected": "kept", "label": "under secrets/" },
     { "path": "memory/a/b.md", "shipped": "no", "expected": "kept", "label": "deep under memory/" },
     { "path": "accounts.json", "shipped": "no", "expected": "kept", "label": "top-level literal" },
@@ -24,7 +24,9 @@
     { "path": "telemetry.sqlite", "shipped": "no", "expected": "kept", "label": "top-level literal" },
     { "path": "INSIGHTS.md", "shipped": "no", "expected": "kept", "label": "top-level literal" },
     { "path": "memory-palace.md", "shipped": "no", "expected": "kept", "label": "top-level literal" },
-    { "path": "insights.md", "shipped": "no", "expected": "deleted", "label": "matching is case-sensitive" },
+    { "path": "insights.md", "shipped": "no", "expected": "kept", "label": "outside the mirrored directories: left alone, matched or not" },
+    { "path": "shared/Toolchain.sh", "shipped": "no", "expected": "deleted", "label": "matching is case-sensitive" },
+    { "path": "ci/x.json", "shipped": "no", "expected": "kept", "label": "an unlisted top-level directory" },
     { "path": "hooks/old-hook.sh", "shipped": "no", "expected": "deleted", "label": "a retired hook" }
   ],
   "glob_cases": [
@@ -32,6 +34,8 @@
     { "pattern": "a/**/z", "path": "a/b/c/y", "match": false, "label": "the literal tail still applies" },
     { "pattern": "a/*.md", "path": "a/x.md", "match": true, "label": "* inside a segment" },
     { "pattern": "a/*.md", "path": "a/b/x.md", "match": false, "label": "* stops at /" },
-    { "pattern": "a.b", "path": "axb", "match": false, "label": "a dot is literal" }
+    { "pattern": "a.b", "path": "axb", "match": false, "label": "a dot is literal" },
+    { "pattern": "run/", "path": "runner.json", "match": false, "label": "a directory pattern is not a prefix" },
+    { "pattern": "INSIGHTS.md", "path": "insights.md", "match": false, "label": "matching is case-sensitive" }
   ]
 }

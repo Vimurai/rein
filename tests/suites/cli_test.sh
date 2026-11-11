@@ -29,6 +29,23 @@ assert_contains "usage lists 'doctor'" "doctor" "$out"
 assert_contains "usage lists 'uninstall'" "uninstall" "$out"
 # E-405 (D-140 r8; extends the usage rows above): the header names the command, rein, not the old binary name.
 assert_match "usage header reads 'rein — Rein v'" '^rein — Rein v' "$out"
+# E-422 (D-153, D-155; contract §2.6): extends the usage rows above — every headless entry point
+# and every subcommand and flag tests/fixtures/release/cli-surface.json pins still appears in
+# `rein help`, on a line for its command. A flag is never removed inside a major version.
+_surface="$(node -e '
+const [file, help] = process.argv.slice(1);
+const s = JSON.parse(require("fs").readFileSync(file, "utf8"));
+const lines = help.split("\n");
+const out = [];
+for (const e of s.entry_points) {
+  const mine = lines.filter((l) => l.startsWith(`  rein ${e.command}`)).join("\n");
+  if (!mine) { out.push(`rein ${e.command}: no help line`); continue; }
+  for (const f of e.flags) if (!mine.includes(f)) out.push(`rein ${e.command} ${f}`);
+  for (const c of e.subcommands) if (!new RegExp(`(^|[\\s|<\\[])${c}([\\s|>\\]]|$)`, "m").test(mine)) out.push(`rein ${e.command} ${c}`);
+}
+process.stdout.write(out.join("; "));
+' "${SCRIPT_DIR}/../fixtures/release/cli-surface.json" "$out" 2>&1)"
+assert_status 0 "E-422.03a: every entry point, subcommand and flag in cli-surface.json is in rein help${_surface:+ — missing: ${_surface}}" test -z "$_surface"
 
 # Removed commands are listed in the migration map
 assert_contains "usage references removed 'review' (migration map)" "review" "$out"

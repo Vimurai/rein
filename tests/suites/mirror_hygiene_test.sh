@@ -259,6 +259,12 @@ PYLIST
   _v="$(_rm verify "${RO1}/rein-${_ver}.tar.gz")"; _vrc=$?
   assert_status 0 "E-418.06c: rein release verify of that tarball exits 0 (rc=${_vrc})" test "$_vrc" -eq 0
   assert_contains "E-418.06d: …and says the signature was not checked" "signature not checked" "$_v"
+  # E-422 (D-153, D-155; release-artifact.md §Component 6): extends E-418.06 — the manifest of the
+  # real stage against the published schema, and its layout against the pinned layout-v1.json.
+  _mval="$(node "$REPO_ROOT/tests/lib/json-schema-lite.mjs" "$DW/docs/contract/manifest.schema.json" "${RO1}/manifest.json" 2>&1)"; _mvrc=$?
+  assert_status 0 "E-422.01a: the stage's manifest.json is valid against docs/contract/manifest.schema.json${_mval:+ — ${_mval:0:300}}" test "$_mvrc" -eq 0
+  _lay="$(node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(process.argv[1])); const p=JSON.parse(fs.readFileSync(process.argv[2])); process.stdout.write(JSON.stringify(m.layout)===JSON.stringify(p)?"same":"a layout change is a breaking version — contract §2.2")' "${RO1}/manifest.json" "$DW/tests/fixtures/release/layout-v1.json" 2>&1)"
+  assert_status 0 "E-422.01b: the stage's layout equals tests/fixtures/release/layout-v1.json${_lay:+ (${_lay})}" test "$_lay" = "same"
   assert_status 0 "E-418.06f: rein help lists rein release manifest and verify" \
     bash -c "grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release manifest' && grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release verify'"
   # E-420 (D-155 r4, addenda r1-r3): extends E-418.06 — the tarball above, unpacked into a fixture

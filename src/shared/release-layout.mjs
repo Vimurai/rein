@@ -43,11 +43,14 @@ export function operatorOwned(path, patterns = OPERATOR_OWNED) {
 }
 
 /**
- * What an installer does with an existing path under a mirrored directory: a shipped path is
- * written ("replaced") even when a pattern also matches it (rule 3, a shipped path wins); an
- * unshipped path matching operator_owned is "kept"; anything else is "deleted".
+ * What an installer does with an existing path under the Rein home: a shipped path is written
+ * ("replaced") even when a pattern also matches it (rule 3, a shipped path wins); an unshipped
+ * path matching operator_owned is "kept"; an unshipped path inside a mirrored directory that
+ * matches no pattern is "deleted"; a path outside the mirrored directories is never written or
+ * deleted (rule 1, D-155 addendum 3 r10) — manifest.json and VERSION are written, not listed.
  */
 export function installerAction(path, shipped, patterns = OPERATOR_OWNED) {
   if (shipped) return "replaced";
-  return operatorOwned(path, patterns) ? "kept" : "deleted";
+  if (operatorOwned(path, patterns)) return "kept";
+  return MIRRORED.includes(path.split("/")[0]) ? "deleted" : "kept";
 }

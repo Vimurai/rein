@@ -1,0 +1,30 @@
+{
+  "mirrored": [
+    "bin",
+    "hooks",
+    "mcp",
+    "shared",
+    "claude",
+    "contracts",
+    "templates",
+    "copilot",
+    "scripts",
+    "config"
+  ],
+  "operator_owned": [
+    "accounts.json",
+    "gate-override.json",
+    "secrets/",
+    "run/",
+    "memory/",
+    "incidents.ndjson",
+    "telemetry.sqlite",
+    "INSIGHTS.md",
+    "memory-palace.md",
+    "config/rein-workspace.txt",
+    "config/install-stamp.json",
+    "shared/toolchain.sh",
+    "mcp/*/node_modules/",
+    "mcp/*/package-lock.json"
+  ]
+}

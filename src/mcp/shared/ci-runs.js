@@ -170,13 +170,37 @@ export function ageOf(iso, now = Date.now()) {
   return `${Math.floor(s / 86400)}d ago`;
 }
 
+/**
+ * E-425 (D-156 r10 and its addendum): which runner a row's counts came from. The one source is
+ * the row's own log — its `[ci] result` line carries `suite=` and `cargo=`. → { only, status }
+ * when the cargo step ran (`only`: and the suite step did not, so the counts are cargo's), else
+ * null. A log that cannot be read (pruned, or written before E-425) gives null: the label stays
+ * `suite`, which is right for every row written before E-425.
+ */
+export function cargoView(row) {
+  if (!row?.log_path) return null;
+  let line;
+  try {
+    line = readFileSync(row.log_path, "utf8").split("\n").reverse().find((l) => l.startsWith("[ci] result "));
+  } catch {
+    return null;
+  }
+  if (!line) return null;
+  const kv = _kv(line.slice(12));
+  if (kv.cargo !== "PASS" && kv.cargo !== "FAIL") return null;
+  return { only: kv.suite === "SKIPPED", status: kv.cargo };
+}
+
 /** One line: `PASS 321cbcb 7m ago (suite 4744/0/2, unit PASS, leaked 0)`. */
 export function shortLine(verdict, sha, now = Date.now()) {
   const sha7 = String(sha).slice(0, 7);
   if (verdict.kind === "NONE") return `NONE ${sha7} — no local CI run; run: rein ci run`;
   const r = verdict.row;
-  const suite = r.suite_pass == null ? "suite -" : `suite ${r.suite_pass}/${r.suite_fail ?? 0}/${r.suite_skip ?? 0}`;
-  let line = `${verdict.kind} ${sha7} ${ageOf(r.started_at, now)} (${suite}, unit ${r.unit_status || "-"}, leaked ${r.leaked ?? 0})`;
+  const cv = cargoView(r);
+  const label = cv?.only ? "cargo" : "suite";
+  const suite = r.suite_pass == null ? `${label} -` : `${label} ${r.suite_pass}/${r.suite_fail ?? 0}/${r.suite_skip ?? 0}`;
+  const cargo = cv && !cv.only ? `, cargo ${cv.status}` : "";
+  let line = `${verdict.kind} ${sha7} ${ageOf(r.started_at, now)} (${suite}, unit ${r.unit_status || "-"}${cargo}, leaked ${r.leaked ?? 0})`;
   if (verdict.kind === "DIRTY") line += ` — dirty run ${r.status}, not a certification; run: rein ci run`;
   if (verdict.kind === "SHARD") line = `SHARD ${r.shard} ${line.slice("SHARD ".length)} — shard run ${r.status}, not a certification; run: rein ci run`;
   if (r.status === "SKIPPED") line += ` — skipped: ${r.skip_reason}`;

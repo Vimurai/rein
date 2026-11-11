@@ -5012,6 +5012,15 @@
       "summary": "[TIER_2] E-425: rein ci run cargo step (cargo test --workspace [--locked]; FAIL fails; no cargo ERROR exit 2; flag/shard skips), cargo env (CARGO_HOME/CARGO_TARGET_DIR in the CI cache, RUSTUP_HOME passed through; three names reserved), [CI_NO_TESTS] ERROR exit 2, toolchain cargo/rustc, result cargo=, cargo runner in ci-summary (before pytest). rein_ci_test 266/0/1 locally incl. real crates; ci-summary 17/0; rein-app run 10faf3b PASS 132 = raw log sum. Unchanged step lines for a repo without Cargo.toml",
       "sha": "f11d270eb454713a6f8460747279d92f8f62ec22",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-425",
+      "timestamp": "2026-11-11T12:42:01.791Z",
+      "summary": "[TIER_2] E-425 status labels per the Architect's D-156 r10 addendum: cargoView(row) reads the row's log [ci] result line (one source); short and long status say 'cargo N/N/N' for a cargo-only row, add 'cargo PASS|FAIL' after unit when both ran, and stay byte-identical otherwise or when the log is unreadable (existing status rows pass unedited). Rows: cargo-only, suite+cargo PASS, cargo FAIL, cargo skipped, pruned log. docs/ci.md: cargo step, [CI_NO_TESTS], the pruned-log limit",
+      "sha": "d916614980b8b6d12d078828dafd82598bd95e13",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

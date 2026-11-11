@@ -91,8 +91,10 @@ convenience copy that nothing trusts.
 - `.github/workflows/release.yml` (hand-written, `ci_gate` first): after "Required checks are
   green" and before "Publish the release", in a job bound to the GitHub environment `release`:
   `rein release stage` → `rein release manifest --pubkey docs/contract/release-key.pub` →
-  `rein release sign` → `rein release verify --pubkey …` → assert `v<manifest.version>` equals
-  the tag → `gh release create` with the three assets. The release notes gain the tarball's
+  assert `v<manifest.version>` equals the tag → `rein release sign` → `rein release verify
+  --pubkey …` → `gh release create` with the three assets (the assertion precedes signing, so
+  a mismatched tag never receives a signature: D-155 addendum 4 r8; the secret-presence check
+  is the job's first step). The release notes gain the tarball's
   sha256 and the `key_id` under the existing installer line. A missing secret fails the job
   before anything is published: from the tag after E-419 merges, a release without a
   signature does not exist.

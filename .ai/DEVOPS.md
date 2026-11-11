@@ -900,3 +900,29 @@ into it.
 (a release without assets, like v0.4.0). A bad release is `gh release delete <tag>`; a
 compromised key is rotated by committing a new public key and releasing the app with it before
 the next tag (release-artifact.md §Security).
+
+### DEVOPS-019 addendum — minisign from a pinned release binary, the only install path (D-155 addendum 4 r10 b) — 2026-11-11
+
+**What changes.** Both `release.yml` jobs (`release`, `dry-run`) stop using apt. Their "Install
+minisign" step downloads `minisign-0.12-linux.tar.gz` from the upstream GitHub release
+(github.com/jedisct1/minisign, tag 0.12), checks it against a sha256 pinned in the workflow
+(`9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73`) before anything is
+extracted, and installs `minisign-linux/x86_64/minisign` to `/usr/local/bin`. No fallback
+(r10 c): one install path, the one the dry run proves.
+
+**Why.** Every apt fetch from the Ubuntu archive failed on the `ubuntu-latest` image
+(ubuntu26, 20261101) from 15:00 to 16:40 UTC on 2026-11-11 — dry runs 43043987738 (two
+attempts) and 43059845541, and the v0.5.0 release job in 43055239673, all at "Temporary failure
+resolving archive.ubuntu.com"; github.com was reachable in the same runs. The release job failed
+closed: nothing was signed or published.
+
+**Security.** The pinned digest was taken from the archive after verifying upstream's own
+minisign signature over it with the author's published key
+(`RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3`, minisign README): "Signature and
+comment signature verified … file:minisign-0.12-linux.tar.gz". The workflow trusts the digest,
+not the network: a changed asset fails `sha256sum -c` and the job stops before signing. The
+binary never sees more than before: the key file path and the tarball. Network: github.com
+only (already used by checkout); the Ubuntu archive is no longer contacted. Bumping minisign is a
+new digest and a new entry here.
+
+**Rollback.** Revert to the apt step (DEVOPS-019 as first written).

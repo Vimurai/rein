@@ -4,7 +4,7 @@
 # The publish gates on the REQUIRED set (`rein ci hosted --required`, D-137 r3), not on the
 # whole matrix: an informative leg (macOS while E-388/E-396 are open) still runs, stays red in
 # the UI and is listed in the job summary, but does not hold the release. No continue-on-error.
-# E-419 (D-153 r1, D-155 r6, addendum 4; DEVOPS-019): the release job builds, signs and verifies
+# E-419 (D-153 r1, D-155 r6, addendum 4 r1-r10; DEVOPS-019): the release job builds, signs and verifies
 # the artifact (rein-X.Y.Z.tar.gz, its .minisig, manifest.json) in the environment `release`; a
 # missing REIN_RELEASE_KEY fails it before anything is published. `workflow_dispatch` runs only
 # the dry-run job: the same path with the committed THROWAWAY pair, publishing nothing. The
@@ -101,8 +101,20 @@ jobs:
             exit 1
           fi
 
-      - name: Install minisign
-        run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends minisign
+      # D-155 addendum 4 r10 (DEVOPS-019 addendum): the upstream release binary, sha256-pinned and
+      # checked before extraction; the only install path (no apt, no fallback).
+      - name: Install minisign (pinned release binary)
+        env:
+          MINISIGN_URL: https://github.com/jedisct1/minisign/releases/download/0.12/minisign-0.12-linux.tar.gz
+          MINISIGN_SHA256: 9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73
+        run: |
+          set -euo pipefail
+          d="$(mktemp -d)"
+          curl -fsSL --retry 3 -o "$d/minisign.tar.gz" "$MINISIGN_URL"
+          echo "${MINISIGN_SHA256}  $d/minisign.tar.gz" | sha256sum -c -
+          tar -xzf "$d/minisign.tar.gz" -C "$d" minisign-linux/x86_64/minisign
+          sudo install -m 0755 "$d/minisign-linux/x86_64/minisign" /usr/local/bin/minisign
+          minisign -v
 
       - name: Build the artifact
         env:
@@ -174,8 +186,20 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Install minisign
-        run: sudo apt-get update -q && sudo apt-get install -y --no-install-recommends minisign
+      # D-155 addendum 4 r10 (DEVOPS-019 addendum): the upstream release binary, sha256-pinned and
+      # checked before extraction; the only install path (no apt, no fallback).
+      - name: Install minisign (pinned release binary)
+        env:
+          MINISIGN_URL: https://github.com/jedisct1/minisign/releases/download/0.12/minisign-0.12-linux.tar.gz
+          MINISIGN_SHA256: 9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73
+        run: |
+          set -euo pipefail
+          d="$(mktemp -d)"
+          curl -fsSL --retry 3 -o "$d/minisign.tar.gz" "$MINISIGN_URL"
+          echo "${MINISIGN_SHA256}  $d/minisign.tar.gz" | sha256sum -c -
+          tar -xzf "$d/minisign.tar.gz" -C "$d" minisign-linux/x86_64/minisign
+          sudo install -m 0755 "$d/minisign-linux/x86_64/minisign" /usr/local/bin/minisign
+          minisign -v
 
       - name: Stage, manifest, sign and verify with the throwaway pair
         run: |

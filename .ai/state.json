@@ -5247,6 +5247,24 @@
       "summary": "[TIER_1] run_review SKIP: E-424 version bump 0.4.0 → 0.5.0 (package.json, the only version source, and package-lock.json's root) and the CHANGELOG [0.5.0] section (release commands, signed workflow, artifact-mode rein install, doctor --json/--scope, app contract, cargo step, [CI_NO_TESTS], npm ci for shipped locks). No tag (the operator creates v0.5.0)",
       "sha": "3b631f590e4b9fcef6bed83658cc597acfbd5add",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-419",
+      "timestamp": "2026-11-11T16:42:55.653Z",
+      "summary": "[TIER_1] checkpoint for the security_engineer read (D-155 addendum 4 r10 b): release.yml's two 'Install minisign' steps use the upstream minisign 0.12 linux release binary, sha256 9a599b48…7e73 pinned and checked before extraction (digest taken after verifying upstream's minisign signature with the author's key); no apt, no fallback. ci_gate: DEVOPS-019 addendum",
+      "sha": "32b49304c8bbff5265149503d8e31361ab29566f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "engineer",
+      "task_id": "E-419",
+      "timestamp": "2026-11-11T16:54:56.169Z",
+      "summary": "[TIER_1] run_review SKIP: .ai/ records only — security_engineer's SEC_CLEARED section for the pinned minisign install (SECURITY.md), T-RELEASE-TOOL-001 (THREAT_MODEL.md), DIGEST line",
+      "sha": "7a575cabfed072256296d5303c1afb889fe306f0",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

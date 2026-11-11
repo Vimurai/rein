@@ -117,12 +117,13 @@ Commands:
                  providers no role in .ai/roles.json is bound to. Manifest-aware:
                  only files sync wrote and nobody edited are deleted; anything else
                  is reported and kept. Never runs implicitly (E-244).
-  rein doctor [--json] [--repair] [--compliance] [--env]
+  rein doctor [--json] [--scope install] [--repair] [--compliance] [--env]
                  Diagnose PATH, configs, hooks, MCP; --compliance audits agent
                  frontmatter for Ghost Tools; --env deep-checks Node/binaries/
                  permissions and live MCP connectivity (exit 1 on critical fail);
                  --json prints one document {schema, version, status, checks[]}
-                 (default doctor only)
+                 (default doctor only); --scope install runs only the checks that
+                 judge the Rein home itself, from any directory (what an installer reads)
   rein uninstall   Remove the global ~/.rein install (project .ai/ stays)
   rein start [--status | --kill [--yes] | --account <name> | --detach | --dry-run]
                  Build or reattach the project's tmux Triad (one session per
@@ -3959,16 +3960,32 @@ _report_path_shadow() {
 # a subshell or a pipeline still reports (D-064 §2) — and prints nothing; one node call renders
 # the document. Status "-" means "from the line's glyph": ✓ ok, ⚠ and ! warn, ✗ fail, ○ ok; the
 # markers doctor also prints map as - ok (n/a), ? warn (unknown), ⓘ ok (info), — ok (skipped).
+#
+# E-427 (D-158 r8-r11): with `--scope install`, _DR_INSTALL_IDS holds the install-scope ids of
+# src/shared/doctor-scopes.json (" id id … ", bash 3.2 has no associative arrays) and every other
+# record is dropped; a continuation ("+") follows the record it continues. Text mode then writes
+# to fd 3, so the section headers doctor echoes are not part of the scoped output.
+_DR_LAST_IN=1
 _dr() {  # <id> <ok|warn|fail|-> <line> [<fix>] [<subject>]
+  if [[ "$1" == "+" ]]; then [[ "$_DR_LAST_IN" -eq 1 ]] || return 0
+  elif [[ -z "${_DR_SCOPE:-}" || " ${_DR_INSTALL_IDS:-} " == *" $1 "* ]]; then _DR_LAST_IN=1   # self-contained: a test may lift this function alone
+  else _DR_LAST_IN=0; return 0
+  fi
   if [[ -n "${_DR_FILE:-}" ]]; then
     printf '%s\0%s\0%s\0%s\0%s\0' "$1" "$2" "$3" "${4:-}" "${5:-}" >> "$_DR_FILE"
+  elif [[ -n "${_DR_SCOPE:-}" ]]; then
+    printf '%s\n' "$3" >&3
   else
     printf '%s\n' "$3"
   fi
 }
 _dr_lines() {  # <id> — stdin: lines a helper printed. Glyph lines are records; an indented line
   # without a glyph joins the record before it; headers and blank lines are not records.
-  if [[ -z "${_DR_FILE:-}" ]]; then cat; return 0; fi
+  if [[ -n "${_DR_SCOPE:-}" && " ${_DR_INSTALL_IDS:-} " != *" $1 "* ]]; then cat >/dev/null; return 0; fi
+  if [[ -z "${_DR_FILE:-}" ]]; then
+    if [[ -n "${_DR_SCOPE:-}" ]]; then cat >&3; else cat; fi
+    return 0
+  fi
   local l t
   while IFS= read -r l || [[ -n "$l" ]]; do
     t="${l#"${l%%[![:space:]]*}"}"
@@ -3982,25 +3999,55 @@ _dr_lines() {  # <id> — stdin: lines a helper printed. Glyph lines are records
 }
 
 doctor() {
-  local a json=0 other=0
+  local a json=0 other=0 scope="" want_scope=0
   for a in "$@"; do
-    case "$a" in --json) json=1 ;; --repair|--env|--compliance) other=1 ;; esac
+    if [[ "$want_scope" -eq 1 ]]; then scope="$a"; want_scope=0; continue; fi
+    case "$a" in
+      --json) json=1 ;;
+      --repair|--env|--compliance) other=1 ;;
+      --scope) want_scope=1 ;;
+      --scope=*) scope="${a#--scope=}" ;;
+    esac
   done
-  [[ "$json" -eq 1 ]] || { _doctor_text "$@"; return $?; }
+  # E-427 (D-158 r10): --scope takes install only; it runs the default doctor only.
+  if [[ "$want_scope" -eq 1 || ( -n "$scope" && "$scope" != "install" ) ]]; then
+    echo "rein doctor: --scope takes install (got '${scope}')" >&2
+    return 2
+  fi
+  if [[ -n "$scope" && "$other" -eq 1 ]]; then
+    echo "rein doctor: --scope install runs the default doctor only; it cannot be combined with --repair, --env or --compliance" >&2
+    return 2
+  fi
+  [[ "$json" -eq 1 || -n "$scope" ]] || { _doctor_text "$@"; return $?; }
   if [[ "$other" -eq 1 ]]; then
     echo "rein doctor: --json runs the default doctor only; it cannot be combined with --repair, --env or --compliance" >&2
     return 2
   fi
-  local render; render="$(_rein_helper shared/doctor-json.mjs || true)"
-  if [[ -z "$render" ]] || ! command -v node >/dev/null 2>&1; then
-    echo "rein doctor --json: shared/doctor-json.mjs or node missing — $(_rein_fix_install)" >&2
+  local render scopes; render="$(_rein_helper shared/doctor-json.mjs || true)"; scopes="$(_rein_helper shared/doctor-scopes.json || true)"
+  if [[ -z "$render" || -z "$scopes" ]] || ! command -v node >/dev/null 2>&1; then
+    echo "rein doctor: shared/doctor-json.mjs, shared/doctor-scopes.json or node missing — $(_rein_fix_install)" >&2
     return 2
   fi
   local dir rc=0; dir="$(mktemp -d "${TMPDIR:-/tmp}/rein-doctor.XXXXXX")"
-  _DR_FILE="${dir}/records"; : > "$_DR_FILE"
-  _doctor_text >/dev/null || rc=$?
-  node --no-warnings "$render" "$_DR_FILE" "$VERSION" || rc=2
-  _DR_FILE=""; rm -rf -- "$dir"
+  if [[ -n "$scope" ]]; then
+    # The install checks read nothing relative to the caller's directory: doctor runs from an
+    # empty directory of its own, so a project check finds no project (D-158 r10). Git searches
+    # no higher than it (GIT_CEILING_DIRECTORIES): a TMPDIR inside a repository is not a project.
+    _DR_SCOPE="$scope"
+    _DR_INSTALL_IDS="$(node --no-warnings "$render" --scope-ids "$scopes" install)" || { rm -rf -- "$dir"; return 2; }
+    mkdir -p "${dir}/cwd"
+  fi
+  if [[ "$json" -eq 1 ]]; then
+    _DR_FILE="${dir}/records"; : > "$_DR_FILE"
+    if [[ -n "$scope" ]]; then ( cd "${dir}/cwd" && export GIT_CEILING_DIRECTORIES="$dir" && _doctor_text >/dev/null ) || rc=$?
+    else _doctor_text >/dev/null || rc=$?
+    fi
+    node --no-warnings "$render" "$_DR_FILE" "$VERSION" "$scopes" || rc=2
+  else
+    echo "Rein v${VERSION} — doctor --scope ${scope}"
+    ( cd "${dir}/cwd" && export GIT_CEILING_DIRECTORIES="$dir" && _doctor_text 3>&1 >/dev/null ) || rc=$?
+  fi
+  _DR_FILE=""; _DR_SCOPE=""; _DR_INSTALL_IDS=""; rm -rf -- "$dir"
   return "$rc"
 }
 
@@ -4216,6 +4263,9 @@ print('  PostToolUse hook:', 'yes ✓' if hooks.get('PostToolUse') else 'NO - ru
   fi
   echo ""
 
+  # E-427 (D-158 r10): under --scope install a check that may reach the network or block is not
+  # executed at all — gh can contact GitHub. Its records would be dropped anyway (host scope).
+  if [[ -z "${_DR_SCOPE:-}" ]]; then
   echo "GitHub Copilot CLI:"
   if command -v gh &>/dev/null; then
     _dr gh_cli - "  ✓ gh installed: $(gh --version 2>/dev/null | head -1)"
@@ -4231,6 +4281,7 @@ print('  PostToolUse hook:', 'yes ✓' if hooks.get('PostToolUse') else 'NO - ru
     && _dr copilot_md - "  ✓ COPILOT.md installed" \
     || _dr copilot_md - "  ✗ COPILOT.md missing — run: rein install"
   echo ""
+  fi   # E-427: not under --scope install
 
   echo "MCP Servers:"
   if command -v node &>/dev/null; then
@@ -4319,6 +4370,8 @@ for name, info in d.get('mcp_servers', {}).items():
   _install_report
   _gate_pins_report
   echo ""
+  # E-427: the account probe runs `claude auth status` — not executed under --scope install.
+  if [[ -z "${_DR_SCOPE:-}" ]]; then
   echo "Triad launcher (rein start):"
   if command -v tmux >/dev/null 2>&1; then
     _dr tmux - "  ✓ tmux present ($(tmux -V 2>/dev/null || echo 'version unknown'))"
@@ -4377,6 +4430,7 @@ print(r.get('provider',''))
     _dr roles_mapped - "  ✗ .ai/roles.json not found — run: rein init"
   fi
   echo ""
+  fi   # E-427: not under --scope install
 
   # ── E-63: Deep Audit — Dependency Health + Connectivity Probe ──────────────
   echo "MCP Deep Audit (§19.1):"

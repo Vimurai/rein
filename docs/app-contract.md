@@ -90,7 +90,10 @@ The Rein home (`$HOME/.rein`) holds the ten `layout.mirrored` directories, `mani
    and also matches `mcp/*/package-lock.json`; it is written. The patterns protect from deletion.
 4. Writes `hooks/` last, and `VERSION` (one line, `manifest.version`) after everything, so a
    failed copy never advertises a version.
-5. Runs `rein install`, then `rein doctor`.
+5. Runs `rein install`, then `rein doctor --scope install --json` from any directory, and judges
+   by the document's `status`: `fail` is a failed install. The same after an update or a
+   rollback. Host checks (`~/.claude`, `gh`, tmux, …) and project checks are never an install
+   failure — a clean home has no project, and the machine is the operator's.
 
 `operator_owned` patterns: a literal path; a trailing `/` for a directory and everything under
 it; `*` within one path segment; `**` across segments. No negation, no character classes. The
@@ -149,7 +152,7 @@ disappears from `rein help`.
 
 ```json
 { "schema": 1, "version": "0.5.0", "status": "fail",
-  "checks": [ { "id": "gate_registered", "subject": null, "status": "fail",
+  "checks": [ { "id": "gate_registered", "scope": "project", "subject": null, "status": "fail",
                 "line": "✗ [GATE_UNREGISTERED] no PreToolUse entry runs … — run: rein sync",
                 "fix": "rein sync" } ] }
 ```
@@ -163,8 +166,16 @@ disappears from `rein help`.
   document's `status` is `fail` if any check fails, else `warn` if any warns, else `ok`.
 - `line` is what text mode prints, leading indentation removed, glyph kept; a multi-line message
   is one record joined with `\n`. `fix` is the command the line names after `run: `, or `null`.
-- `--json` runs the default doctor only; with `--repair`, `--env` or `--compliance` it is a usage
-  error, exit 2.
+- `scope` is `install` (the Rein home and what the gate needs from it: the tree against the
+  manifest, the stamp, `VERSION`, the hook files, the hook toolchain, gate and server
+  dependencies, the Node floor, `rein` on PATH), `host` (the machine outside the Rein home and
+  any project) or `project` (the current directory). It comes from one table,
+  `src/shared/doctor-scopes.json`, keyed by `id`.
+- `rein doctor --scope install [--json]` runs and reports the install checks only, reads
+  nothing relative to the current directory and needs no project; `status` and the exit code
+  are computed over those records. `--scope` takes `install` only (anything else is exit 2).
+- `--json` and `--scope` run the default doctor only; with `--repair`, `--env` or
+  `--compliance` they are a usage error, exit 2.
 
 The shape is [`contract/doctor.schema.json`](contract/doctor.schema.json); a recorded document
 from a fixture project is [`doctor-sample.json`](../tests/fixtures/release/doctor-sample.json).

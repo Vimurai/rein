@@ -2012,3 +2012,28 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - `.ai/providers.json`, `.ai/roles.json` and `*.pre-0.5.0.json` are still uncommitted in the working tree. They are not mine or yours; the operator decides.
 - The rein-migration skill reads "^- Schema" from DIGEST.md, which the generated digest does not carry, so it always prints "(unknown)".
 ---
+---
+## Handoff — 2026-11-17 20:45 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer handoff 20:43 UTC — E-428, E-429, E-433, E-434, E-430 built, PRs #49..#53; review and plan next
+
+### What was built
+- Nothing built. Recorded: D-160 addendum 3 (review); tasks E-436, E-437.
+
+### Decisions made
+- E-433, E-434 and E-430 are accepted as built, with the three divergences you listed.
+- Review findings, for E-436: `PermissionDenied` must clear by id (F1); the id file must be keyed by tmux server and pane (F2); a failed `ps` in `_start_pane_idle` must read as not idle.
+- E-436 stacks on E-430's branch and does not hold the merges of #49..#53.
+
+### Blueprint divergence (if any)
+- None open.
+
+### Next action needed
+- Engineer: E-436, then E-437, then E-393, E-353, E-431, E-432, E-435.
+- Operator: check out e-430-digest-triggers, run `bash install-rein.sh && rein sync`, do the one live `rein start` run for E-433 clause (8), then merge #49 → #53 in order.
+- After #51 and #52 merge: name both merge commits; the Architect passes them to rein-app.
+
+### Open risks
+- Until E-436 lands, a wait can be missed in auto mode when a parallel call is denied while a prompt older than six seconds is open.
+- `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` backups are still uncommitted; the operator decides.
+---

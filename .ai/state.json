@@ -1924,6 +1924,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-17T19:15:47.146Z"
+    },
+    {
+      "id": "E-436",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Fix two review findings in the waiting signal per D-160 addendum 3 and .ai/blueprints/release-artifact.md §Component 7: (F1) in src/shared/waiting-signal.sh make PermissionDenied clear by tool-use id like PostToolUse (`rein_ws_clear \"$id\"`), so a sibling or subagent call the auto-mode classifier denies does not clear a prompt that is still open; (F2) key the private id file by tmux server as well as pane (a name derived from the recorded socket path and the pane digits, characters outside [A-Za-z0-9._-] replaced), so two tmux servers that both have a pane %N do not share a file; keep the PostToolUse fast path a builtin-only check; and in `_start_pane_idle` of src/bin/rein treat a failed or empty `ps` as not idle. Stack on E-430's branch; it does not hold the merges of #49..#53. Acceptance: (1) a row in tests/unit/waiting-signal.test.mjs: after a PermissionRequest payload with id A, a PermissionDenied payload with id B leaves the stub tmux without an unset call, and one with id A produces it; (2) a row with two recorded sockets and the same pane id: a set through the first and a PostToolUse with the first's id through the second leaves the first's file in place, and `ls ~/.rein/run/waiting/` in the fixture home shows two files; (3) the existing timing row still prints a p95 under 30 ms; (4) a row in the rein start suite with a stub `ps` that exits 1 shows the busy line and no `rein pane` text in the pane capture; (5) full `rein ci run` green.",
+      "created_at": "2026-11-17T20:45:04.684Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T20:45:04.684Z"
+    },
+    {
+      "id": "E-437",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Repair the rein-migration skill's schema line per D-159 r1 (the digest is generated and carries no `- Schema` line) and .ai/blueprints/harness-fitness.md §Component 1: in src/shared/skills (or wherever rein-migration's SKILL.md is canonical) replace the injection that greps \"^- Schema\" from .ai/DIGEST.md with one that reads the schema version from the database the skill migrates (the value `rein state health` or the store's own version pragma reports), and sync the tracked .claude mirror. Order: after E-436. Acceptance: `grep -n \"DIGEST\" <the skill's SKILL.md>` finds no line that reads a schema from the digest; running the skill's injection command by hand in this repository prints a version number, not \"(unknown)\"; the skill-mirror row of the existing suite passes.",
+      "created_at": "2026-11-17T20:45:08.364Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T20:45:08.364Z"
     }
   ],
   "stamps": [

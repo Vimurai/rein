@@ -405,3 +405,6 @@
 [CRITIC_STAMP] 2026-11-17 | e180f9f 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-433 waiting signal per release-artifact.md §Component 7 + D-160 addendum 1
 [SEC_CLEARED] 2026-11-17 | d71bc61 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-433 d71bc61: 0 P0/P1, 40 probes 0 EXPLOITED; P2-1 ($TMUX server socket) + P3-6 to Architect; P3-1..5 fixed
 [CRITIC_STAMP] 2026-11-17 | d71bc61 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-433 security review P3 fixes
+[CRITIC_STAMP] 2026-11-17 | bf8ad4f 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-429 doctor digest record guarded against errexit
+[CRITIC_STAMP] 2026-11-17 | 1f35b0f 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-433 D-160 addendum 2: tmux target from the launch record
+[ALIGN_PASS] 2026-11-17 | 1f35b0f 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-433 D-160 addendum 2: tmux target from the launch record

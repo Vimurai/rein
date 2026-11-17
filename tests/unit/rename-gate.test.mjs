@@ -164,8 +164,11 @@ test("every re-pinned table hashes to its new pin, and no test still names the o
   const pins = MAP.filter((r) => r.kind === "pin");
   assert.ok(pins.length >= 3, "the three D-132 addendum 3 tables");
   const tests = files().filter((f) => f.startsWith("tests/") && f.endsWith(".mjs"));
-  for (const { old, new: now, table } of pins) {
-    assert.equal(createHash("sha256").update(readFileSync(join(ROOT, table))).digest("hex"), now, table);
+  // A later ruling may re-pin a table again (`repinned`, with the ruling in `repinned_by`, e.g.
+  // E-393 under D-132 addendum 4 r7); the table then hashes to that pin. The old pin stays gone.
+  for (const { old, new: now, table, repinned, repinned_by } of pins) {
+    if (repinned) assert.ok(repinned_by, `${table}: a re-pin names its ruling`);
+    assert.equal(createHash("sha256").update(readFileSync(join(ROOT, table))).digest("hex"), repinned ?? now, table);
     for (const f of tests) assert.ok(!readFileSync(join(ROOT, f), "utf8").includes(old), `${f} still pins ${table} at ${old.slice(0, 8)}`);
   }
 });

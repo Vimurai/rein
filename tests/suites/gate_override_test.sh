@@ -102,10 +102,51 @@ assert_status 0 "E-291.03c: a Write under ~/.rein/ is BLOCKED even with an overr
 _pad="$(python3 -c 'print("A" * 1200000)')"
 rc="$(_hook "$HOOK" Bash "rein gate off --minutes 60 #${_pad}" "$SID_A")"
 assert_status 0 "E-291.03d: an ARG_MAX-padded self-disable is BLOCKED under the override (rc=${rc})" test "$rc" -eq 2
+# E-393 (D-132 addendum 4 r7): the no-verdict grep reads through quotes, backslashes and
+# wrappers too — extends 03d; the analyzer's verdicts are rows of gate-self-disable-cases.json.
+rc="$(_hook "$HOOK" Bash "env -i re\"\"in -- g'a'te off #${_pad}" "$SID_A")"
+assert_status 0 "E-393.01a: a padded, assembled self-disable is BLOCKED under the override (rc=${rc})" test "$rc" -eq 2
+rc="$(_hook "$HOOK" Bash "nice -n 5 \\rein gate off" "$SID_A")"
+assert_status 0 "E-393.01b: …and through the analyzer, a wrapped one (rc=${rc})" test "$rc" -eq 2
 rc="$(_hook "$HOOK" Bash "echo ok #${_pad}" "$SID_A")"
 assert_status 0 "E-291.03e: …while a padded harmless command passes loudly (the no-verdict path ran; rc=${rc})" test "$rc" -eq 0
 unset _pad
 rm -f "$GO"
+
+# D-163 r10(3) (E-393, A2A ruling 2026-11-17): with the analyzer missing from the mirror the
+# backstop runs the same lock (_touches_gate) before the catastrophic set — with and without an
+# override, for the plain form and a reordered, quote-split one. Extends S09's backstop rows.
+mv "$SE" "$SE.away"
+for _ov in 0 1; do
+  if [[ "$_ov" == 1 ]]; then _override 15 "e393 no analyzer"; else rm -f "$GO"; fi
+  _HOOK_SESSION=0
+  rc="$(_hook "$HOOK" Bash "rein gate off" "$SID_A")"
+  assert_status 0 "E-393.04 [override=${_ov}]: analyzer missing — the disable is BLOCKED (rc=${rc})" test "$rc" -eq 2
+  rc="$(_hook "$HOOK" Bash "o''ff; g\"a\"te; re\\in" "$SID_A")"
+  assert_status 0 "E-393.04 [override=${_ov}]: …and a reordered, quote-split one (rc=${rc})" test "$rc" -eq 2
+  rc="$(_hook "$HOOK" Bash "ls -la" "$SID_A")"
+  assert_status 0 "E-393.04 [override=${_ov}]: …while an ordinary command still passes the backstop (rc=${rc})" test "$rc" -eq 0
+  _HOOK_SESSION=1
+done
+mv "$SE.away" "$SE"
+rm -f "$GO"
+
+# D-163 r1: the no-verdict fallback's `_names_gate_off` is the same definition as namesGateOff in
+# src/shared/shell-word.mjs — checked against every row of gate-self-disable-cases.json (each row's
+# raw text through both; the analyzer applies the inert-heredoc strip first, the fallback cannot).
+eval "$(sed -n '/^_names_gate_off() {/,/^}/p' "$HOOK")"
+_mismatch=0; _n=0
+while IFS=$'\t' read -r _want _b64; do
+  _cmd="$(printf '%s' "$_b64" | base64 -d)"; _n=$((_n + 1))
+  if _names_gate_off "$_cmd"; then _got=1; else _got=0; fi
+  [[ "$_got" == "$_want" ]] || { _mismatch=$((_mismatch + 1)); echo "  differs (js=${_want} bash=${_got}): ${_cmd:0:80}"; }
+done < <(node --no-warnings --input-type=module -e '
+  import { readFileSync } from "node:fs";
+  const { namesGateOff } = await import(process.argv[1] + "/src/shared/shell-word.mjs");
+  for (const r of JSON.parse(readFileSync(process.argv[1] + "/tests/fixtures/gate-self-disable-cases.json", "utf8")))
+    console.log((namesGateOff(r.cmd) ? "1" : "0") + "\t" + Buffer.from(r.cmd).toString("base64"));' "$REPO_ROOT")
+assert_status 0 "E-393.03: the hook fallback and namesGateOff agree on all ${_n} table rows (mismatches: ${_mismatch})" \
+  test "$_mismatch" -eq 0 -a "$_n" -gt 200
 
 # ── E-291.4: invalid override files are ignored with ONE notice ─────────────
 _ignored() {  # <label> <reason substring> → the gate ran normally (not a crash) and said why
@@ -135,13 +176,33 @@ fi
 rm -f "$GO"
 
 # ── E-291.5: `rein gate` — clamp, on, status; the analyzer refuses it to the agent ─
-out="$(HOME="$H" bash "$AI_BIN" gate off --minutes 90 --reason "e291 clamp" 2>&1)"
-assert_contains "E-291.05a: --minutes 90 is clamped to 60, with a notice" "clamped to 60" "$out"
+# E-393 (D-132 addendum 4 r7b): `rein gate off` runs only in the operator's terminal — a TTY on
+# stdin and none of the variables an agent session exports. _gate_tty is that terminal: a real pty
+# (python3's pty module, the same on Linux and macOS) and the agent variables removed.
+_AGENT_VARS=(CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_SESSION_ID CLAUDE_SESSION_ID REIN_PANE_ROLE REIN_CALLER_ROLE)
+_PTY='import os,pty,sys; s=pty.spawn(sys.argv[1:]); sys.exit(s>>8 if s&0x7f==0 else 1)'
+# _gate_tty [NAME=value…] [args…] → `rein gate off args…` on a pty, extra variables set first.
+_gate_tty() {
+  local pre=(); while [[ "${1:-}" =~ ^[A-Z_]+= ]]; do pre+=("$1"); shift; done
+  env $(printf -- '-u %s ' "${_AGENT_VARS[@]}") HOME="$H" ${pre[@]+"${pre[@]}"} python3 -I -c "$_PTY" bash "$AI_BIN" gate off "$@" </dev/null
+}
+rm -f "$GO"
+rc=0; out="$(env $(printf -- '-u %s ' "${_AGENT_VARS[@]}") HOME="$H" bash "$AI_BIN" gate off </dev/null 2>&1)" || rc=$?
+assert_status 0 "E-393.02a: without a TTY, rein gate off exits 2 (rc=${rc})" test "$rc" -eq 2
+assert_contains "E-393.02a: …saying why, with the operator escape" "stdin is not a terminal" "$out"
+assert_status 1 "E-393.02a: …and writes no override" test -e "$GO"
+rc=0; out="$(_gate_tty CLAUDECODE=1 2>&1)" || rc=$?
+assert_status 0 "E-393.02b: on a TTY with an agent-session variable set, it exits 2 (rc=${rc})" test "$rc" -eq 2
+assert_contains "E-393.02b: …naming the variable" "CLAUDECODE" "$out"
+assert_status 1 "E-393.02b: …and writes no override" test -e "$GO"
+out="$(_gate_tty --minutes 90 --reason "e291 clamp" 2>&1)"
+assert_contains "E-291.05a: --minutes 90 is clamped to 60, with a notice (on the operator terminal)" "clamped to 60" "$out"
 assert_status 0 "E-291.05b: the file is 0600" test "$(python3 -c 'import os,sys; print(oct(os.stat(sys.argv[1]).st_mode & 0o777)[2:])' "$GO")" = "600"
 assert_contains "E-291.05c: status reports it ACTIVE" "override ACTIVE" "$(HOME="$H" bash "$AI_BIN" gate status 2>&1)"
 for bad in 0 -5 1e9 '15;id'; do
-  rc=0; HOME="$H" bash "$AI_BIN" gate off --minutes "$bad" >/dev/null 2>&1 || rc=$?
+  rc=0; _out="$(_gate_tty --minutes "$bad" 2>&1)" || rc=$?
   assert_status 0 "E-291.05d: --minutes '${bad}' is rejected" test "$rc" -ne 0
+  assert_not_contains "E-291.05d: …by its own check, not the E-393 terminal check" "refused" "$_out"
 done
 HOME="$H" bash "$AI_BIN" gate on >/dev/null 2>&1
 assert_status 1 "E-291.05e: rein gate on removes the file" test -e "$GO"

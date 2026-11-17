@@ -18,7 +18,11 @@ const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const TABLE = resolve(repo, "tests/fixtures/gate-self-disable-cases.json");
 // E-383 (D-132): re-pinned for the rename (rows name the new install root; pre-rename rows
 // added). The D-089 r5 pin moves only by ruling — the D-ruling that closes E-383 ratifies it.
-const SHA256 = "63c2cac95f95e30149119f6296417a547bb4afd9eb93d056385285121d3b2968";
+// E-393 (D-163 r10, addendum 1): re-pinned again, 29 → 225 rows (179 BLOCK, 46 pass). The lock is
+// the three-word predicate (namesGateOff); every round-1 and round-2 security payload is a row with
+// the verdict D-163 gives it; 11 PASS rows marked `residual` (r3; three are D-084 rule 4 implicit-run sinks); two r9 flips (PASS → BLOCK: commit
+// messages naming rein, gate and off). Old 63c2cac95f95…, new below.
+const SHA256 = "80ab99d0495180464e5612f07ecd9aee4c7487518df32962ff71dd9a86afdcb5";
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-gsd-")));
 mkdirSync(join(home, ".re" + "in", "hooks"), { recursive: true });

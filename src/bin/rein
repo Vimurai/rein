@@ -1180,6 +1180,18 @@ do_gate() {
   [[ -f "$py" ]] || { echo "rein gate: ${py} missing — $(_rein_fix_install)" >&2; return 2; }
   case "$sub" in
     off)
+      # E-393 (D-132 addendum 4 r7b) — the belt behind gate-guard's lock: `rein gate off` writes the
+      # override only from the operator's terminal. stdin must be a TTY, and no variable a Rein pane
+      # or a Claude Code session exports may be set. Not the lock: `script` fakes a pty, which is
+      # why gate-guard's word check is the lock and this is the second layer.
+      local _v _agent=""
+      for _v in CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_SESSION_ID CLAUDE_SESSION_ID REIN_PANE_ROLE REIN_CALLER_ROLE; do
+        [[ -n "${!_v+x}" ]] && _agent="${_agent:+${_agent} }${_v}"
+      done
+      if [[ ! -t 0 || -n "$_agent" ]]; then
+        echo "rein gate off: refused — $([[ -n "$_agent" ]] && printf 'an agent session is in the environment (%s)' "$_agent" || printf 'stdin is not a terminal'). Operator escape — in YOUR terminal, not through the agent: rein gate off" >&2
+        return 2
+      fi
       local minutes=15 reason=""
       while [[ $# -gt 0 ]]; do
         case "$1" in

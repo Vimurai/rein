@@ -23,13 +23,17 @@
 import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { homedir } from "node:os";
+import { gateViews, namesGateOff, normaliseWord, shellCommands } from "../../shared/shell-word.mjs";
 
 // Command position: start, a separator or grouping char, a shell keyword or a prefix that
 // runs its argument, `VAR=value` assignments, or the program string of `sh -c` / `bash -c`
 // (critic_security P1-2: `X=1 rein gate`, `{ rein gate;}`, `if/eval/timeout/! rein gate`,
 // `bash -c 'rein gate'` all slipped the narrower head).
+// E-393 (D-132 addendum 4 r7): `)` (a case arm) and stdbuf/setsid/flock/builtin join the head.
+// A prefix with flags or arguments (`env -i`, `nice -n 5`, `flock f`) is beyond a regex head;
+// gateCommandHit below reads those word by word.
 const CMD_HEAD =
-  "(?:^|[;&|\\n`({!]|\\b(?:sudo|env|nohup|time|command|exec|xargs|then|do|else|if|while|until|eval|nice)\\s+" +
+  "(?:^|[;&|\\n`(){!]|\\b(?:sudo|env|nohup|time|command|exec|xargs|then|do|else|if|while|until|eval|nice|stdbuf|setsid|flock|builtin)\\s+" +
   "|\\btimeout\\s+\\S+\\s+|\\b(?:ba|z|da|k)?sh\\s+-c\\s+['\"]?)" +
   "\\s*(?:[A-Za-z_][A-Za-z0-9_]*=\\S*\\s+)*";
 // The `rein` token, allowing the quoting and escaping a shell removes ("rein", 're'in, r\ein):
@@ -106,12 +110,198 @@ function escapeRe(s) {
   return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+// ── E-393 (D-132 addendum 4 r7): `rein gate` assembled from quotes, escapes and wrappers ──────
+// The regex above sees `rein` only right after a head; the shell also runs it after `env -i`,
+// `nice -n 5`, `sudo -u x`, `timeout -s KILL 5`, `flock f`, `exec -a x`, `time -p`, as `re""in`,
+// `\rein`, `$'rein'`, and with `g'a'te` or `--` before the subcommand. Each command is read word by
+// word (quote-aware, src/shared/shell-word.mjs — the D-112 normaliser, not a second one): keywords,
+// assignments and wrappers with their flags and positional arguments are skipped; the first word
+// left is the program. A quoted string at command position (`bash -c '…'`, `flock f -c '…'`,
+// `env -S '…'`, `eval '…'`) is a program too and is read again, to depth 3. Runtime assembly
+// (`x=rein; $x gate off`, `$'\x72ein'`) stays the classifier's residual, as named since D-089.
+// arg: flags that consume the next word; pos: positional words before the program; shell: takes its
+// program from stdin when given none (`bash`, `bash -s`, `at now`) — a here-string or a pipe into it
+// is read again (security_engineer F6; `echo '…' | bash`); rest: every word is an operand (`at`);
+// split: `-S…` / `--split-string=…` carries the program (F5).
+const SHELL = { arg: ["-o", "-O", "+o", "+O"], shell: true };
+const WRAPPERS = new Map([
+  ["env", { arg: ["-u", "--unset", "-C", "--chdir", "-a", "--argv0"], split: true }],
+  ["nice", { arg: ["-n", "--adjustment"] }],
+  ["sudo", { arg: ["-u", "--user", "-g", "--group", "-C", "--close-from", "-D", "--chdir", "-h", "--host",
+                   "-p", "--prompt", "-r", "--role", "-t", "--type", "-U", "--other-user", "-T", "--command-timeout",
+                   "-R", "--chroot"] }],
+  ["stdbuf", { arg: ["-i", "-o", "-e", "--input", "--output", "--error"] }],
+  ["setsid", {}],
+  ["flock", { arg: ["-w", "--wait", "--timeout", "-E", "--conflict-exit-code"], pos: 1 }],
+  ["exec", { arg: ["-a"] }],
+  ["command", {}], ["builtin", {}], ["nohup", {}], ["eval", {}],
+  ["time", { arg: ["-f", "--format", "-o", "--output"] }],
+  ["timeout", { arg: ["-s", "--signal", "-k", "--kill-after"], pos: 1 }],
+  ["xargs", { arg: ["-I", "-L", "-n", "--max-args", "-P", "--max-procs", "-s", "--max-chars", "-d",
+                    "--delimiter", "-E", "-a", "--arg-file"] }],
+  ...["sh", "bash", "zsh", "dash", "ash", "ksh", "mksh", "yash", "posh"].map((n) => [n, SHELL]),
+  // critic_security P1-1 (E-393): further commands that run their arguments.
+  ["ionice", { arg: ["-c", "--class", "-n", "--classdata", "-p", "--pid", "-P", "--pgid", "-u", "--uid"] }],
+  ["taskset", { arg: [], pos: 1 }],                                   // taskset [-c] MASK cmd
+  ["chrt", { arg: ["-T", "-P", "-D"], pos: 1 }],                      // chrt [-f] PRIO cmd
+  ["script", { arg: ["-E", "--echo", "-I", "--log-in", "-O", "--log-out", "-B", "--log-io", "-T",
+                     "--log-timing", "-m", "--logging-format", "-t"], pos: 1 }],  // -c's string is re-read
+  ["su", { arg: ["-s", "--shell", "-g", "--group", "-G", "--supp-group", "-w", "--whitelist-environment"], pos: 1 }],
+  ["runuser", { arg: ["-u", "--user", "-s", "--shell", "-g", "--group", "-G", "--supp-group"], pos: 1, noPosWith: ["-u", "--user"] }],
+  ["sg", { arg: [], pos: 1 }],
+  ["doas", { arg: ["-u", "-C"] }],
+  ["watch", { arg: ["-n", "--interval", "-q", "--equexit"] }],
+  ["strace", { arg: ["-e", "-o", "-p", "-s", "-u", "-E", "-a", "-b", "-I", "-O", "-P", "-S", "-X"] }],
+  ["ltrace", { arg: ["-e", "-o", "-p", "-s", "-u", "-a", "-n", "-l", "-x", "-F"] }],
+  ["unshare", { arg: ["-S", "--setuid", "-G", "--setgid", "-R", "--root", "-w", "--wd", "--propagation"] }],
+  ["nsenter", { arg: ["-t", "--target", "-S", "--setuid", "-G", "--setgid", "-r", "--root", "-w", "--wd"] }],
+  ["chronic", {}], ["unbuffer", {}], ["caffeinate", { arg: ["-t", "-w"] }], ["busybox", {}],
+  ["prlimit", { arg: ["-p", "--pid"] }], ["faketime", { arg: [], pos: 1 }],
+  ["firejail", {}], ["torsocks", { arg: ["-u", "-p", "-a", "-P"] }], ["proxychains", { arg: ["-f"] }],
+  ["proxychains4", { arg: ["-f"] }], ["catchsegv", {}], ["valgrind", {}], ["rlwrap", {}],
+  // security_engineer F8 (E-393), the ones with a plain argument grammar.
+  ["eatmydata", {}], ["setpriv", { arg: ["--reuid", "--regid", "--groups", "--inh-caps", "--ambient-caps", "--bounding-set",
+                                         "--securebits", "--pdeathsig", "--selinux-label", "--apparmor-profile"] }],
+  ["ssh", { arg: ["-b", "-c", "-D", "-E", "-e", "-F", "-I", "-i", "-J", "-L", "-l", "-m", "-O", "-o", "-p", "-Q",
+                  "-R", "-S", "-W", "-w", "-B"], pos: 1 }],        // ssh HOST cmd… (localhost is this machine)
+  ["systemd-run", { arg: ["-p", "--property", "-u", "--unit", "-E", "--setenv", "-M", "--machine", "-H", "--host",
+                          "--uid", "--gid", "--nice", "--description", "--slice", "--working-directory",
+                          "--on-active", "--on-calendar", "--timer-property"] }],
+  ["at", { arg: ["-q", "-f", "-t"], shell: true, rest: true }],
+  ["batch", { arg: ["-q", "-f"], shell: true, rest: true }],
+]);
+const KEYWORDS = new Set(["!", "{", "}", "if", "then", "do", "else", "elif", "while", "until", "coproc"]);
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*\+?=/;
+
+// F4: a word may be a brace list or a glob that the shell turns into `rein` or `gate`.
+// Bounded: at most 64 words out, whatever the nesting (a brace bomb cannot blow up the gate).
+function expandBraces(w) {
+  let out = [w];
+  for (let n = 0; n < 5; n++) {
+    const next = [];
+    let grew = false;
+    for (const x of out) {
+      const m = /\{([^{}]*,[^{}]*)\}/.exec(x);
+      if (!m) { next.push(x); continue; }
+      grew = true;
+      for (const alt of m[1].split(",")) {
+        if (next.length >= 64) break;
+        next.push(x.slice(0, m.index) + alt + x.slice(m.index + m[0].length));
+      }
+    }
+    out = next.slice(0, 64);
+    if (!grew) break;
+  }
+  return out;
+}
+function named(w, name) {
+  const b = w.toLowerCase();
+  if (b === name) return true;
+  if (!/[*?[]/.test(b)) return false;
+  try {
+    return new RegExp("^" + b.replace(/[.+^$(){}|\\]/g, "\\$&").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]") + "$").test(name);
+  } catch { return false; }
+}
+// F-residual, cheap half: `${X:-rein}` is read as its default and `$IFS` as a space.
+const gateText = (s) => s.replace(/\$\{IFS\}|\$IFS(?![A-Za-z0-9_])/g, " ")
+  .replace(/\$\{[A-Za-z_][A-Za-z0-9_]*:?[-=]([^{}$]*)\}/g, "$1");
+const normWords = (raw) => raw.flatMap((w) => { const n = normaliseWord(w); return /\s/.test(n) ? [n] : expandBraces(n); });
+
+function skipWrapperArgs(words, i, wr) {
+  let pos = wr.pos || 0;
+  while (i < words.length) {
+    const w = words[i];
+    if (wr.split) { const m = /^(?:-S|--split-string=)(.+)$/s.exec(w); if (m) { words[i] = m[1]; break; } }
+    if (/\s/.test(w)) break;                            // a program string (`script -qc '…' f`, `su -c '…'`): re-read
+    if (wr.noPosWith?.includes(w)) pos = 0;            // `runuser -u USER cmd` has no positional user
+    // `-` alone counts (`su - root`); a shell's `+x` / `+O opt` too.
+    if (w.startsWith("-") || (wr.shell && w.startsWith("+"))) { i += wr.arg?.includes(w) ? 2 : 1; continue; }
+    if (ASSIGNMENT.test(w)) { i++; continue; }          // env NAME=val …
+    if (wr.rest || pos > 0) { pos--; i++; continue; }
+    break;
+  }
+  return i;
+}
+
+// → true (the command runs `rein gate`), "stdin" (its program comes from stdin) or false.
+function wordsHitGate(words, depth) {
+  let i = 0, viaXargs = false;
+  while (i < words.length) {
+    const w = words[i];
+    // An empty word (`$UNSET`, `""`) is read at its most dangerous: it vanishes, as it may in the shell.
+    if (w === "" || KEYWORDS.has(w) || ASSIGNMENT.test(w)) { i++; continue; }
+    if (/\s/.test(w)) return depth < 3 && gateCommandHit(w, depth + 1);
+    const base = w.slice(w.lastIndexOf("/") + 1).toLowerCase();
+    const wr = WRAPPERS.get(base);
+    if (wr) {
+      if (base === "xargs") viaXargs = true;
+      i = skipWrapperArgs(words, i + 1, wr);
+      if (wr.shell && i >= words.length) return "stdin";
+      continue;
+    }
+    if (base === "find") {                               // find … -exec/-execdir/-ok/-okdir CMD ; | +
+      for (let k = i + 1; k < words.length; k++) {
+        if (!/^-(?:exec|execdir|ok|okdir)$/.test(words[k])) continue;
+        let e = k + 1;
+        while (e < words.length && words[e] !== ";" && words[e] !== "+") e++;
+        if (wordsHitGate(words.slice(k + 1, e), depth) === true) return true;
+      }
+      return false;
+    }
+    if (!named(base, "rein")) return false;
+    let j = i + 1;                                       // `rein -- gate`, `rein --x gate`
+    while (j < words.length && words[j].startsWith("-")) j++;
+    if (j >= words.length) return viaXargs;              // F7: `… | xargs rein` takes `gate` from stdin
+    return named(words[j], "gate");
+  }
+  return false;
+}
+
+// What a command writes to a pipe, when that is plain text: echo / printf arguments, cat's here-string.
+function piped(raw, norm) {
+  const base = (norm[0] ?? "").slice(norm[0].lastIndexOf("/") + 1);
+  if (base === "echo" || base === "printf") {
+    return raw.slice(1).map((w) => w.replace(/\$'/g, "'").replace(/["']/g, "").replace(/\\n/g, "\n"))
+      .filter((w) => !/^-[neE]+$/.test(w)).join(" ");
+  }
+  return base === "cat" && raw.here ? raw.here.map(normaliseWord).join("\n") : null;
+}
+
+/** True when some command on the line runs `rein gate`, however its words are spelled. */
+export function gateCommandHit(raw, depth = 0) {
+  let prev = null;
+  for (const cmd of shellCommands(gateText(String(raw)))) {
+    const norm = normWords(cmd);
+    const r = wordsHitGate(norm, depth);
+    if (r === true) return true;
+    if (r === "stdin" && depth < 3) {
+      for (const h of cmd.here ?? []) if (gateCommandHit(normaliseWord(h), depth + 1)) return true;
+      if (cmd.sep === "|" && prev !== null && gateCommandHit(prev, depth + 1)) return true;
+    }
+    prev = piped(cmd, norm);
+  }
+  return false;
+}
+
 const MSG_ESCAPE = "Operator escape — in YOUR terminal, not through the agent: rein gate off";
 
+// D-163: the lock is r1's three-word predicate (namesGateOff). The name rules below — the CLI
+// form (regex and the frozen word reader, r5), the override file, a write under ~/.rein/ — read
+// the raw text AND view V1 (r6), so static quoting (`~/.re''in/gate-overr""ide.json`) is no
+// longer a way around them; assembly from variables is still the classifier's (r3).
 export function selfDisableHits(raw) {
   const s = String(raw ?? "");
+  if (namesGateOff(s)) {
+    return [{ id: "GATE_SELF_DISABLE", message: `the command names \`rein\`, \`gate\` and \`off\` (D-163) — ` +
+      `BLOCKED for every role; put such text in a file (Write tool, \`git commit -F <file>\`). ${MSG_ESCAPE}` }];
+  }
+  const hits = nameRuleHits(s);
+  return hits.length ? hits : nameRuleHits(gateViews(s)[0]);
+}
+
+function nameRuleHits(s) {
   const hits = [];
-  if (CLI_GATE.test(s)) {
+  if (CLI_GATE.test(s) || gateCommandHit(s)) {
     hits.push({ id: "GATE_SELF_DISABLE", message: `\`rein gate\` is operator-only — BLOCKED for every role. ${MSG_ESCAPE}` });
   } else if (/gate-override\.json/i.test(s)) {
     // The FILE name only. The bare stem over-blocked ordinary work — a branch named

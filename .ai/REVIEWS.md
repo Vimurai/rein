@@ -397,3 +397,5 @@
 [CRITIC_STAMP] 2026-11-17 | 3fb9253 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-428 rebased onto 3fb9253; run_review P1 advisory only
 [ALIGN_PASS] 2026-11-17 | 90305b7 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)
 [CRITIC_STAMP] 2026-11-17 | 90305b7 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)
+[ALIGN_PASS] 2026-11-17 | fe718d6 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-429 digest builder per harness-fitness.md §Component 1
+[CRITIC_STAMP] 2026-11-17 | fe718d6 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-429 digest builder per harness-fitness.md §Component 1

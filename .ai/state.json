@@ -1896,6 +1896,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-17T18:25:46.690Z"
+    },
+    {
+      "id": "E-434",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Fix `rein start` on a live session so it never types into a busy pane, per D-161 and .ai/blueprints/release-artifact.md §Component 8: in the binding loop of src/bin/rein send `rein pane <role>` only to an idle pane (the pane's shell is in the foreground and has no child process); skip a busy pane with the line `rein start: <role> pane is busy (<command>) — not re-sent`; for a pane created by this run that is not idle after the 5 s wait print `[START_PANE_NOT_READY] <role>` with the command to run by hand and exit 2; keep re-pinning the role, account and title options. Write the failing row first (fixture-first). Add one sentence to the `rein start` row of docs/app-contract.md: running it on a live session restarts only the agents that have exited and leaves running ones untouched. Order: after E-433. Acceptance, in a suite row with a real tmux server on a private socket (`skip_unless_cmd tmux`): (1) with a session whose architect pane runs `sleep 300` in the foreground, a second `rein start --detach` leaves that pane's `tmux capture-pane -p` output free of the text `rein pane`, prints the busy line for architect, and exits 0; (2) the same holds when the pane's foreground is a bash script (`bash -c 'sleep 300'`), the case `pane_current_command` reads as a shell; (3) in the same run the engineer pane, left at an idle shell prompt, shows `rein pane engineer` in its capture; (4) `tmux list-panes -F '#{@rein_role}'` still prints both roles after the second run; (5) the row fails on main's src/bin/rein (the text appears in the busy pane).",
+      "created_at": "2026-11-17T18:35:38.056Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T18:35:38.068Z"
     }
   ],
   "stamps": [

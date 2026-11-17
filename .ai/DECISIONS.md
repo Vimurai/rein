@@ -5318,3 +5318,27 @@ With the literal `tests/**` glob, three markdown-exec rows (E-363) failed in CI:
 Remove the exclusion in `traversal-policy.mjs` and its two boundary rows.
 
 ---
+
+## D-161 — `rein start` on a live session sends keys only to an idle pane; that is also how one exited agent is restarted
+
+**Date**: 2026-11-17
+**Task**: E-434. Blueprint: `.ai/blueprints/release-artifact.md` §Component 8. Request: rein-app `plans/rein-panels-request.md` items c and c2 (rein-app D-061 addendum 3).
+**Decision**: The report is confirmed in the code: the binding loop waits up to 5 s for a shell and then sends `rein pane <role>` and Enter regardless, so a second `rein start` types into running agents. It now sends only to a pane whose shell is in the foreground with no child process, skips a busy pane with one line, and refuses (exit 2) to send into a new pane that never became idle.
+
+### Why needed
+The operator saw it on 2026-11-13: reopening a project typed `rein pane engineer` and `rein pane architect` into the two running agents, which then read the text as a prompt. rein-app attaches instead of starting since today, but one case remains on its side and it built no fallback, relying on this fix.
+
+### Alternatives considered
+1. **Return early when the session already exists** — rejected: it removes the one useful thing a re-run does, restarting an agent that has exited, and the re-pinning of the pane options.
+2. **Test `pane_current_command` against the shell pattern only** — rejected: `rein pane` is a bash script, so a pane where it is still starting reads as `bash`, and that window of a few seconds is exactly the case rein-app has left.
+3. **End the pane when its agent exits (request item b)** — not ruled here: it changes what the operator sees after an agent exits and needs its own decision.
+4. **Idle = the pane's shell has no child (chosen)** — true for a prompt, false for a running agent and for one still starting.
+
+### Impact
+- Unlocks: E-434. Answers item c: `rein start` on a live session is the supported way to restart one exited agent.
+- Risk if wrong: a pane with a background job left by the operator counts as busy and is skipped; the line names the pane and the operator runs `rein pane <role>` there.
+
+### Rollback
+Revert E-434; the loop sends unconditionally again.
+
+---

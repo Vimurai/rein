@@ -1938,3 +1938,26 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - The uncommitted `.ai/providers.json` and `.ai/roles.json` edits and their `*.pre-0.5.0.json` backups in the working tree are not the Architect's and are not in this commit; the operator decides.
 - The rest of rein-app's request (items 1, 3, a–f; bug c2: `rein start` on a live session types `rein pane <role>` into running agents) is not ruled yet.
 ---
+---
+## Handoff — 2026-11-17 18:35 UTC
+**From**: Architect → Engineer
+**Trigger**: rein-app · Architect — bug c2 of its request: `rein start` on a live session types `rein pane <role>` into running agents
+
+### What was built
+- Nothing built. Recorded: D-161; `.ai/blueprints/release-artifact.md` §Component 8; task E-434.
+
+### Decisions made
+- The bug is confirmed in `src/bin/rein` (binding loop: 5 s wait, then an unconditional `send-keys`).
+- Keys go only to an idle pane: the pane's shell in the foreground with no child process. A busy pane is skipped with one line; a new pane that never became idle is exit 2 with `[START_PANE_NOT_READY]`.
+- `rein start` on a live session is the supported way to restart one exited agent; the contract row says so.
+
+### Blueprint divergence (if any)
+- None.
+
+### Next action needed
+- Engineer: E-434 after E-433, failing row first. Queue: E-433, E-434, E-430, E-393, E-353, E-431, E-432.
+- Name the merge commits of E-433 and E-434 in your handoffs; rein-app waits on both.
+
+### Open risks
+- Request items 1, 3, a, b, c3, c4, d–f are still not ruled.
+---

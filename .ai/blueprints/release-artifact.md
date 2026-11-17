@@ -326,6 +326,30 @@ value the fixture does not list.
 never read by Rein itself. A stale option on a live pane is cleared with
 `tmux set-option -pu -t <pane> @rein_waiting`.
 
+### Component 8 — `rein start` on a live session never types into a busy pane (E-434, D-161)
+`rein start` is a contract entry point and is run again on a session that already exists
+(by the operator, and by an app reopening a project). Today its binding loop waits up to 5 s
+for the pane's foreground to look like a shell and then sends `rein pane <role>` and Enter
+whatever it saw, so the text is typed into a running agent (seen by the operator on
+2026-11-13, rein 0.5.0).
+
+- **The rule**: keys are sent only to a pane that is idle, meaning the pane's shell
+  (`#{pane_pid}`) is in the foreground and has no child process. `pane_current_command` alone
+  is not the test: `rein pane` is itself a bash script, so a pane where it is still starting
+  reads as `bash`.
+- **A busy pane is skipped**, with one line on stdout:
+  `rein start: <role> pane is busy (<pane_current_command>) — not re-sent`. Exit status is
+  unchanged (0). The role, account and title options are still re-pinned, as today.
+- **A pane created by this run** that is not idle after the 5 s wait gets no keys either:
+  `rein start` prints `[START_PANE_NOT_READY] <role>` with the command to run by hand and
+  exits 2, instead of sending into an unknown foreground.
+- **This is also how one exited agent is restarted**: its pane is back at an idle shell, so
+  `rein start` on the live session sends `rein pane <role>` to that pane only. The contract
+  document says so in the `rein start` row.
+- **Not changed**: the pane keeps hosting an interactive shell (the agent's exit leaves a
+  shell); `--status`, `--kill`, the layout.
+- **Rollback**: revert the change; the loop sends unconditionally again.
+
 ## Data Model
 
 **The three release files** (assets of the GitHub release `vX.Y.Z`):
@@ -493,6 +517,7 @@ and `rein sync` with this machine's absolute paths, and the app writes no file i
 | E-426 | 3 | Component 4, D-158 r1–r6: `npm ci` for a server with a shipped lock, the marker, the twice-installed row | E-420 |
 | E-427 | 2 | Component 5, D-158 r8–r11: `doctor-scopes.json`, `scope` field, `rein doctor --scope install`, contract text | E-421, E-422 |
 | E-433 | 2 | Component 7, D-160: the waiting signal, its settings entries, doctor check, contract section and fixture | — |
+| E-434 | 2 | Component 8, D-161: `rein start` skips a busy pane; restart of one exited agent; contract text | — |
 
 **Build order (D-156 r4):** E-423 now, then E-417 → E-418 → E-420 → E-421 → E-422 → E-419 →
 E-424. E-420 precedes E-419 because rein-app's layout-equality test waits on E-417, E-418 and

@@ -6,7 +6,7 @@ Rein is a user harness on top of Claude Code: guides that act before the agent w
 critics, `rein ci run`, `rein doctor`). Three of its parts do not hold today:
 
 1. **The digest goes stale and nobody is told.** On 2026-11-17 `.ai/DIGEST.md` was dated
-   2026-10-22 and described "AI-OS v4.1.0" while the product was Rein v0.5.0. Preflight reads
+   2026-10-22 and described the pre-rename product at v4.1.0 while the product was Rein v0.5.0. Preflight reads
    the digest first, so every session started from a wrong snapshot. Cause: the digest is
    written by a model (`rein-digest`, `digest_updater`) that must be asked; the only prompt is
    a banner `hooks/stop-hook.sh` prints to stderr on exit 0, which the session never shows; the

@@ -1,7 +1,7 @@
 # BRIEF (Living product brief)
 
 ## Product Summary
-- **What is this?** Rein is an autonomous operating system for AI coding agents. It coordinates a strict Triad — Architect (Gemini 3.1 Pro), Engineer (Claude Opus 4.7), and Tester (TestSprite) — through a shared, ACID-backed `.ai/` memory layer, 25 MCP servers, RBAC-gated skills, and JIT context caching.
+- **What is this?** Rein is an autonomous operating system for AI coding agents. It coordinates a strict Triad — Architect (Claude, model `fable`), Engineer (Claude, model `opus`), and a headless Tester (the `test_engineer` agent) — through a shared, ACID-backed `.ai/` memory layer, MCP servers, RBAC-gated skills, and JIT context caching.
 - **Who is it for?** Developers shipping non-trivial software with LLM assistance who need (1) deterministic agent role separation, (2) full audit trail of decisions/stamps, and (3) safety gates that survive context loss. Not a chatbot, not a copilot — an opinionated framework that imposes structure on multi-agent workflows.
 - **What problem does it solve?** Single-agent coding loops drift, hallucinate tool names, leak secrets, and forget across sessions. Rein enforces blueprint-first design (Architect writes blueprints → Engineer implements → Tester verifies), pins state to a SQLite-backed WAL, and re-injects context on every preflight so context bloat does not erase prior decisions.
 

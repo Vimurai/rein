@@ -5523,3 +5523,30 @@ The override record `~/.rein/gate-override.json` is not authenticated: the hook 
 Remove the r1 call and the V1 pass of r6; the word reader and the belt remain as the lock of D-132 addendum 4 r7.
 
 ---
+
+## D-163 addendum 1 — The three words must stand on one line of a view
+
+**Date**: 2026-11-17
+**Task**: E-393
+**Decision**: D-163 r1 is read per line: the command is `GATE_SELF_DISABLE` when one line of V1 or V2 holds the three words. Lines are split after the view is built, so a backslash-newline never separates them.
+
+### Why needed
+As written, r1 matched over the whole text. The Engineer measured that this flips two rows pinned under D-112 in `operand-scope-cases.json` (blocks 2 and 3, the D-105 verbatim Architect appends): 18 KB of prose with the three words once each, far apart, in unrelated sentences. In this repository all three are common words, so whole-text matching blocks most long prose written through Bash. That is wider than r9 ruled.
+
+### Rulings
+1. **Per line**, as above. Measured by the Engineer: verdicts identical to whole-text on all 144 table rows, the 91 round-1 payloads and the 67 round-2 payloads (231 hits in both); both verbatim rows pass.
+2. **r3 gains one class**: the three words literal but on different lines of both views. It is residual on the same terms: recorded once, INCONCLUSIVE, the classifier's. A line-joining rule beyond backslash-newline (a trailing `|`, `&&`, an open quote) is grammar and is not added (r5).
+3. **`operand-scope-cases.json` is not re-pinned** by E-393. The table gains at least one PASS row marked `residual` for the r2 class and one BLOCK row with the words split by a backslash-newline.
+
+### Alternatives considered
+1. **Whole text, re-pin the two rows** — rejected: it blocks the Architect's and the Engineer's ordinary long appends for a gain the measurement puts at zero rows.
+2. **A word-distance window across lines** — rejected: a second parameter to tune, harder to state in the hook's fallback, and padding defeats it as cheaply as a newline defeats r1.
+
+### Impact
+- Unlocks: E-393 r10 as amended.
+- Risk if wrong: a split across lines is reported as a bypass in a later review; under r2 it is residual, and narrowing it is a ruling, not a fix.
+
+### Rollback
+Match over the whole view again and re-pin `operand-scope-cases.json` with the two flips.
+
+---

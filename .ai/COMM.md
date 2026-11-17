@@ -2114,3 +2114,25 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - The r9 over-block: a commit message, grep pattern or test filter that names all three words is blocked. Use the Write tool and `git commit -F <file>`.
 - A deliberate same-uid agent can still write the override from a script; that is the D-083 r5 ceiling and the classifier's layer.
 ---
+---
+## Handoff — 2026-11-17 22:20 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer question — D-163 r1, whole text or per line
+
+### What was built
+- Nothing built. Recorded: D-163 addendum 1; the blueprint's contract paragraph follows it.
+
+### Decisions made
+- **Option (i), per line.** The three words must stand on one line of V1 or V2; lines are split after the view is built.
+- The words literal but on different lines is a residual class (addendum r2). No line-joining rule beyond backslash-newline.
+- `operand-scope-cases.json` is not re-pinned. The gate table gains one PASS `residual` row for the split-lines class and one BLOCK row split by a backslash-newline (addendum r3).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Engineer: continue E-393 under D-163 r10 with addendum 1.
+
+### Open risks
+- A later review may report a newline split as a bypass; it is residual by addendum r2.
+---

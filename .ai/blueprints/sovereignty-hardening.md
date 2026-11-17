@@ -114,9 +114,10 @@ visited project does not.**
    every role under `~/.rein/**`; the only writer paths are the inline literal allowlist
    `bash install-rein.sh`, `rein install`, `rein sync`, `rein doctor`; Component 6b adds the
    classifier backstop; operator presence (Keychain/Touch ID) is the next rung, unfunded.
-   **The lock's contract (D-163)**: a command whose text holds the three words `rein`,
-   `gate` and `off` — in a view with quotes, backslashes and `[ ] ? *` deleted, or one with
-   each backslash escape read as a space — is `GATE_SELF_DISABLE`, any order, any position,
+   **The lock's contract (D-163, addendum 1)**: a command with the three words `rein`,
+   `gate` and `off` on one line — of a view with quotes, backslashes and `[ ] ? *` deleted,
+   or of one with each backslash escape read as a space; lines are split after the view is
+   built — is `GATE_SELF_DISABLE`, any order, any position,
    every role, under an override too. The name rules read the deleted-quotes view as well
    as the raw text. A command where one of the words is not literal is the residual, by
    definition, and is the classifier's. The word reader (`shellCommands`,

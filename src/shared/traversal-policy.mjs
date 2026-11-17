@@ -124,7 +124,7 @@ const ALLOW_MARKER = /rein:allow\s+PATH_TRAVERSAL\b(.*)$/;
 export function allowMarker(line) {
   const m = ALLOW_MARKER.exec(String(line ?? ""));
   if (!m) return null;
-  const reason = m[1].replace(/(\*\/|-->)\s*$/, "").trim();
+  const reason = m[1].replace(/(\*\/|--!?>)\s*$/, "").trim();
   return { reason: /\w/.test(reason) ? reason : "" };
 }
 

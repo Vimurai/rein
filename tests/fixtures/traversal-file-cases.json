@@ -12,6 +12,7 @@
 {"label":"E-428.03 a marker with only punctuation still blocks","file":"src/lib/path.mjs","line":"+  fs.readFileSync(\"../../\" + userInput); /* rein:allow PATH_TRAVERSAL -- */","want":"P0"},
 {"label":"E-428.04 a marker with a reason passes and is reported","file":"src/lib/path.mjs","line":"+  const root = join(cfg.dir, \"../\"); // rein:allow PATH_TRAVERSAL cfg.dir is operator config, not input","want":"none","reason":"cfg.dir is operator config, not input"},
 {"label":"E-428.04 a marker in a block comment keeps only the reason","file":"src/lib/path.mjs","line":"+  const root = join(cfg.dir, \"../\"); /* rein:allow PATH_TRAVERSAL fixed root */","want":"none","reason":"fixed root"},
+{"label":"E-428.04 a marker in an HTML comment keeps only the reason (--> and --!>)","file":"docs/guide.html","line":"+  <a href=\"../\">up</a> <!-- rein:allow PATH_TRAVERSAL static nav link --!>","want":"none","reason":"static nav link"},
 {"label":"E-428.05 strict mode ignores the test-file exemption","file":"tests/unit/path.test.mjs","line":"+  open(\"../../etc/passwd\");","want":"P0","strict":true},
 {"label":"E-428.05 strict mode ignores the marker","file":"src/lib/path.mjs","line":"+  const root = join(cfg.dir, \"../\"); // rein:allow PATH_TRAVERSAL fixed root","want":"P0","strict":true}
 ]

@@ -269,12 +269,12 @@ if skip_unless_cmd tmux "E-434.01–05: rein start on a live session (real tmux)
   _fresh4() { _t4 send-keys -t "$1" "clear" C-m; _t4 clear-history -t "$1"; wait_for "_idle4 '$1'" 3000 50 || true; }
   _fresh4 "$_eng4"; _fresh4 "$_arc4"; _t4 clear-history -t "$_eng4"; _t4 clear-history -t "$_arc4"
 
-  # (1) the architect pane's foreground is a program: `sleep 300`.
-  _t4 send-keys -t "$_arc4" "clear; sleep 300" C-m
+  # (1) the architect pane's foreground is a program: `sleep 300`.   REIN_SLEEP_ALLOWED: names it
+  _t4 send-keys -t "$_arc4" "clear; sleep 300" C-m   # REIN_SLEEP_ALLOWED: the busy foreground program under test
   wait_for "[[ \"\$(_cur4 '$_arc4')\" == sleep ]]" 3000 50 || true
   _t4 clear-history -t "$_arc4"
   _o4="$( cd "$_lp4" && PATH="$_P4" bash "$AI" start --detach 2>&1 )"; _rc4=$?
-  sleep 0.5   # a sent line would be echoed by now
+  sleep 0.5   # REIN_SLEEP_ALLOWED: an ABSENCE is asserted next; a sent line would be echoed by now
   assert_not_contains "E-434.01a: the busy architect pane got no 'rein pane' text" "rein pane" "$(_cap4 "$_arc4")"
   assert_contains "E-434.01b: the busy line names the role and its command" "rein start: architect pane is busy (sleep) — not re-sent" "$_o4"
   assert_status 0 "E-434.01c: and rein start exits 0 (rc=${_rc4})" test "$_rc4" -eq 0
@@ -287,11 +287,11 @@ if skip_unless_cmd tmux "E-434.01–05: rein start on a live session (real tmux)
 
   # (2) the foreground is a bash script — pane_current_command reads as a shell.
   _t4 send-keys -t "$_arc4" C-c; wait_for "_idle4 '$_arc4'" 3000 50 || true
-  _t4 send-keys -t "$_arc4" "clear; bash -c 'sleep 300'" C-m
+  _t4 send-keys -t "$_arc4" "clear; bash -c 'sleep 300'" C-m   # REIN_SLEEP_ALLOWED: the busy foreground program under test
   wait_for "! _idle4 '$_arc4'" 3000 50 || true
   _t4 clear-history -t "$_arc4"
   _o4="$( cd "$_lp4" && PATH="$_P4" bash "$AI" start --detach 2>&1 )"; _rc4=$?
-  sleep 0.5
+  sleep 0.5   # REIN_SLEEP_ALLOWED: an ABSENCE is asserted next; a sent line would be echoed by now
   assert_not_contains "E-434.02a: a pane running a bash script got no 'rein pane' text" "rein pane" "$(_cap4 "$_arc4")"
   assert_contains "E-434.02b: and is reported busy" "rein start: architect pane is busy (" "$_o4"
   assert_status 0 "E-434.02c: rein start exits 0 (rc=${_rc4})" test "$_rc4" -eq 0
@@ -301,8 +301,8 @@ if skip_unless_cmd tmux "E-434.01–05: rein start on a live session (real tmux)
   # command to run by hand. The server's default command makes every new pane a program.
   _sock5="$(test_tmux_socket e434n)"
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$_tb4" "$_sock5" > "$_shim4/tmux"
-  "$_tb4" -L "$_sock5" -f /dev/null new-session -d -s keep "sleep 300"
-  "$_tb4" -L "$_sock5" set-option -g default-command "sleep 300"
+  "$_tb4" -L "$_sock5" -f /dev/null new-session -d -s keep "sleep 300"   # REIN_SLEEP_ALLOWED: the busy foreground program under test
+  "$_tb4" -L "$_sock5" set-option -g default-command "sleep 300"   # REIN_SLEEP_ALLOWED: every new pane runs a busy program
   _lp5="$(_proj 0 1)"; on_exit "rm -rf '$_lp5'"
   _o5="$( cd "$_lp5" && PATH="$_P4" bash "$AI" start --detach 2>&1 )"; _rc5=$?
   assert_status 0 "E-434.06a: a new pane that never idles → exit 2 (rc=${_rc5})" test "$_rc5" -eq 2

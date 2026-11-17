@@ -399,3 +399,9 @@
 [CRITIC_STAMP] 2026-11-17 | 90305b7 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)
 [ALIGN_PASS] 2026-11-17 | fe718d6 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-429 digest builder per harness-fitness.md §Component 1
 [CRITIC_STAMP] 2026-11-17 | fe718d6 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-429 digest builder per harness-fitness.md §Component 1
+[ALIGN_PASS] 2026-11-17 | 3c78da6 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-430 digest triggers + removal of the model-written path (harness-fitness.md §Component 1)
+[CRITIC_STAMP] 2026-11-17 | 3c78da6 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-430 digest triggers + removal of the model-written path (harness-fitness.md §Component 1)
+[ALIGN_PASS] 2026-11-17 | e180f9f 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-433 waiting signal per release-artifact.md §Component 7 + D-160 addendum 1
+[CRITIC_STAMP] 2026-11-17 | e180f9f 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-433 waiting signal per release-artifact.md §Component 7 + D-160 addendum 1
+[SEC_CLEARED] 2026-11-17 | d71bc61 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-433 d71bc61: 0 P0/P1, 40 probes 0 EXPLOITED; P2-1 ($TMUX server socket) + P3-6 to Architect; P3-1..5 fixed
+[CRITIC_STAMP] 2026-11-17 | d71bc61 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-433 security review P3 fixes

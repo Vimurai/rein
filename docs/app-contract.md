@@ -141,7 +141,7 @@ disappears from `rein help`.
 | `rein sync` | Re-provision a project (`--github`, `--prune-providers`) |
 | `rein init` | Create or upgrade a project's `.ai/` (`--check` for a dry run) |
 | `rein doctor` | Health, as text or `--json` (below) |
-| `rein start` | Build or reattach a project's tmux Triad |
+| `rein start` | Build or reattach a project's tmux Triad. On a live session it restarts only the agents that have exited and leaves running ones untouched |
 | `rein pane <architect\|engineer>` | Bind a pane to a role — the only way a role is bound; an app never mints a role token |
 | `rein account list\|add\|remove\|sync` | The Claude account registry ([Accounts](accounts.md)) |
 | `rein gate on\|status` | The safe-exec gate override's state (`off` is the operator's, in their own terminal) |

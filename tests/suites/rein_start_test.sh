@@ -242,6 +242,75 @@ else
   done
 fi
 
+# ── E-434 (D-161; release-artifact.md §Component 8): a re-run never types into a busy pane ──
+# Extends E-227.06f (the re-run over live panes): there the panes sat at a shell prompt; here
+# one runs a foreground program. A key sent into it is typed into a running agent.
+if skip_unless_cmd tmux "E-434.01–05: rein start on a live session (real tmux)"; then
+  _tb4="$(command -v tmux)"
+  _sock4="$(test_tmux_socket e434)"
+  _shim4="$(mktemp -d)"; on_exit "rm -rf '$_shim4'"
+  printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$_tb4" "$_sock4" > "$_shim4/tmux"; chmod +x "$_shim4/tmux"
+  _t4() { "$_tb4" -L "$_sock4" "$@"; }
+  _lp4="$(_proj 0 1)"; on_exit "rm -rf '$_lp4'"
+  # The panes inherit the server's PATH: give it one without a `rein`, so the first run's
+  # `rein pane <role>` fails at once and leaves an idle shell rather than starting an agent
+  # the rows below would then type into. node stays reachable for rein start itself.
+  _P4="${_shim4}:$(dirname "$(command -v node)"):/usr/bin:/bin"
+  ( cd "$_lp4" && PATH="$_P4" bash "$AI" start --detach >/dev/null 2>&1 )
+  _s4="$(awk '/^_start_session_name\(\) \{/,/^\}$/' "$AI" > "$_shim4/fn.sh"; ( . "$_shim4/fn.sh"; _start_session_name "$_lp4" ))"
+  _w4="$(_t4 list-windows -t "$_s4" -F '#{window_id} #{window_name}' 2>/dev/null | awk -v n="$(basename "$_lp4")" '$2 == n { print $1; exit }')"
+  _eng4="$(_t4 list-panes -t "$_w4" -F '#{pane_index} #{pane_id}' 2>/dev/null | sort -n | awk 'NR==1 {print $2}')"
+  _arc4="$(_t4 list-panes -t "$_w4" -F '#{pane_index} #{pane_id}' 2>/dev/null | sort -n | awk 'NR==2 {print $2}')"
+  _cur4() { _t4 display-message -p -t "$1" '#{pane_current_command}' 2>/dev/null; }
+  _cap4() { _t4 capture-pane -p -J -S - -t "$1" 2>/dev/null; }
+  _idle4() { [[ "$(_cur4 "$1")" =~ ^(-?(ba|z|k|a|da)?sh|fish|login)$ ]] && ! ps -A -o ppid= | awk -v p="$(_t4 display-message -p -t "$1" '#{pane_pid}')" '$1 == p { f = 1 } END { exit !f }'; }
+  # Both panes back at a prompt (the first run's `rein pane` is not on this PATH), cleared.
+  wait_for "_idle4 '$_eng4' && _idle4 '$_arc4'" 5000 50 || true
+  _fresh4() { _t4 send-keys -t "$1" "clear" C-m; _t4 clear-history -t "$1"; wait_for "_idle4 '$1'" 3000 50 || true; }
+  _fresh4 "$_eng4"; _fresh4 "$_arc4"; _t4 clear-history -t "$_eng4"; _t4 clear-history -t "$_arc4"
+
+  # (1) the architect pane's foreground is a program: `sleep 300`.
+  _t4 send-keys -t "$_arc4" "clear; sleep 300" C-m
+  wait_for "[[ \"\$(_cur4 '$_arc4')\" == sleep ]]" 3000 50 || true
+  _t4 clear-history -t "$_arc4"
+  _o4="$( cd "$_lp4" && PATH="$_P4" bash "$AI" start --detach 2>&1 )"; _rc4=$?
+  sleep 0.5   # a sent line would be echoed by now
+  assert_not_contains "E-434.01a: the busy architect pane got no 'rein pane' text" "rein pane" "$(_cap4 "$_arc4")"
+  assert_contains "E-434.01b: the busy line names the role and its command" "rein start: architect pane is busy (sleep) — not re-sent" "$_o4"
+  assert_status 0 "E-434.01c: and rein start exits 0 (rc=${_rc4})" test "$_rc4" -eq 0
+  # (3) the idle engineer pane did get its command.
+  wait_for "[[ \"\$(_cap4 '$_eng4')\" == *'rein pane engineer'* ]]" 2000 50 || true
+  assert_contains "E-434.03: the idle engineer pane received 'rein pane engineer'" "rein pane engineer" "$(_cap4 "$_eng4")"
+  # (4) both roles are still pinned.
+  assert_contains "E-434.04: @rein_role still names both roles" "engineer architect" \
+    "$(_t4 list-panes -t "$_w4" -F '#{@rein_role}' 2>/dev/null | tr '\n' ' ')"
+
+  # (2) the foreground is a bash script — pane_current_command reads as a shell.
+  _t4 send-keys -t "$_arc4" C-c; wait_for "_idle4 '$_arc4'" 3000 50 || true
+  _t4 send-keys -t "$_arc4" "clear; bash -c 'sleep 300'" C-m
+  wait_for "! _idle4 '$_arc4'" 3000 50 || true
+  _t4 clear-history -t "$_arc4"
+  _o4="$( cd "$_lp4" && PATH="$_P4" bash "$AI" start --detach 2>&1 )"; _rc4=$?
+  sleep 0.5
+  assert_not_contains "E-434.02a: a pane running a bash script got no 'rein pane' text" "rein pane" "$(_cap4 "$_arc4")"
+  assert_contains "E-434.02b: and is reported busy" "rein start: architect pane is busy (" "$_o4"
+  assert_status 0 "E-434.02c: rein start exits 0 (rc=${_rc4})" test "$_rc4" -eq 0
+  _t4 kill-server 2>/dev/null
+
+  # A pane this run creates that never reaches an idle shell gets no keys: exit 2 and the
+  # command to run by hand. The server's default command makes every new pane a program.
+  _sock5="$(test_tmux_socket e434n)"
+  printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$_tb4" "$_sock5" > "$_shim4/tmux"
+  "$_tb4" -L "$_sock5" -f /dev/null new-session -d -s keep "sleep 300"
+  "$_tb4" -L "$_sock5" set-option -g default-command "sleep 300"
+  _lp5="$(_proj 0 1)"; on_exit "rm -rf '$_lp5'"
+  _o5="$( cd "$_lp5" && PATH="$_P4" bash "$AI" start --detach 2>&1 )"; _rc5=$?
+  assert_status 0 "E-434.06a: a new pane that never idles → exit 2 (rc=${_rc5})" test "$_rc5" -eq 2
+  assert_contains "E-434.06b: with [START_PANE_NOT_READY] and the command to run" "[START_PANE_NOT_READY] engineer" "$_o5"
+  assert_contains "E-434.06c: naming rein pane for the role" "rein pane engineer" "$_o5"
+  "$_tb4" -L "$_sock5" kill-server 2>/dev/null
+fi
+
 
 # ── E-252 (D-068): one tmux session per project ────────────────────────────
 #

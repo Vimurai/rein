@@ -5342,3 +5342,33 @@ The operator saw it on 2026-11-13: reopening a project typed `rein pane engineer
 Revert E-434; the loop sends unconditionally again.
 
 ---
+
+## D-160 addendum 1 — E-433: the installer records `tmux` in the hook toolchain; the waiting-signal helper reads it from there
+
+**Date**: 2026-11-17
+**Task**: E-433
+**Decision**: Option (a) of the Engineer's report. The hooks' pinned PATH is the recorded `node` and `python3` directories plus four system directories, and on this machine `tmux` is under the Linuxbrew prefix, so no hook can find it by name and the signal of D-160 would never fire. The installer records `REIN_TC_TMUX` in `~/.rein/shared/toolchain.sh` with the writer, the resolution rule and the trust of the `node` record; the helper parses it, never sources it, and falls back to the pinned PATH.
+
+### Why needed
+Component 7 assumed `tmux` was reachable from a hook. It is not on any machine where tmux comes from Homebrew or Linuxbrew, which includes the operator's.
+
+### Alternatives considered
+1. **Add the Linuxbrew prefix to the fixed fallback list** — rejected: rule 7b forbids extending that list for one host, and a directory a package manager writes is not a system directory.
+2. **Derive the binary from `$TMUX` (the server's pid)** — rejected: `$TMUX` reaches the hook through the project's settings `env`, so it could name any binary (T-HOOKENV-001).
+3. **Record it at install (chosen)** — the operator's own install run is the one moment Rein trusts a PATH lookup, and it already does so for `node` and `python3`.
+
+### Rulings
+1. `tmux` stays optional: nothing recorded means the helper does nothing; an install never fails for it.
+2. The recorded value is used only if it is an absolute path to an executable regular file.
+3. Doctor names `tmux` on the toolchain line: `warn` when the record points at a missing file, or when the operator's PATH has `tmux` and the record does not; the fix is the one the `node` line gives. An app that installs tmux after Rein sees that warning and runs the fix.
+4. The security_engineer pass already required for E-433 covers the installer and record change.
+5. E-433 acceptance gains one clause: a row runs the helper under the pinned PATH with `tmux` only at a recorded path outside it, and the stub at that path receives the call; the same row with the record pointing at a non-executable file makes no call and exits 0.
+
+### Impact
+- Unlocks: E-433 on the operator's machine. `shared/toolchain.sh` is already operator-owned in the layout, so the manifest and the layout version do not change.
+- Risk if wrong: a `brew upgrade` moves the recorded path and the signal goes quiet until the next install; ruling 3 makes that visible.
+
+### Rollback
+Remove the record line and the helper's lookup; the helper finds `tmux` only where the pinned PATH has it.
+
+---

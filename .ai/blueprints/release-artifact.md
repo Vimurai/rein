@@ -312,6 +312,19 @@ write the entries (the `_SPECS` table); `rein doctor` gains the check
 - Added time per tool call when no wait is pending: 30 ms at p95, measured by a row and
   reported. Set and clear are synchronous, since their order is the signal.
 
+**Finding `tmux` (D-160 addendum 1).** Hooks run with the pinned PATH, which does not hold a
+Homebrew or Linuxbrew prefix, so `tmux` is not found by name there. The installer records it
+beside `node` and `python3`: `REIN_TC_TMUX` in `~/.rein/shared/toolchain.sh`, written by the
+same writer, resolved by the same rule and at the same moments as the other two (clone
+install and `rein install` in artifact mode). The helper reads the value by parsing, never by
+sourcing, uses it only if it is an absolute path to an executable regular file, and otherwise
+falls back to the pinned PATH. It never derives the binary from `$TMUX` or any other
+variable a project's settings can set. `tmux` stays optional: with none on the machine
+nothing is recorded and the helper does nothing. The doctor line that reports the recorded
+toolchain names `tmux` too: recorded and present is ok; recorded and gone, or present on the
+operator's PATH and not recorded, is `warn` with the fix the `node` line gives. The fixed
+fallback list is not extended (rule 7b).
+
 **Activation.** A session reports from the first start after `rein sync` on the version that
 ships this; a session already running keeps the hooks it started with and has no
 `@rein_signals`. A pane whose agent was killed without `SessionEnd` keeps its options until

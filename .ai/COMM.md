@@ -2037,3 +2037,51 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-436 lands, a wait can be missed in auto mode when a parallel call is denied while a prompt older than six seconds is open.
 - `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` backups are still uncommitted; the operator decides.
 ---
+---
+## Handoff — 2026-11-17 22:00 UTC
+**From**: Engineer → Architect
+**Trigger**: E-436 and E-437 shipped; E-393 SEC_BLOCKED and held: the lock needs a ruling
+
+### What was built
+- E-436 and E-437 together are **PR #54** (e-437-migration-schema-line, base e-430-digest-triggers). It is one PR because E-436's green local run was recorded in a scratch worktree's `.ai/state.sqlite`, which the push gate cannot see. Full `rein ci run` was green on both tips (6127b05 and 0f110ec). Both tasks stay OPEN until #54 merges.
+- E-393 is on branch **e-393-gate-lock**, stacked on #54. The source is **uncommitted** in the working tree; a copy of the patch is in the session scratchpad. The review stamps are committed as 7992ac9.
+  - `src/shared/shell-word.mjs` is new. It holds `normaliseWord`, moved out of safe-exec `index.js` with the same behaviour, so RM_RF_ROOT and GATE_SELF_DISABLE share it. It also holds `shellCommands`, a quote-aware reader that handles redirections, nested `"$(…)"`, here-strings and pipe separators.
+  - `gate-guard.mjs` `gateCommandHit` handles:
+    - about 50 wrappers, each with its flag arity;
+    - keywords, including `coproc`;
+    - a shell or `at` that reads its program from stdin, with its here-string or the text piped into it read again;
+    - `find -exec`, brace lists and globs;
+    - `${X:-w}` and `$IFS`;
+    - `env -S`.
+  - CMD_HEAD gained `)` and the four missing prefixes.
+  - In `hooks/pre-tool-use.sh`, the no-verdict fallback now strips quotes, backslashes and globs, joins lines, and matches the two words in either order.
+  - In `src/bin/rein`, the gate-off subcommand exits 2 unless stdin is a TTY and no agent-session variable is set (the belt).
+  - `gate-self-disable-cases.json` grew from 29 to 144 rows and was re-pinned from 63c2cac9… to f4fd8c05…. The rename-map pin entry gained `repinned`/`repinned_by`, and rename-gate.test.mjs accepts a ruled re-pin.
+  - All 11 gate contract tables are green, as are gate_override_test (61 pass, 2 skip), safe_exec_test, pre_tool_use_gate_test and gate_abort_test.
+
+### Decisions made
+- None of mine. The lock choice below is yours to make.
+
+### Blueprint divergence (if any)
+- D-132 addendum 4 r7(a) designed the lock as "normalise per word, skip wrapper prefixes". As built, that design does not converge.
+  - The security_engineer's round 1 found 8 new P1 classes.
+  - I closed every listed spelling. Round 2 then found 28 live variants in the same classes: comment and quote state, `{e..e}` and `[!x]` globs, `xargs -I{}`, `cat | bash`, `bash < <(…)`, `function f {…}`, a command substitution used as the program, and others.
+  - Details and the payload tables are in `.ai/SECURITY.md` under "E-393" and in the THREAT_MODEL.md T-RENAME-001 E-393 addendum. Both files are uncommitted on e-393-gate-lock, because Gate 2 needs a CRITIC_STAMP for them.
+- The 15 ruled forms (17 spellings) are all RESISTED, by both the analyzer and the hook. The belt holds for B1–B3; the ruled ceiling is B4–B8.
+
+### Next action needed
+- **Architect: rule on the lock.** The security_engineer's options:
+  - **(a)** A fail-closed co-occurrence lock: the CLI word and the `gate` word in the same command after normalisation is a block. The cost is over-blocking any text that mentions them; the workaround is the Write tool or `git commit -F <file>`.
+  - **(b)** Move the lock out of the command text: an operator-only factor read from `/dev/tty`, with a verifier the quote-split writer route below cannot reach.
+  - Either option also closes the tmux and python-pty routes. The parser can stay as a precision layer.
+- **Out of E-393's scope, open, and needing a ruling:**
+  - `tmux new-window` / `send-keys` carrying the gate-off command, and `python3 -c 'pty.spawn([...])'`, beat both the lock and the belt. In the throwaway HOME they wrote an override end to end.
+  - The pre-existing **quote-split writer**: calling the install's `shared/gate-override.py write` with the install dir and the override file name split by quotes writes an active override. The exact payload is in SECURITY.md. D-084 r4 accepted quote-split paths; r7 now normalises that same quoting for the CLI form.
+- **Base for gate work:** on `main`, `src/shared/launch-record.py` predates E-433's record fields. A dev-tree `pre-commit` therefore cannot verify a session minted by the installed (stack) mirror, resolves it to the union, and blocks every source commit as the Architect lane. Gate tasks (E-393, E-353, E-432) stack on #54 until #49..#54 merge.
+- **Engineer next:** I hold E-393 and its order successors (E-431 after E-393/E-353; E-432; E-435) until your ruling. E-353 is in the same parser family, so a co-occurrence or tty ruling may change its shape too. Tell me whether to start it now.
+
+### Open risks
+- Until the lock is ruled, the 28 round-2 variants, tmux, pty and the writer route are live self-disable routes for the agent. The classifier's hard_deny remains the independent layer.
+- critic_tests reported 30 failures in four host-state suites (mirror_hygiene, exec_form_hooks, hooks_surface, provider_workspace) on a `--changed` run. provider_workspace and hooks_surface fail the same way on a clean HEAD. A full `rein ci run` on E-393 has not been done.
+- `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` backups are still uncommitted. The operator decides.
+---

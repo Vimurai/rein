@@ -306,9 +306,23 @@ write the entries (the `_SPECS` table); `rein doctor` gains the check
 **Rules for the hook** (all fail-open, hooks contract):
 - It prints nothing on stdout and exits 0 on every path. A `PermissionRequest` or `PreToolUse`
   hook that prints a decision would answer the prompt; this one never has an opinion.
-- The pane is `$TMUX_PANE`, used only if it matches `%<digits>`; with no `$TMUX`, no
-  `$TMUX_PANE` or no `tmux`, it does nothing. The value written is one of the literals above,
-  never text from the payload (no tool input, no notification message).
+- The pane and the server socket come from the launch record `rein pane <role>` writes for
+  the session's process chain (D-087), where `rein pane` stores `$TMUX` and `$TMUX_PANE` as
+  it saw them in the operator's shell, before the agent started. The hook calls
+  `tmux -S <recorded socket> … -t <recorded pane>` and never reads `TMUX` or `TMUX_PANE` from
+  its own environment: a project's settings `env` reaches the hook, and a tmux client pointed
+  at a foreign socket can be made to execute by the server it connects to (T-WAITSIG-001).
+  The recorded pane is used only if it matches `%<digits>` in full. With no launch record
+  (a session not started by `rein pane`), no recorded socket, or no `tmux`, the hook does
+  nothing and the pane has no `@rein_signals` (D-160 addendum 2).
+- The value written is one of the literals above, never text from the payload (no tool
+  input, no notification message).
+- A private state file per pane, `~/.rein/run/waiting/<pane digits>`, holds the tool-use id
+  of the waiting call. It is what lets `PostToolUse` return without calling `tmux` when no
+  wait is pending and tell a sibling call from the waiting one. It is not part of the
+  contract and no app reads it: the pane option is the state. Written by temp file and
+  rename, read only as a regular non-link file, holds an id and nothing from tool input,
+  removed on clear and at session start and end.
 - Added time per tool call when no wait is pending: 30 ms at p95, measured by a row and
   reported. Set and clear are synchronous, since their order is the signal.
 

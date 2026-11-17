@@ -5372,3 +5372,35 @@ Component 7 assumed `tmux` was reachable from a hook. It is not on any machine w
 Remove the record line and the helper's lookup; the helper finds `tmux` only where the pinned PATH has it.
 
 ---
+
+## D-160 addendum 2 — E-433 security review: the pane and the tmux socket come from the launch record, never from the hook's environment; the per-pane id file is ratified as private state
+
+**Date**: 2026-11-17
+**Task**: E-433 (security review d71bc61, SEC_CLEARED Tier 2; findings P2-1 and P3-6)
+**Decision**: (1) P2-1 is closed, not accepted: `rein pane <role>` stores `$TMUX` and `$TMUX_PANE` in the session's launch record, and the hook addresses tmux as `tmux -S <recorded socket> -t <recorded pane>`. The hook reads neither variable from its own environment. (2) P3-6 is ratified: `~/.rein/run/waiting/<pane digits>` stays.
+
+### Why needed
+The review found that the tmux client takes its server from `$TMUX`, which a project's settings `env` can set; a client pointed at a foreign socket can be made to execute by that server, from a hook that runs outside the sandbox. A listener must exist first, but a sandboxed process of the same user can be one, which makes it an escape path rather than a no-op. Separately the review found a file that ruling 1 of D-160 appeared to forbid.
+
+### Rulings
+1. **Same rule as the role (D-087)**: what a hook needs to know about its session comes from the launch record on the process chain, written before the agent started, and from nothing a project can set. This also closes the related P3 (a project `TMUX_PANE` setting options on another pane).
+2. **A session not started by `rein pane` does not report.** No launch record means no signal and no `@rein_signals`. This narrows D-160 from "any tmux pane" to "a pane bound by `rein pane`", which is every pane an app reads.
+3. **No fallback to the environment**, including when the record has no socket (a pane bound by an older `rein pane`): the session reports after its next start.
+4. **If the launch record cannot carry the two values without changing the fields the role token verifies**, the Engineer stops and reports before building; option (b), accepting the residual, is not chosen by default.
+5. **The id file is private state, not the signal.** Ruling 1 of D-160 rejected a file as the thing an app reads; that stands. The file is under `run/`, which the layout already lists as operator-owned, holds a tool-use id only, and is removed on clear and at session start and end. The contract document does not name it.
+6. **E-433 acceptance changes**: clause (3) binds the pane through a launch record instead of the environment, and gains: with `TMUX` in the hook's environment naming a second server on another socket, that server's pane has no `@rein_waiting` after a PermissionRequest payload and the recorded server's pane has `permission`; with no launch record the stub `tmux` receives no call.
+7. `THREAT_MODEL` gets T-WAITSIG-001 as closed by ruling 1, with the residual stated: an operator shell whose own `$TMUX` is wrong at `rein pane` time.
+
+### Alternatives considered
+1. **Check that the `$TMUX` pid is an ancestor and owns the socket** — rejected: proving which process listens on a socket path needs `/proc/net/unix` on Linux and `lsof` on macOS, two implementations of a check on the permission path.
+2. **Accept as residual** — rejected: this repository treats the settings `env` as an attacker channel everywhere else (T-HOOKENV-001), and the fix is one more field in a record that already exists.
+3. **Drop the id file and call tmux on every tool call** — rejected: it costs a process per call and cannot tell a sibling call from the waiting one, which is bound 1 of D-160 failing in the busy case.
+
+### Impact
+- Unlocks: E-433 merge after the rows of ruling 6.
+- Risk if wrong: a session started by plain `claude` in a tmux pane never reports; the operator binds it with `rein pane`.
+
+### Rollback
+Revert to reading `TMUX_PANE` and record T-WAITSIG-001 as an accepted residual by a new ruling.
+
+---

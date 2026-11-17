@@ -19,6 +19,8 @@ import { spawnSync } from "child_process";
 import { readFileSync, existsSync } from "fs";
 import { resolve } from "path";
 import { createLogger } from "../shared/logger.js";
+// E-428: one definition of "test file" and of the suppression marker, shared with run_review.
+import { isTestFile, allowMarker } from "../../shared/traversal-policy.mjs";
 
 // ── Structured logger (obs_baseline §Logging) ────────────────────────────────
 const logger = createLogger("blueprint-aligner-mcp");
@@ -447,6 +449,46 @@ function detectArchitectHandoffStamp(cwd) {
   return null;
 }
 
+/**
+ * The CAPABILITIES_BYPASS rule: added lines carrying `../` or an absolute system path.
+ * Exported (E-428) so a test grades this loop, not a copy of it.
+ *
+ * E-42: whitelist canonical ESM/CJS sibling imports — module-specifier
+ *   form `from "../..."`, `require("../...")`, `import("../...")`.
+ * E-55: skip markdown files (prose mentions of `../` are documentation).
+ * E-56: skip bash test helpers in tests/{suites,lib}/*.sh — sibling
+ *   imports like `${SCRIPT_DIR}/../lib/assert.sh` are canonical.
+ * E-428: skip every test file (`isTestFile`, the definition run_review uses — there a
+ *   test file's traversal is a reported advisory) and any line carrying a reasoned
+ *   `rein:allow PATH_TRAVERSAL <reason>` marker (run_review lists the suppression).
+ *   A marker without a reason suppresses nothing.
+ * Literal traversal in code (`cat ../../../etc/passwd`, `fs.readFile("/etc/shadow")`)
+ * still fires.
+ */
+export function capabilitiesBypassMatches(diff) {
+  const traversalRe       = /(?:\.\.\/|\/etc\/|\/root\/|\/home\/\w+\/\.)/;
+  const moduleSpecifierRe = /(?:from|require|import)\s*\(?\s*(["'])\.\.\/[^"']*\1/;
+  const matches = [];
+  for (const [file, lines] of parseDiffByFile(diff)) {
+    if (isMarkdownFile(file)) continue;       // E-55: markdown introspector
+    if (isJsonFile(file)) continue;           // E-55: JSON value strings are metadata
+    if (isTestHelperFile(file)) continue;     // E-56: test path excluder
+    if (isTestFile(file)) continue;           // E-428: test files (advisory in run_review)
+    for (const line of lines) {
+      if (!traversalRe.test(line)) continue;
+      if (moduleSpecifierRe.test(line)) continue; // E-42 ESM/CJS whitelist
+      if (isInternalPathBuilder(line)) continue;  // v3.0 W4-T8: resolve/join("..") path math
+      // E-55: skip when the only hit is inside a backtick code span
+      // (JSDoc/markdown inline code reference). If the line still has
+      // the pattern OUTSIDE the backticks, it's real code — flag it.
+      if (!traversalOutsideBackticks(line, traversalRe)) continue;
+      if (allowMarker(line)?.reason) continue;    // E-428: reasoned suppression
+      matches.push(line.trim().slice(0, 80));
+    }
+  }
+  return matches;
+}
+
 const ALIGNMENT_RULES = [
   {
     id: "ARCHITECT_FILE_MODIFIED",
@@ -490,36 +532,7 @@ const ALIGNMENT_RULES = [
   {
     id: "CAPABILITIES_BYPASS",
     severity: "FAIL",
-    check: (diff) => {
-      // Flag ../ path traversal or explicit /etc /root /home paths in code.
-      // E-42: whitelist canonical ESM/CJS sibling imports — module-specifier
-      // form `from "../..."`, `require("../...")`, `import("../...")`.
-      // E-55: skip markdown files (prose mentions of `../` are documentation).
-      // E-56: skip bash test helpers in tests/{suites,lib}/*.sh — sibling
-      //       imports like `${SCRIPT_DIR}/../lib/assert.sh` are canonical.
-      // Literal traversal in code (`cat ../../../etc/passwd`, `fs.readFile("/etc/shadow")`)
-      // still fires.
-      const traversalRe       = /(?:\.\.\/|\/etc\/|\/root\/|\/home\/\w+\/\.)/;
-      const moduleSpecifierRe = /(?:from|require|import)\s*\(?\s*(["'])\.\.\/[^"']*\1/;
-      const byFile = parseDiffByFile(diff);
-      const matches = [];
-      for (const [file, lines] of byFile) {
-        if (isMarkdownFile(file)) continue;       // E-55: markdown introspector
-        if (isJsonFile(file)) continue;           // E-55: JSON value strings are metadata
-        if (isTestHelperFile(file)) continue;     // E-56: test path excluder
-        for (const line of lines) {
-          if (!traversalRe.test(line)) continue;
-          if (moduleSpecifierRe.test(line)) continue; // E-42 ESM/CJS whitelist
-          if (isInternalPathBuilder(line)) continue;  // v3.0 W4-T8: resolve/join("..") path math
-          // E-55: skip when the only hit is inside a backtick code span
-          // (JSDoc/markdown inline code reference). If the line still has
-          // the pattern OUTSIDE the backticks, it's real code — flag it.
-          if (!traversalOutsideBackticks(line, traversalRe)) continue;
-          matches.push(line.trim().slice(0, 80));
-        }
-      }
-      return matches;
-    },
+    check: (diff) => capabilitiesBypassMatches(diff),
     message: (violations) =>
       `Path traversal or forbidden path in code: "${violations[0]}" — CAPABILITIES.md violation (§6)`,
   },

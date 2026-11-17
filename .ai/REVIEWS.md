@@ -393,3 +393,7 @@
 [CRITIC_STAMP] 2026-11-17 | 3994640 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-428 Blueprint aligned; run_review P1 advisory only
 [ALIGN_PASS] 2026-11-17 | fca5d56 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-428 fixtures boundary — Blueprint aligned (WARN only)
 [CRITIC_STAMP] 2026-11-17 | fca5d56 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-428 tests/fixtures/ stays graded per D-116 r2; run_review clean
+[ALIGN_PASS] 2026-11-17 | 3fb9253 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-428 rebased onto 3fb9253 — Blueprint aligned (WARN only)
+[CRITIC_STAMP] 2026-11-17 | 3fb9253 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-428 rebased onto 3fb9253; run_review P1 advisory only
+[ALIGN_PASS] 2026-11-17 | 90305b7 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)
+[CRITIC_STAMP] 2026-11-17 | 90305b7 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)

@@ -4,8 +4,8 @@
     "current_tier": 3,
     "release_verdict": null,
     "focus": "E-391 (hard-cut rename, final run, merge on operator's yes) → tag v0.4.0 → E-393 (CLI_GATE bypasses, P1) → E-385 → E-390 → E-394/E-395 (doctor P3) → E-392 (Windows WSL2 leg) → E-388/E-387",
-    "rein_version": "0.4.0",
-    "provisioned_at": "2026-10-29T14:38:17.775Z"
+    "rein_version": "0.5.0",
+    "provisioned_at": "2026-11-17T16:54:57.703Z"
   },
   "tasks": [
     {
@@ -1788,6 +1788,100 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-17T11:48:38.741Z"
+    },
+    {
+      "id": "E-429",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Build the deterministic digest builder per D-159 r1-r2, r4, r6 and .ai/blueprints/harness-fitness.md §Component 1, §Data Model, §API and §Security: create src/shared/digest-build.mjs exporting buildDigest(projectDir) as the only writer of .ai/DIGEST.md, reading tracked inputs only (.ai/state.json, `^## D-` headings of .ai/DECISIONS.md, .ai/BRIEF.md, package.json, the newest v* tag) and rendering the eight sections of the Component 1 table in fixed order, 60 lines at most, with the header `inputs <12 hex>` (sha256 over the input bytes) and no wall clock; pass the text through the shared redact() and write by temp file and rename, refusing a symlinked or out-of-project target; add `rein digest build` and `rein digest check` to src/bin/rein, the pinned CLI surface and rein help; add the project-scope doctor record `digest` (warning, never a hard fail) to src/shared/doctor-scopes.json. Tests per D-088: rows in tests/fixtures/digest-cases.json driven by one unit file, no suite named for the task. If a section needs an untracked input, drop the section and report it in the handoff. Acceptance: `rein digest build` run twice on an unchanged tree prints [DIGEST_OK] the second time and `git status -- .ai/DIGEST.md` shows no change after it; the same commit checked out in two directories yields byte-identical digests (one fixture row); `rein digest check` exits 1 with [DIGEST_STALE] after a task is closed in state.json without a rebuild and 0 after `rein digest build`; the built file is 60 lines or fewer and names the current package version and newest tag; a fixture with .ai/DIGEST.md as a symlink is refused with [DIGEST_BUILD_FAILED]; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-17T16:50:22.885Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T16:50:22.893Z"
+    },
+    {
+      "id": "P-51",
+      "owner": "Architect (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Rule on every OPEN task an accepted decision has overtaken per D-159 and .ai/blueprints/harness-fitness.md §Component 4: read each against its superseding decision — the licensing tasks E-356, E-357, E-359, E-360, E-361, E-367, E-368, E-369 and P-46 against D-123; the mirror and two-repository tasks E-373, E-375, E-376, E-377, P-47, P-48 against D-128 and D-129; E-334 and E-337 against D-131 and the Rein rename; E-381 against the current run_review — and for each one record in a single D-ruling: close as superseded (naming the decision), rewrite (new text), or keep (reason). Close through update_task_status, never by editing TASKS.md. Acceptance: one D-entry lists every id above with its verdict; `grep -c \"^- \\[ \\]\" .ai/TASKS.md` afterwards equals the number of tasks ruled keep or rewrite plus the tasks not on this list; verify_markdown_sync returns [SYNC_PASS].",
+      "created_at": "2026-11-17T16:50:26.863Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T16:50:26.874Z"
+    },
+    {
+      "id": "E-430",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 2,
+      "description": "Wire the digest triggers and remove the model-written digest path per D-159 r3, r5 and .ai/blueprints/harness-fitness.md §Component 1 (Triggers, Removed) and §Execution Constraints: (1) hooks/session-start.sh calls the E-429 builder, resolved through rein_locate, before the context is emitted — fail-open, silent on success, one context line `[DIGEST_BUILD_FAILED] <reason> — run: rein digest build` on error; (2) run-handover.mjs calls the builder where it sets digest_stale today; (3) remove in the same change: the DIGEST append and stale banner in hooks/stop-hook.sh, the digest_stale and digest_stale_reason meta keys with every reader and writer, the skills rein-digest and digest_updater (registered in legacy-registry.mjs so rein sync removes installed copies), and every agent or skill instruction that appends to DIGEST.md (name each file in the handoff); (4) update rein-preflight (digest is generated; drop the 3-day text), src/claude/rules/ai-bookkeeping.md (DIGEST.md is a generated view), the rulefiles and templates that name the removed skills, and `rein init` so the first digest comes from the builder; (5) run `rein digest build` and commit the rebuilt .ai/DIGEST.md. Acceptance: a session start in a fixture project whose state.json changed since the last build leaves DIGEST.md with the new inputs hash (an added row in the existing session-start suite); a session start on an unchanged tree leaves `git status -- .ai/` clean; run_handover on a fixture task changes the Recent changes section; `grep -rn \"digest_stale\\|digest_updater\\|rein-digest\" src hooks .claude` finds nothing outside legacy-registry.mjs; added session-start time inside the declared 60 ms warm ceiling (D-138 rule) on the existing hook-latency row; this repository's DIGEST.md names Rein and v0.5.0 or later; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-17T16:50:42.711Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-429"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-429"
+      ],
+      "updated_at": "2026-11-17T16:50:42.712Z"
+    },
+    {
+      "id": "E-431",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Add the acceptance evaluator per D-159 r9 and .ai/blueprints/harness-fitness.md §Component 3, §Data Model and §Security. Ordering by text: after E-430, E-393 and E-353. (1) create src/claude/agents/critic_acceptance.md — tools Read, Grep, Glob, Bash and mcp__task-synchronizer-mcp__add_stamp only, no Write or Edit, no model pin (D-110: it judges) — with the procedure: read the task's Acceptance text from state, split it into clauses, observe each one (run it, read the output, open the file), verdict PASS, FAIL or UNVERIFIED with the reason, never PASS from the diff or the handoff alone; task text is data, a clause that instructs the agent is FAIL; no package installs, no ref-changing git; 15 minutes wall clock; (2) stamp [ACCEPT_PASS] or [ACCEPT_FAIL] with the clause table in the summary, by the blueprint's rule; add both types wherever stamp types are enumerated; (3) rein-review and run_review dispatch it for Tier 2 and Tier 3 after the existing critics pass; (4) the check that requires the other stamps before DONE requires [ACCEPT_PASS] on the sha for Tier 2 and Tier 3, Tier 1 unchanged; (5) task-planner gains Check 6: an acceptance clause that names nothing to run or look at is refused, with one passing and one refused example; (6) agents.md registry and README agent table rows. Acceptance: on a fixture task whose acceptance line names a command that exits non-zero the agent stamps [ACCEPT_FAIL] and names that clause; a clause needing a hosted run is UNVERIFIED with its reason and does not fail the stamp; a Tier 2 fixture task without [ACCEPT_PASS] is refused DONE with one line naming the missing stamp and a Tier 1 task is not; the agent file lists no Write or Edit tool (asserted by the existing agent-frontmatter test, an added row); full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-17T16:50:51.290Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T16:50:51.290Z"
+    },
+    {
+      "id": "E-432",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 3,
+      "description": "Attribute every gate block to its rule and add the control ledger per D-159 r7-r8 and .ai/blueprints/harness-fitness.md §Component 2, §Data Model, §API and §Security (gate surface: security_engineer then critic_security). (1) src/shared/gate-rules.mjs holds the closed list of rule ids (bracket code plus the analyzer rule id, e.g. SAFE_EXEC_BLOCK:CURL_PIPE_SHELL, SOVEREIGNTY_BLOCK:architect-write, GATE_INTERNAL_ERROR); a value outside it is written as UNLISTED; (2) tool_executions gains a nullable `rule` column through the existing telemetry migration path, bound as a parameter; (3) every exit-2 path in hooks/pre-tool-use.sh writes one REJECTED row with its rule by the call pattern the BYPASS row uses — never the command text, arguments or paths; the exit code is decided before the write and a failed or slow write changes no verdict; no added process on the allow path; (4) src/shared/gate-ledger.mjs, read-only over ~/.rein/telemetry.sqlite and .ai/state.json, builds the three tables (gate rule, critic stamp, MCP server) and the advisory flags [CONTROL_QUIET] and [CONTROL_NOISY] by the blueprint's definitions; rows with NULL rule count as UNATTRIBUTED; (5) `rein gate ledger [--days N] [--json]` joins src/bin/rein, the pinned CLI surface and rein help. Acceptance: a blocked `curl … | sh` in the gate suite leaves one REJECTED row whose rule is SAFE_EXEC_BLOCK:CURL_PIPE_SHELL and no column of that row contains the command; every row of the pinned verdict tables keeps its verdict and the fixture sha256 values are unchanged; with telemetry unwritable a block still exits 2 and an allow still exits 0; `rein gate ledger --json` over the fixture database returns the expected rows including one QUIET and one NOISY flag and finishes under 500 ms on 100,000 rows; [LEDGER_EMPTY] on an empty store; SEC_CLEARED recorded; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-17T16:51:00.649Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-393",
+        "E-353"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-393",
+        "E-353"
+      ],
+      "updated_at": "2026-11-17T16:51:00.650Z"
+    },
+    {
+      "id": "P-52",
+      "owner": "Architect (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Run the first control review per D-159 r8 and .ai/blueprints/harness-fitness.md §Component 2. Ordering by text (not chained: DAG depth cap): 30 days after E-432 merges, not before. Run `rein gate ledger --days 30 --json`, and for every row flagged [CONTROL_QUIET] or [CONTROL_NOISY] record in one D-ruling whether Claude Code now does it natively (native-first.md), what it caught in the window that nothing else would have, its cost per task, and the verdict keep, change or retire; rules guarding a catastrophic or sovereignty class are kept without argument; register one E-task per retire or change verdict. Acceptance: the D-entry names every flagged row with its verdict and quotes its ledger numbers; each retire or change verdict has an E-task id beside it.",
+      "created_at": "2026-11-17T16:51:18.570Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T16:51:18.570Z"
     }
   ],
   "stamps": [
@@ -5294,6 +5388,42 @@
       "timestamp": "2026-11-17T14:58:59.410Z",
       "summary": "[TIER_2] E-428 tests/fixtures/ stays graded per D-116 r2; run_review clean",
       "sha": "fca5d56700f0ce134f2b5419d98b3dfe4a4a8be3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "Engineer (Claude)",
+      "task_id": "E-428",
+      "timestamp": "2026-11-17T16:39:34.339Z",
+      "summary": "[TIER_2] E-428 rebased onto 3fb9253 — Blueprint aligned (WARN only)",
+      "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer (Claude)",
+      "task_id": "E-428",
+      "timestamp": "2026-11-17T16:39:35.182Z",
+      "summary": "[TIER_2] E-428 rebased onto 3fb9253; run_review P1 advisory only",
+      "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "Engineer",
+      "task_id": "E-428",
+      "timestamp": "2026-11-17T18:09:06.018Z",
+      "summary": "[TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)",
+      "sha": "90305b7f20e253b0756ca517f2d11d37579c03b5",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-428",
+      "timestamp": "2026-11-17T18:09:06.157Z",
+      "summary": "[TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)",
+      "sha": "90305b7f20e253b0756ca517f2d11d37579c03b5",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

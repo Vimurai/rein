@@ -17,8 +17,12 @@ trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_r
 INPUT=""
 IFS= read -r -d '' INPUT || true
 [[ -n "${TMUX:-}" && "${TMUX_PANE:-}" =~ ^%[0-9]+$ ]] || exit 0
-if [[ "$INPUT" =~ \"hook_event_name\"[[:space:]]*:[[:space:]]*\"PostToolUse(Failure)?\" ]] \
-   && [[ ! -e "${HOME}/.rein/run/waiting/${TMUX_PANE#%}" ]]; then
+# The key must occur exactly once (17 = its quoted length): a nested copy inside tool_input
+# cannot steer this shortcut; with two, the full parse below decides.
+_k="${INPUT//\"hook_event_name\"/}"
+if (( ${#INPUT} - ${#_k} == 17 )) \
+   && [[ "$INPUT" =~ \"hook_event_name\"[[:space:]]*:[[:space:]]*\"PostToolUse(Failure)?\" ]] \
+   && [[ ! -e "${HOME}/.rein/run/waiting/${TMUX_PANE#%}" && ! -L "${HOME}/.rein/run/waiting/${TMUX_PANE#%}" ]]; then
   exit 0
 fi
 
@@ -55,11 +59,11 @@ except Exception:
     sys.exit(0)
 if not isinstance(d, dict):
     sys.exit(0)
-ok = re.compile(r"^[A-Za-z0-9_-]{1,128}$")
+ok = re.compile(r"[A-Za-z0-9_-]{1,128}")
 out = []
 for k in ("hook_event_name", "notification_type", "tool_name", "tool_use_id"):
     v = d.get(k)
-    out.append(v if isinstance(v, str) and ok.match(v) else "")
+    out.append(v if isinstance(v, str) and ok.fullmatch(v) else "")
 print("\x1f".join(out))
 ' 2>/dev/null)" || exit 0
 [[ -n "$_F" ]] || exit 0

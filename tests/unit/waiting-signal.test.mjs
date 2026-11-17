@@ -187,3 +187,28 @@ test("E-433.03: a real tmux server shows permission, then empty after Stop", { s
   assert.equal(runHook(home, P({ hook_event_name: "Stop" }), env).status, 0);
   assert.equal(read(), "");
 });
+
+// ── security_engineer review of d71bc61 (P3-1, P3-4): the state file and the fast path ──
+test("E-433.10: a planted symlink at the state file is replaced, never written through", () => {
+  const { home, s } = hookHome("symlink", true);
+  const victim = join(tmp, "victim.txt"); writeFileSync(victim, "keep\n");
+  mkdirSync(join(home, ".rein/run/waiting"), { recursive: true });
+  execFileSync("ln", ["-s", victim, join(home, ".rein/run/waiting", PANE.slice(1))]);
+  assert.equal(runHook(home, P({ hook_event_name: "PermissionRequest", tool_use_id: "toolu_X" })).status, 0);
+  assert.equal(readFileSync(victim, "utf8"), "keep\n");
+  assert.deepEqual(effects(s.calls()), ["set:permission"]);
+});
+test("E-433.10: a planted FIFO at the state file does not hang the hook", () => {
+  const { home } = hookHome("fifo", true);
+  mkdirSync(join(home, ".rein/run/waiting"), { recursive: true });
+  execFileSync("mkfifo", [join(home, ".rein/run/waiting", PANE.slice(1))]);
+  const r = spawnSync("/bin/bash", ["-p", HOOK], { input: P({ hook_event_name: "PostToolUse", tool_use_id: "toolu_X" }), encoding: "utf8", timeout: 5000,
+    env: { HOME: home, PATH: "/usr/bin:/bin", TMUX: "x,1,0", TMUX_PANE: PANE } });
+  assert.equal(r.status, 0, "returned within 5 s"); assert.equal(r.stdout, "");
+});
+test("E-433.10: a nested hook_event_name inside tool_input cannot suppress a PermissionRequest", () => {
+  const { home, s } = hookHome("nested", true);
+  const payload = `{"tool_input":{"x":{"hook_event_name":"PostToolUse"}},"hook_event_name":"PermissionRequest","tool_use_id":"toolu_N"}`;
+  assert.equal(runHook(home, payload).status, 0);
+  assert.deepEqual(effects(s.calls()), ["set:permission"]);
+});

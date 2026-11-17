@@ -1278,9 +1278,11 @@ _doctor_hook_form_report() {
       done <<< "$findings"
       # E-433 (D-160, release-artifact.md §Component 7): the waiting-on-the-operator signal is
       # registered on every event of its table. Missing is a warning: no gate depends on it.
-      local wmiss
-      wmiss="$(python3 -I "$hp" waiting "$f" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)"
-      if [[ -z "$wmiss" ]]; then
+      local wmiss wrc=0
+      wmiss="$(python3 -I "$hp" waiting "$f" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)" || wrc=$?
+      if [[ "$wrc" -ne 0 ]]; then
+        _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNKNOWN] hook-paths.py could not check the waiting signal — run: rein sync" "rein sync"
+      elif [[ -z "$wmiss" ]]; then
         _dr waiting_signal_registered - "  ✓ waiting signal: waiting-signal.sh registered on every event"
       else
         _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNREGISTERED] no waiting-signal.sh entry on: ${wmiss} — run: rein sync" "rein sync"

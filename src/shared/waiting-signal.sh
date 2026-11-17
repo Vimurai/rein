@@ -29,7 +29,7 @@ rein_ws_resolve() {
   [[ -n "$REIN_WS_TMUX" ]] && return 0
   local rec="${HOME}/.rein/shared/toolchain.sh" line t=""
   local re='^REIN_TC_TMUX=(/[A-Za-z0-9._/@+:-]+)$'
-  if [[ -f "$rec" ]]; then
+  if [[ -f "$rec" && ! -L "$rec" ]]; then   # a symlinked record is refused, as toolchain-pin.sh does
     while IFS= read -r line || [[ -n "$line" ]]; do
       [[ "$line" =~ $re ]] && t="${BASH_REMATCH[1]}"
     done < "$rec"
@@ -63,7 +63,11 @@ rein_ws_set() {   # <permission|question> [<tool_use_id>]
   pane="$(rein_ws_pane)" || return 0
   [[ "$id" =~ ^[A-Za-z0-9_-]{1,128}$ ]] || id=""
   f="$(rein_ws_state_file "$pane")"
-  mkdir -p "${f%/*}" 2>/dev/null && printf '%s\n' "$id" > "$f" 2>/dev/null
+  # Temp file + rename: a rename replaces a planted symlink or FIFO, never writes through it.
+  if mkdir -p "${f%/*}" 2>/dev/null; then
+    local tmp; tmp="$(mktemp "${f%/*}/.w.XXXXXX" 2>/dev/null)" \
+      && { printf '%s\n' "$id" > "$tmp" && mv -f "$tmp" "$f"; } 2>/dev/null || rm -f "${tmp:-}" 2>/dev/null
+  fi
   "$REIN_WS_TMUX" set-option -p -t "$pane" @rein_waiting "$kind" \; \
        set-option -p -t "$pane" @rein_waiting_since "$(date +%s)" >/dev/null 2>&1
   return 0
@@ -82,8 +86,9 @@ rein_ws_clear() {   # [<tool_use_id>] — with an id, clears only when it is the
   pane="$(rein_ws_pane)" || return 0
   f="$(rein_ws_state_file "$pane")"
   if [[ -n "$id" ]]; then
-    [[ -e "$f" ]] || return 0
-    IFS= read -r want < "$f" 2>/dev/null
+    [[ -e "$f" || -L "$f" ]] || return 0
+    # Read only a regular file that is not a link: a planted FIFO would block the hook.
+    [[ -f "$f" && ! -L "$f" ]] && IFS= read -r want < "$f" 2>/dev/null
     [[ -n "$want" && "$want" != "$id" ]] && return 0
   fi
   rm -f "$f" 2>/dev/null

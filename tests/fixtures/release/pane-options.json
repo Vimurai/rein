@@ -1,0 +1,10 @@
+{
+  "description": "E-433 (D-160; .ai/blueprints/release-artifact.md §Component 7; docs/app-contract.md 'Pane options'): the tmux pane options an app reads, with the closed value list of each. Values may be added inside a major version (the minor, before 1.0.0), never removed; a reader treats any non-empty @rein_waiting as waiting and reads it only when @rein_signals contains `waiting`. tests/unit/waiting-signal.test.mjs fails when src/shared/waiting-signal.sh can write a name or value this file does not list.",
+  "options": {
+    "@rein_role":          { "values": ["architect", "engineer"], "writer": "rein pane, rein start" },
+    "@rein_account":       { "values": "an account name from ~/.rein/accounts.json", "writer": "rein pane, rein start" },
+    "@rein_signals":       { "values": ["waiting"], "writer": "hooks/waiting-signal.sh", "set": "SessionStart", "unset": "SessionEnd" },
+    "@rein_waiting":       { "values": ["permission", "question"], "writer": "hooks/waiting-signal.sh", "set": "a prompt opens", "unset": "the agent continues" },
+    "@rein_waiting_since": { "values": "epoch seconds", "writer": "hooks/waiting-signal.sh", "set": "with @rein_waiting", "unset": "with @rein_waiting" }
+  }
+}

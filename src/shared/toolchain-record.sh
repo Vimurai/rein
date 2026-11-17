@@ -12,7 +12,8 @@
 # Sourceable (functions only, no side effects) so the safety check is unit-testable.
 #   rein_tc_realpath <path>                  → absolute realpath on stdout, or status 1
 #   rein_tc_check <path> [project_root...]   → status 0 safe | 1 refused (reason on stderr)
-#   rein_tc_write <file> <node> <python3> <nice>  → atomic write of the toolchain file
+#   rein_tc_write <file> <node> <python3> <nice> [<tmux>]  → atomic write of the toolchain file
+#     (E-433, D-160 addendum 1: tmux is optional — written only when given)
 #
 # What "safe" means (security_engineer threat model, E-286):
 #   - the value is an absolute path in a plain charset (it is written into a shell file);
@@ -84,7 +85,7 @@ rein_tc_check() {
   printf '%s\n' "$rp"
 }
 
-rein_tc_write() {  # <file> <node> <python3> <nice>
+rein_tc_write() {  # <file> <node> <python3> <nice> [<tmux>]
   local file="$1" dir tmp
   dir="${file%/*}"
   mkdir -p "$dir" || return 1
@@ -94,6 +95,7 @@ rein_tc_write() {  # <file> <node> <python3> <nice>
     echo "REIN_TC_NODE=$2"
     echo "REIN_TC_PYTHON3=$3"
     echo "REIN_TC_NICE=$4"
+    [[ -n "${5:-}" ]] && echo "REIN_TC_TMUX=$5"
     echo "REIN_TC_RECORDED=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   } > "$tmp" || { rm -f "$tmp"; return 1; }
   chmod 0644 "$tmp" && mv -f "$tmp" "$file"   # rename replaces a symlink, never follows it

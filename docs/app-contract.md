@@ -12,7 +12,7 @@ a reader. The machine-checkable parts are published beside it:
 | [`contract/manifest.schema.json`](contract/manifest.schema.json) | `manifest.json`, schema 1 |
 | [`contract/doctor.schema.json`](contract/doctor.schema.json) | `rein doctor --json`, schema 1 |
 | [`contract/accounts.schema.json`](contract/accounts.schema.json) | `~/.rein/accounts.json` — see [Accounts](accounts.md) |
-| [`../tests/fixtures/release/`](../tests/fixtures/release/) | Shared fixtures: `layout-v1.json`, `operator-owned-cases.json`, `profile-settings-cases.json`, `cli-surface.json`, `doctor-sample.json` |
+| [`../tests/fixtures/release/`](../tests/fixtures/release/) | Shared fixtures: `layout-v1.json`, `operator-owned-cases.json`, `profile-settings-cases.json`, `cli-surface.json`, `doctor-sample.json`, `pane-options.json` |
 
 Each schema is pinned by a test that validates a real output against it, so a schema that
 drifts from what Rein produces fails Rein's own CI first.
@@ -185,3 +185,38 @@ from a fixture project is [`doctor-sample.json`](../tests/fixtures/release/docto
 install, an upgrade, or a person asking. An app that wants to
 watch state polls `rein state health --short`, which is cheap; it renders both and never
 re-implements a check.
+
+## 6. Pane options
+
+What an app reads to know that a pane's agent has stopped at a prompt, without parsing the
+screen. Rein's hooks write the state into the tmux server from inside the session, so it is
+true whether or not an app is running (D-160).
+
+| Option | Value | Set | Unset |
+| :--- | :--- | :--- | :--- |
+| `@rein_role`, `@rein_account` | the bound role and account | `rein pane`, `rein start` | never |
+| `@rein_signals` | `waiting` (a space-separated list; one entry in this version) | session start | session end |
+| `@rein_waiting` | `permission` or `question` | a prompt opens | the agent continues |
+| `@rein_waiting_since` | epoch seconds of the set | with `@rein_waiting` | with `@rein_waiting` |
+
+- `permission`: a tool approval dialog, or a sandboxed command's network request. `question`:
+  `AskUserQuestion`, plan approval, or an MCP elicitation dialog.
+- Treat any non-empty `@rein_waiting` as waiting (values may be added inside a major version),
+  and read it only when `@rein_signals` contains `waiting`. Without that the pane's session does
+  not report, and an empty `@rein_waiting` means "unknown", not "working".
+- Read: `tmux list-panes -a -F '#{pane_id}|#{@rein_role}|#{@rein_signals}|#{@rein_waiting}|#{@rein_waiting_since}'`.
+- It is not a "finished" signal. A question the model writes as plain text at the end of its
+  turn is a finished turn.
+
+**The accuracy an app may rely on:**
+1. *No missed wait*: a prompt that has been on screen for 7 s has `@rein_waiting` set.
+2. *No stuck wait*: `@rein_waiting` is unset at the latest when the turn ends, the operator
+   submits a prompt, or the session starts or ends.
+
+A session reports from its first start after `rein sync` on a version that ships this; a session
+already running keeps the hooks it started with and has no `@rein_signals`. A pane whose agent
+was killed without a session end keeps its options until the next session in that pane starts:
+check the pane's process as for any pane. `rein doctor` reports the hook registration as
+`waiting_signal_registered`, and the hook toolchain line names the tmux the hooks use. The names
+and the closed value lists are pinned in
+[`pane-options.json`](../tests/fixtures/release/pane-options.json).

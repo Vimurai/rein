@@ -1233,7 +1233,19 @@ _doctor_toolchain_report() {
       return 0
     fi
   done
-  _dr hook_toolchain - "  ✓ hook toolchain: node $("$node" --version 2>/dev/null) · python3 $("$py" -I -c 'import platform;print(platform.python_version())' 2>/dev/null)"
+  # E-433 (D-160 addendum 1): tmux, recorded for the pane waiting signal. Optional — a warning
+  # names a record pointing at a missing file, or a tmux on PATH the record lacks.
+  local tm="" tre='^REIN_TC_TMUX=(/[A-Za-z0-9._/@+:-]+)$' tv=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ $tre ]] && tm="${BASH_REMATCH[1]}"
+  done < "$f"
+  [[ -n "$tm" && -f "$tm" && -x "$tm" ]] && tv=" · tmux $("$tm" -V 2>/dev/null | sed 's/^tmux //')"
+  _dr hook_toolchain - "  ✓ hook toolchain: node $("$node" --version 2>/dev/null) · python3 $("$py" -I -c 'import platform;print(platform.python_version())' 2>/dev/null)${tv}"
+  if [[ -n "$tm" && -z "$tv" ]]; then
+    _dr hook_toolchain warn "  ⚠ hook toolchain: tmux ${tm} missing — the pane waiting signal is off; $(_rein_fix_install)"
+  elif [[ -z "$tm" ]] && command -v tmux >/dev/null 2>&1; then
+    _dr hook_toolchain warn "  ⚠ hook toolchain: tmux is on PATH but not recorded — the pane waiting signal is off; $(_rein_fix_install)"
+  fi
 }
 
 # E-290 (D-083 r2-4): `rein doctor` lines for the hook form. Since E-290 .claude/settings.json
@@ -1264,6 +1276,15 @@ _doctor_hook_form_report() {
           UNPARSEABLE)  stale="unparseable" ;;
         esac
       done <<< "$findings"
+      # E-433 (D-160, release-artifact.md §Component 7): the waiting-on-the-operator signal is
+      # registered on every event of its table. Missing is a warning: no gate depends on it.
+      local wmiss
+      wmiss="$(python3 -I "$hp" waiting "$f" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)"
+      if [[ -z "$wmiss" ]]; then
+        _dr waiting_signal_registered - "  ✓ waiting signal: waiting-signal.sh registered on every event"
+      else
+        _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNREGISTERED] no waiting-signal.sh entry on: ${wmiss} — run: rein sync" "rein sync"
+      fi
       if [[ -n "$stale" ]]; then
         _dr hook_form - "  ✗ .claude/settings.json: stale Rein hook entries (not exec-form /bin/bash -p under ${REIN}/hooks): ${stale} — run: rein sync"
       elif [[ "$bad" -eq 0 ]]; then
@@ -1743,6 +1764,18 @@ _SPECS = [  # (event, matcher, script, extra args)
     ("PostToolUse", "Write|Edit", "post-tool-log.sh", []),
     ("PostToolUse", ".*", "post-tool-use.sh", []),
     ("PermissionDenied", ".*", "permission-denied.sh", []),
+    # E-433 (D-160, release-artifact.md §Component 7): the waiting-on-the-operator pane signal.
+    # Its own entry on every event of the table; pre-tool-use.sh is not touched. Fail-open.
+    ("PermissionRequest", ".*", "waiting-signal.sh", []),
+    ("Notification", "permission_prompt|elicitation_dialog", "waiting-signal.sh", []),
+    ("PreToolUse", "AskUserQuestion|ExitPlanMode", "waiting-signal.sh", []),
+    ("PostToolUse", ".*", "waiting-signal.sh", []),
+    ("PostToolUseFailure", ".*", "waiting-signal.sh", []),
+    ("UserPromptSubmit", ".*", "waiting-signal.sh", []),
+    ("Stop", ".*", "waiting-signal.sh", []),
+    ("SessionStart", "startup|resume|clear|compact", "waiting-signal.sh", []),
+    ("SessionEnd", ".*", "waiting-signal.sh", []),
+    ("PermissionDenied", ".*", "waiting-signal.sh", []),
 ]
 # E-391 (D-132 addendum 4 r2): an entry is ours by the hook's FILE NAME when its script is in
 # the install's hooks dir OR no longer exists (an earlier install's path) — the same rule

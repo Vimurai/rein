@@ -1,0 +1,24 @@
+{
+  "description": "E-433 (D-160; release-artifact.md §Component 7 'Events'): one row per row of the event table, driven by tests/unit/waiting-signal.test.mjs through rein_ws_dispatch with a stub tmux on PATH. `state` is the per-pane waiting-call id file before the event (null: absent; \"\": present, no id). `expect` is the tmux call the event makes: set:<value>, clear, signals:on, signals:off (after a clear), or none; `after` is the id file afterwards (null: absent).",
+  "rows": [
+    { "label": "PermissionRequest sets permission and keeps the call's id", "event": "PermissionRequest", "tool": "Bash", "id": "toolu_A", "state": null, "expect": ["set:permission"], "after": "toolu_A" },
+    { "label": "PermissionRequest without an id sets permission", "event": "PermissionRequest", "tool": "Bash", "id": "", "state": null, "expect": ["set:permission"], "after": "" },
+    { "label": "Notification permission_prompt is the backstop: sets when nothing is recorded", "event": "Notification", "nt": "permission_prompt", "state": null, "expect": ["set:permission"], "after": "" },
+    { "label": "Notification permission_prompt keeps an earlier set (its time and id)", "event": "Notification", "nt": "permission_prompt", "state": "toolu_A", "expect": [], "after": "toolu_A" },
+    { "label": "Notification elicitation_dialog sets question", "event": "Notification", "nt": "elicitation_dialog", "state": null, "expect": ["set:question"], "after": "" },
+    { "label": "Notification of another type does nothing", "event": "Notification", "nt": "idle_prompt", "state": null, "expect": [], "after": null },
+    { "label": "PreToolUse AskUserQuestion sets question", "event": "PreToolUse", "tool": "AskUserQuestion", "id": "toolu_Q", "state": null, "expect": ["set:question"], "after": "toolu_Q" },
+    { "label": "PreToolUse ExitPlanMode sets question", "event": "PreToolUse", "tool": "ExitPlanMode", "id": "toolu_P", "state": null, "expect": ["set:question"], "after": "toolu_P" },
+    { "label": "PreToolUse of any other tool does nothing", "event": "PreToolUse", "tool": "Bash", "id": "toolu_B", "state": null, "expect": [], "after": null },
+    { "label": "PostToolUse of the waiting call clears", "event": "PostToolUse", "tool": "Bash", "id": "toolu_A", "state": "toolu_A", "expect": ["clear"], "after": null },
+    { "label": "PostToolUse of a sibling call leaves the open prompt set", "event": "PostToolUse", "tool": "Read", "id": "toolu_B", "state": "toolu_A", "expect": [], "after": "toolu_A" },
+    { "label": "PostToolUse with no wait recorded makes no tmux call", "event": "PostToolUse", "tool": "Read", "id": "toolu_B", "state": null, "expect": [], "after": null },
+    { "label": "PostToolUse clears a wait recorded without an id (bound 2 over precision)", "event": "PostToolUse", "tool": "Bash", "id": "toolu_C", "state": "", "expect": ["clear"], "after": null },
+    { "label": "PostToolUseFailure of the waiting call clears", "event": "PostToolUseFailure", "tool": "Bash", "id": "toolu_A", "state": "toolu_A", "expect": ["clear"], "after": null },
+    { "label": "UserPromptSubmit clears", "event": "UserPromptSubmit", "state": "toolu_A", "expect": ["clear"], "after": null },
+    { "label": "Stop clears (bound 2: no wait outlives the turn)", "event": "Stop", "state": "toolu_A", "expect": ["clear"], "after": null },
+    { "label": "PermissionDenied clears", "event": "PermissionDenied", "tool": "Bash", "id": "toolu_A", "state": "toolu_A", "expect": ["clear"], "after": null },
+    { "label": "SessionStart clears and turns the signal on", "event": "SessionStart", "state": "toolu_A", "expect": ["clear", "signals:on"], "after": null },
+    { "label": "SessionEnd clears and turns the signal off", "event": "SessionEnd", "state": null, "expect": ["clear", "signals:off"], "after": null }
+  ]
+}

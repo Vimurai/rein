@@ -53,7 +53,11 @@ PY
 }
 E="$(_entries "$SET")"
 for spec in "Stop:stop-hook.sh" "PreToolUse:pre-tool-use.sh" "SessionStart:session-start.sh" \
-            "PostToolUse:post-tool-log.sh" "PostToolUse:post-tool-use.sh" "PermissionDenied:permission-denied.sh"; do
+            "PostToolUse:post-tool-log.sh" "PostToolUse:post-tool-use.sh" "PermissionDenied:permission-denied.sh" \
+            "PermissionRequest:waiting-signal.sh" "Notification:waiting-signal.sh" "PreToolUse:waiting-signal.sh" \
+            "PostToolUse:waiting-signal.sh" "PostToolUseFailure:waiting-signal.sh" "UserPromptSubmit:waiting-signal.sh" \
+            "Stop:waiting-signal.sh" "SessionStart:waiting-signal.sh" "SessionEnd:waiting-signal.sh" \
+            "PermissionDenied:waiting-signal.sh"; do   # E-433 (D-160): the waiting signal's ten entries
   ev="${spec%%:*}"; sc="${spec#*:}"
   assert_match "E-290.01a: ${sc} is exec-form /bin/bash -p <absolute path> with timeout 30" \
     "^${ev}	[^	]*	/bin/bash	-p\|/[^	]*/\.rein/hooks/${sc}(\|engineer)?	30$" "$E"
@@ -155,6 +159,33 @@ assert_contains "E-290.04d: doctor names a stub that predates E-290" "git post-c
 for h in "${REPO_ROOT}"/hooks/*.sh; do
   assert_status 0 "E-290.05: ${h##*/} unsets POSIXLY_CORRECT and BASH_COMPAT" grep -q 'POSIXLY_CORRECT|BASH_COMPAT) unset' "$h"
 done
+
+# ── E-433.04 (D-160; extends E-290.1): sync registers the waiting signal, doctor reports it ──
+# The fake HOME above holds the checkout's hooks, so the entries name a script that exists.
+W="$T/wproj"; mkdir -p "$W/.ai"
+cp "$P/.ai/roles.json" "$W/.ai/roles.json" 2>/dev/null || printf '{"roles":{}}\n' > "$W/.ai/roles.json"
+( cd "$W" && HOME="$FH" REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
+_wcheck() {  # → the status of the doctor --json record waiting_signal_registered
+  ( cd "$W" && HOME="$FH" bash "$AI_BIN" doctor --json 2>/dev/null ) | python3 -c '
+import json, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("unparseable"); sys.exit(0)
+recs = [c for c in d.get("checks", []) if c.get("id") == "waiting_signal_registered"]
+print(recs[0].get("status") if recs else "absent")'
+}
+assert_contains "E-433.04a: after rein sync, doctor --json has waiting_signal_registered ok" "ok" "$(_wcheck)"
+python3 - "$W/.claude/settings.json" <<'PY'
+import json, sys
+p = sys.argv[1]; d = json.load(open(p))
+for ev, lst in d.get("hooks", {}).items():
+    for e in lst:
+        e["hooks"] = [h for h in e.get("hooks", []) if "waiting-signal.sh" not in " ".join(h.get("args") or [])]
+    d["hooks"][ev] = [e for e in lst if e.get("hooks")]
+json.dump(d, open(p, "w"))
+PY
+assert_contains "E-433.04b: with the entries removed it is warn" "warn" "$(_wcheck)"
 
 # ── E-290.6: the installer refuses the hooks without a privileged /bin/bash ──
 SB="$T/install"; mkdir -p "$SB/home"

@@ -57,8 +57,15 @@ rein_fin_record_toolchain() {  # <rein> <toolchain-record.sh> [root…]
   rn="$(rein_tc_check "$n" ${roots[@]+"${roots[@]}"})"   || { echo "✗ hook toolchain: node not recorded (${n:-not found})" >&2; ok=0; }
   rp="$(rein_tc_check "$p" ${roots[@]+"${roots[@]}"})"   || { echo "✗ hook toolchain: python3 not recorded (${p:-not found})" >&2; ok=0; }
   rnc="$(rein_tc_check "$nc" ${roots[@]+"${roots[@]}"})" || { echo "✗ hook toolchain: nice not recorded (${nc})" >&2; ok=0; }
-  if [[ "$ok" -eq 1 ]] && rein_tc_write "${rein}/shared/toolchain.sh" "$rn" "$rp" "$rnc"; then
-    echo "✓ Hook toolchain pinned: node ${rn} · python3 ${rp}"
+  # E-433 (D-160 addendum 1): tmux is recorded by the same check, for the waiting-signal hook
+  # (the pinned PATH may not hold it). Optional: absent or refused is a note, never a failure.
+  local t rt=""
+  t="$(command -v tmux 2>/dev/null)"
+  if [[ -n "$t" ]]; then
+    rt="$(rein_tc_check "$t" ${roots[@]+"${roots[@]}"})" || { echo "! hook toolchain: tmux not recorded (${t}) — the pane waiting signal stays off" >&2; rt=""; }
+  fi
+  if [[ "$ok" -eq 1 ]] && rein_tc_write "${rein}/shared/toolchain.sh" "$rn" "$rp" "$rnc" "$rt"; then
+    echo "✓ Hook toolchain pinned: node ${rn} · python3 ${rp}${rt:+ · tmux ${rt}}"
     # E-305 (D-089 r3): the gate path's pinned dependencies, recorded beside the interpreters
     # (readers skip any line they do not recognise; `rein doctor` prints the set).
     if command -v node >/dev/null 2>&1 && [[ -f "${rein}/shared/gate-pins.mjs" ]]; then

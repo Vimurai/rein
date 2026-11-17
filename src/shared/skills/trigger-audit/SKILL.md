@@ -49,7 +49,7 @@ For each keyword found, record the corresponding mandatory dispatch:
 | new `app.get`, `app.post`, `router.`, `@app.route`, `func.*Handler`, new API endpoint | `obs_baseline` (MANDATORY) |
 | task marked Tier: 3 in TASKS.md | `security_engineer` + `rein-review` (MANDATORY) |
 | architectural decision keyword: `chose`, `decided`, `using X instead of Y`, `rationale` | `decision-recorder` (ADVISORY) |
-| E-## task completed | `rein-task` (MANDATORY on completion; it rebuilds DIGEST.md through run_handover) |
+| E-## task completed | `rein-task` (MANDATORY on completion; run_handover rebuilds DIGEST.md) |
 
 ---
 

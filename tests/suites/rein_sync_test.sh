@@ -1139,7 +1139,8 @@ done
 
 # Every canonical skill root under src/ (shared, claude, architect, …).
 _n="$(cd "$REPO_ROOT" && find src -path '*/node_modules' -prune -o -name SKILL.md -print | wc -l | tr -d ' ')"
-assert_status 0 "E-283.02: 43 canonical skills (got ${_n})" test "$_n" -eq 43
+# E-430 (D-159 r5): rein-digest and digest_updater retired — 43 → 41.
+assert_status 0 "E-283.02: 41 canonical skills (got ${_n})" test "$_n" -eq 41
 
 # Every mention outside the permitted places is a leftover reference.
 _hits="$(cd "$REPO_ROOT" && git grep -lE "(${PATTERN})" -- . \

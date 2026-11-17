@@ -5801,6 +5801,24 @@
       "summary": "[TIER_3] E-393 under D-163 + addendum 1 (staged on cda909a): ARCH_PASS, SEC_PASS, TESTS_PASS, ALIGN_PASS (WARN: LOG/orphan, no violations), CLEAN_WARN (index.js 769 lines, pre-existing), SEC_CLEARED (security_engineer, 4 r10 conditions). critic_security P2 (CRLF parity) and security_engineer P3 (locale) fixed. Full rein ci run pending operator install (r11).",
       "sha": "cda909ac892a42c60b896776229ac05d3855f501",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T23:06:48.814Z",
+      "summary": "Re-review at cc20046: consolidation-subset 445/445 pass; reverdict/reverdict_by keeps recorded triple as history, requires a named ruling, and still checks a table row carries the ruled verdict (same pattern as rename-map repinned); 443-row count unchanged",
+      "sha": "cc200461cc4c2cca41c8f9e6d9a0f2e2e3b9f148",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 2)",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T23:06:55.521Z",
+      "summary": "[TIER_2] E-393 wave-1 subset proof: a ruled re-verdict (reverdict + reverdict_by, D-163 r9) on the one flipped wave-1 row; TESTS_PASS (consolidation-subset 445/0). Fixes the only failure of rein ci run cc20046 (7554/1).",
+      "sha": "cc200461cc4c2cca41c8f9e6d9a0f2e2e3b9f148",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

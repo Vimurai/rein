@@ -11,7 +11,7 @@ agent: default
 # AI-Migration — Database Schema Migration Workflow
 
 ## Dynamic Context Injection
-Current schema version: !grep "^- Schema" .ai/DIGEST.md 2>/dev/null | head -1 || echo "(unknown)"
+Current schema version (state.sqlite meta.version — E-437): !python3 -I -c "import sqlite3; print(sqlite3.connect('file:.ai/state.sqlite?mode=ro', uri=True).execute(\"SELECT value FROM meta WHERE key='version'\").fetchone()[0])" 2>/dev/null || echo "(unknown)"
 Open migrations: !ls -1 src/db/migrations/*.up.sql 2>/dev/null | wc -l | tr -d ' '
 Last migration: !ls -1t src/db/migrations/*.up.sql 2>/dev/null | head -1 | xargs basename
 
@@ -24,7 +24,7 @@ Last migration: !ls -1t src/db/migrations/*.up.sql 2>/dev/null | head -1 | xargs
 - Changing column types, constraints, or foreign keys
 - Normalizing or denormalizing schema to fix performance or correctness issues
 - Adding PII auditing or encryption markers to existing columns
-- Preparing for a schema version bump (documented in DIGEST)
+- Preparing for a schema version bump (the `version` row of the store's `meta` table)
 
 ## Role
 

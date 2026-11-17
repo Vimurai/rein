@@ -150,7 +150,8 @@ assert_contains "R06: …and the write gate applies the union" "rc=2" "$_o"
 assert_contains "R06: …naming the fix" "[ROLE_UNVERIFIED]" "$_o"
 
 # ── R07: undisciplined records → the union ────────────────────────────────────────────────
-for _k in symlink hardlink mode extrakey oversize badrole; do
+# E-433 (D-160 addendum 2): tmux_socket/tmux_pane are optional, together and well-formed only.
+for _k in symlink hardlink mode extrakey oversize badrole tmuxhalf tmuxpane tmuxrel; do
   _o="$(K="$_k" bash -c '
     python3 -I "$LR" write $$ engineer >/dev/null
     f="$HOME/.rein/run/launch/$$.json"
@@ -161,11 +162,21 @@ for _k in symlink hardlink mode extrakey oversize badrole; do
       extrakey) python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d[\"x\"]=1;json.dump(d,open(sys.argv[1],\"w\"))" "$f" ;;
       oversize) python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d[\"project\"]=d[\"project\"]+\" \"*5000;json.dump(d,open(sys.argv[1],\"w\"))" "$f" ;;
       badrole)  python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d[\"role\"]=\"root\";json.dump(d,open(sys.argv[1],\"w\"))" "$f" ;;
+      tmuxhalf) python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d[\"tmux_socket\"]=\"/tmp/s\";json.dump(d,open(sys.argv[1],\"w\"))" "$f" ;;
+      tmuxpane) python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d.update(tmux_socket=\"/tmp/s\",tmux_pane=\"%1;x\");json.dump(d,open(sys.argv[1],\"w\"))" "$f" ;;
+      tmuxrel)  python3 -c "import json,sys;d=json.load(open(sys.argv[1]));d.update(tmux_socket=\"s.sock\",tmux_pane=\"%1\");json.dump(d,open(sys.argv[1],\"w\"))" "$f" ;;
     esac
     node --no-warnings "$SE" --mint-token "rt-bad-$K" $$; node --no-warnings "$SE" --check-path src/x.js --session "rt-bad-$K"; echo "rc=$?"' 2>&1)"
   assert_not_contains "R07 [${_k}]: an undisciplined record mints nothing" $'engineer\t' "$_o"
   assert_contains "R07 [${_k}]: …and a src/ write is blocked by the union" "rc=2" "$_o"
 done
+
+# ── E-433 (D-160 addendum 2; extends R01): the tmux target rides the record, not the token ──
+_o="$(bash -c 'python3 -I "$LR" write $$ engineer /tmp/rein-ws.sock %3 >/dev/null; node --no-warnings "$SE" --mint-token rt-tmux $$; python3 -I "$LR" tmux-target' 2>/dev/null)"
+assert_contains "E-433.R01a: a record carrying a tmux target still mints its role" $'engineer\trecord' "$_o"
+assert_contains "E-433.R01b: …and tmux-target reads it back" $'/tmp/rein-ws.sock\t%3' "$_o"
+_o="$(bash -c 'python3 -I "$LR" write $$ engineer relative.sock %3 >/dev/null; python3 -I "$LR" tmux-target; echo "tt=$?"' 2>/dev/null)"
+assert_contains "E-433.R01c: an invalid pair is dropped at write, so tmux-target finds none" "tt=1" "$_o"
 
 # ── R08: a token verifies only under its own session process (session-id substitution) ────
 bash -c 'python3 -I "$LR" write $$ engineer >/dev/null; node --no-warnings "$SE" --mint-token rt-eng $$ >/dev/null 2>&1'

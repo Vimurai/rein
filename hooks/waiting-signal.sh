@@ -11,19 +11,20 @@
 # ── E-292 (D-082 r2): the hook's ONLY EXIT trap; an abort still exits 0 (fail-open) ──
 trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; rein_hook_incident waiting-signal "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
 
-# Builtins only until the toolchain pin: read the payload, and leave at once when there is no
-# pane to signal or (the per-tool-call path) a PostToolUse finds no wait recorded for the pane.
-# That keeps the added time per tool call to a bash start when nothing is waiting.
+# Builtins only until the toolchain pin: read the payload and, for an event that can only
+# clear, leave at once when no wait is recorded for any pane — the per-tool-call path, which
+# then costs a bash start. TMUX and TMUX_PANE are never read: the pane and server come from
+# the launch record (D-160 addendum 2, T-WAITSIG-001).
 INPUT=""
 IFS= read -r -d '' INPUT || true
-[[ -n "${TMUX:-}" && "${TMUX_PANE:-}" =~ ^%[0-9]+$ ]] || exit 0
 # The key must occur exactly once (17 = its quoted length): a nested copy inside tool_input
 # cannot steer this shortcut; with two, the full parse below decides.
 _k="${INPUT//\"hook_event_name\"/}"
 if (( ${#INPUT} - ${#_k} == 17 )) \
-   && [[ "$INPUT" =~ \"hook_event_name\"[[:space:]]*:[[:space:]]*\"PostToolUse(Failure)?\" ]] \
-   && [[ ! -e "${HOME}/.rein/run/waiting/${TMUX_PANE#%}" && ! -L "${HOME}/.rein/run/waiting/${TMUX_PANE#%}" ]]; then
-  exit 0
+   && [[ "$INPUT" =~ \"hook_event_name\"[[:space:]]*:[[:space:]]*\"(PostToolUse|PostToolUseFailure|UserPromptSubmit|Stop|PermissionDenied)\" ]]; then
+  _any=0
+  for _f in "${HOME}/.rein/run/waiting/"*; do [[ -e "$_f" || -L "$_f" ]] && { _any=1; break; }; done
+  [[ "$_any" -eq 1 ]] || exit 0
 fi
 
 # ── E-286 (D-078/D-081, T-HOOKENV-001): toolchain pin before any external command ──
@@ -48,9 +49,20 @@ done
 [[ -n "$_WS" ]] || exit 0
 . "$_WS"
 
+# The session's tmux target from its launch record (D-160 addendum 2): no record, or one
+# without a socket, means this session does not report.
+command -v python3 >/dev/null 2>&1 || exit 0
+_LR=""
+for _p in "${HOME}/.rein/shared/launch-record.py" "${_tree}/src/shared/launch-record.py"; do
+  [[ -f "$_p" ]] && { _LR="$_p"; break; }
+done
+[[ -n "$_LR" ]] || exit 0
+_T="$(python3 -I "$_LR" tmux-target 2>/dev/null)" || exit 0
+IFS=$'\t' read -r REIN_WS_SOCKET REIN_WS_PANE <<< "$_T"
+[[ "$REIN_WS_SOCKET" == /* && "$REIN_WS_PANE" =~ ^%[0-9]+$ ]] || exit 0
+
 # Parse the payload once (python3, hooks contract). Only the event, the notification type, the
 # tool name and the tool-use id are read; each is printed only when it is a plain identifier.
-command -v python3 >/dev/null 2>&1 || exit 0
 _F="$(printf '%s' "$INPUT" | python3 -I -c '
 import json, re, sys
 try:

@@ -6009,8 +6009,12 @@ do_pane() {
   # E-294: the launch record for THIS pid, written immediately before exec — the provider keeps
   # the pid (and its start time), so the SessionStart mint finds it on its chain. A failed
   # write refuses the launch: an unbound Architect pane would mint the plain-launch default.
+  # E-433 (D-160 addendum 2): the tmux server socket and pane as the OPERATOR's shell sees them,
+  # before the agent starts, so the waiting-signal hook never reads them from its environment.
+  local _lr_tmux=()
+  [[ -n "${TMUX:-}" && "${TMUX_PANE:-}" =~ ^%[0-9]+$ ]] && _lr_tmux=("${TMUX%%,*}" "$TMUX_PANE")
   _lr_rc=0
-  python3 -I "$_lr" write "$$" "$role" >/dev/null || _lr_rc=$?
+  python3 -I "$_lr" write "$$" "$role" ${_lr_tmux[@]+"${_lr_tmux[@]}"} >/dev/null || _lr_rc=$?
   if [[ "$_lr_rc" -ne 0 ]]; then
     [[ "$_lr_rc" -eq 3 ]] && echo "[PANE_NESTED] rein pane: an ancestor became a live session — refusing." >&2
     echo "rein pane: could not write the launch record (rc ${_lr_rc}) — refusing to launch." >&2

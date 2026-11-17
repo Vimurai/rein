@@ -7,14 +7,19 @@ all call it, so they cannot disagree about which record is live.
 Invariant (D-087): a role may only move toward restriction. The walk is exhaustive and the most
 restricted live record anywhere on the process chain wins; a nested `rein pane` is refused.
 
-Record: <root>/run/launch/<pid>.json = {"role", "project", "started"}; root = $HOME/.rein, the
+Record: <root>/run/launch/<pid>.json = {"role", "project", "started"} plus, optionally (E-433,
+D-160 addendum 2), "tmux_socket" and "tmux_pane" — the tmux server socket and pane `rein pane`
+saw in the operator's shell, so the waiting-signal hook never reads them from its own (project-
+settable) environment. Neither is an input of the role token. root = $HOME/.rein, the
 gate stack's one root (D-087 r7). Discipline on every read:
   - ~/.rein, run, launch opened in turn with O_DIRECTORY|O_NOFOLLOW (dir_fd chain, no path
     re-traversal); each owned by the euid; run and launch carry no group/other bits (0700),
     the install root none of the write bits (it is 0755 on every install);
   - the record opened with O_NOFOLLOW relative to the launch dir fd: a regular file, owned by
     the euid, nlink 1, <= 4 KB, no group/other bits, a JSON object with exactly those keys,
-    role in {architect, engineer}, project an absolute path without control characters.
+    role in {architect, engineer}, project an absolute path without control characters;
+    tmux_socket and tmux_pane only together, an absolute path without control characters and
+    `%<digits>` in full.
 Start time: ONE method for writer and reader — macOS `LC_ALL=C TZ=UTC0 /bin/ps -o lstart=`
 (one `-axo pid=,ppid=,lstart=` snapshot for a walk), Linux /proc/<pid>/stat field 22 (parsed
 after the LAST ')'). A record whose `started` differs from the pid's real start time is STALE
@@ -23,7 +28,11 @@ after the LAST ')'). A record whose `started` differs from the pid's real start 
 CLI (python3 -I launch-record.py <cmd> ...; JSON or one word on stdout; exit codes are the contract):
   nested <pid>             0 none | 3 "NESTED\t<why>" — an ancestor of <pid> holds a live (or
                            undisciplined) record; <pid> must be the caller (our parent)
-  write <pid> <role>       0 "WROTE\t<path>" | 3 NESTED | 2 usage/refused — <pid> must be our parent
+  write <pid> <role> [<tmux socket> <tmux pane>]
+                           0 "WROTE\t<path>" | 3 NESTED | 2 usage/refused — <pid> must be our parent;
+                           an invalid socket/pane pair is dropped, never refused (E-433)
+  tmux-target              0 "<socket>\t<pane>" from the nearest live record on OUR chain that
+                           carries both | 1 none (E-433, D-160 addendum 2)
   walk                     0 JSON {"result": "role"|"union", "role", "launch", "why"} from OUR chain
   mint-context <spid>      0 JSON {"session_on_chain", "session_started", "walk": {...}}
   ancestor <pid> <started> 0 when <pid> is an ancestor of us with that start time, else 1
@@ -46,6 +55,14 @@ RANK = {"engineer": 1, "architect": 2}          # higher = more restricted
 MAX_BYTES = 4096
 MAX_HOPS = 64
 KEYS = {"role", "project", "started"}
+TMUX_KEYS = {"tmux_socket", "tmux_pane"}       # optional, together (E-433, D-160 addendum 2)
+_PANE = re.compile(r"%[0-9]{1,9}")
+
+
+def tmux_pair_ok(sock, pane):
+    """A recorded socket and pane are usable only as an absolute path and `%<digits>`."""
+    return (isinstance(sock, str) and sock.startswith("/") and 1 < len(sock) <= 1024
+            and not _CTRL.search(sock) and isinstance(pane, str) and _PANE.fullmatch(pane) is not None)
 _CTRL = re.compile(r"[\x00-\x1f\x7f]")
 
 
@@ -238,8 +255,10 @@ def read_record(pid, dfd):
         d = json.loads(raw.decode("utf-8", "strict"))
     except Exception:
         return "bad", "not valid JSON"
-    if not isinstance(d, dict) or set(d) != KEYS:
-        return "bad", "not exactly {role, project, started}"
+    if not isinstance(d, dict) or set(d) not in (KEYS, KEYS | TMUX_KEYS):
+        return "bad", "not exactly {role, project, started} [+ tmux_socket, tmux_pane]"
+    if TMUX_KEYS <= set(d) and not tmux_pair_ok(d["tmux_socket"], d["tmux_pane"]):
+        return "bad", "tmux_socket/tmux_pane malformed"
     if d["role"] not in ROLES:
         return "bad", "unknown role"
     p = d["project"]
@@ -295,6 +314,35 @@ def walk(start_pid, project, table=None, skip_self=False, any_project=False):
     return {"result": "role", "role": best, "launch": "record"}
 
 
+def tmux_target(start_pid, table=None):
+    """E-433 (D-160 addendum 2): (socket, pane) from the nearest live, disciplined record on
+    start_pid's chain, or None. A bad record anywhere on the chain yields None (fail-open: the
+    signal is skipped, the gate's own walk judges the record)."""
+    try:
+        table = snapshot() if table is None else table
+        links = chain(start_pid, table)
+        dfd = _launch_dir_fd()
+    except (SnapshotError, OSError):
+        return None
+    if dfd is None:
+        return None
+    try:
+        for pid, started in links:
+            status, rec = read_record(pid, dfd)
+            if status == "absent":
+                continue
+            if status == "bad":
+                return None
+            if _norm(rec["started"]) != _norm(started):
+                continue
+            if TMUX_KEYS <= set(rec):
+                return rec["tmux_socket"], rec["tmux_pane"]
+            return None                      # the session's record carries no tmux target
+    finally:
+        os.close(dfd)
+    return None
+
+
 def nested(pid, table=None):
     """Why <pid> may not write a record: an ancestor holds a live or undisciplined one."""
     try:
@@ -320,7 +368,7 @@ def nested(pid, table=None):
     return None
 
 
-def write(pid, role, project):
+def write(pid, role, project, tmux=None):
     started = starttime(pid)
     if not started:
         raise RuntimeError("no start time for pid %d" % pid)
@@ -331,7 +379,10 @@ def write(pid, role, project):
         fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600, dir_fd=dfd)
         try:
             with os.fdopen(fd, "w") as f:
-                json.dump({"role": role, "project": project, "started": _norm(started)}, f)
+                rec = {"role": role, "project": project, "started": _norm(started)}
+                if tmux and tmux_pair_ok(*tmux):
+                    rec["tmux_socket"], rec["tmux_pane"] = tmux
+                json.dump(rec, f)
             os.replace(tmp, "%d.json" % pid, src_dir_fd=dfd, dst_dir_fd=dfd)
         except Exception:
             try:
@@ -459,10 +510,17 @@ def main(argv):
         if role not in ROLES or project is None:
             print("refused: role must be architect|engineer inside a Rein project", file=sys.stderr)
             return 2
-        print("WROTE\t%s" % write(pid, role, project))
+        tmux = tuple(argv[4:6]) if len(argv) >= 6 else None
+        print("WROTE\t%s" % write(pid, role, project, tmux))
         return 0
     if cmd == "walk":
         print(json.dumps(walk(os.getpid(), project_root())))
+        return 0
+    if cmd == "tmux-target":
+        t = tmux_target(os.getpid())
+        if not t:
+            return 1
+        print("%s\t%s" % t)
         return 0
     if cmd == "mint-context":
         spid = _int(argv[2] if len(argv) > 2 else "")

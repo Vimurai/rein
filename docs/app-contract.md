@@ -213,8 +213,11 @@ true whether or not an app is running (D-160).
 2. *No stuck wait*: `@rein_waiting` is unset at the latest when the turn ends, the operator
    submits a prompt, or the session starts or ends.
 
-A session reports from its first start after `rein sync` on a version that ships this; a session
-already running keeps the hooks it started with and has no `@rein_signals`. A pane whose agent
+Only a session started by `rein pane <role>` (which `rein start` sends) reports: the hooks
+address the tmux server and pane `rein pane` recorded from the operator's shell, never the
+session's own environment, so a plain `claude` in a tmux pane has no `@rein_signals`. A session
+reports from its first start after `rein sync` on a version that ships this; a session already
+running keeps the hooks it started with and has no `@rein_signals`. A pane whose agent
 was killed without a session end keeps its options until the next session in that pane starts:
 check the pane's process as for any pane. `rein doctor` reports the hook registration as
 `waiting_signal_registered`, and the hook toolchain line names the tmux the hooks use. The names

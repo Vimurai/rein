@@ -137,9 +137,7 @@ Append to `.ai/LOG.md`:
 YYYY-MM-DD HH:mm:ss | db_architect | Migration | src/db/migrations/<version>.{up,down}.sql applied (version <version>)
 ```
 
-Update `.ai/DIGEST.md`:
-- Schema version: bump patch number (e.g., 1.0.0 → 1.0.1)
-- Note the migration in "Recent Changes" section
+Do not write `.ai/DIGEST.md`: it is a generated view (D-159), rebuilt by `rein digest build`. The LOG line above is the record of the migration.
 
 ## Escalation Rules
 If the task request:

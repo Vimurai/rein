@@ -10,13 +10,11 @@ The Architect plans from `.ai/`, so the first job is to fill it.
 
 **An existing codebase.** In the Architect pane:
 
-> *Reverse-engineer this repository: populate `.ai/DIGEST.md`, `.ai/BRIEF.md` and seed
+> *Reverse-engineer this repository: populate `.ai/BRIEF.md` and seed
 > `.ai/architect.md` from the real code. Read at most six files.*
 
 The Architect reads the code map (`.ai/REPO_MAP.md`) and a handful of central files. It writes:
 
-- `DIGEST.md` — a 20–60 line snapshot: what the product is, the stack, the current focus, known
-  risks. Every later session reads it first.
 - `BRIEF.md` — goals, non-goals and constraints, in a few lines. Correct it: it is the one file
   that is mostly yours.
 - `architect.md` — the system blueprint: components, data, boundaries, the conventions it found.
@@ -92,7 +90,7 @@ push is never untested. Then describe the next feature to the Architect.
 - `Ctrl-b` `d` detaches and leaves both agents working.
 - One pane alone works: the Engineer by itself is a single agent with memory, gates, critics
   and CI, and you do the planning. Add tasks with `rein add-task "…"`.
-- When `DIGEST.md` feels stale, ask for `skill: rein-digest`.
+- `DIGEST.md` is generated from `.ai/` state at every session start and handover; `rein digest check` says whether it is current.
 
 ## A second Claude account
 

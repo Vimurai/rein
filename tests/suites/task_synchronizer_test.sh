@@ -767,8 +767,7 @@ cat > "${PROJECT}/.ai/state.json" <<'JSON'
 {
   "version": "1.0",
   "project": { "current_tier": null, "release_verdict": null, "focus": null },
-  "tasks": [], "stamps": [], "deltas": [],
-  "digest_stale": false, "digest_stale_reason": null
+  "tasks": [], "stamps": [], "deltas": []
 }
 JSON
 cd "${PROJECT}"   # subsequent server spawns inherit this cwd → temp .ai/
@@ -885,8 +884,7 @@ cat > "${PROJECT}/.ai/state.json" <<'JSON'
 {
   "version": "1.0",
   "project": { "current_tier": null, "release_verdict": null, "focus": null },
-  "tasks": [], "stamps": [], "deltas": [],
-  "digest_stale": false, "digest_stale_reason": null
+  "tasks": [], "stamps": [], "deltas": []
 }
 JSON
 cd "${PROJECT}"   # subsequent server spawns inherit this cwd → temp .ai/

@@ -5,7 +5,7 @@ HARD RULES:
    ```
    skill: "rein-preflight"
    ```
-   Its `!` lines inject DIGEST freshness, open tasks and live status; it then
+   Its `!` lines inject the DIGEST header, open tasks and live status; it then
    verifies TASKS.md against state.sqlite and surfaces unread deltas.
    Do NOT manually read .ai/ files before running preflight.
 

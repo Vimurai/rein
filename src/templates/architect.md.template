@@ -65,7 +65,7 @@
 - **6-File JIT Limit**: Every agent and skill must read at most 6 files per task. Use `grep`/targeted reads first; full reads only for files confirmed changed via `git log --since=<DIGEST mtime>`.
 - **Forbidden patterns**: `ls -R`, unconstrained `cat` loops, unconditional 8-file preflight reads.
 - **AIS — Fresh Conversations**: Use `/clear` between unrelated tasks. Exponential context cost compounds with every message. This is the #1 token-burn mitigation.
-- **Preflight standard**: DIGEST.md first (replaces most reads if current ≤ 3 days old), then TASKS.md. Domain-specific files only if the task explicitly requires them.
+- **Preflight standard**: DIGEST.md first (generated at every session start, so it is always current), then TASKS.md. Domain-specific files only if the task explicitly requires them.
 - **UPDATE.md**: Deprecated (E-147). Never create or read this file. Intent is provided via conversation context.
 
 ## 34. Architectural Fragmentation (Domain Blueprints)

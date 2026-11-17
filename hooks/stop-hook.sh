@@ -94,14 +94,14 @@ PY
   [[ -n "$EXTRACTED" ]] && SUMMARY="$EXTRACTED"
 fi
 
-# E-379 (D-130): the summary is free text bound for SESSION.md and the tracked DIGEST.md, so it
-# passes through the shared redact() first. Without the redactor (or node) no free text is
-# written at all — the placeholder below never reaches DIGEST.md.
+# E-379 (D-130): the summary is free text bound for SESSION.md, so it passes through the shared
+# redact() first. Without the redactor (or node) no free text is written at all. E-430 (D-159):
+# the hook no longer writes DIGEST.md — the builder (rein digest build) is its only writer.
 if [[ "$SUMMARY" != "auto-stamped by Stop hook" ]]; then
   _E379_RED=""
   _E379_PS="$(rein_locate shared/publish-scan.mjs || true)"
   if [[ -n "$_E379_PS" ]] && command -v node >/dev/null 2>&1; then
-    _E379_RED="$(printf '%s' "$SUMMARY" | node --no-warnings "$_E379_PS" redact ".ai/DIGEST.md" "$(pwd)" 2>/dev/null || true)"
+    _E379_RED="$(printf '%s' "$SUMMARY" | node --no-warnings "$_E379_PS" redact ".ai/SESSION.md" "$(pwd)" 2>/dev/null || true)"
   fi
   SUMMARY="${_E379_RED:-auto-stamped by Stop hook}"
 fi
@@ -140,43 +140,6 @@ cat >> "$SESSION_FILE" <<STAMP
 ---
 STAMP
 
-# Also append a one-liner to DIGEST.md "Recent changes" section
-DIGEST_FILE="${AI_DIR}/DIGEST.md"
-if [[ -f "$DIGEST_FILE" ]]; then
-  TODAY=$(date '+%Y-%m-%d')
-  # Only append if the last entry isn't from today already (avoid duplicate stamps)
-  if ! grep -q "^- ${TODAY}:" "$DIGEST_FILE" 2>/dev/null; then
-    # Build a meaningful entry: use SUMMARY if it came from Claude, otherwise
-    # pull the last written file from LOG.md as a hint
-    DIGEST_NOTE="$SUMMARY"
-    LOG_FILE="${AI_DIR}/LOG.md"
-    if [[ "$DIGEST_NOTE" == "auto-stamped by Stop hook" && -f "$LOG_FILE" ]]; then
-      LAST_FILE=$(grep -o '| [A-Z_]*\.md$' "$LOG_FILE" 2>/dev/null | tail -1 | tr -d '| ' || true)
-      [[ -n "$LAST_FILE" ]] && DIGEST_NOTE="updated ${LAST_FILE}"
-    fi
-    # Never pollute DIGEST's curated "Recent Changes" with the generic placeholder
-    # (no real session summary AND no LOG-derived note). The curated section is
-    # maintained by digest_updater / rein-digest; the stale-warning below prompts a
-    # proper regen. Writing "auto-stamped by Stop hook" here was a recurring junk
-    # line that had to be hand-reverted before every commit.
-    if [[ "$DIGEST_NOTE" != "auto-stamped by Stop hook" ]]; then
-      printf -- "- %s: %s\n" "$TODAY" "$DIGEST_NOTE" >> "$DIGEST_FILE"
-    fi
-  fi
-fi
-
-# Reactive Memory (E-138, §24): detect digest_stale flag set by run_handover.
-# Read from state.sqlite directly via sqlite3 CLI (P-18 — no python3/state.json dependency).
-SQLITE_FILE="${AI_DIR}/state.sqlite"
-STALE_REASON=""
-if [[ -f "$SQLITE_FILE" ]] && command -v sqlite3 &>/dev/null; then
-  DIGEST_STALE=$(sqlite3 "$SQLITE_FILE" "SELECT value FROM meta WHERE key='digest_stale'" 2>/dev/null || echo "false")
-  if [[ "$DIGEST_STALE" == "true" ]]; then
-    STALE_REASON=$(sqlite3 "$SQLITE_FILE" "SELECT value FROM meta WHERE key='digest_stale_reason'" 2>/dev/null || echo "task completed")
-    STALE_REASON="${STALE_REASON:0:80}"
-  fi
-fi
-
 # E-338 (D-104 r4c): a handoff written and not committed is invisible to the other clone.
 # Report it once per stop; never commit — the hook has no role for the message and the
 # index may hold half a task (the reason the skills use `git commit --only`).
@@ -187,22 +150,6 @@ if [[ -n "$_COMM_PROBE" ]]; then
   if [[ "$_COMM_ST" == UNCOMMITTED* ]]; then
     echo "[COMM_UNCOMMITTED] .ai/COMM.md has uncommitted changes — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" >&2
   fi
-fi
-
-if [[ -n "$STALE_REASON" ]]; then
-  cat >&2 <<WARN
-
-╔══════════════════════════════════════════════════════════════╗
-║  REACTIVE MEMORY — DIGEST.md IS STALE (§24)                 ║
-╠══════════════════════════════════════════════════════════════╣
-║  Reason: ${STALE_REASON}
-║                                                              ║
-║  Regenerate DIGEST.md before the next session:              ║
-║    skill: "rein-digest"                                        ║
-║    or: skill: "digest_updater"                               ║
-╚══════════════════════════════════════════════════════════════╝
-
-WARN
 fi
 
 exit 0

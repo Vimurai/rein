@@ -256,7 +256,7 @@ rein init
 - `.github/copilot-instructions.md`, the lines it needs in `.gitignore`, and the git hooks
   (`pre-commit`, `pre-push`, `post-commit`).
 
-It never overwrites what you wrote: `BRIEF.md`, `TASKS.md`, `LOG.md`, `DIGEST.md`,
+It never overwrites what you wrote: `BRIEF.md`, `TASKS.md`, `LOG.md`,
 `architect.md` and your blueprints stay yours, so running it again is safe.
 `rein init --check` lists what it would change without changing it.
 
@@ -277,7 +277,7 @@ Move to the Architect pane (`Ctrl-b` `o`) and type your first request:
 The Architect writes `.ai/blueprints/health.md`, adds `E-##` tasks to `.ai/TASKS.md`, and
 wakes the Engineer. The Engineer implements the tasks, runs the tests and the critics, commits,
 and wakes the Architect again. You answer questions and approve. For an existing codebase, ask
-first: *"Reverse-engineer this repository into `.ai/DIGEST.md`, `.ai/BRIEF.md` and
+first: *"Reverse-engineer this repository into `.ai/BRIEF.md` and
 `.ai/architect.md`."* The first hour is in [Getting started](getting-started.md).
 
 **Stop and come back.** `Ctrl-b` `d` detaches and leaves both agents running. `rein start` in

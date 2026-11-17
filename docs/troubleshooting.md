@@ -20,7 +20,7 @@ binaries, permissions, live MCP connectivity); `rein doctor --repair` fixes what
 | Task will not close: `[CI_GATE]` | `rein ci status --short` | Wait for or run `rein ci run` on HEAD. |
 | Tasks differ between machines | `rein doctor` state health | `rein state import` (lossless). Avoid `rein migrate-state`: it rebuilds from `TASKS.md` and drops summaries. |
 | A command was refused by the gate | The refusal names the rule | Rephrase, or — for you, in your terminal — `rein gate off --minutes 15 --reason "…"`. |
-| `DIGEST.md` feels stale | Its first line has the date | `skill: rein-digest`. |
+| `DIGEST.md` looks stale | `rein digest check` | `rein digest build` (session start and handover run it too). |
 | Pre-commit hook missing | `.git/hooks/pre-commit` exists? | `rein init` reinstalls it. |
 
 ## FAQ

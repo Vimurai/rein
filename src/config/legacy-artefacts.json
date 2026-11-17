@@ -202,6 +202,30 @@
       "note": "E-283 (D-075): the ai-topic skill is retired — call mcp__task-synchronizer-mcp__add_topic_seed directly. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
     },
     {
+      "id": "retired-skill-rein-digest",
+      "path": ".claude/skills/rein-digest/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "known_hashes": [
+        "7332f1f8ac5902669b80f976f5d71bd1ad04c730a8c6758d1d9836c4d4ff7b34"
+      ],
+      "note": "E-430 (D-159 r5): the rein-digest skill is retired — DIGEST.md is a generated view; run: rein digest build. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "retired-skill-digest_updater",
+      "path": ".claude/skills/digest_updater/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "known_hashes": [
+        "6ea8c433dd5c5247e7b7701f3ef87ad52ae90b054633688b88b849de11a5e2de",
+        "7aabb949e8c214c76bbdc9e2584539b446cfa59531922d52c11f8b7797249c59",
+        "891f30cc1e7b894db71255533a98ee4cc2fb76a41854865ef823edff34bd1fd1"
+      ],
+      "note": "E-430 (D-159 r5): the digest_updater skill is retired — the session-start hook and run_handover rebuild DIGEST.md (rein digest build). Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
       "id": "settings-allow-orphan",
       "path": ".claude/settings.json",
       "kind": "setting",

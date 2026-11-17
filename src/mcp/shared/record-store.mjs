@@ -13,7 +13,7 @@
  * renderViews() is the only producer of the generated views state.json, TASKS.md and
  * REVIEWS.md (state-db.js re-exports it as regenerateViews for existing importers).
  *
- * Deltas and the digest_stale flags stay per-machine in sqlite: they are notices between
+ * Deltas stay per-machine in sqlite: they are notices between
  * the two panes of ONE developer, and a tracked file would make every handover conflict.
  */
 
@@ -491,7 +491,7 @@ export function orderRecords(items) {
 /**
  * Rebuild the tasks and stamps tables and the project fields from the record files.
  * Every file is parsed BEFORE the transaction opens, so a corrupt record throws and
- * leaves the index as it was. Deltas and digest flags (per-machine) are not touched.
+ * leaves the index as it was. Deltas (per-machine) are not touched.
  * @returns {{tasks:number, stamps:number}}
  */
 export function rebuildIndex(aiDir, db) {

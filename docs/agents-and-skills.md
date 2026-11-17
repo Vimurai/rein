@@ -86,7 +86,6 @@ plugin to install.
 
 | Skill | Does |
 | :--- | :--- |
-| `rein-digest`, `digest_updater` | Regenerate `.ai/DIGEST.md`. |
 | `rein-archive` | Rotate long logs (only when you ask). |
 | `token-miser` | Trim context before a long session. |
 | `release-manager` | Version bump, changelog, signed tag. |

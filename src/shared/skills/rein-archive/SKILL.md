@@ -84,7 +84,7 @@ shell command was removed in E-34). Steps:
 
 ## After Archiving
 
-1. Run `skill: rein-digest` to regenerate `DIGEST.md` from the clean state.
+1. Run `rein digest build` to regenerate `DIGEST.md` from the clean state (it is a generated view — D-159).
 2. Verify `.ai/LOG.md` now contains only the new header.
 3. Note the archive in the new `LOG.md`:
    ```

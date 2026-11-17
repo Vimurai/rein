@@ -140,7 +140,7 @@ Then type your first request into the **Architect** pane:
 The Architect writes `.ai/blueprints/health.md`, adds `E-##` tasks to `.ai/TASKS.md`, and
 wakes the Engineer. The Engineer implements them, runs the tests and the critics, commits, and
 hands back. For an existing codebase, start with *"Reverse-engineer this repository into
-`.ai/DIGEST.md`, `.ai/BRIEF.md` and `.ai/architect.md`."*
+`.ai/BRIEF.md` and `.ai/architect.md`."*
 
 ---
 
@@ -196,7 +196,7 @@ Inside Claude Code, the commonly used skills are:
 | `rein-test` | Run your tests; `--generate` dispatches the Tester to write new ones. |
 | `rein-review` | Tier-aware review: critics in parallel for risky changes. |
 | `rein-debug` | Hypothesis → test → observe loop; commits stay locked until green. |
-| `rein-digest`, `rein-archive` | Refresh the project snapshot; rotate long logs. |
+| `rein-archive` | Rotate long logs. (`.ai/DIGEST.md` is generated: `rein digest build`.) |
 
 The full list is in [docs/agents-and-skills.md](docs/agents-and-skills.md); every config file
 and environment variable is in [docs/configuration.md](docs/configuration.md).

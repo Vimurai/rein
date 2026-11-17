@@ -13,7 +13,7 @@ agent: default
 ## Dynamic Context Injection
 Project root: !pwd
 Rein project: !test -d .ai && echo "YES — .ai/ found" || echo "NO — run: rein init"
-DIGEST freshness: !head -2 .ai/DIGEST.md 2>/dev/null || echo "(DIGEST.md missing — run skill: rein-digest)"
+DIGEST (generated — D-159): !head -1 .ai/DIGEST.md 2>/dev/null || echo "(DIGEST.md missing — run: rein digest build)"
 Recent log (E-333 — every developer's .ai/log/*.md when team.json shared_log is true): !rein log recent -n 5 2>/dev/null || tail -5 .ai/LOG.md 2>/dev/null || echo "(no log)"
 COMM.md (D-104): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate rein_locate_enable_dev_tree rein_is_framework_clone 2>/dev/null; [ -f "${HOME}/.rein/shared/locate.sh" ] && . "${HOME}/.rein/shared/locate.sh"; c="$(rein_locate shared/comm-status.sh 2>/dev/null)"; [ -n "$c" ] && . "$c" && s="$(rein_comm_status .)" && case "$s" in UNCOMMITTED*) echo "UNCOMMITTED (${s#UNCOMMITTED } lines) — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;; IGNORED) echo "IGNORED — run: rein sync" ;; *) echo "$s" ;; esac || echo "(comm-status probe unavailable)"
 Open tasks: !grep "^- \[ \]" .ai/TASKS.md 2>/dev/null | head -5 || echo "(none)"
@@ -28,8 +28,10 @@ MCP paths (E-409, D-143 r2b): !REIN_LOCATE_UNTRUSTED_ENV=1; unset -f rein_locate
 Execute in strict order — stop reading a file if it contains everything needed:
 
 ### 1. Read `.ai/DIGEST.md` ← PRIMARY
-The current project snapshot. If DIGEST is current (≤ 3 days old), it replaces most other reads.
-Contains: product summary, stack, Triad health, current focus, known risks, recent changes.
+The current project snapshot, generated from tracked state (`rein digest build`) at every session
+start and handover — never hand-edited, so it is current by construction. It replaces most other reads.
+Contains: product, release, queue, current focus, review health, key decisions, recent changes.
+A `[DIGEST_BUILD_FAILED]` line in the session context means the rebuild failed: run `rein digest build`.
 
 ### 2. architect.md ← BLUEPRINT (SKIPPED)
 **DO NOT read `.ai/architect.md` during preflight.** It is skipped to save tokens.
@@ -291,5 +293,5 @@ If the Bash fallback also fails (python3/bash unavailable), read the "Emergency 
 ## Token Economics Hard Rules
 - Do NOT read files outside your domain unless the task explicitly requires it.
 - Do NOT read `src/**` unless your task involves a specific file.
-- If DIGEST is current, skip files it already summarizes.
+- Skip files DIGEST already summarizes.
 - SESSION.md is auto-stamped by the Stop hook — manual stamp only if hook fails.

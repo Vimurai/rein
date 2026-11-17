@@ -9,7 +9,7 @@
 #   4. The native frontmatter fields are present where the blueprint puts them.
 #
 # E-302 folds in the other hooks `rein sync` wires: the SessionStart cache prefix (E-126), the
-# Stop hook's DIGEST hygiene, the telemetry edge hook's ".*" matcher (E-105, T-HM-01..04)
+# Stop hook never writes DIGEST (E-430), the telemetry edge hook's ".*" matcher (E-105, T-HM-01..04)
 # and the post-write cache rebuild (E-112).
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -213,6 +213,50 @@ else
   _skip "S05: fail-open without node — the fixture could not record a python3 to keep"
 fi
 
+# ── E-430 (D-159 r3; extends S03-S05): the hook rebuilds .ai/DIGEST.md before it emits ──
+# A fixture project and a fixture HOME whose shared/ links src/shared, so the builder comes
+# from the install path (rein_locate) and this repository's own .ai/ is never touched.
+skip_unless_cmd git "E-430 session-start digest rows" && {
+_D="$(mktemp -d)"; on_exit "rm -rf '$_D'"
+tc_link_shared "$_D/home"
+_dgit() { git -C "$_D/p" -c user.name=fixture -c user.email=fixture@example.invalid -c commit.gpgsign=false "$@" >/dev/null 2>&1; }
+mkdir -p "$_D/p/.ai"
+printf '%s\n' '{"version":"3","project":{},"tasks":[{"id":"E-1","owner":"Engineer (Claude)","status":"OPEN","tier":2,"description":"Ship it","created_at":"2026-01-01T00:00:00Z","completed_at":null,"summary":null}],"stamps":[],"deltas":[]}' > "$_D/p/.ai/state.json"
+printf '{"name":"fixture","version":"1.0.0"}\n' > "$_D/p/package.json"
+# The index files a session start creates are ignored as `rein init` ignores them (_gitignore).
+printf '.ai/state.sqlite*\n.ai/.last-import-blob\n' > "$_D/p/.gitignore"
+_dgit init -q; _dgit add -A; _dgit commit -q -m base
+node --no-warnings "${REPO_ROOT}/src/shared/digest-build.mjs" build "$_D/p" >/dev/null 2>&1
+_dgit add -A; _dgit commit -q -m digest
+_D_OLD="$(head -1 "$_D/p/.ai/DIGEST.md")"
+# A task closes in state.json; nothing rebuilds the digest before the next session starts.
+python3 -c 'import json,sys; p=sys.argv[1]; s=json.load(open(p)); s["tasks"][0].update(status="DONE",completed_at="2026-01-02T00:00:00Z",summary="shipped"); json.dump(s,open(p,"w"))' "$_D/p/.ai/state.json"
+( cd "$_D/p" && HOME="$_D/home" bash "$SSC_HOOK" </dev/null >/dev/null 2>&1 )
+assert_status 0 "E-430.S01a: a session start after state.json changed rewrites the digest header" \
+  test "$_D_OLD" != "$(head -1 "$_D/p/.ai/DIGEST.md")"
+assert_contains "E-430.S01b: and the digest is fresh against its inputs" "[DIGEST_OK]" \
+  "$(node --no-warnings "${REPO_ROOT}/src/shared/digest-build.mjs" check "$_D/p" 2>&1)"
+_dgit add -A; _dgit commit -q -m closed
+( cd "$_D/p" && HOME="$_D/home" bash "$SSC_HOOK" </dev/null >/dev/null 2>&1 )
+assert_status 0 "E-430.S01c: a session start on an unchanged tree leaves .ai/ clean" \
+  test -z "$(git -C "$_D/p" status --porcelain -- .ai/)"
+# A symlinked DIGEST.md: the hook stays fail-open and says so in one context line.
+rm -f "$_D/p/.ai/DIGEST.md"; ln -s "$_D/p/package.json" "$_D/p/.ai/DIGEST.md"
+assert_contains "E-430.S01d: a builder refusal is one [DIGEST_BUILD_FAILED] context line" "[DIGEST_BUILD_FAILED]" \
+  "$( cd "$_D/p" && HOME="$_D/home" bash "$SSC_HOOK" </dev/null 2>/dev/null )"
+# Latency (D-138 rule; harness-fitness.md §Execution Constraints): the builder over THIS
+# repository's inputs (copied, so nothing here is written) against a bare node start measured
+# in the same run — its work above process start stays inside the declared 60 ms ceiling.
+mkdir -p "$_D/r/.ai"
+cp "${REPO_ROOT}/.ai/state.json" "${REPO_ROOT}/.ai/DECISIONS.md" "$_D/r/.ai/" 2>/dev/null
+cp "${REPO_ROOT}/.ai/BRIEF.md" "$_D/r/.ai/" 2>/dev/null; cp "${REPO_ROOT}/package.json" "$_D/r/"
+_ms() { local a b; a=$(date +%s%N); "$@" >/dev/null 2>&1; b=$(date +%s%N); echo $(( (b - a) / 1000000 )); }
+_dg_min() { local i t m=999999; for i in 1 2 3; do rm -f "$_D/r/.ai/DIGEST.md"; t=$(_ms node --no-warnings "${REPO_ROOT}/src/shared/digest-build.mjs" build "$_D/r"); (( t < m )) && m=$t; done; echo "$m"; }
+_node_min() { local i t m=999999; for i in 1 2 3; do t=$(_ms node --no-warnings -e 0); (( t < m )) && m=$t; done; echo "$m"; }
+_DG_BASE="$(_node_min)"
+assert_perf "E-430.S01e: digest build on this repo's inputs above a bare node start" "$(_dg_min)" 400 "$_DG_BASE" 1 60 _dg_min
+}
+
 # ── S06: `rein install` registers the SessionStart hook (canonical wiring) ──────
 assert_status 0 "S06: rein install registers SessionStart"   grep -qF 'SessionStart' "$AI_BIN"
 assert_status 0 "S06: registers session-start.sh"          grep -qF 'session-start.sh' "$AI_BIN"
@@ -297,14 +341,14 @@ assert_contains "E-331.S08: a teammate's claim made after this clone was cloned 
   "[CLAIMS] E-900 IN_PROGRESS by dev-a@example.com since" "$_S08_OUT"
 assert_not_contains "E-331.S08b: a project without team.json lists no claims (and fetches nothing)" "[CLAIMS]" "$_S07_LEG"
 
-# ── Stop hook (from stop_hook_test — E-302): auto-stamps SESSION.md, never pollutes DIGEST ──
-# Regression guard for the recurring `- <date>: auto-stamped by Stop hook` junk line in DIGEST's
-# curated "Recent Changes" when there is no real session summary.
+# ── Stop hook (from stop_hook_test — E-302): auto-stamps SESSION.md, never writes DIGEST ──
+# E-430 (D-159 r5): the hook's DIGEST append and stale banner are removed — the builder is the
+# digest's only writer. The rows below keep their ids and now assert the file is untouched.
 STOP_HOOK="${REPO_ROOT}/hooks/stop-hook.sh"
 HOOK_MIRROR="${HOME}/.rein/hooks/stop-hook.sh"
 assert_exists "$STOP_HOOK"
 
-# Helper: fresh sandbox project with a curated DIGEST.
+# Helper: fresh sandbox project with a DIGEST the hook must not touch.
 new_sandbox() {
   local d; d="$(mktemp -d)"
   mkdir -p "$d/.ai"
@@ -313,28 +357,28 @@ new_sandbox() {
   printf '# LOG\n' > "$d/.ai/LOG.md"
   printf '%s' "$d"
 }
+_DIGEST_SUM="$(printf '# DIGEST\n\n## Recent Changes\n- 2026-01-01: real curated entry\n' | cksum)"
 
-# ── T-1: no session summary → NO placeholder line in DIGEST ───────────────────
+# ── T-1: no session summary → DIGEST untouched ───────────────────────────────
 SB="$(new_sandbox)"
 ( cd "$SB" && printf '' | bash "$STOP_HOOK" >/dev/null 2>&1 )
-assert_status 1 "T-1: DIGEST has NO 'auto-stamped by Stop hook' placeholder" \
-  grep -q 'auto-stamped by Stop hook' "$SB/.ai/DIGEST.md"
-assert_status 0 "T-1b: curated DIGEST line preserved" \
-  grep -q '2026-01-01: real curated entry' "$SB/.ai/DIGEST.md"
+assert_status 0 "T-1: DIGEST is byte-identical after a stop with no summary" \
+  test "$_DIGEST_SUM" = "$(cksum < "$SB/.ai/DIGEST.md")"
 
 # ── T-2: SESSION.md bookkeeping still stamped (the hook's real job) ───────────
 assert_status 0 "T-2: SESSION.md got a stop stamp even with no summary" \
   grep -q 'Actor: Claude' "$SB/.ai/SESSION.md"
 rm -rf "$SB"
 
-# ── T-3: a REAL summary IS appended to DIGEST ────────────────────────────────
+# ── T-3: a REAL summary reaches SESSION.md and never DIGEST, with no stale banner ──
 SB="$(new_sandbox)"
 # Note: hook reads one line via `read` — stdin must be newline-terminated.
-( cd "$SB" && printf '%s\n' '{"summary":"E-999 shipped widget refactor"}' | bash "$STOP_HOOK" >/dev/null 2>&1 )
-assert_status 0 "T-3: real session summary appended to DIGEST" \
-  grep -q 'E-999 shipped widget refactor' "$SB/.ai/DIGEST.md"
-assert_status 1 "T-3b: no placeholder leaked alongside the real summary" \
-  grep -q 'auto-stamped by Stop hook' "$SB/.ai/DIGEST.md"
+_T3_ERR="$( cd "$SB" && printf '%s\n' '{"summary":"E-999 shipped widget refactor"}' | bash "$STOP_HOOK" 2>&1 >/dev/null )"
+assert_status 0 "T-3: real session summary stamped in SESSION.md" \
+  grep -q 'E-999 shipped widget refactor' "$SB/.ai/SESSION.md"
+assert_status 0 "T-3b: DIGEST is byte-identical after a stop with a summary" \
+  test "$_DIGEST_SUM" = "$(cksum < "$SB/.ai/DIGEST.md")"
+assert_not_contains "T-3c: no DIGEST stale banner on stderr" "DIGEST.md IS STALE" "$_T3_ERR"
 rm -rf "$SB"
 
 # ── E-379 (D-130; the privacy contract table's stop_hook row): the summary is redacted ──
@@ -344,8 +388,8 @@ printf '%s' '{"client_names": ["Fabrikam"], "operator_names": ["Ada Quill"]}' > 
 # The planted path and address are built from parts: this file is scanned for them (E-365).
 _E379_H="/ho""me/carol" _E379_M="jane@""corpmail.net"
 ( cd "$SB" && printf '{"summary":"E-998 for Fabrikam in %s/x by %s"}\n' "$_E379_H" "$_E379_M" | bash "$STOP_HOOK" >/dev/null 2>&1 )
-assert_status 0 "E-379.S01a: the redacted summary reaches DIGEST" \
-  grep -q 'E-998 for \[redacted:client_name\] in \[redacted:home_path\]/x by \[redacted:personal_email\]' "$SB/.ai/DIGEST.md"
+assert_status 0 "E-379.S01a: the redacted summary reaches SESSION" \
+  grep -q 'E-998 for \[redacted:client_name\] in \[redacted:home_path\]/x by \[redacted:personal_email\]' "$SB/.ai/SESSION.md"
 assert_status 1 "E-379.S01b: no planted value is left in DIGEST or SESSION" \
   grep -qiE "fabrikam|${_E379_H}|corpmail" "$SB/.ai/DIGEST.md" "$SB/.ai/SESSION.md"
 rm -rf "$SB"

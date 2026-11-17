@@ -119,8 +119,6 @@ export function getDb(aiDir) {
     CREATE INDEX IF NOT EXISTS idx_cluster_pages_intent
       ON cluster_pages(seed_id, intent_type);
     INSERT OR IGNORE INTO meta(key, value) VALUES ('version', '1.0');
-    INSERT OR IGNORE INTO meta(key, value) VALUES ('digest_stale', 'false');
-    INSERT OR IGNORE INTO meta(key, value) VALUES ('digest_stale_reason', '');
     INSERT OR IGNORE INTO project(key, value) VALUES ('current_tier', NULL);
     INSERT OR IGNORE INTO project(key, value) VALUES ('release_verdict', NULL);
     INSERT OR IGNORE INTO project(key, value) VALUES ('focus', NULL);
@@ -250,10 +248,6 @@ export function importStateJson(jsonPath, db, { warn = () => {}, info = () => {}
       d.created_at || d.timestamp || new Date().toISOString()
     );
   }
-
-  const setMeta = db.prepare("INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)");
-  setMeta.run("digest_stale",        state.digest_stale ? "true" : "false");
-  setMeta.run("digest_stale_reason", state.digest_stale_reason ?? "");
 
   info("imported state.json → state.sqlite");
 }
@@ -410,8 +404,6 @@ export function readState(db) {
     })(),
     stamps,
     deltas,
-    digest_stale:        meta.digest_stale === "true",
-    digest_stale_reason: meta.digest_stale_reason || null,
   };
 }
 

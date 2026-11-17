@@ -15,5 +15,9 @@ paths:
   `task-synchronizer-mcp` (`add_task`, `update_task_status` via `skill: rein-task`) or
   `rein add-task`, and stamps through `add_stamp` — a hand edit is overwritten by the next
   regeneration.
+- **`DIGEST.md` is a generated view too** (D-159). `rein digest build` is its only writer; the
+  session-start hook and `run_handover` call it. Never hand-edit or append to it — a change
+  belongs in its inputs (`state.json`, `DECISIONS.md` headings, `BRIEF.md`, `package.json`, the
+  newest `v*` tag). `rein digest check` exits 1 `[DIGEST_STALE]` when it lags them.
 - **Read any `.ai/` file a handoff names before touching it** (D-065). Blueprints,
   `architect.md` and `DECISIONS.md` are Architect-owned.

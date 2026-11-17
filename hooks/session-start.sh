@@ -165,6 +165,22 @@ ${_IMP}"
   fi
 fi
 
+# E-430 (D-159 r3, harness-fitness.md §Component 1 Triggers): rebuild .ai/DIGEST.md before the
+# context is emitted, so no session reads a stale digest. The builder comes from the install
+# mirror (rein_locate, E-225), never from the project tree. Fail-open and silent on success:
+# the file is rewritten only when its inputs changed; an error leaves the old file and adds one
+# context line.
+if [[ -d ".ai" ]] && command -v node >/dev/null 2>&1; then
+  _DG="$(rein_locate shared/digest-build.mjs || true)"
+  if [[ -n "$_DG" ]]; then
+    _DGO="$(node --no-warnings "$_DG" build "$PWD" 2>/dev/null)" || {
+      _DGR="${_DGO#\[DIGEST_BUILD_FAILED\] }"
+      ROLE_STAMP="${ROLE_STAMP}
+[DIGEST_BUILD_FAILED] ${_DGR:-builder exited non-zero} — run: rein digest build"
+    }
+  fi
+fi
+
 # E-331 (D-102 §4): a team project fetches origin/<trunk> (E-341; bounded to 3 s, skipped offline —
 # git's own failure) so the claim gate and the banner below see teammates' claims, and lists
 # the IN_PROGRESS tasks there with their holders. No team.json: no fetch, no node.

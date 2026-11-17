@@ -445,10 +445,17 @@ test("run_handover REFUSES on a stale build: [BUILD_STALE], REJECTED, nothing wr
 
 test("run_handover PASSES the gate on a current build and marks DONE", async () => {
   const { repo, runHandover, status, opts } = await handoverFixture();
+  // E-430 (D-159 r3): the handover rebuilds the digest — its Recent changes gains the task.
+  const { writeDigest } = await import("../../src/shared/digest-build.mjs");
+  writeDigest(repo);
+  const recent = () => readFileSync(join(repo, ".ai", "DIGEST.md"), "utf8").split("## Recent changes\n")[1];
+  assert.doesNotMatch(recent(), /E-1 /);
   const r = runHandover(repo, { task_id: "E-1", summary: "landed" }, opts, {});
   assert.notEqual(r.isError, true, r.content[0].text);
   assert.match(r.content[0].text, /E-1 marked DONE/);
   assert.equal(status(), "DONE");
+  assert.match(r.content[0].text, /\[DIGEST_BUILT\] inputs [0-9a-f]{12}/);
+  assert.match(recent(), /^- E-1 \(\d{4}-\d{2}-\d{2}\): landed$/m);
 });
 
 test("run_handover REFUSES with [CI_GATE] when HEAD's run FAILED; task OPEN, LOG unchanged (E-320)", async () => {

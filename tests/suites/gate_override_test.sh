@@ -131,23 +131,6 @@ done
 mv "$SE.away" "$SE"
 rm -f "$GO"
 
-# D-163 r1: the no-verdict fallback's `_names_gate_off` is the same definition as namesGateOff in
-# src/shared/shell-word.mjs — checked against every row of gate-self-disable-cases.json (each row's
-# raw text through both; the analyzer applies the inert-heredoc strip first, the fallback cannot).
-eval "$(sed -n '/^_names_gate_off() {/,/^}/p' "$HOOK")"
-_mismatch=0; _n=0
-while IFS=$'\t' read -r _want _b64; do
-  _cmd="$(printf '%s' "$_b64" | base64 -d)"; _n=$((_n + 1))
-  if _names_gate_off "$_cmd"; then _got=1; else _got=0; fi
-  [[ "$_got" == "$_want" ]] || { _mismatch=$((_mismatch + 1)); echo "  differs (js=${_want} bash=${_got}): ${_cmd:0:80}"; }
-done < <(node --no-warnings --input-type=module -e '
-  import { readFileSync } from "node:fs";
-  const { namesGateOff } = await import(process.argv[1] + "/src/shared/shell-word.mjs");
-  for (const r of JSON.parse(readFileSync(process.argv[1] + "/tests/fixtures/gate-self-disable-cases.json", "utf8")))
-    console.log((namesGateOff(r.cmd) ? "1" : "0") + "\t" + Buffer.from(r.cmd).toString("base64"));' "$REPO_ROOT")
-assert_status 0 "E-393.03: the hook fallback and namesGateOff agree on all ${_n} table rows (mismatches: ${_mismatch})" \
-  test "$_mismatch" -eq 0 -a "$_n" -gt 200
-
 # ── E-291.4: invalid override files are ignored with ONE notice ─────────────
 _ignored() {  # <label> <reason substring> → the gate ran normally (not a crash) and said why
   rc="$(_hook "$HOOK" Write "$T/proj/src/x.js" "$SID_A")"

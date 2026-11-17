@@ -8,6 +8,7 @@
 // and a project directory as the cwd. Frozen at landing (D-089 r5): the sha256 is pinned below.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -32,6 +33,7 @@ const savedCwd = process.cwd();
 process.env.HOME = home;
 process.chdir(join(home, "proj"));
 const { runAnalysis } = await import(resolve(repo, "src/mcp/safe-exec-mcp/index.js"));
+const { namesGateOff } = await import(resolve(repo, "src/shared/shell-word.mjs"));
 
 test.after(() => {
   process.chdir(savedCwd);
@@ -48,6 +50,23 @@ test("the table is byte-pinned (D-089 r5: the rule is frozen; a change is a D-ru
 
 test("the table has both verdicts (it cannot pass empty)", () => {
   assert.ok(cases.some((c) => c.want === "BLOCK") && cases.some((c) => c.want === "pass"));
+});
+
+// D-163 r1: the hook's no-verdict fallback (`_names_gate_off`, hooks/pre-tool-use.sh) is the same
+// definition as namesGateOff — checked on every row's raw text in ONE bash process (the analyzer
+// applies the inert-heredoc strip first; the fallback cannot, so both are compared on the raw text).
+// Moved here from gate_override_test, which a table reference had pulled into the fast tier.
+test("the hook fallback and namesGateOff agree on every row", () => {
+  const hook = readFileSync(resolve(repo, "hooks/pre-tool-use.sh"), "utf8");
+  const fn = /^_names_gate_off\(\) \{\n[\s\S]*?\n\}\n/m.exec(hook)?.[0];
+  assert.ok(fn, "_names_gate_off not found in the hook");
+  const script = fn + 'while IFS= read -r -d "" c; do if _names_gate_off "$c"; then echo 1; else echo 0; fi; done\n';
+  const r = spawnSync("/bin/bash", ["-c", script], { input: cases.map((c) => c.cmd + "\0").join(""), encoding: "utf8" });
+  assert.equal(r.status, 0, r.stderr);
+  const got = r.stdout.trim().split("\n");
+  assert.equal(got.length, cases.length, "one answer per row");
+  const differs = cases.filter((c, i) => (namesGateOff(c.cmd) ? "1" : "0") !== got[i]).map((c) => c.cmd.slice(0, 80));
+  assert.deepEqual(differs, [], `bash and JS disagree on ${differs.length} row(s)`);
 });
 
 for (const c of cases) {

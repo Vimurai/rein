@@ -1150,3 +1150,37 @@ removes a user's own hook entry whose script is written `"$CLAUDE_PROJECT_DIR"/�
 name>`, or that only names a missing Rein-named path in an argument (SECURITY.md N1, P2). The
 scan bound is by lines, not bytes (N4), and the printed list passes control bytes (N5). The
 doctor counts a PreToolUse entry that merely mentions the gate path as registered (N2).
+
+### T-WAITSIG-001 — the waiting-signal hook's tmux client takes its server from a project-settable `$TMUX` (security_engineer, E-433 review d71bc61, 2026-11-17)
+
+**Status**: CLOSED by D-160 addendum 2 (878445a). Residual ACCEPTED: an operator shell whose own
+`$TMUX` is wrong when `rein pane` runs.
+
+**Threat**: the waiting-signal hook runs outside the sandbox on every tool call and called `tmux`
+with the hook's own environment. A project's `.claude/settings.json` `env` reaches hooks
+(T-HOOKENV-001, T-LOCATOR-001), so it could set `TMUX` to a socket a same-user process listens
+on; a tmux server can tell a connecting client to execute a command. A project `TMUX_PANE` could
+also set options on another pane.
+
+**Mitigation**: `rein pane <role>` records `${TMUX%%,*}` and `$TMUX_PANE` from the operator's
+shell, before the agent starts, as the optional launch-record keys `tmux_socket` and `tmux_pane`
+(both or neither; socket absolute, no control characters, <= 1024; pane `%<digits>` in full; a
+malformed pair makes the record bad, so the role walk falls back to the union). Neither key is a
+role-token input. The hook takes the pair from `launch-record.py tmux-target` (nearest live
+record on its own process chain), checks it again, and calls `tmux -S <socket> … -t <pane>`; it
+never reads `TMUX` or `TMUX_PANE`, and `-S` overrides `$TMUX` in the client. No record, or one
+without the pair, means no signal. Rows: tests/unit/waiting-signal.test.mjs E-433.03 (a second
+server named in the hook's `TMUX` gets nothing), E-433.11 (no record: the stub gets no call);
+role_token_test R07 tmuxhalf/tmuxpane/tmuxrel, E-433.R01a-c.
+
+**Residual (accepted)**:
+- The recorded socket is whatever the operator shell's `$TMUX` named when `rein pane` ran; if it
+  is wrong (a stale exported `TMUX`, a nested or forwarded shell) the hook talks to that server
+  for the session's lifetime.
+- A same-user process that can write the tmux socket directory can replace a live socket; that
+  compromises the operator's own tmux clients equally and is outside this hook.
+- `HOME` stays the accepted residual of T-LOCATOR-001.
+- Second pass (b23d5eb + 878445a): P3-1 (id files keyed by pane digits collide across tmux
+  servers) is bounded by keeping the builtin fast path to PostToolUse/PostToolUseFailure, so
+  Stop, UserPromptSubmit and PermissionDenied always clear their own pane; P4-1 (`tmux-target`
+  ignores the record's project) is documented — the target is display state, never a role.

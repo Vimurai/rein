@@ -317,7 +317,12 @@ def walk(start_pid, project, table=None, skip_self=False, any_project=False):
 def tmux_target(start_pid, table=None):
     """E-433 (D-160 addendum 2): (socket, pane) from the nearest live, disciplined record on
     start_pid's chain, or None. A bad record anywhere on the chain yields None (fail-open: the
-    signal is skipped, the gate's own walk judges the record)."""
+    signal is skipped, the gate's own walk judges the record).
+
+    The record's project is not compared with the cwd (as the verifier's any_project walk): only
+    `rein pane` writes records and a nested one is refused, so a record on this chain is the pane
+    this process runs in, whatever directory a nested `claude` was started from. The target is
+    display state, never a role (security review 878445a P4-1)."""
     try:
         table = snapshot() if table is None else table
         links = chain(start_pid, table)

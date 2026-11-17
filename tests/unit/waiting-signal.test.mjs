@@ -254,3 +254,8 @@ test("E-433.10: a nested hook_event_name inside tool_input cannot suppress a Per
   assert.equal(runHook(home, payload).status, 0);
   assert.deepEqual(effects(s.calls()), ["set:permission"]);
 });
+test("E-433.10: Stop clears its own pane even with no id file anywhere (pane digits are shared across servers)", () => {
+  const { home, s } = hookHome("stopclear", true);
+  assert.equal(runHook(home, P({ hook_event_name: "Stop" })).status, 0);
+  assert.deepEqual(effects(s.calls()), ["clear"]);
+});

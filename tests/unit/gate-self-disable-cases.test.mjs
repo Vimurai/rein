@@ -14,6 +14,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync } from "node
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tcFixtureHome } from "../lib/toolchain-fixture.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const TABLE = resolve(repo, "tests/fixtures/gate-self-disable-cases.json");
@@ -28,6 +29,7 @@ const SHA256 = "80ab99d0495180464e5612f07ecd9aee4c7487518df32962ff71dd9a86afdcb5
 const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-gsd-")));
 mkdirSync(join(home, ".re" + "in", "hooks"), { recursive: true });
 mkdirSync(join(home, "proj"), { recursive: true });
+tcFixtureHome(home);   // D-109 r1: the record the install writes (this file reads the hook's fallback predicate)
 const savedHome = process.env.HOME;
 const savedCwd = process.cwd();
 process.env.HOME = home;

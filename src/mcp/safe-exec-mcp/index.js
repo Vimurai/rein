@@ -36,6 +36,7 @@ import { gitRedirectHits } from "./git-redirect.mjs";
 import { ARCHITECT, ENGINEER, mintToken, verifyToken, ROLE_UNVERIFIED_LINE } from "./role-token.mjs";
 import { claimGateFor, claimReport } from "./claim-gate.mjs";
 import { foldVerbs } from "./verb-fold.mjs";
+import { normaliseWord } from "../../shared/shell-word.mjs";
 import { createLogger } from "../shared/logger.js";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, realpathSync, lstatSync } from "node:fs";
@@ -227,18 +228,14 @@ function hasRootPaths(tokens, raw) {
 // ${X:?…} fails closed when X is unset (not root-form) — one nested inside $( ) or another ${ }
 // exempts nothing. "$X"/dist names one subdirectory, and so does a glob with a literal part
 // ("$TMPDIR"/rein-*, "$OUT"/*.log): only a bare glob, class or brace list is the whole root.
-const EXPANSION = /\$[A-Za-z_][A-Za-z0-9_]*|\$[0-9@*#?!$-]|\$\([^()]*\)|`[^`]*`/g;
-const INNER_BRACE = /\$\{[^{}]*\}/g;
+// The word normaliser itself is shared with GATE_SELF_DISABLE (E-393): src/shared/shell-word.mjs.
 const BARE_GLOB = /^(\.?(\*|\?|\[[^\]]*\])+|\{[^}]*\})$/;
 function _emptyExpansionRoot(r) {
   // $( ) and `…` may hold spaces, so they are emptied before the line is cut into words — on
   // whitespace AND on shell separators: `$X/*; echo` ends the operand at the `;`.
   for (const word of String(r).replace(/\$\([^()]*\)|`[^`]*`/g, "").split(/[\s;&|<>()]+/)) {
     if (!/[/$`"'\\]/.test(word) || /^["']?\$\{[A-Za-z_][A-Za-z0-9_]*:?\?/.test(word)) continue;
-    let w = word.replace(/\$'/g, "'");
-    for (let prev = ""; prev !== w;) { prev = w; w = w.replace(INNER_BRACE, ""); }   // ${A+${B}} inside out
-    w = w.replace(EXPANSION, "").replace(/["'\\]/g, "")
-      .replace(/\/(\.\/)+/g, "/").replace(/\/{2,}/g, "/").replace(/\/(\.\/)+/g, "/");
+    const w = normaliseWord(word);
     if (!w.startsWith("/")) continue;
     const first = w.slice(1).split("/")[0];
     if (first === "" || first === "." || first === ".." || BARE_GLOB.test(first)) return true;

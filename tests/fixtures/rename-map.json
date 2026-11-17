@@ -223,6 +223,8 @@
     "new": "63c2cac95f95e30149119f6296417a547bb4afd9eb93d056385285121d3b2968",
     "kind": "pin",
     "table": "tests/fixtures/gate-self-disable-cases.json",
-    "ruling": "D-132 addendum 3"
+    "ruling": "D-132 addendum 3",
+    "repinned": "80ab99d0495180464e5612f07ecd9aee4c7487518df32962ff71dd9a86afdcb5",
+    "repinned_by": "D-163 r10 (E-393: the three-word lock, both security rounds, residual rows, two r9 flips)"
   }
 ]

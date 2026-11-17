@@ -140,6 +140,39 @@ _catastrophic() {
   return 1
 }
 
+# D-163 r1 (E-393): the self-disable lock, the same definition as namesGateOff in
+# src/shared/shell-word.mjs, for the no-verdict path. V1 deletes ' " backslash-newline, every
+# other backslash and [ ] ? *; V2 deletes ' " and turns a backslash with the next character
+# into a space. True when ONE LINE of one view holds the words rein, gate and off (runs of
+# [A-Za-z0-9_-]), in any order, without regard to case (D-163 addendum 1: lines split after the
+# view is built). Builtins and a here-string only: no subshell can abort it into "no".
+_names_gate_off() {
+  # LC_ALL=C: bracket ranges are ASCII, as in JS (security_engineer P3: under en_US.UTF-8 `é` was a word char).
+  local LC_ALL=C v1 v2 v line nc=0 hit=1 b='(^|[^A-Za-z0-9_-])' e='([^A-Za-z0-9_-]|$)'
+  v1="${1//$'\\\r\n'/}"; v1="${v1//$'\\\n'/}"; v1="${v1//[\"\'\\\[\]\?\*]/}"   # \ CRLF too, as gateViews
+  v2="${1//[\"\']/}"; v2="${v2//\\?/ }"; v2="${v2//\\/ }"
+  shopt -q nocasematch && nc=1
+  shopt -s nocasematch
+  for v in "$v1" "$v2"; do
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ "$line" =~ ${b}rein${e} && "$line" =~ ${b}gate${e} && "$line" =~ ${b}off${e} ]] && { hit=0; break 2; }
+    done <<< "$v"
+  done
+  [[ "$nc" -eq 1 ]] || shopt -u nocasematch
+  return "$hit"
+}
+
+# D-163 r1/r6 (E-393): the analyzer's GATE_SELF_DISABLE definition for the two paths that have no
+# verdict — the override's no-verdict fallback and the analyzer-not-located backstop: the
+# three-word predicate on views V1/V2, and the name rules (the CLI form, the override file, the
+# mirror) on V1.
+_touches_gate() {
+  local v1="${1//$'\\\r\n'/}"; v1="${v1//$'\\\n'/}"; v1="${v1//[\"\'\\\[\]\?\*]/}"
+  _names_gate_off "$1" ||
+    grep -qiE "(^|[^[:alnum:]_.-])rein[[:space:]]+(-[^[:space:]]*[[:space:]]+)*gate([^[:alnum:]_-]|$)|gate-override\.json|\.rein" <<< "$v1"
+}
+_GATE_TOUCH_MSG="[SAFE_EXEC_BLOCK] no analyzer verdict and the command touches the gate or ~/.rein — blocked even under the operator override (E-291)."
+
 # E-339 (D-107 r3): the analyzer invocation — the E-292 wall clock, the flags, the verdict
 # parse — lives in shared/gate-probe.sh, which `rein sync` (gate_check) and `rein doctor` source
 # too, so the probe they run cannot drift from this gate. Install mirror only (E-223). When
@@ -357,8 +390,9 @@ if [[ -n "$SE" ]] && command -v node >/dev/null 2>&1; then
       # critic_security P1-1: a command padded past ARG_MAX makes node exit 126 with no
       # verdict, so GATE_SELF_DISABLE never ran. Without the analyzer, err BROAD: anything
       # naming `rein gate`, the override file or the mirror is refused here.
-      if grep -qE "r[\"'\\\\]?e[\"'\\\\]?i[\"'\\\\]?n[\"']?[[:space:]]+[\"']?gate|gate-override\.json|\.rein" <<< "$CMD"; then
-        echo "[SAFE_EXEC_BLOCK] no analyzer verdict and the command touches the gate or ~/.rein — blocked even under the operator override (E-291)." >&2
+      # D-163 r1/r6 (E-393): the analyzer's definition, in builtins (_touches_gate).
+      if _touches_gate "$CMD"; then
+        echo "$_GATE_TOUCH_MSG" >&2
         exit 2
       fi
       _go_bypass
@@ -379,6 +413,12 @@ fi
 # ── Backstop: analyzer unavailable → still block CATASTROPHIC patterns ─────────
 # Narrow, false-positive-averse set (truly irreversible). The full ruleset lives
 # in the node analyzer above; this only guarantees fail-closed on the worst cases.
+# D-163 r10(3) (E-393, A2A ruling 2026-11-17): the self-disable lock first — an override written
+# while the install is broken would lift the gate the moment the install is repaired.
+if _touches_gate "$CMD"; then
+  echo "$_GATE_TOUCH_MSG" >&2
+  exit 2
+fi
 if _catastrophic "$CMD"; then
   echo "[SAFE_EXEC_BLOCK] safe-exec analyzer unavailable; backstop blocked a catastrophic pattern (E-125)." >&2
   exit 2

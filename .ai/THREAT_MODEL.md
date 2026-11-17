@@ -1101,6 +1101,115 @@ Separately, some shapes still let sync delete a user's own hook entry without a 
 `$HOMEDIR/…`. Each needs an edit to machine-local settings, which the classifier denies to an
 agent. Proofs of concept are the M-rows of that table.
 
+*E-393 addendum (security_engineer, 2026-11-17; D-132 addendum 4 r7). Status: SEC_BLOCKED.*
+
+What is fixed: the E-391 finding "CLI_GATE misses 15 forms" is closed.
+- All 17 spellings are blocked by runAnalysis (every role, and under override) and by the hook in
+  a throwaway HOME (no override, active override, active override plus a padded no-verdict run).
+- critic_security's `script -qc "env -u CLAUDECODE rein gate off" /dev/null` chain is blocked by
+  the lock.
+
+The new lock is a word reader (`shellCommands` + the WRAPPERS table). It keys on the program
+position and on a closed list, and it still lets through static spellings that bash runs as
+`rein gate off`:
+- F1: command substitution inside double quotes;
+- F2: redirections before or between the words;
+- F3: backslash-newline;
+- F4: brace expansion and globs;
+- F5: `env -a`, `env -S"…"`, `--split-string=`;
+- F6: `bash +x -c`, `bash <<<'…'`;
+- F7: `coproc`, `| xargs rein`;
+- F8: runners outside the list, among them `tmux new-window` / `send-keys` and `python3` pty.
+
+The `do_gate off` belt (TTY + no agent variable) works as ruled. It is defeated by
+`env -u`/`env -i` with `script` or a python pty. It is also defeated by any tmux server started
+outside the agent, because a new window or a send-keys target is a real pty with the server's
+environment, not the agent's.
+
+Net effect for F8: tmux and python pty pass BOTH layers and write a live override. That was
+measured in a throwaway HOME with a private tmux socket.
+
+Pre-existing, the same impact: the override writer itself, reached through quote-split paths
+(`~/.re''in/shared/gate-override.py write ~/.re''in/gate-overr''ide.json 60 x`), writes an
+ACTIVE override. This is D-084 r4's accepted string-assembly class, now inconsistent with r7.
+
+Mitigation proposed (Architect):
+- match a `rein` word followed by `gate` at any word position, not only the program position;
+- tokenise redirections, `\`+newline and quoted substitutions in shellCommands;
+- expand braces, globs, `$IFS` and `${X:-w}` for the gate check;
+- read the path rules through normaliseWord.
+
+PoCs and the full table are in SECURITY.md "E-393 / D-132 addendum 4 r7". The residual still
+left to the classifier is runtime assembly (`x=rein; $x gate off`, `$'\x72ein'`, `"$@"`
+forwarding).
+
+*E-393 re-review, same day: still SEC_BLOCKED.*
+
+What the fix round closed: the listed F1–F7 spellings, the plain-grammar F8 runners, and the
+cheap half of the residual. No regression, and the parser costs ≤ 23 ms on 20 KB floods.
+
+What is still live: 28 variants inside the same classes, all passing the lock for the Engineer
+(PoCs in SECURITY.md "Re-review — the F1–F8 fixes"):
+- a comment apostrophe;
+- `\\` before a newline;
+- `)` inside quotes within `"$(`;
+- `{fd}>`;
+- `{e..e}`;
+- `[!x]` and `[[:alpha:]]` globs;
+- `${X:+w}` and nested defaults;
+- `{}` operands in `xargs -I` and `find -exec`;
+- stdin routes through `cat`/`tee`/`(bash)`/`< <(…)`/`/dev/stdin`;
+- `function` and a NAMEd `coproc`;
+- `env -vS` and `env -f`;
+- command substitution used as the program.
+
+Open and out of E-393's scope: tmux, python pty, and the quote-split writer path.
+
+*D-163 (2026-11-17): the lock is a three-word text predicate.*
+
+**The lock.** `namesGateOff` blocks when one line of either view holds the words `rein`, `gate`
+and `off`, in any order and any case:
+- V1 deletes `'` `"`, backslash-newline (also CRLF), every other `\`, and `[ ] ? *`;
+- V2 deletes the quotes and turns each `\X` into a space.
+
+It runs after the D-084 heredoc strip, applies to every role, and holds under an override. The
+name rules (the CLI form, the override file and writer, writes under `~/.rein/`) read both the raw
+text and V1 (r6). The word reader is frozen as a second layer (r5). The hook's no-verdict fallback
+implements the same definition in builtins.
+
+**The residual, defined once (r3, addendum 1 r2).** It belongs to the classifier and is
+INCONCLUSIVE in a pen-test, never P1. A command is residual when one of the three words is not
+literal in either view, or when the words sit on different lines of both views. The classes:
+- hex or octal escapes;
+- sequence braces;
+- negated or class globs outside a path that names `rein`;
+- a word split across variables or `$(…)`;
+- encoded text;
+- a word split by `-` (it is a word character, so `env -vS'rein …'` and `${X:-${Y:-rein}}`);
+- tmux keys sent one by one;
+- a script written and then run.
+
+**The ceiling (r1 "What decides it", D-083 r5).** `~/.rein/gate-override.json` is not
+authenticated, so a same-uid agent can write it from a script it created with the Write tool, and
+no reading of command text sees that. The text lock stops commands that SAY the disable. The belt
+(TTY + no agent variable) is not the lock. The operator factor (option b) is unfunded until a
+root-owned install exists.
+
+**Open from the D-163 re-review.** PoCs are in SECURITY.md "D-163 re-review".
+- Closed: the hook's analyzer-not-located branch now runs `_touches_gate` before `_catastrophic`
+  (re-checked in a throwaway HOME, both locales; E-393 SEC_CLEARED).
+- D-084 rule 4 strips a heredoc body whose sink is run implicitly (`Makefile` + `make`, `.bashrc` +
+  `bash -i`). This is P1 against every HEREDOC_EXEMPT rule. For this lock it is residual. A
+  follow-up applies IMPLICIT_RUN in strict mode.
+- Closed: locale parity of the bash fallback (`local LC_ALL=C`; 0 mismatches in 30 000 fuzz cases
+  per locale).
+
+*Superseded by D-163.* Before that ruling, the parser was not converging and the Architect had to
+choose between two locks:
+- (a) a fail-closed co-occurrence lock (a `rein` word and a `gate` word in one command, after
+  normalisation);
+- (b) a lock outside the text (an operator-only factor read from `/dev/tty`).
+
 ### T-ARTIFACT-001 — `rein install` trusts an unpacked release tree (security_engineer, E-420 review, 2026-11-10)
 
 - **Boundary:** `~/.rein/manifest.json` together with the files beside it is an input to `rein install`, which then

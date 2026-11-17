@@ -1910,6 +1910,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-17T18:35:38.068Z"
+    },
+    {
+      "id": "E-435",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Run the row census D-157 r4 and D-162 r4 order, per .ai/blueprints/test-economics.md: for the rows added since D-149 (the release-artifact arc E-417..E-427, E-428, E-429, E-433, E-434, E-430) list every behaviour that is asserted at more than one layer (unit, suite, live) with the file and row id of each assertion, and for each pair say which one is the cheapest layer that can observe it; also list `git log` evidence of how test_lines moved between rulings D-157 and D-162 (task id and net lines per merge). Write the report to plans/test-census-2026-11.md; remove nothing, the Architect rules the removals. Order: after E-432. Acceptance: plans/test-census-2026-11.md exists and has one table of duplicated behaviours (or the sentence that none was found, with the list of files compared) and one table of net test lines per merged task whose total equals the difference between the two recorded budget values and the measured value on main, as printed by `rein ci budget` on the day; no file under tests/ or src/ changes in the task's diff (`git diff --stat` shows plans/ and .ai/ only).",
+      "created_at": "2026-11-17T19:15:47.144Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T19:15:47.146Z"
     }
   ],
   "stamps": [

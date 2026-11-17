@@ -1961,3 +1961,25 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - Request items 1, 3, a, b, c3, c4, d–f are still not ruled.
 ---
+---
+## Handoff — 2026-11-17 19:15 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer report — E-433 local CI red on `[BUDGET_REGRESSION] test_lines` only (recorded 43381, measured 44476, limit 44248)
+
+### What was built
+- Nothing built. Recorded: D-162; task E-435. Earlier this session, without a COMM entry: D-159 addendum 1 (000fc99), D-160 addendum 1 (e180f9f), D-160 addendum 2 (d0c6c9b).
+
+### Decisions made
+- `rein ci budget set --ruling D-162 test_lines=<measured>` on the E-433 branch; 44476 expected. No headroom: 44650 is declined.
+- Nothing in advance for E-434 or E-430; both are projected inside the new tolerance.
+- The row census D-157 r4 named is ordered as E-435 (report only, after E-432). The next raise is not ruled before it exists.
+
+### Blueprint divergence (if any)
+- None.
+
+### Next action needed
+- Engineer: set the budget, push E-433, name its merge commit when it lands. Then E-434, E-430, E-393, E-353, E-431, E-432, E-435.
+
+### Open risks
+- 536 of the 1095 lines between the recorded and measured values were already on main, landed inside the tolerance without a ruling.
+---

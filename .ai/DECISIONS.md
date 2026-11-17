@@ -5404,3 +5404,31 @@ The review found that the tmux client takes its server from `$TMUX`, which a pro
 Revert to reading `TMUX_PANE` and record T-WAITSIG-001 as an accepted residual by a new ruling.
 
 ---
+
+## D-162 — The test_lines budget rises to the measured value of the E-433 tree (44476 at 878445a); nothing in advance for E-434 and E-430; the row census D-157 r4 named is now ordered
+
+**Date**: 2026-11-17
+**Task**: E-433 (878445a; every suite passes); covers the rows of E-428 and E-429 under it. E-435.
+**Decision**: `rein ci run` fails only `[BUDGET_REGRESSION] test_lines`: recorded 43381, measured 44476, limit 44248. The budget is set to the measured value of the E-433 tree. The Engineer's suggested 44650 is declined: it is a figure with room for two tasks that have not landed.
+
+Composition, measured by the Architect (`git diff --numstat main HEAD -- tests` at c1ef1ae, net +559): the waiting signal at the unit layer, 285 (`waiting-signal.test.mjs`, `waiting-signal-cases.json`; D-160 and both addenda, the security review's rows included); the digest builder at the unit layer, 179 (`digest-build.test.mjs`, `digest-cases.json`; D-159 r1–r2); the traversal policy, 53 (E-428, D-116 addendum 2); hook registration and the launch record at the suite layer, 42 (`exec_form_hooks_test.sh`, `role_token_test.sh`; D-160 addendum 2); the contract fixture `pane-options.json`, 10; `mcp_servers_test.sh` shrank by 11. The other 536 lines of the 1095 between recorded and measured were already on `main`: tasks since D-157 that each landed inside the tolerance.
+
+### Rulings
+1. **Budget**: `rein ci budget set --ruling D-162 test_lines=<measured>` on the E-433 branch, with the value the final run measures; 44476 is expected, and a different measured value is used and named in the handoff. No headroom (D-149 r1, D-157 r1).
+2. **Nothing in advance for E-434 or E-430** (D-157 r2). By the Engineer's projection both land inside the new tolerance (about 44610 against a limit of 45365); if one does not, it comes back with its composition.
+3. **Layer review, at the depth of D-157 r4**: the signal's set and clear logic is pinned at the unit layer only, its settings registration and the launch record at the suite layer only, the digest builder at the unit layer only. No behaviour was found pinned twice at that depth.
+4. **The census D-157 r4 named is ordered now** (E-435). This is the fourth raise in six weeks, and half of this gap accumulated without a ruling, inside the tolerance. The next request to raise `test_lines` is not ruled before E-435's report exists.
+5. **Not a precedent for growth without a ruling** (D-149 r4).
+
+### Alternatives considered
+1. **44650, measured from the final tree of the arc** — rejected in the decision line and r2.
+2. **Cut rows from `waiting-signal.test.mjs` to fit** — rejected: its rows pin a hook on the permission path, and the 228 lines over the limit are not there; they are older drift.
+3. **Hold E-433 until the census is done** — rejected: the signal is the operator's priority and another repository waits on its merge commit.
+
+### Impact
+- Unlocks: the E-433 push. Risk if wrong: the number only.
+
+### Rollback
+`rein ci budget set --ruling D-162 test_lines=43381`.
+
+---

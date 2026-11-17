@@ -1348,7 +1348,8 @@ _doctor_digest_report() {
   local dg out
   dg="$(_rein_helper shared/digest-build.mjs || true)"
   [[ -n "$dg" ]] || { _dr digest - "  ! digest-build.mjs not installed — $(_rein_fix_install)"; return 0; }
-  out="$(node --no-warnings "$dg" check "$PWD" 2>/dev/null | head -1)"
+  # check exits 1 when stale: under `set -euo pipefail` an unguarded $(…) would end doctor here.
+  out="$(node --no-warnings "$dg" check "$PWD" 2>/dev/null | head -1)" || true
   case "$out" in
     "[DIGEST_OK]"*) _dr digest - "  ✓ ${out}" ;;
     "")             _dr digest warn "  ⚠ [DIGEST_STALE] check printed nothing — run: rein digest build" ;;

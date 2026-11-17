@@ -5819,6 +5819,24 @@
       "summary": "[TIER_2] E-393 wave-1 subset proof: a ruled re-verdict (reverdict + reverdict_by, D-163 r9) on the one flipped wave-1 row; TESTS_PASS (consolidation-subset 445/0). Fixes the only failure of rein ci run cc20046 (7554/1).",
       "sha": "cc200461cc4c2cca41c8f9e6d9a0f2e2e3b9f148",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T23:20:31.792Z",
+      "summary": "Re-review at 287dfc7: gate-self-disable-cases unit 228/228; gate_override_test 67/0/2 skip. Hook-vs-namesGateOff parity moved to the unit layer (one bash spawn, one answer per row asserted, zero disagreements), which also closes the earlier empty-read advisory; fast tier no longer pulled in by suite",
+      "sha": "287dfc75f98bde63d279e241e5bc1ed291e8d936",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 2)",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T23:20:38.140Z",
+      "summary": "[TIER_2] E-393 hook/JS parity check moved from gate_override_test to the unit layer (one bash spawn, all rows): the table reference had pulled the suite into the fast tier (fast_tier_seconds 38 > 25 on 287dfc7). TESTS_PASS; fast tier back to node_unit only.",
+      "sha": "287dfc75f98bde63d279e241e5bc1ed291e8d936",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

@@ -1890,3 +1890,26 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - A signing regression specific to Ubuntu's minisign shows at the dry run, not on a pull request.
 ---
+## Handoff — 2026-11-17 16:55 UTC
+**From**: Architect → Engineer
+**Trigger**: operator request — the digest must refresh itself; one blueprint for the harness improvements (D-159)
+
+### What was built
+- Nothing built. Recorded: D-159; new `.ai/blueprints/harness-fitness.md`; tasks E-429, E-430, E-431, E-432, P-51, P-52.
+
+### Decisions made
+- `.ai/DIGEST.md` becomes a generated view: `rein digest build`, tracked inputs only, stale = the inputs hash changed. Rebuilt at session start and in `run_handover`. `rein-digest`, `digest_updater`, the `digest_stale` keys and the stop hook's digest code are removed.
+- Every gate block records its rule id in telemetry (no command text); `rein gate ledger` reports what each rule, critic and MCP server caught. Advisory only.
+- A new agent `critic_acceptance` observes each acceptance clause before a Tier 2 or Tier 3 task closes; `task-planner` refuses a clause that names nothing to run or look at.
+- A worktree per Engineer is not built.
+
+### Blueprint divergence (if any)
+- None. Open from your side: E-428's `tests/fixtures/` exclusion is not ruled yet; it is the Architect's next item and does not block E-429.
+
+### Next action needed
+- Engineer: E-429, then E-430. Then the open security tasks E-393 and E-353, then E-431, then E-432 (blocked on E-393 and E-353 in the DAG). E-429: if a digest section needs an untracked input, drop the section and say so in the handoff.
+
+### Open risks
+- The session-start trigger runs in every project at every start; its added time has a declared ceiling (60 ms warm) and E-430 measures it.
+- The computed digest drops hand-written "Known Risks" prose (D-159 r4).
+---

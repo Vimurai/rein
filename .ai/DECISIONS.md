@@ -5221,3 +5221,42 @@ E-426: restore `npm install` for every server and accept the mismatch by reverti
 Remove the dry-run job; the rows keep skipping where the binary is absent.
 
 ---
+
+## D-159 — The digest is a generated view rebuilt at session start and at handover; every gate block names its rule; a fresh agent runs the acceptance line before a Tier 2 or Tier 3 task closes
+
+**Date**: 2026-11-17
+**Task**: E-429, E-430, E-431, E-432; P-51, P-52. Blueprint: `.ai/blueprints/harness-fitness.md`
+**Decision**: The operator asked that the digest refresh itself when stale, and for a blueprint covering the improvements the Architect listed after comparing Rein with published harness practice. `.ai/DIGEST.md` stops being written by a model and becomes a deterministic function of tracked files; the gate records which rule blocked; an evaluator with no write tools checks each acceptance clause by observation.
+
+### Why needed
+On 2026-11-17 the digest was 26 days old and described a product name and version two renames back, while preflight reads it first. The stop hook's stale banner goes to stderr on exit 0, which the session does not show, and its flag is set only by `run_handover` and only on one machine. Separately, telemetry cannot say which gate rule fired, and the Engineer verifies its own acceptance lines.
+
+### Rulings
+1. **The digest is generated, never authored.** `rein digest build` is its only writer. Inputs are tracked files and git only (`state.json`, `DECISIONS.md` headings, `BRIEF.md`, `package.json`, the newest tag), so two clones at the same commit hold the same bytes. No wall clock: the date in the header is the date of the newest input record.
+2. **Staleness is a hash, not an age.** The header carries the hash of the inputs; stale means the inputs hash differently now. The "older than 3 days" rule is withdrawn: a quiet week is not staleness, and a busy hour is.
+3. **Two triggers: session start and `run_handover`.** Session start guarantees no session reads a stale digest; handover puts the rebuilt file in the same bookkeeping commit as the change. The stop hook's digest code is removed, not repaired.
+4. **The curated sections go.** "Known Risks" and "Triad Health" as prose are replaced by computed sections (open tasks by tier and age, FAIL stamps with no later PASS). Prose that mattered belongs in a task, a decision or `SECURITY.md`, where it has an owner. This loses hand-written nuance and is accepted: a nuance nobody refreshed for 26 days was misinformation.
+5. **`rein-digest` and `digest_updater` are removed** with the `digest_stale` meta keys. No compatibility shim (sole operator).
+6. **A stale digest is a doctor warning, not a CI failure.** A red required check for a bookkeeping view would block merges for a file any session repairs on start.
+7. **Every gate block writes its rule id to telemetry; no command text.** The change is attribution only: no verdict changes, the pinned fixture hashes do not move.
+8. **The ledger reports, the Architect rules.** `[CONTROL_QUIET]` and `[CONTROL_NOISY]` are advisory. A quiet rule guarding a catastrophic or sovereignty class is kept without argument. Nothing is retired except by a ruled task.
+9. **`critic_acceptance` is required for Tier 2 and Tier 3.** A clause is PASS only when observed; UNVERIFIED carries its reason and does not fail the task; a clause nobody could observe is not silently PASS. `task-planner` refuses an acceptance clause that names nothing to run or look at.
+10. **Order**: E-429, E-430, then the open security tasks E-393 and E-353, then E-431, then E-432 (same gate file as the security tasks, so after them).
+11. **A worktree per Engineer is not built.** One Engineer pane, one operator; designed when a second pane is wanted.
+
+### Alternatives considered
+1. **Inject `[DIGEST_STALE]` at session start and let the model run `rein-digest`** — rejected: it still depends on a model choosing to act, spends tokens every time, and produces different text per run, so the tracked file churns.
+2. **Fix the stop hook's banner so it is visible** — rejected: it repairs the notice, not the cause; the flag stays per-machine and handover-only.
+3. **Keep a hand-curated block between markers inside the generated file** — rejected: it is the part that went stale.
+4. **Feed "Recent changes" from `LOG.md`** — rejected: the log is not tracked, so the digest would differ per clone; DONE tasks with their summaries carry the same information.
+5. **Extend `critic_tests` to check acceptance** — rejected: it is a rule-matcher on sonnet over the diff (D-110); acceptance is a judgment that needs to run things.
+6. **Label each block true or false positive by asking the model** — rejected: the override-within-ten-minutes proxy is free and honest about being a proxy.
+
+### Impact
+- Unlocks: E-429..E-432. Changes how the Architect writes acceptance lines from now on (r9).
+- Risk if wrong: the computed digest is less readable than a written one; the evaluator adds minutes and tokens to every Tier 2 task. Both are measurable after two weeks and reversible.
+
+### Rollback
+Per component, in the blueprint's Rollback Plan: revert E-430 to stop the triggers; drop the evaluator from the dispatch list and the DONE check; the `rule` column is nullable and ignored.
+
+---

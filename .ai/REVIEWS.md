@@ -415,3 +415,4 @@
 [CRITIC_STAMP] 2026-11-17 | 4155c63 32126521+Vimurai@users.noreply.github.com | [TIER_1] E-434 sleep markers in rein_start_test (E-307.F6)
 [CRITIC_STAMP] 2026-11-17 | 7656a56 32126521+Vimurai@users.noreply.github.com | [TIER_2] E-430 rebuilt on the E-434 tree (cherry-pick of 376d779; D-159 addendum 1 carried)
 [CRITIC_STAMP] 2026-11-17 | 9416282 32126521+Vimurai@users.noreply.github.com | [TIER_1] E-430 .claude mirrors synced to src
+[CRITIC_STAMP] 2026-11-17 | fdd69c5 32126521+Vimurai@users.noreply.github.com | [TIER_1] E-430 skill count 41 and trigger-audit wording (CI fdd69c5)

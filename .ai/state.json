@@ -5837,6 +5837,15 @@
       "summary": "[TIER_2] E-393 hook/JS parity check moved from gate_override_test to the unit layer (one bash spawn, all rows): the table reference had pulled the suite into the fast tier (fast_tier_seconds 38 > 25 on 287dfc7). TESTS_PASS; fast tier back to node_unit only.",
       "sha": "287dfc75f98bde63d279e241e5bc1ed291e8d936",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 1)",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T23:22:52.973Z",
+      "summary": "[TIER_1] E-393 gate-self-disable-cases.test.mjs builds its fixture HOME with tcFixtureHome (D-109 r1) — the fixture-home census flagged it on 19b2d11 once the file read the hook; census clean, 228/0.",
+      "sha": "19b2d11f3b7d9de1e9fa0b5b2f77ba569e17cca9",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

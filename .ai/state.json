@@ -5738,6 +5738,69 @@
       "summary": "Fast --changed: 5814 passed/30 failed/25 skipped; all 30 failures in exec_form_hooks, hooks_surface, mirror_hygiene, provider_workspace (host ~/.rein mirror/template dependence, reproduced on clean HEAD worktree, none touch gate code); gate_override/safe_exec/gate tables green. E-393 behaviours each tested at cheapest layer (38 contract rows; bash only for hook/pty boundary); pty tests supply fixture HOME, agent vars stripped. P2: those 4 suites depend on host ~/.rein",
       "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_WARN",
+      "agent": "critic_clean_code",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T22:15:04.317Z",
+      "summary": "standards-checker WARN (re-run, e-393-gate-lock @ cda909a, D-163) — 1 warning, 0 errors, 10 files, 13ms (rule_id: file_size_limit_lines; file: src/mcp/safe-exec-mcp/index.js 769 lines, warn >=500)",
+      "sha": "cda909ac892a42c60b896776229ac05d3855f501",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "blueprint-aligner",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T22:15:07.493Z",
+      "summary": "Re-run on e-393-gate-lock @cda909a (D-163): align_diff WARN, no violations, 10 files; NO_LOG_UPDATE + ORPHANED_WORK (pre-tool-use.sh, gate-guard.mjs, shell-word.mjs not named in architect.md)",
+      "sha": "cda909ac892a42c60b896776229ac05d3855f501",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T22:15:10.145Z",
+      "summary": "Re-review at cda909a (e-393-gate-lock) against D-163 + addendum 1: no sovereignty violations. namesGateOff is the single r1 helper in src/shared/shell-word.mjs (V1/V2, per-line); selfDisableHits calls it and the hook's _names_gate_off mirrors it, with E-393.03 asserting agreement on all table rows. r6: name rules run on raw text and V1 (analyzer nameRuleHits and hook fallback). r5: shellCommands/gateCommandHit retained, no new grammar for the lock. gate-self-disable-cases.json sha b9cd31c9... equals the rename-map repinned value, with repinned_by citing D-163 r10. operand-scope-cases.json not staged (not re-pinned), per addendum 1 r3.",
+      "sha": "cda909ac892a42c60b896776229ac05d3855f501",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T22:15:24.047Z",
+      "summary": "Re-review at cda909a: gate/rename unit tables 278/278 pass (221 rows); gate_override_test 62 pass/0 fail/2 skip incl. E-393.03 hook-vs-namesGateOff parity (0 mismatches over 221 rows). Advisory: E-393.03 has no floor on _n, so an empty node read would pass vacuously",
+      "sha": "cda909ac892a42c60b896776229ac05d3855f501",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T22:16:25.436Z",
+      "summary": "Re-review vs HEAD cda909a (D-163 + add.1): no P0. Three-word per-line predicate (namesGateOff) is linear, fail-closed, JS and hook match on 23 probes; 223 unit rows and gate_override suite (62/0) pass. Prior P1 (wrapper denylist, script/env -u) is now residual per D-163 r3. P2: hook _names_gate_off misses backslash-CRLF split that JS catches (shell-word.mjs:~gateViews vs pre-tool-use.sh:~150); fallback grep still blocks it.",
+      "sha": "cda909ac892a42c60b896776229ac05d3855f501",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer (recorded by the Engineer; the agent has no add_stamp tool)",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T22:29:05.333Z",
+      "summary": "[TIER_3] E-393 under D-163: all four r10 conditions hold — 15 forms RESISTED; no three-literal-word line passes (bar inert prose and the ruled D01-D03 residual); nothing fails open (analyzer missing, no node, padded fallback); over-block as ruled. Locale fuzz 0/90k mismatches. See .ai/SECURITY.md \"D-163 re-check — condition 3 fix\". Open, not gating: D-084 r4 implicit-run follow-up; r3 residual.",
+      "sha": "cda909ac892a42c60b896776229ac05d3855f501",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 3)",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T22:29:27.096Z",
+      "summary": "[TIER_3] E-393 under D-163 + addendum 1 (staged on cda909a): ARCH_PASS, SEC_PASS, TESTS_PASS, ALIGN_PASS (WARN: LOG/orphan, no violations), CLEAN_WARN (index.js 769 lines, pre-existing), SEC_CLEARED (security_engineer, 4 r10 conditions). critic_security P2 (CRLF parity) and security_engineer P3 (locale) fixed. Full rein ci run pending operator install (r11).",
+      "sha": "cda909ac892a42c60b896776229ac05d3855f501",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

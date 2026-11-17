@@ -5206,7 +5206,10 @@ _start_pane_idle() {  # <pane>
   info="$(tmux display-message -p -t "$1" '#{pane_pid} #{pane_current_command}' 2>/dev/null)" || return 1
   read -r pid cur <<< "$info"
   [[ "$pid" =~ ^[0-9]+$ && "$cur" =~ $_START_SHELL_RE ]] || return 1
-  ! ps -A -o ppid= 2>/dev/null | awk -v p="$pid" '$1 == p { f = 1 } END { exit !f }'
+  # E-436: a `ps` that fails or prints nothing proves nothing — the pane is then NOT idle.
+  local procs; procs="$(ps -A -o ppid= 2>/dev/null)" || return 1
+  [[ -n "$procs" ]] || return 1
+  ! awk -v p="$pid" '$1 == p { f = 1 } END { exit !f }' <<< "$procs"
 }
 
 # _start_config — read and VALIDATE .ai/start.json, printing "session|layout|main|account"

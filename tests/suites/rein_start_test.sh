@@ -295,6 +295,16 @@ if skip_unless_cmd tmux "E-434.01–05: rein start on a live session (real tmux)
   assert_not_contains "E-434.02a: a pane running a bash script got no 'rein pane' text" "rein pane" "$(_cap4 "$_arc4")"
   assert_contains "E-434.02b: and is reported busy" "rein start: architect pane is busy (" "$_o4"
   assert_status 0 "E-434.02c: rein start exits 0 (rc=${_rc4})" test "$_rc4" -eq 0
+
+  # E-436 (D-160 addendum 3): a `ps` that fails proves nothing — the idle engineer pane is then
+  # treated as busy, never typed into.
+  _psbad="$(mktemp -d)"; on_exit "rm -rf '$_psbad'"
+  printf '#!/bin/sh\nexit 1\n' > "$_psbad/ps"; chmod +x "$_psbad/ps"
+  _fresh4 "$_eng4"; _t4 clear-history -t "$_eng4"
+  _o4="$( cd "$_lp4" && PATH="${_psbad}:${_P4}" bash "$AI" start --detach 2>&1 )"
+  sleep 0.5   # REIN_SLEEP_ALLOWED: an ABSENCE is asserted next; a sent line would be echoed by now
+  assert_contains "E-436.04a: with ps failing, the engineer pane is reported busy" "rein start: engineer pane is busy (" "$_o4"
+  assert_not_contains "E-436.04b: …and gets no 'rein pane' text" "rein pane" "$(_cap4 "$_eng4")"
   _t4 kill-server 2>/dev/null
 
   # A pane this run creates that never reaches an idle shell gets no keys: exit 2 and the

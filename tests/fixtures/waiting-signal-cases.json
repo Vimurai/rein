@@ -17,7 +17,8 @@
     { "label": "PostToolUseFailure of the waiting call clears", "event": "PostToolUseFailure", "tool": "Bash", "id": "toolu_A", "state": "toolu_A", "expect": ["clear"], "after": null },
     { "label": "UserPromptSubmit clears", "event": "UserPromptSubmit", "state": "toolu_A", "expect": ["clear"], "after": null },
     { "label": "Stop clears (bound 2: no wait outlives the turn)", "event": "Stop", "state": "toolu_A", "expect": ["clear"], "after": null },
-    { "label": "PermissionDenied clears", "event": "PermissionDenied", "tool": "Bash", "id": "toolu_A", "state": "toolu_A", "expect": ["clear"], "after": null },
+    { "label": "PermissionDenied of the waiting call clears", "event": "PermissionDenied", "tool": "Bash", "id": "toolu_A", "state": "toolu_A", "expect": ["clear"], "after": null },
+    { "label": "PermissionDenied of a sibling call leaves the open prompt set (E-436 F1)", "event": "PermissionDenied", "tool": "Bash", "id": "toolu_B", "state": "toolu_A", "expect": [], "after": "toolu_A" },
     { "label": "SessionStart clears and turns the signal on", "event": "SessionStart", "state": "toolu_A", "expect": ["clear", "signals:on"], "after": null },
     { "label": "SessionEnd clears and turns the signal off", "event": "SessionEnd", "state": null, "expect": ["clear", "signals:off"], "after": null }
   ]

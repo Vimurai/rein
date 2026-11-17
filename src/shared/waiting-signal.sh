@@ -54,8 +54,12 @@ rein_ws_pane() {   # → the validated pane id on stdout, or return 1 (needs rei
   printf '%s' "$REIN_WS_PANE"
 }
 
-rein_ws_state_file() {   # <pane> → the per-pane id file path
-  printf '%s/.rein/run/waiting/%s' "${HOME}" "${1#%}"
+rein_ws_state_file() {   # <pane> → the id file path, per tmux server AND pane
+  # E-436 (D-160 addendum 3, F2): pane ids are per server, so the name carries the recorded
+  # socket too — characters outside [A-Za-z0-9._-] become `_`, the last 200 kept (NAME_MAX).
+  local s="${REIN_WS_SOCKET//[^A-Za-z0-9._-]/_}"
+  (( ${#s} > 200 )) && s="${s: -200}"
+  printf '%s/.rein/run/waiting/%s_%s' "${HOME}" "$s" "${1#%}"
 }
 
 rein_ws_listed() {   # <value> <list...> → 0 when value is in the list
@@ -132,8 +136,10 @@ rein_ws_dispatch() {
       esac ;;
     PreToolUse)
       case "$tool" in AskUserQuestion|ExitPlanMode) rein_ws_set question "$id" ;; esac ;;
-    PostToolUse|PostToolUseFailure) rein_ws_clear "$id" ;;
-    UserPromptSubmit|Stop|PermissionDenied) rein_ws_clear ;;
+    # E-436 (F1): a denial clears by id like PostToolUse — the classifier denying a sibling or
+    # subagent call must not clear a prompt that is still open.
+    PostToolUse|PostToolUseFailure|PermissionDenied) rein_ws_clear "$id" ;;
+    UserPromptSubmit|Stop) rein_ws_clear ;;
     SessionStart) rein_ws_clear; rein_ws_signals on ;;
     SessionEnd)   rein_ws_clear; rein_ws_signals off ;;
   esac

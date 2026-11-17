@@ -5451,3 +5451,31 @@ As written, the clause fails on the file that correctly holds the entries, and t
 None needed; the blueprint line can be reverted.
 
 ---
+
+## D-160 addendum 3 — Review of E-433 and E-434 as built: accepted; two findings go to E-436 and do not hold the merges
+
+**Date**: 2026-11-17
+**Task**: E-433 (PR #51), E-434 (PR #52), E-430 (PR #53); E-436, E-437
+**Decision**: The Architect read `hooks/waiting-signal.sh`, `src/shared/waiting-signal.sh`, `_start_pane_idle` and section 6 of `docs/app-contract.md` against D-160, its addenda and D-161. They match. The Engineer's three divergences are accepted. Two defects were found by reading, not by a run.
+
+### Rulings
+1. **Accepted as built**: the PostToolUse fast path ("no id file for any pane", builtin only); the helper never creating `~/.rein/run` (a session with a launch record already has it, and a session without one does not report); the `.claude` mirrors brought to `src` by copy for E-430, to be confirmed by the operator's `rein sync` leaving no diff.
+2. **F1 — `PermissionDenied` clears without matching the id.** In auto mode, a sibling or subagent call that the classifier denies clears a prompt that is still open; if that prompt is older than six seconds the `Notification` backstop has already fired, so bound 1 of D-160 fails. It clears by id, like `PostToolUse`.
+3. **F2 — the id file is keyed by pane digits only.** Two tmux servers each have a pane `%N` (rein-app runs its own server), so one session can overwrite the other's id and the first stays "waiting" until its turn ends. Bound 2 still holds, the accuracy does not. The file name carries the server as well.
+4. **`_start_pane_idle` reads a failed `ps` as idle** and would send keys. A failed or empty `ps` is "not idle".
+5. **These go to E-436 on top of the stack and do not hold #49..#53.** F1 needs auto mode, a parallel denial and a prompt older than six seconds; F2 needs two servers with equal pane ids. Neither can answer a prompt or run anything.
+6. **Still open on E-433**: acceptance clause (8), the live run, and with it the four undocumented points of Component 7. If the live run shows an event that ends a hand-denied prompt, the clear rule is tightened by a further addendum.
+7. **E-437**: the `rein-migration` skill reads a `- Schema` line the generated digest no longer has; it reads the version from the store instead.
+
+### Alternatives considered
+1. **Hold PR #51 for F1 and F2** — rejected in r5; another repository waits on the merge commit and the contract text does not change.
+2. **Fold E-437 into E-430** — rejected: E-430 is built and reviewed; a skill outside its removal list is a separate change.
+
+### Impact
+- Unlocks: the merges of #49..#53 once the operator's install and live run are done.
+- Risk if wrong: a wait missed in the F1 corner until E-436 lands.
+
+### Rollback
+None; a review record.
+
+---

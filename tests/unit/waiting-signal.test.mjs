@@ -9,7 +9,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -44,8 +44,10 @@ function effects(calls) {
     return m ? `set:${m[1]}` : `UNEXPECTED:${c}`;
   });
 }
-const stateFile = (home) => join(home, ".rein", "run", "waiting", PANE.slice(1));
 const SOCK = "/tmp/rein-ws-recorded.sock";
+// E-436 (F2): the id file is named for the recorded server AND the pane digits.
+const idName = (sock = SOCK, pane = PANE) => `${sock.replace(/[^A-Za-z0-9._-]/g, "_").slice(-200)}_${pane.slice(1)}`;
+const stateFile = (home, sock = SOCK) => join(home, ".rein", "run", "waiting", idName(sock));
 // A TMUX/TMUX_PANE in the environment names another target: every helper and hook row carries
 // it, so a call that followed the environment would show up as an UNEXPECTED effect.
 const DECOY = { TMUX: "/tmp/rein-ws-decoy.sock,1,0", TMUX_PANE: "%99" };
@@ -236,7 +238,7 @@ test("E-433.10: a planted symlink at the state file is replaced, never written t
   const { home, s } = hookHome("symlink", true);
   const victim = join(tmp, "victim.txt"); writeFileSync(victim, "keep\n");
   mkdirSync(join(home, ".rein/run/waiting"), { recursive: true, mode: 0o700 });   // run/ stays 0700 (launch-record discipline)
-  execFileSync("ln", ["-s", victim, join(home, ".rein/run/waiting", PANE.slice(1))]);
+  execFileSync("ln", ["-s", victim, stateFile(home)]);
   assert.equal(runHook(home, P({ hook_event_name: "PermissionRequest", tool_use_id: "toolu_X" })).status, 0);
   assert.equal(readFileSync(victim, "utf8"), "keep\n");
   assert.deepEqual(effects(s.calls()), ["set:permission"]);
@@ -244,7 +246,7 @@ test("E-433.10: a planted symlink at the state file is replaced, never written t
 test("E-433.10: a planted FIFO at the state file does not hang the hook", () => {
   const { home } = hookHome("fifo", true);
   mkdirSync(join(home, ".rein/run/waiting"), { recursive: true, mode: 0o700 });   // run/ stays 0700 (launch-record discipline)
-  execFileSync("mkfifo", [join(home, ".rein/run/waiting", PANE.slice(1))]);
+  execFileSync("mkfifo", [stateFile(home)]);
   const r = runHook(home, P({ hook_event_name: "PostToolUse", tool_use_id: "toolu_X" }), { timeout: 5000 });
   assert.equal(r.status, 0, "returned within 5 s"); assert.equal(r.stdout, "");
 });
@@ -258,4 +260,23 @@ test("E-433.10: Stop clears its own pane even with no id file anywhere (pane dig
   const { home, s } = hookHome("stopclear", true);
   assert.equal(runHook(home, P({ hook_event_name: "Stop" })).status, 0);
   assert.deepEqual(effects(s.calls()), ["clear"]);
+});
+
+// ── E-436 (D-160 addendum 3): a denial clears by id; the id file is per server ──
+test("E-436.01: PermissionDenied of another call leaves the prompt; of the waiting call clears it", () => {
+  const { home, s } = hookHome("denied", true);
+  runHook(home, P({ hook_event_name: "PermissionRequest", tool_name: "Bash", tool_use_id: "toolu_A" }));
+  runHook(home, P({ hook_event_name: "PermissionDenied", tool_name: "Bash", tool_use_id: "toolu_B" }));
+  assert.deepEqual(effects(s.calls()), ["set:permission"], "no unset for a sibling's denial");
+  runHook(home, P({ hook_event_name: "PermissionDenied", tool_name: "Bash", tool_use_id: "toolu_A" }));
+  assert.deepEqual(effects(s.calls()), ["set:permission", "clear"]);
+});
+test("E-436.02: two servers with the same pane id keep two id files", () => {
+  const { home } = hookHome("twosrv", true);
+  const other = "/tmp/rein-ws-other.sock";
+  runHook(home, P({ hook_event_name: "PermissionRequest", tool_use_id: "toolu_A" }), { target: [SOCK, PANE] });
+  runHook(home, P({ hook_event_name: "PermissionRequest", tool_use_id: "toolu_B" }), { target: [other, PANE] });
+  runHook(home, P({ hook_event_name: "PostToolUse", tool_use_id: "toolu_A" }), { target: [other, PANE] });
+  assert.equal(readFileSync(stateFile(home), "utf8"), "toolu_A\n", "the first server's file is untouched");
+  assert.deepEqual(readdirSync(join(home, ".rein/run/waiting")).sort(), [idName(other), idName(SOCK)].sort());
 });

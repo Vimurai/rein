@@ -1913,3 +1913,28 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - The session-start trigger runs in every project at every start; its added time has a declared ceiling (60 ms warm) and E-430 measures it.
 - The computed digest drops hand-written "Known Risks" prose (D-159 r4).
 ---
+---
+## Handoff — 2026-11-17 18:26 UTC
+**From**: Architect → Engineer
+**Trigger**: rein-app · Architect request (rein-app D-062, operator priority 2026-11-17): the window needs an "agent is waiting on the operator" signal
+
+### What was built
+- Nothing built. Recorded: D-160; D-116 addendum 2; `.ai/blueprints/release-artifact.md` §Component 7; task E-433. `.ai/BRIEF.md` no longer names Gemini, TestSprite or a server count; `harness-fitness.md` line 9 reworded (fe718d6).
+
+### Decisions made
+- The signal is a tmux pane option: `@rein_waiting` = `permission` | `question`, with `@rein_waiting_since` and `@rein_signals`. Set and cleared by fail-open hooks; nothing from the payload is stored.
+- The contract is two bounds (a prompt on screen 7 s is reported; a report ends at turn end at the latest), not exactness: Claude Code names no event for a hand-denied or escaped prompt.
+- The hook prints nothing and exits 0 on every path, so it never answers a prompt. `hooks/pre-tool-use.sh` is not edited.
+- E-428: the `tests/fixtures/` exclusion is accepted (D-116 addendum 2). PR #49 stands as built.
+
+### Blueprint divergence (if any)
+- None.
+
+### Next action needed
+- Engineer: E-433 after E-429 merges and before E-430. Start with the live observation of the four undocumented points (Component 7), then fix the clear rule. Then E-430, E-393, E-353, E-431, E-432 as before.
+- After E-433 merges, name the merge commit in the handoff: rein-app · Architect is waiting for it.
+
+### Open risks
+- The uncommitted `.ai/providers.json` and `.ai/roles.json` edits and their `*.pre-0.5.0.json` backups in the working tree are not the Architect's and are not in this commit; the operator decides.
+- The rest of rein-app's request (items 1, 3, a–f; bug c2: `rein start` on a live session types `rein pane <role>` into running agents) is not ruled yet.
+---

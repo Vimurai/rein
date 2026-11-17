@@ -5260,3 +5260,61 @@ On 2026-11-17 the digest was 26 days old and described a product name and versio
 Per component, in the blueprint's Rollback Plan: revert E-430 to stop the triggers; drop the evaluator from the dispatch list and the DONE check; the `rule` column is nullable and ignored.
 
 ---
+
+## D-160 — An agent waiting on the operator is a tmux pane option, `@rein_waiting`, set and cleared by Rein's hooks and named in the app contract
+
+**Date**: 2026-11-17
+**Task**: E-433. Blueprint: `.ai/blueprints/release-artifact.md` §Component 7. Request: rein-app `plans/rein-panels-request.md` item 2 (rein-app D-062), delivered 2026-11-17.
+**Decision**: Yes, in the shape rein-app proposed, with two additions. The pane option `@rein_waiting` holds `permission` or `question` while the pane's agent is at a prompt and is unset otherwise; `@rein_waiting_since` holds the time it was set; `@rein_signals` says that the pane's session reports at all.
+
+### Why needed
+rein-app shows a status per open project and raises notifications. From outside, an agent at a permission prompt and an agent that finished look the same: a quiet pane. Only a hook inside the session knows, and Rein owns the hooks.
+
+### Rulings
+1. **The state is a pane option, not a file and not a command.** It lives in the tmux server the pane lives in, so it survives the app being closed, dies with the pane, and is read with the `list-panes -F` call the app already makes for `@rein_role`. Rein writes no new file.
+2. **Values are a closed list**: `permission` (tool approval, sandbox network request) and `question` (`AskUserQuestion`, plan approval, MCP elicitation). A reader treats any non-empty value as waiting; values may be added inside a major version.
+3. **`@rein_signals` separates "not waiting" from "not reporting".** It is set at session start and unset at session end. Without it an empty `@rein_waiting` would read as "working" on a session started before the hooks were registered, which is the wrong answer for a notification.
+4. **Two bounds are the contract, not exactness**: a prompt on screen for 7 seconds is reported; a report ends at the latest at turn end, prompt submit, or session start or end. Claude Code names no event for a hand-denied or escaped prompt, and the ordering of events across parallel calls and subagents is not documented, so exactness is not promised. The Engineer observes those points in a live session and tightens the clear rule as far as the payloads allow.
+5. **The hook never answers a prompt.** It is fail-open, prints nothing on stdout and exits 0 on every path, because a `PermissionRequest` or `PreToolUse` hook with output is a permission decision. The gate hook `pre-tool-use.sh` is not edited (D-056).
+6. **Nothing from the payload is stored**: no tool input, no notification text. The option carries a literal from the list.
+7. **Not a "finished" signal.** A plain-text question at the end of a turn is a finished turn. rein-app keeps deriving "finished" from quiet without `@rein_waiting`.
+8. **Order**: E-433 is built after E-429 merges and before E-430 (operator priority, 2026-11-17). It does not touch the gate file, so it does not wait for E-393 or E-353.
+9. **The other items of the request are not ruled here.** Item 1 (a read interface for tasks and handoffs), item 3 and the lifecycle and team items a–f stand as received; c2 (text typed into a running agent by `rein start` on a live session) is a bug report and is ruled next.
+
+### Alternatives considered
+1. **A file per project (`.ai/run/waiting.json` or under `~/.rein/run/`)** — rejected: it outlives the pane after a crash, needs a writer protocol for two roles, and the app writes no file in a project and would have to watch one more path.
+2. **`rein start --status --json` computing it on demand** — rejected: nothing outside the session can see a prompt; the command could only read the same option, at the cost of a process per poll.
+3. **Only the `Notification` event** — rejected: it fires about six seconds after the prompt appears and does not cover `AskUserQuestion`; kept as the backstop.
+4. **A three-state option (working, waiting, idle)** — rejected for now: `Stop` does not fire on an interrupt, so "working" would be stale after every Escape. The app already derives quiet from the pane.
+5. **Storing the prompt's text for the notification** — rejected: tool input can hold secrets, and a user option is readable by anything on the tmux socket.
+
+### Impact
+- Unlocks: E-433; rein-app's reserved status field.
+- Risk if wrong: a wait that is not reported (bounded at 7 s by ruling 4), or a report that outlives a denied prompt until the turn ends. Both are visible to the operator in the pane and neither changes what the agent may do.
+
+### Rollback
+Remove the settings entries with `rein sync` on a reverted tree. Rein reads none of the options.
+
+---
+
+## D-116 addendum 2 — E-428: files under `tests/fixtures/` are not test files for the PATH_TRAVERSAL exemption
+
+**Date**: 2026-11-17
+**Task**: E-428 (PR #49)
+**Decision**: The Engineer's divergence is accepted. E-428's text exempted `tests/**`; as built, `isTestFile` excludes `tests/fixtures/`, so a script under it is graded like source.
+
+### Why needed
+With the literal `tests/**` glob, three markdown-exec rows (E-363) failed in CI: a script under `tests/fixtures/` is something a test executes, and those rows exist to prove it is still graded.
+
+### Alternatives considered
+1. **Keep `tests/**` and change the three rows** — rejected: it would remove the only proof that an executed fixture is reviewed.
+2. **Exclude `tests/fixtures/` (chosen)** — a fixture is input to a test, not a test. The inert tables there (`*-cases.json`, `wave1-inputs.json`) stay covered by ruling 2 of D-116, which is a separate predicate; a fixture that needs a traversal literal elsewhere uses the `rein:allow PATH_TRAVERSAL <reason>` marker.
+
+### Impact
+- Unlocks: PR #49 as built.
+- Risk if wrong: a downstream project that keeps hostile-input samples as loose files under `tests/fixtures/` still gets the block and must add the marker; that is one line with a reason.
+
+### Rollback
+Remove the exclusion in `traversal-policy.mjs` and its two boundary rows.
+
+---

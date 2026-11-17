@@ -13,7 +13,7 @@
 
 ## Non-goals
 - Not a foundation-model trainer or fine-tuning platform.
-- Not a replacement for the host IDE — Rein layers onto Claude Code / Gemini CLI, it does not fork them.
+- Not a replacement for the host IDE — Rein layers onto Claude Code, it does not fork it.
 - Not multi-tenant or cloud-hosted; designed for a single developer machine plus optional managed-agents API offload.
 
 ## Constraints
@@ -22,26 +22,23 @@
 - Compliance: no GDPR-relevant PII ever written to `.ai/`; PII sanitiser strips emails/tokens/HOME paths from incident logs.
 - Deployment: macOS + Linux dev boxes (Node 22+, Docker for code-exec); Windows unsupported.
 
-## UX Notes (Gemini via /gemini skill)
-- Target platforms: terminal-first (Claude Code, Gemini CLI, tmux split-pane).
+## UX Notes- Target platforms: terminal-first (Claude Code in a tmux split-pane; the rein-app desktop window drives the same CLI).
 - Key flows: `rein init` → blueprint authoring (Architect) → implementation (Engineer) → critic review → commit gate.
 - Accessibility: structured Markdown outputs, NDJSON logs, no ANSI escape dependence on critical paths.
 - Performance budgets (frontend): n/a — no GUI; CLI output budget ~80 cols / response.
 
-## SEO/Content Notes (Gemini via /gemini skill)
-- Target queries: "autonomous AI agent OS", "Claude Gemini coordination framework", "MCP server template".
+## SEO/Content Notes- Target queries: "autonomous AI agent OS", "Claude Code multi-agent framework", "MCP server template".
 - Information architecture: README → install → quickstart → blueprints → MCP registry (`.ai/blueprints/mcp.md` auto-generated).
 - Content types: blueprints, decisions log, RULES/CAPABILITIES contracts, test reports.
 - Schema/structured data: state.json schema versioned; NDJSON for all telemetry.
 
-## Frontend Notes (Gemini via /gemini skill)
-- Framework: none (CLI tool).
+## Frontend Notes- Framework: none (CLI tool).
 - State approach: SQLite (WAL) authoritative + JSON projections for Markdown rendering.
 - Routing: skills addressed by name (`skill: rein-preflight`); MCP tools by qualified path (`mcp__server__tool`).
 - UI patterns: deterministic Markdown blocks, structured-output JSON tails (`__SYNC_RESULT__`, `__INCIDENT_REPORT__`) for programmatic consumers.
 
 ## Architecture Notes (Claude-owned)
-- Modules/boundaries: `src/mcp/` (25 servers), `src/shared/` (libs: logger, wal-flusher, incident-append/aggregate), `src/bin/rein` (bootloader CLI), `src/claude/` + `src/gemini/` + `src/shared/skills/` (agent skills).
+- Modules/boundaries: `src/mcp/` (the MCP servers), `src/shared/` (libs: logger, wal-flusher, incident-append/aggregate), `src/bin/rein` (bootloader CLI), `src/claude/` + `src/shared/skills/` (agent skills).
 - Data model: `.ai/state.sqlite` (tasks/stamps/deltas), `.ai/state.json` (regenerated projection), `.ai/TASKS.md` + `.ai/REVIEWS.md` (human-rendered views), `~/.rein/incidents.ndjson` (rolling telemetry).
 - Integration points: stdio JSON-RPC to MCP servers, NDJSON to stderr for logs, Docker socket-less for code-exec, fetch() to managed-agents API (optional, E-70).
 - API contracts (high level): MCP tool schemas in each server, registry.json as single source of truth, mcp.md auto-derived.

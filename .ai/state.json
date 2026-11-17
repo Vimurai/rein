@@ -1882,6 +1882,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-17T16:51:18.570Z"
+    },
+    {
+      "id": "E-433",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Build the \"waiting on the operator\" pane signal per D-160 and .ai/blueprints/release-artifact.md §Component 7 (events, values, hook rules and the four points to observe live first are there): add src/shared/waiting-signal.sh and hooks/waiting-signal.sh, register the events in _SPECS of src/bin/rein, set and clear `@rein_signals`, `@rein_waiting` and `@rein_waiting_since`, add the doctor check `waiting_signal_registered`, the \"Pane options\" section of docs/app-contract.md and tests/fixtures/release/pane-options.json. Do not edit hooks/pre-tool-use.sh. Run the security_engineer agent on the hook before merge. Order: after E-429 merges, before E-430. Acceptance: (1) the table tests/fixtures/waiting-signal-cases.json, run in a unit suite with a stub `tmux` on PATH, shows the expected set or clear call for every row of the Component 7 event table; (2) the same suite shows empty stdout and exit 0 for every row and for a malformed payload, no TMUX_PANE, a TMUX_PANE that is not `%<digits>`, and no tmux on PATH; (3) a row with a real tmux server on a private socket (`skip_unless_cmd tmux`) runs the hook with a PermissionRequest payload and `tmux list-panes -F '#{@rein_waiting}'` prints `permission`, then an empty line after a Stop payload; (4) `rein sync` in a fixture project writes the entries and `rein doctor --json` there has the check `waiting_signal_registered` with status ok, and warn once the entries are removed; (5) a row fails when the helper can write a value pane-options.json does not list; (6) tests/fixtures/arch-write-cases.json passes byte-identical; (7) a timing row prints the p95 added time per PostToolUse with no wait pending, under 30 ms; (8) LOG.md records one live run in a `rein start` pane: `tmux list-panes -a -F '#{@rein_role}|#{@rein_waiting}'` showed `permission` within 1 s of a permission prompt and an empty value after approval, plus what was observed for the four undocumented points.",
+      "created_at": "2026-11-17T18:25:46.680Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T18:25:46.690Z"
     }
   ],
   "stamps": [

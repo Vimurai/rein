@@ -5602,6 +5602,15 @@
       "summary": "[TIER_2] Blueprint aligned — E-434 rein start skips a busy pane (release-artifact.md §Component 8)",
       "sha": "a1d800b80a942c4bb90e59459cff4a6b9ae9d894",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-434",
+      "timestamp": "2026-11-17T20:06:52.983Z",
+      "summary": "[TIER_1] E-434 sleep markers in rein_start_test (E-307.F6)",
+      "sha": "4155c630560242d4423b005847b9b725b8a67f95",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

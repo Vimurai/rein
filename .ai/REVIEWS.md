@@ -412,3 +412,4 @@
 [CRITIC_STAMP] 2026-11-17 | c371cd3 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-433 second-pass follow-ups (fast path, tmux_target doc, T-WAITSIG-001)
 [ALIGN_PASS] 2026-11-17 | a1d800b 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-434 rein start skips a busy pane (release-artifact.md §Component 8)
 [CRITIC_STAMP] 2026-11-17 | a1d800b 32126521+Vimurai@users.noreply.github.com | [TIER_2] Blueprint aligned — E-434 rein start skips a busy pane (release-artifact.md §Component 8)
+[CRITIC_STAMP] 2026-11-17 | 4155c63 32126521+Vimurai@users.noreply.github.com | [TIER_1] E-434 sleep markers in rein_start_test (E-307.F6)

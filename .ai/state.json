@@ -5611,6 +5611,15 @@
       "summary": "[TIER_1] E-434 sleep markers in rein_start_test (E-307.F6)",
       "sha": "4155c630560242d4423b005847b9b725b8a67f95",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-430",
+      "timestamp": "2026-11-17T20:07:28.937Z",
+      "summary": "[TIER_2] E-430 rebuilt on the E-434 tree (cherry-pick of 376d779; D-159 addendum 1 carried)",
+      "sha": "7656a5695e5b59f9cd5668c9ef2f8c7dd5898236",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

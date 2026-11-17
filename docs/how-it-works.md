@@ -73,7 +73,7 @@ it goes.
 
 ```mermaid
 flowchart TD
-    S["session start<br/>rein-preflight"] --> D["DIGEST.md<br/>20–60 lines, the snapshot"]
+    S["session start<br/>rein-preflight"] --> D["DIGEST.md<br/>generated snapshot, ≤ 60 lines"]
     D --> T["TASKS.md<br/>open E-## / P-##"]
     T --> B{"task names a blueprint?"}
     B -->|yes| BP[".ai/blueprints/&lt;name&gt;.md"]
@@ -89,7 +89,7 @@ flowchart TD
 .ai/
   state.sqlite       ACID task store (WAL mode). Never hand-edit.
   state.json         Readable mirror of it, tracked in git.
-  DIGEST.md          The 20–60 line project snapshot every session reads first.
+  DIGEST.md          The generated snapshot (≤ 60 lines) every session reads first.
   TASKS.md           Planning (P-##) and implementation (E-##) tasks — a generated view.
   architect.md       The system blueprint. Architect-owned.
   blueprints/        One blueprint per domain or feature.

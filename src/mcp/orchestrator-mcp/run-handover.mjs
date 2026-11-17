@@ -12,6 +12,7 @@ import { publishDone } from "../shared/task-claims.mjs";
 import { completionGates } from "../../shared/completion-gates.mjs";
 import { appendLog } from "../shared/team.mjs"; // E-333: the shared log when team.json says so
 import { redact } from "../../shared/publish-scan.mjs"; // E-379 (D-130)
+import { writeDigest } from "../../shared/digest-build.mjs"; // E-430 (D-159 r3)
 
 export function today() {
   return new Date().toISOString().split("T")[0];
@@ -81,19 +82,23 @@ export function runHandover(cwd, args, gateOpts = {}, env = process.env) {
           if (deltaText) {
             db.prepare("INSERT INTO deltas(task_id, summary, files, read) VALUES (?, ?, ?, 0)")
               .run(taskId, deltaText, JSON.stringify(changedFiles.slice(0, 10)));
-            db.prepare("INSERT OR REPLACE INTO meta(key, value) VALUES ('digest_stale', 'true')").run();
-            db.prepare("INSERT OR REPLACE INTO meta(key, value) VALUES ('digest_stale_reason', ?)")
-              .run(redact(`${taskId} marked DONE — ${summary}`, { file: ".ai digest_stale_reason", aiDir: ai }));
           }
         });
         regenerateViews(ai, db);
         results.push(`✓ ${taskId} marked DONE in state.sqlite (views regenerated)`);
+        // E-430 (D-159 r3): the digest is rebuilt from the regenerated state.json here, so it
+        // changes in the same bookkeeping commit as the task. A failure never fails the handover.
+        try {
+          const d = writeDigest(cwd);
+          results.push(`✓ [DIGEST_${d.status}] inputs ${d.inputs}`);
+        } catch (e) {
+          results.push(`⚠ [DIGEST_BUILD_FAILED] ${e.message} — run: rein digest build`);
+        }
         // E-331: clear this user's claim on origin/<trunk> (team projects only).
         const pub = publishDone(ai, taskId);
         if (pub) results.push(`${pub.ok ? "✓" : "⚠"} ${pub.message}`);
         if (deltaText) {
           results.push(`✓ Implementation delta saved to state.sqlite`);
-          results.push(`✓ digest_stale=true set in state.sqlite (Reactive Memory §24)`);
         }
       }
     } catch (e) {
@@ -104,15 +109,6 @@ export function runHandover(cwd, args, gateOpts = {}, env = process.env) {
   // Append LOG entry (outside transaction — file I/O)
   const logged = appendLog(ai, `${today()} | Claude | ${taskId} | ${summary}`);
   if (logged) results.push(`✓ ${logged.slice(resolve(ai).length + 1)} updated`);
-
-  results.push("");
-  results.push(
-    "## Reactive Memory — DIGEST Update Required\n" +
-    `Task ${taskId} is complete. DIGEST.md is now stale.\n\n` +
-    "**Action required**: Run the digest_updater agent to refresh DIGEST.md:\n" +
-    "  skill: 'digest_updater'\n\n" +
-    "Or use the skill: `skill: \"rein-digest\"`"
-  );
 
   return { content: [{ type: "text", text: results.join("\n") }] };
 }

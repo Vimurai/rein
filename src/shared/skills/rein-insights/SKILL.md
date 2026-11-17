@@ -31,8 +31,7 @@ telemetry — it delegates entirely to `meta_analyst`.
 - `rein-preflight` (E-86) emitted `[INSIGHTS_STALE]` at session start.
 - You are about to plan a sprint and want to see which tools are
   failing or slow before the planning conversation.
-- A monthly hygiene pass on `~/.rein/` (run after `skill: rein-digest`
-  and `skill: rein-archive`).
+- A monthly hygiene pass on `~/.rein/` (run after `skill: rein-archive`).
 
 ## When NOT to invoke
 

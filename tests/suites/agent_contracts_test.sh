@@ -320,7 +320,7 @@ assert_status 1 "the generated .claude/settings.json has no execute_code allow" 
 ctx() { grep -E '^context:' "$1" 2>/dev/null | head -1 | awk '{print $2}'; }
 
 # ── Operational skills run in-thread (context: default) — source + .claude exec copy
-for s in rein-digest trigger-audit rein-sync-state; do
+for s in trigger-audit rein-sync-state; do   # rein-digest retired (E-430, D-159)
   assert_contains "T-100: $s source is default" "default" "$(ctx "${REPO_ROOT}/src/shared/skills/$s/SKILL.md")"
   assert_contains "T-100: $s .claude exec copy is default" "default" "$(ctx "${REPO_ROOT}/.claude/skills/$s/SKILL.md")"
 done
@@ -342,19 +342,13 @@ local_hits=$(cd "$REPO_ROOT" && printf '%s\n' "$_ctx_corpus" | grep . | xargs gr
 assert_match "T-100: no invalid 'context: local' anywhere" '^0$' "$local_hits"
 
 # ── No operational skill still forks ─────────────────────────────────────────
-for s in rein-digest trigger-audit rein-sync-state; do   # the compaction skill was retired (E-283)
+for s in trigger-audit rein-sync-state; do   # the compaction skill (E-283) and rein-digest (E-430) were retired
   if grep -qE "^context:[[:space:]]*fork" "${REPO_ROOT}/.claude/skills/$s/SKILL.md" 2>/dev/null; then
     _fail "T-100: $s must NOT be context: fork"
   else
     _pass "T-100: $s is not context: fork"
   fi
 done
-
-# ── In-thread write-capable: rein-digest must hold Write (it persists DIGEST.md) ─
-# Under context: default the skill runs in-thread, so it needs its own write
-# tools — a read-only allowed-tools cannot satisfy "rein-digest updates DIGEST.md".
-assert_contains "T-100: rein-digest can Write (in-thread persistence)" "Write" \
-  "$(grep -E '^allowed-tools:' "${REPO_ROOT}/src/shared/skills/rein-digest/SKILL.md")"
 
 # ── E-113 (from vibe_stamp_alignment_test — E-302): rein-test's vibe stamp matches review_synthesizer ──
 # review_synthesizer requires for a Tier-3 release.

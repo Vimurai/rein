@@ -1408,7 +1408,6 @@ ensure_ai_templates() {
 
   ensure_file_if_missing "$T/RULES.md"         ".ai/RULES.md"
   ensure_file_if_missing "$T/SEED.md"          ".ai/SEED.md"
-  ensure_file_if_missing "$T/DIGEST.md"        ".ai/DIGEST.md"
   ensure_file_if_missing "$T/BRIEF.md"         ".ai/BRIEF.md"
   ensure_file_if_missing "$T/TASKS.md"         ".ai/TASKS.md"
   ensure_file_if_missing "$T/LOG.md"           ".ai/LOG.md"
@@ -1416,6 +1415,14 @@ ensure_ai_templates() {
   ensure_file_if_missing "$T/state.json"          ".ai/state.json"
   ensure_file_if_missing "$T/roles.json"          ".ai/roles.json"   # E-135: Role Configuration Store
   ensure_file_if_missing "$T/providers.json"      ".ai/providers.json" # E-138: Provider Adapter Registry
+  # E-430 (D-159 r1): the first digest comes from the builder, never from a template — it is a
+  # generated view. Only when absent; a failure is reported and never stops init.
+  if [[ ! -e .ai/DIGEST.md && ! -L .ai/DIGEST.md ]]; then
+    local _dg; _dg="$(_rein_helper shared/digest-build.mjs || true)"
+    if [[ -z "$_dg" ]] || ! node --no-warnings "$_dg" build "$PWD" >/dev/null 2>&1; then
+      echo "  ⚠ [DIGEST_BUILD_FAILED] .ai/DIGEST.md not built — run: rein digest build" >&2
+    fi
+  fi
 
   # E-270 (D-074 §Components 2): an EXISTING roles.json/providers.json is merged with the
   # template (missing roles added, retired providers and the roles bound to them dropped)
@@ -2843,7 +2850,7 @@ do_init() {
   echo ""
   echo "Next (MANDATORY):"
   echo "1) Fill in .ai/BRIEF.md and .ai/REPO.md"
-  echo "2) Fill in .ai/DIGEST.md — Include Triad Health (Planning/Execution/Testing)"
+  echo "2) .ai/DIGEST.md is generated from state (rein digest build) — never hand-edit it"
   echo "3) Define the initial vision in .ai/architect.md (Template provided)"
   echo "4) Fill in .github/copilot-instructions.md (project-specific context)"
   echo "5) Open a provider CLI in this repo — the bootloader auto-runs rein-preflight"

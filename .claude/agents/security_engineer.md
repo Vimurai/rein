@@ -138,8 +138,8 @@ Update THREAT_MODEL.md when:
 - An active pen-test surfaces an `EXPLOITED` finding (record the proof-of-concept).
 
 ## After writing
-Append to .ai/DIGEST.md:
-- YYYY-MM-DD: SECURITY.md updated — <key change>
+Append to .ai/LOG.md (DIGEST.md is a generated view — never write it, D-159):
+- YYYY-MM-DD | security_engineer | SECURITY.md updated — <key change>
 Notify human if any P0 threats are unmitigated.
 
 ## Escalation

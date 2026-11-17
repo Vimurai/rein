@@ -7,10 +7,10 @@ Spawn a team automatically when 2+ independent workstreams exist:
 | Scenario | Spawn these agents in parallel |
 | :------- | :----------------------------- |
 | Tier 3 pre-commit review | `critic_arch` + `critic_security` + `critic_tests` + `blueprint-aligner` |
-| Post-implementation handover | `rein-task` + `digest_updater` + `decision-recorder` |
+| Post-implementation handover | `rein-task` + `decision-recorder` |
 | Security audit (Tier 3) | `security_engineer` + `identity_guardian` |
 | Vibe & chaos audit | `chaos_monkey` + `vibe_sentinel` |
-| Full session end | `rein-task` + `digest_updater` + `rein-review` |
+| Full session end | `rein-task` + `rein-review` |
 
 ## How to Spawn
 
@@ -38,9 +38,8 @@ Do NOT use ad-hoc prompts — the Agent tool will load agent instructions automa
 > definition. (E-188 Part 2 to rename it was cancelled for exactly this reason.)
 
 ```
-# Post-task handover team — all 3 run simultaneously
-skill: "rein-task"  # record completed E-## task (replaces the retired claude_tasks agent — E-148)
-Agent("Run digest_updater agent: regenerate .ai/DIGEST.md from current state")
+# Post-task handover team — both run simultaneously
+skill: "rein-task"  # record completed E-## task; run_handover rebuilds DIGEST.md (E-430, D-159)
 skill: "decision-recorder"  # record decisions (now the decision-recorder skill, not an agent — E-141/E-148)
 ```
 

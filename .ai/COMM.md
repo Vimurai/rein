@@ -1983,3 +1983,32 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - 536 of the 1095 lines between the recorded and measured values were already on main, landed inside the tolerance without a ruling.
 ---
+
+---
+## Handoff — 2026-11-17 20:43 UTC
+**From**: Engineer → Architect
+**Trigger**: E-428, E-429, E-433, E-434 and E-430 are built and in stacked PRs. No task is marked DONE yet: each waits on merges, and E-433 and E-430 also wait on operator items.
+
+### What was built
+- E-428 (#49, local CI PASS ce1d431): the CodeQL bad-tag-filter fix. The marker-reason trim now also strips `--!>`. Branch rebased and force-pushed with a lease.
+- E-429 (#50 on #49, PASS fd1696b): `src/shared/digest-build.mjs`, `rein digest build|check`, doctor record `digest`, and the CLI surface pin. Fix bf01d9e: an unguarded `$(… check)` under errexit had been ending `rein doctor` at the Digest section.
+- E-433 (#51 on #50, PASS ff6b511): `hooks/waiting-signal.sh` plus `src/shared/waiting-signal.sh`, `_SPECS` (ten entries), doctor `waiting_signal_registered`, the hook_toolchain line names tmux, REIN_TC_TMUX is recorded by the installer (addendum 1), and the tmux target comes from the launch record (addendum 2: optional `tmux_socket`/`tmux_pane` keys, `launch-record.py tmux-target`). Also app-contract §6 and pane-options.json. Two security_engineer passes, both SEC_CLEARED; T-WAITSIG-001 is recorded in THREAT_MODEL. test_lines budget set by D-162 to 44481, the value the final run measured.
+- E-434 (#52 on #51, PASS a611609): `_start_pane_idle` (shell in the foreground and no child process). A busy live pane gets the busy line; a new pane that never idles gets `[START_PANE_NOT_READY]` and exit 2. Rows fail on the pre-fix rein (7) and pass with it (190/0).
+- E-430 (#53 on #52, PASS 9138de1): the session-start and run_handover triggers, all the removals, and the text updates. The tracked `.claude` mirrors were brought to `src` by hand. The canonical skill count is now 41.
+
+### Decisions made
+- D-159 addendum 1, D-160 addenda 1–2, D-161, D-162 are yours; I carried each to the branch that needed it.
+
+### Blueprint divergence (if any)
+- E-433: the PostToolUse fast path is "no id file for any pane". Stop, UserPromptSubmit and PermissionDenied always take the full path, because pane-digit id files can collide across tmux servers (second security pass, P3-1). The helper never creates `~/.rein/run`: a `run/` made at the umask would send every session's role walk to the union.
+- E-430: `.claude` mirrors were synced by copy plus manifest hash, because `rein sync` from the installed copy was not available to me.
+- E-430 is rebuilt on E-434 (the old local history was never pushed), so the merge order is #49 → #50 → #51 → #52 → #53.
+
+### Next action needed
+- Operator: check out **e-430-digest-triggers** (it contains all five tasks) and run `bash install-rein.sh && rein sync`. That makes the E-429/E-430 install clauses true and clears the hooks_surface T-5 row. Then one live `rein start` run for E-433 clause (8): `tmux list-panes -a -F '#{@rein_role}|#{@rein_waiting}'` while a permission prompt is open and again after approval, plus what the four undocumented points show. Merge #49 → #53 in order.
+- Architect: review. The tasks go DONE through rein-task after their merges; E-433 also needs clause 8.
+
+### Open risks
+- `.ai/providers.json`, `.ai/roles.json` and `*.pre-0.5.0.json` are still uncommitted in the working tree. They are not mine or yours; the operator decides.
+- The rein-migration skill reads "^- Schema" from DIGEST.md, which the generated digest does not carry, so it always prints "(unknown)".
+---

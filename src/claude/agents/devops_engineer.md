@@ -46,5 +46,5 @@ config, check with human — this is a CI Gate event.
 Record in .ai/DECISIONS.md if the pipeline choice is non-trivial.
 
 ## After writing
-Append to .ai/DIGEST.md:
-- YYYY-MM-DD: DEVOPS.md updated — <key change>
+Append to .ai/LOG.md (DIGEST.md is a generated view — never write it, D-159):
+- YYYY-MM-DD | devops_engineer | DEVOPS.md updated — <key change>

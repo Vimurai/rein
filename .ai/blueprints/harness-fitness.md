@@ -77,7 +77,8 @@ dirtied (D-147 r1), so a rebuilt digest rides it with no skill change to the com
 **Removed in the same change (no dormant code):** the digest append and the stale banner in
 `hooks/stop-hook.sh`; the `digest_stale` and `digest_stale_reason` meta keys and their readers
 and writers; the skills `rein-digest` and `digest_updater` (registered in
-`src/shared/legacy-registry.mjs` so `rein sync` removes installed copies); every agent or
+`src/config/legacy-artefacts.json`, which `src/shared/legacy-registry.mjs` loads, so
+`rein sync` removes installed copies — D-159 addendum 1); every agent or
 skill instruction that appends to `DIGEST.md` (the `SECURITY.md updated` lines came from one).
 `rein-preflight` says the digest is generated and drops its "stale after 3 days" text;
 `.claude/rules/ai-bookkeeping.md` lists `DIGEST.md` beside `TASKS.md` as a generated view.

@@ -2,7 +2,7 @@
 # cli_test.sh — Core `rein` CLI command tests (E-34 — collapsed surface)
 # After the cli-collapse, the only user-facing commands are: install, init,
 # sync, doctor, uninstall, version, help. Removed commands (update, preflight,
-# review, test, archive, digest, where, onboard) emit a deprecation message
+# review, test, archive, where, onboard) emit a deprecation message
 # pointing to the equivalent agent skill and exit 1.
 set -uo pipefail
 

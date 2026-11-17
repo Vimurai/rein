@@ -99,7 +99,7 @@ usage() {
 rein — Rein v${VERSION}
 
 The shell CLI is a thin bootloader. Operational commands (planning, review,
-testing, archive, digest) now run as prompts inside Claude Code.
+testing, archive) now run as prompts inside Claude Code.
 See .ai/blueprints/cli-collapse.md for the migration map.
 
 Commands:
@@ -164,6 +164,9 @@ Commands:
                  with a throwaway HOME; exit 0 PASS / 1 FAIL / 2 ERROR
   rein ci status [--ref <sha>] [--short] | rein ci list [-n N] | rein ci log [<sha>] [--failed]
                  Read the recorded local CI runs (.ai/state.sqlite ci_runs)
+  rein digest build | check
+                 .ai/DIGEST.md is a generated view (D-159): build rewrites it from the
+                 tracked inputs when they changed; check exits 1 [DIGEST_STALE] when stale
   rein clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]
                  List (and, with --apply, remove) what earlier Rein versions left
                  behind. Dry run by default; removals move to ~/.rein/trash/<date>/
@@ -190,7 +193,6 @@ Commands:
 Removed — use the agent skill instead (see .ai/blueprints/cli-collapse.md):
   update / onboard → Run 'rein start', type the planning request in the Architect pane
   preflight        → skill: rein-preflight  (auto-runs at session start)
-  digest           → skill: rein-digest
   archive          → skill: rein-archive
   review           → skill: rein-review (Engineer) / skill: arch-review (Architect)
   test [--vibe]    → skill: rein-test  (--generate | --fast | --vibe)
@@ -1314,6 +1316,20 @@ _doctor_comm_report() {
     tracked)       _dr comm_channel - "  ✓ tracked and committed" ;;
     absent)        _dr comm_channel - "  ✓ no handoff written yet" ;;
     *)             _dr comm_channel ok "  - not a git work tree" ;;
+  esac
+}
+
+# E-429 (D-159 r6, harness-fitness.md §API): the digest record. Stale or unreadable inputs
+# warn; the builder is the fix. Never a hard fail.
+_doctor_digest_report() {
+  local dg out
+  dg="$(_rein_helper shared/digest-build.mjs || true)"
+  [[ -n "$dg" ]] || { _dr digest - "  ! digest-build.mjs not installed — $(_rein_fix_install)"; return 0; }
+  out="$(node --no-warnings "$dg" check "$PWD" 2>/dev/null | head -1)"
+  case "$out" in
+    "[DIGEST_OK]"*) _dr digest - "  ✓ ${out}" ;;
+    "")             _dr digest warn "  ⚠ [DIGEST_STALE] check printed nothing — run: rein digest build" ;;
+    *)              _dr digest warn "  ⚠ ${out}" ;;
   esac
 }
 
@@ -4143,6 +4159,11 @@ _doctor_text() {
 
     echo "Handoff channel (.ai/COMM.md):"
     _doctor_comm_report
+    echo ""
+
+    # E-429 (D-159 r6): a stale digest is a warning, never a hard fail.
+    echo "Digest (.ai/DIGEST.md):"
+    _doctor_digest_report
     echo ""
 
     # E-372 (D-123) / E-379 (D-130): privacy. The automated writers redact what they write into
@@ -7035,6 +7056,15 @@ case "$cmd" in
     do_account "${@:2}" ;;
   # E-265 (D-072, local-ci.md): local CI — tests a committed sha in an isolated worktree.
   ci)            do_ci "${@:2}" ;;
+  # E-429 (D-159 r1-r2, harness-fitness.md §Component 1): the digest is built, never written by hand.
+  digest)
+    _dg="$(_rein_helper shared/digest-build.mjs || true)"
+    [[ -n "$_dg" ]] || { echo "rein digest: digest-build.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
+    command -v node >/dev/null 2>&1 || { echo "rein digest: node not found" >&2; exit 1; }
+    case "${2:-}" in
+      build|check) node --no-warnings "$_dg" "$2" "$PWD" ;;
+      *) echo "usage: rein digest build | check" >&2; exit 2 ;;
+    esac ;;
   # E-417 (D-155 r1): build a release artifact's stage from the clone this rein belongs to.
   release)       do_release "${@:2}" ;;
   # E-272 (D-074, version-lifecycle.md §Component 4): remove what earlier versions left
@@ -7057,7 +7087,6 @@ case "$cmd" in
   # Deprecated user surface — removed, see .ai/blueprints/cli-collapse.md
   update|onboard) _show_deprecated "$cmd" "Run 'rein start' and type the planning request in the Architect pane." ;;
   preflight)     _show_deprecated "preflight" "skill: rein-preflight  (auto-runs at every session start)" ;;
-  digest)        _show_deprecated "digest" "skill: rein-digest" ;;
   archive)       _show_deprecated "archive" "skill: rein-archive" ;;
   review)        _show_deprecated "review" "skill: arch-review  (Architect codebase audit; the old review skill was renamed in E-147)" ;;
   test)          _show_deprecated "test" "skill: rein-test  (use --vibe arg inside the skill for chaos audit)" ;;

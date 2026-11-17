@@ -130,7 +130,7 @@ paths. An app writes no file inside a project. The accept/refuse cases are
 
 ## 4. Headless entry points
 
-These eight stay stable. Flags may be added, never removed, inside a major version (the minor,
+These nine stay stable (`rein digest` joined in 0.5.x, D-159). Flags may be added, never removed, inside a major version (the minor,
 before 1.0.0). The flags each one documents today are pinned in
 [`cli-surface.json`](../tests/fixtures/release/cli-surface.json), and Rein's CI fails when one
 disappears from `rein help`.
@@ -145,6 +145,7 @@ disappears from `rein help`.
 | `rein pane <architect\|engineer>` | Bind a pane to a role — the only way a role is bound; an app never mints a role token |
 | `rein account list\|add\|remove\|sync` | The Claude account registry ([Accounts](accounts.md)) |
 | `rein gate on\|status` | The safe-exec gate override's state (`off` is the operator's, in their own terminal) |
+| `rein digest build\|check` | Rebuild `.ai/DIGEST.md` from its tracked inputs, or exit 1 `[DIGEST_STALE]` when it is out of date |
 
 ## 5. The doctor document
 

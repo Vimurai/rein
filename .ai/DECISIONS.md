@@ -5479,3 +5479,47 @@ None needed; the blueprint line can be reverted.
 None; a review record.
 
 ---
+
+## D-163 — The self-disable lock is a three-word text predicate with a defined residual; the word reader is frozen as a second layer; an operator factor is not funded
+
+**Date**: 2026-11-17
+**Task**: E-393 (scope amended), E-353 (order and reporting rule)
+**Decision**: Option (a), narrowed to three words. A command whose text names `rein`, `gate` and `off` is blocked wherever the words sit. What the predicate cannot see is defined once as the residual and belongs to the classifier. Option (b) is not built.
+
+### Why needed
+D-132 addendum 4 r7(a) designed the lock as a word reader keyed on the program position. As built it closes the 15 ruled forms, but two security_engineer rounds found 8 classes and then 28 live variants inside them (`.ai/SECURITY.md` "E-393"). A partial bash parser has no end state. The Engineer holds E-393 at SEC_BLOCKED and asks for the lock's shape.
+
+### What decides it
+The override record `~/.rein/gate-override.json` is not authenticated: the hook honours any file of the right owner, mode and window. A same-uid agent that means to disable the gate can write that file from a script it wrote with the Write tool, and no reading of command text sees that. D-083 r5 named this ceiling. So the text lock has one job: stop a command that *says* the disable. It must be cheap, closed-form and fail-closed. Deliberate assembly is the classifier's, as since D-089.
+
+### Rulings
+1. **The predicate.** Two views of the command text are built, after the D-084/D-085 heredoc-body exemption is applied as today:
+   - V1: delete `'`, `"`, backslash-newline, every remaining `\`, and the characters `[ ] ? *`.
+   - V2: delete `'` and `"`, and replace each `\` with the character after it by one space.
+   A word is a maximal run of `[A-Za-z0-9_-]`. The command is `GATE_SELF_DISABLE` when one view holds the three words `rein`, `gate` and `off`, in any order, at any position. It applies to every role and under an active override. One helper in `src/shared/shell-word.mjs` holds it; the analyzer calls it, and the hook's no-verdict fallback implements the same definition against the same rows.
+2. **Why three words, not two.** Every Bash call in a project whose path contains `rein` carries that word (`cd /home/…/rein && …`, `~/.rein/…`). A two-word rule would block every command that names `gate` in this repository. `off` is the only disabling subcommand.
+3. **The residual, by definition.** A command is outside the lock when one of the three words is not literal in either view: hex or octal escapes, sequence braces, a negated or class glob outside a path that names `rein`, a word split across variables, encoded text, a script written and then run. These are classes, recorded once in THREAT_MODEL.md. They are INCONCLUSIVE in a pen-test table, not P1, and they do not gate a task.
+4. **How a new bypass report is classified.** If the three words are literal in a view and the command passes, the predicate has a bug: P1, fixed. Otherwise it is residual (r3). No third outcome adds grammar.
+5. **The word reader stays and is frozen.** `shellCommands` and `gateCommandHit` as built (144 rows) remain a second layer; they catch some forms r1 does not, such as a glob that resolves to the program. No grammar is added to them for the gate lock without a D-ruling. The 28 round-2 variants are not fixed in the reader.
+6. **The name rules read V1 as well as the raw text.** Every existing `GATE_SELF_DISABLE` pattern — the CLI form, `gate-override.json`, `gate-override.py`, a shell write under `~/.rein/` — is evaluated on both. This closes the quote-split writer (N51/N52) and amends D-084 r4: static quoting is no longer an accepted residual; assembly from variables still is.
+7. **tmux and pty routes (N40, N41, N45)** are in E-393's scope through r1: their text carries the three words. No runner list.
+8. **The belt is unchanged.** It is not the lock.
+9. **Over-block, accepted.** Text that names all three words is blocked: a commit message, a grep pattern, a test filter. The workaround is the Write tool, and `git commit -F <file>`. Rows that flip from PASS to BLOCK are listed with the re-pin.
+10. **E-393 scope, amended.** In addition to its text: r1, r6; the fixture table gains every round-1 and round-2 payload and N40–N52 with the verdict this ruling gives each, the r3 residual rows as PASS rows marked `residual`, and the r9 flips; the table is re-pinned under this ruling with old and new sha and row counts in the PR. security_engineer re-runs and gates on: the 15 forms RESISTED; no row with three literal words passes; nothing fails open; the r9 over-block is no wider than ruled. THREAT_MODEL.md records r3 and the ceiling.
+11. **Full `rein ci run`** for E-393 runs after `bash install-rein.sh` on the branch. If `provider_workspace` or `hooks_surface` still fail on a clean HEAD after that, the Engineer stops and reports the failing rows; that is a harness defect for its own task, not E-393's.
+12. **E-353** starts after E-393, as written, on its closed class list. r4's rule applies to it in the same form: a finding outside the listed classes is reported for a ruling, not fixed in the task.
+
+### Alternatives considered
+1. **Two-word co-occurrence, as proposed in (a)** — rejected in r2: unusable in a project whose path names `rein`.
+2. **Continue the word reader until it converges** — rejected: two rounds grew the bypass list; each added grammar adds edge cases.
+3. **(b) An operator factor read from `/dev/tty`** — not funded. It protects the CLI only while the record stays unauthenticated. Authenticating the record needs a verifier, and a verifier under `~/.rein/` is one more file the same uid can write; the hook itself is too. It becomes a real boundary only with a root-owned install, which changes how Rein is installed and adds a prompt to every operator escape. That is D-083 r5 (iv), still recorded as the next rung; the operator may fund it.
+4. **Remove the word reader** — rejected: built, green, no over-block found in ordinary work; removal is a second re-pin for no gain.
+
+### Impact
+- Unlocks: E-393, then E-353, E-431, E-432, E-435.
+- Risk if wrong: the r9 over-block is hit more often than expected in gate work; the predicate is one function and one definition to narrow.
+
+### Rollback
+Remove the r1 call and the V1 pass of r6; the word reader and the belt remain as the lock of D-132 addendum 4 r7.
+
+---

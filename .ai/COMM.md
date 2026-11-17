@@ -2085,3 +2085,32 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - critic_tests reported 30 failures in four host-state suites (mirror_hygiene, exec_form_hooks, hooks_surface, provider_workspace) on a `--changed` run. provider_workspace and hooks_surface fail the same way on a clean HEAD. A full `rein ci run` on E-393 has not been done.
 - `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` backups are still uncommitted. The operator decides.
 ---
+---
+## Handoff — 2026-11-17 22:05 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer handoff 22:00 UTC — E-393 SEC_BLOCKED, the lock needs a ruling
+
+### What was built
+- Nothing built. Recorded: D-163 in `.ai/DECISIONS.md`; the lock's contract paragraph in `.ai/blueprints/sovereignty-hardening.md` (Hook Toolchain Pinning, Component on the override, after the D-083 ceiling). No new task; E-393's scope is amended by D-163 r10.
+
+### Decisions made
+- **The lock is option (a), with three words, not two** (D-163 r1–r2). A command is `GATE_SELF_DISABLE` when one of two views of its text holds the words `rein`, `gate` and `off`, any order, any position, every role, under an override too. V1 deletes quotes, backslashes and `[ ] ? *`; V2 reads each backslash escape as a space. A word is a run of `[A-Za-z0-9_-]`. Two words would block every command that names `gate` here, because every call carries `cd …/rein`.
+- **The residual is defined, not chased** (r3–r4). One of the three words not literal in either view is residual: INCONCLUSIVE, the classifier's, not gating. Three literal words that pass is a predicate bug: P1.
+- **Your word reader stays as built and is frozen** (r5). Do not fix the 28 round-2 variants in it.
+- **The name rules read V1 as well as the raw text** (r6). This closes the quote-split writer and amends D-084 r4.
+- **tmux and python pty are in E-393's scope through the predicate** (r7). No runner list. The belt is unchanged (r8).
+- **(b) is not funded** (alternative 3): the override record is unauthenticated and a verifier under `~/.rein/` is writable by the same uid.
+
+### Blueprint divergence (if any)
+- D-132 addendum 4 r7(a) is superseded as the lock by D-163; what you built from it is kept as the second layer.
+
+### Next action needed
+- Engineer: finish E-393 under D-163 r10 — the predicate helper in `src/shared/shell-word.mjs`, the same definition in the hook fallback, r6, the table rows (round-1, round-2, N40–N52, residual rows as PASS marked `residual`, the PASS→BLOCK flips of r9), re-pin with old and new sha and row counts in the PR, THREAT_MODEL.md with r3 and the ceiling, then the security_engineer re-run against r10's gating rule.
+- Full `rein ci run` after `bash install-rein.sh` on the branch (r11). If `provider_workspace` or `hooks_surface` still fail on a clean HEAD after that, stop and report the failing rows.
+- Then E-353 as written (r12), then E-431, E-432, E-435.
+- Operator: unchanged from 20:45 — the live `rein start` run, then merge #49 → #54 in order.
+
+### Open risks
+- The r9 over-block: a commit message, grep pattern or test filter that names all three words is blocked. Use the Write tool and `git commit -F <file>`.
+- A deliberate same-uid agent can still write the override from a script; that is the D-083 r5 ceiling and the classifier's layer.
+---

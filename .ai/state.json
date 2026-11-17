@@ -5693,6 +5693,51 @@
       "summary": "E-437 Tier 1 review: rein-migration SKILL.md + .claude mirror byte-identical; schema injection reads meta.version from state.sqlite read-only (prints 1.0; (unknown) when absent); no code/tests/deps touched; skill_lines suite 207/0. No findings.",
       "sha": "6127b05e7c4060d8381996cb639119715afa4ae8",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_WARN",
+      "agent": "critic_clean_code",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T21:24:39.267Z",
+      "summary": "standards-checker WARN — 2 warnings, 0 errors, 10 files, 13ms (rule_ids: file_size_limit_lines, test_label_density; files: src/mcp/safe-exec-mcp/index.js (769 lines, warn >=500), tests/suites/gate_override_test.sh (40 task-id labels / 39 assertions))",
+      "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T21:24:40.848Z",
+      "summary": "No sovereignty violations (staged diff touches only hooks/, src/, tests/; no architect.md/BRIEF/blueprints). All files trace to E-393 and D-132 addendum 4 r7. Single shared normaliser (src/shared/shell-word.mjs, moved from safe-exec per D-112, no second normaliser), correct directory. Pinned table re-pinned with repinned/repinned_by in rename-map.json per D-089 r5 / addendum 3 r2. Note: PR description must carry old/new sha and row counts; the diff stat I read was not exhaustively line-audited for gate-guard logic (security_engineer owns the A01 payload re-run).",
+      "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "blueprint-aligner",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T21:24:42.886Z",
+      "summary": "align_diff WARN (no violations) on 10 staged files: NO_LOG_UPDATE (LOG.md not updated) + ORPHANED_WORK (pre-tool-use.sh, gate-guard.mjs, shell-word.mjs not named in architect.md)",
+      "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T21:24:52.858Z",
+      "summary": "No P0 (no secrets, no shell injection, no path traversal, no env leakage; shell-word.mjs is a pure string reader). P1: WRAPPERS in gate-guard.mjs is a denylist; ionice/taskset/watch/su -c/script -c/strace/doas/unshare/chronic still miss GATE_SELF_DISABLE (probed), and the TTY/env check in rein do_gate is defeated by script + env -u. Residual to name in the D-132 ruling.",
+      "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-393",
+      "timestamp": "2026-11-17T21:44:29.894Z",
+      "summary": "Fast --changed: 5814 passed/30 failed/25 skipped; all 30 failures in exec_form_hooks, hooks_surface, mirror_hygiene, provider_workspace (host ~/.rein mirror/template dependence, reproduced on clean HEAD worktree, none touch gate code); gate_override/safe_exec/gate tables green. E-393 behaviours each tested at cheapest layer (38 contract rows; bash only for hook/pty boundary); pty tests supply fixture HOME, agent vars stripped. P2: those 4 suites depend on host ~/.rein",
+      "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [
@@ -5772,7 +5817,5 @@
       "read": true,
       "created_at": "2026-06-02 12:38:06"
     }
-  ],
-  "digest_stale": false,
-  "digest_stale_reason": null
+  ]
 }

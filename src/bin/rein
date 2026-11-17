@@ -5190,6 +5190,17 @@ fi
 
 # _start_shell_re — commands that count as "an interactive shell is ready in this pane".
 _START_SHELL_RE='^(-?(ba|z|k|a|da)?sh|fish|login)$'
+# E-434 (D-161, release-artifact.md §Component 8): a pane is IDLE when its shell (#{pane_pid}) is
+# the foreground — pane_current_command is a shell — and has no child process. The command name
+# alone is not the test: `rein pane` is itself a bash script, so a pane where it is starting (or
+# running `bash -c …`) reads as `bash`. Status only; prints nothing.
+_start_pane_idle() {  # <pane>
+  local info pid cur
+  info="$(tmux display-message -p -t "$1" '#{pane_pid} #{pane_current_command}' 2>/dev/null)" || return 1
+  read -r pid cur <<< "$info"
+  [[ "$pid" =~ ^[0-9]+$ && "$cur" =~ $_START_SHELL_RE ]] || return 1
+  ! ps -A -o ppid= 2>/dev/null | awk -v p="$pid" '$1 == p { f = 1 } END { exit !f }'
+}
 
 # _start_config — read and VALIDATE .ai/start.json, printing "session|layout|main|account"
 # (account empty = default; E-315, accounts.md §2). E-333 (D-102 §8): a gitignored
@@ -5575,14 +5586,23 @@ do_start() {
       return 2
     fi
     if [[ "$dry" -eq 0 ]]; then
-      # Wait for the prompt before sending: keys delivered to a pane whose shell has not
-      # finished starting are simply lost, and a fixed sleep is a bet on machine speed.
+      # E-434 (D-161): keys go only to an IDLE pane (_start_pane_idle). A pane this run created
+      # gets up to 5 s to reach its prompt — keys sent to a shell still starting are lost — and
+      # is never sent into an unknown foreground after that. A live pane is checked once: busy
+      # means its agent is running, and typing into it would type into the agent.
       local w=0 cur
-      while [[ "$w" -lt 100 ]]; do
+      if [[ "$existing" -eq 0 ]]; then
+        while [[ "$w" -lt 100 ]] && ! _start_pane_idle "$pane"; do sleep 0.05; w=$((w + 1)); done
+        if ! _start_pane_idle "$pane"; then
+          echo "[START_PANE_NOT_READY] ${r} — the new pane did not reach an idle shell in 5 s; in that pane run: rein pane ${r}" >&2
+          return 2
+        fi
+      elif ! _start_pane_idle "$pane"; then
         cur="$(tmux display-message -p -t "$pane" '#{pane_current_command}' 2>/dev/null || true)"
-        [[ "$cur" =~ $_START_SHELL_RE ]] && break
-        sleep 0.05; w=$((w + 1))
-      done
+        echo "rein start: ${r} pane is busy (${cur:-unknown}) — not re-sent"
+        idx=$((idx + 1))
+        continue
+      fi
     fi
     _run send-keys -t "$pane" "rein pane ${r}" C-m
     idx=$((idx + 1))

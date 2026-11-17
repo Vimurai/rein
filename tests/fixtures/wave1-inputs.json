@@ -290,7 +290,7 @@
 {"mode":"--check","input":"git checkout -q -b engineer/e291-gate-override && git add hooks/pre-tool-use.sh src/shared/gate-override.py","verdict":"pass","class":"table","from":["gate_override"]},
 {"mode":"--check","input":"git checkout desk-sk-refactor","verdict":"pass","class":"table","from":["safe_exec"]},
 {"mode":"--check","input":"git clone https://ghp_FAKE00000000000000000000000000@github.com/o/r","verdict":"BLOCK","class":"table","from":["safe_exec"]},
-{"mode":"--check","input":"git commit -m 'rein gate off is operator-only'","verdict":"pass","class":"table","from":["gate_override"]},
+{"mode":"--check","input":"git commit -m 'rein gate off is operator-only'","verdict":"pass","class":"table","from":["gate_override"],"reverdict":"BLOCK","reverdict_by":"D-163 r9 (E-393): text naming rein, gate and off on one line is blocked"},
 {"mode":"--check","input":"git commit -m 'Secret Rule Precision (E-287)'","verdict":"pass","class":"table","from":["safe_exec"]},
 {"mode":"--check","input":"git commit -m \"a\n\nb > c\"","verdict":"pass","class":"table","from":["architect_write_gate"]},
 {"mode":"--check","input":"git commit -m \"chore: x\n\npipe | and > in the body\"","verdict":"pass","class":"table","from":["architect_write_gate"]},

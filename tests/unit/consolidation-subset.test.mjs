@@ -60,9 +60,13 @@ test("the classes partition the set: table or boundary:<suite> with a context, n
   }
 });
 
+// A later ruling may change a recorded verdict on purpose (`reverdict`, with the ruling in
+// `reverdict_by`, e.g. D-163 r9 for E-393). The recorded triple stays as history; the carrying row
+// must then hold the ruled verdict.
 for (const r of rows.filter((x) => x.class === "table")) {
-  test(`table ${r.mode} ${r.verdict}: ${r.input.slice(0, 80)}`, () => {
-    assert.ok(carried[r.mode].has(JSON.stringify([r.input, r.verdict])),
+  test(`table ${r.mode} ${r.verdict}${r.reverdict ? ` → ${r.reverdict}` : ""}: ${r.input.slice(0, 80)}`, () => {
+    if (r.reverdict) assert.ok(r.reverdict_by, `a re-verdict names its ruling: ${r.input}`);
+    assert.ok(carried[r.mode].has(JSON.stringify([r.input, r.reverdict ?? r.verdict])),
       `no ${MODE_TABLES[r.mode].join("/")} row carries it (from ${r.from.join(", ")})`);
   });
 }

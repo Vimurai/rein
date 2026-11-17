@@ -31,6 +31,41 @@ test("the table carries every grade (it cannot pass empty)", () => {
 });
 for (const c of cases) test(`${c.want}: ${c.label}`, () => assert.equal(grade(c.line, c.strict), c.want, c.line));
 
+// ── E-428: file-aware rows (extends the table above; graded through classifyDiffTraversal,
+// the function run_review calls). A test file's traversal is advisory; a reasoned
+// `rein:allow PATH_TRAVERSAL` marker suppresses and is reported; strict ignores both. ──
+const { classifyDiffTraversal } = await import(resolve(repo, "src/shared/traversal-policy.mjs"));
+const fileCases = JSON.parse(readFileSync(resolve(repo, "tests/fixtures/traversal-file-cases.json"), "utf8"));
+const oneLineDiff = (file, line) => `+++ b/${file}\n@@ -0,0 +1,1 @@\n${line}\n`;
+const notMarkdown = () => { throw new Error("not read for non-markdown files"); };
+test("the file table carries every grade (it cannot pass empty)", () => {
+  for (const want of ["P0", "P1", "none"]) assert.ok(fileCases.some((c) => c.want === want), want);
+});
+for (const c of fileCases) test(`${c.want}: ${c.label}`, () => {
+  const { traversal, suppressed } = classifyDiffTraversal(oneLineDiff(c.file, c.line), { strict: !!c.strict, readFile: notMarkdown });
+  assert.equal(traversal?.severity ?? "none", c.want, `${c.file}: ${c.line}`);
+  if (c.reason) assert.deepEqual(suppressed, [{ file: c.file, line: 1, reason: c.reason }]);
+  else assert.deepEqual(suppressed, []);
+});
+test("E-428.06: a P0 later in the diff still governs after a suppression and an advisory", () => {
+  // Rows from the table (the literals stay in JSON, which the review gate reads as data):
+  // a reasoned marker, a test-file advisory, then a src/ P0 — in that order.
+  const row = (prefix) => fileCases.find((c) => !c.strict && c.label.startsWith(prefix));
+  const [marked, advisory, blocking] = [row("E-428.04"), row("E-428.01"), row("E-428.02")];
+  const diff = [marked, advisory, blocking].map((c) => oneLineDiff(c.file, c.line)).join("");
+  const { traversal, suppressed } = classifyDiffTraversal(diff, { readFile: notMarkdown });
+  assert.equal(traversal.severity, "P0");
+  assert.equal(traversal.file, blocking.file);
+  assert.equal(suppressed.length, 1);
+});
+// The blueprint-aligner's CAPABILITIES_BYPASS rule shares isTestFile and the marker: a row
+// that blocks in run_review (P0) is flagged there, every other non-strict row is not.
+const { capabilitiesBypassMatches } = await import(resolve(repo, "src/mcp/blueprint-aligner-mcp/index.js"));
+for (const c of fileCases.filter((r) => !r.strict)) test(`aligner ${c.want === "P0" ? "flags" : "allows"}: ${c.label}`, () =>
+  assert.equal(capabilitiesBypassMatches(oneLineDiff(c.file, c.line)).length > 0, c.want === "P0", `${c.file}: ${c.line}`));
+test("E-428.07: run_review reports every suppression with its reason", () =>
+  assert.match(ORCH, /id: "TRAVERSAL_SUPPRESSED"[\s\S]{0,200}s\.reason/));
+
 // ── E-222.5: the rollback flag restores the flat regex (05a is a table row) ──
 test("E-222.05b: run_review reads REIN_REVIEW_STRICT_TRAVERSAL", () => assert.match(ORCH, /REIN_REVIEW_STRICT_TRAVERSAL/));
 

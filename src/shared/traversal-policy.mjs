@@ -88,7 +88,56 @@ const RUNTIME_P0 = /(\/etc\/|\/root\/)/;
  */
 const WHOLE_LINE_COMMENT = /^\+?\s*(\/\/|#|\*|\/\*|<!--)/;
 
+/**
+ * E-428: test files. A hostile-input literal (`"../../etc/passwd"`) or a relative mock
+ * (`vi.mock("../..")`) is what a test of path handling is MADE of; blocking it pushed a
+ * downstream project to obfuscate its tests, which hides exactly what a reviewer should
+ * read. A test file's traversal is graded advisory (P1, still reported), never P0.
+ * Non-test source is graded as before — an fs/path sink there is never exempt.
+ *
+ * Matched per path SEGMENT, so `src/tests_util.js` or `contests/x.js` is not a test file.
+ *
+ * Nothing under tests/fixtures/ is a test file here: D-116 r2 (E-363) pins that a script
+ * there is still graded — only its inert `*-cases.json` tables are data
+ * (isInertInputTable in markdown-exec.mjs). A fixture is input other code consumes, not a
+ * test, so the E-428 exemption does not reach it.
+ */
+const TEST_FILE = [
+  /(^|\/)(tests|__tests__|testdata)\//,
+  /_test\.go$/,
+  /\.test\.(js|jsx|ts|tsx|mjs|cjs)$/,
+];
+const FIXTURES = /^(\.\/)?tests\/fixtures\//;
+
+export function isTestFile(path) {
+  const p = String(path ?? "");
+  return !FIXTURES.test(p) && TEST_FILE.some((re) => re.test(p));
+}
+
+/**
+ * E-428: inline suppression, `rein:allow PATH_TRAVERSAL <reason>` on the line itself.
+ * The reason is mandatory: a marker without one suppresses nothing. A suppression is
+ * never silent — `classifyDiffTraversal` returns every one so the review lists it.
+ */
+const ALLOW_MARKER = /rein:allow\s+PATH_TRAVERSAL\b(.*)$/;
+
+export function allowMarker(line) {
+  const m = ALLOW_MARKER.exec(String(line ?? ""));
+  if (!m) return null;
+  const reason = m[1].replace(/(\*\/|-->)\s*$/, "").trim();
+  return { reason: /\w/.test(reason) ? reason : "" };
+}
+
 export function classifyTraversalLine(line, { strict = false } = {}) {
+  const v = gradeLine(line, { strict });
+  if (strict || !v.severity) return v;
+  const marker = allowMarker(line);
+  if (!marker) return v;
+  if (marker.reason) return { severity: null, detail: v.detail, suppressed: marker.reason };
+  return { ...v, detail: `${v.detail}  (rein:allow marker has no reason — not honoured)` };
+}
+
+function gradeLine(line, { strict = false } = {}) {
   const text = String(line ?? "");
   const detail = text.trim().slice(0, 80);
 
@@ -143,7 +192,10 @@ export function classifyTraversal(diff, { strict = false } = {}) {
  * @param {{ strict?: boolean, readFile: (relPath: string) => string }} opts
  *   `readFile` must throw for a path it cannot read; unreadable files are graded in full
  *   (fail closed — an unclassifiable file must not become an exempt one).
- * @returns {{ traversal: object|null, proseExec: string[] }}
+ * @returns {{ traversal: object|null, proseExec: string[],
+ *            suppressed: Array<{file: string, line: number, reason: string}> }}
+ *   `suppressed` lists every line a reasoned `rein:allow PATH_TRAVERSAL` marker excused
+ *   (E-428) — the review prints it, so a suppression is auditable.
  */
 export function classifyDiffTraversal(diff, { strict = false, readFile } = {}) {
   const cache = new Map();
@@ -159,6 +211,7 @@ export function classifyDiffTraversal(diff, { strict = false, readFile } = {}) {
 
   let worst = null;
   const proseExec = [];
+  const suppressed = [];
   for (const { file, line, text } of addedLines(diff)) {
     const isMd = file.endsWith(".md");
     if ((isGeneratedRecord(file) || isInertInputTable(file)) && !strict) continue;   // records and contract tables are data (E-224, E-363)
@@ -169,9 +222,13 @@ export function classifyDiffTraversal(diff, { strict = false, readFile } = {}) {
     }
     if (isMd && isProseOnlyFile(file) && /^\+\s*!/.test(text)) proseExec.push(`${file}:${line}`);
     if (!grade) continue;
-    const v = classifyTraversalLine(text, { strict });
-    if (v.severity === "P0") { worst = { ...v, file, line }; break; }
+    let v = classifyTraversalLine(text, { strict });
+    if (v.suppressed) { suppressed.push({ file, line, reason: v.suppressed }); continue; }
+    if (v.severity === "P0" && !strict && isTestFile(file)) v = { ...v, severity: "P1", anchor: "test file" };
+    // No early exit on the first P0: the scan keeps collecting suppressions and prose
+    // lines so the report is complete. The FIRST P0 stays the one reported.
+    if (v.severity === "P0" && worst?.severity !== "P0") worst = { ...v, file, line };
     if (v.severity === "P1" && !worst) worst = { ...v, file, line };
   }
-  return { traversal: worst, proseExec };
+  return { traversal: worst, proseExec, suppressed };
 }

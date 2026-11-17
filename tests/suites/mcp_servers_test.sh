@@ -954,20 +954,9 @@ test_capabilities_bypass_file() {
   local label="$1" file="$2" line="$3" expect="$4"
   local result
   result=$(node --input-type=module -e "
-import { parseDiffByFile, isMarkdownFile, isTestHelperFile } from '${ALIGNER_MODULE}';
+import { capabilitiesBypassMatches } from '${ALIGNER_MODULE}';
 const diff = '+++ b/${file}\n@@ -0,0 +1 @@\n${line//\'/\\\'}';
-const traversalRe       = /(?:\.\.\/|\/etc\/|\/root\/|\/home\/\\w+\/\.)/;
-const moduleSpecifierRe = /(?:from|require|import)\s*\(?\s*([\"'])\.\.\/[^\"']*\1/;
-const matches = [];
-for (const [f, lines] of parseDiffByFile(diff)) {
-  if (isMarkdownFile(f)) continue;
-  if (isTestHelperFile(f)) continue;
-  for (const l of lines) {
-    if (!traversalRe.test(l)) continue;
-    if (moduleSpecifierRe.test(l)) continue;
-    matches.push(l);
-  }
-}
+const matches = capabilitiesBypassMatches(diff);   // E-428: the shipped loop, not a copy of it
 process.stdout.write(matches.length > 0 ? 'flag' : 'allow');
 " 2>/dev/null || echo "error")
   if [[ "$result" == "$expect" ]]; then

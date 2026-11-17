@@ -173,7 +173,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // decides per line, and non-markdown files are graded in full as before.
       const strictTraversal = process.env.REIN_REVIEW_STRICT_TRAVERSAL === "1";
       const { classifyDiffTraversal } = await loadPolicy("traversal-policy");
-      const { traversal, proseExec } = classifyDiffTraversal(diff, {
+      const { traversal, proseExec, suppressed = [] } = classifyDiffTraversal(diff, {
         strict: strictTraversal,
         readFile: (f) => readFileSync(resolve(cwd, f), "utf8"),
       });
@@ -185,6 +185,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           detail: traversal.anchor
             ? `${traversal.file}:${traversal.line} ${traversal.detail}  (anchored to ${traversal.anchor} — advisory)`
             : `${traversal.file}:${traversal.line} ${traversal.detail}`,
+        });
+      }
+      // E-428: a reasoned `rein:allow PATH_TRAVERSAL` marker lifts the block, never the
+      // report — every suppression is listed with its reason so a reviewer can audit it.
+      if (suppressed.length > 0) {
+        checks.push({
+          id: "TRAVERSAL_SUPPRESSED",
+          severity: "P2",
+          status: "INFO",
+          detail: suppressed.map((s) => `${s.file}:${s.line} (${s.reason})`).join("; "),
         });
       }
       if (proseExec.length > 0) {

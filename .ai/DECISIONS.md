@@ -5430,5 +5430,24 @@ Composition, measured by the Architect (`git diff --numstat main HEAD -- tests` 
 
 ### Rollback
 `rein ci budget set --ruling D-162 test_lines=43381`.
+## D-159 addendum 1 — E-430: the retired digest skills are registered in `src/config/legacy-artefacts.json`; the acceptance grep excludes that file
+
+**Date**: 2026-11-17
+**Task**: E-430
+**Decision**: The Engineer's divergence is accepted. E-430 and the blueprint named `src/shared/legacy-registry.mjs` as the place the retired skills `rein-digest` and `digest_updater` are registered; that file is only the loader, and the entries live in `src/config/legacy-artefacts.json`. The acceptance clause now reads: `grep -rn "digest_stale\|digest_updater\|rein-digest" src hooks .claude` finds nothing outside `src/config/legacy-artefacts.json` and `src/shared/legacy-registry.mjs`.
+
+### Why needed
+As written, the clause fails on the file that correctly holds the entries, and the acceptance evaluator of D-159 r9 would report it.
+
+### Alternatives considered
+1. **Move the entries into the loader to satisfy the text** — rejected: it would put data for two skills in code while every other retired artefact is in the JSON.
+2. **Correct the text (chosen)** — the Architect named the wrong file.
+
+### Impact
+- Unlocks: E-430 closes on the corrected clause. No behaviour changes.
+- Risk if wrong: none; the names in the JSON are what lets `rein sync` remove installed copies.
+
+### Rollback
+None needed; the blueprint line can be reverted.
 
 ---

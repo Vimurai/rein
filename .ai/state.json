@@ -1882,6 +1882,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-17T16:51:18.570Z"
+    },
+    {
+      "id": "E-433",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Build the \"waiting on the operator\" pane signal per D-160 and .ai/blueprints/release-artifact.md §Component 7 (events, values, hook rules and the four points to observe live first are there): add src/shared/waiting-signal.sh and hooks/waiting-signal.sh, register the events in _SPECS of src/bin/rein, set and clear `@rein_signals`, `@rein_waiting` and `@rein_waiting_since`, add the doctor check `waiting_signal_registered`, the \"Pane options\" section of docs/app-contract.md and tests/fixtures/release/pane-options.json. Do not edit hooks/pre-tool-use.sh. Run the security_engineer agent on the hook before merge. Order: after E-429 merges, before E-430. Acceptance: (1) the table tests/fixtures/waiting-signal-cases.json, run in a unit suite with a stub `tmux` on PATH, shows the expected set or clear call for every row of the Component 7 event table; (2) the same suite shows empty stdout and exit 0 for every row and for a malformed payload, no TMUX_PANE, a TMUX_PANE that is not `%<digits>`, and no tmux on PATH; (3) a row with a real tmux server on a private socket (`skip_unless_cmd tmux`) runs the hook with a PermissionRequest payload and `tmux list-panes -F '#{@rein_waiting}'` prints `permission`, then an empty line after a Stop payload; (4) `rein sync` in a fixture project writes the entries and `rein doctor --json` there has the check `waiting_signal_registered` with status ok, and warn once the entries are removed; (5) a row fails when the helper can write a value pane-options.json does not list; (6) tests/fixtures/arch-write-cases.json passes byte-identical; (7) a timing row prints the p95 added time per PostToolUse with no wait pending, under 30 ms; (8) LOG.md records one live run in a `rein start` pane: `tmux list-panes -a -F '#{@rein_role}|#{@rein_waiting}'` showed `permission` within 1 s of a permission prompt and an empty value after approval, plus what was observed for the four undocumented points.",
+      "created_at": "2026-11-17T18:25:46.680Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T18:25:46.690Z"
+    },
+    {
+      "id": "E-434",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Fix `rein start` on a live session so it never types into a busy pane, per D-161 and .ai/blueprints/release-artifact.md §Component 8: in the binding loop of src/bin/rein send `rein pane <role>` only to an idle pane (the pane's shell is in the foreground and has no child process); skip a busy pane with the line `rein start: <role> pane is busy (<command>) — not re-sent`; for a pane created by this run that is not idle after the 5 s wait print `[START_PANE_NOT_READY] <role>` with the command to run by hand and exit 2; keep re-pinning the role, account and title options. Write the failing row first (fixture-first). Add one sentence to the `rein start` row of docs/app-contract.md: running it on a live session restarts only the agents that have exited and leaves running ones untouched. Order: after E-433. Acceptance, in a suite row with a real tmux server on a private socket (`skip_unless_cmd tmux`): (1) with a session whose architect pane runs `sleep 300` in the foreground, a second `rein start --detach` leaves that pane's `tmux capture-pane -p` output free of the text `rein pane`, prints the busy line for architect, and exits 0; (2) the same holds when the pane's foreground is a bash script (`bash -c 'sleep 300'`), the case `pane_current_command` reads as a shell; (3) in the same run the engineer pane, left at an idle shell prompt, shows `rein pane engineer` in its capture; (4) `tmux list-panes -F '#{@rein_role}'` still prints both roles after the second run; (5) the row fails on main's src/bin/rein (the text appears in the busy pane).",
+      "created_at": "2026-11-17T18:35:38.056Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-17T18:35:38.068Z"
     }
   ],
   "stamps": [
@@ -5424,6 +5452,87 @@
       "timestamp": "2026-11-17T18:09:06.157Z",
       "summary": "[TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)",
       "sha": "90305b7f20e253b0756ca517f2d11d37579c03b5",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "Engineer",
+      "task_id": "E-429",
+      "timestamp": "2026-11-17T18:22:20.108Z",
+      "summary": "[TIER_2] Blueprint aligned — E-429 digest builder per harness-fitness.md §Component 1",
+      "sha": "fe718d65805d02df656bdf5c0282f96c71c09ed9",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-429",
+      "timestamp": "2026-11-17T18:22:21.006Z",
+      "summary": "[TIER_2] Blueprint aligned — E-429 digest builder per harness-fitness.md §Component 1",
+      "sha": "fe718d65805d02df656bdf5c0282f96c71c09ed9",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "Engineer",
+      "task_id": "E-430",
+      "timestamp": "2026-11-17T18:36:46.939Z",
+      "summary": "[TIER_2] Blueprint aligned — E-430 digest triggers + removal of the model-written path (harness-fitness.md §Component 1)",
+      "sha": "3c78da6158abf8f58a663507a767bddce11e3207",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-430",
+      "timestamp": "2026-11-17T18:36:47.938Z",
+      "summary": "[TIER_2] Blueprint aligned — E-430 digest triggers + removal of the model-written path (harness-fitness.md §Component 1)",
+      "sha": "3c78da6158abf8f58a663507a767bddce11e3207",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "Engineer",
+      "task_id": "E-433",
+      "timestamp": "2026-11-17T18:46:42.422Z",
+      "summary": "[TIER_2] Blueprint aligned — E-433 waiting signal per release-artifact.md §Component 7 + D-160 addendum 1",
+      "sha": "e180f9f33e369a4266a41ddc1067cd4abc43b85b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-433",
+      "timestamp": "2026-11-17T18:46:43.425Z",
+      "summary": "[TIER_2] Blueprint aligned — E-433 waiting signal per release-artifact.md §Component 7 + D-160 addendum 1",
+      "sha": "e180f9f33e369a4266a41ddc1067cd4abc43b85b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-433",
+      "timestamp": "2026-11-17T18:55:32.342Z",
+      "summary": "[TIER_2] E-433 d71bc61: 0 P0/P1, 40 probes 0 EXPLOITED; P2-1 ($TMUX server socket) + P3-6 to Architect; P3-1..5 fixed",
+      "sha": "d71bc6191e229d9886d557898ae5bd4967bd9f97",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-433",
+      "timestamp": "2026-11-17T18:55:33.244Z",
+      "summary": "[TIER_2] Blueprint aligned — E-433 security review P3 fixes",
+      "sha": "d71bc6191e229d9886d557898ae5bd4967bd9f97",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-429",
+      "timestamp": "2026-11-17T18:58:01.273Z",
+      "summary": "[TIER_2] Blueprint aligned — E-429 doctor digest record guarded against errexit",
+      "sha": "bf8ad4f0d943d0fc4c19df3a0e40430a01fe57ca",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

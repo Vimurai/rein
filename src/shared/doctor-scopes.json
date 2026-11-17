@@ -11,6 +11,7 @@
     "comm_channel": "project",
     "copilot_instructions": "project",
     "copilot_md": "host",
+    "digest": "project",
     "gate_dependencies": "install",
     "gate_override": "install",
     "gate_registered": "project",

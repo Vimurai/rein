@@ -4,8 +4,8 @@
     "current_tier": 3,
     "release_verdict": null,
     "focus": "E-391 (hard-cut rename, final run, merge on operator's yes) → tag v0.4.0 → E-393 (CLI_GATE bypasses, P1) → E-385 → E-390 → E-394/E-395 (doctor P3) → E-392 (Windows WSL2 leg) → E-388/E-387",
-    "rein_version": "0.4.0",
-    "provisioned_at": "2026-10-29T14:38:17.775Z"
+    "rein_version": "0.5.0",
+    "provisioned_at": "2026-11-17T16:54:57.703Z"
   },
   "tasks": [
     {
@@ -5406,6 +5406,24 @@
       "timestamp": "2026-11-17T16:39:35.182Z",
       "summary": "[TIER_2] E-428 rebased onto 3fb9253; run_review P1 advisory only",
       "sha": "3fb92531a5f43393cf0dd7c8d9db3465bb869b29",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "Engineer",
+      "task_id": "E-428",
+      "timestamp": "2026-11-17T18:09:06.018Z",
+      "summary": "[TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)",
+      "sha": "90305b7f20e253b0756ca517f2d11d37579c03b5",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "Engineer",
+      "task_id": "E-428",
+      "timestamp": "2026-11-17T18:09:06.157Z",
+      "summary": "[TIER_2] Blueprint aligned — E-428 CodeQL fix (--!> in marker trim)",
+      "sha": "90305b7f20e253b0756ca517f2d11d37579c03b5",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

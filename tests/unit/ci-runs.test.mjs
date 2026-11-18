@@ -178,7 +178,8 @@ test("recordCiRunFromLog: every column populated; a truncated log records ERROR"
     // by a ruling (`rein ci budget set`), never by a run; shard (E-386) is NULL on a full run.
     writeFileSync(p, `${LOG}\n[ci] budget suites=45 test_lines=39444 fast_tier_seconds=37 full_seconds=418 peak_rss_mb=247 peak_sum_rss_mb=2140\n`);
     const row = db.prepare("SELECT * FROM ci_runs WHERE id = ?").get(recordCiRunFromLog(db, p));
-    const empty = Object.entries(row).filter(([k, v]) => v === null && k !== "skip_reason" && k !== "budget_ruling" && k !== "shard").map(([k]) => k);
+    // E-443: budget_ruled_sha, like budget_ruling, is written only by `rein ci budget set`.
+    const empty = Object.entries(row).filter(([k, v]) => v === null && k !== "skip_reason" && k !== "budget_ruling" && k !== "budget_ruled_sha" && k !== "shard").map(([k]) => k);
     assert.deepEqual(empty, [], `unpopulated columns: ${empty}`);
     assert.equal(existsSync(row.log_path), true);
 
@@ -812,6 +813,57 @@ test("E-303: raising the budget needs a D-### ruling, which is written into the 
     assert.equal(cur.best.suites, 46, "the ruling row is the new floor; the lower rows before it no longer count");
     assert.deepEqual(budgetCheck(cur.best, { ...BUDGET, suites: 46 }), []);
     assert.match(budgetSummary(cur), /suites 46.*ruled by D-118 at 9999999/);
+  } finally { done(); }
+});
+
+// E-443 (D-164 addendum 1 r5): a ruled value belongs to a tree. After a ruling, a green run lowers
+// the recorded value only when its commit contains the ruled commit — run 107 of the census
+// (plans/test-census-2026-11.md §2.3) was a branch without E-433 and lowered 44481 to 44144.
+const R = "a".repeat(40), DESC = "d".repeat(40), SIDE = "5".repeat(40), GONE = "0".repeat(40);
+const ancestry = (a, b) => (a === R && b === DESC ? true : a === R && b === SIDE ? false : null);
+const rulingAt = (db, at) => {
+  budgetRow(db, { ...BUDGET, test_lines: 44600 }, { sha: R, started_at: "2026-11-18T09:00:00Z" });
+  budgetSet(db, "D-164", { test_lines: 44481 }, at ? { at } : {});
+};
+test("E-443: a run on a commit that does not contain the ruled commit leaves the value as ruled (census run 107)", () => {
+  const { db, done } = freshDb();
+  try {
+    rulingAt(db, R);
+    budgetRow(db, { ...BUDGET, test_lines: 44144 }, { sha: SIDE, started_at: "2026-11-18T10:00:00Z" });
+    const cur = budgetBest(db, { contains: ancestry });
+    assert.equal(cur.best.test_lines, 44481);
+    assert.equal(cur.rulingSha, R);
+    assert.match(budgetSummary(cur), /test_lines 44481.*ruled by D-164 at aaaaaaa/);
+  } finally { done(); }
+});
+test("E-443: a descendant run with a lower value lowers it, and the line names that run", () => {
+  const { db, done } = freshDb();
+  try {
+    rulingAt(db, R);
+    budgetRow(db, { ...BUDGET, test_lines: 44400 }, { sha: DESC, started_at: "2026-11-18T10:00:00Z" });
+    const cur = budgetBest(db, { contains: ancestry });
+    assert.equal(cur.best.test_lines, 44400);
+    assert.match(budgetSummary(cur), /ruled by D-164 at aaaaaaa \(test_lines 44481\); lowest contained run dddddddd?: test_lines 44400/);
+  } finally { done(); }
+});
+test("E-443: a run whose ancestry cannot be read does not lower it (unknown sha, no git, no reader)", () => {
+  const { db, done } = freshDb();
+  try {
+    rulingAt(db, R);
+    budgetRow(db, { ...BUDGET, test_lines: 44000 }, { sha: GONE, started_at: "2026-11-18T10:00:00Z" });
+    assert.equal(budgetBest(db, { contains: ancestry }).best.test_lines, 44481, "unknown sha");
+    assert.equal(budgetBest(db).best.test_lines, 44481, "no ancestry reader at all");
+  } finally { done(); }
+});
+test("E-443: a ruling row written before E-443 (no recorded commit) reads as its own run's commit", () => {
+  const { db, done } = freshDb();
+  try {
+    rulingAt(db, null);
+    db.prepare("UPDATE ci_runs SET budget_ruled_sha = NULL").run();
+    budgetRow(db, { ...BUDGET, test_lines: 44300 }, { sha: DESC, started_at: "2026-11-18T10:00:00Z" });
+    const cur = budgetBest(db, { contains: ancestry });
+    assert.equal(cur.rulingSha, R, "the ruling row's own sha");
+    assert.equal(cur.best.test_lines, 44300);
   } finally { done(); }
 });
 

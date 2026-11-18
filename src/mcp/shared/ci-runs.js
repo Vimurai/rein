@@ -68,6 +68,9 @@ export const CI_RESOURCE_COLUMNS = [
   ["peak_sum_rss_mb", "INTEGER"],
   // E-303 (D-088): the budget block a run measured, and the ruling that set it (ci-budget.js).
   ["budget_json", "TEXT"], ["budget_ruling", "TEXT"],
+  // E-443 (D-164 addendum 1 r5): the commit a ruling was made for (NULL on a ruling row written
+  // before it: that row's own sha is read instead).
+  ["budget_ruled_sha", "TEXT"],
   // E-386 (D-135 r3, r6): "i/N" for one shard of a run (NULL = the full run — the only kind that
   // certifies), and the seconds the serial exclusive tail took.
   ["shard", "TEXT"], ["exclusive_seconds", "INTEGER"],

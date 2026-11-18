@@ -224,7 +224,7 @@
     "kind": "pin",
     "table": "tests/fixtures/gate-self-disable-cases.json",
     "ruling": "D-132 addendum 3",
-    "repinned": "c80f9b681c8a514ba473411e68f2e9647a08ee63fc082c1e312f91f7d48065f8",
-    "repinned_by": "D-163 addendum 2 r2, r7 (E-439: implicit-run sinks read in strict mode, the word definition; five residual rows flip to BLOCK, fifty rows added). Before: D-163 r10 (E-393), 80ab99d0…"
+    "repinned": "9eb38fc4097d3961e045f0e8a7ca3e6d98a1ec4cf3b8035fc090c06737f5777d",
+    "repinned_by": "D-163 addendum 2 r12, D-164 addendum 1 r3-r4 (E-445: 92 word and 25 cli reader tags, 21 E-439 rows merged; 254 rows). Before: D-163 addendum 2 r2, r7 (E-439), c80f9b68…; D-163 r10 (E-393), 80ab99d0…"
   }
 ]

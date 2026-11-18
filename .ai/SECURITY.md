@@ -2443,3 +2443,303 @@ size cap) takes 8 054 ms staged and 19 ms at HEAD. × 1000 takes 527 ms staged a
 | — | DoS | `env -Sa ` × 4000 | n/a | 0 | P3, fails closed |
 
 Gating: **SEC_CLEARED** for E-439. P0: none.
+
+## E-432 / D-159 r7-r8, addendum 2 — gate attribution and the control ledger (security_engineer, 2026-11-18)
+
+Scope: the uncommitted tree on `e-432-gate-ledger` (base 3c91bf9): `hooks/pre-tool-use.sh`
+(`_gate_reject`, both traps, the BYPASS row), `src/shared/telemetry.mjs` (`rule` column,
+`--record-tool` session id), new `src/shared/gate-rules.mjs`, `src/shared/gate-ledger.mjs`,
+`rein ledger` in `src/bin/rein`. Threat detail: THREAT_MODEL.md T-GATELEDGER-001 and its
+addendum to T-HOOKABORT-001.
+
+Every probe ran in a `mktemp -d` copy with `env -i`, `HOME=$T` and `AI_TELEMETRY_DB_PATH`
+under `$T`. In the harness, node's `os.homedir()` resolved to `$T`, and no probe opened the
+operator's live store. One deviation: the analyzer probes could not use `ulimit -u 64`. The
+host's per-user process count already exceeds it, so every fork failed. Those probes ran with
+`-t`/`-f` and a 20-60 s wall clock instead. The fork-failure probes set `ulimit -u 1` on
+purpose, inside the fixture.
+
+### Answers
+
+1. **Exit code / verdict.** On the normal path, nothing in the new code changes the verdict.
+   Probes, all rc 2:
+   - a hostile report;
+   - a tool name containing `"`;
+   - a session id containing `"`, one with a trailing newline, and one of 65 characters;
+   - an unlisted rule;
+   - a stub node that sleeps 8 s (the caller returned in 3 ms);
+   - a node that exits without reading stdin (SIGPIPE inside the detached subshell).
+
+   An unbound name inside the subshell ends only the subshell. The subshell is detached, with
+   every stream on /dev/null. **One exception, P1-1:** the traps now fork. When fork fails, bash
+   exits 254 from inside the trap, and Claude Code treats 254 as an allow.
+2. **Command text into telemetry.** All three fields are validated before the `printf`:
+   `tool_name` against `^[A-Za-z0-9_.:-]+$`, `session_id` against `^[A-Za-z0-9-]{1,64}$`,
+   `rule` against `^[A-Z_]+(:[A-Z0-9_]+)?$`. None of them can carry `"` or `\`, so no JSON can be
+   injected. telemetry.mjs then binds `rule` through `normalizeGateRule`. The only stored values
+   seen were a listed id or UNLISTED: `SAFE_EXEC_BLOCK:rm -rf /x`, an object and `constructor`
+   were each stored as UNLISTED. Command text can't be stored through these fields. It **can
+   pick which listed id is stored** (P2-1), because the analyzer repeats the command in its
+   report.
+3. **Allow path.** No new process. Every `_gate_reject` call sits directly before an `exit 2`,
+   and the EXIT trap's `0:*` case exits before the call. In the fixture, the allow run wrote no
+   row.
+4. **Ledger read-only.** The ledger opens the store with `DatabaseSync(..., {readOnly:true})`
+   and runs only SELECTs. It only reads state.json and .mcp.json. Probes:
+   - the main DB file's sha256 matched before and after a run;
+   - `--db` on a text file left the file unchanged (node threw);
+   - `--db` on a missing path printed `[LEDGER_EMPTY]` and created no directory;
+   - `--days 0`, `--days 99999` and unknown flags exit 2.
+
+   No option sends a write anywhere. The ledger's only side effect is SQLite's `-wal`/`-shm`
+   sidecar files, created next to a WAL-mode store whose directory is writable (P3-2).
+5. **Pinned tables.** `git diff --stat tests/fixtures` lists only `release/cli-surface.json`
+   (the `ledger` entry point). The six verdict tables are byte-identical to HEAD:
+
+   | Table | sha256 (first 16) |
+   |---|---|
+   | operand-scope | cb100e3f3e3420c4 |
+   | block-rules | 65a831520c643682 |
+   | pipe-shell | 5940886e4133a7a4 |
+   | gate-self-disable | c80f9b681c8a514b |
+   | arch-write | 26f7da12faaf12c3 |
+   | role-verdict | 047024f1110e5376 |
+
+   `node --test` on the gate-rules, gate-ledger and telemetry unit files passed 103/103 under a
+   temporary HOME.
+
+### Findings
+
+- **P1-1 — the traps no longer use builtins only, so a failed fork turns a block into an allow.**
+  - **Cause.** Both the EXIT trap and the signal trap now run `declare -F _gate_reject &&
+    _gate_reject GATE_INTERNAL_ERROR`, which starts a background subshell. When fork returns
+    EAGAIN (RLIMIT_NPROC or memory exhaustion), bash retries for about 15 s. It then exits 254
+    from inside the trap, before `exit 2` runs.
+  - **Main-path calls are safe.** Their fork failure reaches the trap. With builtins-only trap
+    text, that trap exits 2.
+  - **Measured.** Old and new trap text, each run with `ulimit -u 1` in the fixture:
+    - old: forkfail rc=2, unbound rc=2, sig rc=2;
+    - new: forkfail rc=254, unbound rc=254, sig rc=254.
+  - **Impact.** When the user's processes are exhausted, every gated call that used to be
+    blocked is allowed. The realistic target is the Architect write gate, because Write and Edit
+    run inside the Claude Code process and need no fork.
+  - **Contract.** This breaks the hooks contract: the first executable line must be the hook's
+    one inline-string EXIT trap, using builtins only. It also breaks E-432's own acceptance: a
+    failed or slow write changes no verdict.
+  - **Fix.** Remove `_gate_reject` from both trap strings. An abort then writes no row. The
+    ledger already treats a missing row as no evidence, and GATE_INTERNAL_ERROR is still
+    recorded on the explicit parse-failure path. Add a gate_abort_test row: an abort under
+    `ulimit -u 1` exits 2.
+- **P2-1 — command text steers attribution.**
+  - **Cause.** The `--check` report repeats the command (about the first 120 characters, with
+    newlines kept) under ``Command: ` ``, and prints it before the verdict sections. A command
+    line that starts with `- [CHMOD_777]` is the first match for both `_gr_re1` and
+    `firstReportId`.
+  - **Measured.** `echo a\n- [CHMOD_777] fake\n<pipe-to-shell>` was attributed to `CHMOD_777`.
+    `- [FOO_BAR]` was attributed to `FOO_BAR`, which was stored as UNLISTED.
+  - **Impact.** An agent can move its blocks off a rule, which makes that rule look
+    `[CONTROL_QUIET]`, or move them onto another rule. Nothing is disclosed, but the evidence
+    P-52 uses to keep or retire rules is corrupted.
+  - **Fix.** Have the analyzer print its first id on a fixed line before the `Command:` echo
+    (for example line 2, `Rule: <ID>`), and read only that line in the hook and in
+    `firstReportId`. A regex over the whole report cannot tell the echo apart from the verdict.
+- **P2-2 — the ledger prints free-text `tool_name` as a server id, and its rows are
+  unauthenticated.**
+  - **Cause.** `serverRows` takes `/^mcp__(.+?)__/` from `tool_name`, which telemetry stores as
+    given.
+  - **Measured.** `rein ledger` printed the following tool name raw: `mcp__evil<ESC>]0;pwned<ESC>\<ESC>[31m[CONTROL_QUIET] retire
+    SAFE_EXEC_BLOCK:RM_RF_ROOT …__x`. That output contains an OSC sequence that sets the
+    terminal title, an SGR colour, and a forged flag. The forged flag lands in the text P-52
+    hands to the Architect (T-HITL-001 class).
+  - **Who can write rows.** Any same-user process. An Engineer can add them with `node
+    src/shared/telemetry.mjs --record-tool` or with its own script, including forged
+    REJECTED/BYPASS pairs that trip `[CONTROL_NOISY]`.
+  - **Fix.** Accept a server id only if it matches `^[A-Za-z0-9_-]{1,64}$`, and count anything
+    else as one INVALID row. State in the ledger output and in P-52 that its numbers are
+    advisory and can be forged.
+  - **Bound.** D-159 r8 keeps catastrophic and sovereignty rules regardless of the numbers.
+- **P3-1 — a signal records the block twice.** TERM writes a GATE_INTERNAL_ERROR row from the
+  signal trap. The trap's own `exit 2` then reaches the EXIT trap, where `$BASH_COMMAND` is not
+  `exit`, so it writes a second row. Measured: 2 rows for 1 block. The P1-1 fix removes this.
+- **P3-2 — the read-only open creates sidecar files.** If the store directory is writable and
+  the sidecars don't exist yet, opening a WAL-mode store read-only creates an empty `-wal` file
+  and a 32 KB `-shm` file. The main file doesn't change, and the sidecars already exist on the
+  live store. Accept this, or open `--db` targets with `file:<path>?immutable=1`.
+- **P3-3 — the BYPASS row's `printf` doesn't validate `$TOOL` or `$SID`.** `$SID` is new;
+  `$TOOL` was already there. Both come from the harness payload.
+  - **Risk.** A `"` in either value could add JSON keys, and JSON.parse keeps the last duplicate.
+    Measured: a payload with `"status":"BYPASS",…,"status":"SUCCESS","rule":…` was stored as
+    SUCCESS with a rule.
+  - **Existing check.** telemetry re-validates the session id and the status enum.
+  - **Fix.** Apply the two regexes from `_gate_reject` here too.
+- **P3-4 — attribution depends on the role.** Without a verified token (`[ROLE_UNVERIFIED]`), a
+  pipe-to-shell block is attributed to `SAFE_EXEC_BLOCK:ARCH_INLINE_INTERPRETER`, because the
+  sovereignty section prints first. It is attributed to `CURL_PIPE_SHELL` only in a session with
+  a verified Engineer token. P-52 should account for this when it reads blocks from unverified
+  sessions.
+- **P3-5 — doc drift and import coupling.**
+  - The gate-rules.mjs header says it mirrors `_gate_rule_of`, but the hook function is named
+    `_gate_reject`.
+  - P-52 still says `rein gate ledger`; the verb is `rein ledger` (A2A 15:10). P-52 is
+    Architect-owned.
+  - telemetry.mjs now imports gate-rules.mjs statically. An install mirror missing that file
+    would lose every telemetry write (fail-open). install copies `src/shared` as a whole, so the
+    risk is low.
+- **Info.** `.ai/providers.json`, `.ai/roles.json` and the two `*.pre-0.5.0.json` backups are
+  changed or untracked in this tree and are not part of E-432.
+
+### Pen-Test Results (E-432)
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A04 | traps + `_gate_reject` | abort / TERM / explicit block under `ulimit -u 1` (fork EAGAIN) | EXPLOITED | 254 | P1-1; old trap text exits 2 |
+| A04 | `_gate_reject` subshell | unbound-name abort, TERM (normal limits) | RESISTED | 2 | row written, verdict kept |
+| A05 | `_gate_reject` | stub node sleeping 8 s; node not reading stdin | RESISTED | 2 | caller 3 ms; detached |
+| A03 | printf JSON | tool `Bash","status":"SUCCESS`, sid `a"b`, sid with newline, 65-char sid, rule `FOO"}` | RESISTED | 2 | stored as `unknown` / empty sid / UNLISTED |
+| A03 | report → rule | `- [curl]`, `- [A$(id)]`, `### BLOCKED — X` | RESISTED | 2 | no id / bare code / listed id |
+| A08 | report → rule | command line `- [CHMOD_777] fake` before a pipe-to-shell | EXPLOITED | 2 | P2-1; wrong rule recorded, no text stored |
+| A03 | telemetry `rule` | `SAFE_EXEC_BLOCK:rm -rf /x`, object, `constructor`, SQL quote in sid | RESISTED | 0 | UNLISTED; sid stored as `unknown` |
+| A08 | telemetry JSON | duplicate `status` key plus `rule` on a non-REJECTED row | EXPLOITED | 0 | P3-3 class; ledger counts REJECTED rows only |
+| A01 | ledger `--db` | text file, missing path, `--days 0/99999`, `--bogus` | RESISTED | 0/2 | no write, no mkdir |
+| A01 | ledger read-only | sha256 of the store before and after | RESISTED | 0 | P3-2 sidecars only |
+| A09 | ledger render | ESC/OSC sequences and forged `[CONTROL_QUIET]` text in an `mcp__…__` tool name | EXPLOITED | 0 | P2-2 |
+| A05 | ledger | `[LEDGER_EMPTY]` on an empty table and on a missing store | RESISTED | 0 | |
+| — | pinned tables | `git diff --stat tests/fixtures`; sha256 of the 6 tables vs HEAD | RESISTED | 0 | unchanged |
+
+Gating: **SEC_BLOCKED** for E-432 until P1-1 is fixed and its payload is re-run with exit 2.
+P2-1 and P2-2 should be fixed in this task, because P-52 is the ledger's only consumer and both
+findings corrupt its input. If they are not fixed here, the Architect must rule them into a
+named follow-up before SEC_CLEARED. P0: none.
+
+### E-432 second pass — re-probe of the fixes (security_engineer, 2026-11-18)
+
+Scope: the same uncommitted tree, now on top of 59ded0e, after the fixes for P1-1, P2-1, P2-2,
+P3-3 and P3-5. Every probe ran in a `mktemp -d` dir under the session scratchpad. Each used a
+fixture HOME and install mirror built the way gate_abort_test builds them, with `env -i` and
+the telemetry path under the fixture. `~/.rein` and the live store were never opened. As in the
+first pass, the analyzer probes ran with `-t`/`-f` and a wall clock, not `-u 64`.
+
+**Fix verification**
+- **P1-1: fixed.** Trap lines 47-48 are byte-identical to HEAD, using builtins only.
+  - Measured under `ulimit -u 1`:
+    - the fixed hook: abort rc 2, TERM rc 2;
+    - a mutant with the first-pass trap call: abort rc 254, TERM rc 254.
+  - A main-path `_gate_reject` call extracted with both traps also returned rc 2 under `ulimit -u 1`.
+  - The suites passed: gate_abort_test 88/0/8 (E-432.A01 rc 2) and gate_override_test 73/0/2
+    (E-432.01a-d, 02a-b).
+- **P2-1: fixed.** Every BLOCK report prints `Rule: <ID>` as line 2, right after the fixed
+  `## …` header. Nothing in that header comes from the input. In each case below, the hook's
+  regex and `firstReportId` agreed on the analyzer's own first id:
+  - `- [CHMOD_777]` and `Rule: CHMOD_777` lines in the command;
+  - a leading newline;
+  - CR and U+2028 separators;
+  - a backtick that breaks out of the echo;
+  - INPUT_TOO_LARGE with 3000 `Rule:` lines;
+  - a `--check-path` target ending `\nRule: …`, for both GATE_SELF_DISABLE and
+    ARCH_WRITE_OUTSIDE_SCOPE;
+  - a `claimReport` whose `what` and `message` both carry `Rule:` lines (the code is from
+    claimGate's fixed set).
+
+  A PASS report that echoes a `Rule:` line has rc 0, and the hook does not call `_gate_reject`
+  on rc 0.
+- **P2-2: fixed for tool names.** The forged OSC/SGR `[CONTROL_QUIET]` tool name now renders as
+  one `INVALID` row, and the header carries the advisory/unauthenticated text. Two other fields
+  are still printed raw; see P3-6.
+- **P3-3: fixed** (code review, plus E-291.02e green). TOOL and SID are checked with the same
+  two patterns as `_gate_reject`, and stdin is `/dev/null`.
+- **P3-5: the code part is fixed** (`_gate_reject` is named in gate-rules.mjs). The
+  `rein gate ledger` wording in P-52 is still Architect-owned.
+
+**The three questions**
+1. **Can text before `Rule:` be attacker-chosen?** No. In all four BLOCK shapes, line 1 is a
+   constant header and line 2 is the Rule line:
+   - `--check`, including INPUT_TOO_LARGE;
+   - `--check-path` GATE_SELF_DISABLE;
+   - `--check-path` ARCH_WRITE_OUTSIDE_SCOPE;
+   - the claim report, on both `--check` and `--check-path`.
+
+   The id is either a literal or comes from a fixed rule table or claim-code set. The hook
+   discards stderr, so nothing can come before the header.
+2. **Does a crash report carry a `Rule:` line?** No. Both crash reports (`--check` and
+   `--check-path`, driven by `REIN_SAFE_EXEC_SELFTEST_THROW`) have no Rule line, so the hook
+   records the bare `SAFE_EXEC_BLOCK` or `SOVEREIGNTY_BLOCK`.
+   - The `--check` crash echoes nothing on stdout.
+   - The `--check-path` crash prints `e.message`. No probe could put input text into a thrown
+     message: boundedRel, hardlinkAlias and isUnderRein all catch their own errors.
+   - Info: if a future throw did carry the path, the bash regex (only `\n`) and
+     `firstReportId` (`/m` also splits on `\r` and U+2028) could disagree, and a listed
+     `SOVEREIGNTY_BLOCK:<id>` could be selected. The `--check-path` crash should stop printing
+     `e.message` to stdout.
+3. **Has any consumer of the report text broken?** No. The report's consumers are:
+   - `rein_gate_has_verdict`, which looks for the `Verdict:` substring;
+   - the hook's override check, `grep -q GATE_SELF_DISABLE` on W_REPORT. The new Rule line
+     appears there only on a real self-disable, and the check fails closed;
+   - the hook's stderr echo to the model;
+   - the advisory `analyze_command` MCP text.
+
+   Nothing indexes report lines by position. safe_exec_test passed 18/0.
+
+**Pinned tables.** The six tables are byte-identical to HEAD (59ded0e):
+
+| Table | sha256 (first 16) |
+|---|---|
+| operand-scope | 4e41906fc55d0723 (E-447) |
+| block-rules | 65a831520c643682 |
+| pipe-shell | 5940886e4133a7a4 |
+| gate-self-disable | 9eb38fc4097d3961 (E-445) |
+| arch-write | 26f7da12faaf12c3 |
+| role-verdict | 047024f1110e5376 |
+
+`node --test` passed 1196/1196 (0 fail, 0 skipped) under a temporary HOME. The run covered:
+- the six table runners;
+- gate-rules, gate-ledger and telemetry;
+- task-claims, gate-relative-home-cases and gate-guard-home.
+
+**New finding**
+- **P3-6: the ledger still prints two untrusted fields raw.**
+  - The `first`/`last` dates of a gate row are `timestamp.slice(0, 10)`. Measured: a row with
+    the timestamp `9\e[8m\e]0;x\a` rendered `^[[8m` (SGR conceal, which hides the following
+    terminal text) and an OSC title.
+  - Configured server names come from `.mcp.json` keys. Measured: the key `bad\e]0;t\aname`
+    rendered raw in the QUIET line. These names have no length bound, so they can carry forged
+    flag text.
+  - **Reach.** Forging a timestamp needs a direct SQLite writer, because telemetry.mjs sets the
+    timestamp itself; that is the accepted T-GATELEDGER-001 residual. `.mcp.json` is a tracked
+    file that shows in a diff.
+  - **Fix (in E-432; see Gating below).** Print a date only if it matches `^\d{4}-\d\d-\d\d`.
+    Apply the server-id pattern to the `.mcp.json` keys as well, and count failures as INVALID.
+    `--json` output escapes control characters already.
+
+### Pen-Test Results (E-432, second pass)
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A04 | EXIT/signal traps | abort and TERM under `ulimit -u 1` | RESISTED | 2 | mutant with first-pass trap: 254 |
+| A04 | `_gate_reject` main path | explicit call under `ulimit -u 1`, then `exit 2` | RESISTED | 2 | |
+| A08 | `--check` report → rule | `- [CHMOD_777]` / `Rule: CHMOD_777` lines, leading NL, CR, U+2028, backtick break | RESISTED | 2 | first id is the analyzer's own; hook = firstReportId |
+| A08 | INPUT_TOO_LARGE | 3000 `Rule: CHMOD_777` lines | RESISTED | 2 | INPUT_TOO_LARGE |
+| A08 | `--check-path` report | path `…\nRule: CHMOD_777` / `…\nRule: GATE_SELF_DISABLE` | RESISTED | 2 | GATE_SELF_DISABLE / ARCH_WRITE_OUTSIDE_SCOPE |
+| A08 | claimReport | `Rule:` lines in `what` and in `message` | RESISTED | — | CLAIM_GATE_ERROR |
+| A08 | BYPASS row JSON | TOOL `Bash","status":"SUCCESS","rule":…`, SID `a","status":"SUCCESS` (extracted checks) | RESISTED | 0 | P3-3 re-resists; stored as `unknown` / empty sid |
+| A04 | crash reports | selftest throw, `--check` and `--check-path` | RESISTED | 2 | no Rule line; bare bracket code |
+| A09 | ledger tool_name | OSC/SGR plus forged `[CONTROL_QUIET]` in an `mcp__…__` name | RESISTED | 0 | one INVALID row |
+| A09 | ledger timestamp | `9\e[8m\e]0;x\a` (direct SQLite row) | EXPLOITED | 0 | P3-6; needs a direct DB writer (accepted residual) |
+| A09 | ledger `.mcp.json` keys | `bad\e]0;t\aname` | EXPLOITED | 0 | P3-6; a tracked-file edit |
+| — | pinned tables + units | sha256 vs HEAD; 1196 unit tests; 3 suites | RESISTED | 0 | |
+
+Gating: **SEC_BLOCKED** for E-432, on **P3-6 only**.
+- **Why it blocks.** Under this role's gating rule, an EXPLOITED row blocks Tier 3 sign-off
+  until the payload re-resists. Severity is P3: the ledger is an advisory, read-only report, and
+  a writer needs a direct SQLite write (the accepted T-GATELEDGER-001 residual) or a reviewed
+  `.mcp.json` edit.
+- **Re-resists.** P1-1 (exit 2 under fork failure), P2-1, P2-2 for tool names, and P3-3.
+- **The fix.** It is two checks in `src/shared/gate-ledger.mjs`:
+  - render `first`/`last` only when they match `^\d{4}-\d\d-\d\d`;
+  - map configured `.mcp.json` server names through the same `^[A-Za-z0-9_-]{1,64}$` → INVALID
+    rule.
+
+  Re-run the two P3-6 rows after the fix. If they render no ESC byte, this becomes
+  **SEC_CLEARED** with no further review.
+- **Not gating.** Track P3-2 (sidecars), P3-4 (role-dependent attribution) and the Info note on
+  the `--check-path` crash echo. The Architect still owes the P-52 verb correction (P3-5).
+- **P0:** none.

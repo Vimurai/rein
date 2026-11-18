@@ -63,6 +63,34 @@ for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/s
 done
 unset _v _p
 
+# ── E-432 (D-159 r7, harness-fitness.md §Component 2): every block names its rule ────────────
+# One telemetry row per exit-2 path: status REJECTED, source hook, the rule from the closed list
+# in src/shared/gate-rules.mjs (telemetry.mjs writes anything else as UNLISTED). The caller has
+# already decided to exit 2; the whole body runs in a background subshell detached from every
+# stream, so an unbound name, a missing node or a slow store can neither change the exit code nor
+# delay it — and the allow path never calls this. Only fixed tokens are written: the bracket
+# code, the analyzer id from the report's FIRST `Rule: ID` line (printed before any echo of the
+# command or path, so their text cannot choose it — security_engineer P2-1), the tool name and the
+# session id. Never the command, its arguments or a path. Never called from the traps: a trap that
+# forks can exit 254 when fork fails, which is an allow (security_engineer P1-1); an aborted hook
+# books no row (THREAT_MODEL T-GATELEDGER-001).
+_gate_reject() {  # <bracket code[:id]> [analyzer report]
+  (
+    _gr_rule="${1:-}"; _gr_rep="${2:-}"
+    _gr_re=$'(^|\n)Rule: ([A-Z][A-Z0-9_]*)(\n|$)'
+    if [[ "$_gr_rule" != *:* && "$_gr_rep" =~ $_gr_re ]]; then _gr_rule="${_gr_rule}:${BASH_REMATCH[2]}"; fi
+    [[ "$_gr_rule" =~ ^[A-Z_]+(:[A-Z0-9_]+)?$ ]] || _gr_rule="UNLISTED"
+    _gr_tool="${TOOL:-}"; [[ "$_gr_tool" =~ ^[A-Za-z0-9_.:-]+$ ]] || _gr_tool="unknown"
+    _gr_sid="${SID:-}"; [[ "$_gr_sid" =~ ^[A-Za-z0-9-]{1,64}$ ]] || _gr_sid=""
+    declare -F rein_locate >/dev/null || exit 0
+    _gr_th="$(rein_locate shared/telemetry.mjs 2>/dev/null)" || exit 0
+    [[ -n "$_gr_th" ]] && command -v node >/dev/null 2>&1 || exit 0
+    printf '{"tool_name":"%s","execution_time_ms":0,"status":"REJECTED","source":"hook","rule":"%s","session_id":"%s"}' \
+      "$_gr_tool" "$_gr_rule" "$_gr_sid" | node "$_gr_th" --record-tool
+  ) </dev/null >/dev/null 2>&1 &
+  disown 2>/dev/null || true
+}
+
 # ── E-223 (D-057 §3): install-first helper resolution ────────────────────────
 # The locators below used to start at "$(git rev-parse --show-toplevel)/src/...", which
 # names the USER's repository, not the Rein install. Any project containing
@@ -213,6 +241,7 @@ if [[ -n "$_TC_MISSING" ]]; then
     exit 0
   fi
   echo "[TOOLCHAIN_STALE] ${_TC_MISSING} missing — run: bash install-rein.sh (E-286)" >&2
+  _gate_reject TOOLCHAIN_STALE
   exit 2
 fi
 
@@ -263,6 +292,7 @@ FILE_PATH="$(printf '%s' "$_FP_B64" | base64 --decode 2>/dev/null)"
 if [[ "$_P_RC" -ne 0 || "$(printf '%s\n' "$PARSED" | sed -n '5p')" != "OK" || -z "$TOOL" \
       || ( -n "$_CMD_B64" && -z "$CMD" ) || ( -n "$_FP_B64" && -z "$FILE_PATH" ) ]]; then
   echo "[GATE_INTERNAL_ERROR] pre-tool-use could not parse the tool call (rc ${_P_RC}) — blocked; run: rein doctor" >&2
+  _gate_reject GATE_INTERNAL_ERROR
   exit 2
 fi
 unset _CMD_B64 _FP_B64
@@ -295,11 +325,14 @@ _go_bypass() {
   printf '{"systemMessage":"[GATE_OVERRIDE] safe-exec bypassed until %s (%s) — operator: rein gate on"}\n' \
     "$_GO_UNTIL" "$_GO_REASON"
   (
+    # E-432 (security_engineer P3-3): the same field checks _gate_reject applies — no `"` reaches the JSON.
+    _bt="${TOOL:-}"; [[ "$_bt" =~ ^[A-Za-z0-9_.:-]+$ ]] || _bt="unknown"
+    _bs="${SID:-}"; [[ "$_bs" =~ ^[A-Za-z0-9-]{1,64}$ ]] || _bs=""
     _th="$(rein_locate shared/telemetry.mjs || true)"
     [[ -n "$_th" ]] && command -v node >/dev/null 2>&1 \
-      && printf '{"tool_name":"%s","execution_time_ms":0,"status":"BYPASS","source":"hook"}' "$TOOL" \
+      && printf '{"tool_name":"%s","execution_time_ms":0,"status":"BYPASS","source":"hook","session_id":"%s"}' "$_bt" "$_bs" \
          | node "$_th" --record-tool
-  ) >/dev/null 2>&1 &
+  ) </dev/null >/dev/null 2>&1 &
   disown 2>/dev/null || true
   exit 0
 }
@@ -337,6 +370,7 @@ case "$TOOL" in
           echo "$W_REPORT"
           echo "$_ESCAPE"
         } >&2
+        _gate_reject SOVEREIGNTY_BLOCK "$W_REPORT"
         exit 2
       fi
     fi
@@ -368,6 +402,7 @@ if [[ -n "$SE" ]] && command -v node >/dev/null 2>&1; then
       [[ "$_GO_ACTIVE" -eq 1 ]] && echo "(blocked even under the operator override: catastrophic or self-disabling — D-083 r8)"
       echo "$_ESCAPE"
     } >&2
+    _gate_reject SAFE_EXEC_BLOCK "$REPORT"
     exit 2
   fi
   # E-289 (D-080 ruling 3): the analyzer was LOCATED but produced no verdict. Exit 1 is a
@@ -387,6 +422,7 @@ if [[ -n "$SE" ]] && command -v node >/dev/null 2>&1; then
     if [[ "$_GO_ACTIVE" -eq 1 ]]; then
       if _catastrophic "$CMD"; then
         echo "[SAFE_EXEC_BLOCK] catastrophic pattern — blocked even under the operator override (D-083 r8)." >&2
+        _gate_reject SAFE_EXEC_BLOCK:BACKSTOP_CATASTROPHIC
         exit 2
       fi
       # critic_security P1-1: a command padded past ARG_MAX makes node exit 126 with no
@@ -395,6 +431,7 @@ if [[ -n "$SE" ]] && command -v node >/dev/null 2>&1; then
       # D-163 r1/r6 (E-393): the analyzer's definition, in builtins (_touches_gate).
       if _touches_gate "$CMD"; then
         echo "$_GATE_TOUCH_MSG" >&2
+        _gate_reject SAFE_EXEC_BLOCK:BACKSTOP_GATE_TOUCH
         exit 2
       fi
       _go_bypass
@@ -405,6 +442,7 @@ if [[ -n "$SE" ]] && command -v node >/dev/null 2>&1; then
       echo "[SAFE_EXEC_UNAVAILABLE] safe-exec exited ${rc}: run bash install-rein.sh"
       echo "$_ESCAPE"
     } >&2
+    _gate_reject SAFE_EXEC_UNAVAILABLE
     exit 2
   fi
   # Under an override the policy rules were NOT applied to this call — say so, every time.
@@ -419,10 +457,12 @@ fi
 # while the install is broken would lift the gate the moment the install is repaired.
 if _touches_gate "$CMD"; then
   echo "$_GATE_TOUCH_MSG" >&2
+  _gate_reject SAFE_EXEC_BLOCK:BACKSTOP_GATE_TOUCH
   exit 2
 fi
 if _catastrophic "$CMD"; then
   echo "[SAFE_EXEC_BLOCK] safe-exec analyzer unavailable; backstop blocked a catastrophic pattern (E-125)." >&2
+  _gate_reject SAFE_EXEC_BLOCK:BACKSTOP_CATASTROPHIC
   exit 2
 fi
 exit 0

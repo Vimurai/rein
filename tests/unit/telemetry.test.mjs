@@ -323,3 +323,14 @@ test("E-277: every registry server calls instrument() on its CallTool handler", 
 });
 test("E-277: the retired router is not in the registry", () =>
   assert.ok(!readFileSync(join(REPO, "src/config/registry.json"), "utf8").includes('"mcp-router"')));
+
+// ── E-432 (D-159 r7): tool_executions.rule — extends the E-154/E-180 migration rows above ──────
+test("E-432: rule is added to a current store (and to a rebuilt one: M.d); bound from the closed list, else UNLISTED", () => {
+  const p = dbIn();
+  seed(p, [["tool_executions", COLS.replace("%S", T.STATUS_ORDER.map((x) => `'${x}'`).join(",")), [["o", "h", "s", "Bash", 0, "BYPASS", "2026-11-01T00:00:00Z"]]]]);
+  T.resetTelemetryCache();
+  for (const rule of ["SAFE_EXEC_BLOCK:CURL_PIPE_SHELL", "SAFE_EXEC_BLOCK:rm -rf /x", undefined]) tool({ status: "REJECTED", rule }, p);
+  T.resetTelemetryCache();
+  assert.deepEqual(all(p, "SELECT rule FROM tool_executions ORDER BY rowid").map((r) => r.rule), [null, "SAFE_EXEC_BLOCK:CURL_PIPE_SHELL", "UNLISTED", null]);
+  assert.match(M.d.ddl, /rule TEXT/);
+});

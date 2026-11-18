@@ -81,6 +81,12 @@ if _old "E-292.01c"; then
 fi
 rc="$(_run "$T/new-unbound.sh" "ls -la")"
 assert_status 0 "E-292.01d: the new hook BLOCKS it (rc=${rc})" test "$rc" -eq 2
+# E-432 (security_engineer P1-1): the trap forks nothing — an abort where fork fails still exits 2
+# (a trap that started the telemetry write exited 254 = allow). root is not bound by ulimit -u.
+inject "$NEW" "$T/new-nofork.sh" 'ulimit -u 1 2>/dev/null; : "${E292_UNSET_VAR}"'
+if [[ "$(id -u)" != 0 ]]; then rc="$(_run "$T/new-nofork.sh" "ls -la")"
+  assert_status 0 "E-432.A01: an abort with fork unavailable still BLOCKS (rc=${rc})" test "$rc" -eq 2
+else _skip "E-432.A01: running as root (ulimit -u does not bind)"; fi
 assert_contains "E-292.01e: with the GATE_INTERNAL_ERROR line naming rc 1" \
   "[GATE_INTERNAL_ERROR] pre-tool-use aborted (rc 1 near line" "$(cat "$T/err")"
 assert_contains "E-292.01f: …and the repair hint" "— run: rein doctor" "$(cat "$T/err")"

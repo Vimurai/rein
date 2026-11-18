@@ -198,7 +198,7 @@ echo "  [T-TEL-S15] hook end-to-end: payload → backgrounded write → DB row"
 SBOX_H="$(mktemp -d)"
 tc_fixture_home "$SBOX_H"   # E-345 (D-109 r1): the toolchain record the hooks pin
 mkdir -p "${SBOX_H}/.rein/shared" "${SBOX_H}/repo/.git"
-cp "$TELEMETRY" "${SBOX_H}/.rein/shared/telemetry.mjs"
+cp "$TELEMETRY" "${TELEMETRY%/*}/gate-rules.mjs" "${SBOX_H}/.rein/shared/"   # E-432: telemetry imports the closed rule list
 
 PAYLOAD_H='{"session_id":"hook-e2e","tool_name":"E105HookSmoke","tool_input":{"x":1},"tool_response":{"isError":false,"duration_ms":27}}'
 
@@ -264,7 +264,7 @@ assert_status 1 "no DB written when helper is missing" \
 SBOX_BAD="$(mktemp -d)"
 tc_fixture_home "$SBOX_BAD"   # E-345 (D-109 r1): the toolchain record the hooks pin
 mkdir -p "${SBOX_BAD}/.rein/shared" "${SBOX_BAD}/repo/.git"
-cp "$TELEMETRY" "${SBOX_BAD}/.rein/shared/telemetry.mjs"
+cp "$TELEMETRY" "${TELEMETRY%/*}/gate-rules.mjs" "${SBOX_BAD}/.rein/shared/"   # E-432: telemetry imports the closed rule list
 ( cd "${SBOX_BAD}/repo" && echo "not json at all" \
     | HOME="${SBOX_BAD}" bash "$HOOK" >/dev/null 2>&1 )
 RC_BADJSON=$?
@@ -278,7 +278,7 @@ assert_status 1 "no DB written from malformed payload" \
 SBOX_OFF="$(mktemp -d)"
 tc_fixture_home "$SBOX_OFF"   # E-345 (D-109 r1): the toolchain record the hooks pin
 mkdir -p "${SBOX_OFF}/.rein/shared" "${SBOX_OFF}/repo/.git"
-cp "$TELEMETRY" "${SBOX_OFF}/.rein/shared/telemetry.mjs"
+cp "$TELEMETRY" "${TELEMETRY%/*}/gate-rules.mjs" "${SBOX_OFF}/.rein/shared/"   # E-432: telemetry imports the closed rule list
 ( cd "${SBOX_OFF}/repo" && echo "$PAYLOAD_H" \
     | HOME="${SBOX_OFF}" AI_TELEMETRY_DISABLE=1 bash "$HOOK" >/dev/null 2>&1 )
 RC_OFF=$?
@@ -295,7 +295,7 @@ echo "  [T-TEL-S17] hook synchronous overhead under <50ms budget (warm)"
 SBOX_T="$(mktemp -d)"
 tc_fixture_home "$SBOX_T"   # E-345 (D-109 r1): the toolchain record the hooks pin
 mkdir -p "${SBOX_T}/.rein/shared" "${SBOX_T}/repo/.git"
-cp "$TELEMETRY" "${SBOX_T}/.rein/shared/telemetry.mjs"
+cp "$TELEMETRY" "${TELEMETRY%/*}/gate-rules.mjs" "${SBOX_T}/.rein/shared/"   # E-432: telemetry imports the closed rule list
 
 # Cold + warm runs — measure warmer runs (2-5) as the steady-state. A function, so
 # assert_perf can re-take it once when the host is overloaded (E-296).
@@ -374,7 +374,7 @@ FX="$(test_tmpdir taskvel)"
 FHOME="${FX}/home"; CFG="${FX}/claude"; PROJ="${FX}/repo"
 mkdir -p "${FHOME}/.rein/shared" "${CFG}/projects/-fx" "${PROJ}/.git"
 tc_fixture_home "$FHOME"   # E-345 (D-109 r1): the toolchain record the hooks pin
-cp "$READER" "$TELEMETRY" "${FHOME}/.rein/shared/"
+cp "$READER" "$TELEMETRY" "${TELEMETRY%/*}/gate-rules.mjs" "${FHOME}/.rein/shared/"   # E-432: + the closed rule list
 DB="${FX}/telemetry.sqlite"
 TR="${CFG}/projects/-fx/session.jsonl"
 cat > "$TR" <<EOF

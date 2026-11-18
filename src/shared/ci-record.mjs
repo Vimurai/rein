@@ -17,7 +17,7 @@
 // E-303 (D-088): the test budget ratchet (src/mcp/shared/ci-budget.js).
 //   node ci-record.mjs budget       --ai-dir <d>                          print the current budget
 //   node ci-record.mjs budget-check --ai-dir <d> --log <path>             exit 1 on a regression
-### f=n …     the only way up
+//   node ci-record.mjs budget-set   --ai-dir <d> --ruling D-### [--at <sha>] f=n …   the only way up
 //
 // E-386 (D-135 r2): how old the census baseline committed at <sha> is, in full runs.
 //   node ci-record.mjs census-stale --ai-dir <d> --sha <sha>

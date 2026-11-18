@@ -30,8 +30,12 @@ const TABLE = resolve(repo, "tests/fixtures/gate-self-disable-cases.json");
 // payloads from the first security pass (A2A 2026-11-18 12:55); from the second (A2A 13:17), 14
 // env -S escape-layer payloads (finding e), one `${VAR}` residual pass row and seven accepted P3
 // over-blocks; from the third (A2A 13:32), 14 decoder rows (f1-f4, N09) and two residual pass rows
-// (f5 depth, `e=env; $e`); from the fourth, four residual pass rows (X10, Y10, Y11, Y14). New below.
-const SHA256 = "c80f9b681c8a514ba473411e68f2e9647a08ee63fc082c1e312f91f7d48065f8";
+// (f5 depth, `e=env; $e`); from the fourth, four residual pass rows (X10, Y10, Y11, Y14). Old c80f9b68….
+// E-445 (D-163 addendum 2 r12, D-164 addendum 1 r3-r4): re-pinned, 275 → 254 rows (206 BLOCK, 48
+// pass). 92 rows tagged "reader":"word" and 25 "reader":"cli" (census §3b.1: the reader each row
+// was written for, shadowed in the verdict by the predicate); 21 of the 22 named E-439 rows are
+// removed. The env -S row with a double-quoted `r` is the only one on its path and stays. New below.
+const SHA256 = "9eb38fc4097d3961e045f0e8a7ca3e6d98a1ec4cf3b8035fc090c06737f5777d";
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-gsd-")));
 mkdirSync(join(home, ".re" + "in", "hooks"), { recursive: true });
@@ -42,7 +46,10 @@ const savedCwd = process.cwd();
 process.env.HOME = home;
 process.chdir(join(home, "proj"));
 const { runAnalysis } = await import(resolve(repo, "src/mcp/safe-exec-mcp/index.js"));
-const { namesGateOff } = await import(resolve(repo, "src/shared/shell-word.mjs"));
+const { namesGateOff, gateViews } = await import(resolve(repo, "src/shared/shell-word.mjs"));
+const { gateCommandHit, CLI_GATE } = await import(resolve(repo, "src/mcp/safe-exec-mcp/gate-guard.mjs"));
+// E-445: a tagged row's own reader, on the raw text or view V1 (where the name rules read).
+const READERS = { word: (t) => gateCommandHit(t), cli: (t) => CLI_GATE.test(t) };
 
 test.after(() => {
   process.chdir(savedCwd);
@@ -84,5 +91,6 @@ for (const c of cases) {
     const ids = [...r.blocked.map((x) => x.id), ...r.sovereignty.map((x) => x.id)];
     assert.equal(r.verdict === "BLOCK" ? "BLOCK" : "pass", c.want, `rules: ${ids.join(", ") || "(none)"}`);
     if (c.want === "BLOCK") assert.ok(ids.includes("GATE_SELF_DISABLE"), `blocked, but not by GATE_SELF_DISABLE: ${ids}`);
+    if (c.reader) assert.ok([c.cmd, gateViews(c.cmd)[0]].some(READERS[c.reader]), `the ${c.reader} reader does not hit`);
   });
 }

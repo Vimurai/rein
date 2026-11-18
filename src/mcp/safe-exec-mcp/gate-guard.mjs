@@ -39,7 +39,7 @@ const CMD_HEAD =
 // The `rein` token, allowing the quoting and escaping a shell removes ("rein", 're'in, r\ein):
 // an optional quote or backslash may sit between any two of its letters.
 const CLI_WORD = "(?:\\S*/)?[\"']?" + "rein".split("").join("[\"'\\\\]?") + "[\"']?";
-const CLI_GATE = new RegExp(CMD_HEAD + CLI_WORD + "\\s+[\"']?gate\\b", "i");
+export const CLI_GATE = new RegExp(CMD_HEAD + CLI_WORD + "\\s+[\"']?gate\\b", "i");
 // The mirror, spelled the ways a shell command spells it.
 // A quoted home (`"$HOME"/.rein`, critic_security P2) is the same path.
 const REIN_PATH = String.raw`["']?(?:~|\$HOME|\$\{HOME\}|${escapeRe(homedir())})["']?/\.rein(?:/|\b)`;

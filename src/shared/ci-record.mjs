@@ -17,7 +17,7 @@
 // E-303 (D-088): the test budget ratchet (src/mcp/shared/ci-budget.js).
 //   node ci-record.mjs budget       --ai-dir <d>                          print the current budget
 //   node ci-record.mjs budget-check --ai-dir <d> --log <path>             exit 1 on a regression
-//   node ci-record.mjs budget-set   --ai-dir <d> --ruling D-### f=n …     the only way up
+### f=n …     the only way up
 //
 // E-386 (D-135 r2): how old the census baseline committed at <sha> is, in full runs.
 //   node ci-record.mjs census-stale --ai-dir <d> --sha <sha>
@@ -36,7 +36,9 @@ import {
   pruneCiLogs, ageOf, certifyingRunFor, certifiedBy, ciAdopted, recordCiSkip, cargoView,
 } from "../mcp/shared/ci-runs.js";
 import { writeCiRecord, readCiRecord } from "../mcp/shared/ci-evidence.mjs";
-import { budgetBest, budgetCheck, budgetDrift, budgetSet, budgetSummary, driftLine, parseBudgetLine, regressionLine } from "../mcp/shared/ci-budget.js";
+import { budgetBest, budgetCheck, budgetDrift, budgetSet, budgetSummary, driftLine, gitContains, parseBudgetLine, regressionLine } from "../mcp/shared/ci-budget.js";
+// E-443 (D-164 addendum 1 r5): the ratchet reads ancestry from the project's repository (.ai/..).
+const _best = (db, aiDir) => budgetBest(db, { contains: gitContains(resolve(aiDir, "..")) });
 
 function parseArgs(argv) {
   const opts = { _: [] };
@@ -164,7 +166,7 @@ export function run(argv) {
           `  spent:    ${_resources(r)}`,
           `  slowest:  ${_slowest(r)}`,
           ...(r.exclusive_seconds != null ? [`  exclusive: ${_exclusive(r)}`] : []),
-          `  budget:   ${budgetSummary(budgetBest(db))}`,
+          `  budget:   ${budgetSummary(_best(db, o["ai-dir"]))}`,
           ...budgetDrift(db).map((d) => `  ${driftLine(d)}`),
           `  host:     node ${r.node_version || "?"}, bash ${r.bash_version || "?"}, ${r.os || "?"}`,
           ...(r.skip_reason ? [`  skipped:  ${r.skip_reason}`] : []),
@@ -262,7 +264,7 @@ export function run(argv) {
     }
     case "budget": {
       const db = _db(o["ai-dir"]);
-      process.stdout.write(`test budget: ${budgetSummary(budgetBest(db))}\n`);
+      process.stdout.write(`test budget: ${budgetSummary(_best(db, o["ai-dir"]))}\n`);
       // E-366: a timing/RSS drift line is information, never a failure (D-118 r1).
       for (const d of budgetDrift(db)) process.stdout.write(`${driftLine(d)}\n`);
       return 0;
@@ -272,7 +274,7 @@ export function run(argv) {
       // the run is recorded AFTER this, so it never compares with itself.
       const line = readFileSync(o.log, "utf8").split("\n").filter((l) => l.startsWith("[ci] budget ")).pop();
       if (!line) { process.stdout.write("budget: not measured in this run\n"); return 0; }
-      const cur = budgetBest(_db(o["ai-dir"]));
+      const cur = _best(_db(o["ai-dir"]), o["ai-dir"]);
       const regs = budgetCheck(cur.best, parseBudgetLine(line));
       for (const r of regs) process.stdout.write(`${regressionLine(r)}\n`);
       if (!cur.runs) process.stdout.write("budget: first measurement — it becomes the budget once the run is green\n");
@@ -286,8 +288,14 @@ export function run(argv) {
         values[m[1]] = Number(m[2]);
       }
       try {
-        const r = budgetSet(_db(o["ai-dir"]), o.ruling, values);
-        process.stdout.write(`test budget set by ${o.ruling} on ${r.sha.slice(0, 7)}: ${Object.entries(values).map(([k, v]) => `${k}=${v}`).join(" ")}\n`);
+        // E-443: the commit the value is ruled for — `--at <sha>`, else HEAD of the project.
+        let at = o.at || null;
+        if (!at) {
+          try { at = execFileSync("git", ["-C", resolve(o["ai-dir"], ".."), "rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim(); } catch { at = null; }
+        }
+        if (at && !/^[0-9a-f]{7,64}$/i.test(at)) { process.stderr.write(`rein ci budget set: --at '${at}' is not a commit sha\n`); return 2; }
+        const r = budgetSet(_db(o["ai-dir"]), o.ruling, values, { at });
+        process.stdout.write(`test budget set by ${o.ruling} for ${r.ruledSha.slice(0, 7)} (recorded on run ${r.sha.slice(0, 7)}): ${Object.entries(values).map(([k, v]) => `${k}=${v}`).join(" ")}\n`);
         return 0;
       } catch (e) {
         process.stderr.write(`rein ci budget set: ${e.message}\n`);

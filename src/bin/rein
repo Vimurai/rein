@@ -6203,17 +6203,24 @@ _ci_budget() {
   case "${1:-}" in
     "") node "${_CI_NODE_FLAGS[@]}" "$helper" budget --ai-dir "${root}/.ai" ;;
     set) shift
-         local ruling=""
-         local -a vals=()
+         local ruling="" at=""
+         local -a vals=() atopt=()
          while [[ $# -gt 0 ]]; do
            case "$1" in
              --ruling) ruling="${2:-}"; shift 2 || { echo "rein ci budget set: --ruling needs D-###" >&2; return 2; } ;;
              --ruling=*) ruling="${1#--ruling=}"; shift ;;
+             # E-443 (D-164 addendum 1 r5): the commit the value is ruled for (default HEAD).
+             --at) at="${2:-}"; shift 2 || { echo "rein ci budget set: --at needs a commit" >&2; return 2; } ;;
+             --at=*) at="${1#--at=}"; shift ;;
              *) vals+=("$1"); shift ;;
            esac
          done
-         node "${_CI_NODE_FLAGS[@]}" "$helper" budget-set --ai-dir "${root}/.ai" --ruling "$ruling" "${vals[@]+"${vals[@]}"}" ;;
-    *) echo "rein ci budget: unknown argument '$1' — usage: rein ci budget [set --ruling D-### field=n …]" >&2; return 2 ;;
+         if [[ -n "$at" ]]; then
+           at="$(git rev-parse --verify --quiet "${at}^{commit}")" || { echo "rein ci budget set: --at names no commit" >&2; return 2; }
+           atopt=(--at "$at")
+         fi
+         node "${_CI_NODE_FLAGS[@]}" "$helper" budget-set --ai-dir "${root}/.ai" --ruling "$ruling" ${atopt[@]+"${atopt[@]}"} "${vals[@]+"${vals[@]}"}" ;;
+    *) echo "rein ci budget: unknown argument '$1' — usage: rein ci budget [set --ruling D-### [--at <commit>] field=n …]" >&2; return 2 ;;
   esac
 }
 

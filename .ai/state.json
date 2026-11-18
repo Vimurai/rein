@@ -6142,6 +6142,15 @@
       "summary": "[TIER_2] E-443 (D-164 addendum 1 r5) staged on f75498e: ALIGN_PASS (WARN: LOG/orphan, no violations), CLEAN_WARN (ci-runs.js 512 lines). Four new ci-runs.test.mjs rows (failed first), 45/0; rein ci budget prints test_lines 44481 ruled by D-164; no budget value changed.",
       "sha": "f75498e7009d2cb7cc771b445ebdf232926f7969",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 1)",
+      "task_id": "E-443",
+      "timestamp": "2026-11-18T11:29:37.123Z",
+      "summary": "[TIER_1] E-443 hotfix: src/shared/ci-record.mjs header line 20 was mangled by a sed (`#` delimiter vs `D-###`) into a non-comment line — a SyntaxError in the installed copy that broke rein ci and the pre-push gate for every session. Restored as a comment; node --check passes.",
+      "sha": "a91c7c4758293dc6c77db01356765cd49233f6c4",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

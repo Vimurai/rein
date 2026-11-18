@@ -998,16 +998,9 @@ test_capabilities_bypass_file "E-55: ../ in TASKS.md prose ignored" \
 test_capabilities_bypass_file "E-55: /etc reference in DIGEST.md ignored" \
   ".ai/DIGEST.md" "+Touches /etc/hosts when configuring." "allow"
 
-# E-55 — same line in actual code still flags.
-test_capabilities_bypass_file "E-55: literal cat ../../etc/passwd in .js still flagged" \
-  "src/foo/index.js" "+exec(\"cat ../../../etc/passwd\")" "flag"
-
-# E-56 — TestPathExcluder: tests/{suites,lib}/*.sh sibling imports allowed.
-test_capabilities_bypass_file "E-56: \${SCRIPT_DIR}/../lib/assert.sh in tests/suites allowed" \
-  "tests/suites/sample_test.sh" "+source \"\${SCRIPT_DIR}/../lib/assert.sh\"" "allow"
-
-test_capabilities_bypass_file "E-56: \${SCRIPT_DIR}/../.. in tests/lib allowed" \
-  "tests/lib/helper.sh" "+REPO=\"\${SCRIPT_DIR}/../..\"" "allow"
+# E-55 (a literal in src/ still flags) and E-56 (tests/{suites,lib} sibling paths allowed) are
+# traversal-policy.test.mjs "aligner flags/allows" — the same capabilitiesBypassMatches (E-444,
+# census D14, D15).
 
 # E-56 — same path-traversal in a non-test bash script still flags.
 test_capabilities_bypass_file "E-56: scope is strict — scripts/foo.sh still flagged" \

@@ -2366,3 +2366,53 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - r1's window: one green run on a partial tree before E-443 lowers the recorded value and fails the stack's budget. The repair is the same `budget set` line.
 ---
+---
+## Handoff — 2026-11-18 13:52 UTC
+**From**: Engineer → Architect
+**Trigger**: E-443 and E-439 pushed. D-163 addendum 2 r13 is to be recorded (your 13:17 ruling).
+
+### What was built
+- **E-443**, PR #58 stacked on #57 (D-164 addendum 1 r5).
+  - `rein ci budget set` records the ruled commit (`--at <sha>`).
+  - `budgetBest()` lowers the value only from a green run whose commit contains the ruled one.
+  - Hotfix 713b95e: ci-record.mjs line 20 is a comment again.
+  - `rein ci run` PASS 9e0594e. test_lines 44481 unchanged.
+- **E-439**, PR #59 stacked on #58 (D-163 addendum 2 r2, r7). Commits 7570d58 (source) and d78fba0 (.ai).
+  - heredoc.mjs: IMPLICIT_RUN applies in strict mode.
+  - shell-word.mjs and the hook: a word's leading hyphens are dropped; view V3 reads quotes and `\X` as a space; new `unquoteWord`.
+  - gate-guard.mjs: the env -S decoder (`envSplitNamesGateOff`). shellCommands and gateCommandHit are unchanged.
+  - SEC_CLEARED after four security_engineer passes. Findings a, e and f1/f2 were P1; f3, f4 and N09 were P2; the P3 quadratic case was fixed after pass 4.
+  - `rein ci run` PASS d78fba0: 7759/0/26; test_lines 45186 (D-164 budget 44481 + tolerance, PASS).
+- Tables:
+  - gate-self-disable-cases.json: 225 → 275 rows (227 BLOCK, 48 pass), `80ab99d0…` → `c80f9b681c8a514ba473411e68f2e9647a08ee63fc082c1e312f91f7d48065f8`. PASS→BLOCK flips: D01, D02, D03, P16, P19.
+  - pipe-shell-cases.json: 49 → 52 rows, `75ed95a6…` → `5940886e4133a7a49c1a44818197c1ebafe8d85fe082a6614323a6284b68a621`.
+  - No operand-scope row or wave-1 triple flipped. arch-write `26f7da12…` unchanged.
+
+### Decisions made
+- These are in LOG.md as [A2A_RULING] but not yet in DECISIONS.md:
+  - **12:55**: V3 also reads `\X` as a space; there is no fourth view.
+  - **13:17**: (e) is P1, fixed as an env -S decoder (r5 respected). The seven P3 over-blocks are accepted as BLOCK rows. `${VAR}` inside -S is residual r3.
+  - **13:32**: f1/f2 are P1 and f3/f4/N09 are P2, all accepted. f5 (depth beyond 3) and the r3 items are residual pass rows. A clean fourth pass gives SEC_CLEARED.
+- You said you would record these as D-163 addendum 2 r13.
+
+### Blueprint divergence (if any)
+- From E-439's text:
+  - V3 also reads `\X` as a space (12:55).
+  - The env -S decoder in gate-guard.mjs is new (13:17, 13:32).
+  - The gate table grew by 50 rows, not just the named flips.
+- The rest of the sovereignty-hardening contract is unchanged.
+
+### Next action needed
+- **Architect**:
+  - record D-163 addendum 2 r13 and ratify the two re-pins above;
+  - decide whether the residuals get follow-up tasks: implicit-run names not on the list (`justfile`, `Rakefile`, `.bash_aliases`, `BSDmakefile`, `Taskfile.yml`, `sitecustomize.py`, `.bash_logout`, `Makefile.in`) and `/tmp/..` read as a /tmp sink (THREAT_MODEL "From the E-439 security passes").
+- **Operator**:
+  - run `bash install-rein.sh`. The auto-mode classifier declined it for the agent because it installs the changed gate hook, so the installed gate still runs the old lock.
+  - merge order is unchanged: #49 → #56 → #57 → #58 → #59.
+- **Engineer next** (D-163 addendum 2 r10, D-164 addendum 1 r7): E-431, E-432, E-444, E-442, E-441, E-440.
+- E-443 and E-439 stay OPEN until their PRs merge, as on the rest of the stack.
+
+### Open risks
+- Until the install runs, the live hook's fallback lacks V3 and the leading-hyphen rule. The analyzer that is installed is also the old one.
+- The `.ai/providers.json` and `.ai/roles.json` changes and the `*.pre-0.5.0.json` files are still uncommitted, for the operator to decide.
+---

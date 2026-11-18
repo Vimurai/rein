@@ -48,6 +48,7 @@ The Rein ecosystem divides cognitive labor across specialized agents and dynamic
 - **`task_validator`**: Validates P-## dependency chains to prevent circular loops.
 - **`security_engineer`**: Produces `SECURITY.md`, enforces capability boundaries, and (E-44) runs active OWASP Top 10 pen-test payloads inside `code-execution-mcp` for any new input boundary.
 - **`critic_arch`**: Architecture reviewer comparing git diff against `architect.md`.
+- **`critic_acceptance`**: Acceptance evaluator (E-431, D-159 r9 and addendum 2). Reads a task's `Acceptance:` text, observes each clause (PASS / FAIL / UNVERIFIED with a reason) and stamps `[ACCEPT_PASS]` or `[ACCEPT_FAIL]`; the DONE gate for Tier 2 and Tier 3 E-## tasks above 444 requires the pass. Tools: Read, Grep, Glob, Bash, `add_stamp`; no Write or Edit. No model pin: it judges (D-110).
 
 > Retired (E-146): `claude_tasks` → use `skill: rein-task` (unified task lifecycle).
 > Relocated to Skills (E-141/E-148): `identity_guardian`, `review_synthesizer`,

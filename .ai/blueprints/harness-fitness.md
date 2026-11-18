@@ -130,8 +130,19 @@ one is PASS; `[ACCEPT_FAIL]` otherwise. The summary carries the clause table. Th
 bound to the sha like every stamp (E-329).
 
 **Where it runs.** `rein-review` and `run_review` dispatch it for Tier 2 and Tier 3 after the
-existing critics pass. A Tier 2 or Tier 3 task does not reach DONE without `[ACCEPT_PASS]` on
-its sha, by the same check that requires the other stamps. Tier 1 is unchanged.
+existing critics pass. A Tier 2 or Tier 3 E-## task does not reach DONE without
+`[ACCEPT_PASS]` on its sha. Tier 1 and P-## tasks are unchanged.
+
+**The DONE gate, as built (D-159 addendum 2).** `checkAcceptGate` in
+`src/shared/completion-gates.mjs` is the third DONE gate, after the build gate and the CI
+gate, and the first that reads a stamp; the critic stamps stay at the commit gate. A stamp
+stands for HEAD when its sha is HEAD or an ancestor that differs only in `.ai/`
+(`aiOnlyAncestor`, the CI gate's rule). The newest `ACCEPT_*` stamp that stands for HEAD
+decides. Tasks numbered at or below `ACCEPT_GATE_FLOOR` (444) are exempt. A task closed
+unimplemented passes `superseded_by: "D-###"` to `update_task_status`; the value must be a
+`## D-###` heading in DECISIONS.md and skips this gate only. There is no environment switch.
+Refusal: `[ACCEPT_GATE] E-N is Tier N and has no [ACCEPT_PASS] stamp for HEAD <sha7> or an
+ancestor that differs only in .ai/ — dispatch critic_acceptance`.
 
 **The planner side.** `task-planner` gains Check 6: each acceptance clause names something
 that can be run or looked at. "Works correctly" is refused; "`rein digest check` exits 1 after

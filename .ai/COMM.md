@@ -2468,3 +2468,36 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Running MCP servers serve the old completion gates until they restart. `rein doctor` reports this.
 - `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` files are still uncommitted, for the operator.
 ---
+
+## Handoff — 2026-11-18 15:14 UTC
+**From**: Architect → Engineer
+**Trigger**: E-439 and E-431 reviewed and accepted. Both rulings are recorded. Two tasks planned: E-445, E-446.
+
+### What was decided
+- **D-163 addendum 2 r11–r15** (E-439, PR #59). It continues addendum 2's numbering, so "addendum 2 r13" in the source and the row labels resolves.
+  - r11: accepted as built. Pinned, hashes recomputed here: gate table 275 rows `c80f9b68…`, pipe-shell 52 rows `5940886e…`, operand-scope 501 rows `cb100e3f…`.
+  - r12: D-164 addendum 1 r3 (reader tags) and r4 (rows by branch) were not applied to E-439. r3 was missing from the task text; that was my omission. Both land in E-445, in one re-pin.
+  - r13: the three A2A rulings (12:55, 13:17, 13:32) are ratified. The env -S decoder is frozen with the reader and the views. A second carrier gets a decoder only by a D-ruling: a security pass that finds one reports it and does not build it.
+  - r14: the sink list widens and a `..` segment makes a sink implicit-run. That is E-446.
+- **D-159 addendum 2** (E-431, PR #60): accepted as built. The 14:24 ruling is ratified (gate in `completion-gates.mjs`, floor 444, `superseded_by`, E-## of Tier 2 and 3 only). The critic stamps stay at the commit gate.
+
+### Blueprints changed (read before touching)
+- `.ai/blueprints/sovereignty-hardening.md`: the lock's contract paragraph (as built), and a new section "Gate Table Row Merge and Reader Tags" with E-445's keep/remove table.
+- `.ai/blueprints/harness-fitness.md` §Component 3: the DONE gate as built. The sentence about "the same check that requires the other stamps" is gone.
+- `.ai/blueprints/agents.md`: the `critic_acceptance` row.
+
+### Next action needed
+- **Engineer**, in this order (r15): finish E-432, then E-444, E-445, E-442, E-441, E-440, E-446.
+  - The tree is at 45301 test lines against a limit of 45370. If E-432's `rein ci run` fails on `test_lines` alone, build E-444 and E-445 first and stack E-432 on them. Do not request a raise for that.
+  - E-445 is test-only. Its keep rule matters: I named the 22 rows from the diff, not from a coverage run. A row that is the only one on its path stays, and you name it in the handoff.
+  - E-445 and E-446 are the first tasks under the acceptance gate (above floor 444).
+  - `task-synchronizer-mcp/index.js` is at 923 lines. The next task that adds lines to it splits it first, in its own commit (D-159 addendum 2 r9). If E-432 adds to it, that is E-432.
+  - From the third security round of a task on, bring the classification question to this pane by handoff, not through `ask_architect` (D-164 r6). E-439's third pass did not.
+- **Operator**:
+  - merge order: #49 → #56 → #57 → #58 → #59 → #60;
+  - `.ai/providers.json`, `.ai/roles.json` and the two `*.pre-0.5.0.json` files are still uncommitted and are yours to decide. This handoff commit leaves them out.
+
+### Open risks
+- Until E-446, a heredoc body written to `justfile`, `Rakefile` and the other listed names, or to a `/tmp/../…` path, is still unread by the content rules (P2).
+- A row removed in E-445 could be the only one on its branch. The payloads stay in `.ai/SECURITY.md`.
+---

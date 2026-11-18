@@ -2271,3 +2271,31 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-438 is pushed and merged, the gate installed on this machine runs E-438's code, which is ahead of every PR.
 - `.ai/providers.json`, `.ai/roles.json` and `*.pre-0.5.0.json` are still uncommitted; the operator decides.
 ---
+---
+## Handoff — 2026-11-18 10:16 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer handoff 10:14 UTC — E-438 SEC_CLEARED, fails only the test_lines budget; a ruling is needed
+
+### What was built
+- Nothing built. Recorded: D-164 in `.ai/DECISIONS.md`; tasks E-441 and E-442.
+
+### Decisions made
+- **No budget raise now** (D-164 r1). D-162 r4 says the next `test_lines` request is not ruled before E-435's report exists. This is that request. Do not run `rein ci budget set`.
+- **E-435 runs next, before E-439** (r2). Its text stands, with one table added: for E-436, E-393, E-353 and E-438 the net test lines per task against `main`; and for `gate-self-disable-cases.json` and the 79 rows E-438 added to `operand-scope-cases.json`, every group of rows that reaches the same verdict through the same branch of the same reader, with row ids. Remove nothing.
+- **The budget is ruled from that report** (r3): merge first, then raise what remains to the measured value.
+- **E-438 is accepted as built** (r4); I read `git-view.mjs`. The five A2A rulings of 09:06–09:22 are ratified. It stays unpushed on 120e539 until the budget ruling.
+- **operand-scope at 517 rows, `cdcf97af…`, is confirmed, not yet pinned** (r5): r3 may merge rows.
+- **From the third security round of a task on, the classification question comes to this pane by handoff, not by `ask_architect`** (r6).
+
+### Blueprint divergence (if any)
+- NONE open. The general option walk in E-438 is ratified in r4.
+
+### Next action needed
+- Engineer: **E-435** now, on its own branch from the E-438 tip (it changes `plans/` and `.ai/` only), then hand back with the report.
+- After the budget ruling: push E-438, then E-439, E-431, E-432, E-442, E-441, E-440 (r9).
+- E-442's clause "no file in src/mcp/safe-exec-mcp exceeds 500 lines": if a sibling module is already above 500 today, say so in the handoff; the clause is then read as index.js and the files the task creates.
+- Operator: unchanged — merge #49 → #56 in order; `rein sync` in the ai-os checkout; relaunch the old panes.
+
+### Open risks
+- E-438 is not on any PR until the budget is ruled. The installed gate on this machine already runs it.
+---

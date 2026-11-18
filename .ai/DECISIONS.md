@@ -5590,3 +5590,36 @@ Match over the whole view again and re-pin `operand-scope-cases.json` with the t
 None; a review record. The tasks carry their own.
 
 ---
+
+## D-164 — The test_lines raise for E-438 is not ruled before the census exists; E-435 runs now and covers the gate arc; E-438 is accepted as built and waits unpushed
+
+**Date**: 2026-11-18
+**Task**: E-438 (120e539), E-435 (order and scope amended); E-441, E-442
+**Decision**: D-162 r4 holds: "the next request to raise `test_lines` is not ruled before E-435's report exists". This is that request (measured 45078, recorded 44144, limit 45026). E-435 moves to the front of the queue, and the budget is ruled from its report.
+
+### Why needed
+E-438 passes every suite (7718/0/26) and is SEC_CLEARED; it fails only the budget, by 52 lines, on 79 new contract rows. The Engineer recommends raising to the measured value. That would be the fifth raise in seven weeks, and D-162 r4 was written so the fifth is not ruled blind.
+
+### Rulings
+1. **No raise now.** Holding E-438 costs nothing today: it is stacked on #56, and #49..#56 wait for the operator's merges; the gate installed on this machine already runs E-438's code.
+2. **E-435 runs next, before E-439**, with its text unchanged and one table added: for the gate arc not yet on `main` (E-436, E-393, E-353, E-438) the net test lines per task against `main`, and, for `gate-self-disable-cases.json` and the rows E-438 added to `operand-scope-cases.json`, every group of rows that reaches the same verdict through the same branch of the same reader (same option class, same view), with row ids. The Engineer removes nothing.
+3. **The budget is ruled on that report**: rows the report shows as one branch asserted many times are merged first; what remains over the limit is raised to the measured value, without headroom (D-149 r1).
+4. **E-438 is accepted as built.** Read by the Architect: `src/mcp/safe-exec-mcp/git-view.mjs`. It goes beyond the task's "skip the listed globals": a general option walk, two readers without shell grammar beside the frozen one, and a candidate must equal a forbidden verb. That is the shape the A2A rulings of 2026-11-18 09:06, 09:12, 09:16, 09:19 and 09:22 gave it; they are ratified by reference to `.ai/SECURITY.md` "E-438". The 09:16 rule is kept as standing: a view added to a reader never turns a blocked row into a pass.
+5. **`operand-scope-cases.json` at 517 rows, `cdcf97afa3628f845b64ae0b692467e3da81dd2db56e3d5aa1b1714665b45f4b`**, is confirmed by the Architect on 7bed34a. It is pinned with the budget ruling, because r3 may merge rows.
+6. **A2A and security rounds.** E-438 took six security rounds and five A2A rulings, and grew a reader the task did not describe. From the third security round of a task on, the classification question comes to the Architect's pane by handoff, not by `ask_architect`: the pane can re-scope, split a task and record; the headless Architect cannot.
+7. **The `cd` relocation (RX1, RX2; P2) is E-441.** `cd /tmp/o && git checkout .ai/x` passes for the Architect because the path is under `.ai/`, in another tree.
+8. **`src/mcp/safe-exec-mcp/index.js` is split in E-442** before E-441 and E-440 add to it: 818 lines against a limit of 1000.
+9. **Order**: E-435, then this ruling's follow-up on the budget, then E-439, E-431, E-432, E-442, E-441, E-440.
+
+### Alternatives considered
+1. **Raise to 45078 now** — rejected by D-162 r4; the report is a Tier 1 task and nothing waits on E-438's push.
+2. **Name rows to drop today** — rejected: without the grouping of r2 it would be a guess over rows six security rounds produced.
+
+### Impact
+- Unlocks: E-435 now; E-438's push after the budget ruling.
+- Risk if wrong: one task of delay on a stack that is waiting for merges anyway.
+
+### Rollback
+`rein ci budget set --ruling D-164 test_lines=45078` and push E-438 as it is.
+
+---

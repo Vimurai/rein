@@ -1994,6 +1994,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-18T08:59:38.649Z"
+    },
+    {
+      "id": "E-441",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Close the `cd` relocation in the Architect's git path exemption per D-164 r7 and .ai/SECURITY.md \"E-438\" (RX1, RX2; P2; ordering by text: after E-442, before E-440). Today `cd /tmp/o && git checkout .ai/x`, `(cd .. && git checkout .ai/x)` and `cd /y && git reset .ai/x` pass for the Architect: the path is under `.ai/`, but in another tree. In src/mcp/safe-exec-mcp, `gitRelocated` (git-view.mjs) also returns true when a `cd` or `pushd` on the same command text, before the git command, names a directory other than the project root the analyzer was given; when the analyzer has no project root, any `cd` or `pushd` with an operand counts. The `cd <project root> &&` prefix every Bash call carries keeps the exemption. Read the operand through the normaliser in src/shared/shell-word.mjs; an operand holding `$` or a backtick counts as another directory (fail closed). Begin with skill bug-reproducer: the three commands above flip from residual PASS to BLOCK rows in tests/fixtures/operand-scope-cases.json before any source change; add pass rows for `cd <project root> && git checkout .ai/x` and for the Engineer on all three. Review rule: D-163 r12 with r4, and D-164 r6 from the third security round. Acceptance: the new rows hold for the role they name (node --test on the operand-scope table); every other existing row keeps its verdict; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row count of operand-scope-cases.json for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T10:16:05.109Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T10:16:05.110Z"
+    },
+    {
+      "id": "E-442",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Split src/mcp/safe-exec-mcp/index.js into modules per D-164 r8 and .ai/blueprints/engineering-standards.md (file size: warning above 500 lines, limit 1000; the file is 818 lines and grew in E-393, E-353 and E-438). Ordering by text: after E-432, before E-441 and E-440. Move rule families out of index.js into sibling modules beside the existing ones (assigned-verbs.mjs, git-redirect.mjs, git-view.mjs, code-strings.mjs, heredoc.mjs, gate-guard.mjs): at least the RM_RF_ROOT root and cwd forms, and the pipe-into-shell rules with `pipeHit`; index.js keeps the server, `runAnalysis` and the order in which the rules run. A pure move: no rule, message, verdict or export name changes, and no new dependency. Begin with skill repo-oracle on index.js. Acceptance: `wc -l src/mcp/safe-exec-mcp/index.js` prints under 500; no file in src/mcp/safe-exec-mcp exceeds 500 lines; the sha256 of every pinned table is unchanged (operand-scope-cases.json, block-rules-cases.json, pipe-shell-cases.json, gate-self-disable-cases.json, arch-write-cases.json, role-verdict-cases.json — the handoff lists the six hashes before and after); `git diff --stat` shows no file under tests/fixtures changed; the installed mirror carries the new files (`bash install-rein.sh`, then `rein doctor` reports the gate healthy); critic_clean_code stamps CLEAN_PASS; full `rein ci run` green. Framework task.",
+      "created_at": "2026-11-18T10:16:14.021Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T10:16:14.021Z"
     }
   ],
   "stamps": [

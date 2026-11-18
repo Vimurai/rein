@@ -2169,3 +2169,277 @@ Gating: **SEC_CLEARED** for E-438. Every ruled form and every in-class variant (
 - the accepted Architect over-blocks.
 
 P0: none.
+
+## E-439 / D-163 addendum 2 r2, r7 — implicit-run sinks in strict mode and the word definition (security_engineer, 2026-11-18)
+
+Scope: branch e-439-implicit-run-strict, HEAD 9e0594e plus the staged change.
+- `heredoc.mjs`: IMPLICIT_RUN applies in strict mode too (r2).
+- `shell-word.mjs` `namesGateOff`: a word drops its leading hyphens (r7). `gateViews` gets V3.
+- `hooks/pre-tool-use.sh` `_names_gate_off`: the same changes in bash builtins.
+- gate-self-disable table: 233 rows (192 BLOCK, 41 pass), sha256 `640d61a9…5dcfbe`.
+
+Harness: `run6.sh` / `run7.sh` / `run8.sh` / `run9.sh`. Each builds staged (index) and HEAD
+mirrors under a throwaway HOME and runs `runAnalysis` and `namesGateOff` with `env -i` and caps.
+`hookfn.sh` runs the hook's `_names_gate_off` / `_touches_gate`, extracted from both hook copies.
+`exec6.sh` checks liveness: `bash -c` with a stub `rein` on PATH that logs its argv, in a
+throwaway cwd and HOME. The operator's `~/.rein` was never touched.
+
+### First pass — finding (a) and its fix
+- **(a) EXPLOITED, P1.** V3 deleted backslashes, so the `\_` separator of `env -S` hid the words.
+  E07–E11 and E15–E21 (12 rows, payloads6) passed both the analyzer and the hook. Seven were live
+  under the stub, e.g. `env -S'rein\_gate\_off'`.
+- **Fix** (A2A 2026-11-18 12:55): V3 reads each quote, and each `\` with the character after it,
+  as a space. There is no fourth view. The seven are BLOCK rows. Second pass: all 12 first-pass
+  rows block, in the analyzer and in the hook.
+- **Residual, not gating** (THREAT_MODEL "Open from the E-439 security re-run"):
+  - implicit-run sinks outside IMPLICIT_RUN's list (`justfile`, `Rakefile`, `.bash_aliases`,
+    `BSDmakefile`, `Taskfile.yml`, `sitecustomize.py`, `.bash_logout`). R01–R10 still pass;
+    INCONCLUSIVE.
+  - IMPLICIT_RUN reads `/tmp/../etc/x` as a `/tmp` path; INCONCLUSIVE.
+  - the hook's no-verdict fallback lets `${X-rein} …` / `${X:-re}${Y:-in} …` through. The
+    analyzer blocks them.
+
+### Second pass — differential and corpus
+Corpus:
+- payloads 1–6 from E-393, E-353, E-438 and the first pass;
+- `payloads7.json`: 34 V3-rule variants and 22 ordinary commands;
+- `payloads9.json`: 8 variants whose split words were re-spelled;
+- the 7 command tables (gate-self-disable, pipe-shell, block-rules, operand-scope, secret,
+  gate-relative-home, arch-write);
+- the 404 `--check` rows of `wave1-inputs.json`.
+
+That is 2 501 analyzer evaluations, each run against both mirrors.
+
+- **JS/bash agreement:** 0 mismatches across all of them, staged and HEAD alike. This includes
+  `\` + space, tab, newline or CRLF, `\\`, a trailing lone `\`, and quote/`\X` mixes.
+- **No regression:** no row that blocks at HEAD passes staged, in any table, the wave-1 subset or
+  the corpus. Every verdict change is pass→BLOCK. The table-pinning suites (13 files) pass:
+  1670/0.
+- **New V3 rows that block:** V06–V10, V18, V19, V24, V26 and the trailing-`\` row V07, which is
+  live.
+- **Not live** (env rejects them or no command runs): `\`+newline, `\`+CRLF, `'…\\_…'`.
+
+**(e) EXPLOITED, P1 proposed: the (a) fix covers only the quote shape of the seven rows.** The
+same attack through `env -S`'s `\_` escape still passes both the analyzer and the hook (both
+`3W` columns `-`). Each row below ran `rein gate off` under the stub:
+
+| Shape | Payloads |
+|---|---|
+| no quote, shell `\\` | `env -Srein\\_gate\\_off`, `env -S\rein\\_gate\\_off`, `env --split-string=rein\\_gate\\_off`, `env -S"rein\\_gate\\_off"`, `env -S$'rein\\_gate\\_off'` |
+| first word glued to `-S` | `env -Sre'in\_gate\_off'`, `env -Sr"ein\_gate\_off"`, `env -vSre'in\_gate\_off'` |
+| a quote inside a word | `env -S'r''ein\_gate\_off'`, `env -S'rein\_g''ate\_off'`, `env -S'rein\_gate\_o''ff'`, `env -S'rein\_g'ate'\_off'`, `env -S'rein\_gate\_o'ff`, `env -S"r"ein\\_gate\\_off` |
+
+Why each view misses:
+- V1 sees `rein_gate_off`.
+- V2 sees `-Srein`, `_gate` or `_off`.
+- V3 splits `r  ein` at the quote, or leaves `_gate`.
+
+The quote-as-space half of V3 makes the third shape possible. Adding more views will not close the
+class: `env -S` has its own escape layer under the shell's. Proposed fix, in the
+analyzer only:
+1. gate-guard's `split` branch dequotes the `-S…` / `--split-string=…` word faithfully: a
+   single-quoted `\` is kept, and `\\` in double quotes becomes `\`.
+2. It then decodes env's escapes (`\_ \t \n \v \f \r` → space, `\c` ends the string, `\X` → X).
+3. It re-reads the result as a program and runs `namesGateOff` on it.
+
+`normaliseWord` cannot be reused: it already turns `\_` into `_` (probe `fixprobe.mjs`). The
+hook's fallback would keep this as a residual, the same as the `${X-…}` item.
+
+**Over-blocks from V3 (P3, accepted under the r1 predicate).** O02, O03, O04, O06, O09, O18 and
+O20 block on staged and passed at HEAD. Examples: `echo "rein's gate is off"`,
+`echo "rein"-"gate"-"off"`, `echo 'rein'gate'off'`, and a `-m` message with `gate'"'"'s off`.
+Every one names all three words on one line, so a line missing one of the words cannot block.
+`printf 'rein\ngate\noff'` and other `\n`-separated text already blocked at HEAD through V2, so
+it is not new.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | gate lock V3 | first-pass E07–E11, E15–E21 (`env -S'rein\_gate\_off'` …) | RESISTED | 0 | (a) closed |
+| A01 | gate lock V3 | `\`+space/tab/NL/CRLF, trailing `\`, quote/`\X` mixes (V01–V10, V18–V26) | RESISTED | 0 | — |
+| A01 | gate lock, env -S | `env -Sre'in\_gate\_off'`, `env -S'r''ein\_gate\_off'`, `env -Srein\\_gate\\_off` (+11) | EXPLOITED | 0 | (e), P1 proposed |
+| A04 | IMPLICIT_RUN | justfile/Rakefile/.bash_aliases/… R01–R10 | INCONCLUSIVE | 0 | residual, ruled 12:55 |
+| A04 | IMPLICIT_RUN | `/tmp/../etc/x` sink | INCONCLUSIVE | 0 | residual, ruled 12:55 |
+| A01 | hook fallback | `${X-rein} gate off` | INCONCLUSIVE | 0 | residual; analyzer blocks |
+| A01 | regression | 2 501 evaluations, 7 tables + wave-1 | RESISTED | 0 | 0 BLOCK→pass, 0 JS/bash mismatch |
+| A05 | over-block | O02–O20 quote-joined prose | n/a | 0 | P3 |
+
+Gating: **SEC_BLOCKED** on (e). P0: none.
+
+### Third pass — the env -S decoder (A2A 13:17, D-163 addendum 2 r13; security_engineer, 2026-11-18)
+
+Scope: staged `unquoteWord` (shell-word.mjs), `envDecode` / `envSplitNamesGateOff` (gate-guard.mjs,
+called from `selfDisableHits`), gate table 255 rows (213 BLOCK, 42 pass), sha256 `21883326…9309ce`.
+
+Harness: as the second pass (`run10.sh`, `run11.sh`), plus `exec10v.sh`. In `exec10v.sh` the
+stub's log path is fixed, so it still logs under `env -i`, and there is no `-u` cap: under
+`ulimit -u 64` pipelines and here-strings were killed and gave false negatives. This host has
+two env binaries: `/usr/bin/env` is uutils 0.10.0 and `gnuenv` is GNU. Each row was run against
+both.
+
+The corpus is payloads 1–12:
+- payloads10: 126 decoder attacks and 13 ordinary env commands;
+- payloads11/12: 30 follow-ups.
+
+It also covers the 7 tables and the 404 wave-1 `--check` rows: 2 653 analyzer evaluations, plus
+36 more.
+
+**Standing results:**
+- JS/bash `namesGateOff` mismatches: 0, staged and HEAD.
+- No row that blocks at HEAD passes staged. No throws.
+- Table-pinning suites: 1692/0.
+- Wave-1: unchanged.
+- All 14 (e) payloads block, and so do the second-pass V rows that were live. The V rows that
+  still pass are not live, or are the ruled `${X}` residual.
+
+**RESISTED:**
+- **Options:** `--`, `-i`, `--ignore-environment`, `-0`, `-S` twice in either order, `-u=X`,
+  `--unset=X`, `-iuX`, `--chdir=`, `-C/tmp`, `--debug`, `--block-signal`, `--split-string X`,
+  `--s=`, `--split=`, `--spl X`, and `X=1` before `-S`.
+- **Wrappers:** `nice`, `command`, `exec`, `timeout`, `find -exec`, `xargs env -S…`, `sudo`,
+  `setsid`, `stdbuf`, `time`, `!`, `{ }`, `( )`, `$( )`, `&&`, `if`.
+- **Env names:** `/usr/bin/env`, `"env"`, `\env`, `e''nv`, `$'env'`, `$'\x65nv'`, `e\nv`,
+  `/usr/bin/../bin/env`, `/usr/*/env`, the uutils multicall, and `env\`-newline.
+- **Nesting:** `bash -c` to depth 3, `eval`, `echo … | bash`, and `env -S` whose decoded program
+  is `bash -c …` or `env -S …`.
+- **Quotes and escapes:** every `\c` placement, env-level `'…'` / `"…"` inside `-S`, and
+  unterminated quotes.
+- **ANSI-C:** `$'…\x27…'`, `$'r\145in…'`, `$"…"`. These are now decoded on this carrier.
+
+**Over-blocks: none.** P01–P13 pass, among them `env -S'node --max-old-space-size=4096'`,
+`env -u X npm test`, `/usr/bin/env -S bash -euo pipefail`, `env -C /tmp -S'ls -la'`, and `-S`
+strings that name only two of the three words.
+
+**EXPLOITED.** In each row below the analyzer and the hook both pass, and the stub ran
+`rein gate off`. Q = `'r''ein\_gate\_off'`.
+
+| # | Class | Live PoC | Engine | Proposed |
+|---|---|---|---|---|
+| f1 | env option parsing: the decoder `break`s at the first word that is not an option. It misses a value-taking letter inside a cluster and abbreviated long options. | `env -vu X -SQ`; `env -vC /tmp -SQ`; `env -va x -SQ`; `env -u X -vu Y -SQ`; with `-i` and an absolute path: `env -iu X -S'/p/r''ein\_…'` | uutils | **P1** (literal words; parsing of the ruled carrier) |
+| f1′ | the same, with GNU getopt abbreviations | `gnuenv --unse X -SQ`, `gnuenv --ch /tmp -SQ`, `gnuenv --ar x -SQ`. A GNU-coreutils host runs these as `/usr/bin/env`. | GNU | **P1** |
+| f2 | a here-string is never decoded (`shellCommands` keeps the `<<<` word out of the words the decoder reads) | `bash <<< "env -SQ"`, `bash<<<"env -SQ"`, `cat <<<"env -SQ" \| bash` | both | **P1** (gate-guard has re-read here-strings since F6) |
+| f3 | GNU env under its Debian/Ubuntu name | `gnuenv -SQ` (on PATH on this host) | GNU | P1 or P2, for the Architect |
+| f4 | a glob in the env name; `named()` already globs `rein` | `/usr/bin/en? -SQ`, `/usr/bin/e*v -SQ` (`/usr/bin/e[n]v` is the class-glob residual) | uutils | P1 or P2, for the Architect |
+| f5 | `bash -c` nesting deeper than the decoder's depth 3 | `bash -c` × 4 around `env -SQ` (built with shell quoting at each level) | uutils | P2 / residual (by-design limit) |
+| r3 | assembly at run time, through a pipe or a variable | `${E:-env} -SQ`; `e=env; $e -SQ`; `e=en; ${e}v -SQ`; `printf '%s\n' '-Sr''ein\_…' \| xargs -d '\n' env` | uutils | residual r3. Note: r7 reads `${X:-rein}` as `rein`, so `${E:-env}` may be its sibling. |
+| r3 | `${X}` inside -S | `env -S'r${X}ein\_gate\_off'` | uutils | residual (ruled 13:17) |
+
+Proposed fixes (analyzer only, no grammar added to the frozen reader):
+- **f1:** stop guessing where env's command starts. Read every word after an `env` word.
+  - a `-[A-Za-z]*S…` word, or a `--s…[=]` prefix of `--split-string`, is the carrier;
+  - or parse it as getopt does: in a cluster, the first `u`, `C`, `a` or `S` takes the rest of the
+    word or the next word, and a long option matches a unique prefix of `unset`, `chdir`,
+    `argv0` or `split-string`.
+
+  The first is simpler. An over-block then needs the decoded text to name all three words.
+- **f2:** run `envSplitNamesGateOff` on each here-string word too, as gateCommandHit's F6 path
+  does.
+- **f3 / f4:** test the basename with `named(base, "env") || named(base, "gnuenv")`.
+
+The hook fallback keeps all of the above as the named (e) residual.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | env -S decoder | the 14 (e) payloads; options, wrappers, names, nesting ≤3, `\c`, env quotes, ANSI-C | RESISTED | 0 | (e) closed for these shapes |
+| A01 | env -S decoder | `env -vu X -SQ`, `env -vC /tmp -SQ`, `gnuenv --unse X -SQ` | EXPLOITED | 0 | f1, P1 proposed |
+| A01 | env -S decoder | `bash <<< "env -SQ"` | EXPLOITED | 0 | f2, P1 proposed |
+| A01 | env -S decoder | `gnuenv -SQ`, `/usr/bin/en? -SQ` | EXPLOITED | 0 | f3/f4, for the Architect |
+| A01 | env -S decoder | 4× nested `bash -c` | EXPLOITED | 0 | f5, P2 proposed |
+| A01 | env -S decoder | `${E:-env}`, `$e`, xargs from stdin, `${X}` in -S | INCONCLUSIVE | 0 | r3 residual |
+| A05 | over-block | P01–P13 ordinary env usage | RESISTED | 0 | none |
+| A01 | regression | 2 653 + 36 evaluations | RESISTED | 0 | 0 BLOCK→pass, 0 mismatch |
+
+Gating: **SEC_BLOCKED** on f1 and f2. P0: none.
+
+### Fourth pass — f1–f4/N09 fixes (A2A 13:32; security_engineer, 2026-11-18)
+
+Scope, per the 13:32 ruling:
+- **What changed in `envSplitNamesGateOff`:** every word after an `env` or `gnuenv` word may be a
+  `-S`: either `-[A-Za-z0-9]*S…` or a `SPLIT_LONG` prefix. Each `<<<` word (`cmd.here`) is
+  decoded at depth+1. The env name is matched with `named()`. The input goes through `gateText`.
+- **What was attacked:** only the new decoder code and the here-string decode.
+- **New findings:** fixed only when all three words are literal in a view the decoder already
+  builds. Anything else becomes a residual row.
+
+**The checks the Architect asked for:**
+- **Gate table:** 271 rows (227 BLOCK, 44 pass), sha256 `16429018…fd31e5`.
+- **`arch-write-cases.json`:** sha256 `26f7da12…f0a77`, byte-identical to HEAD, no staged change.
+- **JS/bash mismatches** in `namesGateOff`: 0, staged and HEAD. The corpus is payloads 1–13, the
+  7 tables and the 404 wave-1 rows: 2 764 analyzer evaluations, each against both mirrors.
+- **Regressions:** none. No row that blocks at HEAD passes staged, and nothing throws.
+  Table-pinning suites: 1708/0.
+- **The 13 ordinary env commands** (P01–P13) still pass, and so do P14–P19:
+  `bash <<<"echo hello"`, `env -S"python3 -X dev" -u PYTHONPATH run.py`,
+  `/usr/bin/env --split-string='deno run' x.ts`, `printenv | grep`.
+- **Payloads now blocking:**
+  - f1: D06–D10, D15, D21, D22, I05–I12;
+  - f1′ and f3: G01–G08;
+  - f2: B08, H01, J01–J03;
+  - f4: N06–N08, H04;
+  - N09.
+- **Perf** (`perf4.sh`): the real hook was run against staged and HEAD mirrors on the same host,
+  interleaved, with `env -i` and a throwaway HOME. Medians of 15 runs, staged vs HEAD:
+
+  | Command | Staged | HEAD |
+  |---|---|---|
+  | `git status` | 178 ms | 177 ms |
+  | `ls -la src` | 178 ms | 182 ms |
+  | `npm test …` | 177 ms | 180 ms |
+  | `env -u X npm test` | 183 ms | 182 ms |
+  | a commit-and-push chain | 184 ms | 179 ms |
+  | a heredoc write | 182 ms | 180 ms |
+
+  The differences are within noise, so the E-239 host-relative budget holds.
+
+**Attacks on the new code: RESISTED.**
+- **Here-strings:**
+  - ANSI-C `<<<$'…'`, `0<<<`, `source` / `. /dev/stdin <<<`, a here-string inside `$(…)`;
+  - `sh <<<`, `true; env -S…` in the body, a trailing redirection, `{ bash; } <<<`,
+    `while read … done <<<`, glued `bash<<<`;
+  - here-docs `<<EOF` and `<<'EOF'`, `bash <(echo …)`, and a here-string at depth 3.
+- **Names:** `/usr/bin/[e]nv`, `?nv`, `gnue?v`, `gnu*`, `/u?r/bin/env`, `${E:-e}nv`,
+  `${E-env}`, `${E:=env}`, `"${E:-env}"`, `${E:-"env"}`, `${E:-/usr/bin/env}`.
+- **-S forms:**
+  - `-S=…`, `-S'' …`, `-S ""`, `--split-string= …`, `--SPLIT-STRING=`, `-S\`-newline;
+  - a cluster `-iS…`, `-S` given twice, `--s …`, a `#` comment;
+  - `VAR=`, `-i`, `-S`, `--split-string=` and `-u X` inside the decoded program;
+  - env-level `\"` and `\'` quoting.
+
+**New passes: residual under the 13:32 rule, to be pinned as pass rows.** None of these is
+literal in a view the decoder builds.
+
+| Row | Payload | Live | Class |
+|---|---|---|---|
+| X10 | `bash <<<"$(echo env) -S'r''ein\_gate\_off'"` | yes | r3, assembly at run time |
+| Y10 | `/usr/bin/[!a]nv -S'r''ein\_gate\_off'` | yes | r3, negated class glob |
+| Y11 | `/usr/bin/e[!a]v -S'r''ein\_gate\_off'` | yes | r3, negated class glob |
+| Y14 | `${E:-${F:-env}} -S'r''ein\_gate\_off'` | yes | nested default: `gateText` reads one level |
+
+X06, X07 and X11 also pass but are not live: the shell eats the env layer and env receives
+`rein_gate_off`. Z21 is not valid shell.
+
+Rows still passing from the third pass, all ruled residual (13:32):
+- f5: K04, K05;
+- r3: N17, H03, W08/H02 (xargs from stdin), Q12 (`${X}`).
+
+The rest are not live.
+
+**P3, availability.** The decoder is quadratic in env words: each `env` word scans every word
+after it, and each `-S` word recurses. `env -Sa ` × 4000 (32 000 chars, under the analyzer's
+size cap) takes 8 054 ms staged and 19 ms at HEAD. × 1000 takes 527 ms staged and 6 ms at HEAD.
+- Past 10 s the hook has no verdict, which is a BLOCK, so this fails closed.
+- With an active override, the no-verdict path ends at the fallback, which does not decode
+  env -S: the already named (e) hook-fallback residual, reached by time instead of by padding.
+- Suggested follow-up, not gating: decode each `-S` word once per command, not once per earlier
+  `env` word.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | env -S decoder | f1–f4 / N09 payloads | RESISTED | 0 | fixed |
+| A01 | here-string decode | X01–X05, X08–X09, X12–X20 | RESISTED | 0 | — |
+| A01 | decoder names / -S forms | Y01–Y09, Y12–Y13, Y15–Y17, Z01–Z20, Z22 | RESISTED | 0 | — |
+| A01 | decoder | `$(echo env)`, `[!a]nv`, `${E:-${F:-env}}` | INCONCLUSIVE | 0 | residual (13:32), pin as pass rows |
+| A05 | over-block | P01–P19 ordinary env / here-string use | RESISTED | 0 | none |
+| A01 | regression | 2 764 evaluations | RESISTED | 0 | 0 BLOCK→pass, 0 mismatch |
+| — | DoS | `env -Sa ` × 4000 | n/a | 0 | P3, fails closed |
+
+Gating: **SEC_CLEARED** for E-439. P0: none.

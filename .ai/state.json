@@ -6151,6 +6151,78 @@
       "summary": "[TIER_1] E-443 hotfix: src/shared/ci-record.mjs header line 20 was mangled by a sed (`#` delimiter vs `D-###`) into a non-comment line — a SyntaxError in the installed copy that broke rein ci and the pre-push gate for every session. Restored as a comment; node --check passes.",
       "sha": "a91c7c4758293dc6c77db01356765cd49233f6c4",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_PASS",
+      "agent": "critic_clean_code",
+      "task_id": "E-439",
+      "timestamp": "2026-11-18T12:46:05.057Z",
+      "summary": "E-439 standards-checker PASS — 8 files clean, 0 warnings, 0 errors (elapsed 8ms)",
+      "sha": "9e0594e58e4cf7ce2236ec18386b1a6fc8c5aa44",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-439",
+      "timestamp": "2026-11-18T12:46:10.495Z",
+      "summary": "E-439: No sovereignty violations (no architect.md/BRIEF/blueprints in staged diff); all src/hook changes trace to E-439 and D-163 addendum 2 r2/r7 and blueprint sovereignty-hardening.md; shellCommands/gateCommandHit untouched; one normaliser in shell-word.mjs; JS namesGateOff and bash _names_gate_off agree on word def and V3.",
+      "sha": "9e0594e58e4cf7ce2236ec18386b1a6fc8c5aa44",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "blueprint-aligner",
+      "task_id": "E-439",
+      "timestamp": "2026-11-18T12:46:37.911Z",
+      "summary": "E-439 staged diff aligns with sovereignty-hardening.md (lock contract, quoted heredoc bodies) and D-163 add.2 r2/r5/r7: IMPLICIT_RUN sinks kept in strict mode; word = [A-Za-z0-9_-] run with leading hyphens dropped (JS + hook parity); V3 = V1 with quotes as spaces; shellCommands/gateCommandHit untouched; gate table 225->226 (185 BLOCK/41 pass), 5 PASS->BLOCK flips, 0 BLOCK->PASS, re-pinned 682fcdc7; pipe-shell 49->52 rows (75ed95a6->5940886e, handoff to report); operand-scope untouched; THREAT_MODEL residual list drops both closed classes. MCP WARN items (LOG.md not yet updated; orphaned-work vs architect.md) are process/false-positive, not deviations.",
+      "sha": "9e0594e58e4cf7ce2236ec18386b1a6fc8c5aa44",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-439",
+      "timestamp": "2026-11-18T12:46:41.441Z",
+      "summary": "E-439: No P0. Strict-mode IMPLICIT_RUN check only removes cands (more text scanned, no BLOCK->PASS); namesGateOff/_names_gate_off word def + V3 are strict supersets, JS and bash agree on 18 probes (env -S'..', ${X:-..}, --flags, [] ?*, é, CRLF). Quoted/./ ~/ $HOME sinks are not candidates (CONSUMER_RE) so stay scanned. Advisory P2 pre-existing: sink /tmp/../etc/x passes (?!tmp/) and is stripped.",
+      "sha": "9e0594e58e4cf7ce2236ec18386b1a6fc8c5aa44",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-439",
+      "timestamp": "2026-11-18T13:08:54.103Z",
+      "summary": "E-439: gate-self-disable 229/229, pipe-shell 53/53; D01-D03/P16/P19 flipped to BLOCK, new rows present, no BLOCK row regressed, rename-map pin matches sha256. Fast tier 7089 pass / 28 fail, all in 3 installer suites refusing the dirty staged tree ([INSTALL_DIRTY_TREE]); expected to clear once committed.",
+      "sha": "9e0594e58e4cf7ce2236ec18386b1a6fc8c5aa44",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-439",
+      "timestamp": "2026-11-18T13:39:17.462Z",
+      "summary": "E-439 SEC_CLEARED on the fourth pass (D-163 r4, A2A 13:32 scope). Findings closed: (a) P1, V3 now reads \\X as a space; (e) P1, env -S escape-layer decoder in gate-guard; f1/f2 P1 and f3/f4/N09 P2, decoder options, here-strings, gnuenv, globs, ${E:-env}. 0 JS/bash mismatches over 2,764 evaluations; no BLOCK→PASS vs HEAD; arch-write 26f7da12 unchanged; hook perf unchanged. Residual r3/f5 pinned as pass rows. P3 quadratic decoder fixed after the pass (scan once from the first env word; 8 s → 20 ms; same verdicts). Gate table 275 rows (227 BLOCK, 48 pass), c80f9b68…",
+      "sha": "9e0594e58e4cf7ce2236ec18386b1a6fc8c5aa44",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 3)",
+      "task_id": "E-439",
+      "timestamp": "2026-11-18T13:39:20.105Z",
+      "summary": "[TIER_3] E-439 (D-163 addendum 2 r2, r7; A2A 12:55/13:17/13:32). ARCH_PASS, SEC_PASS, TESTS_PASS, CLEAN_PASS, ALIGN_PASS from the first review; SEC_CLEARED after four security_engineer passes. Implicit-run sinks are read in strict mode; the word drops leading hyphens; view V3; env -S decoder. gate-self-disable 225→275 rows (80ab99d0→c80f9b68); pipe-shell 49→52 rows (75ed95a6→5940886e). No operand-scope row or wave-1 triple flipped. Unit layer 2807/0.",
+      "sha": "9e0594e58e4cf7ce2236ec18386b1a6fc8c5aa44",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 1)",
+      "task_id": "E-439",
+      "timestamp": "2026-11-18T13:39:55.181Z",
+      "summary": "[TIER_1] E-439 bookkeeping on 7570d58: .ai/ only. REVIEWS/state stamps; SECURITY.md is the security_engineer's four-pass E-439 section; THREAT_MODEL residual list per D-163 addendum 2 r2, r7 and A2A 12:55/13:17/13:32. No source or test change.",
+      "sha": "7570d581022bba3ae7a9ba5e5b0b2fef5c8aa9c1",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

@@ -5951,6 +5951,15 @@
       "summary": "[TIER_3] E-353 (D-112 r3 a-f, D-163 r12) staged on 9fc384c: ARCH_PASS, SEC_PASS (critic_security; its in-class P2 on the class-e exemption fixed), TESTS_PASS, ALIGN_PASS, CLEAN_WARN (index.js size, pre-existing), SEC_CLEARED (security_engineer, three rounds). Tables: operand-scope 438, block-rules 61, pipe-shell 49; arch-write unchanged. Full rein ci run pending operator install.",
       "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 1)",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:00:19.738Z",
+      "summary": "[TIER_1] E-438 step 0 (D-163 addendum 2 r10): tests/census-baseline.tsv as rewritten by rein ci run 43eec4f (STALE 31), committed alone; generated data, no code.",
+      "sha": "c0ff5401a02cc9a47c3089c12ada80838539b127",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

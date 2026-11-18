@@ -1225,10 +1225,13 @@ Open and out of E-393's scope: tmux, python pty, and the quote-split writer path
 
 *D-163 (2026-11-17): the lock is a three-word text predicate.*
 
-**The lock.** `namesGateOff` blocks when one line of either view holds the words `rein`, `gate`
-and `off`, in any order and any case:
+**The lock.** `namesGateOff` blocks when one line of any view holds the words `rein`, `gate`
+and `off`, in any order and any case. A word is a run of `[A-Za-z0-9_-]` with its leading hyphens
+removed (D-163 addendum 2 r7, E-439):
 - V1 deletes `'` `"`, backslash-newline (also CRLF), every other `\`, and `[ ] ? *`;
-- V2 deletes the quotes and turns each `\X` into a space.
+- V2 deletes the quotes and turns each `\X` into a space;
+- V3 is V1 with each quote, and each `\X`, read as a space instead of deleted (addendum 2 r7;
+  the `\X` half is A2A 2026-11-18 12:55, E-439: `env -S'rein\_gate\_off'`).
 
 It runs after the D-084 heredoc strip, applies to every role, and holds under an override. The
 name rules (the CLI form, the override file and writer, writes under `~/.rein/`) read both the raw
@@ -1243,7 +1246,6 @@ literal in either view, or when the words sit on different lines of both views. 
 - negated or class globs outside a path that names `rein`;
 - a word split across variables or `$(…)`;
 - encoded text;
-- a word split by `-` (it is a word character, so `env -vS'rein …'` and `${X:-${Y:-rein}}`);
 - tmux keys sent one by one;
 - a script written and then run.
 
@@ -1256,11 +1258,42 @@ root-owned install exists.
 **Open from the D-163 re-review.** PoCs are in SECURITY.md "D-163 re-review".
 - Closed: the hook's analyzer-not-located branch now runs `_touches_gate` before `_catastrophic`
   (re-checked in a throwaway HOME, both locales; E-393 SEC_CLEARED).
-- D-084 rule 4 strips a heredoc body whose sink is run implicitly (`Makefile` + `make`, `.bashrc` +
-  `bash -i`). This is P1 against every HEREDOC_EXEMPT rule. For this lock it is residual. A
-  follow-up applies IMPLICIT_RUN in strict mode.
+- Closed (E-439, D-163 addendum 2 r2): D-084 rule 4 stripped a heredoc body whose sink is run
+  implicitly (`Makefile` + `make`, `.bashrc` + `bash -i`), a P1 against every HEREDOC_EXEMPT rule.
+  IMPLICIT_RUN now applies in strict mode too, and gate rows D01–D03 block.
+- Closed (E-439, D-163 addendum 2 r7): a word split by `-` (`env -vS'rein …'`,
+  `${X:-${Y:-rein}}`). Leading hyphens are dropped, and view V3 reads each quote and each `\X`
+  as a space; seven `env -S'…\_…'` payloads from the E-439 security re-run are BLOCK rows.
 - Closed: locale parity of the bash fallback (`local LC_ALL=C`; 0 mismatches in 30 000 fuzz cases
   per locale).
+
+**From the E-439 security passes** (A2A 2026-11-18 12:55 and 13:17; D-163 addendum 2 r13).
+- Closed (finding (e), P1): `env -S` decodes its own escapes (`\_` is a space), so
+  `env -S'r''ein\_gate\_off'` and `env -Srein\\_gate\\_off` named the disable to env and to no
+  view. The analyzer now unquotes the -S / --split-string argument exactly, decodes env's
+  escapes and reads the result with the lock's predicate (gate-guard.mjs; 14 BLOCK rows).
+- Residual r3: a `${VAR}` inside the env -S string is expanded by env at run time (a pass row).
+- Accepted P3 over-blocks (D-163 addendum 1): text that names the three words on one line of V3,
+  e.g. `echo "rein's gate is off"`; seven BLOCK rows. Put such text in a file.
+- Hook fallback only (the no-verdict path, which needs an active override and ARG_MAX padding):
+  it does not decode env -S, and `${X-rein} gate off`, `${X:-re}${Y:-in} gate off` and
+  `${X:-r}ein gate off` pass it. The analyzer blocks all of them.
+- INCONCLUSIVE — implicit-run sinks outside IMPLICIT_RUN's list: a heredoc body written to
+  `justfile`, `Rakefile`, `.bash_aliases`, `BSDmakefile`, `Taskfile.yml`, `sitecustomize.py`,
+  `.bash_logout` or `Makefile.in` is still stripped. E-439's list is accepted as built; widening
+  it is a follow-up task.
+- INCONCLUSIVE — IMPLICIT_RUN reads `/tmp/../etc/x` as a `/tmp` path (pre-existing, both
+  modes). Suggested fix: a sink with a `..` segment is implicit-run.
+- Hex and octal escapes (`$'r\145in' gate off`) stay the r3 class above.
+- Closed (third pass, A2A 13:32): f1 (P1) the decoder modelled env's options — it now reads every
+  word after `env` as a possible -S, abbreviated `--split-string` included; f2 (P1) here-strings are
+  decoded; f3/f4 (P2) `gnuenv` and a glob in the name; N09 (P2) `${E:-env}` read as its default.
+- Residual r3 (A2A 13:32), covered by the classifier, not the text lock: nesting deeper than the
+  shared depth-3 bound (f5), env assembled from a variable (`e=env; $e`, `${e}v`), arguments fed
+  through `xargs`, `${X}` inside -S, and the hook fallback not decoding -S. Pinned as pass rows.
+- Fourth pass (SEC_CLEARED): residual r3, pinned as pass rows — env built by `$(echo env)`, a
+  negated class glob in the name (`/usr/bin/[!a]nv`), a nested default (`${E:-${F:-env}}`). P3
+  fixed: the decoder was quadratic in env words (4 000 × `env -Sa`: 8 s, now 20 ms).
 
 *Superseded by D-163.* Before that ruling, the parser was not converging and the Architect had to
 choose between two locks:

@@ -20,9 +20,12 @@ export function normaliseWord(raw) {
 
 // ── D-163 r1: the self-disable lock is a three-word text predicate ──────────────────────────
 // Two views of the text: V1 deletes ' " backslash-newline, every other backslash and [ ] ? *;
-// V2 deletes ' and " and turns each backslash with the character after it into one space. A word
-// is a maximal run of [A-Za-z0-9_-]. The text names the disable when ONE LINE of one view holds the
-// words `rein`, `gate` and `off`, in any order (compared without case, as the verb fold does) —
+// V2 deletes ' and " and turns each backslash with the character after it into one space; V3
+// (D-163 addendum 2 r7, E-439) is V1 with each quote, and each backslash with the character after
+// it, read as one space instead of deleted (A2A 2026-11-18 12:55: `-S'rein\_gate\_off'`), so
+// `-S'rein gate off'` yields the three words. A word is a maximal run of [A-Za-z0-9_-] with its
+// leading hyphens removed (addendum 2 r7: `${X:-rein}` yields `rein`). The text names the
+// disable when ONE LINE of one view holds the words `rein`, `gate` and `off`, in any order (compared without case, as the verb fold does) —
 // lines are split after the view is built (D-163 addendum 1: a long prose append names all three
 // in unrelated paragraphs). What this cannot see — a word literal in neither view, or the words on
 // different lines — is the r3 residual, the classifier's. hooks/pre-tool-use.sh's no-verdict
@@ -32,12 +35,13 @@ export function gateViews(text) {
   return [
     s.replace(/\\\r?\n/g, "").replace(/['"\\[\]?*]/g, ""),
     s.replace(/['"]/g, "").replace(/\\[\s\S]?/g, " "),
+    s.replace(/\\\r?\n/g, "").replace(/['"]/g, " ").replace(/\\[\s\S]?/g, " ").replace(/[[\]?*]/g, ""),
   ];
 }
 const GATE_OFF_WORDS = ["rein", "gate", "off"];
 export function namesGateOff(text) {
   return gateViews(text).some((v) => v.split("\n").some((line) => {
-    const words = new Set((line.match(/[A-Za-z0-9_-]+/g) ?? []).map((w) => w.toLowerCase()));
+    const words = new Set((line.match(/[A-Za-z0-9_-]+/g) ?? []).map((w) => w.replace(/^-+/, "").toLowerCase()));
     return GATE_OFF_WORDS.every((w) => words.has(w));
   }));
 }
@@ -55,6 +59,39 @@ export function decodeAnsiC(raw) {
       if (e[0] === "c") return String.fromCharCode(e.charCodeAt(1) & 0x1f);
       return ANSI_C[e] ?? m;
     }) + "'");
+}
+
+// E-439 (A2A 2026-11-18 13:17): one word's shell quoting removed EXACTLY as bash does, expansions
+// left as written: outside quotes `\X` is X and backslash-newline vanishes; '…' is literal; in "…"
+// a backslash escapes only $ ` " \ and newline; $'…' is decoded (ANSI-C); $"…" reads as "…". For a
+// carrier whose argument has an escape layer of its own (env -S), where normaliseWord — which
+// deletes every backslash — would lose that layer.
+export function unquoteWord(raw) {
+  const s = String(raw);
+  let out = "";
+  for (let i = 0; i < s.length; i++) {
+    const c = s[i];
+    if (c === "\\") { if (s[i + 1] !== "\n" && i + 1 < s.length) out += s[i + 1]; i++; continue; }
+    if (c === "'") {
+      const e = s.indexOf("'", i + 1), end = e === -1 ? s.length : e;
+      out += s.slice(i + 1, end); i = end; continue;
+    }
+    if (c === "$" && s[i + 1] === "'") {
+      let j = i + 2;
+      while (j < s.length && s[j] !== "'") j += s[j] === "\\" ? 2 : 1;
+      out += decodeAnsiC(s.slice(i, j) + "'").slice(1, -1); i = j; continue;
+    }
+    if (c === '"' || (c === "$" && s[i + 1] === '"')) {
+      let j = c === "$" ? i + 2 : i + 1;
+      for (; j < s.length && s[j] !== '"'; j++) {
+        if (s[j] === "\\" && j + 1 < s.length && '$`"\\\n'.includes(s[j + 1])) { if (s[j + 1] !== "\n") out += s[j + 1]; j++; }
+        else out += s[j];
+      }
+      i = j; continue;
+    }
+    out += c;
+  }
+  return out;
 }
 
 // Words and command boundaries of a command line, honouring quotes the way the shell does:

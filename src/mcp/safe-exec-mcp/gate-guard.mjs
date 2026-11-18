@@ -23,7 +23,7 @@
 import { existsSync, realpathSync } from "node:fs";
 import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { homedir } from "node:os";
-import { gateViews, namesGateOff, normaliseWord, shellCommands } from "../../shared/shell-word.mjs";
+import { gateViews, namesGateOff, normaliseWord, shellCommands, unquoteWord } from "../../shared/shell-word.mjs";
 
 // Command position: start, a separator or grouping char, a shell keyword or a prefix that
 // runs its argument, `VAR=value` assignments, or the program string of `sh -c` / `bash -c`
@@ -291,12 +291,65 @@ const MSG_ESCAPE = "Operator escape — in YOUR terminal, not through the agent:
 // longer a way around them; assembly from variables is still the classifier's (r3).
 export function selfDisableHits(raw) {
   const s = String(raw ?? "");
-  if (namesGateOff(s)) {
+  if (namesGateOff(s) || envSplitNamesGateOff(s)) {
     return [{ id: "GATE_SELF_DISABLE", message: `the command names \`rein\`, \`gate\` and \`off\` (D-163) — ` +
       `BLOCKED for every role; put such text in a file (Write tool, \`git commit -F <file>\`). ${MSG_ESCAPE}` }];
   }
   const hits = nameRuleHits(s);
   return hits.length ? hits : nameRuleHits(gateViews(s)[0]);
+}
+
+// E-439 (security_engineer finding (e), A2A 2026-11-18 13:17, to be D-163 addendum 2 r13): `env -S`
+// has an escape layer of its own under the shell's — `\_` is a space there — so the three words can
+// be literal to env and to no view (`env -S'r''ein\_gate\_off'`, `env -Srein\\_gate\\_off`). A
+// decoder for that one carrier: each word of a command is unquoted exactly (unquoteWord), the
+// argument of an `env` word's -S / -<cluster>S / --split-string[=] is decoded as env does (\_ \t \n
+// \v \f \r a space, \c ends it, \X is X) and the lock's predicate reads it, again to depth 3 (a
+// program string, or an env -S inside one). Adds no grammar to the frozen reader (D-163 r5):
+// shellCommands and gateCommandHit are unchanged. `${VAR}` inside the string is expanded by env at
+// run time and stays the r3 residual; the hook's fallback does not decode env -S (named residual).
+function envDecode(arg) {
+  let out = "";
+  for (let i = 0; i < arg.length; i++) {
+    if (arg[i] !== "\\" || i + 1 >= arg.length) { out += arg[i]; continue; }
+    const n = arg[++i];
+    if (n === "c") break;
+    out += "_tnvfr".includes(n) ? " " : n;
+  }
+  return out;
+}
+// Third pass (f1-f4): env's options are not parsed — a value-taking letter in a cluster (`-vu X`)
+// or an abbreviated long option (`--unse X`, `--spl`) made a getopt model miss the -S — so EVERY
+// word after an `env` word is read as a possible -S (an over-block needs the three words in the
+// decoded text); here-string words are read too (`bash <<< "env -S…"`); the name is matched as a
+// glob, and Debian/Ubuntu's `gnuenv` counts (`/usr/bin/en? -S…`).
+const SPLIT_LONG = /^--s(?:p(?:l(?:i(?:t(?:-(?:s(?:t(?:r(?:i(?:n(?:g)?)?)?)?)?)?)?)?)?)?)?(?:=|$)/;
+function envSplitNamesGateOff(raw, depth = 0) {
+  for (const cmd of shellCommands(gateText(String(raw)))) {   // `${E:-env}` read as its default, as for rein
+    const words = cmd.map(unquoteWord);
+    for (const h of cmd.here ?? []) if (depth < 3 && envSplitNamesGateOff(unquoteWord(h), depth + 1)) return true;
+    // Every word after the FIRST env word is read once (a later env word adds nothing): linear,
+    // not quadratic in the env words (fourth pass P3: 4 000 × `env -Sa` took 8 s).
+    let first = -1;
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i];
+      if (/\s/.test(w) && depth < 3 && envSplitNamesGateOff(w, depth + 1)) return true;
+      const b = w.slice(w.lastIndexOf("/") + 1).toLowerCase();
+      if (first === -1 && (named(b, "env") || named(b, "gnuenv"))) first = i;
+    }
+    if (first !== -1) {
+      for (let k = first + 1; k < words.length; k++) {
+        const t = words[k];
+        let arg = null;
+        if (SPLIT_LONG.test(t)) arg = t.includes("=") ? t.slice(t.indexOf("=") + 1) : words[k + 1] ?? null;
+        else if (/^-[A-Za-z0-9]*S/.test(t)) { const at = t.indexOf("S"); arg = t.length > at + 1 ? t.slice(at + 1) : words[k + 1] ?? null; }
+        if (arg === null) continue;
+        const prog = envDecode(arg);
+        if (namesGateOff(prog) || (depth < 3 && envSplitNamesGateOff(prog, depth + 1))) return true;
+      }
+    }
+  }
+  return false;
 }
 
 function nameRuleHits(s) {

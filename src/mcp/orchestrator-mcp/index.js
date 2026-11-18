@@ -36,6 +36,11 @@ function readSafe(p) {
 }
 
 // ── Server ────────────────────────────────────────────────────────────────────
+
+// E-431 (D-159 r9): Tier 2 and Tier 3 end with the acceptance evaluator, after the critics pass.
+// A Tier 2/3 E-## task does not reach DONE without its [ACCEPT_PASS] (completion-gates.mjs).
+const ACCEPT_DISPATCH_NOTE = "Then, after the critics pass, dispatch the acceptance evaluator on the task (a Tier 2/3 task is refused DONE without [ACCEPT_PASS] — [ACCEPT_GATE]):";
+const ACCEPT_DISPATCH = 'Agent("Run the critic_acceptance agent on <task id>: observe each Acceptance clause and stamp [ACCEPT_PASS] or [ACCEPT_FAIL]")';
 const server = new Server(
   { name: "orchestrator-mcp", version: "1.0.0" },
   { capabilities: { tools: {} } }
@@ -289,6 +294,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           lines.push(`add_stamp({ type: "ALIGN_PASS", summary: "[TIER_2] Blueprint aligned" })`);
           lines.push(`add_stamp({ type: "CRITIC_STAMP", summary: "[TIER_2] Blueprint aligned" })`);
           lines.push("```");
+          lines.push(ACCEPT_DISPATCH_NOTE);
+          lines.push("```");
+          lines.push(ACCEPT_DISPATCH);
+          lines.push("```");
         }
 
         return { content: [{ type: "text", text: lines.join("\n") }] };
@@ -336,6 +345,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         lines.push("");
         lines.push("### Phase 3: After all agents complete");
         lines.push("Invoke `skill: 'review_synthesizer'` to aggregate stamps and write [CRITIC_STAMP].");
+        lines.push("");
+        lines.push("### Phase 4: Acceptance (after the critics pass)");
+        lines.push(ACCEPT_DISPATCH_NOTE);
+        lines.push("```");
+        lines.push(ACCEPT_DISPATCH);
+        lines.push("```");
       }
 
       lines.push("");

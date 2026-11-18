@@ -18,6 +18,7 @@ binaries, permissions, live MCP connectivity); `rein doctor --repair` fixes what
 | Push refused | `rein ci status --short` | `rein ci run`; `rein ci log --failed`; fix and push again. |
 | `[BUDGET_REGRESSION]` | Which field? `rein ci budget` | Make the tests cheaper, or record a decision and `rein ci budget set`. |
 | Task will not close: `[CI_GATE]` | `rein ci status --short` | Wait for or run `rein ci run` on HEAD. |
+| Task will not close: `[ACCEPT_GATE]` | Is there an `ACCEPT_PASS` for this HEAD? `.ai/REVIEWS.md` | Dispatch `critic_acceptance` on the task; fix any `FAIL` clause and run it again. |
 | Tasks differ between machines | `rein doctor` state health | `rein state import` (lossless). Avoid `rein migrate-state`: it rebuilds from `TASKS.md` and drops summaries. |
 | A command was refused by the gate | The refusal names the rule | Rephrase, or — for you, in your terminal — `rein gate off --minutes 15 --reason "…"`. |
 | `DIGEST.md` looks stale | `rein digest check` | `rein digest build` (session start and handover run it too). |

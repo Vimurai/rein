@@ -77,6 +77,22 @@ do not write a passing CRITIC_STAMP.
 
 Commit (only after PASS): `git commit -m "[TIER_2] <description>"`
 
+### Acceptance (Tier 2 and Tier 3 — E-431, D-159 r9)
+
+After the critics pass, dispatch the acceptance evaluator on the task under review. It reads
+the task's `Acceptance:` text from state, observes every clause (runs it, reads the output,
+opens the file) and stamps `[ACCEPT_PASS]` or `[ACCEPT_FAIL]` with a clause table:
+```
+Agent("Run the critic_acceptance agent on E-###: observe each Acceptance clause and stamp ACCEPT_PASS or ACCEPT_FAIL")
+```
+- A Tier 2 or Tier 3 E-## task is refused DONE without `[ACCEPT_PASS]` for HEAD or an ancestor
+  that differs only in `.ai/` (`[ACCEPT_GATE]`, `src/shared/completion-gates.mjs`). Tasks up to
+  E-444 are exempt (the floor), and so is a task closed with `superseded_by: "D-###"`.
+- `[ACCEPT_FAIL]` names the failing clause: fix it, commit, and dispatch again. A stamp binds to
+  the HEAD it was written on, so a new commit outside `.ai/` needs a new run.
+- One dispatch per review; re-run only after a new commit.
+
+
 ---
 
 ### Environment dependence (ask this of EVERY assertion — E-236, D-061 §4)
@@ -288,5 +304,8 @@ If all gates clear, `review_synthesizer` also appends to `.ai/LOG.md`:
 ```
 
 Then run: `skill: rein-test` with --vibe (mandatory for Tier 3 before commit).
+
+Then the acceptance evaluator, as in Tier 2 → "Acceptance" above: `[ACCEPT_PASS]` is required
+before the task can be marked DONE.
 
 Commit: `git commit -m "[TIER_3] <description>"`

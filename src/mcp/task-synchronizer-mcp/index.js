@@ -36,7 +36,7 @@ import { claimTask as _claimTask, releaseTask as _releaseTask, publishDone as _p
 import { buildToolSchemas } from "./tool-schemas.mjs";
 // E-266 (D-072): read-only view of the local CI run record.
 import { getCiStatus } from "../shared/ci-runs.js";
-import { completionGates } from "../../shared/completion-gates.mjs";
+import { completionGates, checkSupersededBy } from "../../shared/completion-gates.mjs";
 import { validateNamed, loadSchemas } from "../../shared/schema-validator.js";
 // E-153 (telemetry-hardening.md): global telemetry interceptor — instrument() patches
 // setRequestHandler so EVERY CallTool invocation records a SUCCESS/ERROR row (closing the
@@ -367,8 +367,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // leaves no partial mutation behind. Rollback: REIN_BUILD_STAMP=0.
       // E-320 (D-098 r2): the gate list lives in src/shared/completion-gates.mjs, shared with
       // orchestrator-mcp's run_handover — E-267's CI gate runs there after the build gate.
+      // E-431 (D-159 r9): superseded_by closes a task unimplemented — it skips the acceptance gate
+      // only, and the decision goes into the summary.
+      if (args.superseded_by !== undefined) {
+        if (args.status !== "DONE") return rejection(`✗ [SUPERSEDED_BY_INVALID] superseded_by applies only to status DONE`);
+        const bad = checkSupersededBy(aiDir, args.superseded_by);
+        if (bad) return rejection(`✗ ${bad}`);
+        args.summary = `superseded by ${args.superseded_by} — not implemented${args.summary ? ". " + args.summary : ""}`;
+      }
       if (args.status === "DONE") {
-        const refused = completionGates({ cwd: dirname(aiDir), db, id: args.id });
+        const refused = completionGates({ cwd: dirname(aiDir), db, id: args.id, superseded: args.superseded_by !== undefined });
         if (refused) return refused;
       }
       // E-331 (D-102 §4): in a team project IN_PROGRESS means "claimed on origin/<trunk>" (E-341).

@@ -27,6 +27,7 @@ Scan both files for these stamps and their dates:
 | `[SEC_PASS]` / `[SEC_FAIL]` | REVIEWS.md | critic_security sub-agent |
 | `[TESTS_PASS]` / `[TESTS_FAIL]` | REVIEWS.md | critic_tests sub-agent |
 | `[ALIGN_PASS]` / `[ALIGN_FAIL]` | REVIEWS.md | blueprint-aligner-mcp |
+| `[ACCEPT_PASS]` / `[ACCEPT_FAIL]` | REVIEWS.md | critic_acceptance sub-agent — dispatched AFTER the critics pass (E-431); not part of `[CRITIC_STAMP]`, required by the DONE gate for Tier 2/3 |
 
 ### Aggregated Stamps (written by agents / review_synthesizer)
 | Stamp | Source | Required For |

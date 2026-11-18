@@ -60,6 +60,7 @@ records a stamp through `task-synchronizer-mcp`; none edits `REVIEWS.md` directl
 | `critic_security` | OWASP Top 10 classes, leaked secrets, capability boundaries in `CAPABILITIES.md`. | `SEC_PASS` / `SEC_FAIL` |
 | `critic_tests` | Each changed behaviour has one test at the cheapest layer that can observe it; a new test names what it extends. | `TESTS_PASS` / `TESTS_FAIL` |
 | `critic_clean_code` | File-size limits, MCP stdout purity, banned secret patterns, naming, reuse of shared modules. | `CLEAN_PASS` / `CLEAN_FAIL` |
+| `critic_acceptance` | Runs after the others pass, on Tier 2 and 3: observes each clause of the task's acceptance line (runs the command, reads the file); a clause it cannot observe here is `UNVERIFIED` with the reason. A Tier 2/3 task is refused DONE (`[ACCEPT_GATE]`) without `ACCEPT_PASS` for HEAD. | `ACCEPT_PASS` / `ACCEPT_FAIL` |
 
 For Tier 3 releases, `review_synthesizer` aggregates every stamp into a release-readiness verdict.
 

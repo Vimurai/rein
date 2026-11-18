@@ -16,6 +16,7 @@ plugin to install.
 | | `critic_security` | Audits the diff for OWASP-class issues and secrets; stamps `SEC_PASS`/`SEC_FAIL`. |
 | | `critic_tests` | Checks each changed behaviour has one test at the cheapest layer; stamps `TESTS_PASS`/`TESTS_FAIL`. |
 | | `critic_clean_code` | Applies the engineering standards to the staged diff; stamps `CLEAN_PASS`/`CLEAN_FAIL`. |
+| | `critic_acceptance` | Observes each clause of a Tier 2/3 task's acceptance line (runs it, reads the output); stamps `ACCEPT_PASS`/`ACCEPT_FAIL`, which the task needs before DONE. |
 | Testing | `test_engineer` | The headless Tester: writes and runs tests under `tests/` in the project's own harness. |
 | | `chaos_monkey` | Invalid inputs, latency and stress against the UI before a release. |
 | | `ux_reviewer` | Playwright and Lighthouse visual audit: animation, contrast, layout shift, accessibility. |

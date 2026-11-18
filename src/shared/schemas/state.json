@@ -26,7 +26,8 @@
         "status":     { "type": "string", "enum": ["OPEN", "BLOCKED", "IN_PROGRESS", "DONE"], "description": "New status (E-331: IN_PROGRESS — in a team project only claim_task sets it)" },
         "summary":    { "type": "string", "maxLength": 2000,                      "description": "Completion summary (required when status=DONE)" },
         "reopen":     { "type": "boolean",                                        "description": "E-101 (sovereignty-hardening.md §Components 2): DONE tasks are immutable. Pass reopen:true to explicitly mutate a completed task; otherwise update_task_status returns [TASK_LOCKED]." },
-        "depends_on": { "type": "array", "maxItems": 25, "items": { "type": "string", "pattern": "^[EPT]-[0-9]+$" }, "description": "E-91: optionally revise this task's dependency list. Validated for existence, cycles, and depth (<=5) before being written; rejected with [DAG_FAIL] on violation." }
+        "depends_on": { "type": "array", "maxItems": 25, "items": { "type": "string", "pattern": "^[EPT]-[0-9]+$" }, "description": "E-91: optionally revise this task's dependency list. Validated for existence, cycles, and depth (<=5) before being written; rejected with [DAG_FAIL] on violation." },
+        "superseded_by": { "type": "string", "pattern": "^D-[0-9]+$", "description": "E-431 (D-159 r9): close the task unimplemented because this decision overtook it; skips the acceptance gate only." }
       },
       "required": ["id", "status"],
       "additionalProperties": false

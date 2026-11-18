@@ -411,6 +411,20 @@ function _isAncestor(root, a, b) {
 const ANCESTOR_SEARCH_ROWS = 50;
 
 /**
+ * Does `ancestor` stand for `sha`? Null when it is not an ancestor (or git cannot say); else
+ * { ok, differs, outside } — ok when every path that differs between the two is under .ai/.
+ * The CI gate's ancestor rule, shared with the acceptance gate (E-431, D-159 r9).
+ */
+export function aiOnlyAncestor(repoRoot, ancestor, sha) {
+  if (!_isAncestor(repoRoot, ancestor, sha)) return null;
+  let differs;
+  try { differs = _git(repoRoot, ["diff", "--name-only", ancestor, sha]).split("\n").filter(Boolean); }
+  catch { return null; }
+  const outside = differs.filter((p) => !p.startsWith(".ai/"));
+  return { ok: outside.length === 0, differs, outside };
+}
+
+/**
  * Is `sha` certified by CI?
  *
  *   1. its own newest non-dirty row decides, if it has one (PASS → ok; anything else → no;
@@ -449,15 +463,11 @@ export function certifyingRunFor(db, repoRoot, sha, { allowSkipped = false, aiDi
   ];
   let nearest = null;
   for (const c of candidates) {
-    if (!_isAncestor(repoRoot, c.sha, sha)) continue;
-    let differs;
-    try {
-      differs = _git(repoRoot, ["diff", "--name-only", c.sha, sha]).split("\n").filter(Boolean);
-    } catch { continue; }
-    const outside = differs.filter((p) => !p.startsWith(".ai/"));
+    const a = aiOnlyAncestor(repoRoot, c.sha, sha);
+    if (!a) continue;
     const via = c.row ? "ancestor" : "record-ancestor";
-    if (!outside.length) return { ok: true, kind: "PASS", via, row: c.row, record: c.record, differs, warnings };
-    if (!nearest) nearest = { ...c, differs: outside };
+    if (a.ok) return { ok: true, kind: "PASS", via, row: c.row, record: c.record, differs: a.differs, warnings };
+    if (!nearest) nearest = { ...c, differs: a.outside };
   }
   return {
     ok: false, kind: "NONE", via: null, row: nearest ? nearest.row : null, record: nearest ? nearest.record : null,

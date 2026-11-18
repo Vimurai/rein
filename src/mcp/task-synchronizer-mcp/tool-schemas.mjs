@@ -39,7 +39,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
     },
     {
       name: "update_task_status",
-      description: "Updates a task's status (OPEN, BLOCKED, IN_PROGRESS, DONE). In a team project (.ai/team.json) IN_PROGRESS is set only by claim_task. Marks completed_at for DONE and clears the claim. Completing a task auto-unblocks any dependents whose dependencies are now all DONE. E-101: DONE tasks are locked — pass reopen:true to mutate one, else returns [TASK_LOCKED].",
+      description: "Updates a task's status (OPEN, BLOCKED, IN_PROGRESS, DONE). In a team project (.ai/team.json) IN_PROGRESS is set only by claim_task. Marks completed_at for DONE and clears the claim. Completing a task auto-unblocks any dependents whose dependencies are now all DONE. E-101: DONE tasks are locked — pass reopen:true to mutate one, else returns [TASK_LOCKED]. E-431: a Tier 2 or 3 E-## task needs an [ACCEPT_PASS] stamp from critic_acceptance for HEAD before DONE ([ACCEPT_GATE]); superseded_by closes one unimplemented.",
       inputSchema: {
         type: "object",
         properties: {
@@ -48,6 +48,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
           summary:    { type: "string", description: "Completion summary (for DONE status)" },
           reopen:     { type: "boolean", description: "E-101 (sovereignty-hardening.md §Components 2): required to mutate a task already in DONE status. Without it, a DONE task returns [TASK_LOCKED] to protect completed implementation history." },
           depends_on: { type: "array", items: { type: "string" }, description: "E-91: optionally revise this task's dependency list. Validated for existence, cycles, and depth (<=5) before write." },
+          superseded_by: { type: "string", description: "E-431 (D-159 r9): close a task unimplemented because decision D-### overtook it. Only with status DONE; the id must be a '## D-###' heading in DECISIONS.md. Skips the acceptance gate only (the build and CI gates still run) and writes 'superseded by D-### — not implemented' into the summary." },
         },
         required: ["id", "status"],
       },

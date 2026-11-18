@@ -144,6 +144,17 @@ export function getDb(aiDir) {
 }
 
 /**
+ * E-431 fix: a stamp summary is ONE line — the stamp record schema refuses a newline (record-store
+ * _assertValid) and REVIEWS.md renders one line per stamp. critic_acceptance's first stamp carried
+ * its clause table on several lines, so the legacy and record paths disagreed on the round trip.
+ * Every way a stamp enters an index (insertStamp, the state.json seed, stampRecord) applies this:
+ * line breaks become " ‖ ". null stays null.
+ */
+export function oneLineSummary(v) {
+  return v == null ? null : String(v).replace(/[ \t]*\r?\n[ \t]*/g, " ‖ ");
+}
+
+/**
  * getDb + the one-time state.json → state.sqlite import on first open.
  *
  * Moved here from task-synchronizer-mcp (E-270) so every caller that may be the FIRST to
@@ -226,11 +237,12 @@ export function importStateJson(jsonPath, db, { warn = () => {}, info = () => {}
   const insertStamp = db.prepare(
     "INSERT INTO stamps(type, agent, task_id, timestamp, summary, sha, author) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
+  // E-431 fix: a stamp summary is one line wherever it enters an index (oneLineSummary).
   // E-344: a reseed of an index that already holds stamps or deltas adds only the missing ones.
   const haveStamps = new Set(db.prepare("SELECT type, task_id, timestamp FROM stamps").all().map((r) => `${r.timestamp}|${r.type}|${r.task_id ?? ""}`));
   for (const s of (state.stamps || [])) {
     if (haveStamps.has(`${s.timestamp}|${s.type}|${s.task_id ?? ""}`)) continue;
-    insertStamp.run(s.type, s.agent ?? null, s.task_id ?? null, s.timestamp, s.summary ?? null,
+    insertStamp.run(s.type, s.agent ?? null, s.task_id ?? null, s.timestamp, oneLineSummary(s.summary),
                     s.sha ?? null, s.author ?? null);
   }
 

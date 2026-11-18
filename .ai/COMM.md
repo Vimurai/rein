@@ -2416,3 +2416,55 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until the install runs, the live hook's fallback lacks V3 and the leading-hyphen rule. The analyzer that is installed is also the old one.
 - The `.ai/providers.json` and `.ai/roles.json` changes and the `*.pre-0.5.0.json` files are still uncommitted, for the operator to decide.
 ---
+
+---
+## Handoff — 2026-11-18 14:57 UTC (Engineer → Architect)
+**From**: Engineer → Architect
+**Trigger**: E-431 built, PR #60 (stacked on #59)
+
+### What was built
+- **E-431**, PR #60. Commits 358d92d (source) and 06d8c37 (.ai stamps).
+  - `src/claude/agents/critic_acceptance.md` and its `.claude/` mirror. Tools: Read, Grep, Glob, Bash, add_stamp. Write, Edit and NotebookEdit are disallowed. No model pin.
+  - `src/shared/completion-gates.mjs` has a third gate, `[ACCEPT_GATE]`, through `checkAcceptGate`. The one-line refusal reads "[ACCEPT_GATE] E-N is Tier N and has no [ACCEPT_PASS] stamp for HEAD <sha7> or an ancestor that differs only in .ai/ — dispatch critic_acceptance".
+  - `ci-runs.js` exports `aiOnlyAncestor`, the CI gate's ancestor rule, now shared by both gates.
+  - `update_task_status` takes `superseded_by`. It is in both schemas and is checked by `checkSupersededBy`.
+  - `run_review` (Tier 2 and Tier 3), `rein-review` and `review_synthesizer` dispatch or list the evaluator. `task-planner` has Check 6.
+  - Docs: the agent table, the critics table and a troubleshooting row. README now says 22 subagents.
+- Tests:
+  - `tests/unit/completion-gates.test.mjs`: 5 rows.
+  - `hooks_surface_test.sh`: rows E-431.F01a, F01b and F02, plus critic_acceptance in the E-284.04 loop.
+  - The `task-claims.test.mjs` fixture task is now Tier 1. Its DONE row is about claims and would otherwise hit the new gate.
+- `rein ci run` PASS 358d92d: 7770/0/26; test_lines 45301 (budget PASS).
+- `bash install-rein.sh` ran from this tree, so the installed gate now also carries E-439's lock changes.
+- Stamps on E-431: CLEAN_WARN (two file-size warnings), ALIGN_PASS, CRITIC_STAMP, and ACCEPT_PASS at 358d92d.
+  - The ACCEPT_PASS is the evaluator's first real run: 5 PASS, 2 UNVERIFIED.
+  - Clauses 1 and 2 need the agent run on a fixture task, and a forked agent cannot dispatch one.
+  - My dry run on fixture E-999 covered both. It gave ACCEPT_FAIL: the clause `node -e "process.exit(3)"` exits 0 was FAIL, observed exit 3, and the hosted-run clause was UNVERIFIED with its reason.
+
+### Decisions made
+- These are in LOG.md as an A2A ruling (14:24) but not yet in DECISIONS.md. Please record them as a D-159 addendum:
+  - (Q1) The gate lives in `completion-gates.mjs` and uses the CI gate's sha rule. A later ACCEPT_FAIL voids an earlier pass.
+  - (Q2) `ACCEPT_GATE_FLOOR = 444`: tasks at or below it are exempt. `superseded_by` must name a `## D-###` heading, skips only this gate, and writes "superseded by D-### — not implemented" into the summary. No env switch.
+  - (Q3) The gate covers E-## only. P-## and Tier 1 are exempt.
+
+### Blueprint divergence (if any)
+- Item (4) said to extend "the check that requires the other stamps before DONE", but no such check existed. Before this change, the build and CI gates were the only DONE gates. The acceptance gate is the first stamp-based DONE gate (per the ruling above).
+- `.ai/blueprints/agents.md` (the registry named in item 6) is Architect-owned, so I did not touch it. It still needs a `critic_acceptance` row. The public agent table in `docs/agents-and-skills.md` already has one.
+- The floor exempts E-431, E-432 and E-440..E-444 from their own gate. Every task at or below 444 closes as before.
+
+### Next action needed
+- **Architect**:
+  - record the D-159 addendum above;
+  - add the `critic_acceptance` row to `.ai/blueprints/agents.md`;
+  - P-51 can now close superseded tasks with `superseded_by`.
+- **Operator**:
+  - merge order is unchanged and #60 joins the end: #49 → … → #59 → #60;
+  - another local project reported a stale hook path at install; run `rein sync` in it (the installer printed its path).
+- **Engineer next**: E-432, E-444, E-442, E-441, E-440.
+- E-431 stays OPEN until #60 merges, like the rest of the stack.
+
+### Open risks
+- `task-synchronizer-mcp/index.js` is at 923 lines, near the 1000-line limit. The next addition there should come with a split.
+- Running MCP servers serve the old completion gates until they restart. `rein doctor` reports this.
+- `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` files are still uncommitted, for the operator.
+---

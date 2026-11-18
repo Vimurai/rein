@@ -128,13 +128,19 @@ assert_contains "E-284.03c: a tool inside the scope passes" "PASS: 1" "$_r"
 _fm() { python3 -c '
 import re,sys
 s=open(sys.argv[1]).read(); m=re.match(r"^---\n(.*?)\n---\n", s, re.S); print(m.group(1) if m else "")' "$1"; }
-for a in critic_arch critic_clean_code critic_security critic_tests test_engineer; do
+for a in critic_acceptance critic_arch critic_clean_code critic_security critic_tests test_engineer; do
   fm="$(_fm "${AGENTS}/${a}.md")"
   assert_contains "E-284.04a: ${a} is scoped to task-synchronizer-mcp" "mcpServers:
   - task-synchronizer-mcp" "$fm"
   assert_match "E-284.04b: ${a} has a maxTurns cap" "maxTurns: [0-9]+" "$fm"
   assert_status 0 "E-284.04c: ${a} workspace copy matches" cmp -s "${AGENTS}/${a}.md" "${REPO_ROOT}/.claude/agents/${a}.md"
 done
+# E-431 (D-159 r9): the acceptance evaluator runs commands but never writes, and judges (no model pin).
+_fa="$(_fm "${AGENTS}/critic_acceptance.md")"
+_ft="$(grep -E '^tools:' <<< "$_fa")"
+assert_match "E-431.F01a: critic_acceptance has a tools allowlist" "^tools: " "$_ft"
+assert_status 1 "E-431.F01b: critic_acceptance tools list no Write or Edit" grep -qE "Write|Edit" <<< "$_ft"
+assert_status 1 "E-431.F02: critic_acceptance carries no model pin (D-110)" grep -qE "^model:" <<< "$_fa"
 assert_contains "E-284.04d: meta_analyst keeps project memory" "memory: project" "$(_fm "${AGENTS}/meta_analyst.md")"
 assert_contains "E-284.04e: memory_curator runs in the background" "background: true" "$(_fm "${AGENTS}/memory_curator.md")"
 for s in rein-review arch-review; do

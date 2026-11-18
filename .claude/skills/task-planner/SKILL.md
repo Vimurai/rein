@@ -61,6 +61,15 @@ Search TASKS.md for a task covering the same scope. If one exists:
 - If it's OPEN → do not create a duplicate, reuse it
 - If it's DONE → proceed with the new task
 
+### Check 6: Every acceptance clause names something to run or look at (E-431, D-159 r9)
+The acceptance evaluator (`critic_acceptance`) observes each clause before a Tier 2 or Tier 3
+task can close. A clause it cannot observe is a clause nobody can check. Each clause must name a
+command to run, an output to read, a file or line to open, or a count to take:
+- ✓ "`rein digest check` exits 1 after a task is closed without a rebuild"
+- ✗ "the digest works correctly" (nothing to run or look at — **BLOCK**)
+A clause that needs a hosted run or an operator action is allowed, and it names that run or
+action. The evaluator reports it `UNVERIFIED` with that reason.
+
 ## Step 3 — Assign IDs
 
 Read current TASKS.md and increment:

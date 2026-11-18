@@ -23,8 +23,15 @@ const TABLE = resolve(repo, "tests/fixtures/gate-self-disable-cases.json");
 // E-393 (D-163 r10, addendum 1): re-pinned again, 29 → 225 rows (179 BLOCK, 46 pass). The lock is
 // the three-word predicate (namesGateOff); every round-1 and round-2 security payload is a row with
 // the verdict D-163 gives it; 11 PASS rows marked `residual` (r3; three are D-084 rule 4 implicit-run sinks); two r9 flips (PASS → BLOCK: commit
-// messages naming rein, gate and off). Old 63c2cac95f95…, new below.
-const SHA256 = "80ab99d0495180464e5612f07ecd9aee4c7487518df32962ff71dd9a86afdcb5";
+// messages naming rein, gate and off). Old 63c2cac95f95…, then 80ab99d04951….
+// E-439 (D-163 addendum 2 r2, r7): re-pinned, 225 → 275 rows (227 BLOCK, 48 pass). Five residual
+// rows flip PASS → BLOCK: D01–D03 (implicit-run sinks are read in strict mode), P16 (a word's
+// leading hyphens are dropped) and P19 (view V3). Fifty rows added: `${X:-rein}`; seven `\X`
+// payloads from the first security pass (A2A 2026-11-18 12:55); from the second (A2A 13:17), 14
+// env -S escape-layer payloads (finding e), one `${VAR}` residual pass row and seven accepted P3
+// over-blocks; from the third (A2A 13:32), 14 decoder rows (f1-f4, N09) and two residual pass rows
+// (f5 depth, `e=env; $e`); from the fourth, four residual pass rows (X10, Y10, Y11, Y14). New below.
+const SHA256 = "c80f9b681c8a514ba473411e68f2e9647a08ee63fc082c1e312f91f7d48065f8";
 
 const home = realpathSync(mkdtempSync(join(tmpdir(), "rein-t-gsd-")));
 mkdirSync(join(home, ".re" + "in", "hooks"), { recursive: true });

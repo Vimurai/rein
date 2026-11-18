@@ -148,12 +148,14 @@ _catastrophic() {
 # view is built). Builtins and a here-string only: no subshell can abort it into "no".
 _names_gate_off() {
   # LC_ALL=C: bracket ranges are ASCII, as in JS (security_engineer P3: under en_US.UTF-8 `é` was a word char).
-  local LC_ALL=C v1 v2 v line nc=0 hit=1 b='(^|[^A-Za-z0-9_-])' e='([^A-Za-z0-9_-]|$)'
-  v1="${1//$'\\\r\n'/}"; v1="${v1//$'\\\n'/}"; v1="${v1//[\"\'\\\[\]\?\*]/}"   # \ CRLF too, as gateViews
+  # b ends with -*: a word's leading hyphens are not part of it (D-163 addendum 2 r7, E-439).
+  local LC_ALL=C v1 v2 v3 v line nc=0 hit=1 b='(^|[^A-Za-z0-9_-])-*' e='([^A-Za-z0-9_-]|$)'
+  v1="${1//$'\\\r\n'/}"; v1="${v1//$'\\\n'/}"; v3="$v1"; v1="${v1//[\"\'\\\[\]\?\*]/}"   # \ CRLF too, as gateViews
   v2="${1//[\"\']/}"; v2="${v2//\\?/ }"; v2="${v2//\\/ }"
+  v3="${v3//[\"\']/ }"; v3="${v3//\\?/ }"; v3="${v3//\\/ }"; v3="${v3//[\[\]\?\*]/}"   # V3: V1, each quote and \X read as a space
   shopt -q nocasematch && nc=1
   shopt -s nocasematch
-  for v in "$v1" "$v2"; do
+  for v in "$v1" "$v2" "$v3"; do
     while IFS= read -r line || [[ -n "$line" ]]; do
       [[ "$line" =~ ${b}rein${e} && "$line" =~ ${b}gate${e} && "$line" =~ ${b}off${e} ]] && { hit=0; break 2; }
     done <<< "$v"

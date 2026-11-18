@@ -122,16 +122,18 @@ export function stripInertHeredocs(raw, { readOnlyLines = false } = {}) {
   const inBody = (n, set) => set.some((c) => n >= c.from && n < c.to);
   const inertLine = (n, set) => set.some((c) => n === c.intro || n === c.to);
   const readOnly = (n) => readOnlyLines && whole[n] === true && readOnlyLine(lines[n]);
-  // Under the relaxation a body is also kept when its FILE runs without being named on any line
-  // (critic_security, E-340 review): a Makefile, anything under .git/ or .github/, shell rc and
+  // A body is also kept (above, in both modes since E-439) when its FILE runs without being named
+  // on any line (critic_security, E-340 review): a Makefile, anything under .git/ or .github/, shell rc and
   // profile files, package.json, crontab, or any absolute path outside /tmp (/etc/profile.d …).
   // And it is all-or-nothing: EVERY non-blank line outside the bodies, other than their introducer
   // and terminator lines, must be read-only — before or after the heredoc. One line that is not
   // (`git -c core.hooksPath=.ai/hooks commit` runs a body written to .ai/hooks/post-commit without
   // naming it) keeps every body scanned, exactly as without the relaxation.
+  // E-439 (D-163 addendum 2 r2): the implicit-run sink check holds in strict mode too — a body
+  // written to a Makefile or .bashrc is run by `make` or a shell that never names the file.
+  for (let k = cands.length - 1; k >= 0; k--) if (cands[k].sinks.some((p) => IMPLICIT_RUN.test(p))) cands.splice(k, 1);
+  if (cands.length === 0) return text;
   if (readOnlyLines) {
-    for (let k = cands.length - 1; k >= 0; k--) if (cands[k].sinks.some((p) => IMPLICIT_RUN.test(p))) cands.splice(k, 1);
-    if (cands.length === 0) return text;
     const other = (n) => !inBody(n, cands) && !inertLine(n, cands) && lines[n].trim() !== "";
     if (lines.some((_, n) => other(n) && !readOnly(n))) return text;
   }

@@ -6097,6 +6097,24 @@
       "summary": "[TIER_1] E-435 census report plans/test-census-2026-11.md (D-157 r4, D-162 r4, D-164 r2): 15 cross-layer duplicates (unit cheapest); test_lines reconciled with gap 0 (D-157 43602 -> D-162 44481 = +879); finding: the recorded 44144 is the ratchet's lowest green run, not a ruled value; table 3b 25 groups / 275 rows. Report only; no tests/ or src/ change. Figures spot-checked by the Engineer.",
       "sha": "a047f8ca78ece919c9b4147abd6a901d7f63d376",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T10:31:57.063Z",
+      "summary": "Re-review at 1cb40a7 (D-164 add.1 r2): independently verified staged table == HEAD minus exactly the 16 ruled ids (501 rows, sha cb100e3f matches); operand-scope + consolidation-subset 975/975 pass; kept representatives cover all three branches; no source change",
+      "sha": "1cb40a71e22afab52c56dd5067c993f298e34ca3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 2)",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T10:32:04.479Z",
+      "summary": "[TIER_2] E-438 row merge per D-164 addendum 1 r2: 16 same-branch rows removed from operand-scope (517 -> 501, sha256 cb100e3f…; test_lines 45062); TESTS_PASS; no source change, SEC_CLEARED stands.",
+      "sha": "1cb40a71e22afab52c56dd5067c993f298e34ca3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

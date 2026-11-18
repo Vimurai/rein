@@ -75,10 +75,12 @@ mcp__task-synchronizer-mcp__add_stamp({
   task_id: "E-###",
   type: "ACCEPT_PASS" | "ACCEPT_FAIL",
   agent: "critic_acceptance",
-  summary: "[ACCEPT_PASS|ACCEPT_FAIL] E-### at <sha7> — <p> PASS, <f> FAIL, <u> UNVERIFIED\n<n> | PASS|FAIL|UNVERIFIED | <what was observed, 120 chars>\n…"
+  summary: "[ACCEPT_PASS|ACCEPT_FAIL] E-### at <sha7> — <p> PASS, <f> FAIL, <u> UNVERIFIED ‖ <n> | PASS|FAIL|UNVERIFIED | <what was observed, 120 chars> ‖ …"
 })
 ```
-One table row per clause, in the blueprint's form `<n> | <verdict> | <observation>`. The
+The summary is ONE line: a stamp record refuses a line break, so the rows are joined with ` ‖ `
+(the store turns any line break into one). One row per clause, in the blueprint's form
+`<n> | <verdict> | <observation>`. The
 observation names the evidence ("`node --test tests/unit/x.test.mjs` exit 0, 41 pass"), or for
 `UNVERIFIED` the reason ("hosted run: GitHub Actions on the PR"). The stamp is bound to HEAD by the
 server (E-329); a later commit needs a new run.

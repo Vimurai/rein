@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, renameSync, lstatSync, statSync } from "fs";
 import { resolve, dirname, join } from "path";
 import { execFileSync } from "child_process";
-import { readState, roleFromOwner, archivePointerLines, parseDeps, recordIdHighWater, withTransaction } from "./state-db.js";
+import { readState, roleFromOwner, archivePointerLines, parseDeps, recordIdHighWater, withTransaction, oneLineSummary } from "./state-db.js";
 import { assertNotBehindHead } from "./legacy-import.mjs";
 import { redact } from "../../shared/publish-scan.mjs";
 
@@ -259,7 +259,7 @@ export function stampRecord(stamp, sha, author = stamp.author ?? null) {
     task_id:    stamp.task_id ?? null,
     type:       stamp.type,
     agent:      stamp.agent ?? null,
-    summary:    stamp.summary ?? null,
+    summary:    oneLineSummary(stamp.summary),
     sha:        sha ?? null,
     author:     author ?? null,
     created_at: stamp.timestamp,
@@ -374,6 +374,7 @@ export function updateTask(aiDir, db, id, patch) {
  */
 export function insertStamp(aiDir, db, stamp) {
   stamp = _redactFields(aiDir, stamp, "stamp");
+  stamp = { ...stamp, summary: oneLineSummary(stamp.summary) };   // E-431 fix: one line in every mode
   const sha    = headSha(aiDir);
   const email  = gitEmail(aiDir);
   const author = email === "unknown" ? null : email;

@@ -5,20 +5,21 @@
 //
 // Carriers, per simple command (segments split on ; && || | & and parentheses, so an unrelated
 // `grep -c 'rm -rf x'` later on the line is not mistaken for one):
-//   shells       bash/sh/zsh/dash/ash/ksh/mksh/fish/csh/tcsh  -c (or a cluster holding c: -lc)
+//   shells       bash/sh/zsh/dash/ash/ksh/mksh/fish/csh/tcsh/yash/posh  -c (or a cluster holding c: -lc)
 //   su, runuser  -c <s> | -c<s> | --command <s> | --command=<s>
 //   script       -c <s> | a cluster ending in c (-qc) | --command <s>
 //   flock        -c <s> | --command <s>
 //   env          -S <s> | -S<s> | a cluster holding S (-iS) | --split-string[=]<s>; the values of
 //                -u/--unset and -C/--chdir are skipped, not taken for the command
-//   eval, watch, sudo -s/-i: every following word, joined (each runs its words through a shell)
-//   interpreters python*/node/perl/ruby/deno/bun -c|-e|-E|--eval|-p|--print [=]<program>: the
+//   eval, watch, tmux, parallel, sudo -s/-i: every following word, joined (each runs its words
+//                through a shell; tmux/parallel: E-353)
+//   interpreters python*/node/perl/ruby/deno/bun/lua -c|-e|-E|--eval|-p|--print [=]<program>: the
 //                program is not shell, so its string literals are joined into one shell line
 //                (os.system("rm -rf x"), execSync("…"), subprocess.run(["rm","-rf","x"])).
 import { parse } from "shell-quote";
 
-const SHELLS = /^(bash|sh|zsh|dash|ash|ksh|mksh|fish|csh|tcsh)$/;
-const INTERPRETERS = /^(python[0-9.]*|node|nodejs|perl|ruby|deno|bun)$/;
+const SHELLS = /^(bash|sh|zsh|dash|ash|ksh|mksh|fish|csh|tcsh|yash|posh)$/;   // yash, posh: E-353 (D-112 r3 c)
+const INTERPRETERS = /^(python[0-9.]*|node|nodejs|perl|ruby|deno|bun|lua[0-9.]*)$/;   // lua: E-353 (D-112 r3 c)
 const INTERP_FLAGS = new Set(["-c", "-e", "-E", "--eval", "-p", "--print"]);
 const SEPARATORS = new Set([";", "&&", "||", "|", "&", "(", ")", "|&", ";;"]);
 // A carrier inside backticks or $( ) arrives as "`sh" / "$(sh": the punctuation is not its name.
@@ -46,7 +47,8 @@ function literals(program) {
 function carried(seg, i, b) {
   const rest = seg.slice(i + 1);
   const at = (j) => (j < rest.length ? rest[j] : null);
-  if (b === "eval" || b === "watch") return rest.length ? rest.join(" ") : null;
+  // E-353 (D-112 r3 c): tmux and parallel run their words as a shell command line, as eval does.
+  if (b === "eval" || b === "watch" || b === "tmux" || b === "parallel") return rest.length ? rest.join(" ") : null;
   if (b === "sudo") {
     const k = rest.findIndex((t) => t === "-s" || t === "-i" || t === "--shell" || t === "--login");
     return k === -1 || k + 1 >= rest.length ? null : rest.slice(k + 1).join(" ");
@@ -91,7 +93,7 @@ function carried(seg, i, b) {
 }
 
 const CARRIERS = (b) => SHELLS.test(b) || INTERPRETERS.test(b) ||
-  ["eval", "watch", "sudo", "su", "runuser", "script", "flock", "env"].includes(b);
+  ["eval", "watch", "sudo", "su", "runuser", "script", "flock", "env", "tmux", "parallel"].includes(b);
 
 export function codeStrings(raw) {
   const found = [];
@@ -101,7 +103,7 @@ export function codeStrings(raw) {
       if (!CARRIERS(b)) continue;
       const code = carried(seg, i, b);
       if (code !== null && code.trim()) found.push(code);
-      if (b === "eval" || b === "watch") break;                // the rest of the segment is its program
+      if (["eval", "watch", "tmux", "parallel"].includes(b)) break;   // the rest of the segment is its program
     }
   }
   return found;

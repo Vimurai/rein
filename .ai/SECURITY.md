@@ -1641,3 +1641,232 @@ Open, not gating:
 - the D-084 rule 4 implicit-run follow-up (P1 against the heredoc exemption, for the Architect to
   write);
 - the r3 residual, which belongs to the classifier.
+
+## E-353 / D-112 r3 (a)–(f) — the E-350 safe-exec residuals (security_engineer, 2026-11-18)
+
+Scope: branch e-353-safe-exec-residuals, HEAD 9fc384c plus the staged change, re-run after the (e)
+narrowing (operand-scope 404 rows). The changed code:
+- `assigned-verbs.mjs`;
+- `git-redirect.mjs` (`ARCH_GIT_EXEC_CONFIG`, `CONFIG_ENV`, `gitDirAssigned`, `SEARCH_SEG`);
+- `code-strings.mjs` (yash, posh, lua, tmux, parallel);
+- `index.js` (`pipeHit`, the RM_RF_ROOT roots, `~±`, raw `..`).
+
+Review rule: D-163 r12, applied with r4.
+
+Harness:
+- runAnalysis from two mirrors built with `git archive` in a throwaway HOME: the staged index
+  (`git write-tree`) and HEAD, so every row also shows the HEAD verdict.
+- `env -i`, `ulimit -t/-f`, a wall-clock kill.
+- 179 payloads (`payloads4.json` and `payloads4b.json`).
+- Liveness checked with `bash -c` against stub `git` and `make` that log argv, HOME, GIT_DIR and
+  GIT_CONFIG_GLOBAL. No `rm` payload was executed.
+- Classification by Architect A2A ruling, 2026-11-18T08:19.
+
+**Ruled forms: RESISTED.** Every form the task names blocks, or passes for (e) and (f), for the
+role it names:
+- (a) `g=git; $g push`, `${G}`, `"…"`, `export`/`typeset`/`declare -r`, a path value, a newline
+  between assignment and use, `g=GIT`, `$g -c core.hooksPath=…`, `g=sed; $g -i`.
+- (b) include.path, includeIf, core.fsmonitor and core.sshCommand by every core.hooksPath spelling:
+  `-c`, `-c` glued, `--config-env` with `=` and with a space, GIT_CONFIG_PARAMETERS,
+  KEY_n/VALUE_n, `git config [--global|--file|set]`, mixed case, a quoted subsection. Also
+  GIT_CONFIG_GLOBAL, GIT_CONFIG_SYSTEM and HOME by direct, `env`, `export` and `declare -x`
+  assignment, with git as `/usr/bin/git`, `\git` or `g""it`.
+- (c) `GIT_DIR=x make`, `GIT_WORK_TREE=x make`, the export and env forms, a quoted name;
+  yash/posh `-c` (also `-ec` and a path), lua `-e`, `lua5.4`, `tmux new-window` and `send-keys`,
+  `tmux -L x new -d`, `nice tmux`, `parallel ::: '…'`, `… | parallel '…'`.
+- (d) `~+`, `~-`, `~+/`, `-- ~+`, `~-/*`, `$((0))/*`, `$'\x2f'`, `$'\057'`, `$'/'`,
+  `$'\x2fbin'`, `/bin/`, `"/opt"`, `a/../../*`, `/tmp/../*`, `/tmp/..//*`, `"/tmp/../"*`,
+  `--recursive --force /opt`, `cd /tmp && rm -rf ../*`.
+- (e) `git grep GIT_DIR=`, `grep -rn`, `rg`, `git -C . grep`, `--include=` and `--glob` forms all
+  pass.
+
+  The narrowed exemption still blocks the carriers: `rg --pre[=]`, `--pre-glob … --pre`,
+  `rg --pr""e`, `git grep -O…`, `--open-files-in-pager=`, and a later `GIT_DIR=` after `;`, `&&`,
+  `||`, a newline, `$(…)` or backticks. `git log -S GIT_DIR=` now blocks, which is intended now that
+  `git log` has been dropped.
+- (f) the Architect's DECISIONS.md table append and the tee form pass.
+
+  Still blocked: `bash x.sh`, `sh x.sh` after a grep, `chmod`+`./x`, `cat x | sh`,
+  `echo "$(cat x)" | sh`, `sh < x`, a pipe outside the body, and bodies written to `.bashrc`,
+  `.git/hooks/*`, `package.json` and `/etc/profile.d`.
+
+**In-class variants: P1, EXPLOITED (Architect ruling: all are spellings of ruled forms; fix in
+E-353 with a contract row each).** All are live:
+- (a) A statically quoted value is not read the way the D-163 view reads it. Each of these ran
+  `git push`: `g=gi""t; $g push`, `g=\git; $g push`, `g=$'git'; $g push`,
+  `g=(git); ${g[0]} push`, `g=git; ${g:-x} push`. Fix: read the value with quotes and
+  backslashes removed and `$'…'` decoded. Treat any `${g…}` with an operator or index, and an
+  array assignment, as the verb.
+- (b) `HOME+=/../x git status` ran git with `HOME=$HOME/../x`; `HOME+=…/.ai` points git's
+  global config at a directory the Architect can write. `GIT_CONFIG_GLOBAL+=x git status` set it
+  to `x`. Fix: accept `NAME+=` in CONFIG_ENV.
+- (c) `GIT_DIR+=x make`: make ran with `GIT_DIR=x`. Fix: accept `NAME+=` for GIT_DIR and
+  GIT_WORK_TREE.
+- (d) `rm -rf ~+0`, `rm -rf ~0` (dir-stack spellings of `~+`), `rm -rf //opt`,
+  `rm -rf /./bin`, `rm -rf /tmp/.\./*`, `rm -rf /tmp/.''./*` are WARN, not BLOCK. The same gap
+  exists on HEAD for `//usr` and `/./usr`. Fix: `~[+-]?[0-9]*` is root-form; check each token
+  again with quotes and backslashes removed and `//` and `/./` collapsed.
+
+**Out of class (ruled 2026-11-18T08:19):**
+- **High, folded into E-353:** `r=rm; $r -rf /` passes RM_RF_ROOT for every role. Apply the
+  assigned-verb resolver to RM_RF_ROOT.
+- **High, a new Tier 3 task right after E-353 (pre-existing on HEAD):** for the Architect,
+  `"git" push` and `git -C . push` PASS, so `g=git; "$g" push` and `$g -C . push` pass too. The
+  base sovereignty rules must read the verb unquoted and skip git's global options before the
+  subcommand.
+- **Medium, the same follow-up task:**
+  - git exec keys: `core.pager`, `alias.*=!`, `diff.external`, `credential.helper`,
+    `core.editor`, `GIT_SSH_COMMAND`, and `XDG_CONFIG_HOME` (critic_security's P2, the same
+    item);
+  - `/sbin`, `/lib`, `/lib64`, `/srv` as roots.
+- **Low, residual** (THREAT_MODEL T-ROLE-001): `luajit -e`, `echo cmd | parallel`,
+  `HOME=.ai make`. Also `parallel git ::: push` (arguments composed by parallel) and
+  `ag --pager`.
+- **Already ruled (E-393, D-084 rule 4 follow-up):** `cat > Makefile <<'E' … curl … | sh … E`
+  then `make` passes on HEAD and staged. It is not an (f) regression: strict strip already
+  removed that body.
+
+**P3, over-block and a note:**
+- New for the Architect: any `HOME=` text on a git line blocks, e.g. `printf 'HOME=%s\n' "$HOME";
+  git log` or `grep -n 'HOME=' .ai/ENV.md; git status`. Quotes are stripped before CONFIG_ENV runs.
+- New for every role: the raw-text `..` check sees comments and strings on any rm line, e.g.
+  `rm -rf build # then ../x` and `rm -rf out && git log --format="%h .."`. The `/opt` prefix
+  match blocks `rm -rf /opt-cache-x`. `rm -rf dist && cd ..` already blocked on HEAD. All of
+  these fail closed.
+- `git -c core.pager='env GIT_DIR=x less' grep p` blocked on HEAD and passes now (the `git grep`
+  exemption). Not exploitable: the GIT_DIR goes to the pager's environment, and git grep pages
+  only to a TTY. The pager key itself is the out-of-class Medium above.
+
+**Cost and fail-open:**
+- The new helpers (`expandAssignedVerbs` + `gitRedirectHits`) take ≤ 11 ms on ~95 KB adversarial
+  inputs: 3000 assignment/use pairs, 3000 aliases, `declare -a`×20000, 5000 `GIT_DIR=` in one
+  search segment plus 3000 search pipes, a 20000-word `git … grep` segment, 10000 `a/..`,
+  5000 `-c include.pat`, 500 heredocs.
+- runAnalysis blocks those inputs at the size cap; no throw anywhere.
+- Per-row runAnalysis ≤ 10 ms, the first call included.
+- Nothing fails open.
+
+### Pen-Test Results (E-353)
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | (a) assigned verb, Architect | `g=git; $g push`, `${G} reset --hard`, `export`/`typeset`/`declare -r`, path value, newline, `g=GIT`, `$g -c core.hooksPath=`, `g=sed; $g -i`, `r=rm; $r -rf src` | RESISTED | 0 | HEAD passed all |
+| A01 | (a) | `g=gi""t`, `g=\git`, `g=$'git'`, `g=(git); ${g[0]}`, `${g:-x}` | EXPLOITED | 0 | P1, in class (ruled) |
+| A08 | (b) exec config, Architect | include.path/includeIf/core.fsmonitor/core.sshCommand × `-c`, glued `-c`, `--config-env` (= and space), GIT_CONFIG_PARAMETERS, KEY_n, `git config [--global/--file/set]`, case, quoting; GIT_CONFIG_GLOBAL/SYSTEM/HOME by direct, env, export, declare -x | RESISTED | 0 | parity with core.hooksPath |
+| A08 | (b) | `HOME+=/../x git status`, `GIT_CONFIG_GLOBAL+=x git status` | EXPLOITED | 0 | P1, in class (ruled) |
+| A01 | (c) GIT_DIR / carriers | `GIT_DIR=x make`, `GIT_WORK_TREE=x make`, export/env/quoted; yash/posh/lua/lua5.4/tmux/parallel forms | RESISTED | 0 | |
+| A01 | (c) | `GIT_DIR+=x make` | EXPLOITED | 0 | P1, in class (ruled) |
+| A04 | (d) RM_RF_ROOT, every role | `~+`, `~-`, `$((0))/*`, `$'\x2f'`/`\057`/`/`, `/bin/`, `"/opt"`, `a/../../*`, `/tmp/../*` and 8 more | RESISTED | 0 | |
+| A04 | (d) | `rm -rf ~+0`, `~0`, `//opt`, `/./bin`, `/tmp/.\./*`, `/tmp/.''./*` | EXPLOITED | 0 | P1, in class (ruled); `//usr` and `/./usr` same on HEAD |
+| A04 | (e) search exemption | `git grep GIT_DIR=`, grep/rg/`git -C . grep` with --include/--glob | RESISTED | 0 | pass, as ruled |
+| A01 | (e) narrowed exemption | `rg --pre[=] 'env GIT_DIR=x sh'`, `--pre-glob … --pre`, `--pr""e`, `git grep -O…`, `--open-files-in-pager=`, a later `GIT_DIR=` after `;`/`&&`/`\|\|`/newline/`$(…)`/backticks | RESISTED | 0 | critic_security's case closed |
+| A04 | (f) heredoc pipe text | DECISIONS.md table append, tee form | RESISTED | 0 | pass, as ruled |
+| A03 | (f) bodies that run | `bash x.sh`, grep then `sh x.sh`, `chmod`+`./x`, `cat x \| sh`, `$(cat x) \| sh`, `sh < x`, implicit-run sinks | RESISTED | 0 | |
+| A03 | D-084 rule 4 (already ruled) | Makefile body with curl\|sh, then `make` | EXPLOITED | 0 | same on HEAD; E-393 follow-up |
+| A01 | out of class | `r=rm; $r -rf /` | EXPLOITED | 0 | High, folded into E-353 (ruled) |
+| A01 | out of class | `"git" push`, `git -C . push` (Architect) | EXPLOITED | 0 | High, pre-existing; new Tier 3 task |
+| A08 | out of class | core.pager, `alias.x=!`, diff.external, credential.helper, core.editor, GIT_SSH_COMMAND, XDG_CONFIG_HOME; /sbin, /lib, /srv | EXPLOITED | 0 | Medium, follow-up task |
+| A01 | out of class | luajit, `echo cmd \| parallel`, `parallel git ::: push`, `HOME=.ai make`, `ag --pager` | INCONCLUSIVE | 0 | Low, residual (T-ROLE-001) |
+| A04 | over-block | `HOME=` text on a git line; `..` in comments/strings on an rm line; `/opt-…` prefix | EXPLOITED | 0 | P3, fails closed |
+| A05 | parser cost | 10 adversarial inputs, 17–95 KB | RESISTED | 0 | ≤ 11 ms helpers; size cap blocks; no throw |
+
+Gating: **SEC_BLOCKED**. In-class P1s remain in (a), (b), (c) and (d) (ruled), plus `r=rm; $r -rf /`,
+which is folded into E-353. P0: none.
+
+### Re-review — the in-class P1 fixes (operand-scope 413 rows, block-rules 61; security_engineer, 2026-11-18)
+
+Re-run on the restaged tree: `payloads4` and `payloads4b` (179 rows), plus 59 new variant probes
+(`payloads4c`, `payloads4d`), on the staged and HEAD mirrors.
+
+**Closed: every in-class P1 from the first pass**, and these further variants, all RESISTED.
+- (a) assigned verbs:
+  - values `g\it`, `"g"'i't`, `/usr/bin/git`;
+  - arrays: `g=(git push); ${g[@]}`, `g=( git )`, `declare -a g=(git)`, `"${g[@]}"`;
+  - `g+=git`;
+  - uses `${g[*]}`, `${g%x}`, `${g,,}`;
+  - `readonly`, `typeset -x`.
+- (b) `HOME+=` directly and through `export`, `declare -x` and `env`; `GIT_CONFIG_SYSTEM+=`.
+- (c) `GIT_WORK_TREE+=x make`, `export GIT_DIR+=x; make`, `GIT_DIR+=… git`.
+- (d) RM_RF_ROOT:
+  - dir-stack: `~-1`, `~+10/`, `~+0/*`, `~+0 ~-0`;
+  - collapsed paths: `/opt//`, `/.//opt`, `/tmp/../.././*`;
+  - quoted `..`: `/tmp/".."/*`, `/tmp/\.\./*`;
+  - through an assigned `rm`, every role: `r=rm; $r -rf ~`, `${R} -fr /`, `$r -rf //usr`,
+    `r='rm -rf'; $r /`, `r=r""m`, `r=(rm -rf); ${r[@]} /`.
+
+No first-pass row regressed. The Engineer is still not restricted by (a).
+
+**Still open, in class (P1; Architect ruling A2A 2026-11-18T08:26).** `rm -rf $PWD`,
+`rm -rf ${PWD}`, `rm -rf "$PWD"` and `rm -rf $OLDPWD` are WARN, not BLOCK, on both staged and
+HEAD. They are the values of the ruled `~+` and `~-` under their variable names, and D-163 r12
+classifies by value. As ruled:
+- RM_RF_ROOT blocks, for every role, on PWD and OLDPWD in these forms: bare, braced,
+  double-quoted, and `${PWD:?}` / `${OLDPWD:?}`, each with the `/` and `/*` suffixes;
+- each spelling gets a BLOCK row beside the `~+`/`~-` rows;
+- `rm -rf "${X:?}"/*` gets an ALLOW row, so the Engineer's escape stays pinned;
+- out of class, for the follow-up task: `$(pwd)`, backtick `pwd`, and any other variable that
+  happens to hold the cwd.
+
+**Residual / out of class, unchanged.** These are recorded in the first-pass section:
+- `g=$'\x67it'` (hex);
+- `${!h}` (indirection);
+- `g=git; h=$g`;
+- `g=git p=push; $g $p`;
+- functions;
+- `f=-rf; rm $f /` (a flag held in a variable);
+- the base-rule High (`"git" push`, `git -C . push`);
+- the git exec keys and roots (Medium);
+- the Low carriers.
+
+**Over-block, P3, fails closed.**
+- With the normalised root check, `rm -rf "$OUT"/bin` and `rm -rf "$BUILD_DIR/opt"` now block for
+  every role. That is consistent with D-112 r1–r2 (an unset variable is read at its most
+  dangerous), and HEAD already blocked `"$OUT"/usr`.
+- `r=rm; echo $r -rf /` blocks; `echo rm -rf /` already blocked on HEAD.
+- Not affected: `./bin`, `bin/`, `~1cache`, `"$TMPDIR"/rein-*`, `${XDG_CACHE_HOME:-…}/x`.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | (a) assigned verb | `g=g\it`, `"g"'i't`, arrays, `g+=git`, `${g[*]}`, `${g%x}`, `${g,,}`, `readonly`, `typeset -x`, and the 5 first-pass P1 rows | RESISTED | 0 | closed |
+| A08 | (b) | `HOME+=` (direct/export/declare -x/env), `GIT_CONFIG_SYSTEM+=`, `GIT_CONFIG_GLOBAL+=` | RESISTED | 0 | closed |
+| A01 | (c) | `GIT_DIR+=`, `GIT_WORK_TREE+=`, export form | RESISTED | 0 | closed |
+| A04 | (d) | `~+0`, `~0`, `~-1`, `~+10/`, `//opt`, `/./bin`, `/.//opt`, quoted `..` ×4, `r=rm; $r -rf /` ×7 spellings | RESISTED | 0 | closed |
+| A04 | (d) | `rm -rf $PWD`, `${PWD}`, `"$PWD"`, `$OLDPWD` | EXPLOITED | 0 | P1, in class (ruled 08:26); WARN on HEAD too |
+| A01 | residual | `$'\x67it'`, `${!h}`, `h=$g`, `$g $p`, `f=-rf; rm $f /` | INCONCLUSIVE | 0 | runtime assembly |
+| A04 | over-block | `"$OUT"/bin`, `"$BUILD_DIR/opt"`, `r=rm; echo $r -rf /` | EXPLOITED | 0 | P3, fails closed |
+
+Gating: **SEC_BLOCKED** on the PWD/OLDPWD spellings alone. Once they and their rows are in, the
+re-check is `payloads4d.json` (rows P1–P4). P0: none.
+
+#### Re-check — PWD / OLDPWD (operand-scope 438 rows; security_engineer, 2026-11-18)
+
+**Closed (RESISTED, every role):**
+- `rm -rf $PWD`, `${PWD}`, `"$PWD"`, `$OLDPWD` (P1–P4);
+- `${PWD:?}`, `"${OLDPWD:?unset}"/*`, `$OLDPWD/`, `"$PWD"/*` as `engineer`, `${PWD}/` as
+  `architect`, `-- "$PWD"`, `cd /tmp/x && rm -rf $PWD`, `$PWD/.`, `$PWD/.*`.
+
+**Pinned escape:** `rm -rf "${X:?}"/*` is still not blocked.
+
+**Not over-blocked:** `"$PWD/dist"`, `$PWD/node_modules`, `"${PWD:?}/build"`, `$PWD_BACKUP` and
+`"$OLDPWD/tmp-x"` are WARN, not BLOCK.
+
+**Regression check:** re-running `payloads4`, `4b` and `4c` against the previous run changes one
+verdict only, `rm -rf ${PWD}`, which is now BLOCK.
+
+**Residual (out of class, ruled):** `$(pwd)` and `${PWD%/*}`.
+
+**P3 over-block, new, fails closed:** a `$PWD` that is not an rm operand blocks an rm line for every
+role. Examples: `echo $PWD; rm -rf dist` and `echo "cleaning in $PWD"; rm -rf dist`. The `$HOME`
+check, which this mirrors, does not block those (`echo $HOME; rm -rf dist` is WARN). Suggested
+follow-up: give the PWD/OLDPWD text match the same boundary the `$HOME` one has, which is
+`(\/|\s|$)` after the name.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A04 | (d) PWD/OLDPWD | `$PWD`, `${PWD}`, `"$PWD"`, `${PWD:?}`, `$OLDPWD`, with `/` and `/*`, `--`, after `cd`, as engineer/architect/none | RESISTED | 0 | closed (ruled 08:26) |
+| A04 | (d) residual | `$(pwd)`, `${PWD%/*}` | INCONCLUSIVE | 0 | out of class, follow-up |
+| A04 | over-block | `echo $PWD; rm -rf dist`, `echo "… $PWD"; rm -rf dist` | EXPLOITED | 0 | P3, fails closed |
+
+Gating: **SEC_CLEARED** for E-353. Every ruled form and every ruled in-class variant holds. What is
+left is out of class: the High base-rule task (`"git" push`, `git -C . push`), the Medium git exec
+keys and roots, and the Low carriers. P3 over-blocks fail closed. P0: none.

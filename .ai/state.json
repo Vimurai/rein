@@ -5846,6 +5846,69 @@
       "summary": "[TIER_1] E-393 gate-self-disable-cases.test.mjs builds its fixture HOME with tcFixtureHome (D-109 r1) — the fixture-home census flagged it on 19b2d11 once the file read the hook; census clean, 228/0.",
       "sha": "19b2d11f3b7d9de1e9fa0b5b2f77ba569e17cca9",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_WARN",
+      "agent": "critic_clean_code",
+      "task_id": "E-353",
+      "timestamp": "2026-11-18T08:14:16.459Z",
+      "summary": "standards-checker WARN (e-353-safe-exec-residuals @ 9fc384c) — 1 warning, 0 errors, 7 files, 8ms (rule_id: file_size_limit_lines; file: src/mcp/safe-exec-mcp/index.js 794 lines, warn >=500)",
+      "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-353",
+      "timestamp": "2026-11-18T08:14:17.727Z",
+      "summary": "Review at 9fc384c: operand-scope/block-rules/pipe-shell/consolidation-subset tables 979/979 pass; +39 contract rows at the cheapest layer, no new suite; reproducer-first shown (27 E-353 rows fail on HEAD source), pass rows give negative coverage",
+      "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "blueprint-aligner",
+      "task_id": "E-353",
+      "timestamp": "2026-11-18T08:14:19.095Z",
+      "summary": "e-353-safe-exec-residuals @9fc384c: align_diff WARN, no violations, 7 files; NO_LOG_UPDATE + ORPHANED_WORK (assigned-verbs.mjs, code-strings.mjs, git-redirect.mjs not named in architect.md)",
+      "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-353",
+      "timestamp": "2026-11-18T08:14:21.888Z",
+      "summary": "Review at 9fc384c (e-353-safe-exec-residuals), D-112 r3 / D-163 r12: no sovereignty violations (no architect.md/BRIEF/blueprints, arch-write-cases.json, rename-map.json or other pin touched). All src changes trace to E-353 classes a-f. assigned-verbs.mjs is correctly placed in safe-exec-mcp and reuses verb-fold isVerb (no second verb list). pipeHit for (f) requires both strict and readOnlyLines views to match, so it only removes blocks; SECRET_IN_COMMAND and GATE_SELF_DISABLE untouched. No new env var. Fixture tables gain E-353 rows only (the one existing row differs by a trailing comma); not re-pinned, shas to be reported for Architect pinning.",
+      "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-353",
+      "timestamp": "2026-11-18T08:16:05.066Z",
+      "summary": "E-353 classes a-f: no P0. Probed ~45 payloads from files: a (var/alias verbs, path, case), b (fsmonitor/include.path/sshCommand/HOME/GIT_CONFIG_*), c (GIT_DIR=x make, tmux, parallel, lua, yash), d (~+ ~- /bin /opt a/../../* /tmp/../* $((..))), e, f all verdict as ruled; heredoc-pipe still blocks when the pipe is outside the body or the heredoc feeds a shell; 7 perf probes <20 ms; unit suite 2642/0; arch-write-cases unchanged. For a ruling (outside a-f): XDG_CONFIG_HOME=/x git passes; class e carve-out lets rg --pre 'env GIT_DIR=x sh' pass.",
+      "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer (recorded by the Engineer; the agent has no add_stamp tool)",
+      "task_id": "E-353",
+      "timestamp": "2026-11-18T08:29:16.728Z",
+      "summary": "[TIER_3] E-353 classes a-f: every ruled form and every ruled in-class variant (A2A rulings 2026-11-18 08:19, 08:26) RESISTED; no regression vs prior runs; Engineer escape \"${X:?}\"/* stays open. See .ai/SECURITY.md \"E-353, Re-check — PWD / OLDPWD\". Out of class (for the Architect): base-rule \"git\"/-C push, git exec keys incl. XDG_CONFIG_HOME, /sbin /lib /srv, Low carriers; P3 over-block: $PWD anywhere on an rm line.",
+      "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 3)",
+      "task_id": "E-353",
+      "timestamp": "2026-11-18T08:29:18.963Z",
+      "summary": "[TIER_3] E-353 (D-112 r3 a-f, D-163 r12) staged on 9fc384c: ARCH_PASS, SEC_PASS (critic_security; its in-class P2 on the class-e exemption fixed), TESTS_PASS, ALIGN_PASS, CLEAN_WARN (index.js size, pre-existing), SEC_CLEARED (security_engineer, three rounds). Tables: operand-scope 438, block-rules 61, pipe-shell 49; arch-write unchanged. Full rein ci run pending operator install.",
+      "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

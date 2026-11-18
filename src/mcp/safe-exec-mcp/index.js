@@ -37,6 +37,7 @@ import { ARCHITECT, ENGINEER, mintToken, verifyToken, ROLE_UNVERIFIED_LINE } fro
 import { claimGateFor, claimReport } from "./claim-gate.mjs";
 import { foldVerbs } from "./verb-fold.mjs";
 import { normaliseWord } from "../../shared/shell-word.mjs";
+import { expandAssignedVerbs } from "./assigned-verbs.mjs";
 import { createLogger } from "../shared/logger.js";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, realpathSync, lstatSync } from "node:fs";
@@ -71,6 +72,15 @@ function normalizeForSecretScan(raw) {
     .replace(/["']/g, "");   // strip remaining quotes
 }
 
+// E-353 (D-112 r3 f): a `|` inside the BODY of a quoted-delimiter cat/tee heredoc is text, not a
+// pipe. A pipe rule blocks only when it matches the strictly stripped text AND the text stripped
+// with the read-only relaxation (heredoc.mjs readOnlyLines): a body kept scanned only because a
+// later, provably read-only line names its file (`echo "$(grep -c … .ai/DECISIONS.md)"`) is prose.
+// Either view proving the body inert is enough; implicit-run sinks stay scanned in both.
+function pipeHit(re, raw) {
+  return re.test(stripInertHeredocs(raw)) && re.test(stripInertHeredocs(raw, { readOnlyLines: true }));
+}
+
 const BLOCK_RULES = [
   {
     id: "RM_RF_ROOT",
@@ -81,12 +91,12 @@ const BLOCK_RULES = [
     id: "CURL_PIPE_SHELL",
     // E-291 (D-083): an INERT heredoc body (quoted delimiter, cat/tee, no pipe) is prose,
     // not a pipeline — stripped before matching. See heredoc.mjs for what counts as inert.
-    pattern: (tokens, raw) => /curl[^|]+\|.*(bash|sh|zsh|python)/i.test(stripInertHeredocs(raw)),
+    pattern: (tokens, raw) => pipeHit(/curl[^|]+\|.*(bash|sh|zsh|python)/i, raw),
     message: "curl | shell — BLOCKED (remote code execution risk)",
   },
   {
     id: "WGET_PIPE_SHELL",
-    pattern: (tokens, raw) => /wget[^|]+\|.*(bash|sh|zsh|python)/i.test(stripInertHeredocs(raw)),
+    pattern: (tokens, raw) => pipeHit(/wget[^|]+\|.*(bash|sh|zsh|python)/i, raw),
     message: "wget | shell — BLOCKED (remote code execution risk)",
   },
   {
@@ -207,13 +217,23 @@ function rmRecursiveForce(tokens) {
 // `/*` into a glob object (both dropped from string tokens), and bare ~ slips the
 // old token-only check — so also scan the raw string. Only consulted inside the
 // rm-recursive-force rule, where any root/home target is irreversible.
+// E-353 (D-112 r3 d): /bin and /opt join the system roots.
+const ROOT_TOKEN = /^(\/$|\/root|\/home|\/etc|\/usr|\/var|\/boot|\/bin|\/opt|~$|~\/|\$HOME(\/|$)|\$\{HOME\}(\/|$))/;
 function hasRootPaths(tokens, raw) {
   const strTokens = tokens.filter((t) => typeof t === "string").map((t) => String(t));
-  if (strTokens.some((t) => /^(\/$|\/root|\/home|\/etc|\/usr|\/var|\/boot|~$|~\/|\$HOME(\/|$)|\$\{HOME\}(\/|$))/.test(t))) return true;
+  if (strTokens.some((t) => ROOT_TOKEN.test(t))) return true;
   if (raw == null) return false;
   const r = String(raw);
+  // E-353 (A2A ruling 2026-11-18): each word again as the shell reads it — quotes and backslashes
+  // removed, `//` and `/./` collapsed (the shared D-112 normaliser): `//opt`, `/./bin`, `/"usr"`.
+  if (r.split(/[\s;&|<>()]+/).some((w) => /[/"'\\]/.test(w) && ROOT_TOKEN.test(normaliseWord(w)))) return true;
   if (/(^|[\s=])(\$HOME|\$\{HOME\})(\/|\s|$)/.test(r)) return true;  // $HOME / ${HOME} (tokenizer expands to "")
   if (/(^|\s)~(\/|\s|$)/.test(r)) return true;                      // ~ or ~/
+  // E-353 (d): ~+ ($PWD), ~- ($OLDPWD) and the directory-stack forms ~N, ~+N, ~-N.
+  if (/(^|\s)["']?~(?:[+-][0-9]*|[0-9]+)(["'\/\s]|$)/.test(r)) return true;
+  // A2A ruling 2026-11-18: $PWD / $OLDPWD are ~+ / ~- by value — bare, braced, quoted, and with
+  // :? (always set, so it never fails closed), alone or with / or /*. "${X:?}"/* stays the escape.
+  if (/(^|\s)"?\$(?:\{(?:PWD|OLDPWD)(?::\?[^}]*)?\}|(?:PWD|OLDPWD)(?![A-Za-z0-9_]))"?(?:\/\*?)?"?(\s|;|&|\||$)/.test(r)) return true;
   if (/(^|\s)\/\*(\s|$)/.test(r)) return true;                      // /* glob (dropped from tokens)
   // E-350 (D-111 r6 ii): ~user is that user's home.
   if (/(^|\s)["']?~[A-Za-z_][A-Za-z0-9_.-]*["']?(\/|\s|$)/.test(r)) return true;
@@ -274,9 +294,21 @@ function withoutSafeCdPrefix(raw) {
 }
 const DOTDOT = /(^|\/)\.\.(\/|$)/;
 function rmRootHit(tokens, raw) {
+  // E-353 (A2A ruling 2026-11-18, folded in): `r=rm; $r -rf /` is rm — the assigned-verb expansion
+  // applies to RM_RF_ROOT too, for every role (union: it only adds a block).
+  if (rmRootHitOn(tokens, raw)) return true;
+  const exp = expandAssignedVerbs(raw);
+  return exp !== String(raw ?? "") && rmRootHitOn(_tokens(exp), exp);
+}
+function rmRootHitOn(tokens, raw) {
   const rest = withoutSafeCdPrefix(raw);
   const t = rest === String(raw ?? "") ? tokens : _tokens(rest);
-  return rmRecursiveForce(t) && (hasRootPaths(t, rest) || t.some((x) => DOTDOT.test(x)));
+  // E-353 (D-112 r3 d): a glob word (`a/../../*`, `/tmp/../*`) is not a string token, so the `..`
+  // component is also looked for in the text itself.
+  // A2A ruling 2026-11-18: and in each word as the shell reads it (`/tmp/.\./*`, `/tmp/.''./*`).
+  return rmRecursiveForce(t) && (hasRootPaths(t, rest) || t.some((x) => DOTDOT.test(x)) ||
+    /(^|[\s"'=\/])\.\.(\/|[\s"']|$)/.test(rest) ||
+    rest.split(/[\s;&|<>()]+/).some((w) => /["'\\]/.test(w) && DOTDOT.test(normaliseWord(w))));
 }
 
 // ── E-102: Architect sovereignty rules (sovereignty-hardening.md §Components 1) ─
@@ -522,6 +554,16 @@ export function runAnalysis(original, callerRole, { override = false } = {}) {
   if (!override && callerRole === "architect") {
     const sovText = stripInertHeredocs(full, { readOnlyLines: true });
     sovereignty = analyzeSovereignty(sovText === full ? fullTokens : _tokens(sovText), sovText, fullTokens, full);
+    // E-353 (D-112 r3 a): a verb held in a name (`g=git; $g push`, `alias g=git; g push`) is the
+    // verb — the same rules run on the text with those uses expanded; the verdict is the union.
+    const expSov = expandAssignedVerbs(sovText);
+    if (expSov !== sovText) {
+      const expFull = expandAssignedVerbs(full);
+      const seen = new Set(sovereignty.map((v) => v.id));
+      for (const v of analyzeSovereignty(_tokens(expSov), expSov, _tokens(expFull), expFull)) {
+        if (!seen.has(v.id)) { seen.add(v.id); sovereignty.push(v); }
+      }
+    }
   }
 
   const verdict = blocked.length > 0 || sovereignty.length > 0 ? "BLOCK" : warned.length > 0 ? "WARN" : "PASS";

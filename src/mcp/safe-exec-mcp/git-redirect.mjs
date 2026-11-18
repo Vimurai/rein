@@ -7,6 +7,19 @@
 // Matched on the text with quotes and backslashes removed: the shell joins `core."hooksPath"`,
 // `core.hooks\Path` and `"git"` into the plain words before git sees them.
 const HOOKS_KEY = /core\.hookspath/i;
+// E-353 (D-112 r3 b): config keys that make git run or load other text, blocked exactly as
+// core.hooksPath is: include.path / includeIf.<cond>.path (more config, hooksPath included),
+// core.fsmonitor (a program git runs), core.sshCommand (the program a fetch/push runs).
+const EXEC_KEY = /include(?:if\.[^=\s]*)?\.path|core\.fsmonitor|core\.sshcommand/i;
+// E-353 (D-112 r3 b): the git config files themselves, chosen by environment.
+const CONFIG_ENV = /(^|[\s;&|(])(export\s+)?(GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|HOME)\+?=/;   // += too (A2A 2026-11-18)
+// E-353 (D-112 r3 e): `GIT_DIR=` as an ARGUMENT of a search (`git grep GIT_DIR=`) assigns nothing.
+// Tested on the simple command the occurrence sits in (from the last ; & | newline or ( to the
+// next), one verdict per command — linear, no nested quantifier (E-397). Not a search when that
+// command carries an option that RUNS a command (critic_security P2 on E-353: `rg --pre 'env
+// GIT_DIR=x sh' p` runs it; git grep -O / --open-files-in-pager runs a pager).
+const SEARCH_SEG = /^\s*(?:git\s(?:[^\n]*\s)?grep\s|(?:grep|egrep|fgrep|rg|ag)\s)/;
+const RUNS_OPTION = /(^|\s)(--pre(=|\s)|-O|--open-files-in-pager)/;
 // git's global options that take the next word as their value.
 const VALUED_FLAGS = new Set(["-C", "-c", "--namespace", "--exec-path", "--super-prefix", "--config-env"]);
 
@@ -66,10 +79,47 @@ export function configArgs(r) {
   return out;
 }
 
+// GIT_DIR= / GIT_WORK_TREE= assigned on the line — not as an argument of a search (e).
+function gitDirAssigned(r) {
+  let cursor = 0, segStart = 0, judged = -1, segIsSearch = false;
+  for (const m of r.matchAll(/(^|[\s;&|(])(export\s+)?(GIT_DIR|GIT_WORK_TREE)\+?=/g)) {   // += too (A2A 2026-11-18)
+    const at = m.index + m[1].length;
+    for (; cursor < at; cursor++) if (/[;&|\n(]/.test(r[cursor])) segStart = cursor + 1;   // forward only
+    if (judged !== segStart) {
+      judged = segStart;
+      let segEnd = at;
+      while (segEnd < r.length && !/[;&|\n(]/.test(r[segEnd])) segEnd++;   // once per command
+      const seg = r.slice(segStart, segEnd);
+      segIsSearch = SEARCH_SEG.test(seg) && !RUNS_OPTION.test(seg);
+    }
+    if (!segIsSearch) return true;
+  }
+  return false;
+}
+
 export function gitRedirectHits(raw) {
   const r = String(raw ?? "").replace(/["'\\]/g, "");
-  if (!/(^|[^A-Za-z0-9_.-])git(\s|$)/.test(r)) return [];
   const hits = [];
+  // E-353 (D-112 r3 c): GIT_DIR=x on ANY command — `GIT_DIR=x make` runs git inside make.
+  const onGitLine = /(^|[^A-Za-z0-9_.-])git(\s|$)/.test(r);
+  if (!onGitLine) {
+    if (gitDirAssigned(r)) {
+      hits.push({ id: "ARCH_GIT_DIR_OVERRIDE",
+        message: "pointing git at another GIT_DIR / work tree is a forbidden Architect operation — it loads that repository's hooks and config" });
+    }
+    return hits;
+  }
+  // E-353 (D-112 r3 b): the other keys that make git run text, by every spelling hooksPath has,
+  // and the config files chosen by environment on a git line.
+  const execFlag = /(^|\s)(-c\s*|--config-env[=\s])/.source;
+  const execHit = new RegExp(execFlag + "(" + EXEC_KEY.source + ")\\s*=", "i").test(r) ||
+    [...r.matchAll(/(^|[\s;&|(])(export\s+)?GIT_CONFIG_(PARAMETERS|KEY_[0-9]+)=([^\s;&|]*)/gi)].some((m) => EXEC_KEY.test(m[4])) ||
+    configArgs(r).some((args) => EXEC_KEY.test(args) && !/(^|\s)(--get|--get-all|--get-regexp|-l|--list)(\s|$)/.test(args)) ||
+    CONFIG_ENV.test(r);
+  if (execHit) {
+    hits.push({ id: "ARCH_GIT_EXEC_CONFIG",
+      message: "pointing git at other config or at a program (include.path, core.fsmonitor, core.sshCommand, GIT_CONFIG_GLOBAL/SYSTEM, HOME) is a forbidden Architect operation — git runs what it names" });
+  }
   // git -c core.hooksPath=…, git --config-env=core.hooksPath=…, or the config pushed through
   // GIT_CONFIG_PARAMETERS / GIT_CONFIG_KEY_<n> (the same setting by another spelling).
   const viaFlag = /(^|\s)(-c\s*|--config-env[=\s])core\.hookspath\s*=/i.test(r);
@@ -89,7 +139,7 @@ export function gitRedirectHits(raw) {
   // their flag spellings --git-dir / --work-tree as git's own global options (before the
   // subcommand — `git rev-parse --git-dir` only prints the path). -C, -c and --namespace take a
   // value, so the word after them is skipped too.
-  if (/(^|[\s;&|(])(export\s+)?(GIT_DIR|GIT_WORK_TREE)=/.test(r) || gitDirFlagged(r)) {
+  if (gitDirAssigned(r) || gitDirFlagged(r)) {
     hits.push({ id: "ARCH_GIT_DIR_OVERRIDE",
       message: "pointing git at another GIT_DIR / work tree is a forbidden Architect operation — it loads that repository's hooks and config" });
   }

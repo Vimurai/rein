@@ -968,6 +968,36 @@ at any role, and `CLAUDE_CODE_SESSION_ID` selected any session's token.
    (`.ai-o?`, `.a'i'-os`), a variable holding HOME (`D=~; cd $D`), a script written in one call
    and run in the next. The classifier backstop (T-CLASSIFIER-001, auto mode) is the layer for
    those.
+   *E-353 / D-112 r3 (security_engineer, 2026-11-18):*
+   - **Added to the Architect's sovereignty layer.** These forms block for the Architect:
+     - an assigned or aliased verb on the same line;
+     - the git exec keys include.path, includeIf, core.fsmonitor and core.sshCommand, by every
+       core.hooksPath spelling;
+     - GIT_CONFIG_GLOBAL, GIT_CONFIG_SYSTEM and HOME on a git line;
+     - GIT_DIR / GIT_WORK_TREE assigned on any line;
+     - the carriers yash, posh, lua, tmux and parallel.
+   - **RM_RF_ROOT, every role.** It gains `/bin`, `/opt`, `~+`, `~-` and `..` read from the text.
+   - **Closed in the fix round:** statically quoted, ANSI-C, array and operator-expansion
+     spellings of an assigned verb; `NAME+=` for HOME, GIT_CONFIG_* and GIT_DIR; `~+N`/`~-N` and the bare `~` + digits form,
+     `//root` and `/./root`, and quoted `..` for RM_RF_ROOT; `r=rm; $r -rf /` for every role.
+   - **Closed at re-check (E-353 SEC_CLEARED, 2026-11-18):** `rm -rf $PWD`, `${PWD}`, `"$PWD"`,
+     `${PWD:?}`, `$OLDPWD` and their `/` and `/*` suffixes. These are the values of `~+`/`~-`
+     under their variable names. `$(pwd)`, `${PWD%/*}` and other variables holding the cwd are
+     out of class and go to the follow-up.
+   - **Pre-existing, a High follow-up:** for the Architect, a quoted verb (`"git" push`) and git
+     global options before the subcommand (`git -C . push`) pass the base rules. The same
+     follow-up covers:
+     - the remaining git exec keys and environment (`core.pager`, `alias.*=!`, `diff.external`,
+       `credential.helper`, `core.editor`, `GIT_SSH_COMMAND`, `XDG_CONFIG_HOME`);
+     - `/sbin`, `/lib`, `/lib64`, `/srv` as roots.
+   - **Recorded residual for the D-112 r3 carriers (Low; the classifier backstop covers them):**
+     - `luajit -e`;
+     - a command line piped into `parallel` (`echo cmd | parallel`), or composed by it
+       (`parallel git ::: push`);
+     - `HOME=<dir> make`;
+     - `ag --pager`.
+
+     PoCs: SECURITY.md "E-353".
 3. **`HOME` is the root of the whole gate stack** (D-087 r7). A project's settings `env`
    cannot redirect it (measured, E-290); a nested launch can, which is residual 1's class.
 4. **After installing E-294 every running session holds a v1 token and is in the union until

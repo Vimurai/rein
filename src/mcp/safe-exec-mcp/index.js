@@ -544,7 +544,7 @@ export function runAnalysis(original, callerRole, { override = false } = {}) {
   const tooLarge = _tooLarge(full);
   if (tooLarge) {
     const blocked = [{ id: "INPUT_TOO_LARGE", message: tooLarge }];
-    const report = [`## safe-exec-mcp Analysis`, `Command: \`${full.slice(0, 120)}\``, `Verdict: ✗ BLOCK`, ``,
+    const report = [`## safe-exec-mcp Analysis`, `Rule: INPUT_TOO_LARGE`, `Command: \`${full.slice(0, 120)}\``, `Verdict: ✗ BLOCK`, ``,
       "### BLOCKED — Do Not Execute", `- [INPUT_TOO_LARGE] ${blocked[0].message}`].join("\n");
     return { verdict: "BLOCK", blocked, warned: [], sovereignty: [], report };
   }
@@ -577,8 +577,12 @@ export function runAnalysis(original, callerRole, { override = false } = {}) {
   const verdict = blocked.length > 0 || sovereignty.length > 0 ? "BLOCK" : warned.length > 0 ? "WARN" : "PASS";
   const icon = verdict === "BLOCK" ? "✗" : verdict === "WARN" ? "⚠" : "✓";
 
+  // E-432 (security_engineer P2-1): the rule a block is attributed to, on a fixed line BEFORE the
+  // command echo — the hook's telemetry reads the first `Rule:` line, so text in the command cannot
+  // choose it. The first id printed: a sovereignty violation, then a policy block.
   const lines = [
     `## safe-exec-mcp Analysis`,
+    ...(verdict === "BLOCK" ? [`Rule: ${(sovereignty[0] ?? blocked[0]).id}`] : []),
     `Command: \`${String(original).slice(0, 120)}\``,
     `Verdict: ${icon} ${verdict}`,
     ``,
@@ -716,16 +720,19 @@ if (_checkPathIdx !== -1) {
     verdict = pathAnalysis(target, pathRole);
   } catch (e) {
     // FAIL-CLOSED, same rule as --check (T-HITL-004): a crash must block, never allow.
+    // E-432 (security_engineer, second pass): the error text goes to stderr, never into the report
+    // the hook reads its `Rule:` line from (a crash report carries none).
+    process.stderr.write(`safe-exec --check-path: ${e.message}\n`);
     process.stdout.write(
       "## safe-exec-mcp Sovereignty Analysis\nVerdict: ✗ BLOCK\n\n" +
       "### BLOCKED — analyzer error (fail-closed)\n" +
-      `The path gate crashed; the write is blocked rather than allowed: ${e.message}\n`
+      "The path gate crashed; the write is blocked rather than allowed (the error is on stderr).\n"
     );
     process.exit(2);
   }
   if (verdict.id === "GATE_SELF_DISABLE") {
     process.stdout.write(
-      "## safe-exec-mcp Path Analysis\nVerdict: ✗ BLOCK\n\n" +
+      "## safe-exec-mcp Path Analysis\nRule: GATE_SELF_DISABLE\nVerdict: ✗ BLOCK\n\n" +
       "### BLOCKED — GATE_SELF_DISABLE\n" +
       `Path: ${target}\nReason: inside ~/.rein/ (the Rein install: hooks, gate, secrets) — no role writes there; ` +
       "only `bash install-rein.sh`, `rein install`, `rein sync` and `rein doctor` do.\n"
@@ -747,7 +754,7 @@ if (_checkPathIdx !== -1) {
   }
   if (verdict.blocked) {
     process.stdout.write(
-      "## safe-exec-mcp Sovereignty Analysis\nVerdict: ✗ BLOCK\n\n" +
+      "## safe-exec-mcp Sovereignty Analysis\nRule: ARCH_WRITE_OUTSIDE_SCOPE\nVerdict: ✗ BLOCK\n\n" +
       "### BLOCKED — ARCH_WRITE_OUTSIDE_SCOPE\n" +
       (verified ? "Role: architect (HMAC-verified session token)\n" : `${ROLE_UNVERIFIED_LINE}\n`) +
       `Path: ${target}\n` +

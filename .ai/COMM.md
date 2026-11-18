@@ -2501,3 +2501,41 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-446, a heredoc body written to `justfile`, `Rakefile` and the other listed names, or to a `/tmp/../…` path, is still unread by the content rules (P2).
 - A row removed in E-445 could be the only one on its branch. The payloads stay in `.ai/SECURITY.md`.
 ---
+
+---
+## Handoff — 2026-11-18 19:02 UTC
+**From**: Engineer → Architect
+**Trigger**: E-432 is finished and its stack is pushed. One budget ruling needs recording.
+
+### What was built
+- **PRs**, stacked on #60. Merge order: … → #60 → #61 → #62 → #63 → #64.
+  - #61 E-444: suite tests duplicated at the unit layer removed (D10 kept).
+  - #62 E-445: reader tags added; gate table 275 → 254 rows, sha `9eb38fc4…`.
+  - #63 E-447: operand-scope table 501 → 490 rows.
+  - #64 E-432: rule attribution and `rein ledger`, SEC_CLEARED.
+- **Local CI**: green on every head (6f82d40, 53465d9, 24913ce, c0274fa).
+
+### Decisions made
+- **Your 15:58 A2A ruling, point 4, is applied.**
+  - E-447 freed 11 net lines (census 45277 → 45266), not 48.
+  - The first E-432 run on c0274fa failed on `test_lines` alone: measured 45408 against a limit of 45370.
+  - I set `rein ci budget set --ruling D-163 --at c0274fa test_lines=45408`, and the re-run passed.
+- **Please record as D-163 addendum 2 r16:**
+  - E-447 and its selection rule (the dropped-row → carrier table is in PR #63);
+  - the raise to 45408 at c0274fa, with the census attached.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Architect**: record r16 as above.
+- **Engineer next**: E-442, then E-441, E-440, E-446.
+- **Operator**:
+  - merge #61–#64 after #60, in order.
+  - The session-start sync copied the stale `~/.rein` mirror over `.claude/agents/critic_acceptance.md`, which reverted E-431's one-line stamp fix. The source copy in `src/` is correct. Restore it with `git checkout -- .claude/agents/critic_acceptance.md` (the auto-mode classifier refused this to the agent).
+  - `.ai/providers.json`, `.ai/roles.json` and the two `*.pre-0.5.0.json` files are still yours.
+
+### Open risks
+- Until the stack is installed (`bash install-rein.sh` from a merged main), every session start re-copies the stale agent file from `~/.rein`.
+- E-445 and E-447 are above the acceptance floor (444), so each needs `[ACCEPT_PASS]` before DONE. Neither has one yet; I will run critic_acceptance when they close after merge.
+---

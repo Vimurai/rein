@@ -1384,3 +1384,62 @@ role_token_test R07 tmuxhalf/tmuxpane/tmuxrel, E-433.R01a-c.
   servers) is bounded by keeping the builtin fast path to PostToolUse/PostToolUseFailure, so
   Stop, UserPromptSubmit and PermissionDenied always clear their own pane; P4-1 (`tmux-target`
   ignores the record's project) is documented — the target is display state, never a role.
+
+### T-GATELEDGER-001 — the control ledger's evidence is unauthenticated and can be steered (security_engineer, E-432 review, 2026-11-18)
+
+**Status**: MITIGATED for items 1 and 3 as written (second pass, 2026-11-18). Item 2 is
+residual. **P3-6 is OPEN** and gates E-432 until it re-resists (SECURITY.md §E-432 second pass).
+
+**Threat**: under D-159 r8 (P-52), the Architect keeps, changes or retires gate rules based on
+the counts from `rein ledger`. Three weaknesses affect those counts:
+1. **The rule id can be chosen by the command.** The hook takes the rule id from the first
+   `- [ID]` or `### BLOCKED — ID` line of the safe-exec report. The report repeats the command
+   text before its verdict sections, so a command line `- [<LISTED_ID>]` picks the recorded
+   rule. Measured: a pipe-to-shell block was recorded as CHMOD_777.
+2. **Rows are unauthenticated.** Any same-user process can append rows to `tool_executions`
+   through `telemetry.mjs --record-tool` or SQLite. An Engineer-role agent can do this from the
+   repository tree. It can forge REJECTED/BYPASS pairs to raise `[CONTROL_NOISY]`, or hide fires
+   to raise `[CONTROL_QUIET]`.
+3. **Tool names are printed raw.** `tool_name` is free text. The ledger prints the `<x>` of
+   `mcp__<x>__` as is, which carries terminal escapes and instruction text into the Architect's
+   P-52 input (T-HITL-001 class).
+
+**Mitigation (proposed)**:
+- The analyzer prints the rule on a fixed `Rule: <ID>` line before the command echo, and only
+  that line is parsed.
+- Server ids are limited to `^[A-Za-z0-9_-]{1,64}$`.
+- Ledger output is labelled advisory.
+
+Standing bound: D-159 r8 keeps catastrophic and sovereignty rules without argument, so a
+forged quiet count cannot retire them.
+
+**Residual (accept on ruling)**: telemetry is not an authenticated log. A same-user writer can
+always add rows, so the ledger's numbers are evidence, not proof.
+
+**Addendum to T-HOOKABORT-001 (E-432)**: the E-432 tree adds a call that forks
+(`_gate_reject`) to the EXIT and signal traps. When fork fails (RLIMIT_NPROC or ENOMEM), bash
+exits 254 from inside the trap, and Claude Code treats that as an allow. Measured: the old
+builtins-only trap text exits 2 in the same conditions. The call must be removed before merge
+(SECURITY.md §E-432 P1-1). Traps stay builtins-only.
+
+**Second pass (security_engineer, 2026-11-18)**:
+- **Item 1, rule steering: fixed.** Every safe-exec BLOCK report prints `Rule: <ID>` as line
+  2, under a constant header and before any echo of the command or path. The hook and
+  `firstReportId` read only the first such line. Re-probe: command lines `- [CHMOD_777]` and
+  `Rule: …` (also behind NL, CR, U+2028 or a backtick break), 3000 `Rule:` lines
+  (INPUT_TOO_LARGE), `--check-path` targets ending `\nRule: …`, and a claimReport carrying
+  `Rule:` lines. Each was attributed to the analyzer's own id. Crash reports print no `Rule:`
+  line, so they record the bare bracket code.
+- **Item 3, raw rendering: fixed for tool names only.** A non-matching `mcp__<x>__` counts as
+  INVALID, and the header says the rows are unauthenticated.
+- **P3-6 (new, OPEN).** Two fields still reach the terminal raw:
+  - the gate row's `first`/`last` (`timestamp.slice(0,10)`, which needs a direct SQLite
+    writer). Measured: `\e[8m` (SGR conceal) and an OSC title rendered;
+  - configured server names from `.mcp.json` keys, with no length bound. Measured: an OSC key
+    rendered.
+  - Mitigation: an ISO-date check on rendered dates, and the server-id pattern on configured
+    names.
+- **The T-HOOKABORT-001 addendum: resolved.** Trap lines 47-48 are byte-identical to the base
+  and use builtins only. Measured under `ulimit -u 1`: abort and TERM exit 2, and the
+  first-pass trap mutant exits 254. A hook that aborts writes no row, so a missing
+  GATE_INTERNAL_ERROR row is not evidence that no abort happened. This is the named residual.

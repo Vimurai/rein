@@ -167,6 +167,9 @@ Commands:
   rein digest build | check
                  .ai/DIGEST.md is a generated view (D-159): build rewrites it from the
                  tracked inputs when they changed; check exits 1 [DIGEST_STALE] when stale
+  rein ledger [--days N] [--json]
+                 The control ledger (D-159): gate blocks by rule, critic stamps, MCP server
+                 use over the last N days (90); [CONTROL_QUIET]/[CONTROL_NOISY] are advisory
   rein clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]
                  List (and, with --apply, remove) what earlier Rein versions left
                  behind. Dry run by default; removals move to ~/.rein/trash/<date>/
@@ -7154,6 +7157,13 @@ case "$cmd" in
       build|check) node --no-warnings "$_dg" "$2" "$PWD" ;;
       *) echo "usage: rein digest build | check" >&2; exit 2 ;;
     esac ;;
+  # E-432 (D-159 r8, addendum 2): the control ledger, read-only over telemetry and .ai/state.json.
+  # Its own verb, not a gate subcommand: the self-disable lock refuses those for the agent.
+  ledger)
+    _lg="$(_rein_helper shared/gate-ledger.mjs || true)"
+    [[ -n "$_lg" ]] || { echo "rein ledger: gate-ledger.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
+    command -v node >/dev/null 2>&1 || { echo "rein ledger: node not found" >&2; exit 1; }
+    node --no-warnings "$_lg" "${@:2}" ;;
   # E-417 (D-155 r1): build a release artifact's stage from the clone this rein belongs to.
   release)       do_release "${@:2}" ;;
   # E-272 (D-074, version-lifecycle.md §Component 4): remove what earlier versions left

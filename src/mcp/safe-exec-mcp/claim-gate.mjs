@@ -46,7 +46,7 @@ export async function claimGateFor({ path = null, command = null, tokens = [], e
 
 export function claimReport(verdict, what) {
   return (
-    "## safe-exec-mcp Claim Gate\nVerdict: ✗ BLOCK\n\n" +
+    `## safe-exec-mcp Claim Gate\nRule: ${verdict.code}\nVerdict: ✗ BLOCK\n\n` +
     `### BLOCKED — ${verdict.code}\n` +
     `${what}\n${verdict.message}\n\n` +
     "In a team project an Engineer claims a task before writing source for it, so two people " +

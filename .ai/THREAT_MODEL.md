@@ -984,8 +984,36 @@ at any role, and `CLAUDE_CODE_SESSION_ID` selected any session's token.
      `${PWD:?}`, `$OLDPWD` and their `/` and `/*` suffixes. These are the values of `~+`/`~-`
      under their variable names. `$(pwd)`, `${PWD%/*}` and other variables holding the cwd are
      out of class and go to the follow-up.
-   - **Pre-existing, a High follow-up:** for the Architect, a quoted verb (`"git" push`) and git
-     global options before the subcommand (`git -C . push`) pass the base rules. The same
+   - **Pre-existing, a High follow-up (E-438):** for the Architect, a quoted verb (`"git" push`) and git
+     global options before the subcommand (`git -C . push`) pass the base rules.
+     - *E-438 review (2026-11-18), SEC_BLOCKED:* the listed forms now block, through
+       `gitCommandView`. Still open, ruled P1 in E-438:
+       - unlisted global options (`--glob-pathspecs`, `--icase-pathspecs`, `--no-lazy-fetch`,
+         `--no-advice`, `--attr-source`), all live on git 2.53;
+       - the frozen shellCommands' quote-state bugs hiding the git command; a grammar-free second
+         reader is ruled;
+       - `${A:+-C .}` before the verb;
+       - `-C <other>` and core.worktree carrying `.ai/` targets into another tree, past the scope
+         check.
+     - *Re-check (2026-11-18 09:12):* the items above are closed.
+       - Still open (P1): ANSI-C and locale-quoted verb words (`$'push'`), a regression of the r3
+         expansion skip; and `.ai/../src/x` accepted by isSafeArchitectPath.
+       - Follow-up (P2): relocation by `cd` before an `.ai/` checkout.
+       - Accepted P3: the Architect-only over-block from the two-candidate option walk.
+     - *Third check (09:16):* the ANSI-C and `..` items are closed.
+       - Still open (P1): the grammar-free reader does not split on `<`/`>`; and adding
+         `(`/`)`/backtick splitting regressed ``git `echo -C` . push`` and
+         `git $(echo -C .) push`. The fix keeps both views; a new view may never unblock a row.
+       - Residual: brace expansion (`push{,}`).
+     - *Fourth check (09:19):* the 09:16 items are closed. Still open (P1): the grammar-free reader
+       keeps a redirect target as a word, so `git -C .>x push` and `git >x push` hide the verb
+       when shellCommands is confused. Fix: drop each redirect operator with its target.
+     - *Fifth check (09:22):* the redirect drop holds. Still open (P1): the named-fd prefix
+       `{fd}>f` is not dropped. A spaced `{fd}` and brace words stay ordinary words.
+     - *Sixth check:* closed; E-438 SEC_CLEARED. Remaining, not gating:
+       - `cd` relocation before an `.ai/` checkout (P2 follow-up);
+       - brace expansion of the verb (residual);
+       - the accepted Architect over-blocks. The same
      follow-up covers:
      - the remaining git exec keys and environment (`core.pager`, `alias.*=!`, `diff.external`,
        `credential.helper`, `core.editor`, `GIT_SSH_COMMAND`, `XDG_CONFIG_HOME`);

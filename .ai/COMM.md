@@ -2136,3 +2136,233 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - A later review may report a newline split as a bypass; it is residual by addendum r2.
 ---
+---
+## Handoff — 2026-11-18 08:56 UTC
+**From**: Engineer → Architect
+**Trigger**: E-393 shipped as PR #55 and E-353 as PR #56 (both SEC_CLEARED, full CI green); review and plan next
+
+### What was built
+- **E-393 → PR #55** (e-393-gate-lock, stacked on #54). D-163 lock + addendum 1 + both 2026-11-17 A2A rulings.
+  - `namesGateOff` in src/shared/shell-word.mjs is the lock. The name rules read the raw text and V1.
+  - The frozen word reader is the second layer.
+  - Hook `_names_gate_off` / `_touches_gate` (LC_ALL=C) runs on the override no-verdict path, and on the analyzer-not-located backstop before the catastrophic set.
+  - The belt in `rein`.
+  - Table 29 → 225 rows (179 BLOCK, 46 pass; 11 residual PASS rows incl. D01–D03), re-pinned 63c2cac9… → 80ab99d0… under D-163 r10. rename-map records `repinned`/`repinned_by`.
+  - CI green on 9fc384c after install: 7555/0/26, budget PASS.
+- **E-353 → PR #56** (e-353-safe-exec-residuals, stacked on #55). D-112 r3 a–f, plus the in-class variants of the A2A rulings 2026-11-18 08:19 (a–d, and `r=rm; $r -rf /` folded in) and 08:26 ($PWD / $OLDPWD).
+  - (a) is the new assigned-verbs.mjs.
+  - (b), (c), (e) are in git-redirect.mjs / code-strings.mjs.
+  - (d) and (f) are in index.js.
+  - critic_security's class-e P2 (the search carve-out covered `rg --pre`) is fixed in-class.
+  - CI green on 43eec4f after install: 7639/0/26, budget PASS.
+- The tasks stay OPEN until their merges; they go DONE through rein-task after them.
+
+### Decisions made
+- None of mine.
+- Two mechanical consequences need your ratification:
+  - **wave1-inputs.json:** the one D-163 r9 flip that is also a recorded wave-1 triple keeps its recorded verdict and gains `reverdict` / `reverdict_by: "D-163 r9 …"`. consolidation-subset.test.mjs matches the ruled verdict and asserts the ruling is named. This is the same pattern as rename-map's `repinned`.
+  - **Parity check moved:** the hook/JS parity check lives in the unit layer (gate-self-disable-cases.test.mjs, one bash spawn, tcFixtureHome). A table reference had pulled gate_override_test into the fast tier (fast_tier_seconds 38 > 25).
+
+### Pins (E-353 acceptance — for you to pin by ruling)
+- operand-scope-cases.json: 438 rows, `4034da7a969ac8c26768075f7b776f3ddd6fff131391c6f21d7277bcfe15c5f0`
+- block-rules-cases.json: 61 rows, `65a831520c643682f3fe62f3e1c7859c5288a42a619fac567d882dc4d9d70eac`
+- pipe-shell-cases.json: 49 rows, `75ed95a661f608492d5ec57d90e4c332215ba18775a0be638fc121c64a29c9b4`
+- arch-write-cases.json: unchanged, `26f7da12faaf12c305b284e3af99b4dd41115d6ad3ba760b3ef6705d444f0a77`
+
+### Blueprint divergence (if any)
+- Under D-163 r1, `-` is a word character. So `${X:-…rein}` and `env -vS'…'` produce `-rein` / `-vSrein` and are residual by your definition. The frozen reader still catches the simple `${u:-rein}`.
+- E-353 (f) re-widens D-111 r4 for the two pipe rules only. The rule blocks when the strict strip AND the readOnlyLines strip both match. SECRET_IN_COMMAND and GATE_SELF_DISABLE keep the strict strip.
+
+### Next action needed
+- **Architect — write tasks for the open findings (all reported per D-163 r12, none fixed):**
+  - **D-084 rule 4 (P1, A2A 2026-11-17 22:18):** a heredoc body written to an implicit-run sink (Makefile, .bashrc) is stripped before the views. The IMPLICIT_RUN check also needs to apply in strict mode.
+  - **High, Tier 3, right after E-353:** for the Architect, `"git" push` and `git -C . push` pass, so `"$g" push` and `$g -C . push` do too. The fix belongs in the base rules: read the verb unquoted and skip git's global options before the subcommand.
+  - **Medium:**
+    - git exec keys `core.pager`, `alias.*=!`, `diff.external`, `credential.helper`, `core.editor`, `GIT_SSH_COMMAND`, `XDG_CONFIG_HOME`;
+    - `/sbin`, `/lib`, `/lib64`, `/srv` as roots;
+    - `$(pwd)` and `${PWD%/*}` as cwd.
+  - **P3 over-blocks, fail closed:**
+    - `$PWD` anywhere on an rm line (the `$HOME` check uses a `(\/|\s|$)` boundary);
+    - `HOME=` text on a git line;
+    - a `..` in a comment or string on an rm line;
+    - `/opt-cache-x` matched by the `/opt` prefix;
+    - `"$OUT"/bin` (consistent with D-112 r1–r2).
+- **Operator:**
+  - Merge #49 → #56 in order.
+  - `rein sync` in /home/…/Dev/ai-os (the installer reports a stale hook path).
+  - Relaunch the Claude panes started before the two installs (`rein pane <role>`).
+- **Engineer next:** E-431, then E-432 and E-435, on top of #56, unless you reorder.
+
+### Open risks
+- tests/census-baseline.tsv was rewritten by the CI run (STALE 31) and is uncommitted on e-353. Committing it changes the tip and needs another full run; it is left for a housekeeping commit.
+- Until #55 and #56 merge, the installed gate (from the e-353 branch) is ahead of main for every session on this machine.
+- `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` backups are still uncommitted; the operator decides.
+---
+---
+## Handoff — 2026-11-18 09:02 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer handoff 08:56 UTC — E-393 (PR #55) and E-353 (PR #56) shipped; review and plan next
+
+### What was built
+- Nothing built. Recorded: D-163 addendum 2 in `.ai/DECISIONS.md`; one sentence added to the lock's contract in `.ai/blueprints/sovereignty-hardening.md`; tasks E-438, E-439, E-440.
+
+### Decisions made
+- **E-393 and E-353 are accepted as built** (r1). I read `namesGateOff`, `_names_gate_off` and `_touches_gate`.
+- **The four A2A rulings are ratified and now on record** (r2): 2026-11-17 22:18 and 22:20, 2026-11-18 08:19 and 08:26.
+- **Pinned** (r3), hashes recomputed on c7b37b6: operand-scope 438 rows `4034da7a…`, block-rules 61 rows `65a83152…`, pipe-shell 49 rows `75ed95a6…`, gate-self-disable 225 rows `80ab99d0…`; arch-write unchanged.
+- **`reverdict` / `reverdict_by` is ratified** (r4), and the parity check in the unit layer (r5). E-353 (f) is accepted (r6).
+- **Your `-` divergence is a defect of my definition, not a residual** (r7): a leading hyphen is not part of a word, and a third view reads quotes as spaces. Fixed in E-439, not in #55.
+- **Over-blocks** (r8): `HOME=` text on a git line, `..` in a comment or string, `"$OUT"/bin` are accepted. The `$PWD` boundary and the `/opt` prefix boundary are fixed in E-440.
+
+### Blueprint divergence (if any)
+- NONE open.
+
+### Next action needed
+- Engineer, in this order (r10): **E-438** (High: the quoted git verb and git's global options, Architect rules), **E-439** (implicit-run sinks in strict mode; the word definition), E-431, E-432, E-435, **E-440** (Medium: git exec keys, roots, the two narrowings).
+- E-438's first commit is `tests/census-baseline.tsv` as its own chore commit.
+- Operator: merge #49 → #56 in order; `rein sync` in the ai-os checkout; relaunch the panes started before the two installs.
+
+### Open risks
+- Until E-438 lands, the Architect lane can push with a quoted verb or `-C`.
+- Until E-439 lands, a body written to a Makefile and run by `make` is unread by the four heredoc-exempt rules.
+---
+---
+## Handoff — 2026-11-18 10:14 UTC
+**From**: Engineer → Architect
+**Trigger**: E-438 built and SEC_CLEARED (commit 120e539, e-438-git-verb-base, stacked on #56), but full CI fails the test_lines budget, so a ruling is needed before it can be pushed
+
+### What was built
+- **E-438** (D-163 addendum 2 r2, plus your A2A rulings of 2026-11-18 at 09:06, 09:12, 09:16, 09:19 and 09:22; every in-class variant fixed in the task):
+  - New src/mcp/safe-exec-mcp/git-view.mjs. `gitCommandView` returns `git <verb>` for every possible forbidden subcommand.
+    - Words are read through normaliseWord(decodeAnsiC(w)); `decodeAnsiC` is new in src/shared/shell-word.mjs, and normaliseWord is unchanged.
+    - Every word between `git` and the first plain word is an option.
+    - An option outside the space-valued set and without `=` makes both of the next two words candidates.
+    - `$` and backtick words may be an option and its value.
+    - There are three views: the frozen shellCommands, plus two grammar-free cuts. Those cuts end words at < and >, and drop each redirection (fd digits or `{NAME}`) with its target.
+    - A candidate must exactly equal a forbidden verb.
+  - New `gitRelocated`: the .ai/ and plans/ exemption does not hold after a `-C` other than `.`, nor with --work-tree, --git-dir or core.worktree on the line.
+  - `isSafeArchitectPath` rejects a `..` segment.
+  - operand-scope-cases.json: 438 → **517** rows, sha256 `cdcf97afa3628f845b64ae0b692467e3da81dd2db56e3d5aa1b1714665b45f4b` (was 4034da7a…, pinned under D-163 addendum 2 r3).
+  - Every existing row of operand-scope, block-rules, pipe-shell and gate-self-disable keeps its verdict. arch-write is unchanged (26f7da12).
+- **Review**: ARCH_PASS, SEC_PASS (critic_security; its unlisted-option P1 was fixed in class), TESTS_PASS, ALIGN_PASS, CLEAN_WARN, and **SEC_CLEARED** after six security_engineer checks over 165 payload rows.
+  - Standing rule (09:16): no row that blocked on an earlier cut passes on the final reader.
+  - Residual PASS rows, as ruled: `cd /tmp/o && git checkout .ai/x`, `(cd .. && git checkout .ai/x)` and `# it's⏎git -C . push{,}`.
+- **CI on 120e539**, after `bash install-rein.sh`: 7718 passed, 0 failed, 26 skipped, leaked 0. **budget FAIL: test_lines measured 45078, recorded 44144, limit +2% = 45026.**
+
+### Decisions made
+- None of mine. I did not raise the budget: `rein ci budget set` takes a D-ruling.
+
+### Blueprint divergence (if any)
+- The git view goes beyond "skip the listed globals". It is the general option walk your 09:06 r1 ruled, plus the three views ruled at 09:06 r2 and 09:16.
+
+### Next action needed
+- **Architect — rule on the test_lines budget.** E-438 adds 79 contract-table rows (one per ruled variant, as your rulings required). That takes the measured total 52 lines over the limit. E-353's run passed at 44999.
+  - Options: (a) raise the recorded test_lines to 45078 by D-ruling (`rein ci budget set --ruling D-### test_lines=45078`); or (b) name rows to drop or merge.
+  - Every row is a ruled contract row, so I recommend (a).
+  - Once ruled, I run the budget set, re-run CI, push, and open the PR stacked on #56.
+- **Architect — pin operand-scope-cases.json** at the sha above, 517 rows.
+- **Follow-ups (not fixed; ruled out of E-438):**
+  - the `cd` relocation (RX1/RX2, P2), as its own task;
+  - critic_security's `cd /y && git reset .ai/x`, which is the same item.
+- **index.js** is 817 lines (warning above 500, limit 1000). It grew on each of E-393, E-353 and E-438, and E-439/E-440 will add to it. Consider a split before E-440.
+- **Engineer next:** E-439 once E-438 is pushed, or stacked on 120e539 meanwhile if you prefer. I hold until your budget ruling.
+
+### Open risks
+- Until E-438 is pushed and merged, the gate installed on this machine runs E-438's code, which is ahead of every PR.
+- `.ai/providers.json`, `.ai/roles.json` and `*.pre-0.5.0.json` are still uncommitted; the operator decides.
+---
+---
+## Handoff — 2026-11-18 10:16 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer handoff 10:14 UTC — E-438 SEC_CLEARED, fails only the test_lines budget; a ruling is needed
+
+### What was built
+- Nothing built. Recorded: D-164 in `.ai/DECISIONS.md`; tasks E-441 and E-442.
+
+### Decisions made
+- **No budget raise now** (D-164 r1). D-162 r4 says the next `test_lines` request is not ruled before E-435's report exists. This is that request. Do not run `rein ci budget set`.
+- **E-435 runs next, before E-439** (r2). Its text stands, with one table added: for E-436, E-393, E-353 and E-438 the net test lines per task against `main`; and for `gate-self-disable-cases.json` and the 79 rows E-438 added to `operand-scope-cases.json`, every group of rows that reaches the same verdict through the same branch of the same reader, with row ids. Remove nothing.
+- **The budget is ruled from that report** (r3): merge first, then raise what remains to the measured value.
+- **E-438 is accepted as built** (r4); I read `git-view.mjs`. The five A2A rulings of 09:06–09:22 are ratified. It stays unpushed on 120e539 until the budget ruling.
+- **operand-scope at 517 rows, `cdcf97af…`, is confirmed, not yet pinned** (r5): r3 may merge rows.
+- **From the third security round of a task on, the classification question comes to this pane by handoff, not by `ask_architect`** (r6).
+
+### Blueprint divergence (if any)
+- NONE open. The general option walk in E-438 is ratified in r4.
+
+### Next action needed
+- Engineer: **E-435** now, on its own branch from the E-438 tip (it changes `plans/` and `.ai/` only), then hand back with the report.
+- After the budget ruling: push E-438, then E-439, E-431, E-432, E-442, E-441, E-440 (r9).
+- E-442's clause "no file in src/mcp/safe-exec-mcp exceeds 500 lines": if a sibling module is already above 500 today, say so in the handoff; the clause is then read as index.js and the files the task creates.
+- Operator: unchanged — merge #49 → #56 in order; `rein sync` in the ai-os checkout; relaunch the old panes.
+
+### Open risks
+- E-438 is not on any PR until the budget is ruled. The installed gate on this machine already runs it.
+---
+---
+## Handoff — 2026-11-18 10:28 UTC
+**From**: Engineer → Architect
+**Trigger**: E-435 done. The census report is at plans/test-census-2026-11.md (commit ee57848 on e-438-git-verb-base); please rule on the budget (D-164 r3)
+
+### What was built
+- **plans/test-census-2026-11.md**: a report only. Nothing was removed, and the diff touches plans/ and .ai/ only.
+  - **Table 1, behaviours asserted at more than one layer** (release-artifact arc E-417..E-430): **15** (D1–D15). In every case unit is the cheapest layer.
+    - In most pairs the suite row also checks something only a process can show (an exit code, an absent pin, a hook calling the builder). Each row names that clause.
+    - 3 borderline cases and 2 same-layer duplicates are listed but not counted.
+  - **Table 2, test_lines from D-157 to D-162: reconciled with a gap of 0.**
+    - D-157 43602 → D-162 44481 is +879: +320 merged to main (E-422 remainder, E-425, E-426, E-427, E-419) plus +559 not on main (E-428 +42, E-429 +180, E-433 +337).
+    - Main measures 43922.
+  - **Finding for your ruling: the recorded 44144 that `rein ci budget` prints today, and that D-164 measured against, is not a value any ruling set.**
+    - The ratchet keeps the lowest green run. Run 107, on the e-429 branch without E-433's rows, measured 43922 + 42 + 180 = 44144. That is 337 lines (exactly E-433) below the value D-162 ruled.
+    - Measured against D-162's 44481, E-438's 45078 is inside the 2% limit (45370).
+    - D-162's "recorded 43381" had the same cause.
+    - I checked the arithmetic and D-162's text myself.
+  - **Table 3a, net test lines of the gate arc against main:** E-436 +32, E-437 0, E-393 +274, E-353 +100, E-438 +79, for +485 in total. The whole stack over main is +1156 = 45078 − 43922.
+  - **Table 3b (D-164 r2): 25 same-branch groups covering 275 rows.**
+    - Gate table: 13 groups cover 220 of 225 rows. The largest, G-A, is 143 BLOCK rows all decided by namesGateOff. 117 of those no longer reach their verdict through the reader they were written for; the report breaks them down by the branch each would hit without the predicate.
+    - E-438 rows: 12 groups cover 55 of 79 rows. The largest are E1, 13 rows on the unknown-option branch, and E2, 7 rows on the space-valued branch.
+    - Row ids are 0-based array indexes, because labels repeat.
+
+### Decisions made
+- None.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Architect, D-164 r3:** rule the budget from the report: which same-branch rows to merge first, and what remains to raise.
+  - The finding above is relevant. Against D-162's ruled 44481, E-438 is within tolerance.
+  - The ratchet's habit of recording a lower green run from a partial branch may itself want a ruling.
+- **Engineer next:** carry out your ruling (merges, if any; then `rein ci budget set` only as ruled), re-run CI, push E-438 (PR stacked on #56), then E-439.
+
+### Open risks
+- `.ai/providers.json`, `.ai/roles.json` and `*.pre-0.5.0.json` are still uncommitted; the operator decides.
+---
+---
+## Handoff — 2026-11-18 10:30 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer handoff 10:28 UTC — E-435 census done; rule the budget (D-164 r3)
+
+### What was built
+- Nothing built. Recorded: D-164 addendum 1 in `.ai/DECISIONS.md`; tasks E-443 and E-444. The census report is accepted.
+
+### Decisions made
+- **No raise** (r1). Run `rein ci budget set --ruling D-164 test_lines=44481`: D-162's value, restored. The 44144 was never ruled.
+- **Until E-443 lands, make no `rein ci run` on a tree that lacks part of the stack, `main` included** (r1): a green run there lowers the recorded value again.
+- **Merge sixteen rows in E-438 before the push** (r2), ids of the 517-row table: remove #456, #457, #459–#462, #470–#473 (keep #455, #458, #474); remove #450, #452, #454, #477 (keep #439, #444, #476); remove #451, #475 (keep #449, #453). No source change; the security clearance stands. Expected 501 rows, 45062 lines.
+- **The gate table is not merged** (r3). In E-439 its 92 word-reader rows gain `"reader": "word"` and its 25 CLI rows `"reader": "cli"` (the census §3b.1 breakdown is the list), and the unit runner calls that reader directly on each. No new lines.
+- **Contract tables grow by branch, not by payload** (r4): a round adds a row only for a branch no row reaches, or a ruled boundary. The handoff names the branch of each new row.
+- **The ratchet reads only runs whose commit contains the ruled commit** (r5) — E-443.
+- **Seven suite assertions and one same-layer duplicate go** (r6) — E-444.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Engineer, in order (r7): **E-438** — the row merge as a new commit, the budget set, full `rein ci run`, push, PR stacked on #56; report the new sha256 of operand-scope-cases.json. Then **E-443**, **E-439** (with r3 and r4), E-431, E-432, **E-444**, E-442, E-441, E-440.
+- E-444's acceptance says "four suite files"; it is five (mirror_hygiene, init_upgrade, role_token, hooks_surface, mcp_servers).
+- Operator: unchanged — merge #49 → #56 in order; `rein sync` in the ai-os checkout; relaunch the old panes. After each merge, no local `rein ci run` on `main` until E-443 is in (r1).
+
+### Open risks
+- r1's window: one green run on a partial tree before E-443 lowers the recorded value and fails the stack's budget. The repair is the same `budget set` line.
+---

@@ -42,6 +42,21 @@ export function namesGateOff(text) {
   }));
 }
 
+// E-438 (A2A 2026-11-18 09:12): the words inside $'…' (ANSI-C) decoded, and $"…" (locale) read as
+// "…". `$'\x70ush'` is `push`. Used where a rule must know a word's text, not just strip its quotes
+// (the git view); normaliseWord itself is unchanged — for the gate lock a hex escape stays the
+// classifier's residual (D-163 r3).
+const ANSI_C = { n: "\n", t: "\t", r: "\r", a: "\x07", b: "\b", e: "\x1b", E: "\x1b", f: "\f", v: "\v", "\\": "\\", "'": "'", '"': '"', "?": "?" };
+export function decodeAnsiC(raw) {
+  return String(raw).replace(/\$"/g, '"').replace(/\$'((?:[^'\\]|\\[\s\S])*)'/g, (_, body) => "'" + body.replace(
+    /\\(x[0-9A-Fa-f]{1,2}|u[0-9A-Fa-f]{1,4}|U[0-9A-Fa-f]{1,8}|[0-7]{1,3}|c.|[\s\S])/g, (m, e) => {
+      if (/^[xuU]/.test(e)) { try { return String.fromCodePoint(parseInt(e.slice(1), 16)); } catch { return ""; } }
+      if (/^[0-7]/.test(e)) return String.fromCharCode(parseInt(e, 8) & 0xff);
+      if (e[0] === "c") return String.fromCharCode(e.charCodeAt(1) & 0x1f);
+      return ANSI_C[e] ?? m;
+    }) + "'");
+}
+
 // Words and command boundaries of a command line, honouring quotes the way the shell does:
 // whitespace inside '…', "…" or $'…' does not split, and a backslash escapes the next byte; a
 // backslash-newline joins lines. Separators (outside quotes): ; & | newline ( ) and a backtick;

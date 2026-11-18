@@ -1870,3 +1870,302 @@ follow-up: give the PWD/OLDPWD text match the same boundary the `$HOME` one has,
 Gating: **SEC_CLEARED** for E-353. Every ruled form and every ruled in-class variant holds. What is
 left is out of class: the High base-rule task (`"git" push`, `git -C . push`), the Medium git exec
 keys and roots, and the Low carriers. P3 over-blocks fail closed. P0: none.
+
+## E-438 / D-163 addendum 2 r2 — the Architect's git verb reads through quotes and global options (security_engineer, 2026-11-18)
+
+Scope: branch e-438-git-verb-base, HEAD 42dffd3 plus the staged change.
+- New `git-view.mjs` (`gitCommandView`): shellCommands + normaliseWord, with the listed global
+  options skipped.
+- analyzeSovereignty's two git rules now match `raw + "\n" + view`.
+- operand-scope is now 470 rows.
+
+Harness: `run4.sh` (staged and HEAD mirrors, throwaway HOME) on `payloads5.json` (57 rows) and
+`payloads5b.json`. Liveness of the unlisted options was checked with the real git 2.53 in a
+temporary repo with no remote: reaching push's own "No configured push destination" error shows
+the subcommand ran. Classified by A2A ruling 2026-11-18T09:06.
+
+**Ruled forms: RESISTED for the Architect.** HEAD passed nearly all of them.
+- `"git" push`, `git -C . push`, `g=git; "$g" push`, `g=git; $g -C . push`.
+- Every listed global, with `=` and with a space, all in one line.
+- `g\it -C . p\ush`, `$'git' -C . $'push'`, `git -C . 'push'`.
+- Wrapped: env, `nice -n 5`, command, time, `bash -c`, `"$(…)"`, an `&&` chain.
+- Value operands: `git -C "$D" push`, `git $OPT push`.
+- Each verb rule through `-C .`, `--no-pager` or a quoted verb: reset --hard, revert, clean -fdx,
+  rebase, merge, pull, checkout src/x, branch -D.
+- `${G} -C . reset --hard`.
+
+The Engineer still passes. Architect reads pass: `git -C . log`, `git --no-pager diff`,
+`git -C . status`, `git -C . show`, `git help push`, `git log --grep=push`.
+
+**P1, EXPLOITED, in E-438's scope (ruled 09:06):**
+1. **Global options outside the list** are live on git 2.53 and pass:
+   - no value: `git --glob-pathspecs push`, `--noglob-pathspecs`, `--icase-pathspecs`,
+     `--no-lazy-fetch`, `--no-advice`;
+   - with a value: `--attr-source=HEAD` and `--attr-source HEAD`.
+
+   Fix as ruled:
+   - every word between `git` and the first plain non-option word is a global option;
+   - a word outside the space-valued set (`-C`, `-c`, `--git-dir`, `--work-tree`, `--namespace`,
+     `--config-env`, `--attr-source`, `--super-prefix`, `--exec-path`, `--list-cmds`) with no `=`
+     tests both the next word and the one after it as the verb;
+   - one row per option, in the `=` form and the space form.
+
+   Glued `-C.` and `-cx=y` are rejected by git: no row.
+2. **The frozen shellCommands hides the git command** through its known quote-state bugs:
+   `# it's⏎git -C . push`, `cat <<'E' >/dev/null⏎it's⏎E⏎git -C . push`,
+   `echo "$(echo ')'; git -C . push)"`. Fix as ruled:
+   - shellCommands stays frozen (D-163 r5);
+   - a second reader with no shell grammar splits on `; | &` and newlines, then on whitespace;
+   - the git-verb test runs on its output, and the command blocks when either reader matches;
+   - its over-block is accepted, since it applies to the Architect only.
+3. **An expansion assembles a global option:** `A=1; git ${A:+-C .} push`. Fix as ruled (fails
+   closed): a word containing `$` or a backtick before the verb is skipped as a possibly-valued
+   option, together with any word that continues its unclosed `${`.
+4. **`-C` or core.worktree moves the target out of the scope check** (the coordinator's item; it
+   predates E-438). These pass because the check sees `.ai/x`:
+   - `git -C /tmp/other checkout .ai/x`
+   - `git -C .. checkout .ai/x`
+   - `git -C /tmp/other reset .ai/x`
+   - `git -c core.worktree=/tmp/o checkout .ai/x`
+
+   Fix as ruled:
+   - On reset/revert/checkout/clean/branch lines, the `.ai/`/`plans/` exemption applies only when
+     there is no `-C`, or every `-C` is exactly `.`.
+   - The line must also not carry `--work-tree`, `--git-dir` or `core.worktree` (including
+     `-c core.worktree=`). Otherwise the line blocks.
+   - Reads like `git -C .. log` still pass.
+   - The four commands become BLOCK rows.
+
+**P3 / notes:**
+- `git -C . branch` now blocks as `git branch` always has for the Architect (HEAD blocks
+  `git branch --list` too). It is a consistent extension, not a new class.
+- `grep -rn git push.md`, `ls git push` and `git commit -m "… git push …"` block on HEAD and on
+  staged alike.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | git verb view, Architect | `"git" push`, `git -C . push`, `"$g" push`, `$g -C . push`, every listed global (= and space), escaped/ANSI-C/quoted verb, wrappers, `$D`/`$OPT`, `$(…)`, all 8 verb rules via `-C .` | RESISTED | 0 | HEAD passed these |
+| A01 | unlisted globals | `--glob-pathspecs`, `--noglob-pathspecs`, `--icase-pathspecs`, `--no-lazy-fetch`, `--no-advice`, `--attr-source[=]HEAD` before push | EXPLOITED | 0 | P1 (ruled); live on git 2.53 |
+| A01 | view via frozen shellCommands | `# it's⏎git -C . push`, heredoc body `it's`, `"$(echo ')'; git -C . push)"` | EXPLOITED | 0 | P1 (ruled): a grammar-free second reader |
+| A01 | expansion | `A=1; git ${A:+-C .} push` | EXPLOITED | 0 | P1 (ruled), fail closed |
+| A01 | target scope | `git -C /tmp/other checkout .ai/x`, `-C ..`, `-C … reset`, `-c core.worktree=` | EXPLOITED | 0 | P1 (ruled); predates E-438 |
+| A04 | over-block | Architect reads (`-C . log`, `--no-pager diff`, `status`, `show`, `help push`) | RESISTED | 0 | pass |
+| A04 | Engineer | `git -C . push`, `"git" reset --hard` | RESISTED | 0 | pass, not restricted |
+
+Gating: **SEC_BLOCKED** on items 1–4. P0: none.
+
+### Re-check — the 09:06 fixes (operand-scope 490 rows; security_engineer, 2026-11-18)
+
+Inputs: `payloads5.json`, plus 39 new variants (`payloads5c.json`) and 7 ANSI-C rows
+(`payloads5d.json`). Classified by A2A ruling 2026-11-18T09:12.
+
+**Closed (RESISTED):**
+- Items 1–4: U01–U07, Q01–Q04, S01–S04.
+- Item 1 variants:
+  - stacked unknown options;
+  - an unknown option with a value (`--future-opt val`, `--a 1 --b 2 --c 3`);
+  - `-C . --no-advice -c a=b --attr-source=HEAD pull`.
+- Item 2 variants:
+  - a comment apostrophe followed by `"git" --no-advice push`, a tab-separated form, and
+    `g\it … pu""sh`;
+  - a quoted `"$(…)"` with rebase.
+- Item 3 variants: `${A:+--attr-source HEAD}`, a backtick or `$(…)` option, nested
+  `${A:+-C ${B:-.}}`, `${A:+-c a=b -C .}` before reset.
+- Item 4 variants:
+  - `-C . -C /tmp/o`, `-c core.workTree=`, GIT_CONFIG_PARAMETERS core.worktree;
+  - `-C "/tmp/o"`, `-C $D`, `-C ${D:-/tmp/o}`;
+  - clean and revert through `-C`, `$g -C /tmp/o`, `--work-tree /tmp/o`.
+
+Still passing as intended: `git -C . checkout .ai/x`, `git -C .. log`, `git -C ./ status`,
+`git --no-advice status`, Architect reads, and the Engineer.
+
+**Open, P1 in E-438 (ruled 09:12):**
+- **(A) Regression from the r3 change.** A word in ANSI-C or locale quoting (`$'…'`, `$"…"`) is now
+  taken for an expansion and skipped. These pass for the Architect:
+  - `git $'push'`, `git -C . $'push'`;
+  - `git $'reset' --hard`;
+  - `g=git; $g $'push'`;
+  - `git $"push"`.
+
+  The first cut blocked `$'git' -C . $'push'`. Fix as ruled: decode `$'…'` (ANSI-C escapes
+  included, so `$'\x70ush'` reads as push) and `$"…"` as quoted words, then test the result as the
+  verb. Add BLOCK rows for these five commands and for `$'\x70ush'`.
+- **(B) `git checkout .ai/../src/x` passes** on HEAD and on staged: isSafeArchitectPath accepts a
+  `..` that climbs out of `.ai/`. Fix as ruled: reject any operand with a `..` segment (fail
+  closed, do not normalise).
+
+**Follow-up, P2 (ruled):** relocation by `cd` is outside the r4 wording.
+`cd /tmp/o && git checkout .ai/x` and `(cd .. && git checkout .ai/x)` pass. Record them as residual
+PASS rows in E-438 and queue a separate task.
+
+**P3 over-block, accepted, Architect only (with one narrowing in E-438).** The two-candidate walk
+tests later words as the verb. Under the ruled narrowing, a candidate counts only when it EQUALS a
+forbidden verb:
+- `git --no-pager log --oneline -- push.md` will then pass;
+- `git --no-pager grep -n push` and `git -P log merge-base` stay BLOCK as marked over-block rows.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | items 1–4 + 39 variants | unknown options (with values), comment/quote-state, `${A:+…}`/backtick/`$(…)` options, `-C` other/twice, core.worktree by `-c` and GIT_CONFIG_PARAMETERS | RESISTED | 0 | closed |
+| A01 | ANSI-C verb (regression) | `git $'push'`, `git -C . $'push'`, `git $'reset' --hard`, `$g $'push'`, `git $"push"` | EXPLOITED | 0 | P1 (ruled 09:12); the first cut blocked these |
+| A01 | target scope | `git checkout .ai/../src/x` | EXPLOITED | 0 | P1 (ruled), passes on HEAD too |
+| A01 | cd relocation | `cd /tmp/o && git checkout .ai/x`, `(cd .. && …)` | EXPLOITED | 0 | P2 follow-up; residual rows |
+| A04 | over-block | `git --no-pager grep -n push`, `git -P log merge-base`, `… -- push.md` | EXPLOITED | 2 | P3; the narrowing frees `push.md` |
+
+Gating: **SEC_BLOCKED** on (A) and (B). P0: none.
+
+### Third check — the 09:12 fixes (operand-scope 501 rows; security_engineer, 2026-11-18)
+
+Ran `payloads5`, `5b`, `5c`, `5d` and the new `payloads5e.json` (24 rows), on the staged and HEAD
+mirrors. Classified by A2A ruling 2026-11-18T09:16.
+
+**Closed (RESISTED):**
+- (A): X01–X07, plus `$'\x70ush'`, `$'\160ush'`, `$'push'`, `$'\x67it' -C . push`,
+  `git $'-\x43' . $'re'set --hard`, `git p$'u'sh`, and a comment apostrophe followed by
+  `git $'\x70ush'`.
+- (B): `git checkout .ai/../src/x`, `.ai/./../src/x`, the quoted form, `plans/../src/x`,
+  `.ai/\.\./src/x`, `.ai/..`.
+- Still passing: `.ai/x..y` and `-- plans/a.md`.
+- Narrowing: `-- push.md` and `git -P log merge-base` now pass. `git --no-pager grep -n push`
+  stays BLOCK, as the accepted over-block.
+- Still blocking: `"push"`, `pu\sh`, `{ …;}`, and `push 2>&1` after a comment apostrophe.
+
+**Open, P1 in E-438 (ruled 09:16):**
+1. **The grammar-free reader does not split on `<` or `>`.** So when shellCommands is confused by
+   a comment or heredoc apostrophe, a redirect glued to the verb hides it. These pass:
+   - `# it's⏎git -C . push>/dev/null`
+   - `# it's⏎git -C . "push">x`
+   - `# it's⏎git -C . push<x`
+   - `cat <<'E' >/dev/null⏎it's⏎E⏎git -C . push>&2`
+
+   Fix as ruled: split words on `<` and `>` too; add the four as BLOCK rows.
+
+   `push{,}` (brace expansion) is residual under D-163 addendum 1: record it as a residual row
+   with the reason.
+2. **Regression of class (3).** Adding `(`, `)` and backtick splitting to the grammar-free reader
+   turned two rows that blocked on the previous cut into passes:
+   - ``git `echo -C` . push``
+   - `git $(echo -C .) push`
+
+   Fix as ruled: keep the previous cut's view (no `(`/`)`/backtick split) and run it next to the
+   new split view; the reader blocks if any view hits. Add both as BLOCK rows.
+
+   New standing rule: a new view may never turn a previously blocked row into a pass. Before
+   closing, run every row that blocked on an earlier cut against the final reader and report the
+   count.
+
+Unchanged and not gating:
+- `cd` relocation: residual rows, P2 follow-up.
+- Accepted over-blocks: `grep -n push`, `git branch` for the Architect, the earlier O-rows.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | ANSI-C verb | X01–X07, `\x70`/`\160`/`p`, `$'\x67it'`, `$'-\x43'`, `p$'u'sh` | RESISTED | 0 | closed |
+| A01 | `..` operand | `.ai/../src/x` and 5 spellings | RESISTED | 0 | closed; `.ai/x..y` passes |
+| A01 | grammar-free reader | comment/heredoc apostrophe + `push>/dev/null`, `"push">x`, `push<x`, `push>&2` | EXPLOITED | 0 | P1 (ruled 09:16) |
+| A01 | brace expansion | `# it's⏎git -C . push{,}` | INCONCLUSIVE | 0 | residual, D-163 addendum 1 |
+| A01 | class (3) regression | ``git `echo -C` . push``, `git $(echo -C .) push` | EXPLOITED | 0 | P1; blocked on the previous cut |
+
+Gating: **SEC_BLOCKED** on 1 and 2. P0: none.
+
+### Fourth check — the 09:16 fixes (operand-scope 508 rows; security_engineer, 2026-11-18)
+
+Ran payloads5–5e plus `payloads5f.json` (11 rows) and `payloads5g.json` (5 rows), on the staged
+and HEAD mirrors. Classified by A2A ruling 2026-11-18T09:19.
+
+**Closed (RESISTED):**
+- Item 1: K01, K03, K04 and K07 block. Also with `push>>x`, `push&>x`, `push|cat`, `push<<<x`,
+  `>x git …`, `(…)`, backticks and `$(echo -C .) push>x` after a comment apostrophe.
+- Item 2: V11 and V12 block again; V10, V13 and V14 still block.
+- Standing rule, checked over all 144 rows of payloads5–5f: every want=BLOCK row blocks, except
+  the ruled residuals (RX1 and RX2, the `cd` forms; K08, the brace form) and the new item below.
+  The want=pass rows that block are the accepted over-blocks only: O04, O05, O08, O09, B1–B3 and
+  W01. No row that blocked on an earlier cut passes now.
+- `git log --oneline > .ai/log.txt` and `git diff>.ai/d.patch` pass.
+
+**Open, P1 in E-438 (ruled 09:19).** The grammar-free reader ends a word at `<`/`>` but keeps the
+redirect TARGET as a word. So when shellCommands is confused, the target is taken as the
+subcommand and the verb is never tested. These pass (and bash runs `git … push`):
+- `# it's⏎git -C .>x push`
+- `# it's⏎git >x push`
+- `# it's⏎git --no-advice 2>/dev/null push`
+- `# it's⏎git -C . > x push`
+- `# it's⏎git <<<x push`
+
+Fix as ruled: a redirect is a lexical token, not grammar. Drop each redirect operator together
+with its target, attached or separate, then pick the verb from the words left. The operators are
+`<`, `>`, `>>`, `>|`, `<>`, `>&`, `<&`, `&>` and `&>>`, each with or without a leading fd number,
+plus the word after `<<<` and a heredoc's `<<`/`<<-` delimiter. Add the commands as BLOCK rows.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | grammar-free reader | K01/K03/K04/K07, `push>>x`, `push&>x`, `push\|cat`, `push<<<x`, `(…)`, backticks | RESISTED | 0 | closed |
+| A01 | view regression | V11, V12 (and V10, V13, V14) | RESISTED | 0 | closed |
+| A01 | redirect target taken as the verb | `git -C .>x push`, `git >x push`, `git --no-advice 2>/dev/null push`, `> x`, `<<<x` (after a comment apostrophe) | EXPLOITED | 0 | P1 (ruled 09:19) |
+| A01 | residual | RX1, RX2 (`cd`), K08 (`push{,}`) | INCONCLUSIVE | 0 | as ruled |
+
+Gating: **SEC_BLOCKED** on the redirect-target item. P0: none.
+
+### Fifth check — the 09:19 fix (operand-scope 511 rows; security_engineer, 2026-11-18)
+
+Ran payloads5–5g plus `payloads5h.json` (9 rows): 158 rows on the staged and HEAD mirrors.
+Classified by A2A ruling 2026-11-18T09:22.
+
+**Closed (RESISTED):**
+- M01–M05.
+- A quoted value holding `<` or `>` does not hide the verb: `-c 'x.y=>'`, `-c "x.y=<"`,
+  `x.y='a > b'`, `2>'/tmp/a b'`, `--attr-source='HEAD>'`, `3<>f`.
+- `>"x"push` blocks, though bash would redirect to `xpush`: a harmless over-block.
+
+Standing rule over all 158 rows:
+- the only want=BLOCK rows that pass are the ruled residuals (RX1, RX2, K08) and the item below;
+- the only want=pass rows that block are the accepted over-blocks (O04, O05, O08, O09, B1–B3,
+  W01).
+
+**Open, P1 in E-438 (ruled 09:22).** Bash's named-fd redirection is not dropped:
+`# it's⏎git -C . {fd}>f push` passes, because `{fd}` is read as the subcommand. Every word is
+literal. Fix as ruled:
+- An unquoted `{NAME}` (`[A-Za-z_][A-Za-z0-9_]*`) followed with no space by `>`, `>>`, `<`, `<>`,
+  `>|`, `>&` or `<&` is a fd prefix. Drop it with its operator and target, including the `-` of
+  `>&-`/`<&-`.
+- The rule stays that narrow: a spaced `{fd}` and brace-expansion words stay ordinary words.
+- Rows: `{fd}>f`, `{fd}<f`, `{fd}>&-` and `{fd}>>f` BLOCK. The spaced `{fd} >f` row and a
+  brace-expansion row pin the boundary.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | redirect drop | M01–M05, quoted values with `<`/`>`, `3<>f`, `2>'/tmp/a b'` | RESISTED | 0 | closed |
+| A01 | named-fd redirect | `# it's⏎git -C . {fd}>f push` | EXPLOITED | 0 | P1 (ruled 09:22) |
+
+Gating: **SEC_BLOCKED** on the named-fd item. P0: none.
+
+### Sixth check — the 09:22 fix (operand-scope 517 rows; security_engineer, 2026-11-18)
+
+Ran payloads5–5h plus `payloads5i.json` (7 named-fd variants): 165 rows on the staged and HEAD
+mirrors.
+
+**Closed (RESISTED):**
+- N8 (`{fd}>f`).
+- Named-fd variants: `{fd}>|f`, `{fd}<>f`, `{fd}>&2`, `{fd}>"f g"`, `{_x1}<&-`, two named fds in
+  a row (`{a}>x {b}>y`), and a named fd before `git`.
+
+**Standing rule over all 165 rows:**
+- want=BLOCK rows that pass: only the ruled residuals, RX1 and RX2 (the `cd` relocation, P2
+  follow-up) and K08 (`push{,}`, D-163 addendum 1).
+- want=pass rows that block: only the accepted Architect over-blocks (O04, O05, O08, O09, B1–B3,
+  W01).
+- No throw.
+- No row that blocked on any earlier cut passes now.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A01 | named-fd redirect | `{fd}>f`, `{fd}>\|f`, `{fd}<>f`, `{fd}>&2`, `{fd}>"f g"`, `{_x1}<&-`, `{a}>x {b}>y`, a named fd before `git` | RESISTED | 0 | closed |
+| A01 | standing rule | 165 rows, payloads5–5i | RESISTED | 0 | only the ruled residuals pass |
+
+Gating: **SEC_CLEARED** for E-438. Every ruled form and every in-class variant (09:06, 09:12,
+09:16, 09:19, 09:22) holds. Open and not gating:
+- the `cd` relocation (P2 follow-up task);
+- the brace residual;
+- the accepted Architect over-blocks.
+
+P0: none.

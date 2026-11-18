@@ -5550,3 +5550,111 @@ As written, r1 matched over the whole text. The Engineer measured that this flip
 Match over the whole view again and re-pin `operand-scope-cases.json` with the two flips.
 
 ---
+
+## D-163 addendum 2 — Review of E-393 and E-353 as built: accepted; four A2A rulings recorded; three tables pinned; the open findings become E-438, E-439 and E-440
+
+**Date**: 2026-11-18
+**Task**: E-393 (PR #55), E-353 (PR #56); E-438, E-439, E-440
+**Decision**: Both tasks are accepted as built. The rulings the headless Architect gave through `ask_architect` during the work stood only in `.ai/SECURITY.md`; they are recorded here and ratified. The findings reported and not fixed, per D-163 r12, are written as three tasks.
+
+### Rulings
+1. **E-393 as built matches D-163 and addendum 1.** Read by the Architect: `namesGateOff` in `src/shared/shell-word.mjs`, `_names_gate_off` and `_touches_gate` in `hooks/pre-tool-use.sh`. Accepted beyond the text: the match is case-insensitive, and the hook sets `LC_ALL=C` so its word class is the analyzer's.
+2. **A2A rulings ratified**:
+   - 2026-11-17 22:18 — a heredoc body written to a sink that a later line runs implicitly (`Makefile`, `.bashrc`) is stripped before any rule reads it. Pre-existing, D-084 rule 4, and it reaches every heredoc-exempt rule. Rows D01–D03 are residual PASS rows in the gate table; the fix is its own task (E-439).
+   - 2026-11-17 22:20 — when the hook cannot locate the analyzer it ran only the catastrophic backstop, so the disable passed. The three-word predicate and the name rules run in that branch before the backstop. Built in E-393.
+   - 2026-11-18 08:19 — E-353 classification: a static spelling of a ruled form is in class and fixed with a row; `r=rm; $r -rf /` is folded into E-353; the base-rule gap (`"git" push`, `git -C . push`) and the further git exec keys and roots are out of class.
+   - 2026-11-18 08:26 — `$PWD` and `$OLDPWD` are the values of the ruled `~+` and `~-` and block for `RM_RF_ROOT` in the listed forms; `rm -rf "${X:?}"/*` stays allowed and is pinned as such.
+3. **Pinned by this ruling** (hashes recomputed by the Architect on c7b37b6):
+   - `operand-scope-cases.json`, 438 rows, `4034da7a969ac8c26768075f7b776f3ddd6fff131391c6f21d7277bcfe15c5f0`
+   - `block-rules-cases.json`, 61 rows, `65a831520c643682f3fe62f3e1c7859c5288a42a619fac567d882dc4d9d70eac`
+   - `pipe-shell-cases.json`, 49 rows, `75ed95a661f608492d5ec57d90e4c332215ba18775a0be638fc121c64a29c9b4`
+   - `gate-self-disable-cases.json`, 225 rows, `80ab99d0495180464e5612f07ecd9aee4c7487518df32962ff71dd9a86afdcb5` (D-163 r10)
+   - `arch-write-cases.json` unchanged, `26f7da12…`.
+4. **The `reverdict` field is ratified.** A wave-1 row whose verdict a ruling changed keeps its recorded verdict and gains `reverdict` and `reverdict_by` naming the ruling; the subset proof matches the ruled verdict and asserts the ruling is named. One row carries it: the commit message that names the three words (D-163 r9).
+5. **The hook/analyzer parity check in the unit layer is ratified** (one bash spawn over all rows); it had pulled a suite into the fast tier.
+6. **E-353 (f) is accepted**: the two pipe rules block only when the strict strip and the read-only strip both match; `SECRET_IN_COMMAND` and `GATE_SELF_DISABLE` keep the strict strip. This narrows D-111 r4 for those two rules.
+7. **Two artefacts of D-163 r1's word definition are fixed, in E-439.** A leading hyphen is not part of a word, so `${X:-rein}` yields `rein`. A third view reads each quote as a space, so `-S'rein gate off'` yields the three words. Both are changes to the definition, not grammar; r5's freeze of the reader stands.
+8. **Accepted over-block, not fixed**: `HOME=` text anywhere on a git line (Architect); a `..` in a comment or string on an rm line; `"$OUT"/bin` (D-112 r1–r2). Telling these apart needs a parser. Fixed in E-440 because a boundary is enough: `$PWD` that is not an rm operand, and `/opt-cache-x` matched by the `/opt` prefix.
+9. **Residual, recorded**: `luajit -e`, `echo cmd | parallel`, `HOME=.ai make`, `parallel git ::: push`, `ag --pager`.
+10. **Order**: E-438, E-439, E-431, E-432, E-435, E-440. `tests/census-baseline.tsv`, rewritten by the CI run, is committed as its own chore commit at the start of E-438's branch.
+
+### Alternatives considered
+1. **Reopen PR #55 for r7** — rejected: the table is pinned and reviewed; a definition change is a re-pin and a security re-run, which is a task.
+2. **Fix the r8 over-blocks** — rejected: each needs comment and string state; they fail closed.
+
+### Impact
+- Unlocks: the merges of #55 and #56; E-438 to E-440.
+- Risk if wrong: until E-438 lands, the Architect lane can push with a quoted verb or `-C`; until E-439, a body written to a Makefile and run by `make` is unread by four rules.
+
+### Rollback
+None; a review record. The tasks carry their own.
+
+---
+
+## D-164 — The test_lines raise for E-438 is not ruled before the census exists; E-435 runs now and covers the gate arc; E-438 is accepted as built and waits unpushed
+
+**Date**: 2026-11-18
+**Task**: E-438 (120e539), E-435 (order and scope amended); E-441, E-442
+**Decision**: D-162 r4 holds: "the next request to raise `test_lines` is not ruled before E-435's report exists". This is that request (measured 45078, recorded 44144, limit 45026). E-435 moves to the front of the queue, and the budget is ruled from its report.
+
+### Why needed
+E-438 passes every suite (7718/0/26) and is SEC_CLEARED; it fails only the budget, by 52 lines, on 79 new contract rows. The Engineer recommends raising to the measured value. That would be the fifth raise in seven weeks, and D-162 r4 was written so the fifth is not ruled blind.
+
+### Rulings
+1. **No raise now.** Holding E-438 costs nothing today: it is stacked on #56, and #49..#56 wait for the operator's merges; the gate installed on this machine already runs E-438's code.
+2. **E-435 runs next, before E-439**, with its text unchanged and one table added: for the gate arc not yet on `main` (E-436, E-393, E-353, E-438) the net test lines per task against `main`, and, for `gate-self-disable-cases.json` and the rows E-438 added to `operand-scope-cases.json`, every group of rows that reaches the same verdict through the same branch of the same reader (same option class, same view), with row ids. The Engineer removes nothing.
+3. **The budget is ruled on that report**: rows the report shows as one branch asserted many times are merged first; what remains over the limit is raised to the measured value, without headroom (D-149 r1).
+4. **E-438 is accepted as built.** Read by the Architect: `src/mcp/safe-exec-mcp/git-view.mjs`. It goes beyond the task's "skip the listed globals": a general option walk, two readers without shell grammar beside the frozen one, and a candidate must equal a forbidden verb. That is the shape the A2A rulings of 2026-11-18 09:06, 09:12, 09:16, 09:19 and 09:22 gave it; they are ratified by reference to `.ai/SECURITY.md` "E-438". The 09:16 rule is kept as standing: a view added to a reader never turns a blocked row into a pass.
+5. **`operand-scope-cases.json` at 517 rows, `cdcf97afa3628f845b64ae0b692467e3da81dd2db56e3d5aa1b1714665b45f4b`**, is confirmed by the Architect on 7bed34a. It is pinned with the budget ruling, because r3 may merge rows.
+6. **A2A and security rounds.** E-438 took six security rounds and five A2A rulings, and grew a reader the task did not describe. From the third security round of a task on, the classification question comes to the Architect's pane by handoff, not by `ask_architect`: the pane can re-scope, split a task and record; the headless Architect cannot.
+7. **The `cd` relocation (RX1, RX2; P2) is E-441.** `cd /tmp/o && git checkout .ai/x` passes for the Architect because the path is under `.ai/`, in another tree.
+8. **`src/mcp/safe-exec-mcp/index.js` is split in E-442** before E-441 and E-440 add to it: 818 lines against a limit of 1000.
+9. **Order**: E-435, then this ruling's follow-up on the budget, then E-439, E-431, E-432, E-442, E-441, E-440.
+
+### Alternatives considered
+1. **Raise to 45078 now** — rejected by D-162 r4; the report is a Tier 1 task and nothing waits on E-438's push.
+2. **Name rows to drop today** — rejected: without the grouping of r2 it would be a guess over rows six security rounds produced.
+
+### Impact
+- Unlocks: E-435 now; E-438's push after the budget ruling.
+- Risk if wrong: one task of delay on a stack that is waiting for merges anyway.
+
+### Rollback
+`rein ci budget set --ruling D-164 test_lines=45078` and push E-438 as it is.
+
+---
+
+## D-164 addendum 1 — The budget from the census: no raise; the recorded value returns to D-162's 44481; sixteen E-438 rows merge; the ratchet reads only trees that contain the ruled tree; contract tables grow by branch, not by payload
+
+**Date**: 2026-11-18
+**Task**: E-435 (report `plans/test-census-2026-11.md`, accepted), E-438 (rows merged, then pushed), E-439 (scope amended); E-443, E-444
+**Decision**: D-164 r3, ruled from the report. There was no overrun against a ruled value: the 44144 the request was measured against was never ruled. It is corrected, not raised.
+
+### What the census found
+1. **The recorded value drifted below the ruling.** `budgetBest()` keeps the lowest green run since the ruling. Run 107, on a branch without E-433's rows, measured 44144; D-162 ruled 44481. D-162's own "recorded 43381" had the same cause. Against 44481 the limit is 45370 and E-438's 45078 is inside it.
+2. **The gate table is mostly one branch.** 143 of its 225 rows are decided by the three-word predicate before any other reader runs. 117 of them were written for the word reader or the CLI regex and no longer reach it: if the frozen reader broke, almost no row would fail.
+3. **E-438's rows repeat three branches**: 13 rows on the unknown-option branch, 7 on the space-valued branch, 4 on the `=` branch.
+4. **Fifteen behaviours of the release arc are asserted at two layers**; for seven of them the suite row adds nothing the unit row lacks.
+
+### Rulings
+1. **Budget.** `rein ci budget set --ruling D-164 test_lines=44481`: D-162's value, restored. No raise. Until E-443 lands, no `rein ci run` is made on a tree that lacks part of the stack (`main` included), because a green run there lowers the recorded value again.
+2. **E-438 merges sixteen rows before its push** (0-based ids of the 517-row table): on the unknown-option branch keep #455, #458, #474 and remove #456, #457, #459–#462, #470–#473; on the space-valued branch keep #439, #444, #476 and remove #450, #452, #454, #477; on the `=` branch keep #449, #453 and remove #451, #475. The task's "one row per global option" is withdrawn: the reader no longer has a per-option list. No source changes, so the security clearance stands; the table test and critic_tests run on the new commit. Expected: 501 rows, 45062 lines. The Engineer reports the sha256; it is pinned at the next handoff.
+3. **The gate table is not merged.** It is pinned, reviewed and on PR #55; its rows are the ruled payloads of D-163 r10, one line each. Its defect is finding 2, and that is fixed without a new line: in E-439 the 92 rows the census lists under the word reader gain `"reader": "word"`, the 25 under the CLI regex gain `"reader": "cli"`, and the unit runner also calls that reader directly on each and asserts a hit. The second layer is then tested by the rows written for it.
+4. **Contract tables grow by branch, not by payload.** In `gate-self-disable-cases.json`, `operand-scope-cases.json`, `block-rules-cases.json` and `pipe-shell-cases.json`, a review round adds a row only when it reaches a branch no row reaches, or pins a ruled boundary (a residual, a pass that must stay a pass). The other payloads stay in the security notes and their payload files. The handoff that adds rows names the branch of each. This replaces "a contract row each" in the A2A ruling of 2026-11-18 08:19 and "every round-1 and round-2 payload" in D-163 r10 for future rounds.
+5. **The ratchet (E-443).** A ruled value belongs to a tree. `budget set` records the commit it was ruled for, and `budgetBest()` lowers the recorded value only from a green run whose commit contains that commit. A run whose ancestry cannot be read does not lower it.
+6. **The seven suite assertions that add nothing are removed (E-444)**: census rows D2, D4, D6, D10, D11, D14, D15, and the same-layer duplicate E-421.01e. The other eight keep their suite row: each carries a claim only a process shows.
+7. **Order**: E-438 (r2, push), E-443, E-439, E-431, E-432, E-444, E-442, E-441, E-440.
+
+### Alternatives considered
+1. **Raise to 45078** — rejected: nothing is over a ruled limit.
+2. **Merge the 143 rows of the gate table to one per branch** — rejected in r3: a re-pin and a security re-run of a cleared table to save about 120 lines, and the rows are the ruled record of what was tried.
+3. **Lower the recorded value only from runs on the trunk** — rejected for r5: `main` after the first merge of a stack lacks the rest of it and would lower the value the same way.
+
+### Impact
+- Unlocks: E-438's push; E-439.
+- Risk if wrong: r4 leaves a payload without a row and a later change reopens it unnoticed; the payload files are kept so a re-run finds it.
+
+### Rollback
+Restore the sixteen rows from 120e539; `rein ci budget set --ruling D-164 test_lines=45078`.
+
+---

@@ -1952,6 +1952,104 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-17T20:45:08.364Z"
+    },
+    {
+      "id": "E-438",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Close the base-rule gap in the Architect's git rules per D-163 addendum 2 r2 (A2A 2026-11-18 08:19) and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (High; first in order, before E-439). Today `\"git\" push` and `git -C . push` pass for the Architect, so `g=git; \"$g\" push` and `g=git; $g -C . push` pass too. In src/mcp/safe-exec-mcp: (1) every Architect git verb rule (ARCH_GIT_PUSH and the other ARCH_GIT_* subcommand rules) reads the verb with quotes and backslashes removed, through the normaliser in src/shared/shell-word.mjs (no second normaliser); (2) the same rules skip git's global options before the subcommand: `-C <path>`, `-c <k=v>`, `--git-dir`, `--work-tree`, `--namespace`, `--exec-path`, `--config-env` (each with `=` and with a space), and the no-argument globals `-p`, `-P`, `--paginate`, `--no-pager`, `--bare`, `--no-replace-objects`, `--literal-pathspecs`, `--no-optional-locks`; (3) the E-353 assigned-verb resolver feeds the same reader. Begin with skill bug-reproducer: the four commands above and one row per global option are failing rows in tests/fixtures/operand-scope-cases.json before any source change; add pass rows for the Engineer on the same commands and for the Architect's reads (`git -C . log`, `git --no-pager diff`). First commit: tests/census-baseline.tsv as its own chore commit (r10). Review rule: D-163 r12 with r4. Acceptance: every new row holds for the role it names (node --test on the operand-scope table); every existing row of the operand-scope, block-rules, pipe-shell and gate-self-disable tables keeps its verdict; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs its payload files and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row count of operand-scope-cases.json for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T08:59:22.779Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T08:59:22.789Z"
+    },
+    {
+      "id": "E-439",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Apply the implicit-run sink check in strict mode and correct the lock's word definition per D-163 addendum 2 r2 and r7 and .ai/blueprints/sovereignty-hardening.md (the lock's contract; Quoted heredoc bodies). Ordering by text: after E-438. (1) src/mcp/safe-exec-mcp/heredoc.mjs: a quoted heredoc body whose sink matches IMPLICIT_RUN (Makefile, .bashrc and the rest of that list) is not stripped in strict mode either, so every heredoc-exempt rule reads it. (2) `namesGateOff` in src/shared/shell-word.mjs and `_names_gate_off` in hooks/pre-tool-use.sh: a word is a run of [A-Za-z0-9_-] with its leading hyphens removed; add view V3, which is V1 with each quote replaced by a space instead of deleted. No change to shellCommands or gateCommandHit (D-163 r5). Begin with skill bug-reproducer, failing rows first: in tests/fixtures/gate-self-disable-cases.json rows D01–D03 flip from residual PASS to BLOCK, and `${X:-rein} gate off`, `${X:-${Y:-rein}} gate off` and `env -vS'rein gate off'` are BLOCK; in tests/fixtures/pipe-shell-cases.json a Makefile body carrying a download piped into a shell, followed by `make`, is BLOCK, while a quoted heredoc into .ai/DECISIONS.md and one into notes.md stay PASS. Both tables re-pin under addendum 2: the PR and the handoff give old and new sha256, row counts and every PASS→BLOCK flip. If a row of operand-scope-cases.json or a wave-1 triple flips, stop and report before re-pinning. Acceptance: the new rows hold in the analyzer and in the hook parity check (node --test tests/unit/gate-self-disable-cases.test.mjs); no existing BLOCK row becomes PASS; security_engineer re-runs under D-163 r4 and SEC_CLEARED is stamped; the residual list in .ai/THREAT_MODEL.md drops the closed classes; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T08:59:30.369Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T08:59:30.391Z"
+    },
+    {
+      "id": "E-440",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Extend the Architect's git exec-config rule and the RM_RF_ROOT root forms, and narrow two over-blocks, per D-163 addendum 2 r2 and r8 and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (Medium; ordering by text: after E-435). In src/mcp/safe-exec-mcp: (a) the keys `core.pager`, `alias.<name>` with a `!` value, `diff.external`, `credential.helper` and `core.editor`, and the environment names `GIT_SSH_COMMAND` and `XDG_CONFIG_HOME`, block for the Architect by every spelling that blocks `core.hooksPath` today (`-c`, glued `-c`, `--config-env`, GIT_CONFIG_PARAMETERS, KEY_n/VALUE_n, `git config`, direct/env/export assignment) — in git-redirect.mjs, ARCH_GIT_EXEC_CONFIG and CONFIG_ENV; (b) `/sbin`, `/lib`, `/lib64` and `/srv` are root-form for RM_RF_ROOT for every role; (c) `$(pwd)`, a backtick `pwd` and `${PWD%/*}` count as the cwd for RM_RF_ROOT for every role; (d) narrow: the PWD/OLDPWD text match gets the `(\\/|\\s|$)` boundary the `$HOME` match has, so `echo $PWD; rm -rf dist` is WARN as `echo $HOME; rm -rf dist` is; a root prefix matches only at a path boundary, so `rm -rf /opt-cache-x` is not BLOCK. Begin with skill bug-reproducer: each class is a failing row in tests/fixtures/operand-scope-cases.json or block-rules-cases.json before any source change. The over-blocks D-163 addendum 2 r8 accepts stay as they are. Review rule: D-163 r12 with r4. Acceptance: each new row holds for the role it names (node --test on both tables); every existing BLOCK row stays BLOCK except the two (d) rows, listed in the PR; `rm -rf \"${X:?}\"/*` stays allowed; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row counts of both tables for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T08:59:38.648Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T08:59:38.649Z"
+    },
+    {
+      "id": "E-441",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Close the `cd` relocation in the Architect's git path exemption per D-164 r7 and .ai/SECURITY.md \"E-438\" (RX1, RX2; P2; ordering by text: after E-442, before E-440). Today `cd /tmp/o && git checkout .ai/x`, `(cd .. && git checkout .ai/x)` and `cd /y && git reset .ai/x` pass for the Architect: the path is under `.ai/`, but in another tree. In src/mcp/safe-exec-mcp, `gitRelocated` (git-view.mjs) also returns true when a `cd` or `pushd` on the same command text, before the git command, names a directory other than the project root the analyzer was given; when the analyzer has no project root, any `cd` or `pushd` with an operand counts. The `cd <project root> &&` prefix every Bash call carries keeps the exemption. Read the operand through the normaliser in src/shared/shell-word.mjs; an operand holding `$` or a backtick counts as another directory (fail closed). Begin with skill bug-reproducer: the three commands above flip from residual PASS to BLOCK rows in tests/fixtures/operand-scope-cases.json before any source change; add pass rows for `cd <project root> && git checkout .ai/x` and for the Engineer on all three. Review rule: D-163 r12 with r4, and D-164 r6 from the third security round. Acceptance: the new rows hold for the role they name (node --test on the operand-scope table); every other existing row keeps its verdict; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row count of operand-scope-cases.json for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T10:16:05.109Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T10:16:05.110Z"
+    },
+    {
+      "id": "E-442",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Split src/mcp/safe-exec-mcp/index.js into modules per D-164 r8 and .ai/blueprints/engineering-standards.md (file size: warning above 500 lines, limit 1000; the file is 818 lines and grew in E-393, E-353 and E-438). Ordering by text: after E-432, before E-441 and E-440. Move rule families out of index.js into sibling modules beside the existing ones (assigned-verbs.mjs, git-redirect.mjs, git-view.mjs, code-strings.mjs, heredoc.mjs, gate-guard.mjs): at least the RM_RF_ROOT root and cwd forms, and the pipe-into-shell rules with `pipeHit`; index.js keeps the server, `runAnalysis` and the order in which the rules run. A pure move: no rule, message, verdict or export name changes, and no new dependency. Begin with skill repo-oracle on index.js. Acceptance: `wc -l src/mcp/safe-exec-mcp/index.js` prints under 500; no file in src/mcp/safe-exec-mcp exceeds 500 lines; the sha256 of every pinned table is unchanged (operand-scope-cases.json, block-rules-cases.json, pipe-shell-cases.json, gate-self-disable-cases.json, arch-write-cases.json, role-verdict-cases.json — the handoff lists the six hashes before and after); `git diff --stat` shows no file under tests/fixtures changed; the installed mirror carries the new files (`bash install-rein.sh`, then `rein doctor` reports the gate healthy); critic_clean_code stamps CLEAN_PASS; full `rein ci run` green. Framework task.",
+      "created_at": "2026-11-18T10:16:14.021Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T10:16:14.021Z"
+    },
+    {
+      "id": "E-443",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make the test-budget ratchet read only trees that contain the ruled tree, per D-164 addendum 1 r5 and .ai/blueprints/test-economics.md (ordering by text: right after E-438's push, before E-439). Today `budgetBest()` in src/mcp/shared/ci-budget.js takes the minimum over every green, clean run since the ruling row, so a run on a branch that lacks other tasks' rows lowers the recorded value below what was ruled (plans/test-census-2026-11.md §2.3: 43381 under D-157, 44144 under D-162). (1) `rein ci budget set --ruling D-### <name>=<value>` records the commit the value was ruled for: HEAD, or `--at <sha>`; (2) `budgetBest()` lowers a recorded value only from a green, clean run whose commit contains that commit (`git merge-base --is-ancestor <ruled> <run>`); a run whose ancestry cannot be read (unknown sha, no git) does not lower it; a ruling row written before this task, with no recorded commit, is read as its own run's commit; (3) `rein ci budget` prints the ruled value, the ruling and its commit, and the lowest contained run when it is lower. Begin with skill repo-oracle on ci-budget.js. Extend the unit file that already covers `budgetBest` (named in the handoff; no new suite): a run on a commit that does not contain the ruled commit leaves the recorded value unchanged; a descendant run with a lower value lowers it; an unreadable ancestry leaves it unchanged; a legacy ruling row still reads. Acceptance: those four rows pass under node --test; on this repository `rein ci budget` prints test_lines 44481 ruled by D-164 after run 107's kind of run is replayed in the fixture; no budget value changes in the task; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T10:30:39.346Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T10:30:39.346Z"
+    },
+    {
+      "id": "E-444",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Remove the suite assertions the census found duplicated at the unit layer, per D-164 addendum 1 r6, plans/test-census-2026-11.md §1.1 and §1.3, and .ai/blueprints/test-economics.md (one test per behaviour at the cheapest layer; ordering by text: after E-432, before E-442). Remove only the suite side, and only where the census column \"What only the suite row adds\" says none: D2 (tests/suites/mirror_hygiene_test.sh E-422.01b), D4 and D6 (the duplicate-pair check and the `status` clause inside tests/suites/init_upgrade_test.sh E-421.01b; the rest of that row stays), D10 (tests/suites/role_token_test.sh E-433.R01c), D11 (tests/suites/hooks_surface_test.sh E-430.S01b), D14 and D15 (the three E-55/E-56 rows in tests/suites/mcp_servers_test.sh that call `capabilitiesBypassMatches` through `node -e`), and the same-layer duplicate E-421.01e in init_upgrade_test.sh (covered by cli_test.sh E-422.03a). Leave D1, D3, D5, D7, D8, D9, D12 and D13 as they are: each suite row carries a claim only a process shows. Before removing each assertion, run its unit counterpart named in the census and confirm it fails when the behaviour is broken by hand (a one-line mutation, reverted); record the eight mutations in the PR description. No file under src/ changes; no unit test is added. Acceptance: `git diff --stat` shows only the four suite files and .ai/; the eight unit counterparts pass (node --test on their files); no suite is deleted or skipped; `rein ci budget` shows test_lines lower than before the task and the handoff states the number; critic_tests stamps TESTS_PASS; full `rein ci run` green. Framework task.",
+      "created_at": "2026-11-18T10:30:47.455Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T10:30:47.455Z"
     }
   ],
   "stamps": [
@@ -5908,6 +6006,114 @@
       "timestamp": "2026-11-18T08:29:18.963Z",
       "summary": "[TIER_3] E-353 (D-112 r3 a-f, D-163 r12) staged on 9fc384c: ARCH_PASS, SEC_PASS (critic_security; its in-class P2 on the class-e exemption fixed), TESTS_PASS, ALIGN_PASS, CLEAN_WARN (index.js size, pre-existing), SEC_CLEARED (security_engineer, three rounds). Tables: operand-scope 438, block-rules 61, pipe-shell 49; arch-write unchanged. Full rein ci run pending operator install.",
       "sha": "9fc384c8b2c302c4e9eb29d056ed18bf0a470c6d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 1)",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:00:19.738Z",
+      "summary": "[TIER_1] E-438 step 0 (D-163 addendum 2 r10): tests/census-baseline.tsv as rewritten by rein ci run 43eec4f (STALE 31), committed alone; generated data, no code.",
+      "sha": "c0ff5401a02cc9a47c3089c12ada80838539b127",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_WARN",
+      "agent": "critic_clean_code",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:08.651Z",
+      "summary": "standards-checker WARN (e-438-git-verb-base @ 42dffd3) — 1 warning, 0 errors, 3 files, 8ms (rule_id: file_size_limit_lines; file: src/mcp/safe-exec-mcp/index.js 817 lines, warn >=500)",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:08.751Z",
+      "summary": "Review at 42dffd3: operand-scope/block-rules/pipe-shell/gate-self-disable/consolidation-subset/arch-write unit tables 1394/1394 pass; 32 new contract rows (blocking and pass) at the cheapest layer, no new suite; new git-view.mjs covered via the table",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "blueprint-aligner",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:10.876Z",
+      "summary": "e-438-git-verb-base @42dffd3: align_diff WARN, no violations, 3 files; NO_LOG_UPDATE + ORPHANED_WORK (git-view.mjs, operand-scope-cases.json not named in architect.md)",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:11.724Z",
+      "summary": "Review at 42dffd3 (e-438-git-verb-base), D-163 add.2 r2: no sovereignty violations (only src/mcp/safe-exec-mcp and the operand-scope table staged; arch-write-cases.json, rename-map.json, architect.md, blueprints untouched). git-view.mjs is correctly placed and reuses shellCommands/normaliseWord (no second normaliser). Architect git rules (ARCH_GIT_RESET/REVERT/CHECKOUT/CLEAN and the global push/merge/etc. rule) read raw + view, so it only adds blocks; the E-353 assigned-verb re-run feeds the view since analyzeSovereignty is re-invoked on expanded text. operand-scope table grew (HEAD sha 4034da7a...; 470 rows now), no existing row removed; re-pin reported via handoff per ruling. Not run: suites and security_engineer SEC_CLEARED remain acceptance items.",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:24.937Z",
+      "summary": "E-438: no P0. All ruled forms block for the Architect (quoted verb, -C/-c/--git-dir/--work-tree/--namespace/--config-env/bare globals, assigned-verb + quote/-C, reset/checkout/clean after -C); Engineer and Architect reads pass; perf <20 ms. For a ruling (outside list): real git globals not in VALUED/BARE still pass for push: --glob-pathspecs, --noglob-pathspecs, --icase-pathspecs, --no-advice, --no-lazy-fetch, --no-global-excludes, --super-prefix, --attr-source (git-view.mjs:15-17).",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:11:14.501Z",
+      "summary": "E-438 re-check (restaged diff): no P0, previous P1 closed. All unknown globals (--glob-pathspecs, --no-advice, --super-prefix x, --attr-source x, --no-lazy-fetch) block before push; $/${..}/backtick words before the verb fail closed; quote-state slips (apostrophe in comment/heredoc/odd quotes) cannot hide the command; -C <not .>, --work-tree, --git-dir, core.worktree defeat the .ai/ exemption; Architect reads and Engineer pass; 9 perf probes <=48 ms. P2 for ruling: cd /y && git reset .ai/x still passes (cd relocation, not in the -C ruling).",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer (recorded by the Engineer; the agent has no add_stamp tool)",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:24:27.968Z",
+      "summary": "[TIER_3] E-438 (D-163 addendum 2 r2): every ruled form and every in-class variant (A2A 09:06, 09:12, 09:16, 09:19, 09:22) RESISTED over 165 payload rows; standing rule holds (no earlier-cut block passes). Residual: cd relocation (RX1/RX2, P2 follow-up), push{,} (K08). See .ai/SECURITY.md \"E-438, Sixth check — the 09:22 fix\".",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 3)",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:24:29.967Z",
+      "summary": "[TIER_3] E-438 staged on 42dffd3: ARCH_PASS, SEC_PASS (critic_security, its unlisted-option P1 fixed in class), TESTS_PASS, ALIGN_PASS, CLEAN_WARN (index.js 817 lines), SEC_CLEARED (security_engineer, six checks). operand-scope 438 -> 517; arch-write unchanged. Full rein ci run pending operator install.",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 1)",
+      "task_id": "E-435",
+      "timestamp": "2026-11-18T10:28:13.740Z",
+      "summary": "[TIER_1] E-435 census report plans/test-census-2026-11.md (D-157 r4, D-162 r4, D-164 r2): 15 cross-layer duplicates (unit cheapest); test_lines reconciled with gap 0 (D-157 43602 -> D-162 44481 = +879); finding: the recorded 44144 is the ratchet's lowest green run, not a ruled value; table 3b 25 groups / 275 rows. Report only; no tests/ or src/ change. Figures spot-checked by the Engineer.",
+      "sha": "a047f8ca78ece919c9b4147abd6a901d7f63d376",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T10:31:57.063Z",
+      "summary": "Re-review at 1cb40a7 (D-164 add.1 r2): independently verified staged table == HEAD minus exactly the 16 ruled ids (501 rows, sha cb100e3f matches); operand-scope + consolidation-subset 975/975 pass; kept representatives cover all three branches; no source change",
+      "sha": "1cb40a71e22afab52c56dd5067c993f298e34ca3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 2)",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T10:32:04.479Z",
+      "summary": "[TIER_2] E-438 row merge per D-164 addendum 1 r2: 16 same-branch rows removed from operand-scope (517 -> 501, sha256 cb100e3f…; test_lines 45062); TESTS_PASS; no source change, SEC_CLEARED stands.",
+      "sha": "1cb40a71e22afab52c56dd5067c993f298e34ca3",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

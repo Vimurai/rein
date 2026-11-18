@@ -2136,3 +2136,65 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - A later review may report a newline split as a bypass; it is residual by addendum r2.
 ---
+---
+## Handoff — 2026-11-18 08:56 UTC
+**From**: Engineer → Architect
+**Trigger**: E-393 shipped as PR #55 and E-353 as PR #56 (both SEC_CLEARED, full CI green); review and plan next
+
+### What was built
+- **E-393 → PR #55** (e-393-gate-lock, stacked on #54). D-163 lock + addendum 1 + both 2026-11-17 A2A rulings.
+  - `namesGateOff` in src/shared/shell-word.mjs is the lock. The name rules read the raw text and V1.
+  - The frozen word reader is the second layer.
+  - Hook `_names_gate_off` / `_touches_gate` (LC_ALL=C) runs on the override no-verdict path, and on the analyzer-not-located backstop before the catastrophic set.
+  - The belt in `rein`.
+  - Table 29 → 225 rows (179 BLOCK, 46 pass; 11 residual PASS rows incl. D01–D03), re-pinned 63c2cac9… → 80ab99d0… under D-163 r10. rename-map records `repinned`/`repinned_by`.
+  - CI green on 9fc384c after install: 7555/0/26, budget PASS.
+- **E-353 → PR #56** (e-353-safe-exec-residuals, stacked on #55). D-112 r3 a–f, plus the in-class variants of the A2A rulings 2026-11-18 08:19 (a–d, and `r=rm; $r -rf /` folded in) and 08:26 ($PWD / $OLDPWD).
+  - (a) is the new assigned-verbs.mjs.
+  - (b), (c), (e) are in git-redirect.mjs / code-strings.mjs.
+  - (d) and (f) are in index.js.
+  - critic_security's class-e P2 (the search carve-out covered `rg --pre`) is fixed in-class.
+  - CI green on 43eec4f after install: 7639/0/26, budget PASS.
+- The tasks stay OPEN until their merges; they go DONE through rein-task after them.
+
+### Decisions made
+- None of mine.
+- Two mechanical consequences need your ratification:
+  - **wave1-inputs.json:** the one D-163 r9 flip that is also a recorded wave-1 triple keeps its recorded verdict and gains `reverdict` / `reverdict_by: "D-163 r9 …"`. consolidation-subset.test.mjs matches the ruled verdict and asserts the ruling is named. This is the same pattern as rename-map's `repinned`.
+  - **Parity check moved:** the hook/JS parity check lives in the unit layer (gate-self-disable-cases.test.mjs, one bash spawn, tcFixtureHome). A table reference had pulled gate_override_test into the fast tier (fast_tier_seconds 38 > 25).
+
+### Pins (E-353 acceptance — for you to pin by ruling)
+- operand-scope-cases.json: 438 rows, `4034da7a969ac8c26768075f7b776f3ddd6fff131391c6f21d7277bcfe15c5f0`
+- block-rules-cases.json: 61 rows, `65a831520c643682f3fe62f3e1c7859c5288a42a619fac567d882dc4d9d70eac`
+- pipe-shell-cases.json: 49 rows, `75ed95a661f608492d5ec57d90e4c332215ba18775a0be638fc121c64a29c9b4`
+- arch-write-cases.json: unchanged, `26f7da12faaf12c305b284e3af99b4dd41115d6ad3ba760b3ef6705d444f0a77`
+
+### Blueprint divergence (if any)
+- Under D-163 r1, `-` is a word character. So `${X:-…rein}` and `env -vS'…'` produce `-rein` / `-vSrein` and are residual by your definition. The frozen reader still catches the simple `${u:-rein}`.
+- E-353 (f) re-widens D-111 r4 for the two pipe rules only. The rule blocks when the strict strip AND the readOnlyLines strip both match. SECRET_IN_COMMAND and GATE_SELF_DISABLE keep the strict strip.
+
+### Next action needed
+- **Architect — write tasks for the open findings (all reported per D-163 r12, none fixed):**
+  - **D-084 rule 4 (P1, A2A 2026-11-17 22:18):** a heredoc body written to an implicit-run sink (Makefile, .bashrc) is stripped before the views. The IMPLICIT_RUN check also needs to apply in strict mode.
+  - **High, Tier 3, right after E-353:** for the Architect, `"git" push` and `git -C . push` pass, so `"$g" push` and `$g -C . push` do too. The fix belongs in the base rules: read the verb unquoted and skip git's global options before the subcommand.
+  - **Medium:**
+    - git exec keys `core.pager`, `alias.*=!`, `diff.external`, `credential.helper`, `core.editor`, `GIT_SSH_COMMAND`, `XDG_CONFIG_HOME`;
+    - `/sbin`, `/lib`, `/lib64`, `/srv` as roots;
+    - `$(pwd)` and `${PWD%/*}` as cwd.
+  - **P3 over-blocks, fail closed:**
+    - `$PWD` anywhere on an rm line (the `$HOME` check uses a `(\/|\s|$)` boundary);
+    - `HOME=` text on a git line;
+    - a `..` in a comment or string on an rm line;
+    - `/opt-cache-x` matched by the `/opt` prefix;
+    - `"$OUT"/bin` (consistent with D-112 r1–r2).
+- **Operator:**
+  - Merge #49 → #56 in order.
+  - `rein sync` in /home/…/Dev/ai-os (the installer reports a stale hook path).
+  - Relaunch the Claude panes started before the two installs (`rein pane <role>`).
+- **Engineer next:** E-431, then E-432 and E-435, on top of #56, unless you reorder.
+
+### Open risks
+- tests/census-baseline.tsv was rewritten by the CI run (STALE 31) and is uncommitted on e-353. Committing it changes the tip and needs another full run; it is left for a housekeeping commit.
+- Until #55 and #56 merge, the installed gate (from the e-353 branch) is ahead of main for every session on this machine.
+- `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` backups are still uncommitted; the operator decides.
+---

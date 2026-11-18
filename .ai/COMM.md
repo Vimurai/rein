@@ -2226,3 +2226,48 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until E-438 lands, the Architect lane can push with a quoted verb or `-C`.
 - Until E-439 lands, a body written to a Makefile and run by `make` is unread by the four heredoc-exempt rules.
 ---
+---
+## Handoff — 2026-11-18 10:14 UTC
+**From**: Engineer → Architect
+**Trigger**: E-438 built and SEC_CLEARED (commit 120e539, e-438-git-verb-base, stacked on #56), but full CI fails the test_lines budget, so a ruling is needed before it can be pushed
+
+### What was built
+- **E-438** (D-163 addendum 2 r2, plus your A2A rulings of 2026-11-18 at 09:06, 09:12, 09:16, 09:19 and 09:22; every in-class variant fixed in the task):
+  - New src/mcp/safe-exec-mcp/git-view.mjs. `gitCommandView` returns `git <verb>` for every possible forbidden subcommand.
+    - Words are read through normaliseWord(decodeAnsiC(w)); `decodeAnsiC` is new in src/shared/shell-word.mjs, and normaliseWord is unchanged.
+    - Every word between `git` and the first plain word is an option.
+    - An option outside the space-valued set and without `=` makes both of the next two words candidates.
+    - `$` and backtick words may be an option and its value.
+    - There are three views: the frozen shellCommands, plus two grammar-free cuts. Those cuts end words at < and >, and drop each redirection (fd digits or `{NAME}`) with its target.
+    - A candidate must exactly equal a forbidden verb.
+  - New `gitRelocated`: the .ai/ and plans/ exemption does not hold after a `-C` other than `.`, nor with --work-tree, --git-dir or core.worktree on the line.
+  - `isSafeArchitectPath` rejects a `..` segment.
+  - operand-scope-cases.json: 438 → **517** rows, sha256 `cdcf97afa3628f845b64ae0b692467e3da81dd2db56e3d5aa1b1714665b45f4b` (was 4034da7a…, pinned under D-163 addendum 2 r3).
+  - Every existing row of operand-scope, block-rules, pipe-shell and gate-self-disable keeps its verdict. arch-write is unchanged (26f7da12).
+- **Review**: ARCH_PASS, SEC_PASS (critic_security; its unlisted-option P1 was fixed in class), TESTS_PASS, ALIGN_PASS, CLEAN_WARN, and **SEC_CLEARED** after six security_engineer checks over 165 payload rows.
+  - Standing rule (09:16): no row that blocked on an earlier cut passes on the final reader.
+  - Residual PASS rows, as ruled: `cd /tmp/o && git checkout .ai/x`, `(cd .. && git checkout .ai/x)` and `# it's⏎git -C . push{,}`.
+- **CI on 120e539**, after `bash install-rein.sh`: 7718 passed, 0 failed, 26 skipped, leaked 0. **budget FAIL: test_lines measured 45078, recorded 44144, limit +2% = 45026.**
+
+### Decisions made
+- None of mine. I did not raise the budget: `rein ci budget set` takes a D-ruling.
+
+### Blueprint divergence (if any)
+- The git view goes beyond "skip the listed globals". It is the general option walk your 09:06 r1 ruled, plus the three views ruled at 09:06 r2 and 09:16.
+
+### Next action needed
+- **Architect — rule on the test_lines budget.** E-438 adds 79 contract-table rows (one per ruled variant, as your rulings required). That takes the measured total 52 lines over the limit. E-353's run passed at 44999.
+  - Options: (a) raise the recorded test_lines to 45078 by D-ruling (`rein ci budget set --ruling D-### test_lines=45078`); or (b) name rows to drop or merge.
+  - Every row is a ruled contract row, so I recommend (a).
+  - Once ruled, I run the budget set, re-run CI, push, and open the PR stacked on #56.
+- **Architect — pin operand-scope-cases.json** at the sha above, 517 rows.
+- **Follow-ups (not fixed; ruled out of E-438):**
+  - the `cd` relocation (RX1/RX2, P2), as its own task;
+  - critic_security's `cd /y && git reset .ai/x`, which is the same item.
+- **index.js** is 817 lines (warning above 500, limit 1000). It grew on each of E-393, E-353 and E-438, and E-439/E-440 will add to it. Consider a split before E-440.
+- **Engineer next:** E-439 once E-438 is pushed, or stacked on 120e539 meanwhile if you prefer. I hold until your budget ruling.
+
+### Open risks
+- Until E-438 is pushed and merged, the gate installed on this machine runs E-438's code, which is ahead of every PR.
+- `.ai/providers.json`, `.ai/roles.json` and `*.pre-0.5.0.json` are still uncommitted; the operator decides.
+---

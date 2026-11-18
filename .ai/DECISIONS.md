@@ -5623,3 +5623,38 @@ E-438 passes every suite (7718/0/26) and is SEC_CLEARED; it fails only the budge
 `rein ci budget set --ruling D-164 test_lines=45078` and push E-438 as it is.
 
 ---
+
+## D-164 addendum 1 — The budget from the census: no raise; the recorded value returns to D-162's 44481; sixteen E-438 rows merge; the ratchet reads only trees that contain the ruled tree; contract tables grow by branch, not by payload
+
+**Date**: 2026-11-18
+**Task**: E-435 (report `plans/test-census-2026-11.md`, accepted), E-438 (rows merged, then pushed), E-439 (scope amended); E-443, E-444
+**Decision**: D-164 r3, ruled from the report. There was no overrun against a ruled value: the 44144 the request was measured against was never ruled. It is corrected, not raised.
+
+### What the census found
+1. **The recorded value drifted below the ruling.** `budgetBest()` keeps the lowest green run since the ruling. Run 107, on a branch without E-433's rows, measured 44144; D-162 ruled 44481. D-162's own "recorded 43381" had the same cause. Against 44481 the limit is 45370 and E-438's 45078 is inside it.
+2. **The gate table is mostly one branch.** 143 of its 225 rows are decided by the three-word predicate before any other reader runs. 117 of them were written for the word reader or the CLI regex and no longer reach it: if the frozen reader broke, almost no row would fail.
+3. **E-438's rows repeat three branches**: 13 rows on the unknown-option branch, 7 on the space-valued branch, 4 on the `=` branch.
+4. **Fifteen behaviours of the release arc are asserted at two layers**; for seven of them the suite row adds nothing the unit row lacks.
+
+### Rulings
+1. **Budget.** `rein ci budget set --ruling D-164 test_lines=44481`: D-162's value, restored. No raise. Until E-443 lands, no `rein ci run` is made on a tree that lacks part of the stack (`main` included), because a green run there lowers the recorded value again.
+2. **E-438 merges sixteen rows before its push** (0-based ids of the 517-row table): on the unknown-option branch keep #455, #458, #474 and remove #456, #457, #459–#462, #470–#473; on the space-valued branch keep #439, #444, #476 and remove #450, #452, #454, #477; on the `=` branch keep #449, #453 and remove #451, #475. The task's "one row per global option" is withdrawn: the reader no longer has a per-option list. No source changes, so the security clearance stands; the table test and critic_tests run on the new commit. Expected: 501 rows, 45062 lines. The Engineer reports the sha256; it is pinned at the next handoff.
+3. **The gate table is not merged.** It is pinned, reviewed and on PR #55; its rows are the ruled payloads of D-163 r10, one line each. Its defect is finding 2, and that is fixed without a new line: in E-439 the 92 rows the census lists under the word reader gain `"reader": "word"`, the 25 under the CLI regex gain `"reader": "cli"`, and the unit runner also calls that reader directly on each and asserts a hit. The second layer is then tested by the rows written for it.
+4. **Contract tables grow by branch, not by payload.** In `gate-self-disable-cases.json`, `operand-scope-cases.json`, `block-rules-cases.json` and `pipe-shell-cases.json`, a review round adds a row only when it reaches a branch no row reaches, or pins a ruled boundary (a residual, a pass that must stay a pass). The other payloads stay in the security notes and their payload files. The handoff that adds rows names the branch of each. This replaces "a contract row each" in the A2A ruling of 2026-11-18 08:19 and "every round-1 and round-2 payload" in D-163 r10 for future rounds.
+5. **The ratchet (E-443).** A ruled value belongs to a tree. `budget set` records the commit it was ruled for, and `budgetBest()` lowers the recorded value only from a green run whose commit contains that commit. A run whose ancestry cannot be read does not lower it.
+6. **The seven suite assertions that add nothing are removed (E-444)**: census rows D2, D4, D6, D10, D11, D14, D15, and the same-layer duplicate E-421.01e. The other eight keep their suite row: each carries a claim only a process shows.
+7. **Order**: E-438 (r2, push), E-443, E-439, E-431, E-432, E-444, E-442, E-441, E-440.
+
+### Alternatives considered
+1. **Raise to 45078** — rejected: nothing is over a ruled limit.
+2. **Merge the 143 rows of the gate table to one per branch** — rejected in r3: a re-pin and a security re-run of a cleared table to save about 120 lines, and the rows are the ruled record of what was tried.
+3. **Lower the recorded value only from runs on the trunk** — rejected for r5: `main` after the first merge of a stack lacks the rest of it and would lower the value the same way.
+
+### Impact
+- Unlocks: E-438's push; E-439.
+- Risk if wrong: r4 leaves a payload without a row and a later change reopens it unnoticed; the payload files are kept so a re-run finds it.
+
+### Rollback
+Restore the sixteen rows from 120e539; `rein ci budget set --ruling D-164 test_lines=45078`.
+
+---

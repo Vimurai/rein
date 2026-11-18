@@ -2022,6 +2022,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-18T10:16:14.021Z"
+    },
+    {
+      "id": "E-443",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make the test-budget ratchet read only trees that contain the ruled tree, per D-164 addendum 1 r5 and .ai/blueprints/test-economics.md (ordering by text: right after E-438's push, before E-439). Today `budgetBest()` in src/mcp/shared/ci-budget.js takes the minimum over every green, clean run since the ruling row, so a run on a branch that lacks other tasks' rows lowers the recorded value below what was ruled (plans/test-census-2026-11.md §2.3: 43381 under D-157, 44144 under D-162). (1) `rein ci budget set --ruling D-### <name>=<value>` records the commit the value was ruled for: HEAD, or `--at <sha>`; (2) `budgetBest()` lowers a recorded value only from a green, clean run whose commit contains that commit (`git merge-base --is-ancestor <ruled> <run>`); a run whose ancestry cannot be read (unknown sha, no git) does not lower it; a ruling row written before this task, with no recorded commit, is read as its own run's commit; (3) `rein ci budget` prints the ruled value, the ruling and its commit, and the lowest contained run when it is lower. Begin with skill repo-oracle on ci-budget.js. Extend the unit file that already covers `budgetBest` (named in the handoff; no new suite): a run on a commit that does not contain the ruled commit leaves the recorded value unchanged; a descendant run with a lower value lowers it; an unreadable ancestry leaves it unchanged; a legacy ruling row still reads. Acceptance: those four rows pass under node --test; on this repository `rein ci budget` prints test_lines 44481 ruled by D-164 after run 107's kind of run is replayed in the fixture; no budget value changes in the task; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T10:30:39.346Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T10:30:39.346Z"
+    },
+    {
+      "id": "E-444",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Remove the suite assertions the census found duplicated at the unit layer, per D-164 addendum 1 r6, plans/test-census-2026-11.md §1.1 and §1.3, and .ai/blueprints/test-economics.md (one test per behaviour at the cheapest layer; ordering by text: after E-432, before E-442). Remove only the suite side, and only where the census column \"What only the suite row adds\" says none: D2 (tests/suites/mirror_hygiene_test.sh E-422.01b), D4 and D6 (the duplicate-pair check and the `status` clause inside tests/suites/init_upgrade_test.sh E-421.01b; the rest of that row stays), D10 (tests/suites/role_token_test.sh E-433.R01c), D11 (tests/suites/hooks_surface_test.sh E-430.S01b), D14 and D15 (the three E-55/E-56 rows in tests/suites/mcp_servers_test.sh that call `capabilitiesBypassMatches` through `node -e`), and the same-layer duplicate E-421.01e in init_upgrade_test.sh (covered by cli_test.sh E-422.03a). Leave D1, D3, D5, D7, D8, D9, D12 and D13 as they are: each suite row carries a claim only a process shows. Before removing each assertion, run its unit counterpart named in the census and confirm it fails when the behaviour is broken by hand (a one-line mutation, reverted); record the eight mutations in the PR description. No file under src/ changes; no unit test is added. Acceptance: `git diff --stat` shows only the four suite files and .ai/; the eight unit counterparts pass (node --test on their files); no suite is deleted or skipped; `rein ci budget` shows test_lines lower than before the task and the handoff states the number; critic_tests stamps TESTS_PASS; full `rein ci run` green. Framework task.",
+      "created_at": "2026-11-18T10:30:47.455Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T10:30:47.455Z"
     }
   ],
   "stamps": [

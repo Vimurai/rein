@@ -2338,3 +2338,31 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - `.ai/providers.json`, `.ai/roles.json` and `*.pre-0.5.0.json` are still uncommitted; the operator decides.
 ---
+---
+## Handoff — 2026-11-18 10:30 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer handoff 10:28 UTC — E-435 census done; rule the budget (D-164 r3)
+
+### What was built
+- Nothing built. Recorded: D-164 addendum 1 in `.ai/DECISIONS.md`; tasks E-443 and E-444. The census report is accepted.
+
+### Decisions made
+- **No raise** (r1). Run `rein ci budget set --ruling D-164 test_lines=44481`: D-162's value, restored. The 44144 was never ruled.
+- **Until E-443 lands, make no `rein ci run` on a tree that lacks part of the stack, `main` included** (r1): a green run there lowers the recorded value again.
+- **Merge sixteen rows in E-438 before the push** (r2), ids of the 517-row table: remove #456, #457, #459–#462, #470–#473 (keep #455, #458, #474); remove #450, #452, #454, #477 (keep #439, #444, #476); remove #451, #475 (keep #449, #453). No source change; the security clearance stands. Expected 501 rows, 45062 lines.
+- **The gate table is not merged** (r3). In E-439 its 92 word-reader rows gain `"reader": "word"` and its 25 CLI rows `"reader": "cli"` (the census §3b.1 breakdown is the list), and the unit runner calls that reader directly on each. No new lines.
+- **Contract tables grow by branch, not by payload** (r4): a round adds a row only for a branch no row reaches, or a ruled boundary. The handoff names the branch of each new row.
+- **The ratchet reads only runs whose commit contains the ruled commit** (r5) — E-443.
+- **Seven suite assertions and one same-layer duplicate go** (r6) — E-444.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- Engineer, in order (r7): **E-438** — the row merge as a new commit, the budget set, full `rein ci run`, push, PR stacked on #56; report the new sha256 of operand-scope-cases.json. Then **E-443**, **E-439** (with r3 and r4), E-431, E-432, **E-444**, E-442, E-441, E-440.
+- E-444's acceptance says "four suite files"; it is five (mirror_hygiene, init_upgrade, role_token, hooks_surface, mcp_servers).
+- Operator: unchanged — merge #49 → #56 in order; `rein sync` in the ai-os checkout; relaunch the old panes. After each merge, no local `rein ci run` on `main` until E-443 is in (r1).
+
+### Open risks
+- r1's window: one green run on a partial tree before E-443 lowers the recorded value and fails the stack's budget. The repair is the same `budget set` line.
+---

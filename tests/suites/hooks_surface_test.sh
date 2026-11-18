@@ -240,8 +240,7 @@ python3 -c 'import json,sys; p=sys.argv[1]; s=json.load(open(p)); s["tasks"][0].
 ( cd "$_D/p" && HOME="$_D/home" bash "$SSC_HOOK" </dev/null >/dev/null 2>&1 )
 assert_status 0 "E-430.S01a: a session start after state.json changed rewrites the digest header" \
   test "$_D_OLD" != "$(head -1 "$_D/p/.ai/DIGEST.md")"
-assert_contains "E-430.S01b: and the digest is fresh against its inputs" "[DIGEST_OK]" \
-  "$(node --no-warnings "${REPO_ROOT}/src/shared/digest-build.mjs" check "$_D/p" 2>&1)"
+# Fresh against its inputs after that rebuild: digest-cases.json "E-429.03" (E-444, census D11).
 _dgit add -A; _dgit commit -q -m closed
 ( cd "$_D/p" && HOME="$_D/home" bash "$SSC_HOOK" </dev/null >/dev/null 2>&1 )
 assert_status 0 "E-430.S01c: a session start on an unchanged tree leaves .ai/ clean" \

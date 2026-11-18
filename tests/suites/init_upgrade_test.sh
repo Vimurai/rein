@@ -279,15 +279,14 @@ const tl = new Set(text.split("\n").map((l) => l.trimStart()).filter((l) => G.te
 const jl = new Set(d.checks.map((c) => c.line.split("\n")[0]));
 for (const l of tl) if (!jl.has(l)) out.push("text only: " + l);
 for (const l of jl) if (!tl.has(l)) out.push("json only: " + l);
-const keys = d.checks.map((c) => c.id + "\u0000" + c.subject);
-if (new Set(keys).size !== keys.length) out.push("duplicate (id, subject)");
 for (const c of d.checks) if (!/^[a-z][a-z0-9_]*$/.test(c.id)) out.push("id not snake_case: " + c.id);
 for (const c of d.checks) if (c.status === "fail" && !c.fix && !NO_AUTO_FIX.has(c.id)) out.push("fail without fix: " + c.id);
 const g = d.checks.find((c) => c.id === "gate_registered");
-if (d.status !== "fail" || !g || g.status !== "fail" || g.fix !== "rein sync") out.push("gate_registered: " + JSON.stringify(g));
+if (!g || g.status !== "fail" || g.fix !== "rein sync") out.push("gate_registered: " + JSON.stringify(g));
 console.log(out.join("\n") || "OK");
 ' "$_djson" "$_dtext" 2>&1)"
-assert_status 0 "E-421.01b: one document; records = the text run's check lines; (id, subject) unique; gate_registered fails with fix rein sync${_dcheck:+ — ${_dcheck:0:600}}" \
+# (id, subject) uniqueness and the document status are doctor-json.test.mjs "E-421.04" (E-444, census D4, D6).
+assert_status 0 "E-421.01b: one document; records = the text run's check lines; gate_registered fails with fix rein sync${_dcheck:+ — ${_dcheck:0:600}}" \
   test "$_dcheck" = "OK"
 # E-422 (D-153 r3, D-155 r5): extends E-421.01b — that document against the published schema.
 _dsf="$(mktemp "${FAKE_TMP}/doctor-json.XXXXXX")"; printf '%s\n' "$_djson" > "$_dsf"
@@ -318,8 +317,7 @@ assert_contains "E-427.02h: …saying so" "--scope takes install" "$_bad"
 _dusage="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --json --repair 2>&1 >/dev/null )"; _durc=$?
 assert_status 0 "E-421.01c: --json with --repair is a usage error, exit 2 (rc=${_durc})" test "$_durc" -eq 2
 assert_contains "E-421.01d: …with one line on stderr" "--json runs the default doctor only" "$_dusage"
-assert_status 0 "E-421.01e: rein help shows doctor [--json]" \
-  bash -c "grep < <(bash '$AI_BIN' help 2>&1) -qF 'rein doctor [--json]'"
+# `doctor --json` in rein help: cli_test.sh E-422.03a, through cli-surface.json (E-444, census §1.3).
 _ai sync >/dev/null
 # Security re-review N1: an entry counts by the ONE script it runs. The form Claude Code
 # documents ("$CLAUDE_PROJECT_DIR"/…) and a Rein name passed as an ARGUMENT are not missing

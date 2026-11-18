@@ -2050,6 +2050,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-18T10:30:47.455Z"
+    },
+    {
+      "id": "E-445",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Tag the reader rows and merge the repeated E-439 rows in tests/fixtures/gate-self-disable-cases.json per D-163 addendum 2 r12, D-164 addendum 1 r3-r4 and .ai/blueprints/sovereignty-hardening.md §Gate Table Row Merge and Reader Tags (the keep/remove table, the keep rule and the result are there; the tagged rows are listed in plans/test-census-2026-11.md §3b.1). Ordering by text: after E-444, before E-432. Test-only: under src/ and hooks/ the only permitted change is an `export` keyword on an existing binding the runner needs. (1) Add \"reader\":\"word\" to the 92 word-reader rows and \"reader\":\"cli\" to the 25 CLI-regex rows; extend tests/unit/gate-self-disable-cases.test.mjs to call that reader directly on each tagged row and assert a hit (no new test file). (2) Remove the 22 rows the blueprint table names, applying its keep rule first. (3) Re-pin the table in the runner. Acceptance: the table holds 92 rows with reader word and 25 with reader cli (count them); the table holds 253 rows (205 BLOCK, 48 pass), or 253 plus the rows kept under the keep rule, each named in the closing handoff; every row of the table at d78fba0 that was not removed is present with the same cmd and want; `node --test tests/unit/gate-self-disable-cases.test.mjs` passes and its source shows the direct reader assertion over the tagged rows; `git diff --stat` of the task's commits over src/ and hooks/ shows nothing or `export` keywords only; test_lines in `rein ci run` is lower than on the parent commit and the run is green; critic_tests stamps TESTS_PASS; the closing handoff gives the new sha256 and row counts for pinning. Framework task.",
+      "created_at": "2026-11-18T15:11:59.247Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T15:11:59.255Z"
+    },
+    {
+      "id": "E-446",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Widen the implicit-run sink list and close the `..` sink per D-163 addendum 2 r14, .ai/blueprints/sovereignty-hardening.md (the lock's contract; §Operand Scope and Inert Heredocs) and .ai/THREAT_MODEL.md \"From the E-439 security passes\" (P2; ordering by text: after E-440). In src/mcp/safe-exec-mcp/heredoc.mjs: (1) IMPLICIT_RUN also matches the file names `justfile`, `Justfile`, `.justfile`, `Rakefile`, `BSDmakefile`, `Makefile.in`, `Taskfile.yml`, `Taskfile.yaml`, `.bash_aliases`, `.bash_logout`, `sitecustomize.py` and `usercustomize.py`; (2) a sink whose path has a `..` segment is implicit-run in both modes (`/tmp/../etc/x` is read as a /tmp path today); two dots inside a file name (`notes..txt`) are not a segment. The list stays a deny list. Begin with skill bug-reproducer, failing rows first in tests/fixtures/pipe-shell-cases.json, by branch (D-164 addendum 1 r4): one BLOCK row for a body carrying a download piped into a shell written to `justfile` and followed by `just`; one BLOCK row for the same body written to `/tmp/../etc/cron.d/x`; one pass row for `/tmp/notes..txt`. The twelve names are asserted in one loop in the existing unit test of heredoc.mjs, not as rows. Review rule: D-163 r12 with r4; from the third security round the classification question comes to the Architect's pane by handoff, not by ask_architect (D-164 r6). Acceptance: the three new rows hold and every existing row of pipe-shell-cases.json keeps its verdict (node --test on the table's unit test); the loop over the twelve names passes; sha256 of tests/fixtures/gate-self-disable-cases.json is the value E-445 pinned and arch-write-cases.json still starts 26f7da12; security_engineer re-runs and SEC_CLEARED is stamped; .ai/THREAT_MODEL.md lists both INCONCLUSIVE items as closed; the closing handoff reports the new sha256 and row count of pipe-shell-cases.json; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T15:11:59.346Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T15:11:59.346Z"
     }
   ],
   "stamps": [

@@ -5658,3 +5658,84 @@ E-438 passes every suite (7718/0/26) and is SEC_CLEARED; it fails only the budge
 Restore the sixteen rows from 120e539; `rein ci budget set --ruling D-164 test_lines=45078`.
 
 ---
+
+## D-163 addendum 2 r11–r15 — Review of E-439 as built: accepted; three tables pinned; the env -S decoder is ratified and frozen; the repeated rows merge and the reader tags land in E-445; the sink list widens in E-446
+
+**Date**: 2026-11-18
+**Task**: E-439 (PR #59, 7570d58 and d78fba0); E-445, E-446
+**Decision**: E-439 is accepted as built. This entry continues the numbering of D-163 addendum 2 (rulings 1–10), because the source, the gate table and `.ai/SECURITY.md` already cite "D-163 addendum 2 r13". DECISIONS.md is append-only, so rulings 11 to 15 stand here.
+
+### Why needed
+E-439 took four security passes and three A2A rulings (12:55, 13:17, 13:32) that stood only in LOG.md and `.ai/SECURITY.md`. It added a decoder the task did not describe and 50 rows to a pinned table. Two rulings of D-164 addendum 1, made the same morning, were not applied to it.
+
+### Rulings
+11. **E-439 as built matches addendum 2 r2 and r7.** Read by the Architect: `stripInertHeredocs` in `src/mcp/safe-exec-mcp/heredoc.mjs` (the implicit-run sink check runs before the mode branch), `gateViews`, `namesGateOff` and `unquoteWord` in `src/shared/shell-word.mjs`, `envSplitNamesGateOff` in `src/mcp/safe-exec-mcp/gate-guard.mjs`, `_names_gate_off` in `hooks/pre-tool-use.sh`. **Pinned** (hashes recomputed by the Architect on f6b8959):
+    - `gate-self-disable-cases.json`, 275 rows (227 BLOCK, 48 pass), `c80f9b681c8a514ba473411e68f2e9647a08ee63fc082c1e312f91f7d48065f8`. PASS→BLOCK: D01, D02, D03, P16, P19. No BLOCK row became a pass.
+    - `pipe-shell-cases.json`, 52 rows, `5940886e4133a7a49c1a44818197c1ebafe8d85fe082a6614323a6284b68a621`.
+    - `operand-scope-cases.json`, 501 rows, `cb100e3f3e3420c495e1b2b8f7c6927ded7951cd4747df7e3cf96ae04a7968c5` (the pin D-164 addendum 1 r2 left for this handoff).
+    - `block-rules-cases.json` `65a83152…` and `arch-write-cases.json` `26f7da12…` are unchanged.
+12. **D-164 addendum 1 r3 and r4 are applied in E-445, in one re-pin.**
+    - r3 (the `"reader"` tags) was ruled for E-439 and never written into its task text. That is the Architect's omission, not a defect of the build.
+    - r4 (a table grows by branch, not by payload) was not applied: about twenty of the fifty new rows repeat a branch another new row reaches. The A2A rulings asked for "BLOCK rows" without naming r4.
+    - Tagging the rows changes the table's hash anyway, so the merge rides the same re-pin. No source changes; the security clearance stands (the D-164 addendum 1 r2 precedent). The rows to remove are named in E-445 by command text. A named row that turns out to be the only one reaching a branch is kept and reported.
+    - The residual pass rows all stay: each pins a ruled boundary.
+13. **The env -S decoder is ratified, and it is frozen.** The three A2A rulings are ratified:
+    - 12:55 — view V3 also reads a backslash with the character after it as a space. There is no fourth view.
+    - 13:17 — finding (e) is a P1 of E-439, not residual r3: `env -S` has an escape layer of its own, so the three words were literal to env and to no view. It is closed by a decoder beside the reader: every word after the first `env` word is unquoted as bash does, decoded as env does, and read by the lock's predicate, to depth 3. r5 stands: `shellCommands` and `gateCommandHit` are unchanged. The seven P3 over-blocks (text that puts the three words on one line of V3) are accepted under addendum 1.
+    - 13:32 — f1 and f2 are P1, f3, f4 and N09 are P2, all fixed in the decoder.
+    - **Residual r3, recorded** (the classifier's, pinned as pass rows): `${VAR}` inside the -S string; env named through a variable, `$(…)`, a negated class glob or a nested default; arguments fed through `xargs`; nesting deeper than 3; hex and octal ANSI-C escapes. The hook's no-verdict fallback does not decode -S; that path needs an active override and ARG_MAX padding.
+    - **Standing rule.** The decoder is the third frozen piece, with the word reader and the views. A second carrier with an escape layer of its own gets a decoder only by a D-ruling; a security pass that finds one reports it and does not build it.
+    - **D-164 r6 was not followed**: the third pass of E-439 went to `ask_architect`. From the third security round of a task on, the classification question comes to the Architect's pane by handoff. The rule is repeated in E-446.
+14. **The implicit-run sink list widens in E-446** (P2, both findings INCONCLUSIVE in the fourth pass): the eight names the security passes listed, and a sink path with a `..` segment is implicit-run (`/tmp/../etc/x` is read as a `/tmp` path today). The list is a deny list and stays one: a file some tool runs unnamed and that is not on it is residual by definition. An allow list of text sinks was considered and is not ruled here.
+15. **Order**: E-432 (already in progress when this was ruled), E-444, E-445, E-442, E-441, E-440, E-446. The tree is at 45301 test lines against a limit of 45370. If E-432's `rein ci run` fails on `test_lines` alone, E-444 and E-445 are built first and E-432 is stacked on them: both remove lines. No raise is requested for that.
+
+### Alternatives considered
+1. **Record this as "D-163 addendum 3"** — rejected: `gate-guard.mjs`, 28 row labels of the pinned table and `.ai/SECURITY.md` cite "addendum 2 r13"; renaming means a third re-pin for a label.
+2. **Pin 275 rows and leave r4 unapplied** (the reasoning of D-164 addendum 1 alternative 2) — rejected: that alternative refused a re-pin made only to save lines. Here r3 forces the re-pin, and a rule ignored on the day it was made is not a rule.
+3. **Hold PR #59 until the rows merge** — rejected: the source is cleared and the stack is waiting on the operator; E-445 is a test-only commit on top.
+4. **Replace the sink deny list with an allow list of text sinks now** — rejected for this ruling: it changes which heredocs the content rules read for every role and needs its own over-block census.
+
+### Impact
+- Unlocks: the merge of #59; E-445, E-446.
+- Risk if wrong: a row removed in E-445 was the only one on its branch and a later change reopens the payload unnoticed. The payloads stay in `.ai/SECURITY.md`, and E-445 keeps any row whose removal changes what the runner reaches.
+
+### Rollback
+None for the review record. E-445: restore the table from d78fba0 (`c80f9b68…`).
+
+---
+
+## D-159 addendum 2 — Review of E-431 as built: accepted; the acceptance gate is the first stamp-based DONE gate; floor 444; `superseded_by` names a decision; E-## of Tier 2 and 3 only
+
+**Date**: 2026-11-18
+**Task**: E-431 (PR #60, 358d92d and 06d8c37); P-51
+**Decision**: E-431 is accepted as built. The A2A ruling of 2026-11-18 14:24 is ratified, and the blueprint sentence it had to interpret is corrected.
+
+### Why needed
+`.ai/blueprints/harness-fitness.md` §Component 3 said a task does not reach DONE without `[ACCEPT_PASS]` "by the same check that requires the other stamps". No such check exists: before E-431 the build gate and the CI gate were the only DONE gates, and the critic stamps are enforced at the commit gate. The Engineer asked instead of inventing one.
+
+### Rulings
+1. **Where the gate lives.** `checkAcceptGate` in `src/shared/completion-gates.mjs`, third after the build gate and the CI gate. It uses the CI gate's sha rule (`aiOnlyAncestor`, now shared from `ci-runs.js`): a stamp stands for HEAD when its sha is HEAD or an ancestor that differs only in `.ai/`. The newest `ACCEPT_*` stamp that stands for HEAD decides, so a later `[ACCEPT_FAIL]` voids an earlier pass. Read by the Architect: `completion-gates.mjs`.
+2. **Floor.** `ACCEPT_GATE_FLOOR = 444`: an E-## task numbered 444 or lower closes as before. Those tasks were written before `task-planner` Check 6 and many carry clauses nobody can observe. E-431, E-432 and E-440 to E-444 are therefore exempt from the gate; E-445 is the first task under it.
+3. **`superseded_by`.** `update_task_status` takes `superseded_by: "D-###"`. The value must be a `## D-###` heading in DECISIONS.md. It skips the acceptance gate only, and the summary reads "superseded by D-### — not implemented". There is no environment switch (D-084 r1).
+4. **Scope.** E-## tasks of Tier 2 and Tier 3. P-## tasks and Tier 1 are exempt: a P-## task's product is a ruling, and its reviewer is the operator.
+5. **The other stamps are not moved to DONE.** `[SEC_CLEARED]`, `[ARCH_PASS]` and the rest stay at the commit gate. The acceptance gate asks a different question (does the built thing meet the task's own clauses) at the only point where it can be asked.
+6. **E-431's own stamp is accepted**: `[ACCEPT_PASS]` at 358d92d with 5 PASS and 2 UNVERIFIED. The two clauses need the evaluator run on a fixture task, which a forked agent cannot dispatch; the Engineer's dry run on fixture E-999 returned `[ACCEPT_FAIL]` with the observed exit code, as the blueprint requires.
+7. **Residual, recorded.** The gate checks that a stamp exists for the sha, not which agent wrote it: `add_stamp` is callable from the Engineer's session. This is the trust every stamp has today (D-084). E-432's control ledger is where a stamp without a matching dispatch would show.
+8. **The `task-claims.test.mjs` fixture task moves to Tier 1.** Accepted: the row is about claims.
+9. **`src/mcp/task-synchronizer-mcp/index.js` is at 923 lines** against a limit of 1000. The next task that adds lines to it splits it first, in its own commit, as E-442 does for safe-exec. No separate task.
+10. **`.ai/blueprints/agents.md` gains the `critic_acceptance` row** (done with this ruling). The agent has no model pin: it judges (D-110).
+11. **P-51 closes overtaken tasks with `superseded_by`.**
+
+### Alternatives considered
+1. **Build the stamp check the blueprint assumed, for every critic stamp** — rejected: it would move the commit gate's stamps to DONE for 34 open tasks at once, and nobody ruled that.
+2. **No floor; exempt tasks one by one with `superseded_by`** — rejected: a task that was implemented is not superseded, and the field would lose its meaning.
+3. **An environment switch for the gate** — rejected by D-084 r1 and D-087 r3: the agent can set its own environment.
+
+### Impact
+- Unlocks: the merge of #60; P-51; every task from E-445 on is checked against its own acceptance text.
+- Risk if wrong: a task above the floor carries a clause that cannot be observed and cannot close. `task-planner` Check 6 exists to stop that at planning time; an `UNVERIFIED` clause with a named reason does not fail the stamp.
+
+### Rollback
+Raise `ACCEPT_GATE_FLOOR` above the highest task id; the gate is then inactive.
+
+---

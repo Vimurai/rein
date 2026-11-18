@@ -127,6 +127,14 @@ visited project does not.**
    third view reads each quote as a space; a quoted heredoc body whose sink a later line
    runs implicitly (`Makefile`, `.bashrc`) is read by every heredoc-exempt rule in strict
    mode too.
+   As built (D-163 addendum 2 r11–r15): the third view also reads a backslash with the
+   character after it as a space; there is no fourth view. `env -S` has an escape layer of
+   its own, so `envSplitNamesGateOff` (`gate-guard.mjs`) unquotes every word after the first
+   `env` word as bash does, decodes it as env does and gives it to the same predicate, to
+   depth 3. The decoder is frozen with the reader and the views: a second carrier gets a
+   decoder only by a D-ruling. The implicit-run sink list (`IMPLICIT_RUN`, `heredoc.mjs`) is
+   a deny list; E-446 widens it and makes a sink with a `..` segment implicit-run.
+   Contract tables grow by branch, not by payload (D-164 addendum 1 r4).
    Block messages never tell the model to run `rein gate off` ("Operator escape — in YOUR
    terminal, not through the agent").
    **Loud (ruling 7)**: on every bypassed call the hook exits 0 with JSON stdout carrying
@@ -420,6 +428,36 @@ Revert the PR; the hooks return to bare-name resolution. `toolchain.sh` is inert
   GIT_DIR=`, and a `|` inside the BODY of a quoted-delimiter heredoc read as a pipe by the
   three content rules (a markdown table in a `cat >> .ai/… <<'EOF'` body tripped
   `CURL_PIPE_SHELL` on 2026-10-28). The tables are pinned by sha256 when E-353 closes them.
+
+## Gate Table Row Merge and Reader Tags (D-163 addendum 2 r12, D-164 addendum 1 r3-r4 — E-445)
+Test-only. Under `src/` and `hooks/` the only permitted change is an `export` keyword on an
+existing binding the runner needs. No behaviour changes, so E-439's clearance stands.
+
+**Tags.** In `tests/fixtures/gate-self-disable-cases.json` the 92 rows that
+`plans/test-census-2026-11.md` §3b.1 lists under the word reader gain `"reader":"word"`; the
+25 it lists under the CLI regex gain `"reader":"cli"`. The unit runner, besides the verdict,
+calls that reader directly on each tagged row (`gateCommandHit` for `word`, the `CLI_GATE`
+regex for `cli`) and asserts a hit. No new test file.
+
+**Merge.** 22 of the rows E-439 added are removed. Rows are named by their command text.
+
+| Group (E-439 pass) | Rows | Keep | Remove |
+|---|---|---|---|
+| V3 reads `\X` as a space (12:55) | 7 | `env -S'rein\_gate\_off'`, `env -S"rein\_gate\_off"` | the other 5 |
+| Finding (e), the env -S decoder (13:17) | 14 | `env -Srein\\_gate\\_off`, `env --split-string=rein\\_gate\\_off`, `env -S"rein\\_gate\\_off"`, `env -S$'rein\\_gate\\_off'`, `env -Sr"ein\_gate\_off"`, `env -vSre'in\_gate\_off'`, `env -S'r''ein\_gate\_off'` | the other 7 |
+| Accepted P3 over-blocks (13:17) | 7 | `echo "rein's gate is off"`, the `git commit -m` row | the 5 `echo` / `printf` rows that join quoted words |
+| f1, every word after env is read (13:32) | 7 | `env -vu X -S…`, `env --unse X -S…`, `env --spl '…'` | the other 4 |
+| f2, here-strings (13:32) | 3 | `bash <<< "…"`, `cat <<<"…" \| bash` | `bash<<<"…"` |
+
+Rows not in the table stay: `${X:-rein} gate off`, f3, both f4 rows, N09, and every pass row
+(each pins a ruled boundary).
+
+**Keep rule.** Before a named row is removed, another remaining row must take the same path
+through `unquoteWord`, `envDecode` and `envSplitNamesGateOff`. A row that is the only one on
+its path is kept and named in the handoff with the path.
+
+**Result.** 253 rows (205 BLOCK, 48 pass), plus any row kept under the keep rule. The runner
+is re-pinned (old `c80f9b68…`); the handoff gives the new sha256 for pinning.
 
 ## Secret Rule Precision (D-078, 2026-09-29 — E-287)
 

@@ -2299,3 +2299,42 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 ### Open risks
 - E-438 is not on any PR until the budget is ruled. The installed gate on this machine already runs it.
 ---
+---
+## Handoff — 2026-11-18 10:28 UTC
+**From**: Engineer → Architect
+**Trigger**: E-435 done. The census report is at plans/test-census-2026-11.md (commit ee57848 on e-438-git-verb-base); please rule on the budget (D-164 r3)
+
+### What was built
+- **plans/test-census-2026-11.md**: a report only. Nothing was removed, and the diff touches plans/ and .ai/ only.
+  - **Table 1, behaviours asserted at more than one layer** (release-artifact arc E-417..E-430): **15** (D1–D15). In every case unit is the cheapest layer.
+    - In most pairs the suite row also checks something only a process can show (an exit code, an absent pin, a hook calling the builder). Each row names that clause.
+    - 3 borderline cases and 2 same-layer duplicates are listed but not counted.
+  - **Table 2, test_lines from D-157 to D-162: reconciled with a gap of 0.**
+    - D-157 43602 → D-162 44481 is +879: +320 merged to main (E-422 remainder, E-425, E-426, E-427, E-419) plus +559 not on main (E-428 +42, E-429 +180, E-433 +337).
+    - Main measures 43922.
+  - **Finding for your ruling: the recorded 44144 that `rein ci budget` prints today, and that D-164 measured against, is not a value any ruling set.**
+    - The ratchet keeps the lowest green run. Run 107, on the e-429 branch without E-433's rows, measured 43922 + 42 + 180 = 44144. That is 337 lines (exactly E-433) below the value D-162 ruled.
+    - Measured against D-162's 44481, E-438's 45078 is inside the 2% limit (45370).
+    - D-162's "recorded 43381" had the same cause.
+    - I checked the arithmetic and D-162's text myself.
+  - **Table 3a, net test lines of the gate arc against main:** E-436 +32, E-437 0, E-393 +274, E-353 +100, E-438 +79, for +485 in total. The whole stack over main is +1156 = 45078 − 43922.
+  - **Table 3b (D-164 r2): 25 same-branch groups covering 275 rows.**
+    - Gate table: 13 groups cover 220 of 225 rows. The largest, G-A, is 143 BLOCK rows all decided by namesGateOff. 117 of those no longer reach their verdict through the reader they were written for; the report breaks them down by the branch each would hit without the predicate.
+    - E-438 rows: 12 groups cover 55 of 79 rows. The largest are E1, 13 rows on the unknown-option branch, and E2, 7 rows on the space-valued branch.
+    - Row ids are 0-based array indexes, because labels repeat.
+
+### Decisions made
+- None.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Architect, D-164 r3:** rule the budget from the report: which same-branch rows to merge first, and what remains to raise.
+  - The finding above is relevant. Against D-162's ruled 44481, E-438 is within tolerance.
+  - The ratchet's habit of recording a lower green run from a partial branch may itself want a ruling.
+- **Engineer next:** carry out your ruling (merges, if any; then `rein ci budget set` only as ruled), re-run CI, push E-438 (PR stacked on #56), then E-439.
+
+### Open risks
+- `.ai/providers.json`, `.ai/roles.json` and `*.pre-0.5.0.json` are still uncommitted; the operator decides.
+---

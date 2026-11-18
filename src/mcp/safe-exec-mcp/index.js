@@ -38,6 +38,7 @@ import { claimGateFor, claimReport } from "./claim-gate.mjs";
 import { foldVerbs } from "./verb-fold.mjs";
 import { normaliseWord } from "../../shared/shell-word.mjs";
 import { expandAssignedVerbs } from "./assigned-verbs.mjs";
+import { gitCommandView, gitRelocated } from "./git-view.mjs";
 import { createLogger } from "../shared/logger.js";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, realpathSync, lstatSync } from "node:fs";
@@ -368,12 +369,19 @@ const CODE_STRING_BYTES = 16 * 1024;
 function analyzeSovereignty(tokens, raw, writeTokens = tokens, writeRaw = raw, depth = 0) {
   const violations = [];
 
+  // E-438 (D-163 addendum 2 r2): the git rules also read each git command as git reads it — the
+  // verb unquoted and the global options before the subcommand skipped (git-view.mjs), so
+  // `"git" push` and `git -C . push` are git push. The E-353 assigned-verb expansion feeds this too.
+  const gitText = raw + "\n" + gitCommandView(raw);
+
   // ForbiddenArchitectGit: reset/revert/checkout/clean on implementation targets.
-  const gitMatch = /\bgit\s+(reset|revert|checkout|clean)\b/i.exec(raw);
+  const gitMatch = /\bgit\s+(reset|revert|checkout|clean)\b/i.exec(gitText);
   if (gitMatch) {
     const verb = gitMatch[1].toLowerCase();
     const targets = operandsAfter(tokens, "git", verb);
-    const scopedSafe = targets.length > 0 && targets.every(isSafeArchitectPath);
+    // E-438 (A2A 2026-11-18 09:06 r4): `.ai/x` names .ai/ only where git runs — not after a `-C`
+    // elsewhere, or with --work-tree / --git-dir / core.worktree on the line.
+    const scopedSafe = targets.length > 0 && targets.every(isSafeArchitectPath) && !gitRelocated(raw);
     if (!scopedSafe) {
       violations.push({
         id: `ARCH_GIT_${verb.toUpperCase()}`,
@@ -401,7 +409,7 @@ function analyzeSovereignty(tokens, raw, writeTokens = tokens, writeRaw = raw, d
   // E-123: globally-forbidden Architect git ops (merge/rebase/push/pull/branch).
   // These are branch/remote operations, blocked regardless of path scope —
   // merging and pushing are strictly Engineer tasks.
-  const gitGlobal = new RegExp(`\\bgit\\s+(${FORBIDDEN_ARCHITECT_GIT_GLOBAL.join("|")})\\b`, "i").exec(raw);
+  const gitGlobal = new RegExp(`\\bgit\\s+(${FORBIDDEN_ARCHITECT_GIT_GLOBAL.join("|")})\\b`, "i").exec(gitText);
   if (gitGlobal) {
     const verb = gitGlobal[1].toLowerCase();
     violations.push({

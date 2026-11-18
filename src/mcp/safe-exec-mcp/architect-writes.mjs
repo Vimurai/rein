@@ -23,8 +23,10 @@ import { join, isAbsolute, normalize, relative, dirname, basename, resolve as re
 // names) are NOT safe paths, so an unscoped `git reset --hard HEAD` blocks.
 const SAFE_ARCHITECT_PATH = /^(\.\/)?(\.ai|plans)(\/|$)/;
 
+// E-438 (A2A 2026-11-18 09:12 B): a `..` segment can climb out of .ai/ (`.ai/../src/x`) — such an
+// operand is not safe, whatever it normalises to (fail closed, no path arithmetic).
 export function isSafeArchitectPath(tok) {
-  return SAFE_ARCHITECT_PATH.test(tok);
+  return SAFE_ARCHITECT_PATH.test(tok) && !/(^|\/)\.\.(\/|$)/.test(tok);
 }
 
 // ── E-208 (D-054, role-abstraction.md §Components 5): Write/Edit sovereignty ───

@@ -5960,6 +5960,78 @@
       "summary": "[TIER_1] E-438 step 0 (D-163 addendum 2 r10): tests/census-baseline.tsv as rewritten by rein ci run 43eec4f (STALE 31), committed alone; generated data, no code.",
       "sha": "c0ff5401a02cc9a47c3089c12ada80838539b127",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_WARN",
+      "agent": "critic_clean_code",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:08.651Z",
+      "summary": "standards-checker WARN (e-438-git-verb-base @ 42dffd3) — 1 warning, 0 errors, 3 files, 8ms (rule_id: file_size_limit_lines; file: src/mcp/safe-exec-mcp/index.js 817 lines, warn >=500)",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:08.751Z",
+      "summary": "Review at 42dffd3: operand-scope/block-rules/pipe-shell/gate-self-disable/consolidation-subset/arch-write unit tables 1394/1394 pass; 32 new contract rows (blocking and pass) at the cheapest layer, no new suite; new git-view.mjs covered via the table",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ALIGN_PASS",
+      "agent": "blueprint-aligner",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:10.876Z",
+      "summary": "e-438-git-verb-base @42dffd3: align_diff WARN, no violations, 3 files; NO_LOG_UPDATE + ORPHANED_WORK (git-view.mjs, operand-scope-cases.json not named in architect.md)",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:11.724Z",
+      "summary": "Review at 42dffd3 (e-438-git-verb-base), D-163 add.2 r2: no sovereignty violations (only src/mcp/safe-exec-mcp and the operand-scope table staged; arch-write-cases.json, rename-map.json, architect.md, blueprints untouched). git-view.mjs is correctly placed and reuses shellCommands/normaliseWord (no second normaliser). Architect git rules (ARCH_GIT_RESET/REVERT/CHECKOUT/CLEAN and the global push/merge/etc. rule) read raw + view, so it only adds blocks; the E-353 assigned-verb re-run feeds the view since analyzeSovereignty is re-invoked on expanded text. operand-scope table grew (HEAD sha 4034da7a...; 470 rows now), no existing row removed; re-pin reported via handoff per ruling. Not run: suites and security_engineer SEC_CLEARED remain acceptance items.",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:04:24.937Z",
+      "summary": "E-438: no P0. All ruled forms block for the Architect (quoted verb, -C/-c/--git-dir/--work-tree/--namespace/--config-env/bare globals, assigned-verb + quote/-C, reset/checkout/clean after -C); Engineer and Architect reads pass; perf <20 ms. For a ruling (outside list): real git globals not in VALUED/BARE still pass for push: --glob-pathspecs, --noglob-pathspecs, --icase-pathspecs, --no-advice, --no-lazy-fetch, --no-global-excludes, --super-prefix, --attr-source (git-view.mjs:15-17).",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:11:14.501Z",
+      "summary": "E-438 re-check (restaged diff): no P0, previous P1 closed. All unknown globals (--glob-pathspecs, --no-advice, --super-prefix x, --attr-source x, --no-lazy-fetch) block before push; $/${..}/backtick words before the verb fail closed; quote-state slips (apostrophe in comment/heredoc/odd quotes) cannot hide the command; -C <not .>, --work-tree, --git-dir, core.worktree defeat the .ai/ exemption; Architect reads and Engineer pass; 9 perf probes <=48 ms. P2 for ruling: cd /y && git reset .ai/x still passes (cd relocation, not in the -C ruling).",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer (recorded by the Engineer; the agent has no add_stamp tool)",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:24:27.968Z",
+      "summary": "[TIER_3] E-438 (D-163 addendum 2 r2): every ruled form and every in-class variant (A2A 09:06, 09:12, 09:16, 09:19, 09:22) RESISTED over 165 payload rows; standing rule holds (no earlier-cut block passes). Residual: cd relocation (RX1/RX2, P2 follow-up), push{,} (K08). See .ai/SECURITY.md \"E-438, Sixth check — the 09:22 fix\".",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "rein-review (Tier 3)",
+      "task_id": "E-438",
+      "timestamp": "2026-11-18T09:24:29.967Z",
+      "summary": "[TIER_3] E-438 staged on 42dffd3: ARCH_PASS, SEC_PASS (critic_security, its unlisted-option P1 fixed in class), TESTS_PASS, ALIGN_PASS, CLEAN_WARN (index.js 817 lines), SEC_CLEARED (security_engineer, six checks). operand-scope 438 -> 517; arch-write unchanged. Full rein ci run pending operator install.",
+      "sha": "42dffd319c861bd4abcc0f3f4d69d67322aad1d3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

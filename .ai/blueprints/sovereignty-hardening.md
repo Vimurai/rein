@@ -123,6 +123,10 @@ visited project does not.**
    definition, and is the classifier's. The word reader (`shellCommands`,
    `gateCommandHit`) is a frozen second layer: no grammar is added without a D-ruling.
    `tests/fixtures/gate-self-disable-cases.json` is the contract, residual rows included.
+   From E-439 (D-163 addendum 2 r7): a word's leading hyphens are not part of it, and a
+   third view reads each quote as a space; a quoted heredoc body whose sink a later line
+   runs implicitly (`Makefile`, `.bashrc`) is read by every heredoc-exempt rule in strict
+   mode too.
    Block messages never tell the model to run `rein gate off` ("Operator escape — in YOUR
    terminal, not through the agent").
    **Loud (ruling 7)**: on every bypassed call the hook exits 0 with JSON stdout carrying

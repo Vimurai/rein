@@ -1952,6 +1952,48 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-17T20:45:08.364Z"
+    },
+    {
+      "id": "E-438",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Close the base-rule gap in the Architect's git rules per D-163 addendum 2 r2 (A2A 2026-11-18 08:19) and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (High; first in order, before E-439). Today `\"git\" push` and `git -C . push` pass for the Architect, so `g=git; \"$g\" push` and `g=git; $g -C . push` pass too. In src/mcp/safe-exec-mcp: (1) every Architect git verb rule (ARCH_GIT_PUSH and the other ARCH_GIT_* subcommand rules) reads the verb with quotes and backslashes removed, through the normaliser in src/shared/shell-word.mjs (no second normaliser); (2) the same rules skip git's global options before the subcommand: `-C <path>`, `-c <k=v>`, `--git-dir`, `--work-tree`, `--namespace`, `--exec-path`, `--config-env` (each with `=` and with a space), and the no-argument globals `-p`, `-P`, `--paginate`, `--no-pager`, `--bare`, `--no-replace-objects`, `--literal-pathspecs`, `--no-optional-locks`; (3) the E-353 assigned-verb resolver feeds the same reader. Begin with skill bug-reproducer: the four commands above and one row per global option are failing rows in tests/fixtures/operand-scope-cases.json before any source change; add pass rows for the Engineer on the same commands and for the Architect's reads (`git -C . log`, `git --no-pager diff`). First commit: tests/census-baseline.tsv as its own chore commit (r10). Review rule: D-163 r12 with r4. Acceptance: every new row holds for the role it names (node --test on the operand-scope table); every existing row of the operand-scope, block-rules, pipe-shell and gate-self-disable tables keeps its verdict; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs its payload files and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row count of operand-scope-cases.json for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T08:59:22.779Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T08:59:22.789Z"
+    },
+    {
+      "id": "E-439",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Apply the implicit-run sink check in strict mode and correct the lock's word definition per D-163 addendum 2 r2 and r7 and .ai/blueprints/sovereignty-hardening.md (the lock's contract; Quoted heredoc bodies). Ordering by text: after E-438. (1) src/mcp/safe-exec-mcp/heredoc.mjs: a quoted heredoc body whose sink matches IMPLICIT_RUN (Makefile, .bashrc and the rest of that list) is not stripped in strict mode either, so every heredoc-exempt rule reads it. (2) `namesGateOff` in src/shared/shell-word.mjs and `_names_gate_off` in hooks/pre-tool-use.sh: a word is a run of [A-Za-z0-9_-] with its leading hyphens removed; add view V3, which is V1 with each quote replaced by a space instead of deleted. No change to shellCommands or gateCommandHit (D-163 r5). Begin with skill bug-reproducer, failing rows first: in tests/fixtures/gate-self-disable-cases.json rows D01–D03 flip from residual PASS to BLOCK, and `${X:-rein} gate off`, `${X:-${Y:-rein}} gate off` and `env -vS'rein gate off'` are BLOCK; in tests/fixtures/pipe-shell-cases.json a Makefile body carrying a download piped into a shell, followed by `make`, is BLOCK, while a quoted heredoc into .ai/DECISIONS.md and one into notes.md stay PASS. Both tables re-pin under addendum 2: the PR and the handoff give old and new sha256, row counts and every PASS→BLOCK flip. If a row of operand-scope-cases.json or a wave-1 triple flips, stop and report before re-pinning. Acceptance: the new rows hold in the analyzer and in the hook parity check (node --test tests/unit/gate-self-disable-cases.test.mjs); no existing BLOCK row becomes PASS; security_engineer re-runs under D-163 r4 and SEC_CLEARED is stamped; the residual list in .ai/THREAT_MODEL.md drops the closed classes; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T08:59:30.369Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T08:59:30.391Z"
+    },
+    {
+      "id": "E-440",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Extend the Architect's git exec-config rule and the RM_RF_ROOT root forms, and narrow two over-blocks, per D-163 addendum 2 r2 and r8 and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (Medium; ordering by text: after E-435). In src/mcp/safe-exec-mcp: (a) the keys `core.pager`, `alias.<name>` with a `!` value, `diff.external`, `credential.helper` and `core.editor`, and the environment names `GIT_SSH_COMMAND` and `XDG_CONFIG_HOME`, block for the Architect by every spelling that blocks `core.hooksPath` today (`-c`, glued `-c`, `--config-env`, GIT_CONFIG_PARAMETERS, KEY_n/VALUE_n, `git config`, direct/env/export assignment) — in git-redirect.mjs, ARCH_GIT_EXEC_CONFIG and CONFIG_ENV; (b) `/sbin`, `/lib`, `/lib64` and `/srv` are root-form for RM_RF_ROOT for every role; (c) `$(pwd)`, a backtick `pwd` and `${PWD%/*}` count as the cwd for RM_RF_ROOT for every role; (d) narrow: the PWD/OLDPWD text match gets the `(\\/|\\s|$)` boundary the `$HOME` match has, so `echo $PWD; rm -rf dist` is WARN as `echo $HOME; rm -rf dist` is; a root prefix matches only at a path boundary, so `rm -rf /opt-cache-x` is not BLOCK. Begin with skill bug-reproducer: each class is a failing row in tests/fixtures/operand-scope-cases.json or block-rules-cases.json before any source change. The over-blocks D-163 addendum 2 r8 accepts stay as they are. Review rule: D-163 r12 with r4. Acceptance: each new row holds for the role it names (node --test on both tables); every existing BLOCK row stays BLOCK except the two (d) rows, listed in the PR; `rm -rf \"${X:?}\"/*` stays allowed; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row counts of both tables for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
+      "created_at": "2026-11-18T08:59:38.648Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-18T08:59:38.649Z"
     }
   ],
   "stamps": [

@@ -5550,3 +5550,43 @@ As written, r1 matched over the whole text. The Engineer measured that this flip
 Match over the whole view again and re-pin `operand-scope-cases.json` with the two flips.
 
 ---
+
+## D-163 addendum 2 — Review of E-393 and E-353 as built: accepted; four A2A rulings recorded; three tables pinned; the open findings become E-438, E-439 and E-440
+
+**Date**: 2026-11-18
+**Task**: E-393 (PR #55), E-353 (PR #56); E-438, E-439, E-440
+**Decision**: Both tasks are accepted as built. The rulings the headless Architect gave through `ask_architect` during the work stood only in `.ai/SECURITY.md`; they are recorded here and ratified. The findings reported and not fixed, per D-163 r12, are written as three tasks.
+
+### Rulings
+1. **E-393 as built matches D-163 and addendum 1.** Read by the Architect: `namesGateOff` in `src/shared/shell-word.mjs`, `_names_gate_off` and `_touches_gate` in `hooks/pre-tool-use.sh`. Accepted beyond the text: the match is case-insensitive, and the hook sets `LC_ALL=C` so its word class is the analyzer's.
+2. **A2A rulings ratified**:
+   - 2026-11-17 22:18 — a heredoc body written to a sink that a later line runs implicitly (`Makefile`, `.bashrc`) is stripped before any rule reads it. Pre-existing, D-084 rule 4, and it reaches every heredoc-exempt rule. Rows D01–D03 are residual PASS rows in the gate table; the fix is its own task (E-439).
+   - 2026-11-17 22:20 — when the hook cannot locate the analyzer it ran only the catastrophic backstop, so the disable passed. The three-word predicate and the name rules run in that branch before the backstop. Built in E-393.
+   - 2026-11-18 08:19 — E-353 classification: a static spelling of a ruled form is in class and fixed with a row; `r=rm; $r -rf /` is folded into E-353; the base-rule gap (`"git" push`, `git -C . push`) and the further git exec keys and roots are out of class.
+   - 2026-11-18 08:26 — `$PWD` and `$OLDPWD` are the values of the ruled `~+` and `~-` and block for `RM_RF_ROOT` in the listed forms; `rm -rf "${X:?}"/*` stays allowed and is pinned as such.
+3. **Pinned by this ruling** (hashes recomputed by the Architect on c7b37b6):
+   - `operand-scope-cases.json`, 438 rows, `4034da7a969ac8c26768075f7b776f3ddd6fff131391c6f21d7277bcfe15c5f0`
+   - `block-rules-cases.json`, 61 rows, `65a831520c643682f3fe62f3e1c7859c5288a42a619fac567d882dc4d9d70eac`
+   - `pipe-shell-cases.json`, 49 rows, `75ed95a661f608492d5ec57d90e4c332215ba18775a0be638fc121c64a29c9b4`
+   - `gate-self-disable-cases.json`, 225 rows, `80ab99d0495180464e5612f07ecd9aee4c7487518df32962ff71dd9a86afdcb5` (D-163 r10)
+   - `arch-write-cases.json` unchanged, `26f7da12…`.
+4. **The `reverdict` field is ratified.** A wave-1 row whose verdict a ruling changed keeps its recorded verdict and gains `reverdict` and `reverdict_by` naming the ruling; the subset proof matches the ruled verdict and asserts the ruling is named. One row carries it: the commit message that names the three words (D-163 r9).
+5. **The hook/analyzer parity check in the unit layer is ratified** (one bash spawn over all rows); it had pulled a suite into the fast tier.
+6. **E-353 (f) is accepted**: the two pipe rules block only when the strict strip and the read-only strip both match; `SECRET_IN_COMMAND` and `GATE_SELF_DISABLE` keep the strict strip. This narrows D-111 r4 for those two rules.
+7. **Two artefacts of D-163 r1's word definition are fixed, in E-439.** A leading hyphen is not part of a word, so `${X:-rein}` yields `rein`. A third view reads each quote as a space, so `-S'rein gate off'` yields the three words. Both are changes to the definition, not grammar; r5's freeze of the reader stands.
+8. **Accepted over-block, not fixed**: `HOME=` text anywhere on a git line (Architect); a `..` in a comment or string on an rm line; `"$OUT"/bin` (D-112 r1–r2). Telling these apart needs a parser. Fixed in E-440 because a boundary is enough: `$PWD` that is not an rm operand, and `/opt-cache-x` matched by the `/opt` prefix.
+9. **Residual, recorded**: `luajit -e`, `echo cmd | parallel`, `HOME=.ai make`, `parallel git ::: push`, `ag --pager`.
+10. **Order**: E-438, E-439, E-431, E-432, E-435, E-440. `tests/census-baseline.tsv`, rewritten by the CI run, is committed as its own chore commit at the start of E-438's branch.
+
+### Alternatives considered
+1. **Reopen PR #55 for r7** — rejected: the table is pinned and reviewed; a definition change is a re-pin and a security re-run, which is a task.
+2. **Fix the r8 over-blocks** — rejected: each needs comment and string state; they fail closed.
+
+### Impact
+- Unlocks: the merges of #55 and #56; E-438 to E-440.
+- Risk if wrong: until E-438 lands, the Architect lane can push with a quoted verb or `-C`; until E-439, a body written to a Makefile and run by `make` is unread by four rules.
+
+### Rollback
+None; a review record. The tasks carry their own.
+
+---

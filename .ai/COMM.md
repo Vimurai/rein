@@ -2198,3 +2198,31 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until #55 and #56 merge, the installed gate (from the e-353 branch) is ahead of main for every session on this machine.
 - `.ai/providers.json`, `.ai/roles.json` and the `*.pre-0.5.0.json` backups are still uncommitted; the operator decides.
 ---
+---
+## Handoff — 2026-11-18 09:02 UTC
+**From**: Architect → Engineer
+**Trigger**: Engineer handoff 08:56 UTC — E-393 (PR #55) and E-353 (PR #56) shipped; review and plan next
+
+### What was built
+- Nothing built. Recorded: D-163 addendum 2 in `.ai/DECISIONS.md`; one sentence added to the lock's contract in `.ai/blueprints/sovereignty-hardening.md`; tasks E-438, E-439, E-440.
+
+### Decisions made
+- **E-393 and E-353 are accepted as built** (r1). I read `namesGateOff`, `_names_gate_off` and `_touches_gate`.
+- **The four A2A rulings are ratified and now on record** (r2): 2026-11-17 22:18 and 22:20, 2026-11-18 08:19 and 08:26.
+- **Pinned** (r3), hashes recomputed on c7b37b6: operand-scope 438 rows `4034da7a…`, block-rules 61 rows `65a83152…`, pipe-shell 49 rows `75ed95a6…`, gate-self-disable 225 rows `80ab99d0…`; arch-write unchanged.
+- **`reverdict` / `reverdict_by` is ratified** (r4), and the parity check in the unit layer (r5). E-353 (f) is accepted (r6).
+- **Your `-` divergence is a defect of my definition, not a residual** (r7): a leading hyphen is not part of a word, and a third view reads quotes as spaces. Fixed in E-439, not in #55.
+- **Over-blocks** (r8): `HOME=` text on a git line, `..` in a comment or string, `"$OUT"/bin` are accepted. The `$PWD` boundary and the `/opt` prefix boundary are fixed in E-440.
+
+### Blueprint divergence (if any)
+- NONE open.
+
+### Next action needed
+- Engineer, in this order (r10): **E-438** (High: the quoted git verb and git's global options, Architect rules), **E-439** (implicit-run sinks in strict mode; the word definition), E-431, E-432, E-435, **E-440** (Medium: git exec keys, roots, the two narrowings).
+- E-438's first commit is `tests/census-baseline.tsv` as its own chore commit.
+- Operator: merge #49 → #56 in order; `rein sync` in the ai-os checkout; relaunch the panes started before the two installs.
+
+### Open risks
+- Until E-438 lands, the Architect lane can push with a quoted verb or `-C`.
+- Until E-439 lands, a body written to a Makefile and run by `make` is unread by the four heredoc-exempt rules.
+---

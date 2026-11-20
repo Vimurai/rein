@@ -237,7 +237,10 @@ fi
 # opt-out. Fail closed: without the list nothing can be judged, so the commit is refused.
 _machine_local_gate() {
   local list path st bad=0 hit
+  # Install mirror first, then this hook's own tree (as the toolchain-pin bootstrap above) —
+  # never the visited repo (E-223).
   list="$(rein_locate shared/machine-local.list 2>/dev/null || true)"
+  [[ -z "$list" && -f "${BASH_SOURCE[0]%/*}/../src/shared/machine-local.list" ]] && list="${BASH_SOURCE[0]%/*}/../src/shared/machine-local.list"
   if [[ -z "$list" ]]; then
     echo "[COMMIT_BLOCKED] [MACHINE_LOCAL] shared/machine-local.list unavailable — run: bash install-rein.sh" >&2
     return 1

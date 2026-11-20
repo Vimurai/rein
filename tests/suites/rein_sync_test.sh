@@ -673,7 +673,10 @@ rm -rf "$LG1" "$LG2" "$LG3" "$LG4" "$LG5"
 _gi() {
   # Run the real helper against a scratch repo. Sourced by extraction rather than by
   # running `rein sync`, which would need a whole provisioned workspace to reach the call.
-  ( eval "$(sed -n '/^_ensure_generated_gitignore() {/,/^}/p' "$AI_BIN")"
+  # E-448 (D-165 r1): the machine-local patterns come from shared/machine-local.list through
+  # _machine_local_paths, lifted with it; the helper lookup resolves to this tree's src/shared.
+  ( eval "$(sed -n '/^_ensure_generated_gitignore() {/,/^}/p;/^_machine_local_paths() {/,/^}/p' "$AI_BIN")"
+    _rein_helper() { printf '%s' "${REPO_ROOT}/src/${1}"; }
     cd "$1" && _ensure_generated_gitignore "." ) 2>&1
 }
 

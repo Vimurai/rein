@@ -10,9 +10,28 @@ const HOOKS_KEY = /core\.hookspath/i;
 // E-353 (D-112 r3 b): config keys that make git run or load other text, blocked exactly as
 // core.hooksPath is: include.path / includeIf.<cond>.path (more config, hooksPath included),
 // core.fsmonitor (a program git runs), core.sshCommand (the program a fetch/push runs).
-const EXEC_KEY = /include(?:if\.[^=\s]*)?\.path|core\.fsmonitor|core\.sshcommand/i;
-// E-353 (D-112 r3 b): the git config files themselves, chosen by environment.
-const CONFIG_ENV = /(^|[\s;&|(])(export\s+)?(GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|HOME)\+?=/;   // += too (A2A 2026-11-18)
+// E-440 (D-163 addendum 2 r2): core.pager, core.editor, diff.external and credential.helper (also
+// the per-URL credential.<url>.helper) name a program git runs.
+const EXEC_KEY = /include(?:if\.[^=\s]*)?\.path|core\.fsmonitor|core\.sshcommand|core\.pager|core\.editor|diff\.external|credential\.(?:[^=\s]*\.)?helper/i;
+// E-440: alias.<name> runs a program when its value starts with `!`. `key=value` spellings (-c,
+// GIT_CONFIG_PARAMETERS) carry the value; --config-env takes it from an environment variable this
+// text does not show, so an alias there blocks whatever its value (fail closed).
+const ALIAS_BANG = /alias\.[^=\s]+\s*=\s*!/i;
+// E-353 (D-112 r3 b): the git config files themselves, chosen by environment. E-440 (D-163
+// addendum 2 r2): GIT_SSH_COMMAND (a program) and XDG_CONFIG_HOME (where the global config is read).
+const CONFIG_ENV = /(^|[\s;&|(])(export\s+)?(GIT_CONFIG_GLOBAL|GIT_CONFIG_SYSTEM|HOME|GIT_SSH_COMMAND|XDG_CONFIG_HOME)\+?=/;   // += too (A2A 2026-11-18)
+const READS_ONLY = /(^|\s)(--get|--get-all|--get-regexp|-l|--list)(\s|$)/;
+// GIT_CONFIG_KEY_<n>=alias.x with GIT_CONFIG_VALUE_<n>=!… on the line, or no VALUE_<n> at all.
+// Two forward passes (values first, then keys): linear in the number of assignments.
+function aliasViaKeyValue(r) {
+  const values = new Map();
+  for (const m of r.matchAll(/(?:^|[\s;&|(])(?:export\s+)?GIT_CONFIG_VALUE_([0-9]+)=([^\s;&|]*)/gi)) values.set(m[1], m[2]);
+  for (const m of r.matchAll(/(?:^|[\s;&|(])(?:export\s+)?GIT_CONFIG_KEY_([0-9]+)=alias\./gi)) {
+    const v = values.get(m[1]);
+    if (v === undefined || v.startsWith("!")) return true;
+  }
+  return false;
+}
 // E-353 (D-112 r3 e): `GIT_DIR=` as an ARGUMENT of a search (`git grep GIT_DIR=`) assigns nothing.
 // Tested on the simple command the occurrence sits in (from the last ; & | newline or ( to the
 // next), one verdict per command — linear, no nested quantifier (E-397). Not a search when that
@@ -112,10 +131,18 @@ export function gitRedirectHits(raw) {
   // E-353 (D-112 r3 b): the other keys that make git run text, by every spelling hooksPath has,
   // and the config files chosen by environment on a git line.
   const execFlag = /(^|\s)(-c\s*|--config-env[=\s])/.source;
+  const envParams = [...r.matchAll(/(^|[\s;&|(])(export\s+)?GIT_CONFIG_(PARAMETERS|KEY_[0-9]+)=([^\s;&|]*)/gi)];
   const execHit = new RegExp(execFlag + "(" + EXEC_KEY.source + ")\\s*=", "i").test(r) ||
-    [...r.matchAll(/(^|[\s;&|(])(export\s+)?GIT_CONFIG_(PARAMETERS|KEY_[0-9]+)=([^\s;&|]*)/gi)].some((m) => EXEC_KEY.test(m[4])) ||
-    configArgs(r).some((args) => EXEC_KEY.test(args) && !/(^|\s)(--get|--get-all|--get-regexp|-l|--list)(\s|$)/.test(args)) ||
-    CONFIG_ENV.test(r);
+    envParams.some((m) => EXEC_KEY.test(m[4])) ||
+    configArgs(r).some((args) => EXEC_KEY.test(args) && !READS_ONLY.test(args)) ||
+    CONFIG_ENV.test(r) ||
+    // E-440: alias.<name>=!… by -c (glued too) and GIT_CONFIG_PARAMETERS; any alias by
+    // --config-env; KEY_n/VALUE_n paired; `git config [scope] alias.<name> !…`.
+    new RegExp(/(^|\s)-c\s*/.source + ALIAS_BANG.source, "i").test(r) ||
+    /(^|\s)--config-env[=\s]alias\./i.test(r) ||
+    envParams.some((m) => m[3].toUpperCase() === "PARAMETERS" && ALIAS_BANG.test(m[4])) ||
+    aliasViaKeyValue(r) ||
+    configArgs(r).some((args) => /(^|\s)alias\.[^\s=]+(\s+|=)!/i.test(args) && !READS_ONLY.test(args));
   if (execHit) {
     hits.push({ id: "ARCH_GIT_EXEC_CONFIG",
       message: "pointing git at other config or at a program (include.path, core.fsmonitor, core.sshCommand, GIT_CONFIG_GLOBAL/SYSTEM, HOME) is a forbidden Architect operation — git runs what it names" });

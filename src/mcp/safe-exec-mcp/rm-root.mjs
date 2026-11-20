@@ -27,7 +27,9 @@ export function rmRecursiveForce(tokens) {
 // old token-only check — so also scan the raw string. Only consulted inside the
 // rm-recursive-force rule, where any root/home target is irreversible.
 // E-353 (D-112 r3 d): /bin and /opt join the system roots.
-const ROOT_TOKEN = /^(\/$|\/root|\/home|\/etc|\/usr|\/var|\/boot|\/bin|\/opt|~$|~\/|\$HOME(\/|$)|\$\{HOME\}(\/|$))/;
+// E-440 (D-163 addendum 2 r8): /sbin, /lib, /lib64 and /srv join them, and a system root matches
+// only at a path boundary — `/opt-cache-x` is not /opt (a glob character still is: `/usr*`).
+const ROOT_TOKEN = /^(\/$|\/(?:root|home|etc|usr|var|boot|bin|sbin|lib64|lib|opt|srv)(?![A-Za-z0-9_.-])|~$|~\/|\$HOME(\/|$)|\$\{HOME\}(\/|$))/;
 function hasRootPaths(tokens, raw) {
   const strTokens = tokens.filter((t) => typeof t === "string").map((t) => String(t));
   if (strTokens.some((t) => ROOT_TOKEN.test(t))) return true;
@@ -42,7 +44,12 @@ function hasRootPaths(tokens, raw) {
   if (/(^|\s)["']?~(?:[+-][0-9]*|[0-9]+)(["'\/\s]|$)/.test(r)) return true;
   // A2A ruling 2026-11-18: $PWD / $OLDPWD are ~+ / ~- by value — bare, braced, quoted, and with
   // :? (always set, so it never fails closed), alone or with / or /*. "${X:?}"/* stays the escape.
-  if (/(^|\s)"?\$(?:\{(?:PWD|OLDPWD)(?::\?[^}]*)?\}|(?:PWD|OLDPWD)(?![A-Za-z0-9_]))"?(?:\/\*?)?"?(\s|;|&|\||$)/.test(r)) return true;
+  // E-440 (D-163 addendum 2 r8 d): the word ends at whitespace or the end, as the $HOME match does,
+  // so `echo $PWD; rm -rf dist` is WARN as `echo $HOME; rm -rf dist` is. The boundary sits AFTER
+  // the optional / or /* (security_engineer pass 1): `$PWD/dist` names a subdirectory, as at HEAD.
+  if (/(^|\s)"?\$(?:\{(?:PWD|OLDPWD)(?::\?[^}]*)?\}|(?:PWD|OLDPWD)(?![A-Za-z0-9_]))"?(?:\/\*?)?"?(\s|$)/.test(r)) return true;
+  // E-440 (c): $(pwd), a backtick pwd and ${PWD%…} (the cwd, or a parent of it) are the cwd too.
+  if (/(^|\s)"?(?:\$\(\s*pwd(?:\s+-[LP])?\s*\)|`\s*pwd(?:\s+-[LP])?\s*`|\$\{(?:PWD|OLDPWD)%[^}]*\})"?(?:\/\*?)?"?(\s|$)/.test(r)) return true;
   if (/(^|\s)\/\*(\s|$)/.test(r)) return true;                      // /* glob (dropped from tokens)
   // E-350 (D-111 r6 ii): ~user is that user's home.
   if (/(^|\s)["']?~[A-Za-z_][A-Za-z0-9_.-]*["']?(\/|\s|$)/.test(r)) return true;

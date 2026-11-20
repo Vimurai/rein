@@ -59,5 +59,18 @@
 {"label":"E-353 (D-112 r3 d, A2A ruling 2026-11-18): an in-class spelling — rm -rf /tmp/.''./*","role":"none","cmd":"rm -rf /tmp/.''./*","want":"BLOCK","rule":"RM_RF_ROOT"},
 {"label":"E-353 (D-112 r3 d, A2A ruling 2026-11-18): an in-class spelling — r=rm; $r -rf /","role":"none","cmd":"r=rm; $r -rf /","want":"BLOCK","rule":"RM_RF_ROOT"},
 {"label":"E-353 (D-112 r3 d, A2A ruling 2026-11-18): an in-class spelling — r=rm; $r -rf /","role":"engineer","cmd":"r=rm; $r -rf /","want":"BLOCK","rule":"RM_RF_ROOT"},
-{"label":"E-353 (D-112 r3 d, A2A ruling 2026-11-18): an in-class spelling — r=rm; $r -rf ./dist","role":"none","cmd":"r=rm; $r -rf ./dist","want":"pass"}
+{"label":"E-353 (D-112 r3 d, A2A ruling 2026-11-18): an in-class spelling — r=rm; $r -rf ./dist","role":"none","cmd":"r=rm; $r -rf ./dist","want":"pass"},
+{"label":"E-440 (D-163 addendum 2 r8): /sbin","role":"none","cmd":"rm -rf /sbin","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): /lib","role":"none","cmd":"rm -rf /lib","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): /lib64","role":"none","cmd":"rm -rf /lib64","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): /srv","role":"none","cmd":"rm -rf /srv","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): a root prefix still matches below it","role":"none","cmd":"rm -rf /srv/www","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): $(pwd) is the cwd","role":"none","cmd":"rm -rf $(pwd)","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): a backtick pwd is the cwd","role":"none","cmd":"rm -rf `pwd`/*","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): ${PWD%/*} is the cwd","role":"none","cmd":"rm -rf ${PWD%/*}","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): narrow (d): $PWD as an echo argument is not the rm operand — WARN as $HOME is","role":"none","cmd":"echo $PWD; rm -rf dist","want":"pass","not_rule":"RM_RF_ROOT"},
+{"label":"E-440 (D-163 addendum 2 r8): narrow (d): a root prefix matches only at a path boundary","role":"none","cmd":"rm -rf /opt-cache-x","want":"pass","not_rule":"RM_RF_ROOT"},
+{"label":"E-440 (security_engineer pass 1): a subpath of $PWD is not the cwd (WARN, as at HEAD)","role":"none","cmd":"rm -rf $PWD/dist","want":"pass","not_rule":"RM_RF_ROOT"},
+{"label":"E-440 (security_engineer pass 1): a subpath of $(pwd) is not the cwd","role":"none","cmd":"rm -rf $(pwd)/dist","want":"pass","not_rule":"RM_RF_ROOT"},
+{"label":"E-440 (security_engineer pass 1): $PWD/<subpath> as another command's argument","role":"none","cmd":"ls $PWD/src; rm -rf dist","want":"pass","not_rule":"RM_RF_ROOT"}
 ]

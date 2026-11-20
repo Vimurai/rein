@@ -252,7 +252,8 @@ assert_contains "E-216.09j: computer-use key_press is denied" "mcp__computer-use
 # The three comment sites state coverage AND the residual, naming each uncovered form, and the
 # module carries the invariant a new matcher must uphold.
 ARCH_WRITES="${REPO_ROOT}/src/mcp/safe-exec-mcp/architect-writes.mjs"
-assert_status 0 "E-216.08a: safe-exec names the shell-write analyser" grep -q "analyzeArchitectWrites" "$SE"
+# E-442 moved the sovereignty rules, and the call, out of index.js into sovereignty.mjs.
+assert_status 0 "E-216.08a: safe-exec names the shell-write analyser" grep -q "analyzeArchitectWrites(" "${REPO_ROOT}/src/mcp/safe-exec-mcp/sovereignty.mjs"
 assert_status 0 "E-216.08a2: the policy module exports it" grep -q "export function analyzeArchitectWrites" "$ARCH_WRITES"
 assert_status 0 "E-216.08c: it says plainly that the channel is not airtight" grep -q "not airtight" "$ARCH_WRITES"
 assert_status 0 "E-216.08d/e: the hook enumerates all three layers and states its residual" \

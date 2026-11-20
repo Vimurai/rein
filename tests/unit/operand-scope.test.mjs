@@ -67,6 +67,27 @@ test("the D-105 body is stripped only under the read-only relaxation", () => {
   assert.ok(relaxed.includes('echo "appended'), "and the trailing line is kept and scanned");
 });
 
+// E-446 (D-163 addendum 2 r14): a file the tool runs without being named keeps its body scanned,
+// in both modes — the twelve names the ruling adds, as one loop (not as table rows).
+test("an implicit-run sink keeps its heredoc body scanned (the E-446 names)", () => {
+  const names = ["justfile", "Justfile", ".justfile", "Rakefile", "BSDmakefile", "Makefile.in", "Taskfile.yml",
+    "Taskfile.yaml", ".bash_aliases", ".bash_logout", "sitecustomize.py", "usercustomize.py"];
+  for (const name of names) {
+    for (const path of [name, `sub/${name}`]) {
+      const cmd = `cat > ${path} <<'E'\nMARK_BODY\nE`;
+      assert.ok(stripInertHeredocs(cmd).includes("MARK_BODY"), `${path}: strict strip removed the body`);
+      assert.ok(stripInertHeredocs(cmd, { readOnlyLines: true }).includes("MARK_BODY"), `${path}: relaxed strip removed it`);
+    }
+  }
+  // security_engineer pass 1: the same tools' other spellings — just reads any letter case; rake
+  // rakefile, Rakefile.rb and rakelib/*.rake; task taskfile.yml and Taskfile.dist.yml.
+  for (const path of ["JUSTFILE", "JustFile", "rakefile", "Rakefile.rb", "rakelib/x.rake", "taskfile.yml", "Taskfile.dist.yml"]) {
+    assert.ok(stripInertHeredocs(`cat > ${path} <<'E'\nMARK_BODY\nE`).includes("MARK_BODY"), `${path}: strict strip removed the body`);
+  }
+  // Non-vacuity: an ordinary file's body IS stripped by the same call.
+  assert.ok(!stripInertHeredocs("cat > notes.md <<'E'\nMARK_BODY\nE").includes("MARK_BODY"));
+});
+
 // readOnlyLine is an allowlist: anything it does not model is "not read-only" (= scanned as before).
 const RO = [
   [`echo "appended; D count: $(grep -c '^## D-' .ai/DECISIONS.md)"; tail -3 .ai/DECISIONS.md | head -1`, true],

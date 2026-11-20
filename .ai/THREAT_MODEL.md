@@ -1278,12 +1278,19 @@ root-owned install exists.
 - Hook fallback only (the no-verdict path, which needs an active override and ARG_MAX padding):
   it does not decode env -S, and `${X-rein} gate off`, `${X:-re}${Y:-in} gate off` and
   `${X:-r}ein gate off` pass it. The analyzer blocks all of them.
-- INCONCLUSIVE — implicit-run sinks outside IMPLICIT_RUN's list: a heredoc body written to
-  `justfile`, `Rakefile`, `.bash_aliases`, `BSDmakefile`, `Taskfile.yml`, `sitecustomize.py`,
-  `.bash_logout` or `Makefile.in` is still stripped. E-439's list is accepted as built; widening
-  it is a follow-up task.
-- INCONCLUSIVE — IMPLICIT_RUN reads `/tmp/../etc/x` as a `/tmp` path (pre-existing, both
-  modes). Suggested fix: a sink with a `..` segment is implicit-run.
+- Closed by E-446 (D-163 addendum 2 r14; was INCONCLUSIVE) — implicit-run sinks outside
+  IMPLICIT_RUN's list: `justfile`, `Justfile`, `.justfile`, `Rakefile`, `BSDmakefile`,
+  `Makefile.in`, `Taskfile.yml`/`.yaml`, `.bash_aliases`, `.bash_logout`, `sitecustomize.py` and
+  `usercustomize.py` keep their heredoc body scanned in both modes. From the E-446 security pass,
+  the same tools' other spellings too: just in any letter case, rake's `rakefile`, `Rakefile.rb`
+  and `*.rake`, task's `taskfile.yml` and `Taskfile.dist.yml`.
+- Closed by E-446 (was INCONCLUSIVE) — a sink path with a `..` segment is implicit-run in both
+  modes, so `/tmp/../etc/x` is no longer read as a `/tmp` path; `notes..txt` is not a segment.
+- Open (E-446 security pass, P2, new; for the Architect): a `cd` before the heredoc moves a
+  RELATIVE sink — `cd /etc && cat > profile.d/x.sh`, `cd /tmp/.. && cat > etc/x` — and the
+  absolute-path check never sees it.
+- Residual (P3, the deny list cannot be complete): `.claude/settings.json` (hooks),
+  `site-packages/*.pth`, `.venv/bin/activate`, `.vscode/tasks.json`, `setup.py`, `noxfile.py`.
 - Hex and octal escapes (`$'r\145in' gate off`) stay the r3 class above.
 - Closed (third pass, A2A 13:32): f1 (P1) the decoder modelled env's options — it now reads every
   word after `env` as a possible -S, abbreviated `--split-string` included; f2 (P1) here-strings are

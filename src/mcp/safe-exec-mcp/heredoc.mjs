@@ -131,7 +131,7 @@ export function stripInertHeredocs(raw, { readOnlyLines = false } = {}) {
   // naming it) keeps every body scanned, exactly as without the relaxation.
   // E-439 (D-163 addendum 2 r2): the implicit-run sink check holds in strict mode too — a body
   // written to a Makefile or .bashrc is run by `make` or a shell that never names the file.
-  for (let k = cands.length - 1; k >= 0; k--) if (cands[k].sinks.some((p) => IMPLICIT_RUN.test(p))) cands.splice(k, 1);
+  for (let k = cands.length - 1; k >= 0; k--) if (cands[k].sinks.some(implicitRun)) cands.splice(k, 1);
   if (cands.length === 0) return text;
   if (readOnlyLines) {
     const other = (n) => !inBody(n, cands) && !inertLine(n, cands) && lines[n].trim() !== "";
@@ -169,8 +169,16 @@ export function stripInertHeredocs(raw, { readOnlyLines = false } = {}) {
 // quote at a head, an unbalanced quote. A refusal only means "not exempt" — the line is then
 // scanned exactly as before E-340. Two earlier E-340 cuts modelled the whole shell and marked text
 // as DATA by denylist; both failed critic_security, because every parser gap hid a command.
+// E-446 (D-163 addendum 2 r14): the list stays a deny list and gains the task runners' files
+// (justfile, Rakefile, BSDmakefile, Makefile.in, Taskfile.y(a)ml), bash's .bash_aliases and
+// .bash_logout, and Python's site/usercustomize.py. A path with a `..` SEGMENT is implicit-run in
+// both modes — `/tmp/../etc/x` is not under /tmp; two dots inside a name (`notes..txt`) are not one.
 const IMPLICIT_RUN =
-  /(?:^|\/)(?:GNUmakefile|[Mm]akefile|[^/]*\.mk|\.(?:bash|zsh|ksh)?rc|\.(?:bash_)?profile|\.bash_login|\.zprofile|\.zlogin|\.zshenv|\.envrc|\.npmrc|package\.json|\.gitconfig|crontab|\.pre-commit-config\.yaml|conftest\.py)$|(?:^|\/)\.(?:git|github|husky)\/|^\/(?!tmp\/)/;
+  /(?:^|\/)(?:GNUmakefile|BSDmakefile|[Mm]akefile(?:\.in)?|[^/]*\.mk|\.(?:bash|zsh|ksh)?rc|\.(?:bash_)?profile|\.bash_login|\.bash_logout|\.bash_aliases|\.zprofile|\.zlogin|\.zshenv|\.envrc|\.npmrc|package\.json|\.gitconfig|crontab|\.pre-commit-config\.yaml|conftest\.py|sitecustomize\.py|usercustomize\.py)$|(?:^|\/)\.(?:git|github|husky)\/|(?:^|\/)\.\.(?:\/|$)|^\/(?!tmp\/)/;
+// security_engineer pass 1 (E-446): the task runners find their file in any letter case — just any
+// spelling of (.)justfile; rake rakefile, Rakefile.rb and rakelib/*.rake; task Taskfile(.dist).y(a)ml.
+const TASK_RUNNER_FILE = /(?:^|\/)(?:\.?justfile|rakefile(?:\.rb)?|[^/]*\.rake|taskfile(?:\.dist)?\.ya?ml)$/i;
+const implicitRun = (p) => IMPLICIT_RUN.test(p) || TASK_RUNNER_FILE.test(p);
 const READ_ONLY = new Set([
   // not printf: `printf -v PATH …` assigns a variable (critic_security, E-340 third review)
   "echo", "grep", "egrep", "fgrep", "tail", "head", "wc", "cat", "ls", "cut", "tr",

@@ -2572,3 +2572,30 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - `git merge-base --is-ancestor` is blocked for the Architect as ARCH_GIT_MERGE. It is read-only. Noted for the E-440 over-block list; not ruled here.
 - This commit carries `.ai/REVIEWS.md` and `.ai/state.json` as found, which include stamps your E-442 session left uncommitted. `.ai/providers.json` and `.ai/roles.json` are left dirty: they are the operator's.
 ---
+
+---
+## Handoff — 2026-11-20 15:10 UTC
+**From**: Architect → Engineer
+**Trigger**: D-165 recorded and E-448 registered, on an operator request.
+
+### What was built
+- `.ai/DECISIONS.md`: D-165. One task: E-448 (Tier 2, framework).
+
+### Decisions made
+- **D-165**: a machine-local generated file is refused at commit in every Rein project. Today it is only reported.
+  - Cause: a colleague pulled a project and received `.claude/settings.json` with the operator's absolute paths.
+  - The list is the four paths `_ensure_generated_gitignore` already writes.
+  - The content check reads staged `.claude/**` and `.mcp.json` only.
+  - Not reopened: the absolute hook paths of D-083 r2.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Engineer**: E-448 after E-441. It does not touch the gate stack. Read D-165 r1–r5 first; the task text is short on purpose.
+- **Operator**: in the shared project, `git rm --cached .claude/settings.json`, commit, push.
+
+### Open risks
+- A project that commits `.claude/settings.json` on purpose can no longer commit a change to it (D-165, Impact).
+- The acceptance clauses need a fixture repo with the hook installed. If the pre-commit suite has no such fixture, report it before building one.
+---

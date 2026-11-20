@@ -2092,6 +2092,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-18T15:58:41.190Z"
+    },
+    {
+      "id": "E-448",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Refuse machine-local generated files at commit in every Rein project per D-165 (rulings 1-5 carry the detail; today sync and doctor only print a `!` line). Ordering by text: independent of the gate stack; after E-441. (1) Put the machine-local list (.claude/settings.json, .ai/start.local.json, .ai/ci.local.json, .ai/.last-import-blob) in one place that `_ensure_generated_gitignore` in src/bin/rein, the doctor check near `settings_json_tracked` and the new gate step all read. (2) In hooks/pre-commit.sh add a step that runs in every project (outside the `.ai/publish.json` block, no env opt-out): refuse with `[COMMIT_BLOCKED] [MACHINE_LOCAL]`, the path and `git rm --cached <path>` when a staged add or modify is on the list; a staged deletion passes. (3) Same step: refuse a staged blob under .claude/ or a staged .mcp.json whose index content (`git show :<path>`) contains the literal value of $HOME followed by `/`; scan no other path. (4) `rein doctor`: a tracked path from the list sets `_DOCTOR_HARD_FAIL`; `rein sync` keeps its line and does not touch the index. (5) Tests per .ai/blueprints/test-economics.md: extend the existing pre-commit suite, no suite named for this task. Acceptance: in a fixture repo with the hook installed, `git add -f .claude/settings.json && git commit` exits non-zero and prints `[MACHINE_LOCAL]` with the path; `git rm --cached .claude/settings.json && git commit` on a repo that tracked it exits 0; a staged .claude/settings.architect.json without a home path commits, and the same file with `$HOME/x` in it is refused; a staged docs/x.md containing the home path commits; `rein doctor` exits non-zero in a repo that tracks .claude/settings.json; `grep -c \"start.local.json\" src/bin/rein hooks/pre-commit.sh` shows the list is a literal in at most one of the two files; `rein ci run` is green. Framework task.",
+      "created_at": "2026-11-20T15:09:05.929Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-20T15:09:05.930Z"
     }
   ],
   "stamps": [
@@ -6552,6 +6566,123 @@
       "timestamp": "2026-11-20T14:20:41.400Z",
       "summary": "CORRECTION to the preceding INSIGHTS_GENERATED stamp: ~/.rein/INSIGHTS.md was NOT written (write gate GATE_SELF_DISABLE blocked it); analysis done, draft held in session scratchpad",
       "sha": "dc6619edcbcf9ca83ea312c3eed7ce78a06323aa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-441",
+      "timestamp": "2026-11-20T14:46:13.683Z",
+      "summary": "E-441 cleared after 4 passes (~150 payloads): the cd/pushd/popd relocation reader holds against ANSI-C, $IFS, ${X:-cd}, brace lists, variables and aliases, redirection/assignment prefixes, keywords with options, line continuations, mapfile -C. Residuals P2: env --chdir, find -execdir, sudo -D, sourcing a script, cd -P via a symlink planted in .ai/. P3: c[d] glob, chroot, autocd, coproc, subshell-cd over-blocks. Unrelated (E-438): git operand scope reads past && and ;.",
+      "sha": "dd37211eecf018e7e308c2652c716fe631e7aecc",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-441",
+      "timestamp": "2026-11-20T14:46:31.441Z",
+      "summary": "No sovereignty violations; changes confined to src/mcp/safe-exec-mcp (git-view, assigned-verbs, sovereignty, index) and operand-scope tests/fixture per E-441/D-164 r7; no architect.md/BRIEF/blueprints touched; one-line E-442 test-path fix in pre_tool_use_gate_test.sh noted as justified",
+      "sha": "dd37211eecf018e7e308c2652c716fe631e7aecc",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_PASS",
+      "agent": "critic_clean_code",
+      "task_id": "E-441",
+      "timestamp": "2026-11-20T14:46:32.983Z",
+      "summary": "standards-checker PASS — 7 files clean (4 safe-exec src, 3 tests), 0 errors, 0 warnings, max 8ms",
+      "sha": "dd37211eecf018e7e308c2652c716fe631e7aecc",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-441",
+      "timestamp": "2026-11-20T14:46:33.032Z",
+      "summary": "No P0; no secrets, no exec or path construction from input; new regexes (BRACE_LIST, CD_OPTION, trimSlash) linear on whitespace-split words; fail-closed when projectRoot is absent, cd has no operand, popd, or an operand holds $ or a backtick; the change only adds restriction.",
+      "sha": "dd37211eecf018e7e308c2652c716fe631e7aecc",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-441",
+      "timestamp": "2026-11-20T14:57:03.110Z",
+      "summary": "operand-scope unit 559/559 pass; fast --changed suites FAIL=0 (pre_tool_use_gate 201/0, pane_binding 158/0, propose_patch 164/0); cd/pushd/subshell/dynamic-word relocation behaviours covered by contract-table rows with negative controls; E-442 grep fix correct. Advisory: LEAKED lines in pane_binding/propose_patch (not in diff).",
+      "sha": "dd37211eecf018e7e308c2652c716fe631e7aecc",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-441",
+      "timestamp": "2026-11-20T14:57:13.995Z",
+      "summary": "Parallel critics on the E-441 diff (+ E-442 test-path fix): ARCH_PASS, SEC_PASS, TESTS_PASS (559/559 operand-scope), CLEAN_PASS (7 files, 0 findings); SEC_CLEARED after 4 security_engineer passes. No P0/P1. Advisory: fast-run LEAKED lines in pane_binding/propose_patch (not in the diff).",
+      "sha": "dd37211eecf018e7e308c2652c716fe631e7aecc",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-441",
+      "timestamp": "2026-11-20T14:57:22.131Z",
+      "summary": "E-441 diff on 061e3ee (E-442 test fix committed): same critic round — ARCH_PASS, SEC_PASS, TESTS_PASS 559/559, CLEAN_PASS, SEC_CLEARED (4 passes). No P0/P1.",
+      "sha": "061e3ee070207d4148f78f05bfe77517b7c12235",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-440",
+      "timestamp": "2026-11-20T15:08:10.151Z",
+      "summary": "E-440 cleared after 2 passes (~260 probes, HEAD vs tree): no bypass of the listed keys/env names in any spelling; the (d) boundary over-block on $PWD/<subpath> fixed. Residuals P2: env GIT_PAGER/GIT_EDITOR/EDITOR/PAGER/GIT_SSH/GIT_ASKPASS/GIT_EXTERNAL_DIFF/GIT_PROXY_COMMAND; keys core.askPass, gpg.program, diff.<d>.textconv, filter.<d>.clean, core.gitProxy, pager.<cmd>, interactive.diffFilter; cwd forms $(pwd -LP), $(builtin pwd), ${PWD-}, ${PWD:-x}, $(dirname $PWD), $(realpath .). P3: rm -rf $PWD;/$(pwd);/&& now WARN (the ruled $HOME class); /lib32, /libx32; ${PWD#…}; git config core.pager (no --get) and git grep XDG_CONFIG_HOME= over-block; configArgs 147 ms at 55 KB.",
+      "sha": "ffed1e8f4507c6346b92703d298df505612b7e84",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-440",
+      "timestamp": "2026-11-20T15:08:30.355Z",
+      "summary": "No sovereignty violations; diff confined to safe-exec-mcp git-redirect.mjs and rm-root.mjs plus block-rules-cases.json and operand-scope-cases.json; covers D-163 add.2 r2 (a) and r8 (b-d); no Architect-owned files touched",
+      "sha": "ffed1e8f4507c6346b92703d298df505612b7e84",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_PASS",
+      "agent": "critic_clean_code",
+      "task_id": "E-440",
+      "timestamp": "2026-11-20T15:08:30.526Z",
+      "summary": "standards-checker PASS — 4 files clean (git-redirect.mjs, rm-root.mjs, block-rules-cases.json, operand-scope-cases.json), 0 errors, 0 warnings, elapsed_ms <=2 each",
+      "sha": "ffed1e8f4507c6346b92703d298df505612b7e84",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-440",
+      "timestamp": "2026-11-20T15:08:31.962Z",
+      "summary": "operand-scope + block-rules-cases unit tests 660/660 pass; E-440 adds 41 contract-table rows (git exec-config BLOCK + pass controls, RM_RF_ROOT forms, narrowing/subpath passes) at the cheapest layer, no new suites. Bash suites not run (CI in progress).",
+      "sha": "ffed1e8f4507c6346b92703d298df505612b7e84",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-440",
+      "timestamp": "2026-11-20T15:08:32.343Z",
+      "summary": "No P0; new git exec-config/alias/env and rm-root regexes reviewed (no nested quantifiers, worst case a quadratic scan on a bounded command line); fail-closed on --config-env alias and missing VALUE_n; no new exec, env leakage or path construction; no secrets.",
+      "sha": "ffed1e8f4507c6346b92703d298df505612b7e84",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-440",
+      "timestamp": "2026-11-20T15:08:40.840Z",
+      "summary": "Parallel critics on the E-440 diff (HEAD ffed1e8): ARCH_PASS, SEC_PASS, TESTS_PASS (660/660 on the two tables), CLEAN_PASS (4 files, 0 findings); SEC_CLEARED after 2 security_engineer passes. No P0/P1; residuals recorded on SEC_CLEARED.",
+      "sha": "ffed1e8f4507c6346b92703d298df505612b7e84",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

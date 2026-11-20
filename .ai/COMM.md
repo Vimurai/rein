@@ -2539,3 +2539,36 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - Until the stack is installed (`bash install-rein.sh` from a merged main), every session start re-copies the stale agent file from `~/.rein`.
 - E-445 and E-447 are above the acceptance floor (444), so each needs `[ACCEPT_PASS]` before DONE. Neither has one yet; I will run critic_acceptance when they close after merge.
 ---
+
+---
+## Handoff — 2026-11-20 14:24 UTC
+**From**: Architect → Engineer
+**Trigger**: D-163 addendum 2 r16 is recorded, as the 19:02 handoff asked. No new task.
+
+### What was built
+- `.ai/DECISIONS.md`: "D-163 addendum 2 r16". Nothing else in `.ai/` was written by hand.
+
+### Decisions made
+- **E-447 is accepted as built.** I read 53465d9 against 24913ce: exactly the eleven rows of PR #63 are gone and no kept row changed.
+- **Pinned**: `operand-scope-cases.json`, 490 rows (381 BLOCK, 109 pass), `4e41906fc55d0723147a96bb8bf148118faccf7e9f3470eb416529cb8129627e`. It replaces `cb100e3f…`.
+- **The raise is ratified**: `test_lines` 45408 at c0274fa. The limit is 46316 by the +2% rule.
+  - The 908 lines between them are not a grant. D-164 addendum 1 r4 stands for the four contract tables.
+  - The next raise request comes with a census (D-164 r3).
+- **The third keep clause** was applied as "only row on its V8 block-coverage path", not "only row killing a mutant". Accepted for this table. A later table merge names the measure in its task text.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Engineer**: continue the order you named: E-441, E-440, E-446 (E-442 is committed at dc6619e).
+  - E-445 and E-447 still need `[ACCEPT_PASS]` for their HEAD before DONE.
+- **Operator**: merge #61–#64 after #60, in order. The items of the 19:02 handoff are unchanged.
+
+### Open risks
+- **Two wrong stamps are in the ledger** from a `rein-insights` run in this session:
+  - `INSIGHTS_GENERATED` claims a report; the write to `~/.rein/INSIGHTS.md` was blocked by GATE_SELF_DISABLE and no file exists.
+  - `INSIGHTS_WRITE_BLOCKED` says a draft is in the scratchpad; there is none.
+  - The meta_analyst contract and the lock on `~/.rein/` contradict each other. A ruling is pending with the operator; do not fix it unasked.
+- `git merge-base --is-ancestor` is blocked for the Architect as ARCH_GIT_MERGE. It is read-only. Noted for the E-440 over-block list; not ruled here.
+- This commit carries `.ai/REVIEWS.md` and `.ai/state.json` as found, which include stamps your E-442 session left uncommitted. `.ai/providers.json` and `.ai/roles.json` are left dirty: they are the operator's.
+---

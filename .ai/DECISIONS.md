@@ -5739,3 +5739,36 @@ None for the review record. E-445: restore the table from d78fba0 (`c80f9b68…`
 Raise `ACCEPT_GATE_FLOOR` above the highest task id; the gate is then inactive.
 
 ---
+
+## D-163 addendum 2 r16 — E-447 as built: eleven operand-scope rows merge and the table is re-pinned at 490 rows; the test_lines value is 45408 at c0274fa
+
+**Date**: 2026-11-20
+**Task**: E-447 (PR #63, 24913ce), E-432 (PR #64, the budget run on c0274fa)
+**Decision**: E-447 is accepted as built and the raise the Engineer applied on 2026-11-18 is ratified. This entry continues the numbering of D-163 addendum 2 for the reason given at r11–r15: the task text, PR #63 and the budget record already cite "r16".
+
+### Why needed
+The A2A ruling of 2026-11-18 15:58 stood only in the pane message and in E-447's task text. `rein ci budget` already reads "ruled by D-163 at c0274fa" for a value no entry of D-163 names. The 15:58 message is not on disk; the rulings below are restated from E-447's task text, PR #63 and the handoff of 2026-11-18 19:02, and they are the record from here on.
+
+### Rulings
+16. **E-447 and the budget.**
+    - **(a) The selection rule.** In rows #438–#516 of `operand-scope-cases.json` (the E-438 rows, census §3b.2), one row is kept per group of rows that share branch, verdict and role. Also kept: every row that is the only carrier of a `T-*` label or of a D-ruling row label, and every row whose path through the git readers no remaining row shares. This is D-164 addendum 1 r4 applied to rows that predate it, the same way as E-445.
+    - **(b) As built.** Eleven rows are removed, by 0-based id of the 501-row table, each with the row that now carries it: 452→451, 454→133, 455→381, 460→451, 467→466, 472→458, 473→22, 487→462, 495→462, 496→462, 500→499. Read by the Architect on 53465d9 and 24913ce: exactly these eleven rows are gone, and no remaining row changed in `cmd`, `role`, `want` or label. The carrier of each is the Engineer's mapping, stamped TESTS_PASS; the Architect did not re-derive the branch of each carrier.
+    - **(c) One difference from the task text.** The task's third keep clause read "the only one killing a mutant on its path". It was applied as "the only row on its V8 block-coverage path". That is accepted for this table: there is no mutation run in the harness, and block coverage is what E-445 used. A later table merge names the measure in its task text.
+    - **(d) Pinned.** `operand-scope-cases.json`, 490 rows (381 BLOCK, 109 pass), `4e41906fc55d0723147a96bb8bf148118faccf7e9f3470eb416529cb8129627e`, recomputed by the Architect on 24913ce and c0274fa. It replaces `cb100e3f…` of r11. No source changed, so the security clearance stands (the D-164 addendum 1 r2 precedent).
+    - **(e) The budget.** E-447 freed 11 lines (45277 → 45266), not the 48 the ruling needed. E-432 adds 142 lines on top; its first run on c0274fa measured 45408 against the limit of 45370 (44481 + 2%) and failed on `test_lines` alone. Point 4 of the 15:58 ruling covered this case, and the Engineer applied it: `rein ci budget set --ruling D-163 --at c0274fa test_lines=45408`. Ratified. E-444 and E-445 were already under E-432 in the stack, so r15's "build them first" was exhausted before the raise.
+    - **(f) What the raise is and is not.** The recorded value is the measured tree; by the budget's own rule the limit is now 46316 (+2%). The 908 lines between them are not a grant. D-164 addendum 1 r4 stands for all four contract tables, and the E-443 ratchet lowers the value from any green run on a tree that contains c0274fa. The next request to raise `test_lines` comes with a census, as D-164 r3 ruled.
+    - **(g) Still due.** E-445 and E-447 are above the acceptance floor (444): each needs `[ACCEPT_PASS]` for its HEAD before DONE (D-159 addendum 2). Neither has one.
+
+### Alternatives considered
+1. **Hold E-432 until more rows merge** — rejected: the census found no further group in these four tables that merges without a re-pin of a cleared table, and E-432 is the control ledger P-52 waits on.
+2. **Set the value below the measured tree so the limit lands on 45408** — rejected: a recorded value that no tree measured is the defect D-164 addendum 1 corrected.
+3. **Cut 38 lines from E-432's own tests** — rejected: its rows are the rule-attribution table of a Tier 3 gate change, cleared in two security passes.
+
+### Impact
+- Unlocks: the merge of #63 and #64; E-442 and the tasks behind it run against 45408.
+- Risk if wrong: a removed row was the only one on its branch and a later change to the git readers reopens that payload unnoticed. The eleven rows stay in 53465d9 and their payloads in `.ai/SECURITY.md` "E-438".
+
+### Rollback
+Restore the table from 53465d9 (`cb100e3f…`). The budget: `rein ci budget set --ruling D-163 --at c0274fa test_lines=45408` is the state to return to if the value is lowered by mistake; there is no lower ruled value for a tree that contains E-432.
+
+---

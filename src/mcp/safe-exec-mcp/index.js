@@ -34,6 +34,7 @@ import { pipeHit } from "./pipe-shell.mjs";
 import { rmRootHit, rmRecursiveForce } from "./rm-root.mjs";
 import { analyzeSovereignty } from "./sovereignty.mjs";
 import { pathAnalysis, gateRole } from "./path-gate.mjs";
+import { findProjectRootFrom } from "./architect-writes.mjs";
 export { pathAnalysis };
 import { createLogger } from "../shared/logger.js";
 
@@ -219,7 +220,9 @@ const OVERRIDE_ENFORCED = new Set([
 const HEREDOC_EXEMPT_RULES = new Set(["CURL_PIPE_SHELL", "WGET_PIPE_SHELL", "GATE_SELF_DISABLE", "SECRET_IN_COMMAND"]);
 
 // Exported for the in-process contract table (E-340, tests/unit/operand-scope.test.mjs).
-export function runAnalysis(original, callerRole, { override = false } = {}) {
+// E-441: `projectRoot` is the root the --check gate runs in; a `cd` to it keeps the Architect's git
+// exemption. Without one (the MCP tool, the tables) any directory change before git counts.
+export function runAnalysis(original, callerRole, { override = false, projectRoot } = {}) {
   // The body of a quoted heredoc whose consumer is a plain file sink is TEXT for the
   // HEREDOC_EXEMPT_RULES (heredoc.mjs decides what counts as inert). The report still quotes
   // the command as given.
@@ -246,14 +249,14 @@ export function runAnalysis(original, callerRole, { override = false } = {}) {
   let sovereignty = [];
   if (!override && callerRole === "architect") {
     const sovText = stripInertHeredocs(full, { readOnlyLines: true });
-    sovereignty = analyzeSovereignty(sovText === full ? fullTokens : _tokens(sovText), sovText, fullTokens, full);
+    sovereignty = analyzeSovereignty(sovText === full ? fullTokens : _tokens(sovText), sovText, fullTokens, full, 0, { projectRoot });
     // E-353 (D-112 r3 a): a verb held in a name (`g=git; $g push`, `alias g=git; g push`) is the
     // verb — the same rules run on the text with those uses expanded; the verdict is the union.
     const expSov = expandAssignedVerbs(sovText);
     if (expSov !== sovText) {
       const expFull = expandAssignedVerbs(full);
       const seen = new Set(sovereignty.map((v) => v.id));
-      for (const v of analyzeSovereignty(_tokens(expSov), expSov, _tokens(expFull), expFull)) {
+      for (const v of analyzeSovereignty(_tokens(expSov), expSov, _tokens(expFull), expFull, 0, { projectRoot })) {
         if (!seen.has(v.id)) { seen.add(v.id); sovereignty.push(v); }
       }
     }
@@ -429,7 +432,7 @@ if (_checkIdx !== -1) {
     // fail-closed guarantee deterministically. SAFE — it can only ADD restriction
     // (force a block), never bypass the gate, so honouring it from env is harmless.
     if (process.env.REIN_SAFE_EXEC_SELFTEST_THROW === "1") throw new Error("self-test fault injection");
-    result = runAnalysis(cmd, role, { override: process.argv.includes("--override") });
+    result = runAnalysis(cmd, role, { override: process.argv.includes("--override"), projectRoot: findProjectRootFrom(process.cwd()) });
   } catch (e) {
     // E-128 (sovereignty-hardening.md): the error path is FAIL-CLOSED. An internal
     // analyzer crash must BLOCK (exit 2), not allow — a fail-open error path would

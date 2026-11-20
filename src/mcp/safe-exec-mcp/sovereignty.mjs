@@ -68,7 +68,7 @@ function operandsAfter(tokens, cmd, sub) {
 // E-350: `depth` counts code-string levels (su -c "bash -c '…'"); see codeStrings below.
 const CODE_STRING_DEPTH = 3;
 const CODE_STRING_BYTES = 16 * 1024;
-export function analyzeSovereignty(tokens, raw, writeTokens = tokens, writeRaw = raw, depth = 0) {
+export function analyzeSovereignty(tokens, raw, writeTokens = tokens, writeRaw = raw, depth = 0, { projectRoot } = {}) {
   const violations = [];
 
   // E-438 (D-163 addendum 2 r2): the git rules also read each git command as git reads it — the
@@ -83,7 +83,7 @@ export function analyzeSovereignty(tokens, raw, writeTokens = tokens, writeRaw =
     const targets = operandsAfter(tokens, "git", verb);
     // E-438 (A2A 2026-11-18 09:06 r4): `.ai/x` names .ai/ only where git runs — not after a `-C`
     // elsewhere, or with --work-tree / --git-dir / core.worktree on the line.
-    const scopedSafe = targets.length > 0 && targets.every(isSafeArchitectPath) && !gitRelocated(raw);
+    const scopedSafe = targets.length > 0 && targets.every(isSafeArchitectPath) && !gitRelocated(raw, projectRoot);
     if (!scopedSafe) {
       violations.push({
         id: `ARCH_GIT_${verb.toUpperCase()}`,
@@ -146,7 +146,7 @@ export function analyzeSovereignty(tokens, raw, writeTokens = tokens, writeRaw =
   // analysed further, so it blocks rather than passes.
   for (const code of codeStrings(raw)) {
     const inner = depth < CODE_STRING_DEPTH && code.length <= CODE_STRING_BYTES
-      ? analyzeSovereignty(_tokens(code), code, undefined, undefined, depth + 1)
+      ? analyzeSovereignty(_tokens(code), code, undefined, undefined, depth + 1, { projectRoot })
       : [{ id: "ARCH_CODE_STRING_DEPTH", message: `a code string nested deeper than ${CODE_STRING_DEPTH} levels or longer than ${CODE_STRING_BYTES} bytes is a forbidden Architect operation — it is not analysed` }];
     for (const v of inner) if (!violations.some((x) => x.id === v.id)) violations.push(v);
   }

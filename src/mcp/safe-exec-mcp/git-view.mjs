@@ -18,6 +18,8 @@
 //     that splits on ; | & and newlines, then on whitespace — so a quote-state slip in the first
 //     (`# it's`, an apostrophe in a heredoc body) cannot hide the command. A line blocks if either
 //     reader yields a forbidden subcommand.
+import { realpathSync } from "node:fs";
+import { isAbsolute, normalize } from "node:path";
 import { decodeAnsiC, normaliseWord, shellCommands } from "../../shared/shell-word.mjs";
 
 const SPACE_VALUED = new Set(["-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env",
@@ -86,12 +88,80 @@ export function gitCommandView(raw) {
   return out.join("\n");
 }
 
+// E-441 (D-164 r7; .ai/SECURITY.md "E-438" RX1, RX2): a `cd`, `pushd` or `popd` before a git
+// command moves the tree git runs in, so `.ai/x` there names another tree's `.ai/`. A directory
+// change counts unless its operand is literally the project root the analyzer was given (the
+// `cd <project root> &&` prefix every Bash call carries). Fail closed: no root given, no operand
+// (`cd` goes HOME), `-`, a `pushd +N`, any `popd`, or an operand holding `$` or a backtick all
+// count. Grammar-free, like the readers above: any word before the git word, split on ; | & ( ) `
+// { } < > and whitespace, so a subshell `(cd .. && git …)` is seen.
+const CD_VERBS = new Set(["cd", "pushd", "popd"]);
+const CD_OPTION = /^-[LPe@]+$/;
+const trimSlash = (p) => normalize(p).replace(/(.)\/+$/, "$1");
+function rootForms(projectRoot) {
+  if (!projectRoot) return null;
+  const forms = new Set([trimSlash(String(projectRoot))]);
+  try { forms.add(realpathSync(String(projectRoot))); } catch { /* the given spelling only */ }
+  return forms;
+}
+function cdLeavesRoot(rawWords, k, roots) {
+  if (!roots || readWord(rawWords[k]).toLowerCase() === "popd") return true;
+  let j = k + 1;
+  while (j < rawWords.length && CD_OPTION.test(normaliseWord(rawWords[j]))) j++;
+  if (j < rawWords.length && normaliseWord(rawWords[j]) === "--") j++;
+  const raw = rawWords[j];
+  if (raw === undefined || /[$`]/.test(raw)) return true;
+  const w = normaliseWord(raw);
+  return !(isAbsolute(w) && roots.has(trimSlash(w)));
+}
+// security_engineer passes 1-2: a word the shell builds at run time — an expansion (`${X:-cd}`,
+// `$c`, `cd${IFS}/tmp`) or a brace list (`{cd,/tmp}`) — may be cd. Parsing for the command word
+// lost to redirections, quoted assignments, `time -p`, `\builtin` (pass 2), so the reader is
+// inverted (fail closed): a segment holding such a word counts as a possible cd UNLESS its first
+// word is a plain literal command that cannot run cd in this shell (`echo "$X"`, `cat "$F"`).
+// A shell keyword or a word that runs its arguments in this shell is never that command.
+const PLAIN = /^[A-Za-z0-9_./+:][A-Za-z0-9_./+:-]*$/;
+const RUNS_IN_SHELL = new Set(["if", "then", "else", "elif", "fi", "do", "done", "while", "until", "for", "select",
+  "case", "in", "esac", "function", "time", "builtin", "command", "exec", "eval", "trap", "source", ".", "cd", "pushd", "popd",
+  "alias", "unalias"]);   // pass 3: `alias c="${X:-cd}"` defines a command word that may be cd
+const BRACE_LIST = /\{[^{}]*(?:,|\.\.)[^{}]*\}/;
+function dynamicVerbBeforeGit(text) {
+  let built = false;
+  // A redirection is dropped with its target first (`0<&- ${X:-cd}` — pass 2), as above.
+  for (const seg of text.replace(REDIRECT, " ").split(/[;|&()`\n]+/)) {
+    const words = seg.split(/\s+/).filter(Boolean);
+    if (!words.length) continue;
+    if (built && words.some((w) => isGit(readWord(w)))) return true;
+    const first = words[0];
+    if (PLAIN.test(first) && !RUNS_IN_SHELL.has(first.toLowerCase())) continue;
+    if (words.some((w) => dynamic(w) || BRACE_LIST.test(w))) built = true;
+  }
+  return false;
+}
+function cdBeforeGit(raw, projectRoot) {
+  // A backslash-newline joins two lines into one word (`c\<newline>d` is cd — pass 2).
+  const text = String(raw ?? "").replace(/\\\r?\n/g, "");
+  if (dynamicVerbBeforeGit(text)) return true;
+  // Words read as readWord reads them: `$'\x63d'` is cd (security_engineer pass 1).
+  const rawWords = text.split(/[\s;|&()`{}<>]+/).filter(Boolean);
+  const roots = rootForms(projectRoot);
+  let moved = false;
+  for (let k = 0; k < rawWords.length; k++) {
+    const w = readWord(rawWords[k]);
+    if (CD_VERBS.has(w.toLowerCase())) { if (cdLeavesRoot(rawWords, k, roots)) moved = true; }
+    else if (moved && isGit(w)) return true;
+  }
+  return false;
+}
+
 /**
  * True when a git line points git at another tree (09:06 r4): a `-C` whose value is not exactly
- * `.`, or `--work-tree`, `--git-dir`, `core.worktree` anywhere on it. The Architect's `.ai/` /
- * `plans/` exemption for reset/revert/checkout/clean does not hold on such a line.
+ * `.`, or `--work-tree`, `--git-dir`, `core.worktree` anywhere on it — or (E-441) a `cd`, `pushd`
+ * or `popd` before the git command that leaves `projectRoot`. The Architect's `.ai/` / `plans/`
+ * exemption for reset/revert/checkout/clean does not hold on such a line.
  */
-export function gitRelocated(raw) {
+export function gitRelocated(raw, projectRoot) {
+  if (cdBeforeGit(raw, projectRoot)) return true;
   const words = String(raw ?? "").split(/[\s;|&]+/).filter(Boolean).map(normaliseWord);
   for (let i = 0; i < words.length; i++) {
     const w = words[i];

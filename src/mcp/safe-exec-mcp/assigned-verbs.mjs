@@ -12,7 +12,7 @@
 // operator (`${g[0]}`, `${g:-x}`), or an alias name at command position. A value built at run time
 // (`g=$(echo git)`, `g=$x`) is not modelled: that is the classifier's residual (D-089).
 import { isVerb } from "./verb-fold.mjs";
-import { normaliseWord } from "../../shared/shell-word.mjs";
+import { decodeAnsiC, normaliseWord } from "../../shared/shell-word.mjs";
 
 // One shell word (quoted runs, $'…', escapes and plain characters), or an array `( … )`.
 const VALUE = String.raw`(\((?:[^)\n])*\)|(?:\$'[^'\n]*'|"[^"\n]*"|'[^'\n]*'|\\.|[^\s;&|()"'\x60\\$])+)`;
@@ -29,8 +29,17 @@ function verbValue(raw) {
   const v = normaliseWord(inner).trim();
   const first = v.split(/\s+/)[0] ?? "";
   const b = first.slice(first.lastIndexOf("/") + 1).toLowerCase();
-  return b && isVerb(b) ? v : null;
+  if (b && (isVerb(b) || DIR_VERBS.has(b))) return v;
+  // security_engineer pass 3: `alias c=$'\x63d'` — for a directory change the value is also read
+  // with $'…' decoded (decodeAnsiC). The gate verbs keep E-353's reading (hex is the residual).
+  const d = normaliseWord(decodeAnsiC(inner)).trim();
+  const dFirst = d.split(/\s+/)[0] ?? "";
+  return DIR_VERBS.has(dFirst.slice(dFirst.lastIndexOf("/") + 1).toLowerCase()) ? d : null;
 }
+// E-441 (security_engineer pass 1): `c=cd; $c /tmp && git checkout .ai/x` — a directory change
+// held in a name moves the tree the Architect's git exemption reads (git-view.mjs gitRelocated).
+// cd/pushd/popd are expanded here without becoming fold verbs.
+const DIR_VERBS = new Set(["cd", "pushd", "popd"]);
 
 /** The command with every use of a verb-holding name replaced by its value (or the input). */
 export function expandAssignedVerbs(text) {

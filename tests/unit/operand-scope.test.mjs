@@ -40,7 +40,9 @@ for (const c of cases) {
     const cmd = c.cmd_from ? fenced(c.cmd_from.file, c.cmd_from.block) : c.cmd.repeat(c.repeat ?? 1);
     // E-301: role "none" is the advisory tool's call without a caller_role; `rule` must fire and
     // `not_rule` must not (the E-123 rows name the rule, not only the verdict).
-    const r = runAnalysis(cmd, c.role === "none" ? undefined : c.role);
+    // E-441: `project_root` is the root the --check gate is given (a `cd` to it keeps the git
+    // exemption); a row without one is the analyzer with no root.
+    const r = runAnalysis(cmd, c.role === "none" ? undefined : c.role, { projectRoot: c.project_root });
     const got = r.verdict === "BLOCK" ? "BLOCK" : "pass";
     const ids = [...r.blocked, ...r.warned, ...r.sovereignty].map((x) => x.id);
     const why = ids.join(", ");

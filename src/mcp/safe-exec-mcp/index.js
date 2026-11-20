@@ -21,29 +21,21 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { instrument } from "../../shared/mcp-telemetry.mjs";
-import { parse } from "shell-quote";
-import {
-  isSafeArchitectPath,
-  architectPathVerdict,
-  findProjectRootFrom,
-  analyzeArchitectWrites,
-} from "./architect-writes.mjs";
 import { containsSecret } from "./secret-rule.mjs";
-import { selfDisableHits, isUnderRein } from "./gate-guard.mjs";
+import { selfDisableHits } from "./gate-guard.mjs";
 import { stripInertHeredocs } from "./heredoc.mjs";
-import { codeStrings } from "./code-strings.mjs";
-import { gitRedirectHits } from "./git-redirect.mjs";
 import { ARCHITECT, ENGINEER, mintToken, verifyToken, ROLE_UNVERIFIED_LINE } from "./role-token.mjs";
 import { claimGateFor, claimReport } from "./claim-gate.mjs";
 import { foldVerbs } from "./verb-fold.mjs";
-import { normaliseWord } from "../../shared/shell-word.mjs";
 import { expandAssignedVerbs } from "./assigned-verbs.mjs";
-import { gitCommandView, gitRelocated } from "./git-view.mjs";
+import { shellTokens as _tokens } from "./tokens.mjs";
+import { _tooLarge } from "./input-limits.mjs";
+import { pipeHit } from "./pipe-shell.mjs";
+import { rmRootHit, rmRecursiveForce } from "./rm-root.mjs";
+import { analyzeSovereignty } from "./sovereignty.mjs";
+import { pathAnalysis, gateRole } from "./path-gate.mjs";
+export { pathAnalysis };
 import { createLogger } from "../shared/logger.js";
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, realpathSync, lstatSync } from "node:fs";
-import { homedir } from "node:os";
-import { join, isAbsolute, normalize, relative, dirname, basename, resolve as resolvePath } from "node:path";
 
 // ── Structured logger (obs_baseline §Logging) ────────────────────────────────
 const logger = createLogger("safe-exec-mcp");
@@ -71,15 +63,6 @@ function normalizeForSecretScan(raw) {
     .replace(/''/g, "")      // remove adjacent single-quote pairs
     .replace(/\\(.)/g, "$1") // collapse backslash escapes: \x → x
     .replace(/["']/g, "");   // strip remaining quotes
-}
-
-// E-353 (D-112 r3 f): a `|` inside the BODY of a quoted-delimiter cat/tee heredoc is text, not a
-// pipe. A pipe rule blocks only when it matches the strictly stripped text AND the text stripped
-// with the read-only relaxation (heredoc.mjs readOnlyLines): a body kept scanned only because a
-// later, provably read-only line names its file (`echo "$(grep -c … .ai/DECISIONS.md)"`) is prose.
-// Either view proving the body inert is enough; implicit-run sinks stay scanned in both.
-function pipeHit(re, raw) {
-  return re.test(stripInertHeredocs(raw)) && re.test(stripInertHeredocs(raw, { readOnlyLines: true }));
 }
 
 const BLOCK_RULES = [
@@ -190,268 +173,6 @@ const WARN_RULES = [
   },
 ];
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function hasSequence(tokens, cmds, flags) {
-  const strTokens = tokens.filter((t) => typeof t === "string").map((t) => String(t));
-  return cmds.some((cmd) => strTokens.includes(cmd)) && flags.some((f) => strTokens.includes(f));
-}
-
-// E-125: rm invoked with BOTH recursive and force — combined (-rf/-fr/-Rfv…) OR
-// SPLIT (`rm -r -f`), OR --no-preserve-root. Split flags are equivalent to -rf, so
-// a fail-closed gate must treat them identically (plain hasSequence missed them).
-function _shortFlagHas(strTokens, ch) {
-  return strTokens.some((t) => /^-[A-Za-z]+$/.test(t) && t.slice(1).includes(ch));
-}
-function rmRecursiveForce(tokens) {
-  const t = tokens.filter((x) => typeof x === "string").map((x) => String(x));
-  if (!t.some((x) => x.split("/").pop() === "rm")) return false;   // E-340: /bin/rm is rm
-  if (t.includes("--no-preserve-root")) return true;
-  // E-340 review: an UPPERCASE R in a bundle (`-Rf`, `-fR`) is recursive too — the lowercase-only
-  // test let `rm -Rf /` through with no warning at all.
-  const recursive = t.includes("--recursive") || _shortFlagHas(t, "r") || _shortFlagHas(t, "R");
-  const force = t.includes("--force") || _shortFlagHas(t, "f");
-  return recursive && force;
-}
-
-// E-125: catastrophic rm targets (root/home). Tokenizers EXPAND $HOME→"" and turn
-// `/*` into a glob object (both dropped from string tokens), and bare ~ slips the
-// old token-only check — so also scan the raw string. Only consulted inside the
-// rm-recursive-force rule, where any root/home target is irreversible.
-// E-353 (D-112 r3 d): /bin and /opt join the system roots.
-const ROOT_TOKEN = /^(\/$|\/root|\/home|\/etc|\/usr|\/var|\/boot|\/bin|\/opt|~$|~\/|\$HOME(\/|$)|\$\{HOME\}(\/|$))/;
-function hasRootPaths(tokens, raw) {
-  const strTokens = tokens.filter((t) => typeof t === "string").map((t) => String(t));
-  if (strTokens.some((t) => ROOT_TOKEN.test(t))) return true;
-  if (raw == null) return false;
-  const r = String(raw);
-  // E-353 (A2A ruling 2026-11-18): each word again as the shell reads it — quotes and backslashes
-  // removed, `//` and `/./` collapsed (the shared D-112 normaliser): `//opt`, `/./bin`, `/"usr"`.
-  if (r.split(/[\s;&|<>()]+/).some((w) => /[/"'\\]/.test(w) && ROOT_TOKEN.test(normaliseWord(w)))) return true;
-  if (/(^|[\s=])(\$HOME|\$\{HOME\})(\/|\s|$)/.test(r)) return true;  // $HOME / ${HOME} (tokenizer expands to "")
-  if (/(^|\s)~(\/|\s|$)/.test(r)) return true;                      // ~ or ~/
-  // E-353 (d): ~+ ($PWD), ~- ($OLDPWD) and the directory-stack forms ~N, ~+N, ~-N.
-  if (/(^|\s)["']?~(?:[+-][0-9]*|[0-9]+)(["'\/\s]|$)/.test(r)) return true;
-  // A2A ruling 2026-11-18: $PWD / $OLDPWD are ~+ / ~- by value — bare, braced, quoted, and with
-  // :? (always set, so it never fails closed), alone or with / or /*. "${X:?}"/* stays the escape.
-  if (/(^|\s)"?\$(?:\{(?:PWD|OLDPWD)(?::\?[^}]*)?\}|(?:PWD|OLDPWD)(?![A-Za-z0-9_]))"?(?:\/\*?)?"?(\s|;|&|\||$)/.test(r)) return true;
-  if (/(^|\s)\/\*(\s|$)/.test(r)) return true;                      // /* glob (dropped from tokens)
-  // E-350 (D-111 r6 ii): ~user is that user's home.
-  if (/(^|\s)["']?~[A-Za-z_][A-Za-z0-9_.-]*["']?(\/|\s|$)/.test(r)) return true;
-  return _emptyExpansionRoot(r);
-}
-
-// E-350 (D-111 r6 ii, security_engineer P0-1): each word is normalised the way it can expand at
-// its most dangerous — every expansion ($X ${X} ${X:-} $1 $@ $( ) `…`) empty, quotes and
-// backslashes removed ($'/' is /), // and /./ collapsed. A word that then starts with `/` and
-// whose first component is nothing, a glob, a brace list, `.` or `..` is `/`, `/*` or a set of
-// top-level directories: `$A/$B/*`, `"/"*`, `\/*`, `//*`, `/{bin,usr}`. A word that BEGINS with
-// ${X:?…} fails closed when X is unset (not root-form) — one nested inside $( ) or another ${ }
-// exempts nothing. "$X"/dist names one subdirectory, and so does a glob with a literal part
-// ("$TMPDIR"/rein-*, "$OUT"/*.log): only a bare glob, class or brace list is the whole root.
-// The word normaliser itself is shared with GATE_SELF_DISABLE (E-393): src/shared/shell-word.mjs.
-const BARE_GLOB = /^(\.?(\*|\?|\[[^\]]*\])+|\{[^}]*\})$/;
-function _emptyExpansionRoot(r) {
-  // $( ) and `…` may hold spaces, so they are emptied before the line is cut into words — on
-  // whitespace AND on shell separators: `$X/*; echo` ends the operand at the `;`.
-  for (const word of String(r).replace(/\$\([^()]*\)|`[^`]*`/g, "").split(/[\s;&|<>()]+/)) {
-    if (!/[/$`"'\\]/.test(word) || /^["']?\$\{[A-Za-z_][A-Za-z0-9_]*:?\?/.test(word)) continue;
-    const w = normaliseWord(word);
-    if (!w.startsWith("/")) continue;
-    const first = w.slice(1).split("/")[0];
-    if (first === "" || first === "." || first === ".." || BARE_GLOB.test(first)) return true;
-  }
-  return false;
-}
-
-// E-340 (finding 6, 2026-10-23): `cd /home/dev/Dev/rein; …; rm -rf .ai/stale-…` was blocked
-// because hasRootPaths matched the cd's /home path, not an rm operand. The rule now ignores ONE
-// leading `cd <plain absolute dir> ;|&&` when that directory is not one an rm below it could
-// wipe (root, a system tree at any depth, a home tree within two levels of /home): every rm
-// after it then works below a project-like directory, and the rest of the line is judged
-// exactly as before. Nothing else is narrowed: two cuts that split the line into simple
-// commands and read each rm's own operands failed critic_security (every parser gap hid an rm),
-// so the whole-line match stays the model. Also new: an rm -rf with a `..` component anywhere on
-// the line blocks (`rm -rf ../../..` matched no root path).
-const SAFE_CD_PREFIX = /^\s*cd\s+(\/[A-Za-z0-9_.@%+,=:\/-]*)\s*(?:;|&&)/;
-const CD_DANGER =
-  /^\/(etc|usr|var|boot|root|bin|sbin|lib[0-9a-z_]*|opt|srv|proc|sys|dev|snap|nix|run|private|System|Library|Applications|Volumes)(\/|$)|^\/(home|Users|mnt|media)(\/[^/]+){0,2}$/;
-const KEEP_CD_PREFIX =
-  /\b(cd|pushd|popd|CDPATH|chdir|eval|exec|source|alias|function|bash|sh|zsh|dash|ash|ksh|mksh|tcsh|csh|fish|busybox)\b|\n|[`$({]|=\s*[\/~]|\s-[A-Za-z]*[CD]\s*[\/~.]|~[A-Za-z_]|(^|[;&|])\s*\.\s/;
-function withoutSafeCdPrefix(raw) {
-  const r = String(raw ?? "");
-  const m = SAFE_CD_PREFIX.exec(r);
-  if (!m) return r;
-  const dir = m[1].replace(/\/{2,}/g, "/").replace(/(.)\/+$/, "$1");
-  if (dir === "/" || /(^|\/)\.\.?(\/|$)/.test(dir) || CD_DANGER.test(dir)) return r;
-  const rest = r.slice(m[0].length);
-  // Only while nothing after the prefix can change directory again or run text this match does
-  // not see (critic_security / security_engineer, E-340 third review): cd/pushd/popd/CDPATH, a
-  // second line, eval/exec/source/alias/function, a shell, $ or a backtick, ( or {, a directory
-  // option with its path attached (`--chdir=/etc`, `-C/etc`, `-D~`), or ~user. Stripping the
-  // prefix can only ever yield HEAD's verdict on the rest of the line.
-  if (KEEP_CD_PREFIX.test(rest)) return r;
-  return rest;
-}
-const DOTDOT = /(^|\/)\.\.(\/|$)/;
-function rmRootHit(tokens, raw) {
-  // E-353 (A2A ruling 2026-11-18, folded in): `r=rm; $r -rf /` is rm — the assigned-verb expansion
-  // applies to RM_RF_ROOT too, for every role (union: it only adds a block).
-  if (rmRootHitOn(tokens, raw)) return true;
-  const exp = expandAssignedVerbs(raw);
-  return exp !== String(raw ?? "") && rmRootHitOn(_tokens(exp), exp);
-}
-function rmRootHitOn(tokens, raw) {
-  const rest = withoutSafeCdPrefix(raw);
-  const t = rest === String(raw ?? "") ? tokens : _tokens(rest);
-  // E-353 (D-112 r3 d): a glob word (`a/../../*`, `/tmp/../*`) is not a string token, so the `..`
-  // component is also looked for in the text itself.
-  // A2A ruling 2026-11-18: and in each word as the shell reads it (`/tmp/.\./*`, `/tmp/.''./*`).
-  return rmRecursiveForce(t) && (hasRootPaths(t, rest) || t.some((x) => DOTDOT.test(x)) ||
-    /(^|[\s"'=\/])\.\.(\/|[\s"']|$)/.test(rest) ||
-    rest.split(/[\s;&|<>()]+/).some((w) => /["'\\]/.test(w) && DOTDOT.test(normaliseWord(w))));
-}
-
-// ── E-102: Architect sovereignty rules (sovereignty-hardening.md §Components 1) ─
-// When caller_role === 'architect', the Architect may not run
-// destructive *implementation* git operations or create/destroy files outside
-// the Architect-owned .ai/ and plans/ trees. These are honour-system today
-// (caller_role is self-reported) but enforced fail-closed: a forbidden verb is
-// allowed ONLY when every path operand is scoped to .ai/ or plans/.
-const FORBIDDEN_ARCHITECT_GIT = ["reset", "revert", "checkout", "clean"];
-const FORBIDDEN_ARCHITECT_OPS = ["rm", "mkdir", "touch"];
-
-// E-123 (sovereignty-hardening.md §Data Model): branch-merge + deployment
-// sovereignty. These git verbs are branch/remote operations (not path-scoped), so
-// they are GLOBALLY forbidden for the Architect — merges, pulls, pushes, rebases
-// and branch management are strictly Engineer tasks.
-const FORBIDDEN_ARCHITECT_GIT_GLOBAL = ["merge", "rebase", "push", "pull", "branch"];
-// Deployment commands the Architect may never run (Engineer territory): single
-// verbs plus two-token forms (npm publish / docker push).
-const FORBIDDEN_ARCHITECT_DEPLOY = ["ssh", "rsync", "scp"];
-const FORBIDDEN_ARCHITECT_DEPLOY_PAIRS = [["npm", "publish"], ["docker", "push"]];
-
-// Matches a verb at a COMMAND position — line start, after a shell separator
-// (; & | newline, backtick, subshell paren), or after a command prefix
-// (sudo/env/…) — not merely as an argument substring, so `cat ~/.ssh/config` does
-// not trip the ssh rule. `tokens` is string-only here (shell operators are
-// stripped upstream), so command-position detection runs against the raw string.
-const CMD_HEAD = "(?:^|[;&|\\n`(]|\\b(?:sudo|env|nohup|time|command|exec|xargs|then|do)\\s+)\\s*";
-function usesCommandVerb(raw, verb) {
-  return new RegExp(CMD_HEAD + verb + "\\b", "i").test(raw);
-}
-function usesCommandPair(raw, a, b) {
-  return new RegExp(CMD_HEAD + a + "\\s+" + b + "\\b", "i").test(raw);
-}
-
-// Non-flag operand tokens appearing after the first occurrence of `cmd`
-// (and, when given, after `sub`). `--` is treated as a separator and dropped.
-function operandsAfter(tokens, cmd, sub) {
-  const i = tokens.indexOf(cmd);
-  if (i === -1) return [];
-  let rest = tokens.slice(i + 1);
-  if (sub) {
-    const j = rest.indexOf(sub);
-    rest = j === -1 ? [] : rest.slice(j + 1);
-  }
-  return rest.filter((t) => t && t !== "--" && !t.startsWith("-"));
-}
-
-
-// Returns [{id, message}] sovereignty violations for an architect caller.
-// E-340: `tokens`/`raw` are the command with INERT heredoc bodies removed under the read-only
-// relaxation (heredoc.mjs readOnlyLine) — the Architect's D-105 append wrote prose naming
-// pushing into .ai/DECISIONS.md and was blocked as ARCH_GIT_PUSH. The write analyzer keeps the
-// FULL text (`writeTokens`/`writeRaw`, D-085 r1).
-// E-350: `depth` counts code-string levels (su -c "bash -c '…'"); see codeStrings below.
-const CODE_STRING_DEPTH = 3;
-const CODE_STRING_BYTES = 16 * 1024;
-function analyzeSovereignty(tokens, raw, writeTokens = tokens, writeRaw = raw, depth = 0) {
-  const violations = [];
-
-  // E-438 (D-163 addendum 2 r2): the git rules also read each git command as git reads it — the
-  // verb unquoted and the global options before the subcommand skipped (git-view.mjs), so
-  // `"git" push` and `git -C . push` are git push. The E-353 assigned-verb expansion feeds this too.
-  const gitText = raw + "\n" + gitCommandView(raw);
-
-  // ForbiddenArchitectGit: reset/revert/checkout/clean on implementation targets.
-  const gitMatch = /\bgit\s+(reset|revert|checkout|clean)\b/i.exec(gitText);
-  if (gitMatch) {
-    const verb = gitMatch[1].toLowerCase();
-    const targets = operandsAfter(tokens, "git", verb);
-    // E-438 (A2A 2026-11-18 09:06 r4): `.ai/x` names .ai/ only where git runs — not after a `-C`
-    // elsewhere, or with --work-tree / --git-dir / core.worktree on the line.
-    const scopedSafe = targets.length > 0 && targets.every(isSafeArchitectPath) && !gitRelocated(raw);
-    if (!scopedSafe) {
-      violations.push({
-        id: `ARCH_GIT_${verb.toUpperCase()}`,
-        message: `git ${verb} is a forbidden Architect implementation operation (allowed only when every target is under .ai/ or plans/)`,
-      });
-    }
-  }
-
-  // ForbiddenArchitectOps: rm -rf / mkdir / touch outside .ai/ or plans/.
-  if (hasSequence(tokens, ["rm"], ["-rf", "-fr", "-r", "-R", "--recursive"])) {
-    const targets = operandsAfter(tokens, "rm");
-    if (!(targets.length > 0 && targets.every(isSafeArchitectPath))) {
-      violations.push({ id: "ARCH_RM_RF", message: "rm -rf outside .ai/ or plans/ is a forbidden Architect operation" });
-    }
-  }
-  for (const op of ["mkdir", "touch"]) {
-    if (tokens.includes(op)) {
-      const targets = operandsAfter(tokens, op);
-      if (!(targets.length > 0 && targets.every(isSafeArchitectPath))) {
-        violations.push({ id: `ARCH_${op.toUpperCase()}`, message: `${op} outside .ai/ or plans/ is a forbidden Architect operation` });
-      }
-    }
-  }
-
-  // E-123: globally-forbidden Architect git ops (merge/rebase/push/pull/branch).
-  // These are branch/remote operations, blocked regardless of path scope —
-  // merging and pushing are strictly Engineer tasks.
-  const gitGlobal = new RegExp(`\\bgit\\s+(${FORBIDDEN_ARCHITECT_GIT_GLOBAL.join("|")})\\b`, "i").exec(gitText);
-  if (gitGlobal) {
-    const verb = gitGlobal[1].toLowerCase();
-    violations.push({
-      id: `ARCH_GIT_${verb.toUpperCase()}`,
-      message: `git ${verb} is a forbidden Architect operation — merges/branch/remote ops are strictly Engineer tasks`,
-    });
-  }
-
-  // E-123: deployment commands are strictly Engineer territory (ssh/rsync/scp,
-  // npm publish, docker push) — blocked for the Architect at command position.
-  for (const v of FORBIDDEN_ARCHITECT_DEPLOY) {
-    if (usesCommandVerb(raw, v)) {
-      violations.push({ id: `ARCH_DEPLOY_${v.toUpperCase()}`, message: `${v} is a forbidden Architect operation — deployments are strictly Engineer tasks` });
-    }
-  }
-  for (const [a, b] of FORBIDDEN_ARCHITECT_DEPLOY_PAIRS) {
-    if (usesCommandPair(raw, a, b)) {
-      violations.push({ id: `ARCH_DEPLOY_${a.toUpperCase()}_${b.toUpperCase()}`, message: `${a} ${b} is a forbidden Architect operation — deployments are strictly Engineer tasks` });
-    }
-  }
-
-  // E-216: shell write channel (redirections, write verbs, in-place editors,
-  // inline interpreters). Appended last so its ids read after the historical ones.
-  violations.push(...analyzeArchitectWrites(writeTokens, writeRaw));
-
-  // E-350 (D-111 r6 iii): core.hooksPath / GIT_DIR on a git line, whatever the target.
-  violations.push(...gitRedirectHits(raw));
-
-  // E-350 (D-111 r6 i): a string handed to su -c, env -S, a shell's -c, eval or an
-  // interpreter's -c/-e is code (D-111 r3) — judge it exactly as the unquoted command. Past
-  // the depth cap, or over CODE_STRING_BYTES (each level re-tokenizes it), the string is not
-  // analysed further, so it blocks rather than passes.
-  for (const code of codeStrings(raw)) {
-    const inner = depth < CODE_STRING_DEPTH && code.length <= CODE_STRING_BYTES
-      ? analyzeSovereignty(_tokens(code), code, undefined, undefined, depth + 1)
-      : [{ id: "ARCH_CODE_STRING_DEPTH", message: `a code string nested deeper than ${CODE_STRING_DEPTH} levels or longer than ${CODE_STRING_BYTES} bytes is a forbidden Architect operation — it is not analysed` }];
-    for (const v of inner) if (!violations.some((x) => x.id === v.id)) violations.push(v);
-  }
-
-  return violations;
-}
-
 // ── Tool definitions ──────────────────────────────────────────────────────────
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
@@ -497,43 +218,7 @@ const OVERRIDE_ENFORCED = new Set([
 // content rules, not from the write gate, and D-056's frozen write gate keeps its behaviour.
 const HEREDOC_EXEMPT_RULES = new Set(["CURL_PIPE_SHELL", "WGET_PIPE_SHELL", "GATE_SELF_DISABLE", "SECRET_IN_COMMAND"]);
 
-function _tokens(text) {
-  try {
-    return parse(text).filter((t) => typeof t === "string").map((t) => String(t));
-  } catch {
-    return String(text).split(/\s+/);
-  }
-}
-
 // Exported for the in-process contract table (E-340, tests/unit/operand-scope.test.mjs).
-// E-350 (D-111 r6 iv): shell-quote's parse grows quadratically with the token count (~100 s for
-// 50k groups), so the gate leaned on the hook's timeout. A group is one command separator or
-// grouping operator — ; & | ( ) { } ` $( newline — counted in one linear pass before anything
-// is tokenized. Ordinary commands use tens; a long script hundreds. The cost is per TOKEN, so
-// redirections (< >, which split a word into tokens), words and bytes are capped the same way.
-const MAX_GROUPS = 2000;
-const MAX_WORDS = 10000;
-const MAX_BYTES = 64 * 1024;
-const GROUP_RE = /\$\(|&&|\|\||[;&|(){}`\n<>]/g;
-const WORD_RE = /\S+/g;
-function _count(re, text) {
-  let n = 0;
-  re.lastIndex = 0;
-  while (re.exec(text) !== null) n++;
-  return n;
-}
-// E-351 (D-112 r2): the first limit that tripped, with the measured figure, or null. The line
-// names the escape so a refusal is not read as a gate failure: a document goes through Write/Edit.
-function _tooLarge(full) {
-  const bytes = Buffer.byteLength(full);
-  const hit = bytes > MAX_BYTES ? [bytes, MAX_BYTES, "bytes"]
-    : [[GROUP_RE, MAX_GROUPS, "command groups"], [WORD_RE, MAX_WORDS, "words"]]
-      .map(([re, max, unit]) => [_count(re, full), max, unit]).find(([n, max]) => n > max);
-  if (!hit) return null;
-  const [n, max, unit] = hit;
-  return `${n} ${unit} (limit ${max}) — not analysed; split the command, or a document this size goes through the Write/Edit tool`;
-}
-
 export function runAnalysis(original, callerRole, { override = false } = {}) {
   // The body of a quoted heredoc whose consumer is a plain file sink is TEXT for the
   // HEREDOC_EXEMPT_RULES (heredoc.mjs decides what counts as inert). The report still quotes
@@ -608,49 +293,6 @@ export function runAnalysis(original, callerRole, { override = false } = {}) {
   }
 
   return { verdict, blocked, warned, sovereignty, report: lines.join("\n") };
-}
-
-// ── E-294 (D-087, sovereignty-hardening.md Components 8d–8f): the role on the gate path ────
-// The role comes ONLY from the HMAC-verified v2 session token (role-token.mjs), which is bound
-// to its session process and minted from the launch-record walk. No environment input: the
-// REIN_CALLER_ROLE fallback is gone (D-087 r3). No verified token → the UNION: every role's
-// blocks apply (today the Architect rule set — the Engineer has none at the hook), with
-// ROLE_UNVERIFIED_LINE naming the fix.
-//
-// Flags are scanned AFTER the fixed positional (<command> or <path>), so a command or a target
-// path literally named "--session" cannot hijack the parse (E-208 audit). A positional role
-// word left by an older hook is ignored.
-function _gateFlags(fromIdx) {
-  const val = (flag) => {
-    const i = process.argv.indexOf(flag, fromIdx);
-    return i !== -1 ? String(process.argv[i + 1] || "") : "";
-  };
-  return { sid: val("--session"), sessionPid: val("--session-pid") };
-}
-
-/**
- * E-301 (D-088): the --check-path decision as a function of (target, role) — the CLI below and
- * the role-verdict contract table call this one function. `role` is the gate's: the token's,
- * or ARCHITECT for the union. Throws on an analyzer fault; the caller fails closed. The claim
- * gate (team projects, E-331) stays in the CLI: it reads process state, not the path.
- *   → { blocked: false } | { blocked: true, id: "GATE_SELF_DISABLE" | "ARCH_WRITE_OUTSIDE_SCOPE", reason }
- */
-export function pathAnalysis(target, role, { projectRoot = findProjectRootFrom(process.cwd()), home } = {}) {
-  // E-291 (D-083 r6): ~/.rein/** (hooks, gate, secrets, the override file) is protected
-  // for EVERY role — the Write/Edit tools are the other way an agent could disable the gate.
-  let underRein = false;
-  try { underRein = isUnderRein(target, home); } catch { underRein = true; }   // fail closed
-  if (underRein) return { blocked: true, id: "GATE_SELF_DISABLE", reason: "inside ~/.rein/" };
-  if (role !== ARCHITECT) return { blocked: false };
-  const v = architectPathVerdict(target, projectRoot);
-  return v.blocked ? { blocked: true, id: "ARCH_WRITE_OUTSIDE_SCOPE", reason: v.reason } : { blocked: false };
-}
-
-/** {role, verified}: the token's role, or the union stand-in ("architect") when unverified. */
-function gateRole(fromIdx) {
-  const { sid, sessionPid } = _gateFlags(fromIdx);
-  const role = sid ? verifyToken(sid, { sessionPid: sessionPid || null }) : null;
-  return role ? { role, verified: true } : { role: ARCHITECT, verified: false };
 }
 
 instrument(server, "safe-exec-mcp", CallToolRequestSchema);

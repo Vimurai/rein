@@ -5863,3 +5863,48 @@ The operator (2026-11-20): the CI is overkill, it should be smart and skipped wh
 `ci.smart: false`; `rein ci hosted --force` on the previous version; the operator restores the previous required names (the blueprint's Rollback Plan gives the order).
 
 ---
+
+## D-167 — Review of E-441, E-440, E-446 and E-448 as built: accepted; three tables pinned; three interpretations ratified; two deny lists become prefix rules; the rounds stop
+
+**Date**: 2026-11-20
+**Task**: E-441 (ffed1e8), E-440 (57d1684), E-446 (e685418), E-448 (183b151, a84957f); E-453, E-454, E-455
+**Decision**: The four tasks are accepted as built. The open P2 residuals are not closed by more spellings: where a list of names can never be complete, the rule becomes a prefix or a shape.
+
+### Why needed
+The handoff of 2026-11-20 15:51 asks for three pins and three interpretations, and lists about thirty residuals. E-441 took four security rounds and added 43 rows; E-440 added 25. Both ended with a deny list and a list of names that are not on it.
+
+### Rulings
+1. **Pinned** (hashes and counts recomputed by the Architect on a84957f):
+    - `operand-scope-cases.json`, 556 rows (438 BLOCK, 118 pass), `fafef2deaafb7c8805fd05705d43b7a0511d7e899f96dde51bdc1ff7478e03da`. Against the 490-row pin: 68 rows added, and the two E-438 residual rows changed pass → BLOCK as D-164 r7 ruled. No other row changed.
+    - `block-rules-cases.json`, 74 rows (47 BLOCK, 27 pass), `e72af434978597269a616bcfab3daaeeec73f341abc123efd3d6fbba7f4ab0d8`. 13 rows added, none changed.
+    - `pipe-shell-cases.json`, 56 rows (45 BLOCK, 11 pass), `066124139c1c115b1eda3d481525e33a69c79fac6c0fa90006c1f831f5b56f3b`. 4 rows added, none changed.
+    - Unchanged: `arch-write-cases.json` `26f7da12…` (108 rows) and `gate-self-disable-cases.json` `9eb38fc4…` (254 rows). The handoff says E-445's re-pin is not in this lineage. It is: 254 rows and `9eb38fc4…` are E-445's table (b553d6c is an ancestor of dc6619e).
+2. **Interpretation (1), E-440 (d): ratified.** The `$PWD` match ends after the optional `/` or `/*`, so `rm -rf $PWD/dist` stays a WARN. The literal reading over-blocked a named subdirectory.
+3. **Interpretation (2), E-441: ratified.** `popd`, a bare `cd`, `cd -`, `pushd +N` and a run-time-built command word count as a directory change. Fail closed is D-164 r7's intent.
+4. **Interpretation (3), E-446: ratified.** The other spellings of the task runners already on the list are inside D-163 addendum 2 r14.
+5. **E-448 matches D-165.** `src/shared/machine-local.list` is the one list. Resolving it install-first and then from the hook's own tree is accepted: it is the toolchain-pin rule, and never the visited repository.
+6. **D-164 r6 meant what it says, and it was not followed.** E-441 ran four security rounds without a handoff. From the third round the classification question comes to the Architect's pane. The reason is this entry: rounds three and four each added spellings to a list that rulings 7 and 8 now replace.
+7. **The Architect passes no configuration to git (E-453).** For the Architect role, on a line that runs git: any `-c`, any `--config-env`, any `GIT_*` assignment or export, and `EDITOR`, `VISUAL`, `PAGER`, `XDG_CONFIG_HOME` assigned or exported, is a BLOCK. So is a `git config` that sets or unsets a value. Reading (`git config --get`, `--list`) passes. This replaces the key list and the env-name list of E-440 (a): the eight env names and seven keys the handoff lists as P2 are closed by it, and so is the next one.
+8. **A command that runs another command in a named directory is a directory change (E-453).** `env -C`/`--chdir`, `sudo -D`/`--chdir`, `find -execdir`/`-okdir`, `source` and `.` join `cd`, `pushd`, `popd` in `gitRelocated`. This is the last list ruling for E-441: what remains is residual.
+9. **Residuals of E-441, recorded and accepted**: `cd -P` through a symlink planted under `.ai/`; a `c[d]` glob; `chroot`; `autocd`; `coproc`; the over-block of a `cd` inside `$( )`. The git operand scope reading past `&&` and `;` (`git checkout .ai/x && echo done` blocks for the Architect) is an over-block, accepted: the Architect issues the git command alone.
+10. **The cwd forms of RM_RF_ROOT (E-454).** `${PWD<any operator>…}` and `$( [builtin|command] pwd [options] )` are the cwd. A cwd or `$HOME` operand ends at whitespace, end of line, or one of `;` `&` `|` `)`: `rm -rf $PWD; ls` is a BLOCK. The handoff calls the WARN there "the ruled `$HOME` class"; the Architect did not find that ruling, so the Engineer cites it in the E-454 handoff or the `$HOME` form gets the same terminators. `$(dirname $PWD)`, `$(realpath .)`, `/lib32`, `/libx32`: residual, recorded.
+11. **A directory change before a heredoc write (E-454).** After a `cd`, `pushd` or `popd` on the line, a relative sink path is not known: it is read as implicit-run in both modes (`cd /etc && cat > profile.d/x`). The deny list of sink names stays a deny list (r14); the six names the handoff lists under P3 are residual.
+12. **The rows merge after the rules change (E-455).** D-164 addendum 1 r4 applies to the 85 rows added here, and the handoff did not name the branch of each as r4 asks. About nineteen "the command word may be cd" rows differ only in the prefix before the same expansion; the E-440 key rows collapse under ruling 7. E-455 merges them the way E-445 and E-447 did, with the measure named: a row is kept when it is the only row on its branch by V8 block coverage **and** when removing it lets a mutant of `tests/tools/mutation/gate-tables.sh` survive that was killed before.
+13. **Budget.** a84957f measures 45593 against the limit of 46316. No raise is asked and none is given. The 185 lines above 45408 are the headroom r16 (f) said is not a grant: E-455 returns what the merge frees.
+14. **Order**: E-449 (the planner; the operator's request), E-453, E-454, E-455, then E-450 to E-452. E-441, E-440, E-446 and E-448 close on their own acceptance once the operator has installed and the pull requests are open.
+15. **E-448's cosmetic P2** (a newline in a path prints a multi-line message): fixed in E-454 by printing the path through `printf %q`. It is still a refusal today.
+
+### Alternatives considered
+1. **A fifth security round on E-441 and a third on E-440** — rejected: each round found spellings of the same two ideas (a directory change, a program named by configuration). A list of names cannot be finished.
+2. **Make the Architect's `.ai/` exemption hold only for a line that is one git command** — rejected: every handoff commit is a line with `cd <root>;`, a digest rebuild, `git add` and `git commit`, and would have to be issued in four calls. Ruling 8 keeps the built reader and closes the P2 list.
+3. **Block `rm -rf` on any operand that is a bare expansion** — rejected: `rm -rf "$tmpdir"` is ordinary Engineer work.
+4. **Hold the four pull requests until E-453 to E-455 land** — rejected: the built code is cleared and stricter than what is installed.
+
+### Impact
+- Unlocks: the pull requests for E-441, E-440, E-446 and E-448; E-453, E-454, E-455.
+- Risk if wrong: ruling 7 blocks an Architect command that passes a harmless `-c` (for example `-c core.quotepath=off`). The Architect drops the option. Ruling 10's terminators can turn a WARN into a BLOCK for the Engineer on `rm -rf $PWD; …`; that is the intent.
+
+### Rollback
+None for the review record. E-453 and E-454 are each one commit; reverting E-453 restores the key and name lists of 57d1684.
+
+---

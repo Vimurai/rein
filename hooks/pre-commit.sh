@@ -230,6 +230,42 @@ else
   echo "[GATE_SKIPPED] REIN_SKIP_CONFLICT_GATE=1 — conflict-marker + .ai JSON gate (E-238) skipped for this commit" >&2
 fi
 
+# ── E-448 (D-165): machine-local generated files never travel (BLOCKING, every Rein project) ──
+# r2: a staged add or modify of a path on shared/machine-local.list is refused (the list is the
+# one copy — r1); a staged DELETION passes: it is the fix. r3: a staged blob under .claude/ or a
+# staged .mcp.json holding the literal "$HOME/" is refused; no other path is scanned. r4: no
+# opt-out. Fail closed: without the list nothing can be judged, so the commit is refused.
+_machine_local_gate() {
+  local list path st bad=0 hit
+  list="$(rein_locate shared/machine-local.list 2>/dev/null || true)"
+  if [[ -z "$list" ]]; then
+    echo "[COMMIT_BLOCKED] [MACHINE_LOCAL] shared/machine-local.list unavailable — run: bash install-rein.sh" >&2
+    return 1
+  fi
+  local -a local_paths=()
+  while IFS= read -r path; do
+    [[ -z "$path" || "$path" == \#* ]] && continue
+    local_paths+=("$path")
+  done < "$list"
+  while IFS= read -r -d '' st && IFS= read -r -d '' path; do
+    [[ "$st" == D ]] && continue
+    for hit in "${local_paths[@]}"; do
+      if [[ "$path" == "$hit" ]]; then
+        echo "[COMMIT_BLOCKED] [MACHINE_LOCAL] ${path} is generated for this machine and never committed — run: git rm --cached ${path}" >&2
+        bad=1
+      fi
+    done
+    if [[ -n "${HOME:-}" && "$HOME" != "/" ]] && [[ "$path" == .claude/* || "$path" == .mcp.json ]]; then
+      if grep -qF -- "${HOME}/" < <(git show ":${path}" 2>/dev/null); then
+        echo "[COMMIT_BLOCKED] [MACHINE_LOCAL] ${path} contains this machine's home directory as a path — remove it before committing" >&2
+        bad=1
+      fi
+    fi
+  done < <(git diff --cached --name-status --no-renames -z)
+  return "$bad"
+}
+_machine_local_gate || exit 1
+
 # ── E-378 (D-129 §Component 9): the public repository's privacy gate (BLOCKING) ──
 # .ai/publish.json marks the public repository. Every staged file is scanned (five classes with
 # the operator's list, the structural ones without it) and, on the operator's machine, the

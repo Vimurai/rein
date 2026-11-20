@@ -1308,9 +1308,18 @@ _doctor_hook_form_report() {
         _dr hook_form - "  ✓ .claude/settings.json: Rein hooks in exec form (/bin/bash -p, absolute path)"
       fi
     fi
-    if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
-      _dr settings_json_tracked - "  ! .claude/settings.json is tracked but machine-specific — run: git rm --cached .claude/settings.json"
+  fi
+  # E-448 (D-165 r5): a tracked machine-local file is a hard failure — the warning line it used to
+  # be was not read, and the file kept travelling. The list is shared/machine-local.list (r1).
+  local ml
+  while IFS= read -r ml; do
+    if git ls-files --error-unmatch "$ml" >/dev/null 2>&1; then
+      _dr settings_json_tracked - "  ✗ [MACHINE_LOCAL] ${ml} is tracked but generated for one machine — run: git rm --cached ${ml}" "git rm --cached ${ml}" "$ml"
+      _DOCTOR_HARD_FAIL=1
     fi
+  done < <(_machine_local_paths)
+  if [[ -z "$(_machine_local_paths)" ]]; then
+    _dr settings_json_tracked - "  ✗ [MACHINE_LOCAL] shared/machine-local.list not found — $(_rein_fix_install)"; _DOCTOR_HARD_FAIL=1
   fi
   local gd stub
   gd="$(git rev-parse --git-path hooks 2>/dev/null)" || return 0
@@ -3308,18 +3317,24 @@ PY
 #
 # Idempotent by MEANING, not by exact line: a project that already ignores the artefact in
 # any form is left alone, so re-running never accumulates near-duplicate patterns.
+# _machine_local_paths — E-448 (D-165 r1): the machine-local paths, one per line, from
+# shared/machine-local.list — the one copy the gitignore writer, the doctor and the pre-commit
+# gate all read. Prints nothing when the list is missing (each caller says what that means).
+_machine_local_paths() {
+  local list; list="$(_rein_helper shared/machine-local.list || true)"
+  [[ -n "$list" && -f "$list" ]] || return 0
+  grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$list"
+}
+
 _ensure_generated_gitignore() {
   local root="${1:-.}"
   git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
 
   local gi="${root%/}/.gitignore"
-  # E-290 (D-083 r2): .claude/settings.json now carries install-time ABSOLUTE hook paths
-  # (exec-form hooks), i.e. it is machine-specific — generated
-  # by `rein sync`, never committed. The role overlays (settings.<role>.json) stay tracked.
-  # E-333 (D-102 §8): .ai/start.local.json is one developer's account binding.
-  # E-342 (D-106 r2): .ai/.last-import-blob mirrors the index's last imported state.json blob.
-  # E-343 (D-108 r9): .ai/ci.local.json is one machine's CI env allow-list (may hold values).
-  local want=("**/_SKILLS_INDEX.md" "**/_SYNC_MANIFEST.json" ".ai/blueprints/_INDEX.md" ".claude/settings.json" ".ai/start.local.json" ".ai/.last-import-blob" ".ai/ci.local.json")
+  # The generated views, then the machine-local files (E-448, D-165 r1: shared/machine-local.list
+  # is the one copy, with each entry's reason). The role overlays (settings.<role>.json) stay tracked.
+  local want=("**/_SKILLS_INDEX.md" "**/_SYNC_MANIFEST.json" ".ai/blueprints/_INDEX.md") ml
+  while IFS= read -r ml; do want+=("$ml"); done < <(_machine_local_paths)
   local add=()
   local pat base
   for pat in "${want[@]}"; do
@@ -3335,10 +3350,13 @@ _ensure_generated_gitignore() {
   done
   # A gitignore line does not untrack a file git already tracks. Rewriting the user's index
   # from a sync is too invasive, so name the one command that finishes the job.
-  if git -C "$root" ls-files --error-unmatch .claude/settings.json >/dev/null 2>&1; then
-    echo "  ! .claude/settings.json is tracked but machine-specific since E-290 — untrack it:"
-    echo "      git rm --cached .claude/settings.json && git commit -m 'Untrack generated .claude/settings.json'"
-  fi
+  # D-165 r5: sync keeps its line and never edits the index; the commit gate refuses the file.
+  for ml in "${want[@]:3}"; do
+    if git -C "$root" ls-files --error-unmatch "$ml" >/dev/null 2>&1; then
+      echo "  ! ${ml} is tracked but generated for one machine — a commit that changes it is refused; untrack it:"
+      echo "      git rm --cached ${ml} && git commit -m 'Untrack generated ${ml}'"
+    fi
+  done
   [[ "${#add[@]}" -eq 0 ]] && return 0
 
   {

@@ -225,6 +225,14 @@ _shadowed="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="${SHADOW}
 assert_contains "E-270.05d: doctor: another rein earlier on PATH is reported as shadowing" \
   "(shadowed by ${SHADOW}/rein)" "$(_path_line "$_shadowed")"
 
+# ── E-448 (D-165 r5): a tracked machine-local file fails doctor (it was a `!` line) ──
+assert_not_contains "E-448.D0: the fresh project tracks no machine-local file" "[MACHINE_LOCAL]" "$(_ai doctor)"
+( cd "$PROJ" && git add -f .claude/settings.json )
+assert_contains "E-448.D1: doctor names a tracked .claude/settings.json as [MACHINE_LOCAL]" \
+  "[MACHINE_LOCAL] .claude/settings.json is tracked" "$(_ai doctor)"
+assert_rc 1 "E-448.D2: …and exits non-zero" doctor
+( cd "$PROJ" && git rm -q --cached .claude/settings.json )
+
 # ── E-391.03 (D-132 addendum 4 r2): doctor and sync know a Rein hook by its file name ──
 # A hook entry under a home directory that no longer exists (what removing an earlier
 # install's directory leaves) is reported, fails doctor, and is rewritten by sync; a script

@@ -719,6 +719,57 @@ assert_status 1 "E-302.RD2: a global registry missing the local servers fails th
 cp "${REPO_ROOT}/src/config/registry.json" "${_RD_HOME}/.rein/config/registry.json"
 assert_status 0 "E-302.RD3: …and a matching one passes" env HOME="$_RD_HOME" bash "$_RD"
 
+# ── E-448 (D-165): a machine-local generated file is refused at commit ──────────────────────
+# The whole hook, as `git commit` runs it, in a provisioned fixture project: the mirror is this
+# tree's src/shared (machine-local.list included) and HEAD carries a CRITIC_STAMP, so the only
+# gate that can refuse is the one under test. The Engineer role, so the Architect git lane
+# (which keeps .claude/ out of an Architect commit) is not what answers.
+echo ""
+_ML_HOME="$(test_tmpdir mlhome)"; tc_link_shared "$_ML_HOME"
+_ml_repo() {
+  local d; d="$(test_tmpdir mlrepo)"
+  ( cd "$d" && git init -q . && git config user.email t@t && git config user.name t && git config commit.gpgsign false
+    mkdir -p .ai .claude docs && echo base > README && git add README && git commit -q --no-verify -m base
+    printf '#!/bin/bash\nexec /bin/bash %q "$@"\n' "$HOOK" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit )
+  printf '%s' "$d"
+}
+_ml_stamp() {  # cwd = repo: one CRITIC_STAMP for HEAD (the stamp gate's own input, as git_lane_test seeds it)
+  printf '{"tasks":[],"stamps":[{"type":"CRITIC_STAMP","agent":"t","sha":"%s","author":"t@t","timestamp":"%s","summary":"seeded"}]}\n' \
+    "$(git rev-parse HEAD)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .ai/state.json
+}
+_ml_commit() {  # <repo> → _OUT/_RC of `git commit` through the installed hook
+  _OUT="$( cd "$1" && _ml_stamp && env HOME="$_ML_HOME" REIN_CALLER_ROLE=engineer REIN_SKIP_STANDARDS=1 \
+           CLAUDE_CODE_SESSION_ID= git commit -qm t 2>&1 )"; _RC=$?
+}
+_M1="$(_ml_repo)"; ( cd "$_M1" && echo '{}' > .claude/settings.json && git add -f .claude/settings.json )
+_ml_commit "$_M1"
+assert_status 0 "E-448.01a: a staged .claude/settings.json is refused (rc ${_RC})" test "$_RC" -ne 0
+assert_contains "E-448.01b: …as [MACHINE_LOCAL], naming the path and the fix" \
+  "[MACHINE_LOCAL] .claude/settings.json is generated for this machine and never committed — run: git rm --cached .claude/settings.json" "$_OUT"
+_M2="$(_ml_repo)"; ( cd "$_M2" && echo '{}' > .claude/settings.json && git add -f .claude/settings.json \
+    && git commit -q --no-verify -m track && git rm -q --cached .claude/settings.json )
+_ml_commit "$_M2"
+assert_status 0 "E-448.02: staging its deletion (git rm --cached) commits — that is the fix (rc ${_RC})" test "$_RC" -eq 0
+_M3="$(_ml_repo)"; ( cd "$_M3" && echo '{"ci":1}' > .ai/ci.local.json && git add -f .ai/ci.local.json )
+_ml_commit "$_M3"
+assert_contains "E-448.03: every path on shared/machine-local.list is refused, not only settings.json" \
+  "[MACHINE_LOCAL] .ai/ci.local.json" "$_OUT"
+_M4="$(_ml_repo)"; ( cd "$_M4" && echo '{"permissions":{}}' > .claude/settings.architect.json && git add .claude/settings.architect.json )
+_ml_commit "$_M4"
+assert_status 0 "E-448.04a: a role overlay without a home path commits (rc ${_RC})" test "$_RC" -eq 0
+_M5="$(_ml_repo)"; ( cd "$_M5" && printf '{"x":"%s/x"}\n' "$_ML_HOME" > .claude/settings.architect.json && git add .claude/settings.architect.json )
+_ml_commit "$_M5"
+assert_contains "E-448.04b: …the same overlay holding \$HOME/ is refused" \
+  "[MACHINE_LOCAL] .claude/settings.architect.json contains this machine's home directory" "$_OUT"
+_M6="$(_ml_repo)"; ( cd "$_M6" && printf '{"x":"%s/x"}\n' "$_ML_HOME" > .mcp.json && git add .mcp.json )
+_ml_commit "$_M6"
+assert_contains "E-448.04c: a staged .mcp.json holding \$HOME/ is refused (the second place of r3)" \
+  "[MACHINE_LOCAL] .mcp.json contains" "$_OUT"
+_M7="$(_ml_repo)"; ( cd "$_M7" && printf 'see %s/x\n' "$_ML_HOME" > docs/x.md && git add docs/x.md )
+_ml_commit "$_M7"
+assert_status 0 "E-448.05: a doc naming the home path commits — no other path is scanned (rc ${_RC})" test "$_RC" -eq 0
+assert_status 1 "E-448.06: the hook carries no copy of the list (D-165 r1)" grep -q "start\.local\.json" "$HOOK"
+
 assert_summary
 if [[ "${FAIL_COUNT:-0}" -eq 0 ]]; then
   echo "===== conflict_gate_test.sh PASS ====="

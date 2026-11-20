@@ -6147,6 +6147,7 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
        rein ci log [<sha>] [--failed]
        rein ci evals
        rein ci hosted [<provider>] [--check] [--force] | --required
+       rein ci plan [--base <ref>] [--json]
        rein ci budget [set --ruling D-### <field>=<n> …]
 
   hosted         Render the hosted trunk check for the provider (github; azure, gitlab,
@@ -6160,6 +6161,13 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
                  keeps merged branches (advisory; the exit code is the wrapper's).
                  --required prints the required check names one per line — the source
                  the branch protection and the release publish gate read (D-137).
+  plan          How much CI the change needs (E-449, D-166): none (bookkeeping only), fast
+                 (docs only), affected (the suites whose census footprint reads a changed
+                 path) or full. Full whenever lower cannot be proven: a path on the full list
+                 or unknown to the census, a [TIER_3] commit, no base, a shallow clone, a
+                 missing or stale baseline, over half the suites, ci.smart false, or a
+                 planner error ([PLAN_FALLBACK]). --base <ref> (default: the merge base with
+                 the trunk), --json for the plan object.
   evals         Run the core-skill evals (tests/suites/skill_evals_test.sh, E-285) under
                  YOUR HOME — the model needs your claude login, which a run's throwaway
                  HOME never has. Needs a clean tree outside .ai/; the JSON report is kept
@@ -6206,6 +6214,7 @@ do_ci() {
     run) shift; _ci_run "$@" ;;
     evals) shift; _ci_evals "$@" ;;
     hosted) shift; _ci_hosted "$@" ;;
+    plan) shift; _ci_plan "$@" ;;
     status|list|log) shift; _ci_read "$sub" "$@" ;;
     budget) shift; _ci_budget "$@" ;;
     ""|-h|--help|help) _ci_usage ;;
@@ -6269,6 +6278,18 @@ _ci_evals() {
   fi
   echo "rein ci evals: $([[ $rc -eq 0 ]] && echo PASS || echo FAIL) ${sha:0:7} — report: ${report}"
   return $(( rc ? 1 : 0 ))
+}
+
+# _ci_plan — E-449 (D-166 r1): how much CI the change needs (none|fast|affected|full). The logic
+# is src/shared/ci-plan.mjs; this only finds the repository root. Exit 0 for a computed plan
+# (a [PLAN_FALLBACK] full plan included), 2 on a usage error.
+_ci_plan() {
+  local root helper
+  root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "rein ci plan: not inside a git repository" >&2; return 2; }
+  helper="$(_rein_helper shared/ci-plan.mjs || true)"
+  [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || {
+    echo "rein ci plan: ci-plan.mjs or node unavailable — $(_rein_fix_install)" >&2; return 2; }
+  node --no-warnings "$helper" --root "$root" "$@"
 }
 
 # _ci_hosted — E-335 (D-103): render / check the provider's hosted-check wrapper. The logic is

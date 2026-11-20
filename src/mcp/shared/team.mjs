@@ -92,6 +92,11 @@ export function validateTeam(t) {
     if (typeof c.required_check !== "string" || !/^[\w .-]{1,64}$/.test(c.required_check)) bad("ci.required_check must be a short name");
     // E-386/E-384 (D-135 r3): how many shards the rendered matrix runs (1 = one leg).
     if (c.shards !== undefined && !(Number.isInteger(c.shards) && c.shards >= 1 && c.shards <= 8)) bad("ci.shards must be a whole number 1..8");
+    // E-449 (D-166, smart-ci.md §Data Model): the planner's one switch and the project's own lists.
+    if (c.smart !== undefined && typeof c.smart !== "boolean") bad("ci.smart must be true or false");
+    for (const k of ["full_paths", "docs_paths"]) {
+      if (c[k] !== undefined && !(Array.isArray(c[k]) && c[k].length <= 64 && c[k].every((g) => typeof g === "string" && /^[A-Za-z0-9._*?\/-]{1,200}$/.test(g) && (g.match(/\*\*/g) || []).length <= 4))) bad(`ci.${k} must be a list of up to 64 path globs ([A-Za-z0-9._*?/-], at most four **)`);
+    }
     if (c.rein_source !== undefined && !/^https:\/\/[A-Za-z0-9.-]+(?::\d+)?(?:\/[A-Za-z0-9._~-]+)+$/.test(c.rein_source)) bad("ci.rein_source must be a plain https git URL");
   }
 }

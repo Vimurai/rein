@@ -11,6 +11,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, rmSync, unlinkSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { tcFixtureHome } from "../lib/toolchain-fixture.mjs";
 
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const { planFromInputs, ciPlan, globToRe, FALLBACK } = await import(join(repo, "src/shared/ci-plan.mjs"));
@@ -71,6 +72,7 @@ test("the globs: ** spans directories, * stays in one segment", () => {
 
 // ── gathering from git (ciPlan) ──────────────────────────────────────────────────────────
 const fx = mkdtempSync(join(tmpdir(), "rein-t-ciplan-"));
+tcFixtureHome(fx);   // E-345 (D-109 r1): HOME is set for git, so it carries the toolchain record
 const env = { ...process.env, GIT_CONFIG_NOSYSTEM: "1", HOME: fx };
 const git = (...a) => execFileSync("git", ["-C", join(fx, "r"), ...a], { encoding: "utf8", env, stdio: ["ignore", "pipe", "pipe"] }).trim();
 const put = (p, s) => { mkdirSync(dirname(join(fx, "r", p)), { recursive: true }); writeFileSync(join(fx, "r", p), s); };

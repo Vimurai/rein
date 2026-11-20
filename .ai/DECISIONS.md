@@ -5804,3 +5804,62 @@ A colleague who pulled a project the operator works on with Rein received `.clau
 Revert E-448's commit; the warning lines of E-290 remain.
 
 ---
+
+## D-163 addendum 2 r16 — correction to (c)
+
+**Date**: 2026-11-20
+**Task**: E-447
+**Decision**: The sentence "there is no mutation run in the harness" in r16 (c) is wrong and is withdrawn. `tests/tools/mutation/` exists (the gate-table probes and a Stryker unit config). The Architect wrote the sentence without looking.
+
+### What stands
+- The acceptance of E-447 and the pin stand: they rest on the row comparison in r16 (b), not on (c).
+- The keep clause was applied by V8 block-coverage path. Whether a mutation run over rows #438–#516 would keep a row that block coverage dropped is **not known**.
+
+### Ruling
+- E-447 does not close on (c) as written. Before DONE the Engineer either runs `tests/tools/mutation/gate-tables.sh` (or the probe that covers `operand-scope-cases.json`) against the 490-row table and reports that no mutant killed at 501 rows survives at 490, or reports that the tool does not cover this table. The result goes in the handoff; a surviving mutant restores its row and re-pins the table.
+
+### Alternatives considered
+1. **Leave (c) and note it in COMM.md only** — rejected: the wrong reason would stay in the ruling a later table merge cites.
+
+### Impact
+- Risk if wrong: none added; this narrows an acceptance that was given on a false premise.
+
+### Rollback
+None.
+
+---
+
+## D-166 — CI runs the level the change needs, once: a plan from the diff, evidence by tree, one required check
+
+**Date**: 2026-11-20
+**Task**: E-449, E-450, E-451, E-452 (`.ai/blueprints/smart-ci.md`)
+**Decision**: One planner decides from the diff whether a change needs nothing, the fast tier, the affected suites or the full run. The local run, the pre-push gate and the hosted workflow obey it. A green result for a tree is not obtained twice. The nightly stays full and audits what the plans skipped.
+
+### Why needed
+The operator (2026-11-20): the CI is overkill, it should be smart and skipped when what ran is sufficient, in every project. Measured today: a full local run of about 10 minutes before each push, then 15–20 minutes on 8 or more hosted legs per pull request to the trunk, for any diff. The pieces exist and are not connected: `--changed` (E-298) is a local tool nobody is required to use, the pre-push gate asks for a full run per sha, and the hosted matrix is fixed.
+
+### Rulings
+1. **Four levels, full by default**: `none`, `fast`, `affected`, `full`, as the blueprint's table defines them. The planner returns `full` whenever it cannot prove less, including on its own errors.
+2. **Evidence is keyed by tree and level.** A commit whose tree has a sufficient green record needs no run. Old records read as `full`.
+3. **Where a hosted check is the merge gate, the local gate asks for at most `affected`.** The hosted run is the full run. Without a hosted gate the plan's level stands locally. A `[TIER_3]` commit is always full locally. This amends the E-267 rule ("a full green run per pushed tip").
+4. **Pull requests run Linux × Node 22 only.** macOS runs on a push to the trunk; every leg runs nightly and on a release. This withdraws the macOS × 22 legs from the required set (D-138 r4, DEVOPS-017) and the Node 24 pull request legs of D-133.
+5. **The required checks are `ci-result`, `privacy`, `CodeQL`.** `ci-result` is green when every leg the plan asked for is green. The per-leg names of D-135 leave the branch policy. The operator changes the ruleset; E-451 names the moment.
+6. **The hosted run trusts only hosted evidence** (its own cache, keyed by leg, level and tree). A tracked `.ai/ci/<sha>.json` certifies nothing on a runner.
+7. **The nightly audits escapes.** A suite that fails in the nightly and that a plan since the last green nightly did not select is a `[PLAN_ESCAPE]`, and the fix widens the full list or corrects the footprint.
+8. **One switch**: `team.json` `ci.smart: false` makes every plan `full`. `rein ci run --full` and the `ci:full` label force one run.
+9. **A run below `full` never writes the census baseline and never lowers a budget value** (D-164 addendum 1 r5 unchanged).
+
+### Alternatives considered
+1. **Path filters in the workflow file (`paths-ignore`)** — rejected: a skipped required check never reports and blocks the merge, the rule would live in YAML per project, and the local run would not share it.
+2. **Trust the committed local record on the runner and skip the hosted run** — rejected: a pull request writes that file.
+3. **Keep macOS on pull requests for shell changes only** — rejected for now: Rein is mostly shell, so the rule would fire on nearly every change and save nothing. The operator chose macOS at merge; the trunk run and the issue are the control.
+4. **A test-impact map built from coverage** — rejected: the census footprint already is that map and is already committed.
+
+### Impact
+- Unlocks: E-449 to E-452.
+- Risk if wrong: a regression in a suite the plan did not select reaches the trunk and is found by the nightly, at most a day later; a macOS-only break is found after merge. Ruling 7 measures the first; ruling 8 turns it all off.
+
+### Rollback
+`ci.smart: false`; `rein ci hosted --force` on the previous version; the operator restores the previous required names (the blueprint's Rollback Plan gives the order).
+
+---

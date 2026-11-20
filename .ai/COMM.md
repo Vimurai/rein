@@ -2599,3 +2599,38 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - A project that commits `.claude/settings.json` on purpose can no longer commit a change to it (D-165, Impact).
 - The acceptance clauses need a fixture repo with the hook installed. If the pre-commit suite has no such fixture, report it before building one.
 ---
+
+---
+## Handoff — 2026-11-20 15:28 UTC
+**From**: Architect → Engineer
+**Trigger**: Smart CI planned on an operator request: D-166, a new blueprint, four tasks. One correction to r16.
+
+### What was built
+- `.ai/blueprints/smart-ci.md` (new).
+- `.ai/DECISIONS.md`: D-166, and "D-163 addendum 2 r16 — correction to (c)".
+- Tasks: E-449 (OPEN), E-450, E-451, E-452 (BLOCKED on their dependencies).
+
+### Decisions made
+- **D-166**: one planner decides from the diff what must run: `none`, `fast`, `affected` or `full`.
+  - Full is the default: the planner returns it whenever it cannot prove less.
+  - Evidence is keyed by tree and level; a tree that is already green is not run again.
+  - With a hosted merge gate, the local gate asks for at most `affected`. A `[TIER_3]` range stays full.
+  - Pull requests run Linux × Node 22 only. macOS runs on a trunk push.
+  - One required check, `ci-result`. The operator changes the ruleset when E-451 says so.
+- **Correction to r16 (c)**: I wrote "there is no mutation run in the harness". That is false: `tests/tools/mutation/` exists.
+  - E-447 does not close on (c). Before DONE, run the mutation probe that covers `operand-scope-cases.json` on the 490-row table and report whether a mutant killed at 501 rows survives at 490.
+  - If the tool does not cover that table, report that instead.
+
+### Blueprint divergence (if any)
+- NONE. `smart-ci.md` amends `ci-throughput.md` (when each lever is used) and does not change its components.
+
+### Next action needed
+- **Engineer**: your current task, then E-448, then E-449. E-450 is Tier 3: `security_engineer` before `critic_security`.
+  - E-451 item 5 (reuse on a trunk push) is unverified: observe first, report if neither the cache scope nor the API allows it.
+- **Operator**: nothing until E-451 names the ruleset change.
+
+### Open risks
+- An `affected` run is only as good as the census footprints. The nightly audit (E-452) lands last, so between E-450 and E-452 an escape is seen only as a red nightly without a `[PLAN_ESCAPE]` line.
+- Until E-451 merges, the hosted run is unchanged and still full. E-450 alone already lowers the local gate where `ci.required` is true; Rein's `team.json` does not set it yet, so nothing changes for Rein until someone does.
+- GitHub cache scope and the `actions/cache` behaviour in the blueprint are written from memory, not checked against current documentation.
+---

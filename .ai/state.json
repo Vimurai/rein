@@ -2106,6 +2106,74 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-20T15:09:05.930Z"
+    },
+    {
+      "id": "E-449",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Build the CI planner per D-166 r1 and .ai/blueprints/smart-ci.md §Component 1, §Data Model and §Security. Ordering by text: after E-448. Create src/shared/ci-plan.mjs exporting ciPlan(root, base, head) as a pure function of the changed paths, the commit subjects in base..head and tests/census-baseline.tsv, returning { level, reason, base, head, tree, suites, skipped, est_seconds, shards, platforms } with level one of none|fast|affected|full. Use the built-in full list and docs class of §Component 1, extended by team.json ci.full_paths and ci.docs_paths; delegate suite selection to tests/tools/select-suites.mjs and do not reimplement it; return full on every case the blueprint lists (full-list path, path unknown to the census, a [TIER_3] subject, no base, shallow clone, missing or stale baseline, more than half the suites selected, ci.smart false, any thrown error with [PLAN_FALLBACK]). Add `rein ci plan [--base <ref>] [--json]` to src/bin/rein. A project without tests/tools/census.mjs gets none, fast (docs-only) and full only. Tests: one unit table at the node layer with a row per level and a row per fail-full case; no suite named for this task. Acceptance: `rein ci plan --json` on a commit touching only .ai/ prints level none; on a commit touching only docs/getting-started.md prints fast or affected with a reason; on a commit touching hooks/pre-tool-use.sh prints full with the path in reason; with tests/census-baseline.tsv removed in a fixture prints full; a ciPlan call whose selector throws returns full and the reason starts with [PLAN_FALLBACK]; `node --test` on the new unit file passes; `rein ci run` is green. Framework task.",
+      "created_at": "2026-11-20T15:28:00.660Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-20T15:28:00.661Z"
+    },
+    {
+      "id": "E-450",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 3,
+      "description": "Make the local run and the pre-push gate obey the plan per D-166 r2, r3, r8, r9 and .ai/blueprints/smart-ci.md §Component 2, §Component 3, §Data Model and §Security (gate surface: it changes what the pre-push gate accepts; security_engineer then critic_security). (1) `rein ci run` in src/bin/rein computes ciPlan against the trunk's merge base and runs that level; the log starts with `[ci] plan level=<l> reason=<r> suites=<k>/<n>`; `--full` is today's run; `--base <ref>` overrides the base. (2) A run below full never writes tests/census-baseline.tsv and never lowers a budget value. (3) ci_runs gains nullable tree, level, base (rein-migration skill first); .ai/ci/<sha>.json gains the same; a row without level reads as full. (4) In src/mcp/shared/ci-runs.js a tip is certified when a green, clean, unsharded record exists for its tree at a level at or above the plan's, for the same base or an ancestor; hooks/pre-push.sh asks that and refuses with `[PUSH_BLOCKED] <sha> needs level <l> (<reason>) — run: rein ci run`. (5) With team.json ci.provider set and ci.required true the gate asks for at most affected, except a range with a [TIER_3] subject, which is full. (6) `rein ci status` prints the plan and what certified the tree. Tests: extend the existing pre-push and ci-record tests; name the test each row extends. Acceptance: in a fixture repo a docs-only commit after a green full run pushes after a `rein ci run` whose log shows level fast or affected; amending only the message of a certified commit pushes with no new run and `rein ci status` prints `tree`; a commit touching hooks/ with only an affected record is refused with `[PUSH_BLOCKED]` and `needs level full`; with ci.required true the same commit pushes on an affected record unless its subject carries [TIER_3]; a pre-existing ci_runs row with NULL level still certifies its sha; .ai/SECURITY.md carries the security_engineer entry; `rein ci run --full` is green. Framework task.",
+      "created_at": "2026-11-20T15:28:09.700Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-449"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-449"
+      ],
+      "updated_at": "2026-11-20T15:28:09.702Z"
+    },
+    {
+      "id": "E-451",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 2,
+      "description": "Render the plan-driven hosted workflow per D-166 r4, r5, r6 and .ai/blueprints/smart-ci.md §Component 4, §Security and §Rollback Plan (skill ci_gate first; .ai/DEVOPS.md entry with the rollback order). In src/shared/hosted-ci.mjs and src/templates/ci/github.yml, for every profile: (1) job `plan` runs `rein ci plan --json` (checkout with history, no installer) and publishes level, shards and the matrix; a `ci:full` label, workflow_dispatch, the nightly and a release force full. (2) `fast` is skipped at level none; the `rein ci run` matrix comes from the plan (one leg per platform at affected, the sharded matrix at full). (3) Platforms: pull_request runs ubuntu-latest x node 22 only; a trunk push adds macos-latest x node 22; nightly and release unchanged; a red trunk push opens or updates the nightly's issue. (4) Each leg restores a cache marker keyed `rein-ci-ok/<leg>/<level>/<tree>`, prints `[ci] reused <key>` and exits 0 on a hit, saves it when green; the runner never reads .ai/ci/*.json. (5) On a trunk push whose tree equals a green pull request merge ref's tree, reuse the Linux legs; observe live first whether cache scope or the API allows it and report if neither does. (6) Job `ci-result` (`if: always()`) is green when every job the plan asked for succeeded. (7) `privacy` triggers on pull_request and trunk push only. (8) requiredChecks() returns ci-result, plus privacy and CodeQL on the public profile. Re-render Rein's .github/workflows/ci.yml; extend the renderer unit test. Acceptance: `rein ci hosted github --check` exits 0 on the re-rendered tree; the rendered file has jobs plan, fast, the matrix and ci-result; a hosted pull request changing only docs shows no `rein ci run` leg and ci-result green (name the run id); a hosted pull request touching src/ shows no macos job; re-running a green leg prints `[ci] reused`; .ai/DEVOPS.md names the three required checks and the operator's ruleset step. Framework task.",
+      "created_at": "2026-11-20T15:28:25.339Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-449"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-449"
+      ],
+      "updated_at": "2026-11-20T15:28:25.339Z"
+    },
+    {
+      "id": "E-452",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 2,
+      "description": "Add the nightly escape audit and the plan report per D-166 r7 and .ai/blueprints/smart-ci.md §Component 5 (skill ci_gate first for the workflow change). (1) In src/shared/ci-plan.mjs export planEscapes(root, failingSuites, lastGreenSha, head): for each failing suite walk the commits in lastGreenSha..head, recompute each commit's plan against its parent, and return one entry per commit whose plan did not select that suite. (2) .github/workflows/nightly.yml (and the renderer, so every project gets it): when the full matrix is red, run the audit and print `[PLAN_ESCAPE] <suite> <sha> level=<l>` per entry; the issue the nightly opens carries those lines; a red nightly with no escape prints `[PLAN_ESCAPE] none`. (3) `rein ci status --plans` lists for the last 30 days the runs by level and the suite seconds not run (est_seconds of the full plan minus the run's). Tests: unit rows for planEscapes on a synthetic history (a skipped suite that fails, a selected suite that fails, a full plan); extend the existing nightly renderer test; no suite named for this task. Acceptance: `node --test` on the unit file passes with the three rows named; the rendered nightly contains the audit step under `if: failure()`; `rein ci status --plans` on a repo with one fast and one full record prints both levels and a seconds figure; `rein ci hosted github --check` exits 0; `rein ci run` is green. Framework task.",
+      "created_at": "2026-11-20T15:28:32.505Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-451"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-451"
+      ],
+      "updated_at": "2026-11-20T15:28:32.506Z"
     }
   ],
   "stamps": [
@@ -6683,6 +6751,105 @@
       "timestamp": "2026-11-20T15:08:40.840Z",
       "summary": "Parallel critics on the E-440 diff (HEAD ffed1e8): ARCH_PASS, SEC_PASS, TESTS_PASS (660/660 on the two tables), CLEAN_PASS (4 files, 0 findings); SEC_CLEARED after 2 security_engineer passes. No P0/P1; residuals recorded on SEC_CLEARED.",
       "sha": "ffed1e8f4507c6346b92703d298df505612b7e84",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-446",
+      "timestamp": "2026-11-20T15:14:14.866Z",
+      "summary": "E-446: 42 sink spellings x 2 modes; no P0/P1. In-scope P2 (task runners' other spellings: JUSTFILE, rakefile, Rakefile.rb, *.rake, taskfile.yml, Taskfile.dist.yml) fixed as recommended and asserted in the heredoc unit loop. Both THREAT_MODEL INCONCLUSIVE items closed. Open P2 (new, to the Architect): a cd before the heredoc moves a relative sink (cd /etc && cat > profile.d/x). Residual P3: .claude/settings.json, *.pth, .venv/bin/activate, .vscode/tasks.json, setup.py, noxfile.py.",
+      "sha": "69345e83ebc4641ba3772fe9e73eb01a471bdbb4",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_PASS",
+      "agent": "critic_clean_code",
+      "task_id": "E-446",
+      "timestamp": "2026-11-20T15:14:30.300Z",
+      "summary": "standards-checker PASS — 3 files clean (heredoc.mjs, pipe-shell-cases.json, operand-scope.test.mjs), 0 warnings, elapsed <10ms each",
+      "sha": "69345e83ebc4641ba3772fe9e73eb01a471bdbb4",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-446",
+      "timestamp": "2026-11-20T15:14:31.563Z",
+      "summary": "No P0; IMPLICIT_RUN widened and TASK_RUNNER_FILE added, both fail-closed (more sinks lose heredoc exemption). Regexes are anchored literal alternations with no nested quantifiers, so no ReDoS. `..` segment check is correct and does not match `notes..txt`. No secrets, exec, or env use.",
+      "sha": "69345e83ebc4641ba3772fe9e73eb01a471bdbb4",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-446",
+      "timestamp": "2026-11-20T15:14:32.328Z",
+      "summary": "Unit run 643/643 pass (pipe-shell-cases + operand-scope); 4 table rows (2 BLOCK, 1 pass, JUSTFILE BLOCK) and twelve-name loop plus variant loop with non-vacuity check; no env/leak concerns",
+      "sha": "69345e83ebc4641ba3772fe9e73eb01a471bdbb4",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-446",
+      "timestamp": "2026-11-20T15:14:35.745Z",
+      "summary": "No sovereignty violations (architect.md, BRIEF, blueprints untouched). Diff confined to heredoc.mjs, pipe-shell-cases.json, operand-scope test and THREAT_MODEL.md, all traced to E-446/D-163 r14. Twelve names and the `..` segment rule implemented as ruled; deny list kept. Case/spelling variants (just/rake/task) are the same tools, in-scope security finding, and tighten rather than loosen; accepted as within the ruling and recorded in THREAT_MODEL. Open cd-relative sink item correctly routed to the Architect.",
+      "sha": "69345e83ebc4641ba3772fe9e73eb01a471bdbb4",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-446",
+      "timestamp": "2026-11-20T15:14:42.916Z",
+      "summary": "Parallel critics on the E-446 diff (HEAD 69345e8): ARCH_PASS, SEC_PASS, TESTS_PASS (643/643), CLEAN_PASS (3 files); SEC_CLEARED. No P0/P1. Open P2 for the Architect: a cd before a heredoc moves a relative sink.",
+      "sha": "69345e83ebc4641ba3772fe9e73eb01a471bdbb4",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CLEAN_WARN",
+      "agent": "critic_clean_code",
+      "task_id": "E-448",
+      "timestamp": "2026-11-20T15:19:45.424Z",
+      "summary": "standards-checker WARN — 5 files checked, 0 errors, 1 warning (rule_id: standards_suppression_unknown, file: tests/suites/pre_commit_hook_test.sh line 647, likely an intentional fixture); no blocking violations",
+      "sha": "e685418c671a2d9aaf3a3f697fb22a8ef7bf49e1",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-448",
+      "timestamp": "2026-11-20T15:19:46.721Z",
+      "summary": "No P0; _machine_local_gate resolves list via rein_locate (install-first), fails closed if missing, no env opt-out, -z name-status parsing, grep -qF on process substitution (no pipefail pipe), paths only echoed to stderr and quoted in git show with ':' pathspec. P2 note: a path with a newline would echo a multi-line message (cosmetic only).",
+      "sha": "e685418c671a2d9aaf3a3f697fb22a8ef7bf49e1",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ARCH_PASS",
+      "agent": "critic_arch",
+      "task_id": "E-448",
+      "timestamp": "2026-11-20T15:19:47.173Z",
+      "summary": "No sovereignty violations; single list src/shared/machine-local.list read by gitignore writer, doctor (_DOCTOR_HARD_FAIL) and pre-commit step; hook step unconditional, outside publish.json block, no opt-out, fails closed; deletions pass; $HOME/ scan only .claude/** and .mcp.json; sync leaves index untouched; tests extend existing suites.",
+      "sha": "e685418c671a2d9aaf3a3f697fb22a8ef7bf49e1",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-448",
+      "timestamp": "2026-11-20T15:19:48.103Z",
+      "summary": "E-448 rows cover every acceptance clause (refuse, rm --cached passes, overlay with/without home path, .mcp.json, docs unscanned, list-literal grep, doctor rc 1); extends existing pre-commit suite, fixture HOME and test_tmpdir, no task-named suite. 10/10 E-448 rows pass per caller; 3 older rows fail only on uninstalled ~/.rein mirror; init_upgrade doctor rows not run (dirty tree), reviewed by reading.",
+      "sha": "e685418c671a2d9aaf3a3f697fb22a8ef7bf49e1",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-448",
+      "timestamp": "2026-11-20T15:19:57.881Z",
+      "summary": "Parallel critics on the E-448 diff (HEAD e685418): ARCH_PASS, SEC_PASS (P2 cosmetic: a newline in a path prints a multi-line message, still blocked), TESTS_PASS (10 hook rows pass; doctor rows run after commit), CLEAN_WARN (pre-existing fixture suppression line 647). No P0/P1.",
+      "sha": "e685418c671a2d9aaf3a3f697fb22a8ef7bf49e1",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

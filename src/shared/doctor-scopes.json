@@ -60,6 +60,7 @@
     "roles_json": "project",
     "roles_mapped": "project",
     "safe_exec_gate": "install",
+    "sandbox": "host",
     "settings_json": "project",
     "settings_json_tracked": "project",
     "start_account": "project",

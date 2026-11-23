@@ -1422,7 +1422,9 @@ _sync_workspace_dirs() {
   # skills and agents too, instead of only the Engineer-side src/claude/* dirs.
   _provision_workspace "claude" ".claude" "yes" "yes" "shared/skills" "claude/skills"
   _configure_project_claude_settings ".claude"
-  _write_role_settings_overlays ".claude" ".ai"   # E-208: per-role overlays
+  # E-462: no role settings here. They live in ~/.rein/roles/ and `rein pane` / `rein start`
+  # write them at every launch — a copy written at sync time would only be older, and a sync
+  # inside a role's sandbox (or a test's temp project) has no business in ~/.rein.
   _provision_rules ".claude/rules"                 # E-282: path-scoped rules
   if [[ "$mode" == "init" ]]; then
     echo "Created .claude/ (project-scoped agents + skills + settings.json)"
@@ -1527,120 +1529,76 @@ migrate_legacy_ai_if_present() {
 # agent teams env var and registry-driven MCP tool permissions.
 # $1: target dir (e.g. ".claude")
 
-# ── E-208 (D-054, role-abstraction.md §Components 3): per-role settings overlay ──
-# Generates .claude/settings.<role>.json for every role that .ai/roles.json maps to
-# the `claude` provider. `rein pane <role>` selects it via `claude --settings <file>`.
+# ── E-462 (D-169 r3, lean-core.md §Component 1): the role settings files ──────────────────
+# Generates the boundary of each pane role mapped to claude: settings.<role>.json (sandbox, write
+# list, path rules, no bypass) and, for the Architect, mcp.architect.json (the state server only),
+# by src/shared/role-settings.mjs — the shape E-458 measured (plans/e-458-sandbox-measurement.md).
 #
-# The overlay carries ENV ONLY — deliberately NO SessionStart hook. Claude Code
-# MERGES hook arrays rather than replacing them, so registering a second
-# `session-start.sh <role>` here would mint TWO role tokens for one session id with
-# undefined ordering (D-054 §Alternatives, option 3). The launch-time role reaches
-# the hook through REIN_PANE_ROLE instead, which has a single authoritative value.
+# $1: output dir. Empty (the default) = the role dir ~/.rein/roles/<project key>/, which the
+#     Engineer's sandbox write-denies and the Architect's does not list: neither session can edit
+#     a role file (gap 3 of E-458 — in .claude/ the Engineer could write the Architect's).
+# $2: the .ai dir (default .ai); the project is its parent.
+# Prints one line per file written. Returns 1 when it cannot write (inside a role's sandbox, where
+# ~/.rein is read-only by design) — `rein pane` and `rein start` run outside it and refuse then.
+#
+# Still NO hooks in a role file (E-208, D-054 option 3): Claude Code merges hook arrays, so a
+# hook here would run twice next to the project's .claude/settings.json.
 _write_role_settings_overlays() {
-  local target_dir="${1:-.claude}"
-  local ai_dir="${2:-.ai}"
+  local out="${1:-}" ai_dir="${2:-.ai}" gen
   [[ -d "$ai_dir" ]] || return 0
-  command -v python3 >/dev/null 2>&1 || return 0
-  python3 - "$target_dir" "$ai_dir" <<'PY'
-import json, os, sys
+  gen="$(_rein_helper shared/role-settings.mjs || true)"
+  if [[ -z "$gen" ]] || ! command -v node >/dev/null 2>&1; then
+    echo "  ✗ role settings: role-settings.mjs or node not found — $(_rein_fix_install)" >&2
+    return 1
+  fi
+  local -a a=(write --ai-dir "$ai_dir")
+  [[ -n "$out" ]] && a+=(--out "$out")
+  local f rc=0
+  while IFS= read -r f; do
+    [[ "$f" == "__FAILED__" ]] && { rc=1; continue; }
+    [[ -n "$f" ]] && echo "  role settings written: ${f/#"$HOME"/\~}"
+  done < <(node --no-warnings "$gen" "${a[@]}" || echo "__FAILED__")
+  return "$rc"
+}
 
-target_dir, ai_dir = sys.argv[1], sys.argv[2]
+# The role dir of the project that owns $1 (an .ai dir). Prints nothing on failure.
+_role_settings_dir() {
+  local gen; gen="$(_rein_helper shared/role-settings.mjs || true)"
+  [[ -n "$gen" ]] && node --no-warnings "$gen" dir --ai-dir "$1" 2>/dev/null
+}
 
-def load(path, default):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f) or default
-    except Exception:
-        return default
+# E-462 (lean-core.md §API): can a role session start sandboxed here? Prints the reason when not.
+# Linux/WSL2 need bubblewrap and socat and working user namespaces; macOS has sandbox-exec.
+_sandbox_missing() {
+  case "$(uname -s 2>/dev/null)" in
+    Darwin) return 1 ;;
+    Linux) ;;
+    *) echo "this platform has no Claude Code sandbox (Rein supports Linux and WSL2)"; return 0 ;;
+  esac
+  local miss=""
+  command -v bwrap >/dev/null 2>&1 || miss+=" bubblewrap"
+  command -v socat >/dev/null 2>&1 || miss+=" socat"
+  if [[ -n "$miss" ]]; then echo "missing:${miss} — install: $(_sandbox_install_line)"; return 0; fi
+  if ! bwrap --ro-bind / / --dev /dev --unshare-user --unshare-pid true >/dev/null 2>&1; then
+    echo "bubblewrap cannot create a user namespace here (see https://code.claude.com/docs/en/sandboxing)"; return 0
+  fi
+  return 1
+}
 
-import re
-# .ai/roles.json is ARCHITECT-WRITABLE, so its keys are untrusted input to a path
-# join. A key containing parent-directory segments would write outside .claude/
-# (E-208 audit). Constrain role names to a safe charset before os.path.join sees them.
-ROLE_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
-
-roles = load(os.path.join(ai_dir, "roles.json"), {}).get("roles", {})
-for role, cfg in roles.items():
-    if not ROLE_RE.match(str(role)):
-        print(f"  ! skipping role '{role}' — invalid role name (must match [a-z][a-z0-9_-]*)")
-        continue
-    if not isinstance(cfg, dict) or cfg.get("provider") != "claude":
-        continue
-    # E-255: a headless role runs as the Engineer's delegate and inherits its overlay;
-    # it gets no pane, so an overlay of its own would be a launch surface nobody uses.
-    if cfg.get("headless") is True:
-        continue
-    path = os.path.join(target_dir, f"settings.{role}.json")
-    data = load(path, {})
-    env = data.setdefault("env", {})
-    # Authoritative (not setdefault) so a stale/forged role can never linger.
-    env["REIN_CALLER_ROLE"] = role
-    # NEVER register hooks here — see the comment above _write_role_settings_overlays.
-    data.pop("hooks", None)
-
-    # E-213 (§Components 3): the Architect's own tool surface. --settings MERGES with
-    # the base file, so these are ADDITIVE to the Engineer allow-list; they are the
-    # tools an Architect needs to plan and hand off without a permission prompt.
-    #
-    # E-216 (D-055 R1): deny rules are now ALSO applied, for the filesystem-mutating
-    # MCP tools. They remain a SECOND layer, not the mechanism — the pre-tool-use hook
-    # (E-208, widened here) and the Git Lane (E-214) are what is enforced, because a
-    # settings file is config the session could in principle be started without. The
-    # hook cannot see a pre-approved MCP call's arguments reliably, which is exactly
-    # why the MCP channel needs the deny list rather than a path check.
-    if role == "architect":
-        arch_allow = [
-            "Bash(rein add-task *)",
-            # E-461 (D-169 r7): the bookkeeping commands that replaced the planning skills.
-            "Bash(rein done *)",
-            "Bash(rein handoff *)",
-            "Bash(rein decide *)",
-            "mcp__task-synchronizer-mcp__add_topic_seed",
-            "mcp__task-synchronizer-mcp__add_cluster_page",
-            "mcp__context-guardian-mcp__check_role_access",
-            # D-099 (E-321): the Architect wakes the Engineer with SendMessage.
-            "ListAgents",
-            "SendMessage",
-        ]
-        # Every MCP tool that can mutate the filesystem. The Architect writes through
-        # Write/Edit under .ai//plans/ (path-gated by the hook); these bypass that gate
-        # entirely, so they are denied outright rather than scoped.
-        arch_deny = [
-            "mcp__filesystem__write_file",
-            "mcp__filesystem__edit_file",
-            "mcp__filesystem__move_file",
-            "mcp__filesystem__create_directory",
-            "mcp__patch-mcp__patch_file",
-            "mcp__propose-patch-mcp__propose_patch",
-            "mcp__propose-patch-mcp__confirm_patch",
-            # E-216 audit: the deny list matches TOOL NAMES, so a router forwarding to the
-            # same server under another name walked straight past it. E-277 (D-075) retired
-            # that router; a future forwarding server must be denied here the same way.
-            # The MCP analogue of the "interactive editors" residual: these drive any
-            # GUI editor to write any file. E-279 (D-075) retired that server, but its
-            # mirror copy stays in ~/.rein/mcp until `rein clean` runs, and a hand-added or
-            # user-scope entry could still launch it — so the deny stays; it costs nothing.
-            "mcp__computer-use-mcp__type_text",
-            "mcp__computer-use-mcp__key_press",
-        ]
-        ov_perms = data.setdefault("permissions", {})
-        ov_allow = ov_perms.get("allow", [])
-        for rule in arch_allow:
-            if rule not in ov_allow:
-                ov_allow.append(rule)
-        ov_perms["allow"] = ov_allow
-        ov_deny = ov_perms.get("deny", [])
-        for rule in arch_deny:
-            if rule not in ov_deny:
-                ov_deny.append(rule)
-        ov_perms["deny"] = ov_deny
-    os.makedirs(target_dir, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-        f.write("\n")
-    _kind = "env + allow/deny rules" if role == "architect" else "env only"
-    print(f"  .claude/settings.{role}.json written (role overlay, {_kind})")
-PY
+_sandbox_install_line() {
+  local id="" like=""
+  if [[ -r /etc/os-release ]]; then
+    id="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID:-}")"
+    like="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID_LIKE:-}")"
+  fi
+  case " $id $like " in
+    *" debian "*|*" ubuntu "*) echo "sudo apt-get install -y bubblewrap socat" ;;
+    *" fedora "*|*" rhel "*|*" centos "*) echo "sudo dnf install -y bubblewrap socat" ;;
+    *" arch "*) echo "sudo pacman -S --needed bubblewrap socat" ;;
+    *" alpine "*) echo "sudo apk add bubblewrap socat" ;;
+    *" opensuse"*|*" suse "*) echo "sudo zypper install -y bubblewrap socat" ;;
+    *) echo "install bubblewrap and socat with your package manager" ;;
+  esac
 }
 
 _configure_project_claude_settings() {
@@ -3919,12 +3877,14 @@ import(pathToFileURL(process.argv[1]).href).then(m =>
       _dr role_agents - "      ✗ agents   ${agents_dir} missing — run: rein sync" "" "$role"
     fi
 
-    # Settings overlay (E-208) — only meaningful for a claude-hosted role.
+    # Role settings (E-462) — only meaningful for a claude-hosted pane role. They live in
+    # ~/.rein/roles/<project key>/ and `rein pane` regenerates them at every launch.
     if [[ "$provider" == "claude" ]]; then
-      if [[ -f "${ws}/settings.${role}.json" ]]; then
-        _dr role_overlay - "      ✓ overlay  ${ws}/settings.${role}.json" "" "$role"
+      local _rsd; _rsd="$(_role_settings_dir "$(pwd)/.ai")"
+      if [[ -f "${_rsd}/settings.${role}.json" ]]; then
+        _dr role_overlay - "      ✓ settings ${_rsd/#"$HOME"/\~}/settings.${role}.json" "" "$role"
       else
-        _dr role_overlay - "      ✗ overlay  ${ws}/settings.${role}.json missing — run: rein sync" "" "$role"
+        _dr role_overlay - "      ○ settings ${_rsd/#"$HOME"/\~}/settings.${role}.json not written yet — rein pane writes it at launch" "" "$role"
       fi
     else
       _dr role_overlay ok "      - overlay  n/a for provider '${provider}'" "" "$role"
@@ -4234,6 +4194,16 @@ _doctor_text() {
   # analyzer, exactly as hooks/pre-tool-use.sh calls it.
   echo "Command gate:"
   _doctor_gate_report
+  echo ""
+
+  # E-462 (lean-core.md §API): the role boundary is Claude Code's sandbox.
+  echo "Role sandbox:"
+  local _sbx_why
+  if _sbx_why="$(_sandbox_missing)"; then
+    _dr sandbox - "  ✗ [SANDBOX_MISSING] ${_sbx_why} — rein pane refuses to start a role session" "$(_sandbox_install_line)"
+  else
+    _dr sandbox - "  ✓ sandbox available (bubblewrap, socat, user namespaces)"
+  fi
   echo ""
 
   # E-272 (D-074 §Component 6): what earlier versions left behind.
@@ -5438,36 +5408,6 @@ do_start() {
   local r
   while IFS= read -r r; do [[ -n "$r" ]] && roles+=("$r"); done < <(_start_roles "$ai_dir")
 
-  # E-242 (D-066): pre-check every role's overlay HERE, before any pane is created.
-  #
-  # `rein pane` self-heals too, but by then the failure is inside a tmux pane whose output
-  # scrolls past and whose exit leaves an empty shell — the operator sees a dead pane, not
-  # a message. Checking up front reports all roles at once, in the terminal they are
-  # actually looking at.
-  local _pj _missing=0
-  _pj="$(cd "$(dirname "$ai_dir")" && pwd)"
-  for r in "${roles[@]}"; do
-    [[ -f "${_pj}/.claude/settings.${r}.json" ]] || _missing=1
-  done
-  if [[ "$_missing" -eq 1 ]]; then
-    # --dry-run DESCRIBES; it must not write. Regenerating overlays here would make a
-    # "show me what you would do" invocation modify the project, which is the one thing a
-    # dry run promises not to do.
-    if [[ "$dry" -eq 1 ]]; then
-      echo "rein start: (dry run) per-role settings overlays are missing; a real run regenerates them."
-      _missing=0
-    else
-    echo "rein start: regenerating missing per-role settings overlays..."
-    ( cd "$_pj" && _write_role_settings_overlays ".claude" ".ai" ) 2>/dev/null || true
-    for r in "${roles[@]}"; do
-      if [[ -f "${_pj}/.claude/settings.${r}.json" ]]; then
-        echo "  ✓ .claude/settings.${r}.json"
-      else
-        echo "  ✗ .claude/settings.${r}.json still missing — run 'rein init' in ${_pj}" >&2
-      fi
-    done
-    fi
-  fi
   if [[ "${#roles[@]}" -eq 0 ]]; then
     echo "rein start: no roles in .ai/roles.json — run 'rein init' or add engineer/architect." >&2
     return 2
@@ -5497,6 +5437,24 @@ do_start() {
   if [[ "$want_kill" -eq 1 ]]; then
     _start_kill "$session" "$window" "$project" "$assume_yes" "$dry"
     return $?
+  fi
+
+  # E-462 (D-169 r3): the role settings are the boundary. Every real run regenerates them (gap 3
+  # of E-458): the Architect's deny list is the project's top-level entries now, and a file edited
+  # since the last launch is overwritten. `rein pane` regenerates them again and REFUSES without
+  # the sandbox; this says so up front, where the operator is looking (E-242: a refusal inside a
+  # tmux pane scrolls past). --dry-run DESCRIBES; it must not write.
+  local _sbx
+  if _sbx="$(_sandbox_missing)"; then
+    echo "[SANDBOX_MISSING] rein start: ${_sbx} — every role pane will refuse to start until it is fixed." >&2
+  fi
+  local _rd; _rd="$(_role_settings_dir "$ai_dir")"
+  if [[ "$dry" -eq 1 ]]; then
+    echo "rein start: (dry run) the role settings would be regenerated in ${_rd/#"$HOME"/\~}."
+  else
+    echo "rein start: regenerating the role settings..."
+    _write_role_settings_overlays "" "$ai_dir" \
+      || echo "rein start: could not write the role settings in ${_rd} — each pane retries, and refuses if it cannot." >&2
   fi
 
   # E-315 (D-095, accounts.md §2): which Claude account the panes launch under. `rein start` never
@@ -5969,26 +5927,9 @@ do_pane() {
     return 2
   fi
 
-  # E-242 (D-066): SELF-HEAL a missing per-role overlay before launching.
-  #
-  # The reported failure — "Settings file not found: .claude/settings.architect.json" —
-  # was a PATH bug (fixed in resolve-launch.mjs), but the same message appears for a
-  # genuinely absent overlay: a project cloned before E-208, or one whose `.claude/` was
-  # cleaned. Regenerating it costs nothing and turns a dead-end error into a working pane.
-  #
-  # It writes only the ROLE OVERLAY, never `.claude/settings.json` — that file carries the
-  # hooks and the env block, and rewriting it here would be a much larger side effect than
-  # "start a pane" implies.
+  # E-462: where the role settings are generated (written below, once the provider is checked).
   local _proj; _proj="$(cd "$(dirname "$ai_dir")" && pwd)"
-  if [[ ! -f "${_proj}/.claude/settings.${role}.json" ]]; then
-    echo "rein pane: .claude/settings.${role}.json missing — regenerating it." >&2
-    ( cd "$_proj" && _write_role_settings_overlays ".claude" ".ai" ) 2>/dev/null || true
-    if [[ -f "${_proj}/.claude/settings.${role}.json" ]]; then
-      echo "rein pane: overlay restored." >&2
-    else
-      echo "rein pane: could not regenerate the overlay — run 'rein init' in ${_proj}." >&2
-    fi
-  fi
+  local _rd; _rd="$(_role_settings_dir "$ai_dir")"
 
   # `|| true`: the script runs under `set -e`, so an unguarded non-zero from the
   # locator would abort with exit 1 before the explicit error branch below could
@@ -6004,7 +5945,7 @@ do_pane() {
   # the A2A bridge, the launcher and the tests cannot drift apart about which provider
   # owns a role. Output: line 1 = provider, remaining lines = argv.
   local resolved rc
-  resolved="$(node --no-warnings "$helper" "$role" "$ai_dir" 2>/dev/null)"; rc=$?
+  resolved="$(node --no-warnings "$helper" "$role" "$ai_dir" "$_rd" 2>/dev/null)"; rc=$?
   if [[ "$rc" -ne 0 || -z "$resolved" ]]; then
     echo "rein pane: role '${role}' is not mapped to a provider in ${ai_dir}/roles.json." >&2
     return 2
@@ -6033,6 +5974,32 @@ do_pane() {
   if ! command -v "$provider" >/dev/null 2>&1; then
     echo "rein pane: provider CLI '${provider}' is not on PATH (role ${role})." >&2
     return 2
+  fi
+
+  # E-462 (D-169 r3, lean-core.md §API): a role session does not start without its boundary.
+  # The sandbox and its role settings are Claude Code's, and .ai/roles.json is Architect-writable:
+  # another provider here would start a role session with no boundary at all.
+  if [[ "$provider" != "claude" ]]; then
+    echo "rein pane: role '${role}' is mapped to '${provider}' — a role session runs only on claude, whose sandbox holds the role boundary (D-169 r3)." >&2
+    return 2
+  fi
+  local _sbx; _sbx="$(_sandbox_missing)" && {
+    echo "[SANDBOX_MISSING] rein pane: the ${role} session needs the Claude Code sandbox: ${_sbx}" >&2
+    return 2
+  }
+  # The role settings are regenerated on EVERY launch into ~/.rein/roles/<project key>/ (gap 3 of
+  # E-458): neither session can write there, and the Architect's deny list is the project's
+  # top-level entries as they are now. A failed write refuses the launch — an Architect pane
+  # without its file would be unsandboxed.
+  if [[ -z "$_rd" ]] || ! _write_role_settings_overlays "" "$ai_dir" >/dev/null || [[ ! -f "${_rd}/settings.${role}.json" ]]; then
+    echo "rein pane: could not generate ${_rd:-the role dir}/settings.${role}.json — refusing to launch." >&2
+    return 2
+  fi
+  # The lane ledger (gap 2): must exist before the Architect's sandbox write-denies it.
+  local _ll; _ll="$(_rein_helper shared/lane-ledger.mjs || true)"
+  if [[ -n "$_ll" ]] && git -C "$_proj" rev-parse --git-dir >/dev/null 2>&1; then
+    node --no-warnings "$_ll" seed --root "$_proj" >&2 || {
+      echo "rein pane: could not create the lane ledger — refusing to launch." >&2; return 2; }
   fi
 
   # E-315 (D-095, accounts.md §3): the project's account, read through the same validator as

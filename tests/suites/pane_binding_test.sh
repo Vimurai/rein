@@ -69,8 +69,11 @@ cat > "$TMP_AI/roles.json" <<'JSON'
     "engineer":  { "provider": "claude", "pane_identifier": "0" } } }
 JSON
 
-assert_contains "E-208.02b: architect resolves to its own settings overlay" \
-  ".claude/settings.architect.json" "$(_resolve architect "$TMP_AI")"
+# E-462: the role file is generated under ~/.rein/roles/<project key>/, out of both sessions' reach.
+assert_contains "E-208.02b: architect resolves to its own role settings (E-462: under ~/.rein/roles)" \
+  "/.rein/roles/" "$(_resolve architect "$TMP_AI")"
+assert_contains "E-462.02b2: and to the state server alone (--strict-mcp-config)" \
+  "--strict-mcp-config|--mcp-config|" "$(_resolve architect "$TMP_AI")"
 assert_contains "E-208.02c: architect gets ARCHITECT.md appended (else it boots ENGINEER — G1)" \
   "ARCHITECT.md" "$(_resolve architect "$TMP_AI")"
 assert_contains "E-208.02d: engineer gets ENGINEER.md appended" \
@@ -120,10 +123,11 @@ assert_contains "E-288.02b: a stale providers.json still resolves with --name (i
   "|--name|stale-proj · Architect" "|$(_resolve architect "$E288_STALE/.ai")"
 _e288_eq "E-288.02c: the injection adds the flag once, not twice" "1" \
   "$(_resolve architect "$E288_STALE/.ai" | tr '|' '\n' | grep -cx -- '--name')"
-# Everything else in the argv is byte-identical to the pre-E-288 resolution.
+# Everything else in the argv is byte-identical to the pre-E-288 resolution. E-462: the role
+# dir is per project (~/.rein/roles/<name>-<hash>), so it is masked like the project path.
 _e288_eq "E-288.02d: the non-name argv is unchanged between template and injection paths" \
-  "$(_resolve architect "$TMP_AI" | sed "s#${E288_BASE} · Architect##; s#$(dirname "$TMP_AI")##g")" \
-  "$(_resolve architect "$E288_STALE/.ai" | sed "s#stale-proj · Architect##; s#${E288_STALE}##g")"
+  "$(_resolve architect "$TMP_AI" | sed "s#[^|]*/\.rein/roles/[^/|]*#ROLEDIR#g; s#${E288_BASE} · Architect##; s#$(dirname "$TMP_AI")##g")" \
+  "$(_resolve architect "$E288_STALE/.ai" | sed "s#[^|]*/\.rein/roles/[^/|]*#ROLEDIR#g; s#stale-proj · Architect##; s#${E288_STALE}##g")"
 # A non-claude provider is never injected — its flag of that spelling could mean anything.
 printf '{ "providers": { "acme": { "launch": ["--flag"] } } }' > "$E288_STALE/.ai/providers.json"
 echo '{ "roles": { "architect": { "provider": "acme" } } }' > "$E288_STALE/.ai/roles.json"
@@ -142,6 +146,11 @@ cp "${REPO_ROOT}/src/templates/providers.json" "$E288_PROJ/.ai/providers.json"
 echo '{}' > "$E288_PROJ/.claude/settings.architect.json"
 E288_BIN="$(mktemp -d)"
 printf '#!/usr/bin/env bash\nprintf "ARG:%%s\\n" "$@"\n' > "$E288_BIN/claude"; chmod +x "$E288_BIN/claude"
+# E-462: `rein pane` refuses without the sandbox. These cases test the launcher, not the sandbox
+# (tests/suites/sandbox_escape_test.sh does), so a host without bubblewrap gets stubs that pass
+# its availability check — the stub `claude` never runs a command in it.
+_sbx_stub() { local b; for b in bwrap socat; do printf '#!/bin/sh\nexit 0\n' > "$1/$b"; chmod +x "$1/$b"; done; }
+_sbx_stub "$E288_BIN"
 # A throwaway HOME whose install mirror is THIS checkout (PB_HOME) — otherwise the real
 # install answers and the test measures whatever was last installed (E-236 environment
 # dependence). It also keeps the pane — and, since E-294, its launch record — off the real
@@ -172,7 +181,7 @@ printf 'PID:%s\n' "$$"
 for f in "$HOME"/.rein/run/launch/*.json; do printf 'REC:%s\n' "${f##*/}"; done
 python3 -c 'import json,sys; print("ROLE:" + json.load(open(sys.argv[1]))["role"])' "$HOME/.rein/run/launch/$$.json" 2>/dev/null
 STUB
-chmod +x "$E294_BIN/claude"
+chmod +x "$E294_BIN/claude"; _sbx_stub "$E294_BIN"
 E294_OUT="$(cd "$E288_PROJ" && env -u TMUX -u TMUX_PANE HOME="$PB_HOME" PATH="$E294_BIN:$PATH" bash "$AI_BIN" pane architect 2>/dev/null)"
 E294_PID="$(printf '%s\n' "$E294_OUT" | sed -n 's/^PID://p')"
 assert_status 0 "E-294.P01a: the provider ran under rein pane (fixture)" test -n "$E294_PID"
@@ -209,7 +218,7 @@ AC_PROJ="$(test_tmpdir pbacctproj)"; mkdir -p "$AC_PROJ/.ai" "$AC_PROJ/.claude"
 cp "$E288_PROJ/.ai/roles.json" "$E288_PROJ/.ai/providers.json" "$AC_PROJ/.ai/"
 echo '{}' > "$AC_PROJ/.claude/settings.architect.json"; echo '{}' > "$AC_PROJ/.claude/settings.engineer.json"
 AC_BIN="$(test_tmpdir pbacctbin)"
-printf '#!/usr/bin/env bash\necho "CCD:${CLAUDE_CONFIG_DIR:-<unset>}"\n' > "$AC_BIN/claude"; chmod +x "$AC_BIN/claude"
+printf '#!/usr/bin/env bash\necho "CCD:${CLAUDE_CONFIG_DIR:-<unset>}"\n' > "$AC_BIN/claude"; chmod +x "$AC_BIN/claude"; _sbx_stub "$AC_BIN"
 _ac_pane() {  # <role> → output + "RC:<n>"
   (cd "$AC_PROJ" && env -u TMUX -u TMUX_PANE -u CLAUDE_CONFIG_DIR HOME="$AC_HOME" PATH="$AC_BIN:$PATH" \
     bash "$AI_BIN" pane "$1" 2>&1; echo "RC:$?")
@@ -745,22 +754,23 @@ _argv() {  # <cwd> <role> <aiDir> → argv on one line
 
 # ── E-242.1: every path operand is ABSOLUTE, from any cwd ─────────────────
 _p="$(_proj)"
+_rd="$(node "${REPO_ROOT}/src/shared/role-settings.mjs" dir --ai-dir "$_p/.ai")"   # E-462: where the role file lives
 _from_root="$(_argv "$_p" architect "$_p/.ai")"
 mkdir -p "$_p/deep/nested"
 _from_sub="$(_argv "$_p/deep/nested" architect "$_p/.ai")"
 _from_out="$(_argv / architect "$_p/.ai")"
 
 assert_contains "E-242.01a: settings path is absolute (from the project root)" \
-  "--settings ${_p}/.claude/settings.architect.json" "$_from_root"
+  "--settings ${_rd}/settings.architect.json" "$_from_root"
 # THE SILENT HALF: a relative rulefile yields the wrong persona, not an error.
 assert_contains "E-242.01b: rulefile path is absolute — a relative one boots the WRONG PERSONA (G1)" \
   "--append-system-prompt-file ${_p}/ARCHITECT.md" "$_from_root"
 assert_contains "E-242.01c: identical from a SUBDIRECTORY (the reported failure)" \
-  "--settings ${_p}/.claude/settings.architect.json" "$_from_sub"
+  "--settings ${_rd}/settings.architect.json" "$_from_sub"
 assert_contains "E-242.01d: and the rulefile too, from a subdirectory" \
   "--append-system-prompt-file ${_p}/ARCHITECT.md" "$_from_sub"
 assert_contains "E-242.01e: identical from a cwd OUTSIDE the project" \
-  "--settings ${_p}/.claude/settings.architect.json" "$_from_out"
+  "--settings ${_rd}/settings.architect.json" "$_from_out"
 # The strongest form of the property: cwd cannot change the argv at all.
 assert_status 0 "E-242.01f: the argv does not depend on cwd (root == subdir == outside)" \
   bash -c "[[ '$_from_root' == '$_from_sub' && '$_from_sub' == '$_from_out' ]]"
@@ -772,7 +782,7 @@ assert_status 1 "E-242.01g: no bare relative '.claude/settings' survives (non-va
 # The engineer role resolves the same way, with its own model.
 _eng="$(_argv "$_p/deep/nested" engineer "$_p/.ai")"
 assert_contains "E-242.01h: engineer overlay is absolute too" \
-  "--settings ${_p}/.claude/settings.engineer.json" "$_eng"
+  "--settings ${_rd}/settings.engineer.json" "$_eng"
 assert_contains "E-242.01i: and carries its own model (D-066: opus)" "--model opus" "$_eng"
 assert_contains "E-242.01j: architect carries fable" "--model fable" "$_from_root"
 
@@ -802,50 +812,46 @@ assert_contains "E-242.02d: --model's operand is not a path and is untouched" "o
 assert_status 1 "E-242.02e: a prompt is not rewritten either" \
   bash -c "grep -q '/proj/hello' <<< '$_np'"
 
-# ── E-242.3: self-heal — a MISSING overlay is regenerated ─────────────────
-# Distinct from the path bug: a project cloned before E-208, or one whose .claude/ was
-# cleaned, produces the same message for a genuinely absent file.
-# A REAL run, not --dry-run: a dry run DESCRIBES and must not write, so it cannot be used
-# to exercise the self-heal. Driven through a private tmux socket so no real session is
-# touched, and torn down by the registered cleanup.
+# ── E-242.3 → E-462: every real start regenerates the role settings ──────
+# Was: a MISSING overlay is regenerated. Since E-462 the role files live in
+# ~/.rein/roles/<project key>/ and every real `rein start` and `rein pane` rewrites them: the
+# Architect's deny list is the project's top-level entries now, and a file edited since the
+# last launch is overwritten (gap 3 of E-458).
+# A REAL run, not --dry-run, driven through a private tmux socket so no real session is touched,
+# and torn down by the registered cleanup.
 _h="$(_proj)"
-rm -f "$_h/.claude/settings.architect.json"
-if skip_unless_cmd tmux "E-242.03 self-heal (needs a real rein start)"; then
+_hrd="$(node "${REPO_ROOT}/src/shared/role-settings.mjs" dir --ai-dir "$_h/.ai")"
+register_cleanup "rm -rf '${_hrd}'"
+if skip_unless_cmd tmux "E-242.03 regeneration (needs a real rein start)" && skip_unless_cmd bwrap "E-242.03 (rein start refuses without the sandbox)"; then
   _hs="$(test_tmux_socket e242)"
   _hshim="$(test_tmpdir e242shim)"
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$(command -v tmux)" "$_hs" > "${_hshim}/tmux"
-  chmod +x "${_hshim}/tmux"
+  # The panes run `rein pane`, which would exec a real claude: a stub stands in (no session).
+  printf '#!/bin/sh\nexec sleep 30\n' > "${_hshim}/claude"
+  chmod +x "${_hshim}/tmux" "${_hshim}/claude"
+  mkdir -p "$_hrd"; echo '{"tampered":true}' > "$_hrd/settings.architect.json"
   _out="$( cd "$_h" && PATH="${_hshim}:$PATH" bash "$AI" start --detach 2>&1 )"
-  assert_contains "E-242.03a: a real rein start reports it is regenerating the overlay" \
-    "regenerating missing per-role settings overlays" "$_out"
-  assert_status 0 "E-242.03b: and the overlay actually exists afterwards" \
-    test -f "$_h/.claude/settings.architect.json"
+  assert_contains "E-242.03a: a real rein start regenerates the role settings" \
+    "regenerating the role settings" "$_out"
+  assert_contains "E-242.03b: and a tampered role file is overwritten with the sandbox shape" \
+    '"failIfUnavailable": true' "$(cat "$_hrd/settings.architect.json" 2>/dev/null)"
 else
-  _skip "E-242.03b: self-heal overlay check (tmux not installed)"
+  _skip "E-242.03b: regeneration check (tmux or bubblewrap not installed)"
 fi
 
-# --dry-run DESCRIBES and must never write. A "show me what you would do" invocation that
-# modifies the project is the one thing a dry run promises not to be.
+# --dry-run DESCRIBES and must never write.
 _dr="$(_proj)"
-rm -f "$_dr/.claude/settings.architect.json"
+_drd="$(node "${REPO_ROOT}/src/shared/role-settings.mjs" dir --ai-dir "$_dr/.ai")"
 _dout="$( cd "$_dr" && bash "$AI" start --dry-run 2>&1 )"
-assert_contains "E-242.03a-dry: a dry run SAYS the overlays are missing" \
-  "(dry run) per-role settings overlays are missing" "$_dout"
-assert_status 1 "E-242.03b-dry: and does NOT write the overlay" \
-  test -f "$_dr/.claude/settings.architect.json"
+assert_contains "E-242.03a-dry: a dry run SAYS the role settings would be regenerated" \
+  "(dry run) the role settings would be regenerated" "$_dout"
+assert_status 1 "E-242.03b-dry: and does NOT write them" test -f "$_drd/settings.architect.json"
 # It must NOT rewrite settings.json — that file carries hooks and env, a far larger side
 # effect than "start a pane" implies.
-assert_status 0 "E-242.03c: rein pane self-heals the same way" \
-  grep -q 'missing — regenerating it' "$AI"
-assert_status 0 "E-242.03d: only the ROLE overlay is written, never settings.json" \
-  bash -c "grep < <(grep -A3 'missing — regenerating it' '$AI') -q '_write_role_settings_overlays'"
-
-# ── E-242.4: nothing regenerates when the overlays are already present ────
-# A pre-check that fires every run would rewrite files on every launch.
-_q="$(_proj)"
-_quiet="$( cd "$_q" && bash "$AI" start --dry-run 2>&1 )"
-assert_status 1 "E-242.04a: no regeneration when both overlays exist" \
-  bash -c "grep -q 'regenerating missing' <<< '$_quiet'"
+assert_status 0 "E-242.03c: rein pane regenerates the role settings on every launch" \
+  grep -q 'regenerated on EVERY launch' "$AI"
+assert_status 0 "E-242.03d: only the ROLE files are written, never settings.json" \
+  bash -c "grep < <(grep -A12 'regenerated on EVERY launch' '$AI') -q '_write_role_settings_overlays \"\" '"
 
 echo ""
 
@@ -903,28 +909,26 @@ const m = await import(process.env.REIN_MOD);
 process.stdout.write(m.resolveOwner({ owner: "QA (External)", role: "architect" }));
 ' 2>/dev/null)"
 
-# ── E-213.2: the Architect overlay carries its allow rules ─────────────────
+# ── E-213.2 → E-462: the role files `rein sync` and `rein pane` write ──────
+# The shape (sandbox, write list, path rules) is pinned by tests/unit/role-settings.test.mjs;
+# this checks the bash wrapper writes it. Since E-462 the Architect's tools are "allow Bash and
+# Edit(.ai/**), Edit(plans/**), deny the rest by dontAsk" (E-458 M6), so the per-command allow
+# rules of E-213 are gone, and the Engineer's file is no longer env-only.
 _OV="$(mktemp -d)/.claude"; mkdir -p "$_OV"
 bash -c "source '$AI_BIN' 2>/dev/null; _write_role_settings_overlays '$_OV' '$_DUAL'" >/dev/null 2>&1
 _ARCH_OV="$(cat "$_OV/settings.architect.json" 2>/dev/null)"
 _ENG_OV="$(cat "$_OV/settings.engineer.json" 2>/dev/null)"
 
-for _rule in "Bash(rein add-task *)" "Bash(rein done *)" "Bash(rein handoff *)" "Bash(rein decide *)" \
-             "ListAgents" "SendMessage" \
-             "mcp__task-synchronizer-mcp__add_topic_seed" \
-             "mcp__task-synchronizer-mcp__add_cluster_page" \
-             "mcp__context-guardian-mcp__check_role_access"; do
-  assert_contains "E-213.02 [$_rule]: present in the architect overlay" "$_rule" "$_ARCH_OV"
+for _rule in '"defaultMode": "dontAsk"' '"Edit(.ai/**)"' '"Edit(plans/**)"' '"ListAgents"' '"SendMessage"' \
+             '"mcp__task-synchronizer-mcp"' '"failIfUnavailable": true' '"allowUnsandboxedCommands": false'; do
+  assert_contains "E-462.02 [$_rule]: present in the architect role file" "$_rule" "$_ARCH_OV"
 done
-# The Engineer overlay must stay env-only — these are Architect-side tools.
-assert_not_contains "E-213.02g: the engineer overlay gains no permissions block" \
-  "permissions" "$_ENG_OV"
+assert_contains "E-213.02g: the engineer role file carries the sandbox (E-462)" '"failIfUnavailable": true' "$_ENG_OV"
 # Still no hooks — the E-208 double-mint guard must survive this change.
 assert_not_contains "E-213.02h: the architect overlay still registers NO hooks" \
   '"hooks"' "$_ARCH_OV"
-# E-216 (D-055 R1) ADDS a deny list for the filesystem-mutating MCP tools — the one
-# channel a path-checking hook cannot see, because it never observes a pre-approved
-# MCP call's arguments. Deny is a SECOND layer here, not the mechanism.
+# E-216 (D-055 R1): the filesystem-mutating MCP tools stay denied by name, although the
+# Architect's MCP list (E-462) no longer loads their servers.
 assert_contains "E-213.02i: the overlay now carries a deny list (E-216)" '"deny"' "$_ARCH_OV"
 for _d in "mcp__filesystem__write_file" "mcp__filesystem__edit_file" \
           "mcp__filesystem__move_file" "mcp__filesystem__create_directory" \
@@ -932,8 +936,8 @@ for _d in "mcp__filesystem__write_file" "mcp__filesystem__edit_file" \
           "mcp__propose-patch-mcp__confirm_patch"; do
   assert_contains "E-213.02i [$_d]: denied in the architect overlay" "$_d" "$_ARCH_OV"
 done
-# The Engineer must NOT inherit the deny list — these are its everyday tools.
-assert_not_contains "E-213.02j: the engineer overlay carries no deny list" '"deny"' "$_ENG_OV"
+assert_contains "E-213.02j: the engineer role file writes only ci/ of the install tree (E-462)" '/.rein/ci"' "$_ENG_OV"
+assert_status 0 "E-462.02k: the architect's MCP list is written beside its role file" test -f "$_OV/mcp.architect.json"
 
 # ── E-213.3: the retired vendor shell grant is gone from the base settings ──
 # The grant string is read from the generator's own strip list rather than restated

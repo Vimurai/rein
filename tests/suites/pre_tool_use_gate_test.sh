@@ -241,7 +241,9 @@ for _d in mcp__filesystem__write_file mcp__filesystem__edit_file mcp__filesystem
           mcp__propose-patch-mcp__propose_patch mcp__propose-patch-mcp__confirm_patch; do
   assert_contains "E-216.07 [$_d]: denied for the architect" "$_d" "$_ARCH"
 done
-assert_not_contains "E-216.07h: the engineer overlay has no deny list" '"deny"' "$_ENG"
+# E-462: the Engineer's role file has a deny list now (the install tree, .claude/settings*.json),
+# but never the MCP write tools — those are its everyday tools.
+assert_not_contains "E-216.07h: the engineer overlay does not deny the MCP write tools" 'mcp__filesystem__write_file' "$_ENG"
 assert_not_contains "E-216.07i: the overlay still registers NO hooks (E-208 double-mint guard)" '"hooks"' "$_ARCH"
 # E-216 denied the forwarding router by name; E-277 (D-075) retired it with its deny entry.
 assert_not_contains "E-277.09h: no deny entry for the retired mcp-router" "mcp__mcp-router__proxy_call" "$_ARCH"

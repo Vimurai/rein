@@ -5970,3 +5970,44 @@ The handoff of 2026-11-23 15:27 brings the D-164 r6 question: E-453 is SEC_BLOCK
 E-456 is one commit; reverting it restores the three deny lists. Ruling 2's round changes no code unless it gates.
 
 ---
+
+## D-169 — Lean core: the platform enforces, commands keep the books, review follows the tier; the text gate is deleted once the sandbox is proven; merges are delegated
+
+**Date**: 2026-11-23
+**Task**: E-457 to E-466; E-455, E-456 not executed; `.ai/blueprints/lean-core.md`
+**Decision**: Rein keeps only what Claude Code does not do. The role boundary moves to the Bash sandbox and path rules, bookkeeping moves from skills to three commands, and review is sized by tier.
+
+### Why needed
+The operator asked on 2026-11-23 for the four weaknesses to be fixed in the core, with no overhead, and for every axis to reach 8/10 or better. Measured the same day: the command gate is 3,497 lines with about 1,240 table rows; 22 of 61 open tasks are about the gate or its test budget; a session loads 18 MCP servers, 42 skill descriptions and up to 20,000 characters of blueprint text; six finished branches wait for the operator.
+
+### Operator's rulings (asked and answered 2026-11-23)
+1. **Merges are delegated.** The Engineer pushes, opens pull requests, merges on green CI with `[ACCEPT_PASS]` recorded, and runs `install-rein.sh`. Release tags and anything that publishes a version stay with the operator. This widens D-126.
+2. **The text gate is deleted once the sandbox is proven.** A short advisory list stays. Rein supports Linux and WSL2; native Windows is not a target.
+
+### Rulings
+3. **The boundary is the role settings file** that `rein pane <role>` passes to `claude --settings`: sandbox on, no unsandboxed retry, the write list, the `Edit` deny rules, no bypass mode. Details: lean-core.md §Component 1 and §Security.
+4. **Measure before building (E-458).** Claude Code's documentation does not state whether a narrower `allowWrite` wins over a broader `denyWrite`, and does not show the `Edit(!…)` carve-out for "everything except two directories". Nothing in E-462 is built on an assumption about either.
+5. **The text gate goes in its own task (E-463), after the escape suite passes on the operator's machine.** Until then both run.
+6. **The gate line stops now.** E-453 is cleared and E-454 is built; both land with the stack. E-455 (row merge) and E-456 (verb allowlist, D-168 r8–r11) are not executed: the tables and the rules they touch are deleted in E-463. They are closed as superseded when E-463 lands, not before. E-394, E-395, E-410 and P-52 are held and ruled again then.
+7. **Bookkeeping is three commands**: `rein done`, `rein handoff`, `rein decide`. The task-planner checks move into `add_task`. `[BUILD_STALE]` no longer refuses DONE.
+8. **Review by tier.** Tier 1: none. Tier 2: one `reviewer` agent and `critic_acceptance`. Tier 3: plus one `security_engineer` round. Tier 3 is the boundary of ruling 3, the install, hooks, secrets and release signing; nothing else.
+9. **The `test_lines` ratchet is retired.** The time budgets stay. This ends the line of rulings D-149, D-157, D-162, D-164 addendum 1 and D-167 r13.
+10. **MCP servers**: the target is at most two. `filesystem` and `memory` are removed now. The rest are ruled on E-465's call counts, with retire as the default verdict. This replaces P-52's 30-day wait for the servers; P-52 itself is ruled again after E-463.
+11. **The bar is a command.** `rein doctor --fitness` prints the scorecard of lean-core.md §Data Model. A row is done when the command says PASS.
+12. **Order**: E-457, E-458, E-459, E-460, E-461, E-462, E-463, E-464, E-465, E-466; then E-450 to E-452. The Architect runs P-51 in parallel.
+13. **Until E-461 and E-464 land, today's skills and critics apply.** A task is built under the rules that are installed.
+
+### Alternatives considered
+1. **Keep the text gate and add the sandbox on top** — rejected by the operator: the cost that was asked to go would stay.
+2. **Delete the gate first and add the sandbox after** — rejected: there would be a window with no boundary, and ruling 4's two unknowns could fail.
+3. **Start each role with `claude --agent`** — rejected for now: the agent prompt replaces the default system prompt. `--settings`, already used, carries the boundary.
+4. **Use Claude Code's task tools for state** — rejected: persistence across sessions is not documented, and the record is one of the things Rein does better.
+
+### Impact
+- Unlocks: E-457 to E-466.
+- Risk if wrong: the sandbox cannot express the Architect's write scope on WSL2. Then E-458 says so, E-462 and E-463 do not start, and the Architect rules again with the measurements. Components 3 to 7 do not depend on it.
+
+### Rollback
+Each task is one commit. Removing the `sandbox` block from the role settings restores today's behaviour while the gate is still in place; reverting E-463 restores the gate. v0.5.0 is the last tag with the gate.
+
+---

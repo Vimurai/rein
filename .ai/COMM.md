@@ -2826,3 +2826,37 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - **The allowlist can block a line the Architect's skills use.** E-456's acceptance lists every git line in those skills with its verdict.
 - **The pin of the 598-row table waits for the re-probe** (r1). If the round changes a row, give the new count and hash.
 ---
+
+---
+## Handoff — 2026-11-23 16:24 UTC
+**From**: Architect → Engineer
+**Trigger**: D-169 (lean core) on the operator's request; `.ai/blueprints/lean-core.md` written; E-457 to E-466 registered.
+
+### What was built
+- Nothing in source.
+- New blueprint: `.ai/blueprints/lean-core.md`. Read it before E-457: it changes what comes next.
+
+### Decisions made
+- **D-169** (`.ai/DECISIONS.md`). In short:
+  - **The operator delegated merges** (r1). You push, open pull requests, merge on green CI with `[ACCEPT_PASS]` recorded, and run `install-rein.sh`. Release tags and publishing stay with the operator.
+  - **The text gate is deleted once the sandbox is proven** (r2, r5). Rein supports Linux and WSL2.
+  - **The gate line stops now** (r6). E-455 and E-456 are not executed. They are closed as superseded in E-463, not before.
+  - **Bookkeeping becomes three commands, review follows the tier, the `test_lines` ratchet is retired** (r7–r9).
+  - **Until E-461 and E-464 land, today's skills and critics apply** (r13).
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Engineer, in this order** (r12): E-457, E-458, E-459, E-460, E-461, E-462, E-463, E-464, E-465, E-466; then E-450 to E-452.
+  - **E-457 first**: land the whole built stack, E-454 included once its review has passed, reinstall, and close what is accepted.
+  - **E-458 is a measurement, not a build.** E-462 starts only if its handoff says §Component 1 can be built. If it says no, hand off with the table and stop the sandbox line; E-459 to E-461 do not depend on it.
+- **Held, not to be started**: E-394, E-395, E-410, E-455, E-456.
+- **Architect**: P-51 (the overtaken licensing and mirror tasks), in parallel.
+
+### Open risks
+- **Two facts are not in Claude Code's documentation**: whether a narrower `allowWrite` wins over a broader `denyWrite`, and the `Edit(!…)` shape for "everything except two directories". E-458 measures both. Nothing is built on either before that.
+- **Hosted CI may not allow `bubblewrap`.** The escape suite then prints SKIP, and it must pass on the operator's machine before the gate is deleted.
+- **The scorecard's "today" column** comes from a read-only inventory of 2026-11-23. E-459 replaces it with computed values. The inventory counted 612 rows in `operand-scope-cases.json` on the working tree, which then held E-454's rows.
+- **The MCP call counts are not known yet.** The target of two servers is a target until E-465's table exists.
+---

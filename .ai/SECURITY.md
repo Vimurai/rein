@@ -2743,3 +2743,167 @@ Gating: **SEC_BLOCKED** for E-432, on **P3-6 only**.
 - **Not gating.** Track P3-2 (sidecars), P3-4 (role-dependent attribution) and the Info note on
   the `--check-path` crash echo. The Architect still owes the P-52 verb correction (P3-5).
 - **P0:** none.
+
+## E-453 first pass — D-167 r7/r8: no git configuration for the Architect; wrapper directory changes (security_engineer, 2026-11-23)
+
+**Verdict: SEC_BLOCKED** (round 1 of at most 2, D-164 r6). Two P1s and six P2s are in scope of
+r7/r8 or the time budget and gate; F8 is the time-budget regression. Threat model: `.ai/THREAT_MODEL.md`
+T-GITCONFIG-001; the D-167 r9 residuals were not raised again.
+
+**Method.** The staged tree was compared with HEAD d0954fa, checked out as a scratch worktree
+with `runAnalysis` imported in-process (role architect and engineer, projectRoot = repo). The
+`--check` CLI was used for timing. Git and bash behaviour was confirmed in the throwaway harness
+(`mktemp -d`, `env -i`, `ulimit -t 5 -f 10240 -v 512M`, 10 s kill). The harness ran only on
+scratch repositories under `$T`, with no network. Harness deviation: `ulimit -u 64` stops every
+fork on this host, because RLIMIT_NPROC counts the user's 2330 existing threads. The cap used
+was the current thread count + 64.
+
+**What holds.** All seven acceptance BLOCK lines block, and the two pass lines pass.
+`env -S"-C…"` and `--split-string`, `sudo -D/--chdir` (glued and bundled), `env -iC`,
+`find -execdir`, and `.` after `{`, `if` and `f() {` all block. `git config --unset/--replace-all/-e/set`
+blocks; `--list`, `--get-color` and `--type=bool --get` pass. `$( … )` assignments block.
+**Engineer verdicts are unchanged.** Every `cmd`/`command` across tests/fixtures/*.json
+(1179 distinct lines, probes included) gives a byte-identical verdict and rule list against
+HEAD. `node --test tests/unit/operand-scope.test.mjs`: 605/605 pass.
+
+### Findings
+
+| ID | Sev | Gates? | Finding | Proof |
+|----|-----|--------|---------|-------|
+| F1 | P1 | yes (r7: `git config` that sets) | `configRead` takes any read flag anywhere before `--`. git's legacy `config` parser stops at the first non-option, so a trailing `--get`/`-l`/`--list`/`--get-all`/`--get-regexp` becomes the *value-pattern* of a SET. | Harness, git 2.53: `git config core.pager evil --get` gives rc 0 and the value is written; the same with `-l`. `git config core.fsmonitor /tmp/e --get; git status` passes `--check`, and git then runs the program (fsmonitor run shown in F2). Fix: only option words before the first non-option word count, and a read flag after a key is a write. |
+| F2 | P1 | yes (r7: "any -c"); **regression** | `-c` is read only among git's *global* options, so `git clone -c`/`--config key=val` passes. HEAD blocked `git clone -c core.fsmonitor=…`, `-c include.path=…` and `-c alias.x=!…` (the E-353/E-440 keys) through its whole-line scan. | Old BLOCK, new PASS for all three. Harness: `git clone -c core.fsmonitor=$T/fsm.sh src d` then `git status` in `d` runs fsm.sh (marker written). Fix: also treat `-c`/`--config[=]` after a `clone` subcommand as configuration. A simpler option is to keep a whole-line `(^\|\s)(-c\|--config(-env)?)(\s\|=\|\S)` view on a git line (fail closed, accepted over-block class). |
+| F3 | P2 | yes (r7; the design's own "dynamic words fail closed") | `walk` reports options only through `onSub`. When every word after `git` is dynamic, no subcommand candidate exists and the check never runs. `xargs git` also **regresses**: HEAD blocked it by accident through the whole-line scan. | PASS: `o='-c core.fsmonitor=evil status'; git $o`, `c='config core.pager evil'; git $c`, `git "$@"`, `echo -c core.fsmonitor=evil status \| xargs git`. Fix: a dynamic word in git's option run is a hit whether or not a candidate follows, and a `git` word that is an argument of `xargs`/`parallel` counts as dynamic. |
+| F4 | P2 | yes (r7: assignment/export of GIT_*) | `setsConfigName` reads the quote-stripped text, not `readWord`, and has gaps. (a) ANSI-C quoting: `env $'GIT_EXTERNAL_DIFF=evil' git diff`, `export $'GIT_…=…'` and `export G$'I'T_…=…` leave `$GIT_…`/`G$IT_…`. (b) A backtick is missing from the `CONFIG_ASSIGN` prefix class: ``x=`GIT_EXTERNAL_DIFF=evil git diff` ``. ``grep x `GIT_DIR=/tmp/r git status` `` also counts as a "search" segment, because `assignedOutsideSearch` does not split at a backtick. (c) A dynamic name: `n=GIT_EXTERNAL_DIFF; export $n=evil`, `export ${n}=…`, `export $(echo GIT_X)=…`. (d) A nameref: `declare -n r=GIT_EXTERNAL_DIFF; export r=evil` (also `local -n`/`typeset -n`, and `declare -n r=EDITOR; r=x` when EDITOR is already exported). | All PASS `--check`. Harness: `env $'GIT_EXTERNAL_DIFF=evil' sh -c 'echo $GIT_EXTERNAL_DIFF'` prints `evil`. `declare -n …; export r=evil` puts `GIT_EXTERNAL_DIFF=evil` in the environment. Fix: run the name test on `readWord` words. Add the backtick to both segment splitters. A setter verb whose operand is dynamic counts as a hit, and so does `-n` with a CONFIG_NAME value. |
+| F5 | P2 | yes (r7: "a line that runs git") | `onGitLine` is a raw regex `(^\|[^\w.-])git(\s\|$)`, so a `git` that the readers *do* recognise (they drop redirects and decode `$'…'`) skips every ARCH_GIT_EXEC_CONFIG check. | PASS: `GIT_EXTERNAL_DIFF=evil git</dev/null diff`, `git>/dev/null -c core.fsmonitor=evil status`, `gi$'t' -c core.fsmonitor=evil status`, `gi$'t' config core.pager evil`, `GIT_EXTERNAL_DIFF=evil $'\x67it' diff`. The same words *do* block for `checkout` after `cd /tmp` (ARCH_GIT_CHECKOUT), so the two readers disagree. Fix: on a git line, `onGitLine` also includes the readers' `isGit(readWord(w))`. |
+| F6 | P2 | yes, config half (r7) | Dashed exec-path builtins are git: `/usr/lib/git-core/git-config core.pager evil` and `GIT_EXTERNAL_DIFF=evil /usr/lib/git-core/git-diff` pass (git-config is a symlink to git on this host). The verb half, ``cd /tmp; /usr/lib/git-core/git-checkout .ai/x`` passing, predates E-453 (E-438 verb gate). Architect to classify it. | Old and new both PASS. Fix: `isGit` and `onGitLine` accept a basename `git-<sub>` as `git <sub>`. |
+| F7 | P2 | yes (r8: `source`/`.`) | `.`/`source` count only in lead position, and `function NAME {` clears lead, so a sourced file in a `function` body is missed. A `trap '<code>' DEBUG` string runs before git and is not a lead either. | PASS: `function f { . ./s.sh; }; f; git checkout .ai/x`, the same with `source`, and `trap 'source ./s.sh' DEBUG; git checkout .ai/x`. Blocked by contrast: `f() { . ./s.sh; }` and `{ . ./s.sh; }`. Fix: lead resets after a `{` word wherever it appears, and `trap` counts in SOURCE_LEAD (its argument is code, as with `eval`, which ARCH_INLINE_INTERPRETER already blocks). |
+| F8 | P2 | yes (time budget, E-397 class) | `gitPassesConfig` calls `options.some(...)` in `onSub` for every candidate. The option list is shared across the BFS and grows without bound, which turns the O(n²) walk into **O(n³)**. Not a bypass: the hook's 10 s wall clock (rc 4) blocks with no verdict. It is a denial-of-service and a measured superlinear analyzer. | `"git -a ".repeat(n)` with role architect: n=800 takes 26.1 s new vs 0.12 s at HEAD. `--check` with `cd /tmp; git checkout .ai/x; ` + `"git -a "×1000` (7 KB, under MAX_WORDS/MAX_BYTES) takes 40.7 s. The unit suite's time probes do not cover this shape. Fix: test the option word when it is pushed (one `hit` flag per git word, short-circuit), and stop walking once `hit` is set. Add a `git -a `×N time probe. |
+
+**Not gating / notes (P3)**
+- **Over-blocks.** `git config user.name` (a bare read) and commit messages holding `GIT_X=`/`EDITOR=`. These are already listed under T-GITCONFIG-001 "accepted over-blocks". `git config get --value=x k` changed BLOCK → PASS, which is correct: it is a read.
+- **Outside the r7 name list.** `PATH=…` (git runs `ssh`, `less` and `git-<unknown>` from PATH), `LESSOPEN`, `git --exec-path=dir <unknown-sub>`, `git init/clone --template=dir` (copies hooks). These are not configuration under r7's wording. The Architect should rule on whether they join T-GITCONFIG-001 residuals.
+- **Configuration not in the text.** For example `. ./envfile; git log`, or `xargs env` fed from stdin. This is the class of config arriving through a file or stdin. It is outside r7's text rule. Propose recording it as residual.
+- **Remaining wrappers.** `nsenter --wd`, `tmux -c`, `systemd-run -d`, `start-stop-daemon -d` and interpreter `chdir` calls are residual by r8 ("the last list ruling").
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | git-redirect configRead | `git config core.fsmonitor X --get` | EXPLOITED | 0 | F1; the git write was confirmed in the harness |
+| A05 | gitPassesConfig (subcommand -c) | `git clone -c core.fsmonitor=X src d` | EXPLOITED | 0 | F2; fsmonitor ran in the harness; regression vs HEAD |
+| A03 | walk, dynamic tail | `o='-c …'; git $o` / `xargs git` | EXPLOITED | n/a (static verdict) | F3 |
+| A03 | setsConfigName | `env $'GIT_EXTERNAL_DIFF=evil' git diff` | EXPLOITED | 0 | F4a; env behaviour confirmed in the harness |
+| A03 | setsConfigName | ``x=`GIT_EXTERNAL_DIFF=evil git diff` `` | EXPLOITED | n/a | F4b |
+| A03 | setsConfigName | `n=GIT_X; export $n=evil` | EXPLOITED | n/a | F4c |
+| A03 | setsConfigName | `declare -n r=GIT_X; export r=evil` | EXPLOITED | 0 | F4d; the export was confirmed in the harness |
+| A04 | onGitLine | `git>/dev/null -c core.fsmonitor=X status` | EXPLOITED | n/a | F5 |
+| A04 | onGitLine / isGit | `/usr/lib/git-core/git-config core.pager X` | EXPLOITED | n/a | F6 |
+| A01 | wrapperCdBeforeGit | `function f { . ./s.sh; }; f; git checkout .ai/x` | EXPLOITED | n/a | F7 |
+| A01 | wrapperCdBeforeGit | `env -S"-C/tmp git checkout .ai/x"`, `sudo -D/tmp …`, `env -iC …` | RESISTED | n/a | |
+| A01 | gitRelocated | `cd <root> && git checkout .ai/x` | RESISTED (passes) | n/a | acceptance |
+| A04 | ReDoS / time budget | `"git -a "×1000` | EXPLOITED (DoS, fail-closed) | rc 2 after 40.7 s | F8; the hook's 10 s clock blocks |
+| A05 | Engineer parity | 1179 fixture lines, role engineer | RESISTED | n/a | identical to HEAD |
+
+**Re-probe list for round 2.** Every payload in the table above. Each F1–F8 fix needs a row in
+`operand-scope-cases.json`, by branch (D-164 addendum 1 r4), and F8 needs a time probe.
+
+## E-453 second pass — D-167 r7/r8 re-review of the F1–F8 fixes (security_engineer, 2026-11-23)
+
+**Verdict: SEC_BLOCKED** (round 2 of 2, D-164 r6). All fourteen round-1 payloads now resist, and
+F8 is fixed. Two P1s and three P2s remain inside r7, and they gate. Under D-164 r6 and D-167 r6
+this is the last security round: a third round goes to the Architect by handoff for classification.
+The D-167 r9 residuals and the round-1 P3 items are not raised again.
+
+**Method.** The staged tree (`git diff --cached` against d0954fa) was compared with a scratch
+`git worktree add --detach` of HEAD, with `runAnalysis` imported in-process (projectRoot = repo).
+The worktree was removed afterwards. Git 2.53 / bash behaviour was confirmed in the throwaway
+harness: `mktemp -d`, `env -i PATH=/usr/bin:/bin HOME=$T GIT_CONFIG_NOSYSTEM=1`,
+`ulimit -t 5 -f 10240 -v 512M`, a 10 s kill, and scratch repositories under `$T` only, with no
+network. The round-1 deviation applies again: `-u` is the current thread count + 64.
+
+**What holds.**
+- **Round-1 payloads.** All 33 lines of the round-1 probe give the intended verdict, both the
+  BLOCK lines and the everyday pass lines. Every F1–F8 payload now blocks: trailing
+  `--get`/`-l`/`--list`, `clone -c`/`--config`, `git $o`, `git "$@"`, `xargs git`, `env $'GIT_…'`,
+  backtick prefixes, `export $n=`, `declare -n`, `git>/dev/null -c`, `gi$'t'`,
+  `/usr/lib/git-core/git-config`, `function f { . s; }` and `trap 'source s' DEBUG`.
+- **r8 wrappers.** Every probed placement of `.`/`source` blocks: `case`, `for … do`, `&&`, `||`,
+  `x=1 .`, `builtin`, `command --`, `\.`, `"source"`, `so$'urce'`, `time -p` and `!`. So do
+  `env --chdir /tmp` (spaced, newly blocked), `sudo -u root -D` (newly blocked), `env -C/tmp`,
+  `env -u X -C`, `env -- -C` and `find -okdir`. Only `coproc` passes, and it is an r9 residual.
+- **Engineer parity.** Every `cmd`/`command` in tests/fixtures/*.json plus all probe lines (1253
+  distinct) gives a byte-identical verdict and rule list against HEAD for role engineer.
+- **Architect diff vs HEAD.** Over the same 1253 lines there are 69 changes. 68 are PASS → BLOCK,
+  all in the E-453 classes. The one BLOCK → PASS is `git config get --value=x core.pager`, which
+  is a read and is correct.
+- **Unit suite.** `node --test tests/unit/operand-scope.test.mjs` passes 620/620, with 590 table
+  rows.
+- **Time.** `git -a `×4999 at the cap takes 76 ms for the Architect (HEAD: 4.0 s at 32 KB).
+  Twenty-two repeated shapes were measured at 8 KB and 32 KB (`git config `, `git-config `,
+  `git -c `, `git $x `, `git clone -c `, `-f x `, `declare -n `, `printf -v `, `trap x `, `{ `,
+  `xargs `, `a{}b `, …). All are linear and none exceeds 75 ms. The shared visited set is sound:
+  the positions reachable from a word depend only on that word's position, so the union of
+  candidates and options is the same as with a set per git word. Parity confirms this.
+- **Everyday Architect commands.** These still pass: `git add .ai/x && git commit -m '…'`,
+  `git log --oneline` (and with `-20 --graph`, `--format`), `git diff` (and with `--cached`,
+  `--stat`, `--word-diff`, `-- .ai/`), `git status`, `git show HEAD:path`, `git blame`,
+  `git log -c`/`--cc`, `git commit -c HEAD`/`-C HEAD`, commit messages that contain `-c`,
+  `--config` or `{}`, `git config --get remote.origin.url`, `git config list --show-origin`,
+  `git fetch` and `git ls-files | xargs wc -l`.
+
+### Findings
+
+| ID | Sev | Gates? | Finding | Proof |
+|----|-----|--------|---------|-------|
+| G1 | P1 | yes (r7 "any -c"; F2 incomplete) | **`clone`'s `-c` is missed as a short-option bundle or an abbreviated long option.** The F2 check matches only `-c`, `-c<v>`, `--config` and `--config=`. git's parse-options accepts `-qc k=v`, `-nc k=v`, `-qck=v`, and any unique prefix of `--config`: `--conf`, `--confi`, `--conf=`. | All six PASS `--check`: `git clone -qc core.fsmonitor=X src d`, `-nc`, `-qccore.fsmonitor=X`, `--conf core.fsmonitor=X`, `--conf=…`, `--confi=…`. `git -C .ai clone -qc …` passes too. **Harness:** `-qc`, `-qccore…`, `--conf` and `--conf=` with `core.fsmonitor=$T/fsm.sh` each write the key, and the program runs on clone and on the next `git status` (marker written). `-nc` sets it as well. HEAD also passed these, so this is not a regression. Fix: after `clone`, any word matching `^-[^-]*c` (a short bundle holding `c`) or `^--conf(i(g)?)?(=\|$)` blocks. Alternatively, block any `-…c…` bundle and any `--co…` prefix after `clone` (fail closed; clone has no other `--co*` option). |
+| G2 | P1 | yes (r7 "a git config that sets"; the design's "dynamic fails closed"; F1 incomplete) | **`configRead` skips the value of `-f`/`--file`/`--type`/`--comment`/`--blob` even when that value is dynamic.** An unquoted `$f` splits into several words. Its tail becomes the key and value, and the read flag after it is then the value-pattern of a SET (the F1 mechanism). | PASS `--check`: `f='.git/config core.fsmonitor X'; git config --file $f --get; git status`, `git config -f $f --get`, `git config --type $t --get`, `git config --comment $c --get`, `git config --blob $b --get k`. **Harness:** `f=".git/config core.fsmonitor $T/fsm.sh"; git config --file $f --get` gives rc 0, writes the key, and `git status` runs the program. `t="bool core.untrackedcache true"; git config --type $t --get` writes too. Fix: in `configRead`, a dynamic word, in any position including the value of a valued option, returns false (not a read). `git config -$x --get k` already blocks, through the option branch. |
+| G3 | P2 | yes (r7 "GIT_* … HOME assigned"; F4 incomplete) | **The setters miss four forms of assignment.** (a) A `for` loop variable: `for HOME in DIR; do git status; done`. HOME, and usually EDITOR/PAGER, is already exported, so the loop changes git's environment. (b) A nameref with no value, whose target is set by its first assignment: `declare -n r; r=HOME; r=DIR` (the same with `local -n`/`typeset -n`). (c) A nameref whose target is dynamic: `n=HOME; declare -n r=$n` / `=${n}` / `="$n"`. (d) `env`'s split string glued to the option: `env -SHOME=DIR git status`, `env -iSGIT_…=…`, `env --split-string=GIT_…=…`. The spaced and quoted forms already block. | All PASS `--check`. In the harness, with `$T/h/.gitconfig` holding `core.fsmonitor`, each of these runs the program on `git status`: `for HOME in $T/h`, `declare -n r; r=HOME; r=$T/h`, `n=HOME; declare -n r=$n`, `declare -n r=${n}`, `env -SGIT_CONFIG_GLOBAL=$T/h/.gitconfig git status` and `env --split-string=HOME=$T/h git status`. Not affected: `declare -n r=HOME[0]` (bash refuses the nameref; harness confirms) and `mapfile -t HOME` (blocks). Fix: `for`/`select` followed by a CONFIG_NAME word is a hit. After a setter carrying `-n`, a bare name (no `=`) marks that name, so a later `name=CONFIG_NAME` counts, and a dynamic value after `=` is a hit. For `env`, read the text after a `-S`/`--split-string=` prefix (and an `-…S` bundle) as words. |
+| G4 | P2 | yes (r7; same dynamic class as F3) | **A dynamic word in `env`'s (or `sudo`'s) assignment position is not checked.** `env` and `sudo` take `NAME=value` operands after expansion, unlike a shell prefix assignment, so `x=HOME=DIR; env $x git status` sets HOME. | PASS `--check`: `x=GIT_EXTERNAL_DIFF=evil; env $x git diff`, `env $(cat .ai/e) git diff`, `env "$@" git diff`, `env -i $x /usr/bin/git diff`, `sudo $x git diff`. **Harness:** `x="HOME=$T/h"; env $x git status` runs the program. Fix: on a git line, a dynamic word between `env`/`sudo` and the git word is a hit. |
+
+**Not gating / notes (P3)**
+- **New over-block (quoted search text).** `git grep -n 'git config' src/` changed PASS → BLOCK.
+  The quote-stripped text gives a second `git` word followed by `config src/`, which reads as a
+  write. The same applies to a commit message holding `git config k v` or `git -c …`. This is
+  the class T-GITCONFIG-001 already accepts for `EDITOR=` in messages. Recommend adding the
+  `git config` text form to that accepted list rather than fixing it.
+- **`trap - DEBUG` over-blocks** a following `git checkout .ai/x`, because `trap` counts as a
+  directory change whatever its argument. This is fail closed by design (F7), so it is accepted.
+- **`(( HOME = 5 ))` (spaced arithmetic)** passes, while `((HOME=5))` and `let HOME=5` block.
+  Arithmetic assigns only integers, so the attack needs a planted `./5/.gitconfig` relative to the
+  directory git runs in. It is low impact, but cheap to cover with "CONFIG_NAME followed by a lone
+  `=` word". `systemd-run --setenv=GIT_…=` passes: same class as G3d, a wrapper not on the host,
+  residual candidate.
+- **Pre-existing quadratic (not introduced).** `git ` + `git ${x `×n is O(n²) through the
+  unclosed-brace scan in `walk`. It peaks at 726 ms at 15 KB below the caps (HEAD 546 ms on the
+  same input, about +33% from the extra config pass). That is under the 1000 ms unit ceiling and
+  the 10 s hook clock. It was not opened by E-453; record it as a time-budget observation.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | configRead (F1 re-run) | `git config core.fsmonitor X --get` / `-l` / `--list` | RESISTED | n/a | blocks |
+| A05 | clone -c (F2 re-run) | `git clone -c core.fsmonitor=X src d`, `--config` | RESISTED | n/a | blocks |
+| A03 | walk dynamic (F3 re-run) | `o='-c …'; git $o` / `git "$@"` / `xargs git` | RESISTED | n/a | blocks |
+| A03 | setsGitConfigName (F4 re-run) | `env $'GIT_…'`, ``x=`GIT_…` ``, `export $n=`, `declare -n r=GIT_X` | RESISTED | n/a | blocks |
+| A04 | onGitLine (F5 re-run) | `git>/dev/null -c …`, `gi$'t' config …` | RESISTED | n/a | blocks |
+| A04 | dashed git (F6 re-run) | `/usr/lib/git-core/git-config core.pager X` | RESISTED | n/a | blocks |
+| A01 | wrapperCdBeforeGit (F7 re-run) | `function f { . s; }; f; git checkout .ai/x`, `trap 'source s' DEBUG` | RESISTED | n/a | blocks |
+| A04 | time budget (F8 re-run) | `git -a `×4999 | RESISTED | n/a | 76 ms at the cap |
+| A05 | clone -c bundle/abbrev | `git clone -qc core.fsmonitor=X src d`, `--conf=` | EXPLOITED | 0 | G1; fsmonitor ran in the harness |
+| A03 | configRead dynamic value | `f='.git/config core.fsmonitor X'; git config --file $f --get` | EXPLOITED | 0 | G2; write + run confirmed in the harness |
+| A03 | setters | `for HOME in DIR; do git status; done` | EXPLOITED | 0 | G3a; harness |
+| A03 | setters | `declare -n r; r=HOME; r=DIR` / `declare -n r=$n` | EXPLOITED | 0 | G3b/c; harness |
+| A03 | setters | `env -SHOME=DIR git status` / `--split-string=` | EXPLOITED | 0 | G3d; harness |
+| A03 | env operands | `x=HOME=DIR; env $x git status` | EXPLOITED | 0 | G4; harness |
+| A03 | setters | `declare -n r=HOME[0]; r=DIR` | RESISTED | 0 | bash refuses the nameref |
+| A01 | r8 wrappers | `.`/`source` in case/for/&&/\|\|/builtin/command/`\.`/`so$'urce'`; `env --chdir /tmp`; `sudo -u root -D` | RESISTED | n/a | `coproc` = r9 residual |
+| A04 | time budget | 22 repeated shapes at 8/32 KB | RESISTED | n/a | ≤ 75 ms; brace shape pre-existing O(n²), 726 ms max |
+| A05 | Engineer parity | 1253 fixture + probe lines, role engineer | RESISTED | n/a | byte-identical to HEAD |
+| A05 | Architect over-block | everyday git (add/commit, log, diff, status, show HEAD:path) | RESISTED (passes) | n/a | `git grep 'git config'` over-blocks (P3) |
+
+**For the Architect handoff (third round, D-164 r6).** Each of G1–G4 needs a fix and a row in
+`operand-scope-cases.json` named by branch (D-164 addendum 1 r4). G3a (`for`) and G4 (`env $x`)
+are the same list-versus-rule question that D-167 r7 meant to end. The Architect may prefer one
+rule over more spellings: on a git line, block any word in assignment position whose name is
+dynamic or comes from a loop or nameref.

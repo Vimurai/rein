@@ -1450,3 +1450,70 @@ builtins-only trap text exits 2 in the same conditions. The call must be removed
   and use builtins only. Measured under `ulimit -u 1`: abort and TERM exit 2, and the
   first-pass trap mutant exits 254. A hook that aborts writes no row, so a missing
   GATE_INTERNAL_ERROR row is not evidence that no abort happened. This is the named residual.
+
+### T-GITCONFIG-001 — the Architect's git rules as lists of keys, names and directory changes (E-453, D-167 r7–r9, 2026-11-23)
+
+**Status**: MITIGATED by rule (E-453). The residuals below are accepted by D-167 r9.
+
+**Threat**: E-440 and E-441 blocked git configuration and directory changes by listing spellings.
+Each security round found one more: eight environment names, seven keys, and other wrappers
+that change directory. A list misses the next spelling.
+
+**Mitigation (E-453)**:
+- **D-167 r7 — no configuration.** On a line that runs git, the Architect is blocked
+  (ARCH_GIT_EXEC_CONFIG) on:
+  - any `-c` or `--config-env` among git's global options, glued or spaced;
+  - any dynamic word in that position;
+  - any `git config` that is not a read;
+  - any assignment, export or setter-verb use of `GIT_*`, `EDITOR`, `VISUAL`, `PAGER`,
+    `XDG_CONFIG_HOME` or `HOME`.
+- **Round 1 (security_engineer F1–F8), fixed:**
+  - a `git config` read flag counts only before the first non-option word;
+  - `-c`/`--config` after `clone`, and a `-c key=value` after any subcommand, block;
+  - a dynamic word among the options blocks, including when there is no subcommand candidate;
+    so does `xargs git`;
+  - names are read from the decoded words, including a dynamic name after a setter and a
+    nameref;
+  - "a line that runs git" is decided by the readers, and the dashed `git-<sub>` counts;
+  - `{` starts a body where `.` leads, and `trap` counts as a directory change;
+  - the option walk shares one visited set per command, so it is linear.
+- **Round 2 (security_engineer G1–G4), gating; fixed in the tree, not re-tested — a third round is
+  the Architect's call (D-164 r6).** Each was proven in the harness to make git run a program:
+  - `git clone -qc k=v` / `--conf k=v` (bundle and abbreviation of `-c`/`--config`);
+  - `f='.git/config core.fsmonitor X'; git config --file $f --get` (a dynamic option value
+    splits into a write);
+  - `for HOME in DIR`, `declare -n r; r=HOME`, `declare -n r=$n`, `env -SHOME=DIR`;
+  - `x=HOME=DIR; env $x git status`.
+  Details: SECURITY.md "E-453 second pass". Fixes (Engineer, after the second pass):
+  - after `clone`, a short-option bundle holding `c`, or an abbreviated `--conf…`, blocks;
+  - a dynamic word anywhere in `git config`'s arguments is not a read;
+  - on a git line, these block: a `for`/`select` loop variable, any nameref declaration, and
+    env's `-S`/`--split-string`;
+  - a dynamic word between `env`/`sudo` and git blocks.
+- **D-167 r8 — wrappers are directory changes.** `env -C`/`--chdir`, `sudo -D`/`--chdir`,
+  `find -execdir`/`-okdir`, and `source`/`.` as the command word count in `gitRelocated`
+  (`git-view.mjs`). This is fail closed: the operand is not compared with the project root.
+
+**Residual (D-167 r9, accepted)**:
+- `cd -P` through a symlink planted under `.ai/`;
+- a `c[d]` glob;
+- `chroot`, `autocd` and `coproc`;
+- the over-block of a `cd` inside `$( )`;
+- the git operand scope reading past `&&` and `;`. `git checkout .ai/x && echo done` blocks for
+  the Architect; this over-block is accepted.
+
+**Accepted over-blocks of the rule (E-453)**:
+- a harmless `-c` (`git -c core.quotepath=off status`), as D-167 r7 intends;
+- a `git config <key>` read without `--get`;
+- `git <unknown-option> <sub> -c`, from the two-candidate option walk;
+- a commit message whose quote-stripped text holds `EDITOR=…` (the same class as `HOME=` since
+  E-353).
+- a search or commit message whose quote-stripped text reads as a second command:
+  `git grep -n 'git config' src/` (security_engineer second pass, P3);
+- `trap - DEBUG` before an `.ai/` checkout (F7 fails closed on any trap);
+- a variable word between `env`/`sudo` and git (`sudo -u "$U" git status`; G4 fails closed);
+- any nameref declaration (`declare -n`) on a git line (G3 fails closed).
+
+**Observed, not ruled**: a code string re-analyses its text without the line's context. For
+example, in `cd /tmp && bash -c 'git checkout .ai/x'` the inner command is judged alone and keeps
+the `.ai/` exemption. This predates E-453 and holds the same for `cd`.

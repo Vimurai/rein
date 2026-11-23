@@ -191,12 +191,14 @@ test("the git-config hooksPath scan at the word cap stays linear: same verdict, 
   // parser (D-144 addendum 4): ~540 / ~130 ms (Architect / Engineer) on shell-quote 1.8.3, ~21 / ~4 ms
   // on 1.12.0 (2026-11-06, one host). Recorded in SECURITY.md; this row fails if a cap, rule or parser
   // change pushes it past the 1000 ms ceiling.
-  for (const role of ["architect", "engineer"]) {
+  // E-453 (security_engineer F8): `git -a `×n walked every option run once per git word (cubic
+  // with the config check: 26 s at n=800); the shared visited set keeps it under the same ceiling.
+  for (const [shape, cmd] of [["git ", "git ".repeat(9999)], ["git -a ", "git -a ".repeat(4999)]]) for (const role of ["architect", "engineer"]) {
     let r;
-    const ms = msOf(() => { r = runAnalysis("git ".repeat(9999), role); });
-    console.log(`  runAnalysis at the cap (${role}): ${ms.toFixed(0)} ms (ceiling ${CEILING_MS})`);
+    const ms = msOf(() => { r = runAnalysis(cmd, role); });
+    console.log(`  runAnalysis at the cap (${shape}×n, ${role}): ${ms.toFixed(0)} ms (ceiling ${CEILING_MS})`);
     assert.equal(r.verdict, "PASS");
-    assert.ok(ms < CEILING_MS, `runAnalysis at the cap (${role}): ${ms.toFixed(0)} ms ≥ the ${CEILING_MS} ms ceiling`);
+    assert.ok(ms < CEILING_MS, `runAnalysis at the cap (${shape}×n, ${role}): ${ms.toFixed(0)} ms ≥ the ${CEILING_MS} ms ceiling`);
   }
 });
 

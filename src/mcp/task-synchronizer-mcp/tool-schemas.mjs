@@ -28,13 +28,13 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
         type: "object",
         properties: {
           owner:             { type: "string",  description: "Task owner label, derived from .ai/roles.json: e.g. 'Architect (Claude)', 'Engineer (Claude)', 'Tester (claude · sonnet)'" },
-          description:       { type: "string",  description: "Task description" },
-          tier:              { type: "number",  description: "Risk tier (1, 2, or 3)", enum: [1, 2, 3] },
+          description:       { type: "string",  description: "E-461: starts with an imperative verb and carries an 'Acceptance:' text in which a clause names a command, a file or a count; else [TASK_NO_VERB], [TASK_NO_ACCEPTANCE] or [TASK_ACCEPTANCE_UNOBSERVABLE]" },
+          tier:              { type: "number",  description: "Risk tier (1, 2, or 3) — required (E-461)", enum: [1, 2, 3] },
           prefix:            { type: "string",  description: "ID prefix: P (architect), E (engineer), T (tester)", enum: ["P", "E", "T"], default: "E" },
           is_framework_task: { type: "boolean", description: "If true, persist into $REIN_WORKSPACE/.ai (canonical Rein clone) instead of local .ai/. Errors with [WORKSPACE_NOT_FOUND] when REIN_WORKSPACE is unset/invalid. (E-63)", default: false },
           depends_on:        { type: "array", items: { type: "string" }, description: "E-91: task IDs this task depends on. Starts BLOCKED until all are DONE, then auto-OPENs. Self-references, cycles, unknown deps, and chains deeper than 5 are rejected with [DAG_FAIL]." },
         },
-        required: ["owner", "description"],
+        required: ["owner", "description", "tier"],
       },
     },
     {

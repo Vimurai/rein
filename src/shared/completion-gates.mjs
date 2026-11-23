@@ -6,8 +6,9 @@
 // CI gate. Both now call this function and keep no gate logic of their own; a gate added here
 // reaches both.
 //
-//   1. E-249 (D-067 §3) the build gate — src/mcp/** and src/bin/** must be in the install mirror
-//      and every running server must have booted the current build (checkCompletionBuildGate).
+//   1. E-249 (D-067 §3) the build check — src/mcp/** and src/bin/** in the install mirror, every
+//      running server on the current build (checkCompletionBuildGate). Since E-461 (D-169 r7) it
+//      no longer refuses DONE: a stale build is one [BUILD_STALE] line pushed onto `notes`.
 //   2. E-267 (D-072 §5a) the CI gate — a green local CI run for HEAD, or a tested ancestor that
 //      differs only in .ai/ (checkCiDoneGate; inactive until the project has run `rein ci`,
 //      REIN_CI_GATE=0 disables it).
@@ -38,12 +39,13 @@ import { rejection } from "./mcp-telemetry.mjs";
  *   cwd — the project root (the directory holding .ai/); db — its state.sqlite handle;
  *   id — the task (for the caller's own logging; the gates do not depend on it);
  *   buildOpts — fixture mirror/run directories for tests/unit; env — the CI gate's environment;
- *   superseded — the task closes unimplemented by a decision: the acceptance gate is skipped.
+ *   superseded — the task closes unimplemented by a decision: the acceptance gate is skipped;
+ *   notes — an array the advisory [BUILD_STALE] line is pushed onto (E-461), for the caller to print.
  * @returns {null | object} null when every gate passes, else the MCP result to return as is.
  */
-export function completionGates({ cwd, db, id, buildOpts = {}, env = process.env, superseded = false } = {}) {
+export function completionGates({ cwd, db, id, buildOpts = {}, env = process.env, superseded = false, notes = null } = {}) {
   const build = checkCompletionBuildGate({ repoRoot: cwd, ...buildOpts });
-  if (!build.ok) return rejection(build.message);
+  if (!build.ok && Array.isArray(notes)) notes.push(buildStaleLine(build.message));
   const ci = checkCiDoneGate(db, cwd, env);
   if (!ci.ok) return rejection(ci.message);
   if (!superseded) {
@@ -53,6 +55,15 @@ export function completionGates({ cwd, db, id, buildOpts = {}, env = process.env
     }
   }
   return null;
+}
+
+/**
+ * E-461 (D-169 r7): the one line a stale build prints at DONE, from the gate's full text — its
+ * first line without the mark and the colon, and the fix.
+ */
+export function buildStaleLine(message) {
+  const first = String(message || "").split("\n")[0].replace(/^✗\s*/, "").replace(/:\s*$/, "");
+  return `${first} — not refused; install: bash install-rein.sh, then restart the MCP servers`;
 }
 
 // E-464 (D-170 r9): tasks at or below this id were built while pre-commit required a

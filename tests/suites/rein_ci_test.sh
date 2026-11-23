@@ -817,7 +817,7 @@ _done() {  # <task> [env...] → the update_task_status text
   local id="$1"; shift
   _mcp "$@" bash -c "source '${REPO_ROOT}/tests/lib/mcp-client.sh'; mcp_call_tool '$SYNC_SERVER' update_task_status '{\"id\":\"$id\",\"status\":\"DONE\",\"summary\":\"probe\"}'"
 }
-_add() { _mcp bash -c "source '${REPO_ROOT}/tests/lib/mcp-client.sh'; mcp_call_tool '$SYNC_SERVER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"Probe the CI gate $1\",\"prefix\":\"E\"}'" >/dev/null; }
+_add() { _mcp bash -c "source '${REPO_ROOT}/tests/lib/mcp-client.sh'; mcp_call_tool '$SYNC_SERVER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"Add Probe the CI gate $1. Acceptance: TASKS.md lists it.\",\"tier\":2,\"prefix\":\"E\"}'" >/dev/null; }
 for n in 1 2 3; do _add "$n"; done
 C8="$(_commit src/a.js 8 "eighth")"
 OUT="$(_done E-1)"
@@ -842,29 +842,14 @@ assert_contains "E-267.08g: a .ai/-only HEAD above the tested commit is accepted
 EMPTY="$(test_tmpdir cigate-empty)"
 git -C "$EMPTY" init -q; mkdir -p "${EMPTY}/.ai"
 git -C "$EMPTY" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m x
-OUT="$( cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" add_task '{"owner":"Engineer (Claude)","description":"Probe adoption off","prefix":"E"}' >/dev/null
+OUT="$( cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" add_task '{"owner":"Engineer (Claude)","description":"Add Probe adoption off. Acceptance: TASKS.md lists it.","tier":2,"prefix":"E"}' >/dev/null
         cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" update_task_status '{"id":"E-1","status":"DONE","summary":"x"}' \
           | python3 -c 'import json,sys; print((json.load(sys.stdin).get("content") or [{}])[0].get("text",""))' )"
 assert_contains "E-267.08h: a project that never ran rein ci is not gated" "E-1 → DONE" "$OUT"
 
 # ── E-267.9: the consumers ───────────────────────────────────────────────
-TASK_SKILL="${REPO_ROOT}/src/shared/skills/rein-task/SKILL.md"
-# The needles below are REGEXES ('gh +run'), not the literal phrase, so E-268's repo-wide
-# "nothing names the hosted runner any more" grep is not tripped by its own negative tests.
-assert_status 1 "E-267.09a: rein-task no longer reads the hosted runner" grep -qE 'gh +run' "$TASK_SKILL"
-assert_status 1 "E-267.09b: rein-task's injection no longer shells out to python3" grep -q '^Local CI.*python3' "$TASK_SKILL"
-INJ="$(sed -n 's/^Local CI (HEAD): !//p' "$TASK_SKILL")"
-assert_contains "E-267.09c: rein-task injects rein ci status --short" "rein ci status --ref HEAD --short" "$INJ"
-# Run the injection line itself against a fixture, with a `rein` on PATH that is this tree.
-BIN="$(test_tmpdir cigate-bin)"
-printf '#!/usr/bin/env bash\nexec bash "%s" "$@"\n' "$AI" > "${BIN}/rein"; chmod +x "${BIN}/rein"
-OUT="$( cd "$REPO" && git checkout -qf "$C8" && HOME="$FAKE_HOME" PATH="${BIN}:$PATH" bash -c "$INJ" 2>&1 )"
-assert_match "E-267.09d: the injected line reads PASS for a tested HEAD" "^PASS ${C8:0:7} " "$OUT"
-OUT="$( cd "$REPO" && git checkout -qf "$C1" && HOME="$FAKE_HOME" PATH="${BIN}:$PATH" bash -c "$INJ" 2>&1 )"
-assert_match "E-267.09e: and NONE for an untested one" "^NONE ${C1:0:7} " "$OUT"
-OUT="$( cd "$REPO" && HOME="$FAKE_HOME" PATH="/usr/bin:/bin" bash -c "$INJ" 2>&1 )"
-assert_contains "E-267.09f: and says unavailable when ai is not installed" "(rein ci unavailable" "$OUT"
-git -C "$REPO" checkout -qf main
+# E-267.09a-f (the rein-task skill's injected `rein ci status --ref HEAD --short` line) were
+# deleted by E-461 with the skill; the command's PASS/NONE/--short output is pinned by E-266.02.
 
 # E-282: the triage rule moved from ENGINEER.md to the tests/** path-scoped rule.
 assert_status 0 "E-267.09g: the tests/** rule triages with rein ci log --failed" \
@@ -879,8 +864,7 @@ assert_status 0 "E-267.09l: install_git_hooks installs the pre-push stub" \
   grep -q '_write_pre_push_stub "\$PP_DST"' "$AI"
 assert_status 0 "E-267.09m: uninstall tells the operator to remove it" \
   grep -q 'rm .git/hooks/pre-push' "$AI"
-for m in .claude/skills/rein-task/SKILL.md:src/shared/skills/rein-task/SKILL.md \
-         .claude/skills/rein-review/SKILL.md:src/claude/skills/rein-review/SKILL.md \
+for m in .claude/skills/rein-review/SKILL.md:src/claude/skills/rein-review/SKILL.md \
          .claude/skills/ci_gate/SKILL.md:src/claude/skills/ci_gate/SKILL.md \
          .claude/agents/reviewer.md:src/claude/agents/reviewer.md; do
   assert_mirror_if_present "E-267.09n: ${m%%:*} mirrors ${m##*:}" "${REPO_ROOT}/${m##*:}" "${REPO_ROOT}/${m%%:*}"

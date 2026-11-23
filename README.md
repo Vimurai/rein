@@ -188,13 +188,14 @@ skills inside the two Claude Code panes.
 | `rein version`, `rein --help` | Version; full help. |
 
 Every session starts with a brief of at most 2 KB that the SessionStart hook injects: the
-role, the branch, the next five open tasks, the last handoff and any anomaly. Inside Claude
-Code, the commonly used skills are:
+role, the branch, the next five open tasks, the last handoff and any anomaly. Bookkeeping is
+three commands: `rein done <id> --summary <text>` closes a task (exit 1 names a missing review
+stamp), `rein handoff --to <role> --file <entry>` commits the COMM.md entry and prints the wake
+line to send, and `rein decide --file <entry>` records a D-### decision. Inside Claude Code, the
+commonly used skills are:
 
 | Skill | When |
 | :--- | :--- |
-| `rein-task` | After a task: mark it done (CI must be green), hand over, show the next one. |
-| `rein-handoff` | Write the COMM.md note and wake the other pane. |
 | `rein-test` | Run your tests; `--generate` dispatches the Tester to write new ones. |
 | `rein-review` | Review by tier: `rein review <tier>` and the agents it names. |
 | `rein-debug` | Hypothesis → test → observe loop; commits stay locked until green. |

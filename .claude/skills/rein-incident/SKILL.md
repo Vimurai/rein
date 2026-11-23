@@ -41,7 +41,7 @@ incidents by `stack_signature`; past a threshold the Architect drafts a P-##.
 ## When NOT to invoke
 
 - A test you can fix on the spot — file the fix, don't log noise.
-- A user-reported feature request — that's a P-## via `task-planner`.
+- A user-reported feature request — that's a P-## via `add_task`.
 - Anything containing PII the sanitiser may miss (raw production data,
   customer secrets). Strip manually first; the sanitiser is best-effort
   defence-in-depth, not a guarantee.
@@ -129,7 +129,7 @@ exists, lines are appended and the active file is truncated.
 
 - It is not a debugger. Use `rein-debug` for that — incidents are *signals
   for later improvement*, not active triage.
-- It is not LOG.md. `rein-log` records expected actions for the current
+- It is not LOG.md. `rein done` records expected actions for the current
   project; rein-incident records *unexpected* events for cross-project
   improvement.
 - It is not the way to file a P-## task. The aggregator decides whether

@@ -32,7 +32,7 @@ Source: `.ai/blueprints/lean-core.md` §Component 5, D-169 r8, D-170 r9.
    ```
 3. Every stamp binds to HEAD (E-329). A source commit after a stamp needs that stamp again; a
    commit that touches only `.ai/` does not.
-4. Close the task with `rein-task`. The DONE gate (`src/shared/completion-gates.mjs`) refuses a
+4. Close the task with `rein done E-### --summary <text>`. The DONE gate (`src/shared/completion-gates.mjs`) refuses a
    Tier 2/3 task whose stamps are missing for HEAD: `[REVIEW_GATE]`, `[ACCEPT_GATE]`, `[SEC_GATE]`.
 
 A second security round needs the Architect (D-164 r6). A `[REVIEW_FAIL]` is fixed on the branch

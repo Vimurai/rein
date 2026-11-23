@@ -6,8 +6,10 @@
 #
 # Two layers:
 #   1. static — the plugin manifest and the eval tree are well-formed. Needs only node.
-#   2. live   — run the three cases (rein-task, rein-handoff, task-planner) against
-#               the real model, every grader must pass. Needs an AUTHENTICATED `claude` on
+#   2. live   — run every case under evals/ against the real model, every grader must
+#               pass. E-461 removed the last three cases with their skills (rein-task,
+#               rein-handoff, task-planner became `rein done` / `rein handoff` / add_task);
+#               with no case the layer is a recorded SKIP. Needs an AUTHENTICATED `claude` on
 #               PATH; anything less is a recorded SKIP (E-236), never a fabricated result.
 #               Under `rein ci run` the HOME is a throwaway, so `claude` is never logged in
 #               there and this layer always SKIPs: `rein ci evals` runs it under the real HOME.
@@ -23,7 +25,10 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 MANIFEST="${REPO_ROOT}/.claude-plugin/plugin.json"
 EVALS="${REPO_ROOT}/evals"
-CASES=(rein-task rein-handoff task-planner)   # rein-preflight's case went with the skill (E-460)
+# Every case directory under evals/ (fixtures/ and mocks/ are shared, not cases). E-460 and
+# E-461 removed the skills the four cases evaluated; the list is empty until a case is added.
+CASES=()
+while IFS= read -r d; do CASES+=("$(basename "$d")"); done < <(find "$EVALS" -mindepth 2 -maxdepth 2 -name case.yaml -printf '%h\n' 2>/dev/null | sort)
 
 echo "── Suite: skill_evals_test ──────────────────────────────────────────"
 
@@ -34,7 +39,7 @@ assert_status 0 "plugin.json parses and names the provisioned skill dir" node -e
   const m = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
   if (m.name !== "rein" || !(m.skills || []).includes("./.claude/skills/")) process.exit(1);
 ' "$MANIFEST"
-for c in "${CASES[@]}"; do
+for c in "${CASES[@]+"${CASES[@]}"}"; do
   assert_exists "${EVALS}/${c}/case.yaml"
   assert_exists "${REPO_ROOT}/.claude/skills/${c}/SKILL.md"
   n="$(find "${EVALS}/${c}/graders" -name '*.md' -type f 2>/dev/null | wc -l | tr -d ' ')"
@@ -44,8 +49,10 @@ done
 assert_status 0 "fixture scaffold is valid bash" bash -n "${EVALS}/fixtures/rein-project.sh"
 
 # ── 2. live: the three cases against the model ─────────────────────────────────
-echo "  [skill-evals.live] 3 cases × ${REIN_SKILL_EVAL_RUNS:-2} runs, every grader passes"
-if skip_unless_cmd claude "live skill evals"; then
+echo "  [skill-evals.live] ${#CASES[@]} cases × ${REIN_SKILL_EVAL_RUNS:-2} runs, every grader passes"
+if [[ "${#CASES[@]}" -eq 0 ]]; then
+  _skip "live skill evals — evals/ has no case (E-461 removed the last three with their skills)"
+elif skip_unless_cmd claude "live skill evals"; then
   if ! grep < <(claude auth status 2>/dev/null) -q '"loggedIn": *true'; then
     _skip "live skill evals — claude is not authenticated on this host (HOME=${HOME})"
   else

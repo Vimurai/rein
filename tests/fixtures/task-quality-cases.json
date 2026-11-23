@@ -1,0 +1,18 @@
+{
+  "_doc": "E-461 (D-169 r7): the task-planner checks add_task applies (src/shared/task-quality.mjs). One row per case; expect is null (accepted) or the refusal code. Runner: tests/unit/task-quality.test.mjs.",
+  "cases": [
+    {"label": "a well-formed Tier 2 task", "tier": 2, "description": "Add `rein done` per lean-core.md. Acceptance: `rein done E-1 --summary x` exits 0.", "expect": null},
+    {"label": "an id prefix before the verb is allowed", "tier": 1, "description": "E-12: Fix the typo. Acceptance: README.md line 3 reads right.", "expect": null},
+    {"label": "a hyphenated verb", "tier": 2, "description": "Hard-cut the rename. Acceptance: git grep finds 0 old names.", "expect": null},
+    {"label": "a count is observable", "tier": 2, "description": "Trim the list. Acceptance: at most 6 skills remain.", "expect": null},
+    {"label": "a path is observable", "tier": 2, "description": "Move the archive. Acceptance: the records live under .ai/archive/.", "expect": null},
+    {"label": "one observable clause among vague ones is enough", "tier": 2, "description": "Rewrite the docs. Acceptance: the docs read well; docs/install.md names the install line.", "expect": null},
+    {"label": "the Tier suffix is not an Acceptance clause", "tier": 2, "description": "Fix the gate. Acceptance: it works well | Tier: 2", "expect": "TASK_ACCEPTANCE_UNOBSERVABLE"},
+    {"label": "no tier", "tier": null, "description": "Add a flag. Acceptance: `rein x --y` exits 0.", "expect": "TASK_NO_TIER"},
+    {"label": "a tier out of range", "tier": 4, "description": "Add a flag. Acceptance: `rein x --y` exits 0.", "expect": "TASK_NO_TIER"},
+    {"label": "a noun phrase, no verb", "tier": 2, "description": "The auth system. Acceptance: `rein auth` exits 0.", "expect": "TASK_NO_VERB"},
+    {"label": "a third-person verb is not imperative", "tier": 2, "description": "Adds a flag. Acceptance: `rein x --y` exits 0.", "expect": "TASK_NO_VERB"},
+    {"label": "no Acceptance text", "tier": 2, "description": "Add a flag to rein x.", "expect": "TASK_NO_ACCEPTANCE"},
+    {"label": "an Acceptance text that names nothing to observe", "tier": 2, "description": "Improve the gate. Acceptance: the gate works correctly and is fast.", "expect": "TASK_ACCEPTANCE_UNOBSERVABLE"}
+  ]
+}

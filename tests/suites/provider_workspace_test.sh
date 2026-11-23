@@ -194,7 +194,7 @@ assert_status 0 "E-254.05d: and .claude/ is still provisioned for the Engineer" 
 # Both roles are served from src/claude/*; the registry's role manifest must name nothing
 # outside claude/ and shared/, or sync would look for a tree that no longer ships.
 assert_status 0 "E-254.06a: the Architect's skills ship under src/claude/skills" \
-  test -f "${REPO_ROOT}/src/claude/skills/arch-task/SKILL.md"
+  test -f "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
 assert_status 0 "E-254.06b: the Architect's agents ship under src/claude/agents" \
   test -f "${REPO_ROOT}/src/claude/agents/docs-architect.md"
 assert_status 0 "E-254.06c: the role manifest names only claude/ and shared/ source dirs" \

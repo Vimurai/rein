@@ -1,4 +1,4 @@
-// tests/unit/skill-wake.test.mjs — the Triad wake text in the five handoff skills
+// tests/unit/skill-wake.test.mjs — the Triad wake text in the handoff skills
 // (D-099, native-first.md §Component 9). Extends the static layer of
 // tests/suites/skill_evals_test.sh; replaces the skill-text checks of
 // tests/suites/handoff_enforcement_test.sh, which E-322 deletes with the signal path.
@@ -9,6 +9,9 @@
 // load, fails silently — the other pane simply never wakes. The text is pinned here, for
 // the source copy and the provisioned copy the plugin evals grade.
 //
+// E-461: rein-handoff, rein-task, arch-task and task-planner are removed; `rein handoff` prints
+// the wake line (bookkeeping-commands.test.mjs) and the rulefiles say to send it. rein-triage stays.
+//
 //   node --test tests/unit/skill-wake.test.mjs
 
 import { test } from "node:test";
@@ -16,11 +19,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const SKILLS = {
-  "rein-handoff": "src/shared/skills/rein-handoff/SKILL.md",
-  "rein-task": "src/shared/skills/rein-task/SKILL.md",
   "rein-triage": "src/shared/skills/rein-triage/SKILL.md",
-  "arch-task": "src/claude/skills/arch-task/SKILL.md",
-  "task-planner": "src/claude/skills/task-planner/SKILL.md",
 };
 
 const RETIRED = /handoff_control|ai handoff|signal\.json|ai watch/;

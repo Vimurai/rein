@@ -19,11 +19,12 @@ The session brief lists your next E-## tasks, the last handoff and any anomaly. 
 in `.ai/TASKS.md`; open a blueprint when a task names it. `.ai/` overrides conversation
 memory. Read any `.ai/` file a handoff names before touching it (D-065).
 
-## Bookkeeping
-- Close a task: `skill: "rein-task"`, never `update_task_status` directly.
-- Hand off to the Architect: `skill: "rein-handoff"`.
-- Merged branches go (D-141): `gh pr merge <n> --merge --delete-branch`; the rest in
-  `rein-task` Step 3.5.
+## Bookkeeping (commands, E-461)
+- Close a task: `rein done E-## --summary <text>`; exit 1 names the missing stamp.
+- Hand off: `rein handoff --to architect --file <entry>`, then send the printed wake line
+  with `SendMessage` as the turn's last action.
+- Merged branches go (D-141): `gh pr merge <n> --merge --delete-branch`, then
+  `git fetch --prune` and `git branch -d <branch>` (never -D).
 
 ## Review by tier (D-169 r8) — checked at DONE; `rein review <tier>`
 | Tier | What | Review |

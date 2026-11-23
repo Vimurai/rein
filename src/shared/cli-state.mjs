@@ -174,17 +174,18 @@ export function runTaskDone(aiDir, id, summary, { env = _withoutRollbacks(proces
   const db  = getDbSeeded(aiDir);
   const row = db.prepare("SELECT status FROM tasks WHERE id = ?").get(id);
   if (!row) return { code: 1, out: `✗ ${id} not found in state.` };
-  if (row.status === "DONE") return { code: 0, out: `${id} is already DONE.` };
+  if (row.status === "DONE") return { code: 0, out: `${id} is already DONE.`, already: true };
   const behind = checkBehindHead(aiDir, db);   // E-342 (D-106 r4): refuse before any write
   if (behind) return { code: 1, out: `✗ ${behind}` };
-  const refused = completionGates({ cwd: dirname(resolve(aiDir)), db, id, buildOpts, env });
+  const notes = [];   // E-461 (D-169 r7): a stale build is one [BUILD_STALE] line, not a refusal
+  const refused = completionGates({ cwd: dirname(resolve(aiDir)), db, id, buildOpts, env, notes });
   // The shared refusal text names the MCP-side env bypass, which does not apply here.
   if (refused) return { code: 1, out: refused.content.map((c) => c.text.replace(/\s*\(bypass: [^)]*\)/g, "")).join("\n") };
   const text = summary ? String(summary).slice(0, SUMMARY_CAP) : null;
   const unblocked = completeTask(aiDir, db, id, text);
   regenerateViews(aiDir, db);
   const pub = publishDone(aiDir, id);   // E-331: clears this user's claim on origin/<trunk>
-  return { code: 0, out: `✓ ${id} → DONE${text ? ": " + text : ""}${unblocked.length ? ` | unblocked: ${unblocked.join(", ")}` : ""}${pub ? ` | ${pub.message}` : ""}` };
+  return { code: 0, out: `✓ ${id} → DONE${text ? ": " + text : ""}${unblocked.length ? ` | unblocked: ${unblocked.join(", ")}` : ""}${pub ? ` | ${pub.message}` : ""}${notes.map((n) => `\n${n}`).join("")}` };
 }
 
 /** `rein task claim|release` — @returns {{code:number, out:string}} */
@@ -229,7 +230,7 @@ export function main(argv, cwd = process.cwd()) {
   // build-stamp.mjs reads its switch from process.env directly, so both go from there too.
   for (const k of GATE_ROLLBACK_VARS) delete process.env[k];
   const aiDir = findAiDir(cwd);
-  // E-333 (D-102 §8): where a LOG entry goes (the rein-log skill appends there), and the newest
+  // E-333 (D-102 §8): where a LOG entry goes (`rein done` appends there, E-461), and the newest
   // entries across every developer's file when team.json shared_log is true (`rein log recent`).
   if (group === "log" && verb === "path" && rest.length === 0) return { code: 0, out: logPath(aiDir) };
   if (group === "log" && verb === "recent" && (rest.length === 0 || (rest.length === 2 && rest[0] === "-n" && /^\d{1,3}$/.test(rest[1])))) {

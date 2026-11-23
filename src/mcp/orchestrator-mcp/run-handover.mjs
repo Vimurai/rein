@@ -59,11 +59,13 @@ export function runHandover(cwd, args, gateOpts = {}, env = process.env) {
         results.push(`⚠ ${taskId} already marked DONE`);
       } else {
         // E-319/E-320 (D-097 r5, D-098 r2): the same completion gates as task-synchronizer's
-        // update_task_status, from the one shared list. Without them this path marked E-314
-        // DONE past a [BUILD_STALE] refusal from the other — two doors to one state, one of
-        // them unlocked. Before any write: a refusal leaves state.sqlite and LOG.md untouched.
-        const refused = completionGates({ cwd, db, id: taskId, buildOpts: gateOpts, env });
+        // update_task_status, from the one shared list — two doors to one state must both be
+        // locked. Before any write: a refusal leaves state.sqlite and LOG.md untouched.
+        // E-461 (D-169 r7): a stale build is one [BUILD_STALE] line, never a refusal.
+        const notes = [];
+        const refused = completionGates({ cwd, db, id: taskId, buildOpts: gateOpts, env, notes });
         if (refused) return refused;
+        results.push(...notes);
         // Gather diff data BEFORE the transaction (no I/O inside transactions)
         const diff = getDiff(cwd);
         const changedFiles = diff.trim()

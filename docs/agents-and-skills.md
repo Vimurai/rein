@@ -3,7 +3,7 @@
 Both are plain Claude Code files, copied into the project's `.claude/` by `rein sync` — there is no
 plugin to install.
 
-- A **skill** is a procedure the current session carries out itself (`skill: rein-task`). Only its
+- A **skill** is a procedure the current session carries out itself (`skill: rein-debug`). Only its
   one-line description is in context until it is invoked.
 - A **subagent** is a specialist that runs in its own context and reports back, so its file reads
   never land in your session.
@@ -38,11 +38,12 @@ plugin to install.
 
 | Skill | Does |
 | :--- | :--- |
-| `rein-task` | Close a task: mark done (CI must be green), hand over, surface the next. |
-| `rein-handoff` | Write the COMM.md entry, commit it, wake the other pane. |
-| `arch-task` | The Architect's close-out for planning tasks. |
 | `rein-sync-state` | Re-read `.ai/` from disk when another session changed it. |
-| `rein-log` | Append a structured entry to `.ai/LOG.md`. |
+
+Closing a task, handing off and recording a decision are commands, not skills (E-461):
+`rein done <id> --summary <text>`, `rein handoff --to <role> --file <entry>`,
+`rein decide --file <entry>`. `add_task` itself refuses a task with no tier, no imperative verb,
+or no `Acceptance:` clause that names a command, a file or a count.
 
 ### Building and testing
 
@@ -74,8 +75,6 @@ plugin to install.
 | Skill | Does |
 | :--- | :--- |
 | `blueprint-writer` | A blueprint must have its required sections before it is written. |
-| `task-planner` | A task must have a tier, a verb, acceptance criteria and no circular dependency. |
-| `decision-recorder` | A decision as a D-### entry: context, choice, alternatives. |
 | `arch-review` | Codebase audit against the blueprint. |
 
 ### Housekeeping

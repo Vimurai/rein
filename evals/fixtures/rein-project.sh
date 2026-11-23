@@ -67,51 +67,5 @@ git init -q
 git -c user.name=eval -c user.email=eval@example.invalid add -A
 git -c user.name=eval -c user.email=eval@example.invalid commit -qm "fixture: greeter"
 
-# --e900-done: the rein-task case's starting point. E-900's work is COMMITTED with its test, and
-# HEAD carries a PASS ci_runs row recorded by the repo's own ci-record.mjs — so the skill's
-# CI step sees a green HEAD, and a refusal would be a real finding, not a fixture gap.
-if [[ " $* " == *" --e900-done "* ]]; then
-  cat > src/greet.js <<'JS'
-export const greet = (n = "world") => `hello ${n}`;
-const i = process.argv.indexOf("--name");
-if (i > 0) console.log(greet(process.argv[i + 1]));
-JS
-  printf 'import assert from "node:assert/strict";\nimport { greet } from "./greet.js";\nassert.equal(greet("ada"), "hello ada");\n' > src/greet.test.mjs
-  git -c user.name=eval -c user.email=eval@example.invalid add -A
-  git -c user.name=eval -c user.email=eval@example.invalid commit -qm "E-900: --name flag + test"
-  sha="$(git rev-parse HEAD)"; now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  log=".ai/ci-fixture.log"
-  printf '%s\n' "[ci] sha=${sha} ref=HEAD dirty=0 started_at=${now}" \
-    "[ci] step=suite status=PASS 1 passed, 0 failed, 0 skipped, leaked 0" \
-    "[ci] step=unit status=PASS node:test" \
-    "[ci] result status=PASS suite=PASS pass=1 fail=0 skip=0 leaked=0 unit=PASS secrets=PASS" \
-    "[ci] finished status=PASS duration_ms=1000 finished_at=${now}" > "$log"
-  node --no-warnings "${repo}/src/shared/ci-record.mjs" record --ai-dir .ai --log "$log" >/dev/null
-  # The log stays inside the workspace: `rein ci log` reads it, and a missing log reads as pruned.
-fi
-
-# --queue-done: the rein-handoff case's starting point. Both Engineer tasks are DONE — the code
-# for each is committed — and E-901's delta is unread, so "the queue is exhausted" is TRUE in
-# every file and commit the skill reads.
-if [[ " $* " == *" --queue-done "* ]]; then
-  sed -i.orig 's/^- \[ \] E-90/- [x] E-90/' .ai/TASKS.md && rm -f .ai/TASKS.md.orig
-  cat > .ai/state.json <<'JSON'
-{"project":{"focus":"queue exhausted","last_id_E":"901","last_id_P":"10"},
- "tasks":[{"id":"E-900","status":"DONE","tier":1},{"id":"E-901","status":"DONE","tier":2}],
- "deltas":[{"task_id":"E-901","summary":"i18n catalogs (en, nb) in src/i18n/","read":false}],
- "stamps":[]}
-JSON
-  cat > src/greet.js <<'JS'
-import { readFileSync } from "node:fs";
-const lang = process.env.LANG?.startsWith("nb") ? "nb" : "en";
-const msg = JSON.parse(readFileSync(new URL(`./i18n/${lang}.json`, import.meta.url), "utf8"));
-export const greet = (n = "world") => `${msg.hello} ${n}`;
-const i = process.argv.indexOf("--name");
-if (i > 0) console.log(greet(process.argv[i + 1]));
-JS
-  mkdir -p src/i18n
-  printf '{"hello":"hello"}\n' > src/i18n/en.json
-  printf '{"hello":"hei"}\n' > src/i18n/nb.json
-  git -c user.name=eval -c user.email=eval@example.invalid add -A
-  git -c user.name=eval -c user.email=eval@example.invalid commit -qm "E-900 --name flag; E-901 en + nb catalogs"
-fi
+# E-461: the --e900-done and --queue-done states were the rein-task and rein-handoff cases'
+# starting points; both cases went with their skills.

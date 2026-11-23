@@ -104,7 +104,7 @@ Run the full suite:
 bash tests/run.sh 2>&1 | tail -5
 ```
 
-If green → UNLOCKED. Proceed to `skill: "rein-task"` then `skill: "commit-crafter"`.
+If green → UNLOCKED. Proceed to `skill: "commit-crafter"`, then close the task with `rein done E-## --summary <text>`.
 If still failing → return to Cycle Step 1 with a **new** hypothesis, provided `iterations < 3`. Otherwise → Escalation.
 
 ## Escalation — BUDGET_EXHAUSTED (mandatory)

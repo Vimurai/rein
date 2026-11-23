@@ -909,7 +909,8 @@ bash -c "source '$AI_BIN' 2>/dev/null; _write_role_settings_overlays '$_OV' '$_D
 _ARCH_OV="$(cat "$_OV/settings.architect.json" 2>/dev/null)"
 _ENG_OV="$(cat "$_OV/settings.engineer.json" 2>/dev/null)"
 
-for _rule in "Bash(rein add-task *)" "ListAgents" "SendMessage" \
+for _rule in "Bash(rein add-task *)" "Bash(rein done *)" "Bash(rein handoff *)" "Bash(rein decide *)" \
+             "ListAgents" "SendMessage" \
              "mcp__task-synchronizer-mcp__add_topic_seed" \
              "mcp__task-synchronizer-mcp__add_cluster_page" \
              "mcp__context-guardian-mcp__check_role_access"; do

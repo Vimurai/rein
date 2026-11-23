@@ -142,6 +142,15 @@ Commands:
                  registered in ~/.rein/accounts.json; 'default' is ~/.claude
   rein add-task [flags] <description>
                  Register a task in .ai/state.sqlite from the shell (no MCP needed)
+  rein done <id> --summary <text>
+                 Close a task: DONE through the completion gates (exit 1 names the
+                 missing stamp), the LOG line, the digest rebuilt
+  rein handoff --to architect|engineer --file <entry>
+                 Append the entry to .ai/COMM.md, commit it with the dirty tracked .ai/
+                 paths, print the sha and the SendMessage wake line
+  rein decide --file <entry>
+                 Number the entry D-### and append it to .ai/DECISIONS.md; it needs a
+                 decision, a reason and a rollback
   rein task done <id> [--summary <text>]
                  Mark a task DONE through the same completion gates as the MCP tool
   rein task claim <id> | release <id> [--reason <text>] | claims [--fetch]
@@ -675,10 +684,10 @@ _provider_source_dirs() {
 # an empty list, which is a NORMAL state, so this is the common path, not an edge case.
 # _sync_skills_no_clobber <src_dir> <dst_dir> <label> — E-212 collision guard.
 #
-# WHY: two roles can ship DIFFERENT skills under the SAME name. `rein-task` is the live
-# case — src/shared/skills/rein-task manages the Engineer's E-## lifecycle, while
-# src/agents/skills/rein-task manages the Architect's P-## lifecycle and hands off to
-# Claude. (`repo-oracle` is the second.)
+# WHY: two roles can ship DIFFERENT skills under the SAME name. `rein-task` was the first
+# case — one for the Engineer's E-## lifecycle, one for the Architect's P-## lifecycle —
+# until E-217 renamed the Architect's to arch-task (E-461 then replaced both with
+# `rein done`). (`repo-oracle` was the second.)
 #
 # THE OVERRIDE RULE DEPENDS ON HOW MANY ROLES THE WORKSPACE SERVES:
 #   - SINGLE-role workspace: a role skill legitimately OVERRIDES the shared baseline.
@@ -718,7 +727,7 @@ _sync_skills_no_clobber() {
         # they keep the historical role-overrides-shared behaviour.
         echo "  ✗ COLLISION: '${name}' from ${label} differs from the copy already in ${dst_dir}." >&2
         echo "    A multi-role workspace cannot hold two different skills under one name." >&2
-        echo "    Rename the role-specific one (see arch-task / arch-oracle, D-055 R2)." >&2
+        echo "    Rename the role-specific one (see arch-oracle / arch-review, D-055 R2)." >&2
         skipped=$((skipped + 1))
         SKILL_COLLISIONS=$((${SKILL_COLLISIONS:-0} + 1))
       fi
@@ -1582,6 +1591,10 @@ for role, cfg in roles.items():
     if role == "architect":
         arch_allow = [
             "Bash(rein add-task *)",
+            # E-461 (D-169 r7): the bookkeeping commands that replaced the planning skills.
+            "Bash(rein done *)",
+            "Bash(rein handoff *)",
+            "Bash(rein decide *)",
             "mcp__task-synchronizer-mcp__add_topic_seed",
             "mcp__task-synchronizer-mcp__add_cluster_page",
             "mcp__context-guardian-mcp__check_role_access",
@@ -3756,7 +3769,7 @@ do_sync() {
       echo "rein sync: ${SKILL_COLLISIONS} unresolved skill-name collision(s) — see the errors above." >&2
       echo "  A provider serving BOTH roles cannot hold two different skills under one name," >&2
       echo "  and sync cannot know which role the reading pane holds. Rename the role-specific" >&2
-      echo "  skill (D-055 R2 precedent: arch-task, arch-oracle, arch-review)." >&2
+      echo "  skill (D-055 R2 precedent: arch-oracle, arch-review)." >&2
       return 1
     fi
     # E-244: explicit provider-workspace pruning, after provisioning so a workspace that
@@ -7182,6 +7195,12 @@ case "$cmd" in
     [[ -n "$_st" ]] || { echo "rein ${cmd}: cli-state.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
     command -v node >/dev/null 2>&1 || { echo "rein ${cmd}: node not found" >&2; exit 1; }
     node --no-warnings "$_st" "$cmd" "${@:2}" ;;
+  # E-461 (D-169 r7, lean-core.md §Component 4): bookkeeping is three commands, not skills.
+  done|handoff|decide)
+    _bk="$(_rein_helper shared/cli-bookkeeping.mjs || true)"
+    [[ -n "$_bk" ]] || { echo "rein ${cmd}: cli-bookkeeping.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
+    command -v node >/dev/null 2>&1 || { echo "rein ${cmd}: node not found" >&2; exit 1; }
+    node --no-warnings "$_bk" "$cmd" "${@:2}" ;;
   # E-208 (role-abstraction.md §Same-Provider Triad): bind THIS tmux pane to a role
   # and launch that role's provider CLI. Usage: rein pane <architect|engineer>.
   pane)          do_pane "${@:2}" ;;

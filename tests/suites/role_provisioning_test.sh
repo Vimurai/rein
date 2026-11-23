@@ -106,7 +106,7 @@ assert_not_contains "E-212.06e: sync completes with no unbound-variable abort (b
   "unbound variable" "$_e212_out"
 assert_status 0 "E-212.06e2: and exits 0" test "$_e212_rc" -eq 0
 assert_status 0 "E-212.06g: the Engineer's workspace is still provisioned" \
-  test -f "$_e212_ws/.claude/skills/rein-task/SKILL.md"
+  test -f "$_e212_ws/.claude/skills/rein-debug/SKILL.md"
 assert_contains "E-212.06h: and it reports serving the Engineer role" \
   ".claude/ serves role(s): engineer" "$_e212_out"
 
@@ -129,33 +129,25 @@ echo "  [E-217] skill-name collision resolution"
 
 # The Architect's task/history skills are RENAMED, not deduplicated — they do a
 # different job for a different role. Same reason arch-review is not rein-review (E-149).
-assert_status 0 "E-217.01a: arch-task exists in the Architect set" \
-  test -f "${REPO_ROOT}/src/claude/skills/arch-task/SKILL.md"
+# E-217.01a/01c/01e/01g (arch-task and rein-task) were deleted by E-461: both skills are gone,
+# replaced by `rein done`; arch-oracle/repo-oracle below still pin the rename.
 assert_status 0 "E-217.01b: arch-oracle exists in the Architect set" \
   test -f "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
-assert_status 1 "E-217.01c: the Architect set no longer ships rein-task" \
-  test -e "${REPO_ROOT}/src/claude/skills/rein-task"
 assert_status 1 "E-217.01d: the Architect set no longer ships repo-oracle" \
   test -e "${REPO_ROOT}/src/claude/skills/repo-oracle"
 # The ENGINEER keeps the original names — that is the point of the rename.
-assert_status 0 "E-217.01e: the Engineer keeps rein-task" \
-  test -f "${REPO_ROOT}/src/shared/skills/rein-task/SKILL.md"
 assert_status 0 "E-217.01f: the Engineer keeps repo-oracle" \
   test -f "${REPO_ROOT}/src/shared/skills/repo-oracle/SKILL.md"
 # Frontmatter name must match the directory, or the skill loads under the old name.
-assert_status 0 "E-217.01g: arch-task frontmatter name matches" \
-  grep -qE '^name: arch-task$' "${REPO_ROOT}/src/claude/skills/arch-task/SKILL.md"
 assert_status 0 "E-217.01h: arch-oracle frontmatter name matches" \
   grep -qE '^name: arch-oracle$' "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
 
 # References must follow the rename, and ARCHITECT.md must explain WHY the names
 # differ so nobody "corrects" them back to match the Engineer's.
-assert_status 0 "E-217.02a: ARCHITECT.md points at arch-task" \
-  grep -q 'arch-task' "${REPO_ROOT}/src/templates/ARCHITECT.md"
+# E-217.02a and 02c (ARCHITECT.md and task-planner point at arch-task) were deleted by E-461:
+# the rulefile points at `rein done` / `rein handoff`, pinned by pre_commit_hook_test E-461.*.
 # E-217.02b (ARCHITECT.md explained the arch-* names) was deleted by E-460: the 2 KB rulefile
 # has no room for it; sync's collision error still names the rename precedent (E-217.04b).
-assert_status 0 "E-217.02c: task-planner hands back to arch-task" \
-  grep -q 'skill: arch-task' "${REPO_ROOT}/src/claude/skills/task-planner/SKILL.md"
 assert_status 0 "E-217.02d: root ARCHITECT.md matches its template" \
   diff -q "${REPO_ROOT}/src/templates/ARCHITECT.md" "${REPO_ROOT}/ARCHITECT.md"
 
@@ -175,7 +167,7 @@ assert_contains "E-217.03b: every agent satisfies the frontmatter contract" "0" 
 assert_status 0 "E-217.04a: sync returns non-zero on an unresolved collision" \
   grep -q 'unresolved skill-name collision' "$AI_BIN"
 assert_status 0 "E-217.04b: the error names the rename precedent" \
-  grep -q 'arch-task, arch-oracle, arch-review' "$AI_BIN"
+  grep -q 'D-055 R2 precedent: arch-oracle, arch-review' "$AI_BIN"
 # A name already on DISK is not a collision — it may be a stale copy from an earlier
 # sync. Only a name claimed by ANOTHER SOURCE in the same run counts; comparing against
 # disk residue reported task-planner, which exists in exactly one source dir.

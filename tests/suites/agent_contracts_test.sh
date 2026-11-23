@@ -247,67 +247,9 @@ assert_status 0 "rein-test .claude mirror identical" \
 assert_status 0 "rein-test ~/.rein mirror identical" \
   diff -q "$AI_TEST" "${HOME}/.rein/shared/skills/rein-test/SKILL.md"
 
-# ── E-64 (from task_planner_routing_test — E-302): task-planner teaches path classification ──
-# Verifies that the task-planner skill (Architect-owned) explicitly teaches
-# Step 4 path-classification + the is_framework_task payload contract
-# from .ai/blueprints/task-routing.md, and stays in sync with its
-# ~/.rein/ mirror.
-SKILL_SRC="${REPO_ROOT}/src/claude/skills/task-planner/SKILL.md"
-SKILL_MIRROR="${HOME}/.rein/claude/skills/task-planner/SKILL.md"
-
-
-# ── T-PR-S01: skill teaches the framework-classification step ─────────────────
-echo ""
-echo "  [T-PR-S01] task-planner SKILL.md introduces Step 4 — Classify Workspace"
-
-assert_status 0 "skill file exists" \
-  test -f "$SKILL_SRC"
-
-assert_status 0 "Step 4 — Classify the Workspace section present" \
-  grep -q 'Step 4 — Classify the Workspace' "$SKILL_SRC"
-
-assert_status 0 "explicit framework-path triggers (~/.rein/, @vimurai/rein/src/**)" \
-  grep -q '~/.rein/' "$SKILL_SRC"
-assert_status 0 "explicit @vimurai/rein/src/** trigger documented" \
-  grep -q '@vimurai/rein/src' "$SKILL_SRC"
-
-# ── T-PR-S02: payload contract surfaced ──────────────────────────────────────
-echo ""
-echo "  [T-PR-S02] add_task example carries is_framework_task"
-
-assert_status 0 "skill names is_framework_task in the add_task call" \
-  grep -q 'is_framework_task' "$SKILL_SRC"
-
-assert_status 0 "skill warns about [WORKSPACE_NOT_FOUND] failure mode" \
-  grep -q 'WORKSPACE_NOT_FOUND' "$SKILL_SRC"
-
-assert_status 0 "skill names \$REIN_WORKSPACE explicitly" \
-  grep -q 'REIN_WORKSPACE' "$SKILL_SRC"
-
-# ── T-PR-S03: ambiguity guidance documented ──────────────────────────────────
-echo ""
-echo "  [T-PR-S03] ambiguous-classification fallback rule documented"
-
-assert_status 0 "skill specifies project-level default on ambiguity" \
-  grep -qE 'ambiguous|Ambiguous' "$SKILL_SRC"
-
-# ── T-PR-S04: 'What NOT to Do' carries the routing prohibition ───────────────
-echo ""
-echo "  [T-PR-S04] anti-pattern call-out forbids cross-project leakage"
-
-assert_status 0 "What NOT to Do mentions framework-level routing" \
-  grep -qE 'framework-level tasks|framework workspace' "$SKILL_SRC"
-
-# ── T-PR-S05: ~/.rein mirror is byte-identical ──────────────────────────────
-echo ""
-echo "  [T-PR-S05] ~/.rein/ mirror tracks src/ verbatim"
-
-if [[ -f "$SKILL_MIRROR" ]]; then
-  assert_status 0 "src and ~/.rein mirror are byte-identical" \
-    cmp -s "$SKILL_SRC" "$SKILL_MIRROR"
-else
-  echo "  ⚠ mirror absent — install-rein.sh hasn't run since E-64; skipping cmp"
-fi
+# E-64 T-PR-S01..S05 (the task-planner skill taught framework routing) were deleted by E-461 with
+# the skill. The routing itself is pinned by task_synchronizer_test T-FW-S01..S07, and add_task's
+# own schema text names is_framework_task and [WORKSPACE_NOT_FOUND].
 
 # ── E-43 (from ai_debug_skill_test — E-302): rein-debug skill TASK_BUDGET upgrade ──
 # Verifies the skill body in src/shared/skills (source of truth) and the tracked

@@ -70,9 +70,9 @@ r=$(call "${ORCH}" run_dispatch "{}")
 assert_contains "T-92.01: idle when no state.sqlite" '"dispatch_mode": "idle"' "$r"
 
 # ── Build the graph: E-1 (root), E-2 deps[E-1], E-3 (independent) ────────────
-call "${SYNC}" add_task "{\"owner\":\"${OWNER}\",\"description\":\"root\",\"tier\":2}"                       >/dev/null  # E-1 OPEN
-call "${SYNC}" add_task "{\"owner\":\"${OWNER}\",\"description\":\"needs E-1\",\"tier\":2,\"depends_on\":[\"E-1\"]}" >/dev/null  # E-2 BLOCKED
-call "${SYNC}" add_task "{\"owner\":\"${OWNER}\",\"description\":\"independent\",\"tier\":2}"                 >/dev/null  # E-3 OPEN
+call "${SYNC}" add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add root. Acceptance: TASKS.md lists it.\",\"tier\":2}"                       >/dev/null  # E-1 OPEN
+call "${SYNC}" add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add needs E-1. Acceptance: TASKS.md lists it.\",\"tier\":2,\"depends_on\":[\"E-1\"]}" >/dev/null  # E-2 BLOCKED
+call "${SYNC}" add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add independent. Acceptance: TASKS.md lists it.\",\"tier\":2}"                 >/dev/null  # E-3 OPEN
 
 # ── T-92.02: two independent ready tasks → parallel; E-2 blocked ─────────────
 sum=$(dispatch_summary "$(call "${ORCH}" run_dispatch "{}")")
@@ -103,8 +103,8 @@ assert_contains "T-92.05: idle when all DONE" '"dispatch_mode": "idle"' "$r"
 # ── T-92.06: owner filter isolates the dispatch frontier by role ─────────────
 # Both roles run on the same provider (E-254), so the filter must key on the ROLE half of
 # the owner label — a provider-name filter could no longer tell them apart.
-call "${SYNC}" add_task "{\"owner\":\"${OWNER}\",\"description\":\"eng task\",\"tier\":2}"                 >/dev/null  # E-4 (Engineer)
-call "${SYNC}" add_task "{\"owner\":\"${ARCH}\",\"description\":\"arch task\",\"prefix\":\"P\",\"tier\":2}" >/dev/null  # P-1 (Architect)
+call "${SYNC}" add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add eng task. Acceptance: TASKS.md lists it.\",\"tier\":2}"                 >/dev/null  # E-4 (Engineer)
+call "${SYNC}" add_task "{\"owner\":\"${ARCH}\",\"description\":\"Add arch task. Acceptance: TASKS.md lists it.\",\"prefix\":\"P\",\"tier\":2}" >/dev/null  # P-1 (Architect)
 sum_eng=$(dispatch_summary "$(call "${ORCH}" run_dispatch "{\"owner\":\"engineer\"}")")
 sum_arch=$(dispatch_summary "$(call "${ORCH}" run_dispatch "{\"owner\":\"architect\"}")")
 assert_contains "T-92.06: engineer filter → E-4 ready"      "E-4" "${sum_eng#*|}"

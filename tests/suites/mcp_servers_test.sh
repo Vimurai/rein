@@ -354,7 +354,7 @@ assert_status 0 "E-249.04b: the refusal is recorded where the mechanism lives" \
 
 # ── §5: the completion gate, BOTH WAYS, through the real tool ────────────────
 #
-# The gate lives in update_task_status because that is what `skill: rein-task` calls; a
+# The gate lives in update_task_status because `rein done` and the MCP path both reach it; a
 # markdown skill cannot refuse anything. Driving the real tool is what proves the gate is
 # reachable from the path the Engineer actually uses.
 #
@@ -392,7 +392,7 @@ _gate_verdict() {   # <matches> → the update_task_status result text
   # REIN_HOME is an operator override, not a launch variable, and stays stripped here.
   ( cd "$d" && env -u REIN_HOME HOME="$h" bash -c "
       source '${SCRIPT_DIR}/../lib/mcp-client.sh'
-      mcp_call_tool '$SYNCHRONIZER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"E-249 gate probe\",\"prefix\":\"E\"}' >/dev/null 2>&1
+      mcp_call_tool '$SYNCHRONIZER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"Add E-249 gate probe. Acceptance: TASKS.md lists it.\",\"tier\":2,\"prefix\":\"E\"}' >/dev/null 2>&1
       mcp_call_tool '$SYNCHRONIZER' update_task_status '{\"id\":\"E-1\",\"status\":\"DONE\",\"summary\":\"probe\"}' 2>/dev/null
     " )
 }
@@ -400,10 +400,11 @@ _gate_verdict() {   # <matches> → the update_task_status result text
 assert_status 1 "E-264: REIN_WORKSPACE is not in the environment the gate inherits" \
   bash -c '[[ -n "${REIN_WORKSPACE+x}" ]]'
 _gate_dirty="$(_gate_verdict no)"
-assert_contains "E-249.05a: DONE is REFUSED while the mirror is a build behind" "BUILD_STALE" "${_gate_dirty}"
-assert_contains "E-249.05b: the refusal names the file that was not installed" "src/mcp/probe/index.js" "${_gate_dirty}"
-assert_contains "E-249.05c: and says how to fix it" "install-rein.sh" "${_gate_dirty}"
-assert_contains "E-249.05d: and names its own rollback" "REIN_BUILD_STAMP=0" "${_gate_dirty}"
+# E-461 (D-169 r7): a stale build no longer refuses DONE; it prints one [BUILD_STALE] line.
+assert_contains "E-249.05a: a build behind the mirror prints [BUILD_STALE]" "[BUILD_STALE] 1 file(s) under src/mcp/ or src/bin/ differ" "${_gate_dirty}"
+assert_contains "E-249.05b: and the task still transitions" 'E-1 \u2192 DONE' "${_gate_dirty}"   # raw JSON: the arrow is escaped
+assert_contains "E-249.05c: the line says how to fix it" "install-rein.sh" "${_gate_dirty}"
+assert_status 0 "E-249.05d: it is printed once" bash -c "test \"\$(grep -o 'BUILD_STALE' <<< \"\$1\" | wc -l)\" -eq 1" _ "${_gate_dirty}"
 
 # NON-VACUITY. Without this, deleting the gate entirely, or breaking it so it refuses
 # nothing, would leave 05a-05d passing only if they were also deleted — but a gate that
@@ -418,26 +419,12 @@ _gate_pair="$(_gate_fixture no)"
 _gp_d="${_gate_pair%%|*}"; _gp_h="${_gate_pair##*|}"
 _gate_off="$( cd "$_gp_d" && env -u REIN_HOME HOME="$_gp_h" REIN_BUILD_STAMP=0 bash -c "
     source '${SCRIPT_DIR}/../lib/mcp-client.sh'
-    mcp_call_tool '$SYNCHRONIZER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"probe\",\"prefix\":\"E\"}' >/dev/null 2>&1
+    mcp_call_tool '$SYNCHRONIZER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"Add probe. Acceptance: TASKS.md lists it.\",\"tier\":2,\"prefix\":\"E\"}' >/dev/null 2>&1
     mcp_call_tool '$SYNCHRONIZER' update_task_status '{\"id\":\"E-1\",\"status\":\"DONE\"}' 2>/dev/null
   " )"
 assert_status 1 "E-249.05g: REIN_BUILD_STAMP=0 releases the gate" \
   bash -c "grep -q BUILD_STALE <<< \"\${_gate_off}\""
 
-# A refusal must leave NOTHING behind: the gate runs before the dependency-revision write,
-# so a blocked DONE is not a half-applied mutation. This needs its OWN fixture — the
-# rollback pair above deliberately let its DONE through, and checking that one would have
-# asserted the opposite of what it reads.
-_h8="$(_gate_fixture no)"; _h8d="${_h8%%|*}"; _h8h="${_h8##*|}"
-( cd "$_h8d" && env -u REIN_HOME HOME="$_h8h" bash -c "
-    source '${SCRIPT_DIR}/../lib/mcp-client.sh'
-    mcp_call_tool '$SYNCHRONIZER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"probe\",\"prefix\":\"E\"}' >/dev/null 2>&1
-    mcp_call_tool '$SYNCHRONIZER' update_task_status '{\"id\":\"E-1\",\"status\":\"DONE\",\"summary\":\"probe\"}' >/dev/null 2>&1
-  " )
-assert_status 0 "E-249.05h: the refused task is still listed OPEN in TASKS.md" \
-  grep -q '^- \[ \] E-1' "${_h8d}/.ai/TASKS.md"
-assert_status 1 "E-249.05i: and is NOT recorded done" \
-  grep -q '^- \[x\] E-1' "${_h8d}/.ai/TASKS.md"
 
 echo ""
 

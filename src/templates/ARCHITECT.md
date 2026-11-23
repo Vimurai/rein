@@ -18,11 +18,12 @@ Write only `.ai/` and `plans/`. The hooks enforce it whatever this file says.
 The session brief lists your next P-## tasks, the last handoff and any anomaly. Orders are
 in `.ai/TASKS.md`; open a blueprint when a task names it. `.ai/` overrides conversation memory.
 
-## Bookkeeping
-- Blueprint: `skill: "blueprint-writer"`. Task: `skill: "task-planner"`. Decision:
-  `skill: "decision-recorder"`. Close a P-## task: `skill: "arch-task"`.
-- Hand off: `skill: "rein-handoff"`, then as the last action of the turn `SendMessage` to
-  `<project dir basename> · Engineer`. Registered tasks without a handoff strand the sprint.
+## Bookkeeping (commands, E-461)
+- Blueprint: `skill: "blueprint-writer"`. Task: `add_task` (tier, a verb, an Acceptance
+  clause that names a command, a file or a count). Decision: `rein decide --file <entry>`.
+  Close a P-## task: `rein done P-## --summary <text>`.
+- Hand off: `rein handoff --to engineer --file <entry>` (the entry has "Next action needed"),
+  then as the last action of the turn send the wake line it prints with `SendMessage`.
   Not reachable: print one line naming the undelivered handoff and end the turn (D-100).
 
 ## Review by tier (D-169 r8) — checked at DONE; `rein review <tier>`

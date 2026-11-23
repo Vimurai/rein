@@ -37,6 +37,7 @@ import { buildToolSchemas } from "./tool-schemas.mjs";
 // E-266 (D-072): read-only view of the local CI run record.
 import { getCiStatus } from "../shared/ci-runs.js";
 import { completionGates, checkSupersededBy } from "../../shared/completion-gates.mjs";
+import { checkTaskQuality } from "../../shared/task-quality.mjs";
 import { validateNamed, loadSchemas } from "../../shared/schema-validator.js";
 // E-153 (telemetry-hardening.md): global telemetry interceptor — instrument() patches
 // setRequestHandler so EVERY CallTool invocation records a SUCCESS/ERROR row (closing the
@@ -282,6 +283,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     case "add_task": {
       const _addTaskErr = _assertSchema("task_create", args);
       if (_addTaskErr) return _addTaskErr;
+      // E-461 (D-169 r7): the task-planner checks live in the tool — a verb, and an Acceptance
+      // clause that names a command, a file or a count (task-quality.mjs).
+      const _quality = checkTaskQuality(args);
+      if (_quality) return rejection(`✗ [${_quality.code}] ${_quality.error}`);
 
       // E-63: Resolve persistence target — local .ai/ or framework workspace
       // when is_framework_task is set. Each framework write opens its own DB
@@ -362,9 +367,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // session through the install mirror, and an MCP server serves whatever it imported
       // at startup — so a task that changed src/mcp/** or src/bin/** is not finished when
       // the edit lands, it is finished when the mirror carries it and the servers have
-      // been restarted. The gate refuses DONE until both are true, and reports which of
-      // the two is missing. It runs BEFORE the dependency-revision write so a refusal
-      // leaves no partial mutation behind. Rollback: REIN_BUILD_STAMP=0.
+      // been restarted. E-461 (D-169 r7): it no longer refuses DONE — a stale build is one
+      // [BUILD_STALE] line appended to the result. The other gates run BEFORE the
+      // dependency-revision write so a refusal leaves no partial mutation behind.
       // E-320 (D-098 r2): the gate list lives in src/shared/completion-gates.mjs, shared with
       // orchestrator-mcp's run_handover — E-267's CI gate runs there after the build gate.
       // E-431 (D-159 r9): superseded_by closes a task unimplemented — it skips the acceptance gate
@@ -375,8 +380,9 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         if (bad) return rejection(`✗ ${bad}`);
         args.summary = `superseded by ${args.superseded_by} — not implemented${args.summary ? ". " + args.summary : ""}`;
       }
+      const gateNotes = [];
       if (args.status === "DONE") {
-        const refused = completionGates({ cwd: dirname(aiDir), db, id: args.id, superseded: args.superseded_by !== undefined });
+        const refused = completionGates({ cwd: dirname(aiDir), db, id: args.id, superseded: args.superseded_by !== undefined, notes: gateNotes });
         if (refused) return refused;
       }
       // E-331 (D-102 §4): in a team project IN_PROGRESS means "claimed on origin/<trunk>" (E-341).
@@ -424,7 +430,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // E-331: a DONE clears this user's claim on origin/<trunk> (team projects only).
       const pub = args.status === "DONE" ? _publishDone(aiDir, args.id) : null;
       const claimNote = pub ? ` | ${pub.message}` : "";
-      return { content: [{ type: "text", text: `✓ ${args.id} → ${args.status}${storedSummary ? ": " + storedSummary : ""}${unblockNote}${truncNote}${claimNote}` }] };
+      return { content: [{ type: "text", text: `✓ ${args.id} → ${args.status}${storedSummary ? ": " + storedSummary : ""}${unblockNote}${truncNote}${claimNote}${gateNotes.map((n) => `\n${n}`).join("")}` }] };
     }
 
     // ── claim_task / release_task (E-331, D-102 §4) ───────────────────────────

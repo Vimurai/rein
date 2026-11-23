@@ -31,7 +31,7 @@ Skills are context-heavy. When you finish using a skill (like a critic review or
 Use `orchestrator-mcp` tools for deterministic execution instead of manually interpreting skill files:
 
 - **Session start**: nothing to run — the SessionStart hook injects the session brief (E-460).
-- **After finishing E-## task**: `run_handover({ task_id: "E-##", summary: "..." })` — marks DONE, updates LOG.
+- **After finishing E-## task**: `rein done E-## --summary "..."` — marks DONE, updates LOG and the digest (E-461).
 - **Before closing a Tier 2/3 task**: `rein review <tier>` — deterministic checks + the agents to dispatch (E-464).
 
 Use the Skill tool / Agent tool for everything the orchestrator doesn't cover.

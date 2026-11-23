@@ -83,7 +83,7 @@ the rejection. The promoter removes the proposal from staging only when it succe
 
 ## Step 4 — Report + log
 Summarize: `<N> proposed, <A> approved+promoted, <R> rejected, <S> skipped (reason)`. Then
-`skill: rein-log` an entry so the activation decision is auditable.
+append one line to `$(rein log path)` so the activation decision is auditable.
 
 ## Rules
 - NEVER promote without an explicit `approval-mcp` APPROVED decision — no self-approval, no

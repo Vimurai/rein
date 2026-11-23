@@ -375,7 +375,7 @@ test("every task-synchronizer mutation lands in a record file that rebuilds the 
   migrateTeam(ai, { trunk: "master" });
   const home = tmp(t, "home");
   const res = await callTools(root, home, [
-    ["add_task", { owner: "Engineer (Claude)", description: "via mcp", tier: 1 }],
+    ["add_task", { owner: "Engineer (Claude)", description: "Add via mcp. Acceptance: TASKS.md lists it.", tier: 1 }],
     ["update_task_status", { id: "E-1", status: "BLOCKED" }],
     ["update_task_status", { id: "E-2", status: "OPEN", depends_on: [] }],
     ["add_stamp", { type: "TESTS_PASS", agent: "critic_tests", task_id: "E-3", summary: "green" }],
@@ -384,7 +384,7 @@ test("every task-synchronizer mutation lands in a record file that rebuilds the 
   ]);
   assert.match(res.at(-1).content[0].text, /\[SYNC_PASS\]/, "verify_markdown_sync passes on a team project");
   for (const r of res) assert.notEqual(r?.isError, true, JSON.stringify(r));
-  assert.equal(readRecord(ai, "task", "E-3").description, "via mcp");
+  assert.equal(readRecord(ai, "task", "E-3").description, "Add via mcp. Acceptance: TASKS.md lists it.");
   assert.equal(readRecord(ai, "task", "E-1").status, "BLOCKED");
   assert.deepEqual(readRecord(ai, "task", "E-2").depends_on, []);
   assert.ok(listRecords(ai, "stamp").some((e) => e.record.type === "TESTS_PASS" && e.record.task_id === "E-3"));
@@ -410,7 +410,7 @@ test("a legacy index behind HEAD: verify_markdown_sync is [SYNC_FAIL] and add_ta
   commitAll(root, "pulled E-9");
   const views = ["TASKS.md", "REVIEWS.md", "state.json"].map((f) => readFileSync(join(ai, f), "utf8"));
   const home = tmp(t, "home");
-  const [sync, add] = await callTools(root, home, [["verify_markdown_sync", {}], ["add_task", { owner: "Engineer (Claude)", description: "x" }]]);
+  const [sync, add] = await callTools(root, home, [["verify_markdown_sync", {}], ["add_task", { owner: "Engineer (Claude)", description: "Add x. Acceptance: TASKS.md lists it.", tier: 1 }]]);
   const line = "[STATE_BEHIND_HEAD] HEAD has E-9 the index lacks — run: rein state import";
   assert.match(sync.content[0].text, /^\[SYNC_FAIL\]/);
   assert.ok(sync.content[0].text.includes(line));

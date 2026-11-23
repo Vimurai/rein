@@ -12,7 +12,8 @@ HARD RULES:
 3) Architect ↔ Engineer handoff:
    - The Architect creates P-## tasks via add_task MCP tool.
    - The Engineer picks up open E-## tasks from TASKS.md.
-   - After completing: run_handover({ task_id: "E-##", summary: "..." })
-   - Record architectural decisions in .ai/DECISIONS.md.
+   - After completing: rein done E-## --summary "..." (E-461)
+   - Hand off: rein handoff --to architect|engineer --file <entry>, then send the wake line.
+   - Record architectural decisions with rein decide --file <entry>.
 
 4) If .ai/ is missing or incomplete: stop and run `rein init` — do not guess.

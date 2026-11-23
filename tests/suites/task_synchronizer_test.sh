@@ -88,7 +88,7 @@ echo "  [T-FW-S02] is_framework_task=true with REIN_WORKSPACE unset → error"
 
 unset REIN_WORKSPACE
 unset REIN_WORKSPACE_DISABLE
-RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
+RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"Add oops. Acceptance: TASKS.md lists it.","tier":1,"is_framework_task":true}')"
 assert_status 0 "response includes [WORKSPACE_NOT_FOUND]" \
   bash -c "grep -q 'WORKSPACE_NOT_FOUND' <<< \"$RESP\""
 
@@ -97,7 +97,7 @@ echo ""
 echo "  [T-FW-S03] non-absolute REIN_WORKSPACE rejected"
 
 export REIN_WORKSPACE="relative/path"
-RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
+RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"Add oops. Acceptance: TASKS.md lists it.","tier":1,"is_framework_task":true}')"
 assert_status 0 "non-absolute path rejected" \
   bash -c "grep -q 'WORKSPACE_NOT_FOUND' <<< \"$RESP\""
 assert_status 0 "error mentions absolute requirement" \
@@ -110,7 +110,7 @@ echo "  [T-FW-S04] REIN_WORKSPACE without .ai/ rejected"
 
 EMPTY_DIR="$(mktemp -d)"
 export REIN_WORKSPACE="$EMPTY_DIR"
-RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
+RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"Add oops. Acceptance: TASKS.md lists it.","tier":1,"is_framework_task":true}')"
 assert_status 0 "missing .ai/ rejected" \
   bash -c "grep -q 'WORKSPACE_NOT_FOUND' <<< \"$RESP\""
 assert_status 0 "error mentions rein init remediation" \
@@ -124,7 +124,7 @@ echo "  [T-FW-S05] REIN_WORKSPACE_DISABLE=1 surfaces emergency-disable error"
 
 export REIN_WORKSPACE="${SBOX}/framework"
 export REIN_WORKSPACE_DISABLE="1"
-RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"oops","tier":1,"is_framework_task":true}')"
+RESP="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"Add oops. Acceptance: TASKS.md lists it.","tier":1,"is_framework_task":true}')"
 assert_status 0 "rollback flag surfaces [WORKSPACE_DISABLED]" \
   bash -c "grep -q 'WORKSPACE_DISABLED' <<< \"$RESP\""
 unset REIN_WORKSPACE_DISABLE
@@ -135,7 +135,7 @@ echo "  [T-FW-S06] valid REIN_WORKSPACE persists into framework state.sqlite"
 
 export REIN_WORKSPACE="${SBOX}/framework"
 RESP_FILE="$(mktemp)"
-_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"framework-only task","tier":2,"is_framework_task":true}' > "$RESP_FILE"
+_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"Add framework-only task. Acceptance: TASKS.md lists it.","tier":2,"is_framework_task":true}' > "$RESP_FILE"
 assert_status 0 "response confirms framework routing" \
   grep -q 'framework workspace' "$RESP_FILE"
 rm -f "$RESP_FILE"
@@ -166,7 +166,7 @@ echo "  [T-FW-S07] non-framework task lands in local state.sqlite"
 
 unset REIN_WORKSPACE   # prove local routing doesn't depend on the env
 LOCAL_RESP_FILE="$(mktemp)"
-_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"local task","tier":1}' > "$LOCAL_RESP_FILE"
+_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"Add local task. Acceptance: TASKS.md lists it.","tier":1}' > "$LOCAL_RESP_FILE"
 assert_status 1 "no framework-routing suffix on local task" \
   grep -q 'framework workspace' "$LOCAL_RESP_FILE"
 rm -f "$LOCAL_RESP_FILE"
@@ -180,6 +180,26 @@ import('node:sqlite').then(({DatabaseSync}) => {
 ")"
 assert_status 0 "local state.sqlite gained the row" \
   bash -c "[[ '$COUNT_LOCAL2' == '1' ]]"
+
+# ── E-461 (D-169 r7): add_task refuses a task without Acceptance or tier ──────
+# The task-planner checks moved into the tool. The rule rows are tests/fixtures/task-quality-cases.json;
+# these pin that the MCP path reaches the schema and the check, and writes nothing.
+echo ""
+echo "  [T-QA-S01] add_task refuses a task without Acceptance, a tier or a verb"
+_NOACC="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"Add a flag","tier":2}')"
+assert_contains "no Acceptance text → [SCHEMA_FAIL] naming the description" "[SCHEMA_FAIL] 'task_create'" "$_NOACC"
+assert_contains "the schema error names the description pattern" ".description: must match pattern" "$_NOACC"
+_NOTIER="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"Add a flag. Acceptance: TASKS.md lists it."}')"
+assert_contains "no tier → [SCHEMA_FAIL]" "[SCHEMA_FAIL] 'task_create'" "$_NOTIER"
+_NOVERB="$(_call_add_task "${SBOX}/local" '{"owner":"Engineer (Claude)","description":"The flag. Acceptance: TASKS.md lists it.","tier":2}')"
+assert_contains "no verb → [TASK_NO_VERB]" "[TASK_NO_VERB]" "$_NOVERB"
+COUNT_LOCAL3="$(AIDIR="${SBOX}/local/.ai" node --input-type=module --no-warnings -e "
+import('node:sqlite').then(({DatabaseSync}) => {
+  const db = new DatabaseSync(process.env.AIDIR + '/state.sqlite');
+  console.log(db.prepare('SELECT COUNT(*) as n FROM tasks').get().n);
+});
+")"
+assert_status 0 "the refused tasks wrote nothing" bash -c "[[ '$COUNT_LOCAL3' == '1' ]]"
 
 
 # ── E-74 (from managed_agents_sync_hook — E-302): the Managed Agents sync hook in add_task / update_task_status ──
@@ -389,7 +409,7 @@ env_on='{"AI_MANAGED_AGENTS_ENABLE":"1","AI_MANAGED_AGENT_KEY":"abcdef0123456789
 
 result="$(_call_mcp_capturing_stderr \
   "add_task" \
-  '{"owner":"Engineer (Claude)","description":"e74 add_task test","tier":1}' \
+  '{"owner":"Engineer (Claude)","description":"Add e74 add_task test. Acceptance: TASKS.md lists it.","tier":1}' \
   3000 "$LOCAL_DIR" "$env_on" "projection fetch failed")"
 
 ON_OUT="${MASH_SBOX}/on.out"
@@ -431,7 +451,7 @@ _seed_aidir "${LOCAL_DIR_OFF}/.ai"
 
 result="$(_call_mcp_capturing_stderr \
   "add_task" \
-  '{"owner":"Engineer (Claude)","description":"flag-off test","tier":1}' \
+  '{"owner":"Engineer (Claude)","description":"Add flag-off test. Acceptance: TASKS.md lists it.","tier":1}' \
   300 "$LOCAL_DIR_OFF" '{}')"
 OFF_OUT="${MASH_SBOX}/off.out"
 OFF_ERR="${MASH_SBOX}/off.err"
@@ -452,7 +472,7 @@ _seed_aidir "${LOCAL_DIR_STAMP}/.ai"
 # add_task a chance to assign the id E-1 in this fresh DB).
 _call_mcp_capturing_stderr \
   "add_task" \
-  '{"owner":"Engineer (Claude)","description":"stamp target","tier":1}' \
+  '{"owner":"Engineer (Claude)","description":"Add stamp target. Acceptance: TASKS.md lists it.","tier":1}' \
   100 "$LOCAL_DIR_STAMP" '{}' >/dev/null
 
 result="$(_call_mcp_capturing_stderr \
@@ -499,7 +519,7 @@ print(json.dumps({
 
 result="$(_call_mcp_capturing_stderr \
   "add_task" \
-  '{"owner":"Engineer (Claude)","description":"e74 framework-routed test","tier":1,"is_framework_task":true}' \
+  '{"owner":"Engineer (Claude)","description":"Add e74 framework-routed test. Acceptance: TASKS.md lists it.","tier":1,"is_framework_task":true}' \
   3000 "$LOCAL_FW_DIR" "$env_fw" "projection fetch failed")"
 
 FW_OUT="${MASH_SBOX}/fw.out"
@@ -515,14 +535,14 @@ assert_status 0 "cloud sync still fires for framework-routed mutation" \
 fw_row_count=$(node --input-type=module -e "
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync('${FRAMEWORK_DIR}/.ai/state.sqlite');
-  const rows = db.prepare(\"SELECT id FROM tasks WHERE description LIKE 'e74 framework-routed%'\").all();
+  const rows = db.prepare(\"SELECT id FROM tasks WHERE description LIKE 'Add e74 framework-routed%'\").all();
   console.log(rows.length);
   db.close();
 " 2>/dev/null)
 local_row_count=$(node --input-type=module -e "
   const { DatabaseSync } = await import('node:sqlite');
   const db = new DatabaseSync('${LOCAL_FW_DIR}/.ai/state.sqlite');
-  const rows = db.prepare(\"SELECT id FROM tasks WHERE description LIKE 'e74 framework-routed%'\").all();
+  const rows = db.prepare(\"SELECT id FROM tasks WHERE description LIKE 'Add e74 framework-routed%'\").all();
   console.log(rows.length);
   db.close();
 " 2>/dev/null)
@@ -555,23 +575,23 @@ OWNER='Engineer (Claude)'
 DBN="node --input-type=module -e"
 
 # ── A: fresh DB preserves the E-1, E-2 sequence (backward compat) ────────────
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"first\",\"tier\":2}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add first. Acceptance: TASKS.md lists it.\",\"tier\":2}")
 assert_contains "A: fresh → E-1" "Added E-1" "$r"
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"second\",\"tier\":2}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add second. Acceptance: TASKS.md lists it.\",\"tier\":2}")
 assert_contains "A: next → E-2" "Added E-2" "$r"
 
 # ── B: archived ids bound the sequence (no collision with retired ids) ───────
 # Seed an archive file holding E-1..E-50 (max 50), as _archiveDoneTasks would.
 mkdir -p "${PROJECT}/.ai/archive"
 python3 -c "import json; json.dump([{'id':f'E-{i}','status':'DONE'} for i in range(1,51)], open('${PROJECT}/.ai/archive/state-done-2026-01.json','w'))"
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"after archive\",\"tier\":2}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add after archive. Acceptance: TASKS.md lists it.\",\"tier\":2}")
 assert_contains "B: archived E-50 bounds the sequence → E-51" "Added E-51" "$r"
 
 # ── C: high-water prevents re-issue even after a row leaves the live table ───
 # Delete E-51 directly from the live table; the persisted high-water must still
 # advance the sequence past it.
 $DBN "import { getDb } from '${REPO_ROOT}/src/mcp/shared/state-db.js'; getDb('${PROJECT}/.ai').prepare('DELETE FROM tasks WHERE id = ?').run('E-51');" 2>/dev/null
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"after delete\",\"tier\":2}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add after delete. Acceptance: TASKS.md lists it.\",\"tier\":2}")
 assert_contains "C: deleted E-51 not re-issued → E-52" "Added E-52" "$r"
 assert_not_contains "C: E-51 not re-issued" "Added E-51" "$r"
 
@@ -580,7 +600,7 @@ HW=$($DBN "import { getDb } from '${REPO_ROOT}/src/mcp/shared/state-db.js'; cons
 assert_status 0 "D: high-water last_id_E persisted at 52" bash -c "[ \"$HW\" = '52' ]"
 
 # ── E: an unrelated prefix (P-) is independent ───────────────────────────────
-r=$(call add_task "{\"owner\":\"Architect (Claude)\",\"description\":\"p task\",\"prefix\":\"P\",\"tier\":2}")
+r=$(call add_task "{\"owner\":\"Architect (Claude)\",\"description\":\"Add p task. Acceptance: TASKS.md lists it.\",\"prefix\":\"P\",\"tier\":2}")
 assert_contains "E: P- prefix independent → P-1" "Added P-1" "$r"
 
 # ── F (E-330, D-102 §7): the tracked archive bounds the sequence too ─────────
@@ -588,7 +608,7 @@ assert_contains "E: P- prefix independent → P-1" "Added P-1" "$r"
 # teammate): the filename is the id, and no .ai/archive/ JSON or high-water mark knows it.
 mkdir -p "${PROJECT}/.ai/tasks/archive/2026-10"
 printf '{}\n' > "${PROJECT}/.ai/tasks/archive/2026-10/E-90.json"
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"after tracked archive\",\"tier\":2}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add after tracked archive. Acceptance: TASKS.md lists it.\",\"tier\":2}")
 assert_contains "F: tracked archived E-90 bounds the sequence → E-91" "Added E-91" "$r"
 
 cd "${REPO_ROOT}"
@@ -631,7 +651,7 @@ cat > "${PROJECT}/.ai/state.json" <<'JSON'
 JSON
 cd "${PROJECT}"
 # A state mutation migrates state.json -> state.sqlite and regenerates TASKS.md.
-mcp_call_tool "${SERVER}" add_task '{"prefix":"E","owner":"Engineer (Claude)","description":"regen trigger","tier":3}' >/dev/null
+mcp_call_tool "${SERVER}" add_task '{"prefix":"E","owner":"Engineer (Claude)","description":"Add regen trigger. Acceptance: TASKS.md lists it.","tier":3}' >/dev/null
 TASKS="${PROJECT}/.ai/TASKS.md"
 assert_status 0 "E-136.11: TASKS.md regenerated" test -f "$TASKS"
 tasks_md="$(cat "$TASKS")"
@@ -682,7 +702,7 @@ print("MISSING" if t is None else json.dumps(t.get(os.environ["F"])))' <<<"$1"; 
 OWNER='Engineer (Claude)'
 
 # ── E-107.01: a >200-char DONE summary is capped + [SUMMARY_TRUNCATED] emitted ─
-call add_task "{\"owner\":\"${OWNER}\",\"description\":\"long summary task\",\"tier\":2}" >/dev/null
+call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add long summary task. Acceptance: TASKS.md lists it.\",\"tier\":2}" >/dev/null
 LONG="$(python3 -c 'print("X"*300)')"
 r=$(call update_task_status "{\"id\":\"E-1\",\"status\":\"DONE\",\"summary\":\"${LONG}\"}")
 assert_contains "E-107.01: [SUMMARY_TRUNCATED] warning emitted" "[SUMMARY_TRUNCATED]" "$r"
@@ -692,14 +712,14 @@ assert_status 0 "E-107.01: stored summary length <= 200" bash -c "[ \"$LEN\" -le
 assert_contains "E-107.01: capped summary references LOG.md" "LOG.md" "$(task_field "$state" E-1 summary)"
 
 # ── E-107.02: a short summary is stored verbatim, no truncation note ──────────
-call add_task "{\"owner\":\"${OWNER}\",\"description\":\"short summary task\",\"tier\":2}" >/dev/null
+call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add short summary task. Acceptance: TASKS.md lists it.\",\"tier\":2}" >/dev/null
 r=$(call update_task_status "{\"id\":\"E-2\",\"status\":\"DONE\",\"summary\":\"all good\"}")
 assert_not_contains "E-107.02: no truncation note for short summary" "[SUMMARY_TRUNCATED]" "$r"
 state=$(call get_state "{}")
 assert_contains "E-107.02: short summary stored verbatim" "all good" "$(task_field "$state" E-2 summary)"
 
 # ── E-107.03: REIN_SUMMARY_CAP rollback raises the cap (no truncation) ───────
-call add_task "{\"owner\":\"${OWNER}\",\"description\":\"rollback cap task\",\"tier\":2}" >/dev/null
+call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add rollback cap task. Acceptance: TASKS.md lists it.\",\"tier\":2}" >/dev/null
 export REIN_SUMMARY_CAP=2000
 r=$(REIN_SUMMARY_CAP=2000 call update_task_status "{\"id\":\"E-3\",\"status\":\"DONE\",\"summary\":\"${LONG}\"}")
 assert_not_contains "E-107.03: cap=2000 → no truncation of 300-char summary" "[SUMMARY_TRUNCATED]" "$r"
@@ -795,13 +815,13 @@ print("MISSING" if t is None else json.dumps(t.get(os.environ["F"])))' <<<"$1"
 OWNER='Engineer (Claude)'
 
 # ── T-91.01: task with no deps is OPEN (backward compat) ─────────────────────
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"root\",\"tier\":2}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add root. Acceptance: TASKS.md lists it.\",\"tier\":2}")
 assert_contains "T-91.01: E-1 created"            "Added E-1" "$r"
 assert_contains "T-91.01: E-1 starts OPEN"        '"status": "OPEN"' "$r"
 assert_contains "T-91.01: E-1 depends_on is []"   '"depends_on": []' "$r"
 
 # ── T-91.02: task depending on an unfinished task starts BLOCKED ─────────────
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"needs E-1\",\"tier\":2,\"depends_on\":[\"E-1\"]}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add needs E-1. Acceptance: TASKS.md lists it.\",\"tier\":2,\"depends_on\":[\"E-1\"]}")
 assert_contains "T-91.02: E-2 created"            "Added E-2" "$r"
 assert_contains "T-91.02: E-2 starts BLOCKED"     '"status": "BLOCKED"' "$r"
 
@@ -823,13 +843,13 @@ r=$(call get_state "{\"status\":\"BLOCKED\"}")
 assert_contains "T-91.05: zero BLOCKED tasks"     '"total_matched": 0' "$r"
 
 # ── T-91.06: depending on a non-existent task is rejected ────────────────────
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"bad dep\",\"depends_on\":[\"E-999\"]}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add bad dep. Acceptance: TASKS.md lists it.\",\"tier\":2,\"depends_on\":[\"E-999\"]}")
 assert_contains "T-91.06: DAG_FAIL on missing dep"        "[DAG_FAIL]" "$r"
 assert_contains "T-91.06: names the unknown dependency"   "Unknown dependency" "$r"
 
 # ── T-91.07: cycle detection via dependency revision ─────────────────────────
 # E-3 depends on E-2; revising E-2 to depend on E-3 closes a cycle E-2→E-3→E-2.
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"depends E-2\",\"tier\":2,\"depends_on\":[\"E-2\"]}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add depends E-2. Acceptance: TASKS.md lists it.\",\"tier\":2,\"depends_on\":[\"E-2\"]}")
 assert_contains "T-91.07: E-3 created"            "Added E-3" "$r"
 r=$(call update_task_status "{\"id\":\"E-2\",\"status\":\"OPEN\",\"depends_on\":[\"E-3\"]}")
 assert_contains "T-91.07: DAG_FAIL on cycle"      "[DAG_FAIL]" "$r"
@@ -842,15 +862,15 @@ assert_contains "T-91.08: explains self-dep"      "cannot depend on itself" "$r"
 
 # ── T-91.09: dependency chain deeper than 5 is rejected ──────────────────────
 # Existing depths: E-1=1, E-2=2, E-3(deps E-2)=3. Extend the chain.
-call add_task "{\"owner\":\"${OWNER}\",\"description\":\"d4\",\"depends_on\":[\"E-3\"]}" >/dev/null   # E-4 depth 4
-r5=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"d5\",\"depends_on\":[\"E-4\"]}")          # E-5 depth 5 (ok)
-r6=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"d6\",\"depends_on\":[\"E-5\"]}")          # E-6 depth 6 (reject)
+call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add d4. Acceptance: TASKS.md lists it.\",\"tier\":2,\"depends_on\":[\"E-3\"]}" >/dev/null   # E-4 depth 4
+r5=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add d5. Acceptance: TASKS.md lists it.\",\"tier\":2,\"depends_on\":[\"E-4\"]}")          # E-5 depth 5 (ok)
+r6=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add d6. Acceptance: TASKS.md lists it.\",\"tier\":2,\"depends_on\":[\"E-5\"]}")          # E-6 depth 6 (reject)
 assert_contains "T-91.09: depth-5 chain allowed"  "Added E-5"  "$r5"
 assert_contains "T-91.09: DAG_FAIL on depth>5"    "[DAG_FAIL]" "$r6"
 assert_contains "T-91.09: reports depth"          "depth"      "$r6"
 
 # ── T-91.10: schema accepts valid depends_on, rejects wrong type ─────────────
-r=$(call validate_payload "{\"schema_name\":\"task_create\",\"payload\":{\"owner\":\"${OWNER}\",\"description\":\"x\",\"depends_on\":[\"E-1\"]}}")
+r=$(call validate_payload "{\"schema_name\":\"task_create\",\"payload\":{\"owner\":\"${OWNER}\",\"description\":\"Add x. Acceptance: TASKS.md lists it.\",\"tier\":2,\"depends_on\":[\"E-1\"]}}")
 assert_contains "T-91.10: valid depends_on passes" "SCHEMA_PASS" "$r"
 r=$(call validate_payload "{\"schema_name\":\"task_create\",\"payload\":{\"owner\":\"${OWNER}\",\"description\":\"x\",\"depends_on\":\"E-1\"}}")
 assert_contains "T-91.10: string depends_on fails" "SCHEMA_FAIL" "$r"
@@ -910,7 +930,7 @@ print("ISERROR" if d.get("isError") else "OK")'
 OWNER='Engineer (Claude)'
 
 # ── T-101.00: setup — create E-1 (OPEN), mark it DONE (OPEN→DONE allowed) ─────
-r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"lockme\",\"tier\":2}")
+r=$(call add_task "{\"owner\":\"${OWNER}\",\"description\":\"Add lockme. Acceptance: TASKS.md lists it.\",\"tier\":2}")
 assert_contains "T-101.00: E-1 created OPEN"        "Added E-1" "$r"
 r=$(call update_task_status "{\"id\":\"E-1\",\"status\":\"DONE\",\"summary\":\"done once\"}")
 assert_contains "T-101.00: OPEN→DONE allowed"       "E-1 → DONE" "$r"
@@ -1110,7 +1130,7 @@ assert_status 0 "valid task_create payload passes" \
 import { validateNamed } from '${VALIDATOR}';
 const r = validateNamed('task_create', {
   owner: 'Engineer (Claude)',
-  description: 'Implement foo',
+  description: 'Implement foo. Acceptance: TASKS.md lists it.',
   tier: 2
 });
 if (!r.valid) { console.error(r.errors); process.exit(1); }

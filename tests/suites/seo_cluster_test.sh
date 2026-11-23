@@ -372,7 +372,7 @@ rm -rf "$MBOX"
 echo ""
 echo "  [T-MVS-S14] Existing add_task / update_task_status still work"
 
-resp="$(_call add_task '{"owner":"Engineer (Claude)","description":"e88 regression smoke","tier":1}')"
+resp="$(_call add_task '{"owner":"Engineer (Claude)","description":"Add e88 regression smoke. Acceptance: TASKS.md lists it.","tier":1}')"
 text="$(echo "$resp" | _text)"
 assert_status 0 "add_task still works" bash -c "grep -q 'Added E-' <<< '$text'"
 

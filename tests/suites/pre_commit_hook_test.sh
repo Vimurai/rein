@@ -117,12 +117,23 @@ assert_status 0 "E-238.05a: the .ai/** rule forbids stashing bookkeeping" \
   grep -q 'Never move bookkeeping with' "${_RULES}/ai-bookkeeping.md"
 assert_status 0 "E-238.05b: and the template matches (they are one file)" \
   diff -q "${REPO_ROOT}/ENGINEER.md" "${REPO_ROOT}/src/templates/ENGINEER.md"
-# E-407 (D-141 r4, addendum r1): extends E-238.05b — the rulefile points at the merge rule, the
-# skill carries the rest, and the dead "Project-Scoped Rules" section that paid for the line is gone.
-assert_status 0 "E-407.01a: the rulefile merges with --delete-branch and points at rein-task Step 3.5" \
-  bash -c 'grep -qF "gh pr merge <n> --merge --delete-branch" "$1" && grep -qF "\`rein-task\` Step 3.5" "$1"' _ "${REPO_ROOT}/src/templates/ENGINEER.md"
-assert_status 0 "E-407.01b: rein-task Step 3.5 prunes with -d, never -D" \
-  bash -c 'grep -qF "## Step 3.5" "$1" && grep -qF "git branch -d <branch>" "$1" && grep -qF "never -D" "$1"' _ "${REPO_ROOT}/src/shared/skills/rein-task/SKILL.md"
+# E-407 (D-141 r4, addendum r1): extends E-238.05b — the rulefile carries the merge rule, and the
+# dead "Project-Scoped Rules" section that paid for the line is gone. E-461: the prune steps moved
+# from the removed rein-task skill (its Step 3.5) into the rulefile itself.
+assert_status 0 "E-407.01a: the rulefile merges with --delete-branch" \
+  grep -qF "gh pr merge <n> --merge --delete-branch" "${REPO_ROOT}/src/templates/ENGINEER.md"
+assert_status 0 "E-407.01b: and prunes with -d, never -D" \
+  bash -c 'grep -qF "git branch -d <branch>" "$1" && grep -qF "never -D" "$1"' _ "${REPO_ROOT}/src/templates/ENGINEER.md"
+# E-461 (D-169 r7): both rulefiles point at the bookkeeping commands, not the removed skills,
+# and stay at most 2 KB (E-460).
+for _rf in ENGINEER ARCHITECT; do
+  assert_status 0 "E-461.01 [${_rf}]: names rein done and rein handoff" \
+    bash -c 'grep -qF "rein done" "$1" && grep -qF "rein handoff --to" "$1"' _ "${REPO_ROOT}/src/templates/${_rf}.md"
+  assert_status 1 "E-461.02 [${_rf}]: names none of the removed bookkeeping skills" \
+    grep -qE 'rein-task|arch-task|rein-handoff|task-planner|decision-recorder|rein-log' "${REPO_ROOT}/src/templates/${_rf}.md"
+  assert_status 0 "E-461.03 [${_rf}]: at most 2048 bytes" test "$(wc -c < "${REPO_ROOT}/src/templates/${_rf}.md")" -le 2048
+done
+assert_status 0 "E-461.04: the Architect's rulefile names rein decide" grep -qF "rein decide --file" "${REPO_ROOT}/src/templates/ARCHITECT.md"
 assert_status 1 "E-407.01c: the self-referential Project-Scoped Rules section is gone" \
   grep -qF "## Project-Scoped Rules" "${REPO_ROOT}/src/templates/ENGINEER.md"
 assert_status 0 "E-238.05c: the triage rule is recorded (tests/** rule)" \

@@ -432,15 +432,16 @@ async function handoverFixture({ git = false } = {}) {
   return { repo, db, head, runHandover, status, opts };
 }
 
-test("run_handover REFUSES on a stale build: [BUILD_STALE], REJECTED, nothing written", async () => {
+// E-461 (D-169 r7): a stale build no longer refuses DONE — it is one [BUILD_STALE] line.
+test("run_handover on a stale build marks DONE and prints one [BUILD_STALE] line", async () => {
   const { repo, runHandover, status, opts } = await handoverFixture();
   writeFileSync(join(repo, "src", "mcp", "srv", "index.js"), "// server v2 — edited, not installed\n");
-  const r = runHandover(repo, { task_id: "E-1", summary: "should not land" }, opts, {});
-  assert.equal(r.isError, true);
-  assert.match(r.content[0].text, /\[BUILD_STALE\]/);
-  assert.equal(statusForResult(r), "REJECTED", "telemetry books the refusal REJECTED, not ERROR (D-049)");
-  assert.equal(status(), "OPEN", "the task row is unchanged");
-  assert.equal(readFileSync(join(repo, ".ai", "LOG.md"), "utf8"), "# LOG\n", "no LOG line for a refused handover");
+  const r = runHandover(repo, { task_id: "E-1", summary: "lands anyway" }, opts, {});
+  assert.notEqual(r.isError, true, r.content[0].text);
+  const stale = r.content[0].text.split("\n").filter((l) => l.includes("[BUILD_STALE]"));
+  assert.equal(stale.length, 1, r.content[0].text);
+  assert.match(stale[0], /^\[BUILD_STALE\] 1 file\(s\) under src\/mcp\/ or src\/bin\/ differ from the install mirror — not refused; install: bash install-rein\.sh/);
+  assert.equal(status(), "DONE");
 });
 
 test("run_handover PASSES the gate on a current build and marks DONE", async () => {

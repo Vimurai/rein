@@ -814,6 +814,8 @@ STATE_DB="${REPO_ROOT}/src/mcp/shared/state-db.js"
 BIN_AI="${REPO_ROOT}/src/bin/rein"
 TEMPLATE="${REPO_ROOT}/src/templates/state.json"
 
+# E-461 (D-169 r7): add-task refuses a task with no tier, no verb or no observable Acceptance.
+ACC='Acceptance: `true` exits 0.'
 # Fresh temp project with a state.json seed (getDb builds state.sqlite from it).
 PROJ="$(mktemp -d)"
 on_exit 'rm -rf "$PROJ"'
@@ -854,47 +856,54 @@ assert_status 0 "helper routes through the shared addTask" \
 
 # ── T-04: functional create + caller_role stamping ───────────────────────────
 echo ""; echo "  [T-04] Create + caller_role → owner"
-id_arch="$(run_add architect --tier 2 "Architect created task")"
+id_arch="$(run_add architect --tier 2 "Add the architect created task. ${ACC}")"
 assert_contains "T-04.01: returns an E-id on stdout" "E-" "$id_arch"
 # D-066: the owner label is derived from roles.json, whose default is now all-Claude.
 assert_contains "T-04.02: architect role → owner 'Architect (Claude)'" "Architect (Claude)" "$(task_field "$id_arch" owner)"
 assert_contains "T-04.03: status OPEN (no deps)" "OPEN" "$(task_field "$id_arch" status)"
 assert_contains "T-04.04: tier persisted" "2" "$(task_field "$id_arch" tier)"
 
-id_eng="$(run_add engineer "Engineer created task")"
+id_eng="$(run_add engineer --tier 2 "Add the engineer created task. ${ACC}")"
 assert_contains "T-04.05: engineer role → owner 'Engineer (Claude)'" "Engineer (Claude)" "$(task_field "$id_eng" owner)"
 
 # explicit --owner overrides the role mapping
-id_own="$(run_add architect --owner "Tester (claude · sonnet)" "Explicit owner task")"
+id_own="$(run_add architect --tier 2 --owner "Tester (claude · sonnet)" "Add the explicit owner task. ${ACC}")"
 assert_contains "T-04.06: explicit --owner wins over role" "Tester (claude · sonnet)" "$(task_field "$id_own" owner)"
 
 # ── T-05: survives verify_markdown_sync (row is in the regenerated view) ─────
 echo ""; echo "  [T-05] Regenerated views"
 assert_status 0 "T-05.01: TASKS.md regenerated with the new task" \
-  grep -q "Architect created task" "${PROJ}/.ai/TASKS.md"
+  grep -q "architect created task" "${PROJ}/.ai/TASKS.md"
 assert_status 0 "T-05.02: state.json view holds the new task" \
-  grep -q "Engineer created task" "${PROJ}/.ai/state.json"
+  grep -q "engineer created task" "${PROJ}/.ai/state.json"
 
 # ── T-06: DAG — depends_on unmet → BLOCKED ───────────────────────────────────
 echo ""; echo "  [T-06] Dependencies"
-id_dep="$(run_add engineer --depends-on "${id_arch}" "Blocked-by-dep task")"
+id_dep="$(run_add engineer --tier 2 --depends-on "${id_arch}" "Add the blocked-by-dep task. ${ACC}")"
 assert_contains "T-06.01: unmet dependency → BLOCKED" "BLOCKED" "$(task_field "$id_dep" status)"
 
 # ── T-07: prefix + input validation ──────────────────────────────────────────
 echo ""; echo "  [T-07] Prefix + validation"
-id_p="$(run_add architect --prefix P "Architect plan task")"
+id_p="$(run_add architect --tier 2 --prefix P "Plan the architect task. ${ACC}")"
 assert_contains "T-07.01: --prefix P → P-id" "P-" "$id_p"
 assert_status 2 "T-07.02: empty description → usage exit 2" \
   bash -c "cd '$PROJ' && REIN_CALLER_ROLE=engineer node '$HELPER' --tier 1 2>/dev/null"
 
+# E-461 (D-169 r7): the task-planner checks, through the CLI (rows of task-quality.test.mjs
+# cover each rule; this pins that the CLI reaches them and writes nothing).
+_refused="$(cd "$PROJ" && REIN_CALLER_ROLE=engineer node "$HELPER" --tier 2 "Add a task with no acceptance" 2>&1 >/dev/null; echo "rc=$?")"
+assert_contains "T-07.03: no Acceptance text → [TASK_NO_ACCEPTANCE], exit 1" "[TASK_NO_ACCEPTANCE]" "$_refused"
+assert_contains "T-07.04: and the exit is 1" "rc=1" "$_refused"
+assert_status 1 "T-07.05: nothing was written" grep -q "task with no acceptance" "${PROJ}/.ai/TASKS.md"
+
 # ── T-08: stdout purity (only the id on stdout; noise → stderr) ──────────────
 echo ""; echo "  [T-08] stdout purity"
-out="$(run_add engineer "Purity check task")"
+out="$(run_add engineer --tier 1 "Check the stdout purity. ${ACC}")"
 assert_status 0 "T-08.01: stdout is a single bare id line" \
   bash -c "grep -qxE 'E-[0-9]+' <<< '$out'"
 
 # D-099 (E-322): add-task no longer wakes the other role — a cross-role task writes no queue.
-run_add architect --prefix E "Cross-role task, no wake" >/dev/null
+run_add architect --tier 2 --prefix E "Add a cross-role task, no wake. ${ACC}" >/dev/null
 assert_status 1 "T-10.01: a cross-role add writes no handoff queue" test -e "${PROJ}/.ai/signal.json"
 set +e
 

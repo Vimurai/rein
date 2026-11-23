@@ -62,8 +62,10 @@ there and relaunch the pane.
 4. **Review.** `skill: rein-review` classifies the change's risk tier and runs the matching critics.
 5. **Commit.** The pre-commit gate checks for a review stamp; `rein ci run` tests the commit in a
    clean worktree.
-6. **Close.** `skill: rein-task` marks the task done, but only once CI is green. It records the
-   delta for the Architect and moves on. When the queue is empty, it wakes the Architect.
+6. **Close.** `rein done <id> --summary <text>` marks the task done once CI is green and its
+   review stamps are recorded, writes the LOG line and rebuilds the digest. When the queue is
+   empty, `rein handoff --to architect --file <entry>` commits the handoff and prints the wake
+   line the session sends to the Architect.
 
 ## Memory that survives the chat
 

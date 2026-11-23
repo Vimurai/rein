@@ -6,14 +6,15 @@ Spawn a team automatically when 2+ independent workstreams exist:
 
 | Scenario | Spawn these agents in parallel |
 | :------- | :----------------------------- |
-| Post-implementation handover | `rein-task` + `decision-recorder` |
 | Security audit (Tier 3) | `security_engineer` + `identity_guardian` |
 | Vibe & chaos audit | `chaos_monkey` + `vibe_sentinel` |
-| Full session end | `rein-task` + `rein-review` |
 
 ## How to Spawn
 
 Use the `Agent` tool with multiple calls in a single message (they run concurrently).
+
+Bookkeeping is not a team either (E-461, D-169 r7): `rein done`, `rein handoff` and
+`rein decide` are commands, run one after the other in the session that did the work.
 
 Review is NOT a parallel team (E-464, D-169 r8): it is sized by tier and runs in order —
 `rein review <tier>` prints the agents (Tier 2: `reviewer`, then `critic_acceptance`; Tier 3:
@@ -26,12 +27,6 @@ those and one `security_engineer` round), and the DONE gate checks their stamps.
 > they are decoupled from the directory name (D-050). The directory deliberately keeps the vendor
 > name: its contents are CLI-specific, so role-naming it would conflate provider config with role
 > definition. (E-188 Part 2 to rename it was cancelled for exactly this reason.)
-
-```
-# Post-task handover team — both run simultaneously
-skill: "rein-task"  # record completed E-## task; run_handover rebuilds DIGEST.md (E-430, D-159)
-skill: "decision-recorder"  # record decisions (now the decision-recorder skill, not an agent — E-141/E-148)
-```
 
 ## Agent/Skill Chaining (Sequential)
 

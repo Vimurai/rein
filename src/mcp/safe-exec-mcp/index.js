@@ -236,7 +236,7 @@ export function runAnalysis(original, callerRole, { override = false, projectRoo
       "### BLOCKED — Do Not Execute", `- [INPUT_TOO_LARGE] ${blocked[0].message}`].join("\n");
     return { verdict: "BLOCK", blocked, warned: [], sovereignty: [], report };
   }
-  const stripped = stripInertHeredocs(full);
+  const stripped = stripInertHeredocs(full, { projectRoot });
   const fullTokens = _tokens(full);
   const strippedTokens = stripped === full ? fullTokens : _tokens(stripped);
   const hits = (r) => (HEREDOC_EXEMPT_RULES.has(r.id) ? r.pattern(strippedTokens, stripped) : r.pattern(fullTokens, full));
@@ -248,7 +248,7 @@ export function runAnalysis(original, callerRole, { override = false, projectRoo
   // text. No environment switch (D-084 r1, D-087 r3): the only lift is the operator override.
   let sovereignty = [];
   if (!override && callerRole === "architect") {
-    const sovText = stripInertHeredocs(full, { readOnlyLines: true });
+    const sovText = stripInertHeredocs(full, { readOnlyLines: true, projectRoot });
     sovereignty = analyzeSovereignty(sovText === full ? fullTokens : _tokens(sovText), sovText, fullTokens, full, 0, { projectRoot });
     // E-353 (D-112 r3 a): a verb held in a name (`g=git; $g push`, `alias g=git; g push`) is the
     // verb — the same rules run on the text with those uses expanded; the verdict is the union.

@@ -2990,3 +2990,240 @@ classes. None goes BLOCK → PASS.
 | A05 | Architect pass list + D-104 line | 31 lines | RESISTED (passes) | n/a | runAnalysis and --check |
 | A05 | Engineer parity | 1159 fixture lines, d0954fa vs e68b40f | RESISTED | n/a | byte-identical |
 | A04 | time budget | `git config x `×3000, architect | RESISTED | n/a | 390–421 ms ≤ 1000 ms |
+
+## E-454 first pass — D-167 r10/r11/r15 review of the staged change (security_engineer, 2026-11-23)
+
+**Verdict: [SEC_BLOCKED]** — two gating findings, both bypasses of r10 that are WARN at
+44f9db8 too (no regression). An A2A ruling during the round (logged 2026-11-23T15:51Z, D-167 r10
+scope) made them gating. It replaced r10's terminator list with the full bash metacharacter set
+(space, tab, newline, `;` `&` `|` `(` `)` `<` `>`) and added `~+`, `~-` and `~user` to the cwd
+and home operands that set applies to. r11 (heredoc after a directory change) and r15 (`%q`)
+show no finding.
+
+Method: staged diff applied to a `git worktree` of 44f9db8. Every probe was run against both
+trees in-process (`runAnalysis`) for roles engineer, architect and none. A `--check` CLI spot
+check ran with no role token, from a temp project, under `env -i`. Payloads were built by string
+concatenation in scratchpad scripts. bash expansion was confirmed in the throwaway harness
+(`env -i`, `ulimit -t 5`, 10 s timeout, `echo`/`printf` only): `~+;`, `~-|`, `(… ~+)`,
+`$PWD>&2`, `$PWD\`+newline+`;` and `$PWD""` each expand to the cwd as a standalone word.
+
+### Findings
+
+**G1 (P1, gating, EXPLOITED): the tilde cwd forms ignore r10's terminators.**
+- Payloads: `rm -rf ~+;ls`, `rm -rf ~+&&x`, `rm -rf ~+|x`, `(rm -rf ~+)`, `{ rm -rf ~-;}`,
+  `rm -rf -- ~-;ls`, `rm -rf ~root;ls`, `(rm -rf ~root)`.
+- Result: WARN for role engineer. `~+` is the cwd and `~-` is OLDPWD (E-353 d, A2A 2026-11-18).
+  `~user` is root-form under D-112 r1.
+- Cause: the tilde regexes in `hasRootPaths` end the word only at `"` `'` `/`, whitespace or the
+  end of the line. `CWD_WORD` covers only the `$` forms.
+- Fix (per the ruling): apply the metacharacter terminator set to `~+`, `~-`, `~<n>` and `~` before a user name as
+  well. The block holds for every role.
+
+**G2 (P2, gating, EXPLOITED): a redirection operator ends a cwd or home word.**
+- Payloads: `rm -rf $PWD>/dev/null`, `rm -rf $PWD</dev/null`, `rm -rf $PWD>&2`,
+  `rm -rf ${PWD}>/dev/null`, `rm -rf "$PWD">/dev/null`, `rm -rf $(pwd)>/dev/null`,
+  `` rm -rf `pwd`>&2 ``, `rm -rf $HOME>/dev/null`, `rm -rf ${PWD:-x}>&2`, `rm -rf $(builtin pwd)</dev/null`.
+- Result: all WARN for role engineer.
+- Fix: the `CWD_OPERAND` lookahead `(?=\s|$|\))` becomes the full metacharacter set
+  `(?=[\s;&|()<>]|$)`. Splitting on `;&|` still selects the simple command.
+
+**Residual P3 (record in T-RMCWD-001, per the same ruling; pin each as a WARN row):**
+- R1 — (c) backslash-newline before a terminator (`rm -rf $PWD\`+newline+`;ls`), and an
+  empty-quote suffix (`rm -rf $PWD""`, `$PWD''`, `"$PWD"""`).
+- R2 — (d) a quoted or indirect `pwd` inside the substitution: `$(\pwd)`, `$("pwd")`,
+  `$(command -p pwd)`.
+- R3 — the cwd reaches rm through stdin or a here-string, not as an operand:
+  `echo $PWD|xargs rm -rf` (no spaces), `xargs rm -rf <<<$PWD;ls`. A leading `<` or `|` is not a
+  word start for `CWD_OPERAND`. The spaced form `echo $PWD | xargs rm -rf` is BLOCK, as at HEAD.
+- R4 — over-blocks. Both fail closed, so neither weakens the gate.
+  - An assignment prefix is not a `PLAIN_HEAD`, so `rm -rf dist; FOO=1 make -C $PWD; ls` is BLOCK.
+    So is `rm -rf dist; "$EDITOR" $HOME;x`.
+  - `rm -rf ${PWD/src/build}` is BLOCK. That is r10's "any operator".
+  - The `analyze_command` MCP tool passes no project root. Its advisory report now shows BLOCK for
+    the four D-083/D-084/D-105 verbatim commands. `--check` passes the root, and those commands
+    pass there.
+- R5 — time. For each candidate heredoc, `stripInertHeredocs` now re-runs `changesDirectory`
+  over every command line before it, which is O(heredocs × prefix). The worst shape found under
+  the input caps is a 50 000-character first line followed by 380 empty `cat >fN <<'E'` heredocs
+  (56 733 B):
+
+  | Role | 44f9db8 | Staged |
+  |------|---------|--------|
+  | engineer | 249 ms | 853 ms |
+  | architect | 273–374 ms | 1100–1306 ms |
+
+  The hook's 10 s wall clock fails closed, so this is not fail-open. The
+  `tests/unit/operand-scope.test.mjs` cap and CodeQL budget tests pass (1012/1012 across six
+  gate test files). Suggested fix: carry `moved` forward, because a directory change never
+  un-happens later in the text, and test only the lines added since the last candidate.
+- R6 — root steering. The root comes from `findProjectRootFrom(process.cwd())`, the hook
+  process's cwd. Command text cannot reach it. Outside any project, the root falls back to the
+  cwd. `cd / && cat > etc/profile.d/x` with root `/` then keeps its 44f9db8 verdict. It is the
+  same write as the same line without the cd, which r11 keeps at its verdict. Not new.
+
+### Checks that held
+- **r11:** 48 directory-change spellings before a relative-sink heredoc go PASS → BLOCK for
+  engineer, and add the content rule for the Architect. Probed in both roles.
+  - Spellings: `cd /etc &&`; `cd /etc` on its own line or with `;`; `pushd`, `popd`; bare `cd`,
+    `cd -`, `cd ..`; `cd etc`; `builtin cd`, `command cd`; `\cd`, `c\d`, `'cd'`, `CD`;
+    `cd <root>/../../etc`; `cd <root> && cd /etc`; `cd -P`, `cd --`; `cd <root>/sub`;
+    `env -C`, `source`, `.`, `trap 'cd …' DEBUG`; `OLDPWD=… cd -`; `cd ~`, `cd ~root`;
+    `cd "/etc"`, `cd /e"tc"`, `cd "$1"`; `CDPATH=/ cd etc`; `cd /etc #x`; `true && cd /etc &&`;
+    a cd between two heredocs.
+  - Sink shapes: `./x`, a bare name, `tee`, `tee -a x y`, `cat <<'E' > x`, `cat >>x`.
+  - Content rules: CURL_PIPE_SHELL and GATE_SELF_DISABLE bodies.
+  - Unchanged: an absolute `/tmp` sink, a line with no cd, a cd after the heredoc, and a `cd`
+    inside an earlier heredoc body. So are root spellings `cd <root>/`, `<root>/.`, `//work/p`
+    and `/work//p`, which are all the root.
+  - With no root, every cd counts.
+- **r10:** for every listed spelling (`$PWD`, `${PWD}`, `"$PWD"`, `${PWD:-x}`, `${PWD#/}`,
+  `${PWD[0]}`, `${PWD:0}`, `$(pwd)`, `$(pwd -LP)`, `$(builtin pwd)`, backtick pwd, `$HOME`,
+  `${HOME}`, `$OLDPWD`), the `;` `&&` `|` `)` `&` terminators BLOCK in plain, `--`, `( )` and
+  `{ ;}` forms, and with `\rm`, `/bin/rm`, `r''m`, `command`, `sudo`, `r=rm; $r` and
+  `$(echo rm)`. `$PWD/dist`, `$PWD/dist;ls`, `"$PWD"/dist&&x`, `echo $PWD; rm -rf dist` and
+  `echo $HOME; rm -rf dist` stay WARN.
+- **Regression:**
+  - 1227 fixture rows (every `*-cases.json`) were run with roles engineer, architect and none,
+    each with its `project_root`. Only the 11 new rows differ from 44f9db8: 16 role-verdicts, all
+    pass → BLOCK. No row goes BLOCK → pass.
+  - Without a root, the 4 verbatim rows that gained `project_root` go BLOCK. That is expected:
+    the gate now needs the root those rows' `cd` names.
+- **r15:** `printf -v q %q` prints `$'.claude/a\nb.json'` on one line, and also escapes control
+  bytes (ESC becomes `\E`). E-454.01 passes. The suite's one failure, `mirror is byte-identical
+  to src/`, fails identically at 44f9db8 because of the operator's installed mirror. It is not
+  E-454.
+- **`--check` with no token:** the role resolves to architect (fail closed). All acceptance
+  payloads give rc 2.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | RM_RF_ROOT `~+`/`~-`/`~user` + `; & \| )` | `rm -rf ~+;ls`, `(rm -rf ~+)`, `{ rm -rf ~-;}`, `rm -rf ~root;ls` | EXPLOITED | 0 (bash: `~+;` → cwd) | G1, P1 gating |
+| A03 | RM_RF_ROOT cwd word + `<` `>` | `rm -rf $PWD>/dev/null`, `$(pwd)>&2`, `$HOME</dev/null` | EXPLOITED | 0 (bash: `$PWD>&2` → cwd) | G2, P2 gating |
+| A03 | RM_RF_ROOT `\`-newline / `""` suffix | `rm -rf $PWD\⏎;ls`, `rm -rf $PWD""` | INCONCLUSIVE→residual | 0 | R1, P3 per A2A ruling |
+| A03 | RM_RF_ROOT quoted pwd | `$(\pwd)`, `$("pwd")`, `$(command -p pwd)` | INCONCLUSIVE→residual | n/a | R2, P3 per A2A ruling |
+| A03 | RM_RF_ROOT r10 rows | 15 spellings × 4 terminators × 4 wrappers | RESISTED | n/a | BLOCK |
+| A04 | heredoc after a directory change (r11) | 48 spellings × sinks × CURL_PIPE_SHELL/GATE_SELF_DISABLE, both roles | RESISTED | n/a | BLOCK |
+| A01 | projectRoot steering | `cd <root>/../..`, `cd //root`, root `/`, no root | RESISTED | n/a | R6 not new |
+| A04 | time budget | 56 KB, 380 heredocs | RESISTED (slow) | n/a | ≤ 1306 ms; 10 s wall fails closed (R5) |
+| A09 | pre-commit `[MACHINE_LOCAL]` message | path holding a newline | RESISTED | 0 | one line through `%q` |
+| A05 | fixture parity | 1227 rows × 3 roles vs 44f9db8 | RESISTED | n/a | only the new rows differ |
+
+## E-454 second pass — re-probe of G1/G2 and r10, R5 bisection (security_engineer, 2026-11-23)
+
+**Verdict: [SEC_CLEARED]** — no gating finding. G1 and G2 are closed, every r10 row blocks, no
+fixture row regresses against 44f9db8 in any role, and no shape is near the 1000 ms ceiling.
+`changesDirectory` is NOT monotone over arbitrary prefixes, so the bisection can land on the
+wrong line. It cannot change what is scanned, though (proof and differential fuzz below). Scope
+follows the A2A ruling of 2026-11-23T15:51Z: the G1/G2 rows, the existing r10 rows, plus the brief's
+items. New spellings are listed as non-gating notes.
+
+Method: the staged index (`git checkout-index`) and 44f9db8 (`git archive`) were exported to
+scratch trees. Probes ran in process (`runAnalysis`, `stripInertHeredocs`, `changesDirectory`)
+for roles engineer, architect and none, with root `/work/p` and with no root. Payloads were built
+by string concatenation in script files. bash behaviour was checked in the throwaway harness
+(`env -i`, `ulimit -t 5 -f 10240 -v`, 10 s kill). Deviation: `ulimit -u` was set to the user's
+current thread count + 64 (2341), because a per-user cap of 64 is below what this host already
+runs, and bash could not fork.
+
+### Gating checks
+- **G1, closed.** 16 payloads × 3 roles BLOCK, with and without a root: `~+;ls`, `~+&&x`, `~+|x`,
+  `(… ~+)`, `{ … ~-;}`, `-- ~-;ls`, `~root;ls`, `(… ~root)`, `~+>/dev/null`, `~-<x`, `~1;x`,
+  `~+1|x`, `~-2&x`, `~;ls`, `~)` and `"~+";x`. At 44f9db8, 26 of the 48 role-verdicts were WARN.
+- **G2, closed.** 13 payloads × 3 roles BLOCK, with and without a root: `$PWD>`, `$PWD<`,
+  `$PWD>&2`, `${PWD}>`, `"$PWD">`, `$(pwd)>`, backtick `pwd`+`>&2`, `$HOME>`, `${PWD:-x}>&2`,
+  `$(builtin pwd)<`, `$OLDPWD>x`, `$PWD/>x` and `$PWD/*>x`.
+- **r10, holds.** 1386 payloads × 3 roles, all BLOCK:
+  - 18 words: the 14 of pass 1, plus `~+`, `~-`, `~root` and `~`.
+  - 7 terminators: `;` `&&` `|` `&` `>` `<` `)`.
+  - 11 wrappers: plain, `--`, `( )`, `{ ;}`, `\rm`, `/bin/rm`, `r''m`, `command`, `sudo`,
+    `r=rm; $r`, `$(echo rm)`.
+  - For the Engineer, `$PWD/dist`, `$PWD/dist;ls`, `"$PWD"/dist&&x`, `$PWD/dist>x`,
+    `echo $PWD; rm -rf dist` and `echo $HOME; rm -rf dist` stay WARN.
+  - `rm -rf ~+/dist;x` is BLOCK, as it is at 44f9db8 (an over-block, unchanged).
+- **Regression, none.**
+  - 1238 gate rows (every `*-cases.json` row whose `want` is BLOCK or pass) ran through both
+    trees for engineer, architect and none, each row with its `project_root`.
+  - No row goes BLOCK → pass, and no row that exists at 44f9db8 changes in any role.
+  - 36 role-verdicts go pass → BLOCK, all on new rows. Every staged row meets its `want`.
+  - The R1/R2 pins hold: `$PWD""` is BLOCK. `$PWD\`+newline+`;ls`, `$("pwd")` and
+    `$(command -p pwd)` are WARN.
+  - The eight related unit files pass, 1473/1473. `tests/suites/safe_exec_test.sh` passes on the
+    staged tree, 18/18, including all eight CLI probes.
+- **Time, under the ceiling.** The worst case was 338 ms, for the Architect: pass 1's R5 shape,
+  a 50 000-character line + 380 heredocs, which took 1306 ms in pass 1.
+  - The same shape after a `cd`: 28 / 54 ms (Engineer / Architect).
+  - A `cd` as the last directory change after 379 heredocs: 242 / 289 ms.
+  - The unit-test shape: 17 / 32 ms.
+  - The largest heredoc count the input caps allow, about 400, with pad lines, continuation
+    lines, `env -C` or dynamic words, stays at or under 56 ms.
+
+### The bisection (brief item: is changesDirectory monotone?)
+- **Not monotone over arbitrary prefixes.** `changesDirectory(first n lines)` per n:
+  - `cd /etc`, a heredoc intro, `echo x\`, `y`, a heredoc intro gives `11011`. The prefix that
+    ends in a backslash joins the appended `git` into `xgit`. `env -C`, `.` and `${X:-cd}`
+    behave the same way.
+  - A prefix that ends on a bare `cd` reads the appended `git` as its operand, a spike of 1.
+  - Observed: bisection gave `movedAt = 4` where the first true n is 1. So the first candidate
+    (upTo 2) was judged "not moved".
+- **Why that changes nothing: it is monotone on the values the result is used at.**
+  - A candidate's `upTo` line is a CONSUMER_RE line. That line cannot end in `\` and cannot hold
+    a `cd`. Every reader in `cdBeforeGit` only sets its flag, never clears it. So over the set of
+    candidate `upTo` values the function is monotone, and `moves(hi)` is exact.
+  - A dip at an interior midpoint moves `movedAt` later. Every candidate misjudged that way lies
+    before the last candidate (the one at `hi`), and that candidate is then removed as moved.
+    Its intro line holds `<<`, so it is a "later" line that is neither a kept body nor an inert
+    line. RUNS_LATER matches `<`, so rule 4 keeps every earlier body scanned.
+  - In `readOnlyLines` mode the `cd` line is not read-only, so nothing is stripped at all.
+  - A spike moves `movedAt` earlier: an over-block, which fails closed.
+- **Differential fuzz.** The staged bisection was compared with an oracle that calls
+  `changesDirectory(prefix up to upTo)` for each candidate.
+  - Input: 60 000 random scripts of 2–10 pieces (`cd` forms, `pushd`/`popd`, `env -C`, `.`,
+    `${X:-cd}`, `trap`, a root line, continuation lines, open quotes, git lines, and heredocs
+    with relative, sub-directory and `/tmp` sinks holding CURL_PIPE_SHELL / push / benign bodies).
+  - `stripInertHeredocs` output: 0 differences in either mode.
+  - `runAnalysis` verdicts (6 000 scripts × 2 roles): 0 differences.
+- **Recommendation (P3, non-gating).** Bisect over the sorted candidate `upTo` values, not over
+  1..hi. Then the search is exact by the argument above, and it no longer rests on rule 4 to
+  hide a wrong `movedAt`.
+
+### tests/lib/table-probe.mjs (brief item)
+- The only pick that changes is the pipe-shell table's engineer pass row. It was "D-084
+  over-block #3 (Command 3 …)", which gained `project_root` in E-454. It is now "tee -a with a
+  quoted heredoc is inert too".
+  - Two of that table's five `project_root` rows would give a different verdict under the CLI's
+    cwd-derived root. That is the reason for the skip, and it is correct.
+- operand-scope's four `project_root` rows were never picked: an earlier row of each want wins.
+- Every skipped row still runs in process through `check-table.mjs` with its root. The probe's
+  claim is that the CLI glue (argv, the token, the exit code) agrees on one BLOCK row and one
+  pass row, and it is unchanged: 8/8 probes pass. Nothing is hidden.
+- The CLI's own root resolution (`findProjectRootFrom(cwd)`) is not covered by the probe, and
+  it was not covered at 44f9db8 either. Pass 1 spot-checked it.
+
+### Non-gating notes (new spellings, for the Architect)
+- **N1 (P2): a bare cd's operand is read across a newline.** Recorded in THREAT_MODEL under the
+  r11 entry. `cd` (or `cd -P`, `cd --`, `pushd`) on its own line, followed by a line that is just
+  the project root:
+  - the reader takes the root line as the operand;
+  - bash goes HOME, and the root line fails as "Is a directory" (harness, exit 0, cwd = HOME).
+  - Effects: `cd⏎/work/p⏎cat > a <<'E'` + a curl|sh body is PASS for the Engineer.
+    `cd⏎/work/p⏎git checkout .ai/x` is PASS for the Architect. The latter is the E-441 reader,
+    PASS at 44f9db8 too.
+  - Without the root line, all four forms BLOCK.
+  - Fix direction: end the operand search at a newline or a `;` `&` `|` word boundary.
+- **N2 (P3): `changesDirectory` is non-monotone** (above). Masked today. Bisecting over the
+  candidate values removes the dependency.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | RM_RF_ROOT tilde forms (G1) | `rm -rf ~+;ls`, `(rm -rf ~root)`, `rm -rf ~-2&x` … (16) | RESISTED | n/a | BLOCK, 3 roles, root/no root |
+| A03 | RM_RF_ROOT redirections (G2) | `rm -rf $PWD>&2`, `$(pwd)>/dev/null`, `$HOME<x` … (13) | RESISTED | n/a | BLOCK, 3 roles |
+| A03 | RM_RF_ROOT r10 matrix | 18 words × 7 terminators × 11 wrappers | RESISTED | n/a | 1386 × 3 BLOCK |
+| A04 | R5 bisection exactness | backslash-continuation dip, bare-cd spike; 60 000 fuzz scripts vs per-candidate oracle | RESISTED | n/a | wrong `movedAt` masked by rule 4; 0 output/verdict diffs |
+| A04 | time budget | 50 KB line + 380 heredocs; ~400 heredocs at the caps | RESISTED | n/a | ≤ 338 ms (ceiling 1000) |
+| A05 | fixture parity | 1238 rows × 3 roles vs 44f9db8 | RESISTED | n/a | 0 regressions |
+| A05 | CLI probe skip | table-probe picks, both trees | RESISTED | 0 | 8/8 probes; skipped rows run in process |
+| A04 | bare cd + root line (new, N1) | `cd⏎/work/p⏎cat > a <<'E'` | EXPLOITED (non-gating, new spelling) | 0 (bash: cwd = HOME) | THREAT_MODEL r11 entry; for the Architect |

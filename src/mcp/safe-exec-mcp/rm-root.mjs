@@ -50,6 +50,7 @@ function hasRootPaths(tokens, raw) {
   if (/(^|\s)"?\$(?:\{(?:PWD|OLDPWD)(?::\?[^}]*)?\}|(?:PWD|OLDPWD)(?![A-Za-z0-9_]))"?(?:\/\*?)?"?(\s|$)/.test(r)) return true;
   // E-440 (c): $(pwd), a backtick pwd and ${PWD%…} (the cwd, or a parent of it) are the cwd too.
   if (/(^|\s)"?(?:\$\(\s*pwd(?:\s+-[LP])?\s*\)|`\s*pwd(?:\s+-[LP])?\s*`|\$\{(?:PWD|OLDPWD)%[^}]*\})"?(?:\/\*?)?"?(\s|$)/.test(r)) return true;
+  if (cwdOperandOfRm(r)) return true;
   if (/(^|\s)\/\*(\s|$)/.test(r)) return true;                      // /* glob (dropped from tokens)
   // E-350 (D-111 r6 ii): ~user is that user's home.
   if (/(^|\s)["']?~[A-Za-z_][A-Za-z0-9_.-]*["']?(\/|\s|$)/.test(r)) return true;
@@ -65,6 +66,33 @@ function hasRootPaths(tokens, raw) {
 // exempts nothing. "$X"/dist names one subdirectory, and so does a glob with a literal part
 // ("$TMPDIR"/rein-*, "$OUT"/*.log): only a bare glob, class or brace list is the whole root.
 // The word normaliser itself is shared with GATE_SELF_DISABLE (E-393): src/shared/shell-word.mjs.
+// E-454 (D-167 r10; terminators and tilde forms per the A2A ruling below): the cwd is also `${PWD<any operator>…}` (`${PWD:-x}`, `${PWD-}`, `${PWD#x}`) and
+// `$( [builtin|command] pwd [options] )` or its backtick form; and a cwd or $HOME operand ends at
+// whitespace, the end, or one of ; & | ) — `rm -rf $PWD; ls`, `rm -rf $PWD&&x`, `rm -rf $(pwd);x`.
+// No ruling makes `rm -rf $HOME; ls` a WARN (the E-440 handoff's "ruled $HOME class" was the
+// whitespace boundary of `echo $HOME; rm -rf dist`), so $HOME gets the same terminators.
+// Judged per simple command, and only for one that may be an rm: the whole-line match keeps
+// `echo $PWD; rm -rf dist` a WARN (E-440, D-163 addendum 2 r8 d) — `$PWD;` there is echo's word.
+// A command counts when it has an rm word or does not start with a plain literal word (`${X:-rm}`).
+const PWD_CMD = String.raw`\s*(?:(?:builtin|command)\s+)?pwd(?:\s+-[A-Za-z]+)*\s*`;
+// security_engineer pass 1 (A2A 2026-11-23T15:51Z on r10): the tilde forms are cwd/home words too —
+// `~`, `~+`, `~-`, `~<n>`, `~+N`, `~-N`, and `~` before a user name (G1) — and the terminators are every bash
+// metacharacter: whitespace, ; & | ( ) < > (G2: `$PWD>/dev/null`, `$(pwd)>&2`).
+const CWD_WORD = String.raw`(?:\$\{(?:PWD|OLDPWD|HOME)(?:[^A-Za-z0-9_}][^}]*)?\}|\$(?:PWD|OLDPWD|HOME)(?![A-Za-z0-9_])|` +
+  String.raw`\$\(` + PWD_CMD + String.raw`\)|` + "`" + PWD_CMD + "`|" +
+  String.raw`~(?:[+-][0-9]*|[0-9]+|[A-Za-z_][A-Za-z0-9_.-]*)?)`;
+const CWD_OPERAND = new RegExp(String.raw`(^|[\s(])"?` + CWD_WORD + String.raw`"?(?:\/\*?)?"?(?=[\s;&|()<>]|$)`);
+const PLAIN_HEAD = /^[A-Za-z0-9_./+:][A-Za-z0-9_./+:-]*$/;
+function cwdOperandOfRm(r) {
+  for (const cmd of String(r).split(/[;&|\n]+/)) {
+    const words = cmd.replace(/^[\s(]+/, "").split(/\s+/).filter(Boolean);
+    if (!words.length) continue;
+    const mayBeRm = words.some((w) => normaliseWord(w).split("/").pop() === "rm") || !PLAIN_HEAD.test(words[0]);
+    if (mayBeRm && CWD_OPERAND.test(cmd)) return true;
+  }
+  return false;
+}
+
 const BARE_GLOB = /^(\.?(\*|\?|\[[^\]]*\])+|\{[^}]*\})$/;
 function _emptyExpansionRoot(r) {
   // $( ) and `…` may hold spaces, so they are emptied before the line is cut into words — on

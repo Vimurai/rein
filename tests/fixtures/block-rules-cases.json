@@ -72,5 +72,11 @@
 {"label":"E-440 (D-163 addendum 2 r8): narrow (d): a root prefix matches only at a path boundary","role":"none","cmd":"rm -rf /opt-cache-x","want":"pass","not_rule":"RM_RF_ROOT"},
 {"label":"E-440 (security_engineer pass 1): a subpath of $PWD is not the cwd (WARN, as at HEAD)","role":"none","cmd":"rm -rf $PWD/dist","want":"pass","not_rule":"RM_RF_ROOT"},
 {"label":"E-440 (security_engineer pass 1): a subpath of $(pwd) is not the cwd","role":"none","cmd":"rm -rf $(pwd)/dist","want":"pass","not_rule":"RM_RF_ROOT"},
-{"label":"E-440 (security_engineer pass 1): $PWD/<subpath> as another command's argument","role":"none","cmd":"ls $PWD/src; rm -rf dist","want":"pass","not_rule":"RM_RF_ROOT"}
+{"label":"E-440 (security_engineer pass 1): $PWD/<subpath> as another command's argument","role":"none","cmd":"ls $PWD/src; rm -rf dist","want":"pass","not_rule":"RM_RF_ROOT"},
+{"label":"E-454 (D-167 r10) branch a cwd operand ends at ; & | ) inside an rm command","role":"none","cmd":"rm -rf $PWD; ls","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-454 (D-167 r10) branch ${PWD<any operator>…} is the cwd","role":"none","cmd":"rm -rf ${PWD:-x}","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-454 (D-167 r10) branch $( [builtin|command] pwd [options] ) is the cwd","role":"none","cmd":"rm -rf $(builtin pwd)","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-454 (D-167 r10) branch the backtick pwd form with a terminator","role":"none","cmd":"rm -rf `pwd -LP`;x","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-454 (D-167 r10) branch $HOME takes the same terminators (no ruling makes it a WARN)","role":"none","cmd":"rm -rf $HOME; ls","want":"BLOCK","rule":"RM_RF_ROOT"},
+{"label":"E-454 (D-167 r10) branch a command whose head is not a plain word may be rm (rm -rf on the line, $c the head of the cwd command)","role":"none","cmd":"rm -rf dist; $c $PWD; ls","want":"BLOCK","rule":"RM_RF_ROOT"}
 ]

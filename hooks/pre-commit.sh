@@ -236,7 +236,7 @@ fi
 # staged .mcp.json holding the literal "$HOME/" is refused; no other path is scanned. r4: no
 # opt-out. Fail closed: without the list nothing can be judged, so the commit is refused.
 _machine_local_gate() {
-  local list path st bad=0 hit
+  local list path st bad=0 hit q
   # Install mirror first, then this hook's own tree (as the toolchain-pin bootstrap above) —
   # never the visited repo (E-223).
   list="$(rein_locate shared/machine-local.list 2>/dev/null || true)"
@@ -252,15 +252,17 @@ _machine_local_gate() {
   done < "$list"
   while IFS= read -r -d '' st && IFS= read -r -d '' path; do
     [[ "$st" == D ]] && continue
+    # E-454 (D-167 r15): the path is printed through %q, so a newline in it stays on one line.
+    printf -v q '%q' "$path"
     for hit in "${local_paths[@]}"; do
       if [[ "$path" == "$hit" ]]; then
-        echo "[COMMIT_BLOCKED] [MACHINE_LOCAL] ${path} is generated for this machine and never committed — run: git rm --cached ${path}" >&2
+        echo "[COMMIT_BLOCKED] [MACHINE_LOCAL] ${q} is generated for this machine and never committed — run: git rm --cached ${q}" >&2
         bad=1
       fi
     done
     if [[ -n "${HOME:-}" && "$HOME" != "/" ]] && [[ "$path" == .claude/* || "$path" == .mcp.json ]]; then
       if grep -qF -- "${HOME}/" < <(git show ":${path}" 2>/dev/null); then
-        echo "[COMMIT_BLOCKED] [MACHINE_LOCAL] ${path} contains this machine's home directory as a path — remove it before committing" >&2
+        echo "[COMMIT_BLOCKED] [MACHINE_LOCAL] ${q} contains this machine's home directory as a path — remove it before committing" >&2
         bad=1
       fi
     fi

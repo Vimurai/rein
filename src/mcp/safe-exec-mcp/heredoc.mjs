@@ -29,6 +29,8 @@
 // Residual (THREAT_MODEL T-HOOKABORT-001 / D-084 r4): a file written now and executed by a
 // LATER Bash call is beyond any per-command scan. A missing terminator hides nothing.
 
+import { changesDirectory } from "./git-view.mjs";
+
 const WORD = String.raw`[A-Za-z0-9_./@%+,=:-]+`;
 const CD_PREFIX_RE = new RegExp(String.raw`^\s*cd\s+/` + String.raw`[A-Za-z0-9_./@%+,=:-]*` + String.raw`\s*&&\s*`);
 const SINK_OP = String.raw`(?:\s+(?:>>?\s*)?` + WORD + `)`;
@@ -84,14 +86,16 @@ function lexLine(line, st) {
  *   rules only): a line OUTSIDE the bodies that readOnlyLine() proves runs nothing but read-only
  *   commands is ignored by rules 3 and 4. Off (the default), the function is unchanged.
  */
-export function stripInertHeredocs(raw, { readOnlyLines = false } = {}) {
+export function stripInertHeredocs(raw, { readOnlyLines = false, projectRoot } = {}) {
   const text = String(raw ?? "");
   const lines = text.split("\n");
   const cands = [];            // { intro, from, to, sinks } — inert bodies (from..to-1), terminator at `to`
   const st = { sq: false, dq: false, cont: false };
   const whole = [];            // line n starts and ends at top level and opens no heredoc
+  const commandLines = [];     // the lines read so far that are not a heredoc body (E-454)
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
+    commandLines.push(line);
     const top = !st.sq && !st.dq && !st.cont;
     st.cont = false;
     const ops = lexLine(line, st);
@@ -102,7 +106,8 @@ export function stripInertHeredocs(raw, { readOnlyLines = false } = {}) {
       // At least one real file: a stdout/fd/device sink can be wired to an interpreter by an
       // earlier `exec 3> >(sh)` / `exec > >(sh)` (and `exec` disables stripping, rule 3).
       const sinks = CONSUMER_RE.test(consumer) ? sinkPaths(consumer) : [];
-      if (sinks.length > 0 && sinks.every((p) => !/^\/(dev|proc)\//.test(p))) cand = { intro: i, sinks };
+      // `upTo`: how many command lines precede this body (E-454, the directory change below).
+      if (sinks.length > 0 && sinks.every((p) => !/^\/(dev|proc)\//.test(p))) cand = { intro: i, sinks, upTo: commandLines.length };
     }
     // Skip every heredoc body this line opened (bash reads them in order after the line).
     let j = i + 1;
@@ -131,7 +136,28 @@ export function stripInertHeredocs(raw, { readOnlyLines = false } = {}) {
   // naming it) keeps every body scanned, exactly as without the relaxation.
   // E-439 (D-163 addendum 2 r2): the implicit-run sink check holds in strict mode too — a body
   // written to a Makefile or .bashrc is run by `make` or a shell that never names the file.
-  for (let k = cands.length - 1; k >= 0; k--) if (cands[k].sinks.some(implicitRun)) cands.splice(k, 1);
+  // E-454 (D-167 r11): after a directory change on the line or before it (other than to the
+  // project root — the `cd <root> &&` prefix every Bash call carries), a relative sink names a file
+  // in a directory this text does not show: it counts as implicit-run in both modes. The first
+  // candidate whose prefix changes directory is found once by bisection over the candidates' own
+  // prefixes — not re-read per heredoc (security_engineer pass 1 R5: 380 bodies took 1.3 s). Over
+  // those prefixes the answer only turns true: each ends on a consumer line (no `cd`, no trailing
+  // `\`) and every reader only sets its flag. Over arbitrary prefixes it does not (pass 2: a line
+  // ending in `\` joins the appended `git`), so the search never probes one.
+  let movedAt = Infinity;
+  if (cands.some((c) => c.sinks.some(relative))) {
+    const moves = (n) => changesDirectory(commandLines.slice(0, n).join("\n"), projectRoot);
+    const ups = cands.map((c) => c.upTo);   // ascending: candidates are pushed in line order
+    let lo = 0, hi = ups.length - 1;
+    if (moves(ups[hi])) {
+      while (lo < hi) { const mid = (lo + hi) >> 1; if (moves(ups[mid])) hi = mid; else lo = mid + 1; }
+      movedAt = ups[lo];
+    }
+  }
+  for (let k = cands.length - 1; k >= 0; k--) {
+    const moved = cands[k].upTo >= movedAt;
+    if (cands[k].sinks.some((p) => implicitRun(p) || (moved && relative(p)))) cands.splice(k, 1);
+  }
   if (cands.length === 0) return text;
   if (readOnlyLines) {
     const other = (n) => !inBody(n, cands) && !inertLine(n, cands) && lines[n].trim() !== "";
@@ -179,6 +205,7 @@ const IMPLICIT_RUN =
 // spelling of (.)justfile; rake rakefile, Rakefile.rb and rakelib/*.rake; task Taskfile(.dist).y(a)ml.
 const TASK_RUNNER_FILE = /(?:^|\/)(?:\.?justfile|rakefile(?:\.rb)?|[^/]*\.rake|taskfile(?:\.dist)?\.ya?ml)$/i;
 const implicitRun = (p) => IMPLICIT_RUN.test(p) || TASK_RUNNER_FILE.test(p);
+const relative = (p) => !p.startsWith("/") && !p.startsWith("~");
 const READ_ONLY = new Set([
   // not printf: `printf -v PATH …` assigns a variable (critic_security, E-340 third review)
   "echo", "grep", "egrep", "fgrep", "tail", "head", "wc", "cat", "ls", "cut", "tr",

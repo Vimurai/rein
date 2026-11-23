@@ -200,6 +200,17 @@ test("the git-config hooksPath scan at the word cap stays linear: same verdict, 
     assert.equal(r.verdict, "PASS");
     assert.ok(ms < CEILING_MS, `runAnalysis at the cap (${shape}×n, ${role}): ${ms.toFixed(0)} ms ≥ the ${CEILING_MS} ms ceiling`);
   }
+  // E-454 (security_engineer pass 1 R5): the directory change before each heredoc was re-read per
+  // body — 380 bodies under the byte cap took 1.3 s; it is now found once. The verdict is not the
+  // point here (the Architect's writes block), only that the analysis stays under the ceiling.
+  const heredocs = "cd /tmp && echo a\n" + ("cat > n.md <<'E'\n" + "a".repeat(130) + "\nE\n").repeat(300);
+  for (const role of ["architect", "engineer"]) {
+    let r;
+    const ms = msOf(() => { r = runAnalysis(heredocs, role, { projectRoot: "/work/p" }); });
+    console.log(`  runAnalysis on 300 heredocs after a cd (${role}): ${ms.toFixed(0)} ms (ceiling ${CEILING_MS})`);
+    assert.ok(!r.blocked.some((b) => b.id === "INPUT_TOO_LARGE"), "the shape must stay under the input caps");
+    assert.ok(ms < CEILING_MS, `300 heredocs (${role}): ${ms.toFixed(0)} ms ≥ the ${CEILING_MS} ms ceiling`);
+  }
 });
 
 // D-145 r2 (extends the D-145 rows in operand-scope-cases.json and block-rules-cases.json): the

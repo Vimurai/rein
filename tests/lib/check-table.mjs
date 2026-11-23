@@ -43,9 +43,11 @@ const fenced = (file, n) => {
 };
 export const commandOf = (c) => (c.cmd_from ? fenced(c.cmd_from.file, c.cmd_from.block) : c.cmd);
 
-export function analyse(runAnalysis, cmd, role) {
+// E-454: `projectRoot` is the root the --check gate is given (a row's `project_root`, as in
+// operand-scope-cases.json since E-441): a `cd` to it is the prefix every Bash call carries.
+export function analyse(runAnalysis, cmd, role, projectRoot) {
   try {
-    const r = runAnalysis(cmd, role === "none" ? undefined : role);
+    const r = runAnalysis(cmd, role === "none" ? undefined : role, { projectRoot });
     return { verdict: r.verdict === "BLOCK" ? "BLOCK" : "pass", ids: [...r.blocked, ...r.warned, ...r.sovereignty].map((x) => x.id) };
   } catch (e) {
     return { verdict: "BLOCK", ids: [`THREW: ${e.message}`] };
@@ -61,7 +63,7 @@ export function tableTests(runAnalysis, name, { role = "engineer" } = {}) {
   for (const c of rows) {
     const r = c.role || role;
     test(`${name} ${r} ${c.want}: ${c.label}`, () => {
-      const got = analyse(runAnalysis, commandOf(c), r);
+      const got = analyse(runAnalysis, commandOf(c), r, c.project_root);
       const why = `rules: ${got.ids.join(", ") || "(none)"}`;
       assert.equal(got.verdict, c.want, why);
       if (c.rule) assert.ok(got.ids.includes(c.rule), `${c.rule} did not fire — ${why}`);

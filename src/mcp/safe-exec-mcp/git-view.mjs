@@ -345,6 +345,16 @@ function cdBeforeGit(raw, projectRoot) {
 }
 
 /**
+ * E-454 (D-167 r11): true when the text changes directory away from `projectRoot` — a `cd`,
+ * `pushd`, `popd`, a wrapper of D-167 r8, `trap`, or a word that may be one of them — by the same
+ * reader gitRelocated uses (no second copy of it): "a directory change before a git command" asked
+ * of a git word appended on its own line. Fail closed without a root, as there.
+ */
+export function changesDirectory(text, projectRoot) {
+  return cdBeforeGit(String(text ?? "") + "\ngit", projectRoot);
+}
+
+/**
  * True when a git line points git at another tree (09:06 r4): a `-C` whose value is not exactly
  * `.`, or `--work-tree`, `--git-dir`, `core.worktree` anywhere on it — or (E-441) a `cd`, `pushd`
  * or `popd` before the git command that leaves `projectRoot`. The Architect's `.ai/` / `plans/`

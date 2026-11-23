@@ -1286,10 +1286,22 @@ root-owned install exists.
   and `*.rake`, task's `taskfile.yml` and `Taskfile.dist.yml`.
 - Closed by E-446 (was INCONCLUSIVE) — a sink path with a `..` segment is implicit-run in both
   modes, so `/tmp/../etc/x` is no longer read as a `/tmp` path; `notes..txt` is not a segment.
-- Open (E-446 security pass, P2, new; for the Architect): a `cd` before the heredoc moves a
-  RELATIVE sink — `cd /etc && cat > profile.d/x.sh`, `cd /tmp/.. && cat > etc/x` — and the
-  absolute-path check never sees it.
-- Residual (P3, the deny list cannot be complete): `.claude/settings.json` (hooks),
+- Closed by E-454 (D-167 r11; was Open from the E-446 security pass): a `cd` before the heredoc
+  moves a RELATIVE sink — `cd /etc && cat > profile.d/x.sh`, `cd /tmp/.. && cat > etc/x`.
+  - After a directory change, a relative sink is implicit-run in both modes. A directory change
+    is anything `gitRelocated` reads as one (git-view.mjs `changesDirectory`, one reader).
+  - Earlier heredoc bodies on the line are not read as commands.
+  - A `cd` to the project root the gate is given is the prefix every Bash call carries, and it
+    does not count. Without a root, every `cd` counts (fail closed, as E-441).
+  - An absolute sink, and a line without a directory change, keep their verdict.
+- Open (P2, E-454 security pass 2, non-gating as a new spelling under the 2026-11-23T15:51Z
+  ruling; for the Architect): `cdBeforeGit` reads a cd's operand across a newline. A bare `cd`,
+  `cd -P`, `cd --` or `pushd` on its own line, followed by a line that is just the project root,
+  is read as `cd <root>`. bash goes HOME and runs the root line as a failing command (confirmed in
+  the harness). Result: `cd⏎<root>⏎cat > a <<'E'` + a CURL_PIPE_SHELL body is PASS for the
+  Engineer, and `cd⏎<root>⏎git checkout .ai/x` is PASS for the Architect (the E-441 reader, the
+  same at 44f9db8). Fix direction: end a cd's operand search at a newline, `;`, `&` or `|`.
+- Residual (P3, the deny list cannot be complete; recorded again by D-167 r11 for E-454): `.claude/settings.json` (hooks),
   `site-packages/*.pth`, `.venv/bin/activate`, `.vscode/tasks.json`, `setup.py`, `noxfile.py`.
 - Hex and octal escapes (`$'r\145in' gate off`) stay the r3 class above.
 - Closed (third pass, A2A 13:32): f1 (P1) the decoder modelled env's options — it now reads every
@@ -1525,3 +1537,46 @@ that change directory. A list misses the next spelling.
 **Observed, not ruled**: a code string re-analyses its text without the line's context. For
 example, in `cd /tmp && bash -c 'git checkout .ai/x'` the inner command is judged alone and keeps
 the `.ai/` exemption. This predates E-453 and holds the same for `cd`.
+
+### T-RMCWD-001 — RM_RF_ROOT's cwd and $HOME forms (E-454, D-167 r10, 2026-11-23)
+
+**Status**: MITIGATED (E-454). The residuals below are recorded by D-167 r10.
+
+**Threat**: a recursive force-remove of `$PWD` followed by `; ls` was a WARN. The cwd word matched
+only before whitespace or the end of the line, and the rule matches the whole line. Other cwd
+spellings were missed as well: `${PWD:-x}`, `$(pwd -LP)` and `$(builtin pwd)`.
+
+**Mitigation (E-454)**:
+- `${PWD|OLDPWD|HOME<any operator>…}` and `$( [builtin|command] pwd [options] )` (and the
+  backtick form) are the cwd or home.
+- A cwd or `$HOME` operand also ends at `;`, `&`, `|` or `)`.
+- The terminators are judged per simple command, and only for a command that may be the remove:
+  it has an rm word, or its head is not a plain literal word. So `echo $PWD` followed by a remove
+  of `dist` stays a WARN (E-440, D-163 addendum 2 r8 d).
+- No ruling made the `$HOME` form followed by `; ls` a WARN, so `$HOME` takes the same terminators.
+
+**Residual (D-167 r10)**:
+- `$(dirname $PWD)` and `$(realpath .)`;
+- `/lib32` and `/libx32` as roots;
+- a head built at run time with no literal rm token anywhere on the line (`${X:-rm}`). The
+  recursive-force test needs an rm token; this predates E-454.
+
+**From E-454 security pass 1 (EXPLOITED, gating; A2A ruling 2026-11-23T15:51Z on r10) — fixed by
+the Engineer after the pass, to be re-probed in round 2.** The fix: `CWD_WORD` gains the tilde
+forms, and `CWD_OPERAND` ends at `[\s;&|()<>]` or the end of the line. Each PoC below is a BLOCK
+row in operand-scope-cases.json. The R1/R2 residuals are pinned as WARN rows, except
+`$PWD""`: the quote-tolerant match already reads it as the cwd, so it is pinned BLOCK. R5 (time)
+is fixed: the directory change is found once by bisection, and a 300-heredoc time probe is in
+the unit cap test.
+- PoC G1 (P1): `rm -rf ~+;ls`, `(rm -rf ~+)`, `{ rm -rf ~-;}` and `rm -rf ~root;ls` are WARN.
+  The tilde forms end only at whitespace, a quote, `/` or the end of the line.
+- PoC G2 (P2): `rm -rf $PWD>/dev/null` and `rm -rf $(pwd)>&2` are WARN. A redirection operator
+  ends the word.
+- Ruled fix: the terminator set becomes the bash metacharacters (space, tab, newline,
+  `;` `&` `|` `(` `)` `<` `>`). It applies to every cwd and home word, `~+`, `~-` and `~user`
+  included, for every role.
+- Residual P3 by the same ruling:
+  - backslash-newline before a terminator;
+  - an empty-quote suffix (`$PWD""`);
+  - a quoted or indirect pwd (`$(\pwd)`, `$("pwd")`, `$(command -p pwd)`);
+  - the cwd fed through stdin (`echo $PWD|xargs rm -rf`, `xargs rm -rf <<<$PWD`).

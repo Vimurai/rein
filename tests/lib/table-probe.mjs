@@ -21,7 +21,9 @@ const [, , repo, table, role, sid] = process.argv;
 const rows = JSON.parse(readFileSync(table, "utf8"));
 const fallback = basename(table).startsWith("arch-write") ? "architect" : "engineer";
 const answers = (c) => (c.role || fallback) === role || (role === "engineer" && c.role === "none");
-const usable = rows.filter((c) => answers(c) && typeof c.cmd === "string" && !c.cmd_from && !c.repeat);
+// E-454: a row with `project_root` names a root the CLI takes from its cwd (the repo), so the
+// in-process runner carries it and the probe skips it, as it skips cmd_from rows.
+const usable = rows.filter((c) => answers(c) && typeof c.cmd === "string" && !c.cmd_from && !c.repeat && !c.project_root);
 const pick = ["BLOCK", "pass"].map((w) => usable.find((c) => c.want === w));
 
 let failed = 0;

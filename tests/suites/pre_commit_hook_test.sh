@@ -765,6 +765,12 @@ _M6="$(_ml_repo)"; ( cd "$_M6" && printf '{"x":"%s/x"}\n' "$_ML_HOME" > .mcp.jso
 _ml_commit "$_M6"
 assert_contains "E-448.04c: a staged .mcp.json holding \$HOME/ is refused (the second place of r3)" \
   "[MACHINE_LOCAL] .mcp.json contains" "$_OUT"
+# E-454 (D-167 r15; extends E-448.04b): a path holding a newline prints a one-line message.
+_M8="$(_ml_repo)"; ( cd "$_M8" && printf '{"x":"%s/x"}\n' "$_ML_HOME" > $'.claude/a\nb.json' && git add $'.claude/a\nb.json' )
+_ml_commit "$_M8"
+_ML_WANT="$(printf '%q' $'.claude/a\nb.json')"   # $'.claude/a\nb.json' — one line
+assert_contains "E-454.01: a path with a newline is refused on ONE [MACHINE_LOCAL] line, through %q" \
+  "[MACHINE_LOCAL] ${_ML_WANT} contains this machine's home directory" "$_OUT"
 _M7="$(_ml_repo)"; ( cd "$_M7" && printf 'see %s/x\n' "$_ML_HOME" > docs/x.md && git add docs/x.md )
 _ml_commit "$_M7"
 assert_status 0 "E-448.05: a doc naming the home path commits — no other path is scanned (rc ${_RC})" test "$_RC" -eq 0

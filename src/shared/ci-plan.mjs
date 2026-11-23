@@ -18,6 +18,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
+import { platformsFor } from "./hosted-ci.mjs";
 
 export const LEVELS = ["none", "fast", "affected", "full"];
 export const FALLBACK = "[PLAN_FALLBACK]";
@@ -54,10 +55,9 @@ const plan = (level, reason, x = {}) => ({
   shards: x.shards ?? 1, platforms: x.platforms ?? platformsFor(x.event),
 });
 
-/** Component 4's answer (E-451 renders it): a pull request runs Linux; a trunk push adds macOS; nightly and release run every leg. */
-export function platformsFor(event = "pull_request") {
-  return event === "pull_request" ? ["ubuntu-latest"] : ["ubuntu-latest", "macos-latest"];
-}
+// Component 4's platforms live with the hosted renderer (hosted-ci.mjs), the one src/shared file
+// allowed to name a runner (rein_ci_test E-268.02a); re-exported for the planner's callers.
+export { platformsFor };
 
 /**
  * The decision. Inputs:

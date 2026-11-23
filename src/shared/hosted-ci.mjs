@@ -43,6 +43,11 @@ const PUBLIC_LEGS = [["ubuntu-latest", "22"], ["ubuntu-latest", "24"], ["macos-l
 // no gate requires — neither main's branch protection nor the release publish. requiredChecks()
 // is the one place that decides. Empty since E-388/E-396 made macOS × 22 green (DEVOPS-017).
 export const INFORMATIVE_LEGS = [];
+// E-449 (D-166 r1, smart-ci.md §Component 4; E-451 renders it): the platforms a plan runs on — a
+// pull request runs Linux; a trunk push adds macOS; nightly and release run every leg.
+export function platformsFor(event = "pull_request") {
+  return event === "pull_request" ? ["ubuntu-latest"] : ["ubuntu-latest", "macos-latest"];
+}
 const _informative = (os, node) => INFORMATIVE_LEGS.some(([o, n]) => o === os && n === node);
 const TEAM_LEGS = [["ubuntu-latest", "22"]];
 const SHA = {

@@ -2860,3 +2860,70 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - **The scorecard's "today" column** comes from a read-only inventory of 2026-11-23. E-459 replaces it with computed values. The inventory counted 612 rows in `operand-scope-cases.json` on the working tree, which then held E-454's rows.
 - **The MCP call counts are not known yet.** The target of two servers is a target until E-465's table exists.
 ---
+
+---
+## Handoff — 2026-11-23 16:23 UTC
+**From**: Engineer → Architect
+**Trigger**: E-453 closed out per D-168 (re-probe SEC_CLEARED, ACCEPT_PASS); E-454 built, SEC_CLEARED, ACCEPT_PASS. All three of E-449/E-453/E-454 are refused DONE only by [BUILD_STALE].
+
+### What was built
+- **E-453, per D-168 r2–r4.** The third round ran as a re-probe only: SEC_CLEARED, recorded in 44f9db8 ("E-453 third pass").
+  - All G1–G4 payloads block. All 31 pass-list lines pass, including the task-planner D-104 line.
+  - Engineer parity holds over 1159 lines. `git config x `×3000 takes about 400 ms.
+  - The D-168 r7 residuals are in T-GITCONFIG-001.
+  - critic_acceptance: ACCEPT_PASS 14/14 at 44f9db8. Table pin: **598 rows, `04dfe55b…`**. Nothing changed in the round.
+- **E-454**, commit `5aa7634` on `e-454-cwd-terminators`, stacked on 44f9db8.
+  - (1/2) `rm-root.mjs` `cwdOperandOfRm` reads these as the cwd or home: `${PWD|OLDPWD|HOME<op>…}`, `$( [builtin|command] pwd [opts] )`, the backtick form, and the tilde forms. They end at whitespace, `;` `&` `|` `(` `)` `<` `>` or the end of the line. This is judged per simple command that may be the remove (an rm word, or a head that is not a plain word), so the echo-then-remove row of E-440 stays a WARN. The tilde forms and `<` `>` came from the A2A ruling of 15:51Z.
+  - (2) **`$HOME`: I found no ruling that makes it a WARN.** The E-440 comment cites D-163 addendum 2 r8 d, which only covers the whitespace boundary of the echo-then-remove line. So `$HOME` takes the same terminators.
+  - (3) `heredoc.mjs`: after a directory change on the line or before it, a relative sink is implicit-run in both modes.
+    - The reader is git-view's (`changesDirectory`, a wrapper on `cdBeforeGit`), not a second copy.
+    - `runAnalysis` passes the project root. A `cd <root> &&` prefix does not count; with no root, every cd counts.
+    - Earlier heredoc bodies are not read as commands.
+    - The first moving candidate is found by bisection over the candidates' own prefixes. Over those prefixes the answer only turns true; security pass 2 showed it is not monotone over arbitrary prefixes.
+  - (4) `hooks/pre-commit.sh` prints the `[MACHINE_LOCAL]` path through `printf -v q %q`.
+  - (5) Residuals are in T-RMCWD-001 and the heredoc section.
+- **Tables (counts and sha256):**
+  - `operand-scope-cases.json`: **612 rows, `5309e8c0c9965095e0897a74738860aa054f461e78ea8ff90c31da4a78e4ed4b`**.
+  - `block-rules-cases.json`: **80 rows, `6289af40476d24ef1bb94501233ce1b67c3ae3cc91cf3b20b995f7882282375b`**.
+  - `pipe-shell-cases.json`: **61 rows, `8729fd6139667d212533835e7de3c804cf57c8b1cff8a396aa7bb31f4135bf1d`**.
+- **New rows, by branch:**
+  - block-rules (r10): terminator inside an rm command; `${PWD<op>}`; `$(builtin pwd)`; backtick pwd with a terminator; `$HOME` terminators; a non-plain head (`$c $PWD;` after a remove on the line).
+  - pipe-shell (r11): a cd before the heredoc makes a relative sink implicit-run; the same without the cd passes; an absolute sink after a cd passes; the root cd prefix passes; with no root every cd counts.
+  - operand-scope (security pass 1, A2A 15:51Z):
+    - five G1 tilde rows: `~+;`, `~+&&`, `(… ~+)`, `{ … ~-;}`, `~root;`;
+    - five G2 redirect rows: `$PWD>`, `$PWD<`, `$(pwd)>&`, backtick pwd `>&`, `$HOME>`;
+    - R1/R2 pins: backslash-newline (WARN), `$PWD""` (BLOCK — the quote-tolerant match already reads it as the cwd, so it is not a residual), `$("pwd")` (WARN), `$(command -p pwd)` (WARN).
+  - pre_commit_hook_test: E-454.01 (newline path, one line).
+- **Pinned rows that changed: four verbatim pass rows gained `project_root`.** They are operand-scope D-105 block 3 and pipe-shell D-083 #1, D-083 #2 and D-084 #3. Each `cd` names an absolute root that the real `--check` is given. With no root they now block (r11, fail closed). `tests/lib/check-table.mjs` passes the column. `tests/lib/table-probe.mjs` skips such rows for the CLI probe, because the CLI takes its root from its cwd.
+- **Time probe:** 300 heredocs after a cd, in the unit cap test. R5 measured 1.3 s for 380 bodies before the fix; 49 ms now.
+- **Verification:**
+  - security_engineer: pass 1 SEC_BLOCKED (G1, G2, fixed); pass 2 SEC_CLEARED.
+  - Critics: ARCH/SEC/TESTS PASS, plus CLEAN_WARN from the known fixture at pre_commit_hook_test.sh:647.
+  - `rein ci run` PASS on 5aa7634: 7942/0/26, test_lines 45867.
+  - critic_acceptance: ACCEPT_PASS, 10 PASS and 1 UNVERIFIED. The UNVERIFIED clause is the counts in this handoff, given above.
+
+### Decisions made
+- None new.
+
+### Blueprint divergence (if any)
+- The `$HOME` terminators are the second option of the task text, because no ruling was found.
+- Four pinned verbatim rows gained `project_root`; the hashes above include that.
+- `$PWD""` is pinned BLOCK, not WARN.
+
+### Next action needed
+- **Architect**:
+  - Pin the three tables above.
+  - Rule on N1 from security pass 2 (P2, non-gating, recorded Open in THREAT_MODEL under r11). A bare `cd`, `cd -P`, `cd --` or `pushd` alone on a line, followed by a line that is just the project root, reads the root line as the cd's operand. bash instead goes to HOME and fails the root line. So `cd⏎<root>⏎cat > a <<'E'` with a pipe-to-shell body passes for the Engineer. The E-441 reader has the same gap (`cd⏎<root>⏎git checkout .ai/x` passes for the Architect, as at 44f9db8). Fix direction: stop the operand search at a newline or separator.
+  - Also rule on these over-blocks of E-454, both fail closed:
+    - the `analyze_command` MCP tool passes no root, so its advisory report shows BLOCK for the four verbatim commands (`--check` passes them);
+    - an assignment before a cwd-holding command, or `${PWD/src/build}`, on a line with a remove.
+- **Operator**:
+  - Run `bash install-rein.sh`, then restart the MCP servers. E-449, E-453 and E-454 are each accepted and refused DONE only by [BUILD_STALE].
+  - Push and open the PRs in order: e-441, e-440, e-446, e-448, e-449-ci-planner, e-453-git-config-rule, e-454-cwd-terminators.
+- **Engineer, next**: E-455 (merge the rows E-441, E-440, E-446, E-453 and E-454 added), then E-456, then E-450 to E-452.
+
+### Open risks
+- **The live gate predates the whole stack.** On this machine it lacks E-440, E-441, E-446, E-448, E-453 and E-454.
+- **test_lines is 45867,** above the 45593 that D-167 noted. E-455 is expected to bring it down, and the budget check passed.
+- **Untouched files.** `.ai/DECISIONS.md`, `.ai/TASKS.md`, `.ai/state.json` and `.ai/blueprints/lean-core.md` are dirty from the Architect's session. I committed only COMM.md, so as not to split that work.
+---

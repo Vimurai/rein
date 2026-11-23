@@ -2376,6 +2376,76 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-23T16:23:28.851Z"
+    },
+    {
+      "id": "E-467",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Strip Rein to the keep list per D-170 r4-r6 and .ai/blueprints/lean-core.md §Revision 2 (batch task on branch lean-core, after E-463; batch rules of D-170 r9 apply: no CI, no critics, no handoff, one commit). Delete every MCP server except task-synchronizer-mcp from src/mcp and .mcp.json (including the third-party filesystem and memory entries), every agent except reviewer, critic_acceptance, security_engineer and test_engineer, every default skill except blueprint-writer, rein-test, rein-debug and release-manager, telemetry and insights, the incident tracker, the memory palace, REPO_MAP, the instinct stager, the deprecated CLI stubs, and the tests of each. Move a function a kept command needs into the CLI before deleting its server. Cut the hooks to the kept set. Do not touch team mode, `rein ci run` or the release path. Supersedes E-465. Acceptance: `find src/mcp -maxdepth 1 -mindepth 1 -type d` lists only shared and task-synchronizer-mcp; .mcp.json names one server; a scratch `rein init` provisions at most 6 skills and exactly 4 agents; `wc -l hooks/*.sh` totals at most 900; `rein doctor` exits 0 in the scratch project; the handoff lists every removed agent and skill by name and gives `git ls-files src | xargs cat | wc -l` before (97956) and after. Framework task.",
+      "created_at": "2026-11-23T21:22:31.581Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-23T21:22:31.584Z"
+    },
+    {
+      "id": "E-468",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Rewrite the documentation to describe only what exists after the strip, per D-170 r3 and .ai/blueprints/lean-core.md §Revision 2 (batch task on branch lean-core, after E-469; batch rules of D-170 r9 apply). Rewrite README.md, CONTRIBUTING.md, CAPABILITIES.md and every file under docs/: one page for what Rein adds to Claude Code (ledger, observed acceptance, decision record, two roles with lanes), getting-started, install, the commands of D-170 r4, review by tier, the role sandbox, troubleshooting. Delete docs/mcp-servers.md or cut it to the one server. Leave docs/app-contract.md unchanged unless the batch changed the contract, and say which in the handoff. Add an Unreleased section to CHANGELOG.md listing what was removed and what replaces it; do not bump the version and do not tag. Acceptance: `grep -rlE 'safe-exec|orchestrator-mcp|cache-manager|rein-preflight|vibe-check|memory palace' README.md CONTRIBUTING.md docs/` prints nothing outside CHANGELOG.md; every `rein <command>` named in README.md and docs/getting-started.md exists in `rein help`; the steps of docs/getting-started.md run in a scratch project from install to one closed task in at most 4 steps; README.md is at most 200 lines. Framework task.",
+      "created_at": "2026-11-23T21:22:36.722Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-23T21:22:36.722Z"
+    },
+    {
+      "id": "E-469",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Package the kept agents, skills and hooks as one Claude Code plugin per D-170 and .ai/blueprints/lean-core.md §Revision 2 Packaging (batch task on branch lean-core, after E-459; batch rules of D-170 r9 apply). Read the current Claude Code plugin documentation first and record in the handoff which of the kept units a plugin can declare. Build the plugin manifest and layout in the repository; make install-rein.sh and `rein init` install the plugin and write the role settings files, which stay outside the plugin; keep `rein` as the CLI. A kept hook a plugin cannot declare stays with the installer, and the handoff names it. Acceptance: in a scratch HOME, install-rein.sh then `rein init` in an empty git repository gives a session in which the 4 agents and the kept skills are listed and `rein doctor` exits 0; the same session lists exactly one MCP server; removing the plugin and running `rein doctor` prints one line naming what is missing; the handoff states for each kept hook whether the plugin or the installer carries it. Framework task.",
+      "created_at": "2026-11-23T21:22:41.194Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-23T21:22:41.194Z"
+    },
+    {
+      "id": "E-470",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Close the lean-core batch per D-170 r12 and .ai/blueprints/lean-core.md §Revision 2 (last task; the only one that runs CI). On the tip of branch lean-core: run `rein ci run` once; run `reviewer` once over the whole branch diff and one `security_engineer` round over E-462, E-463 and E-467 together; run `critic_acceptance` for each of E-458 to E-469; fix what fails on the branch and repeat only the failed check. Then push, open one pull request, merge on green hosted CI under D-169 r1 with `gh pr merge <n> --merge --delete-branch`, run `bash install-rein.sh`, and close every batch task through the installed close path. Close E-455, E-456 and E-465 as superseded (D-169 r6, D-170 r8). Do not tag and do not publish a version. Acceptance: `rein ci run` prints PASS for the merged tip; `gh pr list --state open` shows no lean-core pull request; `git log origin/main --oneline` contains one commit per batch task; `rein doctor --fitness` prints the scorecard and the handoff quotes it whole, PASS and FAIL rows alike; verify_markdown_sync returns [SYNC_PASS]; the handoff names the merge commit, every task closed, and every task left open with the reason. Framework task.",
+      "created_at": "2026-11-23T21:22:46.613Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-23T21:22:46.613Z"
+    },
+    {
+      "id": "P-53",
+      "owner": "Architect (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Rewrite .ai/architect.md to describe Rein after the strip per D-170 and .ai/blueprints/lean-core.md §Revision 2 (after E-470 merges): the four kept things, the keep list, the role sandbox, review by tier; remove every section about a deleted unit; mark the blueprints of deleted units as historical in one list. Acceptance: `grep -cE 'safe-exec|orchestrator-mcp|cache-manager' .ai/architect.md` prints 0; the file is at most 200 lines. Framework task.",
+      "created_at": "2026-11-23T21:22:49.196Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-23T21:22:49.196Z"
     }
   ],
   "stamps": [
@@ -7268,6 +7338,51 @@
       "timestamp": "2026-11-23T16:23:11.481Z",
       "summary": "[ACCEPT_PASS] E-454 at 5aa7634 — 10 PASS, 0 FAIL, 1 UNVERIFIED ‖ 1 | PASS | rm -rf $PWD; ls: --check exit 2 [RM_RF_ROOT] (a84957f WARN) ‖ 2 | PASS | ${PWD:-x}: --check exit 2 [RM_RF_ROOT] ‖ 3 | PASS | $(pwd -LP): --check exit 2 [RM_RF_ROOT] ‖ 4 | PASS | $(builtin pwd): --check exit 2 [RM_RF_ROOT] ‖ 5 | PASS | $PWD/dist: engineer/none WARN, no RM_RF_ROOT; union exit 2 only via ARCH_RM_RF ‖ 6 | PASS | cd /etc heredoc curl|sh body: BLOCK [CURL_PIPE_SHELL] all roles (a84957f: PASS) ‖ 7 | PASS | no-cd heredoc: eng PASS/none PASS/arch BLOCK, same as a84957f worktree ‖ 8 | PASS | pre_commit_hook_test.sh E-454.01 pass; 113/1/0, 1 = known uninstalled-mirror row ‖ 9 | UNVERIFIED | handoff not written; recomputed 612/5309e8c0 80/6289af40 61/8729fd61 = commit msg ‖ 10 | PASS | SECURITY.md:3113 E-454 second pass [SEC_CLEARED] ‖ 11 | PASS | get_ci_status 5aa7634 PASS, clean, 7942/0/26",
       "sha": "5aa763420121da1bd25a13b19c592dabfbb9d045",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-433",
+      "timestamp": "2026-11-23T17:51:32.581Z",
+      "summary": "No P0; `|| true` only absorbs a missing tmux (empty t skips recording). Any non-empty value still goes through rein_tc_check. Test fixture symlinks and writes stay under its mktemp dir, cleaned on exit; nothing touches ~/.rein.",
+      "sha": "9b67e3950e4a81cbdd4f0102c9f406a416f6e8e8",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "TESTS_PASS",
+      "agent": "critic_tests",
+      "task_id": "E-433",
+      "timestamp": "2026-11-23T17:51:47.155Z",
+      "summary": "hooks_surface_test PASS=99 FAIL=0; E-433.TM1 extends S05, observes errexit with no tmux on a constructed PATH, asserts node recorded and tmux absent; on_exit before mktemp -d, no ~/.rein writes, suite not task-named",
+      "sha": "9b67e3950e4a81cbdd4f0102c9f406a416f6e8e8",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_FAIL",
+      "agent": "critic_security",
+      "task_id": "E-457",
+      "timestamp": "2026-11-23T20:46:48.050Z",
+      "summary": "git-view REDIRECT leading (?<![0-9]) is not equivalent: it blocks any match starting after a digit, incl. an operator right after a prior match's digit operand (<&3>out) or 1{a}>x; ~6k/400k diffs, changes runsGit/changesDirectory/gitCommandView (new reads more in sampling, none less found) but breaks exact-match requirement. Fix: put the lookbehind on the \\d+ alternative only: (?:(?<![0-9])\\d+|\\{..\\})? (0 diffs in 2M, no ReDoS). VAR_USE, CMD_WORD, trimSlash (differs only for newline/CR/U+2028 before trailing slash) OK. No secrets/injection/path issues.",
+      "sha": "9b67e3950e4a81cbdd4f0102c9f406a416f6e8e8",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_PASS",
+      "agent": "critic_security",
+      "task_id": "E-457",
+      "timestamp": "2026-11-23T20:49:13.811Z",
+      "summary": "Re-run on staged git-view.mjs/assigned-verbs.mjs: public functions (gitCommandView, runsGit, changesDirectory, gitRelocated, gitPassesConfig, expandAssignedVerbs) 0 diffs vs HEAD over 400k fuzz; REDIRECT (digit-only lookbehind) 0 diffs in 2M strings incl. <&3>out; trimSlash exact scan 0 diffs in 1M paths incl. line terminators; 100k digits/slashes linear (~1ms). Prior SEC_FAIL resolved.",
+      "sha": "9b67e3950e4a81cbdd4f0102c9f406a416f6e8e8",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-457",
+      "timestamp": "2026-11-23T20:49:22.743Z",
+      "summary": "Stack-landing fixes on HEAD 9b67e39 for PR #68's red required checks: (1) install-finalize.sh `command -v tmux || true` (macOS legs: errexit with no tmux), row E-433.TM1 (non-vacuous: old line exits 1); (2) CodeQL js/polynomial-redos 33-36 rewritten exactly (REDIRECT digit-alt lookbehind, trimSlash scan, VAR_USE lookahead, CMD_WORD [^\\S\\n]*), timing rows in the E-397 test. SEC_PASS x2 (installer; regex re-check after one SEC_FAIL: 0 public diffs over 400k), TESTS_PASS; gate tables green.",
+      "sha": "9b67e3950e4a81cbdd4f0102c9f406a416f6e8e8",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],

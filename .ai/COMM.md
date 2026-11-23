@@ -2927,3 +2927,43 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - **test_lines is 45867,** above the 45593 that D-167 noted. E-455 is expected to bring it down, and the budget check passed.
 - **Untouched files.** `.ai/DECISIONS.md`, `.ai/TASKS.md`, `.ai/state.json` and `.ai/blueprints/lean-core.md` are dirty from the Architect's session. I committed only COMM.md, so as not to split that work.
 ---
+
+---
+## Handoff — 2026-11-23 21:24 UTC
+**From**: Architect → Engineer
+**Trigger**: D-170 — the operator ordered: strip Rein to the bones, one CI run for the whole batch, rewrite the documentation. E-467 to E-470 and P-53 registered. This also answers your 16:23 UTC handoff.
+
+### What was planned
+- **D-170** in `.ai/DECISIONS.md`, and `.ai/blueprints/lean-core.md` §Revision 2. Read both before anything else. D-170 amends D-169 and the texts of E-457 to E-466; where a task text and D-170 differ, D-170 wins.
+- **Keep list** (D-170 r4): the ledger with `task-synchronizer-mcp` as the only MCP server; `critic_acceptance` and the DONE refusal; the record and `rein decide`; the two roles with the sandbox, `rein handoff`, the waiting signal and `docs/app-contract.md`; 13 CLI commands; 4 agents; at most 6 skills; hooks of at most 900 lines in total. Everything else goes (r5).
+- **New tasks**: E-467 strip (Tier 3), E-468 documentation, E-469 plugin packaging, E-470 close the batch (Tier 3). P-53 is mine, after E-470.
+
+### Batch rules (D-170 r9) — the operator's order
+- One branch, `lean-core`, cut from the top of the stack. One commit per task. **No push, no pull request, no `rein ci run`, no critics, no `critic_acceptance`, no security round and no handoff between tasks.** You may run the test file you are editing.
+- Tasks stay open until E-470 and close there in one pass.
+- Kept, because they guard the boundary and are not CI: run the probe of E-458; the escape suite of E-462 passes on this machine before E-463 deletes the gate.
+- **E-464 first.** It moves the critic-stamp check out of `hooks/pre-commit.sh` to task close, so no later commit waits on a review. That one commit meets the old hook once.
+- **E-458 needs no ruling from me** (r10). If the Architect's Bash can be confined by any configuration of §Component 1, build E-462 and E-463 with it and record which. If not, skip both, keep safe-exec and its hook, and continue.
+
+### Order
+E-457 in parallel, then E-464, E-458, E-460, E-461, E-462, E-463, E-467, E-466, E-459, E-469, E-468, E-470.
+- **E-457 is now one pull request** from the top of the stack, one hosted CI run (r11). Do not wait for it: cut `lean-core` from the same commit and start E-464. When it merges, send me the merge commit at once in one line (no COMM entry needed): rein-app is waiting for it, because it holds E-433.
+- Superseded: E-465 (r8), E-455, E-456. Held: E-450 to E-452, E-394, E-395, E-410.
+
+### Answer to your 16:23 UTC handoff (r13)
+- The three tables stand as committed; no new pin. N1 and the two over-blocks of E-454 are not fixed. E-463 deletes all of it. If r10 keeps the gate, I rule on them then.
+- E-455 and E-456 are not built.
+
+### Blueprint divergence (if any)
+- NONE — nothing built yet.
+
+### Next action needed
+- **Engineer**: execute the order above. One handoff, at the end of E-470. Hand off earlier only if a task cannot be built as written and no later task can proceed without it.
+
+### Open risks
+- One run at the end finds failures late; one commit per task is what keeps them placeable. Keep to it.
+- The batch is on one disk until E-470: the pre-push hook refuses a tip without a green CI row.
+- Removed agents and skills: list each by name in the E-467 handoff (r6). Tag v0.5.0 holds them.
+- E-469: I have not verified what a Claude Code plugin can declare. Read the documentation first; the installer carries what the plugin cannot.
+- Team mode, `rein ci run` and the release path are out of scope (r7). If a deletion would break one of them, keep the piece and name it.
+---

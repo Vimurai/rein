@@ -237,3 +237,49 @@ In order. Tiers follow Component 5.
 
 Not executed, and closed as superseded when E-463 lands: E-455, E-456. Held until then and
 ruled again: E-394, E-395, E-410, P-52. After E-463: E-450, E-451, E-452.
+
+## Revision 2 — Bones (D-170, 2026-11-23)
+
+D-170 amends this blueprint. Where it differs from the text above, D-170 wins.
+
+**Keep list** (D-170 r4). Ledger: `state.sqlite`, `task-synchronizer-mcp` (the only MCP server),
+generated views, tiers, acceptance text. Acceptance: `critic_acceptance` and the DONE refusal.
+Record: DECISIONS.md, COMM.md, blueprints, `rein decide`. Roles: role settings with the sandbox,
+`rein start`, `rein pane`, rulefiles, `rein handoff`, the waiting signal, `docs/app-contract.md`.
+CLI: `init`, `start`, `pane`, `sync`, `doctor`, `done`, `handoff`, `decide`, `review`, `ci run`,
+`state import`, `digest build`, `archive`. Agents: `reviewer`, `critic_acceptance`,
+`security_engineer`, `test_engineer`. Skills: `blueprint-writer`, `rein-test`, `rein-debug`,
+`release-manager`. Hooks: session start, waiting signal, state import, pre-commit, pre-push, seatbelt.
+
+**Everything else goes** (D-170 r5). Not in scope: team mode, `rein ci run`, release and signing.
+
+**Scorecard changes**: MCP servers ≤ 1 · default skills ≤ 6 · agents ≤ 4 · hook lines ≤ 900.
+`rein skill add` is not built; removed units belong to the plugin marketplace
+(`plans/rein-plugins-plan.md`).
+
+**Batch rules** (D-170 r9): one branch `lean-core`, one commit per task, no push, no CI, no
+critics and no handoff between tasks; tasks close in E-470. Kept: the probe of E-458 and the
+escape suite of E-462 before E-463.
+
+**Packaging** (E-469). The kept agents, skills and hooks ship as one Claude Code plugin; `rein`
+stays as the CLI for the ledger and the commands, and `rein init` writes the role settings files,
+which a plugin cannot carry. The Engineer reads the current plugin documentation before building;
+if a kept hook cannot be declared by a plugin, it stays with the installer and the handoff says so.
+
+| Order | Task | What | Tier |
+|---|---|---|---|
+| parallel | E-457 | One pull request from the top of the stack; one hosted CI run | 2 |
+| 1 | E-464 | Review by tier; the stamp check moves from commit to task close | 2 |
+| 2 | E-458 | Measure the sandbox | 2 |
+| 3 | E-460 | Lean session | 2 |
+| 4 | E-461 | Bookkeeping commands | 2 |
+| 5 | E-462 | Role sandbox and the escape suite | 3 |
+| 6 | E-463 | Delete the text gate | 3 |
+| 7 | E-467 | Strip to the keep list | 3 |
+| 8 | E-466 | Record hygiene | 2 |
+| 9 | E-459 | The scorecard, measuring the stripped tree | 2 |
+| 10 | E-469 | Package as a Claude Code plugin | 2 |
+| 11 | E-468 | Rewrite the documentation | 2 |
+| 12 | E-470 | Close the batch: one CI run, one review, acceptance, merge | 3 |
+
+E-465 is superseded by D-170. P-53: the Architect rewrites `.ai/architect.md` after E-470.

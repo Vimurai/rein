@@ -6011,3 +6011,63 @@ The operator asked on 2026-11-23 for the four weaknesses to be fixed in the core
 Each task is one commit. Removing the `sandbox` block from the role settings restores today's behaviour while the gate is still in place; reverting E-463 restores the gate. v0.5.0 is the last tag with the gate.
 
 ---
+
+## D-170 — Bones: Rein keeps only what Claude Code does not have; the lean-core work is one batch with one CI run at its end
+
+**Date**: 2026-11-23
+**Task**: E-458 to E-470, P-53 (amends D-169; `.ai/blueprints/lean-core.md` §Revision 2)
+**Decision**: Rein is cut to four things the platform lacks (a durable task ledger, DONE by observed acceptance, a decision record, two roles with enforced lanes); everything else leaves the repository; the whole change is built on one branch with no CI, no critics and no handoff between tasks, and is checked once at the end.
+
+### Why needed
+The operator asked on 2026-11-23 for three things: strip Rein to its bones and keep only the features Claude Code does not have; stop running CI for every small change and run it once when all the tasks are done; update the documentation. D-169 trimmed Rein but kept most of its parts pending usage counts, and kept a CI run and a review per task.
+
+### The operator's rulings
+1. **One CI run for the batch.** No `rein ci run` and no hosted CI between tasks. CI runs when all the tasks are built.
+2. **Strip to the bones.** Only what the platform lacks stays.
+3. **The documentation is rewritten to match.**
+
+### The Architect's rulings
+4. **What stays** (the keep list; anything not named here goes):
+   - *Ledger*: `state.sqlite`, `task-synchronizer-mcp` as the only MCP server, the generated views (TASKS.md, REVIEWS.md, DIGEST.md), tiers, acceptance text.
+   - *Acceptance*: `critic_acceptance`; a Tier 2 or Tier 3 task is refused DONE without `[ACCEPT_PASS]`.
+   - *Record*: DECISIONS.md, COMM.md, blueprints; `rein decide`; skill `blueprint-writer`.
+   - *Roles*: the role settings files with the sandbox (D-169 r3), `rein start`, `rein pane`, rulefiles of at most 2 KB, `rein handoff` with the `SendMessage` wake, the waiting signal and `docs/app-contract.md` (rein-app depends on both).
+   - *CLI*: `init`, `start`, `pane`, `sync`, `doctor` (with `--fitness`), `done`, `handoff`, `decide`, `review`, `ci run`, `state import`, `digest build`, `archive`.
+   - *Agents* (4): `reviewer`, `critic_acceptance`, `security_engineer`, `test_engineer`.
+   - *Skills* (at most 6): `blueprint-writer`, `rein-test`, `rein-debug`, `release-manager`; two places are free.
+   - *Hooks* (at most 900 lines in total, from 2,490): session start, waiting signal, state import, pre-commit (lane, machine-local file, publish checks only), pre-push (a green `rein ci run` row for the pushed tip), and the seatbelt of D-169 r5.
+5. **What goes**: every other MCP server (advisor, approval, archive-manager, ast-parser, blueprint-aligner, cache-manager, context-guardian, memory-manager, orchestrator, patch, propose-patch, risk-analyzer, token-budget, verification, vibe-check, and safe-exec with E-463), the third-party `filesystem` and `memory` servers, telemetry and insights, the incident tracker, the memory palace, REPO_MAP, the instinct stager, the SEO units, the vibe and chaos units, every agent and skill not in ruling 4, the deprecated CLI stubs, and the tests of each. A function a kept command needs moves into the CLI first (`run_review` into `rein review`, `run_handover` into `rein done`).
+6. **Removed agents and skills are not lost.** `plans/rein-plugins-plan.md` already makes the plugin marketplace their home. The Engineer deletes them here and lists each in the handoff; tag v0.5.0 holds every one.
+7. **Not in scope, left as they are**: team mode (`team.json`, claims, the shared log), `rein ci run` and its planner, the release and signing path. They are ruled separately.
+8. **E-465 (the usage census) is superseded by this decision.** The operator ruled the cut; counts are not needed. Its removals are in E-467.
+9. **Batch rules**, for E-458 to E-469:
+   - One branch, `lean-core`, cut from the top of the built stack. One commit per task. Nothing is pushed and no pull request is opened before E-470.
+   - No `rein ci run`, no critics, no `critic_acceptance`, no security round and no handoff between tasks. The Engineer may run the test file it is editing.
+   - Tasks stay open until E-470 and are closed there in one pass.
+   - Two checks are not CI and are kept, because they guard the boundary: the probe of E-458 is run, and the escape suite of E-462 passes on this machine before E-463 deletes the gate.
+   - E-464 is built first. It moves the critic-stamp check from the commit hook to task close, so no commit in the batch waits on a review.
+10. **E-458 needs no ruling to continue.** If the probe shows that the Architect's Bash can be confined to `.ai/`, `plans/` and what a commit needs, by any configuration of lean-core.md §Component 1, the Engineer builds E-462 and E-463 with that configuration and records it. If it cannot, E-462 and E-463 are skipped, safe-exec and its hook stay, and the rest of the batch continues. D-169 r4's second ruling is withdrawn.
+11. **E-457 becomes one pull request** from the top of the stack (`e-454-cwd-terminators`), with one hosted CI run. The Engineer does not wait for it: `lean-core` is cut from the same commit and work starts at once. The handoff names the merge commit, which is the commit rein-app asked for (it holds E-433).
+12. **E-470 closes the batch**: one `rein ci run`, one review (`reviewer`, plus one `security_engineer` round over E-462, E-463 and E-467 together), `critic_acceptance` for every task, one pull request, merge on green CI under D-169 r1, reinstall. A failure is fixed on the branch and the failed check alone is repeated.
+13. **The gate's open questions are closed without work.** The three tables of the 16:23 UTC handoff stand as committed and are not pinned again; N1 and the two over-blocks of E-454 are not fixed. All of it is deleted by E-463. If ruling 10 keeps the gate, the Architect rules on them then.
+14. **Order**: E-457 (in parallel), E-464, E-458, E-460, E-461, E-462, E-463, E-467, E-466, E-459, E-469, E-468, E-470. E-450 to E-452 stay held and are ruled again after E-470.
+15. **Targets added to the scorecard**: MCP servers at most 1; default skills at most 6; agents at most 4; hook lines at most 900. `src/` is 97,956 tracked lines today; the handoff reports the number after.
+
+### Alternatives considered
+1. **Keep D-169's census and rule server by server** — rejected: the operator ruled the cut, and the census is a task that only produces a list.
+2. **CI per task, as D-169 ordered** — rejected by the operator.
+3. **No checks at all until the end, including the escape suite** — rejected: deleting the gate before the sandbox is seen to hold leaves a window with no boundary. The suite is one local test run.
+4. **Delete Rein and use Claude Code alone** — rejected: the ledger, observed acceptance, the record and the role lanes do not exist there.
+
+### Constraints driving this decision
+- The pre-push hook refuses a tip without a green `rein ci run` row, so the batch cannot be pushed early; the work is on one disk until E-470.
+- One run at the end finds failures late. They are harder to place than failures found per task; the one-commit-per-task rule is what keeps them placeable.
+
+### Impact
+- Unlocks: E-467 to E-470, P-53. Amends E-457 to E-466.
+- Risk if wrong: something deleted was in use. Tag v0.5.0 holds everything, and each task is one commit.
+
+### Rollback
+Before E-470 merges, delete the `lean-core` branch. After, revert the merge commit; v0.5.0 is the last tag with the full framework.
+
+---

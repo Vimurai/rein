@@ -219,6 +219,21 @@ else
   _skip "S05: fail-open without node — the fixture could not record a python3 to keep"
 fi
 
+# ── E-433 (extends S05): the installer records the toolchain on a host without tmux ───────
+# tmux is optional (D-160 addendum 1), but `t="$(command -v tmux)"` under the installer's
+# `set -euo pipefail` ended the install with a silent exit 1 on the macOS runner (no tmux).
+# A PATH that holds node, python3 and nice and no tmux, under the installer's own shell options.
+_TM="$(mktemp -d)"; on_exit "rm -rf '$_TM'"
+# The host's /usr/bin and /bin are linked in without tmux (a host may ship it there).
+mkdir -p "$_TM/bin" "$_TM/rein/shared"
+for _f in /usr/bin/* /bin/*; do [[ "${_f##*/}" == tmux || -e "$_TM/bin/${_f##*/}" ]] || ln -s "$_f" "$_TM/bin/${_f##*/}"; done
+for _b in node python3; do _p="$(command -v "$_b")" && ln -sf "$_p" "$_TM/bin/$_b"; done
+assert_status 0 "E-433.TM1: with no tmux on PATH the installer's toolchain record completes under set -e" bash -c \
+  "set -euo pipefail; cd '$_TM'; PATH='$_TM/bin'; command -v tmux >/dev/null 2>&1 && exit 3
+   . '${REPO_ROOT:-$PWD}/src/shared/install-finalize.sh'
+   rein_fin_record_toolchain '$_TM/rein' '${REPO_ROOT:-$PWD}/src/shared/toolchain-record.sh' >/dev/null 2>&1
+   grep -q '^REIN_TC_NODE=' '$_TM/rein/shared/toolchain.sh' && ! grep -q '^REIN_TC_TMUX=' '$_TM/rein/shared/toolchain.sh'"
+
 # ── E-430 (D-159 r3; extends S03-S05): the hook rebuilds .ai/DIGEST.md before it emits ──
 # A fixture project and a fixture HOME whose shared/ links src/shared, so the builder comes
 # from the install path (rein_locate) and this repository's own .ai/ is never touched.

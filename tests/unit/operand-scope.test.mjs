@@ -170,6 +170,15 @@ test("CodeQL's pathological git and path inputs keep their verdict and stay insi
   }
   const ms = msOf(() => boundedRel(".ai/" + "/".repeat(50000) + "x", repo));
   assertInside(ms, budget, "trailing-separator trim");
+  // E-457 (CodeQL alerts 33-36 on the stack PR): the fd digits of a redirection, the trailing
+  // slashes of a cd operand, a `${` name and a run of newlines before a command word.
+  for (const [label, cmd] of [["redirect fd digits", "git " + "0".repeat(20000)],
+    ["cd operand slashes", "cd a" + "/".repeat(20000) + " && git checkout .ai/x"],
+    ["${ name", "A=git; ${{A" + "0".repeat(20000)], ["newline run", "alias g=git;" + "\n".repeat(20000) + "x"]]) {
+    const t = msOf(() => runAnalysis(cmd, "architect", { projectRoot: "/work/p" }));
+    console.log(`  ${label}: ${t.toFixed(1)} ms (budget ${budget.toFixed(1)})`);
+    assertInside(t, budget, label);
+  }
 });
 
 // E-398 (extends the CodeQL test above): the viaConfig scan for `git … config core.hooksPath`

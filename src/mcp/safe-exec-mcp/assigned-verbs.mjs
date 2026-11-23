@@ -21,8 +21,11 @@ const ASSIGN = new RegExp(
 const ALIAS = new RegExp(String.raw`(?:^|[\s;&|(])alias\s+([A-Za-z_][A-Za-z0-9_.:+-]*)=` + VALUE, "g");
 // Uses, each replaced in ONE pass with a Map lookup (linear in the text, whatever the number of
 // names — a per-name replace was quadratic: 158 ms on 1500 aliases).
-const VAR_USE = /\$\{([A-Za-z_][A-Za-z0-9_]*)[^}\n]*\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
-const CMD_WORD = /(^|[;&|(\n]\s*|\b(?:then|do|else|time)\s+|!\s+)([A-Za-z_][A-Za-z0-9_.:+-]*)(?=\s|$|[;&|)])/g;
+// CodeQL js/polynomial-redos (alerts 33-34, E-457): the name ends where its characters end (the
+// lookahead), so `[^}\n]*` never re-splits it; a separator newline is followed by
+// whitespace-but-not-newline, so a run of newlines is not re-consumed from each one.
+const VAR_USE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?![A-Za-z0-9_])[^}\n]*\}|\$([A-Za-z_][A-Za-z0-9_]*)/g;
+const CMD_WORD = /(^|[;&|(\n][^\S\n]*|\b(?:then|do|else|time)\s+|!\s+)([A-Za-z_][A-Za-z0-9_.:+-]*)(?=\s|$|[;&|)])/g;
 
 function verbValue(raw) {
   const inner = raw.startsWith("(") ? raw.slice(1, -1) : raw;

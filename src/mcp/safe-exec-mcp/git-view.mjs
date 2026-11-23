@@ -34,7 +34,10 @@ const readWord = (raw) => normaliseWord(decodeAnsiC(raw));
 // A redirection operator with its target (for the grammar-free readers only — shellCommands is frozen).
 // The fd prefix is digits or bash's named fd `{NAME}` glued to the operator (A2A 09:22: `{fd}>f`,
 // `{fd}>&-`); a spaced `{fd} >f` or a brace list `{a,b}` stays an ordinary word, as bash reads it.
-const REDIRECT = /(?:\d+|\{[A-Za-z_][A-Za-z0-9_]*\})?(?:<<<|<<-|<<|&>>|&>|>>|>\||<>|>&|<&|<|>)[ \t]*(?:"[^"\n]*"|'[^'\n]*'|[^\s<>;|&()`]*)/g;
+// CodeQL js/polynomial-redos (alert 35, E-457): the fd number never starts right after a digit, so
+// it is read once per digit run, not again from every digit in it. The lookbehind is on the digit
+// alternative only: an operator right after a digit (`<&3>out`) still starts a match.
+const REDIRECT = /(?:(?<![0-9])\d+|\{[A-Za-z_][A-Za-z0-9_]*\})?(?:<<<|<<-|<<|&>>|&>|>>|>\||<>|>&|<&|<|>)[ \t]*(?:"[^"\n]*"|'[^'\n]*'|[^\s<>;|&()`]*)/g;
 const openBraces = (raw) => (raw.match(/\$\{/g) || []).length - (raw.match(/\}/g) || []).length;
 
 // Every possible subcommand of each git command in one command's words (raw and normalised,
@@ -256,7 +259,17 @@ export function setsGitConfigName(raw) {
 // { } < > and whitespace, so a subshell `(cd .. && git …)` is seen.
 const CD_VERBS = new Set(["cd", "pushd", "popd"]);
 const CD_OPTION = /^-[LPe@]+$/;
-const trimSlash = (p) => normalize(p).replace(/(.)\/+$/, "$1");
+// CodeQL js/polynomial-redos (alert 36, E-457): `/(.)\/+$/` → "$1" by a scan, not a regex retried
+// from every `/` — exactly: the run of trailing slashes goes when a character other than a line
+// terminator precedes it (the regex's `.`), so the root `/` stays and `a\n/` is unchanged.
+function trimSlash(p) {
+  const q = normalize(p);
+  let i = q.length;
+  while (i > 0 && q[i - 1] === "/") i--;
+  if (i === q.length) return q;
+  if (i === 0) return "/";                                     // `.` was the first slash
+  return /[\n\r\u2028\u2029]/.test(q[i - 1]) ? q : q.slice(0, i);
+}
 function rootForms(projectRoot) {
   if (!projectRoot) return null;
   const forms = new Set([trimSlash(String(projectRoot))]);

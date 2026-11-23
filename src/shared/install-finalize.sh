@@ -60,7 +60,9 @@ rein_fin_record_toolchain() {  # <rein> <toolchain-record.sh> [root…]
   # E-433 (D-160 addendum 1): tmux is recorded by the same check, for the waiting-signal hook
   # (the pinned PATH may not hold it). Optional: absent or refused is a note, never a failure.
   local t rt=""
-  t="$(command -v tmux 2>/dev/null)"
+  # `|| true`: the installer runs under `set -e`, and a host with no tmux (the macOS runner)
+  # made this assignment the installer's silent exit 1 (hosted CI on the E-457 stack).
+  t="$(command -v tmux 2>/dev/null || true)"
   if [[ -n "$t" ]]; then
     rt="$(rein_tc_check "$t" ${roots[@]+"${roots[@]}"})" || { echo "! hook toolchain: tmux not recorded (${t}) — the pane waiting signal stays off" >&2; rt=""; }
   fi

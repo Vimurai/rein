@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # REIN_SUITE_TIMEOUT=512   (E-401, D-138 r3: 3x the slowest green hosted run — 93 s Linux / 170 s macOS, CENSUS_SUITE ms over 10 main CI runs 41145231705..42041035881, 2026-11-06)
 # rein_sync_test.sh — `rein sync`: every step runs (E-247, D-067 §1), and what it prunes, mirrors
-# and regenerates (sync_prune, path_rules, mcp_doc_sync, registry_sync, mcp, skill_prune,
-# memory_palace_sync sections, merged in E-302).
+# and regenerates (sync_prune, path_rules, mcp_doc_sync, registry_sync, mcp, skill_prune
+# sections, merged in E-302; E-467 retired the memory_palace_sync section with the palace).
 #
 # E-247 — every step of `rein sync` actually runs.
 #
@@ -14,6 +14,7 @@
 #   install_git_hooks, _upgrade_legacy_git_hooks, _regenerate_mcp_docs,
 #   _regenerate_blueprints_index, _wal_checkpoint_state_db, _generate_repo_map,
 #   _generate_memory_palace, _ensure_generated_gitignore and _report_policy_staleness
+#   (E-467 retired _generate_repo_map and _generate_memory_palace)
 #
 # never ran, and `rein sync` never printed "Done." Nine ruled features were silently lost, for
 # weeks, in a command run reflexively after every pull. Nothing failed. That is the whole
@@ -38,9 +39,7 @@ AI="${REPO_ROOT}/src/bin/rein"
 
 echo "── Suite: rein_sync_test ─────────────────────────────────────────────"
 
-# The AST repo map is the most expensive step and its content is irrelevant here; the
-# assertions below check that it REPORTS, and the skip notice is a report.
-export REIN_DISABLE_REPO_MAP=1
+# (E-467, D-170 r5: the REPO_MAP and Memory Palace steps are retired, so no skip variable is set.)
 
 # A project fixture. Deliberately NOT a git repository for the default case: `rein init`
 # exited 128 there until E-244, and install_git_hooks is the first step of the restored
@@ -80,10 +79,12 @@ assert_contains "E-247.02b: mcp.md is regenerated from registry.json" \
 # anything, which is the point of running it first.
 assert_contains "E-247.02c: the blueprint index is regenerated" \
   ".ai/blueprints/_INDEX.md" "$_out"
-assert_contains "E-247.02d: the AST repo map step reports (skipped here by env)" \
-  "REPO_MAP.md" "$_out"
-assert_contains "E-247.02e: the Memory Palace candidate index is refreshed" \
-  "palace-index.json" "$_out"
+# E-247.02d-e (the REPO_MAP and Memory Palace steps) went with those steps (E-467, D-170 r5);
+# the gate probe is the last step, so its marker proves the tail ran.
+assert_contains "E-247.02f: the last step, the gate probe, reports" \
+  "safe-exec gate:" "$_out"
+assert_status 1 "E-467: no retired step reports (REPO_MAP, the Memory Palace)" \
+  grep -qE 'REPO_MAP|palace-index' <<< "$_out"
 
 # ── E-247.3: the step summary ────────────────────────────────────────────────
 # A count is what makes a SILENT loss loud. "Done." alone returned in E-217's shape too;
@@ -100,19 +101,20 @@ assert_status 1 "E-247.03b: and it is not a hardcoded zero" \
 # captured log, every later step still runs, and the exit status is 1. The forced failure
 # runs through the same capture path as a real step (its stderr is a real process's).
 _pf="$(_proj)"
-_fout="$( cd "$_pf" && REIN_E247_FORCE_FAIL=repo_map bash "$AI" sync 2>&1 )"
+# The forced step is wal (repo_map until E-467 retired it).
+_fout="$( cd "$_pf" && REIN_E247_FORCE_FAIL=wal bash "$AI" sync 2>&1 )"
 _frc=$?
 assert_match "E-247.04a: a failing step prints ✗ <step>: <its last stderr line>" \
-  '✗ repo_map: forced failure \(REIN_E247_FORCE_FAIL=repo_map\)' "$_fout"
+  '✗ wal: forced failure \(REIN_E247_FORCE_FAIL=wal\)' "$_fout"
 assert_match "E-339.04e: and the path of the captured stderr (E-346: the mktemp'd name)" \
-  'rein-sync-repo_map\.[0-9]+\.[A-Za-z0-9]{6}\)' "$_fout"
+  'rein-sync-wal\.[0-9]+\.[A-Za-z0-9]{6}\)' "$_fout"
 assert_contains "E-247.04b: and the sync still completes" "Done." "$_fout"
 assert_status 0 "E-339.04c: and exits 1 (D-107 r1 — a failed step is not a success)" \
   bash -c "[[ '$_frc' -eq 1 ]]"
 assert_match "E-247.04d: the summary counts the failure as FAILED" \
   'steps: [0-9]+ ok, [0-9]+ skipped, 1 FAILED — see the ✗ lines' "$_fout"
 assert_contains "E-339.04f: a step AFTER the failed one still ran" \
-  "palace-index.json" "$_fout"
+  "safe-exec gate:" "$_fout"
 
 # ── E-247.5: the rollback ────────────────────────────────────────────────────
 # D-067 §1 makes today's truncated behaviour available EXPLICITLY, so an operator who hits
@@ -120,7 +122,7 @@ assert_contains "E-339.04f: a step AFTER the failed one still ran" \
 _pm="$(_proj)"
 _mout="$( cd "$_pm" && REIN_SYNC_MINIMAL=1 bash "$AI" sync 2>&1 )"
 assert_status 1 "E-247.05a: REIN_SYNC_MINIMAL=1 stops after provisioning" \
-  bash -c "grep -q 'palace-index.json' <<< '$_mout'"
+  bash -c "grep -q 'safe-exec gate:' <<< '$_mout'"
 assert_contains "E-247.05b: and says why it stopped, rather than looking finished" \
   "REIN_SYNC_MINIMAL=1" "$_mout"
 assert_status 0 "E-247.05c: the minimal path still exits 0" \
@@ -160,21 +162,16 @@ assert_status 0 "E-247.06f: and it names an artefact sync regenerates" \
 # invocation lives in src/shared/gate-probe.sh only.
 _ph="$(test_tmpdir e339home)"
 tc_fixture_home "$_ph"   # E-345 (D-109 r1): the toolchain record the hooks pin
-mkdir -p "$_ph/.rein/mcp/ast-parser-mcp"
-# The same HOME carries an ast-parser CLI that exits 1, so the REPO_MAP step fails for real
-# (no REIN_E247_FORCE_FAIL): its own stderr tail must be the ✗ line (D-107 r2).
-printf '%s\n' 'process.stderr.write("noise\n\nparse failed: grammar wasm missing\n"); process.exit(1);' \
-  > "$_ph/.rein/mcp/ast-parser-mcp/index.js"
+# E-339.07f (a real ast-parser exit 1 as the repo_map ✗ line) went with the REPO_MAP step
+# (E-467); E-346.03a below pins a real step's stderr tail as its ✗ line (D-107 r2).
 _pb="$(_proj)"
-_bout="$( cd "$_pb" && HOME="$_ph" REIN_DISABLE_REPO_MAP= bash "$AI" sync 2>&1 )"
+_bout="$( cd "$_pb" && HOME="$_ph" bash "$AI" sync 2>&1 )"
 _brc=$?
 assert_match "E-339.07a: sync prints ✗ gate_check: [SAFE_EXEC_BROKEN] with the repair command" \
   '✗ gate_check: \[SAFE_EXEC_BROKEN\] .* — run: bash install-rein\.sh' "$_bout"
 assert_status 0 "E-339.07b: and exits 1" bash -c "[[ '$_brc' -eq 1 ]]"
-assert_match "E-339.07f: a real ast-parser exit 1 prints ✗ repo_map: <its last stderr line>" \
-  '✗ repo_map: parse failed: grammar wasm missing \(log: ' "$_bout"
-assert_match "E-339.07g: and both failures are counted" \
-  'steps: [0-9]+ ok, [0-9]+ skipped, 2 FAILED' "$_bout"
+assert_match "E-339.07g: and the failure is counted" \
+  'steps: [0-9]+ ok, [0-9]+ skipped, 1 FAILED' "$_bout"
 _dout="$( cd "$_pb" && HOME="$_ph" bash "$AI" doctor 2>&1 )"
 assert_contains "E-339.07c: doctor prints the same [SAFE_EXEC_BROKEN] finding" \
   "[SAFE_EXEC_BROKEN]" "$_dout"
@@ -202,15 +199,15 @@ _ts() { node -e 'const fs=require("fs");const t=Date.now()/1000-Number(process.a
 for _f in rein-sync-foo.1.abcdef rein-sync-foo.1.ghijkl rein-sync-foo.1.log; do printf 'x\n' > "$_lt/$_f"; done
 _ts "$_lt/rein-sync-foo.1.abcdef" 25; _ts "$_lt/rein-sync-foo.1.ghijkl" 1; _ts "$_lt/rein-sync-foo.1.log" 25
 _pl="$(_proj)"
-_lout="$( cd "$_pl" && TMPDIR="$_lt" REIN_E247_FORCE_FAIL=repo_map \
-  bash -c 'ln -s "$1" "${TMPDIR}/rein-sync-repo_map.${BASHPID}.log" && exec bash "$2" sync' _ "$_victim" "$AI" 2>&1 )"
+_lout="$( cd "$_pl" && TMPDIR="$_lt" REIN_E247_FORCE_FAIL=wal \
+  bash -c 'ln -s "$1" "${TMPDIR}/rein-sync-wal.${BASHPID}.log" && exec bash "$2" sync' _ "$_victim" "$AI" 2>&1 )"
 assert_status 0 "E-346.01a: the pre-planted symlink at the old fixed path is never followed" \
   bash -c "[[ \"\$(cat '$_victim')\" == untouched ]]"
 assert_status 0 "E-346.01b: and is left as it was" \
-  bash -c "[[ -L \"\$(printf '%s' '$_lt'/rein-sync-repo_map.*.log)\" ]]"
-_llog="$(printf '%s' "$_lout" | sed -nE 's/.*✗ repo_map: .*\(log: (.*)\)$/\1/p' | head -1)"
+  bash -c "[[ -L \"\$(printf '%s' '$_lt'/rein-sync-wal.*.log)\" ]]"
+_llog="$(printf '%s' "$_lout" | sed -nE 's/.*✗ wal: .*\(log: (.*)\)$/\1/p' | head -1)"
 assert_match "E-346.01c: the ✗ line names the mktemp'd log" \
-  "^${_lt}/rein-sync-repo_map\.[0-9]+\.[A-Za-z0-9]{6}\$" "$_llog"
+  "^${_lt}/rein-sync-wal\.[0-9]+\.[A-Za-z0-9]{6}\$" "$_llog"
 assert_status 0 "E-346.01d: and that log holds the step's stderr" \
   grep -q 'forced failure' "${_llog:-/nonexistent}"
 assert_status 1 "E-346.02a: a 25 h-old rein-sync-*.?????? log of the caller is removed at start" \
@@ -285,8 +282,6 @@ assert_contains "E-346.04c: and counted FAILED" "failed=1" "$_cl"
 echo ""
 
 # ── E-220 (from sync_prune — E-302): manifest-scoped pruning in rein sync ──
-# The sections below ran without the repo-map skip the E-247 section exports.
-unset REIN_DISABLE_REPO_MAP
 # E-220 (D-056 R2): manifest-scoped pruning in `rein sync`.
 #
 # `rein sync` was purely additive: after the E-217 rename the old `rein-task` directories
@@ -566,7 +561,7 @@ JSON
   _mkskill "$d/${_LG_DIR_B}/skills" mine "handwritten"
   printf '%s' "$d"
 }
-_lg_sync() { ( cd "$1" && shift && env REIN_DISABLE_REPO_MAP=1 "$@" bash "$AI_BIN" sync 2>&1 ); }
+_lg_sync() { ( cd "$1" && shift && env "$@" bash "$AI_BIN" sync 2>&1 ); }
 
 # (a) + (b) in ONE fixture: every deletion is paired with a survival beside it.
 LG1="$(_lg_fixture)"
@@ -852,7 +847,7 @@ if [[ -d "${HOME}/.rein/claude/rules" ]]; then
 { "roles": { "architect": {"provider":"claude","pane_identifier":"1","model":"fable"},
              "engineer":  {"provider":"claude","pane_identifier":"0","model":"opus"} } }
 JSON
-  _o="$(cd "$TA" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync 2>&1)"
+  _o="$(cd "$TA" && bash "$AI_BIN" sync 2>&1)"
   _n_src="$(find "${HOME}/.rein/claude/rules" -name '*.md' | wc -l | tr -d ' ')"
   _n_dst="$(find "$TA/.claude/rules" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
   assert_status 0 "E-282.04a: rein sync provisions every shipped rule (${_n_dst}/${_n_src})" test "$_n_dst" -eq "$_n_src" -a "$_n_src" -ge 5
@@ -1049,10 +1044,7 @@ python3 - "$REGISTRY" "${TMP_DIR}/.mcp.json" "$HOME" "${HOME}/.rein" <<'PY'
 import json, os, sys
 registry_path, mcp_path, home, rein = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
 
-servers = {
-  "filesystem": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-filesystem@2026.1.14", "."]},
-  "memory": {"command": "npx", "args": ["-y", "@modelcontextprotocol/server-memory@2026.1.26"]}
-}
+servers = {}   # E-467 (D-170 r5): the third-party filesystem and memory entries are retired
 
 if os.path.exists(registry_path):
     with open(registry_path) as f:
@@ -1117,7 +1109,7 @@ assert_contains "E-98: registry lists archive_done_tasks" "archive_done_tasks" "
 # the retirement is complete:
 #
 #   * no canonical source and no tracked .claude mirror remains;
-#   * the canonical skill count is 43;
+#   * the canonical skill count is pinned (5 since E-467);
 #   * no rulefile, template, skill, agent or MCP server still names one — the only places
 #     the names may appear are the legacy registry (which must, so `rein clean` can remove
 #     the provisioned copies), .ai/archive, CHANGELOG and this suite;
@@ -1139,8 +1131,10 @@ done
 # Every canonical skill root under src/ (shared, claude, architect, …).
 _n="$(cd "$REPO_ROOT" && find src -path '*/node_modules' -prune -o -name SKILL.md -print | wc -l | tr -d ' ')"
 # E-430 (D-159 r5): rein-digest and digest_updater retired — 43 → 41. E-464 retired review_synthesizer
-# (40, this count was not moved then); E-460 removed rein-preflight — 39.
-assert_status 0 "E-283.02: 39 canonical skills (got ${_n})" test "$_n" -eq 39
+# (40, this count was not moved then); E-460 removed rein-preflight — 39. E-467 (D-170 r4: at most 6)
+# kept blueprint-writer, rein-review, rein-debug, rein-test and release-manager — 5, plus the
+# src/templates/SKILL.md template this count has always included — 6.
+assert_status 0 "E-283.02: 5 canonical skills + the template (got ${_n})" test "$_n" -eq 6
 
 # Every mention outside the permitted places is a leftover reference.
 _hits="$(cd "$REPO_ROOT" && git grep -lE "(${PATTERN})" -- . \
@@ -1162,113 +1156,13 @@ done
 assert_status 0 "E-283.04b: the registry still loads" \
   node --no-warnings -e "import('${REPO_ROOT}/src/shared/legacy-registry.mjs').then(m=>m.loadRegistry('${REG}'))"
 
-ARCHIVE="${REPO_ROOT}/src/shared/skills/rein-archive/SKILL.md"
-assert_contains "E-283.05a: rein-archive distills SESSION.md before moving it" "SESSION.md only — distill before moving" "$(cat "$ARCHIVE")"
-assert_mirror_if_present "E-283.05b: rein-archive mirror matches" "$ARCHIVE" "${REPO_ROOT}/.claude/skills/rein-archive/SKILL.md"
+# E-283.05a-b (the rein-archive skill distilled SESSION.md) went with the skill (E-467, D-170 r5):
+# `rein archive --logs` moves SESSION.md now (state_archive_test E-467.02).
 # E-283.06 (ENGINEER.md calls check_context_health) and E-283.07 (the rulefiles' Ephemeral
 # Skill Pattern) were deleted by E-460: the 2 KB rulefiles (role_provisioning_test E-460.R*)
 # carry neither; archive-manager-mcp leaves with D-170 r5.
 
 
-# ── E-145 (from memory_palace_sync — E-302): _generate_memory_palace in do_sync ──
-# LAST on purpose: it sources src/bin/rein into this shell (which sets -e and defines its globals).
-# E-145 (self-learning-arc, W5-T1): _generate_memory_palace
-# is the fail-open do_sync hook that refreshes the Memory Palace candidate index via the
-# API-free memory-batch-scanner. It must NEVER abort sync; since E-339 (D-107 r1) a missing
-# node/scanner or the disable flag returns 2 (skipped by design) and a scanner error returns 1
-# (FAILED, counted by _sync_step),
-# must honor the REIN_DISABLE_MEMORY_PALACE escape hatch, and must write a valid manifest
-# when the scanner is present. Sources src/bin/rein (guarded) and drives the function directly.
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-
-
-# The source-guard returns early when sourced, defining helpers without dispatch.
-# shellcheck disable=SC1090
-source "${REPO_ROOT}/src/bin/rein" 2>/dev/null || true
-
-assert_status 0 "E-145.S0: _generate_memory_palace defined" \
-  bash -c "type -t _generate_memory_palace >/dev/null 2>&1 || (source '${REPO_ROOT}/src/bin/rein' 2>/dev/null; type -t _generate_memory_palace >/dev/null)"
-
-# ── T-1: disable flag → skipped (exit 2), no manifest ──────────────────────────
-TMP1="$(mktemp -d)"; on_exit 'rm -rf "$TMP1" "${TMP2:-}" "${TMP3:-}"'
-( cd "$TMP1" && mkdir -p .ai
-  REIN="${REPO_ROOT}" REIN_DISABLE_MEMORY_PALACE=1 bash -c "source '${REPO_ROOT}/src/bin/rein' 2>/dev/null; _generate_memory_palace" >/dev/null 2>&1 ) && rc=0 || rc=$?
-assert_status 0 "T-1: disable flag → exit 2, skipped by design (E-339, D-107 r1)" test "$rc" -eq 2
-assert_status 1 "T-1: disable flag → no palace-index.json written" test -f "$TMP1/.ai/memory/palace-index.json"
-
-# ── T-2: scanner present (REIN→repo) → valid JSON manifest, exit 0 ───────────
-TMP2="$(mktemp -d)"
-( cd "$TMP2" && mkdir -p .ai
-  REIN="${REPO_ROOT}" bash -c "source '${REPO_ROOT}/src/bin/rein' 2>/dev/null; _generate_memory_palace" >/dev/null 2>&1 )
-rc=$?
-assert_status 0 "T-2: function exits 0 with scanner present" test "$rc" -eq 0
-assert_status 0 "T-2: palace-index.json written" test -f "$TMP2/.ai/memory/palace-index.json"
-assert_status 0 "T-2: manifest is valid JSON" \
-  node -e "JSON.parse(require('fs').readFileSync('$TMP2/.ai/memory/palace-index.json','utf8'))"
-
-# ── T-3: scanner MISSING → skipped (exit 2, sync continues), no manifest ─────
-# E-223 changed how this has to be staged. Overriding REIN no longer hides the helper:
-# the shared resolver deliberately computes its own install root from HOME so that an
-# environment variable cannot redirect it, which is the whole security property. And the
-# script-relative fallback finds the repo's own copy whenever bin/rein runs from the repo.
-# So the scanner is made genuinely unreachable: a COPY of bin/rein outside the repo (no
-# sibling src/shared) plus a HOME pointing at an empty install root. HOME must be set
-# BEFORE the source, not on the function call — the resolver fixes its install root at
-# source time precisely so a later assignment cannot move it.
-#
-# Note on what this staging exercises: the temp install root holds no shared/locate.sh, so
-# bin/rein falls through to its INLINE fallback resolver (install mirror only). That is the
-# right shape for these two cases — they are about fail-open behaviour when a helper is
-# missing — but it is not the shared resolver, and a later reader should not take it as
-# coverage of locate.sh's HOME-rooting.
-TMP3="$(mktemp -d)"; mkdir -p "$TMP3/home/.rein/shared" "$TMP3/bin"
-tc_fixture_home "$TMP3/home"   # E-345 (D-109 r1): the toolchain record the hooks pin
-cp "${REPO_ROOT}/src/bin/rein" "$TMP3/bin/rein"
-( cd "$TMP3" && mkdir -p .ai
-  HOME="$TMP3/home" bash -c "source '$TMP3/bin/rein' 2>/dev/null; cd '$TMP3'; _generate_memory_palace" >/dev/null 2>&1 ) && rc=0 || rc=$?
-assert_status 0 "T-3: missing scanner → exit 2, skipped by design (E-339, D-107 r1)" test "$rc" -eq 2
-assert_status 1 "T-3: missing scanner → no manifest left behind" test -f "$TMP3/.ai/memory/palace-index.json"
-
-# ── T-4: no partial/.tmp file left behind in any case ────────────────────────
-assert_status 1 "T-4: no palace-index.json.tmp leaked (T-2 dir)" test -f "$TMP2/.ai/memory/palace-index.json.tmp"
-
-# ── T-5: the do_sync call site + fail-open guards exist in source ────────────
-assert_status 0 "T-5: _generate_memory_palace invoked in do_sync" \
-  grep -q "_generate_memory_palace" "${REPO_ROOT}/src/bin/rein"
-assert_status 0 "T-5: REIN_DISABLE_MEMORY_PALACE escape hatch present" \
-  grep -q "REIN_DISABLE_MEMORY_PALACE" "${REPO_ROOT}/src/bin/rein"
-
-# ── T-6: node MISSING → skipped (exit 2) before any FS write (node check first) ─
-# PATH override is applied INLINE on the call (after source), so `command -v node`
-# misses while the source itself ran with a normal PATH.
-TMP6="$(mktemp -d)"
-( cd "$TMP6" && mkdir -p .ai
-  bash -c "source '${REPO_ROOT}/src/bin/rein' 2>/dev/null; cd '$TMP6'; PATH=/nonexistent _generate_memory_palace" >/dev/null 2>&1 ) && rc=0 || rc=$?
-assert_status 0 "T-6: node missing → exit 2, skipped by design (E-339, D-107 r1)" test "$rc" -eq 2
-assert_status 1 "T-6: node missing → no manifest (returns before mkdir)" test -f "$TMP6/.ai/memory/palace-index.json"
-
-# ── T-7: scanner present but EXITS NON-ZERO → FAILED (exit 1), nothing left ────
-# Staged like T-3: a copy of bin/rein outside the repo so the script-relative fallback
-# cannot reach the real scanner, and HOME pointing at an install root holding the stub.
-TMP7="$(mktemp -d)"; mkdir -p "$TMP7/home/.rein/shared" "$TMP7/bin"
-tc_fixture_home "$TMP7/home"   # E-345 (D-109 r1): the toolchain record the hooks pin
-cp "${REPO_ROOT}/src/bin/rein" "$TMP7/bin/rein"
-# The stub records that it RAN before failing. Without this the assertions below pass
-# identically whether the stub failed or was never resolved at all — the test would then
-# be asserting nothing about the failure path it exists to cover.
-# ESM syntax: the file is .mjs, so `require` is undefined and a require-based stub throws
-# BEFORE writing its marker — which is how the first version of this marker silently
-# failed and looked like "the scanner was never reached".
-printf 'import { writeFileSync } from "node:fs";\nwriteFileSync(process.env.STUB_MARK, "ran\\n");\nprocess.exit(1);\n' \
-  > "$TMP7/home/.rein/shared/memory-batch-scanner.mjs"   # runtime-failure stub
-( cd "$TMP7" && mkdir -p .ai
-  HOME="$TMP7/home" STUB_MARK="$TMP7/stub-ran" \
-    bash -c "source '$TMP7/bin/rein' 2>/dev/null; cd '$TMP7'; _generate_memory_palace" >/dev/null 2>&1 ) && rc=0 || rc=$?
-assert_status 0 "T-7: the failing scanner was actually REACHED (not silently unresolved)" \
-  test -f "$TMP7/stub-ran"
-assert_status 0 "T-7: scanner exit 1 → exit 1, FAILED (E-339, D-107 r1; _sync_step still runs the rest)" test "$rc" -eq 1
-assert_status 1 "T-7: scanner exit 1 → no manifest written" test -f "$TMP7/.ai/memory/palace-index.json"
-assert_status 1 "T-7: scanner exit 1 → no .tmp left behind (rollback rm fired)" test -f "$TMP7/.ai/memory/palace-index.json.tmp"
-rm -rf "$TMP6" "$TMP7" 2>/dev/null || true
+# E-145 (_generate_memory_palace in do_sync, T-1..T-7) went with the Memory Palace (E-467, D-170 r5).
 
 assert_summary

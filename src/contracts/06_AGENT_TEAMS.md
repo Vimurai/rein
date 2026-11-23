@@ -6,8 +6,7 @@ Spawn a team automatically when 2+ independent workstreams exist:
 
 | Scenario | Spawn these agents in parallel |
 | :------- | :----------------------------- |
-| Security audit (Tier 3) | `security_engineer` + `identity_guardian` |
-| Vibe & chaos audit | `chaos_monkey` + `vibe_sentinel` |
+| Tests written for a change while it is reviewed | `test_engineer` + `reviewer` |
 
 ## How to Spawn
 
@@ -37,11 +36,8 @@ Example: Implement a new auth endpoint (Tier 3)
 
 1. the Agent tool (subagent_type: "security_engineer")   ← threat model BEFORE writing code
 2. [write the code]
-3. skill: "obs_baseline"        ← ensure logging is in place
-4. skill: "dependency_gate"     ← if new lib needed
-5. skill: "rein-test"             ← quality gate
-6. → SPAWN PARALLEL TEAM (handover)
-7. rein review 3                 ← reviewer, critic_acceptance, security_engineer (checked at DONE)
+3. skill: "rein-test"             ← quality gate
+4. rein review 3                 ← reviewer, critic_acceptance, security_engineer (checked at DONE)
 ```
 
 ## Two Modes of Agent Invocation

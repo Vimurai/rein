@@ -291,12 +291,12 @@ export function doctorLine(aiDir) {
 // incidents, insights, the memory palace) stays on the operator's machine and is not redacted.
 
 /** The writers that call redact(); `rein doctor` counts them. */
+// E-467 (D-170 r5): run-handover, the repository map, the instinct stager, the stop hook and
+// advisor-mcp were retired with their writers.
 export const REDACT_WRITERS = [
   "task description and summary (record-store insertTask/updateTask)", "stamp summary (record-store insertStamp)",
-  "handover delta (run-handover)", "log line (team appendLog)", "repository map (ast-parser generate_map)",
-  "CI evidence (ci-evidence writeCiRecord)", "hosted CI wrapper (hosted-ci)", "proposed skill (instinct-stager)",
-  "digest line (stop hook)", "project focus and verdict (record-store setProject)",
-  "advisor ruling (advisor-mcp logRuling)", "rein clean entry (rein-clean logApply)",
+  "log line (team appendLog)", "CI evidence (ci-evidence writeCiRecord)", "hosted CI wrapper (hosted-ci)",
+  "project focus and verdict (record-store setProject)", "rein clean entry (rein-clean logApply)",
 ];
 
 const _lists = new Map();   // aiDir → { mtime, lists }

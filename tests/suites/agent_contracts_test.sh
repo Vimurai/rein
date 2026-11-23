@@ -43,49 +43,18 @@ assert_match "exactly one critic_ agent" '^1$' "$(cd "${REPO_ROOT}/src/claude/ag
 
 echo ""
 
-# ── E-149..E-152 (from specialist_agents_test — E-302): the four specialist agents ──
-# (performance_engineer, db_architect, dependency_manager, sre_responder) + their
-# skills (rein-profile, rein-migration, rein-upgrade, rein-triage), authored per the new
-# .ai/blueprints/*.md. Verifies each persona/skill exists with a matching `name:`
-# and carries its blueprint safety invariant. (E-254 removed the separate agent plugin;
-# src/claude/agents/ is the only agent tree.)
-name_of() { grep -m1 '^name:' "$1" 2>/dev/null | sed 's/^name:[[:space:]]*//'; }
+# E-149..E-152 (performance_engineer, db_architect, dependency_manager, sre_responder and their
+# skills rein-profile, rein-migration, rein-upgrade, rein-triage) went with those units (E-467, D-170 r5).
 
-# ── Agents: file exists, name matches filename ──────────────────────────────
-for a in performance_engineer db_architect dependency_manager sre_responder; do
-  f="${REPO_ROOT}/src/claude/agents/${a}.md"
-  assert_status 0 "agent ${a}: persona file exists" test -f "$f"
-  assert_contains "agent ${a}: frontmatter name matches" "$a" "$(name_of "$f")"
-done
-
-# ── Skills: file exists, name matches ────────────────────────────────────────
-for s in rein-profile rein-migration rein-upgrade rein-triage; do
-  f="${REPO_ROOT}/src/shared/skills/${s}/SKILL.md"
-  assert_status 0 "skill ${s}: SKILL.md exists" test -f "$f"
-  assert_contains "skill ${s}: frontmatter name matches" "$s" "$(name_of "$f")"
-done
-
-# ── Blueprint safety invariants (each agent must honor its §Security) ─────────
-# performance: bounded profiling in a throwaway dir (no host DoS). E-278 (D-075) retired
-# the Docker sandbox; the bound is now a finite workload under a CPU cap.
-assert_status 0 "perf: profiles in a throwaway dir under a CPU cap" \
-  grep -qE 'mktemp -d.*ulimit -t 30' "${REPO_ROOT}/src/claude/agents/performance_engineer.md"
-assert_status 1 "perf: no DEFERRED flamegraph banner remains" \
-  grep -q 'DEFERRED' "${REPO_ROOT}/src/claude/agents/performance_engineer.md"
-# db: mandatory DOWN/rollback migration
-assert_status 0 "db: requires DOWN/rollback migration" \
-  grep -qiE "down|rollback" "${REPO_ROOT}/src/claude/agents/db_architect.md"
-# dependency: cannot bypass the review (E-464: the reviewer replaced critic_security)
-assert_status 0 "dep: routes through the reviewer" \
-  grep -qiE "reviewer|cve|audit" "${REPO_ROOT}/src/claude/agents/dependency_manager.md"
-# sre: READ-ONLY over logs — plans tasks, never edits code itself
-assert_status 0 "sre: read-only / plans tasks via add_task" \
-  grep -qiE "read-only|add_task|plan" "${REPO_ROOT}/src/claude/agents/sre_responder.md"
+# ── E-467 (D-170 r4): exactly the four kept agents ship ──
+assert_match "the agent tree holds exactly the four kept agents" \
+  '^critic_acceptance.md reviewer.md security_engineer.md test_engineer.md $' \
+  "$(cd "${REPO_ROOT}/src/claude/agents" && ls | tr '\n' ' ')"
 
 # ── E-44 (from security_engineer_agent_test — E-302): active pen-testing upgrade ──
 # Verifies the security_engineer agent file (and its tracked mirror) carry the
 # contract demanded by workflow-optimizations.md §3:
-#   - allowed-tools includes advisor-mcp (E-278: no sandbox MCP tool)
+#   - no retired MCP tool in the tools allowlist (E-278 sandbox, E-467 advisor-mcp)
 #   - "Active Pen-Testing" section present
 #   - Trust boundary policy (throwaway harness: mktemp, env -i, ulimit caps, no egress)
 AGENT_FILES=(
@@ -104,8 +73,8 @@ echo "  [T-SECENG-S02] Frontmatter advertises required MCP tools"
 for f in "${AGENT_FILES[@]}"; do
   assert_status 1 "${f##*/agents/} → no retired sandbox tool in its tools allowlist (E-278, E-295)" \
     grep -qE '^tools:.*execute_code' "$f"
-  assert_status 0 "${f##*/agents/} → tools allowlist includes ask_architect" \
-    grep -qE '^tools:.*mcp__advisor-mcp__ask_architect' "$f"
+  assert_status 1 "${f##*/agents/} → tools allowlist names no retired advisor-mcp (E-467)" \
+    grep -qE '^tools:.*mcp__advisor-mcp' "$f"
 done
 
 echo ""
@@ -198,29 +167,30 @@ assert_status 1 "the generated .claude/settings.json has no execute_code allow" 
 ctx() { grep -E '^context:' "$1" 2>/dev/null | head -1 | awk '{print $2}'; }
 
 # ── Operational skills run in-thread (context: default) — source + .claude exec copy
-for s in trigger-audit rein-sync-state; do   # rein-digest retired (E-430, D-159)
+for s in rein-debug rein-test release-manager; do   # trigger-audit, rein-sync-state retired (E-467)
   assert_contains "T-100: $s source is default" "default" "$(ctx "${REPO_ROOT}/src/shared/skills/$s/SKILL.md")"
   assert_contains "T-100: $s .claude exec copy is default" "default" "$(ctx "${REPO_ROOT}/.claude/skills/$s/SKILL.md")"
 done
 
 # ── Review/audit orchestrators legitimately keep context: fork ───────────────
 assert_contains "T-100: rein-review stays fork (review orchestrator)" "fork" "$(ctx "${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md")"
-assert_contains "T-100: architectural-aligner stays fork" "fork" "$(ctx "${REPO_ROOT}/src/claude/skills/architectural-aligner/SKILL.md")"
+# (architectural-aligner, the other fork orchestrator, was retired by E-467.)
 
 # ── Critic personas (agents) legitimately keep fork (parallel-spawnable) ─────
 assert_contains "T-100: reviewer agent stays fork" "fork" "$(ctx "${REPO_ROOT}/src/claude/agents/reviewer.md")"
 
 # ── `context: local` (invalid Claude Code value) must appear NOWHERE ─────────
 # E-251: the corpus is built with corpus_or_fail — a moved or missing root must fail the
-# scan loudly rather than let `grep -rl` report zero hits over zero files.
+# scan loudly rather than let `grep -rl` report zero hits over zero files. E-467 (D-170 r4) left
+# 5 skills mirrored once: 10 files.
 _ctx_rc=0
-_ctx_corpus="$(cd "$REPO_ROOT" && corpus_or_fail 20 src/shared/skills src/claude/skills .claude/skills -- -type f -name SKILL.md)" || _ctx_rc=$?
-assert_status 0 "T-100: context corpus built (all roots present, >=20 SKILL.md)" test "$_ctx_rc" -eq 0
+_ctx_corpus="$(cd "$REPO_ROOT" && corpus_or_fail 10 src/shared/skills src/claude/skills .claude/skills -- -type f -name SKILL.md)" || _ctx_rc=$?
+assert_status 0 "T-100: context corpus built (all roots present, >=10 SKILL.md)" test "$_ctx_rc" -eq 0
 local_hits=$(cd "$REPO_ROOT" && printf '%s\n' "$_ctx_corpus" | grep . | xargs grep -lE "^context:[[:space:]]*local" 2>/dev/null | wc -l | tr -d ' ')
 assert_match "T-100: no invalid 'context: local' anywhere" '^0$' "$local_hits"
 
 # ── No operational skill still forks ─────────────────────────────────────────
-for s in trigger-audit rein-sync-state; do   # the compaction skill (E-283) and rein-digest (E-430) were retired
+for s in rein-debug rein-test release-manager; do   # trigger-audit, rein-sync-state retired (E-467)
   if grep -qE "^context:[[:space:]]*fork" "${REPO_ROOT}/.claude/skills/$s/SKILL.md" 2>/dev/null; then
     _fail "T-100: $s must NOT be context: fork"
   else
@@ -228,18 +198,14 @@ for s in trigger-audit rein-sync-state; do   # the compaction skill (E-283) and 
   fi
 done
 
-# ── E-113 (from vibe_stamp_alignment_test — E-302): rein-test records [VIBE_CLEARED] via add_stamp ──
-# Before the fix, rein-test emitted [VIBE_REPORT] by appending to the regenerated REVIEWS.md view.
-# E-464 removed review_synthesizer, which gated Tier 3 on [VIBE_CLEARED]; its alignment row went with it.
+# ── E-113 (from vibe_stamp_alignment_test — E-302) → E-467: the vibe audit is gone from rein-test ──
+# E-467 (D-170 r5) retired the vibe and chaos units (ux_reviewer, chaos_monkey, vibe-check-mcp), so
+# the [VIBE_CLEARED] rows went with them; what stays pinned is that no --vibe path is left.
 AI_TEST="${REPO_ROOT}/src/shared/skills/rein-test/SKILL.md"
-assert_status 0 "rein-test emits [VIBE_CLEARED]"            grep -qF 'VIBE_CLEARED' "$AI_TEST"
-assert_status 0 "rein-test records vibe verdict via add_stamp" \
+assert_status 1 "rein-test offers no --vibe audit (E-467)"  grep -qE -- '--vibe|VIBE_' "$AI_TEST"
+assert_status 1 "rein-test names no retired vibe agent"     grep -qE 'ux_reviewer|chaos_monkey|vibe-check-mcp' "$AI_TEST"
+assert_status 0 "rein-test still records the Tester's stamp via add_stamp" \
   grep -q 'add_stamp' "$AI_TEST"
-assert_status 1 "rein-test no longer emits [VIBE_REPORT]"   grep -qF 'VIBE_REPORT' "$AI_TEST"
-assert_status 1 "rein-test no longer hand-appends the vibe stamp to REVIEWS.md" \
-  grep -qE 'Append .*VIBE.* to .*REVIEWS\.md' "$AI_TEST"
-assert_status 0 "rein-test's release gate lists [VIBE_CLEARED] (≤ 7 days)" \
-  grep -qE '\[VIBE_CLEARED\].*7 days' "$AI_TEST"
 
 # ── mirror identity for rein-test (.claude + ~/.rein) ──────────────────────
 assert_status 0 "rein-test .claude mirror identical" \
@@ -255,7 +221,8 @@ assert_status 0 "rein-test ~/.rein mirror identical" \
 # Verifies the skill body in src/shared/skills (source of truth) and the tracked
 # .claude/skills mirror carry the contract bits
 # the workflow-optimizations.md blueprint mandates: 3-cycle budget,
-# BUDGET_EXHAUSTED state, advisor-mcp escalation, hypothesis distinctness.
+# BUDGET_EXHAUSTED state, escalation to the Architect (`rein handoff` since E-467 retired
+# advisor-mcp), hypothesis distinctness.
 # The canonical source plus the Claude workspace copy — the only workspace in v4 (E-254).
 SKILL_FILES=(
   "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
@@ -269,10 +236,10 @@ for f in "${SKILL_FILES[@]}"; do
 done
 
 echo ""
-echo "  [T-DEBUG-S02] Frontmatter advertises advisor-mcp tool"
+echo "  [T-DEBUG-S02] Frontmatter names no retired advisor-mcp tool (E-467)"
 for f in "${SKILL_FILES[@]}"; do
-  assert_status 0 "${f##*/skills/} → allowed-tools includes advisor-mcp ask_architect" \
-    grep -qE 'allowed-tools:.*mcp__advisor-mcp__ask_architect' "$f"
+  assert_status 1 "${f##*/skills/} → allowed-tools names no advisor-mcp" \
+    grep -qE 'allowed-tools:.*mcp__advisor-mcp' "$f"
 done
 
 echo ""
@@ -292,12 +259,12 @@ for f in "${SKILL_FILES[@]}"; do
 done
 
 echo ""
-echo "  [T-DEBUG-S05] Escalation block invokes advisor-mcp"
+echo "  [T-DEBUG-S05] Escalation block hands off to the Architect (rein handoff, E-467)"
 for f in "${SKILL_FILES[@]}"; do
   assert_status 0 "${f##*/skills/} → BUDGET_EXHAUSTED escalation block present" \
     grep -q "Escalation — BUDGET_EXHAUSTED" "$f"
-  assert_status 0 "${f##*/skills/} → calls mcp__advisor-mcp__ask_architect" \
-    grep -q "mcp__advisor-mcp__ask_architect" "$f"
+  assert_status 0 "${f##*/skills/} → runs rein handoff --to architect" \
+    grep -q "rein handoff --to architect" "$f"
   assert_status 0 "${f##*/skills/} → forbids 4th cycle without architect" \
     grep -qE 'Do NOT start a 4th cycle|4th cycle' "$f"
 done

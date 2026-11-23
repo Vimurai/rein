@@ -404,87 +404,14 @@ test("drift is capped and says so", () => {
   assert.equal(d.truncated, true);
 });
 
-// ── E-319 / E-320 (D-097 r5, D-098 r2): run_handover applies the shared completion gates ──
-// The second door to a task's DONE. It used to mark E-314 DONE while task-synchronizer's
-// update_task_status refused the same call with [BUILD_STALE], and then still lacked the CI
-// gate. Extends the gate rows above: same fixtures, called through the handler.
-async function handoverFixture({ git = false } = {}) {
-  const { repo, mirror } = repoMirrorFixture();
-  const runDir = runDirFixture();
-  mkdirSync(join(repo, ".ai"), { recursive: true });
-  writeFileSync(join(repo, ".ai", "LOG.md"), "# LOG\n");
-  const { getDb } = await import("../../src/mcp/shared/state-db.js");
-  getDb(join(repo, ".ai"))
-    .prepare("INSERT INTO tasks(id, owner, status, description, created_at) VALUES ('E-1', 'Engineer (Claude)', 'OPEN', 'fixture', ?)")
-    .run(new Date().toISOString());
-  let head = null;
-  if (git) {   // a HEAD for the CI gate to certify; .ai/ is not part of the commit
-    const g = (...a) => execFileSync("git", ["-C", repo, ...a], { encoding: "utf8" }).trim();
-    g("init", "-q"); g("config", "user.email", "t@t"); g("config", "user.name", "t");
-    writeFileSync(join(repo, ".gitignore"), ".ai/\n");
-    g("add", "-A"); g("commit", "-q", "-m", "fixture");
-    head = g("rev-parse", "HEAD");
-  }
-  const { runHandover } = await import("../../src/mcp/orchestrator-mcp/run-handover.mjs");
-  const db = getDb(join(repo, ".ai"));
-  const status = () => db.prepare("SELECT status FROM tasks WHERE id = 'E-1'").get().status;
-  const opts = { mirrorRoot: mirror, runDir, frameworkOnly: false };
-  return { repo, db, head, runHandover, status, opts };
-}
-
-// E-461 (D-169 r7): a stale build no longer refuses DONE — it is one [BUILD_STALE] line.
-test("run_handover on a stale build marks DONE and prints one [BUILD_STALE] line", async () => {
-  const { repo, runHandover, status, opts } = await handoverFixture();
-  writeFileSync(join(repo, "src", "mcp", "srv", "index.js"), "// server v2 — edited, not installed\n");
-  const r = runHandover(repo, { task_id: "E-1", summary: "lands anyway" }, opts, {});
-  assert.notEqual(r.isError, true, r.content[0].text);
-  const stale = r.content[0].text.split("\n").filter((l) => l.includes("[BUILD_STALE]"));
-  assert.equal(stale.length, 1, r.content[0].text);
-  assert.match(stale[0], /^\[BUILD_STALE\] 1 file\(s\) under src\/mcp\/ or src\/bin\/ differ from the install mirror — not refused; install: bash install-rein\.sh/);
-  assert.equal(status(), "DONE");
-});
-
-test("run_handover PASSES the gate on a current build and marks DONE", async () => {
-  const { repo, runHandover, status, opts } = await handoverFixture();
-  // E-430 (D-159 r3): the handover rebuilds the digest — its Recent changes gains the task.
-  const { writeDigest } = await import("../../src/shared/digest-build.mjs");
-  writeDigest(repo);
-  const recent = () => readFileSync(join(repo, ".ai", "DIGEST.md"), "utf8").split("## Recent changes\n")[1];
-  assert.doesNotMatch(recent(), /E-1 /);
-  const r = runHandover(repo, { task_id: "E-1", summary: "landed" }, opts, {});
-  assert.notEqual(r.isError, true, r.content[0].text);
-  assert.match(r.content[0].text, /E-1 marked DONE/);
-  assert.equal(status(), "DONE");
-  assert.match(r.content[0].text, /\[DIGEST_BUILT\] inputs [0-9a-f]{12}/);
-  assert.match(recent(), /^- E-1 \(\d{4}-\d{2}-\d{2}\): landed$/m);
-});
-
-test("run_handover REFUSES with [CI_GATE] when HEAD's run FAILED; task OPEN, LOG unchanged (E-320)", async () => {
-  const { repo, db, head, runHandover, status, opts } = await handoverFixture({ git: true });
-  const { recordCiRun } = await import("../../src/mcp/shared/ci-runs.js");
-  recordCiRun(db, { sha: head, ref: "HEAD", status: "FAIL", started_at: "2026-10-14T08:00:00Z" });
-  const r = runHandover(repo, { task_id: "E-1", summary: "should not land" }, opts, {});
-  assert.equal(r.isError, true);
-  assert.match(r.content[0].text, /\[CI_GATE\] no green local CI run for HEAD/);
-  assert.equal(statusForResult(r), "REJECTED");
-  assert.equal(status(), "OPEN");
-  assert.equal(readFileSync(join(repo, ".ai", "LOG.md"), "utf8"), "# LOG\n");
-  // …and REIN_CI_GATE=0 is the same bypass it is for update_task_status.
-  assert.match(runHandover(repo, { task_id: "E-1", summary: "bypassed" }, opts, { REIN_CI_GATE: "0" }).content[0].text, /E-1 marked DONE/);
-});
-
-test("run_handover PASSES the CI gate on a green run for HEAD (E-320)", async () => {
-  const { repo, db, head, runHandover, status, opts } = await handoverFixture({ git: true });
-  const { recordCiRun } = await import("../../src/mcp/shared/ci-runs.js");
-  recordCiRun(db, { sha: head, ref: "HEAD", status: "PASS", started_at: "2026-10-14T08:00:00Z" });
-  const r = runHandover(repo, { task_id: "E-1", summary: "landed" }, opts, {});
-  assert.notEqual(r.isError, true, r.content[0].text);
-  assert.equal(status(), "DONE");
-});
+// E-319 / E-320 (run_handover through the shared completion gates) were deleted with
+// orchestrator-mcp (E-467, D-170 r5); the same gates on the kept doors (`rein done` /
+// `rein task done`, update_task_status) are pinned in completion-gates.test.mjs and
+// bookkeeping-commands.test.mjs.
 
 test("one gate list: both status writers call completionGates and define no gate text of their own (E-320)", () => {
   const src = (f) => readFileSync(join(REPO, f), "utf8");
-  for (const f of ["src/mcp/task-synchronizer-mcp/index.js", "src/mcp/orchestrator-mcp/run-handover.mjs"]) {
+  for (const f of ["src/mcp/task-synchronizer-mcp/index.js"]) {   // run-handover.mjs went with orchestrator-mcp (E-467)
     assert.match(src(f), /completionGates\(/, `${f} calls the shared gates`);
     assert.doesNotMatch(src(f), /checkCompletionBuildGate|checkCiDoneGate/, `${f} calls no gate of its own`);
   }

@@ -20,7 +20,8 @@ MARK="$DECOY/CANARY_EXECUTED"
 # one sees a plausible result and carries on — a canary that crashed would be caught by
 # accident rather than by the guard.
 mkdir -p "$DECOY/src/shared" "$DECOY/.ai"
-for helper in incident-aggregate insights-staleness telemetry skill-promoter; do
+# incident-aggregate and insights-staleness stay: the suite's pre-fix fixture names them.
+for helper in incident-aggregate insights-staleness telemetry test-command; do
   cat > "$DECOY/src/shared/${helper}.mjs" <<EOF
 import { appendFileSync } from "node:fs";
 appendFileSync("$MARK", "${helper}\n");

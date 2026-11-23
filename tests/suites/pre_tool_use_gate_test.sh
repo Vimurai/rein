@@ -409,7 +409,7 @@ rm -f "$UH/.rein/gate-override.json"; mv "$UT/secret-rule.mjs.bak" "$UM/mcp/safe
 # hook never runs a decoy and still blocks — across PATH, exported-function, NODE_OPTIONS,
 # PYTHONPATH, cwd json.py and inherited REIN_TC_* channels, and across the stale / missing /
 # partial toolchain-file branches.
-POST="${REPO_ROOT}/hooks/post-tool-use.sh"
+POST="${REPO_ROOT}/hooks/state-import.sh"   # a fail-open hook that runs node (post-tool-use.sh until E-467)
 PIN="${REPO_ROOT}/src/shared/toolchain-pin.sh"
 REC="${REPO_ROOT}/src/shared/toolchain-record.sh"
 # The hook as it was before E-286 (master at the E-264 merge): the fixture must FAIL on it.
@@ -593,7 +593,7 @@ _mode="$(file_mode "$W/tc-link")"
 assert_status 0 "E-286.06l: the toolchain file is written 0644 (got ${_mode})" test "$_mode" = "644"
 
 # ── E-286.7: every hook carries the prologue before its first command ───────
-for h in pre-tool-use post-tool-use post-tool-log session-start stop-hook pre-commit pre-push post-commit permission-denied; do
+for h in pre-tool-use session-start pre-commit pre-push post-commit state-import; do   # E-467 retired four hooks
   f="${REPO_ROOT}/hooks/${h}.sh"
   # E-292 (D-082 r2): the abort trap precedes the prologue — `trap` is a builtin, so the rule
   # "no command before the prologue" holds as long as ONLY trap lines come first.

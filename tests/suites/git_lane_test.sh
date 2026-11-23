@@ -68,7 +68,7 @@ _OUT=""
 _run() {  # <repo> <role> → sets _OUT and _RC
   local d="$1" role="$2"
   _OUT="$( cd "$d" && env HOME="$GH" REIN_CALLER_ROLE="$role" \
-           REIN_SKIP_STANDARDS=1 CLAUDE_CODE_SESSION_ID= \
+           CLAUDE_CODE_SESSION_ID= \
            bash "$HOOK" 2>&1 )"
   _RC=$?
 }
@@ -153,7 +153,7 @@ assert_not_contains "E-214.06d: …with no CRITIC_STAMP request" "CRITIC_STAMP" 
 R10="$(_mkrepo)"
 ( cd "$R10" && echo z > src/impl.js && git add src/impl.js )
 _OUT="$( cd "$R10" && HOME="$GH" bash "$AS" architect e214-l -- env REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer \
-         REIN_SKIP_STANDARDS=1 CLAUDE_CODE_SESSION_ID=e214-l bash "$HOOK" 2>&1 )"; _RC=$?
+         CLAUDE_CODE_SESSION_ID=e214-l bash "$HOOK" 2>&1 )"; _RC=$?
 assert_contains "E-214.07a: the HMAC record beats a forged REIN_CALLER_ROLE=engineer" \
   "SOVEREIGNTY_BLOCK" "$_OUT"
 assert_status 0 "E-214.07b: --verify-role returns the recorded role inside its session" \
@@ -173,12 +173,8 @@ assert_not_contains "E-214.08b: bypass produces no sovereignty block" "SOVEREIGN
 # honoured (REIN_SKIP_GIT_LANE was silent before).
 assert_contains "E-294.08c: REIN_SKIP_GIT_LANE=1 prints its [GATE_SKIPPED] line" \
   "[GATE_SKIPPED] REIN_SKIP_GIT_LANE=1" "$_OUT"
-assert_contains "E-294.08d: REIN_SKIP_STANDARDS=1 prints its [GATE_SKIPPED] line" \
-  "[GATE_SKIPPED] REIN_SKIP_STANDARDS=1" "$_OUT"
-_OUT="$( cd "$R11" && env HOME="$GH" REIN_SKIP_CONFLICT_GATE=1 REIN_SKIP_STANDARDS=1 \
-         CLAUDE_CODE_SESSION_ID= bash "$HOOK" 2>&1 )"
-assert_contains "E-294.08e: REIN_SKIP_CONFLICT_GATE=1 prints its [GATE_SKIPPED] line" \
-  "[GATE_SKIPPED] REIN_SKIP_CONFLICT_GATE=1" "$_OUT"
+# E-294.08d/e (the standards and conflict-marker gates' [GATE_SKIPPED] lines) went with those
+# gates (E-467, D-170 r4: pre-commit keeps the lane, machine-local and publish checks only).
 _OUT="$( cd "$R11" && env HOME="$GH" CLAUDE_CODE_SESSION_ID= bash "$HOOK" 2>&1 )"
 assert_not_contains "E-294.08f: without any opt-out no [GATE_SKIPPED] line is printed" "[GATE_SKIPPED]" "$_OUT"
 _OUT="$( cd "$R11" && env HOME="$GH" REIN_CI_SKIP=1 REIN_CI_SKIP_REASON=e294-test \

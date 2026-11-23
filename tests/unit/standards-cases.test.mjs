@@ -174,7 +174,8 @@ function corpus(root) {
 test("E-234.06c-e / E-231.06a-c: the src + .claude markdown corpus is built and has no locator findings", () => {
   for (const r of ["src", ".claude"]) assert.ok(existsSync(join(repo, r)), `corpus root ${r} missing`);
   const files = [...corpus("src"), ...corpus(".claude")];
-  assert.ok(files.length >= 100, `corpus has ${files.length} files, floor 100`);
+  // Floor 40: E-467 (D-170 r5) cut the corpus from 100+ files to 53; the floor still refuses an empty walk.
+  assert.ok(files.length >= 40, `corpus has ${files.length} files, floor 40`);
   const hits = [];
   for (const f of files) {
     const c = readFileSync(join(repo, f), "utf8");

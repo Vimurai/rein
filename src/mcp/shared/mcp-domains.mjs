@@ -13,46 +13,12 @@
 
 export const DOMAINS = {
   State: {
-    description: "State and task management — TASKS.md, state.json, archives, semantic memory.",
-    servers: [
-      "task-synchronizer-mcp",
-      "orchestrator-mcp",
-      "archive-manager-mcp",
-      "memory",
-      "memory-manager-mcp",
-    ],
-  },
-  Code: {
-    description: "Code intelligence and editing — filesystem, LSP, atomic patching.",
-    servers: ["filesystem", "patch-mcp", "propose-patch-mcp"],
+    description: "The task ledger — state.sqlite, the generated views, stamps (D-170 r4).",
+    servers: ["task-synchronizer-mcp"],
   },
   Safety: {
-    description: "Pre-execution safety gates — command analysis, scope checks, risk classification, agent verification.",
-    servers: [
-      "safe-exec-mcp",
-      "context-guardian-mcp",
-      "risk-analyzer-mcp",
-      "verification-mcp",
-    ],
-  },
-  Intelligence: {
-    description: "Blueprint alignment and token budgeting.",
-    servers: [
-      "blueprint-aligner-mcp",
-      "token-budget-mcp",
-    ],
-  },
-  Quality: {
-    description: "Visual audit (tests run headless via skill: rein-test, E-255).",
-    servers: ["vibe-check-mcp"],
-  },
-  Interop: {
-    description: "A2A bridge to the Architect and HITL approval gate.",
-    servers: ["advisor-mcp", "approval-mcp"],
-  },
-  Caching: {
-    description: "Explicit Context Cache for blueprint-heavy prompts.",
-    servers: ["cache-manager-mcp"],
+    description: "The pre-execution command gate (held until E-463).",
+    servers: ["safe-exec-mcp"],
   },
 };
 

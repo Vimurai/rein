@@ -277,7 +277,7 @@ _dcheck="$(node -e '
 const [json, text] = process.argv.slice(1);
 const NO_AUTO_FIX = new Set(["classifier_backstop", "claude_home", "hook_path_foreign", "hooks_disabled", "hosted_ci",
   "mcp_builds", "mcp_server", "mcp_syntax", "node_present", "npx_present", "path_has_rein_bin", "rein_on_path",
-  "role_provider", "settings_json", "start_account", "state_health", "tmux", "vibe_check_browsers",
+  "role_provider", "settings_json", "start_account", "state_health", "tmux",
   "install", "mcp_paths", "mcp_path_consistency"]);
 let d; try { d = JSON.parse(json); } catch (e) { console.log("parse: " + e.message); process.exit(0); }
 const out = [];

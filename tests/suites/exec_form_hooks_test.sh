@@ -29,7 +29,9 @@ skip_unless_cmd python3 "E-290 exec-form hooks" || { assert_summary; exit 0; }
 T="$(test_tmpdir efh)"
 T="$(cd -P "$T" && pwd -P)"
 
-# ── E-290.1: generated settings — six exec-form entries, old forms removed ─────
+# ── E-290.1: generated settings — exec-form entries, old forms removed ─────────
+# The Stop entry below names stop-hook.sh, which E-467 (D-170 r5) retired: its shell-form line
+# must be gone afterwards like every other old form (E-290.01b) — sync now drops it outright.
 P="$T/proj"; mkdir -p "$P/.claude"
 cat > "$P/.claude/settings.json" <<'JSON'
 { "hooks": {
@@ -52,8 +54,8 @@ for ev, lst in d.get("hooks", {}).items():
 PY
 }
 E="$(_entries "$SET")"
-for spec in "Stop:stop-hook.sh" "PreToolUse:pre-tool-use.sh" "SessionStart:session-start.sh" \
-            "PostToolUse:post-tool-log.sh" "PostToolUse:post-tool-use.sh" "PermissionDenied:permission-denied.sh" \
+# E-467 (D-170 r5): stop-hook, post-tool-log, post-tool-use and permission-denied are retired.
+for spec in "PreToolUse:pre-tool-use.sh" "SessionStart:session-start.sh" \
             "PermissionRequest:waiting-signal.sh" "Notification:waiting-signal.sh" "PreToolUse:waiting-signal.sh" \
             "PostToolUse:waiting-signal.sh" "PostToolUseFailure:waiting-signal.sh" "UserPromptSubmit:waiting-signal.sh" \
             "Stop:waiting-signal.sh" "SessionStart:waiting-signal.sh" "SessionEnd:waiting-signal.sh" \
@@ -65,7 +67,7 @@ done
 assert_status 1 "E-290.01b: no shell-form Rein line survives (incl. a quoted path)" bash -c "grep -q 'bash .*HOME/.rein/hooks' <<< \"\$1\"" _ "$E"
 assert_contains "E-290.01c: the user's own hook entry is untouched" "echo users-own-stop-hook" "$E"
 assert_status 1 "E-290.01d: no Rein hook line mentions \$HOME" bash -c "grep < <(printf '%s\n' \"\$1\" | grep '.rein/hooks') -qF '\$HOME'" _ "$E"
-cp "$SET" "$T/s1"; ( cd "$P" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
+cp "$SET" "$T/s1"; ( cd "$P" && bash "$AI_BIN" sync >/dev/null 2>&1 )
 assert_status 0 "E-290.01e: a second sync is byte-identical (idempotent)" cmp -s "$T/s1" "$SET"
 
 # ── E-290.2: the four shell channels — marker under OLD line, none under NEW argv ─
@@ -74,14 +76,14 @@ assert_status 0 "E-290.01e: a second sync is byte-identical (idempotent)" cmp -s
 FH="$T/home"; mkdir -p "$FH/.rein"
 tc_fixture_home "$FH"   # E-345 (D-109 r1): the toolchain record the hooks pin
 cp -R "${REPO_ROOT}/hooks" "$FH/.rein/hooks"; cp -R "${REPO_ROOT}/src/shared" "$FH/.rein/shared"
-NEW_HOOK="$FH/.rein/hooks/post-tool-log.sh"     # fail-open, quick: payload `{}` does nothing
+NEW_HOOK="$FH/.rein/hooks/state-import.sh"      # fail-open, quick: payload `{}` does nothing (post-tool-log.sh until E-467)
 M="$T/markers"; mkdir -p "$M" "$T/decoy"
 printf '#!/bin/sh\ntouch "%s/decoy-bash"\nexec /bin/bash "$@"\n' "$M" > "$T/decoy/bash"; chmod +x "$T/decoy/bash"
 printf 'touch "%s/bash-env"\n' "$M" > "$T/bashenv.sh"
 _marks() { ls "$M" 2>/dev/null | tr '\n' ' '; }
 _old() {  # <env assignments…> — the pre-E-290 command line, run as Claude Code ran it: sh -c
   ( cd "$T" && printf '{}' | env -i HOME="$FH" PATH="$T/decoy:/usr/bin:/bin" "$@" \
-      /bin/sh -c 'bash $HOME/.rein/hooks/post-tool-log.sh' >/dev/null 2>&1 )
+      /bin/sh -c 'bash $HOME/.rein/hooks/state-import.sh' >/dev/null 2>&1 )
 }
 _new() {  # <env assignments…> — the exec-form argv: no shell, /bin/bash -p, absolute path
   ( cd "$T" && printf '{}' | env -i HOME="$FH" PATH="$T/decoy:/usr/bin:/bin" "$@" \
@@ -144,7 +146,7 @@ assert_contains "E-290.04b: doctor reports the exec form" "Rein hooks in exec fo
 python3 - "$G/.claude/settings.json" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p))
-d["hooks"]["Stop"].append({"matcher": ".*", "hooks": [{"type": "command", "command": "bash $HOME/.rein/hooks/stop-hook.sh"}]})
+d["hooks"]["Stop"].append({"matcher": ".*", "hooks": [{"type": "command", "command": "bash $HOME/.rein/hooks/waiting-signal.sh"}]})
 json.dump(d, open(p, "w"))
 PY
 _d="$(cd "$G" && bash "$AI_BIN" doctor 2>&1)"
@@ -164,7 +166,7 @@ done
 # The fake HOME above holds the checkout's hooks, so the entries name a script that exists.
 W="$T/wproj"; mkdir -p "$W/.ai"
 cp "$P/.ai/roles.json" "$W/.ai/roles.json" 2>/dev/null || printf '{"roles":{}}\n' > "$W/.ai/roles.json"
-( cd "$W" && HOME="$FH" REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
+( cd "$W" && HOME="$FH" bash "$AI_BIN" sync >/dev/null 2>&1 )
 _wcheck() {  # → the status of the doctor --json record waiting_signal_registered
   ( cd "$W" && HOME="$FH" bash "$AI_BIN" doctor --json 2>/dev/null ) | python3 -c '
 import json, sys

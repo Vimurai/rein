@@ -35,6 +35,8 @@ import re
 import shlex
 import sys
 
+# E-467: stop-hook, post-tool-log, post-tool-use and permission-denied are retired; their names
+# stay so `rein sync` can recognise and remove an old entry as ours.
 HOOK_NAMES = ("stop-hook.sh", "pre-tool-use.sh", "session-start.sh",
               "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh",
               "waiting-signal.sh")

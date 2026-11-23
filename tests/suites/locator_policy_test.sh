@@ -27,9 +27,9 @@ echo "── Suite: locator_policy_test (E-223) ──────────�
 # ── the exact filenames the old locators would have reached for.
 _decoy() {
   local d; d="$(mktemp -d)"
-  mkdir -p "$d/src/mcp/safe-exec-mcp" "$d/src/mcp/cache-manager-mcp" "$d/src/shared" "$d/.ai"
+  mkdir -p "$d/src/mcp/safe-exec-mcp" "$d/src/mcp/task-synchronizer-mcp" "$d/src/shared" "$d/.ai"
   local marker="$d/CANARY_EXECUTED"
-  for f in "src/mcp/safe-exec-mcp/index.js" "src/mcp/cache-manager-mcp/index.js" \
+  for f in "src/mcp/safe-exec-mcp/index.js" "src/mcp/task-synchronizer-mcp/index.js" \
            "src/shared/telemetry.mjs" "src/shared/provider-adapter.mjs" \
            "src/shared/sync-manifest.mjs" "src/shared/role-manifest.mjs" \
            "src/shared/resolve-launch.mjs"; do
@@ -74,9 +74,11 @@ _run_hooks_in() {
   local payload='{"tool_name":"Bash","tool_input":{"command":"echo hi"},"session_id":"e223-probe"}'
   ( cd "$d" || exit 0
     printf '%s' "$payload" | bash "${REPO_ROOT}/hooks/pre-tool-use.sh"  >/dev/null 2>&1
-    printf '%s' "$payload" | bash "${REPO_ROOT}/hooks/post-tool-use.sh" >/dev/null 2>&1
     printf '%s' "$payload" | bash "${REPO_ROOT}/hooks/session-start.sh" engineer >/dev/null 2>&1
-    printf '%s' "$payload" | bash "${REPO_ROOT}/hooks/stop-hook.sh"     >/dev/null 2>&1
+    # E-467 retired post-tool-use.sh and stop-hook.sh; the kept fail-open hooks run instead.
+    printf '%s' "$payload" | bash "${REPO_ROOT}/hooks/waiting-signal.sh" >/dev/null 2>&1
+    bash "${REPO_ROOT}/hooks/state-import.sh" >/dev/null 2>&1
+    bash "${REPO_ROOT}/hooks/pre-push.sh" </dev/null >/dev/null 2>&1
     bash "${REPO_ROOT}/hooks/pre-commit.sh"  >/dev/null 2>&1
     bash "${REPO_ROOT}/hooks/post-commit.sh" >/dev/null 2>&1
   ) || true
@@ -107,8 +109,7 @@ assert_status 0 "E-223.06b: nor does src/bin/rein" \
   _no_locator_idiom "$AI_BIN"
 assert_status 0 "E-223.06c: pre-commit still finds the PROJECT's .ai/ via git toplevel" \
   bash -c "grep -q 'AI_DIR=\"\\\$(git rev-parse --show-toplevel' '${REPO_ROOT}/hooks/pre-commit.sh'"
-assert_status 0 "E-223.06d: post-tool-use still runs the PROJECT's own test runner" \
-  bash -c "grep -q 'PROJECT_ROOT=\"\\\$(git rev-parse --show-toplevel' '${REPO_ROOT}/hooks/post-tool-use.sh'"
+# E-223.06d (post-tool-use ran the PROJECT's own test runner) went with the hook (E-467, D-170 r5).
 
 # ── E-223.8: env a visited repo controls must not re-open the boundary ──────
 # A project's own `.claude/settings.json` carries an `env` block that the CLI applies to
@@ -121,7 +122,7 @@ _env_canary() {  # <env assignment...> → the marker content, or "not executed"
   local payload='{"tool_name":"Bash","tool_input":{"command":"echo hi"},"session_id":"e223-env"}'
   ( cd "$_D" || exit 0
     printf '%s' "$payload" | env "$@" bash "${REPO_ROOT}/hooks/pre-tool-use.sh"  >/dev/null 2>&1
-    printf '%s' "$payload" | env "$@" bash "${REPO_ROOT}/hooks/post-tool-use.sh" >/dev/null 2>&1
+    printf '%s' "$payload" | env "$@" bash "${REPO_ROOT}/hooks/session-start.sh" >/dev/null 2>&1   # post-tool-use.sh until E-467
   ) || true
   local got; got="$(tr '\n' ' ' < "$_D/CANARY_EXECUTED" 2>/dev/null)"
   printf '%s' "${got:-not executed}"
@@ -139,7 +140,7 @@ assert_contains "E-223.08b: REIN_WORKSPACE cannot claim the visited repo is the 
 assert_contains "E-223.08c: REIN_HOME cannot redirect the resolver bootstrap" "not executed" \
   "$(_env_canary REIN_HOME="$_D")"
 assert_status 0 "E-223.08d: every hook declares its environment untrusted" \
-  bash -c "for h in pre-tool-use session-start pre-commit post-tool-use stop-hook; do
+  bash -c "for h in pre-tool-use session-start pre-commit pre-push; do
              grep -q 'REIN_LOCATE_UNTRUSTED_ENV=1' '${REPO_ROOT}/hooks/'\$h'.sh' || exit 1; done"
 # Match an EXPANSION of the env var (`${REIN_HOME...}` / `$REIN_HOME`), not the local
 # `_REIN_HOME_DIR` that holds the hardcoded path — an earlier version of this assertion
@@ -287,7 +288,7 @@ assert_contains "E-223.13d: plain invocation is unaffected"            "install"
 assert_status 0 "E-223.11g: the node twin reads the untrusted-env flag" \
   bash -c "grep -q 'REIN_LOCATE_UNTRUSTED_ENV' '$LOC_MJS'"
 assert_status 0 "E-223.11h: hooks EXPORT the flag so children inherit it" \
-  bash -c "for h in pre-tool-use session-start pre-commit post-tool-use stop-hook; do
+  bash -c "for h in pre-tool-use session-start pre-commit pre-push; do
              grep -q 'export REIN_LOCATE_UNTRUSTED_ENV=1' '${REPO_ROOT}/hooks/'\$h'.sh' || exit 1; done"
 rm -rf "$_SB2"
 
@@ -339,19 +340,19 @@ assert_not_contains "E-223.15b: and when it is present" \
 # testing nothing. A guard whose removal changes no outcome is not a guard.
 assert_contains "E-223.15c: without the guard the forged resolver IS used (non-vacuity)" \
   "FORGED-RESOLVER-USED" "$(_forge_run "$_SB3/boot_unguarded.sh" no)"
-assert_status 0 "E-223.15d: all five hooks and src/bin/rein carry the guard" \
-  bash -c "c=0; for h in pre-tool-use session-start pre-commit post-tool-use stop-hook; do
+assert_status 0 "E-223.15d: the four bootstrapping hooks and src/bin/rein carry the guard (E-467 retired two)" \
+  bash -c "c=0; for h in pre-tool-use session-start pre-commit pre-push; do
              grep -q 'unset -f rein_locate' '${REPO_ROOT}/hooks/'\$h'.sh' && c=\$((c+1)); done
-           grep -q 'unset -f rein_locate' '$AI_BIN' && c=\$((c+1)); test \$c -eq 6"
+           grep -q 'unset -f rein_locate' '$AI_BIN' && c=\$((c+1)); test \$c -eq 5"
 rm -rf "$_SB3"
 
 # ── E-223.7: hooks stay fail-open when the resolver is missing ──────────────
 # A hook that aborts because a helper moved is worse than a degraded gate.
 _out="$(printf '{"tool_name":"Bash","tool_input":{"command":"echo hi"}}' | \
-  REIN_HOME="$(mktemp -d)" bash "${REPO_ROOT}/hooks/post-tool-use.sh" 2>&1; echo "rc=$?")"
-assert_contains "E-223.07a: post-tool-use survives an empty install root" "rc=0" "$_out"
+  REIN_HOME="$(mktemp -d)" bash "${REPO_ROOT}/hooks/session-start.sh" 2>&1; echo "rc=$?")"
+assert_contains "E-223.07a: session-start survives an empty install root (post-tool-use until E-467)" "rc=0" "$_out"
 assert_status 0 "E-223.07b: every hook defines the fail-open fallback" \
-  bash -c "for h in pre-tool-use session-start pre-commit post-tool-use stop-hook; do
+  bash -c "for h in pre-tool-use session-start pre-commit pre-push; do
              grep -q 'declare -f rein_locate' '${REPO_ROOT}/hooks/'\$h'.sh' || exit 1; done"
 
 rm -rf "$_D"

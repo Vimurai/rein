@@ -23,9 +23,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PW="${REPO_ROOT}/src/shared/provider-workspace.mjs"
-# The AST repo map is irrelevant to provider workspaces and is the most expensive thing
-# a sync does; every `rein sync` below runs the full pipeline otherwise.
-export REIN_DISABLE_REPO_MAP=1
 AI="${REPO_ROOT}/src/bin/rein"
 
 echo "── Suite: provider_workspace_test (E-244) ──────────────────────────"
@@ -194,9 +191,9 @@ assert_status 0 "E-254.05d: and .claude/ is still provisioned for the Engineer" 
 # Both roles are served from src/claude/*; the registry's role manifest must name nothing
 # outside claude/ and shared/, or sync would look for a tree that no longer ships.
 assert_status 0 "E-254.06a: the Architect's skills ship under src/claude/skills" \
-  test -f "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
+  test -f "${REPO_ROOT}/src/claude/skills/blueprint-writer/SKILL.md"   # arch-oracle until E-467
 assert_status 0 "E-254.06b: the Architect's agents ship under src/claude/agents" \
-  test -f "${REPO_ROOT}/src/claude/agents/docs-architect.md"
+  test -f "${REPO_ROOT}/src/claude/agents/reviewer.md"   # docs-architect until E-467
 assert_status 0 "E-254.06c: the role manifest names only claude/ and shared/ source dirs" \
   python3 -c "
 import json,sys

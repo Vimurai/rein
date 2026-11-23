@@ -26,20 +26,15 @@ Agent tool (subagent_type: "security_engineer")     → runs the security review
 **CRITICAL: The Ephemeral Skill Pattern (Token Saver)**
 Skills are context-heavy. When you finish using a skill (like a critic review or audit), you MUST wipe it from your active context to prevent exponential token bloat. Do this with `/compact` (Claude Code also auto-compacts — E-283, D-075).
 
-## Orchestrator (Preferred for Multi-Step Workflows)
+## Bookkeeping Commands (Preferred for Multi-Step Workflows)
 
-Use `orchestrator-mcp` tools for deterministic execution instead of manually interpreting skill files:
+Use the `rein` commands for deterministic steps instead of manually interpreting skill files:
 
 - **Session start**: nothing to run — the SessionStart hook injects the session brief (E-460).
 - **After finishing E-## task**: `rein done E-## --summary "..."` — marks DONE, updates LOG and the digest (E-461).
 - **Before closing a Tier 2/3 task**: `rein review <tier>` — deterministic checks + the agents to dispatch (E-464).
 
-Use the Skill tool / Agent tool for everything the orchestrator doesn't cover.
-
-## Key Skills to Know
-
-- **Before writing code**: `skill: "trigger-audit"` — scans plan for mandatory triggers.
-- **Cross-agent handoff**: `skill: "rein-sync-state"` — force re-read of .ai/ files.
+Use the Skill tool / Agent tool for everything the commands don't cover.
 
 ## Parallel Agent Teams
 
@@ -47,7 +42,7 @@ For multi-agent parallel work (critic teams, handover teams), read: `src/contrac
 
 ## Mid-Execution Triggers
 
-If you discover mid-task that you need a new dependency, are touching auth/secrets, or modifying CI config — **pause and load the relevant gate**: `skill: dependency_gate`, `the Agent tool (subagent_type: "security_engineer")` (an agent, not a skill — E-148), or `skill: ci_gate`. Don't skip gates.
+If you discover mid-task that you are touching auth/secrets — **pause and dispatch** `the Agent tool (subagent_type: "security_engineer")` (an agent, not a skill — E-148). A failing test → `skill: "rein-debug"`. Don't skip gates.
 
 ## Emergency Recovery (§30 — Bootloader Resilience)
 
@@ -73,7 +68,7 @@ head -40 .ai/DIGEST.md
 
 Rules during recovery:
 - Do NOT modify `state.json` manually — only via `task-synchronizer-mcp`
-- Do NOT commit until orchestrator-mcp is restored and Gate 2 passes
+- Do NOT commit until task-synchronizer-mcp is restored and Gate 2 passes
 - Log the outage in `LOG.md` once tooling is restored
 
 ## ANTI-DRIFT PROTOCOL (§35 — Mandatory)

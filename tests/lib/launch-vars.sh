@@ -4,10 +4,10 @@
 # Variables `rein pane`, `rein start` or the Rein shell EXPORT that a hook or resolver ranks
 # ABOVE its own inputs. A suite run from a bound pane inherits them, and the hook obeys the
 # pane instead of the test:
-#   REIN_PANE_ROLE    `rein pane <role>`   — pre-commit.sh's advisory row 4 (restrict-only) and
-#                                            stop-hook.sh's actor label read it (git_lane_test
-#                                            once lost its whole Architect lane to it). Since
-#                                            E-294 (D-087 r3) no GATE takes a role from it.
+#   REIN_PANE_ROLE    `rein pane <role>`   — pre-commit.sh's advisory row 4 (restrict-only)
+#                                            reads it (git_lane_test once lost its whole Architect
+#                                            lane to it). Since E-294 (D-087 r3) no GATE takes a
+#                                            role from it.
 #   REIN_CALLER_ROLE  `rein pane <role>`   — the same advisory row 4, plus prompts / routing
 #                                            (`rein add-task`, handoff)
 #

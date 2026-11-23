@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
-# incident_tracker_test.sh — the incident tracker (incident-tracker.md): the append helper and
-# rein-incident skill (E-65), and the aggregator (E-66, from
-# incident_aggregator — E-302).
+# incident_tracker_test.sh — the incident append helper (incident-tracker.md, E-65) that every
+# hook's fail-open trap calls (rein_hook_incident). E-467 (D-170 r5) retired the rein-incident
+# skill and the aggregator; the writer stays while the hooks' trap uses it.
 #
-# E-65 — verifies the incident-append.mjs helper + rein-incident skill contract:
+# E-65 — verifies the incident-append.mjs helper contract:
 #   • Helper rejects malformed payloads (missing field / non-JSON / wrong shape)
 #   • Helper sanitises PII (HOME paths → ~, emails → [email], tokens → [token])
 #   • Required-field defaults (timestamp injected, source_agent normalised)
 #   • Append + rotate behaviour @ INCIDENT_ROTATE_LINES threshold
 #   • AI_INCIDENT_TRACKER_DISABLE=1 short-circuits with exit 0
-#   • Skill SKILL.md frontmatter + invocation contract intact
 #   • ~/.rein mirror byte-identical
 
 set -uo pipefail
@@ -18,8 +17,6 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HELPER="${REPO_ROOT}/src/shared/incident-append.mjs"
-SKILL="${REPO_ROOT}/src/shared/skills/rein-incident/SKILL.md"
-SKILL_MIRROR="${HOME}/.rein/shared/skills/rein-incident/SKILL.md"
 HELPER_MIRROR="${HOME}/.rein/shared/incident-append.mjs"
 
 echo "── Suite: incident_tracker_test ─────────────────────────────────────"
@@ -173,162 +170,14 @@ assert_status 0 "warning emitted to stderr" \
   grep -q 'AI_INCIDENT_TRACKER_DISABLE' "$SBOX3/err"
 rm -rf "$SBOX3"
 
-# ── T-IN-S10: skill contract ────────────────────────────────────────────────
-echo ""
-echo "  [T-IN-S10] rein-incident SKILL.md publishes the contract"
-
-assert_status 0 "skill file exists" \
-  test -f "$SKILL"
-assert_status 0 "frontmatter has name: rein-incident" \
-  grep -q '^name: rein-incident' "$SKILL"
-assert_status 0 "skill names the NDJSON path" \
-  grep -q 'incidents.ndjson' "$SKILL"
-assert_status 0 "skill enumerates incident_type values" \
-  grep -q 'MCP_CRASH' "$SKILL"
-assert_status 0 "skill calls out sanitisation contract" \
-  grep -q 'Sanitisation contract' "$SKILL"
-assert_status 0 "skill documents disable flag" \
-  grep -q 'AI_INCIDENT_TRACKER_DISABLE' "$SKILL"
-
 # ── T-IN-S11: ~/.rein mirrors ──────────────────────────────────────────────
 echo ""
 echo "  [T-IN-S11] ~/.rein mirrors are byte-identical"
 
-if [[ -f "$SKILL_MIRROR" ]]; then
-  assert_status 0 "skill mirror identical to src" \
-    cmp -s "$SKILL" "$SKILL_MIRROR"
-fi
 if [[ -f "$HELPER_MIRROR" ]]; then
   assert_status 0 "helper mirror identical to src" \
     cmp -s "$HELPER" "$HELPER_MIRROR"
 fi
 
-
-# ── E-66 / E-67 (from incident_aggregator — E-302): the aggregator ──
-# Tests for E-66 + E-67.
-#
-# E-66: incident-aggregate.mjs reads ~/.rein/incidents.ndjson, groups by
-#       stack_signature, surfaces THRESHOLD_REACHED at >=3 occurrences.
-# E-67: its preflight-skill wiring went with that skill (E-460).
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-AGGR="${REPO_ROOT}/src/shared/incident-aggregate.mjs"
-APPEND="${REPO_ROOT}/src/shared/incident-append.mjs"
-AGGR_MIRROR="${HOME}/.rein/shared/incident-aggregate.mjs"
-
-
-AGG_SBOX="$(mktemp -d -t aggr-XXXXXX)"
-on_exit 'rm -rf "$AGG_SBOX"'
-
-run_aggr() {
-  HOME="$AGG_SBOX" node "$AGGR"
-}
-
-run_append() {
-  HOME="$AGG_SBOX" node "$APPEND" "$1" >/dev/null 2>&1 || true
-}
-
-# ── T-AG-S01: helper exists ──────────────────────────────────────────────────
-echo ""
-echo "  [T-AG-S01] aggregator file present"
-
-assert_status 0 "incident-aggregate.mjs exists" \
-  test -f "$AGGR"
-
-# ── T-AG-S02: NO_INCIDENTS when log absent ──────────────────────────────────
-echo ""
-echo "  [T-AG-S02] missing log → status NO_INCIDENTS"
-
-OUT="$(run_aggr)"
-assert_status 0 "status NO_INCIDENTS reported" \
-  bash -c "grep -q '\"status\": \"NO_INCIDENTS\"' <<< '$OUT'"
-
-# ── T-AG-S03: DISABLED short-circuit ─────────────────────────────────────────
-echo ""
-echo "  [T-AG-S03] AI_INCIDENT_TRACKER_DISABLE=1 → status DISABLED"
-
-OUT="$(HOME="$AGG_SBOX" AI_INCIDENT_TRACKER_DISABLE=1 node "$AGGR")"
-assert_status 0 "status DISABLED reported" \
-  bash -c "grep -q '\"status\": \"DISABLED\"' <<< '$OUT'"
-
-# ── T-AG-S04: OK when below threshold ────────────────────────────────────────
-echo ""
-echo "  [T-AG-S04] count < threshold → status OK"
-
-run_append '{"incident_type":"X","message":"first","stack_signature":"foo:1"}'
-run_append '{"incident_type":"X","message":"second","stack_signature":"foo:1"}'
-OUT="$(run_aggr)"
-assert_status 0 "status OK when distinct sig has count=2" \
-  bash -c "grep -q '\"status\": \"OK\"' <<< '$OUT'"
-assert_status 0 "total_incidents reflects appended rows" \
-  bash -c "grep -q '\"total_incidents\": 2' <<< '$OUT'"
-
-# ── T-AG-S05: THRESHOLD_REACHED at 3 occurrences ────────────────────────────
-echo ""
-echo "  [T-AG-S05] count >= threshold trips THRESHOLD_REACHED"
-
-run_append '{"incident_type":"X","message":"third","stack_signature":"foo:1"}'
-OUT="$(run_aggr)"
-assert_status 0 "status THRESHOLD_REACHED at count=3" \
-  bash -c "grep -q '\"status\": \"THRESHOLD_REACHED\"' <<< '$OUT'"
-assert_status 0 "stack_signature foo:1 listed in groups" \
-  bash -c "grep -q '\"stack_signature\": \"foo:1\"' <<< '$OUT'"
-assert_status 0 "threshold_reached: true on the offending group" \
-  bash -c "grep -q '\"threshold_reached\": true' <<< '$OUT'"
-
-# ── T-AG-S06: distinct signatures grouped independently ─────────────────────
-echo ""
-echo "  [T-AG-S06] distinct signatures counted independently"
-
-run_append '{"incident_type":"Y","message":"alt","stack_signature":"bar:42"}'
-OUT="$(run_aggr)"
-assert_status 0 "two distinct signatures reported" \
-  bash -c "grep -q '\"distinct_signatures\": 2' <<< '$OUT'"
-assert_status 0 "bar:42 still below threshold" \
-  bash -c 'grep -qx False < <(python3 -c "import json,sys; d=json.load(sys.stdin); print([g for g in d[\"groups\"] if g[\"stack_signature\"]==\"bar:42\"][0][\"threshold_reached\"])" <<< "$1")' _ "$OUT"
-
-# ── T-AG-S07: malformed lines skipped ────────────────────────────────────────
-echo ""
-echo "  [T-AG-S07] malformed NDJSON lines are skipped, not fatal"
-
-echo "{not-json" >> "$AGG_SBOX/.rein/incidents.ndjson"
-echo ""        >> "$AGG_SBOX/.rein/incidents.ndjson"
-OUT="$(run_aggr)"
-assert_status 0 "aggregator still returns valid JSON" \
-  bash -c "echo '$OUT' | python3 -c 'import json,sys; json.loads(sys.stdin.read())'"
-
-# ── T-AG-S08: budget — under 200ms even with 100 records ────────────────────
-echo ""
-echo "  [T-AG-S08] aggregator stays inside reasonable budget on a populated log"
-
-# Seed 100 fresh records into a clean sandbox so the timing is meaningful.
-AGG_SBOX2="$(mktemp -d -t aggr-bench-XXXXXX)"
-for i in $(seq 1 100); do
-  HOME="$AGG_SBOX2" node "$APPEND" \
-    "{\"incident_type\":\"X\",\"message\":\"m${i}\",\"stack_signature\":\"sig:${i}\"}" >/dev/null 2>&1
-done
-START_NS=$(python3 -c 'import time; print(time.time_ns())')
-HOME="$AGG_SBOX2" node "$AGGR" >/dev/null
-END_NS=$(python3 -c 'import time; print(time.time_ns())')
-ELAPSED_MS=$(( (END_NS - START_NS) / 1000000 ))
-# E-239 (D-062 §2): host-relative. The work here is ONE `node` spawn reading a 100-record
-# log, so the cost the code cannot avoid is a bare node spawn on this same host — that is
-# the baseline. The absolute 200ms is still enforced on CI, where the hardware is known.
-#
-# This assertion is why the rule exists: it measured 381ms on a developer laptop while
-# passing on CI, and then passed on the SAME laptop once 54 leaked tmux servers and a
-# wedged download were cleared. It was tracking machine load, not the aggregator.
-assert_perf "aggregator on a 100-record log" "$ELAPSED_MS" 200 "$(perf_baseline_node)"
-rm -rf "$AGG_SBOX2"
-
-# T-AG-S09 (the preflight skill's aggregator wiring) was deleted by E-460 with the skill.
-
-# ── T-AG-S10: ~/.rein mirrors byte-identical ───────────────────────────────
-echo ""
-echo "  [T-AG-S10] ~/.rein/ mirrors track src/ verbatim"
-
-if [[ -f "$AGGR_MIRROR" ]]; then
-  assert_status 0 "incident-aggregate.mjs mirror identical" \
-    cmp -s "$AGGR" "$AGGR_MIRROR"
-fi
 
 assert_summary

@@ -2,51 +2,35 @@
 # state_archive_test.sh — rotating finished state out of the live store, and finding it again.
 #
 # One suite for the state-archive behaviours (E-302, wave 2 of the D-088 consolidation):
-# execute_archive (E-111, below), then the sections absorbed from archive_pointer (E-245),
+# `rein archive` (E-111 → E-467, below), then the sections absorbed from archive_pointer (E-245),
 # archive_tasks (E-112) and sqlite_wal_checkpoint (E-53).
 #
-# ── E-111 (from archive_manager_state): archive-manager execute_archive rotates
-# SQLite state (DONE tasks + audit stamps) through the shared, ACID-safe owner
-# instead of shelling the removed `rein archive` verb or writing the regenerated
-# state.json view.
+# ── E-111 → E-467 (D-170 r4-r5): `rein archive` rotates SQLite state (DONE tasks + audit
+# stamps) through the shared, ACID-safe owner. The rotation was archive-manager-mcp's
+# execute_archive until E-467 retired the server and moved it into the kept command;
+# --logs takes over the retired rein-archive skill's LOG.md / SESSION.md move.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
-source "${SCRIPT_DIR}/../lib/mcp-client.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-SERVER="${REPO_ROOT}/src/mcp/archive-manager-mcp/index.js"
-AM="${REPO_ROOT}/src/mcp/archive-manager-mcp/index.js"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 
 echo "── Suite: state_archive_test ───────────────────────────────────────"
 
-# ── Source contract: no removed `rein archive` shell-out, no state.json view write ─
-assert_status 1 "execute_archive no longer shells 'rein archive'" \
-  grep -qE 'spawnSync|aiBin|"archive"\]' "$AM"
-assert_status 1 "no archiveStateDoneTasks function remains" \
-  grep -qE '^function archiveStateDoneTasks' "$AM"
-assert_status 0 "uses shared SQLite-aware rotation" \
-  grep -qE 'archiveDoneTasks|archiveStamps' "$AM"
-
-# ── Behavioural: execute_archive rotates stamps via SQLite ───────────────────
 unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 TMP="$(mktemp -d)"; on_exit 'rm -rf "$TMP"'
 PROJECT="${TMP}/proj"; mkdir -p "${PROJECT}/.ai"
 echo '{"version":"1.0","project":{},"tasks":[],"stamps":[],"deltas":[]}' > "${PROJECT}/.ai/state.json"
 cd "${PROJECT}"
 
-callam() { mcp_call_tool "${SERVER}" "$1" "$2" | python3 -c 'import json,sys
-try: d=json.load(sys.stdin)
-except Exception: print(""); sys.exit(0)
-c=d.get("content",[{}]); print(c[0].get("text","") if c else "")'; }
-
 # Seed 60 stamps directly into the same state.sqlite.
 node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mcp/shared/state-db.js'; const db=getDb('${PROJECT}/.ai'); const ins=db.prepare('INSERT INTO stamps(type,agent,task_id,timestamp,summary) VALUES (?,?,?,?,?)'); for(let i=0;i<60;i++) ins.run('T','t',null,'2026-01-01T00:00:00Z','s'+i);" 2>/dev/null
 
-r=$(callam execute_archive "{}")
-assert_contains "E-111.01: reports archived_stamps"        '"archived_stamps"' "$r"
+r="$(bash "$AI_BIN" archive 2>&1)"; rc=$?
+assert_status 0 "E-467.01: rein archive exits 0 (rc=${rc})" test "$rc" -eq 0
+assert_contains "E-111.01: reports the state archive"      "[STATE-ARCHIVE]"   "$r"
 assert_contains "E-111.01b: 50 stamps rotated (60-10)"     "50 stamps"         "$r"
-assert_contains "E-111.02: points to skill: rein-archive for logs" "skill: rein-archive" "$r"
 # Archive file is dated by the current month (rotation stamp), not the row timestamp.
 YM="$(date -u +%Y-%m)"
 assert_exists "${PROJECT}/.ai/archive/stamps-${YM}.json"
@@ -55,10 +39,23 @@ REMAIN=$(node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mc
 assert_status 0 "E-111.03: 10 most-recent stamps kept in active SQLite state" \
   bash -c "[ \"$REMAIN\" -eq 10 ]"
 
-# state.json was NOT hand-mutated as a view-write — it is regenerated from SQLite.
-# Confirm a second run below threshold is a clean no-op.
-r=$(callam execute_archive "{}")
+# A second run below threshold is a clean no-op.
+r="$(bash "$AI_BIN" archive 2>&1)"
 assert_contains "E-111.04: below-threshold run reports no rotation needed" "No state rotation needed" "$r"
+
+# ── E-467.02: --logs moves LOG.md and SESSION.md, never overwrites, starts a fresh LOG.md ──
+printf '# LOG\nold line\n' > "${PROJECT}/.ai/LOG.md"
+printf 'session notes\n' > "${PROJECT}/.ai/SESSION.md"
+r="$(bash "$AI_BIN" archive --logs 2>&1)"; rc=$?
+assert_status 0 "E-467.02a: rein archive --logs exits 0 (rc=${rc})" test "$rc" -eq 0
+_moved="$(ls "${PROJECT}/.ai/archive/${YM}/" 2>/dev/null)"
+assert_contains "E-467.02b: LOG.md moved to the month directory" "LOG." "$_moved"
+assert_contains "E-467.02c: SESSION.md moved too" "SESSION." "$_moved"
+assert_contains "E-467.02d: the moved LOG keeps its content" "old line" "$(cat "${PROJECT}"/.ai/archive/"${YM}"/LOG.*.md 2>/dev/null)"
+assert_not_contains "E-467.02e: the fresh LOG.md does not carry the old lines" "old line" "$(cat "${PROJECT}/.ai/LOG.md")"
+assert_contains "E-467.02f: the fresh LOG.md records the archive" "| rein | Archive |" "$(cat "${PROJECT}/.ai/LOG.md")"
+assert_status 1 "E-467.02g: SESSION.md is not recreated" test -e "${PROJECT}/.ai/SESSION.md"
+assert_status 2 "E-467.02h: an unknown flag is a usage error" bash "$AI_BIN" archive --bogus
 
 cd "${REPO_ROOT}"
 

@@ -856,9 +856,9 @@ assert_status 0 "E-242.03d: only the ROLE files are written, never settings.json
 echo ""
 
 # ── E-213 (from role_identity_test — E-302): the Architect settings overlay and role-correct identity labels ──
-# Owner labels and the Stop hook stamp resolve the provider from .ai/roles.json instead of a
-# hardcoded vendor label (an all-Claude Triad attributed Architect tasks to a provider not running).
-STOP_HOOK="${REPO_ROOT}/hooks/stop-hook.sh"
+# Owner labels resolve the provider from .ai/roles.json instead of a hardcoded vendor label (an
+# all-Claude Triad attributed Architect tasks to a provider not running). The Stop hook's stamp
+# rows (E-213.4) went with the hook (E-467, D-170 r5).
 ADD_TASK="${REPO_ROOT}/src/shared/cli-add-task.mjs"
 # ── E-213.1: owner labels carry the bound provider ─────────────────────────
 _owner() {  # <role> <aiDir> → owner label
@@ -962,16 +962,6 @@ assert_not_contains "E-213.03c: sync removes the legacy grant from an existing f
   "${_LEGACY_GRANT:-<no-grant-extracted>}" "$(cat "$_LEG/settings.json")"
 assert_contains "E-213.03d: unrelated allow rules survive the prune" \
   "mcp__keep-me__tool" "$(cat "$_LEG/settings.json")"
-
-# ── E-213.4: the Stop hook stamps provider AND role ───────────────────────
-assert_status 0 "E-213.04a: the Actor stamp is no longer the literal 'Claude'" \
-  bash -c "! grep -qE '^- Actor: Claude\$' '$STOP_HOOK'"
-assert_status 0 "E-213.04b: the Actor stamp is interpolated" \
-  grep -qE '^- Actor: \$\{ACTOR\}$' "$STOP_HOOK"
-assert_status 0 "E-213.04c: the role comes from the launch-time pane role" \
-  grep -q 'REIN_PANE_ROLE:-' "$STOP_HOOK"
-assert_status 0 "E-213.04d: an unknown role falls back rather than being stamped" \
-  grep -q 'architect|engineer) ;;' "$STOP_HOOK"
 
 # ── E-213.5: ACCEPTANCE — the Architect session's identity reaches the gate ─────
 # The point of the whole task: a session launched as the Architect must have the Architect

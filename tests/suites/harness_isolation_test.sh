@@ -131,7 +131,7 @@ done
 # helper to call, so it carries the same two guarantees itself: a required root and a floor.
 _std_runner="${SCRIPT_DIR}/../unit/standards-cases.test.mjs"
 assert_status 0 "E-251.07: the standards runner's corpus has a floor and required roots" \
-  grep -q 'floor 100' "$_std_runner"
+  grep -qE 'floor [0-9]+' "$_std_runner"
 assert_status 1 "E-251.07: the standards runner does not filter roots for existence" \
   grep -q 'filter((d) => existsSync' "$_std_runner"
 
@@ -187,7 +187,7 @@ mkdir -p "$_fc/suites"
 cat > "$_fc/suites/bare_home_test.sh" <<'BARE'
 #!/usr/bin/env bash
 H="$(mktemp -d)"
-printf '{}' | HOME="$H" bash "${REPO_ROOT}/hooks/stop-hook.sh"
+printf '{}' | HOME="$H" bash "${REPO_ROOT}/hooks/state-import.sh"
 BARE
 _fc_rc=0
 _fc_out="$(REIN_TEST_SUITES_DIR="$_fc/suites" bash "$RUN_SH" 2>&1)" || _fc_rc=$?
@@ -1106,17 +1106,8 @@ assert_contains "E-416.P6: …and REIN_CI=hosted still fails past the absolute b
   "FAIL" "$(_verdict 'CI=; REIN_CI=hosted' 381 200 197)"
 
 # ── E-239.7: the converted assertions, and the checklist ─────────────────
-assert_status 0 "E-239.07a: incident_aggregator uses assert_perf" \
-  grep -q 'assert_perf "aggregator on a 100-record log"' "${REPO_ROOT}/tests/suites/incident_tracker_test.sh"
-assert_status 1 "E-239.07b: and no longer hard-codes a bare 200ms compare" \
-  grep -q "ELAPSED_MS' -lt 200" "${REPO_ROOT}/tests/suites/incident_tracker_test.sh"
-assert_status 0 "E-239.07c: telemetry uses assert_perf" \
-  grep -q 'assert_perf "hook warm-path' "${REPO_ROOT}/tests/suites/telemetry_test.sh"
-# Its baseline matches its own instrument (2 node spawns + a hook), not a bare hook —
-# comparing against a bare-hook baseline would flatter the assertion by ignoring the clock
-# it uses to measure itself.
-assert_status 0 "E-239.07d: telemetry's baseline includes its own measurement overhead" \
-  grep -q '2 \* \$(perf_baseline_node) + \$(perf_baseline_hook)' "${REPO_ROOT}/tests/suites/telemetry_test.sh"
+# E-239.07a-b (the incident aggregator's perf row) went with the aggregator (E-467, D-170 r5).
+# E-239.07c-d (telemetry_test's post-tool-use hook warm-path row) went with the hook (E-467, D-170 r5).
 assert_status 0 "E-239.07e: the reviewer flags an absolute budget with no baseline" \
   grep -q 'Absolute performance budgets without a baseline' "${REPO_ROOT}/src/claude/agents/reviewer.md"
 

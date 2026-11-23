@@ -46,14 +46,6 @@
 - **Error Handling**: Graceful degradation to manual `cat .ai/TASKS.md` if all tools fail.
 - **Security**: Fallback tools must adhere to the same path-traversal restrictions as the primary orchestrator.
 
-## 31. Cross-Project Memory Palace
-- **Concept**: A centralized RAG service (`memory-manager-mcp`) that allows multiple projects to share high-level architectural signatures.
-- **Data Model**: `Signature: { project_name, tag, summary, architect_v, timestamp }`. Storage: `~/.rein/memory/signatures.json`.
-- **API Contract**:
-  - `export_signature(summary, tags)`: Called by `skill: rein-archive` when archiving completes.
-  - `query_signatures(tags)`: Called during `rein init` to suggest patterns.
-- **Security**: Signatures must NOT contain secrets, PII, or internal logic. Only high-level "Lore" and "Patterns".
-
 ## 32. Verification Audit
 - **Concept**: Automated system to verify that declared agent capabilities in YAML frontmatter match actual system configurations.
 - **API Contract**: `verify_compliance(agent_name?)`: Checks frontmatter against `registry.json` and MCP tool exports.

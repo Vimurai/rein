@@ -3,7 +3,7 @@ name: security_engineer
 description: Trigger this when adding auth, handling secrets, modifying CAPABILITIES.md, or performing a security review for Tier 3 tasks. Produces SECURITY.md + THREAT_MODEL.md, enforces capability boundaries, and runs active pen-testing payloads under Bash in a throwaway, resource-capped temp directory.
 disable-model-invocation: false
 user-invocable: false
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__advisor-mcp__ask_architect, mcp__task-synchronizer-mcp__add_stamp
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__task-synchronizer-mcp__add_stamp
 context: fork
 agent: general-purpose
 ---
@@ -158,6 +158,6 @@ Notify human if any P0 threats are unmitigated.
 
 ## Escalation
 If a payload requires external context the agent cannot resolve (e.g. "is this
-algorithm FIPS-approved for this product line?"), invoke
-`mcp__advisor-mcp__ask_architect` with the question. Do not guess on
-cryptographic or compliance matters.
+algorithm FIPS-approved for this product line?"), record it as an open question
+in your stamp's summary for the Architect (advisor-mcp is retired, E-467). Do not guess
+on cryptographic or compliance matters.

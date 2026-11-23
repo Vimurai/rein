@@ -258,22 +258,23 @@ _one_incident() {  # <label> <hook copy> <expected hook name> — env carries th
 }
 inject "${REPO_ROOT}/hooks/session-start.sh" "$T/tree/hooks/session-start-bad.sh" ': "${E292_UNSET_VAR}" # E292_SECRET_MARKER'
 _one_incident "session-start, unbound variable" "$T/tree/hooks/session-start-bad.sh" "session-start"
-# stop-hook and post-tool-log have no `set -u`: a syntax error right after the pin loads
+# state-import and post-commit have no `set -u`: a syntax error right after the pin loads
 # (`unset _v _p`), i.e. BEFORE locate.sh — the helper must reach the install mirror itself.
-for h in stop-hook post-tool-log; do
+# (E-467 retired stop-hook and post-tool-log, the two hooks these rows first used.)
+for h in state-import post-commit; do
   awk '{print} /^unset _v _p$/ && !d {print "e292f() { if then; }"; d=1}' "${REPO_ROOT}/hooks/${h}.sh" > "$T/tree/hooks/${h}-bad.sh"
   grep -qxF 'e292f() { if then; }' "$T/tree/hooks/${h}-bad.sh" || echo "  (injection point missing in ${h})"
   _one_incident "${h}, syntax error" "$T/tree/hooks/${h}-bad.sh" "${h}"
 done
 # Before the pin there is no trusted node, so nothing is recorded — and the hook still exits 0.
-awk '{print} /^PATH=/ && !d {print "e292f() { if then; }"; d=1}' "${REPO_ROOT}/hooks/stop-hook.sh" > "$T/tree/hooks/stop-hook-prepin.sh"
+awk '{print} /^PATH=/ && !d {print "e292f() { if then; }"; d=1}' "${REPO_ROOT}/hooks/state-import.sh" > "$T/tree/hooks/state-import-prepin.sh"
 rm -f "$INC"; rc=0
-( cd "$T/proj" && printf '{}' | env HOME="$H" /bin/bash -p "$T/tree/hooks/stop-hook-prepin.sh" >/dev/null 2>&1 ) || rc=$?
+( cd "$T/proj" && printf '{}' | env HOME="$H" /bin/bash -p "$T/tree/hooks/state-import-prepin.sh" >/dev/null 2>&1 ) || rc=$?
 sleep 0.5   # REIN_SLEEP_ALLOWED: negative wait — no incident may be written
 assert_status 0 "E-292.09p: an abort BEFORE the pin still exits 0 and records nothing (documented, rc=${rc})" \
   test "$rc" -eq 0 -a ! -e "$INC"
 rm -f "$INC"
-rc=0; ( cd "$T/proj" && printf '{}' | env HOME="$H" /bin/bash -p "${REPO_ROOT}/hooks/stop-hook.sh" >/dev/null 2>&1 ) || rc=$?
+rc=0; ( cd "$T/proj" && printf '{}' | env HOME="$H" /bin/bash -p "${REPO_ROOT}/hooks/state-import.sh" >/dev/null 2>&1 ) || rc=$?
 sleep 0.5   # REIN_SLEEP_ALLOWED: negative wait — no incident may be written
 assert_status 0 "E-292.09z: an UNBROKEN fail-open hook writes no incident (rc=${rc})" test ! -e "$INC"
 

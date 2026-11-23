@@ -911,12 +911,11 @@ set +e
 # ── E-89 (from migrate_state — E-302): rein migrate-state and the P-44 mandate ──
 # Tests for rein migrate-state (E-89/P-43) and P-44 mandate enforcement
 # Validates: parser correctness, status preservation, tier detection, guard check,
-#            JSON schema, blueprint-aligner fail-safe, task-synchronizer strict writes,
+#            JSON schema, task-synchronizer strict writes,
 #            and post-commit.sh state-first ordering.
 set -e   # this section ran under its own suite's error mode
 TEMPLATE="${REPO_ROOT}/src/templates/state.json"
 AI_BIN="${REPO_ROOT}/src/bin/rein"
-ALIGNER_MCP="${REPO_ROOT}/src/mcp/blueprint-aligner-mcp/index.js"
 POST_COMMIT="${REPO_ROOT}/hooks/post-commit.sh"
 
 # ── T-04.01: migrate-state seeds tasks from a well-formed TASKS.md fixture ──
@@ -1027,14 +1026,7 @@ except Exception as e:
 ")
 assert_contains "T-04.05: migration produces valid JSON with correct schema" "ok" "$schema_check"
 
-# ── T-04.06: blueprint-aligner-mcp TIER3_NO_SECURITY_REVIEW fails when state.json missing ──
-# Verify the source code has the fail-safe return for missing state.json
-aligner_failsafe=$(grep -c 'state.json missing — run: rein migrate-state' "$ALIGNER_MCP" || echo "0")
-assert_contains "T-04.06: blueprint-aligner-mcp has fail-safe for missing state.json" "1" "$aligner_failsafe"
-
-# Verify the TASKS.md fallback regex is gone
-legacy_fallback=$(grep -c 'TASKS.md.*regex\|Fallback.*legacy TASKS' "$ALIGNER_MCP" 2>/dev/null || echo "0")
-assert_contains "T-04.06b: TASKS.md fallback regex removed from blueprint-aligner-mcp" "0" "$legacy_fallback"
+# T-04.06 (blueprint-aligner-mcp's missing-state fail-safe) went with the server (E-467, D-170 r5).
 
 # ── T-04.07: task-synchronizer-mcp gates on missing .ai/ directory ──
 # E-156: readStateStrict replaced by SQLite getDb() — verify the new guard is present
@@ -1082,61 +1074,7 @@ assert_status 0 "T-04.08b2: post-commit.sh closes tasks through the mirror's rei
 warn_check=$(grep -c 'WARN: .* not found' "$POST_COMMIT" || echo "0")
 assert_contains "T-04.08c: post-commit.sh warns and exits when ai is absent" "1" "$warn_check"
 
-# ── T-04.09: TIER3_NO_SECURITY_REVIEW does NOT clear when only LOG.md has evidence ──
-# P-44: gate must require stamps[], not LOG.md text
-T49_DIR=$(mktemp -d)
-mkdir -p "${T49_DIR}/.ai"
-
-# state.json with a Tier-3 DONE task and empty stamps[]
-cat > "${T49_DIR}/.ai/state.json" <<'JSON'
-{
-  "version": "1.0",
-  "project": { "focus": "test" },
-  "tasks": [
-    {
-      "id": "E-1",
-      "owner": "claude",
-      "status": "DONE",
-      "tier": 3,
-      "description": "Security feature",
-      "created_at": "2026-03-01",
-      "completed_at": "2026-03-16",
-      "summary": "done"
-    }
-  ],
-  "stamps": []
-}
-JSON
-
-# LOG.md with security keywords that used to bypass the gate
-cat > "${T49_DIR}/.ai/LOG.md" <<'LOG'
-## 2026-03-16
-- security_engineer activated
-- [SEC_PASS] THREAT_MODEL written
-- [SECURITY] review complete
-LOG
-
-# The check function in the aligner must still return a violation
-t49_result=$(node --input-type=module -e "
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
-
-const cwd = '${T49_DIR}';
-const statePath = resolve(cwd, '.ai/state.json');
-const logPath = resolve(cwd, '.ai/LOG.md');
-
-const readFileSafe = (p) => { try { return readFileSync(p, 'utf8'); } catch { return ''; } };
-
-const state = JSON.parse(readFileSafe(statePath));
-const tier3Done = (state.tasks || []).some(t => t.tier === 3 && t.status === 'DONE');
-const hasSecStamp = (state.stamps || []).some(s => /SEC_PASS|SEC_CLEARED/i.test(s.type));
-// Replicate the P-44 gate logic (no LOG.md bypass)
-if (!tier3Done) { console.log('no-tier3'); process.exit(0); }
-if (hasSecStamp) { console.log('has-stamp'); process.exit(0); }
-console.log('violation');
-" 2>/dev/null || echo "violation")
-assert_contains "T-04.09: TIER3_NO_SECURITY_REVIEW blocks when stamps[] empty despite LOG.md keywords" "violation" "$t49_result"
-rm -rf "$T49_DIR"
+# T-04.09 (an inline copy of blueprint-aligner-mcp's Tier 3 gate) went with the server (E-467).
 
 # ── T-04.10: migrate-state --force is NON-DESTRUCTIVE over a populated state ──
 # Regression for the recurring corruption: TASKS.md is a LOSSY view (date-only

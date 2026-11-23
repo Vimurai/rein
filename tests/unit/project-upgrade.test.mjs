@@ -259,7 +259,6 @@ test("an unstamped project's view has no stamp keys (the view shape is unchanged
 
 // E-461: rein-handoff, rein-task, arch-task and task-planner are gone — `rein handoff` makes the
 // commit (src/shared/cli-bookkeeping.mjs), driven through the real pre-commit below.
-const SKILLS_WITH_HANDOFF = [".claude/skills/rein-archive/SKILL.md", "src/shared/skills/rein-archive/SKILL.md"];
 
 function fixtureRepo(t) {
   const home = mkdtempSync(join(tmpdir(), "rein-t-comm-home-"));
@@ -315,12 +314,8 @@ test("rein sync removes only the COMM.md pattern from an old .ai/.gitignore", ()
   } finally { f.cleanup(); t.done(); }
 });
 
-test("every handoff-writing skill commits COMM.md with --only (both copies)", () => {
-  for (const p of SKILLS_WITH_HANDOFF) {
-    assert.match(readFileSync(join(ROOT, p), "utf8"), /git commit --only \.ai\/COMM\.md/, p);
-  }
-  assert.ok(!existsSync(join(ROOT, ".ai", "COMM_APPEND.md")), "the June orphan is deleted");
-});
+// The "every handoff-writing skill commits COMM.md with --only" row went with the last such skill,
+// rein-archive (E-467, D-170 r5); `rein handoff`'s commit is pinned by the next row.
 
 // D-147 r1 (extends this D-104 row): the handoff commit names COMM.md AND every other tracked .ai/
 // path the turn dirtied — here DIGEST.md — so the handoff leaves .ai/ clean; staged source

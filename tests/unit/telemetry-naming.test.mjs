@@ -19,7 +19,6 @@ import {
   SOURCE_ORDER, STATUS_SQL_IN,
 } from "../../src/shared/telemetry.mjs";
 import { withTelemetry } from "../../src/shared/mcp-telemetry.mjs";
-import { checkInsightsStaleness } from "../../src/shared/insights-staleness.mjs";
 
 const REPO = resolve(import.meta.dirname, "../..");
 const TELEMETRY_CLI = join(REPO, "src/shared/telemetry.mjs");
@@ -245,17 +244,4 @@ test("an enum rebuild keeps the `source` values it finds (db_architect P2)", () 
   } finally { s.done(); }
 });
 
-// ── the staleness probe ──────────────────────────────────────────────────────────────────
-test("the staleness probe counts tool_executions only, not task_velocity", async () => {
-  const s = store();
-  try {
-    for (let i = 0; i < 3; i++) rec(s);
-    for (let i = 0; i < 4; i++) {
-      recordTaskVelocity({ task_id: `E-${i}`, turn_count: 1, tokens_consumed: 1 }, { sync: true, db_path: s.db });
-    }
-    resetTelemetryCache();
-    const r = await checkInsightsStaleness({ insights_path: join(s.d, "INSIGHTS.md"), telemetry_path: s.db });
-    assert.equal(r.total_rows, 3);
-    assert.equal(r.new_rows_since_insights, 3);
-  } finally { s.done(); }
-});
+// The insights staleness probe row went with insights-staleness.mjs (E-467, D-170 r5).

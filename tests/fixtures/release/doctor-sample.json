@@ -57,7 +57,6 @@
   {"id": "mcp_server", "scope": "install", "subject": "cache-manager-mcp", "status": "fail", "line": "✗ cache-manager-mcp: node_modules missing — run: rein mcp-setup", "fix": "rein mcp-setup"},
   {"id": "mcp_json", "scope": "project", "subject": null, "status": "ok", "line": "✓ .mcp.json present (/home/user/project)", "fix": null},
   {"id": "mcp_paths", "scope": "project", "subject": null, "status": "ok", "line": "✓ .mcp.json paths: all valid (16 server(s))", "fix": null},
-  {"id": "vibe_check_browsers", "scope": "host", "subject": null, "status": "fail", "line": "✗ Chromium not installed — vibe-check tools will report [BROWSER_MISSING]\nrun: rein mcp-setup --browsers", "fix": "rein mcp-setup --browsers"},
   {"id": "hook_toolchain", "scope": "install", "subject": null, "status": "ok", "line": "✓ hook toolchain: node v26.12.1 · python3 3.14.4", "fix": null},
   {"id": "gate_override", "scope": "install", "subject": null, "status": "ok", "line": "✓ no override — the safe-exec gate is fully on", "fix": null},
   {"id": "classifier_backstop", "scope": "host", "subject": null, "status": "ok", "line": "○ classifier backstop: not configured — rein install offers it", "fix": null},

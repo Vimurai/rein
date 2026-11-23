@@ -26,7 +26,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
-import { getDbSeeded, readState as _readState, regenerateViews as _regenerateViews, nextId as _nextId, addTask as _addTask, nextTopicSeedId as _nextTopicSeedId, nextClusterPageId as _nextClusterPageId, validateDag as _validateDag, parseDeps as _parseDeps, archiveDoneTasks as _archiveDoneTasks, archiveStamps as _archiveStamps, completeTask as _completeTask, DONE_ARCHIVE_THRESHOLD, DONE_KEEP_RECENT, STAMP_ARCHIVE_THRESHOLD } from "../shared/state-db.js";
+import { getDbSeeded, readState as _readState, regenerateViews as _regenerateViews, nextId as _nextId, addTask as _addTask, validateDag as _validateDag, parseDeps as _parseDeps, archiveDoneTasks as _archiveDoneTasks, archiveStamps as _archiveStamps, completeTask as _completeTask, DONE_ARCHIVE_THRESHOLD, DONE_KEEP_RECENT, STAMP_ARCHIVE_THRESHOLD } from "../shared/state-db.js";
 // E-325 (D-102): the single writer — record file first in a team project, then the row.
 import { updateTask as _updateTask, insertStamp as _insertStamp, setProject as _setProject } from "../shared/record-store.mjs";
 // E-326: a team project's pulled records are imported before the views are compared.
@@ -51,10 +51,6 @@ import { createLogger } from "../shared/logger.js";
 // syncToCloud() which short-circuits to {status:"DISABLED"} when
 // AI_MANAGED_AGENTS_ENABLE is unset. Local MCP behaviour is unchanged off.
 import { syncToCloud as _syncToCloud } from "../../shared/managed-agents-client.mjs";
-// E-88: Multi-Variation-State-Tracker — canonical SEO Topic Cluster intents.
-// Used to validate ClusterPage.intent_type and enforce the cluster-page cap
-// on add_cluster_page.
-import { SEO_ALL_INTENTS, SEO_PILLAR_INTENT, MAX_CLUSTER_PAGES_PER_SEED, isValidIntentType as _isValidIntentType, isClusterIntent as _isClusterIntent } from "../../shared/seo-cluster-intents.mjs";
 
 // ── Structured logger (obs_baseline §Logging) ────────────────────────────────
 const logger = createLogger("task-synchronizer-mcp");
@@ -413,8 +409,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // E-91: a DONE transition runs the DAG unblock cascade (BLOCKED tasks whose whole
       // depends_on set is now DONE become OPEN). E-325: shared with `rein task done` in
-      // state-db::completeTask. E-259 (D-077): task_velocity is not written here; it comes
-      // from the transcript, via hooks/post-tool-use.sh → src/shared/task-usage.mjs.
+      // state-db::completeTask. task_velocity is not written (E-467 retired its meter).
       let unblocked = [];
       if (args.status === "DONE") {
         unblocked = _completeTask(aiDir, db, args.id, storedSummary);
@@ -747,172 +742,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
           text: marked > 0
             ? `✓ Acknowledged ${marked} delta(s) for ${scope}.`
             : `⚠ No unread deltas found${taskIds ? ` for ${scope}` : ""}.`,
-        }],
-      };
-    }
-
-    // ── E-88 Multi-Variation-State-Tracker handlers (Topic Cluster Engine) ────
-    // All four operate on the local aiDir's state.sqlite only (no framework
-    // routing — SEO state is project-scoped). No cloud sync fires from these
-    // mutations per E-73 Data-Privacy contract (only tasks cross the boundary).
-
-    case "add_topic_seed": {
-      const term = typeof args.term === "string" ? args.term.trim() : "";
-      // E-179: all three guards below are EXPECTED input rejections (the caller sent a bad
-      // term/volume) — booked SUCCESS for telemetry so add_topic_seed's 85.7% "failure rate"
-      // (which was just invalid input) stops masquerading as a broken tool.
-      if (term.length === 0 || term.length > 256) {
-        return rejection("✗ [INVALID_TOPIC_TERM] term must be 1..256 chars");
-      }
-      // Reject shell metacharacters (mirrors seo_manager.md Preflight #3).
-      if (/[;&|`$()<>\n\r]/.test(term)) {
-        return rejection("✗ [INVALID_TOPIC_TERM] term contains shell metacharacters");
-      }
-      const targetVolume = Number.isFinite(args.target_volume) ? Math.floor(args.target_volume) : MAX_CLUSTER_PAGES_PER_SEED;
-      if (targetVolume < 1 || targetVolume > MAX_CLUSTER_PAGES_PER_SEED) {
-        return rejection(`✗ [INVALID_TARGET_VOLUME] must be 1..${MAX_CLUSTER_PAGES_PER_SEED}`);
-      }
-      const id = _nextTopicSeedId(db);
-      const createdAt = new Date().toISOString();
-      db.prepare(
-        "INSERT INTO topic_seeds(id, term, status, target_volume, created_at, completed_at) VALUES (?, ?, ?, ?, ?, NULL)"
-      ).run(id, term, "OPEN", targetVolume, createdAt);
-      return {
-        content: [{
-          type: "text",
-          text: `✓ Added TopicSeed ${id}: "${term}" (target_volume=${targetVolume})\n` +
-                JSON.stringify({ id, term, status: "OPEN", target_volume: targetVolume, created_at: createdAt }, null, 2),
-        }],
-      };
-    }
-
-    case "add_cluster_page": {
-      const seedId = String(args.seed_id || "").trim();
-      const intent = String(args.intent_type || "").trim();
-      // E-179: the validation/guard rejections in this handler are EXPECTED outcomes (bad
-      // seed id, unknown intent, missing seed, duplicate intent, cap reached) — the tool
-      // working correctly, not failing. Booked SUCCESS for telemetry.
-      if (!/^TS-\d+$/.test(seedId)) {
-        return rejection("✗ [INVALID_SEED_ID] expected format TS-N");
-      }
-      if (!_isValidIntentType(intent)) {
-        return rejection(`✗ [UNKNOWN_INTENT_TYPE] '${intent}' is not a canonical cluster intent. Valid: ${SEO_ALL_INTENTS.join(", ")}`);
-      }
-      const seedRow = db.prepare("SELECT id FROM topic_seeds WHERE id = ?").get(seedId);
-      if (!seedRow) {
-        return rejection(`✗ [SEED_NOT_FOUND] TopicSeed '${seedId}' does not exist. Call add_topic_seed first.`);
-      }
-      // Cannibalization guard: refuse a duplicate (seed_id, intent_type) —
-      // every page in a cluster MUST target a unique, non-overlapping intent.
-      const dup = db.prepare(
-        "SELECT id FROM cluster_pages WHERE seed_id = ? AND intent_type = ?"
-      ).get(seedId, intent);
-      if (dup) {
-        return rejection(`✗ [INTENT_ALREADY_USED] ${seedId} already has intent '${intent}' (page ${dup.id})`);
-      }
-      // Defence-in-depth: enforce the lifted cluster-page cap at the storage
-      // layer even if upstream (seo_manager E-87) miscounts. The Pillar page
-      // does not count against the cap — only deep-dive Cluster pages do.
-      if (_isClusterIntent(intent)) {
-        const clusterCount = db.prepare(
-          `SELECT COUNT(*) as n FROM cluster_pages WHERE seed_id = ? AND intent_type != ?`
-        ).get(seedId, SEO_PILLAR_INTENT).n;
-        if (clusterCount >= MAX_CLUSTER_PAGES_PER_SEED) {
-          return rejection(`✗ [CLUSTER_CAP_REACHED] seed ${seedId} already has ${clusterCount}/${MAX_CLUSTER_PAGES_PER_SEED} cluster pages`);
-        }
-      }
-
-      const id = _nextClusterPageId(db);
-      const createdAt = new Date().toISOString();
-      const blob = typeof args.content_blob === "string" ? args.content_blob : null;
-      db.prepare(
-        "INSERT INTO cluster_pages(id, seed_id, intent_type, content_blob, performance_metrics, published_at, created_at) VALUES (?, ?, ?, ?, NULL, NULL, ?)"
-      ).run(id, seedId, intent, blob, createdAt);
-
-      return {
-        content: [{
-          type: "text",
-          text: `✓ Added ClusterPage ${id} for ${seedId} [${intent}]\n` +
-                JSON.stringify({ id, seed_id: seedId, intent_type: intent, created_at: createdAt }, null, 2),
-        }],
-      };
-    }
-
-    case "report_performance": {
-      const pid = String(args.page_id || "").trim();
-      // E-179: invalid id / invalid metrics / not-found are EXPECTED rejections (caller
-      // error), booked SUCCESS for telemetry so report_performance's 60% "failure rate"
-      // stops reading as a broken tool.
-      if (!/^CP-\d+$/.test(pid)) {
-        return rejection("✗ [INVALID_PAGE_ID] expected format CP-N");
-      }
-      if (!args.metrics || typeof args.metrics !== "object" || Array.isArray(args.metrics)) {
-        return rejection("✗ [INVALID_METRICS] metrics must be a JSON object");
-      }
-      const row = db.prepare(
-        "SELECT id, performance_metrics FROM cluster_pages WHERE id = ?"
-      ).get(pid);
-      if (!row) {
-        return rejection(`✗ [PAGE_NOT_FOUND] ${pid}`);
-      }
-      // Merge-patch semantics: existing JSON + supplied keys; new keys
-      // overwrite. Mirrors the JSON merge contract documented in the tool's
-      // inputSchema description.
-      let existing = {};
-      if (row.performance_metrics) {
-        try { existing = JSON.parse(row.performance_metrics); } catch { existing = {}; }
-      }
-      const merged = { ...existing, ...args.metrics };
-      db.prepare(
-        "UPDATE cluster_pages SET performance_metrics = ? WHERE id = ?"
-      ).run(JSON.stringify(merged), pid);
-      return {
-        content: [{
-          type: "text",
-          text: `✓ Updated ${pid} performance_metrics\n` + JSON.stringify(merged, null, 2),
-        }],
-      };
-    }
-
-    case "get_topic_cluster": {
-      const seedId = String(args.seed_id || "").trim();
-      // E-179: bad seed id / not-found are EXPECTED rejections (caller error), booked SUCCESS
-      // for telemetry so get_topic_cluster's 50% "failure rate" stops reading as a defect.
-      if (!/^TS-\d+$/.test(seedId)) {
-        return rejection("✗ [INVALID_SEED_ID] expected format TS-N");
-      }
-      const seed = db.prepare(
-        "SELECT id, term, status, target_volume, created_at, completed_at FROM topic_seeds WHERE id = ?"
-      ).get(seedId);
-      if (!seed) {
-        return rejection(`✗ [SEED_NOT_FOUND] ${seedId}`);
-      }
-      const pages = db.prepare(
-        "SELECT id, intent_type, content_blob, performance_metrics, published_at, created_at FROM cluster_pages WHERE seed_id = ? ORDER BY id"
-      ).all(seedId).map((p) => ({
-        id:                  p.id,
-        intent_type:         p.intent_type,
-        content_blob:        p.content_blob,
-        performance_metrics: p.performance_metrics ? JSON.parse(p.performance_metrics) : null,
-        published_at:        p.published_at,
-        created_at:          p.created_at,
-      }));
-      const clusterPages = pages.filter((p) => p.intent_type !== SEO_PILLAR_INTENT);
-      const remaining = Math.max(0, seed.target_volume - clusterPages.length);
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            seed,
-            pages,
-            counts: {
-              total:     pages.length,
-              pillar:    pages.filter((p) => p.intent_type === SEO_PILLAR_INTENT).length,
-              cluster:   clusterPages.length,
-              remaining,
-              published: pages.filter((p) => p.published_at != null).length,
-            },
-          }, null, 2),
         }],
       };
     }

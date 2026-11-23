@@ -98,9 +98,8 @@ usage() {
   cat <<USAGE
 rein — Rein v${VERSION}
 
-The shell CLI is a thin bootloader. Operational commands (planning, review,
-testing, archive) now run as prompts inside Claude Code.
-See .ai/blueprints/cli-collapse.md for the migration map.
+The shell CLI owns the ledger and the bookkeeping commands; planning and
+building run inside Claude Code (D-170).
 
 Commands:
   rein install     Install configs to ~/.claude + ~/.config/github-copilot;
@@ -151,6 +150,9 @@ Commands:
   rein decide --file <entry>
                  Number the entry D-### and append it to .ai/DECISIONS.md; it needs a
                  decision, a reason and a rollback
+  rein archive [--logs]
+                 Move DONE tasks and stamps over their thresholds to .ai/archive/*.json;
+                 --logs also moves LOG.md and SESSION.md to .ai/archive/YYYY-MM/
   rein task done <id> [--summary <text>]
                  Mark a task DONE through the same completion gates as the MCP tool
   rein task claim <id> | release <id> [--reason <text>] | claims [--fetch]
@@ -207,36 +209,11 @@ Commands:
                  still block; every bypassed call is announced. Run it in YOUR terminal.
   rein version     Print version
 
-Removed — use the agent skill instead (see .ai/blueprints/cli-collapse.md):
-  update / onboard → Run 'rein start', type the planning request in the Architect pane
-  preflight        → none: the SessionStart hook injects the session brief (E-460)
-  archive          → skill: rein-archive
-  test [--vibe]    → skill: rein-test  (--generate | --fast | --vibe)
-  provider         → removed in v4; providers are configured in .ai/providers.json
-  where            → echo \$REIN  (now stored as ~/.rein)
-
 Recovery (used internally by install/init; surfaced by 'rein doctor' hints):
   migrate-state    Rebuild state from TASKS.md — lossy; refused with [LOSSY_RESEED] when the
                    committed state.json holds more (use: rein state import; or --from-tasks)
   mcp-setup        Install MCP-server npm deps under ~/.rein/mcp
 USAGE
-}
-
-# E-34: Show migration guidance for removed commands. Single source of truth
-# for the deprecation map so usage() and dispatch stay aligned.
-_show_deprecated() {
-  local old_cmd="$1" replacement="$2"
-  cat >&2 <<DEP
-
-[rein] "rein ${old_cmd}" was removed (see .ai/blueprints/cli-collapse.md).
-
-Use the agent flow instead:
-  ${replacement}
-
-The shell CLI is now scoped to: install, init, sync, doctor, uninstall.
-Run "rein" for the full command list.
-DEP
-  exit 1
 }
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -313,79 +290,6 @@ _wal_checkpoint_state_db() {
   _dr wal_checkpoint - "  ✓ WAL checkpoint complete (.ai/state.sqlite-wal flushed)"
 }
 
-# E-98: Regenerate .ai/REPO_MAP.md (AST repository map) during `rein sync`.
-# Runs the ast-parser-mcp generate-map CLI over the workspace. Per blueprint
-# §Execution Constraints this lives in `rein sync` (NOT the synchronous rein init /
-# preflight loops). A missing server or node returns 2 (skipped); a parse error
-# returns 1 (FAILED, E-339). REIN_DISABLE_REPO_MAP=1 is the rollback escape hatch.
-_generate_repo_map() {
-  [[ "${REIN_DISABLE_REPO_MAP:-}" == "1" ]] && { echo "  ⚠ REPO_MAP.md skipped (REIN_DISABLE_REPO_MAP=1)"; return 2; }
-  if ! command -v node >/dev/null 2>&1; then
-    echo "  ⚠ node not found — skipping REPO_MAP.md regeneration" >&2
-    return 2
-  fi
-  local server="${REIN}/mcp/ast-parser-mcp/index.js"
-  if [[ ! -f "$server" ]]; then
-    echo "  ⚠ ast-parser-mcp not installed — skipping REPO_MAP.md (run: rein install)" >&2
-    return 2
-  fi
-  # E-339 (D-107 r2): no 2>/dev/null — the cause of a failed map is the ✗ line. Non-fatal
-  # still holds in the sense of D-107 r1: every later step runs.
-  node "$server" --generate-map || return 1
-  echo "  ✓ .ai/REPO_MAP.md regenerated (AST repository map)"
-}
-
-# E-145 (self-learning-arc, W5-T1): refresh the Memory Palace candidate index during
-# sync so the multimodal-RAG memory layer stays current. API-FREE BY DESIGN — this only
-# SCANS the workspace for eligible artifacts (memory-batch-scanner) and writes the candidate
-# manifest to .ai/memory/palace-index.json. The actual embedding into the Memory Palace is
-# the memory_curator agent's job (it has API access in a session) — a sync hook must never
-# require network/keys. Fail-open; REIN_DISABLE_MEMORY_PALACE=1 is the escape hatch.
-_generate_memory_palace() {
-  [[ "${REIN_DISABLE_MEMORY_PALACE:-}" == "1" ]] && { echo "  ⚠ Memory Palace index skipped (REIN_DISABLE_MEMORY_PALACE=1)"; return 2; }
-  command -v node >/dev/null 2>&1 || { echo "  ⚠ node not found — skipping Memory Palace index" >&2; return 2; }
-  local scanner=""
-  scanner="$(_rein_helper shared/memory-batch-scanner.mjs || true)"
-  [[ -z "$scanner" ]] && { echo "  ⚠ memory-batch-scanner.mjs not found — skipping Memory Palace index" >&2; return 2; }
-  # Every command below is guarded so a filesystem error can NEVER abort do_sync
-  # under `set -euo pipefail` (fail-open is the load-bearing invariant — E-145 W5-T1).
-  mkdir -p ".ai/memory" 2>/dev/null || { echo "  ⚠ cannot create .ai/memory — Memory Palace index not written" >&2; return 1; }
-  if node "$scanner" --scan . > ".ai/memory/palace-index.json.tmp"; then
-    # E-346 (D-109 r3): a failed rename leaves the old index in place — FAILED, not ok.
-    mv -f ".ai/memory/palace-index.json.tmp" ".ai/memory/palace-index.json" \
-      || { rm -f ".ai/memory/palace-index.json.tmp"; return 1; }
-    # palace-index.json is the sync-time CANDIDATE manifest (observability + a fresh
-    # input the memory_curator agent MAY read). The curator currently runs its own
-    # scan when it embeds; wiring it to consume this manifest is an Architect call
-    # (scan-on-sync is a §35 seam, not yet in a blueprint — flagged for ratification).
-    echo "  ✓ .ai/memory/palace-index.json refreshed (Memory Palace candidate manifest)"
-  else
-    rm -f ".ai/memory/palace-index.json.tmp" 2>/dev/null || true
-    return 1   # E-339: the scanner's stderr is the ✗ line
-  fi
-}
-
-# E-112 (caching.md §3.1): rebuild the cache-manager System Context cache during
-# sync so the cache-manager-mcp is actually exercised in a live flow (it was
-# built but never invoked). Fail-open; REIN_DISABLE_CACHE=1 is the escape hatch.
-_rebuild_context_cache() {
-  [[ "${REIN_DISABLE_CACHE:-}" == "1" ]] && { echo "  ⚠ context cache skipped (REIN_DISABLE_CACHE=1)"; return 0; }
-  if ! command -v node >/dev/null 2>&1; then
-    echo "  ⚠ node not found — skipping context cache rebuild" >&2
-    return 0
-  fi
-  local server="${REIN}/mcp/cache-manager-mcp/index.js"
-  if [[ ! -f "$server" ]]; then
-    echo "  ⚠ cache-manager-mcp not installed — skipping context cache (run: rein install)" >&2
-    return 0
-  fi
-  if node "$server" --build 2>/dev/null; then
-    echo "  ✓ context cache rebuilt (cache-manager System Context)"
-  else
-    echo "  ⚠ context cache rebuild failed — non-fatal (sync continues)" >&2
-  fi
-}
-
 # E-62: Resolve canonical Rein framework clone path. Order (E-304: file first):
 #   1. ${REIN}/config/rein-workspace.txt (persisted by install-rein.sh)
 #   2. $REIN_WORKSPACE if exported and no file exists
@@ -438,18 +342,10 @@ generate_mcp_json() {
 import json, sys, os
 registry_path, mcp_path, home, rein, mcp_key, legacy_path = sys.argv[1:7]
 
-servers = {
-  "filesystem": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-filesystem@2026.1.14", "."],
-    "description": "Scoped filesystem access — enforces CAPABILITIES.md path restrictions. Restricts to project root by default."
-  },
-  "memory": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-memory@2026.1.26"],
-    "description": "Knowledge-graph memory store. Queryable alternative/supplement to DIGEST.md for semantic lookups."
-  }
-}
+# D-170 r5 (E-467): the third-party filesystem and memory servers are retired; only
+# registry servers are generated. Both names stay in registry_history, so a project's
+# old entries are removed as owned on the next sync.
+servers = {}
 
 # The install root as written into the file: `${HOME}/…` whenever it lives under HOME (it
 # always does — REIN is ${HOME}/.rein), an absolute path only if it somehow does not.
@@ -1487,7 +1383,7 @@ ensure_ai_templates() {
   # .mcp.json — always regenerate to pick up new servers. Servers the user added and env
   # they set on ours are carried over (E-274; see generate_mcp_json).
   generate_mcp_json "."
-  echo "Updated .mcp.json (MCP servers: filesystem + memory + Rein custom servers)"
+  echo "Updated .mcp.json (MCP servers: the Rein servers in registry.json)"
 
   # Bootloaders (D-050/E-183): ENGINEER.md/ARCHITECT.md are the canonical rulefiles;
   # CLAUDE.md is a thin @import shim so Claude Code's auto-load
@@ -1678,7 +1574,6 @@ try:
         _history = {n for n in json.load(lf).get("registry_history", []) if isinstance(n, str)}
     with open(registry_path) as rf:
         _live = set(json.load(rf).get("mcp_servers", {}))
-    _live |= {"filesystem", "memory"}          # always generated into .mcp.json
     _retired = _history - _live
     # A retired name the project's .mcp.json still configures is the user's own server
     # now (critic_security, E-273): its allows stay.
@@ -1762,17 +1657,13 @@ hooks = data.setdefault("hooks", {})
 #     role comes from the launch-record walk (D-087), never from an argument or the env. It
 #     fires on clear and compact too: `/clear` issues a NEW session id in the same process
 #     (measured 2026-10-04), which needs its own token or the session falls into the union;
-#   E-105 post-tool-use matcher ".*" (universal telemetry; the AQG self-gates);
-#   E-284 permission-denied books REJECTED rows for denied built-ins.
+#   E-467 (D-170 r5): stop-hook, post-tool-log, post-tool-use and permission-denied are
+#     retired; their Rein-owned entries are removed below on every event (_RETIRED).
 import re as _re
 _HOOKS_DIR = os.path.realpath(os.path.join(os.path.expanduser("~"), ".rein", "hooks"))
 _SPECS = [  # (event, matcher, script, extra args)
-    ("Stop", ".*", "stop-hook.sh", []),
     ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "pre-tool-use.sh", []),
     ("SessionStart", "startup|resume|clear|compact", "session-start.sh", []),
-    ("PostToolUse", "Write|Edit", "post-tool-log.sh", []),
-    ("PostToolUse", ".*", "post-tool-use.sh", []),
-    ("PermissionDenied", ".*", "permission-denied.sh", []),
     # E-433 (D-160, release-artifact.md §Component 7): the waiting-on-the-operator pane signal.
     # Its own entry on every event of the table; pre-tool-use.sh is not touched. Fail-open.
     ("PermissionRequest", ".*", "waiting-signal.sh", []),
@@ -1825,6 +1716,21 @@ for _event, _matcher, _script, _extra in _SPECS:
                 print(f"Replaced {_event} hook entry: {_txt[:200]}")
     _lst[:] = [e for e in _lst if e.get("hooks")]
     _lst.append({"matcher": _matcher, "hooks": [_want]})
+_RETIRED = ("stop-hook.sh", "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh")
+for _event, _lst in list(hooks.items()):
+    if not isinstance(_lst, list):
+        continue
+    for _e in _lst:
+        if not isinstance(_e, dict):
+            continue
+        for _script in _RETIRED:
+            _keep = [h for h in _e.get("hooks", []) if not (isinstance(h, dict) and _is_rein_hook(h, _script))]
+            if len(_keep) != len(_e.get("hooks", [])):
+                print(f"Removed retired {_event} hook: {_script} (E-467)")
+            _e["hooks"] = _keep
+    _lst[:] = [e for e in _lst if not isinstance(e, dict) or e.get("hooks")]
+    if not _lst:
+        del hooks[_event]
 
 with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
@@ -2566,41 +2472,6 @@ _upgrade_legacy_git_hooks() {
   fi
 }
 
-# E-114: Query global memory store for similar projects during rein init (§31 advisory hint)
-# Silent failure — project-local context always takes priority.
-_query_similar_signatures() {
-  local MEM_DIR="${REIN}/memory"
-  local SIG_FILE="${MEM_DIR}/signatures.json"
-  if ! command -v python3 &>/dev/null; then return 0; fi
-  if [[ ! -f "$SIG_FILE" ]]; then return 0; fi
-  local PROJECT_TAG
-  PROJECT_TAG="$(basename "$(pwd)")"
-
-  python3 - "$SIG_FILE" "$PROJECT_TAG" <<'PY' 2>/dev/null || true
-import json, sys
-sig_file  = sys.argv[1]
-query_tag = sys.argv[2].lower()
-
-try:
-    sigs = json.load(open(sig_file))
-    if not isinstance(sigs, list) or not sigs:
-        sys.exit(0)
-    matched = [
-        s for s in sigs
-        if query_tag in str(s.get("project_name", "")).lower()
-        or query_tag in str(s.get("tag", "")).lower()
-        or any(query_tag in str(t).lower() for t in (s.get("tags") or []))
-    ]
-    if not matched:
-        sys.exit(0)
-    print("\nSimilar projects from memory palace (advisory):")
-    for s in matched[:3]:
-        print(f"  • {s.get('project_name','?')}: {str(s.get('summary',''))[:100]}")
-except Exception:
-    pass  # Silent failure per §31
-PY
-}
-
 # ── E-270 (D-074 §Components 2): `rein init` as an idempotent upgrade ───────────
 # Re-running `rein init` in an existing project brings it to the installed version:
 # generated files are REFRESHED, schema-bearing templates are MERGED
@@ -2817,9 +2688,6 @@ do_init() {
     ( do_migrate_state ) 2>/dev/null || echo "  (state.json already populated — skipped re-seed)"
   fi
 
-  # E-114: Query global memory store for similar architectural patterns (§31 advisory)
-  _query_similar_signatures 2>/dev/null || true
-
   # E-270 (D-074 §Components 1): stamp the version that provisioned this project — after
   # the seed above: when state.sqlite does not exist yet, the stamp imports state.json first.
   local _sk _sf _sd _stamp_line=""
@@ -2870,7 +2738,7 @@ do_init() {
   # E-255: the Tester is a headless Claude role — its label is derived like the other two.
   printf '  Tester    %-18s → Quality gate via skill: rein-test (headless)\n' "(${_tst_label})"
   echo ""
-  echo "MCP servers enabled in .mcp.json (filesystem + memory)."
+  echo "MCP servers enabled in .mcp.json (the Rein servers in registry.json)."
 }
 
 
@@ -3758,7 +3626,7 @@ do_sync() {
     if [[ "${REIN_SYNC_MINIMAL:-0}" == "1" ]]; then
       echo ""
       echo "  Stopping after provisioning (REIN_SYNC_MINIMAL=1) — hooks, doc regeneration,"
-      echo "  the WAL checkpoint, REPO_MAP, the Memory Palace index and the policy report"
+      echo "  the WAL checkpoint and the policy report"
       echo "  were NOT run. Unset it to complete a full sync."
       return 0
     fi
@@ -3777,8 +3645,6 @@ do_sync() {
     _sync_step version_stamp   _sync_stamp_version
     _sync_step run_reap        _sync_reap_run_records
     _sync_step watcher_reap    _sync_reap_watcher_state
-    _sync_step repo_map        _generate_repo_map
-    _sync_step memory_palace   _generate_memory_palace
     _sync_step gitignore       _ensure_generated_gitignore "."
     _sync_step comm_tracked    _untrack_comm_gitignore "."   # E-338 (D-104 r1)
     _sync_step policy_report   _report_policy_staleness
@@ -4286,21 +4152,6 @@ _doctor_text() {
   fi
 
   echo "Hooks:"
-  if [[ -f "${HOME}/.rein/hooks/stop-hook.sh" ]]; then
-    _dr hook_present - "  ✓ stop-hook.sh present (auto SESSION stamp)" "" "stop-hook.sh"
-  else
-    _dr hook_present - "  ✗ stop-hook.sh missing — run: rein install" "" "stop-hook.sh"
-  fi
-  if [[ -f "${HOME}/.rein/hooks/post-tool-log.sh" ]]; then
-    _dr hook_present - "  ✓ post-tool-log.sh present (auto LOG append)" "" "post-tool-log.sh"
-  else
-    _dr hook_present - "  ✗ post-tool-log.sh missing — run: rein install" "" "post-tool-log.sh"
-  fi
-  if [[ -f "${HOME}/.rein/hooks/post-tool-use.sh" ]]; then
-    _dr hook_present - "  ✓ post-tool-use.sh present (AQG: auto test gate)" "" "post-tool-use.sh"
-  else
-    _dr hook_present - "  ✗ post-tool-use.sh missing — run: rein install" "" "post-tool-use.sh"
-  fi
   if [[ -f "${HOME}/.rein/hooks/pre-commit.sh" ]]; then
     _dr hook_present - "  ✓ pre-commit.sh present (Gate 2: Quality Gate)" "" "pre-commit.sh"
   else
@@ -4420,23 +4271,6 @@ for name, info in d.get('mcp_servers', {}).items():
     fi
   else
     _dr mcp_json - "  ✗ .mcp.json not found in $(pwd) — run: rein init"
-  fi
-  echo ""
-
-  # ── E-235 (D-061 §3): browsers are opt-in, so say whether they are here ────
-  echo "Vibe-check browsers (rein mcp-setup --browsers):"
-  local _vdir="${REIN}/mcp/vibe-check-mcp"
-  if [[ ! -d "$_vdir" ]]; then
-    _dr vibe_check_browsers - "  ⚠  vibe-check-mcp not installed"
-  elif node --input-type=module -e "
-    const { browserStatus } = await import('file://${_vdir}/browser-check.mjs');
-    const { chromium } = await import('file://${_vdir}/node_modules/@playwright/test/index.js');
-    process.exit(browserStatus(chromium).ok ? 0 : 1);
-  " >/dev/null 2>&1; then
-    _dr vibe_check_browsers - "  ✓ Chromium present"
-  else
-    _dr vibe_check_browsers - "  ✗ Chromium not installed — vibe-check tools will report [BROWSER_MISSING]"
-    _dr + - "    run: rein mcp-setup --browsers"
   fi
   echo ""
 
@@ -4907,40 +4741,6 @@ else:
 PY
 }
 
-# _install_browsers — the Playwright download, BOUNDED and visible (E-235 / D-061 §3).
-#
-# Two things the previous inline version lacked, both of which mattered:
-#
-#   1. A TIMEOUT. It once ran over an hour with no bound. `timeout` is not present on
-#      macOS by default, so the limit is enforced with a watchdog rather than assumed —
-#      a timeout that silently is not applied is worse than none, because it is believed.
-#   2. PROGRESS. Output was piped through `tail -2`, so a long download looked identical
-#      to a hung one. Nothing tells an operator less than a silent process.
-_install_browsers() {
-  local sdir="$1"
-  local budget="${REIN_BROWSER_TIMEOUT:-600}"
-  echo "  Installing Playwright Chromium (bounded to ${budget}s; ~150MB download)..."
-
-  ( cd "$sdir" && npx playwright install chromium ) &
-  local dl=$!
-  ( sleep "$budget"; kill -TERM "$dl" 2>/dev/null ) &
-  local wd=$!
-
-  local rc=0
-  wait "$dl" 2>/dev/null || rc=$?
-  kill "$wd" 2>/dev/null
-  wait "$wd" 2>/dev/null || true
-
-  if [[ "$rc" -eq 0 ]]; then
-    echo "  ✓ Chromium installed."
-  else
-    echo "  ✗ Chromium install did not complete (exit ${rc}; budget ${budget}s)." >&2
-    echo "    The vibe-check tools will report [BROWSER_MISSING] until it succeeds." >&2
-    echo "    Retry: rein mcp-setup --browsers    (raise the budget: REIN_BROWSER_TIMEOUT=1800)" >&2
-  fi
-  return 0   # never fail the install over an optional browser
-}
-
 # ── E-426 (D-158 r1-r6, r13; release-artifact.md §Component 4): no rein command writes a shipped
 # file. `npm install` rewrites a package-lock.json whose root entry is out of date, and that lock
 # is listed in manifest.files, so every later tree check failed. A server whose lock is SHIPPED
@@ -5023,22 +4823,8 @@ for name, info in d.get('mcp_servers', {}).items():
 
   # Fallback if registry parse fails
   if [[ ${#CUSTOM_SERVERS[@]} -eq 0 ]]; then
-    CUSTOM_SERVERS=(vibe-check-mcp task-synchronizer-mcp safe-exec-mcp blueprint-aligner-mcp context-guardian-mcp risk-analyzer-mcp)
+    CUSTOM_SERVERS=(task-synchronizer-mcp safe-exec-mcp)
   fi
-  # E-339 (D-107 r2): ast-parser-mcp is a CLI (`rein sync`'s REPO_MAP step), not a registered
-  # server, so the registry list never installed its web-tree-sitter dependency and every
-  # mirror's map generation failed — silently, until sync stopped discarding the error.
-  local _s _have=0
-  for _s in "${CUSTOM_SERVERS[@]}"; do [[ "$_s" == "ast-parser-mcp" ]] && _have=1; done
-  [[ "$_have" -eq 1 ]] || CUSTOM_SERVERS+=(ast-parser-mcp)
-
-  # E-235: explicit opt-in, so the default install never blocks on a browser download.
-  local WANT_BROWSERS=0
-  [[ "${REIN_INSTALL_BROWSERS:-0}" == "1" ]] && WANT_BROWSERS=1
-  local _a
-  for _a in "$@"; do
-    [[ "$_a" == "--browsers" ]] && WANT_BROWSERS=1
-  done
 
   echo "Installing MCP server dependencies from ${MCP_DIR} ..."
   echo ""
@@ -5049,24 +4835,6 @@ for name, info in d.get('mcp_servers', {}).items():
     if [[ -d "$sdir" && -f "${sdir}/package.json" ]]; then
       echo "  Installing ${server}..."
       _mcp_deps "$server" "$sdir" || true   # E-426: npm ci for a shipped lock; the install continues
-      # E-235 (D-061 §3): the browser download is NO LONGER part of the default install.
-      #
-      # `npx playwright install chromium` is an unbounded ~150MB network fetch. On
-      # 2026-09-09 it ran for over an HOUR here without finishing — inside install-rein.sh,
-      # which every user install and every CI run depends on. The `|| true` that used to
-      # wrap it gave no protection whatsoever: the failure mode is HANGING, not erroring,
-      # and you cannot `|| true` your way out of a process that never returns.
-      #
-      # Opt in with `rein mcp-setup --browsers`, or REIN_INSTALL_BROWSERS=1 to restore the
-      # old behaviour. Missing browsers now produce a clear [BROWSER_MISSING] rejection at
-      # first use rather than a hang.
-      if [[ "$server" == "vibe-check-mcp" ]]; then
-        if [[ "$WANT_BROWSERS" -eq 1 ]]; then
-          _install_browsers "$sdir"
-        else
-          echo "  (skipping Playwright browsers — run: rein mcp-setup --browsers)"
-        fi
-      fi
       echo "  ✓ ${server}: ready"
       SETUP_OK=$((SETUP_OK + 1))
     else
@@ -7163,7 +6931,7 @@ case "$cmd" in
     command -v node >/dev/null 2>&1 || { echo "rein ${cmd}: node not found" >&2; exit 1; }
     node --no-warnings "$_st" "$cmd" "${@:2}" ;;
   # E-461 (D-169 r7, lean-core.md §Component 4): bookkeeping is three commands, not skills.
-  done|handoff|decide)
+  done|handoff|decide|archive)
     _bk="$(_rein_helper shared/cli-bookkeeping.mjs || true)"
     [[ -n "$_bk" ]] || { echo "rein ${cmd}: cli-bookkeeping.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
     command -v node >/dev/null 2>&1 || { echo "rein ${cmd}: node not found" >&2; exit 1; }
@@ -7202,29 +6970,15 @@ case "$cmd" in
   # E-291 (D-081 r2, D-083): the operator's time-boxed safe-exec override (replaces the
   # removed env opt-outs). Operator-only — the analyzer blocks it for every agent role.
   gate)          do_gate "${@:2}" ;;
-  # E-254 (D-069): `rein provider` is removed. v4 ships ONE provider, and a subcommand whose
-  # whole purpose was registering a second one is dead surface — the registry file remains
-  # the place to edit, so the exit says where rather than only that the command is gone.
-  provider)
-    echo "rein provider: removed in v4 — providers are configured in .ai/providers.json." >&2
-    echo "  Rein is Claude-native (D-069): one provider, three Claude roles." >&2
-    exit 2
-    ;;
   version|-v|--version) echo "rein ${VERSION}" ;;
   ""|help|-h|--help) usage ;;
 
-  # Deprecated user surface — removed, see .ai/blueprints/cli-collapse.md
-  update|onboard) _show_deprecated "$cmd" "Run 'rein start' and type the planning request in the Architect pane." ;;
-  preflight)     _show_deprecated "preflight" "nothing: the SessionStart hook injects the session brief (E-460)" ;;
-  archive)       _show_deprecated "archive" "skill: rein-archive" ;;
   # E-464 (D-169 r8, D-170 r5): review by tier; run_review's checks moved here from orchestrator-mcp.
   review)
     _rv="$(_rein_helper shared/review-checks.mjs || true)"
     [[ -n "$_rv" ]] || { echo "rein review: review-checks.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
     command -v node >/dev/null 2>&1 || { echo "rein review: node not found" >&2; exit 1; }
     node --no-warnings "$_rv" "${@:2}" ;;
-  test)          _show_deprecated "test" "skill: rein-test  (use --vibe arg inside the skill for chaos audit)" ;;
-  where)         _show_deprecated "where" "echo \"\$HOME/.rein\"  (install root is fixed)" ;;
 
   # Recovery helpers — documented under "Recovery" in usage(); also called by the
   # init/install paths directly and exercised by the test suites.

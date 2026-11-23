@@ -68,7 +68,6 @@
     "team_trunk": "project",
     "tmux": "host",
     "version": "install",
-    "vibe_check_browsers": "host",
     "waiting_signal_registered": "project",
     "wal_checkpoint": "project",
     "workspace_record": "install"

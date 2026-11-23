@@ -110,19 +110,8 @@ assert_status 0 "E-212.06g: the Engineer's workspace is still provisioned" \
 assert_contains "E-212.06h: and it reports serving the Engineer role" \
   ".claude/ serves role(s): engineer" "$_e212_out"
 
-# ── E-212.7: the 7 Architect agents meet the Claude frontmatter contract ─────
-for a in ux_reviewer docs-architect knowledge_architect meta_analyst memory_curator seo_manager seo_content_generator; do
-  f="${REPO_ROOT}/src/claude/agents/${a}.md"
-  assert_status 0 "E-212.07 [$a]: declares a tools allowlist (E-295)" grep -qE '^tools:' "$f"
-  assert_status 0 "E-212.07 [$a]: declares context: fork" grep -qE '^context: fork$' "$f"
-  assert_status 0 "E-212.07 [$a]: declares agent: general-purpose" grep -qE '^agent: general-purpose$' "$f"
-  # NOT widened: these are advisory Architect personas (Forbidden Zone), so the contract
-  # must not hand them Bash/Write/Edit.
-  assert_status 1 "E-212.07 [$a]: allowed-tools does not add Bash" \
-    bash -c "grep < <(grep -E '^allowed-tools:' '$f') -q 'Bash'"
-  assert_status 1 "E-212.07 [$a]: allowed-tools does not add Write/Edit" \
-    bash -c "grep < <(grep -E '^allowed-tools:' '$f') -qE '\\bWrite\\b|\\bEdit\\b'"
-done
+# E-212.7 (the 7 advisory Architect agents' frontmatter) went with those agents (E-467, D-170 r5);
+# E-217.03b below still checks every kept agent.
 
 # ── E-217 (D-055 R2): collision resolved by renaming; guard is now fatal ────
 echo "  [E-217] skill-name collision resolution"
@@ -131,16 +120,7 @@ echo "  [E-217] skill-name collision resolution"
 # different job for a different role. Same reason arch-review is not rein-review (E-149).
 # E-217.01a/01c/01e/01g (arch-task and rein-task) were deleted by E-461: both skills are gone,
 # replaced by `rein done`; arch-oracle/repo-oracle below still pin the rename.
-assert_status 0 "E-217.01b: arch-oracle exists in the Architect set" \
-  test -f "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
-assert_status 1 "E-217.01d: the Architect set no longer ships repo-oracle" \
-  test -e "${REPO_ROOT}/src/claude/skills/repo-oracle"
-# The ENGINEER keeps the original names — that is the point of the rename.
-assert_status 0 "E-217.01f: the Engineer keeps repo-oracle" \
-  test -f "${REPO_ROOT}/src/shared/skills/repo-oracle/SKILL.md"
-# Frontmatter name must match the directory, or the skill loads under the old name.
-assert_status 0 "E-217.01h: arch-oracle frontmatter name matches" \
-  grep -qE '^name: arch-oracle$' "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
+# E-217.01b/d/f/h (arch-oracle and repo-oracle) went with both skills (E-467, D-170 r5).
 
 # References must follow the rename, and ARCHITECT.md must explain WHY the names
 # differ so nobody "corrects" them back to match the Engineer's.
@@ -151,10 +131,7 @@ assert_status 0 "E-217.01h: arch-oracle frontmatter name matches" \
 assert_status 0 "E-217.02d: root ARCHITECT.md matches its template" \
   diff -q "${REPO_ROOT}/src/templates/ARCHITECT.md" "${REPO_ROOT}/ARCHITECT.md"
 
-# All 20 agents now satisfy the frontmatter contract (seo_engineer lacked `context:`
-# since E-90 — the only one failing, deliberately left alone in E-212 and fixed here).
-assert_status 0 "E-217.03a: seo_engineer declares context:" \
-  grep -qE '^context: fork$' "${REPO_ROOT}/src/claude/agents/seo_engineer.md"
+# Every agent satisfies the frontmatter contract. (E-217.03a pinned seo_engineer, gone with E-467.)
 _E217_BAD=0
 for _f in "${REPO_ROOT}"/src/claude/agents/*.md; do
   for _k in name description tools context agent; do   # E-295: tools, not allowed-tools
@@ -362,18 +339,17 @@ assert_match "T-1d: built-in DEFAULT_ADAPTERS declare exactly claude" "^claude$"
 assert_status 0 "T-2: providers.json wired into ensure_ai_templates" \
   grep -q 'ensure_file_if_missing "$T/providers.json"' "$AI_BIN"
 
-# ── T-3: `rein provider` is removed — exits 2 and points at .ai/providers.json ──
+# ── T-3: `rein provider` is gone — E-467 (D-170 r5) removed its stub, so it is an unknown command ──
 PROJ="$(mktemp -d)"; mkdir -p "${PROJ}/.ai"
 out=$(cd "$PROJ" && "$AI_BIN" provider add foo --config-path config/foo.json --mcp-key mcpServers 2>&1; echo "rc=$?")
-assert_contains "T-3a: rein provider add exits 2" "rc=2" "$out"
-assert_contains "T-3b: the refusal names .ai/providers.json" \
-  "providers are configured in .ai/providers.json" "$out"
+assert_contains "T-3a: rein provider add exits 1" "rc=1" "$out"
+assert_contains "T-3b: …as an unknown command" "Unknown command: provider" "$out"
 # The removed subcommand must not have half-run: no registry entry, no generated config.
 assert_status 1 "T-3c: no providers.json written by the removed subcommand" \
   test -f "${PROJ}/.ai/providers.json"
 assert_status 1 "T-3d: no provider MCP config generated" test -f "${PROJ}/config/foo.json"
 bare=$(cd "$PROJ" && "$AI_BIN" provider 2>&1; echo "rc=$?")
-assert_contains "T-3e: bare rein provider also exits 2" "rc=2" "$bare"
+assert_contains "T-3e: bare rein provider also exits 1" "rc=1" "$bare"
 rm -rf "$PROJ"
 
 # ── T-5: generate_mcp_json honors a custom output path + top-level key ────────
@@ -515,13 +491,13 @@ assert_status 0 "E-255.08a: test_engineer frontmatter pins model: sonnet" \
 _pinned="$(cd "${REPO_ROOT}/src/claude/agents" && for _f in *.md; do
   grep < <(sed -n '2,/^---$/p' "$_f") -qE '^model:' && printf '%s=%s ' "${_f%.md}" "$(sed -n '2,/^---$/p' "$_f" | sed -n 's/^model: *//p')"
 done)"
-_want="docs-architect=sonnet memory_curator=sonnet sre_responder=sonnet test_engineer=sonnet "
-assert_status 0 "D-110.01: exactly the rule-matchers and test_engineer pin model: sonnet (E-464 removed the four critics) (got: ${_pinned})" \
+_want="test_engineer=sonnet "   # E-467 removed the three rule-matchers (docs-architect, memory_curator, sre_responder)
+assert_status 0 "D-110.01: exactly test_engineer pins model: sonnet (E-464 removed the four critics, E-467 the rule-matchers) (got: ${_pinned})" \
   test "$_pinned" = "$_want"
 assert_status 0 "E-255.08b: test_engineer stamps through add_stamp, and only that MCP tool" \
   bash -c "grep < <(grep -E '^tools:' '$AGENT') -q 'mcp__task-synchronizer-mcp__add_stamp' && [ \"\$(grep -E '^tools:' '$AGENT' | grep -oE 'mcp__[a-z-]+__[a-z_]+' | wc -l | tr -d ' ')\" = 1 ]"
 assert_status 0 "E-255.08c: test_engineer writes only under tests/" grep -q 'Write ONLY under `tests/`' "$AGENT"
-for _flag in -- --generate --fast --vibe; do
+for _flag in -- --generate --fast; do   # --vibe went with ux_reviewer and chaos_monkey (E-467)
   [[ "$_flag" == "--" ]] && continue
   assert_status 0 "E-255.08d: rein-test documents ${_flag}" grep -q -- "## ${_flag}\|(${_flag} flag)" "$SKILL"
 done
@@ -541,7 +517,7 @@ _mcp="${SBOX}/mcp"; mkdir -p "$_mcp"
 ( cd "$_mcp" && bash -c "source '$AI'; DEST_DIR='$_mcp'; generate_mcp_json" >/dev/null 2>&1 )
 if [[ -f "${_mcp}/.mcp.json" ]]; then
   assert_status 1 "E-255.09c: a generated .mcp.json carries no ${_ts} entry" grep -qi "$_ts" "${_mcp}/.mcp.json"
-  assert_status 0 "E-255.09d: …but still carries the filesystem server (non-vacuous)" grep -q '"filesystem"' "${_mcp}/.mcp.json"
+  assert_status 0 "E-255.09d: …but still carries the state server (non-vacuous; filesystem until E-467)" grep -q '"task-synchronizer-mcp"' "${_mcp}/.mcp.json"
 else
   assert_status 0 "E-255.09c: generate_mcp_json produced a file" test -f "${_mcp}/.mcp.json"
 fi

@@ -345,38 +345,25 @@ PYLIST
   _i1="$(_ai_npm "$AH4" "$FAKE_TMP" install)"; _i1rc=$?
   _i2="$(_ai_npm "$AH4" "$FAKE_TMP" install)"; _i2rc=$?
   assert_status 0 "E-426.01a: artifact mode — two rein install runs both exit 0 (rc ${_i1rc}, ${_i2rc})" test "$_i1rc" -eq 0 -a "$_i2rc" -eq 0
-  assert_status 0 "E-426.01b: …the shipped orchestrator lock is installed with npm ci, never npm install" \
-    bash -c "grep -q '/orchestrator-mcp ci' '$NPMLOG' && ! grep -q '/orchestrator-mcp install' '$NPMLOG'"
-  assert_status 0 "E-426.01c: …and the second run calls no npm ci (the lock marker matches)" \
-    test "$(grep -c '/orchestrator-mcp ci' "$NPMLOG")" -eq 1
-  assert_contains "E-426.01d: …saying so" "orchestrator-mcp: node_modules match the shipped lock — npm ci skipped" "$_i2"
-  assert_status 0 "E-426.01e: the lock's bytes equal the manifest's sha256" \
-    python3 -I -c 'import hashlib,json,sys; m=json.load(open(sys.argv[1])); f=[x for x in m["files"] if x["path"]=="mcp/orchestrator-mcp/package-lock.json"][0]; assert hashlib.sha256(open(sys.argv[2],"rb").read()).hexdigest()==f["sha256"]' \
-    "${AH4}/.rein/manifest.json" "${AH4}/.rein/mcp/orchestrator-mcp/package-lock.json"
+  # E-426.01b-e (the shipped lock installs with npm ci, once, and matches the manifest) ran on
+  # orchestrator-mcp, the one server that shipped a package-lock.json; it went with the server
+  # (E-467, D-170 r5), so no shipped lock is left to exercise. _mcp_lock_shipped is unchanged.
   APROJ4="$(test_tmpdir hyg-art-proj4)"; ( cd "$APROJ4" && git init -q )
   _ai_npm "$AH4" "$APROJ4" init >/dev/null
   assert_contains "E-426.01f: …and doctor's install line is ✓ after both installs" "✓ install: artifact ${_ver}" "$(_ai_npm "$AH4" "$APROJ4" doctor)"
-  # A clone install meets the same stub: its mirror's orchestrator lock equals the tracked one.
-  DH5="$(test_tmpdir hyg-clone-npm)"
-  ( cd "$FAKE_TMP" && HOME="$DH5" TMPDIR="$FAKE_TMP" PATH="${NPMS}:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" REIN_NO_PROJECT_SCAN=1 \
-      bash "$DW/install-rein.sh" ) >/dev/null 2>&1
-  assert_status 0 "E-426.02a: a clone install leaves the mirror's orchestrator lock equal to the tracked one" \
-    cmp -s "${DH5}/.rein/mcp/orchestrator-mcp/package-lock.json" <(git -C "$DW" show HEAD:src/mcp/orchestrator-mcp/package-lock.json)
+  # E-426.02a (a clone install keeps the mirror's orchestrator lock equal to the tracked one) went
+  # with orchestrator-mcp (E-467).
   # critic_tests E-426 P1: the rest of _mcp_deps — a server with no shipped lock keeps npm install;
   # a failing npm ci is reported and the install continues; doctor --repair reinstalls a shipped
   # lock even when its marker still matches (security_engineer F3).
   assert_status 0 "E-426.03a: a server with no shipped lock still gets npm install" \
-    bash -c "grep < <(grep -v '/orchestrator-mcp ' '$NPMLOG') -q ' install'"
+    bash -c "grep < '$NPMLOG' -q ' install'"
   AH6="$(test_tmpdir hyg-art-home6)"
   node "$REPO_ROOT/tests/lib/release-unpack.mjs" "$DW" "${RO1}/rein-${_ver}.tar.gz" "${AH6}/.rein"
   _i6="$(NPM_STUB_FAIL_CI=1 _ai_npm "$AH6" "$FAKE_TMP" install)"; _i6rc=$?
-  assert_contains "E-426.03b: a failing npm ci prints the ✗ line" "✗ orchestrator-mcp: npm ci failed" "$_i6"
+  # E-426.03b (a failing npm ci prints the ✗ line) needs a shipped lock; see E-426.01b-e above.
   assert_status 0 "E-426.03c: …and the install continues to the end (rc=${_i6rc})" test "$_i6rc" -eq 0
-  _ci_before="$(grep -c '/orchestrator-mcp ci' "$NPMLOG")"
-  ( cd "$APROJ4" && HOME="$AH4" TMPDIR="$FAKE_TMP" CI=1 NPM_STUB_LIST_MISSING=1 PATH="${NPMS}:${AH4}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" \
-      env -u REIN_WORKSPACE bash "${AH4}/.rein/bin/rein" doctor --repair ) </dev/null >/dev/null 2>&1
-  assert_status 0 "E-426.03d: doctor --repair runs npm ci for a shipped lock even when its marker matches" \
-    test "$(grep -c '/orchestrator-mcp ci' "$NPMLOG")" -gt "$_ci_before"
+  # E-426.03d (doctor --repair runs npm ci for a shipped lock) needs a shipped lock; see above.
 
   # E-427 (D-158 r8-r11; the case rein-app hit): extends E-426.01 — a HEALTHY artifact install in a
   # clean home (no ~/.claude, no project) is never `fail` under `doctor --scope install`. Healthy
@@ -402,12 +389,12 @@ PYLIST
   fi
   assert_status 0 "E-418.06e: the manifest lists every staged file, no more" \
     test "$(python3 -I -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["files"]))' "${RO1}/manifest.json")" = "$(cd "$ST" && find . -type f | wc -l | tr -d ' ')"
-  echo "# uncommitted" >> "$DW/hooks/stop-hook.sh"
+  echo "# uncommitted" >> "$DW/hooks/state-import.sh"
   DH="$(test_tmpdir hyg-dirty-home)"
   _dout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" 2>&1 )"; _drc=$?
   assert_status 0 "E-304.04a: a dirty hooks/ makes the installer exit non-zero (rc=${_drc})" test "$_drc" -ne 0
   assert_contains "E-304.04b: …naming the refusal" "[INSTALL_DIRTY_TREE]" "$_dout"
-  assert_contains "E-304.04c: …and the file" "hooks/stop-hook.sh" "$_dout"
+  assert_contains "E-304.04c: …and the file" "hooks/state-import.sh" "$_dout"
   assert_status 1 "E-304.04d: …and nothing was installed" test -e "${DH}/.rein/bin/rein"
   _aout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" --allow-dirty 2>&1 )"
   assert_contains "E-304.04e: --allow-dirty installs with a loud banner" "--allow-dirty: installing UNCOMMITTED gate code" "$_aout"

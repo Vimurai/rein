@@ -160,59 +160,5 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
         },
       },
     },
-    // ── E-88: Multi-Variation-State-Tracker tools (SEO Topic Cluster Engine) ──
-    // Backing tables (topic_seeds, cluster_pages) live in state-db.js. Wired
-    // here per .ai/blueprints/seo-keyword-multiplier.md §Components 3 + §API.
-    // Cloud sync hook does NOT fire from these — the managed-agents
-    // projection contract (E-73 §Data Privacy) covers only tasks, not SEO
-    // state.
-    {
-      name: "add_topic_seed",
-      description: "Register a new TopicSeed (E-88). Returns an auto-assigned TS-N id. Use this once at the start of a generateTopicCluster(term) expansion in src/claude/agents/seo_manager.md; the SEO-Content-Generator then attaches one Pillar + up to MAX_CLUSTER_PAGES_PER_SEED Cluster pages to it.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          term:          { type: "string", description: "The topic seed term (1..256 chars, no shell metachars)" },
-          target_volume: { type: "number", description: "Target number of Cluster pages to generate (1..10, default 10)", default: 10 },
-        },
-        required: ["term"],
-      },
-    },
-    {
-      name: "add_cluster_page",
-      description: "Register a ClusterPage against an existing TopicSeed (E-88). Refuses intent_type values outside the canonical set (1 Pillar + Cluster intents) defined in src/shared/seo-cluster-intents.mjs. Enforces the cannibalization guard (unique intent per seed) and the lifted cluster-page cap (defence-in-depth on blueprint §Execution Constraints/Generation Limits).",
-      inputSchema: {
-        type: "object",
-        properties: {
-          seed_id:      { type: "string", description: "TopicSeed id (e.g. 'TS-1')" },
-          intent_type:  { type: "string", description: "One of the canonical intents (pillar-overview, cost, comparison, how-to, …, faq)" },
-          content_blob: { type: "string", description: "Optional inline markdown body, or a relative repo path if content lives on disk" },
-        },
-        required: ["seed_id", "intent_type"],
-      },
-    },
-    {
-      name: "report_performance",
-      description: "Update a ClusterPage.performance_metrics with new SEO metrics (E-88 reportPerformance API). Merges supplied keys into the existing JSON object — pass only the fields that changed.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          page_id: { type: "string", description: "ClusterPage id (e.g. 'CP-1')" },
-          metrics: { type: "object", description: "JSON merge patch — e.g. { clicks: 120, impressions: 4500, ctr: 0.027, position: 8.4 }" },
-        },
-        required: ["page_id", "metrics"],
-      },
-    },
-    {
-      name: "get_topic_cluster",
-      description: "Return a TopicSeed plus every ClusterPage attached to it (E-88). Used by the SEO-Content-Generator duplicate-content gate and by the Architect to audit a cluster's progress toward its target.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          seed_id: { type: "string", description: "TopicSeed id (e.g. 'TS-1')" },
-        },
-        required: ["seed_id"],
-      },
-    },
   ];
 }

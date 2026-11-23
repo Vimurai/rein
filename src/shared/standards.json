@@ -42,7 +42,7 @@
       "rule_id": "kebab_case_filenames",
       "severity": "warning",
       "threshold": 0,
-      "description": "Source filenames under src/ SHOULD be kebab-case (memory-batch-scanner.mjs) or single-camelCase (memoryCurator.md). Mixed_Snake.Case is forbidden — breaks ESM resolver case-sensitivity guarantees across platforms.",
+      "description": "Source filenames under src/ SHOULD be kebab-case (review-checks.mjs) or single-camelCase (memoryCurator.md). Mixed_Snake.Case is forbidden — breaks ESM resolver case-sensitivity guarantees across platforms.",
       "auto_fix_available": false,
       "applies_to": [
         "src/**/*.js",

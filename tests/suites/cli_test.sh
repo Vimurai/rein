@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # cli_test.sh — Core `rein` CLI command tests (E-34 — collapsed surface)
-# After the cli-collapse, the only user-facing commands are: install, init,
-# sync, doctor, uninstall, version, help. Removed commands (update, preflight,
-# review, test, archive, where, onboard) emit a deprecation message
-# pointing to the equivalent agent skill and exit 1.
+# The user-facing surface is the D-170 r4 keep list plus install, uninstall, version and help.
+# E-467 (D-170 r5) deleted the deprecated stubs (update, onboard, preflight, test, where,
+# provider): each is now an unknown command (exit 1), and `rein archive` is a real command again.
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -47,8 +46,9 @@ process.stdout.write(out.join("; "));
 ' "${SCRIPT_DIR}/../fixtures/release/cli-surface.json" "$out" 2>&1)"
 assert_status 0 "E-422.03a: every entry point, subcommand and flag in cli-surface.json is in rein help${_surface:+ — missing: ${_surface}}" test -z "$_surface"
 
-# Removed commands are listed in the migration map
-assert_contains "usage references removed 'test' (migration map)" "test" "$out"
+# E-467: the migration map of removed commands is gone with the stubs; archive is listed.
+assert_contains "usage lists rein archive [--logs]" "rein archive [--logs]" "$out"
+assert_not_contains "usage no longer carries the removed-command map" "Removed — use the agent skill instead" "$out"
 # E-464 (D-169 r8): `review` is a command again — review by tier.
 assert_contains "usage lists rein review <1|2|3>" "rein review <1|2|3>" "$out"
 
@@ -57,19 +57,18 @@ out=$("$AI_BIN" review 2>&1 || true)
 assert_contains "rein review without a tier prints its usage" "usage: rein review <1|2|3>" "$out"
 assert_status 2 "rein review without a tier exits 2" "$AI_BIN" review
 
-# Removed commands emit a deprecation message and exit 1
+# E-467 (D-170 r5): the deprecated stubs are gone — each removed name is an unknown command.
+for _c in update onboard preflight test where provider; do
+  out=$("$AI_BIN" "$_c" 2>&1 || true)
+  assert_contains "rein ${_c} is an unknown command (E-467)" "Unknown command: ${_c}" "$out"
+  assert_status 1 "rein ${_c} exits 1" "$AI_BIN" "$_c"
+done
 
-out=$("$AI_BIN" test 2>&1 || true)
-assert_contains "rein test prints deprecation pointer to skill" "skill: rein-test" "$out"
-assert_status 1 "rein test exits 1 (deprecated)" "$AI_BIN" test
-
-out=$("$AI_BIN" preflight 2>&1 || true)
-assert_contains "rein preflight points at the session-start brief (E-460)" "SessionStart hook injects the session brief" "$out"
-assert_status 1 "rein preflight exits 1 (deprecated)" "$AI_BIN" preflight
-
-out=$("$AI_BIN" where 2>&1 || true)
-assert_contains "rein where prints deprecation message" "removed" "$out"
-assert_status 1 "rein where exits 1 (deprecated)" "$AI_BIN" where
+# E-467: rein archive is a real command again — a usage error exits 2, a project with no .ai/ is refused.
+assert_status 2 "rein archive with an unknown flag exits 2" "$AI_BIN" archive --bogus
+_arch_dir="$(mktemp -d)"; on_exit "rm -r '$_arch_dir'"
+out=$(cd "$_arch_dir" && "$AI_BIN" archive 2>&1 || true)
+assert_contains "rein archive outside a project says why" "No .ai/ directory found" "$out"
 
 # Unknown subcommand exits 1
 assert_status 1 "unknown subcommand exits 1" "$AI_BIN" __nonexistent_command__
@@ -154,7 +153,7 @@ rm -rf "$SANDBOX" "$TMP_OUT"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 AI_BIN="${REPO_ROOT}/src/bin/rein"
-LOCAL_SERVER="${REPO_ROOT}/src/mcp/cache-manager-mcp/index.js"
+LOCAL_SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"   # cache-manager-mcp until E-467
 
 
 # ── T-ENV-S01: source contract ────────────────────────────────────────────────
@@ -181,7 +180,7 @@ echo "  [T-ENV-S02] behavioural: deep check in a healthy sandbox project"
 DENV_SBOX="$(mktemp -d)"
 mkdir -p "${DENV_SBOX}/.ai"
 cat > "${DENV_SBOX}/.mcp.json" <<JSON
-{ "mcpServers": { "cache-manager-mcp": { "command": "node", "args": ["${LOCAL_SERVER}"] } } }
+{ "mcpServers": { "task-synchronizer-mcp": { "command": "node", "args": ["${LOCAL_SERVER}"] } } }
 JSON
 
 OUT="$( cd "${DENV_SBOX}" && "$AI_BIN" doctor --env 2>&1 )"
@@ -191,7 +190,7 @@ assert_contains "prints --env header"          "deep environment & connectivity"
 assert_contains "node version check is [OK]"    "[OK]   node version"             "$OUT"
 assert_contains "reports ~/.rein access"       ".rein read/write access"       "$OUT"
 assert_contains "runs MCP connectivity probe"   "MCP connectivity"               "$OUT"
-assert_contains "local server answered tools/list" "cache-manager-mcp"           "$OUT"
+assert_contains "local server answered tools/list" "task-synchronizer-mcp"       "$OUT"
 assert_contains "summary line present"          "Environment OK"                 "$OUT"
 assert_status 0 "exit 0 when all critical checks pass" bash -c "[[ $RC -eq 0 ]]"
 
@@ -346,8 +345,12 @@ _q() {  # <python expr over d> — read the project .mcp.json
 # ── E-274.1: a registry-only regeneration still produces the owned set ───────
 _gen >/dev/null
 N_OWNED="$(_q "len(d['mcpServers'])")"
-assert_status 0 "E-274.01a: the generated file carries the registry's servers" \
-  test "$N_OWNED" -gt 5
+# E-467 (D-170 r5): the registry servers only — the third-party filesystem and memory entries are gone.
+_N_REG="$(python3 -c 'import json,sys;print(sum(1 for v in json.load(open(sys.argv[1]))["mcp_servers"].values() if "path" in v))' "${REPO_ROOT}/src/config/registry.json")"
+assert_status 0 "E-274.01a: the generated file carries exactly the registry's servers (${N_OWNED} of ${_N_REG})" \
+  test "$N_OWNED" -eq "$_N_REG" -a "$_N_REG" -ge 1
+assert_status 0 "E-467: no filesystem or memory server is generated" \
+  test "$(_q "'filesystem' in d['mcpServers'] or 'memory' in d['mcpServers']")" = "False"
 assert_status 0 "E-274.01b: task-synchronizer-mcp points into the mirror as a literal \${HOME} path" \
   test "$(_q "d['mcpServers']['task-synchronizer-mcp']['args'][0]")" = '${HOME}/.rein/mcp/task-synchronizer-mcp/index.js'
 # Extends E-274.01b: `rein sync` used to expand HOME, so a committed .mcp.json carried one
@@ -538,34 +541,8 @@ DECISION_CONTENT="### D-101: Use Vanilla CSS
 assert_match "Decision Recorder: valid D-### header format" "^### D-[0-9]+" "$DECISION_CONTENT"
 assert_contains "Decision Recorder: Status field present" "Status**: ACTIVE" "$DECISION_CONTENT"
 
-# ── T-01.10: Identity Guardian — PII/secret pattern coverage ─────────────────
-PII_FILE="${TMP_AI}/pii_test.ts"
-# privacy:allow-fake-token (an invented test input)
-echo "const apiKey = 'sk-1234567890abcdef';" > "$PII_FILE"
-echo "const userEmail = 'test@example.com';" >> "$PII_FILE"
-
-assert_match "Identity Guardian: detects API key patterns" "api_key|apiKey|secret|sk-" "$(cat "$PII_FILE")"
-assert_match "Identity Guardian: detects email patterns" "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}" "$(cat "$PII_FILE")"
-
-# ── T-01.11: archive-manager-mcp — threshold calculation (check_context_health) ─
-# Replicates the needsArchive logic from index.js lines 87-88
-# Constants are inlined to survive bash -c subshell (external vars not exported)
-check_needs_archive() {
-  local total_lines=$1 total_tokens=$2
-  local ARCHIVE_LINES_THRESHOLD=200 ARCHIVE_TOKENS_THRESHOLD=10000
-  (( total_lines >= ARCHIVE_LINES_THRESHOLD || total_tokens >= ARCHIVE_TOKENS_THRESHOLD ))
-}
-
-assert_status 0 "check_context_health: 250 lines → needs_archive true (line threshold)" \
-  bash -c "$(declare -f check_needs_archive); check_needs_archive 250 1000"
-assert_status 1 "check_context_health: 100 lines, 5000 tokens → needs_archive false (below both)" \
-  bash -c "$(declare -f check_needs_archive); check_needs_archive 100 5000"
-assert_status 0 "check_context_health: 50 lines, 12000 tokens → needs_archive true (token threshold)" \
-  bash -c "$(declare -f check_needs_archive); check_needs_archive 50 12000"
-assert_status 0 "check_context_health: exactly 200 lines → boundary met (inclusive)" \
-  bash -c "$(declare -f check_needs_archive); check_needs_archive 200 0"
-assert_status 1 "check_context_health: 199 lines, 9999 tokens → needs_archive false (both below)" \
-  bash -c "$(declare -f check_needs_archive); check_needs_archive 199 9999"
+# T-01.10 (identity_guardian's patterns) and T-01.11 (an inline copy of archive-manager-mcp's
+# check_context_health threshold) went with those units (E-467, D-170 r5).
 
 # ── T-01.12: post-commit.sh — task ID regex parsing ──────────────────────────
 extract_task_ids() {
@@ -586,93 +563,8 @@ assert_status 1 "post-commit: no keyword → no IDs extracted" \
 assert_status 1 "post-commit: partial keyword 'fix' (no 'fixes') → no match" \
   bash -c "$(declare -f extract_task_ids); result=\$(extract_task_ids 'fix E-05 typo'); [[ -n \"\$result\" ]]"
 
-# ── T-01.13: E-54 hook — LOG.md line threshold detection ─────────────────────
-check_archive_threshold() {
-  local line_count=$1 threshold=200
-  (( line_count >= threshold ))
-}
-
-assert_status 0 "E-54 hook: exactly 200 lines → threshold met (boundary inclusive)" \
-  bash -c "$(declare -f check_archive_threshold); check_archive_threshold 200"
-assert_status 0 "E-54 hook: 201 lines → threshold exceeded" \
-  bash -c "$(declare -f check_archive_threshold); check_archive_threshold 201"
-assert_status 1 "E-54 hook: 199 lines → threshold not met" \
-  bash -c "$(declare -f check_archive_threshold); check_archive_threshold 199"
-assert_status 1 "E-54 hook: 0 lines → threshold not met" \
-  bash -c "$(declare -f check_archive_threshold); check_archive_threshold 0"
-
-# ── T-01.14: blueprint-aligner-mcp — TIER3_NO_SECURITY_REVIEW rule ───────────
-# Replicates check() from src/mcp/blueprint-aligner-mcp/index.js lines 121-141.
-# Returns 0 = violation found, 1 = clean (no violation).
-check_tier3_security() {
-  local diff="$1"
-  local log_content="$2"
-
-  # Only trigger if TASKS.md is in the diff
-  grep -q "TASKS.md" <<< "$diff" || return 1
-
-  # Check for added lines that close a Tier 3 task (Tier: 3 + Status: DONE on same line)
-  local tier3_closing=false
-  while IFS= read -r line; do
-    if [[ "$line" == +* && "$line" != +++* ]]; then
-      if grep -qiE 'Tier:[[:space:]]*3' <<< "$line" && grep -qiE 'Status:[[:space:]]*DONE' <<< "$line"; then
-        tier3_closing=true
-        break
-      fi
-    fi
-  done <<< "$diff"
-
-  # Also detect: +- [x] checkbox on a line that contains Tier: 3
-  local checkbox_closed=false
-  while IFS= read -r line; do
-    if grep -qE '^\+- \[x\]' <<< "$line" && grep -qiE 'Tier:[[:space:]]*3' <<< "$line"; then
-      checkbox_closed=true
-      break
-    fi
-  done <<< "$diff"
-
-  if [[ "$tier3_closing" == false && "$checkbox_closed" == false ]]; then
-    return 1  # No Tier 3 close detected — clean
-  fi
-
-  # Check LOG.md content for security evidence
-  grep -qiE 'security_engineer|THREAT_MODEL|\[SECURITY\]|\[SEC_PASS\]' <<< "$log_content" && return 1
-
-  return 0  # Violation: Tier 3 closed without security evidence
-}
-
-# T-01.14.1: diff without TASKS.md → rule does not fire
-DIFF_NO_TASKS="--- a/src/bin/rein
-+++ b/src/bin/rein
-@@ -1 +1 @@
--old line
-+new line"
-assert_status 1 "TIER3_NO_SECURITY_REVIEW: diff without TASKS.md → no violation" \
-  bash -c "$(declare -f check_tier3_security); check_tier3_security '$DIFF_NO_TASKS' ''"
-
-# T-01.14.2: TASKS.md in diff but no Tier 3 task closed → no violation
-DIFF_TIER1="+++ b/.ai/TASKS.md
-+- [x] E-99: Add config flag | Tier: 1 | Status: DONE"
-assert_status 1 "TIER3_NO_SECURITY_REVIEW: Tier 1 task closed → no violation" \
-  bash -c "$(declare -f check_tier3_security); check_tier3_security '$DIFF_TIER1' ''"
-
-# T-01.14.3: TASKS.md + Tier 3 task closed, log has NO security evidence → VIOLATION
-DIFF_TIER3="+++ b/.ai/TASKS.md
-+- [x] E-50: New auth endpoint | Tier: 3 | Status: DONE"
-LOG_EMPTY="2026-03-15 | Claude | Implemented E-50"
-assert_status 0 "TIER3_NO_SECURITY_REVIEW: Tier 3 closed, no security evidence → violation fires" \
-  bash -c "$(declare -f check_tier3_security); check_tier3_security '$DIFF_TIER3' '$LOG_EMPTY'"
-
-# T-01.14.4: TASKS.md + Tier 3 task closed, log HAS [SEC_PASS] → no violation
-LOG_WITH_SEC="2026-03-15 | security_engineer | [SEC_PASS] threat model reviewed"
-assert_status 1 "TIER3_NO_SECURITY_REVIEW: Tier 3 closed, [SEC_PASS] in log → no violation" \
-  bash -c "$(declare -f check_tier3_security); check_tier3_security '$DIFF_TIER3' '$LOG_WITH_SEC'"
-
-# T-01.14.5: [x] checkbox form with Tier: 3, no log evidence → VIOLATION
-DIFF_CHECKBOX="+++ b/.ai/TASKS.md
-+- [x] E-51: Deploy pipeline | Owner: Claude | Tier: 3 | Area: ci/cd"
-assert_status 0 "TIER3_NO_SECURITY_REVIEW: [x] checkbox form Tier 3, no log evidence → violation fires" \
-  bash -c "$(declare -f check_tier3_security); check_tier3_security '$DIFF_CHECKBOX' '2026-03-15 | devops_engineer | pipeline configured'"
+# T-01.13 (an inline copy of post-tool-log.sh's E-54 threshold) and T-01.14 (an inline copy of
+# blueprint-aligner-mcp's TIER3_NO_SECURITY_REVIEW rule) went with those units (E-467, D-170 r5).
 
 
 # ── T-1 (from idempotency — E-302): rein init / rein sync always rewrite the rulefiles ──
@@ -832,8 +724,9 @@ PY
 
   # .mcp.json must contain known servers from registry
   assert_not_contains ".mcp.json no longer lists the retired lsp-mcp (E-278)" "lsp-mcp" "$RUN2"
-  assert_contains ".mcp.json contains patch-mcp entry" "patch-mcp" "$RUN2"
-  assert_contains ".mcp.json contains orchestrator-mcp entry" "orchestrator-mcp" "$RUN2"
+  # E-467 (D-170 r5): patch-mcp and orchestrator-mcp are retired; the kept servers are listed.
+  assert_contains ".mcp.json contains task-synchronizer-mcp entry" "task-synchronizer-mcp" "$RUN2"
+  assert_contains ".mcp.json contains safe-exec-mcp entry" "safe-exec-mcp" "$RUN2"
 else
   _pass ".mcp.json idempotency skipped (python3 unavailable or registry missing)"
   _pass ".mcp.json server entry check skipped"

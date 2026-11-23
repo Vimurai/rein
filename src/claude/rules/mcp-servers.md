@@ -24,6 +24,6 @@ paths:
 - **Gate-path dependencies are pinned EXACTLY (E-305, D-089 r3).** A package imported on a gate
   path (safe-exec-mcp's `shell-quote`, `@modelcontextprotocol/sdk`) carries an exact version, no
   `^`/`~`; `rein install` refuses when the mirror holds anything else (`shared/gate-pins.mjs`). A
-  parser IS the gate's input model, so a bump goes through `skill: dependency_gate` and must run
+  parser IS the gate's input model, so a bump is recorded with `rein decide` and must run
   every contract table (`arch-write-cases`, `pipe-shell-cases`, `secret-cases`,
   `gate-relative-home-cases`, and the E-301 tables) against the new version first.

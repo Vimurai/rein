@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # resilience_test.sh — Bootloader Resilience Validation Suite (E-113 / P-52 §34)
-# Validates: orchestrator-mcp is startable,
+# Validates: the MCP server is startable (task-synchronizer-mcp since E-467 retired orchestrator-mcp),
 # the state.json import's version/corruption guard, and state corruption recovery.
 set -euo pipefail
 
@@ -8,16 +8,16 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 
 REPO_ROOT="${SCRIPT_DIR}/../.."
-ORCH_MCP="${REPO_ROOT}/src/mcp/orchestrator-mcp/index.js"
+STATE_MCP="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 SHARED_STATE="${REPO_ROOT}/src/mcp/shared/state-db.js"
 
 echo "── Suite: resilience_test ─────────────────────────────────────────"
 
-# ── Scenario A: Layer 1 Failure (orchestrator-mcp unavailability) ─────────────
+# ── Scenario A: Layer 1 Failure (MCP server unavailability) ───────────────────
 
-# T-RES-01: orchestrator-mcp syntax is valid (server is startable)
-assert_status 0 "T-RES-01: orchestrator-mcp syntax OK" \
-  node --check "${ORCH_MCP}"
+# T-RES-01: task-synchronizer-mcp syntax is valid (server is startable)
+assert_status 0 "T-RES-01: task-synchronizer-mcp syntax OK" \
+  node --check "${STATE_MCP}"
 
 # T-RES-02..08 (the preflight skill's Bash fallback and the rulefiles' Emergency Recovery
 # section) were deleted by E-460: the session brief is built by the SessionStart hook from
@@ -64,12 +64,12 @@ assert_exists "$AI_EXEC"
 assert_status 0 "T-RES-12: rein-exec is executable" \
   test -x "$AI_EXEC"
 
-# T-RES-13: Simulated node failure — chmod orchestrator-mcp to non-executable,
+# T-RES-13: Simulated node failure — chmod task-synchronizer-mcp to non-executable,
 # assert fallback shell cat of TASKS.md still works, then restore.
-ORIG_MODE=$(stat -f "%p" "$ORCH_MCP" 2>/dev/null || stat -c "%a" "$ORCH_MCP" 2>/dev/null)
-chmod 000 "$ORCH_MCP"
+ORIG_MODE=$(stat -f "%p" "$STATE_MCP" 2>/dev/null || stat -c "%a" "$STATE_MCP" 2>/dev/null)
+chmod 000 "$STATE_MCP"
 fallback_result=$(cat "${REPO_ROOT}/.ai/TASKS.md" 2>/dev/null | head -1 || echo "FAIL")
-chmod 644 "$ORCH_MCP"
+chmod 644 "$STATE_MCP"
 assert_contains "T-RES-13: shell cat fallback reads TASKS.md during simulated node failure" \
   "TASKS" "$fallback_result"
 

@@ -71,7 +71,6 @@ fi
 #   - src/shared/wal-flusher.mjs       (node:sqlite, prevents WAL bloat)
 #   - scripts/generate_mcp_docs.mjs    (regenerates .ai/blueprints/mcp.md on `rein sync`)
 #   - src/shared/incident-append.mjs   (PII-sanitised telemetry)
-#   - src/shared/incident-aggregate.mjs (incident aggregator)
 # Skipping this check on degraded systems risks silent WAL bloat (gigabytes)
 # and missed compliance gates. Set REIN_SKIP_NODE_CHECK=1 only for CI
 # packaging-only flows where the artifact is staged on a non-target host.
@@ -374,7 +373,7 @@ purge_tree_orphans() {
 
 # A retired MCP server's mirror directory: the protect filter above keeps its node_modules/
 # and package-lock.json, so rsync leaves the directory behind. src/mcp is the reference
-# (not registry.json: ast-parser-mcp and shared/ are in src/mcp and in no registry — the
+# (not registry.json: shared/ is in src/mcp and in no registry — the
 # E-272 lesson). Reproducible from src/, nothing user-owned: removed.
 # Only when src/mcp really holds servers: on the cp fallback a missing source tree is
 # skipped silently, and every mirror dir would then look retired (critic_security, E-273).

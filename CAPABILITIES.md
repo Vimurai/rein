@@ -56,6 +56,5 @@
 - WRITE to .ai/ is low-risk (documentation only)
 - EXECUTE of npm test/build is pre-approved (no side effects on external systems)
 - Any operation touching auth, secrets, or external APIs requires explicit [SEC_CLEARED]
-- WRITE to ~/.rein/memory/ is low-risk (architectural signatures only, no secrets per §31 sanitize())
-- READ of ~/.rein/config/registry.json is pre-approved for compliance tools (verification-mcp, §32)
-- READ/WRITE of ~/.rein/*.sqlite is pre-approved (task-synchronizer-mcp and token-budget-mcp state stores)
+- READ of ~/.rein/config/registry.json is pre-approved for `rein doctor --compliance` (§32)
+- READ/WRITE of ~/.rein/*.sqlite is pre-approved (the task-synchronizer-mcp and telemetry stores)

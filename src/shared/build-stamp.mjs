@@ -379,7 +379,7 @@ function main(argv) {
   return 0;
 }
 
-// Run-directly detection, matching the src/shared convention (insights-staleness.mjs) but
+// Run-directly detection, matching the src/shared convention (cli-state.mjs) but
 // via pathToFileURL, which encodes a path containing spaces the way import.meta.url does.
 // Note the standing limitation of every argv[1]-based check in this tree: `node -e '…'
 // <this-file>` puts the module's own path in argv[1] and reads as "run directly". That is

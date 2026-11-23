@@ -59,11 +59,7 @@ test("E-428.06: a P0 later in the diff still governs after a suppression and an 
   assert.equal(traversal.file, blocking.file);
   assert.equal(suppressed.length, 1);
 });
-// The blueprint-aligner's CAPABILITIES_BYPASS rule shares isTestFile and the marker: a row
-// that blocks in run_review (P0) is flagged there, every other non-strict row is not.
-const { capabilitiesBypassMatches } = await import(resolve(repo, "src/mcp/blueprint-aligner-mcp/index.js"));
-for (const c of fileCases.filter((r) => !r.strict)) test(`aligner ${c.want === "P0" ? "flags" : "allows"}: ${c.label}`, () =>
-  assert.equal(capabilitiesBypassMatches(oneLineDiff(c.file, c.line)).length > 0, c.want === "P0", `${c.file}: ${c.line}`));
+// The blueprint-aligner's CAPABILITIES_BYPASS rows went with the server (E-467, D-170 r5).
 test("E-428.07: run_review reports every suppression with its reason", () =>
   assert.match(ORCH, /id: "TRAVERSAL_SUPPRESSED"[\s\S]{0,200}s\.reason/));
 

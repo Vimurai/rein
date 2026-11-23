@@ -5,13 +5,13 @@ paths:
 
 # Engineering standards (src/)
 
-Enforced by `src/shared/standards.json` through `validateFile` (pre-commit; the `reviewer` judges the rest).
+Encoded in `src/shared/standards.json` and checked through `validateFile` (`node scripts/standards.mjs`; E-467 took it out of pre-commit, so the `reviewer` judges the rest).
 
 - **File size**: source files stay ≤ 1000 lines (warn at 500). Split into focused modules — a
   cohesive piece moves to its own file beside the original (e.g. `safe-exec-mcp/architect-writes.mjs`).
 - **Reuse `src/shared/`** for common logic; do not copy a helper. A second copy is how two
   implementations of one policy drift apart.
-- **Filenames**: kebab-case (`memory-batch-scanner.mjs`).
+- **Filenames**: kebab-case (`review-checks.mjs`).
 - **No committed cruft**: nothing staged ending in `.tmp`, `.bak`, `.swp`, `.orig`.
 - **No secrets in a diff** (AKIA…, sk_live_…, Slack tokens, private keys).
 - **Subshell state (D-064 §2)**: a shell helper returns DATA on stdout OR sets STATE in the

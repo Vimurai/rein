@@ -30,8 +30,6 @@
 {"label":"E-234.04b: consent still blocks a project program","rule":"skill_consent_no_project_exec","line":"Tests: !bash tests/run.sh","want":"HIT"},
 {"label":"E-234.04c: consent still blocks npm run","rule":"skill_consent_no_project_exec","line":"Tests: !npm run test","want":"HIT"},
 {"label":"E-234.05a: REIN_STANDARDS_SKIP=program-position restores the old walk","rule":"skill_locator_install_first","line":"Ops: !node \"${REIN}/shared/memory-worker-pool.mjs\" --dlq-show .ai/memory/dlq.json","want":"HIT","env":{"REIN_STANDARDS_SKIP":"program-position"}},
-{"label":"E-234.06a: src memory_curator.md passes unchanged","rule":"skill_locator_install_first","file":"src/claude/agents/memory_curator.md","want":"MISS"},
-{"label":"E-234.06b: the .claude mirror passes too","rule":"skill_locator_install_first","file":".claude/agents/memory_curator.md","want":"MISS"},
 {"label":"E-231.01 catches: bash -c double quoted","rule":"skill_locator_install_first","line":"Check: !bash -c \"node src/bin/rein\"","want":"HIT"},
 {"label":"E-231.01 catches: sh -c single quoted","rule":"skill_locator_install_first","line":"Check: !sh -c 'node src/bin/rein'","want":"HIT"},
 {"label":"E-231.01 catches: zsh -c","rule":"skill_locator_install_first","line":"Check: !zsh -c \"node src/shared/helper.mjs\"","want":"HIT"},

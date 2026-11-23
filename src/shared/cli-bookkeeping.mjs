@@ -17,10 +17,16 @@
 //   rein decide --file <entry>
 //     Assigns the next D-number, requires a decision, a reason and a rollback, and appends the
 //     entry to .ai/DECISIONS.md. Prints the D-###.
+//   rein archive [--logs]
+//     Rotates finished state out of the live store: DONE tasks and stamps over their
+//     thresholds go to .ai/archive/*.json through the shared state-db owner (moved here from
+//     archive-manager-mcp's execute_archive, E-467, D-170 r5). --logs also moves a non-empty
+//     LOG.md and SESSION.md to .ai/archive/YYYY-MM/<name>.<YYYYMMDD_HHMM>.md and starts a
+//     fresh LOG.md (from the retired rein-archive skill). Nothing is deleted.
 //
 // Exit: 0 done; 1 refused (the reason is printed); 2 usage.
 
-import { existsSync, readFileSync, appendFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, appendFileSync, writeFileSync, mkdirSync, renameSync, statSync } from "node:fs";
 import { resolve, dirname, basename } from "node:path";
 import { spawnSync } from "node:child_process";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
@@ -28,10 +34,12 @@ import { runTaskDone, GATE_ROLLBACK_VARS } from "./cli-state.mjs";
 import { findAiDir } from "./cli-add-task.mjs";
 import { appendLog } from "../mcp/shared/team.mjs";
 import { writeDigest } from "./digest-build.mjs";
+import { getDbSeeded, archiveDoneTasks, archiveStamps, DONE_ARCHIVE_THRESHOLD, STAMP_ARCHIVE_THRESHOLD } from "../mcp/shared/state-db.js";
 
 const USAGE = `usage: rein done <id> --summary <text>
        rein handoff --to architect|engineer --file <entry>
-       rein decide --file <entry>`;
+       rein decide --file <entry>
+       rein archive [--logs]`;
 
 const ROLES = { architect: "Architect", engineer: "Engineer" };
 
@@ -172,6 +180,40 @@ export function runDecide(aiDir, { file } = {}, { cwd = process.cwd() } = {}) {
   return { code: 0, out: id };
 }
 
+const LOG_HEADER = "# LOG (Append-only)\nFormat: YYYY-MM-DD HH:MM | Actor | Tool | File\n\n";
+const ROTATED_LOGS = ["LOG.md", "SESSION.md"];
+
+/** @returns {{code:number, out:string}} */
+export function runArchive(aiDir, { logs = false } = {}, now = new Date()) {
+  if (!aiDir || !existsSync(aiDir)) return { code: 1, out: "✗ No .ai/ directory found. Run: rein init" };
+  const db = getDbSeeded(aiDir);
+  const tasks = archiveDoneTasks(aiDir, db);
+  const stamps = archiveStamps(aiDir, db);
+  const lines = ["✓ [STATE-ARCHIVE]"];
+  if (tasks) lines.push(`  ${tasks.archived} DONE tasks → ${tasks.archivePath} (${tasks.kept} recent kept)`);
+  if (stamps) lines.push(`  ${stamps.archived} stamps → ${stamps.archivePath} (${stamps.kept} recent kept)`);
+  if (!tasks && !stamps) {
+    lines.push(`  No state rotation needed (DONE-task threshold ${DONE_ARCHIVE_THRESHOLD}, stamp threshold ${STAMP_ARCHIVE_THRESHOLD}).`);
+  }
+  if (logs) {
+    const iso = now.toISOString();
+    const month = iso.slice(0, 7);
+    const ts = iso.slice(0, 10).replace(/-/g, "") + "_" + iso.slice(11, 16).replace(":", "");
+    const dir = resolve(aiDir, "archive", month);
+    for (const name of ROTATED_LOGS) {
+      const src = resolve(aiDir, name);
+      if (!existsSync(src) || statSync(src).size === 0) continue;
+      const dest = resolve(dir, `${name.replace(/\.md$/, "")}.${ts}.md`);
+      if (existsSync(dest)) return { code: 1, out: `✗ [ARCHIVE_EXISTS] ${dest} — never overwritten; retry in a minute` };
+      mkdirSync(dir, { recursive: true });
+      renameSync(src, dest);
+      if (name === "LOG.md") writeFileSync(src, LOG_HEADER + `${iso.slice(0, 16).replace("T", " ")} | rein | Archive | LOG.md → ${dest}\n`);
+      lines.push(`  ${name} → ${dest}`);
+    }
+  }
+  return { code: 0, out: lines.join("\n") };
+}
+
 // ── CLI ─────────────────────────────────────────────────────────────────────────────
 export function main(argv, cwd = process.cwd()) {
   const [verb, ...rest] = argv;
@@ -190,6 +232,10 @@ export function main(argv, cwd = process.cwd()) {
   if (verb === "decide") {
     const f = parseFlags(rest, ["--file"]);
     return f ? runDecide(aiDir, f, { cwd }) : { code: 2, out: USAGE };
+  }
+  if (verb === "archive") {
+    if (rest.some((a) => a !== "--logs")) return { code: 2, out: USAGE };
+    return runArchive(aiDir, { logs: rest.includes("--logs") });
   }
   return { code: 2, out: USAGE };
 }

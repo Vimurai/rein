@@ -858,14 +858,13 @@ for f in ENGINEER.md src/templates/ENGINEER.md src/claude/rules/test-harness.md;
   assert_status 1 "E-267.09h: ${f} no longer names the hosted runner" grep -qE 'gh +run +view' "${REPO_ROOT}/${f}"
 done
 # E-267.09i/j (critic_tests and rein-review said 'under `rein ci`') retired with those texts in E-464.
-assert_status 0 "E-267.09k: ci_gate forbids pushing without a green rein ci run" \
-  grep -q 'without a green `rein ci run`' "${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
+# E-267.09k (the ci_gate skill forbade pushing without a green run) went with the skill (E-467);
+# hooks/pre-push.sh itself refuses such a push.
 assert_status 0 "E-267.09l: install_git_hooks installs the pre-push stub" \
   grep -q '_write_pre_push_stub "\$PP_DST"' "$AI"
 assert_status 0 "E-267.09m: uninstall tells the operator to remove it" \
   grep -q 'rm .git/hooks/pre-push' "$AI"
 for m in .claude/skills/rein-review/SKILL.md:src/claude/skills/rein-review/SKILL.md \
-         .claude/skills/ci_gate/SKILL.md:src/claude/skills/ci_gate/SKILL.md \
          .claude/agents/reviewer.md:src/claude/agents/reviewer.md; do
   assert_mirror_if_present "E-267.09n: ${m%%:*} mirrors ${m##*:}" "${REPO_ROOT}/${m##*:}" "${REPO_ROOT}/${m%%:*}"
 done
@@ -975,25 +974,13 @@ assert_status 0 "E-268.04c: and names the recorded bypass" \
   grep -q 'REIN_CI_SKIP=1' "${REPO_ROOT}/CONTRIBUTING.md"
 
 # ── E-268.5: the agent-facing surfaces ───────────────────────────────────
-CG="${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
-assert_status 0 "E-268.05a: ci_gate names the local config files it protects" \
-  grep -q 'hooks/pre-push.sh' "$CG"
-assert_status 0 "E-268.05b: ci_gate injects the local CI verdict, not a workflow find" \
-  grep -q 'rein ci status --ref HEAD --short' "$CG"
-assert_status 0 "E-268.05c: ci_gate enforces the step order of the runner" \
-  grep -q 'worktree → env → deps' "$CG"
+# E-268.05a-c (ci_gate) and E-268.05e (devops_engineer) went with that skill and agent (E-467).
 assert_status 0 "E-268.05d: the DevOps contract says what CI means here" \
   grep -q 'rein ci run` on the machine' "${REPO_ROOT}/src/contracts/40_DEVOPS.md"
-assert_status 0 "E-268.05e: devops_engineer knows CI is local" \
-  grep -q 'Rein itself runs CI locally' "${REPO_ROOT}/src/claude/agents/devops_engineer.md"
 assert_status 0 "E-268.05f: the copilot brief no longer offers CI triggers" \
   bash -c "! grep -q 'CI triggers' '${REPO_ROOT}/src/copilot/COPILOT.md'"
 
-# ── E-268.6: mirrors carry the same text ─────────────────────────────────
-assert_mirror_if_present "E-268.06a: .claude/skills/ci_gate mirrors src/" \
-  "$CG" "${REPO_ROOT}/.claude/skills/ci_gate/SKILL.md"
-assert_mirror_if_present "E-268.06b: .claude/agents/devops_engineer mirrors src/" \
-  "${REPO_ROOT}/src/claude/agents/devops_engineer.md" "${REPO_ROOT}/.claude/agents/devops_engineer.md"
+# E-268.6 (the ci_gate and devops_engineer mirrors) went with them (E-467).
 
 echo ""
 

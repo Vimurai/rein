@@ -19,7 +19,7 @@ gen_project_settings() {
   [[ -f "$d/.ai/roles.json" ]] || printf '%s\n' \
     '{ "roles": { "architect": {"provider":"claude","pane_identifier":"1","model":"fable"},' \
     '             "engineer":  {"provider":"claude","pane_identifier":"0","model":"opus"} } }' > "$d/.ai/roles.json"
-  ( cd "$d" && REIN_DISABLE_REPO_MAP=1 bash "${_GS_REPO}/src/bin/rein" sync >/dev/null 2>&1 )
+  ( cd "$d" && bash "${_GS_REPO}/src/bin/rein" sync >/dev/null 2>&1 )
   [[ -f "$d/.claude/settings.json" ]] || return 1
   printf '%s' "$d/.claude/settings.json"
 }

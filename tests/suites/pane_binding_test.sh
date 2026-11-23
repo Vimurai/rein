@@ -345,7 +345,7 @@ _stamp() {  # <record role|none> <REIN_PANE_ROLE> <positional> [sid] → the fir
   local rec="$1" pane="$2" pos="$3" sid="${4:-e208t-$RANDOM$RANDOM}"
   ( cd "$REPO_ROOT" && HOME="$PB_HOME" bash -c '
       [ "$1" != none ] && python3 -I "$2" write $$ "$1" >/dev/null
-      printf "{\"session_id\":\"%s\"}" "$3" | REIN_DISABLE_CACHE=1 REIN_PANE_ROLE="$4" bash "$5" "$6"
+      printf "{\"session_id\":\"%s\"}" "$3" | REIN_PANE_ROLE="$4" bash "$5" "$6"
       rc=$?; rm -f "$HOME/.rein/run/launch/$$.json"; exit $rc' _ "$rec" "$LR" "$sid" "$pane" "$SS_HOOK" "$pos" 2>/dev/null ) \
     | python3 -c 'import json,sys; print("\n".join(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"].splitlines()[:2]))' 2>/dev/null
 }

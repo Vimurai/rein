@@ -45,8 +45,8 @@ written, the Architect wakes the Engineer.
 
 ## 3. Watch the Engineer
 
-The Engineer pane comes alive by itself. It runs its preflight (digest, open tasks, health
-checks), takes the first open `E-##`, and works through it:
+The Engineer pane comes alive by itself. It reads its session brief (branch, open tasks, last handoff,
+anomalies), takes the first open `E-##`, and works through it:
 
 - it writes the code and the tests;
 - it runs the tests, and dispatches the Tester for missing ones;

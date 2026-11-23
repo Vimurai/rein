@@ -1,6 +1,6 @@
 ---
 name: rein-insights
-description: "Trigger the meta_analyst (E-85) to regenerate ~/.rein/INSIGHTS.md from cross-project telemetry recorded in ~/.rein/telemetry.sqlite (E-84). Use when prompted by rein-preflight staleness check (E-86) or on demand before a planning session. Read-only over telemetry; write-only over INSIGHTS.md."
+description: "Trigger the meta_analyst (E-85) to regenerate ~/.rein/INSIGHTS.md from cross-project telemetry recorded in ~/.rein/telemetry.sqlite (E-84). Use on demand before a planning session. Read-only over telemetry; write-only over INSIGHTS.md."
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Bash, mcp__task-synchronizer-mcp__add_stamp
@@ -28,7 +28,6 @@ telemetry — it delegates entirely to `meta_analyst`.
 
 ## When to invoke
 
-- `rein-preflight` (E-86) emitted `[INSIGHTS_STALE]` at session start.
 - You are about to plan a sprint and want to see which tools are
   failing or slow before the planning conversation.
 - A monthly hygiene pass on `~/.rein/` (run after `skill: rein-archive`).
@@ -130,5 +129,5 @@ report was generated, just devoid of recommendations.
   agent enforces the read-only / aggregate-only contract; ad-hoc
   queries leak `tool_name`+`session_id` correlations the agent
   scrubs.
-- Do NOT chain this skill in a loop. It is on-demand; the preflight
-  staleness check (E-86) is the only automated trigger.
+- Do NOT chain this skill in a loop. It is on-demand; nothing triggers it
+  automatically.

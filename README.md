@@ -154,7 +154,7 @@ hands back. For an existing codebase, start with *"Reverse-engineer this reposit
 | **Rules that hold** | A tool-call gate (role boundaries, destructive commands, secrets), a pre-commit gate (standards, secrets, privacy), a pre-push CI gate, and review by tier checked at DONE. | [Gates and review](docs/gates-and-review.md) |
 | **A second opinion on every diff** | One `reviewer` (the diff against the task and its blueprint) and `critic_acceptance`, each in its own context, stamping `PASS`/`FAIL`; a security round for Tier 3. | [Gates and review](docs/gates-and-review.md#reviewers) |
 | **A green commit means the commit** | `rein ci run` tests a committed sha in a clean worktree; a test budget that only moves down; hosted CI on Linux and macOS. | [CI](docs/ci.md) |
-| **Procedures the agents follow** | 40+ skills — preflight, task close-out, handoff, debugging, release, dependency and CI gates. | [Agents and skills](docs/agents-and-skills.md) |
+| **Procedures the agents follow** | About 40 skills — task close-out, handoff, debugging, release, dependency and CI gates. | [Agents and skills](docs/agents-and-skills.md) |
 | **Specialists on call** | 19 subagents — reviewer, acceptance, Tester, security, database, DevOps, performance, chaos, UX, docs. | [Agents and skills](docs/agents-and-skills.md#subagents) |
 | **Tools without a server** | 16 local MCP servers (task store, orchestration, safe exec, patching, risk tiers, blueprint alignment, approval, memory…) wired by `rein sync`. | [MCP servers](docs/mcp-servers.md) |
 | **More than one developer** | Task claims on the trunk, per-developer id ranges, shared logs. | [Team mode](docs/team-mode.md) |
@@ -187,11 +187,12 @@ skills inside the two Claude Code panes.
 | `rein uninstall` | Remove `~/.rein`. |
 | `rein version`, `rein --help` | Version; full help. |
 
-Inside Claude Code, the commonly used skills are:
+Every session starts with a brief of at most 2 KB that the SessionStart hook injects: the
+role, the branch, the next five open tasks, the last handoff and any anomaly. Inside Claude
+Code, the commonly used skills are:
 
 | Skill | When |
 | :--- | :--- |
-| `rein-preflight` | Runs at every session start: snapshot, open tasks, state checks. |
 | `rein-task` | After a task: mark it done (CI must be green), hand over, show the next one. |
 | `rein-handoff` | Write the COMM.md note and wake the other pane. |
 | `rein-test` | Run your tests; `--generate` dispatches the Tester to write new ones. |

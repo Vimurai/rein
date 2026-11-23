@@ -24,9 +24,8 @@ This skill writes a structured NDJSON line to a single global log:
 ~/.rein/incidents.ndjson
 ```
 
-The JIT aggregator inside `rein-preflight` (E-66/E-67) groups recurrent
-incidents by `stack_signature` and prompts the Architect to draft a P-##
-when a threshold is exceeded.
+The JIT aggregator (`incident-aggregate.mjs`, E-66/E-67) groups recurrent
+incidents by `stack_signature`; past a threshold the Architect drafts a P-##.
 
 ## When to invoke
 

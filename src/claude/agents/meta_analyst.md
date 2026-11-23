@@ -238,7 +238,7 @@ Source:    ~/.rein/telemetry.sqlite (E-84)
 
 ---
 Next refresh recommended: when telemetry grows by >= 200 new rows
-since this report (the rein-preflight staleness check enforces this).
+since this report.
 ```
 
 If the analysis yielded no recommendations, replace the four candidate
@@ -384,4 +384,4 @@ that skips the approval gate and the content re-scan.
   are prose; the human/Architect decides whether to convert any to a
   P-## blueprint.
 - Not a real-time monitor — it runs on demand (skill: `rein-insights`)
-  or via preflight staleness prompts (E-86), never as a hot loop.
+  never as a hot loop.

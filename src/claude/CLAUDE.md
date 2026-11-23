@@ -30,7 +30,7 @@ Skills are context-heavy. When you finish using a skill (like a critic review or
 
 Use `orchestrator-mcp` tools for deterministic execution instead of manually interpreting skill files:
 
-- **Session start**: `skill: "rein-preflight"` — reads .ai/ files in correct order (its `!` lines inject live state).
+- **Session start**: nothing to run — the SessionStart hook injects the session brief (E-460).
 - **After finishing E-## task**: `run_handover({ task_id: "E-##", summary: "..." })` — marks DONE, updates LOG.
 - **Before closing a Tier 2/3 task**: `rein review <tier>` — deterministic checks + the agents to dispatch (E-464).
 
@@ -53,8 +53,7 @@ If you discover mid-task that you need a new dependency, are touching auth/secre
 
 If the Rein MCP servers are unavailable, degrade gracefully through these layers:
 
-**Layer 1** — `skill: "rein-preflight"` ← its Bash fallback reads state.json directly
-**Layer 2** — Manual recovery (this section):
+Manual recovery:
 
 ```bash
 # Read open tasks

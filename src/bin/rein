@@ -200,7 +200,7 @@ Commands:
 
 Removed — use the agent skill instead (see .ai/blueprints/cli-collapse.md):
   update / onboard → Run 'rein start', type the planning request in the Architect pane
-  preflight        → skill: rein-preflight  (auto-runs at session start)
+  preflight        → none: the SessionStart hook injects the session brief (E-460)
   archive          → skill: rein-archive
   test [--vibe]    → skill: rein-test  (--generate | --fast | --vibe)
   provider         → removed in v4; providers are configured in .ai/providers.json
@@ -1787,7 +1787,7 @@ hooks = data.setdefault("hooks", {})
 # (shell form, stale path) — appending beside an old entry would leave the vulnerable line
 # running. User entries are never touched. History kept from the entries this replaces:
 #   E-125/E-208 pre-tool-use is the fail-closed gate on Bash + the write tools;
-#   E-126/E-129/E-294 session-start injects the context cache and mints the role token; the
+#   E-460/E-129/E-294 session-start injects the session brief and mints the role token; the
 #     role comes from the launch-record walk (D-087), never from an argument or the env. It
 #     fires on clear and compact too: `/clear` issues a NEW session id in the same process
 #     (measured 2026-10-04), which needs its own token or the session falls into the union;
@@ -2881,7 +2881,7 @@ do_init() {
   echo "2) .ai/DIGEST.md is generated from state (rein digest build) — never hand-edit it"
   echo "3) Define the initial vision in .ai/architect.md (Template provided)"
   echo "4) Fill in .github/copilot-instructions.md (project-specific context)"
-  echo "5) Open a provider CLI in this repo — the bootloader auto-runs rein-preflight"
+  echo "5) Open Claude Code in this repo — the SessionStart hook injects the session brief"
   echo ""
   # E-228 (D-059): name the one command that does step 5 for you. Without this the
   # launcher exists but is only discoverable by reading the README.
@@ -7229,7 +7229,7 @@ case "$cmd" in
 
   # Deprecated user surface — removed, see .ai/blueprints/cli-collapse.md
   update|onboard) _show_deprecated "$cmd" "Run 'rein start' and type the planning request in the Architect pane." ;;
-  preflight)     _show_deprecated "preflight" "skill: rein-preflight  (auto-runs at every session start)" ;;
+  preflight)     _show_deprecated "preflight" "nothing: the SessionStart hook injects the session brief (E-460)" ;;
   archive)       _show_deprecated "archive" "skill: rein-archive" ;;
   # E-464 (D-169 r8, D-170 r5): review by tier; run_review's checks moved here from orchestrator-mcp.
   review)

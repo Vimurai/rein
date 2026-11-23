@@ -311,10 +311,10 @@ assert_status 0 "E-249.02d: --stale-json is machine-readable" \
 # assert is that the scan is actually reached from all five surfaces named in D-067 §3.
 assert_status 0 "E-249.03a: verify_markdown_sync calls the scan" \
   grep -q 'staleServerReport()' "${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
-# E-276 (D-075) retired orchestrator::run_preflight; the rein-preflight skill's `!` injection
-# is the preflight path now, and it runs the same scan through the CLI.
-assert_status 0 "E-249.03b: the rein-preflight skill runs the scan" \
-  grep -q 'build-stamp.mjs 2>/dev/null)"; r=""; \[ -n "\$c" \] && r="\$(node --no-warnings "\$c" --stale' "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
+# E-460 (D-169) removed the preflight skill; the SessionStart hook runs the same scan through
+# the CLI and prints it only when a server is stale (hooks_surface_test.sh S03 observes it).
+assert_status 0 "E-249.03b: the session-start hook runs the scan" \
+  grep -q '"$_BS" --stale' "${REPO_ROOT}/hooks/session-start.sh"
 assert_status 0 "E-249.03c: rein sync runs it as a fail-open step" \
   grep -qE '_sync_step +stale_servers +_report_stale_servers' "$AI"
 assert_status 0 "E-249.03d: rein doctor reports it" grep -q '_stale_server_lines' "$AI"
@@ -1578,7 +1578,7 @@ assert_not_contains "P-9: diff.split no longer used for added lines" \
 
 # ── P-10/P-11: retired with run_preflight (E-276, D-075) ──────────────────────
 # readBoundedLines and the blueprints pointer existed only for orchestrator::run_preflight.
-# The rein-preflight skill (with its `!` injection) is the only preflight path now; what is
+# The SessionStart hook's brief is the session start now (E-460); what is
 # asserted here is that the tool is really gone, not merely unlisted.
 
 assert_exists "$ORCH_MCP"

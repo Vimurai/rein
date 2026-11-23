@@ -52,4 +52,4 @@ harness.
 
 `rein doctor --env` checks Node, the binaries and live connectivity to each server. `rein mcp-setup`
 reinstalls their npm dependencies. After upgrading Rein, restart the Claude Code panes so they
-start the new server code; preflight warns when a running server is older than the installed one.
+start the new server code; the session brief warns when a running server is older than the installed one.

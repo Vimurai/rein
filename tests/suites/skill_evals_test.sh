@@ -6,7 +6,7 @@
 #
 # Two layers:
 #   1. static — the plugin manifest and the eval tree are well-formed. Needs only node.
-#   2. live   — run the four cases (rein-preflight, rein-task, rein-handoff, task-planner) against
+#   2. live   — run the three cases (rein-task, rein-handoff, task-planner) against
 #               the real model, every grader must pass. Needs an AUTHENTICATED `claude` on
 #               PATH; anything less is a recorded SKIP (E-236), never a fabricated result.
 #               Under `rein ci run` the HOME is a throwaway, so `claude` is never logged in
@@ -23,7 +23,7 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 MANIFEST="${REPO_ROOT}/.claude-plugin/plugin.json"
 EVALS="${REPO_ROOT}/evals"
-CASES=(rein-preflight rein-task rein-handoff task-planner)
+CASES=(rein-task rein-handoff task-planner)   # rein-preflight's case went with the skill (E-460)
 
 echo "── Suite: skill_evals_test ──────────────────────────────────────────"
 
@@ -42,12 +42,9 @@ for c in "${CASES[@]}"; do
   assert_contains "${c}: scaffold seeds the shared fixture" "fixtures/rein-project.sh" "$(cat "${EVALS}/${c}/scaffold.sh")"
 done
 assert_status 0 "fixture scaffold is valid bash" bash -n "${EVALS}/fixtures/rein-project.sh"
-# The preflight case's never-reads-architect grader only means something if the sentinel
-# it would see is really in the fixture's architect.md.
-assert_contains "fixture architect.md carries the sentinel" "ARCHITECT_SENTINEL_7f3a" "$(cat "${EVALS}/fixtures/rein-project.sh")"
 
-# ── 2. live: the four cases against the model ─────────────────────────────────
-echo "  [skill-evals.live] 4 cases × ${REIN_SKILL_EVAL_RUNS:-2} runs, every grader passes"
+# ── 2. live: the three cases against the model ─────────────────────────────────
+echo "  [skill-evals.live] 3 cases × ${REIN_SKILL_EVAL_RUNS:-2} runs, every grader passes"
 if skip_unless_cmd claude "live skill evals"; then
   if ! grep < <(claude auth status 2>/dev/null) -q '"loggedIn": *true'; then
     _skip "live skill evals — claude is not authenticated on this host (HOME=${HOME})"

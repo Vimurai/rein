@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # incident_tracker_test.sh — the incident tracker (incident-tracker.md): the append helper and
-# rein-incident skill (E-65), and the aggregator plus its rein-preflight wiring (E-66, E-67, from
+# rein-incident skill (E-65), and the aggregator (E-66, from
 # incident_aggregator — E-302).
 #
 # E-65 — verifies the incident-append.mjs helper + rein-incident skill contract:
@@ -204,18 +204,15 @@ if [[ -f "$HELPER_MIRROR" ]]; then
 fi
 
 
-# ── E-66 / E-67 (from incident_aggregator — E-302): the aggregator and its preflight wiring ──
+# ── E-66 / E-67 (from incident_aggregator — E-302): the aggregator ──
 # Tests for E-66 + E-67.
 #
 # E-66: incident-aggregate.mjs reads ~/.rein/incidents.ndjson, groups by
 #       stack_signature, surfaces THRESHOLD_REACHED at >=3 occurrences.
-# E-67: rein-preflight SKILL.md wires the aggregator and emits the
-#       [INCIDENT_THRESHOLD_REACHED] context block when the threshold trips.
+# E-67: its preflight-skill wiring went with that skill (E-460).
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 AGGR="${REPO_ROOT}/src/shared/incident-aggregate.mjs"
 APPEND="${REPO_ROOT}/src/shared/incident-append.mjs"
-PREFLIGHT_SKILL="${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
-PREFLIGHT_SKILL_MIRROR="${HOME}/.rein/shared/skills/rein-preflight/SKILL.md"
 AGGR_MIRROR="${HOME}/.rein/shared/incident-aggregate.mjs"
 
 
@@ -323,36 +320,12 @@ ELAPSED_MS=$(( (END_NS - START_NS) / 1000000 ))
 assert_perf "aggregator on a 100-record log" "$ELAPSED_MS" 200 "$(perf_baseline_node)"
 rm -rf "$AGG_SBOX2"
 
-# ── T-AG-S09: rein-preflight SKILL.md wires the aggregator (E-67) ─────────────
-echo ""
-echo "  [T-AG-S09] rein-preflight skill consumes the aggregator"
-
-assert_status 0 "skill names incident-aggregate.mjs in locator chain" \
-  grep -q 'incident-aggregate.mjs' "$PREFLIGHT_SKILL"
-
-assert_status 0 "skill names ${HOME}/.rein/shared mirror" \
-  grep -q 'shared/incident-aggregate.mjs' "$PREFLIGHT_SKILL"
-
-assert_status 0 "skill emits [INCIDENT_THRESHOLD_REACHED] context block" \
-  grep -q '\[INCIDENT_THRESHOLD_REACHED\]' "$PREFLIGHT_SKILL"
-
-assert_status 0 "skill adds Bash to allowed-tools (needed for node invocation)" \
-  grep -qE '^allowed-tools:.*Bash' "$PREFLIGHT_SKILL"
-
-assert_status 0 "skill defers blueprint drafting to Architect (anti-drift §35)" \
-  grep -q 'Architect' "$PREFLIGHT_SKILL"
-
-assert_status 0 "skill documents AI_INCIDENT_TRACKER_DISABLE rollback" \
-  grep -q 'AI_INCIDENT_TRACKER_DISABLE' "$PREFLIGHT_SKILL"
+# T-AG-S09 (the preflight skill's aggregator wiring) was deleted by E-460 with the skill.
 
 # ── T-AG-S10: ~/.rein mirrors byte-identical ───────────────────────────────
 echo ""
 echo "  [T-AG-S10] ~/.rein/ mirrors track src/ verbatim"
 
-if [[ -f "$PREFLIGHT_SKILL_MIRROR" ]]; then
-  assert_status 0 "rein-preflight skill mirror identical" \
-    cmp -s "$PREFLIGHT_SKILL" "$PREFLIGHT_SKILL_MIRROR"
-fi
 if [[ -f "$AGGR_MIRROR" ]]; then
   assert_status 0 "incident-aggregate.mjs mirror identical" \
     cmp -s "$AGGR" "$AGGR_MIRROR"

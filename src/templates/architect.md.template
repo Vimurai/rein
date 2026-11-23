@@ -41,9 +41,8 @@
 ## 30. Bootloader Resilience
 - **Concept**: Ensure the Triad maintains operational context even if the Rein MCP servers are unavailable.
 - **Execution Flow**:
-  1. Agent invokes the `rein-preflight` skill (the only preflight path since D-075).
-  2. If its MCP call fails: the skill's Bash fallback reads `state.json` directly.
-  3. If that fails: Agent reads the "Emergency Recovery" section in `ENGINEER.md` (the canonical Engineer rulefile; `CLAUDE.md` is a shim that imports it).
+  1. The SessionStart hook injects the session brief from `.ai/TASKS.md` and `.ai/COMM.md` — no MCP server is needed (E-460).
+  2. If a skill's MCP call fails: the skill's Bash fallback reads `state.json` directly.
 - **Error Handling**: Graceful degradation to manual `cat .ai/TASKS.md` if all tools fail.
 - **Security**: Fallback tools must adhere to the same path-traversal restrictions as the primary orchestrator.
 
@@ -73,4 +72,4 @@
 - **Pattern**: `architect.md` becomes a lightweight index/router (~30 lines). Detailed content moves to `.ai/blueprints/<domain>.md`.
 - **Standard domains**: `core.md`, `security.md`, `agents.md`, `mcp.md`, `governance.md` (adapt to project needs).
 - **JIT Protocol**: Agents read the index first, then load only the relevant domain blueprint. Never load all blueprints at once.
-- **Preflight update**: `rein-preflight` points to the index; domain blueprints are loaded on demand.
+- **Session start**: the brief names no blueprint; domain blueprints are loaded when a task names them.

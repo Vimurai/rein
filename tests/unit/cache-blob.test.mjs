@@ -1,13 +1,12 @@
 // tests/unit/cache-blob.test.mjs — the SessionStart context blob cap (E-275, D-075)
 //
-// native-first.md §Component 1: the blob `hooks/session-start.sh` injects at every session
-// start is architect.md plus the blueprints modified within 7 days, and it NEVER exceeds
+// native-first.md §Component 1: the blob `hooks/session-start.sh` injected at every session
+// start until E-460 (D-169; the hook now injects a 2 KB brief) is architect.md plus the blueprints modified within 7 days, and it NEVER exceeds
 // CACHE_CHAR_LIMIT (20,000). It used to measure 25,812 against that limit, because
 // registry.json and the state.sqlite schema rode along unconditionally and the old eviction
 // could only touch blueprints older than 7 days.
 //
-// Every case drives the real CLI (`--measure` / `--emit-context`) — the same entry point the
-// hook uses — under a throwaway HOME, so nothing reads or writes the operator's
+// Every case drives the real CLI (`--measure` / `--emit-context`) under a throwaway HOME, so nothing reads or writes the operator's
 // ~/.rein/cache.sqlite. Fixture mtimes are set explicitly: a fresh checkout gives every
 // file the same mtime, which is exactly the tie the eviction order has to survive.
 //

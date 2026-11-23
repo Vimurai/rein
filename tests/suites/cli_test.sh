@@ -64,7 +64,7 @@ assert_contains "rein test prints deprecation pointer to skill" "skill: rein-tes
 assert_status 1 "rein test exits 1 (deprecated)" "$AI_BIN" test
 
 out=$("$AI_BIN" preflight 2>&1 || true)
-assert_contains "rein preflight prints deprecation pointer" "skill: rein-preflight" "$out"
+assert_contains "rein preflight points at the session-start brief (E-460)" "SessionStart hook injects the session brief" "$out"
 assert_status 1 "rein preflight exits 1 (deprecated)" "$AI_BIN" preflight
 
 out=$("$AI_BIN" where 2>&1 || true)

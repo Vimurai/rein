@@ -55,8 +55,8 @@ there and relaunch the pane.
    blueprint under `.ai/blueprints/`, records any decision in `.ai/DECISIONS.md`, and adds
    implementation tasks (`E-##`) with acceptance criteria. Its last action is to wake the
    Engineer.
-2. **Implement.** The Engineer's session starts with `skill: rein-preflight`: the digest, the open
-   tasks, sync and health checks. It implements the next task, under the gates.
+2. **Implement.** The Engineer's session starts with the brief the SessionStart hook injects: the
+   branch, the next open tasks, the last handoff and any anomaly. It implements the next task, under the gates.
 3. **Validate.** `skill: rein-test` runs the project's own test command; `--generate` has the Tester
    write missing tests.
 4. **Review.** `skill: rein-review` classifies the change's risk tier and runs the matching critics.
@@ -67,14 +67,13 @@ there and relaunch the pane.
 
 ## Memory that survives the chat
 
-A session never re-reads your repository to find its place. It reads a short snapshot, then its
-open tasks, then a blueprint only when a task names one. Everything it does is written back as
+A session never re-reads your repository to find its place. It starts from a brief of its
+open tasks, then reads a blueprint only when a task names one. Everything it does is written back as
 it goes.
 
 ```mermaid
 flowchart TD
-    S["session start<br/>rein-preflight"] --> D["DIGEST.md<br/>generated snapshot, ≤ 60 lines"]
-    D --> T["TASKS.md<br/>open E-## / P-##"]
+    S["session start<br/>brief ≤ 2 KB"] --> T["TASKS.md<br/>open E-## / P-##"]
     T --> B{"task names a blueprint?"}
     B -->|yes| BP[".ai/blueprints/&lt;name&gt;.md"]
     B -->|no| W["work"]
@@ -100,7 +99,7 @@ flowchart TD
   REVIEWS.md         Review stamps ([ARCH_PASS], [SEC_FAIL], …) — a generated view.
   LOG.md             Append-only action log; rotated past 200 lines.
   COMM.md            Handoff notes between the roles.
-  SESSION.md         Per-session preflight stamps.
+  SESSION.md         Per-session stamps (Stop hook).
   REPO_MAP.md        A token-budgeted map of the code (most central files, signatures only).
   roles.json, providers.json, start.json, team.json   Configuration.
   archive/YYYY-MM/   Rotated LOG, COMM and REVIEWS.

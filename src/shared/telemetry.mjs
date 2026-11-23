@@ -567,7 +567,7 @@ export function recordTaskVelocity(payload, opts) {
 }
 
 // Read-side: SQL aggregates for the meta_analyst agent (E-85) and the
-// rein-preflight staleness check (E-86). Returns counts + last-write
+// insights staleness check (E-86). Returns counts + last-write
 // timestamps. Bounded by the optional `since_iso` window.
 export function getTelemetryStats(opts = {}) {
   const path = opts.db_path || TELEMETRY_DB_PATH;

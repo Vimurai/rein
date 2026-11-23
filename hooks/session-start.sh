@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# session-start.sh — E-126 (caching.md §3) + E-129 (sovereignty-hardening.md §Security).
-#   E-126: inject the compiled Rein System Context Cache as a prompt-prefix.
+# session-start.sh — E-460 (lean-core.md §Component 3) + E-129 (sovereignty-hardening.md §Security).
+#   E-460: inject one brief of at most 2 KB — the role stamp, the branch, the role's next five
+#          open tasks, the heading of the last COMM.md handoff and one line per anomaly. It
+#          replaced the preflight skill and the E-126 blueprint cache; no blueprint text
+#          is injected (a blueprint is read when a task names it).
 #   E-129: mint a tamper-resistant role token for this session so the safe-exec
 #          gate (--check) reads the role from an HMAC-verified file, not the
 #          mutable REIN_CALLER_ROLE env var.
@@ -86,9 +89,7 @@ set -uo pipefail
 ROLE=""
 ROLE_LAUNCH=""
 
-# Read the SessionStart payload ONCE for the E-129 session id. (The E-126 cache
-# step below sources its content from `--emit-context`, not stdin, so consuming
-# stdin here does not affect it.)
+# Read the SessionStart payload ONCE for the E-129 session id.
 PAYLOAD="$(cat 2>/dev/null || true)"
 
 # ── E-129/E-294: mint the per-session role token ──────────────────────────────
@@ -109,16 +110,15 @@ except Exception: pass' 2>/dev/null)"
 fi
 case "$ROLE" in architect|engineer) : ;; *) ROLE="" ;; esac
 
-# ── E-126 + E-208: emit additionalContext ─────────────────────────────────────
+# ── E-208: the role stamp ─────────────────────────────────────────────────────
 # E-208 (D-054, role-abstraction.md §Components 2): the FIRST line of the injected
 # context is an `[REIN_ROLE] <role>` stamp naming the role this session actually
 # minted. The Role Resolution clause at the top of ENGINEER.md / ARCHITECT.md keys
 # off it, so a Claude pane bound to `architect` is governed by ARCHITECT.md even
 # though CLAUDE.md statically imports ENGINEER.md (gap G1 — @import cannot branch).
 #
-# The stamp is emitted even when the E-126 cache is unavailable or disabled: the
-# persona layer must never silently lose its role binding just because the cache is
-# off. Only a missing python3 (no way to build the JSON envelope) skips it.
+# The stamp is emitted even when node is missing: the persona layer must never silently
+# lose its role binding. Only a missing python3 (no way to build the JSON envelope) skips it.
 # No verified role → the stamp says so and names the fix; the persona layer then follows
 # ARCHITECT.md (any stamp other than `engineer`), matching the gate's union.
 if [[ -n "$ROLE" ]]; then
@@ -193,21 +193,84 @@ ${_CLM}"
   fi
 fi
 
-BLOB=""
-if [[ "${REIN_DISABLE_CACHE:-0}" != "1" ]] && command -v node >/dev/null 2>&1; then
-  CM=""
-  CM="$(rein_locate mcp/cache-manager-mcp/index.js || true)"
-  [[ -n "$CM" ]] && BLOB="$(node --no-warnings "$CM" --emit-context 2>/dev/null)"
+# ── E-460 (D-169, lean-core.md §Component 3): the anomaly checks the preflight skill ran ──
+# Deterministic, and silent when nothing is wrong: each adds ONE line only on a failure.
+# (The fourth anomaly, a failed digest build, is the [DIGEST_BUILD_FAILED] line above.)
+ANOM=""
+_add_anom() { [[ -n "$1" ]] && ANOM="${ANOM}${ANOM:+
+}$1"; return 0; }
+if [[ -d ".ai" ]] && command -v node >/dev/null 2>&1; then
+  # State behind HEAD: the index lags the tracked state.json (E-344's verdict line).
+  _CS="$(rein_locate shared/cli-state.mjs || true)"
+  if [[ -n "$_CS" ]]; then
+    _SH="$(node --no-warnings "$_CS" state health --short 2>/dev/null || true)"
+    case "$_SH" in
+      "WARN: ["*) _add_anom "${_SH#WARN: }" ;;
+      WARN:*)     _add_anom "[STATE_HEALTH] ${_SH#WARN: }" ;;
+    esac
+  fi
+  # Stale build: a running MCP server booted older code than the install mirror holds.
+  _BS="$(rein_locate shared/build-stamp.mjs || true)"
+  if [[ -n "$_BS" ]]; then
+    _ST="$(node --no-warnings "$_BS" --stale 2>/dev/null || true)"
+    [[ -n "$_ST" ]] && _add_anom "${_ST} — restart the MCP servers before trusting their answers"
+  fi
+fi
+# Uncommitted COMM.md (D-104 r4): the handoff channel must be committed to reach the other role.
+_CMS="$(rein_locate shared/comm-status.sh || true)"
+if [[ -d ".ai" && -n "$_CMS" ]]; then
+  # shellcheck source=src/shared/comm-status.sh
+  . "$_CMS"
+  _CM_ST="$(rein_comm_status .)"
+  case "$_CM_ST" in
+    UNCOMMITTED*) _add_anom "[COMM_UNCOMMITTED] .ai/COMM.md has ${_CM_ST#UNCOMMITTED } line(s) not in HEAD — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;;
+    IGNORED)      _add_anom "[COMM_IGNORED] .ai/COMM.md is git-ignored, so a handoff never reaches the other role — run: rein sync" ;;
+  esac
 fi
 
-printf '%s\n\n%s' "$ROLE_STAMP" "$BLOB" | python3 -c '
-import json, sys
-blob = sys.stdin.read()
-sys.stdout.write(json.dumps({
-    "hookSpecificOutput": {
-        "hookEventName": "SessionStart",
-        "additionalContext": blob,
-    }
-}))
+_BRANCH="$(git symbolic-ref -q --short HEAD 2>/dev/null || true)"
+[[ -z "$_BRANCH" ]] && _BRANCH="$(git rev-parse -q --short HEAD 2>/dev/null)" && _BRANCH="detached at ${_BRANCH}"
+
+# The brief: the stamp first, then the branch, the role's next five open tasks, the last
+# handoff's heading and the anomalies. Capped at 2048 bytes (UTF-8) on a line boundary; the
+# stamp's first line always survives. Built in python3, which the envelope needs anyway.
+REIN_BRIEF_STAMP="$ROLE_STAMP" REIN_BRIEF_ANOM="$ANOM" REIN_BRIEF_ROLE="$ROLE" \
+REIN_BRIEF_BRANCH="${_BRANCH:-}" python3 -I -c '
+import json, os, re
+LIMIT, TASK_W = 2048, 160
+env = os.environ
+role = env.get("REIN_BRIEF_ROLE", "")
+prefix = "P-" if role == "architect" else "E-"
+out = [l[:300] for l in env.get("REIN_BRIEF_STAMP", "").splitlines() if l.strip()]
+if env.get("REIN_BRIEF_BRANCH"):
+    out.append("Branch: " + env["REIN_BRIEF_BRANCH"])
+def read(p):
+    try:
+        with open(p, encoding="utf-8", errors="replace") as f: return f.read()
+    except OSError: return None
+tasks = read(".ai/TASKS.md")
+if tasks is not None:
+    rows = re.findall(r"^- \[ \] (" + re.escape(prefix) + r"\d+): (.*)$", tasks, re.M)
+    out.append(f"Next {prefix}## tasks ({min(5, len(rows))} of {len(rows)} open; orders: .ai/TASKS.md):" if rows else f"No open {prefix}## tasks in .ai/TASKS.md.")
+    for tid, text in rows[:5]:
+        m = re.search(r"\s*\|\s*Tier:\s*(\d)\s*$", text)
+        tier = f" | Tier {m.group(1)}" if m else ""
+        body = text[:m.start()] if m else text
+        if len(body) > TASK_W: body = body[:TASK_W - 1].rstrip() + "…"
+        out.append(f"- {tid}: {body}{tier}")
+comm = read(".ai/COMM.md")
+if comm:
+    heads = re.findall(r"^## .*$", comm, re.M)
+    if heads: out.append("Last handoff (.ai/COMM.md): " + heads[-1][3:].strip()[:200])
+out += [l[:400] for l in env.get("REIN_BRIEF_ANOM", "").splitlines() if l.strip()]
+text = "\n".join(out)
+if len(text.encode()) > LIMIT:
+    mark = "[BRIEF_TRUNCATED] the session brief passed 2048 bytes"
+    keep = []
+    for l in out:
+        if len(("\n".join(keep + [l, mark])).encode()) > LIMIT: break
+        keep.append(l)
+    text = "\n".join((keep or [out[0][:LIMIT - len(mark) - 1]]) + [mark])
+print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}), end="")
 ' 2>/dev/null || exit 0
 exit 0

@@ -268,7 +268,7 @@ rein start
 
 *What you should see:* a tmux session named after the project, with two panes. On the left is
 the **Engineer** (`claude`, model `opus`); on the right is the **Architect** (`claude`, model
-`fable`). Each pane opens Claude Code bound to its role and runs its preflight.
+`fable`). Each pane opens Claude Code bound to its role and reads its session brief.
 
 Move to the Architect pane (`Ctrl-b` `o`) and type your first request:
 

@@ -8,7 +8,7 @@
 #      shipped agent and FAILS an agent that names a tool outside its mcpServers scope.
 #   4. The native frontmatter fields are present where the blueprint puts them.
 #
-# E-302 folds in the other hooks `rein sync` wires: the SessionStart cache prefix (E-126), the
+# E-302 folds in the other hooks `rein sync` wires: the SessionStart brief (E-460, was E-126), the
 # Stop hook never writes DIGEST (E-430), the telemetry edge hook's ".*" matcher (E-105, T-HM-01..04)
 # and the post-write cache rebuild (E-112).
 set -uo pipefail
@@ -152,72 +152,87 @@ for s in rein-review arch-review; do
 done
 
 
-# ── E-126 (from session_start_cache_test — E-302, caching.md §3.2/§3.3): SessionStart cache prefix ──
-# The SessionStart hook injects the compiled System Context Cache as a prompt-prefix at session start.
-CM="${REPO_ROOT}/src/mcp/cache-manager-mcp/index.js"
+# ── E-460 (D-169, lean-core.md §Component 3; replaces E-126's cache prefix): the session brief ──
+# The SessionStart hook injects one brief of at most 2 KB: the role stamp, the branch, the role's
+# next five open tasks, the last COMM.md heading and one line per anomaly — no blueprint text.
+# E-460 deleted S02 (cache-manager's --emit-context output; cache_manager_test.sh and
+# tests/unit/cache-blob.test.mjs still cover that CLI) and S04 (the REIN_DISABLE_CACHE rollback:
+# the hook no longer reads the cache, so there is nothing to roll back).
 SSC_HOOK="${REPO_ROOT}/hooks/session-start.sh"
-# ── S01: artifacts exist + parse ─────────────────────────────────────────────
+source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
+# ── S01: artifacts exist + parse; the cache is no longer read ─────────────────
 assert_status 0 "hook exists"          test -f "$SSC_HOOK"
 assert_status 0 "hook is executable"   test -x "$SSC_HOOK"
 assert_status 0 "hook parses"          bash -n "$SSC_HOOK"
-assert_status 0 "--emit-context CLI present in cache-manager" grep -qF -- '--emit-context' "$CM"
-assert_status 0 "hook uses --emit-context"                   grep -qF -- '--emit-context' "$SSC_HOOK"
+assert_status 1 "E-460.S01: the hook no longer calls cache-manager --emit-context" \
+  grep -qE -- 'cache-manager-mcp|--emit-context' "$SSC_HOOK"
 
-# ── S02: --emit-context emits the compiled blob; rollback emits nothing ───────
-assert_status 0 "S02: --emit-context emits the System Context blob" bash -c \
-  "grep < <(node --no-warnings '$CM' --emit-context 2>/dev/null) -q 'Rein SYSTEM CONTEXT CACHE'"
-assert_status 0 "S02: REIN_DISABLE_CACHE=1 emits nothing" bash -c \
-  "[ -z \"\$(REIN_DISABLE_CACHE=1 node --no-warnings '$CM' --emit-context 2>/dev/null)\" ]"
+# ── S03: the brief — content, order and the 2 KB cap ─────────────────────────
+# A fixture project (git, branch lean-fixture) with 8 open E-## tasks, 2 open P-## tasks, one
+# over-long task line and an uncommitted COMM.md with two handoffs; a fixture HOME whose shared/
+# links src/shared, so the helpers come from the install path and this repository is not touched.
+skip_unless_cmd git "E-460 session brief rows" && {
+_B="$(mktemp -d)"; on_exit "rm -rf '$_B'"
+tc_link_shared "$_B/home"
+_bgit() { git -C "$_B/p" -c user.name=fixture -c user.email=fixture@example.invalid -c commit.gpgsign=false "$@" >/dev/null 2>&1; }
+mkdir -p "$_B/p/.ai"
+{ printf '# TASKS (Generated from state.json)\n\n## Architect\n'
+  printf -- '- [ ] P-1: Plan the first thing. | Tier: 2\n- [x] P-2: Done plan. | Tier: 1\n- [ ] P-3: Plan the second thing. | Tier: 1\n'
+  printf '\n## Engineer\n- [x] E-1: Already done. | Tier: 1\n'
+  printf -- '- [ ] E-2: %s | Tier: 3\n' "$(printf 'Long text %.0s' {1..60})"
+  for i in 3 4 5 6 7 8 9; do printf -- '- [ ] E-%s: Build part %s. | Tier: 2\n' "$i" "$i"; done
+} > "$_B/p/.ai/TASKS.md"
+printf '# COMM\n\n## Handoff — 2026-01-01 10:00 UTC\nold\n' > "$_B/p/.ai/COMM.md"
+printf '.ai/state.sqlite*\n.ai/.last-import-blob\n.ai/DIGEST.md\n' > "$_B/p/.gitignore"
+_bgit init -q -b lean-fixture; _bgit add -A; _bgit commit -q -m base
+printf '\n## Handoff — 2026-01-02 11:00 UTC (Engineer → Architect)\nnew\n' >> "$_B/p/.ai/COMM.md"
+_BRAW="$( cd "$_B/p" && printf '{"session_id":"s-brief"}' | HOME="$_B/home" bash "$SSC_HOOK" 2>/dev/null )"
+_BRIEF="$(python3 -c 'import json,sys; h=json.loads(sys.stdin.read())["hookSpecificOutput"]; assert h["hookEventName"]=="SessionStart"; sys.stdout.write(h["additionalContext"])' <<< "$_BRAW" 2>/dev/null)"
+echo "    brief: $(printf '%s' "$_BRIEF" | wc -c | tr -d ' ') bytes"
+assert_status 0 "E-460.S03a: the hook prints valid SessionStart JSON with a non-empty brief" test -n "$_BRIEF"
+assert_status 0 "E-460.S03b: the brief is at most 2048 bytes" test "$(printf '%s' "$_BRIEF" | wc -c)" -le 2048
+assert_match "E-460.S03c: the first line is the role stamp" '^\[REIN_ROLE\] ' "$(head -1 <<< "$_BRIEF")"
+assert_contains "E-460.S03d: the brief names the branch" "Branch: lean-fixture" "$_BRIEF"
+assert_contains "E-460.S03e: it counts the role's open tasks" "Next E-## tasks (5 of 8 open" "$_BRIEF"
+assert_status 0 "E-460.S03f: exactly five task lines, E-2 to E-6 in order, no P-## and no closed task" \
+  test "$(grep -E '^- [A-Z]+-[0-9]+:' <<< "$_BRIEF" | cut -d: -f1 | tr '\n' ' ')" = "- E-2 - E-3 - E-4 - E-5 - E-6 "
+assert_contains "E-460.S03g: an over-long task is cut and keeps its tier" "… | Tier 3" "$_BRIEF"
+assert_contains "E-460.S03h: the LAST handoff heading is named" \
+  "Last handoff (.ai/COMM.md): Handoff — 2026-01-02 11:00 UTC (Engineer → Architect)" "$_BRIEF"
+assert_contains "E-460.S03i: an uncommitted COMM.md is one anomaly line" "[COMM_UNCOMMITTED] .ai/COMM.md has" "$_BRIEF"
+assert_not_contains "E-460.S03j: no blueprint cache text" "SYSTEM CONTEXT CACHE" "$_BRIEF"
+# Silence on success: commit COMM.md and the anomaly line goes.
+_bgit add -A; _bgit commit -q -m comm
+_BRIEF2="$( cd "$_B/p" && printf '{}' | HOME="$_B/home" bash "$SSC_HOOK" 2>/dev/null )"
+assert_not_contains "E-460.S03k: a committed COMM.md prints no anomaly" "COMM_UNCOMMITTED" "$_BRIEF2"
+assert_contains "E-460.S03l: (non-vacuity) the second brief was produced" "Branch: lean-fixture" "$_BRIEF2"
+# Latency (lean-core.md §Execution Constraints: the session-start hook stays under 500 ms).
+# Declared ceiling 2500 ms (5x the contract, the D-138 r3 floor) above a bare node start
+# measured in the same run.
+_ss_ms() { local a b; a=$(date +%s%N); ( cd "$_B/p" && printf '{}' | HOME="$_B/home" bash "$SSC_HOOK" >/dev/null 2>&1 ); b=$(date +%s%N); echo $(( (b - a) / 1000000 )); }
+_ss_min() { local i t m=999999; for i in 1 2 3; do t=$(_ss_ms); (( t < m )) && m=$t; done; echo "$m"; }
+_ss_node() { local i t m=999999 a b; for i in 1 2 3; do a=$(date +%s%N); node --no-warnings -e 0; b=$(date +%s%N); t=$(( (b - a) / 1000000 )); (( t < m )) && m=$t; done; echo "$m"; }
+assert_perf "E-460.S03m: the session-start hook on a fixture project" "$(_ss_min)" 2500 "$(_ss_node)" 10 200 _ss_min
+}
 
-# ── S03: hook emits VALID SessionStart JSON with the cache in additionalContext ─
-assert_status 0 "S03: hook output is valid SessionStart additionalContext JSON" bash -c "
-  bash '$SSC_HOOK' </dev/null 2>/dev/null | python3 -c '
-import json, sys
-d = json.load(sys.stdin)
-h = d[\"hookSpecificOutput\"]
-assert h[\"hookEventName\"] == \"SessionStart\", \"event name\"
-assert \"Rein SYSTEM CONTEXT CACHE\" in h[\"additionalContext\"], \"cache present\"
-assert len(h[\"additionalContext\"]) > 1000, \"non-trivial blob\"
-'"
-
-# ── S04: rollback — REIN_DISABLE_CACHE=1 suppresses the CACHE ───────────────
-# E-208 (D-054) changed this contract deliberately: the hook still emits the
-# `[REIN_ROLE] <role>` stamp, because the ROLE BINDING is not part of the cache
-# feature. If disabling the cache also dropped the stamp, an Architect-bound pane
-# would silently lose its persona binding (gap G1 would reopen) purely as a
-# side-effect of a caching rollback. The cache blob itself must still be absent.
-assert_status 0 "S04: rollback flag → cache blob suppressed" bash -c \
-  "! grep < <(REIN_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null) -q 'Rein SYSTEM CONTEXT CACHE'"
-assert_status 0 "S04: rollback flag → role stamp still emitted (E-208)" bash -c \
-  "grep < <(REIN_DISABLE_CACHE=1 bash '$SSC_HOOK' </dev/null 2>/dev/null) -q 'REIN_ROLE'"
-
-# ── S05: fail-open — node unavailable → hook exits 0, emits nothing (no block) ─
+# ── S05: fail-open — node unavailable → hook exits 0 and still briefs (no block) ─
 # E-286: the hook pins its own PATH, so "no node" is simulated the way production meets
 # it — a recorded node that is gone and none in the fallback dirs (tc_stale_tree) — not
 # with a node-free inherited PATH, which the hook no longer reads.
-source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 _S05="$(mktemp -d)"; on_exit "rm -rf '$_S05'"
 tc_overlay_home "$_S05/home" "$_S05/bin" --no-pin
 ( . "${SCRIPT_DIR}/../../src/shared/toolchain-record.sh"
   rein_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/gone/node" "$_S05/bin/python3" /usr/bin/nice )
 _S05_HOOK="$(tc_stale_tree "$_S05/tree" "$SSC_HOOK")"
+mkdir -p "$_S05/p/.ai"; printf '## Engineer\n- [ ] E-7: Keep working. | Tier: 1\n' > "$_S05/p/.ai/TASKS.md"
 if [[ -x /usr/bin/env && -x "$_S05/bin/python3" ]]; then
   assert_status 0 "S05: no node → hook exits 0 (fail-open)" bash -c \
-    "HOME='$_S05/home' bash '$_S05_HOOK' </dev/null >/dev/null 2>&1"
-  # E-208: no node → no cache blob, but the role stamp still binds the persona
-  # (building it needs only python3).
-  assert_status 0 "S05: no node → cache blob suppressed" bash -c \
-    "! grep < <(HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null) -q 'Rein SYSTEM CONTEXT CACHE'"
-  # The comment above promises the role stamp still binds without node (building it
-  # needs only python3) — assert it rather than leaving the claim untested.
-  assert_status 0 "S05: no node → role stamp still emitted (E-208)" bash -c \
-    "grep < <(HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null) -q 'REIN_ROLE'"
-  # Non-vacuity: the same tree WITH node recorded does emit the cache blob, so the
-  # suppression above is caused by the missing node and nothing else.
-  ( . "${SCRIPT_DIR}/../../src/shared/toolchain-record.sh"
-    rein_tc_write "$_S05/home/.rein/shared/toolchain.sh" "$_S05/bin/node" "$_S05/bin/python3" /usr/bin/nice )
-  assert_status 0 "S05: (non-vacuity) with node recorded the same tree emits the blob" bash -c \
-    "cd '${REPO_ROOT:-$PWD}' && grep < <(HOME='$_S05/home' bash '$_S05_HOOK' </dev/null 2>/dev/null) -q 'Rein SYSTEM CONTEXT CACHE'"
+    "cd '$_S05/p' && HOME='$_S05/home' bash '$_S05_HOOK' </dev/null >/dev/null 2>&1"
+  # The brief needs only python3: the role stamp still binds the persona (E-208) and the
+  # tasks still list.
+  _S05_OUT="$(cd "$_S05/p" && HOME="$_S05/home" bash "$_S05_HOOK" </dev/null 2>/dev/null)"
+  assert_contains "S05: no node → role stamp still emitted (E-208)" "REIN_ROLE" "$_S05_OUT"
+  assert_contains "E-460.S05: no node → the open tasks still list" "E-7: Keep working." "$_S05_OUT"
 else
   _skip "S05: fail-open without node — the fixture could not record a python3 to keep"
 fi

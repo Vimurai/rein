@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // E-86: insights-staleness.mjs — JIT staleness probe for ~/.rein/INSIGHTS.md.
 //
-// Wired into rein-preflight Step 7. Decides whether the cross-project
+// Its session-start wiring went with the preflight skill (E-460). Decides whether the cross-project
 // meta-cognition report (E-85) is stale relative to the telemetry that has
 // accumulated since the last regeneration. Designed to run in <50ms — single
 // stat + one COUNT() query — so the preflight budget stays intact.
@@ -171,7 +171,7 @@ export async function checkInsightsStaleness(opts = {}) {
   };
 }
 
-// CLI entry — used by the rein-preflight Step 7 shell snippet.
+// CLI entry — no production caller since E-460 removed the preflight skill; E-467 removes it.
 async function _runCli() {
   const argv = process.argv.slice(2);
   const quiet = argv.includes("--quiet");

@@ -48,8 +48,8 @@
 | `REIN_DISABLE_REPO_MAP=1` | Do not generate `.ai/REPO_MAP.md`. |
 | `REIN_BROWSER_TIMEOUT=<s>` | Time budget for the Playwright browser download (default 600). |
 | `AI_TELEMETRY_DISABLE=1` | No local telemetry. |
-| `AI_INCIDENT_TRACKER_DISABLE=1` | No incident aggregation at preflight. |
-| `AI_INSIGHTS_STALENESS_DISABLE=1` | No "insights are stale" prompt at preflight. |
+| `AI_INCIDENT_TRACKER_DISABLE=1` | No incident aggregation. |
+| `AI_INSIGHTS_STALENESS_DISABLE=1` | The insights staleness probe reports DISABLED. |
 
 The three `AI_*_DISABLE` switches above are the only variables that do not carry the `REIN_`
 prefix; they are read under exactly these names.

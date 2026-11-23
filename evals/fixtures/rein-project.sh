@@ -2,8 +2,7 @@
 # E-285 (D-075, native-first.md §8): the fixture Rein project every skill eval starts in.
 # `claude plugin eval --scaffold` runs this in the case's empty workspace. It writes a small,
 # self-consistent .ai/ (DIGEST, TASKS, architect.md, COMM, DECISIONS, state.json) and one git
-# commit, so the skills' own reads and `!`-lines see a real project. architect.md carries a
-# sentinel the rein-preflight case asserts is never read.
+# commit, so the skills' own reads and `!`-lines see a real project.
 set -euo pipefail
 
 # This checkout: the script lives at <repo>/evals/fixtures/.
@@ -35,7 +34,6 @@ MD
 
 cat > .ai/architect.md <<'MD'
 # ARCHITECT — fixture-app
-ARCHITECT_SENTINEL_7f3a — the preflight eval fails if this file is read.
 ## 2. CLI flags
 ## 3. i18n
 MD

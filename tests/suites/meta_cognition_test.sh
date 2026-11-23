@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # meta_cognition_test.sh — the meta-cognition pipeline's agent, skill and probe surfaces
 # (meta-cognition.md, ecc-integrations.md): the meta_analyst agent + rein-insights skill (E-85);
-# the insights-staleness CLI and its rein-preflight Step 7 wiring (E-86, from insights_staleness);
+# the insights-staleness CLI (E-86, from insights_staleness);
 # the meta_analyst Instinct-Extraction (E-93, from instinct_stager) and promotion (E-94, from
 # skill_promoter) contracts. Merged in E-302; the pure stager, promoter and probe rows are
 # tests/unit/{instinct-stager,skill-promoter,insights-staleness}.test.mjs.
@@ -239,22 +239,18 @@ fi
 
 echo ""
 
-# ── E-86 (from insights_staleness — E-302): the staleness probe's CLI and the rein-preflight Step 7 wiring ──
-# Tests for E-86 insights-staleness.mjs probe
-# and the rein-preflight Step 7 wiring per .ai/blueprints/meta-cognition.md
-# §Components 4.
+# ── E-86 (from insights_staleness — E-302): the staleness probe's CLI ──
+# Tests for the E-86 insights-staleness.mjs probe per .ai/blueprints/meta-cognition.md
+# §Components 4 (its preflight-skill wiring went with that skill, E-460).
 #
 #   • Helper source contract: pure node:* imports, no shell-out, fail-open.
 #   • Behavioural envelope: DISABLED / EMPTY / FRESH / STALE / UNAVAILABLE.
 #   • Threshold of 200 new rows (DEFAULT_THRESHOLD) is the staleness trigger.
 #   • AI_TELEMETRY_DISABLE=1 AND AI_INSIGHTS_STALENESS_DISABLE=1 both short-
 #     circuit to status:DISABLED.
-#   • rein-preflight SKILL.md Step 7 documents the locator chain, the verbatim
-#     [INSIGHTS_STALE] block, and the rollback flag.
 #   • Mirrors byte-identical to ~/.rein.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PROBE="${REPO_ROOT}/src/shared/insights-staleness.mjs"
-PREFLIGHT_SKILL_SRC="${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
 
 
 # ── T-INS-S02: AI_INSIGHTS_STALENESS_DISABLE=1 → DISABLED ─────────────────────
@@ -287,41 +283,13 @@ assert_status 0 "--quiet still exits 0" \
 assert_status 0 "--quiet produces no stdout" \
   bash -c "[[ -z '$QUIET_OUT' ]]"
 
-# ── T-INS-S09: rein-preflight Step 7 wiring ─────────────────────────────────────
-echo ""
-echo "  [T-INS-S09] rein-preflight Step 7 documents the staleness check"
-
-assert_status 0 "Step 7 heading present"               \
-  grep -qE '^### 7\. INSIGHTS\.md Staleness Check' "$PREFLIGHT_SKILL_SRC"
-assert_status 0 "Step 7 names E-86"                    grep -q  'E-86' "$PREFLIGHT_SKILL_SRC"
-assert_status 0 "Step 7 references blueprint"          \
-  grep -qE 'meta-cognition' "$PREFLIGHT_SKILL_SRC"
-# E-225 REMOVED the in-repo candidate deliberately: `for c in src/shared/...` executed
-# the VISITED project's copy, and this skill runs at session start. The assertion is
-# rewritten to the policy that replaced it rather than relaxed — pinning the old text
-# would have been pinning the bug.
-assert_status 0 "Step 7 resolves the probe via the shared install-first locator" \
-  grep -q 'rein_locate shared/insights-staleness.mjs' "$PREFLIGHT_SKILL_SRC"
-assert_status 1 "Step 7 no longer names a cwd-relative candidate" \
-  grep -qE 'for c in src/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
-assert_status 0 "Step 7 names locator chain (installed)" \
-  grep -qE '\.rein/shared/insights-staleness\.mjs' "$PREFLIGHT_SKILL_SRC"
-assert_status 0 "Step 7 documents AI_INSIGHTS_STALENESS_DISABLE" \
-  grep -qE 'AI_INSIGHTS_STALENESS_DISABLE' "$PREFLIGHT_SKILL_SRC"
-assert_status 0 "Step 7 emits [INSIGHTS_STALE] block"  \
-  grep -qE '\[INSIGHTS_STALE\]' "$PREFLIGHT_SKILL_SRC"
-assert_status 0 "Step 7 prompts skill: rein-insights"    \
-  grep -qE 'skill: \`?rein-insights\`?' "$PREFLIGHT_SKILL_SRC"
-assert_status 0 "Step 7 acknowledges other-status silence" \
-  grep -qE 'FRESH.*EMPTY.*DISABLED.*UNAVAILABLE' "$PREFLIGHT_SKILL_SRC"
+# T-INS-S09 (the preflight skill's Step 7 wiring) was deleted by E-460 with the skill.
 
 # ── T-INS-S10: mirrors byte-identical ─────────────────────────────────────────
 echo ""
 echo "  [T-INS-S10] ~/.rein mirrors byte-identical"
 
 assert_status 0 "insights-staleness.mjs mirror"   diff -q "$PROBE"   "${HOME}/.rein/shared/insights-staleness.mjs"
-assert_status 0 "rein-preflight SKILL.md mirror"    diff -q "$PREFLIGHT_SKILL_SRC" "${HOME}/.rein/shared/skills/rein-preflight/SKILL.md"
-assert_status 0 "rein-preflight .claude mirror"     diff -q "$PREFLIGHT_SKILL_SRC" "${REPO_ROOT}/.claude/skills/rein-preflight/SKILL.md"
 
 # ── E-93 (from instinct_stager — E-302): the meta_analyst Instinct-Extraction prompt ──
 # The stager itself is tests/unit/instinct-stager.test.mjs; these rows read the agent text.

@@ -152,8 +152,8 @@ assert_status 0 "E-217.01h: arch-oracle frontmatter name matches" \
 # differ so nobody "corrects" them back to match the Engineer's.
 assert_status 0 "E-217.02a: ARCHITECT.md points at arch-task" \
   grep -q 'arch-task' "${REPO_ROOT}/src/templates/ARCHITECT.md"
-assert_status 0 "E-217.02b: ARCHITECT.md records why the names differ" \
-  grep -q 'must not collide' "${REPO_ROOT}/src/templates/ARCHITECT.md"
+# E-217.02b (ARCHITECT.md explained the arch-* names) was deleted by E-460: the 2 KB rulefile
+# has no room for it; sync's collision error still names the rename precedent (E-217.04b).
 assert_status 0 "E-217.02c: task-planner hands back to arch-task" \
   grep -q 'skill: arch-task' "${REPO_ROOT}/src/claude/skills/task-planner/SKILL.md"
 assert_status 0 "E-217.02d: root ARCHITECT.md matches its template" \
@@ -186,57 +186,43 @@ assert_status 0 "E-217.04d: sync returns success explicitly (no stray git status
 
 
 # ── E-215 (from role_runtime_test — E-302): role runtime — rulefiles and the doctor role report ──
-# ARCHITECT.md runtime ladder (the Skill tool for skills, the Agent tool for agents — E-276) +
-# the `rein doctor` per-role provisioning report.
+# The lean rulefiles (E-460, D-169, lean-core.md §Component 3) + the `rein doctor` per-role
+# provisioning report. E-460 replaced E-215.01–04's text pins (the preflight ladder, the manual
+# read order, the skill-invocation and compact sections), whose text the rewrite removed.
 ARCH_TPL="${REPO_ROOT}/src/templates/ARCHITECT.md"
 ENG_TPL="${REPO_ROOT}/src/templates/ENGINEER.md"
-# ── E-215.1: Session Start ladder mirrors ENGINEER.md ───────────────────────
-assert_status 0 "E-215.01a: ARCHITECT.md step 1 is the Skill tool" \
-  grep -q 'skill: "rein-preflight"' "$ARCH_TPL"
-# E-276: the retired MCP rungs are gone from BOTH rulefiles, not merely reordered.
 for _tpl in "$ARCH_TPL" "$ENG_TPL"; do
-  assert_status 1 "E-276.01b: no run_preflight rung in ${_tpl##*/}" grep -q 'run_preflight' "$_tpl"
-  assert_status 1 "E-276.01c: no activate_skill/activate_agent in ${_tpl##*/}" \
+  _n="${_tpl##*/}"
+  _b="$(wc -c < "$_tpl" | tr -d ' ')"
+  echo "    ${_n}: ${_b} bytes (limit 2048)"
+  assert_status 0 "E-460.R01: ${_n} is at most 2048 bytes" test "$_b" -le 2048
+  assert_status 0 "E-460.R02: ${_n} keeps the Role Resolution clause (E-208)" grep -q 'Role Resolution (D-054' "$_tpl"
+  assert_status 0 "E-460.R03: ${_n} carries the review-by-tier table" grep -qF '## Review by tier (D-169 r8)' "$_tpl"
+  assert_status 0 "E-460.R04: ${_n} says where its orders are" grep -qF '.ai/TASKS.md' "$_tpl"
+  assert_status 1 "E-460.R05: ${_n} runs no preflight skill" grep -q 'rein-preflight' "$_tpl"
+  assert_status 1 "E-276.01b: no run_preflight rung in ${_n}" grep -q 'run_preflight' "$_tpl"
+  assert_status 1 "E-276.01c: no activate_skill/activate_agent in ${_n}" \
     grep -qE 'activate_skill|activate_agent|context-invoker' "$_tpl"
+  assert_status 0 "E-460.R06: root ${_n} matches its template" diff -q "$_tpl" "${REPO_ROOT}/${_n}"
 done
-# The manual read order must survive as the floor when every layer fails.
-assert_status 0 "E-215.01d: the DIGEST-first manual read order is retained" \
-  grep -q 'DIGEST.md → .ai/architect.md → .ai/TASKS.md' "$ARCH_TPL"
-# Both rulefiles must name the same single path — that is what "mirror" means here.
-assert_status 0 "E-215.01e: ENGINEER.md also starts with the Skill tool" \
-  grep -qF 'skill: "rein-preflight"' "$ENG_TPL"
-for _tpl in "$ARCH_TPL" "$ENG_TPL"; do
-  assert_status 0 "E-276.01f: §36 in ${_tpl##*/} reads 'Skill tool for skills, Agent tool for agents'" \
-    grep -qF '**HOW — the Skill tool for skills, the Agent tool for agents** (D-075)' "$_tpl"
-done
-
-# ── E-215.2: Skill Invocation is runtime-aware ─────────────────────────────
-assert_status 0 "E-215.02a: the Skill tool is the stated invocation path" \
-  grep -q 'Use the \*\*Skill tool\*\*' "$ARCH_TPL"
-assert_status 0 "E-276.02b: the MCP invoker is stated as retired, not offered" \
-  grep -qF 'there is no MCP invoker' "$ARCH_TPL"
-assert_status 0 "E-283.02c: the compact pattern points at the native /compact" \
-  grep -qF 'Do this with `/compact`' "$ARCH_TPL"
+assert_status 0 "E-460.R07: ARCHITECT.md states the write scope in one line" \
+  grep -qx 'Write only `.ai/` and `plans/`. The hooks enforce it whatever this file says.' "$ARCH_TPL"
+assert_status 0 "E-460.R08: ARCHITECT.md lists P-## orders, ENGINEER.md E-## orders" \
+  bash -c 'grep -q "next P-## tasks" "$1" && grep -q "next E-## tasks" "$2"' _ "$ARCH_TPL" "$ENG_TPL"
 
 # ── E-215.3 / E-254: no provider-specific section survives (D-069) ─────────
-# v4 is Claude-native: the Architect runs on claude · fable, so a "Provider notes" block
-# or a vendor Model Mandate would be instructions for a runtime that no longer exists.
 assert_status 1 "E-254.03a: no Provider notes heading remains" \
   grep -qE '^## Provider notes' "$ARCH_TPL"
 assert_status 1 "E-254.03b: no Model Mandate heading at any level" \
   grep -qE '^#+ .*Model Mandate' "$ARCH_TPL"
-# Non-vacuity: the model the Architect DOES run on is still stated, so 03a/03b cannot
-# pass merely because the header block was emptied.
 assert_status 0 "E-254.03c: the header names the claude provider on model fable" \
   grep -q 'the `claude` provider on model `fable`' "$ARCH_TPL"
 
-# ── E-215.4: sovereign text untouched ──────────────────────────────────────
+# ── E-215.4: sovereign text ────────────────────────────────────────────────
 assert_status 0 "E-215.04a: the Forbidden Zone section is intact" \
   grep -qE '^## The Forbidden Zone$' "$ARCH_TPL"
 assert_status 0 "E-215.04b: the §35 ANTI-DRIFT section is intact" \
   grep -qE '^## ANTI-DRIFT PROTOCOL' "$ARCH_TPL"
-assert_status 0 "E-215.04c: the Role Resolution clause (E-208) is intact" \
-  grep -q 'Role Resolution (D-054' "$ARCH_TPL"
 # CLAUDE.md is the one load-bearing shim (D-051): Claude Code auto-loads it.
 # E-254: no template imports ARCHITECT.md any more — the vendor shim that did is gone, and
 # the Architect pane receives its rulefile via --append-system-prompt-file instead.
@@ -244,10 +230,6 @@ assert_status 1 "E-254.04d: no template is an @import shim for ARCHITECT.md" \
   bash -c "grep -rlx '@ARCHITECT.md' '${REPO_ROOT}/src/templates'"
 assert_status 0 "E-215.04e: CLAUDE.md is still a pure @import shim" \
   grep -q '@ENGINEER.md' "${REPO_ROOT}/src/templates/CLAUDE.md"
-
-# The project root copies are what an agent actually loads — keep them in step.
-assert_status 0 "E-215.04f: root ARCHITECT.md matches its template" \
-  diff -q "$ARCH_TPL" "${REPO_ROOT}/ARCHITECT.md"
 
 # ── E-215.5: role-manifest CLI vs import (the _isMain trap) ────────────────
 # argv[1] IS the module path when the module is imported dynamically, so a filename

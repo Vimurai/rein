@@ -38,7 +38,6 @@ plugin to install.
 
 | Skill | Does |
 | :--- | :--- |
-| `rein-preflight` | Session start: digest, open tasks, state sync, incidents, stale-server check. |
 | `rein-task` | Close a task: mark done (CI must be green), hand over, surface the next. |
 | `rein-handoff` | Write the COMM.md entry, commit it, wake the other pane. |
 | `arch-task` | The Architect's close-out for planning tasks. |

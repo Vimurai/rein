@@ -71,7 +71,7 @@ fi
 #   - src/shared/wal-flusher.mjs       (node:sqlite, prevents WAL bloat)
 #   - scripts/generate_mcp_docs.mjs    (regenerates .ai/blueprints/mcp.md on `rein sync`)
 #   - src/shared/incident-append.mjs   (PII-sanitised telemetry)
-#   - src/shared/incident-aggregate.mjs (preflight aggregator)
+#   - src/shared/incident-aggregate.mjs (incident aggregator)
 # Skipping this check on degraded systems risks silent WAL bloat (gigabytes)
 # and missed compliance gates. Set REIN_SKIP_NODE_CHECK=1 only for CI
 # packaging-only flows where the artifact is staged on a non-target host.

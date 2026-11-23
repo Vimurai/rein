@@ -16,7 +16,7 @@
     "rules": [
       "FIXTURE_HOME_NO_RECORD"
     ],
-    "reason": "E-225.01f runs the preflight line with HOME=/nonexistent on purpose (a degraded install must fail closed)"
+    "reason": "E-225.01f runs a skill `!`-line (rein-insights telemetry) with HOME=/nonexistent on purpose (a degraded install must fail closed)"
   },
   "select-suites.test.mjs": {
     "rules": [

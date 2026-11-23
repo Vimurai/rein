@@ -8,7 +8,7 @@
 # Four of them resolved framework helpers cwd-relative — `for c in
 # src/shared/incident-aggregate.mjs ...` — so running a session inside ANY project that
 # planted that file executed THAT file. Worse than the hook form E-223 fixed: no git repo
-# is needed, and `rein-preflight` runs at the start of every single session.
+# is needed, and the preflight skill (removed by E-460) ran at the start of every session.
 #
 # The assertions are on EXECUTION, not on the text of the SKILL.md. A grep would pass
 # against any rewrite that still resolved cwd-relative by another route.
@@ -24,7 +24,6 @@ STD_MJS="${REPO_ROOT}/src/shared/standards-checker.mjs"
 echo "── Suite: skill_lines_test (E-225, E-232) ───────────────────────────"
 
 SKILLS=(
-  "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
   "${REPO_ROOT}/src/shared/skills/rein-insights/SKILL.md"
   "${REPO_ROOT}/src/shared/skills/rein-review-proposed-skills/SKILL.md"
 )
@@ -45,7 +44,7 @@ if [[ -n "$_out" ]]; then echo "    executed: $(printf '%s' "$_out" | tr '\n' ' 
 # A test that asserts "the old code was broken" has to carry the old code.
 _old="$(mktemp -d)"; mkdir -p "$_old/prefix"
 cat > "$_old/prefix/SKILL.md" <<'PREFIX'
-# Pre-fix rein-preflight (verbatim shape of the E-225 defect)
+# Pre-fix preflight skill (verbatim shape of the E-225 defect)
 
 Incident status: !for c in src/shared/incident-aggregate.mjs "${HOME}/.rein/shared/incident-aggregate.mjs"; do [ -f "$c" ] && node "$c" 2>/dev/null && break; done 2>/dev/null || echo "(aggregator unavailable)"
 
@@ -70,10 +69,12 @@ rm -rf "$_old"
 # the fix works. With locate.sh unreachable AND an inherited exported `rein_locate`, the
 # first cut executed the decoy — `declare -f` is satisfied by an environment-supplied
 # function, which is exactly what E-223 F13 fixed for the hooks and E-225 did not port.
-_line="$(grep -m1 '^Incident status:' "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md" | sed 's/^[^!]*!//')"
+# E-460: the preflight skill's incident line went with the skill; rein-insights' telemetry line
+# has the same shape (locate.sh, then rein_locate, then node on the result).
+_line="$(grep -m1 '^Telemetry path:' "${REPO_ROOT}/src/shared/skills/rein-insights/SKILL.md" | sed 's/^[^!]*!//')"
 _d="$(mktemp -d)"; mkdir -p "$_d/src/shared"
-printf 'console.log(%s);\n' "'{\"status\":\"PWNED\"}'" > "$_d/src/shared/incident-aggregate.mjs"
-_got="$( cd "$_d" && env "BASH_FUNC_rein_locate%%=() { printf '%s' \"\$PWD/src/shared/incident-aggregate.mjs\"; }" \
+printf 'console.log(%s);\n' "'{\"status\":\"PWNED\"}'" > "$_d/src/shared/telemetry.mjs"
+_got="$( cd "$_d" && env "BASH_FUNC_rein_locate%%=() { printf '%s' \"\$PWD/src/shared/telemetry.mjs\"; }" \
           HOME=/nonexistent bash -c "$_line" 2>/dev/null )"
 assert_not_contains "E-225.01f: a forged resolver cannot run the decoy (degraded install)" \
   "PWNED" "$_got"
@@ -344,12 +345,13 @@ rm -rf "$_mm"
 
 # ── E-225.5: mirrors carry the fix ─────────────────────────────────────────
 # A fix that lives only in src/ is not deployed: the harness loads .claude/skills.
-for m in ".claude/skills/rein-preflight/SKILL.md" ".agents/skills/rein-preflight/SKILL.md"; do
+# E-460: rein-insights replaces the removed preflight skill as the mirror this checks.
+for m in ".claude/skills/rein-insights/SKILL.md"; do
   if [[ -f "${REPO_ROOT}/$m" ]]; then
     assert_status 0 "E-225.05 $m carries the resolver" \
-      grep -q 'rein_locate shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
+      grep -q 'rein_locate shared/telemetry.mjs' "${REPO_ROOT}/$m"
     assert_status 1 "E-225.05 $m has no cwd-relative chain left" \
-      grep -q 'for c in src/shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
+      grep -q 'for c in src/shared/' "${REPO_ROOT}/$m"
   fi
 done
 

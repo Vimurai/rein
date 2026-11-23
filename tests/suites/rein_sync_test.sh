@@ -761,7 +761,7 @@ rm -rf "$T1" "$T2" "$T3" "$T4" "$T5" "$T6" "$T7" "$T8" "$T9" "$T10"
 # This suite pins: every rule carries a non-empty, well-formed `paths:` list; the four
 # mapped trees are covered; the bootloaders shrank (ENGINEER.md ≥ 25% vs E-275, ARCHITECT.md
 # no larger); provisioning never overwrites a rule sync cannot prove it wrote; `rein sync`
-# provisions .claude/rules/; `rein doctor` reports it; the SessionStart blob excludes rules.
+# provisions .claude/rules/; `rein doctor` reports it.
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 RULES="${REPO_ROOT}/src/claude/rules"
 SM="${REPO_ROOT}/src/shared/sync-manifest.mjs"
@@ -866,12 +866,8 @@ else
   _skip "E-282.04: rein sync / doctor end to end — the install mirror predates E-282 (run: bash install-rein.sh)"
 fi
 
-# ── E-282.5: the SessionStart blob excludes rules ───────────────────────────
-_blob="$(cd "$REPO_ROOT" && node --no-warnings src/mcp/cache-manager-mcp/index.js --emit-context 2>/dev/null)"
-assert_status 0 "E-282.05a: the blob was produced (non-vacuity)" test -n "$_blob"
-assert_not_contains "E-282.05b: no rule body reaches the SessionStart blob" "# Hooks contract (hooks/)" "$_blob"
-assert_not_contains "E-282.05c: nor a rule's frontmatter" 'paths:
-  - "hooks/**"' "$_blob"
+# E-282.5 (the cache blob excludes rules) was deleted by E-460: the SessionStart hook no longer
+# injects the cache blob; hooks_surface_test.sh S03 pins the brief's content and its 2 KB cap.
 
 rm -rf "$T" "$_neg"
 
@@ -1142,8 +1138,9 @@ done
 
 # Every canonical skill root under src/ (shared, claude, architect, …).
 _n="$(cd "$REPO_ROOT" && find src -path '*/node_modules' -prune -o -name SKILL.md -print | wc -l | tr -d ' ')"
-# E-430 (D-159 r5): rein-digest and digest_updater retired — 43 → 41.
-assert_status 0 "E-283.02: 41 canonical skills (got ${_n})" test "$_n" -eq 41
+# E-430 (D-159 r5): rein-digest and digest_updater retired — 43 → 41. E-464 retired review_synthesizer
+# (40, this count was not moved then); E-460 removed rein-preflight — 39.
+assert_status 0 "E-283.02: 39 canonical skills (got ${_n})" test "$_n" -eq 39
 
 # Every mention outside the permitted places is a leftover reference.
 _hits="$(cd "$REPO_ROOT" && git grep -lE "(${PATTERN})" -- . \
@@ -1168,14 +1165,9 @@ assert_status 0 "E-283.04b: the registry still loads" \
 ARCHIVE="${REPO_ROOT}/src/shared/skills/rein-archive/SKILL.md"
 assert_contains "E-283.05a: rein-archive distills SESSION.md before moving it" "SESSION.md only — distill before moving" "$(cat "$ARCHIVE")"
 assert_mirror_if_present "E-283.05b: rein-archive mirror matches" "$ARCHIVE" "${REPO_ROOT}/.claude/skills/rein-archive/SKILL.md"
-for f in ENGINEER.md src/templates/ENGINEER.md; do
-  assert_status 0 "E-283.06: ${f} calls the context-health tool directly" \
-    grep -qF 'mcp__archive-manager-mcp__check_context_health' "${REPO_ROOT}/${f}"
-done
-for f in ENGINEER.md ARCHITECT.md src/templates/ENGINEER.md src/templates/ARCHITECT.md; do
-  assert_status 0 "E-283.07: ${f} points the Ephemeral Skill Pattern at /compact" \
-    grep -qF 'Do this with `/compact`' "${REPO_ROOT}/${f}"
-done
+# E-283.06 (ENGINEER.md calls check_context_health) and E-283.07 (the rulefiles' Ephemeral
+# Skill Pattern) were deleted by E-460: the 2 KB rulefiles (role_provisioning_test E-460.R*)
+# carry neither; archive-manager-mcp leaves with D-170 r5.
 
 
 # ── E-145 (from memory_palace_sync — E-302): _generate_memory_palace in do_sync ──

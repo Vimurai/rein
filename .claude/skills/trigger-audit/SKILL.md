@@ -12,8 +12,8 @@ agent: default
 
 ## Why This Skill Exists
 
-The Engineer's mid-execution trigger table (ENGINEER.md) is declarative — it lists conditions but
-does not force compliance. This skill is the **enforcement layer**: it actively scans the
+The mid-execution triggers (auth or secrets, a new dependency, CI) are conditions nobody is
+forced to check; ENGINEER.md no longer lists them (E-460). This skill is the **enforcement layer**: it actively scans the
 current diff and task context, identifies which mandatory agents/skills have been triggered,
 and blocks progression until outstanding dispatches are resolved.
 

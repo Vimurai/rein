@@ -6071,3 +6071,31 @@ The operator asked on 2026-11-23 for three things: strip Rein to its bones and k
 Before E-470 merges, delete the `lean-core` branch. After, revert the merge commit; v0.5.0 is the last tag with the full framework.
 
 ---
+
+## D-171 — Pane mode stays the only mode; model routing by tier comes after the batch; rein-app's value is reviewed after the strip
+
+**Date**: 2026-11-23
+**Task**: P-54, P-55
+**Decision**: The operator ruled three things: Rein keeps the two-pane mode and no solo mode is built; tier-based model routing is added after E-470; after the strip, rein-app is reviewed for what it gives that Claude Code does not.
+
+### Why needed
+The operator asked whether two panes are needed, how to lower cost, and whether rein-app is still needed once Rein is small. The answers change what is built after the batch, so they are recorded.
+
+### Rulings
+1. **Pane mode is the only mode.** No solo settings file, rulefile or command path is built. The independent planner and the enforced lane are what Rein adds to the platform; a single session with plan mode is available to the operator without any Rein work.
+2. **Model routing by tier, after E-470** (P-54). Start with Tier 1 only: a cheaper model builds it, by delegation to a subagent with a set model. Tier 3 and planning never route down. A task that fails acceptance once on the cheaper model goes to the stronger one. Tier 2 is ruled after a few weeks of Tier 1 results. A cost baseline (one ordinary Tier 2 task, usage by session) is taken first.
+3. **rein-app is reviewed after the strip** (P-55): a feature-by-feature comparison with what Claude Code ships, ending in a keep and cut list. Until then the batch does not change the waiting signal or `docs/app-contract.md` (D-170 r4), and the two open asks of `rein-app/plans/rein-desk-request.md` (the summary of the ask with an answer path; the operator-owed record) stay unruled.
+
+### Alternatives considered
+1. **Build solo mode now** — rejected by the operator: a second mode to maintain right after the strip, and it gives up the planner and the lane.
+2. **Route models now, inside the batch** — rejected: no baseline to compare against, and the batch should not grow.
+3. **Stop rein-app's work now** — not ruled: nothing has been compared yet.
+
+### Impact
+- Unlocks: P-54, P-55, both after E-470. The batch is unchanged.
+- Risk if wrong: Tier 1 work on a cheaper model fails more often than it saves; ruling 2's escalation and the Tier 1 limit bound it.
+
+### Rollback
+Routing is one setting per tier; remove it. Rulings 1 and 3 build nothing.
+
+---

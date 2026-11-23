@@ -2446,6 +2446,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-23T21:22:49.196Z"
+    },
+    {
+      "id": "P-54",
+      "owner": "Architect (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Rule tier-based model routing per D-171 r2 (after E-470 merges): take the cost baseline (one ordinary Tier 2 task, usage by session as Claude Code reports it), then write the ruling and the E-## task for Tier 1 routing by subagent with a set model, with the escalation rule and the Tier 3 and planning exclusions. Acceptance: a D-ruling in .ai/DECISIONS.md quotes the baseline numbers; one E-## task exists whose acceptance names the setting to read and a Tier 1 task to observe on the cheaper model. Framework task.",
+      "created_at": "2026-11-23T21:37:09.813Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-23T21:37:09.813Z"
+    },
+    {
+      "id": "P-55",
+      "owner": "Architect (Claude)",
+      "status": "OPEN",
+      "tier": 1,
+      "description": "Review what rein-app gives that Claude Code does not, per D-171 r3 (after E-470 merges): read rein-app's blueprints and docs/app-contract.md, check the current Claude Code documentation for its own multi-session views, and write plans/rein-app-value-review.md with one row per rein-app feature (what it does, the native equivalent or none, keep or cut, why), a recommendation to the operator, and answers to the two open asks of rein-app/plans/rein-desk-request.md. Send it to the rein-app Architect. Acceptance: plans/rein-app-value-review.md exists with a row for every feature named in rein-app's README and Desk blueprint; each native-equivalent cell names the documentation page it was read from or says none found. Framework task.",
+      "created_at": "2026-11-23T21:37:09.919Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-23T21:37:09.919Z"
     }
   ],
   "stamps": [

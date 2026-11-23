@@ -7,6 +7,7 @@ Tools that measure the suite rather than test the product. None of them runs as 
 |---|---|---|
 | `census.mjs` | E-297 | Per suite: assertions, task-label density, wall time, footprint. `node tests/tools/census.mjs` |
 | `select-suites.mjs` | E-298 | Which suites `tests/run.sh --tier fast` / `--changed <ref>` runs |
+| `sandbox-probe.sh` | E-458 | What Claude Code's Bash sandbox and path rules hold on this machine (M1..M10), by real `claude -p` sessions. `bash tests/tools/sandbox-probe.sh` |
 | `mutation/probe.sh` | E-300 | Which tests detect a change in the code they cover (the mutation probe) |
 
 `managed_agents_spike.js` (E-47) is not a measurement tool: it is the offline Managed Agents

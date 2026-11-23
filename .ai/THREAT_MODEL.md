@@ -1502,7 +1502,15 @@ that change directory. A list misses the next spelling.
 - the git operand scope reading past `&&` and `;`. `git checkout .ai/x && echo done` blocks for
   the Architect; this over-block is accepted.
 
-**Accepted over-blocks of the rule (E-453)**:
+**Residual (D-168 r7, accepted)**:
+- `PATH=` and `LESSOPEN=`;
+- configuration that arrives through a sourced file or stdin;
+- `nsenter --wd`, `tmux -c`, `systemd-run -d` and `--setenv`, `start-stop-daemon -d`;
+- `(( HOME = 5 ))`;
+- `HOME=x make` off a git line (E-353 does not catch it either);
+- the quadratic of the unclosed-brace scan: 726 ms at 15 KB, against 546 ms before E-453.
+
+**Accepted over-blocks of the rule (E-453; ratified by D-168 r5 and r6)**:
 - a harmless `-c` (`git -c core.quotepath=off status`), as D-167 r7 intends;
 - a `git config <key>` read without `--get`;
 - `git <unknown-option> <sub> -c`, from the two-candidate option walk;

@@ -2907,3 +2907,86 @@ network. The round-1 deviation applies again: `-u` is the current thread count +
 are the same list-versus-rule question that D-167 r7 meant to end. The Architect may prefer one
 rule over more spellings: on a git line, block any word in assignment position whose name is
 dynamic or comes from a loop or nameref.
+
+## E-453 third pass — D-168 r2–r4 re-probe of e68b40f (security_engineer, 2026-11-23)
+
+**Verdict: SEC_CLEARED.** None of the four D-168 r3 gates fired. This round only re-ran the
+payloads written down in the second pass. It did not look for new spellings (D-168 r2).
+
+**Method.** Two `git worktree add --detach` copies, of d0954fa and e68b40f, were made in the
+session scratchpad, with `node_modules` symlinked in. `runAnalysis` was imported in-process
+(projectRoot = repo), and `node src/mcp/safe-exec-mcp/index.js --check` was run from the
+e68b40f worktree. HEAD 2609a14 differs from e68b40f only under `.ai/`, so the code is the same.
+Both worktrees were removed afterwards (`git worktree list` shows only the main tree). For the
+git harness: each fixture got its own directory, `env -i PATH=/usr/bin:/bin HOME=$T
+GIT_CONFIG_NOSYSTEM=1`, `ulimit -t 5 -f 10240 -v 512M` and a 10 s kill. Scratch repositories
+lived only under `$T`, nothing used the network, and git was 2.53.0.
+
+**1. Second-pass payloads (G1–G4 and the round-1 re-runs).**
+- **G1–G4: all 28 lines block** with `ARCH_GIT_EXEC_CONFIG`, both in `runAnalysis` (role
+  architect) and in `--check`. This covers G1 `clone -qc`/`-nc`/`-qccore…`/`--conf`/`--conf=`/`--confi=`
+  and `git -C .ai clone -qc`. It covers G2 `config --file $f`/`-f $f`/`--type $t`/`--comment $c`/`--blob $b --get`.
+  It covers G3 `for HOME in`, `select HOME in`, `for PAGER in`, `declare|local|typeset -n r; r=HOME`,
+  `declare -n r=$n`/`${n}`/`"$n"`, `env -SHOME=`, `env -iS…`, `env --split-string=…` (glued
+  and quoted) and `mapfile -t HOME`. It covers G4 `env $x`, `env $(cat …)`, `env "$@"`,
+  `env -i $x /usr/bin/git` and `sudo $x`.
+- **Harness, so the blocks matter.** fixture2.sh and fixture3.sh were re-run unchanged.
+  Under git 2.53, every G shape still writes the key or changes the environment, and the
+  fsmonitor program runs on the next `git status`. The control `declare -n r=HOME[0]` and a
+  plain `git status` leave no marker.
+- **Round-1 re-runs (p1, p2, p3, p6).** Every F1–F8 payload still blocks. Six lines pass, and
+  each was meant to pass or is already recorded: `git config --get user.name`,
+  `cd <projectRoot> && git checkout .ai/x`, `git checkout .ai/x`, `git -C . checkout .ai/x`,
+  `coproc . ./s.sh` (r9 residual) and `PROMPT_COMMAND='cd /tmp'` (has no effect in a
+  non-interactive shell).
+
+**2. Pass list.** All 31 lines pass in `runAnalysis` (architect) and in `--check` (rc 0, PASS).
+That is the second pass's "Everyday Architect commands" (add+commit, log
+`--oneline`/`-20 --graph`/`--format`, diff `--cached`/`--stat`/`--word-diff`/`-- .ai/`, status,
+`show HEAD:path`, blame, `log -c`/`--cc`, `commit -c HEAD`/`-C HEAD`, messages holding `-c`,
+`--config` or `{}`, `config --get remote.origin.url`, `config list --show-origin`, fetch,
+`ls-files | xargs wc -l`). It also includes the D-104 line, taken verbatim from
+`src/claude/skills/task-planner/SKILL.md:159`:
+`git add -- .ai/COMM.md && git commit --only .ai/COMM.md $(git diff --name-only HEAD -- .ai/ ':(exclude).ai/COMM.md') -m "chore(.ai): COMM handoff <YYYY-MM-DD HH:MM UTC> (<Role>)"`.
+
+**3. Engineer parity.** All `cmd`/`command` strings in tests/fixtures/*.json at e68b40f (1159
+distinct) were checked with role engineer. Verdict and rule list are **byte-identical** between
+d0954fa and e68b40f. The same holds over d0954fa's own fixture set (1118 lines). With role
+architect over the same 1159 lines, 30 lines change, all PASS → BLOCK, all in the E-453
+classes. None goes BLOCK → PASS.
+
+**4. Time.** `git config x `×3000 (39 000 B), role architect, five warm runs: 421, 399, 393,
+392 and 390 ms, all BLOCK. That is under the 1000 ms ceiling. A cold `--check` process takes
+0.56 s wall. For comparison: d0954fa 33–63 ms, and role engineer 13–30 ms in both trees.
+
+### Notes for E-456 (non-gating, D-168 r3)
+- **Two architect lines went BLOCK → PASS against d0954fa:** `git config get --value=x core.pager`
+  and `git config get --all core.pager`. In the harness (git 2.53) both are reads: rc 1 and rc 0,
+  and `.git/config` is unchanged. `get --value=x core.pager evil` exits 129, wrong number of
+  arguments. Both loosen an over-block, so they do not weaken the gate. The Engineer side shows
+  no flip.
+- **Still passing, and already assigned by D-168:**
+  - `git difftool --extcmd=…`, `git clone --template=…`, `git --exec-path=… foo` and
+    `cd /tmp; /usr/lib/git-core/git-checkout .ai/x` (E-456 r9–r10 allowlist, dashed form).
+  - `(( HOME = 5 ))`, `systemd-run --setenv=GIT_…` and `coproc . ./s.sh` (r7 residuals).
+- **Time.** On this shape the Architect path is about 12× d0954fa (33 → 390 ms). It stays under
+  the ceiling, but E-456 should not add a further pass over every word without re-timing it.
+- **Harness template friction.** The pre-tool-use gate blocks the agent's harness cleanup,
+  `trap 'rm -rf "$T"' EXIT`, as `RM_RF_ROOT` because `$T` is dynamic. This round used literal
+  scratchpad paths instead. The security_engineer template should spell the cleanup with a
+  literal path, or `rm -r --` on a checked `mktemp` prefix.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A05 | clone -c bundle/abbrev (G1) | `git clone -qc core.fsmonitor=X src d`, `-nc`, `-qccore…`, `--conf`, `--conf=`, `--confi=`, `git -C .ai clone -qc` | RESISTED | 0 (git still executes) | ARCH_GIT_EXEC_CONFIG |
+| A03 | configRead dynamic value (G2) | `git config --file $f --get`, `-f $f`, `--type $t`, `--comment $c`, `--blob $b` | RESISTED | 0 (git still writes) | ARCH_GIT_EXEC_CONFIG |
+| A03 | setters (G3a) | `for HOME in DIR; do git status; done`, `select HOME`, `for PAGER` | RESISTED | 0 | blocks |
+| A03 | setters (G3b/c) | `declare/local/typeset -n r; r=HOME; r=DIR`, `declare -n r=$n`/`${n}`/`"$n"` | RESISTED | 0 | blocks |
+| A03 | setters (G3d) | `env -SHOME=DIR`, `env -iS…`, `env --split-string=…` | RESISTED | 0 | blocks |
+| A03 | env operands (G4) | `x=HOME=DIR; env $x git status`, `env $(cat …)`, `env "$@"`, `env -i $x /usr/bin/git`, `sudo $x` | RESISTED | 0 | blocks |
+| A03/A04/A01 | round-1 F1–F8 re-runs | p1/p2/p3/p6 payloads | RESISTED | n/a | coproc = r9 residual |
+| A05 | Architect pass list + D-104 line | 31 lines | RESISTED (passes) | n/a | runAnalysis and --check |
+| A05 | Engineer parity | 1159 fixture lines, d0954fa vs e68b40f | RESISTED | n/a | byte-identical |
+| A04 | time budget | `git config x `×3000, architect | RESISTED | n/a | 390–421 ms ≤ 1000 ms |

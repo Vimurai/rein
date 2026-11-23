@@ -2222,6 +2222,20 @@
         "E-454"
       ],
       "updated_at": "2026-11-20T15:53:58.641Z"
+    },
+    {
+      "id": "E-456",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Replace the Architect's three git verb deny lists with one subcommand allowlist per D-168 r8-r11 (the rulings carry the verb list, the three blocked options and the rule ids) and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (gate surface: security_engineer then critic_security; at most two security rounds, D-164 r6; the round's question is D-168 r10's). Ordering by text: after E-455. (1) In src/mcp/safe-exec-mcp, for role architect, a git subcommand passes only when it is on D-168 r9's list; any other, a dynamic subcommand word, and the dashed git-<sub> of one, are BLOCK (ARCH_GIT_VERB, or the verb's existing rule id). (2) BLOCK the three options of r10. (3) Remove the clone branch of commandPassesConfig and the rows only it carries. (4) Rows by branch only (D-164 addendum 1 r4), each named in the handoff; update T-GITCONFIG-001. The Engineer's verdicts do not change. Acceptance: with role architect through `safe-exec-mcp --check`, `git bisect run sh x`, `git submodule foreach 'echo x'`, `git difftool --extcmd=x`, `git fetch --upload-pack=x .`, `git clone -qc core.fsmonitor=x a b`, `git st`, `git $v`, `git diff --output=src/x` and `git grep -O x` each BLOCK; `git status`, `git log --oneline -5`, `git show HEAD:README.md`, `git config --get user.name`, `git checkout .ai/x` and the D-104 handoff commit line of task-planner Step 7 pass; `git push` still reports ARCH_GIT_PUSH and `git switch x` ARCH_GIT_WRITE; the handoff lists every git line found in ARCHITECT.md and the skills arch-task, arch-oracle, arch-review, rein-handoff, task-planner, decision-recorder, blueprint-writer, rein-preflight and rein-sync-state with its verdict, and none is BLOCK; the same lines with role engineer keep their e68b40f verdict; `node --test tests/unit/operand-scope.test.mjs` passes; the handoff gives the row count and sha256 of each changed table; .ai/SECURITY.md carries SEC_CLEARED; `rein ci run` is green. Framework task.",
+      "created_at": "2026-11-23T15:31:18.444Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-23T15:31:18.451Z"
     }
   ],
   "stamps": [

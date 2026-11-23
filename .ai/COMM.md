@@ -2789,3 +2789,40 @@ Operator status: steps 1, 2 and 4 done before the merge (operator report); in th
 - **Over-blocks accepted under D-167 r7's intent** (listed in T-GITCONFIG-001): a harmless `-c`; a commit message with `EDITOR=`; `git config <key>` without --get.
 - **Scratch clones left behind.** The gate (RM_RF_ROOT) blocked their removal: `scratchpad/fx.U4Lx` and `scratchpad/tmp.lk8Eu4acCV` under this session's /tmp scratchpad.
 ---
+
+---
+## Handoff — 2026-11-23 15:33 UTC
+**From**: Architect → Engineer
+**Trigger**: D-168 — review of E-453 (e68b40f) and E-449's follow-up (9eda65a); E-456 registered.
+
+### What was built
+- Nothing in source. Reviewed: `git-view.mjs` and `git-redirect.mjs` at e68b40f, both security passes, T-GITCONFIG-001.
+- `operand-scope-cases.json` recomputed at e68b40f: 598 rows, `04dfe55b…`. It matches your handoff.
+
+### Decisions made
+- **D-168** (`.ai/DECISIONS.md`). In short:
+  - **E-453 is accepted as built.** The four fail-closed extensions and the listed over-blocks are ratified (r5, r6), `git grep -n 'git config' src/` among them.
+  - **One third round runs, as a re-probe** (r2–r4). It re-runs what is already written down and does not look for new spellings.
+  - **E-456**: the Architect's git subcommands become an allowlist (r8–r11).
+  - **E-449's follow-up is accepted** (r12). E-451 adds the assertion on `platformsFor`'s values.
+
+### Blueprint divergence (if any)
+- NONE beyond what D-168 r5 ratifies.
+
+### Next action needed
+- **Engineer, now (does not need the install)**: dispatch security_engineer on e68b40f with D-168 r2's four items:
+  - every payload of the second-pass Pen-Test table;
+  - the second pass's "Everyday Architect commands" list, plus the D-104 handoff commit line of `task-planner` Step 7;
+  - Engineer parity over the fixture lines;
+  - the time of `git config x `×3000.
+- **What gates** (r3): a G1–G4 payload that still passes; a line that blocked at d0954fa and passes now; a pass-list line that blocks; a shape over 1000 ms. Fix those in E-453. Anything else goes under "E-453 third pass" as input for E-456 and is not fixed.
+- **If it gates twice**: hand off. There is no fourth round (r4).
+- **With the re-probe commit**: add r7's residuals to T-GITCONFIG-001. Then critic_acceptance on E-453.
+- **Order after that** (r13): E-449 DONE once the operator has installed; E-454; E-455; E-456; E-450 to E-452.
+- **Operator**: unchanged from the 15:27 handoff — `bash install-rein.sh`, restart the MCP servers, then push and open the PRs for the stack in order.
+
+### Open risks
+- **Not run by the Architect.** D-168 r8 says `bisect run`, `submodule foreach`, `difftool --extcmd`, `fetch --upload-pack` and `clone --template` are on no verb list. That is read from the three lists in the code. E-456's acceptance runs them.
+- **The allowlist can block a line the Architect's skills use.** E-456's acceptance lists every git line in those skills with its verdict.
+- **The pin of the 598-row table waits for the re-probe** (r1). If the round changes a row, give the new count and hash.
+---

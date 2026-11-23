@@ -9,6 +9,11 @@
       "provider": "claude",
       "pane_identifier": "0",
       "model": "opus"
+    },
+    "tester": {
+      "provider": "claude",
+      "model": "sonnet",
+      "headless": true
     }
   }
 }

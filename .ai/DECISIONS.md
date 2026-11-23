@@ -5908,3 +5908,65 @@ The handoff of 2026-11-20 15:51 asks for three pins and three interpretations, a
 None for the review record. E-453 and E-454 are each one commit; reverting E-453 restores the key and name lists of 57d1684.
 
 ---
+
+## D-168 — Review of E-453 as built and E-449's follow-up: accepted; one re-probe round, no discovery; the fail-closed extensions ratified; the Architect's git verbs become an allowlist (E-456)
+
+**Date**: 2026-11-23
+**Task**: E-453 (e68b40f), E-449 (9eda65a); E-456
+**Decision**: E-453 is accepted as built. A third security round runs, limited to re-running the payloads already written down. What the two rounds kept finding is not closed by more spellings in E-453: the Architect's git subcommands become an allowlist in E-456.
+
+### Why needed
+The handoff of 2026-11-23 15:27 brings the D-164 r6 question: E-453 is SEC_BLOCKED after two rounds, and G1–G4 (two P1, two P2) are fixed in e68b40f but not re-tested. It also asks for a ruling on four fail-closed extensions and one over-block.
+
+### What the Architect read and checked
+- `src/mcp/safe-exec-mcp/git-view.mjs` and `git-redirect.mjs` at e68b40f, both security passes in `.ai/SECURITY.md`, and T-GITCONFIG-001.
+- `operand-scope-cases.json` at e68b40f: 598 rows, sha256 `04dfe55b26ee21cf4dd7d8f8754bb6254007695ac38a03d9747bedf6955b1df0`. Both recomputed; they match the handoff.
+- Not checked by the Architect: the three E-440 rows that flip pass → BLOCK, and the suite results. They are taken from the handoff.
+
+### Rulings
+1. **E-453 is accepted as built** against D-167 r7 and r8. The table is pinned at 598 rows and the hash above once ruling 2's round clears. If that round changes a row, the pin is the new count and hash from the Engineer's handoff.
+2. **A third round runs, and it is a re-probe.** G1 and G2 were each shown in the harness to make git run a program. Their fixes have been read by a critic and not run. Accepting them from the diff is what D-159 r9 forbids the acceptance evaluator to do, and the same holds here. The security_engineer runs, on e68b40f:
+    - every payload of the second-pass Pen-Test table (G1–G4 and the round-1 re-runs);
+    - the pass list of the second pass ("Everyday Architect commands"), plus the D-104 handoff commit line of `task-planner` Step 7 as it is written there;
+    - Engineer parity over the fixture lines;
+    - the time of `git config x `×3000 (critic_security measured 390 ms).
+3. **What gates in that round.** A G1–G4 payload that still passes; a line that blocked at d0954fa and passes now; a line of the pass list that blocks; a shape over the 1000 ms unit ceiling. Each is fixed in E-453. Nothing else gates. A new spelling found on the way is written under "E-453 third pass" as input for E-456 and is not fixed in E-453. When nothing gates, the round records SEC_CLEARED.
+4. **No fourth round.** If ruling 3 gates twice, the Engineer hands off and E-453 waits for E-456.
+5. **The fail-closed extensions are ratified.**
+    - `env -C` and `sudo -D` count as a directory change whatever the operand.
+    - `trap` counts as a directory change.
+    - `xargs` or `parallel` before git, and a `{}` placeholder, count as configuration.
+    - A dynamic word between `env` or `sudo` and git counts as an assignment.
+    - Any nameref declaration on a git line counts as an assignment.
+6. **The over-blocks listed in T-GITCONFIG-001 are accepted**, with `git grep -n 'git config' src/` among them. The Architect searches with the Grep tool or `rg`.
+7. **Residual, recorded in T-GITCONFIG-001 by the Engineer with the re-probe commit**:
+    - `PATH=`, `LESSOPEN=`, and configuration that arrives through a sourced file or stdin;
+    - `nsenter --wd`, `tmux -c`, `systemd-run -d` and `--setenv`, `start-stop-daemon -d`;
+    - `(( HOME = 5 ))`;
+    - `HOME=x make` off a git line (E-353 does not catch it either);
+    - the quadratic of the unclosed-brace scan (726 ms at 15 KB, 546 ms before E-453).
+8. **The verb rule is a deny list, and that is why the rounds do not end (E-456).** r7 closes "configuration names a program". The verbs are still three deny lists: `FORBIDDEN` in git-view.mjs, `FORBIDDEN_ARCHITECT_GIT_GLOBAL` in sovereignty.mjs:30 and `ARCH_GIT_WRITE_SUBS` in architect-writes.mjs:294. No other rule names a subcommand. So a subcommand that runs a program by itself is on no list: `bisect run`, `submodule foreach`, `difftool --extcmd`, `fetch --upload-pack`, `clone --template`. This is read from the code; the Architect did not run these lines. G1 (`clone -qc`) is the same thing seen through r7: the Architect has no use for `clone`.
+9. **For the Architect role, a git subcommand passes only when it is on this list (E-456)**: `status`, `log`, `diff`, `show`, `blame`, `add`, `commit`, `grep`, `config`, `ls-files`, `ls-tree`, `rev-parse`, `rev-list`, `cat-file`, `merge-base`, `describe`, `shortlog`, `for-each-ref`, `diff-tree`, `name-rev`, `check-ignore`.
+    - `reset`, `revert`, `checkout` and `clean` keep today's rule: they pass when every target is under `.ai/` or `plans/` and the line is not relocated.
+    - Any other subcommand is a BLOCK. So is a subcommand word that is dynamic, and a git command with no subcommand word other than `--version` or `--help`.
+    - The dashed form `git-<sub>` is read as `git <sub>`.
+    - A verb that has its own rule id today (`ARCH_GIT_PUSH`, `ARCH_GIT_WRITE`, …) keeps it, so the control ledger of E-432 still attributes it. Every other refusal is `ARCH_GIT_VERB`.
+10. **On a listed verb, three options are a BLOCK (E-456)**: `--exec-path` with a value, `-O` / `--open-files-in-pager` on `grep`, and `--output` on the diff family (it writes a file the write gate does not see). This list is closed over the 21 verbs: the security round's question for E-456 is whether a listed verb runs a program or writes outside `.ai/` and `plans/` through an option. That question is finite. "Which git spelling is missing" is not.
+11. **What E-456 removes.** The `clone` branch of `commandPassesConfig` (F2, G1) and its rows: `clone` blocks by verb. r7's configuration rule stays for the listed verbs.
+12. **E-449's follow-up is accepted.** `platformsFor` lives in `hosted-ci.mjs` and `ci-plan.mjs` re-exports it; E-268.02a is unchanged. E-451 adds the assertion on its values that critic_tests asked for.
+13. **Order**: after the operator's install, E-449 DONE; the E-453 re-probe and its critic_acceptance; E-454; E-455; E-456; then E-450 to E-452.
+
+### Alternatives considered
+1. **Accept the tree without a third round** — rejected: two P1 fixes would be cleared without anyone running them.
+2. **A full third round** — rejected: rounds one and two each found a new set of spellings. D-167 alternative 1 already says a list of names cannot be finished.
+3. **Add the verb allowlist to E-453** — rejected: E-453 is built against r7 and r8 and its table is counted. A second rule in the same commit would need its own rounds on a tree that is already at the limit.
+4. **Leave the verbs as deny lists and record the program-running subcommands as residual** — rejected: they reach the same result as the configuration r7 blocks, with less effort.
+
+### Impact
+- Unlocks: E-453's close; E-456.
+- Risk if wrong: the allowlist blocks a git command the Architect or the operator's Architect workflow needs. The Architect asks the Engineer, or the verb is added by a ruling. E-456's acceptance lists every git line in the Architect's skills with its verdict, so this is seen before the merge.
+
+### Rollback
+E-456 is one commit; reverting it restores the three deny lists. Ruling 2's round changes no code unless it gates.
+
+---

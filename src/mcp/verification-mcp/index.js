@@ -99,9 +99,9 @@ function isToolAvailable(tool, registry) {
   return false;
 }
 
-// E-295: agents that must carry an explicit `tools` allowlist (reviewers and the Tester) —
+// E-295: agents that must carry an explicit `tools` allowlist (the reviewer, the acceptance evaluator and the Tester; E-464) —
 // in addition to any agent that declares an `mcpServers:` scope.
-const SCOPED_AGENTS = new Set(["critic_arch", "critic_clean_code", "critic_security", "critic_tests", "test_engineer"]);
+const SCOPED_AGENTS = new Set(["reviewer", "critic_acceptance", "test_engineer"]);
 
 /** The parent session's MCP servers: the `mcpServers` keys of <project>/.mcp.json. */
 function loadParentServers(projectRoot) {

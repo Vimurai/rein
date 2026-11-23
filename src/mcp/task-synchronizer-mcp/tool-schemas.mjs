@@ -39,7 +39,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
     },
     {
       name: "update_task_status",
-      description: "Updates a task's status (OPEN, BLOCKED, IN_PROGRESS, DONE). In a team project (.ai/team.json) IN_PROGRESS is set only by claim_task. Marks completed_at for DONE and clears the claim. Completing a task auto-unblocks any dependents whose dependencies are now all DONE. E-101: DONE tasks are locked — pass reopen:true to mutate one, else returns [TASK_LOCKED]. E-431: a Tier 2 or 3 E-## task needs an [ACCEPT_PASS] stamp from critic_acceptance for HEAD before DONE ([ACCEPT_GATE]); superseded_by closes one unimplemented.",
+      description: "Updates a task's status (OPEN, BLOCKED, IN_PROGRESS, DONE). In a team project (.ai/team.json) IN_PROGRESS is set only by claim_task. Marks completed_at for DONE and clears the claim. Completing a task auto-unblocks any dependents whose dependencies are now all DONE. E-101: DONE tasks are locked — pass reopen:true to mutate one, else returns [TASK_LOCKED]. E-431/E-464: a Tier 2 or 3 E-## task needs [REVIEW_PASS] (reviewer) and [ACCEPT_PASS] (critic_acceptance) for HEAD, and Tier 3 also [SEC_CLEARED] (security_engineer), before DONE ([REVIEW_GATE], [ACCEPT_GATE], [SEC_GATE]); superseded_by closes one unimplemented.",
       inputSchema: {
         type: "object",
         properties: {

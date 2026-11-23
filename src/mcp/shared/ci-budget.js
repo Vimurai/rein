@@ -1,14 +1,16 @@
 // ci-budget.js — the test budget ratchet (E-303, D-088, test-economics.md §Component 7).
 //
 // Every green, non-dirty `rein ci run` records a budget block in its ci_runs row (budget_json):
-//   { suites, test_lines, fast_tier_seconds, full_seconds, peak_rss_mb, peak_sum_rss_mb }
+//   { suites, fast_tier_seconds, full_seconds, peak_rss_mb, peak_sum_rss_mb }
 // The BEST value of a field is the lowest one recorded since the latest ruling. A run FAILS
 // when a ratcheted field exceeds its best by more than its slack, so the numbers only move
 // down. Equal or lower passes and, once recorded, is the new best. No flag or env var lifts
 // it: raising a budget is a D-ruling, written into the record by `rein ci budget set --ruling
 // D-###` (budgetSet), and the best is then computed from that row onward.
 //
-// Ratcheted (E-303's task text): suites +0, test_lines +2%, fast_tier_seconds +10%.
+// Ratcheted (E-303's task text): suites +0, fast_tier_seconds +10%. E-464 (D-169 r9) retired the
+// test_lines ratchet (+2%): time is the cost; "one test per behaviour at the cheapest layer" (D-088)
+// is a rule the reviewer applies. A test_lines value in an older run's budget_json is ignored.
 // full_seconds and the two peak-memory fields are RECORDED, not ratcheted: four full runs on
 // one host on 2026-10-28 spread 466–514 s (10.3%), so a +10% wall-time ratchet on the best
 // ever would fail on host load alone. §11's "ratchet full_seconds and peak_rss_mb" is put to
@@ -16,12 +18,11 @@
 
 import { spawnSync } from "node:child_process";
 
-export const BUDGET_FIELDS =["suites", "test_lines", "fast_tier_seconds", "full_seconds", "peak_rss_mb", "peak_sum_rss_mb"];
+export const BUDGET_FIELDS = ["suites", "fast_tier_seconds", "full_seconds", "peak_rss_mb", "peak_sum_rss_mb"];
 
 /** field → slack. `abs` is an absolute allowance, `pct` a fraction of the best. */
 export const RATCHET = {
   suites: { abs: 0 },
-  test_lines: { pct: 0.02 },
   fast_tier_seconds: { pct: 0.10 },
 };
 
@@ -31,7 +32,7 @@ function _parse(json) {
   try { const v = JSON.parse(json || "null"); return v && typeof v === "object" ? v : null; } catch { return null; }
 }
 
-/** `[ci] budget suites=45 test_lines=39444 …` → { suites: 45, … } (a `-` value is absent). */
+/** `[ci] budget suites=45 fast_tier_seconds=37 …` → { suites: 45, … } (a `-` value or an unknown field is absent). */
 export function parseBudgetLine(line) {
   const out = {};
   for (const tok of String(line).replace(/^\[ci\] budget\s*/, "").split(/\s+/)) {

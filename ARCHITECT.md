@@ -37,6 +37,13 @@ that fails too, use the manual read order: `.ai/DIGEST.md → .ai/architect.md �
 - After every planning session: write blueprint to `.ai/architect.md` + P-## tasks to `.ai/TASKS.md`.
 - You are the **Architect**. You do NOT write source code. Only `.ai/*.md` and `plans/*.md`.
 
+## Review by tier (D-169 r8) — checked at DONE, not at commit; `rein review <tier>`
+| Tier | What it is | Review |
+|---|---|---|
+| 1 | no behaviour change (docs, text, renames) | none |
+| 2 | everything else | `reviewer`, then `critic_acceptance` → `[REVIEW_PASS]`, `[ACCEPT_PASS]` |
+| 3 | role boundary, install, hooks, secrets, release signing | Tier 2 + one `security_engineer` round → `[SEC_CLEARED]` |
+
 ## Skill Invocation
 Use the **Skill tool** — the available skills and agents are listed in the session's
 system reminders (D-075: there is no MCP invoker):
@@ -62,7 +69,7 @@ Decide WHICH unit to run in your thinking step — zero added latency.
   Choose a skill when the work is a procedure you should carry out yourself.
 - **Agent** (persona, forked context): an autonomous specialist that runs in an isolated
   sub-session and reports back — e.g. `ux_reviewer`, `architectural-aligner`, the
-  `critic_*` reviewers. Choose an agent when you need an independent expert whose work
+  `reviewer` and `critic_acceptance`. Choose an agent when you need an independent expert whose work
   must NOT pollute your planning context. (Agents still obey the Forbidden Zone — they
   advise; only the Engineer writes source.)
 

@@ -176,7 +176,7 @@ test("recordCiRunFromLog: every column populated; a truncated log records ERROR"
     const p = join(d, "run.log");
     // E-303: the runner writes a budget line too; budget_ruling, like skip_reason, is set only
     // by a ruling (`rein ci budget set`), never by a run; shard (E-386) is NULL on a full run.
-    writeFileSync(p, `${LOG}\n[ci] budget suites=45 test_lines=39444 fast_tier_seconds=37 full_seconds=418 peak_rss_mb=247 peak_sum_rss_mb=2140\n`);
+    writeFileSync(p, `${LOG}\n[ci] budget suites=45 fast_tier_seconds=37 full_seconds=418 peak_rss_mb=247 peak_sum_rss_mb=2140\n`);
     const row = db.prepare("SELECT * FROM ci_runs WHERE id = ?").get(recordCiRunFromLog(db, p));
     // E-443: budget_ruled_sha, like budget_ruling, is written only by `rein ci budget set`.
     const empty = Object.entries(row).filter(([k, v]) => v === null && k !== "skip_reason" && k !== "budget_ruling" && k !== "budget_ruled_sha" && k !== "shard").map(([k]) => k);
@@ -737,12 +737,12 @@ test("mergeRecord: an invalid PASS (a non-member's) does not erase a member's va
 // D-### ruling can raise it.
 import { budgetBest, budgetCheck, budgetDrift, budgetSet, budgetSummary, driftLine, DRIFT_FIELDS, parseBudgetLine, regressionLine, RATCHET } from "../../src/mcp/shared/ci-budget.js";
 
-const BUDGET = { suites: 45, test_lines: 39444, fast_tier_seconds: 37, full_seconds: 418, peak_rss_mb: 247 };
+const BUDGET = { suites: 45, fast_tier_seconds: 37, full_seconds: 418, peak_rss_mb: 247 };
 const budgetRow = (db, b, over = {}) => recordCiRun(db, base({ sha: over.sha || "c".repeat(40), budget_json: JSON.stringify(b), ...over }));
 
-test("E-303: parseCiLog records the run's budget line; a `-` value is left out", () => {
+test("E-303: parseCiLog records the run's budget line; a `-` value and a retired field (test_lines, E-464) are left out", () => {
   const run = parseCiLog(`${LOG}\n[ci] budget suites=45 test_lines=39444 fast_tier_seconds=- full_seconds=418 peak_rss_mb=247 peak_sum_rss_mb=-\n`);
-  assert.deepEqual(JSON.parse(run.budget_json), { suites: 45, test_lines: 39444, full_seconds: 418, peak_rss_mb: 247 });
+  assert.deepEqual(JSON.parse(run.budget_json), { suites: 45, full_seconds: 418, peak_rss_mb: 247 });
   assert.equal(parseCiLog(LOG).budget_json, undefined, "no line, no budget");
   assert.deepEqual(parseBudgetLine("[ci] budget suites=3 bogus=9"), { suites: 3 });
 });
@@ -764,26 +764,28 @@ test("E-303: an equal or lower measurement passes and, once recorded, is the new
   try {
     budgetRow(db, BUDGET);
     assert.deepEqual(budgetCheck(budgetBest(db).best, BUDGET), [], "equal passes");
-    const lower = { ...BUDGET, suites: 44, test_lines: 38000 };
+    const lower = { ...BUDGET, suites: 44, fast_tier_seconds: 30 };
     assert.deepEqual(budgetCheck(budgetBest(db).best, lower), [], "lower passes");
     budgetRow(db, lower, { sha: "d".repeat(40), started_at: "2026-09-17T11:00:00Z" });
     assert.equal(budgetBest(db).best.suites, 44);
-    assert.equal(budgetCheck(budgetBest(db).best, BUDGET).map((r) => r.field).join(), "suites,test_lines",
+    assert.equal(budgetCheck(budgetBest(db).best, BUDGET).map((r) => r.field).join(), "suites,fast_tier_seconds",
       "the old numbers are now over budget: the ratchet only moves down");
   } finally { done(); }
 });
 
-test("E-303: the slacks — test_lines +2%, fast tier +10%; full_seconds and memory are recorded, not ratcheted", () => {
+test("E-303: the slacks — fast tier +10%; full_seconds and memory are recorded, not ratcheted; test_lines is retired (E-464)", () => {
   const { db, done } = freshDb();
   try {
-    budgetRow(db, BUDGET);
+    budgetRow(db, { ...BUDGET, test_lines: 39444 });   // a row written before E-464
     const best = budgetBest(db).best;
-    assert.deepEqual(budgetCheck(best, { test_lines: Math.floor(39444 * 1.02) }), []);
-    assert.equal(budgetCheck(best, { test_lines: Math.floor(39444 * 1.02) + 1 })[0].slack, "+2%");
+    assert.equal(best.test_lines, undefined, "an old row's test_lines is not a budget");
+    assert.deepEqual(budgetCheck(best, { test_lines: 99999 }), [], "no test_lines ratchet");
+    assert.throws(() => budgetSet(db, "D-169", { test_lines: 1 }), /unknown budget field/);
+    assert.doesNotMatch(budgetSummary(budgetBest(db)), /test_lines/, "`rein ci budget` prints no test_lines");
     assert.deepEqual(budgetCheck(best, { fast_tier_seconds: 40 }), []);
     assert.equal(budgetCheck(best, { fast_tier_seconds: 41 })[0].field, "fast_tier_seconds");
     assert.deepEqual(budgetCheck(best, { full_seconds: 9999, peak_rss_mb: 9999 }), []);
-    assert.deepEqual(Object.keys(RATCHET).sort(), ["fast_tier_seconds", "suites", "test_lines"]);
+    assert.deepEqual(Object.keys(RATCHET).sort(), ["fast_tier_seconds", "suites"]);
   } finally { done(); }
 });
 
@@ -822,37 +824,37 @@ test("E-303: raising the budget needs a D-### ruling, which is written into the 
 const R = "a".repeat(40), DESC = "d".repeat(40), SIDE = "5".repeat(40), GONE = "0".repeat(40);
 const ancestry = (a, b) => (a === R && b === DESC ? true : a === R && b === SIDE ? false : null);
 const rulingAt = (db, at) => {
-  budgetRow(db, { ...BUDGET, test_lines: 44600 }, { sha: R, started_at: "2026-11-18T09:00:00Z" });
-  budgetSet(db, "D-164", { test_lines: 44481 }, at ? { at } : {});
+  budgetRow(db, { ...BUDGET, fast_tier_seconds: 60 }, { sha: R, started_at: "2026-11-18T09:00:00Z" });
+  budgetSet(db, "D-164", { fast_tier_seconds: 50 }, at ? { at } : {});
 };
 test("E-443: a run on a commit that does not contain the ruled commit leaves the value as ruled (census run 107)", () => {
   const { db, done } = freshDb();
   try {
     rulingAt(db, R);
-    budgetRow(db, { ...BUDGET, test_lines: 44144 }, { sha: SIDE, started_at: "2026-11-18T10:00:00Z" });
+    budgetRow(db, { ...BUDGET, fast_tier_seconds: 40 }, { sha: SIDE, started_at: "2026-11-18T10:00:00Z" });
     const cur = budgetBest(db, { contains: ancestry });
-    assert.equal(cur.best.test_lines, 44481);
+    assert.equal(cur.best.fast_tier_seconds, 50);
     assert.equal(cur.rulingSha, R);
-    assert.match(budgetSummary(cur), /test_lines 44481.*ruled by D-164 at aaaaaaa/);
+    assert.match(budgetSummary(cur), /fast_tier_seconds 50.*ruled by D-164 at aaaaaaa/);
   } finally { done(); }
 });
 test("E-443: a descendant run with a lower value lowers it, and the line names that run", () => {
   const { db, done } = freshDb();
   try {
     rulingAt(db, R);
-    budgetRow(db, { ...BUDGET, test_lines: 44400 }, { sha: DESC, started_at: "2026-11-18T10:00:00Z" });
+    budgetRow(db, { ...BUDGET, fast_tier_seconds: 45 }, { sha: DESC, started_at: "2026-11-18T10:00:00Z" });
     const cur = budgetBest(db, { contains: ancestry });
-    assert.equal(cur.best.test_lines, 44400);
-    assert.match(budgetSummary(cur), /ruled by D-164 at aaaaaaa \(test_lines 44481\); lowest contained run dddddddd?: test_lines 44400/);
+    assert.equal(cur.best.fast_tier_seconds, 45);
+    assert.match(budgetSummary(cur), /ruled by D-164 at aaaaaaa \(fast_tier_seconds 50\); lowest contained run dddddddd?: fast_tier_seconds 45/);
   } finally { done(); }
 });
 test("E-443: a run whose ancestry cannot be read does not lower it (unknown sha, no git, no reader)", () => {
   const { db, done } = freshDb();
   try {
     rulingAt(db, R);
-    budgetRow(db, { ...BUDGET, test_lines: 44000 }, { sha: GONE, started_at: "2026-11-18T10:00:00Z" });
-    assert.equal(budgetBest(db, { contains: ancestry }).best.test_lines, 44481, "unknown sha");
-    assert.equal(budgetBest(db).best.test_lines, 44481, "no ancestry reader at all");
+    budgetRow(db, { ...BUDGET, fast_tier_seconds: 30 }, { sha: GONE, started_at: "2026-11-18T10:00:00Z" });
+    assert.equal(budgetBest(db, { contains: ancestry }).best.fast_tier_seconds, 50, "unknown sha");
+    assert.equal(budgetBest(db).best.fast_tier_seconds, 50, "no ancestry reader at all");
   } finally { done(); }
 });
 test("E-443: a ruling row written before E-443 (no recorded commit) reads as its own run's commit", () => {
@@ -860,10 +862,10 @@ test("E-443: a ruling row written before E-443 (no recorded commit) reads as its
   try {
     rulingAt(db, null);
     db.prepare("UPDATE ci_runs SET budget_ruled_sha = NULL").run();
-    budgetRow(db, { ...BUDGET, test_lines: 44300 }, { sha: DESC, started_at: "2026-11-18T10:00:00Z" });
+    budgetRow(db, { ...BUDGET, fast_tier_seconds: 44 }, { sha: DESC, started_at: "2026-11-18T10:00:00Z" });
     const cur = budgetBest(db, { contains: ancestry });
     assert.equal(cur.rulingSha, R, "the ruling row's own sha");
-    assert.equal(cur.best.test_lines, 44300);
+    assert.equal(cur.best.fast_tier_seconds, 44);
   } finally { done(); }
 });
 

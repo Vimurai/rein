@@ -35,8 +35,8 @@ No. Both panes run on your one Claude Code login. `rein account` exists for keep
 different subscription, not because two are needed.
 
 **Which models does it use?**
-By default the Architect runs on `fable`, the Engineer on `opus`, the Tester and the critics on
-`sonnet`. Change the panes in `.ai/roles.json`.
+By default the Architect runs on `fable`, the Engineer on `opus`, the Tester on `sonnet`; the
+reviewer and the acceptance evaluator inherit the session's model. Change the panes in `.ai/roles.json`.
 
 **Does it work on an existing codebase?**
 Yes. `rein init` never overwrites your files. Ask the Architect to reverse-engineer the codebase

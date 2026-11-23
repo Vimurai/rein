@@ -806,8 +806,8 @@ assert_status 0 "DUPLICATE_REJECTED status documented" \
   grep -q 'DUPLICATE_REJECTED' "$AGENT_SRC_SG"
 assert_status 0 "Step 5 invokes identity_guardian" \
   grep -q 'identity_guardian' "$AGENT_SRC_SG"
-assert_status 0 "Step 5 invokes critic_security" \
-  grep -q 'critic_security' "$AGENT_SRC_SG"
+assert_status 0 "Step 5 invokes the reviewer" \
+  grep -q 'subagent_type: "reviewer"' "$AGENT_SRC_SG"
 assert_status 0 "REVIEW_BLOCKED status documented" \
   grep -q 'REVIEW_BLOCKED' "$AGENT_SRC_SG"
 

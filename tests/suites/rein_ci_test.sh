@@ -630,7 +630,9 @@ assert_contains "E-303.01b: …with recorded, measured and slack on one line" \
 OUT="$(node --no-warnings "$CIREC" budget-check --ai-dir "${REPO}/.ai" --log "${RUN_TMP}/b45.log" 2>&1)"; RC=$?
 assert_status 0 "E-303.01c: an equal measurement passes" test "$RC" -eq 0
 OUT="$(_ci budget)"
-assert_contains "E-303.02a: rein ci budget prints the current budget" "test budget: suites 45, test_lines 1000, fast_tier_seconds 30" "$OUT"
+assert_contains "E-303.02a: rein ci budget prints the current budget" "test budget: suites 45, fast_tier_seconds 30" "$OUT"
+# E-464 (D-169 r9): the log line still carries an old test_lines=; the retired ratchet prints nothing.
+assert_not_contains "E-464.02a2: rein ci budget prints no test_lines" "test_lines" "$OUT"
 OUT="$(_ci budget set suites=46)"; RC=$?
 assert_status 0 "E-303.02b: raising the budget without a ruling is refused (rc=${RC})" test "$RC" -eq 2
 assert_contains "E-303.02c: …and says a ruling is the way" "only by ruling: --ruling D-###" "$OUT"
@@ -870,10 +872,7 @@ assert_status 0 "E-267.09g: the tests/** rule triages with rein ci log --failed"
 for f in ENGINEER.md src/templates/ENGINEER.md src/claude/rules/test-harness.md; do
   assert_status 1 "E-267.09h: ${f} no longer names the hosted runner" grep -qE 'gh +run +view' "${REPO_ROOT}/${f}"
 done
-for f in src/claude/agents/critic_tests.md src/claude/skills/rein-review/SKILL.md; do
-  assert_status 0 "E-267.09i: ${f} says 'under \`rein ci\`'" grep -q 'under `rein ci`' "${REPO_ROOT}/${f}"
-  assert_status 1 "E-267.09j: ${f} no longer says 'fails the run on CI'" grep -q 'fails the run on CI' "${REPO_ROOT}/${f}"
-done
+# E-267.09i/j (critic_tests and rein-review said 'under `rein ci`') retired with those texts in E-464.
 assert_status 0 "E-267.09k: ci_gate forbids pushing without a green rein ci run" \
   grep -q 'without a green `rein ci run`' "${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
 assert_status 0 "E-267.09l: install_git_hooks installs the pre-push stub" \
@@ -883,7 +882,7 @@ assert_status 0 "E-267.09m: uninstall tells the operator to remove it" \
 for m in .claude/skills/rein-task/SKILL.md:src/shared/skills/rein-task/SKILL.md \
          .claude/skills/rein-review/SKILL.md:src/claude/skills/rein-review/SKILL.md \
          .claude/skills/ci_gate/SKILL.md:src/claude/skills/ci_gate/SKILL.md \
-         .claude/agents/critic_tests.md:src/claude/agents/critic_tests.md; do
+         .claude/agents/reviewer.md:src/claude/agents/reviewer.md; do
   assert_mirror_if_present "E-267.09n: ${m%%:*} mirrors ${m##*:}" "${REPO_ROOT}/${m##*:}" "${REPO_ROOT}/${m%%:*}"
 done
 

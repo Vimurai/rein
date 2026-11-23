@@ -1,6 +1,6 @@
 ---
 name: rein-upgrade
-description: Triggered periodically or on `npm audit` failures to bump packages and run test suites. Calls dependency_manager for complex migrations. Produces upgrade branches and test reports. Routes all dependency changes through critic_security before merge.
+description: Triggered periodically or on `npm audit` failures to bump packages and run test suites. Calls dependency_manager for complex migrations. Produces upgrade branches and test reports. Routes all dependency changes through reviewer before merge.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Bash, Grep, Glob, mcp__task-synchronizer-mcp__add_task
@@ -120,7 +120,7 @@ For **backwards-compatible** patches/minor updates (no breaking changes):
 3. Run security gate before committing:
 ```
 Agent({
-  subagent_type: "critic_security",
+  subagent_type: "reviewer",
   prompt: {   // state these fields in the prompt text
     scope: "simple_upgrade",
     package: "<package>",
@@ -129,7 +129,7 @@ Agent({
   }
 })
 ```
-4. Wait for critic_security clearance. If PASS, continue:
+4. Wait for reviewer clearance. If PASS, continue:
    ```bash
    git add package-lock.json
    git commit -m "chore: bump <package> to <version>"
@@ -164,7 +164,7 @@ Produce a summary entry in `.ai/LOG.md`:
 ```
 YYYY-MM-DD | rein-upgrade | Execute | Processed <N> outdated packages
   - CRITICAL: <package> (v1→v2) — dispatched to dependency_manager
-  - HIGH: <package> (v1.0→v1.1) — inline upgrade, tests PASS, critic_security PASS
+  - HIGH: <package> (v1.0→v1.1) — inline upgrade, tests PASS, reviewer PASS
   - Status: <N> upgrades completed, <M> pending review
 ```
 
@@ -179,7 +179,7 @@ mcp__task-synchronizer-mcp__add_task({
   owner: "Engineer (Claude)",
   prefix: "P",
   tier: 2,
-  description: "Review dependency upgrades: verify all upgrade branches (<list branches>). Check for regressions, peer-dependency conflicts, lock file integrity, and critic_security clearance.",
+  description: "Review dependency upgrades: verify all upgrade branches (<list branches>). Check for regressions, peer-dependency conflicts, lock file integrity, and reviewer clearance.",
   depends_on: []
 })
 ```
@@ -228,7 +228,7 @@ Next check: Scheduled for <+7 days>
 - **Never** force-upgrade unmaintained packages without human review (create P-##)
 - **Never** skip tests — a passing test suite is the gate before pushing
 - **Never** commit `.env` or secrets files (use `.gitignore`)
-- **Never** commit dependency changes without critic_security clearance (mandatory gate)
+- **Never** commit dependency changes without reviewer clearance (mandatory gate)
 - **Always** dispatch `dependency_manager` for major-version upgrades
 - **Always** validate lock file integrity after upgrades
 - **Always** route dependency commits through commit-crafter (project git identity)

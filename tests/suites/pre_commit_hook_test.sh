@@ -388,17 +388,15 @@ git -C "$PROJ" init -q
 git -C "$PROJ" config user.email "t@t"
 git -C "$PROJ" config user.name "tester"
 # Pre-seed .ai/TASKS.md with the generated header so check_markdown_sync
-# passes through and lets the test reach check_standards_gate. The sandbox
-# is deliberately stamp-free — the final Gate 2 stamp check (stamp-gate.mjs, E-329) will
-# still block, but only AFTER check_standards_gate runs.
+# passes through and lets the test reach check_standards_gate. (E-464: the hook asks for no
+# review stamp, so nothing after the standards gate blocks.)
 cat > "${PROJ}/.ai/TASKS.md" <<'TASKS'
 # TASKS (Generated from state.json)
 
 ## Engineer (Claude)
 TASKS
 
-# Copy the standards machinery + a CRITIC_STAMP into the sandbox so the
-# downstream check_critic_stamp gate isn't the one tripping the test.
+# Copy the standards machinery into the sandbox.
 cp "${REPO_ROOT}/src/shared/standards.json" "${PROJ}/src/shared/standards.json" 2>/dev/null || mkdir -p "${PROJ}/src/shared" && cp "${REPO_ROOT}/src/shared/standards.json" "${PROJ}/src/shared/standards.json"
 cp "${REPO_ROOT}/src/shared/standards-checker.mjs" "${PROJ}/src/shared/standards-checker.mjs"
 # E-225: the checker imports the E-224 markdown classifier (one definition of "executable
@@ -721,8 +719,8 @@ assert_status 0 "E-302.RD3: …and a matching one passes" env HOME="$_RD_HOME" b
 
 # ── E-448 (D-165): a machine-local generated file is refused at commit ──────────────────────
 # The whole hook, as `git commit` runs it, in a provisioned fixture project: the mirror is this
-# tree's src/shared (machine-local.list included) and HEAD carries a CRITIC_STAMP, so the only
-# gate that can refuse is the one under test. The Engineer role, so the Architect git lane
+# tree's src/shared (machine-local.list included), so the only gate that can refuse is the one
+# under test (E-464: no review stamp is asked for at commit). The Engineer role, so the Architect git lane
 # (which keeps .claude/ out of an Architect commit) is not what answers.
 echo ""
 _ML_HOME="$(test_tmpdir mlhome)"; tc_link_shared "$_ML_HOME"
@@ -733,12 +731,11 @@ _ml_repo() {
     printf '#!/bin/bash\nexec /bin/bash %q "$@"\n' "$HOOK" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit )
   printf '%s' "$d"
 }
-_ml_stamp() {  # cwd = repo: one CRITIC_STAMP for HEAD (the stamp gate's own input, as git_lane_test seeds it)
-  printf '{"tasks":[],"stamps":[{"type":"CRITIC_STAMP","agent":"t","sha":"%s","author":"t@t","timestamp":"%s","summary":"seeded"}]}\n' \
-    "$(git rev-parse HEAD)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > .ai/state.json
+_ml_state() {  # cwd = repo: an empty state view
+  printf '{"tasks":[],"stamps":[]}\n' > .ai/state.json
 }
 _ml_commit() {  # <repo> → _OUT/_RC of `git commit` through the installed hook
-  _OUT="$( cd "$1" && _ml_stamp && env HOME="$_ML_HOME" REIN_CALLER_ROLE=engineer REIN_SKIP_STANDARDS=1 \
+  _OUT="$( cd "$1" && _ml_state && env HOME="$_ML_HOME" REIN_CALLER_ROLE=engineer REIN_SKIP_STANDARDS=1 \
            CLAUDE_CODE_SESSION_ID= git commit -qm t 2>&1 )"; _RC=$?
 }
 _M1="$(_ml_repo)"; ( cd "$_M1" && echo '{}' > .claude/settings.json && git add -f .claude/settings.json )

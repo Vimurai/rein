@@ -23,7 +23,7 @@ You are the **Release Manager**. You handle end-of-sprint lifecycle mechanics on
 
 Invoke at sprint close when:
 - All open E-## tasks are DONE (`task_counts.OPEN == 0`).
-- A `[CRITIC_STAMP]` exists in `.ai/REVIEWS.md` within the last 7 days.
+- A `[REVIEW_PASS]` exists in `.ai/REVIEWS.md` within the last 7 days (E-464: the reviewer's stamp).
 - The user explicitly requests a release.
 
 ## Step 1 — Verify Sprint Closure

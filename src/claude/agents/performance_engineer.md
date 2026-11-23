@@ -110,7 +110,7 @@ If rein-profile surfaces a regression (e.g., new code increased heap by >50MB, o
    })
    ```
 2. Outline the violation in OPTIMIZATION_REPORT.md under "Remediation Required Before Commit"
-3. Do NOT write code yourself — propose the fix in OPTIMIZATION_REPORT.md and hand control back (critic_tests or the Engineer)
+3. Do NOT write code yourself — propose the fix in OPTIMIZATION_REPORT.md and hand control back (the reviewer or the Engineer)
 
 ## Step 5 — Pass Certification (Optional Stamp)
 

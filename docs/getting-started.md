@@ -50,8 +50,8 @@ checks), takes the first open `E-##`, and works through it:
 
 - it writes the code and the tests;
 - it runs the tests, and dispatches the Tester for missing ones;
-- it runs the critics the task's risk tier calls for;
-- it commits, gated: no review stamp, no commit;
+- it runs the review the task's risk tier calls for (`rein review <tier>`);
+- it commits; the task is refused DONE until its review stamps stand for HEAD;
 - it runs `rein ci run` on the commit, and closes the task only when that is green.
 
 You do not have to do anything. If it asks a question, answer it in the Engineer pane. If a

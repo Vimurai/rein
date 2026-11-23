@@ -165,6 +165,11 @@ Commands:
   rein ci status [--ref <sha>] [--short] | rein ci list [-n N] | rein ci log [<sha>] [--failed]
                  Read the recorded local CI runs (.ai/state.sqlite ci_runs)
   rein digest build | check
+  rein review <1|2|3> [--base <ref>]
+                 Review by tier (E-464, D-169 r8): run the deterministic checks on the
+                 diff and print the agents to dispatch — 1 none; 2 reviewer, then
+                 critic_acceptance; 3 those and security_engineer. Exit 1 on a P0.
+                 The DONE gate checks their stamps; a commit needs none.
                  .ai/DIGEST.md is a generated view (D-159): build rewrites it from the
                  tracked inputs when they changed; check exits 1 [DIGEST_STALE] when stale
   rein ledger [--days N] [--json]
@@ -197,7 +202,6 @@ Removed — use the agent skill instead (see .ai/blueprints/cli-collapse.md):
   update / onboard → Run 'rein start', type the planning request in the Architect pane
   preflight        → skill: rein-preflight  (auto-runs at session start)
   archive          → skill: rein-archive
-  review           → skill: rein-review (Engineer) / skill: arch-review (Architect)
   test [--vibe]    → skill: rein-test  (--generate | --fast | --vibe)
   provider         → removed in v4; providers are configured in .ai/providers.json
   where            → echo \$REIN  (now stored as ~/.rein)
@@ -6185,9 +6189,10 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
                  and the budget run on shard 1 only; a shard run never certifies a commit
                  ('rein ci status' reports SHARD i/N) and never writes the census baseline.
   --keep         Keep the worktree and throwaway HOME for debugging.
-  budget         The test budget (E-303): suites, test_lines and fast_tier_seconds only move
-                 down — a full run over the best recorded value (slack: suites +0, test_lines
-                 +2%, fast tier +10%) FAILS. 'set --ruling D-###' is the only way to raise it.
+  budget         The test budget (E-303): suites and fast_tier_seconds only move down — a
+                 full run over the best recorded value (slack: suites +0, fast tier +10%)
+                 FAILS. 'set --ruling D-###' is the only way to raise it. full_seconds is
+                 recorded. (The test_lines ratchet was retired in E-464, D-169 r9.)
 
 Per-machine environment (E-343, D-108): the run starts from an empty environment. A project
 service this machine runs differently (a port, a local URL) is listed in the gitignored
@@ -6830,8 +6835,8 @@ _ci_run() {
   fi
 
   # ── budget ── E-303 (D-088, test-economics.md §Component 7): the ratchet. A full run (suite and
-  # unit) of a repository that carries the census measures suites and test_lines (the census's
-  # own inventory), the fast tier's wall seconds (`tests/run.sh --tier fast`, timed alone) and
+  # unit) of a repository that carries the census measures suites (the census's own inventory;
+  # E-464 retired test_lines, D-169 r9), the fast tier's wall seconds (`tests/run.sh --tier fast`, timed alone) and
   # full_seconds (the suite step); then ci-record.mjs compares them with the best recorded
   # since the latest ruling. A regression FAILS the run, with recorded/measured/slack on one
   # line. No flag or env var lifts it: `rein ci budget set --ruling D-###` is the only way up.
@@ -6844,13 +6849,13 @@ _ci_run() {
     _inv="$(CENSUS_MJS="${CI_WT}/tests/tools/census.mjs" CENSUS_REPO="$CI_WT" node --no-warnings --input-type=module -e '
       const { inventory } = await import(process.env.CENSUS_MJS);
       const i = inventory(process.env.CENSUS_REPO);
-      process.stdout.write(`${i.suites.length} ${i.testLines}`);' 2>/dev/null || true)"
+      process.stdout.write(`${i.suites.length}`);' 2>/dev/null || true)"
     printf '\n[ci] ── fast tier: /bin/bash tests/run.sh --tier fast\n' >> "$CI_LOG"
     _fast_s0=$SECONDS
     ( cd "$CI_WT" && env -i "${CI_ENV[@]}" /bin/bash tests/run.sh --tier fast ) >> "$CI_LOG" 2>&1 || _fast_rc=$?
     [[ "$_fast_rc" -eq 0 ]] && fast_s=$(( SECONDS - _fast_s0 ))
-    printf '[ci] budget suites=%s test_lines=%s fast_tier_seconds=%s full_seconds=%s peak_rss_mb=%s peak_sum_rss_mb=%s\n' \
-      "$(cut -d' ' -f1 <<< "${_inv:--}")" "$(cut -d' ' -f2 <<< "${_inv:-- -}")" "$fast_s" \
+    printf '[ci] budget suites=%s fast_tier_seconds=%s full_seconds=%s peak_rss_mb=%s peak_sum_rss_mb=%s\n' \
+      "${_inv:--}" "$fast_s" \
       "$([[ -n "$shard" ]] && echo - || echo "${suite_seconds:--}")" "$([[ -n "$shard" ]] && echo - || echo "${peak_rss:--}")" \
       "$([[ -n "$shard" ]] && echo - || { sed -nE 's/^\[run\] peak_sum_rss_mb=([0-9]+).*/\1/p' "$CI_LOG" | tail -1 | grep . || echo -; })" >> "$CI_LOG"
     budget_helper="$(_rein_helper shared/ci-record.mjs || true)"
@@ -7226,7 +7231,12 @@ case "$cmd" in
   update|onboard) _show_deprecated "$cmd" "Run 'rein start' and type the planning request in the Architect pane." ;;
   preflight)     _show_deprecated "preflight" "skill: rein-preflight  (auto-runs at every session start)" ;;
   archive)       _show_deprecated "archive" "skill: rein-archive" ;;
-  review)        _show_deprecated "review" "skill: arch-review  (Architect codebase audit; the old review skill was renamed in E-147)" ;;
+  # E-464 (D-169 r8, D-170 r5): review by tier; run_review's checks moved here from orchestrator-mcp.
+  review)
+    _rv="$(_rein_helper shared/review-checks.mjs || true)"
+    [[ -n "$_rv" ]] || { echo "rein review: review-checks.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
+    command -v node >/dev/null 2>&1 || { echo "rein review: node not found" >&2; exit 1; }
+    node --no-warnings "$_rv" "${@:2}" ;;
   test)          _show_deprecated "test" "skill: rein-test  (use --vibe arg inside the skill for chaos audit)" ;;
   where)         _show_deprecated "where" "echo \"\$HOME/.rein\"  (install root is fixed)" ;;
 

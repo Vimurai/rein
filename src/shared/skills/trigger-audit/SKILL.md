@@ -64,7 +64,7 @@ for evidence of dispatch:
 - `ci_gate` → look for `ci_gate`, `DEVOPS.md`
 - `obs_baseline` → look for `obs_baseline`, `[OBS]`
 - `decision-recorder` → look for `decision-recorder`, `DECISIONS.md`, `D-###`
-- `rein-review` → look for `[CRITIC_STAMP]`, `[ARCH_PASS]`, `[SEC_PASS]`
+- `rein-review` → look for `[REVIEW_PASS]`, `[ACCEPT_PASS]`, `[SEC_CLEARED]` (E-464)
 
 Mark each dispatch as **DISPATCHED** or **OUTSTANDING**.
 

@@ -92,7 +92,7 @@ assert_status 1 "E-273.02b: the agent sync wrote and upstream dropped is pruned"
   test -e "${PROJ}/.claude/agents/zz_retiring.md"
 _ai sync >/dev/null
 assert_status 0 "E-273.02c: the user's own agent survives repeated syncs" test -f "${PROJ}/.claude/agents/my_agent.md"
-assert_status 0 "E-273.02d: the canonical agents are still there" test -f "${PROJ}/.claude/agents/critic_arch.md"
+assert_status 0 "E-273.02d: the canonical agents are still there" test -f "${PROJ}/.claude/agents/critic_acceptance.md"
 assert_status 1 "E-273.02e: the agents manifest never claims the user's agent" \
   grep -q '"my_agent.md"' "${PROJ}/.claude/agents/_SYNC_MANIFEST.json"
 

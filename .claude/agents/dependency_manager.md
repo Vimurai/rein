@@ -1,6 +1,6 @@
 ---
 name: dependency_manager
-description: Autonomous dependency resolver. Handles npm/pip/go package upgrades, resolves breaking changes, peer-dependency conflicts, and API deprecations. Validates changes via skill: rein-test before committing. Mandatory critic_security audit on new dependencies before merge.
+description: Autonomous dependency resolver. Handles npm/pip/go package upgrades, resolves breaking changes, peer-dependency conflicts, and API deprecations. Validates changes via skill: rein-test before committing. Mandatory reviewer audit on new dependencies before merge.
 disable-model-invocation: false
 user-invocable: false
 tools: Read, Write, Edit, Glob, Grep, Bash, Skill, WebFetch, mcp__task-synchronizer-mcp__add_task
@@ -101,7 +101,7 @@ the migrated call sites before the suite runs.
 Before committing ANY new/changed dependency:
 ```
 Agent({
-  subagent_type: "critic_security",
+  subagent_type: "reviewer",
   prompt: {   // state these fields in the prompt text
     scope: "dependency_upgrade",
     package: "<package>",
@@ -112,14 +112,14 @@ Agent({
 })
 ```
 
-Wait for critic_security report. If BLOCKER found:
+Wait for reviewer report. If BLOCKER found:
 - DO NOT commit
 - Create a P-## task and halt
 - Escalate to security_engineer
 
 ### Step 9 — Commit & Push
 
-If all tests pass AND critic_security gates, route commit through commit-crafter (which will include project git identity):
+If all tests pass AND reviewer gates, route commit through commit-crafter (which will include project git identity):
 ```bash
 git add package.json package-lock.json src/ (refactored files)
 ```
@@ -131,7 +131,7 @@ git commit -m "upgrade: <package> from <old> to <new>
 - Migrated deprecated APIs: <list>
 - Tests: <status>
 - Breaking changes resolved: <yes/no>
-- Security audit: PASS (critic_security)"
+- Security audit: PASS (reviewer)"
 ```
 
 Push the branch:
@@ -147,7 +147,7 @@ mcp__task-synchronizer-mcp__add_task({
   owner: "Engineer (Claude)",
   prefix: "P",
   tier: 2,
-  description: "Review upgrade: <package> to <version> (verify API migrations, test coverage, peer-dependency alignment, critic_security pass)",
+  description: "Review upgrade: <package> to <version> (verify API migrations, test coverage, peer-dependency alignment, reviewer pass)",
   depends_on: []
 })
 ```
@@ -172,7 +172,7 @@ If the Tester reports regressions or tests fail post-upgrade:
 
 ## Security Gate (Non-Negotiable)
 
-- **New packages** introduced by a peer-dependency upgrade must be audited by `critic_security` before merging
+- **New packages** introduced by a peer-dependency upgrade must be audited by `reviewer` before merging
 - Run `npm audit` and review any new vulnerabilities
 - If CVE found → mark as P0 and escalate to security_engineer
 
@@ -182,4 +182,4 @@ If the Tester reports regressions or tests fail post-upgrade:
 - Do NOT commit incomplete refactoring — if you get stuck, create a P-## task
 - Do NOT auto-merge PRs — only create them; Lead Engineer reviews before merge
 - Do NOT modify `package.json` manually if `npm` can do it (use CLI for version management)
-- Do NOT commit before critic_security audit completes (non-negotiable)
+- Do NOT commit before reviewer audit completes (non-negotiable)

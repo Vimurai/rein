@@ -30,8 +30,9 @@ crash-safe store that every session reads first.
 **Plan and build are different jobs.** An Architect pane cannot touch source, and an Engineer
 pane cannot rewrite the plan. Each wakes the other when its turn ends; you watch and answer.
 
-**Nothing merges on trust.** Independent critics review the diff, and tests run in a clean
-worktree. A commit without a fresh review stamp is refused by a hook, not by a request.
+**Nothing merges on trust.** An independent reviewer reads the diff, an acceptance evaluator
+observes each acceptance clause, and tests run in a clean worktree. A task without its review
+stamps is refused DONE by the ledger, not by a request.
 
 **Local, thin, yours.** No proxy, no cloud service, no account beyond Claude Code. Rein is
 open source under the [Apache License 2.0](LICENSE).
@@ -77,7 +78,7 @@ flowchart LR
         M1[("state.sqlite<br/>ACID · WAL")]
         M2["TASKS · DIGEST · COMM<br/>blueprints · DECISIONS"]
     end
-    C["critics + tester<br/>arch · security · tests"]
+    C["reviewer + acceptance<br/>+ tester"]
     You -->|"plan X"| A
     A -->|"writes"| M
     A -->|"wake"| E
@@ -138,7 +139,7 @@ Then type your first request into the **Architect** pane:
 > *Plan a `/health` endpoint that reports the app version and database status.*
 
 The Architect writes `.ai/blueprints/health.md`, adds `E-##` tasks to `.ai/TASKS.md`, and
-wakes the Engineer. The Engineer implements them, runs the tests and the critics, commits, and
+wakes the Engineer. The Engineer implements them, runs the tests and the review, commits, and
 hands back. For an existing codebase, start with *"Reverse-engineer this repository into
 `.ai/BRIEF.md` and `.ai/architect.md`."*
 
@@ -150,11 +151,11 @@ hands back. For an existing codebase, start with *"Reverse-engineer this reposit
 | :--- | :--- | :--- |
 | **The plan outlives the chat** | `.ai/` holds the blueprint, tasks, decisions, digest, log and review stamps in ACID SQLite, mirrored to Markdown. | [How it works](docs/how-it-works.md#the-ai-directory) |
 | **Planning and building stay apart** | Architect and Engineer panes, each with its own model, rulefile and permissions; a headless Tester. | [How it works](docs/how-it-works.md#the-roles) |
-| **Rules that hold** | A tool-call gate (role boundaries, destructive commands, secrets), a pre-commit review gate, a pre-push CI gate. | [Gates and review](docs/gates-and-review.md) |
-| **A second opinion on every diff** | Critics for architecture, security, tests and clean code, each in its own context, stamping `PASS`/`FAIL`. | [Gates and review](docs/gates-and-review.md#critics) |
+| **Rules that hold** | A tool-call gate (role boundaries, destructive commands, secrets), a pre-commit gate (standards, secrets, privacy), a pre-push CI gate, and review by tier checked at DONE. | [Gates and review](docs/gates-and-review.md) |
+| **A second opinion on every diff** | One `reviewer` (the diff against the task and its blueprint) and `critic_acceptance`, each in its own context, stamping `PASS`/`FAIL`; a security round for Tier 3. | [Gates and review](docs/gates-and-review.md#reviewers) |
 | **A green commit means the commit** | `rein ci run` tests a committed sha in a clean worktree; a test budget that only moves down; hosted CI on Linux and macOS. | [CI](docs/ci.md) |
 | **Procedures the agents follow** | 40+ skills — preflight, task close-out, handoff, debugging, release, dependency and CI gates. | [Agents and skills](docs/agents-and-skills.md) |
-| **Specialists on call** | 22 subagents — critics, Tester, security, database, DevOps, performance, chaos, UX, docs. | [Agents and skills](docs/agents-and-skills.md#subagents) |
+| **Specialists on call** | 19 subagents — reviewer, acceptance, Tester, security, database, DevOps, performance, chaos, UX, docs. | [Agents and skills](docs/agents-and-skills.md#subagents) |
 | **Tools without a server** | 16 local MCP servers (task store, orchestration, safe exec, patching, risk tiers, blueprint alignment, approval, memory…) wired by `rein sync`. | [MCP servers](docs/mcp-servers.md) |
 | **More than one developer** | Task claims on the trunk, per-developer id ranges, shared logs. | [Team mode](docs/team-mode.md) |
 | **A project on another subscription** | `rein account add` and `rein start --account`. | [Getting started](docs/getting-started.md#a-second-claude-account) |
@@ -194,7 +195,7 @@ Inside Claude Code, the commonly used skills are:
 | `rein-task` | After a task: mark it done (CI must be green), hand over, show the next one. |
 | `rein-handoff` | Write the COMM.md note and wake the other pane. |
 | `rein-test` | Run your tests; `--generate` dispatches the Tester to write new ones. |
-| `rein-review` | Tier-aware review: critics in parallel for risky changes. |
+| `rein-review` | Review by tier: `rein review <tier>` and the agents it names. |
 | `rein-debug` | Hypothesis → test → observe loop; commits stay locked until green. |
 | `rein-archive` | Rotate long logs. (`.ai/DIGEST.md` is generated: `rein digest build`.) |
 
@@ -216,7 +217,7 @@ account is optional, for keeping one project on another subscription.
 overwrites your files; ask the Architect to reverse-engineer the codebase first.
 
 **Can I use only one pane?** Yes. The Engineer alone is a disciplined single agent with memory,
-gates and critics. You lose the planning half and the automatic handoff.
+gates and review. You lose the planning half and the automatic handoff.
 
 **How do I turn a gate off?** In your own terminal, `rein gate off --minutes 15 --reason "…"`.
 Catastrophic commands still block, and every bypassed call is announced. An agent cannot do this

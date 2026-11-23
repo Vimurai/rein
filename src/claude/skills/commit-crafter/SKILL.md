@@ -30,7 +30,7 @@ You are the **Commit Formatter**. Your sole job is to produce a valid, Rein-comp
 
 1. Read `.ai/TASKS.md` — identify the E-## task(s) covered by the staged changes.
 2. Run `git diff --staged --stat` — understand what changed.
-3. Check `.ai/REVIEWS.md` last line — confirm a recent `[CRITIC_STAMP]` or `[ALIGN_PASS]` exists (Tier 2+).
+3. No review stamp is needed to commit (E-464): review by tier (`rein review <tier>`) is checked when the task closes.
 
 ## Step 2 — Classify Commit Type
 

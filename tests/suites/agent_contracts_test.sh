@@ -3,165 +3,43 @@
 # SKILL.md for the clauses its blueprint mandates, and check the mirrors). E-302 merged the
 # per-agent suites into this one; each section below names the suite it came from.
 #
-# E-81 critic_clean_code persona: verifies src/claude/agents/critic_clean_code.md against the contract in
-# .ai/blueprints/engineering-standards.md §Components 2 and the integration
-# pattern documented in src/claude/skills/rein-review/SKILL.md:
-#
-#   - Persona file exists with parseable YAML frontmatter
-#   - Persona invokes scripts/standards.mjs (the E-80 CLI) — single source
-#     of truth, never re-implements the rule logic
-#   - Persona stamps via task-synchronizer-mcp::add_stamp (never writes
-#     REVIEWS.md directly) using CLEAN_PASS / CLEAN_WARN / CLEAN_FAIL types
-#   - rein-review SKILL.md Tier 2 + Tier 3 sections wire the persona in
-#   - REIN_SKIP_STANDARDS=1 rollback path documented in the persona
-#   - Severity ladder + verdict table match the E-80 envelope schema
-#   - Mirrors byte-identical to .claude/ + ~/.rein/claude/
+# E-464 (D-169 r8, lean-core.md §Component 5): the reviewer persona replaced critic_arch,
+# critic_tests, critic_clean_code, critic_security and review_synthesizer (their sections here
+# were retired with them). Verifies src/claude/agents/reviewer.md carries its contract:
+#   - frontmatter: read-only tools, add_stamp, forked context
+#   - one stamp, REVIEW_PASS or REVIEW_FAIL, through add_stamp (never REVIEWS.md)
+#   - reads the task text and the blueprint it names; applies D-088
+#   - the workspace copy is byte-identical; only critic_acceptance keeps the critic_ prefix
 
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-PERSONA_SRC="${REPO_ROOT}/src/claude/agents/critic_clean_code.md"
-PERSONA_CLD="${REPO_ROOT}/.claude/agents/critic_clean_code.md"
-PERSONA_MIRROR="${HOME}/.rein/claude/agents/critic_clean_code.md"
-REVIEW_SRC="${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md"
-REVIEW_CLD="${REPO_ROOT}/.claude/skills/rein-review/SKILL.md"
-REVIEW_MIRROR="${HOME}/.rein/claude/skills/rein-review/SKILL.md"
+PERSONA_SRC="${REPO_ROOT}/src/claude/agents/reviewer.md"
+PERSONA_CLD="${REPO_ROOT}/.claude/agents/reviewer.md"
 
 echo "── Suite: agent_contracts_test ──────────────────────────────────────"
 
-# ── T-CCC-S01: Persona file presence + frontmatter integrity ────────────────
 echo ""
-echo "  [T-CCC-S01] Persona file exists with parseable frontmatter"
-
+echo "  [T-REV-S01] reviewer persona: frontmatter, stamp, inputs"
 assert_status 0 "src/ persona exists"                test -f "$PERSONA_SRC"
-assert_status 0 ".claude/ mirror exists"             test -f "$PERSONA_CLD"
-assert_status 0 "frontmatter opens on line 1"        bash -c "grep < <(head -1 '$PERSONA_SRC') -q '^---$'"
-assert_status 0 "name: critic_clean_code"            grep -q '^name: critic_clean_code$' "$PERSONA_SRC"
-assert_status 0 "description present"                grep -q '^description: ' "$PERSONA_SRC"
-assert_status 0 "description double-quoted (colon-parse guard)" \
-  bash -c "grep < <(head -10 '$PERSONA_SRC') -q '^description: \"'"
-assert_status 0 "frontmatter has closing delimiter within 30 lines" \
-  bash -c "grep < <(awk 'NR>1 && /^---$/{print NR; exit}' '$PERSONA_SRC') -qE '^[2-9]$|^[12][0-9]$|^30$'"
-assert_status 0 "tools allowlist includes Bash (for shell + git diff; E-295: subagents use tools, not allowed-tools)" \
-  grep -q '^tools:.*Bash' "$PERSONA_SRC"
-assert_status 0 "context: fork (parallel-spawnable)"  grep -q '^context: fork' "$PERSONA_SRC"
-
-# ── T-CCC-S02: Persona invokes the E-80 standards-checker CLI ───────────────
-echo ""
-echo "  [T-CCC-S02] Persona uses scripts/standards.mjs (single source of truth)"
-
-assert_status 0 "persona references scripts/standards.mjs" \
-  grep -q 'scripts/standards.mjs' "$PERSONA_SRC"
-assert_status 0 "persona uses --staged + --json envelope" \
-  grep -q 'check --staged --json' "$PERSONA_SRC"
-assert_status 0 "persona documents the locator chain (in-tree + ~/.rein fallback)" \
-  grep -qE '\$\{HOME\}/.rein/scripts/standards.mjs|HOME.*rein' "$PERSONA_SRC"
-assert_status 0 "persona references standards.json (rule registry)" \
-  grep -q 'standards.json' "$PERSONA_SRC"
-assert_status 0 "persona reads the engineering-standards blueprint" \
-  grep -q 'engineering-standards.md' "$PERSONA_SRC"
-
-# ── T-CCC-S03: Stamp contract — uses MCP, never writes REVIEWS.md ───────────
-echo ""
-echo "  [T-CCC-S03] Persona stamps via task-synchronizer-mcp::add_stamp"
-
-assert_status 0 "persona invokes add_stamp"           grep -q 'mcp__task-synchronizer-mcp__add_stamp' "$PERSONA_SRC"
-assert_status 0 "persona explicitly forbids writing REVIEWS.md" \
-  grep -qE 'never write[s]? .*REVIEWS.md|do NOT write.*REVIEWS.md|never writes? \`.ai/REVIEWS.md\`' "$PERSONA_SRC"
-for stamp in CLEAN_PASS CLEAN_WARN CLEAN_FAIL; do
-  assert_status 0 "stamp type ${stamp} documented" \
-    grep -q "${stamp}" "$PERSONA_SRC"
+assert_status 0 "name: reviewer"                     grep -q '^name: reviewer$' "$PERSONA_SRC"
+assert_status 0 "tools allowlist: Bash and add_stamp" grep -qE '^tools:.*Bash.*mcp__task-synchronizer-mcp__add_stamp' "$PERSONA_SRC"
+assert_status 0 "never writes (disallowedTools)"     grep -q '^disallowedTools: Write, Edit, NotebookEdit$' "$PERSONA_SRC"
+assert_status 0 "context: fork"                      grep -q '^context: fork' "$PERSONA_SRC"
+for stamp in REVIEW_PASS REVIEW_FAIL; do
+  assert_status 0 "stamp type ${stamp} documented" grep -q "${stamp}" "$PERSONA_SRC"
 done
-assert_status 0 "agent string in stamp = critic_clean_code" \
-  grep -qE 'agent: *.*critic_clean_code' "$PERSONA_SRC"
-
-# ── T-CCC-S04: Verdict table follows the E-80 envelope semantics ────────────
-echo ""
-echo "  [T-CCC-S04] Verdict ladder matches summary{error_count,warning_count}"
-
-assert_status 0 "persona references summary.error_count semantic" \
-  grep -q 'error_count' "$PERSONA_SRC"
-assert_status 0 "persona references warning_count semantic" \
-  grep -qE 'warning_count|warn_count' "$PERSONA_SRC"
-assert_status 0 "CLEAN_WARN is non-blocking for Tier 2" \
-  grep -qiE 'CLEAN_WARN does NOT block|does not block' "$PERSONA_SRC"
-assert_status 0 "CLEAN_FAIL is the COMMIT BLOCKED signal" \
-  grep -q 'COMMIT BLOCKED' "$PERSONA_SRC"
-
-# ── T-CCC-S05: Rollback path documented per blueprint §Rollback Plan ───────
-echo ""
-echo "  [T-CCC-S05] REIN_SKIP_STANDARDS=1 escape hatch documented"
-
-assert_status 0 "rollback flag named verbatim"       grep -q 'REIN_SKIP_STANDARDS=1' "$PERSONA_SRC"
-assert_status 0 "STANDARDS_SKIPPED marker referenced" grep -q 'STANDARDS_SKIPPED' "$PERSONA_SRC"
-assert_status 0 "skip-path still emits a stamp"      \
-  bash -c "grep < <(awk '/^## Rollback/{f=1; next} /^## /{f=0} f' '$PERSONA_SRC') -q 'add_stamp'"
-
-# ── T-CCC-S06: Pre-flight reads documented (blueprint + standards.json) ─────
-echo ""
-echo "  [T-CCC-S06] Persona reads the contract files before reviewing"
-
-assert_status 0 "preflight section present"          grep -q '^## Pre-flight' "$PERSONA_SRC"
-assert_status 0 "preflight reads engineering-standards.md blueprint" \
-  bash -c "grep < <(awk '/^## Pre-flight/,/^## Step 1/' '$PERSONA_SRC') -q 'engineering-standards.md'"
-assert_status 0 "preflight reads standards.json registry" \
-  bash -c "grep < <(awk '/^## Pre-flight/,/^## Step 1/' '$PERSONA_SRC') -q 'standards.json'"
-assert_status 0 "no-staged-surface short-circuit documented" \
-  grep -qE 'no staged surface|no staged changes' "$PERSONA_SRC"
-
-# ── T-CCC-S07: rein-review SKILL.md wires critic_clean_code at Tier 2 + Tier 3 ─
-echo ""
-echo "  [T-CCC-S07] rein-review skill invokes critic_clean_code in Tier 2 + Tier 3"
-
-# Tier 2 block — between '## Tier 2' and '## Tier 3'.
-assert_status 0 "Tier 2 section spawns critic_clean_code" \
-  bash -c "grep < <(awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC') -q 'critic_clean_code'"
-assert_status 0 "Tier 2 section names CLEAN_PASS|CLEAN_WARN|CLEAN_FAIL" \
-  bash -c "grep < <(awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC') -qE 'CLEAN_PASS|CLEAN_WARN|CLEAN_FAIL'"
-assert_status 0 "Tier 2 documents the pass-gate condition" \
-  bash -c "grep < <(awk '/^## Tier 2/,/^## Tier 3/' '$REVIEW_SRC') -qE 'CLEAN must NOT be .FAIL|CLEAN_FAIL'"
-
-# Tier 3 block — from '## Tier 3' to EOF.
-assert_status 0 "Tier 3 spawns critic_clean_code" \
-  bash -c "grep < <(awk '/^## Tier 3/{f=1} f' '$REVIEW_SRC') -q 'critic_clean_code'"
-assert_status 0 "Tier 3 expected-stamps list mentions CLEAN_*" \
-  bash -c "grep < <(awk '/^## Tier 3/{f=1} f' '$REVIEW_SRC') -qE 'CLEAN_PASS/WARN/FAIL'"
-
-# ── T-CCC-S08: ~/.rein mirrors byte-identical ──────────────────────────────
-echo ""
-echo "  [T-CCC-S08] Mirrors match src/"
-
-assert_status 0 "persona .claude/ mirror"      diff -q "$PERSONA_SRC" "$PERSONA_CLD"
-if [[ -f "$PERSONA_MIRROR" ]]; then
-  assert_status 0 "persona ~/.rein/ mirror"   diff -q "$PERSONA_SRC" "$PERSONA_MIRROR"
-else
-  echo "    ⚠  persona ~/.rein/ mirror absent — skipping"
-fi
-assert_status 0 "rein-review .claude/ mirror"   diff -q "$REVIEW_SRC" "$REVIEW_CLD"
-if [[ -f "$REVIEW_MIRROR" ]]; then
-  assert_status 0 "rein-review ~/.rein/ mirror" diff -q "$REVIEW_SRC" "$REVIEW_MIRROR"
-else
-  echo "    ⚠  rein-review ~/.rein/ mirror absent — skipping"
-fi
-
-# ── T-CCC-S09: Reference resolution — critic_clean_code points to E-80 files ─
-echo ""
-echo "  [T-CCC-S09] Persona's referenced files actually exist in the repo"
-
-assert_status 0 "scripts/standards.mjs exists" test -f "${REPO_ROOT}/scripts/standards.mjs"
-assert_status 0 "src/shared/standards.json exists" test -f "${REPO_ROOT}/src/shared/standards.json"
-assert_status 0 "blueprint exists"             test -f "${REPO_ROOT}/.ai/blueprints/engineering-standards.md"
-
-# ── T-CCC-S10: Anti-drift — persona does not re-implement checks ────────────
-echo ""
-echo "  [T-CCC-S10] Persona declares it does NOT bypass the CLI"
-
-assert_status 0 "explicit 'do NOT bypass the CLI' guard" \
-  grep -qE 'NOT bypass the CLI|reimplement|single source of truth' "$PERSONA_SRC"
-assert_status 0 "explicit read-only review constraint" \
-  grep -qE 'read-only|Read-only|MUST NOT modify any source file|Do NOT modify any source' "$PERSONA_SRC"
+assert_status 0 "agent string in stamp = reviewer"   grep -qE 'agent: *"reviewer"' "$PERSONA_SRC"
+assert_status 0 "forbids writing REVIEWS.md"         grep -q 'never write `.ai/REVIEWS.md`' "$PERSONA_SRC"
+assert_status 0 "reads the blueprint the task names" grep -q 'The blueprint' "$PERSONA_SRC"
+assert_status 0 "applies D-088 (one test per behaviour, cheapest layer)" \
+  grep -q 'One test per changed behaviour, at the cheapest layer' "$PERSONA_SRC"
+assert_status 0 "persona .claude/ mirror"            diff -q "$PERSONA_SRC" "$PERSONA_CLD"
+assert_contains "only critic_acceptance keeps the critic_ prefix" "critic_acceptance.md" \
+  "$(cd "${REPO_ROOT}/src/claude/agents" && ls critic_*)"
+assert_match "exactly one critic_ agent" '^1$' "$(cd "${REPO_ROOT}/src/claude/agents" && ls | grep -c critic_)"
 
 echo ""
 
@@ -197,9 +75,9 @@ assert_status 1 "perf: no DEFERRED flamegraph banner remains" \
 # db: mandatory DOWN/rollback migration
 assert_status 0 "db: requires DOWN/rollback migration" \
   grep -qiE "down|rollback" "${REPO_ROOT}/src/claude/agents/db_architect.md"
-# dependency: cannot bypass critic_security
-assert_status 0 "dep: routes through critic_security" \
-  grep -qiE "critic_security|cve|audit" "${REPO_ROOT}/src/claude/agents/dependency_manager.md"
+# dependency: cannot bypass the review (E-464: the reviewer replaced critic_security)
+assert_status 0 "dep: routes through the reviewer" \
+  grep -qiE "reviewer|cve|audit" "${REPO_ROOT}/src/claude/agents/dependency_manager.md"
 # sre: READ-ONLY over logs — plans tasks, never edits code itself
 assert_status 0 "sre: read-only / plans tasks via add_task" \
   grep -qiE "read-only|add_task|plan" "${REPO_ROOT}/src/claude/agents/sre_responder.md"
@@ -330,7 +208,7 @@ assert_contains "T-100: rein-review stays fork (review orchestrator)" "fork" "$(
 assert_contains "T-100: architectural-aligner stays fork" "fork" "$(ctx "${REPO_ROOT}/src/claude/skills/architectural-aligner/SKILL.md")"
 
 # ── Critic personas (agents) legitimately keep fork (parallel-spawnable) ─────
-assert_contains "T-100: critic_clean_code agent stays fork" "fork" "$(ctx "${REPO_ROOT}/src/claude/agents/critic_clean_code.md")"
+assert_contains "T-100: reviewer agent stays fork" "fork" "$(ctx "${REPO_ROOT}/src/claude/agents/reviewer.md")"
 
 # ── `context: local` (invalid Claude Code value) must appear NOWHERE ─────────
 # E-251: the corpus is built with corpus_or_fail — a moved or missing root must fail the
@@ -350,31 +228,18 @@ for s in trigger-audit rein-sync-state; do   # the compaction skill (E-283) and 
   fi
 done
 
-# ── E-113 (from vibe_stamp_alignment_test — E-302): rein-test's vibe stamp matches review_synthesizer ──
-# review_synthesizer requires for a Tier-3 release.
-# Before the fix, rein-test emitted [VIBE_REPORT] (by appending to the regenerated
-# REVIEWS.md view) while review_synthesizer gated Tier 3 on [VIBE_CLEARED] — so a
-# release could never satisfy the prerequisite. rein-test now records [VIBE_CLEARED]
-# via add_stamp (persists through SQLite → REVIEWS.md).
+# ── E-113 (from vibe_stamp_alignment_test — E-302): rein-test records [VIBE_CLEARED] via add_stamp ──
+# Before the fix, rein-test emitted [VIBE_REPORT] by appending to the regenerated REVIEWS.md view.
+# E-464 removed review_synthesizer, which gated Tier 3 on [VIBE_CLEARED]; its alignment row went with it.
 AI_TEST="${REPO_ROOT}/src/shared/skills/rein-test/SKILL.md"
-SYNTH="${REPO_ROOT}/src/claude/skills/review_synthesizer/SKILL.md"  # E-141: relocated agent→skill; E-254: src/claude
-
-
-# ── rein-test emits the stamp review_synthesizer needs ─────────────────────────
 assert_status 0 "rein-test emits [VIBE_CLEARED]"            grep -qF 'VIBE_CLEARED' "$AI_TEST"
 assert_status 0 "rein-test records vibe verdict via add_stamp" \
   grep -q 'add_stamp' "$AI_TEST"
 assert_status 1 "rein-test no longer emits [VIBE_REPORT]"   grep -qF 'VIBE_REPORT' "$AI_TEST"
 assert_status 1 "rein-test no longer hand-appends the vibe stamp to REVIEWS.md" \
   grep -qE 'Append .*VIBE.* to .*REVIEWS\.md' "$AI_TEST"
-
-# ── the Tier-3 gate list requires [VIBE_CLEARED] ─────────────────────────────
-assert_status 0 "rein-test Tier-3 gate lists [VIBE_CLEARED]" \
-  grep -qE '\[VIBE_CLEARED\].*7 days|VIBE_CLEARED.*review_synthesizer' "$AI_TEST"
-
-# ── alignment: review_synthesizer requires exactly that stamp ────────────────
-assert_status 0 "review_synthesizer requires [VIBE_CLEARED]" \
-  grep -qF 'VIBE_CLEARED' "$SYNTH"
+assert_status 0 "rein-test's release gate lists [VIBE_CLEARED] (≤ 7 days)" \
+  grep -qE '\[VIBE_CLEARED\].*7 days' "$AI_TEST"
 
 # ── mirror identity for rein-test (.claude + ~/.rein) ──────────────────────
 assert_status 0 "rein-test .claude mirror identical" \

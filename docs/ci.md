@@ -73,16 +73,18 @@ Every green run records:
 | Field | Ratchet |
 | :--- | :--- |
 | `suites` | may not grow (+0) |
-| `test_lines` | +2 % slack |
 | `fast_tier_seconds` | +10 % slack |
 | `full_seconds`, `peak_rss_mb`, `peak_sum_rss_mb` | recorded, not ratcheted (host load makes them noisy) |
+
+The `test_lines` ratchet was retired (D-169 r9): time is the cost; one test per behaviour at the
+cheapest layer is a rule the `reviewer` applies.
 
 The best (lowest) value since the last ruling is the budget; a run that exceeds it plus its slack
 fails with `[BUDGET_REGRESSION]`, naming the field. No flag lifts it. To raise a budget, record a
 decision and write it into the record:
 
 ```bash
-rein ci budget set --ruling D-042 test_lines=41000
+rein ci budget set --ruling D-042 fast_tier_seconds=45
 ```
 
 ## Hosted CI

@@ -632,14 +632,12 @@ for _ls in "rein_start_test|test_tmux_socket" "rein_start_test (E-228 section)|t
 done
 
 # ── E-240.7: review question #3 is recorded ──────────────────────────────
-assert_status 0 "E-240.07a: critic_tests asks what a halfway failure leaves behind" \
+# E-464: the one reviewer carries the standing questions (critic_tests and rein-review's copy retired).
+assert_status 0 "E-240.07a: the reviewer asks what a halfway failure leaves behind" \
   grep -q 'What does this test leave behind when an assertion fails HALFWAY' \
-    "${REPO_ROOT}/src/claude/agents/critic_tests.md"
-assert_status 0 "E-240.07b: rein-review asks it too" \
-  grep -q 'What does this test leave behind when an assertion fails HALFWAY' \
-    "${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md"
+    "${REPO_ROOT}/src/claude/agents/reviewer.md"
 assert_status 0 "E-240.07c: it insists cleanup is registered BEFORE the state exists" \
-  grep -q 'registered before' "${REPO_ROOT}/src/claude/agents/critic_tests.md"
+  grep -q 'registered before' "${REPO_ROOT}/src/claude/agents/reviewer.md"
 
 
 # ── E-241 (D-064 §1): trap chaining — the limitation E-240 could not close ──
@@ -744,8 +742,8 @@ assert_status 0 "E-241.04b: the standards rule exists" \
   grep -q 'no_raw_exit_trap_in_tests' "${REPO_ROOT}/src/shared/standards-checker.mjs"
 assert_status 0 "E-241.04c: and is registered" \
   grep -q 'no_raw_exit_trap_in_tests' "${REPO_ROOT}/src/shared/standards.json"
-assert_status 0 "E-241.05a: review question #4 is in critic_tests" \
-  grep -q 'called inside a command substitution' "${REPO_ROOT}/src/claude/agents/critic_tests.md"
+assert_status 0 "E-241.05a: review question #4 is in the reviewer" \
+  grep -q 'called inside a command substitution' "${REPO_ROOT}/src/claude/agents/reviewer.md"
 assert_status 0 "E-241.05b: and in rein-debug" \
   grep -q 'called inside a command substitution' "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
 
@@ -795,14 +793,10 @@ done
 
 # ── E-264.4: standing review question #7 ───────────────────────────────────
 echo "  [E-264.4] review question #7"
-for f in src/claude/agents/critic_tests.md src/claude/skills/rein-review/SKILL.md; do
-  assert_status 0 "E-264.04a: review question #7 is in ${f}" \
-    grep -q 'review question #7 — E-264' "${REPO_ROOT}/${f}"
-done
-assert_mirror_if_present "E-264.04b: critic_tests mirror matches" \
-  "${REPO_ROOT}/src/claude/agents/critic_tests.md" "${REPO_ROOT}/.claude/agents/critic_tests.md"
-assert_mirror_if_present "E-264.04c: rein-review mirror matches" \
-  "${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-review/SKILL.md"
+assert_status 0 "E-264.04a: review question #7 is in the reviewer" \
+  grep -q 'review question #7 — E-264' "${REPO_ROOT}/src/claude/agents/reviewer.md"
+assert_mirror_if_present "E-264.04b: reviewer mirror matches" \
+  "${REPO_ROOT}/src/claude/agents/reviewer.md" "${REPO_ROOT}/.claude/agents/reviewer.md"
 
 echo ""
 
@@ -880,17 +874,14 @@ assert_contains "E-236.05d: an unreadable path yields empty, not a partial blob"
 rm -f "$_f"
 
 # ── E-236.6: the standing review question is recorded where reviewers look ─
-assert_status 0 "E-236.06a: critic_tests asks the environment-dependence question" \
+assert_status 0 "E-236.06a: the reviewer asks the environment-dependence question" \
   grep -q "Does this assertion depend on what the running machine happens to have" \
-    "${REPO_ROOT}/src/claude/agents/critic_tests.md"
-assert_status 0 "E-236.06b: rein-review asks it too" \
-  grep -q "Does this assertion depend on what the running machine happens to have" \
-    "${REPO_ROOT}/src/claude/skills/rein-review/SKILL.md"
+    "${REPO_ROOT}/src/claude/agents/reviewer.md"
 # The question is only useful with the two remedies attached: supply the dependency when it
 # is accidental, skip when it is genuinely optional. Naming one without the other is how a
 # reviewer reaches for skip_unless on a test that should have supplied a scratch HOME.
 assert_status 0 "E-236.06c: it names BOTH remedies, not just skipping" \
-  grep -q "SUPPLY what it needs" "${REPO_ROOT}/src/claude/agents/critic_tests.md"
+  grep -q "SUPPLY what it needs" "${REPO_ROOT}/src/claude/agents/reviewer.md"
 
 echo ""
 
@@ -1008,13 +999,7 @@ assert_status 0 "E-257.03h: --reset never moves the file AI_TELEMETRY_DB_PATH na
   test -f "$OVR" -a "$(_count "$OVR")" = "$_before_ovr" -a ! -e "${OVR}.$(date -u +%Y-%m-%d).bak"
 
 # ── E-257.4: review question #6 ────────────────────────────────────────────────
-for f in src/claude/agents/critic_tests.md src/claude/skills/rein-review/SKILL.md; do
-  assert_status 0 "E-257.04: review question #6 is in ${f}" grep -q 'review question #6 — E-257' "${TI_ROOT}/${f}"
-done
-assert_mirror_if_present "E-257.04c: critic_tests mirror matches" \
-  "${TI_ROOT}/src/claude/agents/critic_tests.md" "${TI_ROOT}/.claude/agents/critic_tests.md"
-assert_mirror_if_present "E-257.04d: rein-review mirror matches" \
-  "${TI_ROOT}/src/claude/skills/rein-review/SKILL.md" "${TI_ROOT}/.claude/skills/rein-review/SKILL.md"
+assert_status 0 "E-257.04: review question #6 is in the reviewer" grep -q 'review question #6 — E-257' "${TI_ROOT}/src/claude/agents/reviewer.md"
 
 # ── E-239 (from perf_budget_test — E-302, D-062 §2): a perf budget measures the CODE, not the host ──
 # Both properties are pinned: a REAL regression must still fail, and the SAME code on a slow host
@@ -1132,8 +1117,8 @@ assert_status 0 "E-239.07c: telemetry uses assert_perf" \
 # it uses to measure itself.
 assert_status 0 "E-239.07d: telemetry's baseline includes its own measurement overhead" \
   grep -q '2 \* \$(perf_baseline_node) + \$(perf_baseline_hook)' "${REPO_ROOT}/tests/suites/telemetry_test.sh"
-assert_status 0 "E-239.07e: critic_tests flags an absolute budget with no baseline" \
-  grep -q 'Absolute performance budgets without a baseline' "${REPO_ROOT}/src/claude/agents/critic_tests.md"
+assert_status 0 "E-239.07e: the reviewer flags an absolute budget with no baseline" \
+  grep -q 'Absolute performance budgets without a baseline' "${REPO_ROOT}/src/claude/agents/reviewer.md"
 
 # ── E-408 (D-141 addendum r3): the operator's GitHub login never reaches a suite ───────────
 # Extends the E-309 lane fixture above (same copied runner): one suite prints what gh would

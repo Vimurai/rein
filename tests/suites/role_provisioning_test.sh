@@ -541,8 +541,8 @@ assert_status 0 "E-255.08a: test_engineer frontmatter pins model: sonnet" \
 _pinned="$(cd "${REPO_ROOT}/src/claude/agents" && for _f in *.md; do
   grep < <(sed -n '2,/^---$/p' "$_f") -qE '^model:' && printf '%s=%s ' "${_f%.md}" "$(sed -n '2,/^---$/p' "$_f" | sed -n 's/^model: *//p')"
 done)"
-_want="critic_arch=sonnet critic_clean_code=sonnet critic_security=sonnet critic_tests=sonnet docs-architect=sonnet memory_curator=sonnet sre_responder=sonnet test_engineer=sonnet "
-assert_status 0 "D-110.01: exactly the seven rule-matchers and test_engineer pin model: sonnet (got: ${_pinned})" \
+_want="docs-architect=sonnet memory_curator=sonnet sre_responder=sonnet test_engineer=sonnet "
+assert_status 0 "D-110.01: exactly the rule-matchers and test_engineer pin model: sonnet (E-464 removed the four critics) (got: ${_pinned})" \
   test "$_pinned" = "$_want"
 assert_status 0 "E-255.08b: test_engineer stamps through add_stamp, and only that MCP tool" \
   bash -c "grep < <(grep -E '^tools:' '$AGENT') -q 'mcp__task-synchronizer-mcp__add_stamp' && [ \"\$(grep -E '^tools:' '$AGENT' | grep -oE 'mcp__[a-z-]+__[a-z_]+' | wc -l | tr -d ' ')\" = 1 ]"

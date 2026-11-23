@@ -22,7 +22,6 @@ import {
 } from "../../src/mcp/shared/record-store.mjs";
 import { migrateTeam, migrateLegacy, IGNORE_BEGIN, ATTRIBUTES } from "../../src/mcp/shared/record-migrate.mjs";
 import { runTaskDone, main as cliMain, GATE_ROLLBACK_VARS } from "../../src/shared/cli-state.mjs";
-import { stampForParent } from "../../src/shared/stamp-gate.mjs";
 import { tcFixtureHome } from "../lib/toolchain-fixture.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -703,8 +702,9 @@ test("--team writes .ai/.gitattributes; --legacy removes it, but keeps one the u
 });
 
 // ── E-329 (D-102 §Component 6): a stamp names the commit it reviewed ──────────
-// Extends the insertStamp / rebuildIndex / view tests above with sha + author; pre-commit
-// Gate 2 itself is driven through the real hook in tests/suites/git_lane_test.sh (E-329.*).
+// Extends the insertStamp / rebuildIndex / view tests above with sha + author. Since E-464 the
+// sha binds a stamp for the DONE gate (completion-gates.test.mjs); pre-commit no longer reads it,
+// and the stampForParent rows went with src/shared/stamp-gate.mjs.
 
 test("every stamp — legacy or team — records HEAD and the git email; the views show them; an older stamp reads as before", (t) => {
   const { root, ai } = repo(t, "stampsha");
@@ -751,42 +751,3 @@ test("rebuildIndex refuses a pulled stamp whose sha or author would forge REVIEW
   }
 });
 
-test("stampForParent: the index, the rotated archive and a team record all count; a stamp for another sha does not", (t) => {
-  const { root, ai } = repo(t, "stampgate");
-  writeFileSync(join(root, "README"), "x\n"); commitAll(root, "base");
-  const head = git(root, "rev-parse", "HEAD").trim();
-  const other = "f".repeat(40);
-  mkdirSync(join(ai, "archive"));
-  const put = (rows) => writeFileSync(join(ai, "archive", "stamps-2026-09.json"), JSON.stringify(rows));
-  put([{ type: "CRITIC_STAMP", sha: other, author: "x@y", timestamp: "2026-09-01T00:00:00Z" }]);
-  let r = stampForParent(ai, head);
-  assert.deepEqual({ ok: r.ok, newest: r.newest.sha }, { ok: false, newest: other });
-  put([{ type: "ARCH_PASS", sha: head, timestamp: "2026-09-01T00:00:00Z" }]);
-  assert.equal(stampForParent(ai, head).ok, false, "only a CRITIC_STAMP counts");
-  put([{ type: "CRITIC_STAMP", sha: head, author: "x@y", timestamp: "2026-09-01T00:00:00Z" }]);
-  r = stampForParent(ai, head);
-  assert.deepEqual({ ok: r.ok, source: r.match.source }, { ok: true, source: "archive/stamps-2026-09.json" });
-  // The CLI's verdict line on a miss names HEAD and the newest stamped sha.
-  const cli = join(REPO, "src/shared/stamp-gate.mjs");
-  const out = execFileSync(process.execPath, ["--no-warnings", cli, "--ai-dir", ai, "--sha", head], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  assert.equal(out, "", "a match prints nothing on stdout");
-  let miss;
-  try { execFileSync(process.execPath, ["--no-warnings", cli, "--ai-dir", ai, "--sha", other], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); }
-  catch (e) { miss = e; }
-  assert.equal(miss.status, 1);
-
-  // Team records: one corrupt pulled file is skipped (and reported), not every record with it.
-  // (Through the hook the E-326 sync gate blocks a corrupt record first; this is the helper's own rule.)
-  rmSync(join(ai, "archive"), { recursive: true });
-  writeFileSync(join(ai, "project.json"), JSON.stringify({ schema: 2 }) + "\n");
-  mkdirSync(join(ai, "stamps", "2026-10"), { recursive: true });
-  writeFileSync(join(ai, "stamps", "2026-10", "0000000-ARCH_PASS-1.json"), "<<<<<<< conflict");
-  const s = { type: "CRITIC_STAMP", agent: "c", summary: "ok", timestamp: "2026-10-19T09:00:00Z", author: "b@x.test" };
-  writeRecord(ai, "stamp", `2026-10/${head.slice(0, 7)}-CRITIC_STAMP-1`, { ...s, sha: head, created_at: s.timestamp }, { fresh: true });
-  const warnings = [];
-  r = stampForParent(ai, head, warnings);
-  assert.deepEqual({ ok: r.ok, source: r.match?.source, author: r.match?.author }, { ok: true, source: "record", author: "b@x.test" });
-  assert.match(warnings.join("\n"), /\[GATE2\] stamp record skipped: corrupt record .*0000000-ARCH_PASS-1\.json/);
-  assert.throws(() => listRecords(ai, "stamp"), /corrupt record/, "the default (rebuildIndex's) still refuses");
-  assert.match(miss.stdout, new RegExp(`^\\[GATE2\\] no CRITIC_STAMP for HEAD fffffff — the newest CRITIC_STAMP is for ${head.slice(0, 7)} \\(by x@y on 2026-09-01\\)\\n$`));
-});

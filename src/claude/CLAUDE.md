@@ -19,7 +19,7 @@ agents, with their trigger descriptions, in the session's system reminders.
 When a user request matches a trigger, invoke it — the Skill tool for skills, the Agent tool
 for agents (D-075: there is no MCP fallback):
 ```
-skill: "rein-review"                                  → loads the review protocol into this conversation
+skill: "rein-review"                                  → review by tier (`rein review <tier>`, E-464)
 Agent tool (subagent_type: "security_engineer")     → runs the security review in its own context
 ```
 
@@ -32,7 +32,7 @@ Use `orchestrator-mcp` tools for deterministic execution instead of manually int
 
 - **Session start**: `skill: "rein-preflight"` — reads .ai/ files in correct order (its `!` lines inject live state).
 - **After finishing E-## task**: `run_handover({ task_id: "E-##", summary: "..." })` — marks DONE, updates LOG.
-- **Before committing**: `run_review({ tier: N })` — deterministic checks + agent dispatch instructions.
+- **Before closing a Tier 2/3 task**: `rein review <tier>` — deterministic checks + the agents to dispatch (E-464).
 
 Use the Skill tool / Agent tool for everything the orchestrator doesn't cover.
 

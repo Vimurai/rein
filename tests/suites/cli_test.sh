@@ -48,13 +48,16 @@ process.stdout.write(out.join("; "));
 assert_status 0 "E-422.03a: every entry point, subcommand and flag in cli-surface.json is in rein help${_surface:+ — missing: ${_surface}}" test -z "$_surface"
 
 # Removed commands are listed in the migration map
-assert_contains "usage references removed 'review' (migration map)" "review" "$out"
 assert_contains "usage references removed 'test' (migration map)" "test" "$out"
+# E-464 (D-169 r8): `review` is a command again — review by tier.
+assert_contains "usage lists rein review <1|2|3>" "rein review <1|2|3>" "$out"
+
+# E-464: rein review without a tier prints its usage and exits 2.
+out=$("$AI_BIN" review 2>&1 || true)
+assert_contains "rein review without a tier prints its usage" "usage: rein review <1|2|3>" "$out"
+assert_status 2 "rein review without a tier exits 2" "$AI_BIN" review
 
 # Removed commands emit a deprecation message and exit 1
-out=$("$AI_BIN" review 2>&1 || true)
-assert_contains "rein review prints deprecation pointer to skill" "skill: arch-review" "$out"
-assert_status 1 "rein review exits 1 (deprecated)" "$AI_BIN" review
 
 out=$("$AI_BIN" test 2>&1 || true)
 assert_contains "rein test prints deprecation pointer to skill" "skill: rein-test" "$out"

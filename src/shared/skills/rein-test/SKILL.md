@@ -44,7 +44,7 @@ Gate: all tests must pass before any commit. If a test fails, you are **LOCKED**
 non-zero, report `[LOCKED]` with the failing assertion, and fix the failure (`skill: rein-debug`)
 before proceeding.
 
-**In a review** (critic_tests, rein-review) the Rein runner is invoked as
+**In a review** (the `reviewer` agent) the Rein runner is invoked as
 `bash tests/run.sh --tier fast --changed <base>` — the unit layer, every contract table, and the
 suites whose census footprint the change touches (E-298, D-088). The full matrix is `rein ci run`'s
 and pre-push's job, not a review's.
@@ -91,9 +91,9 @@ Use the `chaos_monkey` agent to:
 3. Append `[CHAOS_REPORT] YYYY-MM-DD` to `.ai/REVIEWS.md`.
 4. Tag `[CHAOS_CLEARED]` or `[CHAOS_BLOCKED]` in `.ai/LOG.md`.
 
-### Required Stamps (Tier 3 Release Gate)
-All three must exist before committing (recorded via `add_stamp`, surfaced in
+### Required Stamps (UI release)
+Both must exist before a UI release (recorded via `add_stamp`, surfaced in
 `.ai/REVIEWS.md` / `.ai/LOG.md` — never hand-appended):
-- `[VIBE_CLEARED]` (≤ 7 days old) — the stamp `review_synthesizer` requires for Tier 3
+- `[VIBE_CLEARED]` (≤ 7 days old)
 - `[CHAOS_CLEARED]`
-- `[CRITIC_STAMP]` (from `skill: rein-review`)
+The task's own review is by tier (E-464): `rein review <tier>` names the agents.

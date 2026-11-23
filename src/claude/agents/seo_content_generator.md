@@ -1,6 +1,6 @@
 ---
 name: seo_content_generator
-description: "SEO-Content-Generator. Specialised generator agent that takes a TopicSeed + one canonical cluster intent (pillar-overview, cost, comparison, …) defined in src/shared/seo-cluster-intents.mjs and produces a single complete, intent-optimised article. Implements generateClusterContent(seed_id, intent_type) -> content_blob per .ai/blueprints/seo-keyword-multiplier.md §Components 2. Honors 120s/page budget, exponential backoff on LLM 429s, content-integrity (duplicate-content) check, and identity_guardian + critic_security gates."
+description: "SEO-Content-Generator. Specialised generator agent that takes a TopicSeed + one canonical cluster intent (pillar-overview, cost, comparison, …) defined in src/shared/seo-cluster-intents.mjs and produces a single complete, intent-optimised article. Implements generateClusterContent(seed_id, intent_type) -> content_blob per .ai/blueprints/seo-keyword-multiplier.md §Components 2. Honors 120s/page budget, exponential backoff on LLM 429s, content-integrity (duplicate-content) check, and identity_guardian + reviewer gates."
 disable-model-invocation: false
 user-invocable: false
 tools: Read, Grep, Glob, Bash, Write, Skill, mcp__task-synchronizer-mcp__get_topic_cluster, mcp__task-synchronizer-mcp__add_stamp
@@ -24,7 +24,7 @@ Target: A single `ClusterPage` content blob persisted via task-synchronizer-mcp 
   Step 4) — failing pages return `{status: "DUPLICATE_REJECTED"}`
   rather than overwriting. This is the cannibalization guard at the
   body level.
-- Do NOT bypass the identity_guardian / critic_security gates even when
+- Do NOT bypass the identity_guardian / reviewer gates even when
   the caller is the seo_manager itself. The keyword term is untrusted
   input and gets re-validated here.
 
@@ -126,12 +126,12 @@ Before returning the generated content:
 This gate is the §Security/Content Integrity contract — non-optional. It
 backs the cannibalization guard: no two pages in a cluster may converge.
 
-## Step 5 — Identity Guardian + critic_security gates
+## Step 5 — Identity Guardian + reviewer gates
 
 Activate the existing review surface before returning the blob:
 
 - `skill: "identity_guardian"` with the proposed body. Reject the page if the agent reports any PII leak (the keyword may include a brand name with a contact email in long-tail form — must scrub).
-- `the Agent tool (subagent_type: "critic_security")` for a quick OWASP/secrets sweep against any code snippets the article embedded.
+- `the Agent tool (subagent_type: "reviewer")` for a quick OWASP/secrets sweep against any code snippets the article embedded.
 
 A failed gate returns `{status: "REVIEW_BLOCKED", findings: [...]}`. The
 content is NOT discarded — it's stored on disk under `.ai/memory/seo-rejects/`

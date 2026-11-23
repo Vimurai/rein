@@ -3,7 +3,7 @@ name: security_engineer
 description: Trigger this when adding auth, handling secrets, modifying CAPABILITIES.md, or performing a security review for Tier 3 tasks. Produces SECURITY.md + THREAT_MODEL.md, enforces capability boundaries, and runs active pen-testing payloads under Bash in a throwaway, resource-capped temp directory.
 disable-model-invocation: false
 user-invocable: false
-tools: Read, Write, Edit, Glob, Grep, Bash, mcp__advisor-mcp__ask_architect
+tools: Read, Write, Edit, Glob, Grep, Bash, mcp__advisor-mcp__ask_architect, mcp__task-synchronizer-mcp__add_stamp
 context: fork
 agent: general-purpose
 ---
@@ -136,6 +136,20 @@ Update THREAT_MODEL.md when:
 - A new trust boundary is introduced.
 - A new secret or credential type is used.
 - An active pen-test surfaces an `EXPLOITED` finding (record the proof-of-concept).
+
+## Verdict stamp (Tier 3 — E-464, D-169 r8)
+When dispatched on a task (`rein review 3`), end the round with ONE stamp; a Tier 3 task is refused
+DONE without `[SEC_CLEARED]` for HEAD (`[SEC_GATE]`, `src/shared/completion-gates.mjs`):
+```
+mcp__task-synchronizer-mcp__add_stamp({
+  task_id: "E-###",
+  type: "SEC_CLEARED" | "SEC_BLOCKED",
+  agent: "security_engineer",
+  summary: "<one line: what was probed; any EXPLOITED or INCONCLUSIVE row blocks>"
+})
+```
+`SEC_BLOCKED` when any payload is `EXPLOITED` or `INCONCLUSIVE`, or a P0/P1 threat is unmitigated.
+One round per task; a second needs the Architect (D-164 r6).
 
 ## After writing
 Append to .ai/LOG.md (DIGEST.md is a generated view — never write it, D-159):

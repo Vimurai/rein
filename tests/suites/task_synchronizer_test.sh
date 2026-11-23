@@ -1360,15 +1360,14 @@ JS
 set +e
 
 
-# ── critic stamps (from critic_stamp — E-302): Tier-3 critics persist verdicts via add_stamp ──
-# Tier-3 critics persist verdicts via add_stamp, not by
-# appending to .ai/REVIEWS.md (which is a regenerated view of the SQLite stamps
-# table — direct appends are clobbered on the next _regenerateViews). Aligns
-# critic_arch/security/tests with the E-72 distributed-stamping pattern that
-# critic_clean_code already follows.
+# ── review stamps (from critic_stamp — E-302): reviewers persist verdicts via add_stamp ──
+# Reviewers persist verdicts via add_stamp, not by appending to .ai/REVIEWS.md (which is a
+# regenerated view of the SQLite stamps table — direct appends are clobbered on the next
+# _regenerateViews). E-464 (D-169 r8): the reviewer replaced critic_arch/security/tests/clean_code;
+# critic_acceptance stays.
 set -e   # this section ran under its own suite's error mode
-# critic → expected stamp prefix
-declare -a CRITICS=("critic_arch:ARCH" "critic_security:SEC" "critic_tests:TESTS")
+# agent → expected stamp prefix
+declare -a CRITICS=("reviewer:REVIEW" "critic_acceptance:ACCEPT")
 
 for row in "${CRITICS[@]}"; do
   name="${row%%:*}"; pfx="${row##*:}"

@@ -33,8 +33,8 @@ Every task must pass ALL checks:
 
 ### Check 1: Tier is set
 - `Tier: 1` — trivial change, no review needed
-- `Tier: 2` — standard feature, blueprint-aligner review
-- `Tier: 3` — security/auth/data, full critic suite required
+- `Tier: 2` — everything else with a behaviour change: `reviewer`, then `critic_acceptance` (E-464)
+- `Tier: 3` — the role boundary, the install, hooks, secrets, release signing: Tier 2 plus one `security_engineer` round
 - **BLOCK** if tier is missing
 
 ### Check 2: Description has an action verb

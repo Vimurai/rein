@@ -12,10 +12,7 @@ plugin to install.
 
 | Group | Agent | Does |
 | :--- | :--- | :--- |
-| Critics | `critic_arch` | Compares the diff with the blueprint; stamps `ARCH_PASS`/`ARCH_FAIL`. |
-| | `critic_security` | Audits the diff for OWASP-class issues and secrets; stamps `SEC_PASS`/`SEC_FAIL`. |
-| | `critic_tests` | Checks each changed behaviour has one test at the cheapest layer; stamps `TESTS_PASS`/`TESTS_FAIL`. |
-| | `critic_clean_code` | Applies the engineering standards to the staged diff; stamps `CLEAN_PASS`/`CLEAN_FAIL`. |
+| Review | `reviewer` | Reads the diff against the task and its blueprint, applies D-088; stamps `REVIEW_PASS`/`REVIEW_FAIL`, which a Tier 2/3 task needs before DONE. |
 | | `critic_acceptance` | Observes each clause of a Tier 2/3 task's acceptance line (runs it, reads the output); stamps `ACCEPT_PASS`/`ACCEPT_FAIL`, which the task needs before DONE. |
 | Testing | `test_engineer` | The headless Tester: writes and runs tests under `tests/` in the project's own harness. |
 | | `chaos_monkey` | Invalid inputs, latency and stress against the UI before a release. |
@@ -53,7 +50,7 @@ plugin to install.
 | Skill | Does |
 | :--- | :--- |
 | `rein-test` | Run the project's tests; `--generate` dispatches the Tester, `--vibe` the UI audit. |
-| `rein-review` | Tier-aware review with the matching critics. |
+| `rein-review` | Review by tier: `rein review <tier>` and the agents it names. |
 | `rein-debug` | Hypothesis → test → observe; commits locked until green; escalates after three cycles. |
 | `bug-reproducer` | A failing reproduction before any fix. |
 | `aqg-resolver` | Low-context fixer for a failed quality gate. |
@@ -81,7 +78,6 @@ plugin to install.
 | `task-planner` | A task must have a tier, a verb, acceptance criteria and no circular dependency. |
 | `decision-recorder` | A decision as a D-### entry: context, choice, alternatives. |
 | `arch-review` | Codebase audit against the blueprint. |
-| `review_synthesizer` | All critic stamps → a release-readiness verdict. |
 
 ### Housekeeping
 

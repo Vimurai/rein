@@ -18,7 +18,8 @@ import { fileURLToPath } from "node:url";
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const { classifyDiffTraversal } = await import(resolve(repo, "src/shared/traversal-policy.mjs"));
 const MDX = readFileSync(resolve(repo, "src/shared/markdown-exec.mjs"), "utf8");
-const ORCH = readFileSync(resolve(repo, "src/mcp/orchestrator-mcp/index.js"), "utf8");
+// E-464: run_review's checks moved to `rein review` (src/shared/review-checks.mjs); the source rows read it.
+const ORCH = readFileSync(resolve(repo, "src/shared/review-checks.mjs"), "utf8");
 
 // The SHIPPED classifyDiffTraversal — the function run_review calls — against a synthetic
 // one-file diff whose file IS the added content. → "<severity>|<proseExec>"

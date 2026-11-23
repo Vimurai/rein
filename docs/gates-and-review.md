@@ -8,13 +8,16 @@ still holds.
 Every change is classified by `risk-analyzer-mcp` (or by the `[TIER_N]` tag in its commit
 message):
 
-| Tier | Typical change | Review before commit |
+| Tier | Typical change | Review before DONE |
 | :--- | :--- | :--- |
-| 1 | Documentation, config, comments, typos | None |
-| 2 | Ordinary code | Blueprint alignment (`blueprint-aligner-mcp`) |
-| 3 | Security, auth, secrets, state, hooks, removals of a protection | `critic_arch`, `critic_security` and `critic_tests` in parallel; `security_engineer` when auth or secrets are touched |
+| 1 | No behaviour change (docs, text, renames) | None |
+| 2 | Everything else | `reviewer`, then `critic_acceptance` |
+| 3 | The role boundary, the install, hooks, secrets, release signing | Tier 2 plus one `security_engineer` round |
 
-`skill: rein-review` picks the tier and runs what it requires.
+`rein review <tier>` runs the deterministic checks and prints the agents to dispatch. The stamps
+are checked when the task closes, not at commit: a Tier 2/3 task is refused DONE without
+`REVIEW_PASS` and `ACCEPT_PASS` for HEAD (`[REVIEW_GATE]`, `[ACCEPT_GATE]`), and a Tier 3 task
+also without `SEC_CLEARED` (`[SEC_GATE]`).
 
 ## The three gates
 
@@ -37,8 +40,7 @@ your own terminal — an agent cannot switch the gate off.
 
 ### 2. Pre-commit gate (git hook)
 
-- The commit needs a review stamp bound to its parent commit. Commits that only touch `.ai/`
-  bookkeeping (state, tasks, reviews, log, handoff notes) are exempt.
+- No review stamp is needed to commit (review is checked at DONE).
 - No conflict markers anywhere staged; every staged `.ai/*.json` must parse.
 - Agent and skill frontmatter may not name tools that do not exist ("ghost tools"); `rein doctor
   --compliance` audits it on demand.
@@ -49,20 +51,16 @@ The tip must have a green, non-dirty `rein ci run`. A tip that only adds `.ai/` 
 of a tested commit passes. A recorded skip is possible, with a mandatory reason — see
 [Local CI](ci.md#skipping-once).
 
-## Critics
+## Reviewers
 
-Critics are subagents with a fixed brief, their own context and no stake in the change. Each
+Reviewers are subagents with a fixed brief, their own context and no stake in the change. Each
 records a stamp through `task-synchronizer-mcp`; none edits `REVIEWS.md` directly.
 
-| Critic | Checks | Stamps |
+| Agent | Checks | Stamps |
 | :--- | :--- | :--- |
-| `critic_arch` | The diff against `.ai/architect.md` and the blueprint: role sovereignty, orphaned code, deviations. | `ARCH_PASS` / `ARCH_FAIL` |
-| `critic_security` | OWASP Top 10 classes, leaked secrets, capability boundaries in `CAPABILITIES.md`. | `SEC_PASS` / `SEC_FAIL` |
-| `critic_tests` | Each changed behaviour has one test at the cheapest layer that can observe it; a new test names what it extends. | `TESTS_PASS` / `TESTS_FAIL` |
-| `critic_clean_code` | File-size limits, MCP stdout purity, banned secret patterns, naming, reuse of shared modules. | `CLEAN_PASS` / `CLEAN_FAIL` |
-| `critic_acceptance` | Runs after the others pass, on Tier 2 and 3: observes each clause of the task's acceptance line (runs the command, reads the file); a clause it cannot observe here is `UNVERIFIED` with the reason. A Tier 2/3 task is refused DONE (`[ACCEPT_GATE]`) without `ACCEPT_PASS` for HEAD. | `ACCEPT_PASS` / `ACCEPT_FAIL` |
-
-For Tier 3 releases, `review_synthesizer` aggregates every stamp into a release-readiness verdict.
+| `reviewer` | The diff against the task text and the blueprint it names; one test per changed behaviour at the cheapest layer (D-088); correctness and safety. | `REVIEW_PASS` / `REVIEW_FAIL` |
+| `critic_acceptance` | Runs after the reviewer passes, on Tier 2 and 3: observes each clause of the task's acceptance line (runs the command, reads the file); a clause it cannot observe here is `UNVERIFIED` with the reason. A Tier 2/3 task is refused DONE (`[ACCEPT_GATE]`) without `ACCEPT_PASS` for HEAD. | `ACCEPT_PASS` / `ACCEPT_FAIL` |
+| `security_engineer` | Tier 3 only: one round of threat review and active probing. | `SEC_CLEARED` / `SEC_BLOCKED` |
 
 ## Mid-task triggers
 
@@ -80,7 +78,7 @@ The Engineer's rulefile names skills that must run when a change touches certain
 
 Tests are kept cheap on purpose. Behaviour is expressed as rows in contract tables
 (`tests/fixtures/*-cases.json`, one row per case) run in process; a shell suite is reserved for
-what only a real process boundary can show. Every green CI run records the number of suites, test
-lines and fast-tier seconds; the next run fails if one grows past its slack (suites +0, test lines
-+2 %, fast-tier time +10 %). The numbers only go down. Raising one is a recorded decision:
+what only a real process boundary can show. Every green CI run records the number of suites and
+fast-tier seconds; the next run fails if one grows past its slack (suites +0, fast-tier time
++10 %). The numbers only go down. Raising one is a recorded decision:
 `rein ci budget set --ruling D-### <field>=<n>`. See [Local CI](ci.md#the-test-budget).

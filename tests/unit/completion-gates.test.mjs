@@ -7,6 +7,9 @@
 // fixture. Stamps are written by record-store's insertStamp, so their sha is the HEAD the server
 // would bind (E-329), not a value the test chose.
 //
+// E-464 (D-169 r8, D-170 r9): the review-by-tier rows extend the same fixture — the stamp check
+// moved from pre-commit to this gate list (Tier 2: REVIEW_PASS + ACCEPT_PASS; Tier 3: + SEC_CLEARED).
+//
 // Run standalone: node --test tests/unit/completion-gates.test.mjs
 
 import { test } from "node:test";
@@ -16,7 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 
-import { checkAcceptGate, checkSupersededBy, completionGates, ACCEPT_GATE_FLOOR } from "../../src/shared/completion-gates.mjs";
+import { checkAcceptGate, checkReviewGate, checkSecGate, checkSupersededBy, completionGates, ACCEPT_GATE_FLOOR, REVIEW_GATE_FLOOR } from "../../src/shared/completion-gates.mjs";
 import { getDb } from "../../src/mcp/shared/state-db.js";
 import { insertStamp } from "../../src/mcp/shared/record-store.mjs";
 
@@ -33,7 +36,7 @@ function fixture(t) {
   const ai = join(repo, ".ai");
   const db = getDb(ai);
   const add = db.prepare("INSERT INTO tasks(id, owner, status, tier, description, created_at) VALUES (?, 'Engineer (Claude)', 'OPEN', ?, 'fixture', '2026-11-18T00:00:00Z')");
-  for (const [id, tier] of [["E-445", 2], ["E-446", 3], ["E-447", 1], ["E-444", 2], ["P-500", 2]]) add.run(id, tier);
+  for (const [id, tier] of [["E-445", 2], ["E-446", 3], ["E-447", 1], ["E-444", 2], ["P-500", 2], ["E-470", 2], ["E-471", 3], ["E-472", 1]]) add.run(id, tier);
   const commit = (msg) => { g("add", "-A"); g("commit", "-q", "-m", msg); return g("rev-parse", "HEAD"); };
   const stamp = (id, type) => insertStamp(ai, db, { type, agent: "critic_acceptance", task_id: id, timestamp: new Date().toISOString(), summary: "1 | PASS | fixture" });
   // The build gate reads a run dir and a mirror: both point into the fixture, never ~/.rein.
@@ -104,4 +107,35 @@ test("superseded_by: names a '## D-###' heading or is refused; a superseded clos
   assert.match(checkSupersededBy(f.ai, undefined), /^\[SUPERSEDED_BY_INVALID\]/);
   assert.equal(completionGates({ ...f.gateOpts, superseded: true }), null);
   assert.notEqual(completionGates(f.gateOpts), null);
+});
+
+test("E-464: review by tier at DONE — Tier 1 needs nothing; Tier 2 needs [REVIEW_PASS] then [ACCEPT_PASS]", (t) => {
+  const f = fixture(t);
+  const head = f.commit("one");
+  const close = (id) => completionGates({ ...f.gateOpts, id })?.content?.[0]?.text ?? null;
+  assert.equal(close("E-472"), null, "Tier 1: no stamp");
+  assert.equal(REVIEW_GATE_FLOOR, 457);
+  assert.equal(checkReviewGate(f.db, f.repo, "E-445").active, false, "built under the commit-time critics");
+  assert.equal(close("E-470"), `[REVIEW_GATE] E-470 is Tier 2 and has no [REVIEW_PASS] stamp for HEAD ${head.slice(0, 7)} or an ancestor that differs only in .ai/ — dispatch reviewer`);
+  f.stamp("E-470", "REVIEW_PASS");
+  assert.match(close("E-470"), /^\[ACCEPT_GATE\] E-470 /, "reviewed, not yet accepted");
+  f.stamp("E-470", "ACCEPT_PASS");
+  assert.equal(close("E-470"), null);
+  f.stamp("E-470", "REVIEW_FAIL");
+  assert.match(close("E-470"), /^\[REVIEW_GATE\] /, "a later [REVIEW_FAIL] voids the pass");
+});
+
+test("E-464: Tier 3 also needs [SEC_CLEARED] for HEAD; a later [SEC_BLOCKED] voids it", (t) => {
+  const f = fixture(t);
+  f.commit("one");
+  f.stamp("E-471", "REVIEW_PASS");
+  f.stamp("E-471", "ACCEPT_PASS");
+  const r = checkSecGate(f.db, f.repo, "E-471");
+  assert.equal(r.ok, false);
+  assert.match(r.message, /^\[SEC_GATE\] E-471 is Tier 3 and has no \[SEC_CLEARED\] .* — dispatch security_engineer$/);
+  assert.equal(checkSecGate(f.db, f.repo, "E-470").active, false, "Tier 2 needs no security round");
+  f.stamp("E-471", "SEC_CLEARED");
+  assert.equal(completionGates({ ...f.gateOpts, id: "E-471" }), null);
+  f.stamp("E-471", "SEC_BLOCKED");
+  assert.match(completionGates({ ...f.gateOpts, id: "E-471" })?.content?.[0]?.text ?? "", /^\[SEC_GATE\] E-471 /);
 });

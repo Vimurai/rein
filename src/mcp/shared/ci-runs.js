@@ -270,7 +270,7 @@ export function parseCiLog(text, logPath = null) {
       // The LAST one is the run's own: a suite that starts a runner prints its line earlier.
       run.peak_sum_rss_mb = _int(_kv(line.slice(6)).peak_sum_rss_mb);
     } else if (line.startsWith("[ci] budget ")) {
-      // E-303: `[ci] budget suites=45 test_lines=39444 fast_tier_seconds=37 full_seconds=418 …`
+      // E-303: `[ci] budget suites=45 fast_tier_seconds=37 full_seconds=418 …`
       const b = parseBudgetLine(line);
       if (Object.keys(b).length) run.budget_json = JSON.stringify(b);
     } else if (line.startsWith("[ci] lanes=")) {

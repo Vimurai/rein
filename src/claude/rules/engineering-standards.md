@@ -5,7 +5,7 @@ paths:
 
 # Engineering standards (src/)
 
-Enforced by `src/shared/standards.json` through `validateFile` (pre-commit and `critic_clean_code`).
+Enforced by `src/shared/standards.json` through `validateFile` (pre-commit; the `reviewer` judges the rest).
 
 - **File size**: source files stay ≤ 1000 lines (warn at 500). Split into focused modules — a
   cohesive piece moves to its own file beside the original (e.g. `safe-exec-mcp/architect-writes.mjs`).

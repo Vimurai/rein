@@ -16,7 +16,8 @@ import { fileURLToPath } from "node:url";
 const repo = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const { classifyTraversal } = await import(resolve(repo, "src/shared/traversal-policy.mjs"));
 const POLICY = readFileSync(resolve(repo, "src/shared/traversal-policy.mjs"), "utf8");
-const ORCH = readFileSync(resolve(repo, "src/mcp/orchestrator-mcp/index.js"), "utf8");
+// E-464: run_review's checks moved to `rein review` (src/shared/review-checks.mjs); the source rows read it.
+const ORCH = readFileSync(resolve(repo, "src/shared/review-checks.mjs"), "utf8");
 const AI_BIN = readFileSync(resolve(repo, "src/bin/rein"), "utf8");
 
 const grade = (line, strict = false) => classifyTraversal(line, { strict })?.severity ?? "none";
@@ -85,4 +86,24 @@ test("E-222.08a: src/bin/rein's own locator bootstrap is not P0", () => {
   const real = AI_BIN.split("\n").find((l) => l.includes("shared/locate.sh"));
   assert.ok(real, "src/bin/rein names shared/locate.sh");
   assert.notEqual(grade(`+${real}`), "P0");
+});
+
+// ── E-464 (D-169 r8): `rein review <tier>` — the checks run_review made, on a diff, and the
+// agents the tier dispatches. Extends the source rows above with the behaviour itself; E-169's
+// sovereignty rows moved here from mcp_servers_test.sh.
+const { reviewChecks, reviewReport, TIER_DISPATCH } = await import(resolve(repo, "src/shared/review-checks.mjs"));
+const diffOf = (file, line) => `diff --git a/${file} b/${file}\n--- a/${file}\n+++ b/${file}\n@@ -0,0 +1 @@\n+${line}\n`;
+test("E-464.R1: the dispatch list per tier — 1 none; 2 reviewer then critic_acceptance; 3 plus security_engineer", () => {
+  assert.deepEqual(TIER_DISPATCH, { 1: [], 2: ["reviewer", "critic_acceptance"], 3: ["reviewer", "critic_acceptance", "security_engineer"] });
+  assert.match(reviewReport(1, "").text, /none — Tier 1 needs no review and no stamp/);
+  assert.match(reviewReport(3, "").text, /1\. reviewer .*\n {2}2\. critic_acceptance .*\n {2}3\. security_engineer .*SEC_CLEARED/);
+});
+test("E-464.R2 (E-169): an Architect-owned file or any blueprint is a P0, and a P0 dispatches nothing", () => {
+  for (const f of [".ai/architect.md", ".ai/blueprints/x.md"]) {
+    assert.equal(reviewChecks(diffOf(f, "text"), { env: {} }).find((c) => c.id === "SOVEREIGNTY_VIOLATION")?.severity, "P0", f);
+  }
+  const r = reviewReport(2, diffOf(".ai/blueprints/x.md", "text"), { env: {} });
+  assert.equal(r.p0, 1);
+  assert.match(r.text, /none yet — fix the 1 P0 finding/);
+  assert.doesNotMatch(r.text, /1\. reviewer/);
 });

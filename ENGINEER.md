@@ -38,8 +38,14 @@ This applies to ALL first messages including "check for tasks", "what should I w
 - `.ai/` is Primary Memory — overrides conversation context and CLI plans.
 - Read `.ai/TASKS.md` for your orders. Execute the open E-## tasks.
 - After every task: **use `skill: "rein-task"`** — marks DONE, runs handover, surfaces next task.
-- Before committing: `run_review({ tier: N })`
 - **Merged branches go** (D-141): `gh pr merge <n> --merge --delete-branch`; rest in `rein-task` Step 3.5.
+
+## Review by tier (D-169 r8) — checked at DONE, not at commit; `rein review <tier>`
+| Tier | What it is | Review |
+|---|---|---|
+| 1 | no behaviour change (docs, text, renames) | none |
+| 2 | everything else | `reviewer`, then `critic_acceptance` → `[REVIEW_PASS]`, `[ACCEPT_PASS]` |
+| 3 | role boundary, install, hooks, secrets, release signing | Tier 2 + one `security_engineer` round → `[SEC_CLEARED]` |
 
 ## Task Lifecycle (MANDATORY)
 After completing ANY E-## implementation, ALWAYS run the task skill:
@@ -68,7 +74,7 @@ Decide WHICH unit to run in your thinking step — zero added latency.
   e.g. `rein-preflight`, `rein-task`, `rein-handoff`, `rein-debug`, `rein-review`, `commit-crafter`.
   Choose a skill when the work is a procedure you should carry out yourself.
 - **Agent** (persona, forked context): an autonomous specialist that runs in an isolated
-  sub-session and reports back — e.g. `critic_arch`, `critic_security`, `critic_tests`,
+  sub-session and reports back — e.g. `reviewer`, `critic_acceptance`, `test_engineer`,
   `db_architect`, `dependency_manager`, `chaos_monkey`, `security_engineer`. Choose an
   agent when you need an independent expert whose work must NOT pollute your context.
 

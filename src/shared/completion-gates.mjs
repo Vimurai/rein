@@ -16,7 +16,12 @@
 //      ancestor that differs only in .ai/ (the CI gate's rule). The newest ACCEPT_* stamp that
 //      stands for HEAD decides, so a later [ACCEPT_FAIL] voids an earlier pass. A task closed
 //      unimplemented passes `superseded` (update_task_status superseded_by: "D-###"), which
-//      skips this gate only. No environment switch (D-084 r1, D-087 r3).
+//      skips the stamp gates only. No environment switch (D-084 r1, D-087 r3).
+//   4. E-464 (D-169 r8, D-170 r9) review by tier; the stamp check moved here from pre-commit.
+//      Tier 1: nothing. Tier 2: [REVIEW_PASS] from the reviewer and the [ACCEPT_PASS] above.
+//      Tier 3: those and [SEC_CLEARED] from the security_engineer round. Same rule as (3): the
+//      newest PASS/FAIL pair that stands for HEAD (or an .ai/-only ancestor) decides. Tasks at or
+//      below REVIEW_GATE_FLOOR were reviewed by the critics at commit time and close without it.
 //
 // The texts stay where they are defined (build-stamp.mjs, ci-runs.js); a refusal is returned as
 // rejection() — isError plus _meta.expected_rejection, so telemetry books REJECTED (D-049).
@@ -42,10 +47,66 @@ export function completionGates({ cwd, db, id, buildOpts = {}, env = process.env
   const ci = checkCiDoneGate(db, cwd, env);
   if (!ci.ok) return rejection(ci.message);
   if (!superseded) {
-    const accept = checkAcceptGate(db, cwd, id);
-    if (!accept.ok) return rejection(accept.message);
+    for (const gate of [checkReviewGate, checkAcceptGate, checkSecGate]) {
+      const r = gate(db, cwd, id);
+      if (!r.ok) return rejection(r.message);
+    }
   }
   return null;
+}
+
+// E-464 (D-170 r9): tasks at or below this id were built while pre-commit required a
+// [CRITIC_STAMP] for every commit, and close without a [REVIEW_PASS] or [SEC_CLEARED].
+export const REVIEW_GATE_FLOOR = 457;
+
+function _head(repoRoot) {
+  try {
+    return execFileSync("git", ["-C", repoRoot, "rev-parse", "--verify", "HEAD"],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch { return null; }
+}
+
+/**
+ * The newest `pass`/`fail` stamp of task `id` that stands for HEAD (its sha, or an ancestor that
+ * differs only in .ai/) decides: → { ok, sha }. No such stamp: { ok: false, sha: null }.
+ */
+function _verdictForHead(db, repoRoot, id, pass, fail, head) {
+  const stamps = db.prepare(
+    "SELECT type, sha FROM stamps WHERE task_id = ? AND type IN (?, ?) AND sha IS NOT NULL ORDER BY id DESC",
+  ).all(id, pass, fail);
+  for (const s of head ? stamps : []) {
+    if (s.sha === head || aiOnlyAncestor(repoRoot, s.sha, head)?.ok) return { ok: s.type === pass, sha: s.sha };
+  }
+  return { ok: false, sha: null };
+}
+
+/** One stamp gate: active for an E-## task above `floor` whose tier is in `tiers`. → { ok, active, message } */
+function _stampGate(db, repoRoot, id, { floor, tiers, pass, fail, tag, agent, what }) {
+  const m = /^E-(\d+)$/.exec(id || "");
+  if (!m || Number(m[1]) <= floor) return { ok: true, active: false, message: `${what}: not an E-## task above the floor` };
+  const row = db.prepare("SELECT tier FROM tasks WHERE id = ?").get(id);
+  const tier = row ? row.tier : null;
+  if (!tiers.includes(tier)) return { ok: true, active: false, message: `${what}: ${id} is not Tier ${tiers.join(" or ")}` };
+  const head = _head(repoRoot);
+  const v = _verdictForHead(db, repoRoot, id, pass, fail, head);
+  if (v.ok) return { ok: true, active: true, message: `${what}: ${id} ${pass} at ${v.sha.slice(0, 7)}` };
+  const at = head ? head.slice(0, 7) : "(no HEAD)";
+  return {
+    ok: false, active: true,
+    message: `[${tag}] ${id} is Tier ${tier} and has no [${pass}] stamp for HEAD ${at} or an ancestor that differs only in .ai/ — dispatch ${agent}`,
+  };
+}
+
+/** The review gate (E-464): a Tier 2 or 3 E-## task above REVIEW_GATE_FLOOR needs [REVIEW_PASS]. */
+export function checkReviewGate(db, repoRoot, id) {
+  return _stampGate(db, repoRoot, id, { floor: REVIEW_GATE_FLOOR, tiers: [2, 3], pass: "REVIEW_PASS", fail: "REVIEW_FAIL",
+    tag: "REVIEW_GATE", agent: "reviewer", what: "review gate" });
+}
+
+/** The security gate (E-464): a Tier 3 E-## task above REVIEW_GATE_FLOOR needs [SEC_CLEARED]. */
+export function checkSecGate(db, repoRoot, id) {
+  return _stampGate(db, repoRoot, id, { floor: REVIEW_GATE_FLOOR, tiers: [3], pass: "SEC_CLEARED", fail: "SEC_BLOCKED",
+    tag: "SEC_GATE", agent: "security_engineer", what: "security gate" });
 }
 
 // D-159 r9 (E-431 ruling, 2026-11-18): tasks at or below this id were reviewed before the
@@ -57,30 +118,8 @@ export const ACCEPT_GATE_FLOOR = 444;
  * Active for an E-## task of tier 2 or 3 whose number is above ACCEPT_GATE_FLOOR.
  */
 export function checkAcceptGate(db, repoRoot, id) {
-  const m = /^E-(\d+)$/.exec(id || "");
-  if (!m || Number(m[1]) <= ACCEPT_GATE_FLOOR) return { ok: true, active: false, message: "acceptance gate: not an E-## task above the floor" };
-  const row = db.prepare("SELECT tier FROM tasks WHERE id = ?").get(id);
-  const tier = row ? row.tier : null;
-  if (tier !== 2 && tier !== 3) return { ok: true, active: false, message: `acceptance gate: ${id} is not Tier 2 or 3` };
-  let head;
-  try {
-    head = execFileSync("git", ["-C", repoRoot, "rev-parse", "--verify", "HEAD"],
-      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
-  } catch { head = null; }
-  const stamps = db.prepare(
-    "SELECT type, sha FROM stamps WHERE task_id = ? AND type IN ('ACCEPT_PASS', 'ACCEPT_FAIL') AND sha IS NOT NULL ORDER BY id DESC",
-  ).all(id);
-  for (const s of head ? stamps : []) {
-    const standsFor = s.sha === head || aiOnlyAncestor(repoRoot, s.sha, head)?.ok;
-    if (!standsFor) continue;
-    if (s.type === "ACCEPT_PASS") return { ok: true, active: true, message: `acceptance gate: ${id} accepted at ${s.sha.slice(0, 7)}` };
-    break;   // the newest stamp that stands for HEAD is a FAIL
-  }
-  const at = head ? head.slice(0, 7) : "(no HEAD)";
-  return {
-    ok: false, active: true,
-    message: `[ACCEPT_GATE] ${id} is Tier ${tier} and has no [ACCEPT_PASS] stamp for HEAD ${at} or an ancestor that differs only in .ai/ — dispatch critic_acceptance`,
-  };
+  return _stampGate(db, repoRoot, id, { floor: ACCEPT_GATE_FLOOR, tiers: [2, 3], pass: "ACCEPT_PASS", fail: "ACCEPT_FAIL",
+    tag: "ACCEPT_GATE", agent: "critic_acceptance", what: "acceptance gate" });
 }
 
 /**

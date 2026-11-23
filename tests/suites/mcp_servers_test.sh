@@ -509,10 +509,9 @@ assert_contains "E-237.03b: pinned, a rewrite is IGNORED (pre-E-237 behaviour)" 
 assert_contains "E-237.03c: pinned, the module is imported exactly once"     "1"  "${_pc2:-}"
 
 # ── E-237.4: the real consumers ask per request ───────────────────────────
-assert_status 0 "E-237.04a: orchestrator loads the traversal policy per request" \
-  grep -q 'await loadPolicy("traversal-policy")' "${REPO_ROOT}/src/mcp/orchestrator-mcp/index.js"
-assert_status 1 "E-237.04b: and no longer statically imports it" \
-  grep -q 'import { classifyDiffTraversal } from' "${REPO_ROOT}/src/mcp/orchestrator-mcp/index.js"
+# E-237.04a/b (orchestrator's run_review reloaded the traversal policy per request) retired in
+# E-464: the review checks moved to `rein review` (src/shared/review-checks.mjs), a fresh process
+# per call, so there is no long-lived module cache to refresh.
 assert_status 0 "E-237.04c: patch-mcp refreshes at the top of the handler" \
   grep -q 'await refreshPolicies();' "${REPO_ROOT}/src/mcp/patch-mcp/index.js"
 assert_status 0 "E-237.04d: propose-patch-mcp does too" \
@@ -1373,14 +1372,14 @@ VT2="$(test_tmpdir verify295)"; mkdir -p "$VT2/agents"
 printf '{"mcpServers":{"task-synchronizer-mcp":{"command":"node"}}}\n' > "$VT2/.mcp.json"
 _agent() { printf -- '---\nname: %s\ndescription: fixture\n%b\n---\nbody\n' "$1" "$2" > "$VT2/agents/$1.md"; }
 _agent legacy_agent 'allowed-tools: Read, Grep'
-_agent critic_arch 'mcpServers:\n  - task-synchronizer-mcp'
+_agent reviewer 'mcpServers:\n  - task-synchronizer-mcp'
 _agent stray_server 'tools: Read, mcp__nowhere-mcp__thing'
 _agent self_removal 'tools: Read, mcp__task-synchronizer-mcp__add_stamp\ndisallowedTools: mcp__*'
 _agent good_agent 'tools: Read, Grep, mcp__task-synchronizer-mcp__add_stamp\ndisallowedTools: Write, Edit, NotebookEdit'
 _agent ghost_agent 'tools: Read, GhostTool999'
 r295=$(cd "$VT2" && HOME="$VT2" mcp_call_tool "$VERIFY_ABS" verify_compliance '{"paths":["agents"]}' 2>/dev/null || echo '{}')
 assert_contains "T-05.13a: an agent carrying allowed-tools FAILS (the field is ignored by Claude Code)" "'allowed-tools' is not a subagent field" "$r295"
-assert_contains "T-05.13b: a scoped agent (critic_*) with no tools allowlist FAILS" "scoped agent has no 'tools' allowlist" "$r295"
+assert_contains "T-05.13b: a scoped agent (reviewer) with no tools allowlist FAILS" "scoped agent has no 'tools' allowlist" "$r295"
 assert_contains "T-05.13c: tools naming a server neither in mcpServers nor the parent's .mcp.json FAILS" "names mcp server 'nowhere-mcp'" "$r295"
 assert_contains "T-05.13d: disallowedTools mcp__* removing a server tools needs FAILS" "removes server 'task-synchronizer-mcp'" "$r295"
 assert_contains "T-05.13e: a correct agent passes (parent-connected server, reviewer denies writes)" "PASS: 1 | WARN: 0 | FAIL: 5" "$r295"
@@ -1588,17 +1587,9 @@ ORCH=$(cat "$ORCH_MCP")
 assert_not_contains "E-276: run_preflight tool removed from orchestrator-mcp" \
   'run_preflight' "$ORCH"
 
-assert_contains "P-11: .md filter present in run_review" \
-  ".endsWith(\".md\")" "$ORCH"
-
-# ── E-169: run_review sovereignty blocks the whole .ai/blueprints/ tree ───────
-# Regression guard: the Engineer must not author Architect-owned blueprints. The
-# sovereignty check must cover the .ai/blueprints/ directory prefix (not just the
-# exact architect.md / BRIEF.md files) so any file beneath it trips a P0 FAIL.
-assert_contains "E-169: run_review still blocks architect.md (regression guard)" \
-  ".ai/architect.md" "$ORCH"
-assert_contains "E-169: run_review blocks the .ai/blueprints/ tree" \
-  ".ai/blueprints/" "$ORCH"
+# P-11 (run_review's coverage check skipped .md files) retired with that check in E-464: the
+# reviewer applies D-088 instead. E-169's sovereignty rows moved to tests/unit/traversal-policy.test.mjs,
+# which drives `rein review`'s checks (src/shared/review-checks.mjs) on a diff.
 
 
 # ── P-12: statSync 5MB size guard in patch-mcp ────────────────────────────────

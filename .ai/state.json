@@ -2476,7 +2476,7 @@
     {
       "id": "E-472",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 2,
       "description": "Release v0.6.0, the lean core, per D-173 (after E-470), by the path of E-424; skill release-manager for the bump and the CHANGELOG only. (1) First ask the operator to confirm the GitHub environment `release` holds REIN_RELEASE_KEY and the `v*` tag ruleset is in place; if not, stop. (2) On a branch from merged main: bump package.json, package-lock.json and every mirror that states the current version (check NOTICE, docs/app-contract.md, tests/unit/doctor-json.test.mjs, tests/unit/release-manifest.test.mjs); leave each sentence naming v0.5.0 as the tag that holds what was removed, and README's demo sentence (D-173 r5). (3) CHANGELOG.md: `[Unreleased] — Lean core` becomes `[0.6.0] — Lean core` with the date; replace the sentence saying the command gate is still present with what was built (E-463, D-172 r26); add a BREAKING list (removed commands, agents, skills, MCP servers, the gate); say how docs/app-contract.md changed. (4) Ask the operator to run the escape suite at the branch tip (D-173 r4); quote its SUITE_RESULT line in the pull request. (5) One pull request, merge on green hosted CI, then STOP: name the merge commit and ask the operator to create and push the signed tag `v0.6.0`. Never create the tag, read the key, or sign with any key but the throwaway fixture; a change to release.yml or the release scripts makes this Tier 3: stop and hand off. (6) After the workflow publishes, download the assets and run `rein release verify --pubkey docs/contract/release-key.pub`. Acceptance: `grep '\"version\"' package.json` on main prints 0.6.0; `grep -c \"^## \\[0.6.0\\]\" CHANGELOG.md` prints 1; `grep -c \"is still present\" CHANGELOG.md` prints 0; the pull request quotes SUITE_RESULT with FAIL=0 and UNKNOWN=0; `gh release view v0.6.0 --json assets` lists exactly rein-0.6.0.tar.gz, its .minisig and manifest.json; `rein release verify` exits 0; manifest.json says version 0.6.0; the closing handoff gives the release URL, the tarball sha256 and the tagged commit.",
       "created_at": "2026-11-24T13:50:05.027Z",
@@ -2488,57 +2488,53 @@
         "E-474",
         "E-475"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-473",
-        "E-474",
-        "E-475"
-      ],
-      "updated_at": "2026-11-24T15:14:30.082Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T20:11:01.511Z"
     },
     {
       "id": "E-473",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Remove telemetry and the incident tracker per D-170 r5 and D-172 r28 (after E-470; before E-472; one pull request on a branch from merged main). (1) Delete src/shared/telemetry.mjs, src/shared/incident-append.mjs, the incident writer in the hooks, and every call that records a telemetry row or an incident (the files `git grep -l \"telemetry\\|incident-append\" -- src hooks install-rein.sh` prints). (2) Split src/shared/mcp-telemetry.mjs: keep only what stamps the booted build on a result (`rein doctor` reads it for a stale server), under a name that does not say telemetry; delete the recording half. (3) Nothing creates or writes ~/.rein/telemetry.sqlite or the incident log; both become legacy artefacts that `rein clean` removes; install-rein.sh and the release layout stop listing the removed files. (4) Tests: delete tests/suites/telemetry_test.sh, incident_tracker_test.sh, tests/unit/telemetry-naming.test.mjs and the rows that test removed code; keep tests/unit/build-stamp.test.mjs. Rewrite the isolation guard in tests/run.sh and the E-257 rows of harness_isolation_test.sh: a test that writes under the operator's ~/.rein still fails the run, and the guard no longer names telemetry. Update tests/census-baseline.tsv. (5) Rules and docs describe only what is left; CHANGELOG `[Unreleased]` names the removal. Acceptance: `git grep -il \"telemetry\" -- src hooks install-rein.sh` prints nothing except src/config/legacy-artefacts.json; `git ls-files | grep -c \"incident\"` prints 0; `node --test tests/unit/build-stamp.test.mjs` passes; the harness_isolation suite has a row where a write under the real ~/.rein fails the run; `rein doctor` still prints the stale-server line in its suite; `rein ci run` green; security_engineer [SEC_CLEARED]; the handoff gives `git ls-files src | xargs cat | wc -l` before and after.",
       "created_at": "2026-11-24T13:57:54.489Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T20:11:01.029Z",
+      "summary": "Telemetry and the incident tracker removed; build stamp kept in mcp-result.mjs; ~/.rein test guard by ctime with a roles/ diff (D-174 r12-r20, r23). PR #71, 27ebc09.",
       "depends_on": [
         "E-470"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-24T15:08:56.039Z"
+      "updated_at": "2026-11-24T20:11:01.035Z"
     },
     {
       "id": "E-474",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Remove the CI planner per D-174 r4 and r8 (after E-473, on E-473's branch and pull request, one commit of its own; before E-472). Delete src/shared/ci-plan.mjs, tests/unit/ci-plan.test.mjs and the `rein ci plan` subcommand with its usage line and dispatcher in src/bin/rein. Remove the file from install-rein.sh, the release layout and tests/census-baseline.tsv where they list it. CHANGELOG `[Unreleased]` names the removed command. `rein ci run` does not change. Review and acceptance run once at the branch tip, with E-473 and the handoff-heading task. Acceptance: `git grep -n \"ci-plan\\|ci plan\\|ciPlan\" -- src hooks tests docs install-rein.sh` prints nothing; `rein ci plan` exits non-zero and prints the usage text; `rein ci run` is green at the branch tip; the handoff says whether docs/app-contract.md changed.",
       "created_at": "2026-11-24T15:14:18.981Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T20:11:01.273Z",
+      "summary": "CI planner removed: rein ci plan, src/shared/ci-plan.mjs, ci.smart/full_paths/docs_paths; legacy entry for the installed copy (D-174 r4, r8, r14, r23). PR #71, 27ebc09.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-24T15:14:28.542Z"
+      "updated_at": "2026-11-24T20:11:01.280Z"
     },
     {
       "id": "E-475",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Make `rein handoff` write the entry's heading per D-174 r7 and r8 (after E-473, on E-473's branch and pull request, one commit of its own; before E-472). In runHandoff of src/shared/cli-bookkeeping.mjs, write before the entry text: a `---` line when COMM.md does not already end with one, then `## Handoff — <YYYY-MM-DD HH:MM> UTC` with the same time the commit message carries, then `**From**: <sender> → <target>`. Refuse with `✗ [HANDOFF_HEADING]` and exit 1 an entry file that holds a line starting `## Handoff`; nothing is written or committed on a refusal. The wake line is unchanged. Change a rulefile or template only where it tells the writer to add the heading, and keep each rulefile at or under 2 KB. Tests: extend the unit file that already covers runHandoff (name it in the handoff; no new suite): an entry without a heading lands under a heading whose time equals the commit message's; an entry with its own heading is refused and COMM.md is byte-identical; after a handoff the last `## Handoff — ` line of COMM.md is the new entry's. Acceptance: those three rows pass under `node --test`; after one real `rein handoff` in this repository `grep -c \"^## Handoff — \" .ai/COMM.md` is one higher than before; `rein ci run` is green at the branch tip.",
       "created_at": "2026-11-24T15:14:23.774Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T20:11:01.495Z",
+      "summary": "rein handoff writes the ---/## Handoff — <commit time>/**From** heading; an entry with its own heading is refused with [HANDOFF_HEADING] (D-174 r7, r8, r21, r23). PR #71, 27ebc09.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-24T15:14:29.286Z"
+      "updated_at": "2026-11-24T20:11:01.508Z"
     }
   ],
   "stamps": [

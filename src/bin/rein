@@ -123,6 +123,9 @@ Commands:
                  --json prints one document {schema, version, status, checks[]}
                  (default doctor only); --scope install runs only the checks that
                  judge the Rein home itself, from any directory (what an installer reads)
+  rein doctor --fitness [--json]
+                 The lean-core scorecard: one row per measure with value, target and
+                 PASS, FAIL or UNKNOWN (and why); --json prints the rows as an array
   rein uninstall   Remove the global ~/.rein install (project .ai/ stays)
   rein start [--status | --kill [--yes] | --account <name> | --detach | --dry-run]
                  Build or reattach the project's tmux Triad (one session per
@@ -3938,6 +3941,25 @@ _dr_lines() {  # <id> — stdin: lines a helper printed. Glyph lines are records
 
 doctor() {
   local a json=0 other=0 scope="" want_scope=0
+  # E-459 (D-169 r11, lean-core.md §Component 6): the scorecard, one row per measure. Takes
+  # --json only; it reports and exits 0 whatever the rows say (exit 2 on bad arguments).
+  case " $* " in *" --fitness "*)
+    local -a fa=()
+    for a in "$@"; do
+      case "$a" in
+        --fitness) ;;
+        --json) fa+=(--json) ;;
+        *) echo "rein doctor: --fitness takes --json only (got '${a}')" >&2; return 2 ;;
+      esac
+    done
+    local fit; fit="$(_rein_helper shared/fitness.mjs || true)"
+    if [[ -z "$fit" ]] || ! command -v node >/dev/null 2>&1; then
+      echo "rein doctor: shared/fitness.mjs or node missing — $(_rein_fix_install)" >&2
+      return 2
+    fi
+    node --no-warnings "$fit" ${fa[@]+"${fa[@]}"}
+    return $?
+  ;; esac
   for a in "$@"; do
     if [[ "$want_scope" -eq 1 ]]; then scope="$a"; want_scope=0; continue; fi
     case "$a" in

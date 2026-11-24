@@ -97,3 +97,51 @@ permission classifier refused `bash install-rein.sh` twice, so the operator runs
   format. The repo's server returns [SYNC_PASS] on this tree.
 - New: `rein task show <id>` (state, then .ai/archive/state-done-*.json or .ai/tasks/archive/).
   Clause (3) was already true since E-461 (alternatives were never required); a test comment says so.
+
+## E-459 — the scorecard, `rein doctor --fitness` (uncommitted; left unstaged)
+- New: src/shared/fitness.mjs (13 rows: the 11 of §Data Model with the D-170 r15 targets, plus
+  agents ≤ 4 and hook lines ≤ 900), `rein doctor --fitness [--json]` in src/bin/rein (exit 0
+  whatever the rows say; exit 2 on any other flag), tests/unit/fitness.test.mjs (5 tests, fixture
+  trees). Nothing removed.
+- **Baseline on this repo, 2026-11-24** (quote in the handoff): 5 PASS · 7 FAIL · 1 UNKNOWN.
+  PASS: skills 5, bookkeeping calls 3, review agent runs 2, agents 4, role guarantees 5 of 5.
+  FAIL: session bytes 5313, MCP servers 2, hook lines 1391, command-text lines 3528, gate tasks
+  35 of 78 (44.9%), gate tests 13.6% (5267 of 38620 lines), unmerged branches 30.
+  UNKNOWN: install steps (needs a scratch-HOME run; E-469/E-470).
+- **E-460's session-bytes row FAILS: 5313 > 4096.** A role pane loads CLAUDE.md with its
+  `@ENGINEER.md` import AND `--append-system-prompt-file <rulefile>` (provider-adapter.mjs launch
+  line). The Engineer pane therefore loads ENGINEER.md twice (367 + 1884 + 1884 + brief 1178); the
+  Architect loads ENGINEER.md and ARCHITECT.md (5195). To rule: make CLAUDE.md role-neutral (drop
+  the @import; the appended rulefile carries the persona), or stop appending for the Engineer.
+  Either brings both roles to ~3.1–3.4 KB. Not changed here (rulefiles and the Role Resolution
+  clause are E-460's ruled shape).
+- MCP servers 2 and hook lines 1391 (923 without pre-tool-use.sh) and command-text lines FAIL
+  because safe-exec stays while E-463 is held. Expected.
+- **Definitions the handoff states** (the rows are only as good as these):
+  - session bytes: per role, CLAUDE.md + its @imports + the appended rulefile + the brief the
+    session-start hook prints, measured by running the hook once with `{}` on stdin (the role is
+    then unverified, so the stamp lines are the long form: a slight over-count). The run rebuilds
+    .ai/DIGEST.md when its inputs changed, as any session start does.
+  - skills / agents: the union of registry.json roles.*.skill_dirs / agent_dirs (what rein sync
+    provisions). MCP servers: registry entries with a path (what generate_mcp_json writes).
+  - bookkeeping calls: counted from the commands (rein done + rein handoff + SendMessage of the
+    wake line), not from a session trace.
+  - role guarantees: the five of §Security checked against architectSettings/engineerSettings
+    for this project and ~/.rein, plus "rein pane launches with them" (bin/rein → role-settings,
+    resolve-launch → --settings <role dir>). Static; the escape suite is the run-time proof.
+  - command-text lines: .js/.mjs/.json under src/mcp/safe-exec-mcp, node_modules excluded.
+  - gate tasks: status not DONE/SUPERSEDED/CANCELLED/ARCHIVED; text matches GATE_TASK_RE
+    (safe-exec, pre-tool-use, "<kind> gate", "the gate", gate rules/tables/rows/ledger, role
+    token, test_lines, ratchet, verdict/contract tables, the table rule ids and fixture names).
+    It counts every Rein gate (privacy, pre-push) as "Rein's own controls".
+  - gate tests, by file name (GATE_TEST_NAMES): safe[-_]exec, pre[-_]tool[-_]use, ^gate[-_],
+    role[-_]token, the verdict-table names (arch-write, block-rules, pipe-shell, secret,
+    role-verdict, gate-self-disable, gate-relative-home, operand-scope)-cases, operand-scope*,
+    check-table.mjs, table-probe.mjs. NOT counted: sandbox_escape_test, completion-gates,
+    rename-gate, privacy-cases, traversal-policy. Share is by lines.
+  - unmerged branches: local branches `--no-merged=origin/HEAD's branch`, the checked-out one and
+    the trunk excepted. Today 30: the e-* stack E-457 lands plus upgrade/audit-fix-2026-11-02.
+    D-141 deletes merged ones; whether the stack branches go after E-457 merges is E-470's.
+- src/claude/CLAUDE.md (3,995 bytes, "Rein v2 Principal Software Engineer") is loaded by no
+  session (only `rein doctor --compliance` reads ~/.rein/claude/CLAUDE.md); it is not counted. It
+  looks like a leftover for E-468 or E-467's list. Left in place.

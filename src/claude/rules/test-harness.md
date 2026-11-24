@@ -36,9 +36,9 @@ review question for the `reviewer` agent (E-464).
    — "can this scan return an empty set and still pass?"
 6. **A run never writes the operator's `~/.rein` (E-257, E-473)**: a suite writes only under
    its fixture HOME or a per-run temp path; `tests/run.sh` fails the run (`[REIN_HOME_WRITTEN]`)
-   on any file the run changed under the account's real `~/.rein/`, by ctime. Paths the
-   operator's live processes write (run/, ci/, roles/, trash/, clean.log, SQLite stores) are
-   not checked, and neither are deletions.
+   on any path the run changed under the account's real `~/.rein/`, by ctime, and on any new
+   `roles/` entry. Paths the operator's live processes write (run/, ci/, trash/, clean.log,
+   top-level SQLite stores, an existing `roles/` entry) are not checked, nor are deletions.
 7. **Inherited launch variables (E-264)**: `LAUNCH_VARS` is stripped once, centrally, in
    `tests/lib`. A suite that needs one sets it explicitly. A hook or resolver that starts
    ranking a new launch variable adds it to the list in the same change.

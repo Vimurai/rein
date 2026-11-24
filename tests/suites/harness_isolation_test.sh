@@ -923,7 +923,7 @@ assert_contains "E-257.01b: …and says the operator's ~/.rein was untouched" "O
 
 _leak_out="$(_run 'leaky_test.sh')"; _leak_rc=$?
 assert_status 0 "E-257.02a: a run whose suite wrote under the real ~/.rein FAILS" test "$_leak_rc" -ne 0
-assert_contains "E-257.02b: the failure is named" "[REIN_HOME_WRITTEN] 1 file(s)" "$_leak_out"
+assert_contains "E-257.02b: the failure is named" "[REIN_HOME_WRITTEN]" "$_leak_out"
 assert_contains "E-257.02c: …with the path" "${GUARD_HOME}/.rein/shared/leaked.json" "$_leak_out"
 rm -f "${GUARD_HOME}/.rein/shared/leaked.json"
 
@@ -972,8 +972,35 @@ echo x > "${GUARD_HOME}/.rein/clean.log"; echo x > "${GUARD_HOME}/.rein/store.sq
 _pass "fixture wrote where live processes write"
 assert_summary
 EOF
+# roles/p exists before the run, as a project a live `rein pane` rewrites does.
+mkdir -p "${GUARD_HOME}/.rein/roles/p"
 _lw_out="$(_run 'livewriters_test.sh')"; _lw_rc=$?
-assert_status 0 "E-257.07: roles/, trash/, clean.log and a SQLite journal do not fail the run" test "$_lw_rc" -eq 0
+assert_status 0 "E-257.07: an existing roles/ entry rewritten, trash/, clean.log and a top-level SQLite journal do not fail the run" test "$_lw_rc" -eq 0
+
+# Security F-E473-4: a suite that leaks role settings creates a NEW roles/ entry — that fails.
+cat > "${FIX}/newrole_test.sh" <<EOF
+source "${TI_ROOT}/tests/lib/assert.sh"
+mkdir -p "${GUARD_HOME}/.rein/roles/rein-t-leak"; echo x > "${GUARD_HOME}/.rein/roles/rein-t-leak/settings.engineer.json"
+_pass "fixture created a roles/ entry"
+assert_summary
+EOF
+_nr_out="$(_run 'newrole_test.sh')"; _nr_rc=$?
+assert_status 0 "E-257.09a: a new roles/ entry FAILS the run" test "$_nr_rc" -ne 0
+assert_contains "E-257.09b: …naming it" "${GUARD_HOME}/.rein/roles/rein-t-leak" "$_nr_out"
+rm -rf "${GUARD_HOME}/.rein/roles/rein-t-leak"
+
+# Security F-E473-5: a tree moved in keeps its files' ctimes; the directory is what changed.
+cat > "${FIX}/movein_test.sh" <<EOF
+source "${TI_ROOT}/tests/lib/assert.sh"
+_d="\$(test_tmpdir movesrc)/tree"; mkdir -p "\$_d"; echo x > "\$_d/f"
+mv "\$_d" "${GUARD_HOME}/.rein/moved"
+_pass "fixture moved a tree into the operator's ~/.rein"
+assert_summary
+EOF
+_mv_out="$(_run 'movein_test.sh')"; _mv_rc=$?
+assert_status 0 "E-257.10a: a directory moved into ~/.rein FAILS the run" test "$_mv_rc" -ne 0
+assert_contains "E-257.10b: …naming it" "${GUARD_HOME}/.rein/moved" "$_mv_out"
+rm -rf "${GUARD_HOME}/.rein/moved"
 
 # The default root is the account's home from the user record, and a redirect outside the temp
 # dir is ignored and named. (Only the printed root is asserted: the real ~/.rein is the

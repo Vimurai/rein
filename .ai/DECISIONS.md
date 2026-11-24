@@ -6169,4 +6169,11 @@ Each ruling is a change inside one task's commit or a follow-up commit on `lean-
    d. The locator cases in `tests/suites/locator_policy_test.sh` keep every case, at the new path.
    e. No extra security round: the move is inside E-463, and E-470's one round over the branch diff reads it.
 
+### Addendum 3 (2026-11-24) — four tasks that named the deleted gate
+27. **E-394, E-395, E-410 and P-52 are closed as superseded by D-169, not implemented** (the E-463 clause asked for a ruling on each).
+   a. **E-394** (doctor reads `disableAllHooks` from every settings layer): closed. It was a P3 finding from when hooks held the role boundary. The sandbox holds it now (D-169 r2, r5); a session with hooks off loses the brief and the seatbelt's advice, and the operator sees a missing brief at once. The doctor's existing check of the project file stays.
+   b. **E-395** (doctor exits non-zero on `[SAFE_EXEC_BROKEN]` and `[GATE_DEP_MISSING]`): closed. Both lines went with the gate.
+   c. **E-410** (`rein incident` as an allowlisted install-tree writer): closed. The allowlist went with the gate, and E-467 removed the `rein-incident` skill.
+   d. **P-52** (first control review from `rein gate ledger`): closed. The ledger went with the gate. The controls left are the keep list of D-170, which the operator ruled by hand.
+
 ---

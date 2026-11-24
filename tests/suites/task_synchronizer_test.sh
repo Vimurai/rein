@@ -182,7 +182,8 @@ assert_status 0 "local state.sqlite gained the row" \
   bash -c "[[ '$COUNT_LOCAL2' == '1' ]]"
 
 # ── E-461 (D-169 r7): add_task refuses a task without Acceptance or tier ──────
-# The task-planner checks moved into the tool. The rule rows are tests/fixtures/task-quality-cases.json;
+# The task-planner checks moved into the tool. The rule rows are the task-quality table, run by
+# tests/unit/task-quality.test.mjs (naming its path here would pull this suite into the fast tier);
 # these pin that the MCP path reaches the schema and the check, and writes nothing.
 echo ""
 echo "  [T-QA-S01] add_task refuses a task without Acceptance, a tier or a verb"

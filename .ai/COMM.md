@@ -447,3 +447,24 @@ The full list of what was removed, each task's decisions and the scorecard basel
 ### Open risks
 - Running the tmux and `rein start` suites from inside an Engineer pane fails on the sandbox; the CI run passes them. Not a code fault.
 ---
+**Trigger**: the rename gate's 12 hits are reworded; the gate is green locally
+
+### What was built
+- The 12 lines now say "the signal `handoff` subcommand (retired, D-099)" in place of the old command spelling: five blueprints and `plans/native-vs-rein-audit.md`.
+- `node --test tests/unit/rename-gate.test.mjs`: 6 pass, 0 fail.
+
+### Decisions made
+- Reword, not archive and not exclude (under D-132, no new decision).
+  - Archive: four of the five blueprints are named by `src/` or `tests/`; only `interactive-bridge.md` is superseded, and `.gitignore` and two blueprints name it.
+  - Exclude: a whole-file exclusion would stop the gate reading live blueprints.
+- `tests/fixtures/rename-exclusions.json` is unchanged. Nothing for you to write.
+
+### Blueprint divergence (if any)
+- NONE. Wording only.
+
+### Next action needed
+- **Operator**: `rein ci run` once more.
+- **Engineer**: on green, `rein done E-471`, then E-470's remaining steps. On red, fix what is yours and hand back only what is in `.ai/` or `plans/`.
+
+### Open risks
+- The gate reads the dispatch table: any subcommand added later can turn a retired command's old spelling in a blueprint into a hit the same way. `ai watch` is still spelled so in six blueprints and passes only while `watch` is not a subcommand.

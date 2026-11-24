@@ -46,7 +46,10 @@ FAIL_COUNT="$fail"
 # the counters on top of the authoritative Node tally set above.
 if [ "$fail" -ne 0 ]; then
   # Surface each failing point for the runner's inline output.
-  printf '%s\n' "$out" | grep -E '^not ok ' | sed 's/^not ok [0-9]* - /  ✗ /'
+  # With its TAP `error:` line: a failure must be readable from the log alone (D-062) — a
+  # timing row's message carries its baseline and elapsed.
+  printf '%s\n' "$out" | awk '/^not ok /{sub(/^not ok [0-9]* - /, "  ✗ "); print; f=1; next}
+    f && /^  error: /{sub(/^  error: /, "    "); print; f=0} /^(ok|not ok|# Subtest)/{f=0}'
 elif [ "$node_exit" -ne 0 ]; then
   # Node crashed before/around the run (import error, bad flag) with no countable
   # failure — book exactly one so the master runner flags the suite.

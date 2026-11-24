@@ -3334,3 +3334,108 @@ and plain inputs come out clean), plus a nested-C1 case in E-471.3. Residual, no
 bidi/format characters (e.g. U+202E) pass; the producer's repr leaves printable non-ASCII as is.
 Re-check at 36632fe (2026-11-24): F-471-1 RESISTED — the looped `_lane_why`, extracted into the harness (rc 0), strips nested, triple and 10-deep `\xc2…\x9b…` in C and C.UTF-8, and every earlier payload (C0/DEL/ESC, plain C1, tr-before-sed joins, 160 cap incl. a cap landing on `\xc2`, format strings) still resists; role resolution is restrict-only as at 5be05d9 (only a bare `union` changed: still union→architect, empty reason); git_lane_test.sh 122 PASS, 0 FAIL. T-LANEWHY-001 closed.
 Carry-forward to 2e0f877 (2026-11-24): `git diff 36632fe..HEAD -- hooks src` touches only src/config/legacy-artefacts.json (one reworded `note`, no rule/id/src_root change); hooks/ and src/shared/launch-record.py unchanged. The rest is test/.ai only: project-upgrade.test.mjs links this tree's shared/ into the fixture's temp HOME via `tc_link_shared` so the pre-commit secret check finds its scanner (makes the check run, does not bypass it); pane_binding's E-462.02 now matches the Architect lane as absolute `/.ai/**)`, `/plans/**)` (D-172 r2a), still required present. No lane or secret-check weakening; no new pen-test round. SEC_CLEARED at 2e0f877.
+
+## lean-core Tier 3 round at HEAD 877f560 (E-462, E-463, E-467) — security_engineer, 2026-11-24 — SEC_CLEARED
+
+Scope (no discovery; a new finding gates only if P0): does the role sandbox boundary and do the
+F1–F4 resistances hold at HEAD 877f560 (code = 2e0f877), after E-462's [LANE_CODE] work (be023c4,
+af9baef), E-463's deletion of the command-text gate (5b343c4) and test-only fixes; is the
+pre-commit lane and the every-project secret check (D-172 r3) intact; did E-467 leave a dangling
+privileged path.
+
+**Escape suite: not runnable here.** `tests/suites/sandbox_escape_test.sh` printed
+`SKIP — user namespaces are not available to bubblewrap on this host` (this agent itself runs
+inside a bubblewrap sandbox; nested `bwrap --unshare-user` is refused, and api.anthropic.com is
+not reachable from it). So the real-session cases C01–C42 did not run in this round. They
+include C11/C12/C18/C25–C28 (controls), C20 (MCP), C32 (Architect ref forgery), C36–C39 (root
+plants) and C41. Why they still stand at HEAD:
+`git diff ff7cc71..HEAD` is empty for the suite, `tests/tools/sandbox-probe.sh`,
+`resolve-launch.mjs`, `provider-adapter.mjs`, `lane-ledger.mjs`, `publish-scan.mjs`,
+`hooks/pre-push.sh` and `hooks/post-commit.sh`. `role-settings.mjs` changed only the hook entry:
+GATE_HOOK (Bash|Write|Edit|MultiEdit|NotebookEdit) became SEATBELT_HOOK (Bash, advice). The
+42/0/0 run at ff7cc71 already **removed the hook from the Architect's file before every session**
+(suite lines 104–107). So it measured the sandbox and the permission rules without the gate, and
+deleting the gate removes nothing that run relied on. E-458 M6 measured the file-tool guarantee
+(dontAsk + `Edit(lane/**)`) with no hook at all. The operator still owes the post-E-463 suite run
+on the host that has user namespaces; it is part of E-463's acceptance and E-470.
+
+**Generated configuration at HEAD.** Written by `role-settings.mjs write --rein-home <scratch>`
+into a scratch project:
+- Both roles: `enabled`, `failIfUnavailable: true`, `allowUnsandboxedCommands: false`, and
+  bypass mode disabled.
+- Architect allowWrite is exactly `.ai`, `plans` and `.git`, with no root and no `src`.
+- Architect denyWrite is `.git/HEAD`, `.git/rein`, `refs/remotes`, `refs/replace`,
+  `packed-refs` and `info`.
+- Architect network domains: `[]`. Architect MCP list: `task-synchronizer-mcp` only. Hook
+  matcher: `Bash` (seatbelt).
+
+`rein doctor` inside this nested sandbox prints `[SANDBOX_MISSING] … rein pane refuses to start a
+role session` (fail-closed, C23/C42 behaviour).
+
+**E-463: no §Security guarantee is unguarded.** The five rows of lean-core.md §Security are held
+by:
+- the `Edit` allow rules with dontAsk (file tools; M6);
+- the sandbox write list (Bash and any child process);
+- no network domain (push);
+- the sandbox protected paths and the `~/.rein`/`.claude` denies (controls);
+- `allowUnsandboxedCommands: false` with bypass disabled (leaving the sandbox).
+
+None of these reads command text. The seatbelt answers only `permissionDecision: "ask"`
+(seatbelt.mjs:113) and is fail-open by contract. That is acceptable only because it is not the
+boundary (D-169 r2/r5).
+
+Pre-commit role resolution after E-463: the launch-record chain, then the restrict-only advisory
+env, then engineer. The session-token step and the "session id present → union" step are gone.
+A forged `CLAUDE_CODE_SESSION_ID` now resolves to engineer instead of union. That is not a
+weakening: a `rein pane` Architect always has a launch record on its chain, so it resolves to
+`chain:architect`. Without a launch record there is no role session and no role sandbox, and the
+Architect's commits are caught again at push by the lane ledger, which the Architect cannot
+write.
+
+**E-467: no dangling privileged path.**
+- `src/mcp` holds `shared`, `task-synchronizer-mcp` and `safe-exec-mcp/seatbelt.mjs` (133 lines,
+  the one file E-463 left). `.mcp.json` names one server.
+- A grep of src/, hooks/ and scripts/ finds no live caller of the deleted modules (`index.js`
+  --verify-role, role-token, gate-guard, caller-role, load-policy, gate-ledger/pins/override,
+  classifier-backstop, shell-word, `launch-record.py` mint-context/verify-context, the
+  filesystem/memory servers). Only comments, a release-layout exclusion name and
+  legacy-artefacts entries remain.
+- Every script named in a tracked settings/hooks/plugin JSON exists.
+- `pre-tool-use.sh` resolves the seatbelt from the install mirror first, then script-relative,
+  never from the visited repo (E-223).
+- Stale gate files in an old `~/.rein` mirror are listed in `legacy-artefacts.json` (`not-in-src`).
+
+**Tests run at HEAD:**
+- `node --test` over lane-code, lane-ledger, publish-scan, role-settings and seatbelt: 126/0.
+- `pre_commit_hook_test.sh`: 78/0.
+- `git_lane_test.sh`: 122/0.
+- `role_provisioning_test.sh` (136/3) and `pane_binding_test.sh` (8 failures) fail only on this
+  agent's sandbox. It write-denies `~/.rein/roles/*/settings.engineer.json`, blocks the API, and
+  the failing rows are tmux/`rein start` binding rows. CI at 2e0f877 is green (3890/0), so these
+  are not findings.
+
+### Pen-Test Results
+
+Direct payloads ran in `mktemp -d` under `env -i PATH=/usr/bin:/bin` (plus a node link), with HOME=$T,
+`ulimit -t`/`-f` and a wall-clock kill. `-v`/`-u` were left off for node, as in the ff7cc71 round. The
+fixtures were copies of `src/shared`, `src/mcp/shared` and `hooks/`. There was no network, and
+every dir was removed.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | resolve-launch, both roles (F1) | roles.json `model: "haiku\n--mcp-config\n/x/m.json"` | RESISTED | 0 (probe rc 4) | `[ROLE_MODEL_INVALID]`; control `haiku` rc 0 |
+| A03 | resolve-launch, both roles (F1) | `model: "haiku\r--dangerously-skip-permissions"`, `"--dangerously-skip-permissions"` | RESISTED | 0 (probe rc 4) | `[ROLE_MODEL_INVALID]` |
+| A01 | role-settings write (F2/F3 config) | inspect generated Architect/Engineer files | RESISTED | 0 | denies on refs/remotes, refs/replace, packed-refs, info, HEAD, rein; no root/src write; no domains; fail-closed sandbox |
+| A08 | lane-ledger check (F2) | `src/evil.js` commit X pushed over origin/main: plain | RESISTED | 0 (probe rc 1) | `[ARCH_LANE_COMMIT]` |
+| A08 | lane-ledger check (F2) | + `update-ref refs/remotes/zz/hide X` | RESISTED | 0 (probe rc 1) | refused |
+| A08 | lane-ledger check (F2) | + packed-refs `X refs/remotes/origin/zz` | RESISTED | 0 (probe rc 1) | refused |
+| A08 | lane-ledger check (F2) | + `git replace -f X <lane-only lookalike>` | RESISTED | 0 (probe rc 1) | refused |
+| A05 | pre-commit, no `.ai/publish.json` (F4) | fake AWS key, GitHub PAT, OpenSSH private-key header in `docs/` and `src/` | RESISTED | 0 (rc 1 x6) | `[SECRET_SCAN_HIT]`; clean control commits (rc 0) |
+| A05 | pre-commit secret check | AWS key + `REIN_SKIP_GIT_LANE=1`; + `REIN_PANE_ROLE=engineer` and a forged `CLAUDE_CODE_SESSION_ID` | RESISTED | 0 (rc 1 each) | the lane opt-out does not skip the secret check |
+| A05 | pre-commit secret check | scanner `publish-scan.mjs` removed from the mirror | RESISTED | 0 (rc 1) | `[COMMIT_BLOCKED] [SECRET_SCAN]` fail-closed; with `mcp/shared` absent, the hook also fails closed (rc 1) |
+| A01 | pre-commit Architect lane | `REIN_PANE_ROLE=architect`, staged `src/a.js` | RESISTED | 0 (rc 1) | `[SOVEREIGNTY_BLOCK]` (restrict-only env honoured) |
+| A04 | real-session escape cases C01–C42 | (suite) | NOT RUN (SKIP: no user namespaces in this agent's sandbox) | n/a | Not counted as INCONCLUSIVE: every file the run depends on is unchanged since the 42/0/0 run at ff7cc71, and that run already had the gate hook stripped. The operator's post-E-463 run is still owed (E-463 acceptance) |
+
+Verdict: **SEC_CLEARED at 877f560 for E-462, E-463 and E-467.** No EXPLOITED or INCONCLUSIVE row
+and no new finding. F8 stays the accepted residual (D-172 addendum 1 r23) with the [LANE_CODE]
+notice.

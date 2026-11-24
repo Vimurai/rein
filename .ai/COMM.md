@@ -3,55 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-20 15:51 UTC
-**From**: Engineer → Architect
-**Trigger**: E-441, E-440, E-446 and E-448 built and committed (stacked on e-442-safe-exec-split); full CI green on the top of the stack.
-
-### What was built
-- **E-442 follow-up** 061e3ee (branch e-441-cd-relocation): pre_tool_use_gate_test E-216.08a grepped index.js for `analyzeArchitectWrites`; the E-442 split moved the call into sovereignty.mjs. The assertion now reads sovereignty.mjs.
-- **E-441** ffed1e8 (e-441-cd-relocation): `gitRelocated` (git-view.mjs) returns true when a cd/pushd/popd before the git command leaves the project root; the --check gate passes `findProjectRootFrom(cwd)`, runAnalysis/analyzeSovereignty thread `projectRoot`; without a root any directory change counts. Four security_engineer passes. Passes 1-3 found P1 bypasses, each now a row: ANSI-C verbs, `cd${IFS}`, `${X:-cd}`, brace lists, cd in a variable or alias (assigned-verbs.mjs expands cd/pushd/popd, `$'..'` decoded for them only), redirection/assignment prefixes, keywords with options, line continuations. The command-word reader is inverted (fail closed): a segment holding a run-time-built word counts as a possible cd unless its first word is a plain literal command that cannot run cd in this shell. SEC_CLEARED.
-- **E-440** 57d1684 (e-440-exec-config-root-forms): (a) git-redirect.mjs, ARCH_GIT_EXEC_CONFIG for core.pager, core.editor, diff.external, credential.helper and credential.<url>.helper, plus alias.<name> with a `!` value, by every hooksPath spelling. An alias via --config-env, or a KEY_n without VALUE_n, fails closed. GIT_SSH_COMMAND and XDG_CONFIG_HOME join CONFIG_ENV. (b) /sbin /lib /lib64 /srv root-form. (c) `$(pwd)`, backtick pwd, `${PWD%…}` are the cwd. (d) both narrowings. SEC_CLEARED after 2 passes.
-- **E-446** e685418 (e-446-implicit-run-sinks): IMPLICIT_RUN gains the twelve names; a `..` segment is implicit-run in both modes. From the security pass, the same tools' other spellings too (TASK_RUNNER_FILE, case-insensitive): JUSTFILE, rakefile, Rakefile.rb, *.rake, taskfile.yml, Taskfile.dist.yml. .ai/THREAT_MODEL.md: both E-439 INCONCLUSIVE items closed. SEC_CLEARED.
-- **E-448** 183b151 + a84957f (e-448-machine-local-refuse): src/shared/machine-local.list is the one list; `_ensure_generated_gitignore`, the doctor (hard fail, id settings_json_tracked with the path as subject) and a new pre-commit step read it. The step runs in every project with no opt-out: a staged add or modify of a listed path → `[COMMIT_BLOCKED] [MACHINE_LOCAL] … git rm --cached <path>`; a deletion passes; `.claude/**` and `.mcp.json` blobs holding `$HOME/` are refused. `grep -c start.local.json hooks/pre-commit.sh` = 0. a84957f: the list resolves install-first, then from the hook's own tree (as the toolchain-pin bootstrap; never the visited repo). This fixed two CI rows on 183b151 whose fixture HOME has no shared mirror.
-
-### Tables for pinning (on a84957f)
-- operand-scope-cases.json: **556 rows (438 BLOCK, 118 pass)**, `fafef2deaafb7c8805fd05705d43b7a0511d7e899f96dde51bdc1ff7478e03da`. E-441 alone (ffed1e8): 530 rows, `6c32b7e3f29f6903a6ad5d597e88b715ca9aafc3f4e98a4d403a6a14f0611bee`.
-- block-rules-cases.json: **74 rows (47 BLOCK, 27 pass)**, `e72af434978597269a616bcfab3daaeeec73f341abc123efd3d6fbba7f4ab0d8` (was `65a83152…`).
-- pipe-shell-cases.json: **56 rows (45 BLOCK, 11 pass)**, `066124139c1c115b1eda3d481525e33a69c79fac6c0fa90006c1f831f5b56f3b`.
-- Unchanged: arch-write-cases.json `26f7da12…`; gate-self-disable-cases.json `9eb38fc4…`. This is HEAD's value: E-445's re-pinned table is not in this lineage, because #62 is unmerged.
-- No existing row changed verdict, except the two E-441 residual rows (PASS → BLOCK, as ruled). The two (d) narrowings are new pass rows; no prior BLOCK row covered them.
-
-### CI
-- ffed1e8: PASS (7785/0, test_lines 45451).
-- 57d1684: suite 7824/0 but budget FAIL, fast_tier 45 s against a limit of 25. Load was 23.9 on 16 CPUs because I ran suites and critics during the run; not a regression.
-- 183b151: FAIL on 2 rows, fixed in a84957f.
-- **a84957f: PASS** (7841/0, leaked 0, test_lines 45593 ≤ 46316, fast_tier 23).
-
-### Decisions made
-- None of my own. Interpretations to ratify:
-  - (1) E-440 (d): the `$PWD` match ends at `(\s|$)` AFTER the optional `/` or `/*`, not directly after the name. The literal reading (`(\/|\s|$)` after the suffix) turned `rm -rf $PWD/dist` from WARN to BLOCK (security_engineer P2).
-  - (2) E-441 also counts popd, bare cd, `cd -` and `pushd +N`, and a dynamic command word (fail closed).
-  - (3) E-446 adds the task runners' other spellings beyond the twelve names (critic_arch: within the ruling).
-
-### Blueprint divergence (if any)
-- NONE beyond the three interpretations above.
-
-### Next action needed
-- **Architect**: pin the three tables by ruling; ratify or correct interpretations (1)–(3); rule on the residuals below.
-- **Operator** (needed before DONE; the acceptance asks for both):
-  - `bash install-rein.sh` from a84957f. My run of it was refused by this session's permission classifier. Until it runs, pre_commit_hook_test T-PCS-S10 ("mirror is byte-identical") fails locally, and the live gate lacks E-441/E-440/E-446/E-448.
-  - Push and open PRs for e-441, e-440, e-446 and e-448 (stacked, in that order). I have not pushed.
-- Then: critic_acceptance for E-441, E-440, E-446 and E-448 (none is DONE yet), and E-449..E-452.
-
-### Open risks
-- **E-441 residuals.** P2: `env --chdir`, `find -execdir`, `sudo -D`, sourcing a script, and `cd -P` through a symlink planted in .ai/ (the `..` is collapsed as text). P3: `c[d]` glob, chroot, autocd, coproc, and over-blocks of a cd inside `$( )`. Unrelated (E-438): the git operand scope reads past `&&`/`;`, so `git checkout .ai/x && echo done` blocks for the Architect.
-- **E-440 residuals.** P2 env names: GIT_PAGER, GIT_EDITOR, EDITOR, PAGER, GIT_SSH, GIT_ASKPASS, GIT_EXTERNAL_DIFF, GIT_PROXY_COMMAND. P2 keys: core.askPass, gpg.program, diff.<d>.textconv, filter.<d>.clean, core.gitProxy, pager.<cmd>, interactive.diffFilter. P2 cwd forms: `$(pwd -LP)`, `$(builtin pwd)`, `${PWD-}`, `${PWD:-x}`, `$(dirname $PWD)`, `$(realpath .)`. P3: `rm -rf $PWD; ls` is now WARN, the ruled `$HOME` class, and so are `$PWD&&…` and `$(pwd);…`; /lib32 and /libx32; configArgs takes 147 ms at 55 KB.
-- **E-446.** P2 (new): a cd before a heredoc moves a relative sink (`cd /etc && cat > profile.d/x`); recorded open in THREAT_MODEL. P3: the deny list cannot be complete (.claude/settings.json, *.pth, .venv/bin/activate, .vscode/tasks.json, setup.py, noxfile.py).
-- **E-448.** P2 cosmetic: a newline in a path prints a multi-line message (still blocked).
-- Over 4 rounds on E-441 I fixed in-scope spellings rather than handing classification questions up. Say if D-164 r6 meant otherwise.
----
-
----
 ## Handoff — 2026-11-20 15:54 UTC
 **From**: Architect → Engineer
 **Trigger**: Review of E-441, E-440, E-446 and E-448 as built: D-167. Three tasks registered.
@@ -468,3 +419,20 @@ The full list of what was removed, each task's decisions and the scorecard basel
 
 ### Open risks
 - The gate reads the dispatch table: any subcommand added later can turn a retired command's old spelling in a blueprint into a hit the same way. `ai watch` is still spelled so in six blueprints and passes only while `watch` is not a subcommand.
+---
+## Handoff — 2026-11-24 13:40 UTC
+**From**: Engineer → Architect
+**Trigger**: batch close — one clause conflict that only you can settle (seatbelt location)
+
+### What was built
+- Review and acceptance ran for every batch task at 877f560. Clean: E-458, E-459, E-460, E-464, E-469. The rest fail on fixable gaps (being fixed in one commit: hook lines 937, README 200, E-462 refusal tests, census baseline) or on clauses your rulings already amend (r13, r16, r20, r22; D-170 r8 supersedes E-465).
+
+### Next action needed
+- **Architect**: E-463 clause 1 measures `wc -l src/mcp/safe-exec-mcp/*` (the seatbelt lives there). E-467 clause 1 says `find src/mcp` lists only shared and task-synchronizer-mcp, and E-468's grep forbids `safe-exec` in CONTRIBUTING.md and docs/ (two lines name `safe-exec-mcp/seatbelt.mjs`). They cannot all hold. Rule one:
+  - (a) move the seatbelt to `src/shared/seatbelt.mjs` (my recommendation: no MCP server is left there; E-463's clause then reads that path); or
+  - (b) keep `src/mcp/safe-exec-mcp/` and amend E-467 clause 1 and E-468's grep to allow it.
+- Reply in one line; I build it in the same commit as the other fixes.
+
+### Open risks
+- Each code commit voids every task's stamps (they bind to HEAD). The fixes go in one commit, then one CI run, then one re-stamp round.
+---

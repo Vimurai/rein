@@ -615,7 +615,7 @@ if skip_unless_cmd tmux "E-242.03 regeneration (needs a real rein start)" && ski
   _hshim="$(test_tmpdir e242shim)"
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$(command -v tmux)" "$_hs" > "${_hshim}/tmux"
   # The panes run `rein pane`, which would exec a real claude: a stub stands in (no session).
-  printf '#!/bin/sh\nexec sleep 30\n' > "${_hshim}/claude"
+  printf '#!/bin/sh\nexec sleep 30\n' > "${_hshim}/claude"   # REIN_SLEEP_ALLOWED: the stub claude idles; nothing waits on it
   chmod +x "${_hshim}/tmux" "${_hshim}/claude"
   mkdir -p "$_hrd"; echo '{"tampered":true}' > "$_hrd/settings.architect.json"
   _out="$( cd "$_h" && PATH="${_hshim}:$PATH" bash "$AI" start --detach 2>&1 )"
@@ -707,7 +707,8 @@ bash -c "source '$AI_BIN' 2>/dev/null; _write_role_settings_overlays '$_OV' '$_D
 _ARCH_OV="$(cat "$_OV/settings.architect.json" 2>/dev/null)"
 _ENG_OV="$(cat "$_OV/settings.engineer.json" 2>/dev/null)"
 
-for _rule in '"defaultMode": "dontAsk"' '"Edit(.ai/**)"' '"Edit(plans/**)"' '"ListAgents"' '"SendMessage"' \
+# D-172 r2a: the Architect starts in .ai/, so its lane is written as absolute paths.
+for _rule in '"defaultMode": "dontAsk"' '/.ai/**)"' '/plans/**)"' '"ListAgents"' '"SendMessage"' \
              '"mcp__task-synchronizer-mcp"' '"failIfUnavailable": true' '"allowUnsandboxedCommands": false'; do
   assert_contains "E-462.02 [$_rule]: present in the architect role file" "$_rule" "$_ARCH_OV"
 done

@@ -1396,9 +1396,7 @@ for row in "${CRITICS[@]}"; do
   assert_status 0 "${name}: frontmatter name matches" \
     grep -qE "^name: ${name}$" "$SRC"
 
-  # 3-copy mirror identity (src ↔ .claude ↔ ~/.rein/claude).
-  assert_status 0 "${name}: .claude mirror identical" \
-    diff -q "$SRC" "${REPO_ROOT}/.claude/agents/${name}.md"
+  # Mirror identity (src ↔ ~/.rein/claude). D-172 r19 untracked the .claude/agents copy.
   assert_status 0 "${name}: ~/.rein mirror identical" \
     diff -q "$SRC" "${HOME}/.rein/claude/agents/${name}.md"
 done

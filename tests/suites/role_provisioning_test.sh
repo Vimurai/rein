@@ -230,7 +230,7 @@ assert_contains "E-215.06b: it reports the architect's provider" "architect →"
 assert_contains "E-215.06c: it reports the engineer's provider" "engineer →" "$_DOC"
 assert_contains "E-215.06d: it reports skills" "skills" "$_DOC"
 assert_contains "E-215.06e: it reports agents" "agents" "$_DOC"
-assert_contains "E-215.06f: it reports the settings overlay" "overlay" "$_DOC"
+assert_contains "E-215.06f: it reports the role settings file (E-462: no longer an overlay)" "settings.architect.json" "$_DOC"
 assert_contains "E-215.06g: it reports the rulefile" "rulefile" "$_DOC"
 # The report must reach the END of both roles — it previously aborted after the
 # overlay line because a failing node lookup tripped `set -e`.

@@ -321,7 +321,7 @@
       "since": "4.0.0",
       "rule": "not-in-src",
       "src_root": "src/shared",
-      "note": "The signal.json writer behind `ai handoff` and handoff_control, both removed by D-099 (E-322)."
+      "note": "The signal.json writer behind the old handoff command and handoff_control, both removed by D-099 (E-322)."
     },
     {
       "id": "watcher-lock",

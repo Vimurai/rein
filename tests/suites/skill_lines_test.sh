@@ -425,8 +425,9 @@ CASES
 
 # ── E-232.3: the shipped corpus is clean, and the scan is not vacuous ───────
 _CORPUS_FILE="$(test_tmpdir e232-corpus)/corpus.txt"
-# E-467 (D-170 r4) left 5 skills and 4 agents, each mirrored once: 18 files, floor 15.
-_corpus_list="$(cd "$REPO_ROOT" && corpus_or_fail 15 src .claude \
+# E-467 (D-170 r4) left 5 skills and 4 agents. D-172 r19 untracked the .claude/ copies, so
+# the corpus is src/ alone: 9 files and the skill template, floor 9.
+_corpus_list="$(cd "$REPO_ROOT" && corpus_or_fail 9 src \
                  -- -name "SKILL.md" -o -path "*/agents/*.md")"
 _corpus_rc=$?
 printf '%s\n' "$_corpus_list" > "$_CORPUS_FILE"

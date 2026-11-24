@@ -271,7 +271,7 @@ function fixtureRepo(t) {
   for (const [k, v] of [["user.email", "a@example.com"], ["user.name", "a"], ["commit.gpgsign", "false"]]) git("config", k, v);
   mkdirSync(join(dir, ".ai"));
   const bash = (script) => spawnSync("bash", ["-c", script], { cwd: dir, env, encoding: "utf8" });
-  return { dir, git, bash, env, cleanup: () => rmSync(home, { recursive: true, force: true }) };
+  return { dir, home, git, bash, env, cleanup: () => rmSync(home, { recursive: true, force: true }) };
 }
 
 // The function under test lives in src/bin/rein (a dispatcher that cannot be sourced): lift it.
@@ -332,6 +332,10 @@ test("rein handoff commits COMM.md with the turn's dirty .ai/ paths and passes t
     writeFileSync(join(f.dir, ".ai", "COMM.md"), "# COMM\n");
     writeFileSync(join(f.dir, ".ai", "DIGEST.md"), "# DIGEST\n");
     f.git("add", "-A"); f.git("commit", "-q", "-m", "seed", "--no-verify");
+    // D-172 r3 (F4): the commit's secret check runs in every project and needs the scanner, so
+    // the fixture HOME carries this tree's shared/ as an install would.
+    execFileSync("bash", ["-c", '. "$1"; tc_link_shared "$2"', "_", join(ROOT, "tests", "lib", "toolchain-fixture.sh"), f.home],
+      { stdio: ["ignore", "ignore", "inherit"] });
     const hook = join(f.dir, ".git", "hooks", "pre-commit");
     writeFileSync(hook, `#!/bin/bash\nexec /bin/bash -p '${join(ROOT, "hooks", "pre-commit.sh")}' "$@"\n`);
     chmodSync(hook, 0o755);

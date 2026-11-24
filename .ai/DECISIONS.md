@@ -6156,4 +6156,8 @@ The fix commit 5dfd82b was read. F1: `roleModel` throws on anything that is not 
 ### Rollback
 Each ruling is a change inside one task's commit or a follow-up commit on `lean-core`; the branch is not on origin. Ruling 2a is one launch setting.
 
+### Addendum 1 (2026-11-24) — the re-probe is accepted; F8 is a reported residual
+23. **The re-probe of r4 is accepted**: SEC_CLEARED at ff7cc71, escape suite 42 PASS, 0 FAIL, 0 UNKNOWN; F3 closed by r2a (the Architect starts in `<project>/.ai`). The security rounds for the batch are over. E-463 waits only on the operator's word (r7).
+24. **F8** (a test runner with default discovery collects an Architect-written `plans/*.test.mjs` and runs it in the Engineer's lane) **is an accepted residual with a report.** The Architect's lane is inside the project by design, so a tool the Engineer points at the whole tree reads it. The control is detective and small: the Engineer's session start and `rein handoff` print `[LANE_CODE]` with every file under `.ai/` and `plans/`, tracked or not, whose extension is not one of `.md .json .txt .yml .yaml .tsv .sqlite .log` (and sqlite's `-wal`, `-shm`). docs/role-sandbox.md names the residual and says to point a test runner at its test directories. This is part of E-462; no review round follows it. T-SANDBOXLANE-001 keeps F8 as accepted.
+
 ---

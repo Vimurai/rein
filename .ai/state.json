@@ -2310,16 +2310,16 @@
     {
       "id": "E-462",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Move the role boundary to the sandbox and path rules per D-169 r3, r5 and .ai/blueprints/lean-core.md §Component 1, §Data Model, §API and §Security (after E-461; only if E-458's handoff says it can be built; one security_engineer round, a second goes to the Architect, D-164 r6). (1) `rein pane <role>` and `rein start` generate the role settings from the install tree with the shape E-458 measured: sandbox on, failIfUnavailable, no unsandboxed retry, the write list of each role, the Edit deny rules, no network domain for the Architect, bypass mode disabled; a role session does not start without the sandbox. (2) The Architect's MCP list holds only the state server. (3) `rein doctor` prints [SANDBOX_MISSING] with the install line when bubblewrap or socat is absent. (4) Add tests/suites/sandbox_escape: at most 30 cases, one per guarantee of the §Security table and route (file tool, Bash, a child of git, an MCP tool), each observing the file system after the command; it prints SKIP with the reason where user namespaces are missing. The text gate stays in place in this task. Acceptance: on this machine the escape suite passes with no SKIP and the handoff quotes its output; as Architect `echo x > src/x` and `git -c core.pager='sh -c \"echo x > src/y\"' log` leave no src/x or src/y; as Architect a Write to src/ is denied and a Write to .ai/ succeeds; `git add .ai/COMM.md && git commit` works as Architect; `rein ci run` is green inside the Engineer's sandbox; the enforcement row of `rein doctor --fitness` prints 5 of 5; .ai/SECURITY.md carries SEC_CLEARED. Framework task.",
       "created_at": "2026-11-23T16:23:06.794Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T14:07:35.656Z",
+      "summary": "Role boundary moved to the sandbox and path rules (D-169 r3, r5): fail-closed sandbox, Architect write scope .ai/plans/.git; escape suite 42/0/0/0 at 1e1f541; CI PASS at 237b619",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T16:23:06.794Z"
+      "updated_at": "2026-11-24T14:07:35.662Z"
     },
     {
       "id": "E-463",
@@ -2380,30 +2380,30 @@
     {
       "id": "E-467",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Strip Rein to the keep list per D-170 r4-r6 and .ai/blueprints/lean-core.md §Revision 2 (batch task on branch lean-core, after E-463; batch rules of D-170 r9 apply: no CI, no critics, no handoff, one commit). Delete every MCP server except task-synchronizer-mcp from src/mcp and .mcp.json (including the third-party filesystem and memory entries), every agent except reviewer, critic_acceptance, security_engineer and test_engineer, every default skill except blueprint-writer, rein-test, rein-debug and release-manager, telemetry and insights, the incident tracker, the memory palace, REPO_MAP, the instinct stager, the deprecated CLI stubs, and the tests of each. Move a function a kept command needs into the CLI before deleting its server. Cut the hooks to the kept set. Do not touch team mode, `rein ci run` or the release path. Supersedes E-465. Acceptance: `find src/mcp -maxdepth 1 -mindepth 1 -type d` lists only shared and task-synchronizer-mcp; .mcp.json names one server; a scratch `rein init` provisions at most 6 skills and exactly 4 agents; `wc -l hooks/*.sh` totals at most 900; `rein doctor` exits 0 in the scratch project; the handoff lists every removed agent and skill by name and gives `git ls-files src | xargs cat | wc -l` before (97956) and after. Framework task.",
       "created_at": "2026-11-23T21:22:31.581Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T14:08:14.438Z",
+      "summary": "Stripped to the keep list (D-170 r4-r6): one MCP server, 4 agents, 5 skills, hooks 938 lines, src 96,377 -> 29,665; telemetry/incident tracker moved to E-473 (D-172 r28); CI PASS at 237b619",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T21:22:31.584Z"
+      "updated_at": "2026-11-24T14:08:14.444Z"
     },
     {
       "id": "E-468",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Rewrite the documentation to describe only what exists after the strip, per D-170 r3 and .ai/blueprints/lean-core.md §Revision 2 (batch task on branch lean-core, after E-469; batch rules of D-170 r9 apply). Rewrite README.md, CONTRIBUTING.md, CAPABILITIES.md and every file under docs/: one page for what Rein adds to Claude Code (ledger, observed acceptance, decision record, two roles with lanes), getting-started, install, the commands of D-170 r4, review by tier, the role sandbox, troubleshooting. Delete docs/mcp-servers.md or cut it to the one server. Leave docs/app-contract.md unchanged unless the batch changed the contract, and say which in the handoff. Add an Unreleased section to CHANGELOG.md listing what was removed and what replaces it; do not bump the version and do not tag. Acceptance: `grep -rlE 'safe-exec|orchestrator-mcp|cache-manager|rein-preflight|vibe-check|memory palace' README.md CONTRIBUTING.md docs/` prints nothing outside CHANGELOG.md; every `rein <command>` named in README.md and docs/getting-started.md exists in `rein help`; the steps of docs/getting-started.md run in a scratch project from install to one closed task in at most 4 steps; README.md is at most 200 lines. Framework task.",
       "created_at": "2026-11-23T21:22:36.722Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T14:08:03.604Z",
+      "summary": "Docs rewritten to the lean core (D-170 r3): README 200 lines, 4-step getting-started, app contract unchanged (doc edited only); CI PASS at 237b619",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T21:22:36.722Z"
+      "updated_at": "2026-11-24T14:08:03.611Z"
     },
     {
       "id": "E-469",
@@ -8273,6 +8273,69 @@
       "timestamp": "2026-11-24T13:57:03.945Z",
       "summary": "[ACCEPT_PASS] E-462 at 2c3f78c — 10 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | escape suite at 1e1f541 PASS=42 FAIL=0 SKIP=0 UNKNOWN=0; since then only install-rein.sh text changed outside .ai/ ‖ 2 | PASS | handoff quotes it: 9fe3820 COMM.md, Handoff 13:10 UTC, escape suite block ‖ 3 | PASS | echo x > src/x: suite C02 PASS ‖ 4 | PASS | core.pager src/y: suite C04 (! -e src/y) PASS ‖ 5 | PASS | Write to src/ denied: suite C16 PASS ‖ 6 | PASS | Write to .ai/ succeeds: suite C15 PASS ‖ 7 | PASS | git add .ai/COMM.md && commit as Architect: suite C08 PASS ‖ 8 | PASS | rein ci status 4db5ec2 PASS 3896/0 failed/9 skipped; diff 4db5ec2..HEAD outside .ai/ empty ‖ 9 | PASS | rein doctor --fitness Enforcement row 5 of 5 PASS ‖ 10 | PASS | .ai/SECURITY.md:3260 lean-core re-probe SEC_CLEARED; :3338 877f560 round SEC_CLEARED",
       "sha": "5f9eb9658bb3a5da2327d1f4868401008829382a",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-468",
+      "timestamp": "2026-11-24T14:01:27.615Z",
+      "summary": "[REVIEW_PASS] E-468 at 237b619 — 0 FAIL, 4 notes ‖ .ai/COMM.md:451 handoff 14:10 UTC states app-contract.md changed (2bcaf5d example, 5b343c4 gate row), contract did not; accepted at .ai/COMM.md:475 (D-172 r28 entry) ‖ CONTRIBUTING.md:121-122 fixed in 5f9eb96: seatbelt.mjs under src/shared/; src/mcp/ line now ledger + shared/ modules, matches tree ‖ only non-.ai change since a902167 is CONTRIBUTING.md (2 lines); acceptance grep prints only docs/assets/demo.cast (outside per D-172 r20); README.md 200 lines ‖ docs-only, no behaviour change, no test needed; no Architect-owned file in the E-468 commits",
+      "sha": "237b619a8a8a4bd05eb04b9a42b25acacac33e87",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-467",
+      "timestamp": "2026-11-24T14:01:32.362Z",
+      "summary": "[REVIEW_PASS] E-467 at 237b619 — 0 FAIL, 5 notes ‖ a902167 FAIL (telemetry.mjs, mcp-telemetry.mjs, incident-append.mjs + tests) moved to E-473 by D-172 r28a; not a FAIL here ‖ a902167..HEAD source diff is CONTRIBUTING.md:121-122 only (seatbelt in src/shared, E-468), correct ‖ find src/mcp = shared+task-synchronizer-mcp; .mcp.json 1 server; 4 agents; hooks 938<=950 (r16); src 29665 ‖ fitness+seatbelt unit 32/32 pass ‖ stale safe-exec-mcp comment src/shared/locate.sh:10, fitness.mjs:39 (historical); rein-review skill kept off D-170 list (5<=6)",
+      "sha": "237b619a8a8a4bd05eb04b9a42b25acacac33e87",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T14:07:26.233Z",
+      "summary": "[REVIEW_PASS] E-462 at 237b619 — 0 FAIL, 1 note ‖ a902167..237b619 outside .ai/ changes only CONTRIBUTING.md:121-122 (5f9eb96, E-468 docs path fix); E-462 surface unchanged, prior a902167 review carries forward",
+      "sha": "237b619a8a8a4bd05eb04b9a42b25acacac33e87",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T14:07:32.414Z",
+      "summary": "Confirmation at 237b619: since a902167 the only change outside .ai/ is CONTRIBUTING.md:121-122 (5f9eb96, docs). No change to src/, hooks/, .mcp.json, .claude/, the installer or role settings. Local CI PASS. No new row, no finding.",
+      "sha": "237b619a8a8a4bd05eb04b9a42b25acacac33e87",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-467",
+      "timestamp": "2026-11-24T14:07:32.452Z",
+      "summary": "Confirmation at 237b619: since a902167 the only change outside .ai/ is CONTRIBUTING.md:121-122 (5f9eb96, docs). No change to src/, hooks/, .mcp.json, .claude/, the installer or role settings. Local CI PASS. No new row, no finding.",
+      "sha": "237b619a8a8a4bd05eb04b9a42b25acacac33e87",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-468",
+      "timestamp": "2026-11-24T14:07:52.575Z",
+      "summary": "[ACCEPT_PASS] E-468 at 237b619 — 4 PASS, 0 FAIL, 1 UNVERIFIED ‖ 1 | PASS | grep -rlE (6 terms) lists only docs/assets/demo.cast (outside grep, D-172 r20 item 20); --exclude-dir=assets: empty, exit 1 ‖ 2 | PASS | all 17 distinct `rein <cmd>` in README.md + getting-started (incl. ci run, digest build, review, state import, task show) in `rein help` ‖ 3a | PASS | getting-started has 4 numbered steps; mktemp git repo: rein init exit 0, add-task E-2, commit, rein done exit 0, task show \"E-2 | DONE | Tier 1\" ‖ 3b | UNVERIFIED | step 1 (clone + install-rein.sh into ~/.rein) and the pane path need the operator's machine / live session ‖ 4 | PASS | wc -l README.md = 200 (limit 200)",
+      "sha": "237b619a8a8a4bd05eb04b9a42b25acacac33e87",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-467",
+      "timestamp": "2026-11-24T14:08:00.690Z",
+      "summary": "[ACCEPT_PASS] E-467 at 237b619 — 8 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | find src/mcp -maxdepth 1 -mindepth 1 -type d: src/mcp/task-synchronizer-mcp, src/mcp/shared only ‖ 2 | PASS | .mcp.json mcpServers keys: ['task-synchronizer-mcp'] ‖ 3 | PASS | scratch rein init exit 0; doctor \"plugin skills: 5\" (blueprint-writer, rein-debug, rein-review, rein-test, release-manager) ‖ 4 | PASS | scratch doctor \"plugin agents: 4\" (critic_acceptance, reviewer, security_engineer, test_engineer) ‖ 5 | PASS | wc -l hooks/*.sh: 938 total; target raised to 950 by D-172 r16 (DECISIONS.md:6138); hooks unchanged since 2c3f78c ‖ 6 | PASS | rein doctor in scratch project exit 0 (one ✗ PLUGIN_NOT_ENABLED notice, not the exit) ‖ 7 | PASS | handoff 9fe3820 COMM.md:439-440 names all 15 agents + 27 skills deleted in 887a818 (scripted check, 0 missing) ‖ 8 | PASS | handoff: before 96,377 at 887a818^ (observed 96377; notes 97,956 measured earlier), after 29,665 (observed 29665 at HEAD)",
+      "sha": "237b619a8a8a4bd05eb04b9a42b25acacac33e87",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

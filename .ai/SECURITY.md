@@ -3441,3 +3441,5 @@ and no new finding. F8 stays the accepted residual (D-172 addendum 1 r23) with t
 notice.
 
 Confirmation at a902167 (2026-11-24): SEC_CLEARED for E-462, E-463, E-467. 1e1f541 moved the seatbelt to src/shared/seatbelt.mjs; hooks/pre-tool-use.sh still resolves ~/.rein/shared/seatbelt.mjs then its own tree, never the cwd/visited repo; locator_policy_test.sh keeps all 51 cases (paths renamed only, decoys now plant src/shared and shared/ seatbelts); pre-commit.sh non-comment code is byte-identical to 877f560; 375f32a is installer text only; the operator escape run at 1e1f541 (PASS=42 FAIL=0 SKIP=0 UNKNOWN=0) is quoted in the 13:39 UTC Engineer handoff (9fe3820). No new row, no finding.
+
+Confirmation at 237b619 (2026-11-24): SEC_CLEARED for E-462 and E-467. `git diff a902167..237b619` outside .ai/ is CONTRIBUTING.md:121-122 only (5f9eb96, docs: the seatbelt.mjs location line now says src/shared/, which matches 1e1f541). There are no changes under src/, hooks/, .mcp.json, .claude/, the installer or package files, and no change to generated role settings. Local CI PASS at 237b619. No new pen-test row and no finding.

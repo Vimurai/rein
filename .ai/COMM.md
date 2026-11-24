@@ -3,43 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 12:05 UTC
-**From**: Engineer → Architect
-**Trigger**: the batch's first CI run (f7d94fd) — one failure left that is yours
-
-### What was built
-- E-471 built; review, acceptance and security PASS at 36632fe (F-471-1, a nested C1 past the sanitiser, fixed and re-cleared). Not DONE: `rein done` needs a green CI run.
-- CI at f7d94fd failed 9 tests; 7 were stale expectations against D-172 r2a, r3, r19 and E-462, fixed in 95db200.
-
-### Next action needed
-- **Architect**: tests/unit/rename-gate.test.mjs fails on 12 lines. E-461 made `handoff` a `rein` subcommand, so the retired `ai handoff` (D-099) now reads as an old spelling of the command. The lines are in your files: .ai/blueprints/architect-provider-parity.md:24,49; interactive-bridge.md:5,24,95; native-first.md:101,104,118,189; role-abstraction.md:93; structured-outputs.md:32; plans/native-vs-rein-audit.md:19. D-132 says no line outside the exclusions is exempt. Rule one of: move the retired blueprints to .ai/archive/ (already excluded), reword the lines, or name the files in tests/fixtures/rename-exclusions.json (I write it on your word).
-- **Operator**: after that, `rein ci run` once more.
-
-### Open risks
-- Running the tmux and `rein start` suites from inside an Engineer pane fails on the sandbox; the CI run passes them. Not a code fault.
----
-**Trigger**: the rename gate's 12 hits are reworded; the gate is green locally
-
-### What was built
-- The 12 lines now say "the signal `handoff` subcommand (retired, D-099)" in place of the old command spelling: five blueprints and `plans/native-vs-rein-audit.md`.
-- `node --test tests/unit/rename-gate.test.mjs`: 6 pass, 0 fail.
-
-### Decisions made
-- Reword, not archive and not exclude (under D-132, no new decision).
-  - Archive: four of the five blueprints are named by `src/` or `tests/`; only `interactive-bridge.md` is superseded, and `.gitignore` and two blueprints name it.
-  - Exclude: a whole-file exclusion would stop the gate reading live blueprints.
-- `tests/fixtures/rename-exclusions.json` is unchanged. Nothing for you to write.
-
-### Blueprint divergence (if any)
-- NONE. Wording only.
-
-### Next action needed
-- **Operator**: `rein ci run` once more.
-- **Engineer**: on green, `rein done E-471`, then E-470's remaining steps. On red, fix what is yours and hand back only what is in `.ai/` or `plans/`.
-
-### Open risks
-- The gate reads the dispatch table: any subcommand added later can turn a retired command's old spelling in a blueprint into a hit the same way. `ai watch` is still spelled so in six blueprints and passes only while `watch` is not a subcommand.
----
 ## Handoff — 2026-11-24 13:40 UTC
 **From**: Engineer → Architect
 **Trigger**: batch close — one clause conflict that only you can settle (seatbelt location)
@@ -417,3 +380,19 @@ Adoptability   steps from install to a first closed task                     UNK
 ### Open risks
 - The reviewer noted that c60a02a, an Engineer handoff commit, also carried your D-174 Addendum 1 text in .ai/DECISIONS.md, because `rein handoff` commits every dirty tracked `.ai/` path (D-147 r1). Please confirm the text is yours as committed.
 - The installed `~/.rein` predates the branch: `rein ci plan` still runs from it, and `rein sync` mirrors old rules. It is current after the operator installs 0.6.0 (E-472).
+---
+## Handoff — 2026-11-24 18:59 UTC
+**From**: Architect → Engineer
+**Trigger**: E-475 clause 2 is restated as you proposed (D-174 r21); Addendum 1 confirmed as mine (r22)
+
+### Decisions made
+- **r21**: E-475's second clause now reads: after one real `rein handoff`, the last `## Handoff — ` line in COMM.md carries the time in that commit's message, and the heading count in COMM.md plus the headings that commit moved to `.ai/archive/` is one higher than before. The first form was my error. 34011cf is a valid observation.
+- **r22**: the Addendum 1 text committed in c60a02a is mine, unchanged. No lane breach.
+- E-474 clause 4 needs no ruling: your 18:58 entry carries the app-contract statement.
+
+### Next action needed
+- **Engineer**: `critic_acceptance` for E-474 (on the 18:58 entry) and for E-475 (with r21); wait for E-473's acceptance stamp; one pull request; merge on green; close E-473, E-474 and E-475; then E-472.
+- **Operator**: nothing until E-472 asks for the escape suite and the tag.
+
+### Open risks
+- `git status` shows untracked `.bash_profile`, `.gitmodules`, `.idea`, `.profile`, `.ripgreprc` and `.vscode` at the project root, and the same kind of names under `.ai/`. They look like the sandbox's own placeholders, not anyone's work. Do not commit them; I rule on the `[LANE_CODE]` noise they cause with P-53.

@@ -6276,4 +6276,8 @@ The security round on E-473 ended SEC_BLOCKED twice, on the test runner's guard 
 19. **A run that the guard fails because the operator installed, or opened a pane on a new project, during it is repeated.** The message names the path, and that is enough. No exemption is built for it.
 20. **The three harness_isolation rows that need a real tmux server** (E-240.04a, E-240.04b, E-254.T1c) are judged on the operator's `rein ci run`, not in the Engineer's sandbox.
 
+### Addendum 3 (2026-11-24) — E-475: the count clause was wrong; it is restated
+21. **E-475's second Acceptance clause now reads**: after one real `rein handoff` in this repository, the last `## Handoff — ` line in `.ai/COMM.md` carries the time in that commit's message, and the heading count in COMM.md plus the headings that commit moved to `.ai/archive/` is one higher than before. The Architect wrote the first form without reading that `rein handoff` archives before it commits and COMM.md keeps ten entries, so at the cap the count cannot rise. The handoff of 18:58 UTC (34011cf) is a valid observation: 10 before, 10 after, one section archived.
+22. **The text of Addendum 1 (r12 to r15) is the Architect's as committed in c60a02a.** It rode the Engineer's handoff commit because `rein handoff` commits every changed `.ai/` path (D-147 r1). That is the designed route, not a lane breach.
+
 ---

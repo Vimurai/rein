@@ -205,19 +205,36 @@ strip_launch_vars
 # ── E-257, E-473 (D-070 §1): a run never writes the operator's ~/.rein ─────────
 # A suite writes under its fixture HOME or a per-run temp path. The guarded root is the
 # account's real ~/.rein (the user record, not $HOME, so it is the operator's even under
-# `rein ci run`'s throwaway HOME); REIN_TEST_GUARD_HOME points it at a fixture for
-# harness_isolation_test. Every file created or modified there during the run fails it,
-# except run/ (live servers' boot and launch records) and ci/ (the outer `rein ci run`).
+# `rein ci run`'s throwaway HOME). Every file or symlink whose inode changed during the run
+# fails it — ctime, so a copy that keeps an old mtime (rsync -a, cp -p, touch -d), a chmod or a
+# rename is seen. Deletions are not. Paths the operator's own live processes write during a run
+# are left out, or the verdict would depend on what else the machine runs (E-236): run/ (boot
+# and launch records), ci/ (the outer `rein ci run`), roles/ (`rein pane`), trash/ and
+# clean.log (`rein clean`), and SQLite stores and their journals (servers holding one open).
+# REIN_TEST_GUARD_HOME moves the root for harness_isolation_test, and only to a path under
+# the temp dir; anywhere else it is ignored and named.
 # A synthetic session id: no suite can reach the operator's real E-129 role token.
 export CLAUDE_CODE_SESSION_ID="rein-test-run-$$-$(date +%s)"
-REIN_GUARD_REIN="${REIN_TEST_GUARD_HOME:-$(node -p 'require("os").userInfo().homedir' 2>/dev/null || echo "$HOME")}/.rein"
+_rein_guard_home="$(node -p 'require("os").userInfo().homedir' 2>/dev/null || echo "$HOME")"
+if [[ -n "${REIN_TEST_GUARD_HOME:-}" ]]; then
+  _rgh="$(cd "$REIN_TEST_GUARD_HOME" 2>/dev/null && pwd -P)"
+  _rgt="$(cd "${TMPDIR:-/tmp}" 2>/dev/null && pwd -P)"
+  if [[ -n "$_rgh" && -n "$_rgt" && "$_rgh" == "$_rgt"/* ]]; then
+    _rein_guard_home="$_rgh"
+  else
+    echo "   [REIN_GUARD_REDIRECTED] REIN_TEST_GUARD_HOME=${REIN_TEST_GUARD_HOME} is not under ${TMPDIR:-/tmp} — ignored"
+  fi
+fi
+REIN_GUARD_REIN="${_rein_guard_home}/.rein"
 REIN_GUARD_STAMP="${TEST_TMPDIR}/rein-home-guard.stamp"
 : > "$REIN_GUARD_STAMP"
-# _rein_home_writes → one line per file under the guarded root newer than the run's start.
+# _rein_home_writes → one line per file or symlink under the guarded root changed since the stamp.
 _rein_home_writes() {
   [[ -d "$REIN_GUARD_REIN" ]] || return 0
-  find "$REIN_GUARD_REIN" \( -path "${REIN_GUARD_REIN}/run" -o -path "${REIN_GUARD_REIN}/ci" \) -prune \
-    -o -type f -newer "$REIN_GUARD_STAMP" -print 2>/dev/null
+  local r="$REIN_GUARD_REIN"
+  find -H "$r" \( -path "$r/run" -o -path "$r/ci" -o -path "$r/roles" -o -path "$r/trash" \) -prune \
+    -o \( -type f -o -type l \) ! -path "$r/clean.log" ! -name '*.sqlite' ! -name '*.sqlite-wal' \
+    ! -name '*.sqlite-shm' -cnewer "$REIN_GUARD_STAMP" -print 2>/dev/null
 }
 
 # ── Discovery (bash 3 compatible) ────────────────────────────────────────────

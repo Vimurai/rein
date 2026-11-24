@@ -937,6 +937,54 @@ rm -f "${GUARD_HOME}/.rein/shared/leaked.json"
 _ci_clean="$(_run_ci 'clean_test.sh')"; _ci_crc=$?
 assert_status 0 "E-257.04c: a clean run passes under REIN_CI too" test "$_ci_crc" -eq 0
 
+# A copy that keeps an old mtime is still a write (security F-E473-1): the guard reads ctime.
+cat > "${FIX}/oldcopy_test.sh" <<EOF
+source "${TI_ROOT}/tests/lib/assert.sh"
+_src="\$(test_tmpdir oldsrc)/old.mjs"; echo x > "\$_src"; touch -t 200001010000 "\$_src"
+cp -p "\$_src" "${GUARD_HOME}/.rein/shared/old.mjs"
+_pass "fixture copied an old-dated file into the operator's ~/.rein"
+assert_summary
+EOF
+_oc_out="$(_run 'oldcopy_test.sh')"; _oc_rc=$?
+assert_status 0 "E-257.06a: cp -p of an old-dated file into ~/.rein FAILS the run" test "$_oc_rc" -ne 0
+assert_contains "E-257.06b: …naming the file" "${GUARD_HOME}/.rein/shared/old.mjs" "$_oc_out"
+rm -f "${GUARD_HOME}/.rein/shared/old.mjs"
+if skip_unless_cmd rsync "rsync -a into the guarded root"; then
+  cat > "${FIX}/rsync_test.sh" <<EOF
+source "${TI_ROOT}/tests/lib/assert.sh"
+_d="\$(test_tmpdir rsrc)"; mkdir -p "\$_d/hooks"; echo x > "\$_d/hooks/h.sh"; touch -t 200001010000 "\$_d/hooks/h.sh"
+rsync -a "\$_d/hooks/" "${GUARD_HOME}/.rein/hooks/"
+_pass "fixture rsynced like the installer"
+assert_summary
+EOF
+  _rs_out="$(_run 'rsync_test.sh')"; _rs_rc=$?
+  assert_status 0 "E-257.06c: rsync -a from a source older than the run FAILS it" test "$_rs_rc" -ne 0
+  assert_contains "E-257.06d: …naming the file" "${GUARD_HOME}/.rein/hooks/h.sh" "$_rs_out"
+  rm -rf "${GUARD_HOME}/.rein/hooks"
+fi
+
+# What the operator's own live processes write during a run never fails it (review FAIL 2).
+cat > "${FIX}/livewriters_test.sh" <<EOF
+source "${TI_ROOT}/tests/lib/assert.sh"
+mkdir -p "${GUARD_HOME}/.rein/roles/p" "${GUARD_HOME}/.rein/trash"
+echo x > "${GUARD_HOME}/.rein/roles/p/settings.json"; echo x > "${GUARD_HOME}/.rein/trash/t"
+echo x > "${GUARD_HOME}/.rein/clean.log"; echo x > "${GUARD_HOME}/.rein/store.sqlite-wal"
+_pass "fixture wrote where live processes write"
+assert_summary
+EOF
+_lw_out="$(_run 'livewriters_test.sh')"; _lw_rc=$?
+assert_status 0 "E-257.07: roles/, trash/, clean.log and a SQLite journal do not fail the run" test "$_lw_rc" -eq 0
+
+# The default root is the account's home from the user record, and a redirect outside the temp
+# dir is ignored and named. (Only the printed root is asserted: the real ~/.rein is the
+# operator's, and its verdict depends on the machine.)
+_acct="$(cd "$(node -p 'require("os").userInfo().homedir')" && pwd -P)"
+_def_out="$( ( cd "$TI_ROOT" && env -u REIN_CI -u CI -u REIN_TEST_GUARD_HOME HOME="$THROWAWAY_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh clean_test.sh ) 2>&1 )"
+assert_contains "E-257.08a: with no override the guarded root is the account's ~/.rein, not HOME's" "${_acct}/.rein" "$_def_out"
+_red_out="$( ( cd "$TI_ROOT" && env -u REIN_CI -u CI HOME="$THROWAWAY_HOME" REIN_TEST_GUARD_HOME="/" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh clean_test.sh ) 2>&1 )"
+assert_contains "E-257.08b: REIN_TEST_GUARD_HOME outside the temp dir is ignored and named" "[REIN_GUARD_REDIRECTED]" "$_red_out"
+assert_contains "E-257.08c: …and the root stays the account's" "${_acct}/.rein" "$_red_out"
+
 # ── E-257.5: review question #6 ────────────────────────────────────────────────
 assert_status 0 "E-257.05: review question #6 is in the reviewer" grep -q 'review question #6 — E-257' "${TI_ROOT}/src/claude/agents/reviewer.md"
 

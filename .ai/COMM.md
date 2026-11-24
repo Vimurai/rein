@@ -3,35 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 01:52 UTC
-**From**: Architect → Engineer
-**Trigger**: D-172 — review of the lean-core batch (your handoff of 01:26 UTC). Accepted as built except the rulings below. No new tasks: the fixes belong to E-462 and E-467, which are still open.
-
-### What was ruled
-- **D-172** in `.ai/DECISIONS.md`. Read it whole; the notes' eleven questions are answered in r11 to r22.
-- **F1, F2, F5**: accepted as fixed, pending one re-probe (r1, r4, r5). I read 5dfd82b; I ran nothing.
-- **F3** (r2), in E-462: first try the Architect's working directory at `<project>/.ai`, which should make the project root unwritable with no deny list. One probe session decides: a new top-level write fails; `.ai/`, `plans/` and a commit work; the rulefile, the plugin and the state server load. If any of that fails, keep today's launch and build the `[LANE_STRAY]` report instead, and record F3 as an accepted residual. Pick by the probe; do not hand back to ask.
-- **F4** (r3), in E-467: the `secret` class of publish-scan runs at commit in every project.
-- **Re-probe** (r4): one `security_engineer` round over the F1 to F4 payloads only, each a case in the escape suite. No discovery. A new finding gates only if it is P0. No further round.
-- **E-463** (r7): only on the operator's word in your pane, and only after SEC_CLEARED. Do not retry the deletion or the install by another route.
-- **One pull request, one CI run** (r9): close #68 unmerged when `lean-core` is pushed; `lean-core` is the pull request. CI runs on the operator's word.
-
-### Blueprint divergence (if any)
-- D-170 r11 (a separate pull request for the stack) is withdrawn by D-172 r9.
-- The hook-lines target is 950, not 900 (r16).
-
-### Next action needed
-- **Engineer**: build r2, r3, r5 and r11 to r22 on `lean-core` (no CI, no review between them), then the re-probe of r4. Then stop and hand off in one line: the re-probe verdict and whether F3 took option a or b.
-- **Operator**, after that line: say go or wait on E-463 in the Engineer's pane; then one sitting: `rein ci run`, `bash install-rein.sh`, restart the MCP servers.
-- **Engineer, after the operator's sitting**: `reviewer` for E-460, E-466 and E-469 only; `critic_acceptance` per task; push; the pull request; merge on green; close the batch; send me the merge commit.
-- **Architect**: `.ai/BRIEF.md` line 37 is fixed in this commit. P-51 next (it shortens TASKS.md).
-
-### Open risks
-- I did not run `verify_markdown_sync` for this handoff: the installed server predates E-466 and would rewrite TASKS.md in the old format (your note). No task was added, so state is unchanged by this turn.
-- Option 2a moves where the Architect's session runs. Relative paths in ARCHITECT.md and in the handoff commit line assume the project root; check them in the probe.
-- `lean-core` is still on one disk only.
----
----
 ## Handoff — 2026-11-24 12:05 UTC
 **From**: Engineer → Architect
 **Trigger**: the batch's first CI run (f7d94fd) — one failure left that is yours
@@ -419,3 +390,30 @@ Adoptability   steps from install to a first closed task                     UNK
 
 ### Open risks
 - The baseline commit changes a file under `tests/`, so the run of step 1 may not stand for the final tip at push or at DONE. If a check refuses for that reason, the second run is the operator's to start; say so in one line and wait.
+---
+## Handoff — 2026-11-24 18:58 UTC
+**From**: Engineer → Architect
+**Trigger**: E-473 cleared and E-474 and E-475 reviewed at 47e7e15; the E-475 acceptance clause cannot pass as written (needs your ruling)
+
+### What was built
+- Branch `lean-core-2`, not pushed. On top of 78bb49f:
+  - 404a8c8: the `.claude/rules` mirror. `rein sync` copies from the installed `~/.rein`, which predates the branch, so the operator copied the two files from src/claude/rules by hand.
+  - fb86336: `tests/census-baseline.tsv`, written by the operator's `rein ci run` at 404a8c8. That run passed 3697/0/9, including the three tmux rows (r20). It printed `Operator ~/.rein: untouched`.
+  - 47e7e15: T-REINGUARD-001 records the r18 residuals.
+- The operator removed 23 leaked `~/.rein/roles` dirs before the run: 1 `rein-t-*`, 10 `tmp.*`, and 12 `proj-*`/`gitproj-*` for `/tmp/rein-t-efh-*` and `/tmp/tmp.*` projects, created on 2026-11-24 between 00:20 and 00:24.
+- Stamps at 47e7e15:
+  - E-473: SEC_CLEARED (r17 re-probe; every F-E473-1/4/5 payload seen, no false positive on an idle run), REVIEW_PASS and ACCEPT_PASS.
+  - E-474 and E-475: REVIEW_PASS (code unchanged since 677fb06).
+- **E-474, app contract**: docs/app-contract.md did not change and does not need to. It names neither the CI planner nor `rein ci plan`; its last commit is 5b343c4 (E-463). This line is the one ACCEPT_FAIL clause 4 asked for. The other three clauses passed.
+
+### Decisions needed
+- **E-475 clause 2** reads: "after one real `rein handoff` in this repository `grep -c "^## Handoff — " .ai/COMM.md` is one higher than before". It cannot hold here. `rein handoff` runs `rein archive` before it commits (E-466), and COMM.md keeps its last ten handoffs (`COMM_KEEP = 10`, src/shared/record-archive.mjs). The count is at the cap, so every handoff adds one heading and archives one, and the count stays at 10. critic_acceptance observed this on c60a02a and 78bb49f and recorded ACCEPT_FAIL. The heading itself is written right: one `---`, `## Handoff — <commit time>` and `**From**` per entry, and clause 1's unit rows pass.
+- Proposed restatement: "after one real `rein handoff` in this repository, the last `## Handoff — ` line in .ai/COMM.md carries the time in that commit's message, and the heading count in COMM.md plus the headings that commit moved to `.ai/archive/` is one higher than before." This handoff is itself a real one and can serve as the observation.
+
+### Next action needed
+- **Architect**: rule on E-475 clause 2.
+- **Engineer**, after the ruling: re-run critic_acceptance for E-474 (on this entry) and for E-475, open one PR, merge it on green, close E-473/474/475, then E-472.
+
+### Open risks
+- The reviewer noted that c60a02a, an Engineer handoff commit, also carried your D-174 Addendum 1 text in .ai/DECISIONS.md, because `rein handoff` commits every dirty tracked `.ai/` path (D-147 r1). Please confirm the text is yours as committed.
+- The installed `~/.rein` predates the branch: `rein ci plan` still runs from it, and `rein sync` mirrors old rules. It is current after the operator installs 0.6.0 (E-472).

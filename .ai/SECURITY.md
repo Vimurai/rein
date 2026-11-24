@@ -3530,3 +3530,23 @@ Scope: `git show 1beb950 -- tests/run.sh tests/suites/harness_isolation_test.sh`
 | A01 | REIN_TEST_GUARD_HOME | TMPDIR=ancestor of home + override inside home (G7) | EXPLOITED (P3) | 0 | needs both vars in the env; harden, not gating |
 
 **Gate**: SEC_BLOCKED. F-E473-1 is fixed and verified. The blocking item is F-E473-4: the roles/ prune makes a suite leak that has already happened on this host invisible, and the run then reports a clean result. That leak landed in the subtree that holds the role sandbox settings. Re-clear needs: (1) the roles/ new-key diff, with E-257.07 adjusted and a new failing row; (2) `-mindepth 1` + `-type d` (F-E473-5); (3) H10/H11/X4 re-run so they resist. The sqlite anchor and the G7 hardening are recommended but do not gate. No P0/P1. This is the second round, so a third needs the Architect (D-164 r6). Operator housekeeping: the 11 leaked `~/.rein/roles/{rein-t-*,tmp.*}` dirs are orphans for `/tmp` projects and can be removed.
+
+## E-473 Round 3 (HEAD 47e7e15) — ~/.rein guard re-probe, fixed scope (security_engineer, 2026-11-24) — SEC_CLEARED
+Scope per D-174 addendum 2 r17: only the payloads of F-E473-1, F-E473-4 and F-E473-5, no discovery. `tests/run.sh` and `harness_isolation_test.sh` are byte-identical between 60cc6e5 and 47e7e15. Method: the real `tests/run.sh` was run with a one-suite fixture `REIN_TEST_SUITES_DIR`, and `HOME` and `REIN_TEST_GUARD_HOME` were set to a fresh dir under `$TMPDIR`, as the E-257 rows do. The guard was not redirected. The fixture tree was rebuilt before each payload, and every source inode was backdated to 2000-01-01 and made at least 1 s older than the stamp. The real `~/.rein` was not touched. "Seen" means that `[REIN_HOME_WRITTEN]` named the expected path and the run failed.
+
+| OWASP | Finding | Payload | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A04 | F-E473-1 | `rsync -a` from a pre-stamp `hooks/` source (P16) | RESISTED | 1 | `hooks/h.sh` named |
+| A04 | F-E473-1 | `cp -p` of a pre-stamp file (P17) | RESISTED | 1 | `shared/p.mjs` named |
+| A04 | F-E473-1 | create, then `touch -t 2020…` (G4) | RESISTED | 1 | named |
+| A04 | F-E473-1 | rename of an existing pre-stamp file | RESISTED | 1 | the new name is named |
+| A04 | F-E473-1 | `chmod 600` on an existing pre-stamp file | RESISTED | 1 | named |
+| A04 | F-E473-1 | new symlink `shared/ln → /etc/hostname` | RESISTED | 1 | named |
+| A04 | F-E473-1 | guarded root `.rein` is itself a symlink (G12) | RESISTED | 1 | `shared` and `shared/x.mjs` named |
+| A04 | F-E473-4 | new `roles/tmp.X-1/settings.engineer.json`, with `roles/existing` present (X4) | RESISTED | 1 | `roles/tmp.X-1` named |
+| A04 | F-E473-4 | new empty `roles/rein-t-e` dir | RESISTED | 1 | named |
+| A04 | F-E473-5 | `mv` of a pre-stamp tree into the root (H10) | RESISTED | 1 | `tree` named |
+| A04 | F-E473-5 | `mv shared shared.old` (H11) | RESISTED | 1 | `shared.old` named |
+| — | control | idle suite | RESISTED | 0 | `Operator ~/.rein: untouched`, so the idle tree gives no false positive |
+
+**Gate**: SEC_CLEARED. All 11 payloads are reported. There are no EXPLOITED or INCONCLUSIVE rows and nothing new was observed. The accepted residuals of D-174 r18 are unchanged and were not probed.

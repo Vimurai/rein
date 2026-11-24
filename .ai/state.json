@@ -2478,16 +2478,16 @@
     {
       "id": "E-471",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Print the role source and the reason in the Architect git lane block of hooks/pre-commit.sh. Today `_resolve_commit_role` runs `launch-record.py walk` with `2>/dev/null` and matches only `\"result\": \"union\"`, so a session that falls back to `union:architect` (record for another project, bad record, launch directory unreadable, process table unreadable) sees only \"Session role: architect\" and cannot tell a real Architect from a fail-closed fallback (seen 2026-11-24: an Engineer pane committing in another project was blocked with no cause shown). Change: carry the walk's `why` out of `_resolve_commit_role` alongside `<source>:<role>` and print both in the [SOVEREIGNTY_BLOCK] message, e.g. \"Session role: architect (source: union — record 1234 is for another project)\"; for `chain` and `env` print the source alone. When the source is `union`, add one line naming the fix for the another-project case (relaunch with `rein pane <role>` from the repo being committed in). Sanitise `why` before printing (single line, control characters stripped, length capped) since a record's content reaches it. Resolution itself must not change: union still resolves to architect, restrict-only (D-087), and REIN_SKIP_GIT_LANE behaves as before. Acceptance: (1) a test under tests/ stages a path outside .ai/ with a live launch record naming another project on the chain and asserts the hook exits 1 and stderr contains both `source: union` and `is for another project`; (2) a test with a live architect record for the same project asserts stderr contains `source: chain` and no `why` text; (3) a test asserts a `why` holding a newline or escape sequence is printed on one line with the control characters removed; (4) the existing git lane tests pass unchanged under the project's test command.",
       "created_at": "2026-11-24T11:02:12.618Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T12:03:19.183Z",
+      "summary": "The Architect git lane block names the role source (chain|env|union) and, for union, the walk's reason plus the relaunch fix; the reason is one line with C0/DEL/C1 removed (looped, F-471-1) and capped",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-24T11:02:12.631Z"
+      "updated_at": "2026-11-24T12:03:19.190Z"
     }
   ],
   "stamps": [
@@ -7740,6 +7740,60 @@
       "timestamp": "2026-11-24T11:37:27.928Z",
       "summary": "HEAD 36632fe: looped _lane_why resists F-471-1 (nested/triple/10-deep C1, C and C.UTF-8) and all earlier (b) payloads in harness rc 0; role resolution restrict-only, unchanged except bare union (still architect); git_lane 122/0; T-LANEWHY-001 closed",
       "sha": "36632fed88aaa4b13b0df60e42cac0149c963a0f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T12:02:52.939Z",
+      "summary": "HEAD 2e0f877: carry-forward of 36632fe clearance; diff 36632fe..HEAD under hooks/src is one reworded note in legacy-artefacts.json, launch-record.py and hooks untouched; test-only changes (fixture HOME links shared/ so the secret check runs; lane assertion now absolute paths) weaken neither the lane nor the secret check; no new pen-test round, no EXPLOITED/INCONCLUSIVE rows open.",
+      "sha": "2e0f877b24443a8617666655c2d7554d52778a16",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T12:02:55.812Z",
+      "summary": "[REVIEW_PASS] E-471 at 2e0f877 — 0 FAIL, 2 notes ‖ git diff 36632fe..HEAD -- hooks tests/suites/git_lane_test.sh is empty; later commits 95db200/2e0f877 touch only other suites, a unit test, legacy-artefacts.json and .ai ‖ hooks/pre-commit.sh:188-231,304-311 E-471 change re-checked against task: union prints source+sanitised why+fix line, chain/env source only, resolution unchanged, SKIP untouched ‖ tests/suites/git_lane_test.sh:156-186 acceptance 1-3 covered, existing rows unchanged (+32/-0) ‖ git_lane_test.sh at HEAD: 122 pass, 0 fail; rein ci status: local CI PASS 2e0f877 (3890 passed, 0 failed, 9 skipped)",
+      "sha": "2e0f877b24443a8617666655c2d7554d52778a16",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T12:03:08.102Z",
+      "summary": "[ACCEPT_PASS] E-471 at 2e0f877 — 4 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | git_lane_test.sh E-471.1a-d (other-project record, stderr only): rc 1, 'source: union', 'is for another project' — all pass ‖ 2 | PASS | E-471.2a/2b: same-project architect record, stderr has 'source: chain)' and not 'is for another project' — pass ‖ 3 | PASS | E-471.3/3a-c: stub why with \\n, ESC, BEL, C1 incl. nested; one role line, no [[:cntrl:]] or C1 — pass ‖ 4 | PASS | `bash tests/run.sh git_lane_test.sh` exit 0, 122 pass 0 fail 0 skip; diff 508969b..36632fe removes 0 test lines",
+      "sha": "2e0f877b24443a8617666655c2d7554d52778a16",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-460",
+      "timestamp": "2026-11-24T12:03:11.384Z",
+      "summary": "[REVIEW_PASS] E-460 at 2e0f877 — 0 FAIL, 2 notes ‖ .ai/BRIEF.md:21,37 prior FAIL resolved: 6d9c796 reverted the Engineer edit; Architect's f5a0333 set line 37 to skill rein-test (exists) ‖ no regression: rulefiles 1859/1916 B, hook brief 1321 B, no cache emit, grep rein-preflight empty, fitness session 3386<=4096 and skills 5<=6 PASS, CI PASS ‖ note ENGINEER.md:15 write-scope still omits .ai/BRIEF.md ‖ note item (4) 12-skill cap superseded by D-170 (6, E-467)",
+      "sha": "2e0f877b24443a8617666655c2d7554d52778a16",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-469",
+      "timestamp": "2026-11-24T12:03:30.674Z",
+      "summary": "[REVIEW_PASS] E-469 at 2e0f877 — 0 FAIL, 3 notes ‖ tests/unit/traversal-policy.test.mjs:92 E-464.R1 now expects rein:<agent> (6d9c796); 55/55 pass — earlier FAIL resolved ‖ later batch edits to plugin-build.mjs/hook-paths.py/doctor-scopes.json (E-463) and fitness.mjs (D-172) are comment/scope only; plugin-build 6/6, fitness 5/5, rein_sync_test 240/0 ‖ .claude/agents and skills untracked (D-172 r19), so the sync-prune suite note is moot ‖ \"exactly one MCP server\" and the live session listing are left to critic_acceptance",
+      "sha": "2e0f877b24443a8617666655c2d7554d52778a16",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-466",
+      "timestamp": "2026-11-24T12:03:33.026Z",
+      "summary": "[REVIEW_PASS] E-466 at 2e0f877 — 0 FAIL, 3 notes ‖ prior FAIL resolved by 6d9c796: tests/unit/record-store.test.mjs:450,548 and privacy-cases.test.mjs:111 check closed tasks via rein task show; 83/83 pass on the 3 E-466 unit files, CI PASS 2e0f877 ‖ acceptance at HEAD: TASKS.md 24315 B, 0 \"- [x]\", COMM.md 10 handoffs, archive 105 ‖ rein task show E-449 still prints OPEN (E-449 not closed; acceptance item unmet for that reason) ‖ task-synchronizer-mcp/index.js:541 EMPTY_STATE_DB guard counts listed (open) rows only — carried note ‖ later batch (D-172 r12/r14/r18 line cut, archive_done_tasks + deltas retired) touches E-466 files without regressing open-only view, archive or task show",
+      "sha": "2e0f877b24443a8617666655c2d7554d52778a16",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

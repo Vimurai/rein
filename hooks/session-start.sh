@@ -217,6 +217,13 @@ if [[ -d ".ai" ]] && command -v node >/dev/null 2>&1; then
     _ST="$(node --no-warnings "$_BS" --stale 2>/dev/null || true)"
     [[ -n "$_ST" ]] && _add_anom "${_ST} — restart the MCP servers before trusting their answers"
   fi
+  # D-172 addendum 1 r24 (F8, accepted residual): a file under .ai/ or plans/ that is not a
+  # record can be run by a tool the Engineer points at the root. The Engineer is told; the
+  # rule lives in src/shared/lane-code.mjs only (`rein handoff` prints the same line).
+  if [[ "$ROLE" == "engineer" ]]; then
+    _LC="$(rein_locate shared/lane-code.mjs || true)"
+    [[ -n "$_LC" ]] && _add_anom "$(node --no-warnings "$_LC" "$PWD" 2>/dev/null || true)"
+  fi
 fi
 # Uncommitted COMM.md (D-104 r4): the handoff channel must be committed to reach the other role.
 _CMS="$(rein_locate shared/comm-status.sh || true)"

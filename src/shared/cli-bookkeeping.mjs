@@ -38,6 +38,7 @@ import { findAiDir } from "./cli-add-task.mjs";
 import { appendLog } from "../mcp/shared/team.mjs";
 import { writeDigest } from "./digest-build.mjs";
 import { archiveRecord } from "./record-archive.mjs";
+import { laneCodeLine } from "./lane-code.mjs";
 import { getDbSeeded, regenerateViews } from "../mcp/shared/state-db.js";
 
 const USAGE = `usage: rein done <id> --summary <text>
@@ -158,6 +159,8 @@ export function runHandoff(aiDir, { to, file } = {}, { cwd = process.cwd() } = {
   const sha = git(root, ["rev-parse", "--short", "HEAD"]).out;
   const verb = target === "Architect" ? "review and plan next" : "execute the OPEN queue";
   const wake = `SendMessage to "${basename(root)} · ${target}": ${handoffLine(entry.text)} — ${verb}. Details: .ai/COMM.md handoff ${when}, commit ${sha}.`;
+  // D-172 addendum 1 r24 (F8): name any file in the lanes that is not a record.
+  try { const lc = laneCodeLine(root); if (lc) notes.push(lc); } catch { /* a report never fails the handoff */ }
   return { code: 0, out: [sha, wake, ...notes].join("\n") };
 }
 

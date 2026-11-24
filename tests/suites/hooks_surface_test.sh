@@ -129,6 +129,20 @@ _ss_node() { local i t m=999999 a b; for i in 1 2 3; do a=$(date +%s%N); node --
 assert_perf "E-460.S03m: the session-start hook on a fixture project" "$(_ss_min)" 2500 "$(_ss_node)" 10 200 _ss_min
 }
 
+# ── D-172 addendum 1 r24 (F8, T-SANDBOXLANE-001): the Engineer's brief names lane code ──
+# Extends S03: one anomaly line. The rule (extensions, untracked files) is lane-code.test.mjs's.
+# The fixture HOME also links src/mcp, so safe-exec mints the plain-launch `engineer` role.
+skip_unless_cmd git "D-172 a1 r24 [LANE_CODE] brief row" && {
+_LCB="$(mktemp -d)"; on_exit "rm -rf '$_LCB'"
+tc_link_shared "$_LCB/home"; ln -s "${REPO_ROOT}/src/mcp" "$_LCB/home/.rein/mcp"
+mkdir -p "$_LCB/p/.ai" "$_LCB/p/plans"; printf '// Architect-written\n' > "$_LCB/p/plans/zz.test.mjs"
+git -C "$_LCB/p" init -q >/dev/null 2>&1
+_LCO="$( cd "$_LCB/p" && printf '{"session_id":"s-lane-code"}' | HOME="$_LCB/home" bash "$SSC_HOOK" 2>/dev/null )"
+assert_contains "D-172.a1r24a: (non-vacuity) the fixture session is the Engineer's" '[REIN_ROLE] engineer' "$_LCO"
+assert_contains "D-172.a1r24b: an untracked plans/*.test.mjs is one [LANE_CODE] anomaly in the Engineer's brief" \
+  '[LANE_CODE] 1 file(s) under .ai/ or plans/ are not records (F8, D-172 a1 r24): plans/zz.test.mjs' "$_LCO"
+}
+
 # ── S05: fail-open — node unavailable → hook exits 0 and still briefs (no block) ─
 # E-286: the hook pins its own PATH, so "no node" is simulated the way production meets
 # it — a recorded node that is gone and none in the fallback dirs (tc_stale_tree) — not

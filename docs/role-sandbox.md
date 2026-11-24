@@ -66,9 +66,18 @@ the content of a commit:
 
 ## Known limits
 
-- **`plans/` is the Architect's.** A tool that loads code from a subdirectory it walks (a test
-  runner that collects `plans/`) would run what the Architect wrote there. Keep tool roots out of
-  `plans/`.
+- **`plans/` and `.ai/` are the Architect's, and they are inside the project (residual F8,
+  accepted in D-172 addendum 1).** A tool that loads code from a directory it walks runs what the
+  Architect wrote there, with the Engineer's rights. The probe that found it: the Architect wrote
+  `plans/zz.test.mjs`, and `node --test` run at the project root collected it and wrote `src/`.
+  jest, vitest and mocha defaults and pytest (`plans/conftest.py`) collect the same way. So:
+  - **point a test runner at its test directories** (`node --test tests/`, `pytest tests/`, a
+    `testMatch` or `roots` that names them), not at the project root's default discovery;
+  - read the `[LANE_CODE]` line when you see it. The Engineer's session start and `rein handoff`
+    print it with every file under `.ai/` and `plans/`, tracked or not, whose extension is not one
+    of `.md .json .txt .yml .yaml .tsv .sqlite .log` (sqlite's `-wal` and `-shm` count as
+    records). It is a notice, not a block: open the files it names before running a tool over
+    the tree.
 - **The command gate still runs.** The older PreToolUse gate (`hooks/pre-tool-use.sh`, with its
   operator escape `rein gate off`) is still installed and checks every tool call in both panes.
   Its removal is task E-463, held until the operator runs the sandbox escape suite; until then

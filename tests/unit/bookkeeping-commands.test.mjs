@@ -142,6 +142,20 @@ test("rein handoff: appends the entry, commits COMM.md with the dirty tracked .a
   assert.ok(!files.includes("src.js"), "staged source stays out of the handoff commit");
   assert.ok(!files.some((f) => f.startsWith(".ai/archive/")), "one handoff: nothing to archive");
   assert.match(p.g("status", "--short", "--", "src.js"), /^A  src\.js$/);
+  assert.ok(!r.out.includes("[LANE_CODE]"), "records only in the lanes: no [LANE_CODE] line");
+});
+
+// D-172 addendum 1 r24 (F8): `rein handoff` names a file in the lanes that is not a record
+// (the rule itself is lane-code.test.mjs's; this row pins that the handoff prints it).
+test("rein handoff: prints [LANE_CODE] naming an untracked plans/*.test.mjs, and still hands off", (t) => {
+  const p = project(t);
+  mkdirSync(join(p.root, "plans"), { recursive: true });
+  writeFileSync(join(p.root, "plans", "zz.test.mjs"), "// written by the Architect\n");
+  const r = runHandoff(p.ai, { to: "architect", file: p.entry("entry.md", ENTRY) }, { cwd: p.root });
+  assert.equal(r.code, 0, r.out);
+  const lines = r.out.split("\n").filter((l) => l.startsWith("[LANE_CODE]"));
+  assert.equal(lines.length, 1, r.out);
+  assert.match(lines[0], /^\[LANE_CODE\] 1 file\(s\) .*plans\/zz\.test\.mjs/);
 });
 
 test("rein handoff: exit 1 when the entry lacks \"Next action needed\"; nothing is written or committed", (t) => {

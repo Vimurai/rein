@@ -1615,3 +1615,12 @@ Claude Code 2.1.331 with haiku sessions running the generated role files.
   Architect-lane file reaches the Engineer's process through a tool's search path. Mitigation:
   open. A documented runner exclusion of `plans/` and `.ai/`, or a `[LANE_STRAY]`-style notice
   for test-named or executable files under `plans/` (Architect's call).
+  **Status: ACCEPTED residual (D-172 addendum 1 r24, 2026-11-24).** The lane stays inside the
+  project by design; the control is detective. Notice: the `[LANE_CODE]` report
+  (`src/shared/lane-code.mjs`), printed by the Engineer's session start (an anomaly line of the
+  brief) and by `rein handoff`, names every file under `.ai/` and `plans/`, tracked, untracked
+  or git-ignored, whose extension is not one of `.md .json .txt .yml .yaml .tsv .sqlite .log`
+  (sqlite's `-wal`/`-shm` allowed). A lane `.gitignore` therefore hides nothing from it, and is
+  itself named. docs/role-sandbox.md names the residual and tells the reader to point a test
+  runner at its test directories. Pins: tests/unit/lane-code.test.mjs, hooks_surface
+  D-172.a1r24, bookkeeping-commands "prints [LANE_CODE]". No review round follows (r24).

@@ -212,7 +212,7 @@ assert_status 0 "the refused tasks wrote nothing" bash -c "[[ '$COUNT_LOCAL3' ==
 #   - The hook fires after add_task          (mutation: new row → projection change)
 #   - The hook fires after update_task_status (mutation: status flip → projection change)
 #   - The hook does NOT fire when AI_MANAGED_AGENTS_ENABLE is unset
-#   - The hook does NOT fire from add_stamp / set_project_focus / mark_deltas_read
+#   - The hook does NOT fire from add_stamp / set_project_focus
 #     (those mutations don't change the OPEN+BLOCKED active-task set)
 #   - The hook is non-blocking — JSON-RPC response returns before the
 #     debounced fetch fires
@@ -372,9 +372,7 @@ assert_status 0 "_scheduleCloudSync called from update_task_status" \
 assert_status 1 "_scheduleCloudSync NOT called from add_stamp" \
   bash -c "grep < <(awk '/case \"add_stamp\":/,/case \"set_project_focus\":/' '$SYNC_MCP') -q '_scheduleCloudSync'"
 assert_status 1 "_scheduleCloudSync NOT called from set_project_focus" \
-  bash -c "grep < <(awk '/case \"set_project_focus\":/,/case \"archive_done_tasks\":/' '$SYNC_MCP') -q '_scheduleCloudSync'"
-assert_status 1 "_scheduleCloudSync NOT called from mark_deltas_read" \
-  bash -c "grep < <(awk '/case \"mark_deltas_read\":/,/default:/' '$SYNC_MCP') -q '_scheduleCloudSync'"
+  bash -c "grep < <(awk '/case \"set_project_focus\":/,/case \"sync_tasks\":/' '$SYNC_MCP') -q '_scheduleCloudSync'"
 assert_status 0 "blueprint reference present in comments" \
   grep -q 'managed-agents-state-reconciliation.md' "$SYNC_MCP"
 
@@ -675,8 +673,7 @@ set +e
 # task-synchronizer-mcp (token-optimization.md §Components 1-2).
 #
 # Drives the REAL MCP server over stdio against an isolated temp .ai/. Stamps are
-# bulk-seeded directly into the same state.sqlite (fast) and then rotated through
-# the shipped archive_done_tasks handler.
+# bulk-seeded directly into the same state.sqlite (fast); D-172 r14: nothing rotates them.
 set -e   # this section ran under its own suite's error mode
 SERVER="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 
@@ -736,29 +733,19 @@ for (let i = 0; i < 60; i++) ins.run('TEST_STAMP','tester',null,new Date(Date.UT
 SEEDED=$(node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mcp/shared/state-db.js'; console.log(getDb('${PROJECT}/.ai').prepare('SELECT COUNT(*) n FROM stamps').get().n);" 2>/dev/null)
 assert_status 0 "E-108.00: 60 stamps seeded" bash -c "[ \"$SEEDED\" -ge 60 ]"
 
-# E-199: _rotateToArchive names the bucket by the CURRENT UTC year-month
-# (`new Date().toISOString().slice(0,7)` in state-db.js), not the stamp's own
-# date — so derive it here instead of hardcoding a month (was `2026-06`, a
-# time-bomb that broke every PR after the July 2026 rollover). `date -u` matches
-# toISOString()'s UTC basis.
-STAMP_MONTH="$(date -u +%Y-%m)"
-STAMP_ARCHIVE="${PROJECT}/.ai/archive/stamps-${STAMP_MONTH}.json"
+# D-172 r14 (replaces E-108.01–04, which rotated stamps through archive_done_tasks): nothing
+# rotates state. The tool is retired and get_state no longer auto-archives, so the 60 stamps the
+# DONE checks read stay in the index after both calls, and no archive file is written.
 r=$(call archive_done_tasks "{}")
-assert_contains "E-108.01: archive run reports archived_stamps" '"archived_stamps"' "$r"
-assert_contains "E-108.01b: 50 stamps archived (60 - 10 kept)" "50 stamps" "$r"
-assert_exists "${STAMP_ARCHIVE}"
-
-# Active stamp count is now the 10 most recent.
+assert_contains "D-172.r14a: archive_done_tasks is no longer a tool" "Unknown tool: archive_done_tasks" "$r"
+call get_state "{}" >/dev/null
 REMAIN=$(node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mcp/shared/state-db.js'; console.log(getDb('${PROJECT}/.ai').prepare('SELECT COUNT(*) n FROM stamps').get().n);" 2>/dev/null)
-assert_status 0 "E-108.02: 10 most-recent stamps kept in active state" bash -c "[ \"$REMAIN\" -eq 10 ]"
-
-# Archived JSON holds the 50 rotated stamps in standard JSON (repo-oracle discoverable).
-ARCHIVED_N=$(python3 -c "import json; print(len(json.load(open('${STAMP_ARCHIVE}'))))")
-assert_status 0 "E-108.03: archive file holds 50 stamps" bash -c "[ \"$ARCHIVED_N\" -eq 50 ]"
-
-# ── E-108.04: a second run below threshold is a no-op ────────────────────────
-r=$(call archive_done_tasks "{}")
-assert_contains "E-108.04: below-threshold run is a no-op" "No archive needed" "$r"
+assert_status 0 "D-172.r14b: get_state rotates no stamp out of the index (${REMAIN})" bash -c "[ \"$REMAIN\" -ge 60 ]"
+assert_status 1 "D-172.r14c: …and writes no archive file" bash -c "grep -q . < <(ls '${PROJECT}/.ai/archive/' 2>/dev/null)"
+# D-172 r2a: the Architect's session runs in <project>/.ai and Claude Code starts this server there;
+# it steps up to the project root and serves the same state.
+r=$(cd "${PROJECT}/.ai" && call get_state "{}")
+assert_contains "D-172.r2a-mcp: started in .ai/, get_state reads the project's state" '"id": "E-1"' "$r"
 
 cd "${REPO_ROOT}"
 set +e
@@ -1370,13 +1357,9 @@ const tools = r.mcp_servers['task-synchronizer-mcp']['allowed-tools'];
 if (!tools.includes('validate_payload')) process.exit(1);
 JS
 
-assert_status 0 "mark_deltas_read in task-synchronizer-mcp allowed-tools" \
-  node --input-type=module <<JS
-import { readFileSync } from 'fs';
-const r = JSON.parse(readFileSync('${REPO_ROOT}/src/config/registry.json', 'utf8'));
-const tools = r.mcp_servers['task-synchronizer-mcp']['allowed-tools'];
-if (!tools.includes('mark_deltas_read')) process.exit(1);
-JS
+# D-172 r18 (replaces the mark_deltas_read allowed-tools row): the delta channel is retired.
+assert_status 1 "D-172.r18a: mark_deltas_read is in no allow list and no tool schema" \
+  grep -q mark_deltas_read "${REPO_ROOT}/src/config/registry.json" "${REPO_ROOT}/src/mcp/task-synchronizer-mcp/tool-schemas.mjs"
 set +e
 
 

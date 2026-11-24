@@ -165,7 +165,7 @@ PY
 _S10="$(_s10)"
 assert_contains "S10: the gate is registered on Bash and the write tools (E-208)" "Bash|Write|Edit|MultiEdit|NotebookEdit|" "$_S10"
 assert_contains "S10: in exec form under privileged bash (E-290)" "|/bin/bash|-p /" "$_S10"
-( cd "$S10_DIR/proj" && REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )
+( cd "$S10_DIR/proj" && HOME="$S10_DIR/proj.home" REIN_DISABLE_REPO_MAP=1 bash "$AI_BIN" sync >/dev/null 2>&1 )   # gen_project_settings's scratch home (D-172 r22)
 assert_status 0 "S10: registration is idempotent (exactly one gate entry after a re-sync)" \
   test "$(_s10 | grep -c .)" -eq 1
 
@@ -244,7 +244,11 @@ done
 # E-462: the Engineer's role file has a deny list now (the install tree, .claude/settings*.json),
 # but never the MCP write tools — those are its everyday tools.
 assert_not_contains "E-216.07h: the engineer overlay does not deny the MCP write tools" 'mcp__filesystem__write_file' "$_ENG"
-assert_not_contains "E-216.07i: the overlay still registers NO hooks (E-208 double-mint guard)" '"hooks"' "$_ARCH"
+# D-172 r2a (amends E-216.07i): the Architect's session runs in .ai/ and reads no project settings, so
+# its file carries the gate's PreToolUse entry — and still no SessionStart (E-208 double-mint
+# guard); the Engineer's, which reads the project's, registers no hook at all.
+assert_not_contains "E-216.07i: the Architect's file registers no SessionStart hook (E-208 double-mint guard)" '"SessionStart"' "$_ARCH"
+assert_not_contains "E-216.07j: the Engineer's file registers no hook" '"hooks"' "$_ENG"
 # E-216 denied the forwarding router by name; E-277 (D-075) retired it with its deny entry.
 assert_not_contains "E-277.09h: no deny entry for the retired mcp-router" "mcp__mcp-router__proxy_call" "$_ARCH"
 # E-279 retired computer-use, but the deny STAYS until `rein clean` removes its mirror copy.

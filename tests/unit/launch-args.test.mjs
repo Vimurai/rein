@@ -76,3 +76,20 @@ test("resolve-launch: a valid model gives exactly one --model operand", () => {
     assert.ok(!argv.includes("--mcp-config"), "the Engineer has no --mcp-config");
   } finally { p.done(); }
 });
+
+// D-172 r2a: the Architect's session runs in <project>/.ai and reads no project settings, so the
+// project-scope enable of the rein plugin does not reach it; its launch loads the install's plugin.
+test("resolve-launch: the Architect loads the install's plugin with --plugin-dir; the Engineer does not", () => {
+  const p = project({ architect: { provider: "claude" }, engineer: { provider: "claude" } });
+  try {
+    const rd = join(p.root, "rh", "roles", "key");
+    const run = (role) => spawnSync(process.execPath, ["--no-warnings", RESOLVE, role, p.ai, rd], { encoding: "utf8" });
+    assert.ok(!run("architect").stdout.split("\n").includes("--plugin-dir"), "no built plugin: no flag");
+    mkdirSync(join(p.root, "rh", "plugin", ".claude-plugin"), { recursive: true });
+    writeFileSync(join(p.root, "rh", "plugin", ".claude-plugin", "plugin.json"), "{}");
+    const a = run("architect").stdout.split("\n");
+    assert.equal(a[a.indexOf("--plugin-dir") + 1], join(p.root, "rh", "plugin"));
+    assert.ok(a.indexOf("--plugin-dir") < a.indexOf("--strict-mcp-config"), "before --mcp-config, whose values run to the next flag");
+    assert.ok(!run("engineer").stdout.split("\n").includes("--plugin-dir"), "the Engineer reads the project's enable");
+  } finally { p.done(); }
+});

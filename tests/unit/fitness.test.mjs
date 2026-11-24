@@ -56,7 +56,7 @@ function fixture({ fat = false } = {}) {
   const skills = fat ? 7 : 3;
   for (let i = 0; i < skills; i++) put(root, `src/${i % 2 ? "shared" : "claude"}/skills/s${i}/SKILL.md`, "---\n");
   for (const a of ["reviewer", "critic_acceptance", ...(fat ? ["a3", "a4", "a5"] : [])]) put(root, `src/claude/agents/${a}.md`, "---\n");
-  put(root, "src/bin/rein", 'gen="$(_rein_helper shared/role-settings.mjs)"\ncase "$cmd" in\n  done|handoff|decide|archive) ;;\nesac\n');
+  put(root, "src/bin/rein", 'gen="$(_rein_helper shared/role-settings.mjs)"\ncd "${_proj}/.ai"\ncase "$cmd" in\n  done|handoff|decide|archive) ;;\nesac\n');
   put(root, "src/shared/cli-bookkeeping.mjs", "// SendMessage wake line\n");
   put(root, "src/shared/resolve-launch.mjs", 'const i = argv.indexOf("--settings"); roleDir(x);\n');
   if (fat) put(root, "src/mcp/safe-exec-mcp/index.js", nLines(400));

@@ -110,7 +110,7 @@ Commands:
                  BRIEF/RULES/SEED/DIGEST/TASKS/LOG/architect.md/blueprints;
                  enable the rein plugin here; write the role settings files
   rein init --check  Dry run: list what rein init would change (exit 1 when anything would)
-  rein sync        Re-sync bootloaders (ENGINEER.md, ARCHITECT.md + CLAUDE.md shim),
+  rein sync        Re-sync bootloaders (ENGINEER.md, ARCHITECT.md + the role-neutral CLAUDE.md),
                  .mcp.json, settings, rules and git hooks; enable the rein plugin
   rein sync --github   Fetch assigned GitHub issues for the Architect cycle (§28)
   rein sync --prune-providers
@@ -1261,12 +1261,11 @@ ensure_ai_templates() {
   echo "Updated .mcp.json (MCP servers: the Rein servers in registry.json)"
 
   # Bootloaders (D-050/E-183): ENGINEER.md/ARCHITECT.md are the canonical rulefiles;
-  # CLAUDE.md is a thin @import shim so Claude Code's auto-load
-  # still bootstraps the right persona. Copy all four so skill invocation stays current.
+  # CLAUDE.md is role-neutral (D-172 r11): `rein pane` appends the role's rulefile.
   cp -f "$T/ENGINEER.md"  "ENGINEER.md"
   cp -f "$T/ARCHITECT.md" "ARCHITECT.md"
   cp -f "$T/CLAUDE.md"    "CLAUDE.md"
-  echo "Updated ENGINEER.md/ARCHITECT.md (canonical bootloaders) + CLAUDE.md (shim)"
+  echo "Updated ENGINEER.md/ARCHITECT.md (canonical bootloaders) + CLAUDE.md (role-neutral)"
 
   # .claude/ — the project-scoped agent dir (v3.0 W3-T3: shared helper).
   _sync_workspace_dirs init
@@ -3486,11 +3485,11 @@ do_sync() {
     echo "Syncing project-scoped .claude/ from ${REIN} ..."
 
     # Always update bootloaders so skill invocation stays current (D-050/E-183:
-    # canonical ENGINEER.md/ARCHITECT.md + the CLAUDE.md @import shim).
+    # canonical ENGINEER.md/ARCHITECT.md + the role-neutral CLAUDE.md, D-172 r11).
     local T="${REIN}/templates"
     cp -f "$T/ENGINEER.md"  "ENGINEER.md"  && echo "  ENGINEER.md updated (canonical bootloader)"
     cp -f "$T/ARCHITECT.md" "ARCHITECT.md" && echo "  ARCHITECT.md updated (canonical bootloader)"
-    cp -f "$T/CLAUDE.md"    "CLAUDE.md"    && echo "  CLAUDE.md updated (shim → ENGINEER.md)"
+    cp -f "$T/CLAUDE.md"    "CLAUDE.md"    && echo "  CLAUDE.md updated (role-neutral)"
 
     # Always regenerate .mcp.json to pick up new servers; user-added servers and env on
     # ours are carried over (E-274; see generate_mcp_json).
@@ -4609,13 +4608,12 @@ for base in search_paths:
                 })
 
 # E-121: ANTI-DRIFT PROTOCOL check — the canonical project rulefiles must contain the
-# header. E-183/D-050: these are now ENGINEER.md/ARCHITECT.md (CLAUDE.md is an
-# @import shim and carries no header). The global install rulefile keeps its vendor name.
+# header. E-183/D-050: these are now ENGINEER.md/ARCHITECT.md (CLAUDE.md is role-neutral, D-172
+# r11, and carries no header). D-172 r22 deleted the global install rulefile claude/CLAUDE.md.
 ANTI_DRIFT_HEADER = "ANTI-DRIFT PROTOCOL"
 anti_drift_targets = []
 if Path(".ai").exists():
     anti_drift_targets += [Path("ENGINEER.md"), Path("ARCHITECT.md")]
-anti_drift_targets += [Path(rein) / "claude" / "CLAUDE.md"]
 seen_targets = set()
 for t in anti_drift_targets:
     if t in seen_targets or not t.exists():
@@ -5117,13 +5115,14 @@ do_start() {
   fi
 
   # E-462 (D-169 r3): the role settings are the boundary. Every real run regenerates them (gap 3
-  # of E-458): the Architect's deny list is the project's top-level entries now, and a file edited
-  # since the last launch is overwritten. `rein pane` regenerates them again and REFUSES without
-  # the sandbox; this says so up front, where the operator is looking (E-242: a refusal inside a
-  # tmux pane scrolls past). --dry-run DESCRIBES; it must not write.
+  # of E-458): a file edited since the last launch is overwritten. D-172 r22: without the sandbox
+  # `rein start` REFUSES, as `rein pane` does — up front, where the operator is looking (E-242: a
+  # refusal inside a tmux pane scrolls past), and before any pane or window is made. --dry-run
+  # refuses too: it describes a launch that cannot happen. --dry-run otherwise must not write.
   local _sbx
   if _sbx="$(_sandbox_missing)"; then
-    echo "[SANDBOX_MISSING] rein start: ${_sbx} — every role pane will refuse to start until it is fixed." >&2
+    echo "[SANDBOX_MISSING] rein start: ${_sbx} — a role session needs the Claude Code sandbox (D-169 r3); refusing." >&2
+    return 2
   fi
   local _rd; _rd="$(_role_settings_dir "$ai_dir")"
   if [[ "$dry" -eq 1 ]]; then
@@ -5673,8 +5672,8 @@ do_pane() {
     return 2
   }
   # The role settings are regenerated on EVERY launch into ~/.rein/roles/<project key>/ (gap 3 of
-  # E-458): neither session can write there, and the Architect's deny list is the project's
-  # top-level entries as they are now. A failed write refuses the launch — an Architect pane
+  # E-458): neither session can write there, and a file edited since the last launch is
+  # overwritten. A failed write refuses the launch — an Architect pane
   # without its file would be unsandboxed.
   if [[ -z "$_rd" ]] || ! _write_role_settings_overlays "" "$ai_dir" >/dev/null || [[ ! -f "${_rd}/settings.${role}.json" ]]; then
     echo "rein pane: could not generate ${_rd:-the role dir}/settings.${role}.json — refusing to launch." >&2
@@ -5761,6 +5760,13 @@ do_pane() {
     echo "rein pane: account '${_acct}' ($(_acct_tilde "$_acct_dir"))"
     export CLAUDE_CONFIG_DIR="$_acct_dir"
   fi
+  # D-172 r2a (SECURITY.md lean-core round F3): the Architect's session runs in <project>/.ai.
+  # Claude Code's sandbox makes the working directory writable and nothing else by default, so
+  # the project root is read-only to the Architect's Bash and nothing can be planted there for
+  # the Engineer's tools to load. Every launch path is absolute (resolve-launch.mjs).
+  if [[ "$role" == "architect" ]]; then
+    cd "${_proj}/.ai" || { echo "rein pane: cannot enter ${_proj}/.ai — refusing to launch." >&2; return 2; }
+  fi
   exec "$provider" "${argv[@]}" "$@"
 }
 
@@ -5814,7 +5820,6 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
        rein ci status [<sha>|--ref <sha>] [--short]
        rein ci list [-n <N>]
        rein ci log [<sha>] [--failed]
-       rein ci evals
        rein ci hosted [<provider>] [--check] [--force] | --required
        rein ci plan [--base <ref>] [--json]
        rein ci budget [set --ruling D-### <field>=<n> …]
@@ -5837,10 +5842,6 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
                  missing or stale baseline, over half the suites, ci.smart false, or a
                  planner error ([PLAN_FALLBACK]). --base <ref> (default: the merge base with
                  the trunk), --json for the plan object.
-  evals         Run the core-skill evals (tests/suites/skill_evals_test.sh, E-285) under
-                 YOUR HOME — the model needs your claude login, which a run's throwaway
-                 HOME never has. Needs a clean tree outside .ai/; the JSON report is kept
-                 as ~/.rein/ci/evals/<sha>.json and 'rein ci log' prints its path.
   --ref <rev>    Commit to test (default HEAD). Tested in a detached git worktree, so
                  uncommitted files are invisible to the run.
   --dirty        Test HEAD plus the working tree's uncommitted changes (the run is
@@ -5882,7 +5883,6 @@ do_ci() {
   local sub="${1:-}"
   case "$sub" in
     run) shift; _ci_run "$@" ;;
-    evals) shift; _ci_evals "$@" ;;
     hosted) shift; _ci_hosted "$@" ;;
     plan) shift; _ci_plan "$@" ;;
     status|list|log) shift; _ci_read "$sub" "$@" ;;
@@ -5922,32 +5922,6 @@ _ci_budget() {
          node "${_CI_NODE_FLAGS[@]}" "$helper" budget-set --ai-dir "${root}/.ai" --ruling "$ruling" ${atopt[@]+"${atopt[@]}"} "${vals[@]+"${vals[@]}"}" ;;
     *) echo "rein ci budget: unknown argument '$1' — usage: rein ci budget [set --ruling D-### [--at <commit>] field=n …]" >&2; return 2 ;;
   esac
-}
-
-# _ci_evals — E-285 (D-075 native-first §8): the core-skill evals need an authenticated
-# claude, and `rein ci run`'s throwaway HOME never has one (its suite layer SKIPs there by
-# design). So this runs the eval suite in the working tree under the operator's own HOME and
-# keeps the report by HEAD's sha. A tree dirty outside .ai/ is refused: the report must
-# describe the commit it is filed under.
-_ci_evals() {
-  [[ $# -eq 0 ]] || { echo "rein ci evals: takes no arguments" >&2; return 2; }
-  local root sha dir report rc=0
-  root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-    echo "rein ci evals: not inside a git repository" >&2; return 2; }
-  if [[ -n "$(git -C "$root" status --porcelain -- . ':!.ai' 2>/dev/null)" ]]; then
-    echo "rein ci evals: uncommitted changes outside .ai/ — commit first; the report is filed under HEAD" >&2
-    return 2
-  fi
-  sha="$(git -C "$root" rev-parse HEAD)"
-  dir="${REIN}/ci/evals"; report="${dir}/${sha}.json"
-  mkdir -p "$dir" && rm -f "$report"
-  REIN_SKILL_EVAL_REPORT="$report" bash "${root}/tests/suites/skill_evals_test.sh" || rc=$?
-  if [[ ! -f "$report" ]]; then
-    echo "rein ci evals: no report for ${sha:0:7} — the live layer did not run (see SKIPPED above)"
-    return $(( rc ? 1 : 2 ))
-  fi
-  echo "rein ci evals: $([[ $rc -eq 0 ]] && echo PASS || echo FAIL) ${sha:0:7} — report: ${report}"
-  return $(( rc ? 1 : 0 ))
 }
 
 # _ci_plan — E-449 (D-166 r1): how much CI the change needs (none|fast|affected|full). The logic
@@ -6633,7 +6607,6 @@ _ci_read() {
   local extra=()
   [[ "$short" -eq 1 ]] && extra+=(--short)
   [[ "$failed" -eq 1 ]] && extra+=(--failed)
-  [[ "$sub" == "log" ]] && extra+=(--evals-dir "${REIN}/ci/evals")
   node "${_CI_NODE_FLAGS[@]}" "$helper" "$sub" --ai-dir "${root}/.ai" --sha "$sha" ${extra[@]+"${extra[@]}"}
 }
 

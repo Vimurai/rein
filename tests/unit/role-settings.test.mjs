@@ -10,6 +10,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   architectSettings, engineerSettings, architectDenyList, architectMcpConfig, roleDir, writeRoleFiles, paneRoles,
+  ARCHITECT_CWD, ARCHITECT_LANE,
 } from "../../src/shared/role-settings.mjs";
 
 function project() {
@@ -22,27 +23,45 @@ function project() {
 test("the Architect: sandbox on, no escape hatch, no network, dontAsk with only .ai/ and plans/ editable", () => {
   const p = project();
   try {
-    const s = architectSettings(p);
+    const s = architectSettings(p, join(p, "no-rein-home"));
     assert.deepEqual(
       [s.sandbox.enabled, s.sandbox.failIfUnavailable, s.sandbox.allowUnsandboxedCommands, s.sandbox.network.allowedDomains],
       [true, true, false, []]);
     assert.equal(s.permissions.defaultMode, "dontAsk");
     assert.equal(s.permissions.disableBypassPermissionsMode, "disable");
     assert.equal(s.permissions.disableAutoMode, "disable");
-    assert.deepEqual(s.permissions.allow.filter((r) => r.startsWith("Edit(")), ["Edit(.ai/**)", "Edit(plans/**)"]);
+    // D-172 r2a: the session runs in .ai/, so the rules name absolute paths (`//` anchors one).
+    assert.deepEqual(s.permissions.allow.filter((r) => r.startsWith("Edit(")), [`Edit(/${join(p, ".ai")}/**)`, `Edit(/${join(p, "plans")}/**)`]);
+    assert.ok(s.permissions.allow.includes(`Read(/${p}/**)`), "the project stays readable from .ai/");
     assert.ok(s.permissions.allow.includes("Bash"), "Bash must be allowed explicitly (E-458 notes)");
     assert.deepEqual(s.sandbox.filesystem.allowWrite, [join(p, ".ai"), join(p, "plans"), join(p, ".git")]);
     assert.equal(s.env.REIN_CALLER_ROLE, "architect");
-    assert.equal(s.hooks, undefined, "a role file registers no hooks (E-208 double-run guard)");
+    assert.equal(s.hooks, undefined, "no install tree, no gate script: no hook");
+    assert.equal(ARCHITECT_CWD, ".ai");
+    assert.ok(ARCHITECT_LANE.includes(ARCHITECT_CWD), "the working directory is writable, so it must be in the lane");
   } finally { rmSync(p, { recursive: true, force: true }); }
 });
 
-test("the Architect's deny list: every top-level entry but .ai, plans and .git, HEAD, the lane ledger, forgeable refs, CLAUDE.local.md", () => {
+test("the Architect's file carries the command gate's hook, which a session in .ai/ does not read from the project (E-463 held)", () => {
+  const p = project();
+  const home = realpathSync(mkdtempSync(join(tmpdir(), "rs-gate-")));
+  try {
+    mkdirSync(join(home, "hooks")); writeFileSync(join(home, "hooks", "pre-tool-use.sh"), "#!/bin/bash\n");
+    const h = architectSettings(p, home).hooks;
+    assert.deepEqual(h, { PreToolUse: [{ matcher: "Bash|Write|Edit|MultiEdit|NotebookEdit",
+      hooks: [{ type: "command", command: "/bin/bash", args: ["-p", join(home, "hooks", "pre-tool-use.sh")], timeout: 30 }] }] });
+    // The Engineer runs at the root and reads the project's settings, so its file registers none
+    // (E-208 double-run guard).
+    assert.equal(engineerSettings(p, home).hooks, undefined);
+  } finally { rmSync(p, { recursive: true, force: true }); rmSync(home, { recursive: true, force: true }); }
+});
+
+test("the Architect's deny list: HEAD, the lane ledger and the forgeable refs — no top-level entry (D-172 r2a)", () => {
   const p = project();
   try {
     const deny = architectDenyList(p);
-    for (const e of [".claude", "README.md", "src", "CLAUDE.local.md"]) assert.ok(deny.includes(join(p, e)), e);
-    for (const e of [".ai", "plans", ".git"]) assert.ok(!deny.includes(join(p, e)), e);
+    // The session runs in .ai/; the root is not writable, so it needs no deny list.
+    for (const e of [".claude", "README.md", "src", ".ai", "plans", ".git", "CLAUDE.local.md"]) assert.ok(!deny.includes(join(p, e)), e);
     assert.ok(deny.includes(join(p, ".git", "HEAD")) && deny.includes(join(p, ".git", "rein")));
     // F2 of the lean-core round: refs that could hide a commit from the lane check, and info/.
     for (const g of ["refs/remotes", "refs/replace", "packed-refs", "info"]) assert.ok(deny.includes(join(p, ".git", g)), g);

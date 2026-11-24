@@ -10,7 +10,7 @@
 // E-328 (D-102 §5a): in a team project `record` also writes the tracked .ai/ci/<sha>.json,
 // and `status`/`gate` accept a member's record when this machine has no row for the sha.
 //   node ci-record.mjs list    --ai-dir <d> [-n <N>]
-//   node ci-record.mjs log     --ai-dir <d> --sha <sha> [--failed] [--evals-dir <d>]  exit 2 when no row / log gone
+//   node ci-record.mjs log     --ai-dir <d> --sha <sha> [--failed]  exit 2 when no row / log gone
 //   node ci-record.mjs gate    --ai-dir <d> --sha <sha> [--ref <r>]  exit 0 certified / 1 refused (pre-push, E-267)
 //   node ci-record.mjs skip    --ai-dir <d> --sha <sha> --reason <text> [--ref <r>]
 //
@@ -213,9 +213,6 @@ export function run(argv) {
         process.stdout.write(`# ${r.status} ${r.sha.slice(0, 7)} — ${r.log_path}\n`);
         process.stdout.write(secs.length ? secs.join("\n\n") + "\n" : "(no failing sections)\n");
       }
-      // E-285: the skill-eval report `rein ci evals` filed under this sha, when there is one.
-      const evals = o["evals-dir"] && resolve(o["evals-dir"], `${r.sha}.json`);
-      if (evals && existsSync(evals)) process.stdout.write(`# skill evals: ${evals}\n`);
       return 0;
     }
     case "gate": {

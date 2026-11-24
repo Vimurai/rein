@@ -32,7 +32,7 @@ for a in critic_acceptance reviewer test_engineer; do   # E-464: reviewer replac
   assert_contains "E-284.04a: ${a} is scoped to task-synchronizer-mcp" "mcpServers:
   - task-synchronizer-mcp" "$fm"
   assert_match "E-284.04b: ${a} has a maxTurns cap" "maxTurns: [0-9]+" "$fm"
-  assert_status 0 "E-284.04c: ${a} workspace copy matches" cmp -s "${AGENTS}/${a}.md" "${REPO_ROOT}/.claude/agents/${a}.md"
+  # E-284.04c (the .claude/ workspace copy matches) deleted: that copy is untracked (D-172 r19).
 done
 # E-431 (D-159 r9): the acceptance evaluator runs commands but never writes, and judges (no model pin).
 # E-464 (D-169 r8): so does the reviewer.
@@ -80,6 +80,18 @@ mkdir -p "$_B/p/.ai"
   printf -- '- [ ] E-2: %s | Tier: 3\n' "$(printf 'Long text %.0s' {1..60})"
   for i in 3 4 5 6 7 8 9; do printf -- '- [ ] E-%s: Build part %s. | Tier: 2\n' "$i" "$i"; done
 } > "$_B/p/.ai/TASKS.md"
+# D-172 r15: the brief reads the status from the state.json view — OPEN only (BLOCKED E-4, E-10
+# are left out), highest id first; E-11 is the over-long one.
+python3 - "$_B/p/.ai/state.json" <<'PY'
+import json, sys
+def t(i, st, tier, d): return {"id": i, "owner": ("Architect" if i[0] == "P" else "Engineer") + " (Claude)", "status": st, "tier": tier,
+    "description": d, "created_at": "2026-01-01T00:00:00Z", "completed_at": "2026-01-02T00:00:00Z" if st == "DONE" else None, "summary": None}
+ts = [t("P-1", "OPEN", 2, "Plan the first thing."), t("P-2", "DONE", 1, "Done plan."), t("P-3", "OPEN", 1, "Plan the second thing."),
+      t("E-1", "DONE", 1, "Already done.")]
+ts += [t(f"E-{i}", "BLOCKED" if i in (4, 10) else "OPEN", 2, f"Build part {i}.") for i in range(2, 11)]
+ts.append(t("E-11", "OPEN", 3, "Long text " * 60))
+json.dump({"version": "1.0", "project": {}, "tasks": ts, "stamps": []}, open(sys.argv[1], "w"), indent=2)
+PY
 printf '# COMM\n\n## Handoff — 2026-01-01 10:00 UTC\nold\n' > "$_B/p/.ai/COMM.md"
 printf '.ai/state.sqlite*\n.ai/.last-import-blob\n.ai/DIGEST.md\n' > "$_B/p/.gitignore"
 _bgit init -q -b lean-fixture; _bgit add -A; _bgit commit -q -m base
@@ -91,14 +103,18 @@ assert_status 0 "E-460.S03a: the hook prints valid SessionStart JSON with a non-
 assert_status 0 "E-460.S03b: the brief is at most 2048 bytes" test "$(printf '%s' "$_BRIEF" | wc -c)" -le 2048
 assert_match "E-460.S03c: the first line is the role stamp" '^\[REIN_ROLE\] ' "$(head -1 <<< "$_BRIEF")"
 assert_contains "E-460.S03d: the brief names the branch" "Branch: lean-fixture" "$_BRIEF"
-assert_contains "E-460.S03e: it counts the role's open tasks" "Next E-## tasks (5 of 8 open" "$_BRIEF"
-assert_status 0 "E-460.S03f: exactly five task lines, E-2 to E-6 in order, no P-## and no closed task" \
-  test "$(grep -E '^- [A-Z]+-[0-9]+:' <<< "$_BRIEF" | cut -d: -f1 | tr '\n' ' ')" = "- E-2 - E-3 - E-4 - E-5 - E-6 "
+assert_contains "E-460.S03e: it counts the role's OPEN tasks (D-172 r15: BLOCKED is not open)" "Next E-## tasks (5 of 8 open, highest id first" "$_BRIEF"
+assert_status 0 "D-172.r15a: exactly five task lines, OPEN ones highest id first — E-11, E-9, E-8, E-7, E-6; no BLOCKED E-10, no P-##, no closed task" \
+  test "$(grep -E '^- [A-Z]+-[0-9]+:' <<< "$_BRIEF" | cut -d: -f1 | tr '\n' ' ')" = "- E-11 - E-9 - E-8 - E-7 - E-6 "
 assert_contains "E-460.S03g: an over-long task is cut and keeps its tier" "… | Tier 3" "$_BRIEF"
 assert_contains "E-460.S03h: the LAST handoff heading is named" \
   "Last handoff (.ai/COMM.md): Handoff — 2026-01-02 11:00 UTC (Engineer → Architect)" "$_BRIEF"
 assert_contains "E-460.S03i: an uncommitted COMM.md is one anomaly line" "[COMM_UNCOMMITTED] .ai/COMM.md has" "$_BRIEF"
 assert_not_contains "E-460.S03j: no blueprint cache text" "SYSTEM CONTEXT CACHE" "$_BRIEF"
+# D-172 r2a: the Architect's session starts in <project>/.ai, and so does this hook; it steps up to
+# the root and briefs the same tasks.
+_BRAI="$( cd "$_B/p/.ai" && printf '{"session_id":"s-brief-ai"}' | HOME="$_B/home" bash "$SSC_HOOK" 2>/dev/null )"
+assert_contains "D-172.r2a-hook: started in .ai/, the hook still lists the tasks" "- E-11: Long text" "$_BRAI"
 # Silence on success: commit COMM.md and the anomaly line goes.
 _bgit add -A; _bgit commit -q -m comm
 _BRIEF2="$( cd "$_B/p" && printf '{}' | HOME="$_B/home" bash "$SSC_HOOK" 2>/dev/null )"

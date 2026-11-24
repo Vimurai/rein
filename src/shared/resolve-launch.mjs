@@ -22,6 +22,7 @@
 import { roleProvider, roleModel, RoleConfigError, providerAdapter, buildArgv, absolutisePathOperands, DEFAULT_ADAPTERS } from "./provider-adapter.mjs";
 import { roleDir, projectRoot as physicalRoot } from "./role-settings.mjs";
 import { basename, dirname, join, resolve } from "node:path";
+import { existsSync } from "node:fs";
 
 const [, , role, aiDir, roleDirArg] = process.argv;
 if (!role || !aiDir) {
@@ -64,6 +65,13 @@ if (provider === "claude") {
   // --mcp-config takes several values: it goes right after --settings, so the next flag ends it
   // and an operator's argument after `rein pane architect --` is never read as a config file.
   if (role === "architect" && i >= 0) argv.splice(i + 2, 0, "--strict-mcp-config", "--mcp-config", join(dir, "mcp.architect.json"));
+  // D-172 r2a: the Architect's session runs in <project>/.ai, where Claude Code reads no project
+  // settings, so the project-scope enable of the rein plugin does not reach it. Load the plugin
+  // the install built (<rein home>/plugin; the role dir is <rein home>/roles/<key>) for the session.
+  const plugin = join(dirname(dirname(dir)), "plugin");
+  if (role === "architect" && i >= 0 && existsSync(join(plugin, ".claude-plugin", "plugin.json"))) {
+    argv.splice(i + 2, 0, "--plugin-dir", plugin);
+  }
 }
 
 // E-288: inject the name when the project's .ai/providers.json predates {session_name} —

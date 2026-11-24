@@ -3,11 +3,17 @@
 //
 // D-169 r3, D-170 r10, .ai/blueprints/lean-core.md §Component 1 and §Security. The shape is
 // the one E-458 measured on this machine (plans/e-458-sandbox-measurement.md):
-//   - the Architect's Bash runs in the sandbox with every top-level entry of the project
-//     write-denied except .ai, plans and .git; its file tools may write only .ai/ and plans/
-//     (dontAsk + allow Edit(.ai/**), Edit(plans/**) — no Edit(!…) shape works); no network
-//     domain; .git/HEAD write-denied, so it can commit on the branch but not switch it; also
-//     .git/refs/remotes, refs/replace, packed-refs and info (F2 of the lean-core round);
+//   - the Architect's session starts with its working directory at <project>/.ai (D-172 r2a,
+//     F3 of the lean-core round): the sandbox makes the working directory writable and nothing
+//     else, so the project root is read-only to its Bash with no deny list, and a file planted
+//     at the root (.npmrc, conftest.py, …) cannot be made. plans/ and the git dirs are on the
+//     write list; its file tools may write only .ai/ and plans/ (dontAsk + allow Edit on the
+//     two absolute paths — no Edit(!…) shape works); no network domain; .git/HEAD
+//     write-denied, so it can commit on the branch but not switch it; also .git/refs/remotes,
+//     refs/replace, packed-refs and info (F2 of the lean-core round). A session started in
+//     .ai/ reads no project .claude/settings.json, so this file carries what the Architect
+//     needs from it: the command gate's PreToolUse entry (until E-463) and the session env;
+//     `rein pane` loads the rein plugin with --plugin-dir (resolve-launch.mjs);
 //   - the Engineer's Bash runs in the sandbox with every entry of ~/.rein but ci/ (where
 //     `rein ci run` keeps its logs) and the project's .claude/ write-denied, and the network
 //     domains CI and the registry need;
@@ -17,7 +23,7 @@
 // the project. The Engineer's sandbox write-denies ~/.rein (measured, M9) and the Architect's
 // write list does not include it, so neither session can edit either role's file — in the
 // project, `.claude/settings.architect.json` was writable by the Engineer. `rein pane` and
-// `rein start` regenerate them on every launch, so the deny list is never older than the launch.
+// `rein start` regenerate them on every launch, so a file is never older than the launch.
 //
 // The Architect's MCP list holds only the state server (mcp.architect.json, passed with
 // --strict-mcp-config): MCP servers are not sandboxed.
@@ -38,13 +44,15 @@ import { fileURLToPath } from "node:url";
 export const PANE_ROLES = ["architect", "engineer"];
 /** E-458 M7: what `rein ci run`, `gh` and the package registry need. */
 export const ENGINEER_DOMAINS = ["github.com", "api.github.com", "*.githubusercontent.com", "registry.npmjs.org"];
-/** Entries the Architect's Bash may write. Everything else at the top level is denied. */
+/** Entries the Architect may write. Nothing else at the top level is writable: the session's
+ *  working directory is the first of them (ARCHITECT_CWD), and the root is not on its list. */
 export const ARCHITECT_LANE = [".ai", "plans"];
-/** A file Claude Code loads into the other role's session from the project root that its own
- *  protected list does not name. Denied even when absent (the sandbox puts an empty placeholder
- *  there while a command runs), because a new top-level entry is otherwise writable (gap 1 of
- *  E-458). Only a FILE name belongs here: a placeholder for a directory name would be a file. */
-export const RESERVED_ABSENT = ["CLAUDE.local.md"];
+/** The Architect's working directory, relative to the project (D-172 r2a). `rein pane` starts the
+ *  session there; Claude Code makes the working directory writable, so it must be in the lane. */
+export const ARCHITECT_CWD = ".ai";
+/** The command gate's hook, which a project's .claude/settings.json registers (rein sync) and a
+ *  session started in .ai/ does not read. Carried in the Architect's file until E-463 deletes it. */
+export const GATE_HOOK = Object.freeze({ event: "PreToolUse", matcher: "Bash|Write|Edit|MultiEdit|NotebookEdit", script: "pre-tool-use.sh" });
 /** MCP tools that write files. The Architect's MCP list no longer loads them; denied anyway. */
 const MCP_WRITE_TOOLS = [
   "mcp__filesystem__write_file", "mcp__filesystem__edit_file", "mcp__filesystem__move_file",
@@ -96,17 +104,12 @@ export function ledgerDir(project) {
   return join(gitDirs(project).commonDir, "rein");
 }
 
-/** Every top-level entry except .ai, plans and .git, plus the reserved names. Absolute, sorted. */
+/** The Architect's write-denied paths: the git paths its write list would otherwise open. The
+ *  project root needs none (D-172 r2a): the session runs in .ai/, and the root is not writable. */
 export function architectDenyList(project) {
-  let entries = [];
-  try { entries = readdirSync(project); } catch { entries = []; }
-  const names = new Set(entries.filter((e) => !ARCHITECT_LANE.includes(e) && e !== ".git"));
-  for (const r of RESERVED_ABSENT) names.add(r);
   const { gitDir, commonDir } = gitDirs(project);
-  const out = [...names].sort().map((e) => join(project, e));
   // M3: HEAD write-denied keeps a commit on the branch working and stops a branch switch.
-  out.push(join(gitDir, "HEAD"));
-  out.push(join(commonDir, "rein"));
+  const out = [join(gitDir, "HEAD"), join(commonDir, "rein")];
   // SECURITY.md lean-core round F2/F3: refs the Architect could forge to hide a commit from the
   // lane check (remote-tracking refs, packed-refs, replace objects) and info/ (grafts, and the
   // exclude file that hid a planted entry). A commit on the branch writes none of them.
@@ -144,17 +147,29 @@ function sandbox(filesystem, allowedDomains) {
   };
 }
 
-export function architectSettings(project) {
+/** `//` anchors an absolute path in a permission rule (a single `/` is relative to the settings file). */
+const abs = (p) => `/${p}`;
+
+/** The gate's hook entry in exec form (E-290), when the install tree has the script. */
+export function gateHooks(reinHome) {
+  let script;
+  try { script = realpathSync(join(reinHome, "hooks", GATE_HOOK.script)); } catch { return undefined; }
+  return { [GATE_HOOK.event]: [{ matcher: GATE_HOOK.matcher, hooks: [{ type: "command", command: "/bin/bash", args: ["-p", script], timeout: 30 }] }] };
+}
+
+export function architectSettings(project, reinHome = join(homedir(), ".rein")) {
   const { gitDir, commonDir } = gitDirs(project);
   const allowWrite = [...ARCHITECT_LANE.map((e) => join(project, e)), gitDir];
   if (commonDir !== gitDir) allowWrite.push(commonDir);
-  return {
-    env: { REIN_CALLER_ROLE: "architect" },
+  const s = {
+    // What rein sync puts in the project's settings env that a session in .ai/ would miss.
+    env: { REIN_CALLER_ROLE: "architect", CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS: "1", CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN: "1" },
     sandbox: sandbox({ denyWrite: architectDenyList(project), allowWrite }, []),
     permissions: {
       defaultMode: "dontAsk",
       allow: [
-        "Edit(.ai/**)", "Edit(plans/**)", "Bash",
+        ...ARCHITECT_LANE.map((e) => `Edit(${abs(join(project, e))}/**)`),
+        `Read(${abs(project)}/**)`, "Bash",
         `mcp__${STATE_SERVER}`, "ListAgents", "SendMessage", "Agent", "Skill",
         "WebSearch", "WebFetch",
       ],
@@ -163,6 +178,9 @@ export function architectSettings(project) {
       disableAutoMode: "disable",
     },
   };
+  const hooks = gateHooks(reinHome);
+  if (hooks) s.hooks = hooks;
+  return s;
 }
 
 /** The one install-tree entry the Engineer's commands write: `rein ci run` keeps its logs,
@@ -227,7 +245,7 @@ export function writeRoleFiles({ aiDir, out, reinHome = join(homedir(), ".rein")
   for (const role of roles?.length ? roles.filter((r) => paneRoles(aiDir).includes(r)) : paneRoles(aiDir)) {
     const p = join(dir, `settings.${role}.json`);
     if (role === "architect") ensureGitDenyPaths(project);
-    writeJsonAtomic(p, role === "architect" ? architectSettings(project) : engineerSettings(project, reinHome));
+    writeJsonAtomic(p, role === "architect" ? architectSettings(project, reinHome) : engineerSettings(project, reinHome));
     written.push(p);
     if (role === "architect") {
       const m = join(dir, "mcp.architect.json");

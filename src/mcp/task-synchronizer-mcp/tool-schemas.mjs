@@ -3,10 +3,9 @@
  *
  * Extracted from index.js (E-91, ecc-integrations.md) to keep index.js within
  * the 1000-line engineering-standards cap and give the tool surface one
- * scannable home. The archive tool's description interpolates the live
- * thresholds, so they are passed in by the caller rather than imported here.
+ * scannable home.
  */
-export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
+export function buildToolSchemas() {
   return [
     {
       name: "get_state",
@@ -100,11 +99,6 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
         required: ["focus"],
       },
     },
-    {
-      name: "archive_done_tasks",
-      description: `State-hygiene rotation (token-optimization.md). Moves old DONE tasks (beyond the last ${DONE_KEEP_RECENT}) to .ai/archive/state-done-YYYYMM.json (a team project: the tracked .ai/tasks/archive/YYYY-MM/ — E-330) when DONE count exceeds ${DONE_ARCHIVE_THRESHOLD}, AND rotates old audit stamps (beyond the last 10) to .ai/archive/stamps-YYYYMM.json when the stamp count exceeds 50. Returns { archived_tasks, archived_stamps, archivePath }.`,
-      inputSchema: { type: "object", properties: {} },
-    },
     // append_tasks intentionally removed from tool list — disabled (bypasses SQLite).
     // Call add_task instead.
     {
@@ -144,20 +138,6 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
         },
         required: ["schema_name", "payload"],
         additionalProperties: false,
-      },
-    },
-    {
-      name: "mark_deltas_read",
-      description: "Marks implementation deltas as read after the Architect has incorporated them into architect.md. Pass specific task_ids to acknowledge selectively, or omit to acknowledge all unread deltas.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          task_ids: {
-            type: "array",
-            items: { type: "string" },
-            description: "Task IDs whose deltas to acknowledge (e.g. ['E-78', 'E-79']). Omit to acknowledge all unread.",
-          },
-        },
       },
     },
   ];

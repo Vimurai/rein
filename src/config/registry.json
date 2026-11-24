@@ -41,11 +41,9 @@
         "set_project_focus",
         "verify_markdown_sync",
         "get_ci_status",
-        "archive_done_tasks",
         "claim_task",
         "release_task",
-        "validate_payload",
-        "mark_deltas_read"
+        "validate_payload"
       ],
       "disable-model-invocation": false,
       "_note": "Exclusive State Mutator (P-39): manages .ai/state.json, regenerates TASKS.md and REVIEWS.md as views",

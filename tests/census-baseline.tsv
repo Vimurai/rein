@@ -376,9 +376,6 @@ CENSUS_FP	seo_cluster_test.sh	2	python3	-c:src/claude/agents/seo_content_generat
 CENSUS_FP	seo_cluster_test.sh	1	python3	-c:src/claude/agents/seo_engineer.md
 CENSUS_FP	seo_cluster_test.sh	1	python3	-c:src/claude/agents/seo_manager.md
 CENSUS_FP	seo_cluster_test.sh	1	python3	-c:src/shared/seo-cluster-intents.mjs
-CENSUS_SUITE	skill_evals_test.sh	413	20	0	1	0
-CENSUS_FP	skill_evals_test.sh	1	bash	evals/fixtures/rein-project.sh
-CENSUS_FP	skill_evals_test.sh	1	node	-e
 CENSUS_SUITE	skill_lines_test.sh	4504	207	0	1	0
 CENSUS_FP	skill_lines_test.sh	4	bash	-c
 CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/rein-insights/SKILL.md

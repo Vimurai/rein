@@ -97,7 +97,10 @@ JSON
 # hypothetical: with the mirror one release behind, a case here passed locally and failed
 # on CI, where `rein install` runs from HEAD. An environment-dependent assertion (E-236) in
 # the suite that exists to prove provisioning works.
-_e212_out="$(cd "$_e212_ws" && /bin/bash "$AI_BIN" sync 2>&1)"; _e212_rc=$?
+# D-172 r22: under a scratch Rein home — `rein sync` writes the role settings under ~/.rein/roles/.
+source "${SCRIPT_DIR}/../lib/generated-settings.sh"
+_e212_home="$(mktemp -d)"; on_exit "rm -rf '$_e212_home'"; tc_link_shared "$_e212_home"; gen_rein_home "$_e212_home"
+_e212_out="$(cd "$_e212_ws" && HOME="$_e212_home" /bin/bash "$AI_BIN" sync 2>&1)"; _e212_rc=$?
 assert_not_contains "E-212.06e: sync completes with no unbound-variable abort (bash 3.2)" \
   "unbound variable" "$_e212_out"
 assert_status 0 "E-212.06e2: and exits 0" test "$_e212_rc" -eq 0
@@ -164,7 +167,9 @@ for _tpl in "$ARCH_TPL" "$ENG_TPL"; do
   assert_status 0 "E-460.R06: root ${_n} matches its template" diff -q "$_tpl" "${REPO_ROOT}/${_n}"
 done
 assert_status 0 "E-460.R07: ARCHITECT.md states the write scope in one line" \
-  grep -qx 'Write only `.ai/` and `plans/`. The hooks enforce it whatever this file says.' "$ARCH_TPL"
+  grep -qx 'Write only `.ai/` and `plans/`. The sandbox enforces it whatever this file says.' "$ARCH_TPL"
+# D-172 r2a: and says where the session starts, for the path habit it changes.
+assert_status 0 "D-172.r2a-rulefile: ARCHITECT.md says the session starts in .ai/" grep -q 'Your session starts in `.ai/`' "$ARCH_TPL"
 assert_status 0 "E-460.R08: ARCHITECT.md lists P-## orders, ENGINEER.md E-## orders" \
   bash -c 'grep -q "next P-## tasks" "$1" && grep -q "next E-## tasks" "$2"' _ "$ARCH_TPL" "$ENG_TPL"
 
@@ -186,8 +191,10 @@ assert_status 0 "E-215.04b: the §35 ANTI-DRIFT section is intact" \
 # the Architect pane receives its rulefile via --append-system-prompt-file instead.
 assert_status 1 "E-254.04d: no template is an @import shim for ARCHITECT.md" \
   bash -c "grep -rlx '@ARCHITECT.md' '${REPO_ROOT}/src/templates'"
-assert_status 0 "E-215.04e: CLAUDE.md is still a pure @import shim" \
-  grep -q '@ENGINEER.md' "${REPO_ROOT}/src/templates/CLAUDE.md"
+# D-172 r11 (replaces E-215.04e): CLAUDE.md is role-neutral — it imports no rulefile, and the
+# role's rulefile is appended at launch for both roles.
+assert_status 1 "D-172.r11a: CLAUDE.md imports no rulefile" \
+  grep -qE '^@' "${REPO_ROOT}/src/templates/CLAUDE.md"
 
 # ── E-215.5: role-manifest CLI vs import (the _isMain trap) ────────────────
 # argv[1] IS the module path when the module is imported dynamically, so a filename
@@ -491,7 +498,7 @@ for _flag in -- --generate --fast; do   # --vibe went with ux_reviewer and chaos
   assert_status 0 "E-255.08d: rein-test documents ${_flag}" grep -q -- "## ${_flag}\|(${_flag} flag)" "$SKILL"
 done
 assert_status 0 "E-255.08e: rein-test resolves the command through test-command.mjs" grep -q 'shared/test-command.mjs' "$SKILL"
-assert_mirror_if_present "E-255.08f: .claude/agents/test_engineer.md mirrors src" "$AGENT" "${REPO_ROOT}/.claude/agents/test_engineer.md"
+# E-255.08f (.claude/agents/test_engineer.md mirrors src) deleted: that copy is untracked (D-172 r19).
 
 # ── E-255.9: TestSprite is gone from every generated surface ────────────────
 echo "  [E-255.9] third-party test cloud removed"

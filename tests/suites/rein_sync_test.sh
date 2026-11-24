@@ -41,6 +41,11 @@ echo "── Suite: rein_sync_test ───────────────
 
 # (E-467, D-170 r5: the REPO_MAP and Memory Palace steps are retired, so no skip variable is set.)
 
+# D-172 r22: `rein sync` writes the role settings under ~/.rein/roles/; the syncs below that did
+# not set a HOME of their own run under a scratch Rein home built from this checkout.
+source "${SCRIPT_DIR}/../lib/generated-settings.sh"
+_RH="$(mktemp -d)"; on_exit "rm -rf '$_RH'"; gen_rein_home "$_RH"
+
 # A project fixture. Deliberately NOT a git repository for the default case: `rein init`
 # exited 128 there until E-244, and install_git_hooks is the first step of the restored
 # half — so the non-git path is the one most likely to abort the whole command again.
@@ -56,7 +61,7 @@ JSON
 }
 
 _p="$(_proj)"
-_out="$( cd "$_p" && bash "$AI" sync 2>&1 )"
+_out="$( cd "$_p" && HOME="$_RH" bash "$AI" sync 2>&1 )"
 _rc=$?
 
 # ── E-247.1: the command completes and SAYS so ───────────────────────────────
@@ -102,7 +107,7 @@ assert_status 1 "E-247.03b: and it is not a hardcoded zero" \
 # runs through the same capture path as a real step (its stderr is a real process's).
 _pf="$(_proj)"
 # The forced step is wal (repo_map until E-467 retired it).
-_fout="$( cd "$_pf" && REIN_E247_FORCE_FAIL=wal bash "$AI" sync 2>&1 )"
+_fout="$( cd "$_pf" && HOME="$_RH" REIN_E247_FORCE_FAIL=wal bash "$AI" sync 2>&1 )"
 _frc=$?
 assert_match "E-247.04a: a failing step prints ✗ <step>: <its last stderr line>" \
   '✗ wal: forced failure \(REIN_E247_FORCE_FAIL=wal\)' "$_fout"
@@ -120,7 +125,7 @@ assert_contains "E-339.04f: a step AFTER the failed one still ran" \
 # D-067 §1 makes today's truncated behaviour available EXPLICITLY, so an operator who hits
 # a bad step has a way back that does not involve editing the script.
 _pm="$(_proj)"
-_mout="$( cd "$_pm" && REIN_SYNC_MINIMAL=1 bash "$AI" sync 2>&1 )"
+_mout="$( cd "$_pm" && HOME="$_RH" REIN_SYNC_MINIMAL=1 bash "$AI" sync 2>&1 )"
 assert_status 1 "E-247.05a: REIN_SYNC_MINIMAL=1 stops after provisioning" \
   bash -c "grep -q 'safe-exec gate:' <<< '$_mout'"
 assert_contains "E-247.05b: and says why it stopped, rather than looking finished" \
@@ -133,7 +138,7 @@ assert_status 0 "E-247.05c: the minimal path still exits 0" \
 # repository. Under `set -e` a plain assignment carried that status and killed the script
 # (fixed in E-244); this pins that the whole tail still runs there.
 _pg="$(_proj)"
-_gout="$( cd "$_pg" && bash "$AI" sync 2>&1 )"
+_gout="$( cd "$_pg" && HOME="$_RH" bash "$AI" sync 2>&1 )"
 assert_contains "E-247.06a: a NON-git project reaches the end of sync" "Done." "$_gout"
 # NOT a .gitignore assertion here: _ensure_generated_gitignore returns early outside a git
 # work tree, and correctly so — a .gitignore in a directory git does not track is furniture.
@@ -145,7 +150,7 @@ assert_match "E-247.06b: and every step is accounted for in the non-git case" \
 # A REAL git repository must reach the end too — the hook install actually does work there.
 _pr="$(_proj)"
 ( cd "$_pr" && git init -q . && git config user.email t@t && git config user.name t )
-_rout="$( cd "$_pr" && bash "$AI" sync 2>&1 )"
+_rout="$( cd "$_pr" && HOME="$_RH" bash "$AI" sync 2>&1 )"
 assert_contains "E-247.06c: a git project reaches the end as well" "Done." "$_rout"
 assert_status 0 "E-247.06d: and the Gate 2 pre-commit stub was installed" \
   test -f "${_pr}/.git/hooks/pre-commit"
@@ -435,7 +440,7 @@ assert_status 1 "E-220.08c: apply performs it"       test -d "$D7/stale"
 # every fresh install, so this is the case that guards the locator's fallback.
 T8="$(mktemp -d)"; mkdir -p "$T8/.ai"
 cp "${REPO_ROOT}/.ai/roles.json" "$T8/.ai/roles.json" 2>/dev/null || true
-_o="$(cd "$T8" && REIN_HOME="${REIN:-$HOME/.rein}" bash "$AI_BIN" sync 2>&1)"; _rc=$?
+_o="$(cd "$T8" && HOME="$_RH" REIN_HOME="$_RH/.rein" bash "$AI_BIN" sync 2>&1)"; _rc=$?
 # E-346: a FAILED step is what makes it exit 1 — name its ✗ line(s) in the label, or a red run
 # says only "got 1" (the case the shared CI HOME hit after the reapers stopped masking).
 _x="$(printf '%s\n' "$_o" | grep '✗' | tr '\n' ' ' | cut -c1-400)"
@@ -585,7 +590,7 @@ JSON
   _mkskill "$d/${_LG_DIR_B}/skills" mine "handwritten"
   printf '%s' "$d"
 }
-_lg_sync() { ( cd "$1" && shift && env "$@" bash "$AI_BIN" sync 2>&1 ); }
+_lg_sync() { ( cd "$1" && shift && env HOME="$_RH" "$@" bash "$AI_BIN" sync 2>&1 ); }
 
 # (a) + (b) in ONE fixture: every deletion is paired with a survival beside it.
 LG1="$(_lg_fixture)"
@@ -865,18 +870,18 @@ assert_status 0 "E-282.03k: --no-prune provisions without removing" test -f "$D/
 # ── E-282.4: rein sync provisions .claude/rules/ and rein doctor reports it ────
 # `rein sync` reads rules from the INSTALL MIRROR. Under `rein ci run` the mirror is installed
 # from the commit; a working tree may predate E-282 — a recorded SKIP, never a fake result.
-if [[ -d "${HOME}/.rein/claude/rules" ]]; then
+if [[ -d "${_RH}/.rein/claude/rules" ]]; then
   TA="$(mktemp -d)"; on_exit "rm -rf '$TA'"; mkdir -p "$TA/.ai"
   cat > "$TA/.ai/roles.json" <<'JSON'
 { "roles": { "architect": {"provider":"claude","pane_identifier":"1","model":"fable"},
              "engineer":  {"provider":"claude","pane_identifier":"0","model":"opus"} } }
 JSON
-  _o="$(cd "$TA" && bash "$AI_BIN" sync 2>&1)"
-  _n_src="$(find "${HOME}/.rein/claude/rules" -name '*.md' | wc -l | tr -d ' ')"
+  _o="$(cd "$TA" && HOME="$_RH" bash "$AI_BIN" sync 2>&1)"
+  _n_src="$(find -L "${_RH}/.rein/claude/rules" -name '*.md' | wc -l | tr -d ' ')"
   _n_dst="$(find "$TA/.claude/rules" -name '*.md' 2>/dev/null | wc -l | tr -d ' ')"
   assert_status 0 "E-282.04a: rein sync provisions every shipped rule (${_n_dst}/${_n_src})" test "$_n_dst" -eq "$_n_src" -a "$_n_src" -ge 5
   assert_contains "E-282.04b: and says so" "path-scoped rule(s)" "$_o"
-  _d="$(cd "$TA" && bash "$AI_BIN" doctor 2>&1)"
+  _d="$(cd "$TA" && HOME="$_RH" bash "$AI_BIN" doctor 2>&1)"
   assert_contains "E-282.04c: rein doctor reports the rules current" "path-scoped rule(s) current" "$_d"
   rm -f "$TA/.claude/rules/"*.md
   _d="$(cd "$TA" && bash "$AI_BIN" doctor 2>&1)"
@@ -1110,7 +1115,7 @@ for name in $(echo "$registry_custom" | tr ',' ' '); do
   assert_contains ".mcp.json contains registry server: $name" "$name" "$mcp_keys"
 done
 
-# E-98: task-synchronizer-mcp must list verify_markdown_sync and archive_done_tasks
+# E-98: task-synchronizer-mcp must list verify_markdown_sync (archive_done_tasks retired, D-172 r14)
 tsync_tools=$(python3 -c "
 import json, sys
 reg = json.load(open(sys.argv[1]))
@@ -1119,7 +1124,7 @@ tools = tsync.get('allowed-tools', [])
 print(','.join(tools))
 " "$REGISTRY")
 assert_contains "E-98: registry lists verify_markdown_sync" "verify_markdown_sync" "$tsync_tools"
-assert_contains "E-98: registry lists archive_done_tasks" "archive_done_tasks" "$tsync_tools"
+assert_not_contains "D-172.r14d: registry no longer lists archive_done_tasks" "archive_done_tasks" "$tsync_tools"
 
 
 # ── E-283 (from skill_prune — E-302): retired wrapper skills stay retired ──

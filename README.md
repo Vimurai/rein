@@ -74,7 +74,8 @@ terminal recording is [docs/assets/demo.cast](docs/assets/demo.cast).
 
 You need Linux, WSL2 or macOS with **Node.js 22+**, `git`, `sqlite3`, `python3`, `tmux` and, on
 Linux or WSL2, `bubblewrap` and `socat`, plus [Claude Code](https://code.claude.com/docs/en/setup)
-installed and logged in. From an empty machine: [docs/install.md](docs/install.md).
+installed and logged in. The role sandbox is measured on Linux and WSL2; macOS is not measured
+([The role sandbox](docs/role-sandbox.md)). From an empty machine: [docs/install.md](docs/install.md).
 
 ```bash
 # 1. Rein, once per machine: copies it to ~/.rein, builds the plugin, puts ~/.rein/bin on PATH

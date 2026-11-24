@@ -759,8 +759,10 @@ fi
 # @import shim that re-exports it and carries no header of its own.
 assert_contains "ENGINEER.md template has ANTI-DRIFT PROTOCOL" "ANTI-DRIFT PROTOCOL" "$(cat "${REIN}/templates/ENGINEER.md")"
 assert_contains "ARCHITECT.md template has ANTI-DRIFT PROTOCOL" "ANTI-DRIFT PROTOCOL" "$(cat "${REIN}/templates/ARCHITECT.md")"
-assert_contains "CLAUDE.md shim imports ENGINEER.md" "@ENGINEER.md" "$EXPECTED_CLAUDE"
-assert_not_contains "CLAUDE.md shim carries no header of its own" "ANTI-DRIFT PROTOCOL" "$EXPECTED_CLAUDE"
+# D-172 r11: CLAUDE.md is role-neutral — no rulefile import, no persona text; it names `rein pane`.
+assert_not_contains "CLAUDE.md imports no rulefile (D-172 r11)" "@ENGINEER.md" "$EXPECTED_CLAUDE"
+assert_contains "CLAUDE.md says roles start with rein pane (D-172 r11)" "rein pane" "$EXPECTED_CLAUDE"
+assert_not_contains "CLAUDE.md carries no persona header" "ANTI-DRIFT PROTOCOL" "$EXPECTED_CLAUDE"
 
 # ── Test 9: .mcp.json is valid JSON after second run ─────────────────────────
 if command -v python3 &>/dev/null && [[ -f "${PROJECT_DIR}/.mcp.json" ]]; then

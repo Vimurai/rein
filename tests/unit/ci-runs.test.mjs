@@ -190,25 +190,6 @@ test("recordCiRunFromLog: every column populated; a truncated log records ERROR"
   } finally { done(); }
 });
 
-test("ci-record log: prints the skill-eval report filed under the sha, and nothing when none is (E-285)", () => {
-  const { d, db, done } = freshDb();
-  try {
-    const p = join(d, "run.log");
-    writeFileSync(p, LOG);
-    recordCiRunFromLog(db, p);
-    const cli = join(import.meta.dirname, "..", "..", "src", "shared", "ci-record.mjs");
-    const evalsDir = join(d, "evals");
-    mkdirSync(evalsDir);
-    const log = (...extra) => execFileSync(process.execPath,
-      ["--no-warnings", cli, "log", "--ai-dir", join(d, ".ai"), "--sha", SHA, "--evals-dir", evalsDir, ...extra], { encoding: "utf8" });
-    assert.doesNotMatch(log(), /skill evals:/);
-    assert.doesNotMatch(log("--failed"), /skill evals:/);
-    writeFileSync(join(evalsDir, `${SHA}.json`), "{}");
-    assert.match(log(), new RegExp(`# skill evals: .*${SHA}\\.json\\n$`));
-    assert.match(log("--failed"), new RegExp(`broken thing[\\s\\S]*# skill evals: .*${SHA}\\.json\\n$`));
-  } finally { done(); }
-});
-
 test("verdict: a dirty PASS never certifies; the newest certifying row wins", () => {
   const { db, done } = freshDb();
   try {

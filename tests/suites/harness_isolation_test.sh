@@ -795,8 +795,7 @@ done
 echo "  [E-264.4] review question #7"
 assert_status 0 "E-264.04a: review question #7 is in the reviewer" \
   grep -q 'review question #7 — E-264' "${REPO_ROOT}/src/claude/agents/reviewer.md"
-assert_mirror_if_present "E-264.04b: reviewer mirror matches" \
-  "${REPO_ROOT}/src/claude/agents/reviewer.md" "${REPO_ROOT}/.claude/agents/reviewer.md"
+# E-264.04b (the .claude/ reviewer mirror) deleted: that copy is untracked (D-172 r19).
 
 echo ""
 

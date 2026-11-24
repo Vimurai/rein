@@ -48,7 +48,8 @@ Rein needs five tools: **Node.js 22 or later** (the ledger uses the built-in `no
 **git**, **sqlite3** (the hooks read the task store), **python3** (it renders `.mcp.json`) and
 **tmux** (the two-pane layout). On Linux and WSL2, Claude Code's sandbox, which holds each role
 to its lane, also needs **bubblewrap** and **socat** ([The role sandbox](role-sandbox.md)).
-`curl` is needed once, for Claude Code's installer.
+`curl` is needed once, for Claude Code's installer. The sandbox lanes are measured on Linux and
+WSL2; on macOS they are not measured.
 
 ### macOS
 
@@ -228,7 +229,7 @@ sections of `✓` lines. A `✗` line names its own fix:
 | `✗ node not found — MCP servers need Node.js` | Node is missing. | [Step 2](#2-prerequisites). |
 | `✗ <server>: node_modules missing — run: rein mcp-setup` | An MCP server's dependencies are missing. | `rein mcp-setup` |
 | `✗ pre-commit.sh missing — run: rein install` | The hooks are not installed. | `rein install` |
-| `✗ [SANDBOX_MISSING] …` | bubblewrap, socat or user namespaces are missing; `rein pane` will refuse. | The install line it prints ([step 2](#2-prerequisites)). |
+| `✗ [SANDBOX_MISSING] …` | bubblewrap, socat or user namespaces are missing; `rein pane` and `rein start` will refuse. | The install line it prints ([step 2](#2-prerequisites)). |
 | `✗ tmux not found — 'rein start' exits 2 …` | tmux is missing. | [Step 2](#2-prerequisites), or use the manual layout below. |
 | `✗ hook toolchain: … missing — run: bash install-rein.sh` | The install is incomplete. | Rerun `bash install-rein.sh`. |
 | `✗ .claude/settings.json missing … — run: rein sync` | Inside a project: it was set up by an older Rein. | `rein sync` |

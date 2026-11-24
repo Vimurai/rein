@@ -21,7 +21,7 @@
 - src/**
 - .ai/**
 - tests/**
-- ~/.rein/memory/**
+# Nothing under ~/.rein: the Engineer's sandbox write-denies it, and the sandbox is the rule (D-172 r5).
 
 ## shell.exec
 # Allowed commands/patterns for EXECUTE operations (requires [SEC_CLEARED] + --allow-execute).

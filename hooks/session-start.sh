@@ -78,6 +78,8 @@ if ! declare -f rein_locate >/dev/null 2>&1; then
 fi
 
 set -uo pipefail
+# D-172 r2a: the Architect's session (and so this hook) starts in <project>/.ai: step up to the root.
+[[ ! -d .ai && "${PWD##*/}" == ".ai" ]] && { cd .. || exit 0; }
 
 # E-294 (D-087, sovereignty-hardening.md Components 8c–8d): the role is NOT read here. Neither
 # the positional argument the settings file passes nor REIN_PANE_ROLE is a gate input any more
@@ -248,16 +250,26 @@ def read(p):
     try:
         with open(p, encoding="utf-8", errors="replace") as f: return f.read()
     except OSError: return None
-tasks = read(".ai/TASKS.md")
-if tasks is not None:
-    rows = re.findall(r"^- \[ \] (" + re.escape(prefix) + r"\d+): (.*)$", tasks, re.M)
-    out.append(f"Next {prefix}## tasks ({min(5, len(rows))} of {len(rows)} open; orders: .ai/TASKS.md):" if rows else f"No open {prefix}## tasks in .ai/TASKS.md.")
-    for tid, text in rows[:5]:
-        m = re.search(r"\s*\|\s*Tier:\s*(\d)\s*$", text)
-        tier = f" | Tier {m.group(1)}" if m else ""
-        body = text[:m.start()] if m else text
+# D-172 r15: OPEN tasks of this role (not BLOCKED), highest id first, from the state.json view (it
+# has the status); without it, the TASKS.md rows (open or blocked: that view shows no status).
+try:
+    st = json.loads(read(".ai/state.json") or "null")
+    rows = [(t["id"], str(t.get("description") or ""), t.get("tier")) for t in st.get("tasks", [])
+            if isinstance(t, dict) and t.get("status") == "OPEN" and re.fullmatch(re.escape(prefix) + r"\d+", str(t.get("id", "")))]
+except (ValueError, AttributeError, TypeError, KeyError):
+    rows, tasks = None, read(".ai/TASKS.md")
+    if tasks is not None:
+        rows = []
+        for tid, text in re.findall(r"^- \[ \] (" + re.escape(prefix) + r"\d+): (.*)$", tasks, re.M):
+            m = re.search(r"\s*\|\s*Tier:\s*(\d)\s*$", text)
+            rows.append((tid, text[:m.start()] if m else text, int(m.group(1)) if m else None))
+if rows is not None:
+    rows.sort(key=lambda r: int(r[0][len(prefix):]), reverse=True)
+    out.append(f"Next {prefix}## tasks ({min(5, len(rows))} of {len(rows)} open, highest id first; orders: .ai/TASKS.md):" if rows else f"No open {prefix}## tasks in .ai/TASKS.md.")
+    for tid, body, tier in rows[:5]:
+        body = " ".join(body.split())
         if len(body) > TASK_W: body = body[:TASK_W - 1].rstrip() + "…"
-        out.append(f"- {tid}: {body}{tier}")
+        out.append(f"- {tid}: {body}" + (f" | Tier {tier}" if tier in (1, 2, 3) else ""))
 comm = read(".ai/COMM.md")
 if comm:
     heads = re.findall(r"^## .*$", comm, re.M)

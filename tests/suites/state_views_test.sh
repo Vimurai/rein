@@ -789,31 +789,7 @@ fs.unlinkSync(tmp);
 ")
 assert_contains "T-02.10: corrupt JSON is caught by parse" "ok" "$corrupt_check"
 
-# ── T-02.11: marking deltas read: true (inline logic, E-115) ─────────
-DELTA_DIR=$(mktemp -d)
-cp "$TEMPLATE" "${DELTA_DIR}/state.json"
-python3 -c "
-import json; s=json.load(open('${DELTA_DIR}/state.json'))
-s['deltas']=[{'task_id':'E-99','timestamp':'2026-01-01T00:00:00Z','summary':'Test delta','files_changed':[],'read':False}]
-json.dump(s, open('${DELTA_DIR}/state.json','w'), indent=2)
-"
-# Inline delta-marking logic
-node -e "
-  import { readFileSync, writeFileSync } from 'fs';
-  import { resolve } from 'path';
-  const statePath = resolve(process.argv[1], 'state.json');
-  const state = JSON.parse(readFileSync(statePath, 'utf8'));
-  const unread = (state.deltas || []).filter(d => !d.read);
-  for (const d of unread) { d.read = true; }
-  if (unread.length > 0) writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
-" "$DELTA_DIR" --input-type=module 2>/dev/null
-delta_check=$(python3 -c "
-import json; s=json.load(open('${DELTA_DIR}/state.json'))
-deltas=s.get('deltas',[])
-print('ok' if len(deltas)==1 and deltas[0].get('read')==True else 'fail:'+str(deltas))
-")
-assert_contains "T-02.11: unread deltas are marked read:true" "ok" "$delta_check"
-rm -rf "$DELTA_DIR"
+# T-02.11 (inline delta marking, E-115) deleted: the delta channel is retired (D-172 r18).
 
 # ── T-02.12: readStateStrict returns null for wrong schema version (E-117) ──
 VERSION_DIR=$(mktemp -d)

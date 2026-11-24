@@ -67,6 +67,7 @@ export function getDb(aiDir) {
       timestamp TEXT NOT NULL,
       summary   TEXT
     );
+    -- deltas: retired (D-172 r18); kept so an existing index opens unchanged. Nothing reads or writes it.
     CREATE TABLE IF NOT EXISTS deltas (
       id         INTEGER PRIMARY KEY AUTOINCREMENT,
       task_id    TEXT NOT NULL,
@@ -185,7 +186,7 @@ export function getDbSeeded(aiDir, log = {}) {
 }
 
 // No task rows and no import recorded. A project whose state.json lists zero tasks reseeds
-// on every open and imports zero rows; importStateJson skips stamps and deltas it already has.
+// on every open and imports zero rows; importStateJson skips stamps it already has.
 function _neverWritten(db) {
   if (db.prepare("SELECT COUNT(*) AS n FROM tasks").get().n > 0) return false;
   return db.prepare("SELECT value FROM project WHERE key = 'last_import_blob'").get()?.value == null;
@@ -238,30 +239,14 @@ export function importStateJson(jsonPath, db, { warn = () => {}, info = () => {}
     "INSERT INTO stamps(type, agent, task_id, timestamp, summary, sha, author) VALUES (?, ?, ?, ?, ?, ?, ?)"
   );
   // E-431 fix: a stamp summary is one line wherever it enters an index (oneLineSummary).
-  // E-344: a reseed of an index that already holds stamps or deltas adds only the missing ones.
+  // E-344: a reseed of an index that already holds stamps adds only the missing ones.
   const haveStamps = new Set(db.prepare("SELECT type, task_id, timestamp FROM stamps").all().map((r) => `${r.timestamp}|${r.type}|${r.task_id ?? ""}`));
   for (const s of (state.stamps || [])) {
     if (haveStamps.has(`${s.timestamp}|${s.type}|${s.task_id ?? ""}`)) continue;
     insertStamp.run(s.type, s.agent ?? null, s.task_id ?? null, s.timestamp, oneLineSummary(s.summary),
                     s.sha ?? null, s.author ?? null);
   }
-
-  const insertDelta = db.prepare(
-    "INSERT INTO deltas(task_id, summary, files, read, created_at) VALUES (?, ?, ?, ?, ?)"
-  );
-  const haveDeltas = new Set(db.prepare("SELECT task_id, summary, created_at FROM deltas").all().map((r) => `${r.task_id}|${r.created_at}|${r.summary ?? ""}`));
-  for (const d of (state.deltas || [])) {
-    if (haveDeltas.has(`${d.task_id}|${d.created_at || d.timestamp || ""}|${d.summary ?? ""}`)) continue;
-    insertDelta.run(
-      d.task_id,
-      d.summary ?? null,
-      d.files || d.files_changed ? JSON.stringify(d.files || d.files_changed) : null,
-      d.read ? 1 : 0,
-      d.created_at || d.timestamp || new Date().toISOString()
-    );
-  }
-
-  info("imported state.json → state.sqlite");
+  // D-172 r18: the delta channel is retired — a state.json's `deltas` are not imported.
 }
 
 /**
@@ -336,21 +321,6 @@ function _migratePatchProjectRoot(db) {
 }
 
 /**
- * Parse a JSON-encoded `files` column safely. Corrupt rows return [] and
- * write a single-line warning to stderr instead of crashing readState().
- */
-function _safeParseFiles(raw) {
-  if (!raw) return [];
-  try {
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? v : [];
-  } catch (e) {
-    process.stderr.write(`[WARN] state-db: corrupt deltas.files JSON — defaulting to []: ${e.message}\n`);
-    return [];
-  }
-}
-
-/**
  * E-91: parse the JSON-encoded `depends_on` column into a string array.
  * Corrupt or absent values degrade to [] (a task with no parseable
  * dependencies is treated as having none, never crashes readState).
@@ -377,15 +347,6 @@ export function readState(db) {
     "SELECT type, agent, task_id, timestamp, summary, sha, author FROM stamps ORDER BY id"
   ).all().map(({ sha, author, ...s }) => ({
     ...s, ...(sha != null ? { sha } : {}), ...(author != null ? { author } : {}),
-  }));
-  const deltas = db.prepare(
-    "SELECT task_id, summary, files, read, created_at FROM deltas ORDER BY id"
-  ).all().map(d => ({
-    task_id:    d.task_id,
-    summary:    d.summary,
-    files:      _safeParseFiles(d.files),
-    read:       !!d.read,
-    created_at: d.created_at,
   }));
 
   return {
@@ -415,7 +376,6 @@ export function readState(db) {
       });
     })(),
     stamps,
-    deltas,
   };
 }
 
@@ -437,7 +397,7 @@ export function roleFromOwner(owner) {
 /**
  * E-245 (D-066 §5): the archive pointer for the generated TASKS.md view.
  *
- * `archive_done_tasks` rotates old DONE rows into .ai/archive/state-done-YYYY-MM.json and
+ * `archive_done_tasks` (retired, D-172 r14) rotated old DONE rows into .ai/archive/state-done-YYYY-MM.json and
  * keeps the last ten. That is the right trade — this repo's TASKS.md went from 261 lines
  * to 25 — but it left NO TRAIL: a reader saw ten completed tasks with no way to know that
  * 117 more existed, or where they went. History nobody can find has been lost as far as
@@ -813,9 +773,10 @@ export function stampProvisioning(aiDir, db, { version, at = new Date().toISOStr
 }
 
 // ── Archive rotation (E-111: single-source ownership) ───────────────────────
-// The SQLite-aware rotation for DONE tasks and audit stamps lives here so both
-// task-synchronizer-mcp (the archive_done_tasks tool) and archive-manager-mcp
-// (execute_archive) share ONE implementation — no more byte-duplicated copies,
+// D-172 r14: no production caller is left — the archive_done_tasks tool and get_state's
+// auto-archive are retired, and `rein archive` rotates no state. Kept for the archives that
+// exist (`rein task show` reads them) and the tests that build one. It was shared by
+// task-synchronizer-mcp and archive-manager-mcp (execute_archive) as ONE implementation — no more byte-duplicated copies,
 // and no writes to the regenerated state.json view. Both regenerate the .ai/
 // markdown views from SQLite after mutating, preserving the ACID contract.
 export const DONE_ARCHIVE_THRESHOLD  = 50;

@@ -13,7 +13,7 @@
 | `.ai/ci.local.json` | no | This machine's extra CI environment — see [CI](ci.md#machine-specific-environment). |
 | `.mcp.json` | generated | The ledger's MCP server; `rein sync` regenerates it and keeps servers you added. |
 | `.claude/settings.json`, `.claude/rules/` | generated | Project settings (the command gate's hook entry, the plugin enabled at project scope) and path-scoped rules. |
-| `ENGINEER.md`, `ARCHITECT.md`, `CLAUDE.md` | generated | Role rulefiles (at most 2 KB each) and the auto-load shim; refreshed by `rein sync`. |
+| `ENGINEER.md`, `ARCHITECT.md`, `CLAUDE.md` | generated | Role rulefiles (at most 2 KB each; `rein pane` appends the role's) and a role-neutral `CLAUDE.md` that imports neither; refreshed by `rein sync`. |
 
 `roles.json`:
 

@@ -23,7 +23,7 @@
 - src/**
 - .ai/**
 - tests/**
-- ~/.rein/*.sqlite
+# Nothing under ~/.rein: the Engineer's sandbox write-denies it, and the sandbox is the rule (D-172 r5).
 
 ## shell.exec
 # Allowed commands/patterns for EXECUTE operations (requires [SEC_CLEARED] + --allow-execute).
@@ -56,4 +56,4 @@
 - EXECUTE of npm test/build is pre-approved (no side effects on external systems)
 - Any operation touching auth, secrets, or external APIs requires explicit [SEC_CLEARED]
 - READ of ~/.rein/config/registry.json is pre-approved for `rein doctor --compliance` (§32)
-- READ/WRITE of ~/.rein/*.sqlite is pre-approved (the task-synchronizer-mcp and telemetry stores)
+- READ of ~/.rein/*.sqlite is pre-approved (the telemetry stores); no WRITE under ~/.rein (D-172 r5)

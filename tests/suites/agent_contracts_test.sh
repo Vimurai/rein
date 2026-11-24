@@ -17,7 +17,6 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PERSONA_SRC="${REPO_ROOT}/src/claude/agents/reviewer.md"
-PERSONA_CLD="${REPO_ROOT}/.claude/agents/reviewer.md"
 
 echo "── Suite: agent_contracts_test ──────────────────────────────────────"
 
@@ -36,7 +35,7 @@ assert_status 0 "forbids writing REVIEWS.md"         grep -q 'never write `.ai/R
 assert_status 0 "reads the blueprint the task names" grep -q 'The blueprint' "$PERSONA_SRC"
 assert_status 0 "applies D-088 (one test per behaviour, cheapest layer)" \
   grep -q 'One test per changed behaviour, at the cheapest layer' "$PERSONA_SRC"
-assert_status 0 "persona .claude/ mirror"            diff -q "$PERSONA_SRC" "$PERSONA_CLD"
+# D-172 r19: the tracked .claude/ copy is untracked; the persona is read from src/ only.
 assert_contains "only critic_acceptance keeps the critic_ prefix" "critic_acceptance.md" \
   "$(cd "${REPO_ROOT}/src/claude/agents" && ls critic_*)"
 assert_match "exactly one critic_ agent" '^1$' "$(cd "${REPO_ROOT}/src/claude/agents" && ls | grep -c critic_)"
@@ -57,13 +56,13 @@ assert_match "the agent tree holds exactly the four kept agents" \
 #   - no retired MCP tool in the tools allowlist (E-278 sandbox, E-467 advisor-mcp)
 #   - "Active Pen-Testing" section present
 #   - Trust boundary policy (throwaway harness: mktemp, env -i, ulimit caps, no egress)
+# D-172 r19: src/ only — the .claude/ workspace copy is untracked (the plugin carries the agents).
 AGENT_FILES=(
   "${REPO_ROOT}/src/claude/agents/security_engineer.md"
-  "${REPO_ROOT}/.claude/agents/security_engineer.md"
 )
 
 echo ""
-echo "  [T-SECENG-S01] Agent files exist (canonical + .claude workspace copy)"
+echo "  [T-SECENG-S01] Agent file exists (canonical, src/)"
 for f in "${AGENT_FILES[@]}"; do
   assert_status 0 "exists: ${f#${REPO_ROOT}/}" test -f "$f"
 done
@@ -139,12 +138,7 @@ for f in "${AGENT_FILES[@]}"; do
   assert_status 0 "${f##*/agents/} → outbound network excluded"  grep -q 'outbound'        "$f"
 done
 
-echo ""
-echo "  [T-SECENG-S09] Source-of-truth and project mirror byte-identical"
-SRC_HASH="$(md5sum "${REPO_ROOT}/src/claude/agents/security_engineer.md" | awk '{print $1}')"
-MIRROR_HASH="$(md5sum "${REPO_ROOT}/.claude/agents/security_engineer.md" | awk '{print $1}')"
-assert_status 0 ".claude mirror matches src" \
-  bash -c "[[ '$SRC_HASH' == '$MIRROR_HASH' ]]"
+# T-SECENG-S09 (src ↔ .claude mirror) deleted: the .claude/ copy is untracked (D-172 r19).
 
 # T-SECENG-S10 (agents.md named the sandbox server) retired with E-278: that blueprint is
 # Architect-owned and its update was handed over, so the suite no longer pins its prose.
@@ -166,10 +160,9 @@ assert_status 1 "the generated .claude/settings.json has no execute_code allow" 
 # must appear nowhere.
 ctx() { grep -E '^context:' "$1" 2>/dev/null | head -1 | awk '{print $2}'; }
 
-# ── Operational skills run in-thread (context: default) — source + .claude exec copy
+# ── Operational skills run in-thread (context: default) — the source (D-172 r19: no .claude copy)
 for s in rein-debug rein-test release-manager; do   # trigger-audit, rein-sync-state retired (E-467)
   assert_contains "T-100: $s source is default" "default" "$(ctx "${REPO_ROOT}/src/shared/skills/$s/SKILL.md")"
-  assert_contains "T-100: $s .claude exec copy is default" "default" "$(ctx "${REPO_ROOT}/.claude/skills/$s/SKILL.md")"
 done
 
 # ── Review/audit orchestrators legitimately keep context: fork ───────────────
@@ -182,16 +175,16 @@ assert_contains "T-100: reviewer agent stays fork" "fork" "$(ctx "${REPO_ROOT}/s
 # ── `context: local` (invalid Claude Code value) must appear NOWHERE ─────────
 # E-251: the corpus is built with corpus_or_fail — a moved or missing root must fail the
 # scan loudly rather than let `grep -rl` report zero hits over zero files. E-467 (D-170 r4) left
-# 5 skills mirrored once: 10 files.
+# 5 skills; D-172 r19 untracked the .claude/ mirror, so the corpus is src/: 5 files.
 _ctx_rc=0
-_ctx_corpus="$(cd "$REPO_ROOT" && corpus_or_fail 10 src/shared/skills src/claude/skills .claude/skills -- -type f -name SKILL.md)" || _ctx_rc=$?
-assert_status 0 "T-100: context corpus built (all roots present, >=10 SKILL.md)" test "$_ctx_rc" -eq 0
+_ctx_corpus="$(cd "$REPO_ROOT" && corpus_or_fail 5 src/shared/skills src/claude/skills -- -type f -name SKILL.md)" || _ctx_rc=$?
+assert_status 0 "T-100: context corpus built (all roots present, >=5 SKILL.md)" test "$_ctx_rc" -eq 0
 local_hits=$(cd "$REPO_ROOT" && printf '%s\n' "$_ctx_corpus" | grep . | xargs grep -lE "^context:[[:space:]]*local" 2>/dev/null | wc -l | tr -d ' ')
 assert_match "T-100: no invalid 'context: local' anywhere" '^0$' "$local_hits"
 
 # ── No operational skill still forks ─────────────────────────────────────────
 for s in rein-debug rein-test release-manager; do   # trigger-audit, rein-sync-state retired (E-467)
-  if grep -qE "^context:[[:space:]]*fork" "${REPO_ROOT}/.claude/skills/$s/SKILL.md" 2>/dev/null; then
+  if grep -qE "^context:[[:space:]]*fork" "${REPO_ROOT}/src/shared/skills/$s/SKILL.md" 2>/dev/null; then
     _fail "T-100: $s must NOT be context: fork"
   else
     _pass "T-100: $s is not context: fork"
@@ -207,9 +200,7 @@ assert_status 1 "rein-test names no retired vibe agent"     grep -qE 'ux_reviewe
 assert_status 0 "rein-test still records the Tester's stamp via add_stamp" \
   grep -q 'add_stamp' "$AI_TEST"
 
-# ── mirror identity for rein-test (.claude + ~/.rein) ──────────────────────
-assert_status 0 "rein-test .claude mirror identical" \
-  diff -q "$AI_TEST" "${REPO_ROOT}/.claude/skills/rein-test/SKILL.md"
+# ── mirror identity for rein-test (~/.rein; the .claude/ copy is untracked — D-172 r19) ──
 assert_status 0 "rein-test ~/.rein mirror identical" \
   diff -q "$AI_TEST" "${HOME}/.rein/shared/skills/rein-test/SKILL.md"
 
@@ -226,7 +217,6 @@ assert_status 0 "rein-test ~/.rein mirror identical" \
 # The canonical source plus the Claude workspace copy — the only workspace in v4 (E-254).
 SKILL_FILES=(
   "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
-  "${REPO_ROOT}/.claude/skills/rein-debug/SKILL.md"
 )
 
 echo ""
@@ -276,12 +266,6 @@ for f in "${SKILL_FILES[@]}"; do
     grep -q "AI_DEBUG_BUDGET" "$f"
 done
 
-echo ""
-echo "  [T-DEBUG-S07] Source-of-truth and mirrors are byte-identical"
-SRC_HASH_AD="$(md5sum "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" | awk '{print $1}')"
-CLAUDE_HASH="$(md5sum "${REPO_ROOT}/.claude/skills/rein-debug/SKILL.md" | awk '{print $1}')"
-
-assert_status 0 ".claude mirror matches src" \
-  bash -c "[[ '$SRC_HASH_AD' == '$CLAUDE_HASH' ]]"
+# T-DEBUG-S07 (src ↔ .claude mirror) deleted: the .claude/ copy is untracked (D-172 r19).
 
 assert_summary

@@ -10,7 +10,7 @@ can.
 | Symptom | First check | Then |
 | :--- | :--- | :--- |
 | `rein: command not found` | Is `~/.rein/bin` on `PATH`? | Open a new shell; `rein doctor` prints the export line. |
-| `rein pane` refuses: `[SANDBOX_MISSING]` | `rein doctor` names what is missing. | Install bubblewrap and socat, or enable user namespaces ([The role sandbox](role-sandbox.md#requirements)). |
+| `rein pane` or `rein start` refuses: `[SANDBOX_MISSING]` | `rein doctor` names what is missing. | Install bubblewrap and socat, or enable user namespaces ([The role sandbox](role-sandbox.md#requirements)). |
 | The agents or skills are missing in a pane | `rein doctor`: `[PLUGIN_NOT_ENABLED]`? | `rein sync` in your own terminal, then restart the pane. |
 | `rein sync` fails inside the Engineer pane | The Engineer's sandbox cannot write `.claude/`. | Run it in your own terminal. |
 | A write fails with "read-only file system" | Which pane? The Architect writes only `.ai/` and `plans/`. | Hand the work to the other role. |

@@ -9,7 +9,7 @@
  *
  *   importLegacy()     merges HEAD:.ai/state.json into the index per record (D-106 r3): absent
  *                      tasks are inserted, a task on both sides takes HEAD's version only when
- *                      HEAD's is newer, stamps and deltas are inserted by natural key, nothing
+ *                      HEAD's is newer, stamps are inserted by natural key, nothing
  *                      local is ever deleted. Keyed on the blob id (r2) — `last_import_blob` in
  *                      the project table, mirrored to gitignored .ai/.last-import-blob so the
  *                      git hooks compare two strings in bash before starting node.
@@ -79,7 +79,6 @@ const _deps = (d) => {
 };
 const _body = (t) => JSON.stringify(TASK_BODY.map((k) => (k === "depends_on" ? _deps(t[k]) : t[k] ?? null)));
 const _stampKey = (s) => `${s.timestamp}|${s.type}|${s.task_id ?? ""}`;
-const _deltaKey = (d) => `${d.task_id}|${d.created_at ?? d.timestamp ?? ""}|${d.summary ?? ""}`;
 const _idNum = (id) => Number(id.split("-")[1]);
 const _byId = (a, b) => (a.split("-")[0] === b.split("-")[0] ? _idNum(a) - _idNum(b) : a < b ? -1 : 1);
 
@@ -224,15 +223,7 @@ function _importLegacy(aiDir, db, { force = false, dryRun = false, render = null
     haveStamps.add(k);
     newStamps.push(s);
   }
-  const haveDeltas = new Set(db.prepare("SELECT task_id, summary, created_at FROM deltas").all().map(_deltaKey));
-  const newDeltas = [];
-  for (const d of doc.deltas || []) {
-    if (!d || !_str(d.task_id)) continue;
-    const k = _deltaKey(d);
-    if (haveDeltas.has(k)) continue;
-    haveDeltas.add(k);
-    newDeltas.push(d);
-  }
+  // D-172 r18: the delta channel is retired — HEAD's `deltas` are not imported.
 
   // Project focus (and tier, verdict) take HEAD's value only while the local one is what the
   // last import left; with no import on record yet, HEAD's tracked value is taken.
@@ -247,7 +238,7 @@ function _importLegacy(aiDir, db, { force = false, dryRun = false, render = null
   }
 
   const localOnly = [...rows.keys()].filter((id) => !headIds.has(id));
-  const changed = inserts.length + updates.length + newStamps.length + newDeltas.length + Object.keys(projWant).length > 0;
+  const changed = inserts.length + updates.length + newStamps.length + Object.keys(projWant).length > 0;
   const lines = [];
   if (changed) {
     const from = blob ? `HEAD ${(_git(aiDir, ["rev-parse", "--short=7", "HEAD"]) || "").trim() || "?"}` : "the working state.json";
@@ -274,11 +265,6 @@ function _importLegacy(aiDir, db, { force = false, dryRun = false, render = null
     for (const t of updates) upd.run(...vals(t), t.id);
     const st = db.prepare("INSERT INTO stamps(type, agent, task_id, timestamp, summary, sha, author) VALUES (?, ?, ?, ?, ?, ?, ?)");
     for (const s of newStamps) st.run(s.type, s.agent ?? null, s.task_id ?? null, s.timestamp, s.summary ?? null, s.sha ?? null, s.author ?? null);
-    const dl = db.prepare("INSERT INTO deltas(task_id, summary, files, read, created_at) VALUES (?, ?, ?, ?, ?)");
-    for (const d of newDeltas) {
-      const files = d.files || d.files_changed;
-      dl.run(d.task_id, d.summary ?? null, files ? JSON.stringify(files) : null, d.read ? 1 : 0, d.created_at || d.timestamp || new Date().toISOString());
-    }
     const setP = db.prepare("INSERT OR REPLACE INTO project(key, value) VALUES (?, ?)");
     for (const [k, v] of Object.entries(projWant)) setP.run(k, v);
     setP.run("last_import_project", JSON.stringify(Object.fromEntries(FOCUS_KEYS.map((k) => [k, headProj[k] != null ? String(headProj[k]) : null]))));

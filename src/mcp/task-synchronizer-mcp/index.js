@@ -4,8 +4,7 @@
  * Uses .ai/state.sqlite as the ACID-safe primary store.
  * Automatically migrates existing .ai/state.json on first use.
  * Regenerates state.json (backwards-compat view), TASKS.md, and REVIEWS.md
- * after every mutation. All state writes — including deltas and task transitions
- * from orchestrator-mcp — go through SQLite (P-26, P-27).
+ * after every mutation. All state writes go through SQLite (P-26, P-27).
  *
  * Tools:
  *   get_state()                        → returns full state
@@ -13,9 +12,7 @@
  *   update_task_status(id, status)      → transitions task status
  *   add_stamp(task_id, type, agent, summary) → writes atomic audit stamp
  *   set_project_focus(text)             → updates project focus
- *   archive_done_tasks()                → moves old DONE tasks to archive
  *   verify_markdown_sync()              → checks TASKS.md / REVIEWS.md vs DB
- *   mark_deltas_read(task_ids?)         → acknowledge implementation deltas
  *   sync_tasks(update_content?)         → (DEPRECATED E-147) no-op
  *   append_tasks(tasks)                 → (legacy) appends to TASKS.md
  */
@@ -26,7 +23,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
-import { getDbSeeded, readState as _readState, regenerateViews as _regenerateViews, nextId as _nextId, addTask as _addTask, validateDag as _validateDag, parseDeps as _parseDeps, archiveDoneTasks as _archiveDoneTasks, archiveStamps as _archiveStamps, completeTask as _completeTask, DONE_ARCHIVE_THRESHOLD, DONE_KEEP_RECENT, STAMP_ARCHIVE_THRESHOLD } from "../shared/state-db.js";
+import { getDbSeeded, readState as _readState, regenerateViews as _regenerateViews, nextId as _nextId, addTask as _addTask, validateDag as _validateDag, parseDeps as _parseDeps, completeTask as _completeTask } from "../shared/state-db.js";
 // E-325 (D-102): the single writer — record file first in a team project, then the row.
 import { updateTask as _updateTask, insertStamp as _insertStamp, setProject as _setProject, reviewsArchivedThrough, reviewsLineArchived } from "../shared/record-store.mjs";
 // E-326: a team project's pulled records are imported before the views are compared.
@@ -70,10 +67,9 @@ function _getDb(aiDir) {
 // _readState, _regenerateViews, _nextId are imported as _readState/_regenerateViews/_nextId above.
 
 // ── Archive ───────────────────────────────────────────────────────────────────
-// E-111: archive rotation for DONE tasks + audit stamps (and its thresholds) now
-// lives in src/mcp/shared/state-db.js so task-synchronizer-mcp and
-// archive-manager-mcp share ONE implementation. _archiveDoneTasks / _archiveStamps
-// and the *_THRESHOLD constants are imported above.
+// D-172 r14: this server rotates nothing. archive_done_tasks and get_state's auto-archive are
+// retired: a rotation removed the stamps and tasks the DONE checks read. `rein archive` moves
+// only record text (COMM.md, SECURITY.md, the REVIEWS.md view window).
 
 // E-107 (token-optimization.md §Components 1 / §Data Model): cap a DONE task's
 // stored summary so state.json stays light. The full narrative lives in LOG.md
@@ -81,7 +77,7 @@ function _getDb(aiDir) {
 const SUMMARY_CAP = Number(process.env.REIN_SUMMARY_CAP) || 200;
 
 // E-342 (D-106 r4): the tools that write the index and then regenerate the views.
-const VIEW_WRITERS = new Set(["add_task", "update_task_status", "add_stamp", "set_project_focus", "archive_done_tasks", "mark_deltas_read"]);
+const VIEW_WRITERS = new Set(["add_task", "update_task_status", "add_stamp", "set_project_focus"]);
 
 // ── E-74: Cloud sync hook ────────────────────────────────────────────────────
 // Per .ai/blueprints/managed-agents-state-reconciliation.md §Components 2:
@@ -91,8 +87,8 @@ const VIEW_WRITERS = new Set(["add_task", "update_task_status", "add_stamp", "se
 // schedules the actual fetch under an unref()'d timer.
 //
 // Wired only into add_task + update_task_status (the two mutation paths
-// that change the active-task projection). add_stamp / set_project_focus /
-// mark_deltas_read / archive_done_tasks do not change the OPEN+BLOCKED set
+// that change the active-task projection). add_stamp / set_project_focus
+// do not change the OPEN+BLOCKED set
 // the cloud projects, so skipping them avoids needless network chatter.
 function _scheduleCloudSync(targetAiDir) {
   try {
@@ -166,7 +162,7 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }),
+  tools: buildToolSchemas(),
 }));
 
 instrument(server, "task-synchronizer-mcp", CallToolRequestSchema);
@@ -266,13 +262,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      // Full state — auto-archive if needed
-      const archiveResult = _archiveDoneTasks(aiDir, db);
+      // Full state. D-172 r14: no auto-archive — a rotation that removes the stamps and tasks the
+      // DONE checks read is a defect, so nothing rotates state (archive_done_tasks is retired).
       const state = _readState(db);
-      const note  = archiveResult
-        ? `[AUTO-ARCHIVE] ${archiveResult.archived} DONE tasks archived to ${archiveResult.archivePath} — ${archiveResult.kept} recent DONE kept.\n\n`
-        : "";
-      return { content: [{ type: "text", text: note + JSON.stringify(state, null, 2) }] };
+      return { content: [{ type: "text", text: JSON.stringify(state, null, 2) }] };
     }
 
     // ── add_task ──────────────────────────────────────────────────────────────
@@ -465,29 +458,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       _regenerateViews(aiDir, db);
       return { content: [{ type: "text", text: `✓ Focus: ${args.focus}${args.current_tier ? " (Tier " + args.current_tier + ")" : ""}` }] };
-    }
-
-    // ── archive_done_tasks ────────────────────────────────────────────────────
-    case "archive_done_tasks": {
-      // E-108: rotate BOTH DONE tasks and audit stamps. They have independent
-      // thresholds, so a run may archive one, the other, both, or neither.
-      const taskResult  = _archiveDoneTasks(aiDir, db);
-      const stampResult = _archiveStamps(aiDir, db);
-      const archived_tasks  = taskResult  ? taskResult.archived  : 0;
-      const archived_stamps = stampResult ? stampResult.archived : 0;
-
-      if (!taskResult && !stampResult) {
-        const doneCount  = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status = 'DONE'").get().n;
-        const stampCount = db.prepare("SELECT COUNT(*) as n FROM stamps").get().n;
-        return { content: [{ type: "text", text: `✓ No archive needed — ${doneCount} DONE tasks (threshold ${DONE_ARCHIVE_THRESHOLD}), ${stampCount} stamps (threshold ${STAMP_ARCHIVE_THRESHOLD})` }] };
-      }
-
-      const archivePath = (stampResult && stampResult.archivePath) || (taskResult && taskResult.archivePath) || null;
-      const lines = ["✓ [AUTO-ARCHIVE]"];
-      if (taskResult)  lines.push(`  ${taskResult.archived} DONE tasks → ${taskResult.archivePath} (${taskResult.kept} recent kept)`);
-      if (stampResult) lines.push(`  ${stampResult.archived} stamps → ${stampResult.archivePath} (${stampResult.kept} recent kept)`);
-      lines.push(`  ${JSON.stringify({ archived_tasks, archived_stamps, archivePath })}`);
-      return { content: [{ type: "text", text: lines.join("\n") }] };
     }
 
     // ── Legacy: sync_tasks (DEPRECATED E-147/E-149) ───────────────────────────
@@ -725,41 +695,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       );
     }
 
-    // ── mark_deltas_read ──────────────────────────────────────────────────────
-    case "mark_deltas_read": {
-      const taskIds = Array.isArray(args.task_ids) && args.task_ids.length > 0
-        ? args.task_ids.map(id => String(id).trim().toUpperCase())
-        : null;
-
-      let marked;
-      if (taskIds) {
-        const ph = taskIds.map(() => "?").join(",");
-        marked = db.prepare(
-          `UPDATE deltas SET read = 1 WHERE read = 0 AND task_id IN (${ph})`
-        ).run(...taskIds).changes;
-      } else {
-        marked = db.prepare("UPDATE deltas SET read = 1 WHERE read = 0").run().changes;
-      }
-
-      if (marked > 0) _regenerateViews(aiDir, db);
-
-      const scope = taskIds ? taskIds.join(", ") : "all unread";
-      return {
-        content: [{
-          type: "text",
-          text: marked > 0
-            ? `✓ Acknowledged ${marked} delta(s) for ${scope}.`
-            : `⚠ No unread deltas found${taskIds ? ` for ${scope}` : ""}.`,
-        }],
-      };
-    }
-
     default:
       return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
   }
 });
 
 if (isMainModule(import.meta.url)) {
+  // D-172 r2a: the Architect's session runs in <project>/.ai, and Claude Code starts this server
+  // there. Every path here is the project root's (.ai/ beside the cwd), so step up to it.
+  const cwd = process.cwd();
+  if (!existsSync(resolve(cwd, ".ai")) && cwd.split("/").pop() === ".ai") process.chdir(dirname(cwd));
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

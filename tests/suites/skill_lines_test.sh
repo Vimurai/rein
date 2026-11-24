@@ -345,10 +345,9 @@ assert_contains "E-225.07b: a bad chain in a MIRROR is flagged" "FLAGGED" \
   "$(node --no-warnings "$RULECHK" "$_mm" .claude/skills/x/SKILL.md 2>/dev/null)"
 rm -rf "$_mm"
 
-# ── E-225.5: mirrors carry the fix ─────────────────────────────────────────
-# A fix that lives only in src/ is not deployed: the harness loads .claude/skills.
-# E-467: rein-test replaces the retired rein-insights as the mirror this checks.
-for m in ".claude/skills/rein-test/SKILL.md"; do
+# ── E-225.5: the source carries the fix (D-172 r19: the .claude/ mirror is untracked; the plugin
+# is built from src/, so src/ is what a session loads) ──────────────────────────────────────
+for m in "src/shared/skills/rein-test/SKILL.md"; do
   if [[ -f "${REPO_ROOT}/$m" ]]; then
     assert_status 0 "E-225.05 $m carries the resolver" \
       grep -q 'rein_locate shared/test-command.mjs' "${REPO_ROOT}/$m"
@@ -481,8 +480,7 @@ assert_status 0 "E-232.04b: rein-debug still names the project's test command" \
   grep -q "tests/run.sh" "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
 
 # ── E-232.5: mirrors are byte-identical ────────────────────────────────────
-assert_status 0 "E-232.05a: rein-debug .claude mirror matches src" \
-  diff -q "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-debug/SKILL.md"
+# E-232.05a (the .claude/ mirror) deleted: that copy is untracked (D-172 r19).
 assert_mirror_if_present "E-232.05b: rein-debug .agents mirror matches src" "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" "${REPO_ROOT}/.agents/skills/rein-debug/SKILL.md"
 # E-232.05c-d (rein-upgrade and bug-reproducer mirrors) went with those skills (E-467).
 

@@ -864,10 +864,7 @@ assert_status 0 "E-267.09l: install_git_hooks installs the pre-push stub" \
   grep -q '_write_pre_push_stub "\$PP_DST"' "$AI"
 assert_status 0 "E-267.09m: uninstall tells the operator to remove it" \
   grep -q 'rm .git/hooks/pre-push' "$AI"
-for m in .claude/skills/rein-review/SKILL.md:src/claude/skills/rein-review/SKILL.md \
-         .claude/agents/reviewer.md:src/claude/agents/reviewer.md; do
-  assert_mirror_if_present "E-267.09n: ${m%%:*} mirrors ${m##*:}" "${REPO_ROOT}/${m##*:}" "${REPO_ROOT}/${m%%:*}"
-done
+# E-267.09n (the .claude/ rein-review and reviewer mirrors) deleted: those copies are untracked (D-172 r19).
 
 echo ""
 

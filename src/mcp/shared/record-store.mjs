@@ -582,6 +582,15 @@ export function renderStateJson(aiDir, db) {
   writeStateFile(aiDir, readState(db));
 }
 
+/** D-172 r12: the most characters a TASKS.md task line holds. `rein task show <id>` prints the rest. */
+export const VIEW_LINE_MAX = 300;
+/** A view line cut at VIEW_LINE_MAX characters (code points, so no surrogate pair is split); a cut
+ *  line ends in "…" and still begins with its `- [ ] <id>:`. */
+export function viewLine(line) {
+  const cps = [...line];
+  return cps.length <= VIEW_LINE_MAX ? line : cps.slice(0, VIEW_LINE_MAX - 1).join("") + "…";
+}
+
 /**
  * Regenerate the three views — TASKS.md, REVIEWS.md, state.json — from state.sqlite.
  * Called after every mutation so file-based consumers stay in sync.
@@ -605,15 +614,20 @@ export function renderViews(aiDir, db) {
       if (!byRole[role]) byRole[role] = [];
       byRole[role].push(t);
     }
+    let cut = 0;
     for (const [role, roleTasks] of Object.entries(byRole)) {
       lines.push(`## ${role}`);
       for (const t of roleTasks) {
         const tierStr = t.tier ? ` | Tier: ${t.tier}` : "";
-        lines.push(`- [ ] ${t.id}: ${t.description}${tierStr}`);
+        const full = `- [ ] ${t.id}: ${t.description}${tierStr}`;
+        const shown = viewLine(full);
+        if (shown !== full) cut++;
+        lines.push(shown);
       }
       lines.push("");
     }
     if (closed > 0) lines.push(`${closed} closed tasks are not listed. Print one with: rein task show <id>`, "");
+    if (cut > 0) lines.push(`${cut} task lines are cut at ${VIEW_LINE_MAX} characters (they end in "…"). Print one in full with: rein task show <id>`, "");
     lines.push(...archivePointerLines(aiDir));
     writeFileSync(tasksPath, lines.join("\n"), "utf8");
   }

@@ -120,7 +120,7 @@ src/
   bin/            # rein (the CLI), rein-account.sh, rein-exec
   mcp/            # task-synchronizer-mcp (the ledger), the command gate's server until E-463, shared/
   shared/         # the helpers the CLI and hooks use; skills/ shared by both roles
-  claude/         # agents/, skills/, plugin/ (the plugin manifest templates), the CLAUDE.md shim
+  claude/         # agents/, skills/, plugin/ (the plugin manifest templates)
   config/         # registry.json (the MCP server, the roles)
   templates/      # ENGINEER.md, ARCHITECT.md, CLAUDE.md, roles.json and the .ai/ seeds
   contracts/      # capability and security contracts

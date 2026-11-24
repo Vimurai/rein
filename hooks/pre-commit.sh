@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Rein Gate 2 — Quality Gate (pre-commit hook)
 # Logic: the lane, machine-local file and publish checks only (D-170 r4): machine-local files,
-#        the privacy scan, record parity for a team project (team mode, r7) and the Architect's
-#        git lane. Each blocks with its own message. E-467 removed the conflict-marker and
-#        .ai/*.json gate, markdown sync, the co-modification warning, registry drift, MCP stdout
-#        purity and the standards gate; the reviewer and `rein review` judge what they judged.
+#        the privacy scan (its secret class in every project, D-172 r3), record parity for a
+#        team project (team mode, r7) and the Architect's git lane, each with its own message.
+#        E-467 removed the conflict-marker and .ai/*.json gate, markdown sync, the co-modification
+#        warning, registry drift, MCP stdout purity and the standards gate.
 # E-464 (D-169 r8, D-170 r9): no review stamp is asked for here. Review is sized by tier and is
 #        checked when the task closes (src/shared/completion-gates.mjs); `rein review <tier>`
 #        names the agents to dispatch.
@@ -325,6 +325,21 @@ check_architect_git_lane() {
 }
 
 check_architect_git_lane
+
+# D-172 r3 (round F4): without .ai/publish.json, the scan's `secret` class (vendor token, private key)
+# still runs — last, so a lane refusal keeps its message. No opt-out (fake-token mark). Fails closed.
+if [[ ! -f "${AI_DIR}/publish.json" ]] && ! git cat-file -e :.ai/publish.json 2>/dev/null && ! git cat-file -e HEAD:.ai/publish.json 2>/dev/null; then
+  _sec_ps="$(rein_locate shared/publish-scan.mjs 2>/dev/null || true)"
+  if [[ -z "$_sec_ps" ]] || ! command -v node >/dev/null 2>&1; then
+    echo "[COMMIT_BLOCKED] [SECRET_SCAN] shared/publish-scan.mjs or node unavailable — run: bash install-rein.sh" >&2
+    exit 1
+  fi
+  _sec_out="$(node --no-warnings "$_sec_ps" secrets "${AI_DIR%/.ai}")" || exit 1
+  if [[ "$_sec_out" != "[SECRET_SCAN_OK]"* ]]; then
+    echo "[COMMIT_BLOCKED] [SECRET_SCAN] the secret check gave no verdict — run: bash install-rein.sh" >&2
+    exit 1
+  fi
+fi
 
 # ── E-464 (D-169 r8, D-170 r9): no review stamp at commit time ───────────────────────────
 # Gate 2 used to refuse a commit without a [CRITIC_STAMP] for its parent HEAD (E-329). Review is

@@ -16,7 +16,7 @@ source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HOOK="${REPO_ROOT}/hooks/pre-commit.sh"
 
-echo "── Suite: pre_commit_hook_test (E-238, E-48, E-80, E-448) ──────────"
+echo "── Suite: pre_commit_hook_test (E-238, E-48, E-80, E-448, D-172 r3) ──────────"
 
 # ── E-238.5: the rules are written down where they are read ───────────────
 # E-282 (D-075/D-080): these rules moved out of ENGINEER.md into path-scoped
@@ -491,6 +491,20 @@ _M7="$(_ml_repo)"; ( cd "$_M7" && printf 'see %s/x\n' "$_ML_HOME" > docs/x.md &&
 _ml_commit "$_M7"
 assert_status 0 "E-448.05: a doc naming the home path commits — no other path is scanned (rc ${_RC})" test "$_RC" -eq 0
 assert_status 1 "E-448.06: the hook carries no copy of the list (D-165 r1)" grep -q "start\.local\.json" "$HOOK"
+
+# ── D-172 r3 (SECURITY.md lean-core round F4): every project keeps a secret check at commit ────
+# The same fixture project, which has no .ai/publish.json: the `secret` class still refuses a
+# staged credential, a deliberate fake carrying the mark commits, and a clean file commits. The
+# token is assembled at run time so this file holds none.
+_F4_KEY="AKIA$(printf 'QZ%.0s' 1 2 3 4 5 6 7 8)"
+_S1="$(_ml_repo)"; ( cd "$_S1" && printf 'aws_key = "%s"\n' "$_F4_KEY" > docs/creds.txt && git add docs/creds.txt )
+_ml_commit "$_S1"
+assert_status 0 "D-172.r3a: a staged AWS key is refused in a project without .ai/publish.json (rc ${_RC})" test "$_RC" -ne 0
+assert_contains "D-172.r3b: …by the secret check, naming file:line and never the value" "[SECRET_SCAN_HIT] secret docs/creds.txt:1" "$_OUT"
+assert_status 1 "D-172.r3c: …and the value is not printed" grep -qF "$_F4_KEY" <<< "$_OUT"
+_S2="$(_ml_repo)"; ( cd "$_S2" && printf 'k = "%s"  # privacy:allow-fake-token\n' "$_F4_KEY" > docs/fake.txt && echo clean > docs/ok.txt && git add docs )
+_ml_commit "$_S2"
+assert_status 0 "D-172.r3d: a marked fake and a clean file commit (rc ${_RC}: ${_OUT:0:160})" test "$_RC" -eq 0
 
 assert_summary
 if [[ "${FAIL_COUNT:-0}" -eq 0 ]]; then

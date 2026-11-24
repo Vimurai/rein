@@ -234,3 +234,38 @@ permission classifier refused `bash install-rein.sh` twice, so the operator runs
 - (Engineer, after E-468) docs/gates-and-review.md names the gate `safe-exec-mcp` outright. The
   E-468 acceptance grep therefore stays unmet until E-463 removes the gate, rather than being
   passed by leaving the name out.
+
+## D-172 follow-up (2026-11-24, uncommitted; left unstaged)
+
+- **F3 took option (a): the Architect's session starts in `<project>/.ai`.** Probe, one real
+  haiku session (Claude Code 2.1.331, bubblewrap 0.11.1, WSL2), launched exactly as `rein pane
+  architect` resolves it, in a scratch project with a scratch Rein home and a built plugin:
+  - a new top-level write fails: `echo x > <p>/newtop`, `../conftest.py` and `>> README.md` →
+    "read-only file system"; `<p>/.npmrc` and `<p>/.pnpmfile.cjs` by Bash, and the Write tool to
+    `<p>/newtop2.md`, were refused by dontAsk before they ran; none exists afterwards;
+  - `.ai/` and `plans/` work (Bash and the Write tool), and `cd .. && echo >> .ai/COMM.md && git
+    add … && git commit` committed (`arch-ok` in the log);
+  - the rulefile is loaded (the model quoted ARCHITECT.md's first heading), the plugin is loaded
+    (init event: `rein@inline` with its 4 agents and 5 skills; its SessionStart and other hooks
+    fired, with cwd `<p>/.ai`), and the state server is connected and served the project's
+    `.ai/` (`get_state` answered; the index was created in `<p>/.ai`, not `<p>/.ai/.ai`).
+  What made it work, besides `cd <project>/.ai` before exec: Claude Code reads no project
+  `.claude/settings.json` from a parent directory (measured: a SessionStart hook there did not
+  fire), so the Architect's role file now carries the gate's PreToolUse entry (until E-463) and the
+  session env, `resolve-launch.mjs` adds `--plugin-dir <rein home>/plugin` for the Architect, the
+  file-tool rules name absolute paths (`Edit(//<p>/.ai/**)`, `Read(//<p>/**)`), and the state
+  server and session-start.sh step up one level when started in a directory named `.ai`. The
+  Architect's deny list keeps only the git paths (HEAD, rein/, refs/remotes, refs/replace,
+  packed-refs, info); RESERVED_ABSENT is gone.
+  - Observed side effect: the sandbox's protected-name placeholders (`.bashrc`, `.gitconfig`,
+    `.zshrc`, `.mcp.json`, `.vscode`, …) now appear in `.ai/` while a command runs (gone after),
+    and Claude Code leaves `.ai/.claude/.cc-writes`; the .ai gitignore template lists them.
+  - Path habit (D-172 "Risk if wrong"): the gate's text check resolves a relative Bash target
+    against the project root, not the cwd, so the Architect gives Bash paths absolute or starts
+    the command with `cd ..`; ARCHITECT.md says so in one line.
+  - Not closed by (a): `plans/` stays the Architect's; a test runner that collects `plans/` would
+    load code planted there. docs/role-sandbox.md names it.
+- r13: no test or doc named E-449 for `rein task show`; `rein task show E-427` prints the closed
+  task (DONE, Tier 2) on this tree.
+- r20: no code implements the E-468 grep (it is an acceptance command in the task text); nothing
+  to change.

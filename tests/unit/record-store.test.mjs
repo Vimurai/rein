@@ -22,6 +22,7 @@ import {
 } from "../../src/mcp/shared/record-store.mjs";
 import { migrateTeam, migrateLegacy, IGNORE_BEGIN, ATTRIBUTES } from "../../src/mcp/shared/record-migrate.mjs";
 import { runTaskDone, runTaskShow, main as cliMain, GATE_ROLLBACK_VARS } from "../../src/shared/cli-state.mjs";
+import { viewLine, VIEW_LINE_MAX } from "../../src/mcp/shared/record-store.mjs";
 import { tcFixtureHome } from "../lib/toolchain-fixture.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -214,7 +215,7 @@ test("migrate refuses [NO_TRUNK] when no trunk can be determined and changes not
   assert.equal(migrateTeam(ai, { trunk: "a..b" }).code, "NO_TRUNK", "an invalid --trunk is refused too");
 });
 
-test("--team then --legacy restores state.json, key order aside (same clone, deltas kept)", (t) => {
+test("--team then --legacy restores state.json, key order aside (same clone; a stale deltas row stays out of the view, D-172 r18)", (t) => {
   const { root, ai } = repo(t, "rt");
   const db = seedLegacy(ai);
   db.prepare("INSERT INTO deltas(task_id, summary, files, read) VALUES ('P-1', 'planned', '[]', 0)").run();
@@ -552,6 +553,24 @@ test("rein task done closes through completeTask: record, cascade, views", (t) =
   assert.equal(runTaskDone(ai, "E-1", null, { env }).out, "E-1 is already DONE.");
   assert.equal(runTaskDone(ai, "E-99", null, { env }).code, 1);
   assert.equal(runTaskDone(ai, "../E-1", null, { env }).code, 2);
+});
+
+// D-172 r12: a TASKS.md line is cut at 300 characters; `rein task show` prints the full text.
+test("a long task line is cut at 300 characters in TASKS.md and printed whole by rein task show", (t) => {
+  const { ai } = repo(t, "cut");
+  const db = getDb(ai);
+  const long = "Build the thing " + "and then some more words ".repeat(20) + "THE-END-MARK";
+  addTask(ai, db, { owner: "Engineer (Claude)", description: "short one", tier: 1 });
+  addTask(ai, db, { owner: "Engineer (Claude)", description: long, tier: 2 });
+  regenerateViews(ai, db);
+  const view = readFileSync(join(ai, "TASKS.md"), "utf8");
+  const line = view.split("\n").find((l) => l.startsWith("- [ ] E-2:"));
+  assert.equal([...line].length, VIEW_LINE_MAX);
+  assert.ok(line.endsWith("…") && !line.includes("THE-END-MARK"));
+  assert.match(view, /^- \[ \] E-1: short one \| Tier: 1$/m, "a short line is untouched");
+  assert.match(view, /^1 task lines are cut at 300 characters/m);
+  assert.ok(runTaskShow(ai, "E-2").out.includes("THE-END-MARK"), "the full text is one command away");
+  assert.equal(viewLine("x".repeat(299) + "😀😀"), "x".repeat(299) + "…", "code points, not UTF-16 units");
 });
 
 // ── one writer of state.json ─────────────────────────────────────────────────

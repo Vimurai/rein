@@ -67,7 +67,7 @@ assert_not_contains "E-469.01f: nor waiting-signal.sh" "waiting-signal.sh" "$E"
 assert_status 1 "E-290.01b: no shell-form Rein line survives (incl. a quoted path)" bash -c "grep -q 'bash .*HOME/.rein/hooks' <<< \"\$1\"" _ "$E"
 assert_contains "E-290.01c: the user's own hook entry is untouched" "echo users-own-stop-hook" "$E"
 assert_status 1 "E-290.01d: no Rein hook line mentions \$HOME" bash -c "grep < <(printf '%s\n' \"\$1\" | grep '.rein/hooks') -qF '\$HOME'" _ "$E"
-cp "$SET" "$T/s1"; ( cd "$P" && bash "$AI_BIN" sync >/dev/null 2>&1 )
+cp "$SET" "$T/s1"; ( cd "$P" && HOME="$P.home" bash "$AI_BIN" sync >/dev/null 2>&1 )   # the scratch home gen_project_settings used (D-172 r22)
 assert_status 0 "E-290.01e: a second sync is byte-identical (idempotent)" cmp -s "$T/s1" "$SET"
 
 # ── E-290.2: the four shell channels — marker under OLD line, none under NEW argv ─
@@ -141,7 +141,7 @@ printf '.vscode/settings.json\n' > "$G/.gitignore"
 gen_project_settings "$G" >/dev/null
 assert_status 0 "E-290.04a: .claude/settings.json is gitignored even beside another dir/settings.json line" \
   grep -qx '.claude/settings.json' "$G/.gitignore"
-_d="$(cd "$G" && bash "$AI_BIN" doctor 2>&1)"
+_d="$(cd "$G" && HOME="$G.home" bash "$AI_BIN" doctor 2>&1)"
 assert_contains "E-290.04b: doctor reports the exec form" "Rein hooks in exec form" "$_d"
 python3 - "$G/.claude/settings.json" <<'PY'
 import json, sys
@@ -149,12 +149,12 @@ p = sys.argv[1]; d = json.load(open(p))
 d["hooks"].setdefault("Stop", []).append({"matcher": ".*", "hooks": [{"type": "command", "command": "bash $HOME/.rein/hooks/waiting-signal.sh"}]})  # E-469: an old entry; sync writes no Stop now
 json.dump(d, open(p, "w"))
 PY
-_d="$(cd "$G" && bash "$AI_BIN" doctor 2>&1)"
+_d="$(cd "$G" && HOME="$G.home" bash "$AI_BIN" doctor 2>&1)"
 assert_contains "E-290.04c: doctor names a stale shell-form entry and the fix" "stale Rein hook entries" "$_d"
 # A pre-E-290 stub: the stub marker the generator writes, under the old shebang.
 _marker="$(grep -m1 'Rein' "$G/.git/hooks/post-commit")"
 printf '#!/usr/bin/env bash\n%s\n' "$_marker" > "$G/.git/hooks/post-commit"
-_d="$(cd "$G" && bash "$AI_BIN" doctor 2>&1)"
+_d="$(cd "$G" && HOME="$G.home" bash "$AI_BIN" doctor 2>&1)"
 assert_contains "E-290.04d: doctor names a stub that predates E-290" "git post-commit stub predates E-290" "$_d"
 
 # ── E-290.5: every hook's prologue clears what -p leaves alone ───────────────

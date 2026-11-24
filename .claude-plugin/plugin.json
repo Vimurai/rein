@@ -1,8 +1,0 @@
-{
-  "name": "rein",
-  "version": "3.1.0",
-  "description": "Rein provisioned skill set, packaged so `claude plugin eval` can grade the core skills (E-285, D-075 native-first \u00a78).",
-  "skills": [
-    "./.claude/skills/"
-  ]
-}

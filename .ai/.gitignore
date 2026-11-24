@@ -36,3 +36,19 @@ start.json
 # DIGEST.md is committed by default — it's the primary AI cache and usually safe.
 # If your DIGEST contains sensitive architecture details, uncomment:
 # DIGEST.md
+
+# D-172 r2a/r5: the Architect's session runs in .ai/, and the Claude Code sandbox puts empty
+# placeholders for its protected names in the working directory while a command runs (observed
+# on 2.1.331); .claude/ holds Claude Code's own write log. None is project content.
+/.claude/
+/.bashrc
+/.bash_profile
+/.gitconfig
+/.gitmodules
+/.idea
+/.mcp.json
+/.profile
+/.ripgreprc
+/.vscode
+/.zprofile
+/.zshrc

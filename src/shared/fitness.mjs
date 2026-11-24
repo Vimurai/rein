@@ -20,7 +20,7 @@ import { spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join, resolve } from "node:path";
-import { architectSettings, engineerSettings, gitDirs, ARCHITECT_LANE, ENGINEER_REIN_WRITABLE } from "./role-settings.mjs";
+import { architectSettings, engineerSettings, gitDirs, ARCHITECT_LANE, ARCHITECT_CWD, ENGINEER_REIN_WRITABLE } from "./role-settings.mjs";
 import { TIER_DISPATCH } from "./review-checks.mjs";
 import { DEFAULT_ADAPTERS } from "./provider-adapter.mjs";
 import { provisioned } from "./plugin-build.mjs";
@@ -29,7 +29,7 @@ import { isMainModule } from "../mcp/shared/is-main.mjs";
 /** Targets (D-169 r11 table; D-170 r15 replaces the MCP and skills targets, adds agents and hooks). */
 export const TARGETS = Object.freeze({
   session_bytes: 4096, default_skills: 6, mcp_servers: 1, bookkeeping_calls: 3,
-  review_agent_runs: 2, agents: 4, hook_lines: 900, role_guarantees: 5,
+  review_agent_runs: 2, agents: 4, hook_lines: 950, role_guarantees: 5,
   command_text_lines: 300, open_gate_task_share: 0.10, gate_test_share: 0.03,
   unmerged_branches: 0, install_steps: 4,
 });
@@ -219,26 +219,26 @@ export function roleGuarantees(root, tree, reinHome) {
   // (resolve-launch.mjs points --settings at the role dir).
   const cli = read(join(tree, "bin", "rein")) || "", launch = read(join(tree, "shared", "resolve-launch.mjs")) || "";
   const launched = cli.includes("role-settings.mjs") && launch.includes("--settings") && launch.includes("roleDir(");
+  // D-172 r2a: the Architect's session starts in <project>/.ai, so its Bash can write the working
+  // directory (a lane entry), the write list and nothing else — the project root needs no deny list.
+  const inLane = ARCHITECT_LANE.includes(ARCHITECT_CWD) && cli.includes(`cd "\${_proj}/${ARCHITECT_CWD}"`);
   let A, E;
-  try { A = architectSettings(root); E = engineerSettings(root, reinHome); } catch (e) { return { error: `role settings: ${e.message}` }; }
+  try { A = architectSettings(root, reinHome); E = engineerSettings(root, reinHome); } catch (e) { return { error: `role settings: ${e.message}` }; }
   const aSb = A.sandbox || {}, eSb = E.sandbox || {};
   const aDeny = new Set(aSb.filesystem?.denyWrite || []), eDeny = new Set(eSb.filesystem?.denyWrite || []);
   const aAllow = aSb.filesystem?.allowWrite || [];
-  let top = [];
-  try { top = readdirSync(root); } catch { top = []; }
-  const source = top.filter((e) => !ARCHITECT_LANE.includes(e) && e !== ".git").map((e) => join(root, e));
   const fileTool = (A.permissions?.allow || []).filter((r) => /^(Edit|Write|MultiEdit|NotebookEdit)\b/.test(r));
   const reinEntries = isDir(reinHome) ? readdirSync(reinHome).filter((e) => e !== ENGINEER_REIN_WRITABLE).map((e) => join(reinHome, e)) : null;
   const on = (s) => s.enabled === true && s.failIfUnavailable === true;
   const checks = [
     ["Architect file tools write only .ai/ and plans/", A.permissions?.defaultMode === "dontAsk"
-      && fileTool.length > 0 && fileTool.every((r) => ["Edit(.ai/**)", "Edit(plans/**)"].includes(r))],
-    ["Architect Bash writes only .ai/, plans/ and .git", on(aSb) && source.every((p) => aDeny.has(p))
+      && fileTool.length > 0 && fileTool.every((r) => ARCHITECT_LANE.some((l) => r === `Edit(/${join(root, l)}/**)`))],
+    ["Architect Bash writes only .ai/, plans/ and .git", on(aSb) && inLane
       && aAllow.every((p) => ARCHITECT_LANE.some((l) => p === join(root, l)) || p.startsWith(join(root, ".git")) || p === gitDirs(root).commonDir)],
     ["Architect cannot push or merge", on(aSb) && Array.isArray(aSb.network?.allowedDomains) && aSb.network.allowedDomains.length === 0
       && aDeny.has(join(gitDirs(root).gitDir, "HEAD"))],
     ["neither role changes the controls", reinEntries !== null && reinEntries.length > 0 && reinEntries.every((p) => eDeny.has(p))
-      && eDeny.has(join(root, ".claude")) && (!top.includes(".claude") || aDeny.has(join(root, ".claude")))
+      && eDeny.has(join(root, ".claude")) && !aAllow.includes(join(root, ".claude"))
       && !aAllow.some((p) => p === reinHome || p.startsWith(reinHome + "/"))],
     ["neither role leaves the sandbox", [aSb, eSb].every((s) => on(s) && s.allowUnsandboxedCommands === false)
       && [A, E].every((s) => s.permissions?.disableBypassPermissionsMode === "disable")],

@@ -25,7 +25,7 @@ rein init
 ```
 
 It creates `.ai/` (the ledger and the record), the rulefiles `ENGINEER.md`, `ARCHITECT.md` and a
-`CLAUDE.md` shim, `.mcp.json`, `.claude/settings.json`, the git hooks, and the role settings
+role-neutral `CLAUDE.md`, `.mcp.json`, `.claude/settings.json`, the git hooks, and the role settings
 files under `~/.rein/roles/`. It enables the plugin for this project. It never overwrites a file
 you wrote, so running it again is safe. Commit what it created.
 

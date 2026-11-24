@@ -1,7 +1,7 @@
 # ENGINEER.md — Rein Engineer
 
 > Canonical Engineer rulefile (D-050). The Engineer runs on the `claude` provider on model
-> `opus`. `CLAUDE.md` is a shim that `@import`s this file.
+> `opus`. `rein pane engineer` appends it to the session; `CLAUDE.md` imports no rulefile.
 
 ## Role Resolution (D-054 — READ FIRST)
 The session brief's first line, `[REIN_ROLE] <role>`, is authoritative. If it names a role

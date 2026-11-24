@@ -101,7 +101,7 @@ test("claim race: the clone whose push loses gets [CLAIM_LOST] naming the winner
   writeFileSync(hook, `#!/bin/bash
 [ -e '${marker}' ] && exit 0
 touch '${marker}'
-cd '${dirname(aAi)}' && AI_TELEMETRY_DISABLE=1 node --no-warnings '${join(REPO, "src/shared/cli-state.mjs")}' task claim E-901 >/dev/null 2>&1
+cd '${dirname(aAi)}' && node --no-warnings '${join(REPO, "src/shared/cli-state.mjs")}' task claim E-901 >/dev/null 2>&1
 exit 0
 `);
   chmodSync(hook, 0o755);

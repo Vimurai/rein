@@ -287,8 +287,8 @@ export function doctorLine(aiDir) {
 // path; the pre-commit hook and CI refuse what slips through. Without the operator's list the
 // structural classes (address, home path, session id, socket, secret) still apply. There is no
 // switch to turn it off: a project's .claude/settings.json env reaches every hook and MCP server,
-// so an env switch is the project's switch (E-291's rule; security P1-3). What lives under the install directory (telemetry,
-// incidents, insights, the memory palace) stays on the operator's machine and is not redacted.
+// so an env switch is the project's switch (E-291's rule; security P1-3). What lives under the install directory (accounts,
+// memory signatures) stays on the operator's machine and is not redacted.
 
 /** The writers that call redact(); `rein doctor` counts them. */
 // E-467 (D-170 r5): run-handover, the repository map, the instinct stager, the stop hook and
@@ -339,7 +339,7 @@ export function redactedToday(home = homedir()) {
 /**
  * Redact `text` for a write into `file` (a label for the log line). `lists` defaults to
  * redactLists(aiDir). Returns the redacted string; a non-string passes through unchanged.
- * `count: false` — a writer under the install directory (incidents, memory signatures): no
+ * `count: false` — a writer under the install directory (memory signatures): no
  * log line and no doctor count, which are about the tracked tree.
  */
 export function redact(text, { file = "?", aiDir = null, lists = null, count = true, log = (l) => process.stderr.write(`${l}\n`) } = {}) {

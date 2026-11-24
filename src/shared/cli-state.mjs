@@ -12,8 +12,7 @@
 //
 // E-326: `rein state import` brings the index up to the pulled record files (record-import.mjs).
 // It is run by the post-merge / post-checkout / post-rewrite hooks and at session start, exits
-// 0 whatever happens, and with REIN_STATE_IMPORT=0 the hook runs (--hook) are no-ops that
-// leave one telemetry row. `state parity` is the pre-commit check; `state merge-driver` is the
+// 0 whatever happens, and with REIN_STATE_IMPORT=0 the hook runs (--hook) are no-ops. `state parity` is the pre-commit check; `state merge-driver` is the
 // git merge driver for record files (`rein sync` configures it).
 // E-342 (D-106): in a legacy project (no team.json) `state import` merges HEAD:.ai/state.json
 // into the index per record instead (legacy-import.mjs); --force ignores the imported blob id.
@@ -45,7 +44,6 @@ import { importLegacy, checkBehindHead, stateHealth } from "../mcp/shared/legacy
 import { migrateTeam, migrateLegacy } from "../mcp/shared/record-migrate.mjs";
 import { importRecords, checkParity, mergeRecord } from "../mcp/shared/record-import.mjs";
 import { isRecordStore } from "../mcp/shared/record-store.mjs";
-import { recordToolExecution } from "./telemetry.mjs";
 import { readTeam, writeTeam, newTeam, addRange, describeTeam, TeamError, logPath, recentLog } from "../mcp/shared/team.mjs";
 import { gitEmail } from "../mcp/shared/record-store.mjs";
 import { completionGates } from "./completion-gates.mjs";
@@ -121,7 +119,6 @@ export function runPlannerCheck(aiDir) {
 /** Never fails: an import runs from git hooks and must not block a pull. @returns {{code:0, out:string}} */
 export function runStateImport(aiDir, { dryRun = false, force = false, hook = null, env = process.env } = {}) {
   if (hook && env.REIN_STATE_IMPORT === "0") {
-    recordToolExecution({ tool_name: "state_import", execution_time_ms: 0, status: "BYPASS", source: "hook" }, { sync: true });
     return { code: 0, out: `[STATE_IMPORT] skipped (${hook}): REIN_STATE_IMPORT=0` };
   }
   if (!existsSync(aiDir)) return { code: 0, out: "" };

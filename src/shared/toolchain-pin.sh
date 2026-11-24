@@ -70,26 +70,5 @@ rein_tc_missing() {
   return 1
 }
 
-# rein_hook_incident <hook> <rc> <line> — E-292 (D-082 r2): a FAIL-OPEN hook that aborted on
-# its own bug still exits 0 but leaves ONE incident record (~/.rein/incidents.ndjson via
-# incident-append.mjs). Fixed fields only — never the payload, the command or stderr. Detached
-# with every stream closed, so neither the hook's latency budget nor Claude Code's wait on the
-# hook's pipes is touched. The tracker's env opt-out is dropped for this one write: a project's
-# settings `env` reaches hooks and must not be able to hide a hook's own failure.
-rein_hook_incident() {
-  [[ -n "$REIN_TC_NODE" && "$1" =~ ^[a-z-]+$ && "$2" =~ ^[0-9]+$ && "$3" =~ ^[0-9]+$ ]] || return 0
-  # Install-first like rein_locate; a hook that aborts BEFORE sourcing locate.sh (most source
-  # it after this pin) still reaches the install mirror.
-  local w=""
-  declare -f rein_locate >/dev/null 2>&1 && w="$(rein_locate shared/incident-append.mjs 2>/dev/null)"
-  [[ -n "$w" ]] || w="${HOME}/.rein/shared/incident-append.mjs"
-  [[ -f "$w" ]] || return 0
-  ( unset AI_INCIDENT_TRACKER_DISABLE INCIDENT_ROTATE_LINES
-    exec "$REIN_TC_NODE" "$w" "{\"incident_type\":\"HOOK_ABORT\",\"message\":\"${1} aborted (rc ${2} near line ${3})\",\"stack_signature\":\"hooks/${1}.sh:${3}\",\"source_agent\":\"Claude\"}"
-  ) </dev/null >/dev/null 2>&1 &
-  disown 2>/dev/null || true
-  return 0
-}
-
 # The repair-command exemption is NOT here: it lives inline in hooks/pre-tool-use.sh
 # (D-082 ruling 3) so it still works when this file is unreachable.

@@ -14,7 +14,6 @@ import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { execFileSync, spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { DatabaseSync } from "node:sqlite";
 
 import { getDb, getDbSeeded, addTask, regenerateViews, completeTask, archiveDoneTasks, DONE_ARCHIVE_THRESHOLD } from "../../src/mcp/shared/state-db.js";
 import { readRecord, writeRecord, listRecords, taskRecord, updateTask, insertStamp } from "../../src/mcp/shared/record-store.mjs";
@@ -45,7 +44,7 @@ function fixtureHome(t) {
 }
 
 function gitIn(home) {
-  const env = { PATH: process.env.PATH, HOME: home, GIT_CONFIG_NOSYSTEM: "1", AI_TELEMETRY_DISABLE: "1" };
+  const env = { PATH: process.env.PATH, HOME: home, GIT_CONFIG_NOSYSTEM: "1" };
   return (cwd, ...args) => execFileSync("git", args, { cwd, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
 }
 
@@ -198,15 +197,12 @@ test("a corrupt pulled record is reported, never thrown, and the index is left a
   assert.equal(checkParity(aAi, db).ok, false, "the pre-commit parity check would stop the commit");
 });
 
-test("REIN_STATE_IMPORT=0 makes a hook run a no-op with one telemetry row; a manual import still runs", (t) => {
+test("REIN_STATE_IMPORT=0 makes a hook run a no-op; a manual import still runs", (t) => {
   const { a, aAi } = team(t, "off");
-  const tele = join(tmp(t, "tele"), "t.sqlite");
   const cli = join(REPO, "src/shared/cli-state.mjs");
-  const env = { PATH: process.env.PATH, HOME: tmp(t, "h"), REIN_STATE_IMPORT: "0", AI_TELEMETRY_DB_PATH: tele };
+  const env = { PATH: process.env.PATH, HOME: tmp(t, "h"), REIN_STATE_IMPORT: "0" };
   const out = execFileSync(process.execPath, ["--no-warnings", cli, "state", "import", "--hook", "post-merge"], { cwd: a, env, encoding: "utf8" });
   assert.match(out, /skipped \(post-merge\): REIN_STATE_IMPORT=0/);
-  const rows = new DatabaseSync(tele).prepare("SELECT status FROM tool_executions WHERE tool_name = 'state_import'").all();
-  assert.deepEqual(rows.map((r) => r.status), ["BYPASS"]);
   // Without --hook the switch does not apply: an operator's explicit import runs.
   assert.equal(runStateImport(aAi, { env: { REIN_STATE_IMPORT: "0" }, force: true }).code, 0);
   assert.equal(importRecords(aAi, getDbSeeded(aAi)).status, "NOOP", "…and recorded the HEAD it imported");

@@ -112,15 +112,50 @@ test("rein done: usage errors exit 2 (no summary, no id)", (t) => {
 
 // ── rein handoff ────────────────────────────────────────────────────────────────────
 
-const ENTRY = `---
-## Handoff — 2026-11-23 23:00 UTC
-**From**: Engineer → Architect
-**Trigger**: E-500 shipped (text fixed)
+const ENTRY = `**Trigger**: E-500 shipped (text fixed)
 
 ### Next action needed
 - Review E-500.
----
 `;
+
+// E-475 (D-174 r7): the command writes `---`, the heading and **From**; an entry with its own
+// heading is refused.
+test("rein handoff: writes the heading, with the commit message's time, above the entry", (t) => {
+  const p = project(t);
+  const r = runHandoff(p.ai, { to: "architect", file: p.entry("entry.md", ENTRY) }, { cwd: p.root });
+  assert.equal(r.code, 0, r.out);
+  const when = /COMM handoff (\d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC) \(Engineer\)$/.exec(p.g("log", "-1", "--format=%s"))[1];
+  const comm = readFileSync(join(p.ai, "COMM.md"), "utf8");
+  assert.ok(comm.endsWith(`\n---\n## Handoff — ${when}\n**From**: Engineer → Architect\n${ENTRY}`), comm);
+});
+
+test("rein handoff: exit 1 with [HANDOFF_HEADING] on an entry that has its own heading; COMM.md is byte-identical", (t) => {
+  const p = project(t);
+  const head = p.g("rev-parse", "HEAD");
+  const before = readFileSync(join(p.ai, "COMM.md"));
+  const file = p.entry("entry.md", `## Handoff — 2026-11-24 10:00 UTC\n${ENTRY}`);
+  const r = runHandoff(p.ai, { to: "architect", file }, { cwd: p.root });
+  assert.equal(r.code, 1);
+  assert.match(r.out, /^✗ \[HANDOFF_HEADING\]/);
+  assert.ok(readFileSync(join(p.ai, "COMM.md")).equals(before));
+  assert.equal(p.g("rev-parse", "HEAD"), head);
+});
+
+test("rein handoff: after two handoffs the last `## Handoff — ` line is the newest entry's; no doubled `---`", (t) => {
+  const p = project(t);
+  writeFileSync(join(p.ai, "COMM.md"), "# COMM\n---\n");
+  p.g("add", "-A"); p.g("commit", "-q", "-m", "comm ends with a rule");
+  assert.equal(runHandoff(p.ai, { to: "architect", file: p.entry("a.md", ENTRY) }, { cwd: p.root }).code, 0);
+  const second = ENTRY.replace("E-500 shipped", "E-501 shipped");
+  assert.equal(runHandoff(p.ai, { to: "engineer", file: p.entry("b.md", second) }, { cwd: p.root }).code, 0);
+  const comm = readFileSync(join(p.ai, "COMM.md"), "utf8");
+  const lines = comm.split("\n");
+  const last = lines.map((l, i) => [l, i]).filter(([l]) => l.startsWith("## Handoff — ")).pop();
+  assert.equal(lines[last[1] + 1], "**From**: Architect → Engineer");
+  assert.match(lines[last[1] + 2], /E-501 shipped/);
+  assert.ok(!comm.includes("---\n---\n"), comm);
+  assert.ok(comm.startsWith("# COMM\n---\n## Handoff — "), comm);
+});
 
 test("rein handoff: appends the entry, commits COMM.md with the dirty tracked .ai/ paths, prints the sha and the wake line", (t) => {
   const p = project(t);

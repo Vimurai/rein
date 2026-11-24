@@ -212,7 +212,7 @@ rc_project=$?
 assert_status 0 "--project on real DB exit code 0" bash -c "[[ $rc_project -eq 0 ]]"
 
 # --sync without env → DISABLED → exit 1.
-env -i PATH="$PATH" AI_TELEMETRY_DB_PATH="${AI_TELEMETRY_DB_PATH:-}" node "$CLIENT" --sync "${REAL_DB}" >/dev/null 2>&1
+env -i PATH="$PATH" node "$CLIENT" --sync "${REAL_DB}" >/dev/null 2>&1
 rc_sync=$?
 assert_status 0 "--sync without env exit code 1" bash -c "[[ $rc_sync -eq 1 ]]"
 

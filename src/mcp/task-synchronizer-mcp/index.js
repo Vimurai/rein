@@ -36,10 +36,8 @@ import { getCiStatus } from "../shared/ci-runs.js";
 import { completionGates, checkSupersededBy } from "../../shared/completion-gates.mjs";
 import { checkTaskQuality } from "../../shared/task-quality.mjs";
 import { validateNamed, loadSchemas } from "../../shared/schema-validator.js";
-// E-153 (telemetry-hardening.md): global telemetry interceptor — instrument() patches
-// setRequestHandler so EVERY CallTool invocation records a SUCCESS/ERROR row (closing the
-// all-SUCCESS blindness the INSIGHTS report surfaced), not just the rare routed ones.
-import { instrument, rejection } from "../../shared/mcp-telemetry.mjs";
+// E-249: instrument() stamps every CallTool result with the build this process booted.
+import { instrument, rejection } from "../../shared/mcp-result.mjs";
 // E-249 (D-067 §3): announce running servers whose booted build no longer matches disk.
 import { staleServerReport } from "../../shared/build-stamp.mjs";
 import { createLogger } from "../shared/logger.js";
@@ -687,8 +685,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       }
       // E-179: SCHEMA_FAIL is the tool working as designed (it validated and the payload
       // was invalid) — an expected rejection, not a malfunction. isError stays true for the
-      // model; telemetry books SUCCESS so validate_payload's ~50% "failure rate" (which was
-      // just invalid payloads) no longer pollutes the deprecation aggregate.
+      // model, and _meta marks it expected.
       return rejection(
         `[SCHEMA_FAIL] '${schemaName}' — ${result.errors.length} error(s):\n` +
         result.errors.map(e => `  • ${e}`).join("\n")

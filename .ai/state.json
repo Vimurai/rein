@@ -324,12 +324,12 @@
     {
       "id": "E-334",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Document the team workflow and release v4.1.0 per D-102 and .ai/blueprints/team-collaboration.md §Component 9 using skill release-manager: add a README 'Team setup' section (ai state migrate --team, ai team add, the claim flow with ai task claim/release, IN_PROGRESS in preflight, the hosted master check and branch protection, start.local.json, shared_log); update ARCHITECT.md and ENGINEER.md (and their src/templates copies) with the claim-before-write rule and the planner rule; update .claude/rules/ai-bookkeeping.md for gitignored views and tracked records; CHANGELOG '4.1.0 — Team' with the migration note and the D-072 partial reversal; bump package.json to 4.1.0; signed tag v4.1.0; run ai sync and ai-digest. Acceptance: a clean clone following the README section alone reaches a working two-developer fixture (scripted in a test); grep -rn 'Generated from state.json' finds no tracked file; full suite and ai ci run green on the tagged commit; bash install-ai-os.sh from the tag succeeds on a clean HOME fixture; mirrors synced.",
       "created_at": "2026-10-18T19:17:34.539Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:22.769Z",
+      "summary": "superseded by D-131 — not implemented. D-174 r1c: there is no v4.1.0 on the public line; docs/team-mode.md exists.",
       "depends_on": [
         "E-329",
         "E-330",
@@ -344,7 +344,7 @@
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-27T22:06:31.454Z"
+      "updated_at": "2026-11-24T15:13:22.769Z"
     },
     {
       "id": "E-335",
@@ -377,17 +377,18 @@
     {
       "id": "E-337",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 1,
       "description": "Add the GitLab CI and Bitbucket Pipelines wrappers per D-103 ruling 6 and .ai/blueprints/team-collaboration.md §Component 5b (after v4.1.0; not a dependency of E-334): create src/templates/ci/gitlab-ci.yml (rendering to .gitlab-ci.yml, merge-request pipeline on target master plus a master push rule excluding .ai/** changes, artifacts with 'when: always') and src/templates/ci/bitbucket-pipelines.yml (rendering to bitbucket-pipelines.yml, pull-requests destination master plus a master branch pipeline, artifacts step), both with the same two commands and a Node 22 image; replace [CI_PROVIDER_PLANNED] with the rendering for each; print the D-103 r5 policy text (GitLab: protected branch, developers may push and merge, 'pipelines must succeed'; Bitbucket: merge check 'minimum one successful build', no 'prevent changes without a pull request'); write a DEVOPS entry per provider via skill ci_gate; record a documented run per provider when an instance is available, else the command prints [CI_PROVIDER_UNVERIFIED] for that provider. Acceptance: the equivalence test passes for both templates with the github mutations; 'ai ci hosted' detects gitlab.com and bitbucket.org origins; README's provider table gains both rows; full suite and ai ci run green; bash install-ai-os.sh; mirrors synced.",
       "created_at": "2026-10-19T22:02:32.496Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:23.927Z",
+      "summary": "superseded by D-170 — not implemented. D-174 r1d: CI wrappers for two more hosts are not needed by one operator on one host.",
       "depends_on": [
         "E-335"
       ],
       "ready": true,
-      "blocked_by": []
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:13:23.927Z"
     },
     {
       "id": "E-338",
@@ -596,32 +597,32 @@
     {
       "id": "E-353",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Close the E-350 residuals per D-112 ruling 3 and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs, on the wave-1 tables: in src/mcp/safe-exec-mcp (a) an assigned or aliased verb on the same line — `g=git; $g …`, `${G} …` — blocks for the Architect as the verb itself; (b) `GIT_CONFIG_GLOBAL=`, `GIT_CONFIG_SYSTEM=`, `HOME=` assignments on a git line and `git -c include.path=`, `core.fsmonitor=`, `core.sshCommand=` block for the Architect exactly as core.hooksPath does; (c) `GIT_DIR=x make` and the carriers yash, posh, lua, tmux, parallel join the code-string set; (d) `~+`, `~-`, `$((…))`, `$'\\x2f'`, `/bin`, `/opt`, `a/../../*`, `/tmp/../*` count as root-form for RM_RF_ROOT for every role; (e) the false positive `git grep GIT_DIR=` passes; (f) a `|` inside the BODY of a quoted-delimiter cat/tee heredoc is text, not a pipe, for the three content rules (the Architect's markdown-table heredoc into .ai/ was blocked by CURL_PIPE_SHELL on 2026-10-28). Begin with bug-reproducer: every class is a failing row in operand-scope-cases.json, block-rules-cases.json or pipe-shell-cases.json before any source change. Acceptance: each class blocks (or passes, for e and f) as ruled, for the role named; every existing row keeps its verdict; tests/fixtures/arch-write-cases.json sha256 unchanged; the 50k-group probe inside 200 ms; critic_security and critic_arch stamps, with security_engineer or the D-111 r5 substitute recorded; the closing handoff reports the sha256 of operand-scope-cases.json and block-rules-cases.json so the Architect pins them by ruling; no new env var; full ai ci run green; bash install-ai-os.sh; mirrors synced.",
       "created_at": "2026-10-28T09:02:31.143Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:36.555Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built and accepted (D-163 addendum 2), then deleted by E-463; tag v0.5.0 holds it.",
       "depends_on": [
         "E-301"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T16:31:29.437Z"
+      "updated_at": "2026-11-24T15:13:36.555Z"
     },
     {
       "id": "P-46",
       "owner": "Architect (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Record the commercial-licensing operator inputs as a D-ruling per D-114 and .ai/blueprints/licensing.md §Component 1 and §Component 7: the lawyer's review outcome of legal/COMMERCIAL-LICENSE.md (clause changes listed), the Gold and Platinum prices as set in Polar.sh, the vendor domain for hb_url, the production signing key id (kid) printed by `ai license keygen`, and the storefront product ids; rule that the DRAFT banners in legal/ may be lifted. Blocked on operator actions (lawyer review, Polar setup, keygen) — ask for them in the next handoff. Acceptance: one D-ruling naming every value above; E-360 unblocked by it.",
       "created_at": "2026-10-28T13:22:19.306Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:14.663Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T20:59:40.325Z"
+      "updated_at": "2026-11-24T15:13:14.663Z"
     },
     {
       "id": "E-354",
@@ -658,34 +659,34 @@
     {
       "id": "E-356",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Integrate the licence state into the hooks per D-114 and .ai/blueprints/licensing.md §Component 3 and §Security: hooks/session-start.sh computes the state in the same node invocation that mints the E-129 role token, stamps `[LICENSE_<STATE>] <licensee> · <tier> · <seats_used>/<seats> · expires <date>` as the second injected line after [AI_OS_ROLE], and writes the state to the session run file beside the token; hooks/pre-tool-use.sh reads it (no re-verification) and, when READ_ONLY, blocks Write, Edit, NotebookEdit and every Bash command safe-exec classes as a write with the one line `[LICENSE_READ_ONLY] <reason> — install a valid key: ai license install <file>`, while reads, `ai doctor`, `ai license *` and the terminal-side `ai gate off` escape keep working; the gate rows join tests/fixtures/role-verdict-cases.json (re-pin its sha by the D-ruling that closes this task and report the new sha in the handoff); no new bash suite. Dispatch security_engineer then critic_security (SEC_CLEARED). Acceptance: UNLICENSED on a fresh machine is GRACE for 14 days (warn only) then READ_ONLY; TAMPERED is READ_ONLY at once; the operator escape still disables the gate; hook latency unchanged within 10 ms; full ai ci run green; bash install-ai-os.sh.",
       "created_at": "2026-10-28T13:22:46.090Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:05.041Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [
         "E-354"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T20:59:27.186Z"
+      "updated_at": "2026-11-24T15:13:05.054Z"
     },
     {
       "id": "E-357",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Implement the heartbeat client per D-114 and .ai/blueprints/licensing.md §Component 5 and §Data Model: src/shared/heartbeat.mjs on the E-84 telemetry.mjs fire-and-forget pattern (detached child, 2 s timeout, silent on success), triggered from the session-start hook after the licence verdict, `ai sync` and `ai start`; at most one request per 24 h per machine stamped in ~/.ai-os/heartbeat.json (last_sent, last_response, failures, per-machine random salt, over_seats_since); payload exactly the closed field list (signed licence, salted machine_hash, ai_os_version, os, node_major, roles, projects as count of salted project hashes, sessions, tasks_done, provider_models, window_start, window_end) built from one SELECT over telemetry.sqlite, posted to payload.hb_url; disabled when the licence carries no_heartbeat or AI_TELEMETRY_DB_PATH points under tests/ (test-harness-isolation.md §The Sixth Variety), no other opt-out; `ai doctor` prints [HEARTBEAT_FAILED] <reason> after three consecutive failures; src/contracts/heartbeat.schema.json with additionalProperties false; tests/unit/heartbeat.test.mjs asserts the payload against the schema and that email, git identity, repo URLs, paths, prompts and task text are absent. Acceptance: a session inside the 24 h window makes no request (asserted); the harness never reaches the network (asserted); full ai ci run green.",
       "created_at": "2026-10-28T13:22:52.798Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:07.297Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [
         "E-354"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T20:59:31.450Z"
+      "updated_at": "2026-11-24T15:13:07.299Z"
     },
     {
       "id": "E-358",
@@ -704,46 +705,46 @@
     {
       "id": "E-359",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Build the licence server per D-114 and .ai/blueprints/licensing.md §Component 6 and §API in the SEPARATE private repository ai-os-license-server. Ordering: after E-357 (not chained in the DAG to keep depth under 5 — do not start before E-357 is DONE); until the operator creates that repository, report [REPO_MISSING] in the handoff and stop; never place the server under this tree, it must not ship to licensees. Scope: POST /v1/heartbeat verifying license.sig against the vendored license-keys.json (401 on bad signature or unknown kid, 403 on a revoked lic_id, 400 on a window_end more than 24 h ahead or a body outside src/contracts/heartbeat.schema.json), storing one row and answering {ok, over_seats, seats_used, seats_allowed, revoked, message} with seats_used = distinct machine_hash per lic_id over 30 days; GET /v1/report?lic_id= and POST /v1/revoke behind basic auth from the platform secret store; SQLite in WAL mode with a nightly copy to object storage and 24-month retention; the heartbeat schema copied verbatim from this repo and a contract test in THIS repo (tests/unit/heartbeat-contract.test.mjs) round-tripping a sample payload against the server's handler module. Dispatch security_engineer then critic_security (SEC_CLEARED). Acceptance: E-357's client against a local instance yields over_seats true on the sixth machine of a Gold key; revoke flips the next response; nothing beyond lic_id and licensee name identifies a customer.",
       "created_at": "2026-10-28T13:23:22.568Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:08.353Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T20:59:32.633Z"
+      "updated_at": "2026-11-24T15:13:08.353Z"
     },
     {
       "id": "E-360",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Add release packaging for the storefront per D-114 and .ai/blueprints/licensing.md §Component 7 and §Security: `ai release` (extend the release-manager flow) builds ai-os-<version>.tar.gz from a clean export (no .git, no node_modules, no ~/.ai-os state, never ~/.ai-os/secrets/*) with a detached Ed25519 signature made by the production signing key and a SHA-256 sum file; `bash install-ai-os.sh` from the extracted tarball installs identically to a clone (asserted by the existing installer suite in an added row); `ai license verify` of the signature uses the same license-keys.json list; the tarball is the Polar.sh downloadable, so the task's handoff names the artefact path and sum. Blocked in practice on P-46 (the production kid and the Polar product ids) — if P-46 is not DONE, build with the test key and report [AWAITING_P46]. Acceptance: tarball contains no file matching the secret rule; install from tarball passes ai doctor; full ai ci run green.",
       "created_at": "2026-10-28T13:23:29.191Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:09.399Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [
         "E-358"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T20:59:34.082Z"
+      "updated_at": "2026-11-24T15:13:09.399Z"
     },
     {
       "id": "E-361",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Implement the personal tier on the client per D-115 and .ai/blueprints/licensing.md §Component 7 and §Component 8. Ordering: after E-357 and E-359 by text (not chained: DAG depth cap). Scope: `ai license personal <email>` in src/shared/cli-license.mjs posting to <hb_url host>/v1/personal, polling GET /v1/personal/<ticket> for up to 10 minutes and installing the returned document after verifying it against license-keys.json ([LICENSE_PERSONAL] installed · renews itself); the `personal` tier in verifyLicense (seats 2, no no_heartbeat feature allowed — a personal key carrying it is TAMPERED); renewal: when the heartbeat response carries `renewal`, verify it with the public key list before writing it over license.json, drop and report a bad one, keep the old key; `commercial_signal` in the response → `ai doctor` prints [LICENSE_PERSONAL_LIMITS] <machines>/<projects> and the session line gains the word over-limit, nothing else (no enforcement); rows for every new state in tests/fixtures/license-cases.json (re-pin the sha; report it in the handoff) and a heartbeat.test.mjs case for a tampered renewal. Dispatch security_engineer then critic_security (SEC_CLEARED). Acceptance: a personal key renews in a unit test with the test keypair when 29 days remain and not at 31; a renewal signed by an unknown kid is refused and the old key survives; full ai ci run green; bash install-ai-os.sh.",
       "created_at": "2026-10-28T16:34:01.396Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:10.451Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T20:59:35.267Z"
+      "updated_at": "2026-11-24T15:13:10.451Z"
     },
     {
       "id": "E-362",
@@ -790,16 +791,16 @@
     {
       "id": "P-47",
       "owner": "Architect (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Scrub the Architect-owned files that ship in the public mirror per D-117 and .ai/blueprints/licensing.md §Component 8: replace session ids, the tmux socket path and the names of private downstream projects in .ai/DECISIONS.md, .ai/architect.md and every .ai/blueprints/*.md with neutral wording (a session id becomes \"the session\", a project name becomes \"a downstream project\"); keep every D-### and E-## reference intact; record the count of replacements per file in LOG.md. Acceptance: E-364's shared scan helper reports zero findings over the mirror's include list for .ai/; the first mirror push (E-360) is blocked until this is DONE.",
       "created_at": "2026-10-28T16:42:10.735Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:20.453Z",
+      "summary": "superseded by D-129 — not implemented. D-174 r1b: the public repository was bootstrapped from a scrubbed snapshot; there is no mirror.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T16:42:10.735Z"
+      "updated_at": "2026-11-24T15:13:20.453Z"
     },
     {
       "id": "E-365",
@@ -835,54 +836,51 @@
     {
       "id": "E-367",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Add the copy-deterrence legal text and machine-readable signals per D-120 and .ai/blueprints/licensing.md §Component 9 (forbid + signal layers): (1) legal/COMMERCIAL-LICENSE.md clause 3 gains two restrictions — no use of the software or its source as training, fine-tuning, evaluation or retrieval data for any machine-learning model; no use of an automated agent to reproduce, translate, summarise into a specification or re-implement the software or any substantial part; (2) a root NOTICE file (plain text) with the PolyForm Required Notice line, an \"AI agents:\" paragraph naming the licence and the two restrictions for every reader (personal tier included; the PolyForm text in LICENSE stays verbatim), and the EU DSM Directive art. 4(3) text-and-data-mining reservation; (3) root ai.txt and tdmrep.json (W3C TDM Reservation Protocol, tdm-reservation: 1); (4) the same \"AI agents\" paragraph at the top of README.md; (5) NOTICE, ai.txt and tdmrep.json added to the publish export include list (src/shared/publish-scan.mjs or wherever E-365 fixed the list) and to the installer's copied files so the install carries NOTICE; (6) DRAFT banners on the new legal text until P-46. Acceptance: the export scan still reports 0 hits; the E-358 no-OSI-licence-named test passes with NOTICE present; CI green; critic_security SEC_PASS. Framework task.",
       "created_at": "2026-10-28T20:28:59.215Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:11.506Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [
         "E-358"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T20:59:36.589Z"
+      "updated_at": "2026-11-24T15:13:11.506Z"
     },
     {
       "id": "E-368",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Fingerprint the paid download per D-120 ruling 2 and .ai/blueprints/licensing.md §Component 9 (trace layer), §Component 5 and §Security: (1) in the SEPARATE ai-os-license-server repo, `GET /v1/download` authenticated by the licence document in the request (same signature check as /v1/heartbeat; 401 bad signature, 403 revoked, 404 unknown lic_id) streams the release tarball with legal/FINGERPRINT and src/shared/build-stamp.json carrying `fingerprint` = hmac_sha256(server_secret, lic_id) truncated to 16 hex; the server secret lives beside the signing key, never in a repo; (2) client: the heartbeat payload gains the closed field `fingerprint` read from build-stamp.json (absent on the mirror and personal installs) — update the Component 5 field list in the blueprint reference, the heartbeat schema in src/contracts/, legal/COMMERCIAL-LICENSE.md clause 6's verbatim list, and the Tier 3 field-list test; (3) `ai doctor` prints `[LICENSE_FINGERPRINT] <16 hex>` when present; (4) `ai release` (E-360) uploads the unstamped release tarball to the server, not to Polar; the Polar Custom benefit text becomes the key plus the one-line download instruction (curl with the licence file); the operator updates Polar (P-46). Ordering: after E-359 and E-360. Acceptance: a tarball downloaded with licence A carries A's fingerprint and the next heartbeat from that install reports it; a download with a revoked or tampered licence is refused; the field-list test enumerates exactly the listed fields; security_engineer run (auth + secrets); critic_security SEC_PASS. Framework task; [REPO_MISSING] until the server repo exists.",
       "created_at": "2026-10-28T20:29:10.160Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:12.559Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [
         "E-359",
         "E-360"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-359",
-        "E-360"
-      ],
-      "updated_at": "2026-10-28T20:59:37.771Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:13:12.559Z"
     },
     {
       "id": "E-369",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Add the operator_name scan class and the archive-cleanliness assertions per D-122 and .ai/blueprints/licensing.md §Component 8 and §E-## Task Breakdown (E-369 row): (1) src/shared/publish-scan.mjs gains a fifth class `operator_name` read from .ai/publish-scan.local.json key `operator_names` (gitignored; the operator writes it; the file now carries both `client_names` and `operator_names`); a hit is allowed only in LICENSE, NOTICE, legal/** and the scanner's own reviewed test exemption; an absent or empty operator_names list refuses with [SCAN_LIST_MISSING] exactly like the client list; (2) a reusable archive check in src/shared/ (used by E-360): given a tarball, assert every entry has numeric owner 0/0 with no uname/gname, no absolute or `..` paths, no `.git/` entry, and that the scan over the extracted tree reports 0 hits; (3) contract rows for both in the existing publish-scan cases (extend, do not add a suite); (4) `ai doctor` prints [SCAN_LIST_OK] client=N operator=N or [SCAN_LIST_MISSING]. Acceptance: the export scan over the §Component 8 list reports 0 hits with the operator's local list (the name appears only in LICENSE); CI green; critic_security SEC_PASS. Framework task.",
       "created_at": "2026-10-28T20:35:41.679Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:13.610Z",
+      "summary": "superseded by D-123 — not implemented. D-174 r1a: commercial licensing was replaced by the open-source release.",
       "depends_on": [
         "E-365"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T20:59:39.004Z"
+      "updated_at": "2026-11-24T15:13:13.610Z"
     },
     {
       "id": "E-370",
@@ -929,16 +927,16 @@
     {
       "id": "E-373",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Implement `ai publish` per D-123 and .ai/blueprints/open-source-release.md §Component 4, §Data Model and §API (replaces E-360): `ai publish [--dry-run] [--tag vX.Y.Z]` extending the release-manager flow — (1) export the tag's tree by the §Component 4 include list into a temp dir; (2) copy .ai/architect.md → docs/design/ARCHITECTURE.md and .ai/blueprints/*.md → docs/design/blueprints/ except names in .ai/publish.json `exclude_blueprints` (seeded [\"licensing.md\"]), rewriting .ai/blueprints/ links; (3) write .ai/ in the export as the `ai init` template only; (4) run the E-372 scan and the non-content checks, refuse on any hit; (5) prove the export installs in a temporary HOME (`bash install-ai-os.sh && ai sync && ai doctor`), skipped only by an explicit --skip-install-proof that prints a warning; (6) in a clone of the public repo replace the tree with the export, ONE commit `release: vX.Y.Z` as the public identity, tag, push; --dry-run stops before the push and prints the file list, the scan summary and the commit metadata. Add .ai/publish.json (tracked, no personal data) and a public .github/workflows/ci.yml in the export that runs tests/run.sh on push and PR. Acceptance: --dry-run on the current tag prints 0 scan hits and a passing install proof; a fixture export with a planted home path is refused with [PUBLISH_SCAN_HIT]; a wrong identity is refused with [PUBLISH_IDENTITY]; CI green; critic_security SEC_PASS. Ordering: after E-370, E-372 and E-374 by text. The FIRST publish is run by the operator (--dry-run, then publish). Framework task.",
       "created_at": "2026-10-28T21:00:06.775Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:15.873Z",
+      "summary": "superseded by D-129 — not implemented. D-174 r1b: no mirror and no two-repository loop; releases go through release.yml (D-133, D-156).",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T21:22:41.008Z"
+      "updated_at": "2026-11-24T15:13:15.873Z"
     },
     {
       "id": "E-374",
@@ -957,58 +955,58 @@
     {
       "id": "P-48",
       "owner": "Architect (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Record the open-source release inputs as a D-ruling per D-123 and .ai/blueprints/open-source-release.md §Component 6 and §Data Model: the public repository Vimurai/ai-os created empty by the operator; the GitHub noreply identity (`<id>+vimurai@users.noreply.github.com`) written into .ai/publish.json by the Engineer; the sponsor accounts (GitHub Sponsors enabled, the Polar account converted to sponsorship tiers, any other FUNDING.yml entry); the operator's confirmation that .ai/publish-scan.local.json carries operator_names; the first published tag after the operator's `ai publish --dry-run` and `ai publish`; and the superseded licensing tasks closed in state once the build gate allows. Acceptance: one D-entry with all inputs; the public repo's first commit is authored by the public identity and its tree passes the scan.",
       "created_at": "2026-10-28T21:00:18.749Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:21.610Z",
+      "summary": "superseded by D-129 — not implemented. D-174 r1b: the release inputs were recorded by D-124, D-129 and D-156.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T21:00:18.749Z"
+      "updated_at": "2026-11-24T15:13:21.610Z"
     },
     {
       "id": "E-375",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Perform the delegated release operations per D-126 and .ai/blueprints/open-source-release.md §Component 4 and §E-## Task Breakdown (E-375 row): (1) reinstall whenever [BUILD_STALE] or a stale MCP blocks a step — `bash install-ai-os.sh && ai sync`, then restart the MCP servers — and close the tasks the gate was holding (E-355, E-370, E-371, E-372 and the Architect's P-47 stays the Architect's); (2) create the public repository with `gh repo create Vimurai/rein --public` — empty, description from the README pitch, topics (ai, agents, claude-code, developer-tools), default branch main, issues on, wiki off; never create or reuse Vimurai/ai-os; (3) write the gitignored .ai/publish-scan.local.json: client_names (the two names from .ai/AUDIT-PUBLIC.md's local list), operator_names (the operator's real name in every form found in the private git history and bookkeeping, the personal address, the former-employer address from commit e7d43c0, the login), and the D-124 allow block for the real name and the personal address only (LICENSE, NOTICE, SECURITY.md, package.json, README.md); confirm `ai doctor` prints [PUBLISH_SCAN_OK]; (4) after E-373 and E-374: run `ai publish --dry-run`, attach the full output (file list, scan summary, install proof, commit metadata) to a COMM handoff and WAIT for the Architect's \"publish\" line; (5) then `ai publish`, verify with a fresh clone of Vimurai/rein (scan over the clone = 0 hits; install proof from the clone), confirm the tag, protect main via `gh api` (no force-push, no deletion), and hand the tag to the Architect for P-48. Tier 3: an irreversible public push; security_engineer reviews the dry-run output alongside the Architect. Ordering: after E-373 and E-374 by text; step (1) any time.",
       "created_at": "2026-10-28T21:16:13.008Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:17.032Z",
+      "summary": "superseded by D-129 — not implemented. D-174 r1b: no mirror and no two-repository loop; releases go through release.yml (D-133, D-156).",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T21:22:41.091Z"
+      "updated_at": "2026-11-24T15:13:17.032Z"
     },
     {
       "id": "E-376",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Build the maintenance loop between the private and the public repository per D-127 and .ai/blueprints/open-source-release.md §Component 7: (1) `.github/workflows/publish.yml` in THIS private repo — on push of a tag `v*`: checkout the tag, install, run `ai publish --tag <tag>` with the deploy key from the Actions secret REIN_DEPLOY_KEY; the scan, the install proof and the identity check run inside the job and any hit fails it before any push; the job log is the release record; the workflow is NOT part of the export (the public repo gets its own ci.yml from E-373); (2) generate an Ed25519 deploy key: public half added to Vimurai/rein as a write deploy key via `gh`, private half stored only as the repository secret via `gh secret set` from a temp file that is shredded — never written under the repo tree, never printed (secret-rule.mjs refuses PEM headers in commands; use file redirection from the keygen output path); (3) `ai publish --import <pr-number>`: fetch the public PR's commits, apply them with `git am` onto the current private branch preserving author and Signed-off-by, refuse a commit without Signed-off-by with [DCO_MISSING], run the fast test tier, leave conflicts to the Engineer; (4) after a tag publishes, the workflow comments on every public PR whose commits are contained in the release (\"released in <tag>\") and closes it; (5) CONTRIBUTING.md gains the two sentences: PRs are imported into the private development repo and released with the next tag; your authorship is preserved in the commit and credited in the CHANGELOG. Acceptance: a dry workflow run on a test tag (workflow_dispatch) reaches the push step and stops when REIN_DEPLOY_KEY is absent with a clear line; --import on a fixture PR preserves author/sign-off; CI green; security_engineer run (deploy key handling); critic_security SEC_PASS. Tier 3. Ordering: after E-373 and E-375 by text (the first publish is manual; the second tag verifies the workflow).",
       "created_at": "2026-10-28T21:17:22.988Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:18.138Z",
+      "summary": "superseded by D-129 — not implemented. D-174 r1b: no mirror and no two-repository loop; releases go through release.yml (D-133, D-156).",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T21:21:39.746Z"
+      "updated_at": "2026-11-24T15:13:18.138Z"
     },
     {
       "id": "E-377",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Migrate development into the public repository per D-128 and .ai/blueprints/open-source-release.md §Component 8 (replaces E-376), after E-375's first release: (1) clone Vimurai/rein beside the private clone; (2) carry the Triad bookkeeping over SCRUBBED — rewrite every occurrence of the operator's addresses in .ai/state.json, .ai/REVIEWS.md and any other .ai/ file to the noreply identity; carry .ai/COMM.md and .ai/LOG.md from the D-123 handoff onward only; carry .ai/DECISIONS.md whole (P-47 scrubbed it); run `ai state import`; open E-/P- tasks keep their ids; verify with the five-class scan over the whole public clone = 0 hits; (3) set the repo-local git user.name/user.email to the noreply identity and add a pre-commit check that refuses any commit whose author or committer differs, with one clear line; (4) install the scan as a pre-commit hook over every staged file and as a required CI job over the tree on push and PR in the public ci.yml, plus the DCO check as a required status; (5) protect main via `gh api` (PR required, CI + DCO required, no force-push, no deletion); (6) remove the squash-and-push part of `ai publish` (D-123 r3, no dormant code) and keep its export scan and install proof as CI jobs; delete .ai/publish.json's public_repo if unused; (7) run one full Triad ping-pong in the public clone (an Architect handoff and an Engineer task through CI) and only then archive Vimurai/ai-os-dev with `gh repo edit --archived`; (8) README/CONTRIBUTING: development happens in this repository, PRs merge normally, DCO required. Acceptance: scan 0 hits over the public clone; a test commit under the personal address is refused by the hook; CI green on the public repo; security_engineer run; critic_security SEC_PASS; critic_arch ARCH_PASS. Tier 3. Ordering: after E-375 by text.",
       "created_at": "2026-10-28T21:21:39.850Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:19.297Z",
+      "summary": "superseded by D-129 — not implemented. D-174 r1b: no mirror and no two-repository loop; releases go through release.yml (D-133, D-156).",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T21:22:41.171Z"
+      "updated_at": "2026-11-24T15:13:19.297Z"
     },
     {
       "id": "E-378",
@@ -1041,30 +1039,30 @@
     {
       "id": "E-380",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Close the privacy-scan residuals per D-130 addendum and .ai/blueprints/open-source-release.md §Component 10 (E-380 row), in src/shared/publish-scan.mjs scanText and redact: (1) confusable homoglyphs in operator and client names — map Cyrillic/Greek/full-width confusables to their Latin skeleton (a small fixed table, no dependency) before matching, and match the skeleton; (2) Windows paths (C:\\Users\\<user>, \\\\host\\share), URL-encoded (%2F, %40) and full-width forms of paths and addresses decoded/normalised before the home_path and personal_email rules; (3) URL-userinfo addresses (https://user@host, mailto:) treated as personal_email unless the user part is a placeholder or token shape already exempted; (4) hosted-ci summaries: redact, not warn, with the same [PRIVACY_REDACTED] line. Contract rows in tests/fixtures/privacy-cases.json for each (extend; no new suite). Acceptance: all rows pass; the bounded EMAIL_RE stays linear on a 1 MB input (one timing row); CI green; critic_security SEC_PASS. Tier 2. Ordering: after E-379; before or in the first public release.",
       "created_at": "2026-10-28T22:00:03.314Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:50.239Z",
+      "summary": "superseded by D-174 — not implemented. D-174 r5: the WSL2 path form is already matched; the rest are named residuals of the privacy scan.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T22:00:03.315Z"
+      "updated_at": "2026-11-24T15:13:50.239Z"
     },
     {
       "id": "E-381",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix orchestrator-mcp run_review: it fails with \"markdown-exec.mjs does not provide an export named isInertInputTable\" (reported from the bonkraft project 2026-10-28, D-051/7). Restore or rename the export so run_review loads, add the regression test that imports every markdown-exec.mjs symbol the orchestrator uses. Acceptance: run_review({tier: 2}) completes in a downstream project",
       "created_at": "2026-10-28T22:02:04.551Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:25.029Z",
+      "summary": "superseded by D-170 — not implemented. D-174 r1d: orchestrator-mcp is gone; rein review replaced run_review.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-28T22:02:04.551Z"
+      "updated_at": "2026-11-24T15:13:25.029Z"
     },
     {
       "id": "E-382",
@@ -1146,18 +1144,18 @@
     {
       "id": "E-387",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Shrink Rein's exclusive suite tail per D-135 r6 and .ai/blueprints/ci-throughput.md §Component 5 (after E-386, with tests/census-baseline.tsv committed): run `ai ci run` and list every suite the Lane: lines still mark exclusive with its reason; the five \"no measured installer footprint\" suites must now sit in the lanes through the baseline (if not, fix the baseline path, not the suites); for each remaining exclusive suite either verify and keep its `# AIOS_EXCLUSIVE: <reason>` header (tmux, installer, port, perf — the reason must be true today) or make it shared by removing the cause (a fixed port → an ephemeral one; a machine-wide path → the lane's HOME; a perf assertion → the E-239 assert_perf marker only where timing is the subject); split a suite only when its exclusive part is under a quarter of it, and name the suite it extends (D-088). No suite is named for this task. Acceptance: exclusive_seconds under 25 % of suite seconds in `ai ci status` after a full local run with --lanes 4; every remaining exclusive suite names its reason in its header; `ai ci budget` suites +0 or lower; full ai ci run green.",
       "created_at": "2026-10-29T11:39:27.333Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:26.090Z",
+      "summary": "superseded by D-170 — not implemented. D-174 r1d: the suites it measured were cut to 31; a full local run is 293 s.",
       "depends_on": [
         "E-386"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-29T15:16:54.840Z"
+      "updated_at": "2026-11-24T15:13:26.090Z"
     },
     {
       "id": "P-49",
@@ -1234,34 +1232,34 @@
     {
       "id": "E-392",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Add the Windows (WSL2) CI leg per D-132 addendum 2 r10 and .ai/blueprints/public-ci.md §Component 5 (after the v0.4.0 tag; ci_gate first, DEVOPS.md entry with rollback): in src/shared/hosted-ci.mjs's public profile and src/templates/ci/github.yml add `windows-latest × node 22 × 4 shards`, not in the required set (no continue-on-error — a red stays visible); steps: checkout, the setup-wsl action pinned to a full commit SHA with its version in a trailing comment, distribution Ubuntu 24.04, WSL 2 where the hosted windows-2022 image can start it — if the first run shows it cannot, run WSL 1 and say \"WSL\" in the leg's display name and in the README; inside the distribution copy the checkout to the Linux filesystem (~/src) before anything runs, install node 22, git, sqlite3, python3 and tmux, run `bash install-rein.sh`, `rein doctor`, then `rein ci run --shard i/4` as the Ubuntu legs do; `rein ci status` ingests the leg with host= windows-wsl2 or windows-wsl1; the census baseline is not re-seeded from it. Render with `rein ci hosted github` (--check green), timeout 60 minutes. When three consecutive runs on main are green, add the four legs to the required set with one gh api call, record it in .ai/DEVOPS.md, and change the README's \"a Windows (WSL2) leg in the CI matrix is planned\" to state the leg runs (WSL2 or WSL per what runs). Acceptance: the leg appears on the PR with four shards; the handover reports the first run's WSL version, the four times and any suite that fails only there (each as its own follow-up, never skipped silently); required set and README updated only after three green runs; full rein ci run green.",
       "created_at": "2026-10-29T21:16:07.573Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:29.295Z",
+      "summary": "superseded by D-172 — not implemented. D-174 r1f: the operator's machine is WSL2 and runs CI and the escape suite at every release; a hosted leg cannot run the sandbox.",
       "depends_on": [
         "E-391"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T14:27:26.188Z"
+      "updated_at": "2026-11-24T15:13:29.295Z"
     },
     {
       "id": "E-393",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Close the CLI_GATE assembly bypasses per D-132 addendum 4 r7 and .ai/SECURITY.md \"E-391 / D-132 addendum 2–3\" (pre-existing: identical on e04bb83 with `ai`; P1; right after the v0.4.0 tag, before E-385). (1) Normalise before the token match in gate-guard's CLI_GATE and the pre-tool-use fallback grep: strip quotes and backslashes per word, decode $'…' words, drop the `--` separator, and skip wrapper prefixes with their flags and arguments (env [-i] [NAME=val…], nice [-n N], sudo [-u x …], stdbuf -oX, setsid, flock f, exec [-a x], command [-p], builtin, time [-p], nohup, timeout N) before matching `rein gate off`; add `)` and the missing prefixes to CMD_HEAD. Reuse the D-112 operand normaliser in src/shared (engineering-standards: no second normaliser). (2) Belt in the command itself: `rein gate off` exits 2 with the operator-escape message unless stdin is a TTY and no Rein role token or Claude session variable is present in its environment; the operator's terminal passes both. (3) Rows: every one of the 15 forms in SECURITY.md's finding, plus the over-block rows that must stay blocked, as rows in tests/fixtures/gate-self-disable-cases.json; the table is byte-pinned (D-089 r5) — re-pin under this ruling with old and new sha and the row counts in the PR description (D-132 addendum 3 r2 conditions). The runtime-assembly residual (`x=rein; $x gate off`, hex-escaped words) stays the classifier's, as named. (4) security_engineer re-runs the A01 payload table; every EXPLOITED row of the 15 is RESISTED; the INCONCLUSIVE residual is recorded as such. Acceptance: all 15 forms blocked by the hook in a throwaway HOME; `rein gate off` refuses under the Bash tool and works in a terminal; gate-self-disable, gate-guard-home and safe_exec suites green; no suite deleted or skipped; full rein ci run green; THREAT_MODEL.md entry updated.",
       "created_at": "2026-10-29T22:14:28.016Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:37.759Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built and accepted (D-163 addendum 2), then deleted by E-463; tag v0.5.0 holds it.",
       "depends_on": [
         "E-391"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T14:27:26.191Z"
+      "updated_at": "2026-11-24T15:13:37.759Z"
     },
     {
       "id": "E-394",
@@ -1396,30 +1394,30 @@
     {
       "id": "E-403",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Make the privacy gate read a binary's metadata instead of its compressed payload per D-140 r2 and .ai/blueprints/demo-video.md §Security (gate surface: Tier 3, security_engineer on the scanner; after E-390, before E-402's re-record). In src/shared/publish-scan.mjs: (1) detect known media types by magic bytes — GIF87a/89a, PNG, JPEG, WebP (RIFF/WEBP), MP4/MOV (ftyp), WOFF/WOFF2 — independent of the extension; (2) for a detected type, scan ONLY the textual metadata with the existing classes: GIF comment (0x21 0xFE) and application (0x21 0xFF) extension blocks, PNG tEXt/zTXt/iTXt chunks (inflate zTXt/iTXt), JPEG COM/APP1 (EXIF, XMP) segments, MP4 udta/meta/ilst atoms, font `name` tables; skip the payload; (3) a file whose extension claims a media type but whose magic does not match, or any other binary, is scanned as today (printable runs); (4) remove the docs/assets/demo.gif entry from EXEMPT_FILES and the gate's reason text; (5) tests in the publish-scan suite (name what each extends, D-088): a GIF with a planted address in a comment extension → hit, the same pixels without it → clean; a PNG with a planted path in tEXt → hit; a .gif whose bytes are text → scanned as text and hit; docs/assets/demo.gif → clean with no exemption; mismatched extension → printable-run path; (6) the privacy.yml hosted job and `rein publish --dry-run` both green on the tree without the exemption. Acceptance: EXEMPT_FILES has no demo.gif row; every listed test green; `rein ci run` green; security_engineer pass recorded in .ai/SECURITY.md; all required checks green. One PR.",
       "created_at": "2026-10-30T22:47:34.919Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:51.397Z",
+      "summary": "superseded by D-174 — not implemented. D-174 r6: demo.gif keeps its one exemption; media parsers are not built.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T22:47:34.924Z"
+      "updated_at": "2026-11-24T15:13:51.397Z"
     },
     {
       "id": "E-404",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Name toolchain staleness per D-140 r7 (the E-402 run: a Homebrew upgrade of the pinned Python changed the ABI under the gate's parser and every Bash call failed with a bare [GATE_INTERNAL_ERROR] until `bash install-rein.sh`). (1) `rein doctor` gains a probe that imports the pre-tool-use gate's parser modules under the pinned toolchain exactly as the hook does (same interpreter, same env) and prints `✓ toolchain` or `✗ [TOOLCHAIN_STALE] <module>: <first error line> — run: bash install-rein.sh`, non-zero exit like [SAFE_EXEC_BROKEN] (E-395); (2) the pre-tool-use gate, when the parser import fails, prints the same [TOOLCHAIN_STALE] line (still failing closed) instead of the bare internal error; (3) the rein-preflight \"Stale MCP servers\" injection line also runs the probe and prints the line when stale; (4) file the event with `skill: rein-incident` (sanitised: no home path); (5) tests (name what each extends, D-088): a fixture toolchain whose module import throws → doctor prints the line and exits non-zero, the gate prints the line and blocks; a healthy toolchain → ✓. Acceptance: `rein doctor` on this machine prints `✓ toolchain`; the fixture tests green; hooks_surface / exec_form_hooks suites unchanged in what they assert; `rein ci run` green; all required checks green. One PR, before E-402's re-record.",
       "created_at": "2026-10-30T22:47:35.045Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:34.071Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: the parser whose staleness it names was deleted by E-463.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T22:47:35.046Z"
+      "updated_at": "2026-11-24T15:13:34.071Z"
     },
     {
       "id": "E-405",
@@ -1508,16 +1506,16 @@
     {
       "id": "E-411",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Carry PR #26 (fix/sync-gitignore-mcp-home, 65809e1) to main per D-143 r1, r4, r5 and .ai/blueprints/multimodal-rag-batching.md §Security: the Memory Palace sync-time scan prunes gitignored directories up front (one `git ls-files --others --ignored --exclude-standard --directory`, one `gitignored-dir` skipped entry each), keeps a 256 MiB maxBuffer on the check-ignore batch and FAILS CLOSED on a failed probe (indexes nothing, prints one line); `generate_mcp_json` writes the literal `${HOME}/.rein/mcp/<server>/index.js` (plain `${HOME}` only); `rein doctor` and src/shared/mcp-tester.mjs expand `${VAR}` / `${VAR:-default}` before testing a path. Built and reviewed as #26 — this task is its record and its landing: (1) merge #26 FIRST, before #25, #24 and the #19..#23 stack (D-143 r4), with `gh pr merge 26 --merge --delete-branch` (D-141 r1), then fast-forward local main and prune; (2) `bash install-rein.sh && rein sync` on this clone, restart the MCP servers, and confirm this project's .mcp.json carries `${HOME}` paths and `rein doctor` prints no [MCP_PATHS_MISSING]; (3) the doctor's inline os.path.expandvars is interim — E-409's re-cut (D-143 r2-r3: claim retired, src/shared/mcp-paths.mjs is the one expander) replaces it; do not duplicate the expander here. Tests as built: T-MBS-S12 (9k-file repro), S04 rows, cli_test E-274.01b/01c/02c, cache_manager T-MT-S03. Acceptance: #26 merged into main and its head branch gone; local main at the merge; `rein doctor` on this project clean; required checks green on the merge; DONE via skill rein-task.",
       "created_at": "2026-11-04T18:19:14.739Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:27.240Z",
+      "summary": "superseded by D-170 — not implemented. D-174 r1d: the memory palace is gone; PR #26 is closed unmerged (r9).",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-04T18:19:14.757Z"
+      "updated_at": "2026-11-24T15:13:27.241Z"
     },
     {
       "id": "E-412",
@@ -1778,96 +1776,91 @@
     {
       "id": "E-428",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Add a test-fixture exemption policy to the run_review PATH_TRAVERSAL rule (orchestrator-mcp / standards checker). Reported by a downstream project (pi-market, E-263): hostile-input test literals (\"../../etc/passwd\") and vi.mock(\"../..\") relative mocks both hard-block, which pushes engineers to obfuscate tests. Policy: (a) exempt files matching test globs (*_test.go, *.test.{js,jsx,ts,tsx}, tests/**, __tests__/**, testdata/**) from the literal-traversal check, but keep it for non-test source; (b) never exempt fs/path sinks in non-test code; (c) support an inline suppression marker with a mandatory reason (e.g. `// rein:allow PATH_TRAVERSAL <reason>`), recorded in the review output so it is auditable. AC: rule tests showing that a test-file literal passes, the same literal in src/ still blocks, a marker without a reason still blocks, and a marker with a reason passes and is reported.",
       "created_at": "2026-11-17T11:48:38.736Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:57.262Z",
+      "summary": "Built; on main through 82f9521 (PR #69), where the rule lives in the standards checker that rein review runs. Closed under D-174 r2.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T11:48:38.741Z"
+      "updated_at": "2026-11-24T15:13:57.266Z"
     },
     {
       "id": "E-429",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Build the deterministic digest builder per D-159 r1-r2, r4, r6 and .ai/blueprints/harness-fitness.md §Component 1, §Data Model, §API and §Security: create src/shared/digest-build.mjs exporting buildDigest(projectDir) as the only writer of .ai/DIGEST.md, reading tracked inputs only (.ai/state.json, `^## D-` headings of .ai/DECISIONS.md, .ai/BRIEF.md, package.json, the newest v* tag) and rendering the eight sections of the Component 1 table in fixed order, 60 lines at most, with the header `inputs <12 hex>` (sha256 over the input bytes) and no wall clock; pass the text through the shared redact() and write by temp file and rename, refusing a symlinked or out-of-project target; add `rein digest build` and `rein digest check` to src/bin/rein, the pinned CLI surface and rein help; add the project-scope doctor record `digest` (warning, never a hard fail) to src/shared/doctor-scopes.json. Tests per D-088: rows in tests/fixtures/digest-cases.json driven by one unit file, no suite named for the task. If a section needs an untracked input, drop the section and report it in the handoff. Acceptance: `rein digest build` run twice on an unchanged tree prints [DIGEST_OK] the second time and `git status -- .ai/DIGEST.md` shows no change after it; the same commit checked out in two directories yields byte-identical digests (one fixture row); `rein digest check` exits 1 with [DIGEST_STALE] after a task is closed in state.json without a rebuild and 0 after `rein digest build`; the built file is 60 lines or fewer and names the current package version and newest tag; a fixture with .ai/DIGEST.md as a symlink is refused with [DIGEST_BUILD_FAILED]; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-17T16:50:22.885Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:58.188Z",
+      "summary": "Built (src/shared/digest-build.mjs); on main through 82f9521 (PR #69). Closed under D-174 r2.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T16:50:22.893Z"
+      "updated_at": "2026-11-24T15:13:58.188Z"
     },
     {
       "id": "P-51",
       "owner": "Architect (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 1,
       "description": "Rule on every OPEN task an accepted decision has overtaken per D-159 and .ai/blueprints/harness-fitness.md §Component 4: read each against its superseding decision — the licensing tasks E-356, E-357, E-359, E-360, E-361, E-367, E-368, E-369 and P-46 against D-123; the mirror and two-repository tasks E-373, E-375, E-376, E-377, P-47, P-48 against D-128 and D-129; E-334 and E-337 against D-131 and the Rein rename; E-381 against the current run_review — and for each one record in a single D-ruling: close as superseded (naming the decision), rewrite (new text), or keep (reason). Close through update_task_status, never by editing TASKS.md. Acceptance: one D-entry lists every id above with its verdict; `grep -c \"^- \\[ \\]\" .ai/TASKS.md` afterwards equals the number of tasks ruled keep or rewrite plus the tasks not on this list; verify_markdown_sync returns [SYNC_PASS].",
       "created_at": "2026-11-17T16:50:26.863Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:14:37.220Z",
+      "summary": "D-174: 43 tasks closed as overtaken, 9 closed as built, E-448 waits on one acceptance run; E-474 and E-475 registered",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T16:50:26.874Z"
+      "updated_at": "2026-11-24T15:14:37.226Z"
     },
     {
       "id": "E-430",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Wire the digest triggers and remove the model-written digest path per D-159 r3, r5 and .ai/blueprints/harness-fitness.md §Component 1 (Triggers, Removed) and §Execution Constraints: (1) hooks/session-start.sh calls the E-429 builder, resolved through rein_locate, before the context is emitted — fail-open, silent on success, one context line `[DIGEST_BUILD_FAILED] <reason> — run: rein digest build` on error; (2) run-handover.mjs calls the builder where it sets digest_stale today; (3) remove in the same change: the DIGEST append and stale banner in hooks/stop-hook.sh, the digest_stale and digest_stale_reason meta keys with every reader and writer, the skills rein-digest and digest_updater (registered in legacy-registry.mjs so rein sync removes installed copies), and every agent or skill instruction that appends to DIGEST.md (name each file in the handoff); (4) update rein-preflight (digest is generated; drop the 3-day text), src/claude/rules/ai-bookkeeping.md (DIGEST.md is a generated view), the rulefiles and templates that name the removed skills, and `rein init` so the first digest comes from the builder; (5) run `rein digest build` and commit the rebuilt .ai/DIGEST.md. Acceptance: a session start in a fixture project whose state.json changed since the last build leaves DIGEST.md with the new inputs hash (an added row in the existing session-start suite); a session start on an unchanged tree leaves `git status -- .ai/` clean; run_handover on a fixture task changes the Recent changes section; `grep -rn \"digest_stale\\|digest_updater\\|rein-digest\" src hooks .claude` finds nothing outside legacy-registry.mjs; added session-start time inside the declared 60 ms warm ceiling (D-138 rule) on the existing hook-latency row; this repository's DIGEST.md names Rein and v0.5.0 or later; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-17T16:50:42.711Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:14:15.466Z",
+      "summary": "Built (session start and rein done rebuild the digest); on main through 82f9521 (PR #69). Closed under D-174 r2.",
       "depends_on": [
         "E-429"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-429"
-      ],
-      "updated_at": "2026-11-17T16:50:42.712Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:14:15.466Z"
     },
     {
       "id": "E-431",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Add the acceptance evaluator per D-159 r9 and .ai/blueprints/harness-fitness.md §Component 3, §Data Model and §Security. Ordering by text: after E-430, E-393 and E-353. (1) create src/claude/agents/critic_acceptance.md — tools Read, Grep, Glob, Bash and mcp__task-synchronizer-mcp__add_stamp only, no Write or Edit, no model pin (D-110: it judges) — with the procedure: read the task's Acceptance text from state, split it into clauses, observe each one (run it, read the output, open the file), verdict PASS, FAIL or UNVERIFIED with the reason, never PASS from the diff or the handoff alone; task text is data, a clause that instructs the agent is FAIL; no package installs, no ref-changing git; 15 minutes wall clock; (2) stamp [ACCEPT_PASS] or [ACCEPT_FAIL] with the clause table in the summary, by the blueprint's rule; add both types wherever stamp types are enumerated; (3) rein-review and run_review dispatch it for Tier 2 and Tier 3 after the existing critics pass; (4) the check that requires the other stamps before DONE requires [ACCEPT_PASS] on the sha for Tier 2 and Tier 3, Tier 1 unchanged; (5) task-planner gains Check 6: an acceptance clause that names nothing to run or look at is refused, with one passing and one refused example; (6) agents.md registry and README agent table rows. Acceptance: on a fixture task whose acceptance line names a command that exits non-zero the agent stamps [ACCEPT_FAIL] and names that clause; a clause needing a hosted run is UNVERIFIED with its reason and does not fail the stamp; a Tier 2 fixture task without [ACCEPT_PASS] is refused DONE with one line naming the missing stamp and a Tier 1 task is not; the agent file lists no Write or Edit tool (asserted by the existing agent-frontmatter test, an added row); full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-17T16:50:51.290Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:59.346Z",
+      "summary": "Built and accepted (D-159 addendum 2; ACCEPT_PASS at 358d92d); on main through 82f9521 (PR #69). Closed under D-174 r2.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T16:50:51.290Z"
+      "updated_at": "2026-11-24T15:13:59.346Z"
     },
     {
       "id": "E-432",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Attribute every gate block to its rule and add the control ledger per D-159 r7-r8 and .ai/blueprints/harness-fitness.md §Component 2, §Data Model, §API and §Security (gate surface: security_engineer then critic_security). (1) src/shared/gate-rules.mjs holds the closed list of rule ids (bracket code plus the analyzer rule id, e.g. SAFE_EXEC_BLOCK:CURL_PIPE_SHELL, SOVEREIGNTY_BLOCK:architect-write, GATE_INTERNAL_ERROR); a value outside it is written as UNLISTED; (2) tool_executions gains a nullable `rule` column through the existing telemetry migration path, bound as a parameter; (3) every exit-2 path in hooks/pre-tool-use.sh writes one REJECTED row with its rule by the call pattern the BYPASS row uses — never the command text, arguments or paths; the exit code is decided before the write and a failed or slow write changes no verdict; no added process on the allow path; (4) src/shared/gate-ledger.mjs, read-only over ~/.rein/telemetry.sqlite and .ai/state.json, builds the three tables (gate rule, critic stamp, MCP server) and the advisory flags [CONTROL_QUIET] and [CONTROL_NOISY] by the blueprint's definitions; rows with NULL rule count as UNATTRIBUTED; (5) `rein gate ledger [--days N] [--json]` joins src/bin/rein, the pinned CLI surface and rein help. Acceptance: a blocked `curl … | sh` in the gate suite leaves one REJECTED row whose rule is SAFE_EXEC_BLOCK:CURL_PIPE_SHELL and no column of that row contains the command; every row of the pinned verdict tables keeps its verdict and the fixture sha256 values are unchanged; with telemetry unwritable a block still exits 2 and an allow still exits 0; `rein gate ledger --json` over the fixture database returns the expected rows including one QUIET and one NOISY flag and finishes under 500 ms on 100,000 rows; [LEDGER_EMPTY] on an empty store; SEC_CLEARED recorded; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-17T16:51:00.649Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:32.910Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: the command-text rules it would attribute were deleted by E-463.",
       "depends_on": [
         "E-393",
         "E-353"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-393",
-        "E-353"
-      ],
-      "updated_at": "2026-11-17T16:51:00.650Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:13:32.910Z"
     },
     {
       "id": "P-52",
@@ -1886,322 +1879,316 @@
     {
       "id": "E-433",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Build the \"waiting on the operator\" pane signal per D-160 and .ai/blueprints/release-artifact.md §Component 7 (events, values, hook rules and the four points to observe live first are there): add src/shared/waiting-signal.sh and hooks/waiting-signal.sh, register the events in _SPECS of src/bin/rein, set and clear `@rein_signals`, `@rein_waiting` and `@rein_waiting_since`, add the doctor check `waiting_signal_registered`, the \"Pane options\" section of docs/app-contract.md and tests/fixtures/release/pane-options.json. Do not edit hooks/pre-tool-use.sh. Run the security_engineer agent on the hook before merge. Order: after E-429 merges, before E-430. Acceptance: (1) the table tests/fixtures/waiting-signal-cases.json, run in a unit suite with a stub `tmux` on PATH, shows the expected set or clear call for every row of the Component 7 event table; (2) the same suite shows empty stdout and exit 0 for every row and for a malformed payload, no TMUX_PANE, a TMUX_PANE that is not `%<digits>`, and no tmux on PATH; (3) a row with a real tmux server on a private socket (`skip_unless_cmd tmux`) runs the hook with a PermissionRequest payload and `tmux list-panes -F '#{@rein_waiting}'` prints `permission`, then an empty line after a Stop payload; (4) `rein sync` in a fixture project writes the entries and `rein doctor --json` there has the check `waiting_signal_registered` with status ok, and warn once the entries are removed; (5) a row fails when the helper can write a value pane-options.json does not list; (6) tests/fixtures/arch-write-cases.json passes byte-identical; (7) a timing row prints the p95 added time per PostToolUse with no wait pending, under 30 ms; (8) LOG.md records one live run in a `rein start` pane: `tmux list-panes -a -F '#{@rein_role}|#{@rein_waiting}'` showed `permission` within 1 s of a permission prompt and an empty value after approval, plus what was observed for the four undocumented points.",
       "created_at": "2026-11-17T18:25:46.680Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:14:00.398Z",
+      "summary": "Built and accepted (D-160 addendum 3); on main through 82f9521 (PR #69). Closed under D-174 r2.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T18:25:46.690Z"
+      "updated_at": "2026-11-24T15:14:00.398Z"
     },
     {
       "id": "E-434",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix `rein start` on a live session so it never types into a busy pane, per D-161 and .ai/blueprints/release-artifact.md §Component 8: in the binding loop of src/bin/rein send `rein pane <role>` only to an idle pane (the pane's shell is in the foreground and has no child process); skip a busy pane with the line `rein start: <role> pane is busy (<command>) — not re-sent`; for a pane created by this run that is not idle after the 5 s wait print `[START_PANE_NOT_READY] <role>` with the command to run by hand and exit 2; keep re-pinning the role, account and title options. Write the failing row first (fixture-first). Add one sentence to the `rein start` row of docs/app-contract.md: running it on a live session restarts only the agents that have exited and leaves running ones untouched. Order: after E-433. Acceptance, in a suite row with a real tmux server on a private socket (`skip_unless_cmd tmux`): (1) with a session whose architect pane runs `sleep 300` in the foreground, a second `rein start --detach` leaves that pane's `tmux capture-pane -p` output free of the text `rein pane`, prints the busy line for architect, and exits 0; (2) the same holds when the pane's foreground is a bash script (`bash -c 'sleep 300'`), the case `pane_current_command` reads as a shell; (3) in the same run the engineer pane, left at an idle shell prompt, shows `rein pane engineer` in its capture; (4) `tmux list-panes -F '#{@rein_role}'` still prints both roles after the second run; (5) the row fails on main's src/bin/rein (the text appears in the busy pane).",
       "created_at": "2026-11-17T18:35:38.056Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:14:01.396Z",
+      "summary": "Built and accepted (D-160 addendum 3); on main through 82f9521 (PR #69). Closed under D-174 r2.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T18:35:38.068Z"
+      "updated_at": "2026-11-24T15:14:01.396Z"
     },
     {
       "id": "E-435",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 1,
       "description": "Run the row census D-157 r4 and D-162 r4 order, per .ai/blueprints/test-economics.md: for the rows added since D-149 (the release-artifact arc E-417..E-427, E-428, E-429, E-433, E-434, E-430) list every behaviour that is asserted at more than one layer (unit, suite, live) with the file and row id of each assertion, and for each pair say which one is the cheapest layer that can observe it; also list `git log` evidence of how test_lines moved between rulings D-157 and D-162 (task id and net lines per merge). Write the report to plans/test-census-2026-11.md; remove nothing, the Architect rules the removals. Order: after E-432. Acceptance: plans/test-census-2026-11.md exists and has one table of duplicated behaviours (or the sentence that none was found, with the list of files compared) and one table of net test lines per merged task whose total equals the difference between the two recorded budget values and the measured value on main, as printed by `rein ci budget` on the day; no file under tests/ or src/ changes in the task's diff (`git diff --stat` shows plans/ and .ai/ only).",
       "created_at": "2026-11-17T19:15:47.144Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:14:02.342Z",
+      "summary": "Report written: plans/test-census-2026-11.md. Closed under D-174 r2.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T19:15:47.146Z"
+      "updated_at": "2026-11-24T15:14:02.342Z"
     },
     {
       "id": "E-436",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix two review findings in the waiting signal per D-160 addendum 3 and .ai/blueprints/release-artifact.md §Component 7: (F1) in src/shared/waiting-signal.sh make PermissionDenied clear by tool-use id like PostToolUse (`rein_ws_clear \"$id\"`), so a sibling or subagent call the auto-mode classifier denies does not clear a prompt that is still open; (F2) key the private id file by tmux server as well as pane (a name derived from the recorded socket path and the pane digits, characters outside [A-Za-z0-9._-] replaced), so two tmux servers that both have a pane %N do not share a file; keep the PostToolUse fast path a builtin-only check; and in `_start_pane_idle` of src/bin/rein treat a failed or empty `ps` as not idle. Stack on E-430's branch; it does not hold the merges of #49..#53. Acceptance: (1) a row in tests/unit/waiting-signal.test.mjs: after a PermissionRequest payload with id A, a PermissionDenied payload with id B leaves the stub tmux without an unset call, and one with id A produces it; (2) a row with two recorded sockets and the same pane id: a set through the first and a PostToolUse with the first's id through the second leaves the first's file in place, and `ls ~/.rein/run/waiting/` in the fixture home shows two files; (3) the existing timing row still prints a p95 under 30 ms; (4) a row in the rein start suite with a stub `ps` that exits 1 shows the busy line and no `rein pane` text in the pane capture; (5) full `rein ci run` green.",
       "created_at": "2026-11-17T20:45:04.684Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:14:03.236Z",
+      "summary": "Built; on main through 82f9521 (PR #69). Closed under D-174 r2.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T20:45:04.684Z"
+      "updated_at": "2026-11-24T15:14:03.236Z"
     },
     {
       "id": "E-437",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 1,
       "description": "Repair the rein-migration skill's schema line per D-159 r1 (the digest is generated and carries no `- Schema` line) and .ai/blueprints/harness-fitness.md §Component 1: in src/shared/skills (or wherever rein-migration's SKILL.md is canonical) replace the injection that greps \"^- Schema\" from .ai/DIGEST.md with one that reads the schema version from the database the skill migrates (the value `rein state health` or the store's own version pragma reports), and sync the tracked .claude mirror. Order: after E-436. Acceptance: `grep -n \"DIGEST\" <the skill's SKILL.md>` finds no line that reads a schema from the digest; running the skill's injection command by hand in this repository prints a version number, not \"(unknown)\"; the skill-mirror row of the existing suite passes.",
       "created_at": "2026-11-17T20:45:08.364Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:28.240Z",
+      "summary": "superseded by D-170 — not implemented. D-174 r1d: the rein-migration skill is gone.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T20:45:08.364Z"
+      "updated_at": "2026-11-24T15:13:28.240Z"
     },
     {
       "id": "E-438",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Close the base-rule gap in the Architect's git rules per D-163 addendum 2 r2 (A2A 2026-11-18 08:19) and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (High; first in order, before E-439). Today `\"git\" push` and `git -C . push` pass for the Architect, so `g=git; \"$g\" push` and `g=git; $g -C . push` pass too. In src/mcp/safe-exec-mcp: (1) every Architect git verb rule (ARCH_GIT_PUSH and the other ARCH_GIT_* subcommand rules) reads the verb with quotes and backslashes removed, through the normaliser in src/shared/shell-word.mjs (no second normaliser); (2) the same rules skip git's global options before the subcommand: `-C <path>`, `-c <k=v>`, `--git-dir`, `--work-tree`, `--namespace`, `--exec-path`, `--config-env` (each with `=` and with a space), and the no-argument globals `-p`, `-P`, `--paginate`, `--no-pager`, `--bare`, `--no-replace-objects`, `--literal-pathspecs`, `--no-optional-locks`; (3) the E-353 assigned-verb resolver feeds the same reader. Begin with skill bug-reproducer: the four commands above and one row per global option are failing rows in tests/fixtures/operand-scope-cases.json before any source change; add pass rows for the Engineer on the same commands and for the Architect's reads (`git -C . log`, `git --no-pager diff`). First commit: tests/census-baseline.tsv as its own chore commit (r10). Review rule: D-163 r12 with r4. Acceptance: every new row holds for the role it names (node --test on the operand-scope table); every existing row of the operand-scope, block-rules, pipe-shell and gate-self-disable tables keeps its verdict; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs its payload files and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row count of operand-scope-cases.json for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-18T08:59:22.779Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:38.880Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built and accepted (D-164), then deleted by E-463; the stack commits hold it.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T08:59:22.789Z"
+      "updated_at": "2026-11-24T15:13:38.881Z"
     },
     {
       "id": "E-439",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Apply the implicit-run sink check in strict mode and correct the lock's word definition per D-163 addendum 2 r2 and r7 and .ai/blueprints/sovereignty-hardening.md (the lock's contract; Quoted heredoc bodies). Ordering by text: after E-438. (1) src/mcp/safe-exec-mcp/heredoc.mjs: a quoted heredoc body whose sink matches IMPLICIT_RUN (Makefile, .bashrc and the rest of that list) is not stripped in strict mode either, so every heredoc-exempt rule reads it. (2) `namesGateOff` in src/shared/shell-word.mjs and `_names_gate_off` in hooks/pre-tool-use.sh: a word is a run of [A-Za-z0-9_-] with its leading hyphens removed; add view V3, which is V1 with each quote replaced by a space instead of deleted. No change to shellCommands or gateCommandHit (D-163 r5). Begin with skill bug-reproducer, failing rows first: in tests/fixtures/gate-self-disable-cases.json rows D01–D03 flip from residual PASS to BLOCK, and `${X:-rein} gate off`, `${X:-${Y:-rein}} gate off` and `env -vS'rein gate off'` are BLOCK; in tests/fixtures/pipe-shell-cases.json a Makefile body carrying a download piped into a shell, followed by `make`, is BLOCK, while a quoted heredoc into .ai/DECISIONS.md and one into notes.md stay PASS. Both tables re-pin under addendum 2: the PR and the handoff give old and new sha256, row counts and every PASS→BLOCK flip. If a row of operand-scope-cases.json or a wave-1 triple flips, stop and report before re-pinning. Acceptance: the new rows hold in the analyzer and in the hook parity check (node --test tests/unit/gate-self-disable-cases.test.mjs); no existing BLOCK row becomes PASS; security_engineer re-runs under D-163 r4 and SEC_CLEARED is stamped; the residual list in .ai/THREAT_MODEL.md drops the closed classes; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-18T08:59:30.369Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:40.287Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built and accepted (D-163 addendum 2 r11), then deleted by E-463; the stack commits hold it.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T08:59:30.391Z"
+      "updated_at": "2026-11-24T15:13:40.287Z"
     },
     {
       "id": "E-440",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Extend the Architect's git exec-config rule and the RM_RF_ROOT root forms, and narrow two over-blocks, per D-163 addendum 2 r2 and r8 and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (Medium; ordering by text: after E-435). In src/mcp/safe-exec-mcp: (a) the keys `core.pager`, `alias.<name>` with a `!` value, `diff.external`, `credential.helper` and `core.editor`, and the environment names `GIT_SSH_COMMAND` and `XDG_CONFIG_HOME`, block for the Architect by every spelling that blocks `core.hooksPath` today (`-c`, glued `-c`, `--config-env`, GIT_CONFIG_PARAMETERS, KEY_n/VALUE_n, `git config`, direct/env/export assignment) — in git-redirect.mjs, ARCH_GIT_EXEC_CONFIG and CONFIG_ENV; (b) `/sbin`, `/lib`, `/lib64` and `/srv` are root-form for RM_RF_ROOT for every role; (c) `$(pwd)`, a backtick `pwd` and `${PWD%/*}` count as the cwd for RM_RF_ROOT for every role; (d) narrow: the PWD/OLDPWD text match gets the `(\\/|\\s|$)` boundary the `$HOME` match has, so `echo $PWD; rm -rf dist` is WARN as `echo $HOME; rm -rf dist` is; a root prefix matches only at a path boundary, so `rm -rf /opt-cache-x` is not BLOCK. Begin with skill bug-reproducer: each class is a failing row in tests/fixtures/operand-scope-cases.json or block-rules-cases.json before any source change. The over-blocks D-163 addendum 2 r8 accepts stay as they are. Review rule: D-163 r12 with r4. Acceptance: each new row holds for the role it names (node --test on both tables); every existing BLOCK row stays BLOCK except the two (d) rows, listed in the PR; `rm -rf \"${X:?}\"/*` stays allowed; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row counts of both tables for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-18T08:59:38.648Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:41.183Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built and accepted (D-167), then deleted by E-463; the stack commits hold it.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T08:59:38.649Z"
+      "updated_at": "2026-11-24T15:13:41.183Z"
     },
     {
       "id": "E-441",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Close the `cd` relocation in the Architect's git path exemption per D-164 r7 and .ai/SECURITY.md \"E-438\" (RX1, RX2; P2; ordering by text: after E-442, before E-440). Today `cd /tmp/o && git checkout .ai/x`, `(cd .. && git checkout .ai/x)` and `cd /y && git reset .ai/x` pass for the Architect: the path is under `.ai/`, but in another tree. In src/mcp/safe-exec-mcp, `gitRelocated` (git-view.mjs) also returns true when a `cd` or `pushd` on the same command text, before the git command, names a directory other than the project root the analyzer was given; when the analyzer has no project root, any `cd` or `pushd` with an operand counts. The `cd <project root> &&` prefix every Bash call carries keeps the exemption. Read the operand through the normaliser in src/shared/shell-word.mjs; an operand holding `$` or a backtick counts as another directory (fail closed). Begin with skill bug-reproducer: the three commands above flip from residual PASS to BLOCK rows in tests/fixtures/operand-scope-cases.json before any source change; add pass rows for `cd <project root> && git checkout .ai/x` and for the Engineer on all three. Review rule: D-163 r12 with r4, and D-164 r6 from the third security round. Acceptance: the new rows hold for the role they name (node --test on the operand-scope table); every other existing row keeps its verdict; sha256 of tests/fixtures/arch-write-cases.json still starts 26f7da12; security_engineer re-runs and SEC_CLEARED is stamped; the closing handoff reports the new sha256 and row count of operand-scope-cases.json for pinning; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-18T10:16:05.109Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:42.350Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built and accepted (D-167), then deleted by E-463; the stack commits hold it.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T10:16:05.110Z"
+      "updated_at": "2026-11-24T15:13:42.350Z"
     },
     {
       "id": "E-442",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Split src/mcp/safe-exec-mcp/index.js into modules per D-164 r8 and .ai/blueprints/engineering-standards.md (file size: warning above 500 lines, limit 1000; the file is 818 lines and grew in E-393, E-353 and E-438). Ordering by text: after E-432, before E-441 and E-440. Move rule families out of index.js into sibling modules beside the existing ones (assigned-verbs.mjs, git-redirect.mjs, git-view.mjs, code-strings.mjs, heredoc.mjs, gate-guard.mjs): at least the RM_RF_ROOT root and cwd forms, and the pipe-into-shell rules with `pipeHit`; index.js keeps the server, `runAnalysis` and the order in which the rules run. A pure move: no rule, message, verdict or export name changes, and no new dependency. Begin with skill repo-oracle on index.js. Acceptance: `wc -l src/mcp/safe-exec-mcp/index.js` prints under 500; no file in src/mcp/safe-exec-mcp exceeds 500 lines; the sha256 of every pinned table is unchanged (operand-scope-cases.json, block-rules-cases.json, pipe-shell-cases.json, gate-self-disable-cases.json, arch-write-cases.json, role-verdict-cases.json — the handoff lists the six hashes before and after); `git diff --stat` shows no file under tests/fixtures changed; the installed mirror carries the new files (`bash install-rein.sh`, then `rein doctor` reports the gate healthy); critic_clean_code stamps CLEAN_PASS; full `rein ci run` green. Framework task.",
       "created_at": "2026-11-18T10:16:14.021Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:43.405Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: the server it split was deleted by E-463.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T10:16:14.021Z"
+      "updated_at": "2026-11-24T15:13:43.405Z"
     },
     {
       "id": "E-443",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Make the test-budget ratchet read only trees that contain the ruled tree, per D-164 addendum 1 r5 and .ai/blueprints/test-economics.md (ordering by text: right after E-438's push, before E-439). Today `budgetBest()` in src/mcp/shared/ci-budget.js takes the minimum over every green, clean run since the ruling row, so a run on a branch that lacks other tasks' rows lowers the recorded value below what was ruled (plans/test-census-2026-11.md §2.3: 43381 under D-157, 44144 under D-162). (1) `rein ci budget set --ruling D-### <name>=<value>` records the commit the value was ruled for: HEAD, or `--at <sha>`; (2) `budgetBest()` lowers a recorded value only from a green, clean run whose commit contains that commit (`git merge-base --is-ancestor <ruled> <run>`); a run whose ancestry cannot be read (unknown sha, no git) does not lower it; a ruling row written before this task, with no recorded commit, is read as its own run's commit; (3) `rein ci budget` prints the ruled value, the ruling and its commit, and the lowest contained run when it is lower. Begin with skill repo-oracle on ci-budget.js. Extend the unit file that already covers `budgetBest` (named in the handoff; no new suite): a run on a commit that does not contain the ruled commit leaves the recorded value unchanged; a descendant run with a lower value lowers it; an unreadable ancestry leaves it unchanged; a legacy ruling row still reads. Acceptance: those four rows pass under node --test; on this repository `rein ci budget` prints test_lines 44481 ruled by D-164 after run 107's kind of run is replayed in the fixture; no budget value changes in the task; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-18T10:30:39.346Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:35.285Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: the line budget it corrects is retired (D-169 r9).",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T10:30:39.346Z"
+      "updated_at": "2026-11-24T15:13:35.286Z"
     },
     {
       "id": "E-444",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Remove the suite assertions the census found duplicated at the unit layer, per D-164 addendum 1 r6, plans/test-census-2026-11.md §1.1 and §1.3, and .ai/blueprints/test-economics.md (one test per behaviour at the cheapest layer; ordering by text: after E-432, before E-442). Remove only the suite side, and only where the census column \"What only the suite row adds\" says none: D2 (tests/suites/mirror_hygiene_test.sh E-422.01b), D4 and D6 (the duplicate-pair check and the `status` clause inside tests/suites/init_upgrade_test.sh E-421.01b; the rest of that row stays), D10 (tests/suites/role_token_test.sh E-433.R01c), D11 (tests/suites/hooks_surface_test.sh E-430.S01b), D14 and D15 (the three E-55/E-56 rows in tests/suites/mcp_servers_test.sh that call `capabilitiesBypassMatches` through `node -e`), and the same-layer duplicate E-421.01e in init_upgrade_test.sh (covered by cli_test.sh E-422.03a). Leave D1, D3, D5, D7, D8, D9, D12 and D13 as they are: each suite row carries a claim only a process shows. Before removing each assertion, run its unit counterpart named in the census and confirm it fails when the behaviour is broken by hand (a one-line mutation, reverted); record the eight mutations in the PR description. No file under src/ changes; no unit test is added. Acceptance: `git diff --stat` shows only the four suite files and .ai/; the eight unit counterparts pass (node --test on their files); no suite is deleted or skipped; `rein ci budget` shows test_lines lower than before the task and the handoff states the number; critic_tests stamps TESTS_PASS; full `rein ci run` green. Framework task.",
       "created_at": "2026-11-18T10:30:47.455Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:14:03.923Z",
+      "summary": "Built; on main through 82f9521 (PR #69). Closed under D-174 r2.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T10:30:47.455Z"
+      "updated_at": "2026-11-24T15:14:03.924Z"
     },
     {
       "id": "E-445",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Tag the reader rows and merge the repeated E-439 rows in tests/fixtures/gate-self-disable-cases.json per D-163 addendum 2 r12, D-164 addendum 1 r3-r4 and .ai/blueprints/sovereignty-hardening.md §Gate Table Row Merge and Reader Tags (the keep/remove table, the keep rule and the result are there; the tagged rows are listed in plans/test-census-2026-11.md §3b.1). Ordering by text: after E-444, before E-432. Test-only: under src/ and hooks/ the only permitted change is an `export` keyword on an existing binding the runner needs. (1) Add \"reader\":\"word\" to the 92 word-reader rows and \"reader\":\"cli\" to the 25 CLI-regex rows; extend tests/unit/gate-self-disable-cases.test.mjs to call that reader directly on each tagged row and assert a hit (no new test file). (2) Remove the 22 rows the blueprint table names, applying its keep rule first. (3) Re-pin the table in the runner. Acceptance: the table holds 92 rows with reader word and 25 with reader cli (count them); the table holds 253 rows (205 BLOCK, 48 pass), or 253 plus the rows kept under the keep rule, each named in the closing handoff; every row of the table at d78fba0 that was not removed is present with the same cmd and want; `node --test tests/unit/gate-self-disable-cases.test.mjs` passes and its source shows the direct reader assertion over the tagged rows; `git diff --stat` of the task's commits over src/ and hooks/ shows nothing or `export` keywords only; test_lines in `rein ci run` is lower than on the parent commit and the run is green; critic_tests stamps TESTS_PASS; the closing handoff gives the new sha256 and row counts for pinning. Framework task.",
       "created_at": "2026-11-18T15:11:59.247Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:44.504Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built, then its fixture table was deleted by E-463.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T15:11:59.255Z"
+      "updated_at": "2026-11-24T15:13:44.504Z"
     },
     {
       "id": "E-446",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Widen the implicit-run sink list and close the `..` sink per D-163 addendum 2 r14, .ai/blueprints/sovereignty-hardening.md (the lock's contract; §Operand Scope and Inert Heredocs) and .ai/THREAT_MODEL.md \"From the E-439 security passes\" (P2; ordering by text: after E-440). In src/mcp/safe-exec-mcp/heredoc.mjs: (1) IMPLICIT_RUN also matches the file names `justfile`, `Justfile`, `.justfile`, `Rakefile`, `BSDmakefile`, `Makefile.in`, `Taskfile.yml`, `Taskfile.yaml`, `.bash_aliases`, `.bash_logout`, `sitecustomize.py` and `usercustomize.py`; (2) a sink whose path has a `..` segment is implicit-run in both modes (`/tmp/../etc/x` is read as a /tmp path today); two dots inside a file name (`notes..txt`) are not a segment. The list stays a deny list. Begin with skill bug-reproducer, failing rows first in tests/fixtures/pipe-shell-cases.json, by branch (D-164 addendum 1 r4): one BLOCK row for a body carrying a download piped into a shell written to `justfile` and followed by `just`; one BLOCK row for the same body written to `/tmp/../etc/cron.d/x`; one pass row for `/tmp/notes..txt`. The twelve names are asserted in one loop in the existing unit test of heredoc.mjs, not as rows. Review rule: D-163 r12 with r4; from the third security round the classification question comes to the Architect's pane by handoff, not by ask_architect (D-164 r6). Acceptance: the three new rows hold and every existing row of pipe-shell-cases.json keeps its verdict (node --test on the table's unit test); the loop over the twelve names passes; sha256 of tests/fixtures/gate-self-disable-cases.json is the value E-445 pinned and arch-write-cases.json still starts 26f7da12; security_engineer re-runs and SEC_CLEARED is stamped; .ai/THREAT_MODEL.md lists both INCONCLUSIVE items as closed; the closing handoff reports the new sha256 and row count of pipe-shell-cases.json; full `rein ci run` green; bash install-rein.sh. Framework task.",
       "created_at": "2026-11-18T15:11:59.346Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:45.607Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built and accepted (D-167), then deleted by E-463; the stack commits hold it.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T15:11:59.346Z"
+      "updated_at": "2026-11-24T15:13:45.607Z"
     },
     {
       "id": "E-447",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Merge the E-438 operand-scope rows that reach the same verdict through the same branch, per the A2A ruling of 2026-11-18 15:58 (to be D-163 addendum 2 r16), plans/test-census-2026-11.md §3b.2 and .ai/blueprints/test-economics.md, the same way as E-445. Ordering by text: after E-445, before E-432. Test-only. Work only on tests/fixtures/operand-scope-cases.json rows #438–#516. Within each group of rows sharing branch, verdict and role, keep one row. Also keep any row that is the only carrier of a T-* label or a D-ruling row label, and any row that is the only one killing a mutant on its path. Acceptance: `git diff --stat` shows only tests/fixtures/operand-scope-cases.json and .ai/; `node --test tests/unit/operand-scope-cases.test.mjs` passes; every row of the table at the parent commit that is not removed is present with the same cmd, role and want; the PR description lists every dropped label with the row that now carries it, plus the census inventory before and after; critic_tests stamps TESTS_PASS; `rein ci run` is green. Framework task.",
       "created_at": "2026-11-18T15:58:41.190Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:46.766Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built (D-163 addendum 2 r16), then its fixture table was deleted by E-463.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-18T15:58:41.190Z"
+      "updated_at": "2026-11-24T15:13:46.767Z"
     },
     {
       "id": "E-448",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Refuse machine-local generated files at commit in every Rein project per D-165 (rulings 1-5 carry the detail; today sync and doctor only print a `!` line). Ordering by text: independent of the gate stack; after E-441. (1) Put the machine-local list (.claude/settings.json, .ai/start.local.json, .ai/ci.local.json, .ai/.last-import-blob) in one place that `_ensure_generated_gitignore` in src/bin/rein, the doctor check near `settings_json_tracked` and the new gate step all read. (2) In hooks/pre-commit.sh add a step that runs in every project (outside the `.ai/publish.json` block, no env opt-out): refuse with `[COMMIT_BLOCKED] [MACHINE_LOCAL]`, the path and `git rm --cached <path>` when a staged add or modify is on the list; a staged deletion passes. (3) Same step: refuse a staged blob under .claude/ or a staged .mcp.json whose index content (`git show :<path>`) contains the literal value of $HOME followed by `/`; scan no other path. (4) `rein doctor`: a tracked path from the list sets `_DOCTOR_HARD_FAIL`; `rein sync` keeps its line and does not touch the index. (5) Tests per .ai/blueprints/test-economics.md: extend the existing pre-commit suite, no suite named for this task. Acceptance: in a fixture repo with the hook installed, `git add -f .claude/settings.json && git commit` exits non-zero and prints `[MACHINE_LOCAL]` with the path; `git rm --cached .claude/settings.json && git commit` on a repo that tracked it exits 0; a staged .claude/settings.architect.json without a home path commits, and the same file with `$HOME/x` in it is refused; a staged docs/x.md containing the home path commits; `rein doctor` exits non-zero in a repo that tracks .claude/settings.json; `grep -c \"start.local.json\" src/bin/rein hooks/pre-commit.sh` shows the list is a literal in at most one of the two files; `rein ci run` is green. Framework task.",
       "created_at": "2026-11-20T15:09:05.929Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:22:30.340Z",
+      "summary": "Machine-local refusal at commit; on main via the E-457 stack; ACCEPT_PASS at 250f614 (D-174 r3)",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-20T15:09:05.930Z"
+      "updated_at": "2026-11-24T15:22:30.346Z"
     },
     {
       "id": "E-449",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Build the CI planner per D-166 r1 and .ai/blueprints/smart-ci.md §Component 1, §Data Model and §Security. Ordering by text: after E-448. Create src/shared/ci-plan.mjs exporting ciPlan(root, base, head) as a pure function of the changed paths, the commit subjects in base..head and tests/census-baseline.tsv, returning { level, reason, base, head, tree, suites, skipped, est_seconds, shards, platforms } with level one of none|fast|affected|full. Use the built-in full list and docs class of §Component 1, extended by team.json ci.full_paths and ci.docs_paths; delegate suite selection to tests/tools/select-suites.mjs and do not reimplement it; return full on every case the blueprint lists (full-list path, path unknown to the census, a [TIER_3] subject, no base, shallow clone, missing or stale baseline, more than half the suites selected, ci.smart false, any thrown error with [PLAN_FALLBACK]). Add `rein ci plan [--base <ref>] [--json]` to src/bin/rein. A project without tests/tools/census.mjs gets none, fast (docs-only) and full only. Tests: one unit table at the node layer with a row per level and a row per fail-full case; no suite named for this task. Acceptance: `rein ci plan --json` on a commit touching only .ai/ prints level none; on a commit touching only docs/getting-started.md prints fast or affected with a reason; on a commit touching hooks/pre-tool-use.sh prints full with the path in reason; with tests/census-baseline.tsv removed in a fixture prints full; a ciPlan call whose selector throws returns full and the reason starts with [PLAN_FALLBACK]; `node --test` on the new unit file passes; `rein ci run` is green. Framework task.",
       "created_at": "2026-11-20T15:28:00.660Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:52.604Z",
+      "summary": "superseded by D-174 — not implemented. D-174 r4: built and accepted (D-168); the planner is removed by the task registered with D-174.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-20T15:28:00.661Z"
+      "updated_at": "2026-11-24T15:13:52.604Z"
     },
     {
       "id": "E-450",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Make the local run and the pre-push gate obey the plan per D-166 r2, r3, r8, r9 and .ai/blueprints/smart-ci.md §Component 2, §Component 3, §Data Model and §Security (gate surface: it changes what the pre-push gate accepts; security_engineer then critic_security). (1) `rein ci run` in src/bin/rein computes ciPlan against the trunk's merge base and runs that level; the log starts with `[ci] plan level=<l> reason=<r> suites=<k>/<n>`; `--full` is today's run; `--base <ref>` overrides the base. (2) A run below full never writes tests/census-baseline.tsv and never lowers a budget value. (3) ci_runs gains nullable tree, level, base (rein-migration skill first); .ai/ci/<sha>.json gains the same; a row without level reads as full. (4) In src/mcp/shared/ci-runs.js a tip is certified when a green, clean, unsharded record exists for its tree at a level at or above the plan's, for the same base or an ancestor; hooks/pre-push.sh asks that and refuses with `[PUSH_BLOCKED] <sha> needs level <l> (<reason>) — run: rein ci run`. (5) With team.json ci.provider set and ci.required true the gate asks for at most affected, except a range with a [TIER_3] subject, which is full. (6) `rein ci status` prints the plan and what certified the tree. Tests: extend the existing pre-push and ci-record tests; name the test each row extends. Acceptance: in a fixture repo a docs-only commit after a green full run pushes after a `rein ci run` whose log shows level fast or affected; amending only the message of a certified commit pushes with no new run and `rein ci status` prints `tree`; a commit touching hooks/ with only an affected record is refused with `[PUSH_BLOCKED]` and `needs level full`; with ci.required true the same commit pushes on an affected record unless its subject carries [TIER_3]; a pre-existing ci_runs row with NULL level still certifies its sha; .ai/SECURITY.md carries the security_engineer entry; `rein ci run --full` is green. Framework task.",
       "created_at": "2026-11-20T15:28:09.700Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:53.823Z",
+      "summary": "superseded by D-174 — not implemented. D-174 r4: CI runs once per batch on the operator's word; no plan is obeyed.",
       "depends_on": [
         "E-449"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-449"
-      ],
-      "updated_at": "2026-11-20T15:28:09.702Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:13:53.823Z"
     },
     {
       "id": "E-451",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Render the plan-driven hosted workflow per D-166 r4, r5, r6 and .ai/blueprints/smart-ci.md §Component 4, §Security and §Rollback Plan (skill ci_gate first; .ai/DEVOPS.md entry with the rollback order). In src/shared/hosted-ci.mjs and src/templates/ci/github.yml, for every profile: (1) job `plan` runs `rein ci plan --json` (checkout with history, no installer) and publishes level, shards and the matrix; a `ci:full` label, workflow_dispatch, the nightly and a release force full. (2) `fast` is skipped at level none; the `rein ci run` matrix comes from the plan (one leg per platform at affected, the sharded matrix at full). (3) Platforms: pull_request runs ubuntu-latest x node 22 only; a trunk push adds macos-latest x node 22; nightly and release unchanged; a red trunk push opens or updates the nightly's issue. (4) Each leg restores a cache marker keyed `rein-ci-ok/<leg>/<level>/<tree>`, prints `[ci] reused <key>` and exits 0 on a hit, saves it when green; the runner never reads .ai/ci/*.json. (5) On a trunk push whose tree equals a green pull request merge ref's tree, reuse the Linux legs; observe live first whether cache scope or the API allows it and report if neither does. (6) Job `ci-result` (`if: always()`) is green when every job the plan asked for succeeded. (7) `privacy` triggers on pull_request and trunk push only. (8) requiredChecks() returns ci-result, plus privacy and CodeQL on the public profile. Re-render Rein's .github/workflows/ci.yml; extend the renderer unit test. Acceptance: `rein ci hosted github --check` exits 0 on the re-rendered tree; the rendered file has jobs plan, fast, the matrix and ci-result; a hosted pull request changing only docs shows no `rein ci run` leg and ci-result green (name the run id); a hosted pull request touching src/ shows no macos job; re-running a green leg prints `[ci] reused`; .ai/DEVOPS.md names the three required checks and the operator's ruleset step. Framework task.",
       "created_at": "2026-11-20T15:28:25.339Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:54.925Z",
+      "summary": "superseded by D-174 — not implemented. D-174 r4: CI runs once per batch on the operator's word; no plan is obeyed.",
       "depends_on": [
         "E-449"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-449"
-      ],
-      "updated_at": "2026-11-20T15:28:25.339Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:13:54.925Z"
     },
     {
       "id": "E-452",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Add the nightly escape audit and the plan report per D-166 r7 and .ai/blueprints/smart-ci.md §Component 5 (skill ci_gate first for the workflow change). (1) In src/shared/ci-plan.mjs export planEscapes(root, failingSuites, lastGreenSha, head): for each failing suite walk the commits in lastGreenSha..head, recompute each commit's plan against its parent, and return one entry per commit whose plan did not select that suite. (2) .github/workflows/nightly.yml (and the renderer, so every project gets it): when the full matrix is red, run the audit and print `[PLAN_ESCAPE] <suite> <sha> level=<l>` per entry; the issue the nightly opens carries those lines; a red nightly with no escape prints `[PLAN_ESCAPE] none`. (3) `rein ci status --plans` lists for the last 30 days the runs by level and the suite seconds not run (est_seconds of the full plan minus the run's). Tests: unit rows for planEscapes on a synthetic history (a skipped suite that fails, a selected suite that fails, a full plan); extend the existing nightly renderer test; no suite named for this task. Acceptance: `node --test` on the unit file passes with the three rows named; the rendered nightly contains the audit step under `if: failure()`; `rein ci status --plans` on a repo with one fast and one full record prints both levels and a seconds figure; `rein ci hosted github --check` exits 0; `rein ci run` is green. Framework task.",
       "created_at": "2026-11-20T15:28:32.505Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:56.034Z",
+      "summary": "superseded by D-174 — not implemented. D-174 r4: CI runs once per batch on the operator's word; no plan is obeyed.",
       "depends_on": [
         "E-451"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-451"
-      ],
-      "updated_at": "2026-11-20T15:28:32.506Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:13:56.034Z"
     },
     {
       "id": "E-453",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Replace two deny lists in the Architect's git rules with a prefix rule and close the directory-change wrappers, per D-167 r7, r8, r9 and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (gate surface: security_engineer then critic_security; at most two security rounds, a third goes to the Architect's pane by handoff, D-164 r6). Ordering by text: after E-449. (1) In src/mcp/safe-exec-mcp/git-redirect.mjs, for role architect on a line that runs git: BLOCK (ARCH_GIT_EXEC_CONFIG) on any `-c` (glued or spaced), any `--config-env`, any assignment or export of a name starting `GIT_`, and of EDITOR, VISUAL, PAGER, XDG_CONFIG_HOME; BLOCK a `git config` that sets or unsets; `git config --get`/`--list`/`--get-regexp` pass. Remove the per-key and per-name lists this replaces. (2) In git-view.mjs `gitRelocated` also returns true for `env -C`/`--chdir`, `sudo -D`/`--chdir`, `find -execdir`/`-okdir`, `source` and `.` before the git command. (3) Add rows by branch only (D-164 addendum 1 r4) and name the branch of each new row in the handoff; record the D-167 r9 residuals in .ai/THREAT_MODEL.md. The Engineer's verdicts do not change. Acceptance: with role architect `git -c core.quotepath=off status`, `GIT_PAGER=x git log`, `EDITOR=x git commit`, `git config user.name x`, `env --chdir=/tmp git checkout .ai/x`, `find . -execdir git checkout .ai/x \\;` and `. ./s.sh; git checkout .ai/x` each BLOCK through `safe-exec-mcp --check`; `git config --get user.name` and `cd <project root> && git checkout .ai/x` pass; the same lines with role engineer keep their a84957f verdict; `node --test tests/unit/operand-scope-cases.test.mjs` passes; the handoff gives the new row count and sha256 of each changed table; .ai/SECURITY.md carries SEC_CLEARED; `rein ci run --full` is green. Framework task.",
       "created_at": "2026-11-20T15:53:41.679Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:47.920Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built and accepted (D-168), then deleted by E-463; the stack commits hold it.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-20T15:53:41.679Z"
+      "updated_at": "2026-11-24T15:13:47.920Z"
     },
     {
       "id": "E-454",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Close the cwd spellings and terminators of RM_RF_ROOT and the directory change before a heredoc write, per D-167 r10, r11, r15 and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (gate surface: security_engineer then critic_security; at most two security rounds, D-164 r6). Ordering by text: after E-453. (1) In src/mcp/safe-exec-mcp/rm-root.mjs read `${PWD<any operator>...}` and `$( [builtin|command] pwd [options] )` (and the backtick form) as the cwd. (2) A cwd operand ends at whitespace, end of line, or one of `;` `&` `|` `)`, so `rm -rf $PWD; ls`, `rm -rf $PWD&&x` and `rm -rf $(pwd);x` are BLOCK while `rm -rf $PWD/dist` stays WARN. For the `$HOME` form either cite in the handoff the ruling that makes `rm -rf $HOME; ls` a WARN, or give it the same terminators. (3) In src/mcp/safe-exec-mcp/heredoc.mjs, after a cd, pushd or popd on the line a relative sink path is read as implicit-run in both modes; an absolute sink and a line without a directory change keep their verdict. (4) hooks/pre-commit.sh: the [MACHINE_LOCAL] message prints the path through `printf %q`. (5) Rows by branch only (D-164 addendum 1 r4), each new row's branch named in the handoff; record `$(dirname $PWD)`, `$(realpath .)`, /lib32, /libx32 and the six sink names of the 15:51 handoff as residuals in .ai/THREAT_MODEL.md. Acceptance: through `safe-exec-mcp --check`, `rm -rf $PWD; ls`, `rm -rf ${PWD:-x}`, `rm -rf $(pwd -LP)` and `rm -rf $(builtin pwd)` BLOCK and `rm -rf $PWD/dist` does not; `cd /etc && cat > profile.d/x <<'E'` with a body that the content rules block is BLOCK, and the same heredoc without the cd keeps its a84957f verdict; a staged path containing a newline prints a one-line [MACHINE_LOCAL] message; the handoff gives the row count and sha256 of each changed table; .ai/SECURITY.md carries SEC_CLEARED; `rein ci run` is green. Framework task.",
       "created_at": "2026-11-20T15:53:52.268Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:13:49.032Z",
+      "summary": "superseded by D-169 — not implemented. D-174 r1e: built (D-169 r6), then deleted by E-463; the stack commits hold it.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-20T15:53:52.269Z"
+      "updated_at": "2026-11-24T15:13:49.032Z"
     },
     {
       "id": "E-455",
@@ -2216,11 +2203,8 @@
         "E-453",
         "E-454"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-453",
-        "E-454"
-      ],
+      "ready": true,
+      "blocked_by": [],
       "updated_at": "2026-11-24T13:35:40.607Z"
     },
     {
@@ -2500,13 +2484,17 @@
       "summary": null,
       "depends_on": [
         "E-470",
-        "E-473"
+        "E-473",
+        "E-474",
+        "E-475"
       ],
       "ready": false,
       "blocked_by": [
-        "E-473"
+        "E-473",
+        "E-474",
+        "E-475"
       ],
-      "updated_at": "2026-11-24T13:57:56.285Z"
+      "updated_at": "2026-11-24T15:14:30.082Z"
     },
     {
       "id": "E-473",
@@ -2523,6 +2511,34 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-24T15:08:56.039Z"
+    },
+    {
+      "id": "E-474",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Remove the CI planner per D-174 r4 and r8 (after E-473, on E-473's branch and pull request, one commit of its own; before E-472). Delete src/shared/ci-plan.mjs, tests/unit/ci-plan.test.mjs and the `rein ci plan` subcommand with its usage line and dispatcher in src/bin/rein. Remove the file from install-rein.sh, the release layout and tests/census-baseline.tsv where they list it. CHANGELOG `[Unreleased]` names the removed command. `rein ci run` does not change. Review and acceptance run once at the branch tip, with E-473 and the handoff-heading task. Acceptance: `git grep -n \"ci-plan\\|ci plan\\|ciPlan\" -- src hooks tests docs install-rein.sh` prints nothing; `rein ci plan` exits non-zero and prints the usage text; `rein ci run` is green at the branch tip; the handoff says whether docs/app-contract.md changed.",
+      "created_at": "2026-11-24T15:14:18.981Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:14:28.542Z"
+    },
+    {
+      "id": "E-475",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make `rein handoff` write the entry's heading per D-174 r7 and r8 (after E-473, on E-473's branch and pull request, one commit of its own; before E-472). In runHandoff of src/shared/cli-bookkeeping.mjs, write before the entry text: a `---` line when COMM.md does not already end with one, then `## Handoff — <YYYY-MM-DD HH:MM> UTC` with the same time the commit message carries, then `**From**: <sender> → <target>`. Refuse with `✗ [HANDOFF_HEADING]` and exit 1 an entry file that holds a line starting `## Handoff`; nothing is written or committed on a refusal. The wake line is unchanged. Change a rulefile or template only where it tells the writer to add the heading, and keep each rulefile at or under 2 KB. Tests: extend the unit file that already covers runHandoff (name it in the handoff; no new suite): an entry without a heading lands under a heading whose time equals the commit message's; an entry with its own heading is refused and COMM.md is byte-identical; after a handoff the last `## Handoff — ` line of COMM.md is the new entry's. Acceptance: those three rows pass under `node --test`; after one real `rein handoff` in this repository `grep -c \"^## Handoff — \" .ai/COMM.md` is one higher than before; `rein ci run` is green at the branch tip.",
+      "created_at": "2026-11-24T15:14:23.774Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:14:29.286Z"
     }
   ],
   "stamps": [
@@ -8396,6 +8412,132 @@
       "timestamp": "2026-11-24T15:03:29.431Z",
       "summary": "[ACCEPT_PASS] E-457 at 82f9521 — 4 PASS, 0 FAIL, 1 UNVERIFIED ‖ 1 | PASS | git log origin/main has E-441 ffed1e8, E-440 57d1684, E-446 e685418, E-448 183b151/a84957f, E-449 abff55c, E-453 e68b40f, E-454 5aa7634 ‖ 2 | PASS | gh pr list --state open exit 0: only #70 dependabot, #50 e-429, #49 e-428, #23 e-409; no listed branch ‖ 3 | PASS | rein doctor exit 0, grep -c BUILD_STALE = 0; \"every running server booted the build that is on disk\" ‖ 4 | PASS | handoff-e470.md: Tasks closed lists 14 ids with merge 82f9521; Tasks left open names E-440/441/446/448/449/453/454 with reasons ‖ 5 | UNVERIFIED | tool absent: verify_markdown_sync not exposed to this agent; Engineer's quoted SYNC_PASS not observed here",
       "sha": "82f9521d2e6e76510bcce2d28a17ea277ce14870",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-448",
+      "timestamp": "2026-11-24T15:16:09.334Z",
+      "summary": "[ACCEPT_PASS] E-448 at 250f614 — 7 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | fixture (rein init hook): git add -f .claude/settings.json && git commit exit 1, [COMMIT_BLOCKED] [MACHINE_LOCAL] .claude/settings.json ‖ 2 | PASS | fixture tracking settings.json: git rm --cached + git commit exit 0, file no longer in ls-files ‖ 3 | PASS | .claude/settings.architect.json w/o home path committed exit 0; with $HOME/x refused exit 1 [MACHINE_LOCAL] home-path line ‖ 4 | PASS | staged docs/x.md containing $HOME/x committed exit 0 ‖ 5 | PASS | rein doctor exit 1 with [MACHINE_LOCAL] .claude/settings.json tracked; exit 0 after untrack ‖ 6 | PASS | grep -c start.local.json: hooks/pre-commit.sh 0, src/bin/rein 6 (no list literal); list in src/shared/machine-local.list ‖ 7 | PASS | CI log 82f9521 result status=PASS pass=3896 fail=0; 82f9521..HEAD diff touches only .ai/ (non-.ai files: 0)",
+      "sha": "250f6146cf5dfb474eb1ef4e6b4387be70d8ac54",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_BLOCKED",
+      "agent": "security_engineer",
+      "task_id": "E-473",
+      "timestamp": "2026-11-24T15:38:56.400Z",
+      "summary": "E-473 at 86e2785: 7 EXPLOITED rows, one root cause. The tests/run.sh ~/.rein guard checks mtime (find -P -type f -newer), so writes made by rsync -a (the installer's own copy form), cp -p and touch -d are not seen, nor are renames, chmods, new symlinks or a symlinked ~/.rein. The run then prints \"untouched\". Fix verified in the harness: find -H ... \\( -type f -o -type l \\) -cnewer stamp, plus a harness_isolation row that writes with rsync -a. P3 notes, not gating: REIN_TEST_GUARD_HOME is honoured from any env; the operator's live sessions can falsely fail `rein ci run`. Cleared: hook traps (new == old exit codes), mcp-result (args and errors pass through), legacy globs (basename-only, prompt class, symlink report-only).",
+      "sha": "86e27858d3dfb2e79352e6f32af7a23a76e52967",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_FAIL",
+      "agent": "reviewer",
+      "task_id": "E-473",
+      "timestamp": "2026-11-24T15:40:29.914Z",
+      "summary": "[REVIEW_FAIL] E-473/474/475 at 86e2785 — 2 FAIL, 6 notes ‖ FAIL tests/census-baseline.tsv:42,55-58,255 E-473(4) unbuilt; census-stale=FRESH 5 so rein ci run skips the rewrite ‖ FAIL tests/run.sh:212-221 guard fails on any concurrent ~/.rein write (live old servers write telemetry.sqlite-wal; roles/, clean.log); verdict depends on machine (E-236) ‖ note .claude/rules/mcp-servers.md:15, test-harness.md:37 tracked mirror still says telemetry ‖ note legacy-artefacts.json: no entry for ~/.rein/shared/ci-plan.mjs ‖ note cli-bookkeeping.mjs:12-17, docs/commands.md:29 omit heading/[HANDOFF_HEADING] ‖ note E-257 rows all override guard home; deletions unseen ‖ note managed_agents_test.sh:125,230 fail on stale install (pre-existing) ‖ note a,c,d sound; greps clean; units+suites pass bar tmux rows",
+      "sha": "86e27858d3dfb2e79352e6f32af7a23a76e52967",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-473",
+      "timestamp": "2026-11-24T16:08:34.007Z",
+      "summary": "[REVIEW_PASS] E-473/474/475 at 677fb06 — 0 FAIL, 6 notes ‖ prior FAIL 1 cleared: census-baseline.tsv removed; census-stale→MISSING, rein:3430 ok line, rein:5715 writes it on next green ci run (commit before PR) ‖ prior FAIL 2 cleared: tests/run.sh:233-237 prunes run/ci/roles/trash, skips clean.log+sqlite journals, find -H -cnewer; E-257.06-08 pass ‖ note src/config/legacy-artefacts.json:532-539 (note-2 fix) makes E-474's acceptance grep print lines; needs an amendment like D-174 r12 ‖ note tests/run.sh:236 ! -name '*.sqlite' is tree-wide: a test write to ~/.rein/approvals.sqlite is unseen; deletions unseen (documented) ‖ note .claude/rules/mcp-servers.md:15, test-harness.md:37 mirror stale until operator rein sync ‖ note r12 uses conform (rein:1735-1736, COPILOT.md:125, release-layout.mjs:17); incident count 0 ‖ ran harness_isolation 246/3 (E-240.04a/b, E-254.T1c tmux, pre-existing), legacy-registry 23/23, bookkeeping 20/20",
+      "sha": "677fb0647725b9394ef6fc6c80f700980cecdb42",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_BLOCKED",
+      "agent": "security_engineer",
+      "task_id": "E-473",
+      "timestamp": "2026-11-24T16:10:09.903Z",
+      "summary": "E-473 round 2 at 677fb06 (fix 1beb950). F-E473-1 is fixed: the ctime walk catches rsync -a, cp -p, touch -d, a symlinked root, rename/chmod/ln/hardlink/tar, and all round-1 payloads re-resist. BLOCKED on F-E473-4 (P2): the new roles/ prune hides a suite leak that has already happened on this host. ~/.rein/roles/rein-t-e244ng-Pvvl2Z-* was created 2026-11-24 01:40 for a tests/run.sh temp project, ten tmp.* keys followed, and the guard prints untouched (X4 EXPLOITED). Also F-E473-5 (P3): directory moves and renames are unseen (H10/H11). Fix verified in the harness: a roles/ key-list diff against the stamp, plus -mindepth 1 -type d. Not gating: anchor the *.sqlite exclusion to the root; TMPDIR set to an ancestor of the home admits the override (G7). Residual for the Architect: an overwrite of an existing roles key is unseen (it is regenerated each launch). Open question: does a live session re-read --settings? Round 2, so a third round needs the Architect (D-164 r6).",
+      "sha": "677fb0647725b9394ef6fc6c80f700980cecdb42",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-473",
+      "timestamp": "2026-11-24T18:52:57.509Z",
+      "summary": "Round 3 at HEAD 47e7e15 (D-174 r17, fixed scope): tests/run.sh's ~/.rein guard reported all 11 F-E473-1/4/5 payloads (rsync -a, cp -p, backdate, rename, chmod, new symlink, symlinked root, 2 new roles keys, tree moved in, dir rename), each failing the run with the path named; idle control untouched; 0 EXPLOITED, 0 INCONCLUSIVE",
+      "sha": "47e7e15ed844b46ab9701ac6e0e0180cbb0197eb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-473",
+      "timestamp": "2026-11-24T18:56:33.651Z",
+      "summary": "[REVIEW_PASS] E-473 at 47e7e15 — 0 FAIL, 3 notes (delta 677fb06..47e7e15) ‖ tests/run.sh:239-248 guard now walks dirs (-mindepth 1), SQLite exclusion top-level only, roles/ new-entry diff via comm -13; matches D-174 r16-r18; E-257.07/.09/.10 pass locally (harness_isolation E-257 rows 22/22) ‖ tests/suites/harness_isolation_test.sh:926 E-257.02b loosened to drop the '1 file(s)' count (parent dir now also reported); path still asserted by .02c, acceptable ‖ local sandbox fails E-254.T1c/E-240.04a/b (real tmux) — per D-174 r20 judged on operator log 404a8c8, where they pass ‖ .claude/rules mirror == src/claude/rules (diff -r clean bar manifest); census-baseline.tsv machine-written, no host paths ‖ c60a02a (Engineer COMM handoff) carries DECISIONS.md Addendum 1 — Architect text swept by handoff, not E-473 code",
+      "sha": "47e7e15ed844b46ab9701ac6e0e0180cbb0197eb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-474",
+      "timestamp": "2026-11-24T18:56:37.118Z",
+      "summary": "[REVIEW_PASS] E-474 at 47e7e15 — 0 FAIL, 1 note ‖ code unchanged since the 677fb06 review: git diff 677fb06..47e7e15 on src/shared/cli-bookkeeping.mjs, src/bin/rein, src/mcp/shared/team.mjs, src/shared/hosted-ci.mjs is empty; re-stamped to bind HEAD",
+      "sha": "47e7e15ed844b46ab9701ac6e0e0180cbb0197eb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-475",
+      "timestamp": "2026-11-24T18:56:38.721Z",
+      "summary": "[REVIEW_PASS] E-475 at 47e7e15 — 0 FAIL, 1 note ‖ code unchanged since the 677fb06 review: git diff 677fb06..47e7e15 on src/shared/cli-bookkeeping.mjs, src/bin/rein, src/mcp/shared/team.mjs, src/shared/hosted-ci.mjs is empty; re-stamped to bind HEAD",
+      "sha": "47e7e15ed844b46ab9701ac6e0e0180cbb0197eb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_FAIL",
+      "agent": "critic_acceptance",
+      "task_id": "E-474",
+      "timestamp": "2026-11-24T18:57:52.577Z",
+      "summary": "[ACCEPT_FAIL] E-474 at 47e7e15 — 3 PASS, 1 FAIL, 0 UNVERIFIED ‖ 1 | PASS | git grep prints only src/config/legacy-artefacts.json:532,533,539 = entry retired-shared-ci-plan, excepted by D-174 r14 ‖ 2 | PASS | src/bin/rein ci plan: \"unknown subcommand 'plan'\" + full Usage text, exit 2 (installed ~/.rein/bin/rein is a stale pre-E-474 copy) ‖ 3 | PASS | log 404a8c8…184531Z: dirty=0, result PASS pass=3697 fail=0; 404a8c8..47e7e15 touches only tests/census-baseline.tsv + .ai/THREAT_MODEL.md ‖ 4 | FAIL | .ai/COMM.md (421 lines): app-contract named only for E-468 (l.205-232); E-474 handoff (l.348+) never says if docs/app-contract.md changed",
+      "sha": "47e7e15ed844b46ab9701ac6e0e0180cbb0197eb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_FAIL",
+      "agent": "critic_acceptance",
+      "task_id": "E-475",
+      "timestamp": "2026-11-24T18:57:54.176Z",
+      "summary": "[ACCEPT_FAIL] E-475 at 47e7e15 — 1 PASS, 1 FAIL, 1 UNVERIFIED ‖ 1 | PASS | node --test tests/unit/bookkeeping-commands.test.mjs exit 0; heading-time, [HANDOFF_HEADING] byte-identical, last-heading rows all ✔ ‖ 2 | FAIL | real handoffs c60a02a, 78bb49f (after 86e2785): grep -c \"^## Handoff — \" .ai/COMM.md 10→10→10; built-in rein archive removed one old entry each time ‖ 3 | UNVERIFIED | operator action: CI runs on operator signal; run at 404a8c8 PASS 3697/0; tip diff is only census-baseline.tsv + .ai/THREAT_MODEL.md",
+      "sha": "47e7e15ed844b46ab9701ac6e0e0180cbb0197eb",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-473",
+      "timestamp": "2026-11-24T18:59:47.938Z",
+      "summary": "[ACCEPT_PASS] E-473 at 47e7e15 — 8 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | (D-174 r12) git grep -il telemetry lists legacy-artefacts.json, bin/rein:1735-6 gh copilot off, COPILOT.md:125, release-layout:17 ‖ 2 | PASS | (r13) git ls-files -- src hooks tests install-rein.sh docs | grep -c incident = 0 ‖ 3 | PASS | node --test tests/unit/build-stamp.test.mjs exit 0, 29 pass 0 fail ‖ 4 | PASS | harness_isolation_test.sh:925 E-257.02a passes here (250/3, 3 fails = r20 tmux rows) and in op log 404a8c8 ‖ 5 | PASS | mcp_servers E-249.03d doctor reports stale servers, .03f healthy line: pass in op log; rein:3688-3697 ‖ 6 | PASS | op log 404a8c8: result status=PASS 3697/0, ~/.rein untouched; git diff 404a8c8..HEAD = census tsv + .ai only ‖ 7 | PASS | state.json stamp SEC_CLEARED E-473 at 47e7e15 (security_engineer, round 3, 0 EXPLOITED) ‖ 8 | PASS | COMM.md:363 src lines 29,665 at 9ddb2f3, 28,629 at d62785a; both re-measured equal",
+      "sha": "e97a72d9d30f80a96af4911e8bdbfe43cff5ae7e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-474",
+      "timestamp": "2026-11-24T19:00:15.875Z",
+      "summary": "[ACCEPT_PASS] E-474 at e97a72d — 3 PASS, 0 FAIL, 1 UNVERIFIED ‖ 1 | PASS | git grep prints only src/config/legacy-artefacts.json:532,533,539, all in entry retired-shared-ci-plan, excepted by D-174 r14 ‖ 2 | PASS | `src/bin/rein ci plan` exit 2, \"unknown subcommand 'plan'\" then the rein ci usage text ‖ 3 | UNVERIFIED | gate block: auto-mode classifier denied `rein ci run` at e97a72d (status NONE); 404a8c8 log PASS 3697/0, diff since = census-baseline.tsv + .ai/ ‖ 4 | PASS | .ai/COMM.md at 34011cf, \"E-474, app contract\": docs/app-contract.md did not change and does not need to",
+      "sha": "e97a72d9d30f80a96af4911e8bdbfe43cff5ae7e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-475",
+      "timestamp": "2026-11-24T19:00:22.754Z",
+      "summary": "[ACCEPT_PASS] E-475 at e97a72d — 2 PASS, 0 FAIL, 1 UNVERIFIED ‖ 1 | PASS | `node --test tests/unit/bookkeeping-commands.test.mjs` exit 0, 20 pass 0 fail; the 3 heading/[HANDOFF_HEADING]/last-heading rows ok ‖ 2 | PASS | (D-174 r21 form) 34011cf: msg 18:58 UTC = last COMM heading; COMM 10 at 47e7e15 -> 10, +1 heading to archive/COMM-2026.md (11=10+1) ‖ 3 | UNVERIFIED | operator action: CI on operator signal; operator log 404a8c8 status=PASS 3697/0; 404a8c8..tip touches only .ai/ + census baseline",
+      "sha": "e97a72d9d30f80a96af4911e8bdbfe43cff5ae7e",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

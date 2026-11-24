@@ -13,7 +13,7 @@
 #
 # NOT listed: CLAUDE_CODE_SESSION_ID. Since E-294 pre-commit treats a session id that does not
 # verify as the union (row 3), but tests/run.sh deliberately exports a synthetic one (the
-# telemetry marker) and assert.sh re-strips this list in every suite — listing it would erase
+# run marker) and assert.sh re-strips this list in every suite — listing it would erase
 # the marker. A suite that drives pre-commit sets CLAUDE_CODE_SESSION_ID explicitly instead.
 #   REIN_WORKSPACE     shell rc + .mcp.json env (E-62) — isFrameworkClone() consults it before
 #                                            the package.json fallback (the E-249 gate never fired)

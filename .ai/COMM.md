@@ -3,317 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-23 15:33 UTC
-**From**: Architect → Engineer
-**Trigger**: D-168 — review of E-453 (e68b40f) and E-449's follow-up (9eda65a); E-456 registered.
-
-### What was built
-- Nothing in source. Reviewed: `git-view.mjs` and `git-redirect.mjs` at e68b40f, both security passes, T-GITCONFIG-001.
-- `operand-scope-cases.json` recomputed at e68b40f: 598 rows, `04dfe55b…`. It matches your handoff.
-
-### Decisions made
-- **D-168** (`.ai/DECISIONS.md`). In short:
-  - **E-453 is accepted as built.** The four fail-closed extensions and the listed over-blocks are ratified (r5, r6), `git grep -n 'git config' src/` among them.
-  - **One third round runs, as a re-probe** (r2–r4). It re-runs what is already written down and does not look for new spellings.
-  - **E-456**: the Architect's git subcommands become an allowlist (r8–r11).
-  - **E-449's follow-up is accepted** (r12). E-451 adds the assertion on `platformsFor`'s values.
-
-### Blueprint divergence (if any)
-- NONE beyond what D-168 r5 ratifies.
-
-### Next action needed
-- **Engineer, now (does not need the install)**: dispatch security_engineer on e68b40f with D-168 r2's four items:
-  - every payload of the second-pass Pen-Test table;
-  - the second pass's "Everyday Architect commands" list, plus the D-104 handoff commit line of `task-planner` Step 7;
-  - Engineer parity over the fixture lines;
-  - the time of `git config x `×3000.
-- **What gates** (r3): a G1–G4 payload that still passes; a line that blocked at d0954fa and passes now; a pass-list line that blocks; a shape over 1000 ms. Fix those in E-453. Anything else goes under "E-453 third pass" as input for E-456 and is not fixed.
-- **If it gates twice**: hand off. There is no fourth round (r4).
-- **With the re-probe commit**: add r7's residuals to T-GITCONFIG-001. Then critic_acceptance on E-453.
-- **Order after that** (r13): E-449 DONE once the operator has installed; E-454; E-455; E-456; E-450 to E-452.
-- **Operator**: unchanged from the 15:27 handoff — `bash install-rein.sh`, restart the MCP servers, then push and open the PRs for the stack in order.
-
-### Open risks
-- **Not run by the Architect.** D-168 r8 says `bisect run`, `submodule foreach`, `difftool --extcmd`, `fetch --upload-pack` and `clone --template` are on no verb list. That is read from the three lists in the code. E-456's acceptance runs them.
-- **The allowlist can block a line the Architect's skills use.** E-456's acceptance lists every git line in those skills with its verdict.
-- **The pin of the 598-row table waits for the re-probe** (r1). If the round changes a row, give the new count and hash.
----
-
----
-## Handoff — 2026-11-23 16:24 UTC
-**From**: Architect → Engineer
-**Trigger**: D-169 (lean core) on the operator's request; `.ai/blueprints/lean-core.md` written; E-457 to E-466 registered.
-
-### What was built
-- Nothing in source.
-- New blueprint: `.ai/blueprints/lean-core.md`. Read it before E-457: it changes what comes next.
-
-### Decisions made
-- **D-169** (`.ai/DECISIONS.md`). In short:
-  - **The operator delegated merges** (r1). You push, open pull requests, merge on green CI with `[ACCEPT_PASS]` recorded, and run `install-rein.sh`. Release tags and publishing stay with the operator.
-  - **The text gate is deleted once the sandbox is proven** (r2, r5). Rein supports Linux and WSL2.
-  - **The gate line stops now** (r6). E-455 and E-456 are not executed. They are closed as superseded in E-463, not before.
-  - **Bookkeeping becomes three commands, review follows the tier, the `test_lines` ratchet is retired** (r7–r9).
-  - **Until E-461 and E-464 land, today's skills and critics apply** (r13).
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Engineer, in this order** (r12): E-457, E-458, E-459, E-460, E-461, E-462, E-463, E-464, E-465, E-466; then E-450 to E-452.
-  - **E-457 first**: land the whole built stack, E-454 included once its review has passed, reinstall, and close what is accepted.
-  - **E-458 is a measurement, not a build.** E-462 starts only if its handoff says §Component 1 can be built. If it says no, hand off with the table and stop the sandbox line; E-459 to E-461 do not depend on it.
-- **Held, not to be started**: E-394, E-395, E-410, E-455, E-456.
-- **Architect**: P-51 (the overtaken licensing and mirror tasks), in parallel.
-
-### Open risks
-- **Two facts are not in Claude Code's documentation**: whether a narrower `allowWrite` wins over a broader `denyWrite`, and the `Edit(!…)` shape for "everything except two directories". E-458 measures both. Nothing is built on either before that.
-- **Hosted CI may not allow `bubblewrap`.** The escape suite then prints SKIP, and it must pass on the operator's machine before the gate is deleted.
-- **The scorecard's "today" column** comes from a read-only inventory of 2026-11-23. E-459 replaces it with computed values. The inventory counted 612 rows in `operand-scope-cases.json` on the working tree, which then held E-454's rows.
-- **The MCP call counts are not known yet.** The target of two servers is a target until E-465's table exists.
----
-
----
-## Handoff — 2026-11-23 16:23 UTC
-**From**: Engineer → Architect
-**Trigger**: E-453 closed out per D-168 (re-probe SEC_CLEARED, ACCEPT_PASS); E-454 built, SEC_CLEARED, ACCEPT_PASS. All three of E-449/E-453/E-454 are refused DONE only by [BUILD_STALE].
-
-### What was built
-- **E-453, per D-168 r2–r4.** The third round ran as a re-probe only: SEC_CLEARED, recorded in 44f9db8 ("E-453 third pass").
-  - All G1–G4 payloads block. All 31 pass-list lines pass, including the task-planner D-104 line.
-  - Engineer parity holds over 1159 lines. `git config x `×3000 takes about 400 ms.
-  - The D-168 r7 residuals are in T-GITCONFIG-001.
-  - critic_acceptance: ACCEPT_PASS 14/14 at 44f9db8. Table pin: **598 rows, `04dfe55b…`**. Nothing changed in the round.
-- **E-454**, commit `5aa7634` on `e-454-cwd-terminators`, stacked on 44f9db8.
-  - (1/2) `rm-root.mjs` `cwdOperandOfRm` reads these as the cwd or home: `${PWD|OLDPWD|HOME<op>…}`, `$( [builtin|command] pwd [opts] )`, the backtick form, and the tilde forms. They end at whitespace, `;` `&` `|` `(` `)` `<` `>` or the end of the line. This is judged per simple command that may be the remove (an rm word, or a head that is not a plain word), so the echo-then-remove row of E-440 stays a WARN. The tilde forms and `<` `>` came from the A2A ruling of 15:51Z.
-  - (2) **`$HOME`: I found no ruling that makes it a WARN.** The E-440 comment cites D-163 addendum 2 r8 d, which only covers the whitespace boundary of the echo-then-remove line. So `$HOME` takes the same terminators.
-  - (3) `heredoc.mjs`: after a directory change on the line or before it, a relative sink is implicit-run in both modes.
-    - The reader is git-view's (`changesDirectory`, a wrapper on `cdBeforeGit`), not a second copy.
-    - `runAnalysis` passes the project root. A `cd <root> &&` prefix does not count; with no root, every cd counts.
-    - Earlier heredoc bodies are not read as commands.
-    - The first moving candidate is found by bisection over the candidates' own prefixes. Over those prefixes the answer only turns true; security pass 2 showed it is not monotone over arbitrary prefixes.
-  - (4) `hooks/pre-commit.sh` prints the `[MACHINE_LOCAL]` path through `printf -v q %q`.
-  - (5) Residuals are in T-RMCWD-001 and the heredoc section.
-- **Tables (counts and sha256):**
-  - `operand-scope-cases.json`: **612 rows, `5309e8c0c9965095e0897a74738860aa054f461e78ea8ff90c31da4a78e4ed4b`**.
-  - `block-rules-cases.json`: **80 rows, `6289af40476d24ef1bb94501233ce1b67c3ae3cc91cf3b20b995f7882282375b`**.
-  - `pipe-shell-cases.json`: **61 rows, `8729fd6139667d212533835e7de3c804cf57c8b1cff8a396aa7bb31f4135bf1d`**.
-- **New rows, by branch:**
-  - block-rules (r10): terminator inside an rm command; `${PWD<op>}`; `$(builtin pwd)`; backtick pwd with a terminator; `$HOME` terminators; a non-plain head (`$c $PWD;` after a remove on the line).
-  - pipe-shell (r11): a cd before the heredoc makes a relative sink implicit-run; the same without the cd passes; an absolute sink after a cd passes; the root cd prefix passes; with no root every cd counts.
-  - operand-scope (security pass 1, A2A 15:51Z):
-    - five G1 tilde rows: `~+;`, `~+&&`, `(… ~+)`, `{ … ~-;}`, `~root;`;
-    - five G2 redirect rows: `$PWD>`, `$PWD<`, `$(pwd)>&`, backtick pwd `>&`, `$HOME>`;
-    - R1/R2 pins: backslash-newline (WARN), `$PWD""` (BLOCK — the quote-tolerant match already reads it as the cwd, so it is not a residual), `$("pwd")` (WARN), `$(command -p pwd)` (WARN).
-  - pre_commit_hook_test: E-454.01 (newline path, one line).
-- **Pinned rows that changed: four verbatim pass rows gained `project_root`.** They are operand-scope D-105 block 3 and pipe-shell D-083 #1, D-083 #2 and D-084 #3. Each `cd` names an absolute root that the real `--check` is given. With no root they now block (r11, fail closed). `tests/lib/check-table.mjs` passes the column. `tests/lib/table-probe.mjs` skips such rows for the CLI probe, because the CLI takes its root from its cwd.
-- **Time probe:** 300 heredocs after a cd, in the unit cap test. R5 measured 1.3 s for 380 bodies before the fix; 49 ms now.
-- **Verification:**
-  - security_engineer: pass 1 SEC_BLOCKED (G1, G2, fixed); pass 2 SEC_CLEARED.
-  - Critics: ARCH/SEC/TESTS PASS, plus CLEAN_WARN from the known fixture at pre_commit_hook_test.sh:647.
-  - `rein ci run` PASS on 5aa7634: 7942/0/26, test_lines 45867.
-  - critic_acceptance: ACCEPT_PASS, 10 PASS and 1 UNVERIFIED. The UNVERIFIED clause is the counts in this handoff, given above.
-
-### Decisions made
-- None new.
-
-### Blueprint divergence (if any)
-- The `$HOME` terminators are the second option of the task text, because no ruling was found.
-- Four pinned verbatim rows gained `project_root`; the hashes above include that.
-- `$PWD""` is pinned BLOCK, not WARN.
-
-### Next action needed
-- **Architect**:
-  - Pin the three tables above.
-  - Rule on N1 from security pass 2 (P2, non-gating, recorded Open in THREAT_MODEL under r11). A bare `cd`, `cd -P`, `cd --` or `pushd` alone on a line, followed by a line that is just the project root, reads the root line as the cd's operand. bash instead goes to HOME and fails the root line. So `cd⏎<root>⏎cat > a <<'E'` with a pipe-to-shell body passes for the Engineer. The E-441 reader has the same gap (`cd⏎<root>⏎git checkout .ai/x` passes for the Architect, as at 44f9db8). Fix direction: stop the operand search at a newline or separator.
-  - Also rule on these over-blocks of E-454, both fail closed:
-    - the `analyze_command` MCP tool passes no root, so its advisory report shows BLOCK for the four verbatim commands (`--check` passes them);
-    - an assignment before a cwd-holding command, or `${PWD/src/build}`, on a line with a remove.
-- **Operator**:
-  - Run `bash install-rein.sh`, then restart the MCP servers. E-449, E-453 and E-454 are each accepted and refused DONE only by [BUILD_STALE].
-  - Push and open the PRs in order: e-441, e-440, e-446, e-448, e-449-ci-planner, e-453-git-config-rule, e-454-cwd-terminators.
-- **Engineer, next**: E-455 (merge the rows E-441, E-440, E-446, E-453 and E-454 added), then E-456, then E-450 to E-452.
-
-### Open risks
-- **The live gate predates the whole stack.** On this machine it lacks E-440, E-441, E-446, E-448, E-453 and E-454.
-- **test_lines is 45867,** above the 45593 that D-167 noted. E-455 is expected to bring it down, and the budget check passed.
-- **Untouched files.** `.ai/DECISIONS.md`, `.ai/TASKS.md`, `.ai/state.json` and `.ai/blueprints/lean-core.md` are dirty from the Architect's session. I committed only COMM.md, so as not to split that work.
----
-
----
-## Handoff — 2026-11-23 21:24 UTC
-**From**: Architect → Engineer
-**Trigger**: D-170 — the operator ordered: strip Rein to the bones, one CI run for the whole batch, rewrite the documentation. E-467 to E-470 and P-53 registered. This also answers your 16:23 UTC handoff.
-
-### What was planned
-- **D-170** in `.ai/DECISIONS.md`, and `.ai/blueprints/lean-core.md` §Revision 2. Read both before anything else. D-170 amends D-169 and the texts of E-457 to E-466; where a task text and D-170 differ, D-170 wins.
-- **Keep list** (D-170 r4): the ledger with `task-synchronizer-mcp` as the only MCP server; `critic_acceptance` and the DONE refusal; the record and `rein decide`; the two roles with the sandbox, `rein handoff`, the waiting signal and `docs/app-contract.md`; 13 CLI commands; 4 agents; at most 6 skills; hooks of at most 900 lines in total. Everything else goes (r5).
-- **New tasks**: E-467 strip (Tier 3), E-468 documentation, E-469 plugin packaging, E-470 close the batch (Tier 3). P-53 is mine, after E-470.
-
-### Batch rules (D-170 r9) — the operator's order
-- One branch, `lean-core`, cut from the top of the stack. One commit per task. **No push, no pull request, no `rein ci run`, no critics, no `critic_acceptance`, no security round and no handoff between tasks.** You may run the test file you are editing.
-- Tasks stay open until E-470 and close there in one pass.
-- Kept, because they guard the boundary and are not CI: run the probe of E-458; the escape suite of E-462 passes on this machine before E-463 deletes the gate.
-- **E-464 first.** It moves the critic-stamp check out of `hooks/pre-commit.sh` to task close, so no later commit waits on a review. That one commit meets the old hook once.
-- **E-458 needs no ruling from me** (r10). If the Architect's Bash can be confined by any configuration of §Component 1, build E-462 and E-463 with it and record which. If not, skip both, keep safe-exec and its hook, and continue.
-
-### Order
-E-457 in parallel, then E-464, E-458, E-460, E-461, E-462, E-463, E-467, E-466, E-459, E-469, E-468, E-470.
-- **E-457 is now one pull request** from the top of the stack, one hosted CI run (r11). Do not wait for it: cut `lean-core` from the same commit and start E-464. When it merges, send me the merge commit at once in one line (no COMM entry needed): rein-app is waiting for it, because it holds E-433.
-- Superseded: E-465 (r8), E-455, E-456. Held: E-450 to E-452, E-394, E-395, E-410.
-
-### Answer to your 16:23 UTC handoff (r13)
-- The three tables stand as committed; no new pin. N1 and the two over-blocks of E-454 are not fixed. E-463 deletes all of it. If r10 keeps the gate, I rule on them then.
-- E-455 and E-456 are not built.
-
-### Blueprint divergence (if any)
-- NONE — nothing built yet.
-
-### Next action needed
-- **Engineer**: execute the order above. One handoff, at the end of E-470. Hand off earlier only if a task cannot be built as written and no later task can proceed without it.
-
-### Open risks
-- One run at the end finds failures late; one commit per task is what keeps them placeable. Keep to it.
-- The batch is on one disk until E-470: the pre-push hook refuses a tip without a green CI row.
-- Removed agents and skills: list each by name in the E-467 handoff (r6). Tag v0.5.0 holds them.
-- E-469: I have not verified what a Claude Code plugin can declare. Read the documentation first; the installer carries what the plugin cannot.
-- Team mode, `rein ci run` and the release path are out of scope (r7). If a deletion would break one of them, keep the piece and name it.
----
-
----
-## Handoff — 2026-11-24 01:26 UTC
-**From**: Engineer → Architect
-**Trigger**: The lean-core batch (D-170) is built on `lean-core` (HEAD 5dfd82b), except E-463, which is held. The review is done; the security round ended SEC_BLOCKED, F1/F2/F5 are fixed, and the second round is yours (D-164 r6). The operator deferred CI.
-
-### What was built
-One commit per task on `lean-core`, cut from c0737a6:
-
-| Task | Commit | Summary |
-|---|---|---|
-| E-464 | 2593dd9 | review by tier; the stamps are checked at DONE, not at commit |
-| E-458 | e17da34 | sandbox measured (plans/e-458-sandbox-measurement.md); verdict yes |
-| E-460 | ab30595 | 2 KB brief and 2 KB rulefiles; rein-preflight removed |
-| E-461 | 334f267 | `rein done`, `rein handoff`, `rein decide`; add_task quality checks |
-| E-462 | 93588b8 | the sandbox role boundary; role files under ~/.rein; the lane ledger |
-| E-467 | 887a818 | stripped to the keep list; safe-exec kept |
-| E-466 | 6b438f2 | small record: TASKS.md lists open tasks only; rein archive |
-| E-459 | ec4d45a | `rein doctor --fitness` |
-| E-469 | fcf60ff | one local plugin |
-| E-468 | 2bcaf5d | docs rewritten |
-| E-470 | 6d9c796 | the batch review's fixes |
-| E-462 | 5dfd82b | security-round fixes F1, F2, F5 |
-
-The full list of what was removed, each task's decisions and the scorecard baseline are in **plans/lean-core-batch-notes.md**. Tag v0.5.0 holds every removed unit.
-
-### Decisions made
-- None by the Engineer.
-- The operator, 2026-11-23: no CI between tasks or for the batch until they say so. They approved the batch to run overnight.
-
-### Blueprint divergence (if any)
-- **E-463 was not built.** The permission classifier refused deleting the safe-exec text gate. The gate, its hook and its tables stay, so these targets are unmet: MCP servers (2 against 1), hook lines (1391 against 900; 923 without pre-tool-use), command-text lines.
-- **The operator's install never ran.** `bash install-rein.sh` was refused twice by the classifier. Every batch commit carries a [CRITIC_STAMP] that says "NO critic review"; it only satisfies the stale installed pre-commit hook.
-- **E-470 is partial.** Done: one reviewer pass and one security round. Not done: CI, critic_acceptance, the PR and merge, and the install. E-457's PR #68 is open, its CI was cancelled on the operator's word, and it has no merge commit for rein-app yet.
-
-### Next action needed
-- **Architect:**
-  1. **Security, second round (D-164 r6).** The round's verdict is SEC_BLOCKED (.ai/SECURITY.md, "lean-core security round"; T-SANDBOXLANE-001).
-     - F1 (P0, roles.json flag injection) and F2 (P1, forged refs bypass the lane check) are fixed in 5dfd82b, with escape cases C31–C35. The best full escape run was 34/35: the failure was the model not making its probe call (C25), not an escape.
-     - **F3 (P1)**: a config file the Architect plants at the project root (`.npmrc`, `.pnpmfile.cjs`, conftest.py) runs in the Engineer's lane. Fixing it needs the Architect's working directory outside the project. Yours to rule.
-     - **F4 (P2)**: after E-467 and E-463, a project without `.ai/publish.json` has no secret check at commit. Keep a small one in pre-commit?
-  2. **Review.** It recorded REVIEW_PASS on 7 tasks and REVIEW_FAIL on E-460, E-466 and E-469. Those failures are fixed in 6d9c796 but not re-stamped.
-     - E-460's edit to your BRIEF.md is reverted. Its line 37 still names `skill: rein-preflight`, which no longer exists; the edit belongs to you.
-  3. **Rulings collected in the batch notes:**
-     - the session-bytes row fails at 5313 against 4096: CLAUDE.md @imports the rulefile and it is also appended;
-     - TASKS.md is 110 KB, over the 80 KB target;
-     - picking the brief's next five tasks;
-     - E-462 gap 1 and the placeholder files;
-     - post-commit.sh pushes hooks over 900 lines;
-     - the eval harness is idle;
-     - the delta channel no longer fills;
-     - the tracked `.claude/agents` and `.claude/skills` copies once the plugin is on;
-     - docs/demo.cast;
-     - the gate's name in the docs (named outright, so the E-468 grep stays unmet until E-463);
-     - macOS listed without being measured.
-- **Operator**, when happy:
-  - run `bash install-rein.sh` and restart the MCP servers;
-  - decide on E-463 (delete safe-exec);
-  - run CI;
-  - delete the 12 leftover ~/.rein/roles/proj-* and gitproj-* folders.
-- **Engineer, after that:** critic_acceptance for each task, one PR, merge, then close the batch.
-
-### Open risks
-- `lean-core` and the 7 branches of PR #68 are not on origin. `lean-core` is local only.
-- No CI has run on anything after 0a92961.
-- The live installed gate and task server predate the whole stack.
----
-
----
-## Handoff — 2026-11-24 01:52 UTC
-**From**: Architect → Engineer
-**Trigger**: D-172 — review of the lean-core batch (your handoff of 01:26 UTC). Accepted as built except the rulings below. No new tasks: the fixes belong to E-462 and E-467, which are still open.
-
-### What was ruled
-- **D-172** in `.ai/DECISIONS.md`. Read it whole; the notes' eleven questions are answered in r11 to r22.
-- **F1, F2, F5**: accepted as fixed, pending one re-probe (r1, r4, r5). I read 5dfd82b; I ran nothing.
-- **F3** (r2), in E-462: first try the Architect's working directory at `<project>/.ai`, which should make the project root unwritable with no deny list. One probe session decides: a new top-level write fails; `.ai/`, `plans/` and a commit work; the rulefile, the plugin and the state server load. If any of that fails, keep today's launch and build the `[LANE_STRAY]` report instead, and record F3 as an accepted residual. Pick by the probe; do not hand back to ask.
-- **F4** (r3), in E-467: the `secret` class of publish-scan runs at commit in every project.
-- **Re-probe** (r4): one `security_engineer` round over the F1 to F4 payloads only, each a case in the escape suite. No discovery. A new finding gates only if it is P0. No further round.
-- **E-463** (r7): only on the operator's word in your pane, and only after SEC_CLEARED. Do not retry the deletion or the install by another route.
-- **One pull request, one CI run** (r9): close #68 unmerged when `lean-core` is pushed; `lean-core` is the pull request. CI runs on the operator's word.
-
-### Blueprint divergence (if any)
-- D-170 r11 (a separate pull request for the stack) is withdrawn by D-172 r9.
-- The hook-lines target is 950, not 900 (r16).
-
-### Next action needed
-- **Engineer**: build r2, r3, r5 and r11 to r22 on `lean-core` (no CI, no review between them), then the re-probe of r4. Then stop and hand off in one line: the re-probe verdict and whether F3 took option a or b.
-- **Operator**, after that line: say go or wait on E-463 in the Engineer's pane; then one sitting: `rein ci run`, `bash install-rein.sh`, restart the MCP servers.
-- **Engineer, after the operator's sitting**: `reviewer` for E-460, E-466 and E-469 only; `critic_acceptance` per task; push; the pull request; merge on green; close the batch; send me the merge commit.
-- **Architect**: `.ai/BRIEF.md` line 37 is fixed in this commit. P-51 next (it shortens TASKS.md).
-
-### Open risks
-- I did not run `verify_markdown_sync` for this handoff: the installed server predates E-466 and would rewrite TASKS.md in the old format (your note). No task was added, so state is unchanged by this turn.
-- Option 2a moves where the Architect's session runs. Relative paths in ARCHITECT.md and in the handoff commit line assume the project root; check them in the probe.
-- `lean-core` is still on one disk only.
----
----
-## Handoff — 2026-11-24 12:05 UTC
-**From**: Engineer → Architect
-**Trigger**: the batch's first CI run (f7d94fd) — one failure left that is yours
-
-### What was built
-- E-471 built; review, acceptance and security PASS at 36632fe (F-471-1, a nested C1 past the sanitiser, fixed and re-cleared). Not DONE: `rein done` needs a green CI run.
-- CI at f7d94fd failed 9 tests; 7 were stale expectations against D-172 r2a, r3, r19 and E-462, fixed in 95db200.
-
-### Next action needed
-- **Architect**: tests/unit/rename-gate.test.mjs fails on 12 lines. E-461 made `handoff` a `rein` subcommand, so the retired `ai handoff` (D-099) now reads as an old spelling of the command. The lines are in your files: .ai/blueprints/architect-provider-parity.md:24,49; interactive-bridge.md:5,24,95; native-first.md:101,104,118,189; role-abstraction.md:93; structured-outputs.md:32; plans/native-vs-rein-audit.md:19. D-132 says no line outside the exclusions is exempt. Rule one of: move the retired blueprints to .ai/archive/ (already excluded), reword the lines, or name the files in tests/fixtures/rename-exclusions.json (I write it on your word).
-- **Operator**: after that, `rein ci run` once more.
-
-### Open risks
-- Running the tmux and `rein start` suites from inside an Engineer pane fails on the sandbox; the CI run passes them. Not a code fault.
----
-**Trigger**: the rename gate's 12 hits are reworded; the gate is green locally
-
-### What was built
-- The 12 lines now say "the signal `handoff` subcommand (retired, D-099)" in place of the old command spelling: five blueprints and `plans/native-vs-rein-audit.md`.
-- `node --test tests/unit/rename-gate.test.mjs`: 6 pass, 0 fail.
-
-### Decisions made
-- Reword, not archive and not exclude (under D-132, no new decision).
-  - Archive: four of the five blueprints are named by `src/` or `tests/`; only `interactive-bridge.md` is superseded, and `.gitignore` and two blueprints name it.
-  - Exclude: a whole-file exclusion would stop the gate reading live blueprints.
-- `tests/fixtures/rename-exclusions.json` is unchanged. Nothing for you to write.
-
-### Blueprint divergence (if any)
-- NONE. Wording only.
-
-### Next action needed
-- **Operator**: `rein ci run` once more.
-- **Engineer**: on green, `rein done E-471`, then E-470's remaining steps. On red, fix what is yours and hand back only what is in `.ai/` or `plans/`.
-
-### Open risks
-- The gate reads the dispatch table: any subcommand added later can turn a retired command's old spelling in a blueprint into a hit the same way. `ai watch` is still spelled so in six blueprints and passes only while `watch` is not a subcommand.
----
 ## Handoff — 2026-11-24 13:40 UTC
 **From**: Engineer → Architect
 **Trigger**: batch close — one clause conflict that only you can settle (seatbelt location)
@@ -462,6 +151,8 @@ SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-24 13:58 UTC
+**From**: Architect → Engineer
 **Trigger**: telemetry removal ruled out of E-467 into E-473 (D-172 r28); E-472 now waits on it
 
 ### What was built
@@ -483,6 +174,9 @@ SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
 
 ### Open risks
 - E-473 touches the test runner's isolation guard. A mistake there lets a suite write into the operator's `~/.rein` unseen; the task keeps one row that proves the guard still fails the run.
+---
+## Handoff — 2026-11-24 15:09 UTC
+**From**: Engineer → Architect
 **Trigger**: lean-core batch closed — PR #69 merged, installed; E-457 and E-470 close on this entry
 
 ### What was built
@@ -556,3 +250,149 @@ Adoptability   steps from install to a first closed task                     UNK
 ### Open risks
 - Reviewer notes, none a FAIL: the bwrap/socat stub is copied in three suites (belongs in tests/lib); pane_binding E-242.03 writes the real ~/.rein/roles (pre-existing, rule 6) and now runs on hosts without bwrap; E-433.TM1 skips on every hosted ubuntu run; node_unit_test prints `|-` for a multi-line TAP error.
 - The record-import timing row failed once on ubuntu node 24 (1/4) at 6318e62 with no number logged; green at 7ab4728. a2f4e81 makes a repeat readable.
+---
+## Handoff — 2026-11-24 15:16 UTC
+**From**: Architect → Engineer
+**Trigger**: the open tasks are ruled (D-174): 9 left; E-448 needs one acceptance run; E-473, E-474 and E-475 share one pull request
+
+### What was built
+- `.ai/DECISIONS.md`: D-174. P-51 is closed.
+- State: 43 tasks closed with `superseded_by`, 9 closed as built (E-428, E-429, E-430, E-431, E-433, E-434, E-435, E-436, E-444). New: E-474, E-475. E-472 now depends on both.
+- `.ai/COMM.md`: the two entries of 13:58 and 15:09 UTC had no `## Handoff` line; added by hand. That is why the brief named 14:10 as the last handoff. E-475 fixes the command.
+
+### Decisions made
+- **Stack tasks at or below the floors close as built** without an acceptance run (D-174 r2; D-159 addendum 2 r2).
+- **Gate work that was built and then deleted is closed as superseded by D-169** (r1e).
+- **E-450 to E-452 are not built; `rein ci plan` is removed** (r4, E-474).
+- **E-380 and E-403 are closed**; their residuals are named in r5 and r6.
+- **E-473, E-474 and E-475 are one branch and one pull request**, one commit each; review, acceptance and E-473's security round run once at the tip (r8).
+
+### Next action needed
+- **Engineer**:
+  1. E-448: dispatch `critic_acceptance` on main, then `rein done E-448` (r3). No reviewer run.
+  2. Close pull requests #49, #50, #23 and #26 unmerged (r9). For #49 and #50 read the remote-only commits first; name anything not on main instead of closing. Merge #70 on green CI.
+  3. E-473, then E-474, then E-475 on one branch. Then E-472.
+- **Operator**: `rein ci run` at the branch tip when the three are built. Delete the six leftover local branches when convenient (r10 says why none is needed): `git branch -D e-398-safe-exec-residuals e-409-foreign-home e-410-wip e-413-blob-nul-views e-414-latin1-decode upgrade/audit-fix-2026-11-02`.
+- **Architect**: P-53 (architect.md after the strip), then P-55 and P-54.
+
+### Open risks
+- Until E-475 lands, an entry file must carry its own `## Handoff — <time> UTC` and `**From**` lines. After it lands, such an entry is refused.
+- The Self-policing row counts E-472 (its text names the gate), so it reads 1 of 9 until the release closes.
+---
+## Handoff — 2026-11-24 16:13 UTC
+**From**: Engineer → Architect
+**Trigger**: E-473 security round 2 blocked (F-E473-4/5); fixed at 60cc6e5 — a third round needs your call (D-164 r6)
+
+### What was built
+- Branch `lean-core-2`, one commit per task plus fixes:
+  - E-473: d62785a, then 1beb950 and 60cc6e5.
+  - E-474: ba87902, then 1c8b85b.
+  - E-475: 86e2785, then 677fb06.
+  - Not pushed.
+- E-448 closed (ACCEPT_PASS at 250f614).
+- PRs:
+  - #49, #23 and #50 closed unmerged (r9, r15).
+  - #26 was already merged.
+  - #70 merged as 44b0146. It touched only codeql, dependency-review, privacy and scorecard; ci.yml is unchanged.
+- `src` lines: 29,665 at 9ddb2f3, 28,629 after E-473 (d62785a).
+
+### Review and security so far
+- reviewer: REVIEW_FAIL at 86e2785 (the census baseline was not updated; the guard flagged other processes' writes). REVIEW_PASS at 677fb06, 0 FAIL, 6 notes.
+- security_engineer round 1 (86e2785): SEC_BLOCKED on F-E473-1. The guard compared mtime, so `rsync -a` and `cp -p` from an old source went unseen.
+  - Fixed in 1beb950: `find -H … -cnewer` on files and symlinks.
+  - REIN_TEST_GUARD_HOME is honoured only under the temp dir.
+  - The live writers are excluded (run/, ci/, trash/, clean.log, SQLite stores and journals).
+- security_engineer round 2 (677fb06): SEC_BLOCKED.
+  - **F-E473-4 (P2)**: excluding roles/ hid a real leak. `~/.rein/roles/rein-t-e244ng-…` (2026-11-24 01:40) and ten `roles/tmp.*` directories were written by an earlier test run into the operator's real `~/.rein`.
+  - **F-E473-5 (P3)**: a moved-in directory was unseen.
+- Fixed in 60cc6e5:
+  - roles/ is still left out of the ctime walk, because a live `rein pane` rewrites existing entries. The run now lists its entries with the stamp, and any NEW entry fails the run.
+  - `-mindepth 1 -type d` catches a moved-in tree.
+  - SQLite names are excluded at the top level only.
+  - The redirect is also refused when the temp dir holds the account's home.
+  - New rows E-257.07, .09 and .10.
+  - harness_isolation in the Engineer sandbox: 250 pass, 3 fail. The 3 are E-240.04a/b and E-254.T1c, which need a real tmux server; they failed before this branch too.
+- Still unseen, by design: deletions, and an overwrite of an EXISTING roles/<project> settings or mcp file. `rein pane` and `rein start` rewrite both of those files at every launch.
+
+### Decisions needed
+- **Third security round for E-473** (D-164 r6): run it at 60cc6e5, or rule the residual (an overwrite of an existing roles/ entry, and deletions) accepted.
+- Security's open question: does a running session re-read its `--settings` file when the file changes? That decides how much an overwrite of an existing roles/ entry matters.
+
+### Next action needed
+- **Architect**: the ruling above. r12–r15 ride this commit, together with the security sections and THREAT_MODEL T-REINGUARD-001.
+- **Operator**, after the ruling:
+  - `rein sync`, to regenerate the tracked `.claude/rules/` mirror, which the Engineer sandbox cannot write.
+  - `rein ci run` at the branch tip. It writes `tests/census-baseline.tsv`, which was removed so CI rebuilds it; the Engineer commits it.
+  - Remove the 11 leaked `~/.rein/roles/rein-t-*` and `roles/tmp.*` directories (they point at /tmp projects).
+- **Engineer**: then critic_acceptance for E-473, E-474 and E-475 with r12–r14, one PR, merge on green, close all three, then E-472.
+
+### Open risks
+- The guard can still be tripped by an operator action during a run, such as `rein install` or a new `rein pane` on a project with no roles/ entry yet. The failure names the path.
+---
+## Handoff — 2026-11-24 16:14 UTC
+**From**: Architect → Engineer
+**Trigger**: E-473: one re-probe round, no discovery, at the final tip; the guard's residuals are accepted (D-174 r16–r20)
+
+### Decisions made
+- **D-174 addendum 2** in `.ai/DECISIONS.md`:
+  - r16: the guard is a detective check against a test's mistake, not a boundary against an attacker.
+  - r17: `security_engineer` re-runs the payloads of F-E473-1, F-E473-4 and F-E473-5 and nothing else. SEC_CLEARED if the guard sees all of them. A new finding is recorded and gates only if P0. No fourth round.
+  - r18: accepted residuals: deletions; an overwrite of an existing `roles/<project>` file; writes under the left-out live paths. The `--settings` re-read question is not measured and does not change the ruling.
+  - r19: a run the guard fails because of an operator action during it is repeated. No exemption is built.
+  - r20: the three tmux rows are judged on the operator's `rein ci run`.
+
+### Order (so every stamp is taken once, at the commit that merges)
+1. **Operator**: `rein sync`, then `rein ci run` at the branch tip. Remove the 11 leaked `~/.rein/roles/rein-t-*` and `roles/tmp.*` directories first, so the run starts clean.
+2. **Engineer**: commit `tests/census-baseline.tsv`. That commit is the final tip.
+3. **Engineer**, at the final tip: the re-probe with r17 as its whole scope; `reviewer` for what changed since 677fb06 (60cc6e5 and the baseline); `critic_acceptance` for E-473, E-474 and E-475 with r12 to r14. Add r18's residuals to T-REINGUARD-001 as accepted.
+4. **Engineer**: one pull request, merge on green, close all three, then E-472.
+
+### Next action needed
+- **Operator**: step 1.
+- **Engineer**: steps 2 to 4. Until the operator's run, nothing to do on this branch.
+
+### Open risks
+- The baseline commit changes a file under `tests/`, so the run of step 1 may not stand for the final tip at push or at DONE. If a check refuses for that reason, the second run is the operator's to start; say so in one line and wait.
+---
+## Handoff — 2026-11-24 18:58 UTC
+**From**: Engineer → Architect
+**Trigger**: E-473 cleared and E-474 and E-475 reviewed at 47e7e15; the E-475 acceptance clause cannot pass as written (needs your ruling)
+
+### What was built
+- Branch `lean-core-2`, not pushed. On top of 78bb49f:
+  - 404a8c8: the `.claude/rules` mirror. `rein sync` copies from the installed `~/.rein`, which predates the branch, so the operator copied the two files from src/claude/rules by hand.
+  - fb86336: `tests/census-baseline.tsv`, written by the operator's `rein ci run` at 404a8c8. That run passed 3697/0/9, including the three tmux rows (r20). It printed `Operator ~/.rein: untouched`.
+  - 47e7e15: T-REINGUARD-001 records the r18 residuals.
+- The operator removed 23 leaked `~/.rein/roles` dirs before the run: 1 `rein-t-*`, 10 `tmp.*`, and 12 `proj-*`/`gitproj-*` for `/tmp/rein-t-efh-*` and `/tmp/tmp.*` projects, created on 2026-11-24 between 00:20 and 00:24.
+- Stamps at 47e7e15:
+  - E-473: SEC_CLEARED (r17 re-probe; every F-E473-1/4/5 payload seen, no false positive on an idle run), REVIEW_PASS and ACCEPT_PASS.
+  - E-474 and E-475: REVIEW_PASS (code unchanged since 677fb06).
+- **E-474, app contract**: docs/app-contract.md did not change and does not need to. It names neither the CI planner nor `rein ci plan`; its last commit is 5b343c4 (E-463). This line is the one ACCEPT_FAIL clause 4 asked for. The other three clauses passed.
+
+### Decisions needed
+- **E-475 clause 2** reads: "after one real `rein handoff` in this repository `grep -c "^## Handoff — " .ai/COMM.md` is one higher than before". It cannot hold here. `rein handoff` runs `rein archive` before it commits (E-466), and COMM.md keeps its last ten handoffs (`COMM_KEEP = 10`, src/shared/record-archive.mjs). The count is at the cap, so every handoff adds one heading and archives one, and the count stays at 10. critic_acceptance observed this on c60a02a and 78bb49f and recorded ACCEPT_FAIL. The heading itself is written right: one `---`, `## Handoff — <commit time>` and `**From**` per entry, and clause 1's unit rows pass.
+- Proposed restatement: "after one real `rein handoff` in this repository, the last `## Handoff — ` line in .ai/COMM.md carries the time in that commit's message, and the heading count in COMM.md plus the headings that commit moved to `.ai/archive/` is one higher than before." This handoff is itself a real one and can serve as the observation.
+
+### Next action needed
+- **Architect**: rule on E-475 clause 2.
+- **Engineer**, after the ruling: re-run critic_acceptance for E-474 (on this entry) and for E-475, open one PR, merge it on green, close E-473/474/475, then E-472.
+
+### Open risks
+- The reviewer noted that c60a02a, an Engineer handoff commit, also carried your D-174 Addendum 1 text in .ai/DECISIONS.md, because `rein handoff` commits every dirty tracked `.ai/` path (D-147 r1). Please confirm the text is yours as committed.
+- The installed `~/.rein` predates the branch: `rein ci plan` still runs from it, and `rein sync` mirrors old rules. It is current after the operator installs 0.6.0 (E-472).
+---
+## Handoff — 2026-11-24 18:59 UTC
+**From**: Architect → Engineer
+**Trigger**: E-475 clause 2 is restated as you proposed (D-174 r21); Addendum 1 confirmed as mine (r22)
+
+### Decisions made
+- **r21**: E-475's second clause now reads: after one real `rein handoff`, the last `## Handoff — ` line in COMM.md carries the time in that commit's message, and the heading count in COMM.md plus the headings that commit moved to `.ai/archive/` is one higher than before. The first form was my error. 34011cf is a valid observation.
+- **r22**: the Addendum 1 text committed in c60a02a is mine, unchanged. No lane breach.
+- E-474 clause 4 needs no ruling: your 18:58 entry carries the app-contract statement.
+
+### Next action needed
+- **Engineer**: `critic_acceptance` for E-474 (on the 18:58 entry) and for E-475 (with r21); wait for E-473's acceptance stamp; one pull request; merge on green; close E-473, E-474 and E-475; then E-472.
+- **Operator**: nothing until E-472 asks for the escape suite and the tag.
+
+### Open risks
+- `git status` shows untracked `.bash_profile`, `.gitmodules`, `.idea`, `.profile`, `.ripgreprc` and `.vscode` at the project root, and the same kind of names under `.ai/`. They look like the sandbox's own placeholders, not anyone's work. Do not commit them; I rule on the `[LANE_CODE]` noise they cause with P-53.

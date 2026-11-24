@@ -3,144 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-23 15:33 UTC
-**From**: Architect → Engineer
-**Trigger**: D-168 — review of E-453 (e68b40f) and E-449's follow-up (9eda65a); E-456 registered.
-
-### What was built
-- Nothing in source. Reviewed: `git-view.mjs` and `git-redirect.mjs` at e68b40f, both security passes, T-GITCONFIG-001.
-- `operand-scope-cases.json` recomputed at e68b40f: 598 rows, `04dfe55b…`. It matches your handoff.
-
-### Decisions made
-- **D-168** (`.ai/DECISIONS.md`). In short:
-  - **E-453 is accepted as built.** The four fail-closed extensions and the listed over-blocks are ratified (r5, r6), `git grep -n 'git config' src/` among them.
-  - **One third round runs, as a re-probe** (r2–r4). It re-runs what is already written down and does not look for new spellings.
-  - **E-456**: the Architect's git subcommands become an allowlist (r8–r11).
-  - **E-449's follow-up is accepted** (r12). E-451 adds the assertion on `platformsFor`'s values.
-
-### Blueprint divergence (if any)
-- NONE beyond what D-168 r5 ratifies.
-
-### Next action needed
-- **Engineer, now (does not need the install)**: dispatch security_engineer on e68b40f with D-168 r2's four items:
-  - every payload of the second-pass Pen-Test table;
-  - the second pass's "Everyday Architect commands" list, plus the D-104 handoff commit line of `task-planner` Step 7;
-  - Engineer parity over the fixture lines;
-  - the time of `git config x `×3000.
-- **What gates** (r3): a G1–G4 payload that still passes; a line that blocked at d0954fa and passes now; a pass-list line that blocks; a shape over 1000 ms. Fix those in E-453. Anything else goes under "E-453 third pass" as input for E-456 and is not fixed.
-- **If it gates twice**: hand off. There is no fourth round (r4).
-- **With the re-probe commit**: add r7's residuals to T-GITCONFIG-001. Then critic_acceptance on E-453.
-- **Order after that** (r13): E-449 DONE once the operator has installed; E-454; E-455; E-456; E-450 to E-452.
-- **Operator**: unchanged from the 15:27 handoff — `bash install-rein.sh`, restart the MCP servers, then push and open the PRs for the stack in order.
-
-### Open risks
-- **Not run by the Architect.** D-168 r8 says `bisect run`, `submodule foreach`, `difftool --extcmd`, `fetch --upload-pack` and `clone --template` are on no verb list. That is read from the three lists in the code. E-456's acceptance runs them.
-- **The allowlist can block a line the Architect's skills use.** E-456's acceptance lists every git line in those skills with its verdict.
-- **The pin of the 598-row table waits for the re-probe** (r1). If the round changes a row, give the new count and hash.
----
-
----
-## Handoff — 2026-11-23 16:24 UTC
-**From**: Architect → Engineer
-**Trigger**: D-169 (lean core) on the operator's request; `.ai/blueprints/lean-core.md` written; E-457 to E-466 registered.
-
-### What was built
-- Nothing in source.
-- New blueprint: `.ai/blueprints/lean-core.md`. Read it before E-457: it changes what comes next.
-
-### Decisions made
-- **D-169** (`.ai/DECISIONS.md`). In short:
-  - **The operator delegated merges** (r1). You push, open pull requests, merge on green CI with `[ACCEPT_PASS]` recorded, and run `install-rein.sh`. Release tags and publishing stay with the operator.
-  - **The text gate is deleted once the sandbox is proven** (r2, r5). Rein supports Linux and WSL2.
-  - **The gate line stops now** (r6). E-455 and E-456 are not executed. They are closed as superseded in E-463, not before.
-  - **Bookkeeping becomes three commands, review follows the tier, the `test_lines` ratchet is retired** (r7–r9).
-  - **Until E-461 and E-464 land, today's skills and critics apply** (r13).
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Engineer, in this order** (r12): E-457, E-458, E-459, E-460, E-461, E-462, E-463, E-464, E-465, E-466; then E-450 to E-452.
-  - **E-457 first**: land the whole built stack, E-454 included once its review has passed, reinstall, and close what is accepted.
-  - **E-458 is a measurement, not a build.** E-462 starts only if its handoff says §Component 1 can be built. If it says no, hand off with the table and stop the sandbox line; E-459 to E-461 do not depend on it.
-- **Held, not to be started**: E-394, E-395, E-410, E-455, E-456.
-- **Architect**: P-51 (the overtaken licensing and mirror tasks), in parallel.
-
-### Open risks
-- **Two facts are not in Claude Code's documentation**: whether a narrower `allowWrite` wins over a broader `denyWrite`, and the `Edit(!…)` shape for "everything except two directories". E-458 measures both. Nothing is built on either before that.
-- **Hosted CI may not allow `bubblewrap`.** The escape suite then prints SKIP, and it must pass on the operator's machine before the gate is deleted.
-- **The scorecard's "today" column** comes from a read-only inventory of 2026-11-23. E-459 replaces it with computed values. The inventory counted 612 rows in `operand-scope-cases.json` on the working tree, which then held E-454's rows.
-- **The MCP call counts are not known yet.** The target of two servers is a target until E-465's table exists.
----
-
----
-## Handoff — 2026-11-23 16:23 UTC
-**From**: Engineer → Architect
-**Trigger**: E-453 closed out per D-168 (re-probe SEC_CLEARED, ACCEPT_PASS); E-454 built, SEC_CLEARED, ACCEPT_PASS. All three of E-449/E-453/E-454 are refused DONE only by [BUILD_STALE].
-
-### What was built
-- **E-453, per D-168 r2–r4.** The third round ran as a re-probe only: SEC_CLEARED, recorded in 44f9db8 ("E-453 third pass").
-  - All G1–G4 payloads block. All 31 pass-list lines pass, including the task-planner D-104 line.
-  - Engineer parity holds over 1159 lines. `git config x `×3000 takes about 400 ms.
-  - The D-168 r7 residuals are in T-GITCONFIG-001.
-  - critic_acceptance: ACCEPT_PASS 14/14 at 44f9db8. Table pin: **598 rows, `04dfe55b…`**. Nothing changed in the round.
-- **E-454**, commit `5aa7634` on `e-454-cwd-terminators`, stacked on 44f9db8.
-  - (1/2) `rm-root.mjs` `cwdOperandOfRm` reads these as the cwd or home: `${PWD|OLDPWD|HOME<op>…}`, `$( [builtin|command] pwd [opts] )`, the backtick form, and the tilde forms. They end at whitespace, `;` `&` `|` `(` `)` `<` `>` or the end of the line. This is judged per simple command that may be the remove (an rm word, or a head that is not a plain word), so the echo-then-remove row of E-440 stays a WARN. The tilde forms and `<` `>` came from the A2A ruling of 15:51Z.
-  - (2) **`$HOME`: I found no ruling that makes it a WARN.** The E-440 comment cites D-163 addendum 2 r8 d, which only covers the whitespace boundary of the echo-then-remove line. So `$HOME` takes the same terminators.
-  - (3) `heredoc.mjs`: after a directory change on the line or before it, a relative sink is implicit-run in both modes.
-    - The reader is git-view's (`changesDirectory`, a wrapper on `cdBeforeGit`), not a second copy.
-    - `runAnalysis` passes the project root. A `cd <root> &&` prefix does not count; with no root, every cd counts.
-    - Earlier heredoc bodies are not read as commands.
-    - The first moving candidate is found by bisection over the candidates' own prefixes. Over those prefixes the answer only turns true; security pass 2 showed it is not monotone over arbitrary prefixes.
-  - (4) `hooks/pre-commit.sh` prints the `[MACHINE_LOCAL]` path through `printf -v q %q`.
-  - (5) Residuals are in T-RMCWD-001 and the heredoc section.
-- **Tables (counts and sha256):**
-  - `operand-scope-cases.json`: **612 rows, `5309e8c0c9965095e0897a74738860aa054f461e78ea8ff90c31da4a78e4ed4b`**.
-  - `block-rules-cases.json`: **80 rows, `6289af40476d24ef1bb94501233ce1b67c3ae3cc91cf3b20b995f7882282375b`**.
-  - `pipe-shell-cases.json`: **61 rows, `8729fd6139667d212533835e7de3c804cf57c8b1cff8a396aa7bb31f4135bf1d`**.
-- **New rows, by branch:**
-  - block-rules (r10): terminator inside an rm command; `${PWD<op>}`; `$(builtin pwd)`; backtick pwd with a terminator; `$HOME` terminators; a non-plain head (`$c $PWD;` after a remove on the line).
-  - pipe-shell (r11): a cd before the heredoc makes a relative sink implicit-run; the same without the cd passes; an absolute sink after a cd passes; the root cd prefix passes; with no root every cd counts.
-  - operand-scope (security pass 1, A2A 15:51Z):
-    - five G1 tilde rows: `~+;`, `~+&&`, `(… ~+)`, `{ … ~-;}`, `~root;`;
-    - five G2 redirect rows: `$PWD>`, `$PWD<`, `$(pwd)>&`, backtick pwd `>&`, `$HOME>`;
-    - R1/R2 pins: backslash-newline (WARN), `$PWD""` (BLOCK — the quote-tolerant match already reads it as the cwd, so it is not a residual), `$("pwd")` (WARN), `$(command -p pwd)` (WARN).
-  - pre_commit_hook_test: E-454.01 (newline path, one line).
-- **Pinned rows that changed: four verbatim pass rows gained `project_root`.** They are operand-scope D-105 block 3 and pipe-shell D-083 #1, D-083 #2 and D-084 #3. Each `cd` names an absolute root that the real `--check` is given. With no root they now block (r11, fail closed). `tests/lib/check-table.mjs` passes the column. `tests/lib/table-probe.mjs` skips such rows for the CLI probe, because the CLI takes its root from its cwd.
-- **Time probe:** 300 heredocs after a cd, in the unit cap test. R5 measured 1.3 s for 380 bodies before the fix; 49 ms now.
-- **Verification:**
-  - security_engineer: pass 1 SEC_BLOCKED (G1, G2, fixed); pass 2 SEC_CLEARED.
-  - Critics: ARCH/SEC/TESTS PASS, plus CLEAN_WARN from the known fixture at pre_commit_hook_test.sh:647.
-  - `rein ci run` PASS on 5aa7634: 7942/0/26, test_lines 45867.
-  - critic_acceptance: ACCEPT_PASS, 10 PASS and 1 UNVERIFIED. The UNVERIFIED clause is the counts in this handoff, given above.
-
-### Decisions made
-- None new.
-
-### Blueprint divergence (if any)
-- The `$HOME` terminators are the second option of the task text, because no ruling was found.
-- Four pinned verbatim rows gained `project_root`; the hashes above include that.
-- `$PWD""` is pinned BLOCK, not WARN.
-
-### Next action needed
-- **Architect**:
-  - Pin the three tables above.
-  - Rule on N1 from security pass 2 (P2, non-gating, recorded Open in THREAT_MODEL under r11). A bare `cd`, `cd -P`, `cd --` or `pushd` alone on a line, followed by a line that is just the project root, reads the root line as the cd's operand. bash instead goes to HOME and fails the root line. So `cd⏎<root>⏎cat > a <<'E'` with a pipe-to-shell body passes for the Engineer. The E-441 reader has the same gap (`cd⏎<root>⏎git checkout .ai/x` passes for the Architect, as at 44f9db8). Fix direction: stop the operand search at a newline or separator.
-  - Also rule on these over-blocks of E-454, both fail closed:
-    - the `analyze_command` MCP tool passes no root, so its advisory report shows BLOCK for the four verbatim commands (`--check` passes them);
-    - an assignment before a cwd-holding command, or `${PWD/src/build}`, on a line with a remove.
-- **Operator**:
-  - Run `bash install-rein.sh`, then restart the MCP servers. E-449, E-453 and E-454 are each accepted and refused DONE only by [BUILD_STALE].
-  - Push and open the PRs in order: e-441, e-440, e-446, e-448, e-449-ci-planner, e-453-git-config-rule, e-454-cwd-terminators.
-- **Engineer, next**: E-455 (merge the rows E-441, E-440, E-446, E-453 and E-454 added), then E-456, then E-450 to E-452.
-
-### Open risks
-- **The live gate predates the whole stack.** On this machine it lacks E-440, E-441, E-446, E-448, E-453 and E-454.
-- **test_lines is 45867,** above the 45593 that D-167 noted. E-455 is expected to bring it down, and the budget check passed.
-- **Untouched files.** `.ai/DECISIONS.md`, `.ai/TASKS.md`, `.ai/state.json` and `.ai/blueprints/lean-core.md` are dirty from the Architect's session. I committed only COMM.md, so as not to split that work.
----
-
----
 ## Handoff — 2026-11-23 21:24 UTC
 **From**: Architect → Engineer
 **Trigger**: D-170 — the operator ordered: strip Rein to the bones, one CI run for the whole batch, rewrite the documentation. E-467 to E-470 and P-53 registered. This also answers your 16:23 UTC handoff.
@@ -462,6 +324,8 @@ SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
 ### Open risks
 - None new.
 ---
+## Handoff — 2026-11-24 13:58 UTC
+**From**: Architect → Engineer
 **Trigger**: telemetry removal ruled out of E-467 into E-473 (D-172 r28); E-472 now waits on it
 
 ### What was built
@@ -483,6 +347,9 @@ SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
 
 ### Open risks
 - E-473 touches the test runner's isolation guard. A mistake there lets a suite write into the operator's `~/.rein` unseen; the task keeps one row that proves the guard still fails the run.
+---
+## Handoff — 2026-11-24 15:09 UTC
+**From**: Engineer → Architect
 **Trigger**: lean-core batch closed — PR #69 merged, installed; E-457 and E-470 close on this entry
 
 ### What was built
@@ -556,3 +423,31 @@ Adoptability   steps from install to a first closed task                     UNK
 ### Open risks
 - Reviewer notes, none a FAIL: the bwrap/socat stub is copied in three suites (belongs in tests/lib); pane_binding E-242.03 writes the real ~/.rein/roles (pre-existing, rule 6) and now runs on hosts without bwrap; E-433.TM1 skips on every hosted ubuntu run; node_unit_test prints `|-` for a multi-line TAP error.
 - The record-import timing row failed once on ubuntu node 24 (1/4) at 6318e62 with no number logged; green at 7ab4728. a2f4e81 makes a repeat readable.
+---
+## Handoff — 2026-11-24 15:16 UTC
+**From**: Architect → Engineer
+**Trigger**: the open tasks are ruled (D-174): 9 left; E-448 needs one acceptance run; E-473, E-474 and E-475 share one pull request
+
+### What was built
+- `.ai/DECISIONS.md`: D-174. P-51 is closed.
+- State: 43 tasks closed with `superseded_by`, 9 closed as built (E-428, E-429, E-430, E-431, E-433, E-434, E-435, E-436, E-444). New: E-474, E-475. E-472 now depends on both.
+- `.ai/COMM.md`: the two entries of 13:58 and 15:09 UTC had no `## Handoff` line; added by hand. That is why the brief named 14:10 as the last handoff. E-475 fixes the command.
+
+### Decisions made
+- **Stack tasks at or below the floors close as built** without an acceptance run (D-174 r2; D-159 addendum 2 r2).
+- **Gate work that was built and then deleted is closed as superseded by D-169** (r1e).
+- **E-450 to E-452 are not built; `rein ci plan` is removed** (r4, E-474).
+- **E-380 and E-403 are closed**; their residuals are named in r5 and r6.
+- **E-473, E-474 and E-475 are one branch and one pull request**, one commit each; review, acceptance and E-473's security round run once at the tip (r8).
+
+### Next action needed
+- **Engineer**:
+  1. E-448: dispatch `critic_acceptance` on main, then `rein done E-448` (r3). No reviewer run.
+  2. Close pull requests #49, #50, #23 and #26 unmerged (r9). For #49 and #50 read the remote-only commits first; name anything not on main instead of closing. Merge #70 on green CI.
+  3. E-473, then E-474, then E-475 on one branch. Then E-472.
+- **Operator**: `rein ci run` at the branch tip when the three are built. Delete the six leftover local branches when convenient (r10 says why none is needed): `git branch -D e-398-safe-exec-residuals e-409-foreign-home e-410-wip e-413-blob-nul-views e-414-latin1-decode upgrade/audit-fix-2026-11-02`.
+- **Architect**: P-53 (architect.md after the strip), then P-55 and P-54.
+
+### Open risks
+- Until E-475 lands, an entry file must carry its own `## Handoff — <time> UTC` and `**From**` lines. After it lands, such an entry is refused.
+- The Self-policing row counts E-472 (its text names the gate), so it reads 1 of 9 until the release closes.

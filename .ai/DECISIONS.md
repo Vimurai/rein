@@ -6212,3 +6212,51 @@ Each ruling is a change inside one task's commit or a follow-up commit on `lean-
 Before the tag: revert the bump pull request. After the tag: `gh release delete v0.6.0`, delete the tag (the operator), and v0.5.0 stays the latest signed release.
 
 ---
+
+## D-174 — The open tasks after the strip: 43 closed as overtaken, 9 closed as built, one waits on its acceptance run; the CI planner goes; `rein handoff` writes its own heading
+
+**Date**: 2026-11-24
+**Task**: P-51; the Engineer's handoff of 2026-11-24 15:09 UTC (merge 82f9521); E-450 to E-452 (held by D-170 r14)
+**Decision**: Every open task written before the lean core is ruled here in one pass: closed as overtaken by a named decision, closed as built, or kept.
+
+### Why needed
+Pull request #69 merged as 82f9521 and 62 tasks were still open. `rein doctor --fitness` fails its Self-policing row: 26 open tasks name the command gate that E-463 deleted. The stack tasks E-428 to E-454 reached main through #69 without being closed. P-51 has waited since D-159, and D-170 r14 held E-450 to E-452 for a ruling after E-470.
+
+### What was checked
+Read by the Architect on main at d7d6023: the task texts in state; `git ls-files src hooks`; `src/shared/completion-gates.mjs` (the floors); the stamps recorded for the stack tasks; `git grep` for each surviving task's test rows; `src/shared/publish-scan.mjs` (the home-path rule and `EXEMPT_FILES`); the six unmerged local branches against main. Nothing was run except those reads.
+
+### Rulings
+1. **Closed as overtaken, with `superseded_by`.** The product was never built, or was built and then deleted.
+   a. **D-123** (open source replaces the commercial licence): E-356, E-357, E-359, E-360, E-361, E-367, E-368, E-369, P-46.
+   b. **D-129** (public development from day one; no mirror, no two-repository loop): E-373, E-375, E-376, E-377, P-47, P-48. The releases they planned were made by another path (D-133, D-156).
+   c. **D-131** (the public line starts at v0.4.0): E-334. There is no v4.1.0 to release, and `docs/team-mode.md` exists.
+   d. **D-170** (r2, r5): E-337 (CI wrappers for two more hosts: one operator, one host), E-381 (`orchestrator-mcp` is gone; `rein review` replaced `run_review`), E-387 (the suites it measured were cut to 31 and a full local run is 293 s), E-411 (the memory palace is gone), E-437 (the `rein-migration` skill is gone).
+   e. **D-169** (r2, r9): E-432 and E-404 (never built; the command gate and its parser are gone); E-443 (the `test_lines` ratchet is retired); and the gate work that was built, accepted and then deleted by E-463: E-353, E-393, E-438, E-439, E-440, E-441, E-442, E-445, E-446, E-447, E-453, E-454. Tag v0.5.0 and the stack commits hold it.
+   f. **D-172** (r6, r21): E-392. The operator's machine is WSL2, and every release runs `rein ci run` and the escape suite there (D-173 r4). A hosted leg cannot run the sandbox at all: the hosted runner's `bwrap` has no user namespace.
+   g. **This decision**: E-380, E-403, E-449, E-450, E-451, E-452 (rulings 4 to 6).
+2. **Closed as built, on main through 82f9521**: E-428, E-429, E-430, E-431, E-433, E-434, E-435, E-436, E-444. Each is at or below both floors (`ACCEPT_GATE_FLOOR` 444, `REVIEW_GATE_FLOOR` 457), was reviewed by the critics at commit time, and has its test rows on main, where hosted CI was 18 of 18 green and the local run passed. D-159 addendum 2 r2 already rules that such a task closes without an acceptance stamp. E-457's sentence "closes only a task whose acceptance is recorded" does not reach below the floor.
+3. **E-448 stays open for one `critic_acceptance` run on main.** It is above the acceptance floor, its product (the machine-local refusal at commit) is kept, and every clause of its Acceptance can still be observed. The Engineer dispatches the run and closes the task with `rein done`. It is below the review floor, so no reviewer run.
+4. **E-450, E-451 and E-452 are not built, and the planner E-449 built is removed.** D-166 planned the CI level from the diff because a run was long and ran for every task. Now CI runs once per batch on the operator's word (D-170 r1) and a full local run takes under five minutes. `rein ci plan` prints a plan that no command obeys. The removal is a new task and lands before v0.6.0, so the release notes list it once.
+5. **E-380 is closed without a replacement.** Checked: `HOME_RE` matches `/Users/<name>` inside `/mnt/c/Users/<name>`, the form WSL2 writes. What is left open is a backslash Windows path, a look-alike letter in a name, and an address inside a URL. These are named here as accepted residuals of the privacy scan. Its Acceptance also asks for a critic that no longer exists.
+6. **E-403 is closed.** Parsers for seven media formats are not bones (D-170 r2). `docs/assets/demo.gif` keeps its one entry in `EXEMPT_FILES`; its source, `demo.cast`, is scanned in full. Any other binary is still scanned by printable runs.
+7. **`rein handoff` writes the heading.** The command appends the entry file as it is. Two entries of 2026-11-24 came without the `## Handoff — <time> UTC` line, so the session brief named an older handoff as the last one. The command knows the time and both roles; it writes the separator, the heading and the `**From**` line, and refuses an entry that brings its own heading. The Architect repaired the two entries in COMM.md by hand. New task.
+8. **The two new tasks ride E-473's branch and pull request**, one commit each, with review and acceptance run once at the tip for all three (stamps bind to HEAD). E-473's "one pull request" now means that shared one. Order: E-473, the planner removal, the handoff heading, then E-472.
+9. **Open pull requests.** #49, #50, #23 and #26 are closed unmerged by the Engineer: the work is on main, or its task is closed by ruling 1. For #49 and #50 the Engineer first reads the commits on the remote head that the local branch lacks, and names anything not on main in the handoff instead of closing. #70 (Dependabot) is merged on green CI under D-169 r1.
+10. **The six unmerged local branches are the operator's to delete.** Checked: `e-398`, `e-413` and `e-414` hold work that reached main by squash (PR #31); `e-409-foreign-home` likewise (PR #33) plus records that are on main (D-142); `e-410-wip` is the parked work of a task closed by D-172 r27; `upgrade/audit-fix-2026-11-02` changes only `.ai/`, and its decisions D-143 to D-147 are on main. Nothing on them is needed. Until they are deleted the Waiting row of the scorecard fails.
+11. **Kept as they are**: E-472, E-473, P-43, P-53, P-54, P-55. P-51 closes with this entry.
+
+### Alternatives considered
+1. **Run `critic_acceptance` on main for every surviving stack task** — rejected: nine agent runs against texts that name removed critics and budgets, for tasks the existing floor already exempts.
+2. **Close the built tasks with `superseded_by`** — rejected by D-159 addendum 2: a task that was implemented and kept is not superseded.
+3. **Keep `rein ci plan` as a report** — rejected: a command whose output nothing reads is the kind of part D-170 removed.
+4. **Rewrite E-380 as a smaller task** — rejected: the one form the operator's machine produces is already matched.
+
+### Impact
+- Open tasks go from 62 to 9: E-448, E-472, E-473, the two new tasks, P-43, P-53, P-54, P-55.
+- The Self-policing row should pass once E-472 closes (its text names the gate it describes in the CHANGELOG).
+- Risk if wrong: a closed task named something still wanted. Each closure names its decision, and a task is one `add_task` away.
+
+### Rollback
+Reopen a task with `update_task_status` and `reopen: true`. The planner is restored by reverting its one commit.
+
+---

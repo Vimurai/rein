@@ -6259,4 +6259,13 @@ Read by the Architect on main at d7d6023: the task texts in state; `git ls-files
 ### Rollback
 Reopen a task with `update_task_status` and `reopen: true`. The planner is restored by reverting its one commit.
 
+### Addendum 1 (2026-11-24) — E-473: three files may still say "telemetry"; the release layout is not changed
+12. **E-473's first Acceptance clause now reads**: `git grep -il "telemetry" -- src hooks install-rein.sh` prints nothing except `src/config/legacy-artefacts.json`, `src/bin/rein`, `src/copilot/COPILOT.md` and `src/shared/release-layout.mjs`. In the last three the word may appear only as ruled here; any other use in them is a FAIL.
+   a. `src/bin/rein`: the `gh copilot config set telemetry false` line and its echo stay. They switch off another product's telemetry, which protects the operator. The two comments that name Rein's telemetry (near lines 4197 and 5510) are reworded.
+   b. `src/copilot/COPILOT.md`: the sentence telling Copilot not to suggest telemetry stays. It is guidance about the operator's code.
+   c. `src/shared/release-layout.mjs`: `telemetry.sqlite` and `incidents.ndjson` stay in `OPERATOR_OWNED`, and `tests/fixtures/release/layout-v1.json` is not changed. The list says what an upgrade never deletes, and it already keeps the names of other removed parts (`memory/`, `INSIGHTS.md`, `gate-override.json`). An operator's old files are theirs until they run `rein clean`. The pinned fixture is what rein-app tests against, and a removal that changes no installer action is not worth a contract change.
+13. **E-473's clause `git ls-files | grep -c "incident"` now reads** `git ls-files -- src hooks tests install-rein.sh docs | grep -c "incident"` and prints 0. The two files it found, `.ai/blueprints/automated-incident-response.md` and `.ai/blueprints/incident-tracker.md`, are the record of a removed part and stay, like the other blueprints of removed parts. The clause was written about code. Which old blueprints are archived is ruled with P-53, for all of them at once.
+14. **E-474's first Acceptance clause excepts `src/config/legacy-artefacts.json`.** The command prints nothing except the one entry `retired-shared-ci-plan` in that file. The entry is right: it is how `rein clean` removes the installed copy of the module, as for every module E-473 removed.
+15. **Pull request #50 is closed unmerged.** Its one commit that main lacks, fd1696b, is a review stamp for E-429 in `.ai/` only. E-429 is closed under r2 and needs no stamp. This completes r9.
+
 ---

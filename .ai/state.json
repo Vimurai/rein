@@ -8337,6 +8337,15 @@
       "summary": "[ACCEPT_PASS] E-467 at 237b619 — 8 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | find src/mcp -maxdepth 1 -mindepth 1 -type d: src/mcp/task-synchronizer-mcp, src/mcp/shared only ‖ 2 | PASS | .mcp.json mcpServers keys: ['task-synchronizer-mcp'] ‖ 3 | PASS | scratch rein init exit 0; doctor \"plugin skills: 5\" (blueprint-writer, rein-debug, rein-review, rein-test, release-manager) ‖ 4 | PASS | scratch doctor \"plugin agents: 4\" (critic_acceptance, reviewer, security_engineer, test_engineer) ‖ 5 | PASS | wc -l hooks/*.sh: 938 total; target raised to 950 by D-172 r16 (DECISIONS.md:6138); hooks unchanged since 2c3f78c ‖ 6 | PASS | rein doctor in scratch project exit 0 (one ✗ PLUGIN_NOT_ENABLED notice, not the exit) ‖ 7 | PASS | handoff 9fe3820 COMM.md:439-440 names all 15 agents + 27 skills deleted in 887a818 (scripted check, 0 missing) ‖ 8 | PASS | handoff: before 96,377 at 887a818^ (observed 96377; notes 97,956 measured earlier), after 29,665 (observed 29665 at HEAD)",
       "sha": "237b619a8a8a4bd05eb04b9a42b25acacac33e87",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-470",
+      "timestamp": "2026-11-24T14:22:51.467Z",
+      "summary": "[REVIEW_PASS] E-470 at d0ae140 — 0 FAIL, 6 notes ‖ tests/suites/pane_binding_test.sh:478,633 E-269.L1/L3/L4/L7 + E-242.03b FAIL in reviewer sandbox only (tmux socket EPERM, ~/.rein/roles write-denied); hosted CI must confirm ‖ pane_binding_test.sh:626 dropping skip_unless_cmd bwrap loses no check: row tests regeneration; refusal covered by rein_start_test D-172.r22, sandbox_escape C42 ‖ pane_binding_test.sh:629-639 E-242.03 writes real ~/.rein/roles (rule 6, pre-existing), now runs on bwrap-less hosts too ‖ role_provisioning_test.sh:411 third inline copy of the bwrap/socat stub (also rein_start_test.sh:48); belongs in tests/lib ‖ hooks_surface_test.sh:179 TM1 SKIP honest (precondition absent), but SKIPs on every hosted ubuntu run; rein_tc_check refusing all would also SKIP ‖ src/bin/rein:1372 _acct_tilde: exact $HOME now printed in full, was ~ (harmless) ‖ record-import.test.mjs:156 ubuntu/node24 failure unaddressed; D-062: read log before merge",
+      "sha": "d0ae14095ac3e54d90075e192b9cfbefb928128e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]
 }

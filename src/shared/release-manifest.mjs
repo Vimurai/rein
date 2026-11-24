@@ -326,7 +326,7 @@ function cmdVerify(args) {
 // (security_engineer E-420 F5). bin/ and hooks/ may hold nothing the manifest does not list.
 export const INSTALL_REQUIRED = Object.freeze([
   "bin/rein", "shared/install-finalize.sh", "shared/node-version.sh", "shared/toolchain-record.sh",
-  "shared/release-manifest.mjs", "shared/release-tar.mjs", "shared/release-layout.mjs", "shared/gate-pins.mjs",
+  "shared/release-manifest.mjs", "shared/release-tar.mjs", "shared/release-layout.mjs",
   "hooks/pre-tool-use.sh", "hooks/session-start.sh", "hooks/pre-commit.sh",
 ]);
 const SEALED_DIRS = ["bin", "hooks"];

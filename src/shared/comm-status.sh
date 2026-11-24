@@ -1,8 +1,8 @@
 # shellcheck shell=bash
 # src/shared/comm-status.sh — is .ai/COMM.md tracked and committed? (E-338, D-104 r4)
 #
-# One probe for the three detectors D-104 ruling 4 names: `rein doctor`, the rein-preflight
-# injection line and the Stop hook. Sourced, never executed; it defines one function and
+# One probe for the three detectors D-104 ruling 4 names: `rein doctor`, the session-start
+# brief (E-460) and the Stop hook. Sourced, never executed; it defines one function and
 # changes nothing.
 #
 #   rein_comm_status [root]   → prints exactly one of

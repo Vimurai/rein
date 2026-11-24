@@ -10,7 +10,8 @@
 //       falling back to sonnet. Aliases only, never dated ids, so upgrades are config.
 //
 // CLI: node test-command.mjs [--fast] [projectRoot]
-//   prints {"command","source","model"} as JSON; exit 3 when no test command is found.
+//   prints {"command","source","model"} as JSON; exit 3 when no test command is found;
+//   exit 4 (model null, "error" set) when roles.json names an invalid tester model.
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -79,11 +80,13 @@ if (_isMain) {
   const fast = args.includes("--fast");
   const root = resolve(args.find((a) => !a.startsWith("--")) ?? process.cwd());
   const found = detectTestCommand(root);
-  const out = {
-    command: found?.command ?? null,
-    source: found?.source ?? null,
-    model: testerModel(join(root, ".ai"), { fast }),
-  };
+  // An invalid roles.json tester model is refused, not replaced by the default (F1 of the
+  // lean-core security round): exit 4 with the reason, and no model to dispatch on.
+  let model = null, error = null;
+  try { model = testerModel(join(root, ".ai"), { fast }); } catch (e) { error = e.message; }
+  const out = { command: found?.command ?? null, source: found?.source ?? null, model };
+  if (error) out.error = error;
   process.stdout.write(JSON.stringify(out) + "\n");
-  process.exit(found ? 0 : 3);
+  if (error) process.stderr.write(error + "\n");
+  process.exit(error ? 4 : (found ? 0 : 3));
 }

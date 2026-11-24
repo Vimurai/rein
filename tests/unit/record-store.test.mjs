@@ -21,8 +21,8 @@ import {
   insertStamp, setProject, rebuildIndex, orderRecords,
 } from "../../src/mcp/shared/record-store.mjs";
 import { migrateTeam, migrateLegacy, IGNORE_BEGIN, ATTRIBUTES } from "../../src/mcp/shared/record-migrate.mjs";
-import { runTaskDone, main as cliMain, GATE_ROLLBACK_VARS } from "../../src/shared/cli-state.mjs";
-import { stampForParent } from "../../src/shared/stamp-gate.mjs";
+import { runTaskDone, runTaskShow, main as cliMain, GATE_ROLLBACK_VARS } from "../../src/shared/cli-state.mjs";
+import { viewLine, VIEW_LINE_MAX } from "../../src/mcp/shared/record-store.mjs";
 import { tcFixtureHome } from "../lib/toolchain-fixture.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -215,7 +215,7 @@ test("migrate refuses [NO_TRUNK] when no trunk can be determined and changes not
   assert.equal(migrateTeam(ai, { trunk: "a..b" }).code, "NO_TRUNK", "an invalid --trunk is refused too");
 });
 
-test("--team then --legacy restores state.json, key order aside (same clone, deltas kept)", (t) => {
+test("--team then --legacy restores state.json, key order aside (same clone; a stale deltas row stays out of the view, D-172 r18)", (t) => {
   const { root, ai } = repo(t, "rt");
   const db = seedLegacy(ai);
   db.prepare("INSERT INTO deltas(task_id, summary, files, read) VALUES ('P-1', 'planned', '[]', 0)").run();
@@ -376,7 +376,7 @@ test("every task-synchronizer mutation lands in a record file that rebuilds the 
   migrateTeam(ai, { trunk: "master" });
   const home = tmp(t, "home");
   const res = await callTools(root, home, [
-    ["add_task", { owner: "Engineer (Claude)", description: "via mcp", tier: 1 }],
+    ["add_task", { owner: "Engineer (Claude)", description: "Add via mcp. Acceptance: TASKS.md lists it.", tier: 1 }],
     ["update_task_status", { id: "E-1", status: "BLOCKED" }],
     ["update_task_status", { id: "E-2", status: "OPEN", depends_on: [] }],
     ["add_stamp", { type: "TESTS_PASS", agent: "critic_tests", task_id: "E-3", summary: "green" }],
@@ -385,7 +385,7 @@ test("every task-synchronizer mutation lands in a record file that rebuilds the 
   ]);
   assert.match(res.at(-1).content[0].text, /\[SYNC_PASS\]/, "verify_markdown_sync passes on a team project");
   for (const r of res) assert.notEqual(r?.isError, true, JSON.stringify(r));
-  assert.equal(readRecord(ai, "task", "E-3").description, "via mcp");
+  assert.equal(readRecord(ai, "task", "E-3").description, "Add via mcp. Acceptance: TASKS.md lists it.");
   assert.equal(readRecord(ai, "task", "E-1").status, "BLOCKED");
   assert.deepEqual(readRecord(ai, "task", "E-2").depends_on, []);
   assert.ok(listRecords(ai, "stamp").some((e) => e.record.type === "TESTS_PASS" && e.record.task_id === "E-3"));
@@ -411,7 +411,7 @@ test("a legacy index behind HEAD: verify_markdown_sync is [SYNC_FAIL] and add_ta
   commitAll(root, "pulled E-9");
   const views = ["TASKS.md", "REVIEWS.md", "state.json"].map((f) => readFileSync(join(ai, f), "utf8"));
   const home = tmp(t, "home");
-  const [sync, add] = await callTools(root, home, [["verify_markdown_sync", {}], ["add_task", { owner: "Engineer (Claude)", description: "x" }]]);
+  const [sync, add] = await callTools(root, home, [["verify_markdown_sync", {}], ["add_task", { owner: "Engineer (Claude)", description: "Add x. Acceptance: TASKS.md lists it.", tier: 1 }]]);
   const line = "[STATE_BEHIND_HEAD] HEAD has E-9 the index lacks — run: rein state import";
   assert.match(sync.content[0].text, /^\[SYNC_FAIL\]/);
   assert.ok(sync.content[0].text.includes(line));
@@ -448,7 +448,10 @@ test("an empty index next to a committed state.json is seeded by the next opener
   assert.deepEqual(views(ai), VIEWS.map((f) => git(root, "show", `HEAD:.ai/${f}`)), "byte-identical to HEAD");
   const [upd] = await callTools(root, home, [["update_task_status", { id: "E-1", status: "BLOCKED" }]]);
   assert.notEqual(upd.isError, true, JSON.stringify(upd));
-  assert.match(readFileSync(join(ai, "TASKS.md"), "utf8"), /- \[ \] P-1|- \[x\] P-1/, "the rest of the tasks are still in the view");
+  const after = readFileSync(join(ai, "TASKS.md"), "utf8");   // E-466: open tasks only, the count names the closed
+  assert.match(after, /- \[ \] E-2: ship it/, "the rest of the open tasks are still in the view");
+  assert.match(after, /^1 closed tasks are not listed\. Print one with: rein task show <id>$/m);
+  assert.equal(runTaskShow(ai, "P-1").code, 0, "the closed task is still in state");
 });
 
 test("with the seed off (an import on record) an empty index is refused: [STATE_BEHIND_HEAD], or [EMPTY_STATE_DB] without git; nothing written", async (t) => {
@@ -465,7 +468,7 @@ test("with the seed off (an import on record) an empty index is refused: [STATE_
 
   rmSync(join(root, ".git"), { recursive: true, force: true });   // no git: nothing to compare with
   const [nogit] = await callTools(root, home, [["verify_markdown_sync", {}]]);
-  assert.match(nogit.content[0].text, /\[EMPTY_STATE_DB\] index has 0 tasks, TASKS\.md lists 3 — run: rein state import/);
+  assert.match(nogit.content[0].text, /\[EMPTY_STATE_DB\] index has 0 tasks, TASKS\.md lists 2 — run: rein state import/);
   assert.deepEqual(views(ai), before, "no auto-fix from an empty index");
   // …and the advice works: the import takes the working state.json when nothing is committed.
   const imp = spawnSync(process.execPath, ["--no-warnings", join(REPO, "src/shared/cli-state.mjs"), "state", "import"], { cwd: root, encoding: "utf8", env: { ...process.env, AI_TELEMETRY_DISABLE: "1" } }).stdout;
@@ -543,10 +546,31 @@ test("rein task done closes through completeTask: record, cascade, views", (t) =
   assert.match(res.out, /E-1 → DONE.*unblocked: E-2/);
   assert.equal(readRecord(ai, "task", "E-1").status, "DONE");
   assert.equal(readRecord(ai, "task", "E-2").status, "OPEN", "the cascade wrote the record too");
-  assert.match(readFileSync(join(ai, "TASKS.md"), "utf8"), /- \[x\] E-1: build it/);
+  const view = readFileSync(join(ai, "TASKS.md"), "utf8");   // E-466: the closed task leaves the view
+  assert.doesNotMatch(view, /E-1: build it/);
+  assert.match(view, /^2 closed tasks are not listed\. Print one with: rein task show <id>$/m);
+  assert.match(runTaskShow(ai, "E-1").out, /^E-1 \| DONE\b[\s\S]*Summary: closed by commit abc1234/);
   assert.equal(runTaskDone(ai, "E-1", null, { env }).out, "E-1 is already DONE.");
   assert.equal(runTaskDone(ai, "E-99", null, { env }).code, 1);
   assert.equal(runTaskDone(ai, "../E-1", null, { env }).code, 2);
+});
+
+// D-172 r12: a TASKS.md line is cut at 300 characters; `rein task show` prints the full text.
+test("a long task line is cut at 300 characters in TASKS.md and printed whole by rein task show", (t) => {
+  const { ai } = repo(t, "cut");
+  const db = getDb(ai);
+  const long = "Build the thing " + "and then some more words ".repeat(20) + "THE-END-MARK";
+  addTask(ai, db, { owner: "Engineer (Claude)", description: "short one", tier: 1 });
+  addTask(ai, db, { owner: "Engineer (Claude)", description: long, tier: 2 });
+  regenerateViews(ai, db);
+  const view = readFileSync(join(ai, "TASKS.md"), "utf8");
+  const line = view.split("\n").find((l) => l.startsWith("- [ ] E-2:"));
+  assert.equal([...line].length, VIEW_LINE_MAX);
+  assert.ok(line.endsWith("…") && !line.includes("THE-END-MARK"));
+  assert.match(view, /^- \[ \] E-1: short one \| Tier: 1$/m, "a short line is untouched");
+  assert.match(view, /^1 task lines are cut at 300 characters/m);
+  assert.ok(runTaskShow(ai, "E-2").out.includes("THE-END-MARK"), "the full text is one command away");
+  assert.equal(viewLine("x".repeat(299) + "😀😀"), "x".repeat(299) + "…", "code points, not UTF-16 units");
 });
 
 // ── one writer of state.json ─────────────────────────────────────────────────
@@ -703,8 +727,9 @@ test("--team writes .ai/.gitattributes; --legacy removes it, but keeps one the u
 });
 
 // ── E-329 (D-102 §Component 6): a stamp names the commit it reviewed ──────────
-// Extends the insertStamp / rebuildIndex / view tests above with sha + author; pre-commit
-// Gate 2 itself is driven through the real hook in tests/suites/git_lane_test.sh (E-329.*).
+// Extends the insertStamp / rebuildIndex / view tests above with sha + author. Since E-464 the
+// sha binds a stamp for the DONE gate (completion-gates.test.mjs); pre-commit no longer reads it,
+// and the stampForParent rows went with src/shared/stamp-gate.mjs.
 
 test("every stamp — legacy or team — records HEAD and the git email; the views show them; an older stamp reads as before", (t) => {
   const { root, ai } = repo(t, "stampsha");
@@ -751,42 +776,3 @@ test("rebuildIndex refuses a pulled stamp whose sha or author would forge REVIEW
   }
 });
 
-test("stampForParent: the index, the rotated archive and a team record all count; a stamp for another sha does not", (t) => {
-  const { root, ai } = repo(t, "stampgate");
-  writeFileSync(join(root, "README"), "x\n"); commitAll(root, "base");
-  const head = git(root, "rev-parse", "HEAD").trim();
-  const other = "f".repeat(40);
-  mkdirSync(join(ai, "archive"));
-  const put = (rows) => writeFileSync(join(ai, "archive", "stamps-2026-09.json"), JSON.stringify(rows));
-  put([{ type: "CRITIC_STAMP", sha: other, author: "x@y", timestamp: "2026-09-01T00:00:00Z" }]);
-  let r = stampForParent(ai, head);
-  assert.deepEqual({ ok: r.ok, newest: r.newest.sha }, { ok: false, newest: other });
-  put([{ type: "ARCH_PASS", sha: head, timestamp: "2026-09-01T00:00:00Z" }]);
-  assert.equal(stampForParent(ai, head).ok, false, "only a CRITIC_STAMP counts");
-  put([{ type: "CRITIC_STAMP", sha: head, author: "x@y", timestamp: "2026-09-01T00:00:00Z" }]);
-  r = stampForParent(ai, head);
-  assert.deepEqual({ ok: r.ok, source: r.match.source }, { ok: true, source: "archive/stamps-2026-09.json" });
-  // The CLI's verdict line on a miss names HEAD and the newest stamped sha.
-  const cli = join(REPO, "src/shared/stamp-gate.mjs");
-  const out = execFileSync(process.execPath, ["--no-warnings", cli, "--ai-dir", ai, "--sha", head], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
-  assert.equal(out, "", "a match prints nothing on stdout");
-  let miss;
-  try { execFileSync(process.execPath, ["--no-warnings", cli, "--ai-dir", ai, "--sha", other], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); }
-  catch (e) { miss = e; }
-  assert.equal(miss.status, 1);
-
-  // Team records: one corrupt pulled file is skipped (and reported), not every record with it.
-  // (Through the hook the E-326 sync gate blocks a corrupt record first; this is the helper's own rule.)
-  rmSync(join(ai, "archive"), { recursive: true });
-  writeFileSync(join(ai, "project.json"), JSON.stringify({ schema: 2 }) + "\n");
-  mkdirSync(join(ai, "stamps", "2026-10"), { recursive: true });
-  writeFileSync(join(ai, "stamps", "2026-10", "0000000-ARCH_PASS-1.json"), "<<<<<<< conflict");
-  const s = { type: "CRITIC_STAMP", agent: "c", summary: "ok", timestamp: "2026-10-19T09:00:00Z", author: "b@x.test" };
-  writeRecord(ai, "stamp", `2026-10/${head.slice(0, 7)}-CRITIC_STAMP-1`, { ...s, sha: head, created_at: s.timestamp }, { fresh: true });
-  const warnings = [];
-  r = stampForParent(ai, head, warnings);
-  assert.deepEqual({ ok: r.ok, source: r.match?.source, author: r.match?.author }, { ok: true, source: "record", author: "b@x.test" });
-  assert.match(warnings.join("\n"), /\[GATE2\] stamp record skipped: corrupt record .*0000000-ARCH_PASS-1\.json/);
-  assert.throws(() => listRecords(ai, "stamp"), /corrupt record/, "the default (rebuildIndex's) still refuses");
-  assert.match(miss.stdout, new RegExp(`^\\[GATE2\\] no CRITIC_STAMP for HEAD fffffff — the newest CRITIC_STAMP is for ${head.slice(0, 7)} \\(by x@y on 2026-09-01\\)\\n$`));
-});

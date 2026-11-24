@@ -245,6 +245,138 @@ convenience copy that nothing trusts.
   `a layout change is a breaking version — contract §2.2`); every command and flag in
   `cli-surface.json` still appears in `rein help`.
 
+### Component 7 — Pane options: the "waiting on the operator" signal (E-433, D-160)
+What an app reads to know that a pane's agent has stopped at a prompt, without parsing the
+screen. The state lives in the tmux server, written by Rein's hooks from inside the session,
+so it is true whether or not an app is running.
+
+**The options** (tmux user options on the agent's pane, `set-option -p`):
+
+| Option | Value | Set | Unset |
+|---|---|---|---|
+| `@rein_role`, `@rein_account` | as today (E-269, E-315) | `rein pane`, `rein start` | never |
+| `@rein_signals` | `waiting` (a space-separated list; one entry in this version) | SessionStart | SessionEnd |
+| `@rein_waiting` | `permission` or `question` | when a prompt opens | when the agent continues |
+| `@rein_waiting_since` | epoch seconds of the set | with `@rein_waiting` | with `@rein_waiting` |
+
+- `permission`: a tool approval dialog, or a sandboxed command's network request.
+  `question`: `AskUserQuestion`, plan approval (`ExitPlanMode`), or an MCP elicitation dialog.
+- A reader treats any non-empty `@rein_waiting` as waiting (values may be added inside a
+  major version) and reads it only when `@rein_signals` contains `waiting`: without that, the
+  pane's session does not report, and an empty `@rein_waiting` means "unknown", not "working".
+- Read: `tmux list-panes -a -F '#{pane_id}|#{@rein_role}|#{@rein_signals}|#{@rein_waiting}|#{@rein_waiting_since}'`.
+- Not a "finished" signal. A question the model writes as plain text at the end of its turn
+  is a finished turn; nothing distinguishes it and nothing here tries to.
+
+**Events** (Claude Code hooks reference, read 2026-11-17):
+
+| Effect | Event | Matcher |
+|---|---|---|
+| set `permission` | `PermissionRequest` | all tools |
+| set `permission` | `Notification` | `permission_prompt` (fires after the prompt has waited about 6 s; the only event for a sandbox network request) |
+| set `question` | `PreToolUse` | `AskUserQuestion\|ExitPlanMode` |
+| set `question` | `Notification` | `elicitation_dialog` |
+| clear | `PostToolUse`, `PostToolUseFailure` | the call that was waiting |
+| clear | `UserPromptSubmit`, `Stop`, `SessionStart`, `SessionEnd`, `PermissionDenied` | all |
+
+**Two bounds the implementation must hold, whatever the event order turns out to be:**
+1. *No missed wait*: a prompt that has been on screen for 7 s has `@rein_waiting` set. The
+   `Notification` row is the backstop for any earlier clear that was wrong.
+2. *No stuck wait*: `@rein_waiting` is unset at the latest when the turn ends (`Stop`), the
+   operator submits a prompt, or the session starts or ends.
+
+**What the hooks reference does not say**, and the Engineer observes in a live session and
+reports before fixing the clear rule: whether the `PermissionRequest` payload carries the
+tool-use id and `agent_id`; whether `PostToolUse` fires after an `AskUserQuestion` answer;
+the order of `PreToolUse` / `PermissionRequest` / `PostToolUse` across parallel tool calls
+and subagents; what fires when the operator denies a prompt by hand or presses Escape at it
+(the reference names no event; `PermissionDenied` is auto mode only). The clear on
+`PostToolUse` matches the waiting call by id when the payloads allow it, so a sibling call or
+a subagent finishing does not clear a prompt that is still open. Where they do not allow it,
+bound 1 is the guarantee and the handoff says so.
+
+**Shape of the code.** One helper, `src/shared/waiting-signal.sh`, is the only place that
+calls `tmux` for these options. `hooks/pre-tool-use.sh` is not edited: the `PreToolUse` row is
+its own settings entry with its own script. Events that already have a fail-open Rein hook
+(`PostToolUse`, `Stop`, `SessionStart`, `PermissionDenied`) may call the helper from it or
+get a new entry; the new events get `hooks/waiting-signal.sh`. `rein sync` and `rein init`
+write the entries (the `_SPECS` table); `rein doctor` gains the check
+`waiting_signal_registered` (scope `project`, `warn`, fix `rein sync`).
+
+**Rules for the hook** (all fail-open, hooks contract):
+- It prints nothing on stdout and exits 0 on every path. A `PermissionRequest` or `PreToolUse`
+  hook that prints a decision would answer the prompt; this one never has an opinion.
+- The pane and the server socket come from the launch record `rein pane <role>` writes for
+  the session's process chain (D-087), where `rein pane` stores `$TMUX` and `$TMUX_PANE` as
+  it saw them in the operator's shell, before the agent started. The hook calls
+  `tmux -S <recorded socket> … -t <recorded pane>` and never reads `TMUX` or `TMUX_PANE` from
+  its own environment: a project's settings `env` reaches the hook, and a tmux client pointed
+  at a foreign socket can be made to execute by the server it connects to (T-WAITSIG-001).
+  The recorded pane is used only if it matches `%<digits>` in full. With no launch record
+  (a session not started by `rein pane`), no recorded socket, or no `tmux`, the hook does
+  nothing and the pane has no `@rein_signals` (D-160 addendum 2).
+- The value written is one of the literals above, never text from the payload (no tool
+  input, no notification message).
+- A private state file per pane, `~/.rein/run/waiting/<pane digits>`, holds the tool-use id
+  of the waiting call. It is what lets `PostToolUse` return without calling `tmux` when no
+  wait is pending and tell a sibling call from the waiting one. It is not part of the
+  contract and no app reads it: the pane option is the state. Written by temp file and
+  rename, read only as a regular non-link file, holds an id and nothing from tool input,
+  removed on clear and at session start and end.
+- Added time per tool call when no wait is pending: 30 ms at p95, measured by a row and
+  reported. Set and clear are synchronous, since their order is the signal.
+
+**Finding `tmux` (D-160 addendum 1).** Hooks run with the pinned PATH, which does not hold a
+Homebrew or Linuxbrew prefix, so `tmux` is not found by name there. The installer records it
+beside `node` and `python3`: `REIN_TC_TMUX` in `~/.rein/shared/toolchain.sh`, written by the
+same writer, resolved by the same rule and at the same moments as the other two (clone
+install and `rein install` in artifact mode). The helper reads the value by parsing, never by
+sourcing, uses it only if it is an absolute path to an executable regular file, and otherwise
+falls back to the pinned PATH. It never derives the binary from `$TMUX` or any other
+variable a project's settings can set. `tmux` stays optional: with none on the machine
+nothing is recorded and the helper does nothing. The doctor line that reports the recorded
+toolchain names `tmux` too: recorded and present is ok; recorded and gone, or present on the
+operator's PATH and not recorded, is `warn` with the fix the `node` line gives. The fixed
+fallback list is not extended (rule 7b).
+
+**Activation.** A session reports from the first start after `rein sync` on the version that
+ships this; a session already running keeps the hooks it started with and has no
+`@rein_signals`. A pane whose agent was killed without `SessionEnd` keeps its options until
+the next session in that pane starts; a reader checks the pane's process as it does today.
+
+**Published**: `docs/app-contract.md` gets a section "Pane options" with the table above and
+the two bounds as the accuracy an app may rely on; `tests/fixtures/release/pane-options.json`
+pins the option names and the closed value list, and a row fails when the helper can write a
+value the fixture does not list.
+
+**Rollback**: remove the settings entries (`rein sync` on a reverted tree); the options are
+never read by Rein itself. A stale option on a live pane is cleared with
+`tmux set-option -pu -t <pane> @rein_waiting`.
+
+### Component 8 — `rein start` on a live session never types into a busy pane (E-434, D-161)
+`rein start` is a contract entry point and is run again on a session that already exists
+(by the operator, and by an app reopening a project). Today its binding loop waits up to 5 s
+for the pane's foreground to look like a shell and then sends `rein pane <role>` and Enter
+whatever it saw, so the text is typed into a running agent (seen by the operator on
+2026-11-13, rein 0.5.0).
+
+- **The rule**: keys are sent only to a pane that is idle, meaning the pane's shell
+  (`#{pane_pid}`) is in the foreground and has no child process. `pane_current_command` alone
+  is not the test: `rein pane` is itself a bash script, so a pane where it is still starting
+  reads as `bash`.
+- **A busy pane is skipped**, with one line on stdout:
+  `rein start: <role> pane is busy (<pane_current_command>) — not re-sent`. Exit status is
+  unchanged (0). The role, account and title options are still re-pinned, as today.
+- **A pane created by this run** that is not idle after the 5 s wait gets no keys either:
+  `rein start` prints `[START_PANE_NOT_READY] <role>` with the command to run by hand and
+  exits 2, instead of sending into an unknown foreground.
+- **This is also how one exited agent is restarted**: its pane is back at an idle shell, so
+  `rein start` on the live session sends `rein pane <role>` to that pane only. The contract
+  document says so in the `rein start` row.
+- **Not changed**: the pane keeps hosting an interactive shell (the agent's exit leaves a
+  shell); `--status`, `--kill`, the layout.
+- **Rollback**: revert the change; the loop sends unconditionally again.
+
 ## Data Model
 
 **The three release files** (assets of the GitHub release `vX.Y.Z`):
@@ -411,6 +543,8 @@ and `rein sync` with this machine's absolute paths, and the app writes no file i
 | E-424 | 2 | Release v0.5.0, the first signed artifact; the operator creates the tag | E-417..E-423, E-426, E-427 |
 | E-426 | 3 | Component 4, D-158 r1–r6: `npm ci` for a server with a shipped lock, the marker, the twice-installed row | E-420 |
 | E-427 | 2 | Component 5, D-158 r8–r11: `doctor-scopes.json`, `scope` field, `rein doctor --scope install`, contract text | E-421, E-422 |
+| E-433 | 2 | Component 7, D-160: the waiting signal, its settings entries, doctor check, contract section and fixture | — |
+| E-434 | 2 | Component 8, D-161: `rein start` skips a busy pane; restart of one exited agent; contract text | — |
 
 **Build order (D-156 r4):** E-423 now, then E-417 → E-418 → E-420 → E-421 → E-422 → E-419 →
 E-424. E-420 precedes E-419 because rein-app's layout-equality test waits on E-417, E-418 and

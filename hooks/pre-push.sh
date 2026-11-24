@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Rein pre-push — Local CI gate (E-267, D-072, local-ci.md §Components 5b)
-# Logic: every pushed tip needs a green, non-dirty `rein ci run` row in the project's
+# Logic: (E-462) every pushed commit that changes a path outside .ai/ and plans/ is in the lane
+#        ledger (src/shared/lane-ledger.mjs) — an Architect commit is refused, however git made it.
+#        Then every pushed tip needs a green, non-dirty `rein ci run` row in the project's
 #        .ai/state.sqlite — or a green row for an ancestor that differs from the tip only
-#        under .ai/ (the bookkeeping commits rein-task makes after a DONE). In a team project
+#        under .ai/ (the bookkeeping commits `rein handoff` makes). In a team project
 #        (.ai/team.json, E-328 / D-102 §5a) a member's PASS record .ai/ci/<sha>.json counts
 #        the same way, so the local sqlite row is not required; ci-record.mjs gate decides.
 # Bypass: REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="<why>" git push — ONE push; the skip is
@@ -67,6 +69,16 @@ reason="${REIN_CI_SKIP_REASON:-}"
 # D-087 r3: a kept opt-out is a recorded residual, and it is LOUD when honoured.
 [[ "$skip" == "1" ]] && echo "[GATE_SKIPPED] REIN_CI_SKIP=1 — local-CI push gate skipped for this push (reason: ${reason:-none given}); the skip is recorded" >&2
 rc=0
+_REFS="$(cat)"
+# E-462 (gap 2 of E-458): a pushed commit that changes a path outside .ai/ and plans/ must be in
+# the lane ledger, which the Architect's sandbox cannot write (src/shared/lane-ledger.mjs). No
+# skip variable: the CI skip below does not reach it.
+LANE="$(rein_locate shared/lane-ledger.mjs 2>/dev/null || true)"
+if [[ -z "$LANE" ]]; then
+  echo "[LANE_CHECK] pre-push: lane-ledger.mjs unavailable — run: bash install-rein.sh" >&2
+  exit 1
+fi
+node "${NODE_FLAGS[@]}" "$LANE" check --root "$ROOT" <<< "$_REFS" || exit 1
 while read -r local_ref local_sha remote_ref remote_sha; do
   [[ -z "${local_ref:-}" ]] && continue
   # A deletion pushes no content.
@@ -82,5 +94,5 @@ while read -r local_ref local_sha remote_ref remote_sha; do
   # verdict — so it is a warning, and the push goes on.
   _age="$(node "${NODE_FLAGS[@]}" "$HELPER" census-stale --ai-dir "$AI_DIR" --sha "$local_sha" 2>/dev/null || true)"
   [[ "$_age" == STALE* ]] && echo "[CENSUS_BASELINE_STALE] ${_age#STALE } full runs since the baseline in ${local_sha:0:7} — the next rein ci run rewrites tests/census-baseline.tsv; commit it" >&2
-done
+done <<< "$_REFS"
 exit "$rc"

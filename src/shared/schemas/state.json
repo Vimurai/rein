@@ -9,13 +9,13 @@
       "description": "Payload for add_task — creates a new E-/P-/T-## task in state.sqlite.",
       "properties": {
         "owner":             { "type": "string",  "minLength": 1, "maxLength": 100,  "description": "Task owner label, derived from .ai/roles.json: e.g. 'Architect (Claude)', 'Engineer (Claude)', 'Tester (claude · sonnet)'" },
-        "description":       { "type": "string",  "minLength": 1, "maxLength": 2000, "description": "Human-readable task description" },
+        "description":       { "type": "string",  "minLength": 1, "maxLength": 2000, "pattern": "[Aa]cceptance\\s*:", "description": "E-461 (D-169 r7): an imperative description with an 'Acceptance:' text; at least one clause names a command, a file or a count (src/shared/task-quality.mjs)" },
         "tier":              { "type": "integer", "enum": [1, 2, 3],                 "description": "Risk tier (1=low, 2=medium, 3=high)" },
         "prefix":            { "type": "string",  "enum": ["E", "P", "T"],           "description": "ID prefix: E=Engineer, P=Architect, T=Tester" },
         "is_framework_task": { "type": "boolean",                                    "description": "E-63: route this task to $REIN_WORKSPACE/.ai instead of local .ai/. Errors with [WORKSPACE_NOT_FOUND] when REIN_WORKSPACE is unset/invalid." },
         "depends_on":        { "type": "array", "maxItems": 25, "items": { "type": "string", "pattern": "^[EPT]-[0-9]+$" }, "description": "E-91 (ecc-integrations.md §Data Model): task IDs this task depends on. The task starts BLOCKED until every listed task is DONE, then auto-transitions to OPEN. Referenced tasks must already exist; self-references, cycles, and chains deeper than 5 levels are rejected with [DAG_FAIL]." }
       },
-      "required": ["owner", "description"],
+      "required": ["owner", "description", "tier"],
       "additionalProperties": false
     },
     "task_update": {
@@ -26,7 +26,8 @@
         "status":     { "type": "string", "enum": ["OPEN", "BLOCKED", "IN_PROGRESS", "DONE"], "description": "New status (E-331: IN_PROGRESS — in a team project only claim_task sets it)" },
         "summary":    { "type": "string", "maxLength": 2000,                      "description": "Completion summary (required when status=DONE)" },
         "reopen":     { "type": "boolean",                                        "description": "E-101 (sovereignty-hardening.md §Components 2): DONE tasks are immutable. Pass reopen:true to explicitly mutate a completed task; otherwise update_task_status returns [TASK_LOCKED]." },
-        "depends_on": { "type": "array", "maxItems": 25, "items": { "type": "string", "pattern": "^[EPT]-[0-9]+$" }, "description": "E-91: optionally revise this task's dependency list. Validated for existence, cycles, and depth (<=5) before being written; rejected with [DAG_FAIL] on violation." }
+        "depends_on": { "type": "array", "maxItems": 25, "items": { "type": "string", "pattern": "^[EPT]-[0-9]+$" }, "description": "E-91: optionally revise this task's dependency list. Validated for existence, cycles, and depth (<=5) before being written; rejected with [DAG_FAIL] on violation." },
+        "superseded_by": { "type": "string", "pattern": "^D-[0-9]+$", "description": "E-431 (D-159 r9): close the task unimplemented because this decision overtook it; skips the acceptance gate only." }
       },
       "required": ["id", "status"],
       "additionalProperties": false

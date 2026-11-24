@@ -23,9 +23,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 PW="${REPO_ROOT}/src/shared/provider-workspace.mjs"
-# The AST repo map is irrelevant to provider workspaces and is the most expensive thing
-# a sync does; every `rein sync` below runs the full pipeline otherwise.
-export REIN_DISABLE_REPO_MAP=1
 AI="${REPO_ROOT}/src/bin/rein"
 
 echo "── Suite: provider_workspace_test (E-244) ──────────────────────────"
@@ -176,8 +173,10 @@ assert_contains "E-244.04c: and names the command that would remove it" \
 _hidden_dirs() { ( cd "$1" && find . -mindepth 1 -maxdepth 1 -type d -name '.*' | sed 's|^\./||' | sort | tr '\n' ' ' ); }
 _pv="$(_proj claude claude)"
 ( cd "$_pv" && bash "$AI" sync >/dev/null 2>&1 )
-assert_status 0 "E-244.05c: .claude/ is provisioned (skills)" test -d "${_pv}/.claude/skills"
-assert_status 0 "E-244.05c2: .claude/ is provisioned (agents)" test -d "${_pv}/.claude/agents"
+assert_status 0 "E-244.05c: .claude/ is provisioned (settings.json)" test -f "${_pv}/.claude/settings.json"
+# E-469 (D-170 r4): the agents and skills are the rein plugin's; sync copies none into .claude/.
+assert_status 1 "E-469.05c2: no skills or agents are copied into .claude/" \
+  test -e "${_pv}/.claude/skills" -o -e "${_pv}/.claude/agents"
 _hd="$(_hidden_dirs "$_pv")"
 assert_status 0 "E-254.05a: an all-Claude sync creates no workspace besides .ai/ and .claude/ (got: ${_hd})" \
   test "$_hd" = ".ai .claude "
@@ -188,15 +187,15 @@ _pg="$(_proj acme claude)"
 assert_status 1 "E-254.05b: binding the Architect to a declared provider invents no .acme/" \
   test -d "${_pg}/.acme"
 assert_status 0 "E-254.05d: and .claude/ is still provisioned for the Engineer" \
-  test -d "${_pg}/.claude/skills"
+  test -f "${_pg}/.claude/settings.json"
 
 # ── E-244.6 / E-254: one source adapter (D-069) ─────────────────────────────
 # Both roles are served from src/claude/*; the registry's role manifest must name nothing
 # outside claude/ and shared/, or sync would look for a tree that no longer ships.
 assert_status 0 "E-254.06a: the Architect's skills ship under src/claude/skills" \
-  test -f "${REPO_ROOT}/src/claude/skills/arch-task/SKILL.md"
+  test -f "${REPO_ROOT}/src/claude/skills/blueprint-writer/SKILL.md"   # arch-oracle until E-467
 assert_status 0 "E-254.06b: the Architect's agents ship under src/claude/agents" \
-  test -f "${REPO_ROOT}/src/claude/agents/docs-architect.md"
+  test -f "${REPO_ROOT}/src/claude/agents/reviewer.md"   # docs-architect until E-467
 assert_status 0 "E-254.06c: the role manifest names only claude/ and shared/ source dirs" \
   python3 -c "
 import json,sys

@@ -1,64 +1,55 @@
 #!/usr/bin/env bash
-# state_archive_test.sh — rotating finished state out of the live store, and finding it again.
+# state_archive_test.sh — `rein archive`, the rotated task archives, and finding them again.
 #
 # One suite for the state-archive behaviours (E-302, wave 2 of the D-088 consolidation):
-# execute_archive (E-111, below), then the sections absorbed from archive_pointer (E-245),
+# `rein archive` (E-111 → E-467 → E-466, below), then the sections absorbed from archive_pointer (E-245),
 # archive_tasks (E-112) and sqlite_wal_checkpoint (E-53).
 #
-# ── E-111 (from archive_manager_state): archive-manager execute_archive rotates
-# SQLite state (DONE tasks + audit stamps) through the shared, ACID-safe owner
-# instead of shelling the removed `rein archive` verb or writing the regenerated
-# state.json view.
+# ── E-111 → E-467 → E-466: `rein archive` no longer rotates SQLite state. E-466 (D-169,
+# lean-core.md §Component 7) keeps every task and stamp in state — a closed task is read with
+# `rein task show`, and the DONE gates read the stamps — and moves record text instead
+# (COMM/SECURITY/REVIEWS → .ai/archive/<FILE>-<year>.md; tests/unit/bookkeeping-commands.test.mjs).
+# This suite keeps the process boundary: the CLI exit codes and the --logs move.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
-source "${SCRIPT_DIR}/../lib/mcp-client.sh"
 
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
-SERVER="${REPO_ROOT}/src/mcp/archive-manager-mcp/index.js"
-AM="${REPO_ROOT}/src/mcp/archive-manager-mcp/index.js"
+AI_BIN="${REPO_ROOT}/src/bin/rein"
 
 echo "── Suite: state_archive_test ───────────────────────────────────────"
 
-# ── Source contract: no removed `rein archive` shell-out, no state.json view write ─
-assert_status 1 "execute_archive no longer shells 'rein archive'" \
-  grep -qE 'spawnSync|aiBin|"archive"\]' "$AM"
-assert_status 1 "no archiveStateDoneTasks function remains" \
-  grep -qE '^function archiveStateDoneTasks' "$AM"
-assert_status 0 "uses shared SQLite-aware rotation" \
-  grep -qE 'archiveDoneTasks|archiveStamps' "$AM"
-
-# ── Behavioural: execute_archive rotates stamps via SQLite ───────────────────
 unset REIN_WORKSPACE REIN_WORKSPACE_DISABLE 2>/dev/null || true
 TMP="$(mktemp -d)"; on_exit 'rm -rf "$TMP"'
 PROJECT="${TMP}/proj"; mkdir -p "${PROJECT}/.ai"
 echo '{"version":"1.0","project":{},"tasks":[],"stamps":[],"deltas":[]}' > "${PROJECT}/.ai/state.json"
 cd "${PROJECT}"
 
-callam() { mcp_call_tool "${SERVER}" "$1" "$2" | python3 -c 'import json,sys
-try: d=json.load(sys.stdin)
-except Exception: print(""); sys.exit(0)
-c=d.get("content",[{}]); print(c[0].get("text","") if c else "")'; }
-
 # Seed 60 stamps directly into the same state.sqlite.
 node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mcp/shared/state-db.js'; const db=getDb('${PROJECT}/.ai'); const ins=db.prepare('INSERT INTO stamps(type,agent,task_id,timestamp,summary) VALUES (?,?,?,?,?)'); for(let i=0;i<60;i++) ins.run('T','t',null,'2026-01-01T00:00:00Z','s'+i);" 2>/dev/null
 
-r=$(callam execute_archive "{}")
-assert_contains "E-111.01: reports archived_stamps"        '"archived_stamps"' "$r"
-assert_contains "E-111.01b: 50 stamps rotated (60-10)"     "50 stamps"         "$r"
-assert_contains "E-111.02: points to skill: rein-archive for logs" "skill: rein-archive" "$r"
-# Archive file is dated by the current month (rotation stamp), not the row timestamp.
+r="$(bash "$AI_BIN" archive 2>&1)"; rc=$?
+assert_status 0 "E-467.01: rein archive exits 0 (rc=${rc})" test "$rc" -eq 0
+assert_contains "E-466.01: reports the record archive" "[RECORD-ARCHIVE]" "$r"
 YM="$(date -u +%Y-%m)"
-assert_exists "${PROJECT}/.ai/archive/stamps-${YM}.json"
-
 REMAIN=$(node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mcp/shared/state-db.js'; console.log(getDb('${PROJECT}/.ai').prepare('SELECT COUNT(*) n FROM stamps').get().n);" 2>/dev/null)
-assert_status 0 "E-111.03: 10 most-recent stamps kept in active SQLite state" \
-  bash -c "[ \"$REMAIN\" -eq 10 ]"
+assert_status 0 "E-466.02: every stamp stays in state (60, was rotated to 10 before E-466)" \
+  bash -c "[ \"$REMAIN\" -eq 60 ]"
+assert_status 1 "E-466.03: no stamps-<month>.json rotation file is written" test -e "${PROJECT}/.ai/archive/stamps-${YM}.json"
 
-# state.json was NOT hand-mutated as a view-write — it is regenerated from SQLite.
-# Confirm a second run below threshold is a clean no-op.
-r=$(callam execute_archive "{}")
-assert_contains "E-111.04: below-threshold run reports no rotation needed" "No state rotation needed" "$r"
+# ── E-467.02: --logs moves LOG.md and SESSION.md, never overwrites, starts a fresh LOG.md ──
+printf '# LOG\nold line\n' > "${PROJECT}/.ai/LOG.md"
+printf 'session notes\n' > "${PROJECT}/.ai/SESSION.md"
+r="$(bash "$AI_BIN" archive --logs 2>&1)"; rc=$?
+assert_status 0 "E-467.02a: rein archive --logs exits 0 (rc=${rc})" test "$rc" -eq 0
+_moved="$(ls "${PROJECT}/.ai/archive/${YM}/" 2>/dev/null)"
+assert_contains "E-467.02b: LOG.md moved to the month directory" "LOG." "$_moved"
+assert_contains "E-467.02c: SESSION.md moved too" "SESSION." "$_moved"
+assert_contains "E-467.02d: the moved LOG keeps its content" "old line" "$(cat "${PROJECT}"/.ai/archive/"${YM}"/LOG.*.md 2>/dev/null)"
+assert_not_contains "E-467.02e: the fresh LOG.md does not carry the old lines" "old line" "$(cat "${PROJECT}/.ai/LOG.md")"
+assert_contains "E-467.02f: the fresh LOG.md records the archive" "| rein | Archive |" "$(cat "${PROJECT}/.ai/LOG.md")"
+assert_status 1 "E-467.02g: SESSION.md is not recreated" test -e "${PROJECT}/.ai/SESSION.md"
+assert_status 2 "E-467.02h: an unknown flag is a usage error" bash "$AI_BIN" archive --bogus
 
 cd "${REPO_ROOT}"
 
@@ -173,128 +164,8 @@ fi
 set -e
 
 
-# ── E-112 (from archive_tasks — E-302): archiving DONE tasks ──
-# Tests for archive_done_tasks tool (E-112)
-# Validates: threshold logic, archive file creation, live state pruning,
-# OPEN task preservation, and archive JSON integrity.
-TEMPLATE="${REPO_ROOT}/src/templates/state.json"
-
-DONE_THRESHOLD=50
-DONE_KEEP=10
-# UTC, like the archiver (state-db.js archiveDoneTasks: new Date().toISOString()). A local
-# month made this fail for the first hours of every month east of UTC (rein ci run e1ff248,
-# 2026-10-01 00:10 CEST = 2026-09-30 22:10 UTC).
-YM=$(date -u '+%Y-%m')
-
-# Helper: inline archiveDoneTasks logic (mirrors task-synchronizer-mcp)
-run_archive() {
-  local AI_DIR="$1"
-  node -e "
-    import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs';
-    import { resolve } from 'path';
-    const aiDir = process.argv[1];
-    const THRESHOLD = 50;
-    const KEEP = 10;
-    const statePath = resolve(aiDir, 'state.json');
-    const state = JSON.parse(readFileSync(statePath, 'utf8'));
-    const done = state.tasks.filter(t => t.status === 'DONE');
-    if (done.length <= THRESHOLD) { console.log('null'); process.exit(0); }
-    const toArchive = done.slice(0, done.length - KEEP);
-    const toKeep    = done.slice(done.length - KEEP);
-    const open      = state.tasks.filter(t => t.status !== 'DONE');
-    const ym = new Date().toISOString().slice(0, 7);
-    const archiveDir = resolve(aiDir, 'archive');
-    mkdirSync(archiveDir, { recursive: true });
-    const archivePath = resolve(archiveDir, 'state-done-' + ym + '.json');
-    let existing = [];
-    if (existsSync(archivePath)) {
-      try { existing = JSON.parse(readFileSync(archivePath, 'utf8')); } catch {}
-    }
-    writeFileSync(archivePath, JSON.stringify([...existing, ...toArchive], null, 2) + '\n', 'utf8');
-    state.tasks = [...open, ...toKeep];
-    writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n', 'utf8');
-    console.log(JSON.stringify({ archived: toArchive.length, kept: toKeep.length, archivePath }));
-  " "$AI_DIR" --input-type=module 2>/dev/null || echo "node_error"
-}
-
-# T-06.01: No archive when DONE count == threshold (50) — boundary value
-BELOW_DIR=$(mktemp -d)
-cp "$TEMPLATE" "${BELOW_DIR}/state.json"
-python3 -c "
-import json; s=json.load(open('${BELOW_DIR}/state.json'))
-s['tasks']=[{'id':'E-'+str(i),'owner':'Engineer (Claude)','status':'DONE','tier':1,'description':'Task '+str(i),'created_at':'2026-01-01T00:00:00Z','completed_at':'2026-01-02T00:00:00Z','summary':'Done'} for i in range(1,51)]
-json.dump(s, open('${BELOW_DIR}/state.json','w'), indent=2)
-"
-result=$(run_archive "$BELOW_DIR")
-assert_contains "T-06.01: no archive when DONE count == 50 (at threshold)" "null" "$result"
-rm -rf "$BELOW_DIR"
-
-# T-06.02: Archive triggered when DONE count > threshold (55 DONE tasks)
-ABOVE_DIR=$(mktemp -d)
-cp "$TEMPLATE" "${ABOVE_DIR}/state.json"
-python3 -c "
-import json; s=json.load(open('${ABOVE_DIR}/state.json'))
-s['tasks']=[{'id':'E-'+str(i),'owner':'Engineer (Claude)','status':'DONE','tier':1,'description':'Task '+str(i),'created_at':'2026-01-01T00:00:00Z','completed_at':'2026-01-02T00:00:00Z','summary':'Done'} for i in range(1,56)]
-json.dump(s, open('${ABOVE_DIR}/state.json','w'), indent=2)
-"
-result=$(run_archive "$ABOVE_DIR")
-assert_contains "T-06.02: archive result contains archived key" '"archived"' "$result"
-assert_exists "${ABOVE_DIR}/archive/state-done-${YM}.json"
-
-# T-06.03: Live state retains exactly DONE_KEEP (10) DONE tasks after archive
-live_done=$(python3 -c "
-import json; s=json.load(open('${ABOVE_DIR}/state.json'))
-print(len([t for t in s['tasks'] if t['status']=='DONE']))
-")
-assert_contains "T-06.03: live state retains exactly 10 DONE tasks" "10" "$live_done"
-
-# T-06.04: Archived count is correct (55 - 10 = 45)
-archived_count=$(python3 -c "
-import json
-d=json.load(open('${ABOVE_DIR}/archive/state-done-${YM}.json'))
-print(len(d))
-")
-assert_contains "T-06.04: archive file contains 45 tasks (55 - 10 kept)" "45" "$archived_count"
-rm -rf "$ABOVE_DIR"
-
-# T-06.05: OPEN tasks are preserved after archive (not touched)
-MIXED_DIR=$(mktemp -d)
-cp "$TEMPLATE" "${MIXED_DIR}/state.json"
-python3 -c "
-import json; s=json.load(open('${MIXED_DIR}/state.json'))
-done=[{'id':'E-'+str(i),'owner':'Engineer (Claude)','status':'DONE','tier':1,'description':'Done '+str(i),'created_at':'2026-01-01T00:00:00Z','completed_at':'2026-01-02T00:00:00Z','summary':'Complete'} for i in range(1,52)]
-open_=[{'id':'E-'+str(i),'owner':'Engineer (Claude)','status':'OPEN','tier':1,'description':'Open '+str(i),'created_at':'2026-01-01T00:00:00Z','completed_at':None,'summary':None} for i in range(52,57)]
-s['tasks']=done+open_
-json.dump(s, open('${MIXED_DIR}/state.json','w'), indent=2)
-"
-run_archive "$MIXED_DIR" >/dev/null
-open_count=$(python3 -c "
-import json; s=json.load(open('${MIXED_DIR}/state.json'))
-print(len([t for t in s['tasks'] if t['status']=='OPEN']))
-")
-assert_contains "T-06.05: all 5 OPEN tasks preserved after archive" "5" "$open_count"
-rm -rf "$MIXED_DIR"
-
-# T-06.06: Archive file is valid JSON array
-VALID_DIR=$(mktemp -d)
-cp "$TEMPLATE" "${VALID_DIR}/state.json"
-python3 -c "
-import json; s=json.load(open('${VALID_DIR}/state.json'))
-s['tasks']=[{'id':'E-'+str(i),'owner':'Engineer (Claude)','status':'DONE','tier':1,'description':'Task '+str(i),'created_at':'2026-01-01T00:00:00Z','completed_at':'2026-01-02T00:00:00Z','summary':'Done'} for i in range(1,56)]
-json.dump(s, open('${VALID_DIR}/state.json','w'), indent=2)
-"
-run_archive "$VALID_DIR" >/dev/null
-archive_valid=$(python3 -c "
-import json
-try:
-    d=json.load(open('${VALID_DIR}/archive/state-done-${YM}.json'))
-    print('ok' if isinstance(d,list) else 'not_array')
-except Exception as e:
-    print('corrupt:'+str(e))
-")
-assert_contains "T-06.06: archive file is valid JSON array" "ok" "$archive_valid"
-rm -rf "$VALID_DIR"
-
+# ── E-112 (T-06.01–06) deleted with archive_done_tasks (D-172 r14): it exercised an inline copy of the
+# rotation, and the tool and get_state's auto-archive are retired — nothing rotates state any more.
 
 # ── E-53 (from sqlite_wal_checkpoint — E-302): the SQLite WAL checkpoint ──
 # Tests for E-53 SQLite WAL flush hook.

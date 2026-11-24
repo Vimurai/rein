@@ -1,6 +1,8 @@
 # CAPABILITIES (Declarative Capability Schema)
-# Source of truth for rein-exec and .mcp.json enforcement.
-# Edit this file to define what AI agents are allowed to do in THIS project.
+# What AI agents may read, write and run in THIS repository; the security_engineer reads it.
+# A project's copy lives at .ai/CAPABILITIES.md (rein-exec reads that one; the template is
+# src/templates/CAPABILITIES.md). The role boundary itself is the Claude Code sandbox in the
+# role settings files (docs/role-sandbox.md), not this file.
 
 ## filesystem.read
 # Allowed path patterns for READ operations (no approval required).
@@ -14,7 +16,6 @@
 - *.js
 - *.sh
 - ~/.rein/config/**
-- ~/.rein/memory/**
 - ~/.rein/*.sqlite
 
 ## filesystem.write
@@ -22,8 +23,7 @@
 - src/**
 - .ai/**
 - tests/**
-- ~/.rein/memory/**
-- ~/.rein/*.sqlite
+# Nothing under ~/.rein: the Engineer's sandbox write-denies it, and the sandbox is the rule (D-172 r5).
 
 ## shell.exec
 # Allowed commands/patterns for EXECUTE operations (requires [SEC_CLEARED] + --allow-execute).
@@ -34,7 +34,6 @@
 - git add
 - git status
 - git diff
-- rein test
 - npx tsc --noEmit
 - delta
 - diff -u
@@ -56,6 +55,5 @@
 - WRITE to .ai/ is low-risk (documentation only)
 - EXECUTE of npm test/build is pre-approved (no side effects on external systems)
 - Any operation touching auth, secrets, or external APIs requires explicit [SEC_CLEARED]
-- WRITE to ~/.rein/memory/ is low-risk (architectural signatures only, no secrets per §31 sanitize())
-- READ of ~/.rein/config/registry.json is pre-approved for compliance tools (verification-mcp, §32)
-- READ/WRITE of ~/.rein/*.sqlite is pre-approved (task-synchronizer-mcp and token-budget-mcp state stores)
+- READ of ~/.rein/config/registry.json is pre-approved for `rein doctor --compliance` (§32)
+- READ of ~/.rein/*.sqlite is pre-approved (the telemetry stores); no WRITE under ~/.rein (D-172 r5)

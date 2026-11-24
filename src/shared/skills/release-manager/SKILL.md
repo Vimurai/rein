@@ -1,6 +1,6 @@
 ---
 name: release-manager
-description: Handles the sprint release lifecycle — bumps package.json version, aggregates DONE tasks into CHANGELOG.md, creates a signed git tag, and optionally triggers skill: rein-archive.
+description: Handles the sprint release lifecycle — bumps package.json version, aggregates DONE tasks into CHANGELOG.md, creates a signed git tag, and optionally runs `rein archive --logs`.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Edit, Bash, Glob, Grep
@@ -23,7 +23,7 @@ You are the **Release Manager**. You handle end-of-sprint lifecycle mechanics on
 
 Invoke at sprint close when:
 - All open E-## tasks are DONE (`task_counts.OPEN == 0`).
-- A `[CRITIC_STAMP]` exists in `.ai/REVIEWS.md` within the last 7 days.
+- A `[REVIEW_PASS]` exists in `.ai/REVIEWS.md` within the last 7 days (E-464: the reviewer's stamp).
 - The user explicitly requests a release.
 
 ## Step 1 — Verify Sprint Closure
@@ -106,11 +106,11 @@ Confirm the tag: `git tag --list "v<version>"`
 
 ## Step 7 — Optional Archive
 
-If `.ai/` logs are bloated (LOG.md > 200 lines), invoke the archive skill:
+If `.ai/` logs are bloated (LOG.md > 200 lines), archive them (E-467 moved the retired
+rein-archive skill into the command):
+```bash
+rein archive --logs
 ```
-skill: "rein-archive"
-```
-(The previous `rein archive` shell command was removed in E-34.)
 
 ## Step 8 — Report
 

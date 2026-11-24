@@ -4,8 +4,7 @@
  * Uses .ai/state.sqlite as the ACID-safe primary store.
  * Automatically migrates existing .ai/state.json on first use.
  * Regenerates state.json (backwards-compat view), TASKS.md, and REVIEWS.md
- * after every mutation. All state writes — including deltas and task transitions
- * from orchestrator-mcp — go through SQLite (P-26, P-27).
+ * after every mutation. All state writes go through SQLite (P-26, P-27).
  *
  * Tools:
  *   get_state()                        → returns full state
@@ -13,9 +12,7 @@
  *   update_task_status(id, status)      → transitions task status
  *   add_stamp(task_id, type, agent, summary) → writes atomic audit stamp
  *   set_project_focus(text)             → updates project focus
- *   archive_done_tasks()                → moves old DONE tasks to archive
  *   verify_markdown_sync()              → checks TASKS.md / REVIEWS.md vs DB
- *   mark_deltas_read(task_ids?)         → acknowledge implementation deltas
  *   sync_tasks(update_content?)         → (DEPRECATED E-147) no-op
  *   append_tasks(tasks)                 → (legacy) appends to TASKS.md
  */
@@ -26,9 +23,9 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
-import { getDbSeeded, readState as _readState, regenerateViews as _regenerateViews, nextId as _nextId, addTask as _addTask, nextTopicSeedId as _nextTopicSeedId, nextClusterPageId as _nextClusterPageId, validateDag as _validateDag, parseDeps as _parseDeps, archiveDoneTasks as _archiveDoneTasks, archiveStamps as _archiveStamps, completeTask as _completeTask, DONE_ARCHIVE_THRESHOLD, DONE_KEEP_RECENT, STAMP_ARCHIVE_THRESHOLD } from "../shared/state-db.js";
+import { getDbSeeded, readState as _readState, regenerateViews as _regenerateViews, nextId as _nextId, addTask as _addTask, validateDag as _validateDag, parseDeps as _parseDeps, completeTask as _completeTask } from "../shared/state-db.js";
 // E-325 (D-102): the single writer — record file first in a team project, then the row.
-import { updateTask as _updateTask, insertStamp as _insertStamp, setProject as _setProject } from "../shared/record-store.mjs";
+import { updateTask as _updateTask, insertStamp as _insertStamp, setProject as _setProject, reviewsArchivedThrough, reviewsLineArchived } from "../shared/record-store.mjs";
 // E-326: a team project's pulled records are imported before the views are compared.
 import { importRecords as _importRecords } from "../shared/record-import.mjs";
 import { checkBehindHead as _checkBehindHead } from "../shared/legacy-import.mjs";
@@ -36,7 +33,8 @@ import { claimTask as _claimTask, releaseTask as _releaseTask, publishDone as _p
 import { buildToolSchemas } from "./tool-schemas.mjs";
 // E-266 (D-072): read-only view of the local CI run record.
 import { getCiStatus } from "../shared/ci-runs.js";
-import { completionGates } from "../../shared/completion-gates.mjs";
+import { completionGates, checkSupersededBy } from "../../shared/completion-gates.mjs";
+import { checkTaskQuality } from "../../shared/task-quality.mjs";
 import { validateNamed, loadSchemas } from "../../shared/schema-validator.js";
 // E-153 (telemetry-hardening.md): global telemetry interceptor — instrument() patches
 // setRequestHandler so EVERY CallTool invocation records a SUCCESS/ERROR row (closing the
@@ -50,10 +48,6 @@ import { createLogger } from "../shared/logger.js";
 // syncToCloud() which short-circuits to {status:"DISABLED"} when
 // AI_MANAGED_AGENTS_ENABLE is unset. Local MCP behaviour is unchanged off.
 import { syncToCloud as _syncToCloud } from "../../shared/managed-agents-client.mjs";
-// E-88: Multi-Variation-State-Tracker — canonical SEO Topic Cluster intents.
-// Used to validate ClusterPage.intent_type and enforce the cluster-page cap
-// on add_cluster_page.
-import { SEO_ALL_INTENTS, SEO_PILLAR_INTENT, MAX_CLUSTER_PAGES_PER_SEED, isValidIntentType as _isValidIntentType, isClusterIntent as _isClusterIntent } from "../../shared/seo-cluster-intents.mjs";
 
 // ── Structured logger (obs_baseline §Logging) ────────────────────────────────
 const logger = createLogger("task-synchronizer-mcp");
@@ -73,10 +67,9 @@ function _getDb(aiDir) {
 // _readState, _regenerateViews, _nextId are imported as _readState/_regenerateViews/_nextId above.
 
 // ── Archive ───────────────────────────────────────────────────────────────────
-// E-111: archive rotation for DONE tasks + audit stamps (and its thresholds) now
-// lives in src/mcp/shared/state-db.js so task-synchronizer-mcp and
-// archive-manager-mcp share ONE implementation. _archiveDoneTasks / _archiveStamps
-// and the *_THRESHOLD constants are imported above.
+// D-172 r14: this server rotates nothing. archive_done_tasks and get_state's auto-archive are
+// retired: a rotation removed the stamps and tasks the DONE checks read. `rein archive` moves
+// only record text (COMM.md, SECURITY.md, the REVIEWS.md view window).
 
 // E-107 (token-optimization.md §Components 1 / §Data Model): cap a DONE task's
 // stored summary so state.json stays light. The full narrative lives in LOG.md
@@ -84,7 +77,7 @@ function _getDb(aiDir) {
 const SUMMARY_CAP = Number(process.env.REIN_SUMMARY_CAP) || 200;
 
 // E-342 (D-106 r4): the tools that write the index and then regenerate the views.
-const VIEW_WRITERS = new Set(["add_task", "update_task_status", "add_stamp", "set_project_focus", "archive_done_tasks", "mark_deltas_read"]);
+const VIEW_WRITERS = new Set(["add_task", "update_task_status", "add_stamp", "set_project_focus"]);
 
 // ── E-74: Cloud sync hook ────────────────────────────────────────────────────
 // Per .ai/blueprints/managed-agents-state-reconciliation.md §Components 2:
@@ -94,8 +87,8 @@ const VIEW_WRITERS = new Set(["add_task", "update_task_status", "add_stamp", "se
 // schedules the actual fetch under an unref()'d timer.
 //
 // Wired only into add_task + update_task_status (the two mutation paths
-// that change the active-task projection). add_stamp / set_project_focus /
-// mark_deltas_read / archive_done_tasks do not change the OPEN+BLOCKED set
+// that change the active-task projection). add_stamp / set_project_focus
+// do not change the OPEN+BLOCKED set
 // the cloud projects, so skipping them avoids needless network chatter.
 function _scheduleCloudSync(targetAiDir) {
   try {
@@ -169,7 +162,7 @@ const server = new Server(
 );
 
 server.setRequestHandler(ListToolsRequestSchema, async () => ({
-  tools: buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }),
+  tools: buildToolSchemas(),
 }));
 
 instrument(server, "task-synchronizer-mcp", CallToolRequestSchema);
@@ -269,19 +262,20 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         };
       }
 
-      // Full state — auto-archive if needed
-      const archiveResult = _archiveDoneTasks(aiDir, db);
+      // Full state. D-172 r14: no auto-archive — a rotation that removes the stamps and tasks the
+      // DONE checks read is a defect, so nothing rotates state (archive_done_tasks is retired).
       const state = _readState(db);
-      const note  = archiveResult
-        ? `[AUTO-ARCHIVE] ${archiveResult.archived} DONE tasks archived to ${archiveResult.archivePath} — ${archiveResult.kept} recent DONE kept.\n\n`
-        : "";
-      return { content: [{ type: "text", text: note + JSON.stringify(state, null, 2) }] };
+      return { content: [{ type: "text", text: JSON.stringify(state, null, 2) }] };
     }
 
     // ── add_task ──────────────────────────────────────────────────────────────
     case "add_task": {
       const _addTaskErr = _assertSchema("task_create", args);
       if (_addTaskErr) return _addTaskErr;
+      // E-461 (D-169 r7): the task-planner checks live in the tool — a verb, and an Acceptance
+      // clause that names a command, a file or a count (task-quality.mjs).
+      const _quality = checkTaskQuality(args);
+      if (_quality) return rejection(`✗ [${_quality.code}] ${_quality.error}`);
 
       // E-63: Resolve persistence target — local .ai/ or framework workspace
       // when is_framework_task is set. Each framework write opens its own DB
@@ -362,13 +356,22 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // session through the install mirror, and an MCP server serves whatever it imported
       // at startup — so a task that changed src/mcp/** or src/bin/** is not finished when
       // the edit lands, it is finished when the mirror carries it and the servers have
-      // been restarted. The gate refuses DONE until both are true, and reports which of
-      // the two is missing. It runs BEFORE the dependency-revision write so a refusal
-      // leaves no partial mutation behind. Rollback: REIN_BUILD_STAMP=0.
+      // been restarted. E-461 (D-169 r7): it no longer refuses DONE — a stale build is one
+      // [BUILD_STALE] line appended to the result. The other gates run BEFORE the
+      // dependency-revision write so a refusal leaves no partial mutation behind.
       // E-320 (D-098 r2): the gate list lives in src/shared/completion-gates.mjs, shared with
       // orchestrator-mcp's run_handover — E-267's CI gate runs there after the build gate.
+      // E-431 (D-159 r9): superseded_by closes a task unimplemented — it skips the acceptance gate
+      // only, and the decision goes into the summary.
+      if (args.superseded_by !== undefined) {
+        if (args.status !== "DONE") return rejection(`✗ [SUPERSEDED_BY_INVALID] superseded_by applies only to status DONE`);
+        const bad = checkSupersededBy(aiDir, args.superseded_by);
+        if (bad) return rejection(`✗ ${bad}`);
+        args.summary = `superseded by ${args.superseded_by} — not implemented${args.summary ? ". " + args.summary : ""}`;
+      }
+      const gateNotes = [];
       if (args.status === "DONE") {
-        const refused = completionGates({ cwd: dirname(aiDir), db, id: args.id });
+        const refused = completionGates({ cwd: dirname(aiDir), db, id: args.id, superseded: args.superseded_by !== undefined, notes: gateNotes });
         if (refused) return refused;
       }
       // E-331 (D-102 §4): in a team project IN_PROGRESS means "claimed on origin/<trunk>" (E-341).
@@ -399,8 +402,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       // E-91: a DONE transition runs the DAG unblock cascade (BLOCKED tasks whose whole
       // depends_on set is now DONE become OPEN). E-325: shared with `rein task done` in
-      // state-db::completeTask. E-259 (D-077): task_velocity is not written here; it comes
-      // from the transcript, via hooks/post-tool-use.sh → src/shared/task-usage.mjs.
+      // state-db::completeTask. task_velocity is not written (E-467 retired its meter).
       let unblocked = [];
       if (args.status === "DONE") {
         unblocked = _completeTask(aiDir, db, args.id, storedSummary);
@@ -416,7 +418,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // E-331: a DONE clears this user's claim on origin/<trunk> (team projects only).
       const pub = args.status === "DONE" ? _publishDone(aiDir, args.id) : null;
       const claimNote = pub ? ` | ${pub.message}` : "";
-      return { content: [{ type: "text", text: `✓ ${args.id} → ${args.status}${storedSummary ? ": " + storedSummary : ""}${unblockNote}${truncNote}${claimNote}` }] };
+      return { content: [{ type: "text", text: `✓ ${args.id} → ${args.status}${storedSummary ? ": " + storedSummary : ""}${unblockNote}${truncNote}${claimNote}${gateNotes.map((n) => `\n${n}`).join("")}` }] };
     }
 
     // ── claim_task / release_task (E-331, D-102 §4) ───────────────────────────
@@ -456,29 +458,6 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       _regenerateViews(aiDir, db);
       return { content: [{ type: "text", text: `✓ Focus: ${args.focus}${args.current_tier ? " (Tier " + args.current_tier + ")" : ""}` }] };
-    }
-
-    // ── archive_done_tasks ────────────────────────────────────────────────────
-    case "archive_done_tasks": {
-      // E-108: rotate BOTH DONE tasks and audit stamps. They have independent
-      // thresholds, so a run may archive one, the other, both, or neither.
-      const taskResult  = _archiveDoneTasks(aiDir, db);
-      const stampResult = _archiveStamps(aiDir, db);
-      const archived_tasks  = taskResult  ? taskResult.archived  : 0;
-      const archived_stamps = stampResult ? stampResult.archived : 0;
-
-      if (!taskResult && !stampResult) {
-        const doneCount  = db.prepare("SELECT COUNT(*) as n FROM tasks WHERE status = 'DONE'").get().n;
-        const stampCount = db.prepare("SELECT COUNT(*) as n FROM stamps").get().n;
-        return { content: [{ type: "text", text: `✓ No archive needed — ${doneCount} DONE tasks (threshold ${DONE_ARCHIVE_THRESHOLD}), ${stampCount} stamps (threshold ${STAMP_ARCHIVE_THRESHOLD})` }] };
-      }
-
-      const archivePath = (stampResult && stampResult.archivePath) || (taskResult && taskResult.archivePath) || null;
-      const lines = ["✓ [AUTO-ARCHIVE]"];
-      if (taskResult)  lines.push(`  ${taskResult.archived} DONE tasks → ${taskResult.archivePath} (${taskResult.kept} recent kept)`);
-      if (stampResult) lines.push(`  ${stampResult.archived} stamps → ${stampResult.archivePath} (${stampResult.kept} recent kept)`);
-      lines.push(`  ${JSON.stringify({ archived_tasks, archived_stamps, archivePath })}`);
-      return { content: [{ type: "text", text: lines.join("\n") }] };
     }
 
     // ── Legacy: sync_tasks (DEPRECATED E-147/E-149) ───────────────────────────
@@ -607,12 +586,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             anomalies.push(`${id} is [x] in TASKS.md but ${dbStatus} in state`);
           } else if (mdStatus === "OPEN" && dbStatus === "DONE") {
             anomalies.push(`${id} is [ ] in TASKS.md but DONE in state`);
+          } else if (mdStatus === "DONE") {
+            // E-466: the view lists open tasks only; a closed row is a view from before it.
+            anomalies.push(`${id} is closed and listed in TASKS.md, which lists open tasks only`);
           }
         }
 
-        // Drift type 3: in state, missing from TASKS.md
-        for (const id of dbTasks.keys()) {
-          if (!mdTasks.has(id)) {
+        // Drift type 3: an open task in state, missing from TASKS.md (E-466: closed ones are not listed)
+        for (const [id, dbStatus] of dbTasks) {
+          if (dbStatus !== "DONE" && !mdTasks.has(id)) {
             anomalies.push(`${id} exists in state but is missing from TASKS.md`);
           }
         }
@@ -623,8 +605,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (existsSync(reviewsPath) && stampCount > 0) {
         const reviewsContent = readFileSync(reviewsPath, "utf8");
         const mdStampCount   = (reviewsContent.match(/^\[[\w_]+\]/gm) || []).length;
-        if (mdStampCount < stampCount) {
-          autoFixes.push(`REVIEWS.md had ${mdStampCount} stamps but state has ${stampCount} — regenerated`);
+        // E-466: stamps dated on or before the REVIEWS archive's newest line are not in the view.
+        const through = reviewsArchivedThrough(aiDir);
+        const shown = through
+          ? db.prepare("SELECT timestamp FROM stamps").all().filter((r) => !reviewsLineArchived(String(r.timestamp || "").split("T")[0], through)).length
+          : stampCount;
+        if (mdStampCount < shown) {
+          autoFixes.push(`REVIEWS.md had ${mdStampCount} stamps but state has ${shown} to show — regenerated`);
           _regenerateViews(aiDir, db);
         }
       }
@@ -635,7 +622,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // auto-fixed — they signal the engineer forgot to call
       // update_task_status, which is human/agent-decision territory.
       const hasMarkdownDrift = anomalies.some(a =>
-        /missing from TASKS\.md|missing from state/.test(a)
+        /missing from TASKS\.md|missing from state|lists open tasks only/.test(a)
       );
       if (hasMarkdownDrift) {
         _regenerateViews(aiDir, db);
@@ -708,207 +695,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       );
     }
 
-    // ── mark_deltas_read ──────────────────────────────────────────────────────
-    case "mark_deltas_read": {
-      const taskIds = Array.isArray(args.task_ids) && args.task_ids.length > 0
-        ? args.task_ids.map(id => String(id).trim().toUpperCase())
-        : null;
-
-      let marked;
-      if (taskIds) {
-        const ph = taskIds.map(() => "?").join(",");
-        marked = db.prepare(
-          `UPDATE deltas SET read = 1 WHERE read = 0 AND task_id IN (${ph})`
-        ).run(...taskIds).changes;
-      } else {
-        marked = db.prepare("UPDATE deltas SET read = 1 WHERE read = 0").run().changes;
-      }
-
-      if (marked > 0) _regenerateViews(aiDir, db);
-
-      const scope = taskIds ? taskIds.join(", ") : "all unread";
-      return {
-        content: [{
-          type: "text",
-          text: marked > 0
-            ? `✓ Acknowledged ${marked} delta(s) for ${scope}.`
-            : `⚠ No unread deltas found${taskIds ? ` for ${scope}` : ""}.`,
-        }],
-      };
-    }
-
-    // ── E-88 Multi-Variation-State-Tracker handlers (Topic Cluster Engine) ────
-    // All four operate on the local aiDir's state.sqlite only (no framework
-    // routing — SEO state is project-scoped). No cloud sync fires from these
-    // mutations per E-73 Data-Privacy contract (only tasks cross the boundary).
-
-    case "add_topic_seed": {
-      const term = typeof args.term === "string" ? args.term.trim() : "";
-      // E-179: all three guards below are EXPECTED input rejections (the caller sent a bad
-      // term/volume) — booked SUCCESS for telemetry so add_topic_seed's 85.7% "failure rate"
-      // (which was just invalid input) stops masquerading as a broken tool.
-      if (term.length === 0 || term.length > 256) {
-        return rejection("✗ [INVALID_TOPIC_TERM] term must be 1..256 chars");
-      }
-      // Reject shell metacharacters (mirrors seo_manager.md Preflight #3).
-      if (/[;&|`$()<>\n\r]/.test(term)) {
-        return rejection("✗ [INVALID_TOPIC_TERM] term contains shell metacharacters");
-      }
-      const targetVolume = Number.isFinite(args.target_volume) ? Math.floor(args.target_volume) : MAX_CLUSTER_PAGES_PER_SEED;
-      if (targetVolume < 1 || targetVolume > MAX_CLUSTER_PAGES_PER_SEED) {
-        return rejection(`✗ [INVALID_TARGET_VOLUME] must be 1..${MAX_CLUSTER_PAGES_PER_SEED}`);
-      }
-      const id = _nextTopicSeedId(db);
-      const createdAt = new Date().toISOString();
-      db.prepare(
-        "INSERT INTO topic_seeds(id, term, status, target_volume, created_at, completed_at) VALUES (?, ?, ?, ?, ?, NULL)"
-      ).run(id, term, "OPEN", targetVolume, createdAt);
-      return {
-        content: [{
-          type: "text",
-          text: `✓ Added TopicSeed ${id}: "${term}" (target_volume=${targetVolume})\n` +
-                JSON.stringify({ id, term, status: "OPEN", target_volume: targetVolume, created_at: createdAt }, null, 2),
-        }],
-      };
-    }
-
-    case "add_cluster_page": {
-      const seedId = String(args.seed_id || "").trim();
-      const intent = String(args.intent_type || "").trim();
-      // E-179: the validation/guard rejections in this handler are EXPECTED outcomes (bad
-      // seed id, unknown intent, missing seed, duplicate intent, cap reached) — the tool
-      // working correctly, not failing. Booked SUCCESS for telemetry.
-      if (!/^TS-\d+$/.test(seedId)) {
-        return rejection("✗ [INVALID_SEED_ID] expected format TS-N");
-      }
-      if (!_isValidIntentType(intent)) {
-        return rejection(`✗ [UNKNOWN_INTENT_TYPE] '${intent}' is not a canonical cluster intent. Valid: ${SEO_ALL_INTENTS.join(", ")}`);
-      }
-      const seedRow = db.prepare("SELECT id FROM topic_seeds WHERE id = ?").get(seedId);
-      if (!seedRow) {
-        return rejection(`✗ [SEED_NOT_FOUND] TopicSeed '${seedId}' does not exist. Call add_topic_seed first.`);
-      }
-      // Cannibalization guard: refuse a duplicate (seed_id, intent_type) —
-      // every page in a cluster MUST target a unique, non-overlapping intent.
-      const dup = db.prepare(
-        "SELECT id FROM cluster_pages WHERE seed_id = ? AND intent_type = ?"
-      ).get(seedId, intent);
-      if (dup) {
-        return rejection(`✗ [INTENT_ALREADY_USED] ${seedId} already has intent '${intent}' (page ${dup.id})`);
-      }
-      // Defence-in-depth: enforce the lifted cluster-page cap at the storage
-      // layer even if upstream (seo_manager E-87) miscounts. The Pillar page
-      // does not count against the cap — only deep-dive Cluster pages do.
-      if (_isClusterIntent(intent)) {
-        const clusterCount = db.prepare(
-          `SELECT COUNT(*) as n FROM cluster_pages WHERE seed_id = ? AND intent_type != ?`
-        ).get(seedId, SEO_PILLAR_INTENT).n;
-        if (clusterCount >= MAX_CLUSTER_PAGES_PER_SEED) {
-          return rejection(`✗ [CLUSTER_CAP_REACHED] seed ${seedId} already has ${clusterCount}/${MAX_CLUSTER_PAGES_PER_SEED} cluster pages`);
-        }
-      }
-
-      const id = _nextClusterPageId(db);
-      const createdAt = new Date().toISOString();
-      const blob = typeof args.content_blob === "string" ? args.content_blob : null;
-      db.prepare(
-        "INSERT INTO cluster_pages(id, seed_id, intent_type, content_blob, performance_metrics, published_at, created_at) VALUES (?, ?, ?, ?, NULL, NULL, ?)"
-      ).run(id, seedId, intent, blob, createdAt);
-
-      return {
-        content: [{
-          type: "text",
-          text: `✓ Added ClusterPage ${id} for ${seedId} [${intent}]\n` +
-                JSON.stringify({ id, seed_id: seedId, intent_type: intent, created_at: createdAt }, null, 2),
-        }],
-      };
-    }
-
-    case "report_performance": {
-      const pid = String(args.page_id || "").trim();
-      // E-179: invalid id / invalid metrics / not-found are EXPECTED rejections (caller
-      // error), booked SUCCESS for telemetry so report_performance's 60% "failure rate"
-      // stops reading as a broken tool.
-      if (!/^CP-\d+$/.test(pid)) {
-        return rejection("✗ [INVALID_PAGE_ID] expected format CP-N");
-      }
-      if (!args.metrics || typeof args.metrics !== "object" || Array.isArray(args.metrics)) {
-        return rejection("✗ [INVALID_METRICS] metrics must be a JSON object");
-      }
-      const row = db.prepare(
-        "SELECT id, performance_metrics FROM cluster_pages WHERE id = ?"
-      ).get(pid);
-      if (!row) {
-        return rejection(`✗ [PAGE_NOT_FOUND] ${pid}`);
-      }
-      // Merge-patch semantics: existing JSON + supplied keys; new keys
-      // overwrite. Mirrors the JSON merge contract documented in the tool's
-      // inputSchema description.
-      let existing = {};
-      if (row.performance_metrics) {
-        try { existing = JSON.parse(row.performance_metrics); } catch { existing = {}; }
-      }
-      const merged = { ...existing, ...args.metrics };
-      db.prepare(
-        "UPDATE cluster_pages SET performance_metrics = ? WHERE id = ?"
-      ).run(JSON.stringify(merged), pid);
-      return {
-        content: [{
-          type: "text",
-          text: `✓ Updated ${pid} performance_metrics\n` + JSON.stringify(merged, null, 2),
-        }],
-      };
-    }
-
-    case "get_topic_cluster": {
-      const seedId = String(args.seed_id || "").trim();
-      // E-179: bad seed id / not-found are EXPECTED rejections (caller error), booked SUCCESS
-      // for telemetry so get_topic_cluster's 50% "failure rate" stops reading as a defect.
-      if (!/^TS-\d+$/.test(seedId)) {
-        return rejection("✗ [INVALID_SEED_ID] expected format TS-N");
-      }
-      const seed = db.prepare(
-        "SELECT id, term, status, target_volume, created_at, completed_at FROM topic_seeds WHERE id = ?"
-      ).get(seedId);
-      if (!seed) {
-        return rejection(`✗ [SEED_NOT_FOUND] ${seedId}`);
-      }
-      const pages = db.prepare(
-        "SELECT id, intent_type, content_blob, performance_metrics, published_at, created_at FROM cluster_pages WHERE seed_id = ? ORDER BY id"
-      ).all(seedId).map((p) => ({
-        id:                  p.id,
-        intent_type:         p.intent_type,
-        content_blob:        p.content_blob,
-        performance_metrics: p.performance_metrics ? JSON.parse(p.performance_metrics) : null,
-        published_at:        p.published_at,
-        created_at:          p.created_at,
-      }));
-      const clusterPages = pages.filter((p) => p.intent_type !== SEO_PILLAR_INTENT);
-      const remaining = Math.max(0, seed.target_volume - clusterPages.length);
-      return {
-        content: [{
-          type: "text",
-          text: JSON.stringify({
-            seed,
-            pages,
-            counts: {
-              total:     pages.length,
-              pillar:    pages.filter((p) => p.intent_type === SEO_PILLAR_INTENT).length,
-              cluster:   clusterPages.length,
-              remaining,
-              published: pages.filter((p) => p.published_at != null).length,
-            },
-          }, null, 2),
-        }],
-      };
-    }
-
     default:
       return { content: [{ type: "text", text: `Unknown tool: ${name}` }], isError: true };
   }
 });
 
 if (isMainModule(import.meta.url)) {
+  // D-172 r2a: the Architect's session runs in <project>/.ai, and Claude Code starts this server
+  // there. Every path here is the project root's (.ai/ beside the cwd), so step up to it.
+  const cwd = process.cwd();
+  if (!existsSync(resolve(cwd, ".ai")) && cwd.split("/").pop() === ".ai") process.chdir(dirname(cwd));
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

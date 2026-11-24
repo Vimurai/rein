@@ -203,26 +203,5 @@
     "old": "ai-upgrade",
     "new": "rein-upgrade",
     "kind": "skill"
-  },
-  {
-    "old": "05cfb166cb87386a816d82c4fb5a4aadb0f5c3be34ae8b89e5cfee1661d0a716",
-    "new": "26f7da12faaf12c305b284e3af99b4dd41115d6ad3ba760b3ef6705d444f0a77",
-    "kind": "pin",
-    "table": "tests/fixtures/arch-write-cases.json",
-    "ruling": "D-132 addendum 3"
-  },
-  {
-    "old": "34182edf23ab0cfeb61c596f88625145786d6ce949f213d076905eaca5333d54",
-    "new": "047024f1110e5376bd26fb7855913b47e70526cfa7a1585ab8043ff31588cdab",
-    "kind": "pin",
-    "table": "tests/fixtures/role-verdict-cases.json",
-    "ruling": "D-132 addendum 3"
-  },
-  {
-    "old": "960a01f72f6c45c66d17417165df2895f425d2a9c081da05955128c587cc08d5",
-    "new": "63c2cac95f95e30149119f6296417a547bb4afd9eb93d056385285121d3b2968",
-    "kind": "pin",
-    "table": "tests/fixtures/gate-self-disable-cases.json",
-    "ruling": "D-132 addendum 3"
   }
 ]

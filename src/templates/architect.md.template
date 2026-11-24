@@ -41,19 +41,10 @@
 ## 30. Bootloader Resilience
 - **Concept**: Ensure the Triad maintains operational context even if the Rein MCP servers are unavailable.
 - **Execution Flow**:
-  1. Agent invokes the `rein-preflight` skill (the only preflight path since D-075).
-  2. If its MCP call fails: the skill's Bash fallback reads `state.json` directly.
-  3. If that fails: Agent reads the "Emergency Recovery" section in `ENGINEER.md` (the canonical Engineer rulefile; `CLAUDE.md` is a shim that imports it).
+  1. The SessionStart hook injects the session brief from `.ai/TASKS.md` and `.ai/COMM.md` — no MCP server is needed (E-460).
+  2. If a skill's MCP call fails: the skill's Bash fallback reads `state.json` directly.
 - **Error Handling**: Graceful degradation to manual `cat .ai/TASKS.md` if all tools fail.
 - **Security**: Fallback tools must adhere to the same path-traversal restrictions as the primary orchestrator.
-
-## 31. Cross-Project Memory Palace
-- **Concept**: A centralized RAG service (`memory-manager-mcp`) that allows multiple projects to share high-level architectural signatures.
-- **Data Model**: `Signature: { project_name, tag, summary, architect_v, timestamp }`. Storage: `~/.rein/memory/signatures.json`.
-- **API Contract**:
-  - `export_signature(summary, tags)`: Called by `skill: rein-archive` when archiving completes.
-  - `query_signatures(tags)`: Called during `rein init` to suggest patterns.
-- **Security**: Signatures must NOT contain secrets, PII, or internal logic. Only high-level "Lore" and "Patterns".
 
 ## 32. Verification Audit
 - **Concept**: Automated system to verify that declared agent capabilities in YAML frontmatter match actual system configurations.
@@ -65,7 +56,7 @@
 - **6-File JIT Limit**: Every agent and skill must read at most 6 files per task. Use `grep`/targeted reads first; full reads only for files confirmed changed via `git log --since=<DIGEST mtime>`.
 - **Forbidden patterns**: `ls -R`, unconstrained `cat` loops, unconditional 8-file preflight reads.
 - **AIS — Fresh Conversations**: Use `/clear` between unrelated tasks. Exponential context cost compounds with every message. This is the #1 token-burn mitigation.
-- **Preflight standard**: DIGEST.md first (replaces most reads if current ≤ 3 days old), then TASKS.md. Domain-specific files only if the task explicitly requires them.
+- **Preflight standard**: DIGEST.md first (generated at every session start, so it is always current), then TASKS.md. Domain-specific files only if the task explicitly requires them.
 - **UPDATE.md**: Deprecated (E-147). Never create or read this file. Intent is provided via conversation context.
 
 ## 34. Architectural Fragmentation (Domain Blueprints)
@@ -73,4 +64,4 @@
 - **Pattern**: `architect.md` becomes a lightweight index/router (~30 lines). Detailed content moves to `.ai/blueprints/<domain>.md`.
 - **Standard domains**: `core.md`, `security.md`, `agents.md`, `mcp.md`, `governance.md` (adapt to project needs).
 - **JIT Protocol**: Agents read the index first, then load only the relevant domain blueprint. Never load all blueprints at once.
-- **Preflight update**: `rein-preflight` points to the index; domain blueprints are loaded on demand.
+- **Session start**: the brief names no blueprint; domain blueprints are loaded when a task names them.

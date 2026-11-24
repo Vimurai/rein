@@ -71,7 +71,6 @@ fi
 #   - src/shared/wal-flusher.mjs       (node:sqlite, prevents WAL bloat)
 #   - scripts/generate_mcp_docs.mjs    (regenerates .ai/blueprints/mcp.md on `rein sync`)
 #   - src/shared/incident-append.mjs   (PII-sanitised telemetry)
-#   - src/shared/incident-aggregate.mjs (preflight aggregator)
 # Skipping this check on degraded systems risks silent WAL bloat (gigabytes)
 # and missed compliance gates. Set REIN_SKIP_NODE_CHECK=1 only for CI
 # packaging-only flows where the artifact is staged on a non-target host.
@@ -231,8 +230,8 @@ fi
 
 _verify_stage() {  # → 0 when the staged tree is complete and parses; prints what is wrong
   local bad=0 f
-  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/hook-paths.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/gate-probe.sh shared/node-version.sh \
-           mcp/safe-exec-mcp/index.js mcp/safe-exec-mcp/role-token.mjs mcp/safe-exec-mcp/gate-guard.mjs; do
+  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/hook-paths.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/node-version.sh \
+           shared/seatbelt.mjs mcp/task-synchronizer-mcp/index.js; do
     [[ -f "${_STAGE}/${f}" ]] || { echo "  missing: ${f}"; bad=1; }
   done
   if [[ "$_HOOKS_REFUSED" -eq 0 ]]; then
@@ -245,7 +244,7 @@ _verify_stage() {  # → 0 when the staged tree is complete and parses; prints w
     bash -n "$f" 2>/dev/null || { echo "  does not parse (bash): ${f#${_STAGE}/}"; bad=1; }
   done
   if command -v node >/dev/null 2>&1; then
-    for f in "${_STAGE}"/mcp/*/index.js "${_STAGE}"/mcp/safe-exec-mcp/*.mjs; do
+    for f in "${_STAGE}"/mcp/*/index.js "${_STAGE}"/shared/seatbelt.mjs; do
       [[ -f "$f" ]] || continue
       node --check "$f" 2>/dev/null || { echo "  does not parse (node): ${f#${_STAGE}/}"; bad=1; }
     done
@@ -374,7 +373,7 @@ purge_tree_orphans() {
 
 # A retired MCP server's mirror directory: the protect filter above keeps its node_modules/
 # and package-lock.json, so rsync leaves the directory behind. src/mcp is the reference
-# (not registry.json: ast-parser-mcp and shared/ are in src/mcp and in no registry — the
+# (not registry.json: shared/ is in src/mcp and in no registry — the
 # E-272 lesson). Reproducible from src/, nothing user-owned: removed.
 # Only when src/mcp really holds servers: on the cp fallback a missing source tree is
 # skipped silently, and every mirror dir would then look retired (critic_security, E-273).
@@ -522,10 +521,9 @@ Next steps:
    rein mcp-setup   ← installs deps + regenerates .mcp.json with absolute paths
    rein doctor      ← verify per-server health
 
-5) Relaunch every running Claude pane (E-294, D-087):
-   role tokens are now bound to the session process and minted from launch records.
-   A session started before this install holds an old token that never verifies, so its
-   gate applies EVERY role's blocks until it is relaunched with: rein pane <role>
+5) Relaunch every running Claude pane with: rein pane <role>
+   A session keeps the hooks, plugin and MCP servers it started with; a relaunch loads
+   this install and writes the role's sandbox settings again (E-462).
    (then rein sync in each project, so SessionStart also fires on /clear and /compact)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

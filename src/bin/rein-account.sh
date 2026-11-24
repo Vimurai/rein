@@ -185,29 +185,19 @@ _start_account_pick() {
 }
 
 # _account_launch_check <name> <dir> — the account's user-level copy, checked at launch
-# (D-097, accounts.md §3): OUTDATED backstop → refuse naming `rein sync` (a stale copy only Rein
-# refreshes); settings.json missing or unparsable → refuse naming `rein account sync <name>`;
-# ABSENT → the doctor's notice, then continue (the backstop is the operator's y/N choice).
+# (accounts.md §3): settings.json missing or not a JSON object → refuse naming
+# `rein account sync <name>`. (E-463 retired the classifier backstop this also checked.)
 _account_launch_check() {
-  local name="$1" dir="$2" py out
-  py="$(_cb_py 2>/dev/null)"
-  if [[ ! -f "$py" ]] || ! command -v python3 >/dev/null 2>&1; then
-    echo "rein pane: account '${name}': cannot check ${dir}/settings.json (helper or python3 missing — run: bash install-rein.sh)" >&2
+  local name="$1" dir="$2"
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "rein pane: account '${name}': cannot check ${dir}/settings.json (python3 missing)" >&2
     return 2
   fi
-  out="$(python3 -I "$py" status "${dir}/settings.json" 2>/dev/null | sed -n '1p')"
-  case "$out" in
-    PRESENT) return 0 ;;
-    ABSENT)
-      echo "rein pane: ○ classifier backstop [account ${name}]: not configured in $(_acct_tilde "$dir")/settings.json — run: rein account sync ${name} (copies ~/.claude/settings.json)" >&2
-      return 0 ;;
-    OUTDATED*)
-      echo "rein pane: account '${name}': the classifier backstop in $(_acct_tilde "$dir")/settings.json is outdated — run: rein sync" >&2
-      return 2 ;;
-    *)
-      echo "rein pane: account '${name}': $(_acct_tilde "$dir")/settings.json is missing or unreadable (${out:-no answer}) — run: rein account sync ${name}" >&2
-      return 2 ;;
-  esac
+  if ! python3 -I -c 'import json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d, dict) else 1)' "${dir}/settings.json" 2>/dev/null; then
+    echo "rein pane: account '${name}': $(_acct_tilde "$dir")/settings.json is missing or unreadable — run: rein account sync ${name}" >&2
+    return 2
+  fi
+  return 0
 }
 
 _acct_in_use() {  # <name> → 0 when a tmux pane is running under it (@rein_account, E-315)
@@ -268,8 +258,6 @@ do_account() {
       out="$(python3 -I "$py" add "$reg" "$HOME" "$name" "$dir" "$(_acct_today)" 2>&1)" && rc=0 || rc=$?
       [[ "$rc" -eq 0 ]] || { echo "rein account add: not registered — ${out#*$'\t'}" >&2; return 2; }
       echo "  ✓ registered in $(_acct_tilde "$reg")"
-      # E-318 (D-097): the seeded copy may carry an outdated backstop label — replace it in place.
-      declare -F _classifier_refresh_one >/dev/null && _classifier_refresh_one "${dir}/settings.json" "$name"
       echo "  ⓘ Claude Code's auto memory is per account (<dir>/projects/<project>/memory/): a"
       echo "    project moved to '${name}' starts with an empty memory there."
       echo "  ⓘ Accounts are claude.ai logins (Pro/Max/Team). A Console sign-in without an API key"

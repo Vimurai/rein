@@ -79,12 +79,8 @@ assert_contains "E-212.05b: absent roles.json degrades to shared" "shared/skills
 # empty list, so this is the common path. Caught live: sync aborted mid-run and left
 # workspaces unprovisioned.
 assert_status 0 "E-212.06a: src/bin/rein parses under bash 3.2" /bin/bash -n "$AI_BIN"
-assert_status 0 "E-212.06b: array expansions are count-guarded, not bare" \
-  grep -q 'NOTE ON BASH 3.2' "$AI_BIN"
-assert_status 0 "E-212.06c: agent_dirs expansion is count-guarded" \
-  grep -q 'agent_dirs\[@\]}" -gt 0' "$AI_BIN"
-assert_status 0 "E-212.06d: skill_dirs expansion is count-guarded" \
-  grep -q 'skill_dirs\[@\]}" -gt 0' "$AI_BIN"
+# E-212.06b-d (source greps for the provisioner's count-guarded array expansions) went with the
+# provisioner (E-469): sync copies no skills or agents. 06e below still runs the real sync.
 
 # BEHAVIOURAL: a real sync in a project where claude serves only ONE role. This is the
 # shape of the original abort — a source-text assertion alone would not catch it,
@@ -101,68 +97,41 @@ JSON
 # hypothetical: with the mirror one release behind, a case here passed locally and failed
 # on CI, where `rein install` runs from HEAD. An environment-dependent assertion (E-236) in
 # the suite that exists to prove provisioning works.
-_e212_out="$(cd "$_e212_ws" && /bin/bash "$AI_BIN" sync 2>&1)"; _e212_rc=$?
+# D-172 r22: under a scratch Rein home — `rein sync` writes the role settings under ~/.rein/roles/.
+source "${SCRIPT_DIR}/../lib/generated-settings.sh"
+_e212_home="$(mktemp -d)"; on_exit "rm -rf '$_e212_home'"; tc_link_shared "$_e212_home"; gen_rein_home "$_e212_home"
+_e212_out="$(cd "$_e212_ws" && HOME="$_e212_home" /bin/bash "$AI_BIN" sync 2>&1)"; _e212_rc=$?
 assert_not_contains "E-212.06e: sync completes with no unbound-variable abort (bash 3.2)" \
   "unbound variable" "$_e212_out"
 assert_status 0 "E-212.06e2: and exits 0" test "$_e212_rc" -eq 0
 assert_status 0 "E-212.06g: the Engineer's workspace is still provisioned" \
-  test -f "$_e212_ws/.claude/skills/rein-task/SKILL.md"
-assert_contains "E-212.06h: and it reports serving the Engineer role" \
-  ".claude/ serves role(s): engineer" "$_e212_out"
+  test -f "$_e212_ws/.claude/settings.json"
+# E-469 (D-170 r4): the skills reach the session through the rein plugin, which sync names.
+assert_contains "E-469.06h: and it names the plugin that carries the skills and agents" \
+  "plugin rein@rein" "$_e212_out"
 
-# ── E-212.7: the 7 Architect agents meet the Claude frontmatter contract ─────
-for a in ux_reviewer docs-architect knowledge_architect meta_analyst memory_curator seo_manager seo_content_generator; do
-  f="${REPO_ROOT}/src/claude/agents/${a}.md"
-  assert_status 0 "E-212.07 [$a]: declares a tools allowlist (E-295)" grep -qE '^tools:' "$f"
-  assert_status 0 "E-212.07 [$a]: declares context: fork" grep -qE '^context: fork$' "$f"
-  assert_status 0 "E-212.07 [$a]: declares agent: general-purpose" grep -qE '^agent: general-purpose$' "$f"
-  # NOT widened: these are advisory Architect personas (Forbidden Zone), so the contract
-  # must not hand them Bash/Write/Edit.
-  assert_status 1 "E-212.07 [$a]: allowed-tools does not add Bash" \
-    bash -c "grep < <(grep -E '^allowed-tools:' '$f') -q 'Bash'"
-  assert_status 1 "E-212.07 [$a]: allowed-tools does not add Write/Edit" \
-    bash -c "grep < <(grep -E '^allowed-tools:' '$f') -qE '\\bWrite\\b|\\bEdit\\b'"
-done
+# E-212.7 (the 7 advisory Architect agents' frontmatter) went with those agents (E-467, D-170 r5);
+# E-217.03b below still checks every kept agent.
 
 # ── E-217 (D-055 R2): collision resolved by renaming; guard is now fatal ────
 echo "  [E-217] skill-name collision resolution"
 
 # The Architect's task/history skills are RENAMED, not deduplicated — they do a
 # different job for a different role. Same reason arch-review is not rein-review (E-149).
-assert_status 0 "E-217.01a: arch-task exists in the Architect set" \
-  test -f "${REPO_ROOT}/src/claude/skills/arch-task/SKILL.md"
-assert_status 0 "E-217.01b: arch-oracle exists in the Architect set" \
-  test -f "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
-assert_status 1 "E-217.01c: the Architect set no longer ships rein-task" \
-  test -e "${REPO_ROOT}/src/claude/skills/rein-task"
-assert_status 1 "E-217.01d: the Architect set no longer ships repo-oracle" \
-  test -e "${REPO_ROOT}/src/claude/skills/repo-oracle"
-# The ENGINEER keeps the original names — that is the point of the rename.
-assert_status 0 "E-217.01e: the Engineer keeps rein-task" \
-  test -f "${REPO_ROOT}/src/shared/skills/rein-task/SKILL.md"
-assert_status 0 "E-217.01f: the Engineer keeps repo-oracle" \
-  test -f "${REPO_ROOT}/src/shared/skills/repo-oracle/SKILL.md"
-# Frontmatter name must match the directory, or the skill loads under the old name.
-assert_status 0 "E-217.01g: arch-task frontmatter name matches" \
-  grep -qE '^name: arch-task$' "${REPO_ROOT}/src/claude/skills/arch-task/SKILL.md"
-assert_status 0 "E-217.01h: arch-oracle frontmatter name matches" \
-  grep -qE '^name: arch-oracle$' "${REPO_ROOT}/src/claude/skills/arch-oracle/SKILL.md"
+# E-217.01a/01c/01e/01g (arch-task and rein-task) were deleted by E-461: both skills are gone,
+# replaced by `rein done`; arch-oracle/repo-oracle below still pin the rename.
+# E-217.01b/d/f/h (arch-oracle and repo-oracle) went with both skills (E-467, D-170 r5).
 
 # References must follow the rename, and ARCHITECT.md must explain WHY the names
 # differ so nobody "corrects" them back to match the Engineer's.
-assert_status 0 "E-217.02a: ARCHITECT.md points at arch-task" \
-  grep -q 'arch-task' "${REPO_ROOT}/src/templates/ARCHITECT.md"
-assert_status 0 "E-217.02b: ARCHITECT.md records why the names differ" \
-  grep -q 'must not collide' "${REPO_ROOT}/src/templates/ARCHITECT.md"
-assert_status 0 "E-217.02c: task-planner hands back to arch-task" \
-  grep -q 'skill: arch-task' "${REPO_ROOT}/src/claude/skills/task-planner/SKILL.md"
+# E-217.02a and 02c (ARCHITECT.md and task-planner point at arch-task) were deleted by E-461:
+# the rulefile points at `rein done` / `rein handoff`, pinned by pre_commit_hook_test E-461.*.
+# E-217.02b (ARCHITECT.md explained the arch-* names) was deleted by E-460: the 2 KB rulefile
+# has no room for it; the plugin build's collision error names the rename precedent (E-469).
 assert_status 0 "E-217.02d: root ARCHITECT.md matches its template" \
   diff -q "${REPO_ROOT}/src/templates/ARCHITECT.md" "${REPO_ROOT}/ARCHITECT.md"
 
-# All 20 agents now satisfy the frontmatter contract (seo_engineer lacked `context:`
-# since E-90 — the only one failing, deliberately left alone in E-212 and fixed here).
-assert_status 0 "E-217.03a: seo_engineer declares context:" \
-  grep -qE '^context: fork$' "${REPO_ROOT}/src/claude/agents/seo_engineer.md"
+# Every agent satisfies the frontmatter contract. (E-217.03a pinned seo_engineer, gone with E-467.)
 _E217_BAD=0
 for _f in "${REPO_ROOT}"/src/claude/agents/*.md; do
   for _k in name description tools context agent; do   # E-295: tools, not allowed-tools
@@ -171,83 +140,61 @@ for _f in "${REPO_ROOT}"/src/claude/agents/*.md; do
 done
 assert_contains "E-217.03b: every agent satisfies the frontmatter contract" "0" "$_E217_BAD"
 
-# The guard is FATAL in a multi-role workspace and inert in a single-role one.
-assert_status 0 "E-217.04a: sync returns non-zero on an unresolved collision" \
-  grep -q 'unresolved skill-name collision' "$AI_BIN"
-assert_status 0 "E-217.04b: the error names the rename precedent" \
-  grep -q 'arch-task, arch-oracle, arch-review' "$AI_BIN"
-# A name already on DISK is not a collision — it may be a stale copy from an earlier
-# sync. Only a name claimed by ANOTHER SOURCE in the same run counts; comparing against
-# disk residue reported task-planner, which exists in exactly one source dir.
-assert_status 0 "E-217.04c: collisions compare sources within a run, not disk residue" \
-  grep -q '_SKILL_CLAIMS' "$AI_BIN"
+# E-217.04a-c (source greps for sync's skill-name collision guard) went with the provisioner
+# (E-469). The plugin build refuses the same collision: tests/unit/plugin-build.test.mjs.
 assert_status 0 "E-217.04d: sync returns success explicitly (no stray git status)" \
   grep -q 'Explicit success: without it do_sync returns' "$AI_BIN"
 
 
 # ── E-215 (from role_runtime_test — E-302): role runtime — rulefiles and the doctor role report ──
-# ARCHITECT.md runtime ladder (the Skill tool for skills, the Agent tool for agents — E-276) +
-# the `rein doctor` per-role provisioning report.
+# The lean rulefiles (E-460, D-169, lean-core.md §Component 3) + the `rein doctor` per-role
+# provisioning report. E-460 replaced E-215.01–04's text pins (the preflight ladder, the manual
+# read order, the skill-invocation and compact sections), whose text the rewrite removed.
 ARCH_TPL="${REPO_ROOT}/src/templates/ARCHITECT.md"
 ENG_TPL="${REPO_ROOT}/src/templates/ENGINEER.md"
-# ── E-215.1: Session Start ladder mirrors ENGINEER.md ───────────────────────
-assert_status 0 "E-215.01a: ARCHITECT.md step 1 is the Skill tool" \
-  grep -q 'skill: "rein-preflight"' "$ARCH_TPL"
-# E-276: the retired MCP rungs are gone from BOTH rulefiles, not merely reordered.
 for _tpl in "$ARCH_TPL" "$ENG_TPL"; do
-  assert_status 1 "E-276.01b: no run_preflight rung in ${_tpl##*/}" grep -q 'run_preflight' "$_tpl"
-  assert_status 1 "E-276.01c: no activate_skill/activate_agent in ${_tpl##*/}" \
+  _n="${_tpl##*/}"
+  _b="$(wc -c < "$_tpl" | tr -d ' ')"
+  echo "    ${_n}: ${_b} bytes (limit 2048)"
+  assert_status 0 "E-460.R01: ${_n} is at most 2048 bytes" test "$_b" -le 2048
+  assert_status 0 "E-460.R02: ${_n} keeps the Role Resolution clause (E-208)" grep -q 'Role Resolution (D-054' "$_tpl"
+  assert_status 0 "E-460.R03: ${_n} carries the review-by-tier table" grep -qF '## Review by tier (D-169 r8)' "$_tpl"
+  assert_status 0 "E-460.R04: ${_n} says where its orders are" grep -qF '.ai/TASKS.md' "$_tpl"
+  assert_status 1 "E-460.R05: ${_n} runs no preflight skill" grep -q 'rein-preflight' "$_tpl"
+  assert_status 1 "E-276.01b: no run_preflight rung in ${_n}" grep -q 'run_preflight' "$_tpl"
+  assert_status 1 "E-276.01c: no activate_skill/activate_agent in ${_n}" \
     grep -qE 'activate_skill|activate_agent|context-invoker' "$_tpl"
+  assert_status 0 "E-460.R06: root ${_n} matches its template" diff -q "$_tpl" "${REPO_ROOT}/${_n}"
 done
-# The manual read order must survive as the floor when every layer fails.
-assert_status 0 "E-215.01d: the DIGEST-first manual read order is retained" \
-  grep -q 'DIGEST.md → .ai/architect.md → .ai/TASKS.md' "$ARCH_TPL"
-# Both rulefiles must name the same single path — that is what "mirror" means here.
-assert_status 0 "E-215.01e: ENGINEER.md also starts with the Skill tool" \
-  grep -qF 'skill: "rein-preflight"' "$ENG_TPL"
-for _tpl in "$ARCH_TPL" "$ENG_TPL"; do
-  assert_status 0 "E-276.01f: §36 in ${_tpl##*/} reads 'Skill tool for skills, Agent tool for agents'" \
-    grep -qF '**HOW — the Skill tool for skills, the Agent tool for agents** (D-075)' "$_tpl"
-done
-
-# ── E-215.2: Skill Invocation is runtime-aware ─────────────────────────────
-assert_status 0 "E-215.02a: the Skill tool is the stated invocation path" \
-  grep -q 'Use the \*\*Skill tool\*\*' "$ARCH_TPL"
-assert_status 0 "E-276.02b: the MCP invoker is stated as retired, not offered" \
-  grep -qF 'there is no MCP invoker' "$ARCH_TPL"
-assert_status 0 "E-283.02c: the compact pattern points at the native /compact" \
-  grep -qF 'Do this with `/compact`' "$ARCH_TPL"
+assert_status 0 "E-460.R07: ARCHITECT.md states the write scope in one line" \
+  grep -qx 'Write only `.ai/` and `plans/`. The sandbox enforces it whatever this file says.' "$ARCH_TPL"
+# D-172 r2a: and says where the session starts, for the path habit it changes.
+assert_status 0 "D-172.r2a-rulefile: ARCHITECT.md says the session starts in .ai/" grep -q 'Your session starts in `.ai/`' "$ARCH_TPL"
+assert_status 0 "E-460.R08: ARCHITECT.md lists P-## orders, ENGINEER.md E-## orders" \
+  bash -c 'grep -q "next P-## tasks" "$1" && grep -q "next E-## tasks" "$2"' _ "$ARCH_TPL" "$ENG_TPL"
 
 # ── E-215.3 / E-254: no provider-specific section survives (D-069) ─────────
-# v4 is Claude-native: the Architect runs on claude · fable, so a "Provider notes" block
-# or a vendor Model Mandate would be instructions for a runtime that no longer exists.
 assert_status 1 "E-254.03a: no Provider notes heading remains" \
   grep -qE '^## Provider notes' "$ARCH_TPL"
 assert_status 1 "E-254.03b: no Model Mandate heading at any level" \
   grep -qE '^#+ .*Model Mandate' "$ARCH_TPL"
-# Non-vacuity: the model the Architect DOES run on is still stated, so 03a/03b cannot
-# pass merely because the header block was emptied.
 assert_status 0 "E-254.03c: the header names the claude provider on model fable" \
   grep -q 'the `claude` provider on model `fable`' "$ARCH_TPL"
 
-# ── E-215.4: sovereign text untouched ──────────────────────────────────────
+# ── E-215.4: sovereign text ────────────────────────────────────────────────
 assert_status 0 "E-215.04a: the Forbidden Zone section is intact" \
   grep -qE '^## The Forbidden Zone$' "$ARCH_TPL"
 assert_status 0 "E-215.04b: the §35 ANTI-DRIFT section is intact" \
   grep -qE '^## ANTI-DRIFT PROTOCOL' "$ARCH_TPL"
-assert_status 0 "E-215.04c: the Role Resolution clause (E-208) is intact" \
-  grep -q 'Role Resolution (D-054' "$ARCH_TPL"
 # CLAUDE.md is the one load-bearing shim (D-051): Claude Code auto-loads it.
 # E-254: no template imports ARCHITECT.md any more — the vendor shim that did is gone, and
 # the Architect pane receives its rulefile via --append-system-prompt-file instead.
 assert_status 1 "E-254.04d: no template is an @import shim for ARCHITECT.md" \
   bash -c "grep -rlx '@ARCHITECT.md' '${REPO_ROOT}/src/templates'"
-assert_status 0 "E-215.04e: CLAUDE.md is still a pure @import shim" \
-  grep -q '@ENGINEER.md' "${REPO_ROOT}/src/templates/CLAUDE.md"
-
-# The project root copies are what an agent actually loads — keep them in step.
-assert_status 0 "E-215.04f: root ARCHITECT.md matches its template" \
-  diff -q "$ARCH_TPL" "${REPO_ROOT}/ARCHITECT.md"
+# D-172 r11 (replaces E-215.04e): CLAUDE.md is role-neutral — it imports no rulefile, and the
+# role's rulefile is appended at launch for both roles.
+assert_status 1 "D-172.r11a: CLAUDE.md imports no rulefile" \
+  grep -qE '^@' "${REPO_ROOT}/src/templates/CLAUDE.md"
 
 # ── E-215.5: role-manifest CLI vs import (the _isMain trap) ────────────────
 # argv[1] IS the module path when the module is imported dynamically, so a filename
@@ -283,13 +230,27 @@ assert_contains "E-215.06b: it reports the architect's provider" "architect →"
 assert_contains "E-215.06c: it reports the engineer's provider" "engineer →" "$_DOC"
 assert_contains "E-215.06d: it reports skills" "skills" "$_DOC"
 assert_contains "E-215.06e: it reports agents" "agents" "$_DOC"
-assert_contains "E-215.06f: it reports the settings overlay" "overlay" "$_DOC"
+assert_contains "E-215.06f: it reports the role settings file (E-462: no longer an overlay)" "settings.architect.json" "$_DOC"
 assert_contains "E-215.06g: it reports the rulefile" "rulefile" "$_DOC"
 # The report must reach the END of both roles — it previously aborted after the
 # overlay line because a failing node lookup tripped `set -e`.
 assert_contains "E-215.06h: the report completes through the engineer's rulefile" "ENGINEER.md" "$_DOC"
 assert_contains "E-215.06i: and the architect's rulefile" "ARCHITECT.md" "$_DOC"
 assert_contains "E-215.06j: doctor continues past the report" "Project-Scoped" "$_DOC"
+
+# ── E-462 item 3: doctor names a missing sandbox and the install line ──────────
+# A bwrap that cannot create a user namespace (present, exits 1); Linux only, like the check.
+if [[ "$(uname -s)" == Linux ]]; then
+  _SBXB="$(test_tmpdir sbxbad)"
+  printf '#!/bin/sh\nexit 1\n' > "$_SBXB/bwrap"; printf '#!/bin/sh\nexit 0\n' > "$_SBXB/socat"; chmod +x "$_SBXB/bwrap" "$_SBXB/socat"
+  _SBXJ="$(cd "$REPO_ROOT" && PATH="$_SBXB:$PATH" bash "$AI_BIN" doctor --json 2>/dev/null \
+           | python3 -c 'import json,sys; d=json.load(sys.stdin); r=[x for x in (d if isinstance(d,list) else d.get("checks",[])) if x.get("id")=="sandbox"]; print(json.dumps(r[0]) if r else "")')"
+  assert_contains "E-462.03a: doctor fails the sandbox row with [SANDBOX_MISSING]" "[SANDBOX_MISSING]" "$_SBXJ"
+  assert_contains "E-462.03b: …naming the cause" "cannot create a user namespace" "$_SBXJ"
+  assert_contains "E-462.03c: …and the install line as its fix" "bubblewrap socat" "$_SBXJ"
+else
+  _skip "E-462.03: doctor's sandbox row — the bubblewrap check runs on Linux only"
+fi
 
 # It is diagnostic only — it must never change the tree.
 _BEFORE="$(cd "$REPO_ROOT" && git status --porcelain | md5 -q)"
@@ -388,18 +349,17 @@ assert_match "T-1d: built-in DEFAULT_ADAPTERS declare exactly claude" "^claude$"
 assert_status 0 "T-2: providers.json wired into ensure_ai_templates" \
   grep -q 'ensure_file_if_missing "$T/providers.json"' "$AI_BIN"
 
-# ── T-3: `rein provider` is removed — exits 2 and points at .ai/providers.json ──
+# ── T-3: `rein provider` is gone — E-467 (D-170 r5) removed its stub, so it is an unknown command ──
 PROJ="$(mktemp -d)"; mkdir -p "${PROJ}/.ai"
 out=$(cd "$PROJ" && "$AI_BIN" provider add foo --config-path config/foo.json --mcp-key mcpServers 2>&1; echo "rc=$?")
-assert_contains "T-3a: rein provider add exits 2" "rc=2" "$out"
-assert_contains "T-3b: the refusal names .ai/providers.json" \
-  "providers are configured in .ai/providers.json" "$out"
+assert_contains "T-3a: rein provider add exits 1" "rc=1" "$out"
+assert_contains "T-3b: …as an unknown command" "Unknown command: provider" "$out"
 # The removed subcommand must not have half-run: no registry entry, no generated config.
 assert_status 1 "T-3c: no providers.json written by the removed subcommand" \
   test -f "${PROJ}/.ai/providers.json"
 assert_status 1 "T-3d: no provider MCP config generated" test -f "${PROJ}/config/foo.json"
 bare=$(cd "$PROJ" && "$AI_BIN" provider 2>&1; echo "rc=$?")
-assert_contains "T-3e: bare rein provider also exits 2" "rc=2" "$bare"
+assert_contains "T-3e: bare rein provider also exits 1" "rc=1" "$bare"
 rm -rf "$PROJ"
 
 # ── T-5: generate_mcp_json honors a custom output path + top-level key ────────
@@ -447,7 +407,10 @@ _p="$(_proj start "$V4_ROLES")"
 if skip_unless_cmd tmux "E-255.02: rein start --dry-run plans tmux panes"; then
   # _start_roles is defined past bin/rein's source guard (E-53), so drive it through the
   # dry run — the same path an operator's `rein start` takes.
-  _out="$(cd "$_p" && bash "$AI" start --dry-run 2>&1)"
+  # rein start refuses without a usable sandbox (E-462); stubs stand in for the host's.
+  _sbx255="$(mktemp -d)"; on_exit "rm -rf '$_sbx255'"
+  for _b in bwrap socat; do printf '#!/bin/sh\nexit 0\n' > "$_sbx255/$_b"; chmod +x "$_sbx255/$_b"; done
+  _out="$(cd "$_p" && PATH="${_sbx255}:$PATH" bash "$AI" start --dry-run 2>&1)"
   assert_match "E-255.02a: dry run binds the engineer to the first pane" 'send-keys -t pane0 rein.\ pane.\ engineer' "$_out"
   assert_match "E-255.02b: …and the architect to the second" 'send-keys -t pane1 rein.\ pane.\ architect' "$_out"
   assert_not_contains "E-255.02c: no third pane is addressed (the tester occupies none)" "pane2" "$_out"
@@ -458,7 +421,7 @@ if skip_unless_cmd tmux "E-255.02: rein start --dry-run plans tmux panes"; then
   _p2="$(_proj start-headless-arch '{ "roles": {
     "architect": { "provider": "claude", "pane_identifier": "1", "headless": true },
     "engineer":  { "provider": "claude", "pane_identifier": "0" } } }')"
-  _out2="$(cd "$_p2" && bash "$AI" start --dry-run 2>&1)"
+  _out2="$(cd "$_p2" && PATH="${_sbx255}:$PATH" bash "$AI" start --dry-run 2>&1)"
   assert_match "E-255.02e: headless:true — the engineer is still bound" 'rein.\ pane.\ engineer' "$_out2"
   assert_not_contains "E-255.02f: headless:true removes any role from the layout, the architect included" 'pane\ architect' "$_out2"
 fi
@@ -541,18 +504,18 @@ assert_status 0 "E-255.08a: test_engineer frontmatter pins model: sonnet" \
 _pinned="$(cd "${REPO_ROOT}/src/claude/agents" && for _f in *.md; do
   grep < <(sed -n '2,/^---$/p' "$_f") -qE '^model:' && printf '%s=%s ' "${_f%.md}" "$(sed -n '2,/^---$/p' "$_f" | sed -n 's/^model: *//p')"
 done)"
-_want="critic_arch=sonnet critic_clean_code=sonnet critic_security=sonnet critic_tests=sonnet docs-architect=sonnet memory_curator=sonnet sre_responder=sonnet test_engineer=sonnet "
-assert_status 0 "D-110.01: exactly the seven rule-matchers and test_engineer pin model: sonnet (got: ${_pinned})" \
+_want="test_engineer=sonnet "   # E-467 removed the three rule-matchers (docs-architect, memory_curator, sre_responder)
+assert_status 0 "D-110.01: exactly test_engineer pins model: sonnet (E-464 removed the four critics, E-467 the rule-matchers) (got: ${_pinned})" \
   test "$_pinned" = "$_want"
 assert_status 0 "E-255.08b: test_engineer stamps through add_stamp, and only that MCP tool" \
   bash -c "grep < <(grep -E '^tools:' '$AGENT') -q 'mcp__task-synchronizer-mcp__add_stamp' && [ \"\$(grep -E '^tools:' '$AGENT' | grep -oE 'mcp__[a-z-]+__[a-z_]+' | wc -l | tr -d ' ')\" = 1 ]"
 assert_status 0 "E-255.08c: test_engineer writes only under tests/" grep -q 'Write ONLY under `tests/`' "$AGENT"
-for _flag in -- --generate --fast --vibe; do
+for _flag in -- --generate --fast; do   # --vibe went with ux_reviewer and chaos_monkey (E-467)
   [[ "$_flag" == "--" ]] && continue
   assert_status 0 "E-255.08d: rein-test documents ${_flag}" grep -q -- "## ${_flag}\|(${_flag} flag)" "$SKILL"
 done
 assert_status 0 "E-255.08e: rein-test resolves the command through test-command.mjs" grep -q 'shared/test-command.mjs' "$SKILL"
-assert_mirror_if_present "E-255.08f: .claude/agents/test_engineer.md mirrors src" "$AGENT" "${REPO_ROOT}/.claude/agents/test_engineer.md"
+# E-255.08f (.claude/agents/test_engineer.md mirrors src) deleted: that copy is untracked (D-172 r19).
 
 # ── E-255.9: TestSprite is gone from every generated surface ────────────────
 echo "  [E-255.9] third-party test cloud removed"
@@ -567,7 +530,7 @@ _mcp="${SBOX}/mcp"; mkdir -p "$_mcp"
 ( cd "$_mcp" && bash -c "source '$AI'; DEST_DIR='$_mcp'; generate_mcp_json" >/dev/null 2>&1 )
 if [[ -f "${_mcp}/.mcp.json" ]]; then
   assert_status 1 "E-255.09c: a generated .mcp.json carries no ${_ts} entry" grep -qi "$_ts" "${_mcp}/.mcp.json"
-  assert_status 0 "E-255.09d: …but still carries the filesystem server (non-vacuous)" grep -q '"filesystem"' "${_mcp}/.mcp.json"
+  assert_status 0 "E-255.09d: …but still carries the state server (non-vacuous; filesystem until E-467)" grep -q '"task-synchronizer-mcp"' "${_mcp}/.mcp.json"
 else
   assert_status 0 "E-255.09c: generate_mcp_json produced a file" test -f "${_mcp}/.mcp.json"
 fi

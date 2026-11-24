@@ -21,9 +21,10 @@
 // Usage: node cli-state.mjs state migrate --team [--trunk <name>] | --legacy
 //        node cli-state.mjs state import [--dry-run] [--force] [--hook <name>]
 //        node cli-state.mjs state parity
-//        node cli-state.mjs state health [--repair] [--short]     (E-344: rein doctor / rein-preflight)
+//        node cli-state.mjs state health [--repair] [--short]     (E-344: rein doctor / session start)
 //        node cli-state.mjs state merge-driver <base> <ours> <theirs> [<path>]
 //        node cli-state.mjs task done <id> [--summary <text>]
+//        node cli-state.mjs task show <id>      (E-466: a closed task is not in TASKS.md)
 //        node cli-state.mjs team add <email> --range <P>:<from>-<to>
 //        node cli-state.mjs team show
 //        node cli-state.mjs team planner-check      (one warning line, or nothing)
@@ -31,12 +32,12 @@
 // E-327: `rein team` edits .ai/team.json, the per-developer id ranges and the planner (D-102 §3).
 //        node cli-state.mjs trunk [--doctor]
 // E-331: `rein task claim|release` publish a claim on origin/<trunk> (task-claims.mjs, D-102 §4);
-// `rein task claims` lists the IN_PROGRESS tasks there (session start and rein-preflight).
+// `rein task claims` lists the IN_PROGRESS tasks there (session start).
 // E-341 (D-105 r2): `rein trunk` prints the resolved trunk, so skills and agents say $(rein trunk)
 // instead of a literal; `--doctor` is the [TRUNK_UNSET]/[TRUNK_MISMATCH] check `rein doctor` runs.
 // Exit: 0 done or nothing to do; 1 refused or failed; 2 usage.
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 import { resolve, dirname } from "node:path";
 import { getDbSeeded, completeTask, regenerateViews, withTransaction, openIndexIfExists } from "../mcp/shared/state-db.js";
@@ -66,6 +67,7 @@ const USAGE = `usage: rein state migrate --team [--trunk <name>] | --legacy
        rein state import [--dry-run] [--force]
        rein state parity
        rein task done <id> [--summary <text>]
+       rein task show <id>
        rein task claim <id>
        rein task release <id> [--reason <text>]
        rein task claims [--fetch]
@@ -136,7 +138,7 @@ export function runStateImport(aiDir, { dryRun = false, force = false, hook = nu
 
 /**
  * E-344 (D-108 r8): rein doctor's State Health. Observes without seeding; --repair runs the
- * import (never the lossy migrate-state). --short prints only the verdict line (rein-preflight).
+ * import (never the lossy migrate-state). --short prints only the verdict line (the session-start hook, E-460).
  * @returns {{code:0, out:string}}
  */
 export function runStateHealth(aiDir, { repair = false, short = false } = {}) {
@@ -174,17 +176,62 @@ export function runTaskDone(aiDir, id, summary, { env = _withoutRollbacks(proces
   const db  = getDbSeeded(aiDir);
   const row = db.prepare("SELECT status FROM tasks WHERE id = ?").get(id);
   if (!row) return { code: 1, out: `✗ ${id} not found in state.` };
-  if (row.status === "DONE") return { code: 0, out: `${id} is already DONE.` };
+  if (row.status === "DONE") return { code: 0, out: `${id} is already DONE.`, already: true };
   const behind = checkBehindHead(aiDir, db);   // E-342 (D-106 r4): refuse before any write
   if (behind) return { code: 1, out: `✗ ${behind}` };
-  const refused = completionGates({ cwd: dirname(resolve(aiDir)), db, id, buildOpts, env });
+  const notes = [];   // E-461 (D-169 r7): a stale build is one [BUILD_STALE] line, not a refusal
+  const refused = completionGates({ cwd: dirname(resolve(aiDir)), db, id, buildOpts, env, notes });
   // The shared refusal text names the MCP-side env bypass, which does not apply here.
   if (refused) return { code: 1, out: refused.content.map((c) => c.text.replace(/\s*\(bypass: [^)]*\)/g, "")).join("\n") };
   const text = summary ? String(summary).slice(0, SUMMARY_CAP) : null;
   const unblocked = completeTask(aiDir, db, id, text);
   regenerateViews(aiDir, db);
   const pub = publishDone(aiDir, id);   // E-331: clears this user's claim on origin/<trunk>
-  return { code: 0, out: `✓ ${id} → DONE${text ? ": " + text : ""}${unblocked.length ? ` | unblocked: ${unblocked.join(", ")}` : ""}${pub ? ` | ${pub.message}` : ""}` };
+  return { code: 0, out: `✓ ${id} → DONE${text ? ": " + text : ""}${unblocked.length ? ` | unblocked: ${unblocked.join(", ")}` : ""}${pub ? ` | ${pub.message}` : ""}${notes.map((n) => `\n${n}`).join("")}` };
+}
+
+/** One task as text: the header line, the dates, the summary, the description. */
+function _taskText(t, where = null) {
+  const head = [t.id, t.status, t.tier != null ? `Tier ${t.tier}` : null, t.owner].filter(Boolean).join(" | ");
+  const dates = [t.created_at ? `created ${String(t.created_at).slice(0, 10)}` : null,
+    t.completed_at ? `closed ${String(t.completed_at).slice(0, 10)}` : null].filter(Boolean).join(", ");
+  return [head, dates || null, t.summary ? `Summary: ${t.summary}` : null, where ? `(from ${where})` : null, "", t.description || ""]
+    .filter((l) => l !== null).join("\n");
+}
+
+/** A task archive_done_tasks rotated out of state: .ai/archive/state-done-*.json or .ai/tasks/archive/<YM>/<id>.json. */
+function _archivedTask(aiDir, id) {
+  try {
+    const dir = resolve(aiDir, "archive");
+    if (existsSync(dir)) {
+      for (const f of readdirSync(dir).filter((x) => /^state-done-\d{4}-\d{2}\.json$/.test(x)).sort().reverse()) {
+        const hit = JSON.parse(readFileSync(resolve(dir, f), "utf8")).find?.((t) => t && t.id === id);
+        if (hit) return { task: hit, where: `.ai/archive/${f}` };
+      }
+    }
+    const team = resolve(aiDir, "tasks", "archive");
+    if (existsSync(team)) {
+      for (const ym of readdirSync(team).sort().reverse()) {
+        const f = resolve(team, ym, `${id}.json`);
+        if (existsSync(f)) return { task: { id, ...JSON.parse(readFileSync(f, "utf8")) }, where: `.ai/tasks/archive/${ym}/${id}.json` };
+      }
+    }
+  } catch { /* an unreadable archive is "not found", never a crash */ }
+  return null;
+}
+
+/**
+ * `rein task show <id>` (E-466, lean-core.md §Component 7): TASKS.md lists open tasks only, so a
+ * closed task is read here — from state, else from a rotated archive. @returns {{code:number, out:string}}
+ */
+export function runTaskShow(aiDir, id) {
+  if (!/^[A-Z]+-\d+$/.test(id || "")) return { code: 2, out: `rein task show: invalid task id ${JSON.stringify(id)}` };
+  if (!existsSync(aiDir)) return { code: 1, out: "rein task show: no .ai/ directory — run: rein init" };
+  const row = getDbSeeded(aiDir).prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+  if (row) return { code: 0, out: _taskText(row) };
+  const old = _archivedTask(aiDir, id);
+  if (old) return { code: 0, out: _taskText(old.task, old.where) };
+  return { code: 1, out: `✗ ${id} not found in state or in .ai/archive/.` };
 }
 
 /** `rein task claim|release` — @returns {{code:number, out:string}} */
@@ -229,8 +276,8 @@ export function main(argv, cwd = process.cwd()) {
   // build-stamp.mjs reads its switch from process.env directly, so both go from there too.
   for (const k of GATE_ROLLBACK_VARS) delete process.env[k];
   const aiDir = findAiDir(cwd);
-  // E-333 (D-102 §8): where a LOG entry goes (the rein-log skill appends there), and the newest
-  // entries across every developer's file when team.json shared_log is true (rein-preflight).
+  // E-333 (D-102 §8): where a LOG entry goes (`rein done` appends there, E-461), and the newest
+  // entries across every developer's file when team.json shared_log is true (`rein log recent`).
   if (group === "log" && verb === "path" && rest.length === 0) return { code: 0, out: logPath(aiDir) };
   if (group === "log" && verb === "recent" && (rest.length === 0 || (rest.length === 2 && rest[0] === "-n" && /^\d{1,3}$/.test(rest[1])))) {
     return { code: 0, out: recentLog(aiDir, rest.length ? Number(rest[1]) : 5).join("\n") };
@@ -275,6 +322,7 @@ export function main(argv, cwd = process.cwd()) {
     }
     return runTaskClaim(aiDir, verb, String(id).toUpperCase(), reason);
   }
+  if (group === "task" && verb === "show" && rest.length === 1) return runTaskShow(aiDir, String(rest[0]).toUpperCase());
   if (group === "task" && verb === "claims" && rest.every((f) => f === "--fetch")) return runTaskClaims(aiDir, { fetch: rest.length > 0 });
   if (group === "task" && verb === "done" && rest.length >= 1) {
     const [id, ...flags] = rest;

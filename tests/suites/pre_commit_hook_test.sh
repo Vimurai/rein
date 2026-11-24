@@ -3,21 +3,12 @@
 # the behaviour by E-301; absorbs mcp_stdout_purity, pre_commit_standards_gate and
 # standards_checker's process rows).
 #
-# E-238 (D-062): conflict markers and unparseable .ai JSON never reach a commit.
-#
-# On 2026-09-09 a conflicted `git stash pop` left conflict markers inside .ai/state.json.
-# Git reported the conflict; the file was staged and committed to master UNREAD (44243bc).
-# Master carried invalid JSON for four commits, and every task read goes through that file.
-#
-# The over-block half is the hard half, and it is weighted accordingly below. This
-# repository's own prose QUOTES conflict markers — .ai/DECISIONS.md documents this very
-# gate using them — so a substring search would make the gate reject the document that
-# defines it. That is exactly the trap E-224 hit when a P0 blocked the Architect's text for
-# quoting the example it was defining.
-#
-# `=======` alone is NOT treated as a marker: exactly seven '=' at line start is also a
-# valid Markdown setext H2 underline, and rejecting on it would fail any document that
-# happens to underline a heading.
+# E-467 (D-170 r4-r5) cut the hook to the lane, machine-local file and publish checks. Deleted
+# with the gates they tested: the conflict-marker and .ai JSON gate (E-238.1-4), the MCP stdout
+# purity wiring (T-MPG-S10), the standards gate in the hook (E-82, T-PCS-S01..S10) and the
+# registry-drift wiring (E-302.RD1). Kept: the rules the E-238 incident wrote down (E-238.5),
+# the purity checker and the standards checker as standalone tools (T-MPG, E-80, E-250), the
+# registry-drift checker (E-302.RD2-3) and the machine-local gate (E-448).
 set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
@@ -25,88 +16,7 @@ source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HOOK="${REPO_ROOT}/hooks/pre-commit.sh"
 
-echo "── Suite: pre_commit_hook_test (E-238, E-48, E-82, E-80) ───────────"
-
-# A scratch repo per case, so nothing here can touch the real one — and so the gate is
-# exercised through `git diff --cached`, the way it runs for real, rather than by grepping
-# a file directly.
-_gate() {  # <filename> <content> → BLOCK | ALLOW
-  local name="$1" body="$2"
-  local d; d="$(mktemp -d)"
-  ( cd "$d" && git init -q . && git config user.email t@t && git config user.name t
-    mkdir -p "$(dirname "$name")" 2>/dev/null
-    printf '%s' "$body" > "$name"
-    git add "$name" >/dev/null 2>&1
-    # Source only the two gate functions; the rest of the hook needs a provisioned project.
-    source /dev/stdin <<< "$(sed -n '/^_conflict_marker_gate() {/,/^}/p;/^_ai_json_parse_gate() {/,/^}/p' "$HOOK")"
-    if _conflict_marker_gate >/dev/null 2>&1 && _ai_json_parse_gate >/dev/null 2>&1; then
-      echo ALLOW
-    else
-      echo BLOCK
-    fi )
-  rm -rf "$d"
-}
-
-# ── E-238.1: the real thing is caught ──────────────────────────────────────
-_conflicted=$'{\n  "a": 1,\n<<<<<<< Updated upstream\n=======\n  "b": 2\n>>>>>>> Stashed changes\n}\n'
-assert_contains "E-238.01a: a conflicted .ai/state.json is BLOCKED" "BLOCK" \
-  "$(_gate .ai/state.json "$_conflicted")"
-assert_contains "E-238.01b: markers in ANY staged file are blocked, not just .ai" "BLOCK" \
-  "$(_gate src/thing.mjs $'const a = 1;\n<<<<<<< HEAD\nconst b = 2;\n=======\nconst b = 3;\n>>>>>>> other\n')"
-assert_contains "E-238.01c: a bare marker with no label is blocked" "BLOCK" \
-  "$(_gate notes.md $'text\n<<<<<<<\nmore\n>>>>>>>\n')"
-assert_contains "E-238.01d: a rebase-style marker is blocked" "BLOCK" \
-  "$(_gate f.txt $'x\n<<<<<<< HEAD (current)\ny\n>>>>>>> abc1234 (topic)\n')"
-
-# ── E-238.2: unparseable .ai JSON is caught even WITHOUT markers ───────────
-# The two failures are independent: a truncated write corrupts state.json with no conflict
-# anywhere, and the gate must still stop it.
-assert_contains "E-238.02a: a truncated .ai/state.json is BLOCKED" "BLOCK" \
-  "$(_gate .ai/state.json '{ "tasks": [ {"id": "E-1"')"
-assert_contains "E-238.02b: a trailing-comma .ai json is BLOCKED" "BLOCK" \
-  "$(_gate .ai/roles.json '{ "roles": { "engineer": {} }, }')"
-assert_contains "E-238.02c: valid .ai json is ALLOWED" "ALLOW" \
-  "$(_gate .ai/state.json '{ "tasks": [], "stamps": [] }')"
-# Scope: a non-.ai JSON file is not this gate's business — package.json is validated
-# elsewhere, and widening here would block legitimate JSON-with-comments fixtures.
-assert_contains "E-238.02d: a broken NON-.ai json is not this gate's business" "ALLOW" \
-  "$(_gate fixtures/broken.json '{ "not": ')"
-
-# ── E-238.3: OVER-BLOCK GUARD — prose that QUOTES markers must pass ────────
-# Every case here exists in this repository or is a shape a document may legitimately have.
-assert_contains "E-238.03a: backtick-quoted markers in prose are ALLOWED" "ALLOW" \
-  "$(_gate .ai/DECISIONS.md 'The gate rejects a marker at line start (`<<<<<<< `, `=======`, `>>>>>>> `).')"
-assert_contains "E-238.03b: a marker mid-line is not at line start" "ALLOW" \
-  "$(_gate doc.md 'git leaves <<<<<<< HEAD in the file when a merge conflicts.')"
-assert_contains "E-238.03c: an INDENTED marker (a fenced example) is ALLOWED" "ALLOW" \
-  "$(_gate doc.md $'Example:\n\n    <<<<<<< HEAD\n    yours\n    >>>>>>> theirs\n')"
-# THE SETEXT CASE. Seven '=' at line start is a valid Markdown H2 underline. A gate that
-# rejected it would fail ordinary documents for looking like a conflict.
-assert_contains "E-238.03d: a Markdown setext H2 underline is ALLOWED" "ALLOW" \
-  "$(_gate doc.md $'Heading\n=======\n\nbody text\n')"
-assert_contains "E-238.03e: a long === rule is ALLOWED" "ALLOW" \
-  "$(_gate doc.md $'Title\n==========================\n\nbody\n')"
-assert_contains "E-238.03f: this repo's own DECISIONS.md passes the gate" "ALLOW" \
-  "$(_gate .ai/DECISIONS.md "$(cat "${REPO_ROOT}/.ai/DECISIONS.md")")"
-assert_contains "E-238.03g: and its COMM.md, which narrates the incident" "ALLOW" \
-  "$(_gate .ai/COMM.md "$(cat "${REPO_ROOT}/.ai/COMM.md" 2>/dev/null || echo 'no comm')")"
-
-# NON-VACUITY for the 03 block: if _gate always answered ALLOW these would pass for the
-# wrong reason, so pin that the same helper still blocks a genuine marker.
-assert_contains "E-238.03h: the probe still BLOCKS a real marker (non-vacuity)" "BLOCK" \
-  "$(_gate doc.md $'a\n<<<<<<< HEAD\nb\n>>>>>>> x\n')"
-
-# ── E-238.4: the rollback exists, and the gate is wired into the hook ──────
-assert_status 0 "E-238.04a: REIN_SKIP_CONFLICT_GATE is honoured" \
-  grep -q 'REIN_SKIP_CONFLICT_GATE' "$HOOK"
-assert_status 0 "E-238.04b: the gate runs in the hook, not merely defined" \
-  grep -q '_conflict_marker_gate || _cm_ok=1' "$HOOK"
-assert_status 0 "E-238.04c: the JSON gate runs too" \
-  grep -q '_ai_json_parse_gate   || _cm_ok=1' "$HOOK"
-# It must read the STAGED blob: worktree and index differ when only part of a file is
-# staged, and what is being committed is what matters.
-assert_status 0 "E-238.04d: the JSON gate inspects the STAGED blob, not the worktree" \
-  bash -c "grep < <(sed -n '/^_ai_json_parse_gate() {/,/^}/p' '$HOOK') -q 'git show \":\\\${f}\"'"
+echo "── Suite: pre_commit_hook_test (E-238, E-48, E-80, E-448, D-172 r3) ──────────"
 
 # ── E-238.5: the rules are written down where they are read ───────────────
 # E-282 (D-075/D-080): these rules moved out of ENGINEER.md into path-scoped
@@ -117,12 +27,23 @@ assert_status 0 "E-238.05a: the .ai/** rule forbids stashing bookkeeping" \
   grep -q 'Never move bookkeeping with' "${_RULES}/ai-bookkeeping.md"
 assert_status 0 "E-238.05b: and the template matches (they are one file)" \
   diff -q "${REPO_ROOT}/ENGINEER.md" "${REPO_ROOT}/src/templates/ENGINEER.md"
-# E-407 (D-141 r4, addendum r1): extends E-238.05b — the rulefile points at the merge rule, the
-# skill carries the rest, and the dead "Project-Scoped Rules" section that paid for the line is gone.
-assert_status 0 "E-407.01a: the rulefile merges with --delete-branch and points at rein-task Step 3.5" \
-  bash -c 'grep -qF "gh pr merge <n> --merge --delete-branch" "$1" && grep -qF "\`rein-task\` Step 3.5" "$1"' _ "${REPO_ROOT}/src/templates/ENGINEER.md"
-assert_status 0 "E-407.01b: rein-task Step 3.5 prunes with -d, never -D" \
-  bash -c 'grep -qF "## Step 3.5" "$1" && grep -qF "git branch -d <branch>" "$1" && grep -qF "never -D" "$1"' _ "${REPO_ROOT}/src/shared/skills/rein-task/SKILL.md"
+# E-407 (D-141 r4, addendum r1): extends E-238.05b — the rulefile carries the merge rule, and the
+# dead "Project-Scoped Rules" section that paid for the line is gone. E-461: the prune steps moved
+# from the removed rein-task skill (its Step 3.5) into the rulefile itself.
+assert_status 0 "E-407.01a: the rulefile merges with --delete-branch" \
+  grep -qF "gh pr merge <n> --merge --delete-branch" "${REPO_ROOT}/src/templates/ENGINEER.md"
+assert_status 0 "E-407.01b: and prunes with -d, never -D" \
+  bash -c 'grep -qF "git branch -d <branch>" "$1" && grep -qF "never -D" "$1"' _ "${REPO_ROOT}/src/templates/ENGINEER.md"
+# E-461 (D-169 r7): both rulefiles point at the bookkeeping commands, not the removed skills,
+# and stay at most 2 KB (E-460).
+for _rf in ENGINEER ARCHITECT; do
+  assert_status 0 "E-461.01 [${_rf}]: names rein done and rein handoff" \
+    bash -c 'grep -qF "rein done" "$1" && grep -qF "rein handoff --to" "$1"' _ "${REPO_ROOT}/src/templates/${_rf}.md"
+  assert_status 1 "E-461.02 [${_rf}]: names none of the removed bookkeeping skills" \
+    grep -qE 'rein-task|arch-task|rein-handoff|task-planner|decision-recorder|rein-log' "${REPO_ROOT}/src/templates/${_rf}.md"
+  assert_status 0 "E-461.03 [${_rf}]: at most 2048 bytes" test "$(wc -c < "${REPO_ROOT}/src/templates/${_rf}.md")" -le 2048
+done
+assert_status 0 "E-461.04: the Architect's rulefile names rein decide" grep -qF "rein decide --file" "${REPO_ROOT}/src/templates/ARCHITECT.md"
 assert_status 1 "E-407.01c: the self-referential Project-Scoped Rules section is gone" \
   grep -qF "## Project-Scoped Rules" "${REPO_ROOT}/src/templates/ENGINEER.md"
 assert_status 0 "E-238.05c: the triage rule is recorded (tests/** rule)" \
@@ -131,11 +52,9 @@ assert_status 0 "E-238.05c: the triage rule is recorded (tests/** rule)" \
 # a real failure gets filed as noise.
 assert_status 0 "E-238.05d: and it demands a NAMED nondeterminism, not just a rerun" \
   grep -q 'named nondeterminism' "${_RULES}/test-harness.md"
-assert_status 0 "E-238.05e: commit-crafter carries the staging rule" \
-  grep -q 'Stage named paths, not' "${REPO_ROOT}/src/claude/skills/commit-crafter/SKILL.md"
-assert_status 0 "E-238.05f: commit-crafter mirror is in sync" \
-  diff -q "${REPO_ROOT}/src/claude/skills/commit-crafter/SKILL.md" \
-          "${REPO_ROOT}/.claude/skills/commit-crafter/SKILL.md"
+# E-238.05e-f (commit-crafter's staging rule) went with the skill (E-467); the .ai/** rule keeps it.
+assert_status 0 "E-238.05e: the .ai/** rule says to stage named paths after a conflict" \
+  grep -q 'Stage named' "${_RULES}/ai-bookkeeping.md"
 
 echo ""
 # ── E-48 (from mcp_stdout_purity — E-301): the MCP stdout purity gate ─────────
@@ -263,18 +182,7 @@ stage_file "src/mcp/test-server/README.md" "Example: \`console.log\` would be ba
 "
 assert_status 0 "markdown under src/mcp/ exits 0" run_checker
 
-# ── T-MPG-S10: pre-commit hook wiring ────────────────────────────────────────
-echo ""
-echo "  [T-MPG-S10] hooks/pre-commit.sh dispatches the gate"
-
-assert_status 0 "pre-commit defines check_mcp_stdout_purity" \
-  grep -q 'check_mcp_stdout_purity' "${REPO_ROOT}/hooks/pre-commit.sh"
-
-assert_status 0 "pre-commit gates only when src/mcp staged" \
-  grep -qE 'src/mcp/.*\\\.\(js\|mjs\|cjs\|ts\)\$' "${REPO_ROOT}/hooks/pre-commit.sh"
-
-assert_status 0 "pre-commit calls checker only when applicable" \
-  grep -q 'tests/lib/mcp_purity_check.sh' "${REPO_ROOT}/hooks/pre-commit.sh"
+# T-MPG-S10 (the hook dispatching the purity checker) went with that gate (E-467, D-170 r4).
 
 # ── T-MPG-S11: real-world clean repo passes ─────────────────────────────────
 echo ""
@@ -295,197 +203,7 @@ reset_index
 )
 assert_status 0 "every existing src/mcp/*.js passes the gate" run_checker
 
-# ── E-82 (from pre_commit_standards_gate — E-301): the standards gate in the hook ──
-# hooks/pre-commit.sh wires the E-80 standards-checker CLI into the commit (engineering-
-# standards.md §Components 2, §Rollback Plan): check_standards_gate() defined and invoked,
-# REIN_SKIP_STANDARDS=1 skips silently, the locator chain falls back gracefully, CLI exit 1
-# prints [STANDARDS_BLOCK] and blocks, exit 0 is silent.
-
-# ── T-PCS-S01: Source contract — function defined + invoked ─────────────────
-echo ""
-echo "  [T-PCS-S01] hooks/pre-commit.sh defines + calls check_standards_gate"
-
-assert_status 0 "hook file exists"                       test -f "$HOOK"
-assert_status 0 "bash syntax check passes"              bash -n "$HOOK"
-assert_status 0 "check_standards_gate function defined" \
-  grep -q 'check_standards_gate()' "$HOOK"
-assert_status 0 "check_standards_gate invoked"          \
-  grep -qE '^check_standards_gate$' "$HOOK"
-
-# ── T-PCS-S02: Rollback contract — REIN_SKIP_STANDARDS=1 ───────────────────
-echo ""
-echo "  [T-PCS-S02] REIN_SKIP_STANDARDS=1 short-circuits the gate"
-
-assert_status 0 "REIN_SKIP_STANDARDS guard present" \
-  grep -q 'REIN_SKIP_STANDARDS' "$HOOK"
-# The block must short-circuit BEFORE invoking the CLI.
-assert_status 0 "skip guard appears before the CLI invocation" \
-  python3 -c "
-import re, sys
-text = open('$HOOK').read()
-# Find the function block
-m = re.search(r'check_standards_gate\(\)\s*\{(.*?)\n\}\n', text, flags=re.S)
-if not m: sys.exit(1)
-body = m.group(1)
-i_skip = body.find('REIN_SKIP_STANDARDS')
-i_cli  = body.find('node \"\$cli\"')
-sys.exit(0 if 0 <= i_skip < i_cli else 2)
-"
-
-# ── T-PCS-S03: Locator chain — in-tree → ~/.rein → graceful skip ────────────
-echo ""
-echo "  [T-PCS-S03] Locator chain matches E-58/E-65/E-75 pattern"
-
-assert_status 0 "checks in-tree scripts/standards.mjs first" \
-  grep -q '\${repo_root}/scripts/standards.mjs' "$HOOK"
-assert_status 0 "falls back to ~/.rein/scripts/standards.mjs" \
-  grep -q '\${HOME}/.rein/scripts/standards.mjs' "$HOOK"
-assert_status 0 "graceful skip when both absent (pre-E-80 install)" \
-  python3 -c "
-import re, sys
-text = open('$HOOK').read()
-m = re.search(r'check_standards_gate\(\)\s*\{(.*?)\n\}\n', text, flags=re.S)
-body = m.group(1) if m else ''
-# After the locator chain there must be a 'return 0' path for the
-# absent-CLI case (the third arm).
-sys.exit(0 if re.search(r'cli=\"\"', body) and 'return 0' in body else 1)
-"
-
-# ── T-PCS-S04: Node-absent guard ─────────────────────────────────────────────
-echo ""
-echo "  [T-PCS-S04] Gate skips when node binary missing"
-
-assert_status 0 "command -v node guard present" \
-  grep -q 'command -v node' "$HOOK"
-
-# ── T-PCS-S05: Block banner shape on CLI failure ────────────────────────────
-echo ""
-echo "  [T-PCS-S05] STANDARDS_BLOCK banner + exit 1 on CLI failure"
-
-assert_status 0 "STANDARDS_BLOCK heredoc tag present"     grep -q 'STANDARDS_BLOCK' "$HOOK"
-assert_status 0 "banner names the gate verbatim"          grep -q 'ENGINEERING-STANDARDS — COMMIT BLOCKED' "$HOOK"
-assert_status 0 "banner documents the rollback flag"      \
-  bash -c "grep < <(awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK') -q 'REIN_SKIP_STANDARDS=1'"
-assert_status 0 "banner mentions kebab-case / shared / NDJSON fix hints" \
-  bash -c "grep < <(awk '/STANDARDS_BLOCK/{f=1; next} /STANDARDS_BLOCK\$/{f=0} f' '$HOOK') -qiE 'kebab|shared|NDJSON'"
-assert_status 0 "exit 1 follows the banner on failure" \
-  python3 -c "
-import re, sys
-text = open('$HOOK').read()
-m = re.search(r'check_standards_gate\(\)\s*\{(.*?)\n\}\n', text, flags=re.S)
-body = m.group(1) if m else ''
-i_banner = body.find('STANDARDS_BLOCK')
-i_exit   = body.find('exit 1', i_banner) if i_banner >= 0 else -1
-sys.exit(0 if i_banner >= 0 and i_exit > i_banner else 1)
-"
-
-# ── Behavioural tests: drive the hook in a sandbox git repo ─────────────────
-SBOX="$(mktemp -d -t e82-XXXXXX)"
-on_exit 'rm -rf "$SBOX"'
-PROJ="${SBOX}/proj"
-mkdir -p "${PROJ}/.ai" "${PROJ}/src/mcp/foo" "${PROJ}/scripts"
-git -C "$PROJ" init -q
-git -C "$PROJ" config user.email "t@t"
-git -C "$PROJ" config user.name "tester"
-# Pre-seed .ai/TASKS.md with the generated header so check_markdown_sync
-# passes through and lets the test reach check_standards_gate. The sandbox
-# is deliberately stamp-free — the final Gate 2 stamp check (stamp-gate.mjs, E-329) will
-# still block, but only AFTER check_standards_gate runs.
-cat > "${PROJ}/.ai/TASKS.md" <<'TASKS'
-# TASKS (Generated from state.json)
-
-## Engineer (Claude)
-TASKS
-
-# Copy the standards machinery + a CRITIC_STAMP into the sandbox so the
-# downstream check_critic_stamp gate isn't the one tripping the test.
-cp "${REPO_ROOT}/src/shared/standards.json" "${PROJ}/src/shared/standards.json" 2>/dev/null || mkdir -p "${PROJ}/src/shared" && cp "${REPO_ROOT}/src/shared/standards.json" "${PROJ}/src/shared/standards.json"
-cp "${REPO_ROOT}/src/shared/standards-checker.mjs" "${PROJ}/src/shared/standards-checker.mjs"
-# E-225: the checker imports the E-224 markdown classifier (one definition of "executable
-# markdown", shared with run_review). It is a real runtime dependency — without it the CLI
-# throws, the hook prints its banner with no report, and a CLEAN diff trips the gate. Both
-# of those showed up as test failures rather than as an import error, which is why the
-# fixture has to mirror the deployed file set rather than a subset of it.
-cp "${REPO_ROOT}/src/shared/markdown-exec.mjs" "${PROJ}/src/shared/markdown-exec.mjs"
-cp "${REPO_ROOT}/src/shared/standards-test-rules.mjs" "${PROJ}/src/shared/standards-test-rules.mjs"   # E-299 sibling
-cp "${REPO_ROOT}/scripts/standards.mjs" "${PROJ}/scripts/standards.mjs"
-
-# Hook helper: source the file with a controlled environment.
-_run_gate() {
-  # $1 = extra env (KEY=VAL pairs, space-separated)
-  (
-    cd "$PROJ"
-    eval "$1" bash -c "
-      AI_DIR='${PROJ}/.ai'
-      source '$HOOK' 2>/dev/null || true
-      # The 'source' executes the whole hook; if the gate didn't already
-      # exit, capture its exit by re-invoking. We bypass that risk by
-      # running the hook as a subprocess directly.
-    " >/dev/null 2>&1
-  )
-}
-
-# Cleaner approach: invoke the hook as a subprocess. Stage a file that
-# trips the gate (an .orig file) and confirm exit 1.
-echo "junk" > "${PROJ}/leftover.orig"
-git -C "$PROJ" add leftover.orig
-
-# ── T-PCS-S06: Hook blocks commit when standards-checker fails ──────────────
-echo ""
-echo "  [T-PCS-S06] Hook exits 1 with banner when CLI returns error"
-
-OUT_FILE="${SBOX}/hook.out"
-(cd "$PROJ" && bash "$HOOK") > "$OUT_FILE" 2>&1
-rc=$?
-assert_status 0 "hook exits non-zero on standards failure" bash -c "[[ $rc -ne 0 ]]"
-assert_status 0 "banner surfaced on stderr" \
-  grep -q "ENGINEERING-STANDARDS — COMMIT BLOCKED" "$OUT_FILE"
-assert_status 0 "CLI report appended after the banner" \
-  grep -q "no_committed_tmp_files" "$OUT_FILE"
-
-# ── T-PCS-S07: REIN_SKIP_STANDARDS=1 bypasses the gate ─────────────────────
-echo ""
-echo "  [T-PCS-S07] REIN_SKIP_STANDARDS=1 silences the gate"
-
-(cd "$PROJ" && REIN_SKIP_STANDARDS=1 bash "$HOOK") > "$OUT_FILE" 2>&1 || true
-assert_status 1 "standards banner NOT printed when skip flag set" \
-  grep -q "ENGINEERING-STANDARDS — COMMIT BLOCKED" "$OUT_FILE"
-
-# ── T-PCS-S08: Clean staged set → standards gate passes ─────────────────────
-echo ""
-echo "  [T-PCS-S08] Clean staged file does NOT trip the gate"
-
-# Remove the offending .orig file from staging, stage a clean source file.
-git -C "$PROJ" rm --cached leftover.orig >/dev/null 2>&1
-rm "${PROJ}/leftover.orig"
-echo "export const x = 1;" > "${PROJ}/src/clean.mjs"
-git -C "$PROJ" add src/clean.mjs
-
-(cd "$PROJ" && bash "$HOOK") > "$OUT_FILE" 2>&1 || true
-assert_status 1 "standards banner NOT printed on clean diff" \
-  grep -q "ENGINEERING-STANDARDS — COMMIT BLOCKED" "$OUT_FILE"
-
-# ── T-PCS-S09: Node-absent path returns 0 silently (degradation) ────────────
-echo ""
-echo "  [T-PCS-S09] Hook degrades gracefully when node is unavailable"
-
-# Simulate by stripping node from PATH for the hook invocation.
-(cd "$PROJ" && env -i HOME="$HOME" PATH=/usr/bin:/bin AI_TELEMETRY_DB_PATH="${AI_TELEMETRY_DB_PATH:-}" bash "$HOOK") > "$OUT_FILE" 2>&1 || true
-assert_status 1 "no STANDARDS banner when node absent" \
-  grep -q "ENGINEERING-STANDARDS — COMMIT BLOCKED" "$OUT_FILE"
-
-# ── T-PCS-S10: ~/.rein mirror byte-identical ──────────────────────────────
-echo ""
-echo "  [T-PCS-S10] ~/.rein/hooks/pre-commit.sh mirror matches src/"
-
-MIRROR="${HOME}/.rein/hooks/pre-commit.sh"
-if [[ -f "$MIRROR" ]]; then
-  assert_status 0 "mirror is byte-identical to src/" diff -q "$HOOK" "$MIRROR"
-else
-  echo "    ⚠  mirror absent — skipping"
-fi
-
-echo ""
+# E-82 (the standards gate inside hooks/pre-commit.sh, T-PCS-S01..S10) went with the gate (E-467).
 
 # ── E-80 (from standards_checker — E-301): the standards checker where a process is under test ──
 # validateStaged over a real git index, the CLI's 0/1/2 contract and --json envelope,
@@ -705,19 +423,88 @@ assert_contains "E-250.06f: tests/run.sh is still exempt in the real repo" \
 
 echo ""
 
-# ── E-302: the registry-drift gate runs a checker that exists, and its exit status blocks ──
+# ── E-302: the registry-drift checker's exit status says whether the registries agree ──
 # check_registry_sync ran tests/suites/registry_sync_test.sh, which exited 0 on a failed check
 # (assert_summary prints counts, it sets no status), so the gate could not block; when E-302 moved
 # the checks, the old path vanished and `[[ -f ]] || return 0` would have passed silently.
 _RD="${REPO_ROOT}/tests/tools/registry-drift.sh"
-assert_status 0 "E-302.RD1: the hook names the registry checker that exists" \
-  bash -c 'f="$(grep -o "tests/tools/registry-drift\.sh" "$1" | head -1)"; [[ -n "$f" && -f "$2/$f" ]]' _ "$HOOK" "$REPO_ROOT"
+# E-302.RD1 (the hook names the checker) went with the hook's registry-drift gate (E-467).
 _RD_HOME="$(test_tmpdir rdhome)"; mkdir -p "${_RD_HOME}/.rein/config"
 printf '{"mcp_servers":{}}\n' > "${_RD_HOME}/.rein/config/registry.json"
 assert_status 1 "E-302.RD2: a global registry missing the local servers fails the checker (the gate blocks)" \
   env HOME="$_RD_HOME" bash "$_RD"
 cp "${REPO_ROOT}/src/config/registry.json" "${_RD_HOME}/.rein/config/registry.json"
 assert_status 0 "E-302.RD3: …and a matching one passes" env HOME="$_RD_HOME" bash "$_RD"
+
+# ── E-448 (D-165): a machine-local generated file is refused at commit ──────────────────────
+# The whole hook, as `git commit` runs it, in a provisioned fixture project: the mirror is this
+# tree's src/shared (machine-local.list included), so the only gate that can refuse is the one
+# under test (E-464: no review stamp is asked for at commit). The Engineer role, so the Architect git lane
+# (which keeps .claude/ out of an Architect commit) is not what answers.
+echo ""
+_ML_HOME="$(test_tmpdir mlhome)"; tc_link_shared "$_ML_HOME"
+_ml_repo() {
+  local d; d="$(test_tmpdir mlrepo)"
+  ( cd "$d" && git init -q . && git config user.email t@t && git config user.name t && git config commit.gpgsign false
+    mkdir -p .ai .claude docs && echo base > README && git add README && git commit -q --no-verify -m base
+    printf '#!/bin/bash\nexec /bin/bash %q "$@"\n' "$HOOK" > .git/hooks/pre-commit && chmod +x .git/hooks/pre-commit )
+  printf '%s' "$d"
+}
+_ml_state() {  # cwd = repo: an empty state view
+  printf '{"tasks":[],"stamps":[]}\n' > .ai/state.json
+}
+_ml_commit() {  # <repo> → _OUT/_RC of `git commit` through the installed hook
+  _OUT="$( cd "$1" && _ml_state && env HOME="$_ML_HOME" REIN_CALLER_ROLE=engineer \
+           CLAUDE_CODE_SESSION_ID= git commit -qm t 2>&1 )"; _RC=$?
+}
+_M1="$(_ml_repo)"; ( cd "$_M1" && echo '{}' > .claude/settings.json && git add -f .claude/settings.json )
+_ml_commit "$_M1"
+assert_status 0 "E-448.01a: a staged .claude/settings.json is refused (rc ${_RC})" test "$_RC" -ne 0
+assert_contains "E-448.01b: …as [MACHINE_LOCAL], naming the path and the fix" \
+  "[MACHINE_LOCAL] .claude/settings.json is generated for this machine and never committed — run: git rm --cached .claude/settings.json" "$_OUT"
+_M2="$(_ml_repo)"; ( cd "$_M2" && echo '{}' > .claude/settings.json && git add -f .claude/settings.json \
+    && git commit -q --no-verify -m track && git rm -q --cached .claude/settings.json )
+_ml_commit "$_M2"
+assert_status 0 "E-448.02: staging its deletion (git rm --cached) commits — that is the fix (rc ${_RC})" test "$_RC" -eq 0
+_M3="$(_ml_repo)"; ( cd "$_M3" && echo '{"ci":1}' > .ai/ci.local.json && git add -f .ai/ci.local.json )
+_ml_commit "$_M3"
+assert_contains "E-448.03: every path on shared/machine-local.list is refused, not only settings.json" \
+  "[MACHINE_LOCAL] .ai/ci.local.json" "$_OUT"
+_M4="$(_ml_repo)"; ( cd "$_M4" && echo '{"permissions":{}}' > .claude/settings.architect.json && git add .claude/settings.architect.json )
+_ml_commit "$_M4"
+assert_status 0 "E-448.04a: a role overlay without a home path commits (rc ${_RC})" test "$_RC" -eq 0
+_M5="$(_ml_repo)"; ( cd "$_M5" && printf '{"x":"%s/x"}\n' "$_ML_HOME" > .claude/settings.architect.json && git add .claude/settings.architect.json )
+_ml_commit "$_M5"
+assert_contains "E-448.04b: …the same overlay holding \$HOME/ is refused" \
+  "[MACHINE_LOCAL] .claude/settings.architect.json contains this machine's home directory" "$_OUT"
+_M6="$(_ml_repo)"; ( cd "$_M6" && printf '{"x":"%s/x"}\n' "$_ML_HOME" > .mcp.json && git add .mcp.json )
+_ml_commit "$_M6"
+assert_contains "E-448.04c: a staged .mcp.json holding \$HOME/ is refused (the second place of r3)" \
+  "[MACHINE_LOCAL] .mcp.json contains" "$_OUT"
+# E-454 (D-167 r15; extends E-448.04b): a path holding a newline prints a one-line message.
+_M8="$(_ml_repo)"; ( cd "$_M8" && printf '{"x":"%s/x"}\n' "$_ML_HOME" > $'.claude/a\nb.json' && git add $'.claude/a\nb.json' )
+_ml_commit "$_M8"
+_ML_WANT="$(printf '%q' $'.claude/a\nb.json')"   # $'.claude/a\nb.json' — one line
+assert_contains "E-454.01: a path with a newline is refused on ONE [MACHINE_LOCAL] line, through %q" \
+  "[MACHINE_LOCAL] ${_ML_WANT} contains this machine's home directory" "$_OUT"
+_M7="$(_ml_repo)"; ( cd "$_M7" && printf 'see %s/x\n' "$_ML_HOME" > docs/x.md && git add docs/x.md )
+_ml_commit "$_M7"
+assert_status 0 "E-448.05: a doc naming the home path commits — no other path is scanned (rc ${_RC})" test "$_RC" -eq 0
+assert_status 1 "E-448.06: the hook carries no copy of the list (D-165 r1)" grep -q "start\.local\.json" "$HOOK"
+
+# ── D-172 r3 (SECURITY.md lean-core round F4): every project keeps a secret check at commit ────
+# The same fixture project, which has no .ai/publish.json: the `secret` class still refuses a
+# staged credential, a deliberate fake carrying the mark commits, and a clean file commits. The
+# token is assembled at run time so this file holds none.
+_F4_KEY="AKIA$(printf 'QZ%.0s' 1 2 3 4 5 6 7 8)"
+_S1="$(_ml_repo)"; ( cd "$_S1" && printf 'aws_key = "%s"\n' "$_F4_KEY" > docs/creds.txt && git add docs/creds.txt )
+_ml_commit "$_S1"
+assert_status 0 "D-172.r3a: a staged AWS key is refused in a project without .ai/publish.json (rc ${_RC})" test "$_RC" -ne 0
+assert_contains "D-172.r3b: …by the secret check, naming file:line and never the value" "[SECRET_SCAN_HIT] secret docs/creds.txt:1" "$_OUT"
+assert_status 1 "D-172.r3c: …and the value is not printed" grep -qF "$_F4_KEY" <<< "$_OUT"
+_S2="$(_ml_repo)"; ( cd "$_S2" && printf 'k = "%s"  # privacy:allow-fake-token\n' "$_F4_KEY" > docs/fake.txt && echo clean > docs/ok.txt && git add docs )
+_ml_commit "$_S2"
+assert_status 0 "D-172.r3d: a marked fake and a clean file commit (rc ${_RC}: ${_OUT:0:160})" test "$_RC" -eq 0
 
 assert_summary
 if [[ "${FAIL_COUNT:-0}" -eq 0 ]]; then

@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
-import { containsCredentialToken, containsSecret } from "../mcp/safe-exec-mcp/secret-rule.mjs";
+import { containsCredentialToken, containsSecret } from "./secret-rule.mjs";
 
 export const CLASSES = ["personal_email", "home_path", "session_socket", "client_name", "operator_name"];
 
@@ -291,12 +291,12 @@ export function doctorLine(aiDir) {
 // incidents, insights, the memory palace) stays on the operator's machine and is not redacted.
 
 /** The writers that call redact(); `rein doctor` counts them. */
+// E-467 (D-170 r5): run-handover, the repository map, the instinct stager, the stop hook and
+// advisor-mcp were retired with their writers.
 export const REDACT_WRITERS = [
   "task description and summary (record-store insertTask/updateTask)", "stamp summary (record-store insertStamp)",
-  "handover delta (run-handover)", "log line (team appendLog)", "repository map (ast-parser generate_map)",
-  "CI evidence (ci-evidence writeCiRecord)", "hosted CI wrapper (hosted-ci)", "proposed skill (instinct-stager)",
-  "digest line (stop hook)", "project focus and verdict (record-store setProject)",
-  "advisor ruling (advisor-mcp logRuling)", "rein clean entry (rein-clean logApply)",
+  "log line (team appendLog)", "CI evidence (ci-evidence writeCiRecord)", "hosted CI wrapper (hosted-ci)",
+  "project focus and verdict (record-store setProject)", "rein clean entry (rein-clean logApply)",
 ];
 
 const _lists = new Map();   // aiDir → { mtime, lists }
@@ -588,6 +588,24 @@ export function precommitProblems(root, { files, read, readHead = null, author, 
   return out;
 }
 
+/**
+ * The commit-time secret check every Rein project keeps (D-172 r3, SECURITY.md lean-core round F4):
+ * the `secret` class alone — a vendor-format token or a private key — over the staged `files`,
+ * read through `read`. A project with .ai/publish.json runs the whole gate above, which includes it.
+ */
+export function secretProblems(files, read) {
+  const out = [];
+  for (const f of files) {
+    let raw;
+    try { raw = read(f); } catch (e) { if (!_absentPath(e, f)) throw e; raw = null; }
+    if (raw == null) continue;
+    const b = blobScan(raw);
+    const starts = b.views.length > 1 ? viewStarts(b.views) : undefined;
+    for (const h of _secretHits(f, b.views.join("\n"), { nul: b.nul })) out.push(`[SECRET_SCAN_HIT] secret ${f}:${_inView(starts, h.line)}`);
+  }
+  return out;
+}
+
 /** The CI gate: [problem lines] for every tracked file (read through `read`), plus the tree
  *  checks; the tree must carry .ai/publish.json. */
 export function treeGateProblems(root, files, read = (f) => readFileSync(join(root, f))) {
@@ -641,6 +659,25 @@ if (isMainModule(import.meta.url) && (process.argv[2] === "precommit" || process
   // The hook and the CI job require this line: a helper that ran nothing must not read as clean.
   console.log(`[PRIVACY_GATE_OK] files=${_gateFiles}`);
 }
+// CLI: `secrets [root]` — the pre-commit hook in a project without .ai/publish.json (D-172 r3).
+if (isMainModule(import.meta.url) && process.argv[2] === "secrets") {
+  const root = process.argv[3] || process.cwd();
+  let problems, n = 0;
+  try {
+    const links = _gitlinks(root);
+    const files = _git(root, "diff", "--cached", "--name-only", "-z", "--diff-filter=ACMRT").split("\0").filter(Boolean);
+    problems = secretProblems(files, (f) => (links.has(f) ? null : _blob(root, `:0:${f}`)));
+    n = files.length;
+  } catch (e) {
+    problems = [`[SECRET_SCAN] ${String(e.message).split("\n")[0].replace(/ — .*/, "")}`];   // fail closed
+  }
+  for (const p of problems) console.error(p);
+  if (problems.length) {
+    console.error(`[COMMIT_BLOCKED] secret check: ${problems.length} finding(s) — a credential or private key is staged (values are never printed; the file:line says where). A deliberate fake carries "${FAKE_TOKEN_MARK}" on its line.`);
+    process.exit(1);
+  }
+  console.log(`[SECRET_SCAN_OK] files=${n}`);
+}
 if (isMainModule(import.meta.url) && process.argv[2] === "doctor") {
   const _ai = join(process.argv[3] || process.cwd(), ".ai");
   console.log(doctorLine(_ai));
@@ -648,7 +685,7 @@ if (isMainModule(import.meta.url) && process.argv[2] === "doctor") {
   if (_adv) console.log(_adv);
 }
 // An unknown subcommand is an error, never a silent success (security_engineer E-378 P0-3).
-if (isMainModule(import.meta.url) && !["redact", "privacy", "doctor", "precommit", "scan-tree"].includes(process.argv[2])) {
-  console.error(`publish-scan: unknown subcommand ${JSON.stringify(String(process.argv[2] ?? "")).slice(0, 40)} — redact | privacy | doctor | precommit | scan-tree`);
+if (isMainModule(import.meta.url) && !["redact", "privacy", "doctor", "precommit", "scan-tree", "secrets"].includes(process.argv[2])) {
+  console.error(`publish-scan: unknown subcommand ${JSON.stringify(String(process.argv[2] ?? "")).slice(0, 40)} — redact | privacy | doctor | precommit | scan-tree | secrets`);
   process.exit(2);
 }

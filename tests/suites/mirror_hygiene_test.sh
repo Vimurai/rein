@@ -9,8 +9,9 @@
 #     LIVE server survive, and so does config/rein-workspace.txt (installer-written);
 #     `rein doctor` reported the orphans beforehand; REIN_INSTALL_NO_DELETE=1 keeps them;
 #   * the installer's "Next steps" no longer names deprecated commands;
-#   * .claude/agents is pruned by the E-220 evidence rule: an agent sync wrote and the
-#     manifest no longer provides goes, an agent the user added stays;
+#   * (E-273.2, .claude/agents pruned by the E-220 evidence rule, moved with E-469: sync copies
+#     no agents into a project now; the plugin rebuild is tests/unit/plugin-build.test.mjs, the
+#     prune of old copies rein_sync_test E-469.S2);
 #   * settings.json loses mcp__<server>__* allows for a server in registry_history but not
 #     registry.json, and keeps allows for a server name never shipped (the user's own);
 #   * `rein sync` reaps dead-pid build records and week-old role locks, keeping live ones.
@@ -79,22 +80,6 @@ assert_status 0 "E-273.01l: config/rein-workspace.txt (installer-written) surviv
 assert_status 0 "E-273.01m: the live servers are all still mirrored" \
   test -f "${M}/mcp/task-synchronizer-mcp/index.js" -a -f "${M}/mcp/shared/state-db.js"
 assert_contains "E-273.01n: doctor is clean afterwards" "✓ mirror orphans: none" "$(_ai doctor)"
-
-# ── E-273.2: .claude/agents pruned by evidence ────────────────────────────────
-printf -- '---\nname: zz_retiring\n---\nbody\n' > "${M}/claude/agents/zz_retiring.md"
-_ai sync >/dev/null
-assert_status 0 "E-273.02a: a new source agent is provisioned" test -f "${PROJ}/.claude/agents/zz_retiring.md"
-printf -- '---\nname: my_agent\n---\nmine\n' > "${PROJ}/.claude/agents/my_agent.md"
-_ai sync >/dev/null
-rm -f "${M}/claude/agents/zz_retiring.md"      # removed from the role manifest's source
-_ai sync >/dev/null
-assert_status 1 "E-273.02b: the agent sync wrote and upstream dropped is pruned" \
-  test -e "${PROJ}/.claude/agents/zz_retiring.md"
-_ai sync >/dev/null
-assert_status 0 "E-273.02c: the user's own agent survives repeated syncs" test -f "${PROJ}/.claude/agents/my_agent.md"
-assert_status 0 "E-273.02d: the canonical agents are still there" test -f "${PROJ}/.claude/agents/critic_arch.md"
-assert_status 1 "E-273.02e: the agents manifest never claims the user's agent" \
-  grep -q '"my_agent.md"' "${PROJ}/.claude/agents/_SYNC_MANIFEST.json"
 
 # ── E-273.3: settings.json allows for retired servers ─────────────────────────
 python3 - "${PROJ}/.claude/settings.json" <<'P'
@@ -260,11 +245,10 @@ PYLIST
   assert_status 0 "E-418.06c: rein release verify of that tarball exits 0 (rc=${_vrc})" test "$_vrc" -eq 0
   assert_contains "E-418.06d: …and says the signature was not checked" "signature not checked" "$_v"
   # E-422 (D-153, D-155; release-artifact.md §Component 6): extends E-418.06 — the manifest of the
-  # real stage against the published schema, and its layout against the pinned layout-v1.json.
+  # real stage against the published schema. Its layout against layout-v1.json is release-manifest
+  # .test.mjs "E-422.04" (E-444, D-164 addendum 1 r6: the census's D2 — the suite row added nothing).
   _mval="$(node "$REPO_ROOT/tests/lib/json-schema-lite.mjs" "$DW/docs/contract/manifest.schema.json" "${RO1}/manifest.json" 2>&1)"; _mvrc=$?
   assert_status 0 "E-422.01a: the stage's manifest.json is valid against docs/contract/manifest.schema.json${_mval:+ — ${_mval:0:300}}" test "$_mvrc" -eq 0
-  _lay="$(node -e 'const fs=require("fs"); const m=JSON.parse(fs.readFileSync(process.argv[1])); const p=JSON.parse(fs.readFileSync(process.argv[2])); process.stdout.write(JSON.stringify(m.layout)===JSON.stringify(p)?"same":"a layout change is a breaking version — contract §2.2")' "${RO1}/manifest.json" "$DW/tests/fixtures/release/layout-v1.json" 2>&1)"
-  assert_status 0 "E-422.01b: the stage's layout equals tests/fixtures/release/layout-v1.json${_lay:+ (${_lay})}" test "$_lay" = "same"
   assert_status 0 "E-418.06f: rein help lists rein release manifest and verify" \
     bash -c "grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release manifest' && grep < <(bash '$DW/src/bin/rein' help 2>&1) -q '^  rein release verify'"
   # E-420 (D-155 r4, addenda r1-r3): extends E-418.06 — the tarball above, unpacked into a fixture
@@ -346,38 +330,25 @@ PYLIST
   _i1="$(_ai_npm "$AH4" "$FAKE_TMP" install)"; _i1rc=$?
   _i2="$(_ai_npm "$AH4" "$FAKE_TMP" install)"; _i2rc=$?
   assert_status 0 "E-426.01a: artifact mode — two rein install runs both exit 0 (rc ${_i1rc}, ${_i2rc})" test "$_i1rc" -eq 0 -a "$_i2rc" -eq 0
-  assert_status 0 "E-426.01b: …the shipped orchestrator lock is installed with npm ci, never npm install" \
-    bash -c "grep -q '/orchestrator-mcp ci' '$NPMLOG' && ! grep -q '/orchestrator-mcp install' '$NPMLOG'"
-  assert_status 0 "E-426.01c: …and the second run calls no npm ci (the lock marker matches)" \
-    test "$(grep -c '/orchestrator-mcp ci' "$NPMLOG")" -eq 1
-  assert_contains "E-426.01d: …saying so" "orchestrator-mcp: node_modules match the shipped lock — npm ci skipped" "$_i2"
-  assert_status 0 "E-426.01e: the lock's bytes equal the manifest's sha256" \
-    python3 -I -c 'import hashlib,json,sys; m=json.load(open(sys.argv[1])); f=[x for x in m["files"] if x["path"]=="mcp/orchestrator-mcp/package-lock.json"][0]; assert hashlib.sha256(open(sys.argv[2],"rb").read()).hexdigest()==f["sha256"]' \
-    "${AH4}/.rein/manifest.json" "${AH4}/.rein/mcp/orchestrator-mcp/package-lock.json"
+  # E-426.01b-e (the shipped lock installs with npm ci, once, and matches the manifest) ran on
+  # orchestrator-mcp, the one server that shipped a package-lock.json; it went with the server
+  # (E-467, D-170 r5), so no shipped lock is left to exercise. _mcp_lock_shipped is unchanged.
   APROJ4="$(test_tmpdir hyg-art-proj4)"; ( cd "$APROJ4" && git init -q )
   _ai_npm "$AH4" "$APROJ4" init >/dev/null
   assert_contains "E-426.01f: …and doctor's install line is ✓ after both installs" "✓ install: artifact ${_ver}" "$(_ai_npm "$AH4" "$APROJ4" doctor)"
-  # A clone install meets the same stub: its mirror's orchestrator lock equals the tracked one.
-  DH5="$(test_tmpdir hyg-clone-npm)"
-  ( cd "$FAKE_TMP" && HOME="$DH5" TMPDIR="$FAKE_TMP" PATH="${NPMS}:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" REIN_NO_PROJECT_SCAN=1 \
-      bash "$DW/install-rein.sh" ) >/dev/null 2>&1
-  assert_status 0 "E-426.02a: a clone install leaves the mirror's orchestrator lock equal to the tracked one" \
-    cmp -s "${DH5}/.rein/mcp/orchestrator-mcp/package-lock.json" <(git -C "$DW" show HEAD:src/mcp/orchestrator-mcp/package-lock.json)
+  # E-426.02a (a clone install keeps the mirror's orchestrator lock equal to the tracked one) went
+  # with orchestrator-mcp (E-467).
   # critic_tests E-426 P1: the rest of _mcp_deps — a server with no shipped lock keeps npm install;
   # a failing npm ci is reported and the install continues; doctor --repair reinstalls a shipped
   # lock even when its marker still matches (security_engineer F3).
   assert_status 0 "E-426.03a: a server with no shipped lock still gets npm install" \
-    bash -c "grep < <(grep -v '/orchestrator-mcp ' '$NPMLOG') -q ' install'"
+    bash -c "grep < '$NPMLOG' -q ' install'"
   AH6="$(test_tmpdir hyg-art-home6)"
   node "$REPO_ROOT/tests/lib/release-unpack.mjs" "$DW" "${RO1}/rein-${_ver}.tar.gz" "${AH6}/.rein"
   _i6="$(NPM_STUB_FAIL_CI=1 _ai_npm "$AH6" "$FAKE_TMP" install)"; _i6rc=$?
-  assert_contains "E-426.03b: a failing npm ci prints the ✗ line" "✗ orchestrator-mcp: npm ci failed" "$_i6"
+  # E-426.03b (a failing npm ci prints the ✗ line) needs a shipped lock; see E-426.01b-e above.
   assert_status 0 "E-426.03c: …and the install continues to the end (rc=${_i6rc})" test "$_i6rc" -eq 0
-  _ci_before="$(grep -c '/orchestrator-mcp ci' "$NPMLOG")"
-  ( cd "$APROJ4" && HOME="$AH4" TMPDIR="$FAKE_TMP" CI=1 NPM_STUB_LIST_MISSING=1 PATH="${NPMS}:${AH4}/.rein/bin:/usr/bin:/bin:/usr/sbin:/sbin:$(dirname "$(command -v node)")" \
-      env -u REIN_WORKSPACE bash "${AH4}/.rein/bin/rein" doctor --repair ) </dev/null >/dev/null 2>&1
-  assert_status 0 "E-426.03d: doctor --repair runs npm ci for a shipped lock even when its marker matches" \
-    test "$(grep -c '/orchestrator-mcp ci' "$NPMLOG")" -gt "$_ci_before"
+  # E-426.03d (doctor --repair runs npm ci for a shipped lock) needs a shipped lock; see above.
 
   # E-427 (D-158 r8-r11; the case rein-app hit): extends E-426.01 — a HEALTHY artifact install in a
   # clean home (no ~/.claude, no project) is never `fail` under `doctor --scope install`. Healthy
@@ -403,12 +374,12 @@ PYLIST
   fi
   assert_status 0 "E-418.06e: the manifest lists every staged file, no more" \
     test "$(python3 -I -c 'import json,sys; print(len(json.load(open(sys.argv[1]))["files"]))' "${RO1}/manifest.json")" = "$(cd "$ST" && find . -type f | wc -l | tr -d ' ')"
-  echo "# uncommitted" >> "$DW/hooks/stop-hook.sh"
+  echo "# uncommitted" >> "$DW/hooks/state-import.sh"
   DH="$(test_tmpdir hyg-dirty-home)"
   _dout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" 2>&1 )"; _drc=$?
   assert_status 0 "E-304.04a: a dirty hooks/ makes the installer exit non-zero (rc=${_drc})" test "$_drc" -ne 0
   assert_contains "E-304.04b: …naming the refusal" "[INSTALL_DIRTY_TREE]" "$_dout"
-  assert_contains "E-304.04c: …and the file" "hooks/stop-hook.sh" "$_dout"
+  assert_contains "E-304.04c: …and the file" "hooks/state-import.sh" "$_dout"
   assert_status 1 "E-304.04d: …and nothing was installed" test -e "${DH}/.rein/bin/rein"
   _aout="$( cd "$FAKE_TMP" && HOME="$DH" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$DW/install-rein.sh" --allow-dirty 2>&1 )"
   assert_contains "E-304.04e: --allow-dirty installs with a loud banner" "--allow-dirty: installing UNCOMMITTED gate code" "$_aout"

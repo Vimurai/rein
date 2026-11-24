@@ -19,7 +19,6 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { createHash } from "node:crypto";
 import { join } from "node:path";
 
 const ROOT = process.cwd();
@@ -135,7 +134,7 @@ test("a path segment named ai-/ai_ fails, except the .ai/ bookkeeping rule", () 
 
 test("the subcommand list comes from the dispatch table", () => {
   const subs = subcommands();
-  for (const s of ["ci", "sync", "init", "doctor", "pane", "start", "task", "gate"]) assert.ok(subs.includes(s), s);
+  for (const s of ["ci", "sync", "init", "doctor", "pane", "start", "task", "done"]) assert.ok(subs.includes(s), s);
   assert.deepEqual(subcommands('cmd="$1"\ncase "$cmd" in\n  a|b-c)  x ;;\n  -v|--version) y ;;\n  *) z ;;\nesac\n'), ["a", "b-c"]);
 });
 
@@ -158,17 +157,8 @@ test("every old name in the map is caught, every exclusion names a reason and ex
   }
 });
 
-// D-132 addendum 3: the pinned tables took the token rename and were re-pinned; each table now
-// hashes to its new pin and its old pin is gone from every test.
-test("every re-pinned table hashes to its new pin, and no test still names the old one", () => {
-  const pins = MAP.filter((r) => r.kind === "pin");
-  assert.ok(pins.length >= 3, "the three D-132 addendum 3 tables");
-  const tests = files().filter((f) => f.startsWith("tests/") && f.endsWith(".mjs"));
-  for (const { old, new: now, table } of pins) {
-    assert.equal(createHash("sha256").update(readFileSync(join(ROOT, table))).digest("hex"), now, table);
-    for (const f of tests) assert.ok(!readFileSync(join(ROOT, f), "utf8").includes(old), `${f} still pins ${table} at ${old.slice(0, 8)}`);
-  }
-});
+// D-132 addendum 3's re-pinned tables (arch-write, role-verdict, gate-self-disable) went with the
+// command gate (E-463); their pin rows left the map with them.
 
 test("a section exclusion ends at the next `until` line, or runs to the end of the file", () => {
   const lines = ["## A", "ai-os", "## Where this comes from", "AI-OS", "### sub", "## B", "AIOS"];

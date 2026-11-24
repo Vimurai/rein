@@ -1,87 +1,38 @@
 # census-baseline — tests/run.sh lane hints when no local CI log exists (E-386, D-135 r2). Written by `rein ci run` after a full unsharded PASS; do not edit.
-CENSUS_RUN	2026-11-09T16:58:33Z	316218b1e51e5f5d82dc19f6b7394a39685d38d3	*_test.sh
-CENSUS_SUITE	advisor_mcp_test.sh	1346	56	0	0	0
-CENSUS_FP	advisor_mcp_test.sh	1	bash	-c:src/templates/providers.json
-CENSUS_FP	advisor_mcp_test.sh	3	node	
-CENSUS_FP	advisor_mcp_test.sh	1	node	-e
-CENSUS_FP	advisor_mcp_test.sh	12	node	-e:src/shared/provider-adapter.mjs
-CENSUS_FP	advisor_mcp_test.sh	3	python3	-
-CENSUS_FP	advisor_mcp_test.sh	3	python3	-c
-CENSUS_SUITE	agent_contracts_test.sh	3193	191	0	0	0
-CENSUS_FP	agent_contracts_test.sh	2	bash	-c
-CENSUS_FP	agent_contracts_test.sh	6	bash	-c:src/claude/agents/critic_clean_code.md
-CENSUS_FP	agent_contracts_test.sh	5	bash	-c:src/claude/skills/rein-review/SKILL.md
+CENSUS_RUN	2026-11-24T11:57:37Z	2e0f877b24443a8617666655c2d7554d52778a16	*_test.sh
+CENSUS_SUITE	agent_contracts_test.sh	1028	74	0	0	0
 CENSUS_FP	agent_contracts_test.sh	1	bash	src/bin/rein
-CENSUS_SUITE	approval_mcp_test.sh	1236	58	0	0	0
-CENSUS_FP	approval_mcp_test.sh	2	bash	-c
-CENSUS_FP	approval_mcp_test.sh	14	node	
-CENSUS_FP	approval_mcp_test.sh	1	node	-
-CENSUS_FP	approval_mcp_test.sh	3	python3	-
-CENSUS_FP	approval_mcp_test.sh	3	python3	-c
-CENSUS_SUITE	cache_manager_test.sh	2565	90	0	0	0
-CENSUS_FP	cache_manager_test.sh	4	bash	-c
-CENSUS_FP	cache_manager_test.sh	18	node	
-CENSUS_FP	cache_manager_test.sh	3	node	-e:src/shared/mcp-tester.mjs
-CENSUS_FP	cache_manager_test.sh	1	node	src/mcp/cache-manager-mcp/index.js
-CENSUS_FP	cache_manager_test.sh	3	node	src/shared/mcp-tester.mjs
-CENSUS_FP	cache_manager_test.sh	4	python3	-
-CENSUS_FP	cache_manager_test.sh	4	python3	-c
-CENSUS_SUITE	classifier_backstop_test.sh	6046	141	0	0	0
-CENSUS_FP	classifier_backstop_test.sh	1	bash	-c
-CENSUS_FP	classifier_backstop_test.sh	22	bash	-c:src/bin/rein
-CENSUS_FP	classifier_backstop_test.sh	22	python3	-
-CENSUS_FP	classifier_backstop_test.sh	15	python3	-c
-CENSUS_FP	classifier_backstop_test.sh	35	python3	src/shared/classifier-backstop.py
-CENSUS_SUITE	cli_test.sh	2154	128	0	0	0
-CENSUS_FP	cli_test.sh	32	bash	-c
+CENSUS_SUITE	cli_test.sh	2467	124	0	0	0
+CENSUS_FP	cli_test.sh	19	bash	-c
 CENSUS_FP	cli_test.sh	1	bash	-c:src/api/users.ts
-CENSUS_FP	cli_test.sh	1	bash	-c:src/bin/rein
 CENSUS_FP	cli_test.sh	1	bash	src/bin/rein
-CENSUS_FP	cli_test.sh	2	node	-e
+CENSUS_FP	cli_test.sh	3	node	-e
 CENSUS_FP	cli_test.sh	4	node	scripts/generate_blueprints_index.mjs
 CENSUS_FP	cli_test.sh	4	python3	-
-CENSUS_FP	cli_test.sh	13	python3	-c
+CENSUS_FP	cli_test.sh	15	python3	-c
 CENSUS_FP	cli_test.sh	1	python3	-c:src/bin/rein
-CENSUS_SUITE	exec_form_hooks_test.sh	70977	46	0	2	0
+CENSUS_SUITE	exec_form_hooks_test.sh	17706	42	0	2	0
 CENSUS_FP	exec_form_hooks_test.sh	3	bash	-c
 CENSUS_FP	exec_form_hooks_test.sh	1	bash	-c:hooks/post-commit
 CENSUS_FP	exec_form_hooks_test.sh	1	bash	-c:hooks/pre-commit
 CENSUS_FP	exec_form_hooks_test.sh	1	bash	-c:hooks/pre-push
-CENSUS_FP	exec_form_hooks_test.sh	4	bash	-p:hooks/post-tool-log.sh
+CENSUS_FP	exec_form_hooks_test.sh	4	bash	-p:hooks/state-import.sh
 CENSUS_FP	exec_form_hooks_test.sh	1	bash	install-rein.sh
-CENSUS_FP	exec_form_hooks_test.sh	7	bash	src/bin/rein
+CENSUS_FP	exec_form_hooks_test.sh	10	bash	src/bin/rein
 CENSUS_FP	exec_form_hooks_test.sh	1	installer	install-rein.sh	tmp
-CENSUS_FP	exec_form_hooks_test.sh	2	python3	-
-CENSUS_SUITE	gate_abort_test.sh	57621	85	0	8	0
-CENSUS_FP	gate_abort_test.sh	1	bash	-c:src/shared/locate.sh
-CENSUS_FP	gate_abort_test.sh	1	bash	-c:src/shared/toolchain-pin.sh
-CENSUS_FP	gate_abort_test.sh	6	bash	-p
-CENSUS_FP	gate_abort_test.sh	1	bash	-p:hooks/post-tool-log-bad.sh
-CENSUS_FP	gate_abort_test.sh	1	bash	-p:hooks/pre-push.sh
-CENSUS_FP	gate_abort_test.sh	18	bash	-p:hooks/pre-tool-use.sh
-CENSUS_FP	gate_abort_test.sh	1	bash	-p:hooks/session-start-bad.sh
-CENSUS_FP	gate_abort_test.sh	1	bash	-p:hooks/stop-hook-bad.sh
-CENSUS_FP	gate_abort_test.sh	1	bash	-p:hooks/stop-hook-prepin.sh
-CENSUS_FP	gate_abort_test.sh	1	bash	-p:hooks/stop-hook.sh
-CENSUS_FP	gate_abort_test.sh	19	python3	-c
-CENSUS_SUITE	gate_override_test.sh	11595	49	0	2	0
-CENSUS_FP	gate_override_test.sh	1	bash	hooks/pre-tool-use.sh
-CENSUS_FP	gate_override_test.sh	8	bash	src/bin/rein
-CENSUS_FP	gate_override_test.sh	15	bash	tests/lib/as-session.sh
-CENSUS_FP	gate_override_test.sh	6	node	-e
-CENSUS_FP	gate_override_test.sh	1	node	src/shared/telemetry.mjs
-CENSUS_FP	gate_override_test.sh	16	python3	-c
-CENSUS_SUITE	git_lane_test.sh	17530	154	0	0	0
-CENSUS_FP	git_lane_test.sh	6	bash	-c
+CENSUS_FP	exec_form_hooks_test.sh	1	node	src/shared/plugin-build.mjs
+CENSUS_FP	exec_form_hooks_test.sh	3	python3	-
+CENSUS_FP	exec_form_hooks_test.sh	2	python3	-c
+CENSUS_SUITE	git_lane_test.sh	5943	122	0	0	0
+CENSUS_FP	git_lane_test.sh	8	bash	-c
 CENSUS_FP	git_lane_test.sh	3	bash	-c:hooks/pre-commit.sh
-CENSUS_FP	git_lane_test.sh	5	bash	-c:src/mcp/safe-exec-mcp/index.js
-CENSUS_FP	git_lane_test.sh	45	bash	hooks/pre-commit.sh
+CENSUS_FP	git_lane_test.sh	28	bash	hooks/pre-commit.sh
 CENSUS_FP	git_lane_test.sh	1	bash	hooks/pre-push.sh
-CENSUS_FP	git_lane_test.sh	11	bash	tests/lib/as-session.sh
-CENSUS_FP	git_lane_test.sh	2	node	-e:src/mcp/shared/record-store.mjs
-CENSUS_FP	git_lane_test.sh	4	node	-e:src/mcp/shared/state-db.js
+CENSUS_FP	git_lane_test.sh	9	bash	tests/lib/as-session.sh
+CENSUS_FP	git_lane_test.sh	1	node	-e:src/mcp/shared/record-store.mjs
+CENSUS_FP	git_lane_test.sh	2	node	-e:src/mcp/shared/state-db.js
 CENSUS_FP	git_lane_test.sh	1	node	src/shared/cli-state.mjs
-CENSUS_SUITE	harness_isolation_test.sh	112286	272	0	0	0
+CENSUS_SUITE	harness_isolation_test.sh	85164	260	0	0	0
 CENSUS_FP	harness_isolation_test.sh	41	bash	-c
 CENSUS_FP	harness_isolation_test.sh	2	bash	tests/run.sh
 CENSUS_FP	harness_isolation_test.sh	7	bash	tests/run.sh
@@ -90,169 +41,106 @@ CENSUS_FP	harness_isolation_test.sh	3	node	tests/tools/fixture-home-census.mjs
 CENSUS_FP	harness_isolation_test.sh	2	node	src/shared/hosted-ci.mjs
 CENSUS_FP	harness_isolation_test.sh	12	node	src/shared/telemetry.mjs
 CENSUS_FP	harness_isolation_test.sh	2	python3	-
-CENSUS_SUITE	hooks_surface_test.sh	13547	88	0	0	0
-CENSUS_FP	hooks_surface_test.sh	1	bash	-c
-CENSUS_FP	hooks_surface_test.sh	7	bash	-c:hooks/session-start.sh
-CENSUS_FP	hooks_surface_test.sh	1	bash	-c:hooks/stop-hook.sh
-CENSUS_FP	hooks_surface_test.sh	2	bash	-c:src/mcp/cache-manager-mcp/index.js
-CENSUS_FP	hooks_surface_test.sh	3	bash	hooks/permission-denied.sh
-CENSUS_FP	hooks_surface_test.sh	4	bash	hooks/session-start.sh
-CENSUS_FP	hooks_surface_test.sh	3	bash	hooks/stop-hook.sh
-CENSUS_FP	hooks_surface_test.sh	3	bash	src/bin/rein
-CENSUS_FP	hooks_surface_test.sh	5	node	-e
+CENSUS_SUITE	hooks_surface_test.sh	8287	68	0	0	0
+CENSUS_FP	hooks_surface_test.sh	1	bash	-c:hooks/session-start.sh
+CENSUS_FP	hooks_surface_test.sh	1	bash	-c:src/shared/install-finalize.sh
+CENSUS_FP	hooks_surface_test.sh	14	bash	hooks/session-start.sh
+CENSUS_FP	hooks_surface_test.sh	6	node	-e
 CENSUS_FP	hooks_surface_test.sh	1	node	-e:src/mcp/shared/state-db.js
-CENSUS_FP	hooks_surface_test.sh	1	node	src/mcp/cache-manager-mcp/index.js
+CENSUS_FP	hooks_surface_test.sh	1	node	-e:src/shared/plugin-build.mjs
 CENSUS_FP	hooks_surface_test.sh	1	node	src/shared/cli-state.mjs
-CENSUS_FP	hooks_surface_test.sh	11	python3	-
-CENSUS_FP	hooks_surface_test.sh	21	python3	-c
-CENSUS_FP	hooks_surface_test.sh	1	python3	-c:src/mcp/cache-manager-mcp/index.js
-CENSUS_SUITE	incident_tracker_test.sh	4525	53	0	0	0
-CENSUS_FP	incident_tracker_test.sh	25	bash	-c
+CENSUS_FP	hooks_surface_test.sh	4	node	src/shared/digest-build.mjs
+CENSUS_FP	hooks_surface_test.sh	3	python3	-
+CENSUS_FP	hooks_surface_test.sh	23	python3	-c
+CENSUS_SUITE	incident_tracker_test.sh	620	26	0	0	0
+CENSUS_FP	incident_tracker_test.sh	15	bash	-c
 CENSUS_FP	incident_tracker_test.sh	1	bash	-c:src/shared/incident-append.mjs
-CENSUS_FP	incident_tracker_test.sh	7	node	src/shared/incident-aggregate.mjs
-CENSUS_FP	incident_tracker_test.sh	119	node	src/shared/incident-append.mjs
-CENSUS_FP	incident_tracker_test.sh	1	python3	-
-CENSUS_FP	incident_tracker_test.sh	2	python3	-c
-CENSUS_SUITE	init_upgrade_test.sh	98682	80	0	0	0
+CENSUS_FP	incident_tracker_test.sh	15	node	src/shared/incident-append.mjs
+CENSUS_SUITE	init_upgrade_test.sh	45430	95	0	0	0
 CENSUS_FP	init_upgrade_test.sh	3	bash	install-rein.sh
 CENSUS_FP	init_upgrade_test.sh	3	installer	install-rein.sh	tmp
 CENSUS_FP	init_upgrade_test.sh	12	installer	rein init	tmp
+CENSUS_FP	init_upgrade_test.sh	3	node	-e
 CENSUS_FP	init_upgrade_test.sh	1	node	-p
+CENSUS_FP	init_upgrade_test.sh	2	node	tests/lib/json-schema-lite.mjs
 CENSUS_FP	init_upgrade_test.sh	17	python3	-
 CENSUS_FP	init_upgrade_test.sh	14	python3	-c
 CENSUS_FP	init_upgrade_test.sh	1	python3	-c:hooks/session-start.sh
-CENSUS_SUITE	installer_node_check_test.sh	36838	26	0	0	0
+CENSUS_SUITE	installer_node_check_test.sh	3594	26	0	0	0
 CENSUS_FP	installer_node_check_test.sh	15	bash	-c
 CENSUS_FP	installer_node_check_test.sh	3	bash	install-rein.sh
 CENSUS_FP	installer_node_check_test.sh	1	installer	install-rein.sh	foreign
 CENSUS_FP	installer_node_check_test.sh	1	installer	install-rein.sh	foreign
 CENSUS_FP	installer_node_check_test.sh	1	installer	install-rein.sh	foreign
-CENSUS_SUITE	locator_policy_test.sh	11794	63	0	0	0
+CENSUS_SUITE	locator_policy_test.sh	5740	62	0	0	0
 CENSUS_FP	locator_policy_test.sh	23	bash	-c
-CENSUS_FP	locator_policy_test.sh	1	bash	-c:hooks/post-tool-use.sh
 CENSUS_FP	locator_policy_test.sh	1	bash	-c:hooks/pre-commit.sh
 CENSUS_FP	locator_policy_test.sh	4	bash	-c:src/bin/rein
 CENSUS_FP	locator_policy_test.sh	2	bash	-c:src/shared/locate.mjs
 CENSUS_FP	locator_policy_test.sh	19	bash	-c:src/shared/locate.sh
 CENSUS_FP	locator_policy_test.sh	1	bash	hooks/post-commit.sh
-CENSUS_FP	locator_policy_test.sh	5	bash	hooks/post-tool-use.sh
 CENSUS_FP	locator_policy_test.sh	1	bash	hooks/pre-commit.sh
+CENSUS_FP	locator_policy_test.sh	1	bash	hooks/pre-push.sh
 CENSUS_FP	locator_policy_test.sh	5	bash	hooks/pre-tool-use.sh
-CENSUS_FP	locator_policy_test.sh	1	bash	hooks/session-start.sh
-CENSUS_FP	locator_policy_test.sh	1	bash	hooks/stop-hook.sh
+CENSUS_FP	locator_policy_test.sh	5	bash	hooks/session-start.sh
+CENSUS_FP	locator_policy_test.sh	1	bash	hooks/state-import.sh
+CENSUS_FP	locator_policy_test.sh	1	bash	hooks/waiting-signal.sh
 CENSUS_FP	locator_policy_test.sh	2	bash	src/bin/rein
 CENSUS_FP	locator_policy_test.sh	8	node	src/shared/locate.mjs
-CENSUS_SUITE	managed_agents_test.sh	1540	42	0	0	0
+CENSUS_SUITE	managed_agents_test.sh	1542	42	0	0	0
 CENSUS_FP	managed_agents_test.sh	18	bash	-c
 CENSUS_FP	managed_agents_test.sh	2	node	-e
 CENSUS_FP	managed_agents_test.sh	4	node	-e:src/shared/managed-agents-client.mjs
 CENSUS_FP	managed_agents_test.sh	2	node	tests/tools/managed_agents_spike.js
 CENSUS_FP	managed_agents_test.sh	4	node	src/shared/managed-agents-client.mjs
 CENSUS_FP	managed_agents_test.sh	15	python3	-c
-CENSUS_SUITE	mcp_role_interceptors_test.sh	10359	55	0	0	0
-CENSUS_FP	mcp_role_interceptors_test.sh	2	bash	-c:src/mcp/shared/caller-role.mjs
-CENSUS_FP	mcp_role_interceptors_test.sh	13	bash	tests/lib/as-session.sh
-CENSUS_FP	mcp_role_interceptors_test.sh	1	node	src/mcp/context-guardian-mcp/index.js
-CENSUS_FP	mcp_role_interceptors_test.sh	1	node	src/mcp/patch-mcp/index.js
-CENSUS_FP	mcp_role_interceptors_test.sh	1	node	src/mcp/propose-patch-mcp/index.js
-CENSUS_FP	mcp_role_interceptors_test.sh	8	node	tests/lib/patch-mcp-driver.mjs
-CENSUS_SUITE	mcp_servers_test.sh	17013	264	0	0	0
+CENSUS_SUITE	mcp_connection_test.sh	1250	19	0	0	0
+CENSUS_FP	mcp_connection_test.sh	3	bash	-c
+CENSUS_FP	mcp_connection_test.sh	3	node	-e:src/shared/mcp-tester.mjs
+CENSUS_FP	mcp_connection_test.sh	3	node	src/shared/mcp-tester.mjs
+CENSUS_SUITE	mcp_servers_test.sh	3899	80	0	0	0
 CENSUS_FP	mcp_servers_test.sh	9	bash	-c
-CENSUS_FP	mcp_servers_test.sh	9	bash	-c:src/bin/rein
-CENSUS_FP	mcp_servers_test.sh	4	bash	-c:src/mcp/task-synchronizer-mcp/index.js
-CENSUS_FP	mcp_servers_test.sh	1	bash	-c:src/mcp/vibe-check-mcp/index.js
+CENSUS_FP	mcp_servers_test.sh	3	bash	-c:src/mcp/task-synchronizer-mcp/index.js
 CENSUS_FP	mcp_servers_test.sh	2	bash	-c:src/shared/build-stamp.mjs
-CENSUS_FP	mcp_servers_test.sh	39	node	-e
-CENSUS_FP	mcp_servers_test.sh	1	node	-e:src/claude/agents
-CENSUS_FP	mcp_servers_test.sh	17	node	-e:src/mcp/blueprint-aligner-mcp/index.js
-CENSUS_FP	mcp_servers_test.sh	11	node	-e:src/mcp/verification-mcp
-CENSUS_FP	mcp_servers_test.sh	1	node	-e:src/mcp/verification-mcp/index.js
-CENSUS_FP	mcp_servers_test.sh	5	node	tests/suites/../.validate_helper.mjs
-CENSUS_FP	mcp_servers_test.sh	1	node	src/mcp/blueprint-aligner-mcp/index.js
-CENSUS_FP	mcp_servers_test.sh	1	node	src/mcp/context-guardian-mcp/index.js
-CENSUS_FP	mcp_servers_test.sh	1	node	src/mcp/risk-analyzer-mcp/index.js
-CENSUS_FP	mcp_servers_test.sh	1	node	src/mcp/safe-exec-mcp/index.js
+CENSUS_FP	mcp_servers_test.sh	2	node	-e
 CENSUS_FP	mcp_servers_test.sh	1	node	src/mcp/task-synchronizer-mcp/index.js
-CENSUS_FP	mcp_servers_test.sh	1	node	src/mcp/vibe-check-mcp/index.js
 CENSUS_FP	mcp_servers_test.sh	2	node	src/shared/build-stamp.mjs
-CENSUS_FP	mcp_servers_test.sh	35	python3	-
-CENSUS_FP	mcp_servers_test.sh	71	python3	-c
-CENSUS_SUITE	memory_palace_test.sh	883	55	0	0	0
-CENSUS_FP	memory_palace_test.sh	8	node	-e
-CENSUS_FP	memory_palace_test.sh	1	node	-e:src/mcp/memory-manager-mcp/index.js
-CENSUS_FP	memory_palace_test.sh	3	python3	-c
-CENSUS_FP	memory_palace_test.sh	1	python3	-c:src/claude/agents/knowledge_architect.md
-CENSUS_FP	memory_palace_test.sh	1	python3	-c:src/claude/agents/memory_curator.md
-CENSUS_SUITE	meta_cognition_test.sh	516	93	0	0	0
-CENSUS_FP	meta_cognition_test.sh	3	bash	-c
-CENSUS_FP	meta_cognition_test.sh	5	bash	-c:src/claude/agents/meta_analyst.md
-CENSUS_FP	meta_cognition_test.sh	2	bash	-c:src/shared/insights-staleness.mjs
-CENSUS_FP	meta_cognition_test.sh	2	bash	-c:src/shared/skills/rein-insights/SKILL.md
-CENSUS_FP	meta_cognition_test.sh	4	node	src/shared/insights-staleness.mjs
-CENSUS_FP	meta_cognition_test.sh	3	node	src/shared/telemetry.mjs
-CENSUS_SUITE	mirror_hygiene_test.sh	43464	55	0	0	0
+CENSUS_FP	mcp_servers_test.sh	9	python3	-
+CENSUS_FP	mcp_servers_test.sh	14	python3	-c
+CENSUS_SUITE	mirror_hygiene_test.sh	29857	92	0	0	0
+CENSUS_FP	mirror_hygiene_test.sh	2	bash	-c
+CENSUS_FP	mirror_hygiene_test.sh	2	bash	-c:src/bin/rein
 CENSUS_FP	mirror_hygiene_test.sh	3	bash	install-rein.sh
-CENSUS_FP	mirror_hygiene_test.sh	6	installer	install-rein.sh	tmp
-CENSUS_FP	mirror_hygiene_test.sh	1	installer	rein init	tmp
-CENSUS_FP	mirror_hygiene_test.sh	1	python3	-
-CENSUS_FP	mirror_hygiene_test.sh	3	python3	-c
-CENSUS_SUITE	node_unit_test.sh	22714	2302	0	0	0
+CENSUS_FP	mirror_hygiene_test.sh	9	installer	install-rein.sh	tmp
+CENSUS_FP	mirror_hygiene_test.sh	3	installer	rein init	tmp
+CENSUS_FP	mirror_hygiene_test.sh	1	node	-e
+CENSUS_FP	mirror_hygiene_test.sh	1	node	tests/lib/json-schema-lite.mjs
+CENSUS_FP	mirror_hygiene_test.sh	6	node	tests/lib/release-unpack.mjs
+CENSUS_FP	mirror_hygiene_test.sh	7	python3	-
+CENSUS_FP	mirror_hygiene_test.sh	8	python3	-c
+CENSUS_SUITE	node_unit_test.sh	11766	1013	0	0	0
 CENSUS_FP	node_unit_test.sh	1	node	tests/unit/accounts.test.mjs
-CENSUS_SUITE	orchestrator_dispatch_test.sh	4175	16	0	0	0
-CENSUS_FP	orchestrator_dispatch_test.sh	1	node	-e:src/config/registry.json
-CENSUS_FP	orchestrator_dispatch_test.sh	15	python3	-
-CENSUS_FP	orchestrator_dispatch_test.sh	20	python3	-c
-CENSUS_SUITE	pane_binding_test.sh	38212	201	0	0	0
-CENSUS_FP	pane_binding_test.sh	13	bash	-c
-CENSUS_FP	pane_binding_test.sh	2	bash	-c:hooks/pre-tool-use.sh
-CENSUS_FP	pane_binding_test.sh	1	bash	-c:hooks/stop-hook.sh
+CENSUS_SUITE	pane_binding_test.sh	15964	149	0	0	0
+CENSUS_FP	pane_binding_test.sh	10	bash	-c
 CENSUS_FP	pane_binding_test.sh	13	bash	-c:src/bin/rein
-CENSUS_FP	pane_binding_test.sh	2	bash	-c:src/mcp/safe-exec-mcp/index.js
-CENSUS_FP	pane_binding_test.sh	32	bash	src/bin/rein
-CENSUS_FP	pane_binding_test.sh	19	bash	tests/lib/as-session.sh
+CENSUS_FP	pane_binding_test.sh	29	bash	src/bin/rein
+CENSUS_FP	pane_binding_test.sh	1	bash	tests/lib/as-session.sh
 CENSUS_FP	pane_binding_test.sh	8	node	-e
 CENSUS_FP	pane_binding_test.sh	1	node	-e:src/mcp/shared/state-db.js
-CENSUS_FP	pane_binding_test.sh	5	node	src/mcp/safe-exec-mcp/index.js
-CENSUS_FP	pane_binding_test.sh	19	node	src/shared/resolve-launch.mjs
-CENSUS_FP	pane_binding_test.sh	3	python3	-
-CENSUS_FP	pane_binding_test.sh	12	python3	-c
+CENSUS_FP	pane_binding_test.sh	20	node	src/shared/resolve-launch.mjs
+CENSUS_FP	pane_binding_test.sh	3	node	src/shared/role-settings.mjs
+CENSUS_FP	pane_binding_test.sh	7	python3	-c
 CENSUS_FP	pane_binding_test.sh	2	python3	src/shared/accounts.py
-CENSUS_FP	pane_binding_test.sh	1	python3	src/shared/classifier-backstop.py
-CENSUS_SUITE	pre_commit_hook_test.sh	2871	104	0	0	0
-CENSUS_FP	pre_commit_hook_test.sh	17	bash	-c
-CENSUS_FP	pre_commit_hook_test.sh	3	bash	-c:hooks/pre-commit.sh
+CENSUS_SUITE	pre_commit_hook_test.sh	2356	78	0	0	0
+CENSUS_FP	pre_commit_hook_test.sh	16	bash	-c
 CENSUS_FP	pre_commit_hook_test.sh	8	bash	-c:src/config/registry.json
 CENSUS_FP	pre_commit_hook_test.sh	4	bash	-c:src/staged-ok.mjs
 CENSUS_FP	pre_commit_hook_test.sh	2	bash	tests/tools/registry-drift.sh
-CENSUS_FP	pre_commit_hook_test.sh	5	bash	hooks/pre-commit.sh
 CENSUS_FP	pre_commit_hook_test.sh	9	bash	tests/lib/mcp_purity_check.sh
 CENSUS_FP	pre_commit_hook_test.sh	2	node	-e:src/shared/standards-checker.mjs
 CENSUS_FP	pre_commit_hook_test.sh	11	node	scripts/standards.mjs
-CENSUS_FP	pre_commit_hook_test.sh	7	python3	-c
-CENSUS_FP	pre_commit_hook_test.sh	3	python3	-c:hooks/pre-commit.sh
-CENSUS_SUITE	pre_tool_use_gate_test.sh	29508	158	0	6	0
-CENSUS_FP	pre_tool_use_gate_test.sh	2	bash	-c
-CENSUS_FP	pre_tool_use_gate_test.sh	1	bash	-c:hooks/pre-tool-use.sh
-CENSUS_FP	pre_tool_use_gate_test.sh	1	bash	-c:src/bin/rein
-CENSUS_FP	pre_tool_use_gate_test.sh	1	bash	hooks/post-tool-use.sh
-CENSUS_FP	pre_tool_use_gate_test.sh	16	bash	hooks/pre-tool-use.sh
-CENSUS_FP	pre_tool_use_gate_test.sh	4	bash	src/bin/rein
-CENSUS_FP	pre_tool_use_gate_test.sh	41	bash	tests/lib/as-session.sh
-CENSUS_FP	pre_tool_use_gate_test.sh	6	node	src/mcp/safe-exec-mcp/index.js
-CENSUS_FP	pre_tool_use_gate_test.sh	1	node	src/shared/cli-state.mjs
-CENSUS_FP	pre_tool_use_gate_test.sh	2	python3	-
-CENSUS_FP	pre_tool_use_gate_test.sh	45	python3	-c
-CENSUS_SUITE	propose_patch_test.sh	20907	164	0	0	0
-CENSUS_FP	propose_patch_test.sh	1	bash	-c:src/bin/rein
-CENSUS_FP	propose_patch_test.sh	18	bash	-c:src/mcp/propose-patch-mcp/index.js
-CENSUS_FP	propose_patch_test.sh	2	bash	-c:src/mcp/shared/state-db.js
-CENSUS_FP	propose_patch_test.sh	1	bash	src/bin/rein
-CENSUS_FP	propose_patch_test.sh	1	bash	tests/lib/as-session.sh
-CENSUS_FP	propose_patch_test.sh	11	node	-e:src/mcp/propose-patch-mcp/diff-targets.mjs
-CENSUS_FP	propose_patch_test.sh	20	node	tests/lib/propose-patch-driver.mjs
-CENSUS_FP	propose_patch_test.sh	6	python3	-
-CENSUS_FP	propose_patch_test.sh	11	python3	-c
-CENSUS_SUITE	provider_workspace_test.sh	51555	38	0	0	0
+CENSUS_FP	pre_commit_hook_test.sh	2	python3	-c
+CENSUS_SUITE	provider_workspace_test.sh	9625	38	0	0	0
 CENSUS_FP	provider_workspace_test.sh	5	bash	-c:src/bin/rein
 CENSUS_FP	provider_workspace_test.sh	6	bash	-c:src/shared/provider-workspace.mjs
 CENSUS_FP	provider_workspace_test.sh	9	bash	src/bin/rein
@@ -261,71 +149,54 @@ CENSUS_FP	provider_workspace_test.sh	3	node	src/shared/provider-workspace.mjs
 CENSUS_FP	provider_workspace_test.sh	3	node	src/shared/sync-manifest.mjs
 CENSUS_FP	provider_workspace_test.sh	16	python3	-
 CENSUS_FP	provider_workspace_test.sh	1	python3	-c:src/config/registry.json
-CENSUS_SUITE	rein_ci_test.sh	20700	245	0	1	0
-CENSUS_FP	rein_ci_test.sh	17	bash	-c
+CENSUS_SUITE	rein_ci_test.sh	19549	236	0	2	0
+CENSUS_FP	rein_ci_test.sh	14	bash	-c
 CENSUS_FP	rein_ci_test.sh	2	bash	-c:hooks/pre-push.sh
 CENSUS_FP	rein_ci_test.sh	1	bash	-c:src/bin/rein
 CENSUS_FP	rein_ci_test.sh	1	bash	-c:src/copilot/COPILOT.md
 CENSUS_FP	rein_ci_test.sh	9	bash	-c:src/mcp/task-synchronizer-mcp/index.js
 CENSUS_FP	rein_ci_test.sh	2	bash	hooks/pre-push.sh
-CENSUS_FP	rein_ci_test.sh	55	bash	src/bin/rein
+CENSUS_FP	rein_ci_test.sh	60	bash	src/bin/rein
 CENSUS_FP	rein_ci_test.sh	7	node	-e:src/mcp/shared/state-db.js
 CENSUS_FP	rein_ci_test.sh	4	node	src/shared/ci-record.mjs
 CENSUS_FP	rein_ci_test.sh	14	python3	-
 CENSUS_FP	rein_ci_test.sh	14	python3	-c
-CENSUS_SUITE	rein_clean_test.sh	4216	85	0	2	0
+CENSUS_SUITE	rein_clean_test.sh	3583	85	0	2	0
 CENSUS_FP	rein_clean_test.sh	3	bash	-c
 CENSUS_FP	rein_clean_test.sh	1	bash	-c:src/bin/rein
 CENSUS_FP	rein_clean_test.sh	26	bash	src/bin/rein
 CENSUS_FP	rein_clean_test.sh	5	node	-e
 CENSUS_FP	rein_clean_test.sh	8	node	src/shared/rein-clean.mjs
 CENSUS_FP	rein_clean_test.sh	7	python3	-c
-CENSUS_SUITE	rein_start_test.sh	38701	174	0	0	0
-CENSUS_FP	rein_start_test.sh	45	bash	-c
+CENSUS_SUITE	rein_start_test.sh	41631	194	0	0	0
+CENSUS_FP	rein_start_test.sh	46	bash	-c
 CENSUS_FP	rein_start_test.sh	1	bash	-c:src/bin/rein
-CENSUS_FP	rein_start_test.sh	49	bash	src/bin/rein
+CENSUS_FP	rein_start_test.sh	55	bash	src/bin/rein
 CENSUS_FP	rein_start_test.sh	1	node	
 CENSUS_FP	rein_start_test.sh	2	python3	-c
 CENSUS_FP	rein_start_test.sh	1	python3	src/shared/accounts.py
-CENSUS_SUITE	rein_sync_test.sh	64557	284	0	0	0
-CENSUS_FP	rein_sync_test.sh	20	bash	-c
-CENSUS_FP	rein_sync_test.sh	20	bash	-c:src/bin/rein
+CENSUS_SUITE	rein_sync_test.sh	18841	240	0	0	0
+CENSUS_FP	rein_sync_test.sh	18	bash	-c
+CENSUS_FP	rein_sync_test.sh	14	bash	-c:src/bin/rein
 CENSUS_FP	rein_sync_test.sh	4	bash	-c:src/config/registry.json
 CENSUS_FP	rein_sync_test.sh	1	bash	-c:src/shared/
-CENSUS_FP	rein_sync_test.sh	20	bash	src/bin/rein
-CENSUS_FP	rein_sync_test.sh	5	node	-e
+CENSUS_FP	rein_sync_test.sh	18	bash	src/bin/rein
+CENSUS_FP	rein_sync_test.sh	4	node	-e
 CENSUS_FP	rein_sync_test.sh	1	node	-e:src/shared/legacy-registry.mjs
 CENSUS_FP	rein_sync_test.sh	3	node	scripts/generate_mcp_docs.mjs
-CENSUS_FP	rein_sync_test.sh	1	node	src/mcp/cache-manager-mcp/index.js
-CENSUS_FP	rein_sync_test.sh	34	node	src/shared/sync-manifest.mjs
-CENSUS_FP	rein_sync_test.sh	10	python3	-
+CENSUS_FP	rein_sync_test.sh	1	node	src/shared/plugin-build.mjs
+CENSUS_FP	rein_sync_test.sh	35	node	src/shared/sync-manifest.mjs
+CENSUS_FP	rein_sync_test.sh	9	python3	-
 CENSUS_FP	rein_sync_test.sh	14	python3	-c
 CENSUS_FP	rein_sync_test.sh	1	python3	-c:src/bin/rein
-CENSUS_SUITE	repo_map_test.sh	2051	66	0	0	0
-CENSUS_FP	repo_map_test.sh	1	node	-e:src/mcp/ast-parser-mcp/extractor.mjs
-CENSUS_FP	repo_map_test.sh	2	node	-e:src/mcp/ast-parser-mcp/package.json
-CENSUS_FP	repo_map_test.sh	1	node	-e:src/mcp/ast-parser-mcp/repo-mapper.mjs
-CENSUS_FP	repo_map_test.sh	1	node	-e:src/mcp/ast-parser-mcp/serializer.mjs
-CENSUS_FP	repo_map_test.sh	2	node	src/mcp/ast-parser-mcp/index.js
-CENSUS_FP	repo_map_test.sh	6	python3	-
-CENSUS_FP	repo_map_test.sh	8	python3	-c
-CENSUS_FP	repo_map_test.sh	1	python3	-c:src/bar.ts
-CENSUS_FP	repo_map_test.sh	1	python3	-c:src/hub.js
-CENSUS_SUITE	resilience_test.sh	210	17	0	0	0
+CENSUS_SUITE	resilience_test.sh	209	10	0	0	0
 CENSUS_FP	resilience_test.sh	3	node	-e:src/mcp/shared/state-db.js
-CENSUS_FP	resilience_test.sh	1	node	tests/suites/../../src/mcp/orchestrator-mcp/index.js
+CENSUS_FP	resilience_test.sh	1	node	tests/suites/../../src/mcp/task-synchronizer-mcp/index.js
 CENSUS_FP	resilience_test.sh	1	python3	-c
-CENSUS_SUITE	role_provisioning_test.sh	32793	189	0	0	0
-CENSUS_FP	role_provisioning_test.sh	1	bash	-c
+CENSUS_SUITE	role_provisioning_test.sh	10342	139	0	0	0
+CENSUS_FP	role_provisioning_test.sh	2	bash	-c
 CENSUS_FP	role_provisioning_test.sh	11	bash	-c:src/bin/rein
-CENSUS_FP	role_provisioning_test.sh	2	bash	-c:src/claude/agents/docs-architect.md
-CENSUS_FP	role_provisioning_test.sh	2	bash	-c:src/claude/agents/knowledge_architect.md
-CENSUS_FP	role_provisioning_test.sh	2	bash	-c:src/claude/agents/memory_curator.md
-CENSUS_FP	role_provisioning_test.sh	2	bash	-c:src/claude/agents/meta_analyst.md
-CENSUS_FP	role_provisioning_test.sh	2	bash	-c:src/claude/agents/seo_content_generator.md
-CENSUS_FP	role_provisioning_test.sh	2	bash	-c:src/claude/agents/seo_manager.md
 CENSUS_FP	role_provisioning_test.sh	2	bash	-c:src/claude/agents/test_engineer.md
-CENSUS_FP	role_provisioning_test.sh	2	bash	-c:src/claude/agents/ux_reviewer.md
 CENSUS_FP	role_provisioning_test.sh	4	bash	-c:src/config/registry.json
 CENSUS_FP	role_provisioning_test.sh	3	bash	-c:src/shared/role-manifest.mjs
 CENSUS_FP	role_provisioning_test.sh	1	bash	-c:src/templates
@@ -338,86 +209,51 @@ CENSUS_FP	role_provisioning_test.sh	3	node	-e:src/templates/roles.json
 CENSUS_FP	role_provisioning_test.sh	12	node	src/shared/role-manifest.mjs
 CENSUS_FP	role_provisioning_test.sh	12	node	src/shared/test-command.mjs
 CENSUS_FP	role_provisioning_test.sh	1	python3	-
-CENSUS_SUITE	role_token_test.sh	12412	80	0	1	0
-CENSUS_FP	role_token_test.sh	31	bash	-c
-CENSUS_FP	role_token_test.sh	1	bash	-c:hooks/session-start.sh
-CENSUS_FP	role_token_test.sh	8	bash	-c:src/x.js
-CENSUS_FP	role_token_test.sh	2	node	-e
-CENSUS_FP	role_token_test.sh	1	node	-e:src/shared/provider-adapter.mjs
-CENSUS_FP	role_token_test.sh	3	node	src/mcp/safe-exec-mcp/index.js
-CENSUS_FP	role_token_test.sh	1	python3	-
-CENSUS_FP	role_token_test.sh	3	python3	-c
-CENSUS_SUITE	safe_exec_test.sh	7784	18	0	0	0
-CENSUS_FP	safe_exec_test.sh	8	node	tests/lib/table-probe.mjs
-CENSUS_FP	safe_exec_test.sh	6	python3	-
-CENSUS_FP	safe_exec_test.sh	12	python3	-c
-CENSUS_SUITE	seo_cluster_test.sh	8116	211	0	0	0
-CENSUS_FP	seo_cluster_test.sh	57	bash	-c
-CENSUS_FP	seo_cluster_test.sh	12	bash	-c:src/claude/agents/seo_content_generator.md
-CENSUS_FP	seo_cluster_test.sh	14	bash	-c:src/claude/agents/seo_engineer.md
-CENSUS_FP	seo_cluster_test.sh	16	bash	-c:src/claude/agents/seo_manager.md
-CENSUS_FP	seo_cluster_test.sh	1	bash	-c:src/shared/seo-cluster-intents.mjs
-CENSUS_FP	seo_cluster_test.sh	4	node	-e
-CENSUS_FP	seo_cluster_test.sh	2	node	-e:src/mcp/shared/state-db.js
-CENSUS_FP	seo_cluster_test.sh	4	node	-e:src/shared/seo-cluster-intents.mjs
-CENSUS_FP	seo_cluster_test.sh	35	python3	-
-CENSUS_FP	seo_cluster_test.sh	26	python3	-c
-CENSUS_FP	seo_cluster_test.sh	2	python3	-c:src/claude/agents/seo_content_generator.md
-CENSUS_FP	seo_cluster_test.sh	1	python3	-c:src/claude/agents/seo_engineer.md
-CENSUS_FP	seo_cluster_test.sh	1	python3	-c:src/claude/agents/seo_manager.md
-CENSUS_FP	seo_cluster_test.sh	1	python3	-c:src/shared/seo-cluster-intents.mjs
-CENSUS_SUITE	skill_evals_test.sh	315	20	0	1	0
-CENSUS_FP	skill_evals_test.sh	1	bash	evals/fixtures/rein-project.sh
-CENSUS_FP	skill_evals_test.sh	1	node	-e
-CENSUS_SUITE	skill_lines_test.sh	4508	207	0	1	0
+CENSUS_SUITE	sandbox_escape_test.sh	210	0	0	1	0
+CENSUS_SUITE	skill_lines_test.sh	3793	187	0	1	0
 CENSUS_FP	skill_lines_test.sh	4	bash	-c
-CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/rein-insights/SKILL.md
-CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/rein-preflight/SKILL.md
-CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/rein-review-proposed-skills/SKILL.md
+CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/skills/rein-test/SKILL.md
 CENSUS_FP	skill_lines_test.sh	2	bash	-c:src/shared/standards-checker.mjs
 CENSUS_FP	skill_lines_test.sh	1	bash	-c:src/shared/standards.json
 CENSUS_FP	skill_lines_test.sh	2	bash	tests/lib/skill-exec-driver.sh
 CENSUS_FP	skill_lines_test.sh	1	node	-e
 CENSUS_FP	skill_lines_test.sh	28	node	-e:src/shared/skills/x/SKILL.md
-CENSUS_FP	skill_lines_test.sh	74	node	tests/lib/standards-rule-check.mjs
-CENSUS_SUITE	state_archive_test.sh	1237	48	0	1	0
+CENSUS_FP	skill_lines_test.sh	72	node	tests/lib/standards-rule-check.mjs
+CENSUS_SUITE	state_archive_test.sh	823	44	0	1	0
 CENSUS_FP	state_archive_test.sh	6	bash	-c
 CENSUS_FP	state_archive_test.sh	4	bash	-c:src/bin/rein
 CENSUS_FP	state_archive_test.sh	1	bash	-c:src/mcp/shared/record-store.mjs
 CENSUS_FP	state_archive_test.sh	2	bash	-c:src/mcp/shared/state-db.js
-CENSUS_FP	state_archive_test.sh	4	node	-e
+CENSUS_FP	state_archive_test.sh	3	bash	src/bin/rein
 CENSUS_FP	state_archive_test.sh	6	node	-e:src/mcp/shared/state-db.js
-CENSUS_FP	state_archive_test.sh	2	python3	-
-CENSUS_FP	state_archive_test.sh	10	python3	-c
 CENSUS_FP	state_archive_test.sh	2	python3	-c:src/bin/rein
-CENSUS_SUITE	state_views_test.sh	4818	100	0	0	0
+CENSUS_SUITE	state_views_test.sh	5020	102	0	0	0
 CENSUS_FP	state_views_test.sh	1	bash	-c
 CENSUS_FP	state_views_test.sh	1	bash	-c:src/bin/rein
 CENSUS_FP	state_views_test.sh	1	bash	-c:src/shared/cli-add-task.mjs
 CENSUS_FP	state_views_test.sh	2	bash	hooks/post-commit.sh
 CENSUS_FP	state_views_test.sh	9	bash	src/bin/rein
-CENSUS_FP	state_views_test.sh	26	node	-e
+CENSUS_FP	state_views_test.sh	24	node	-e
 CENSUS_FP	state_views_test.sh	7	node	-e:src/mcp/shared/state-db.js
 CENSUS_FP	state_views_test.sh	1	node	-e:src/mcp/task-synchronizer-mcp/index.js
 CENSUS_FP	state_views_test.sh	1	node	-e:src/shared/cli-add-task.mjs
-CENSUS_FP	state_views_test.sh	7	node	src/shared/cli-add-task.mjs
-CENSUS_FP	state_views_test.sh	8	python3	-
-CENSUS_FP	state_views_test.sh	27	python3	-c
-CENSUS_SUITE	task_synchronizer_test.sh	15064	188	0	0	0
-CENSUS_FP	task_synchronizer_test.sh	16	bash	-c
-CENSUS_FP	task_synchronizer_test.sh	5	bash	-c:src/mcp/task-synchronizer-mcp/index.js
-CENSUS_FP	task_synchronizer_test.sh	35	node	
-CENSUS_FP	task_synchronizer_test.sh	5	node	-e
+CENSUS_FP	state_views_test.sh	8	node	src/shared/cli-add-task.mjs
+CENSUS_FP	state_views_test.sh	9	python3	-
+CENSUS_FP	state_views_test.sh	26	python3	-c
+CENSUS_SUITE	sync_github_test.sh	312	39	0	0	0
+CENSUS_FP	sync_github_test.sh	1	bash	-c:src/bin/rein
+CENSUS_FP	sync_github_test.sh	1	bash	src/bin/rein
+CENSUS_FP	sync_github_test.sh	2	python3	-c
+CENSUS_SUITE	task_synchronizer_test.sh	14952	179	0	0	0
+CENSUS_FP	task_synchronizer_test.sh	17	bash	-c
+CENSUS_FP	task_synchronizer_test.sh	4	bash	-c:src/mcp/task-synchronizer-mcp/index.js
+CENSUS_FP	task_synchronizer_test.sh	34	node	
+CENSUS_FP	task_synchronizer_test.sh	6	node	-e
 CENSUS_FP	task_synchronizer_test.sh	11	node	-e:src/mcp/shared/state-db.js
-CENSUS_FP	task_synchronizer_test.sh	65	python3	-
-CENSUS_FP	task_synchronizer_test.sh	66	python3	-c
-CENSUS_SUITE	telemetry_test.sh	10991	58	0	0	0
-CENSUS_FP	telemetry_test.sh	12	bash	-c
-CENSUS_FP	telemetry_test.sh	4	bash	-c:hooks/post-tool-use.sh
+CENSUS_FP	task_synchronizer_test.sh	69	python3	-
+CENSUS_FP	task_synchronizer_test.sh	69	python3	-c
+CENSUS_SUITE	telemetry_test.sh	620	25	0	0	0
+CENSUS_FP	telemetry_test.sh	8	bash	-c
 CENSUS_FP	telemetry_test.sh	9	bash	-c:src/shared/telemetry.mjs
-CENSUS_FP	telemetry_test.sh	14	bash	hooks/post-tool-use.sh
-CENSUS_FP	telemetry_test.sh	22	node	-e
-CENSUS_FP	telemetry_test.sh	1	node	-e:src/shared/task-usage.mjs
+CENSUS_FP	telemetry_test.sh	2	node	-e
 CENSUS_FP	telemetry_test.sh	1	node	src/shared/telemetry.mjs
-CENSUS_FP	telemetry_test.sh	2	python3	-
-CENSUS_FP	telemetry_test.sh	4	python3	-c

@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# session-start.sh — E-126 (caching.md §3) + E-129 (sovereignty-hardening.md §Security).
-#   E-126: inject the compiled Rein System Context Cache as a prompt-prefix.
-#   E-129: mint a tamper-resistant role token for this session so the safe-exec
-#          gate (--check) reads the role from an HMAC-verified file, not the
-#          mutable REIN_CALLER_ROLE env var.
+# session-start.sh — E-460 (lean-core.md §Component 3) + E-129 (sovereignty-hardening.md §Security).
+#   E-460: inject one brief of at most 2 KB — the role stamp, the branch, the role's next five
+#          open tasks, the heading of the last COMM.md handoff and one line per anomaly. It
+#          replaced the preflight skill and the E-126 blueprint cache; no blueprint text
+#          is injected (a blueprint is read when a task names it).
+#   E-463: the role stamp reads the launch record `rein pane` left on this process chain
+#          (shared/launch-record.py role); the HMAC role token went with the command gate.
 #
 # Claude Code SessionStart contract: a hook that prints JSON with
 # hookSpecificOutput.additionalContext has that text added to the session context.
@@ -41,10 +43,8 @@ unset _v _p
 
 # ── E-223 (D-057 §3): install-first helper resolution ────────────────────────
 # The locators below used to start at "$(git rev-parse --show-toplevel)/src/...", which
-# names the USER's repository, not the Rein install. Any project containing
-# src/mcp/safe-exec-mcp/index.js had THAT file executed by node from inside this hook,
-# with its stdout trusted to decide whether a write is allowed — cloning a repo was
-# enough to run its code and disable the gate meant to stop it.
+# names the USER's repository, not the Rein install: any project carrying a file at that
+# path had it executed from inside this hook — cloning a repo was enough to run its code.
 #
 # Bootstrapping the shared resolver must not repeat the mistake, so it is install-mirror
 # first and script-relative second — never the visited repo.
@@ -75,73 +75,46 @@ if ! declare -f rein_locate >/dev/null 2>&1; then
 fi
 
 set -uo pipefail
+# D-172 r2a: the Architect's session (and so this hook) starts in <project>/.ai: step up to the root.
+[[ ! -d .ai && "${PWD##*/}" == ".ai" ]] && { cd .. || exit 0; }
 
-# E-294 (D-087, sovereignty-hardening.md Components 8c–8d): the role is NOT read here. Neither
-# the positional argument the settings file passes nor REIN_PANE_ROLE is a gate input any more
-# (a project's settings `env` reaches this process). safe-exec derives the role from the
-# launch records on this process chain — the most restricted live one wins; none at all is the
-# plain-launch default, `engineer`, marked unverified — and binds the token to this session's
-# process: our PPID, the claude process (measured stable across startup, resume, clear,
-# compact and a subagent's tool call, LOG 2026-10-04). bash sets PPID itself.
+# E-463: the role is NOT read from an argument or the environment (a project's settings `env`
+# reaches this process). It is the most restricted live launch record on this process chain
+# (shared/launch-record.py role); none at all is the plain-launch default, `engineer`, marked
+# unverified. Fail-open: a missing helper leaves the stamp `unverified`, never a blocked start.
 ROLE=""
 ROLE_LAUNCH=""
 
-# Read the SessionStart payload ONCE for the E-129 session id. (The E-126 cache
-# step below sources its content from `--emit-context`, not stdin, so consuming
-# stdin here does not affect it.)
+# Read the SessionStart payload once.
 PAYLOAD="$(cat 2>/dev/null || true)"
 
-# ── E-129/E-294: mint the per-session role token ──────────────────────────────
-# Fail-open: a refused or failed mint never blocks session start — the GATE is where a
-# missing token blocks (the union, [ROLE_UNVERIFIED]). The stamp below names the role that
-# is actually BOUND, read back from safe-exec, so the persona and the gate cannot disagree.
-if command -v node >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
-  _SID="$(printf '%s' "$PAYLOAD" | python3 -c 'import json,sys
-try: print(json.load(sys.stdin).get("session_id","") or "")
-except Exception: pass' 2>/dev/null)"
-  _s="$(rein_locate mcp/safe-exec-mcp/index.js || true)"
-  if [[ -n "$_SID" && -n "$_s" ]]; then
-    IFS=$'\t' read -r ROLE ROLE_LAUNCH < <(node --no-warnings "$_s" --mint-token "$_SID" "$PPID" 2>/dev/null) || true
-    if [[ -z "$ROLE" ]]; then
-      ROLE="$(node --no-warnings "$_s" --verify-role "$_SID" 2>/dev/null)" || ROLE=""
-    fi
-  fi
+_LR="$(rein_locate shared/launch-record.py || true)"
+if [[ -n "$_LR" ]] && command -v python3 >/dev/null 2>&1; then
+  IFS=$'\t' read -r ROLE ROLE_LAUNCH < <(python3 -I "$_LR" role 2>/dev/null) || true
 fi
 case "$ROLE" in architect|engineer) : ;; *) ROLE="" ;; esac
 
-# ── E-126 + E-208: emit additionalContext ─────────────────────────────────────
+# ── E-208: the role stamp ─────────────────────────────────────────────────────
 # E-208 (D-054, role-abstraction.md §Components 2): the FIRST line of the injected
 # context is an `[REIN_ROLE] <role>` stamp naming the role this session actually
-# minted. The Role Resolution clause at the top of ENGINEER.md / ARCHITECT.md keys
+# holds. The Role Resolution clause at the top of ENGINEER.md / ARCHITECT.md keys
 # off it, so a Claude pane bound to `architect` is governed by ARCHITECT.md even
 # though CLAUDE.md statically imports ENGINEER.md (gap G1 — @import cannot branch).
 #
-# The stamp is emitted even when the E-126 cache is unavailable or disabled: the
-# persona layer must never silently lose its role binding just because the cache is
-# off. Only a missing python3 (no way to build the JSON envelope) skips it.
+# The stamp is emitted even when node is missing: the persona layer must never silently
+# lose its role binding. Only a missing python3 (no way to build the JSON envelope) skips it.
 # No verified role → the stamp says so and names the fix; the persona layer then follows
-# ARCHITECT.md (any stamp other than `engineer`), matching the gate's union.
+# ARCHITECT.md (any stamp other than `engineer`), the restricted reading.
 if [[ -n "$ROLE" ]]; then
   ROLE_STAMP="[REIN_ROLE] ${ROLE}"
   [[ "$ROLE_LAUNCH" == "unverified" ]] && ROLE_STAMP="${ROLE_STAMP}
 [REIN_LAUNCH] unverified — no launch record on this process chain (plain launch); \`rein pane <role>\` binds one"
 else
   ROLE_STAMP="[REIN_ROLE] unverified
-[ROLE_UNVERIFIED] no verified role token for this session — every role's blocks apply. run: rein pane <role>"
+[ROLE_UNVERIFIED] the launch records on this process chain disagree or cannot be read. run: rein pane <role>"
 fi
 
 command -v python3 >/dev/null 2>&1 || exit 0
-
-# E-291 (D-083 r7): an active operator override is announced at session start, beside the
-# role stamp, so neither the operator nor the agent can miss that the gate is lifted.
-_GO_PY="$(rein_locate shared/gate-override.py || true)"
-if [[ -n "$_GO_PY" ]] && [[ -e "${HOME}/.rein/gate-override.json" || -L "${HOME}/.rein/gate-override.json" ]]; then
-  _GO_OUT="$(python3 -I "$_GO_PY" check "${HOME}/.rein/gate-override.json" 2>/dev/null)" && {
-    IFS=$'\t' read -r _ _GO_UNTIL _GO_REASON <<< "$_GO_OUT"
-    ROLE_STAMP="${ROLE_STAMP}
-[GATE_OVERRIDE] the operator lifted the safe-exec policy gate until ${_GO_UNTIL} (${_GO_REASON}). Catastrophic commands and gate self-disable still block. Do not extend or renew it."
-  }
-fi
 
 # E-326 (D-102 §Component 2): bring a team project's index up to the record files a pull
 # brought in while no session was running. E-342 (D-106 r2): a legacy project imports HEAD's
@@ -165,6 +138,22 @@ ${_IMP}"
   fi
 fi
 
+# E-430 (D-159 r3, harness-fitness.md §Component 1 Triggers): rebuild .ai/DIGEST.md before the
+# context is emitted, so no session reads a stale digest. The builder comes from the install
+# mirror (rein_locate, E-225), never from the project tree. Fail-open and silent on success:
+# the file is rewritten only when its inputs changed; an error leaves the old file and adds one
+# context line.
+if [[ -d ".ai" ]] && command -v node >/dev/null 2>&1; then
+  _DG="$(rein_locate shared/digest-build.mjs || true)"
+  if [[ -n "$_DG" ]]; then
+    _DGO="$(node --no-warnings "$_DG" build "$PWD" 2>/dev/null)" || {
+      _DGR="${_DGO#\[DIGEST_BUILD_FAILED\] }"
+      ROLE_STAMP="${ROLE_STAMP}
+[DIGEST_BUILD_FAILED] ${_DGR:-builder exited non-zero} — run: rein digest build"
+    }
+  fi
+fi
+
 # E-331 (D-102 §4): a team project fetches origin/<trunk> (E-341; bounded to 3 s, skipped offline —
 # git's own failure) so the claim gate and the banner below see teammates' claims, and lists
 # the IN_PROGRESS tasks there with their holders. No team.json: no fetch, no node.
@@ -177,21 +166,101 @@ ${_CLM}"
   fi
 fi
 
-BLOB=""
-if [[ "${REIN_DISABLE_CACHE:-0}" != "1" ]] && command -v node >/dev/null 2>&1; then
-  CM=""
-  CM="$(rein_locate mcp/cache-manager-mcp/index.js || true)"
-  [[ -n "$CM" ]] && BLOB="$(node --no-warnings "$CM" --emit-context 2>/dev/null)"
+# ── E-460 (D-169, lean-core.md §Component 3): the anomaly checks the preflight skill ran ──
+# Deterministic, and silent when nothing is wrong: each adds ONE line only on a failure.
+# (The fourth anomaly, a failed digest build, is the [DIGEST_BUILD_FAILED] line above.)
+ANOM=""
+_add_anom() { [[ -n "$1" ]] && ANOM="${ANOM}${ANOM:+
+}$1"; return 0; }
+if [[ -d ".ai" ]] && command -v node >/dev/null 2>&1; then
+  # State behind HEAD: the index lags the tracked state.json (E-344's verdict line).
+  _CS="$(rein_locate shared/cli-state.mjs || true)"
+  if [[ -n "$_CS" ]]; then
+    _SH="$(node --no-warnings "$_CS" state health --short 2>/dev/null || true)"
+    case "$_SH" in
+      "WARN: ["*) _add_anom "${_SH#WARN: }" ;;
+      WARN:*)     _add_anom "[STATE_HEALTH] ${_SH#WARN: }" ;;
+    esac
+  fi
+  # Stale build: a running MCP server booted older code than the install mirror holds.
+  _BS="$(rein_locate shared/build-stamp.mjs || true)"
+  if [[ -n "$_BS" ]]; then
+    _ST="$(node --no-warnings "$_BS" --stale 2>/dev/null || true)"
+    [[ -n "$_ST" ]] && _add_anom "${_ST} — restart the MCP servers before trusting their answers"
+  fi
+  # D-172 addendum 1 r24 (F8, accepted residual): a file under .ai/ or plans/ that is not a
+  # record can be run by a tool the Engineer points at the root. The Engineer is told; the
+  # rule lives in src/shared/lane-code.mjs only (`rein handoff` prints the same line).
+  if [[ "$ROLE" == "engineer" ]]; then
+    _LC="$(rein_locate shared/lane-code.mjs || true)"
+    [[ -n "$_LC" ]] && _add_anom "$(node --no-warnings "$_LC" "$PWD" 2>/dev/null || true)"
+  fi
+fi
+# Uncommitted COMM.md (D-104 r4): the handoff channel must be committed to reach the other role.
+_CMS="$(rein_locate shared/comm-status.sh || true)"
+if [[ -d ".ai" && -n "$_CMS" ]]; then
+  # shellcheck source=src/shared/comm-status.sh
+  . "$_CMS"
+  _CM_ST="$(rein_comm_status .)"
+  case "$_CM_ST" in
+    UNCOMMITTED*) _add_anom "[COMM_UNCOMMITTED] .ai/COMM.md has ${_CM_ST#UNCOMMITTED } line(s) not in HEAD — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;;
+    IGNORED)      _add_anom "[COMM_IGNORED] .ai/COMM.md is git-ignored, so a handoff never reaches the other role — run: rein sync" ;;
+  esac
 fi
 
-printf '%s\n\n%s' "$ROLE_STAMP" "$BLOB" | python3 -c '
-import json, sys
-blob = sys.stdin.read()
-sys.stdout.write(json.dumps({
-    "hookSpecificOutput": {
-        "hookEventName": "SessionStart",
-        "additionalContext": blob,
-    }
-}))
+_BRANCH="$(git symbolic-ref -q --short HEAD 2>/dev/null || true)"
+[[ -z "$_BRANCH" ]] && _BRANCH="$(git rev-parse -q --short HEAD 2>/dev/null)" && _BRANCH="detached at ${_BRANCH}"
+
+# The brief: the stamp first, then the branch, the role's next five open tasks, the last
+# handoff's heading and the anomalies. Capped at 2048 bytes (UTF-8) on a line boundary; the
+# stamp's first line always survives. Built in python3, which the envelope needs anyway.
+REIN_BRIEF_STAMP="$ROLE_STAMP" REIN_BRIEF_ANOM="$ANOM" REIN_BRIEF_ROLE="$ROLE" \
+REIN_BRIEF_BRANCH="${_BRANCH:-}" python3 -I -c '
+import json, os, re
+LIMIT, TASK_W = 2048, 160
+env = os.environ
+role = env.get("REIN_BRIEF_ROLE", "")
+prefix = "P-" if role == "architect" else "E-"
+out = [l[:300] for l in env.get("REIN_BRIEF_STAMP", "").splitlines() if l.strip()]
+if env.get("REIN_BRIEF_BRANCH"):
+    out.append("Branch: " + env["REIN_BRIEF_BRANCH"])
+def read(p):
+    try:
+        with open(p, encoding="utf-8", errors="replace") as f: return f.read()
+    except OSError: return None
+# D-172 r15: OPEN tasks of this role (not BLOCKED), highest id first, from the state.json view (it
+# has the status); without it, the TASKS.md rows (open or blocked: that view shows no status).
+try:
+    st = json.loads(read(".ai/state.json") or "null")
+    rows = [(t["id"], str(t.get("description") or ""), t.get("tier")) for t in st.get("tasks", [])
+            if isinstance(t, dict) and t.get("status") == "OPEN" and re.fullmatch(re.escape(prefix) + r"\d+", str(t.get("id", "")))]
+except (ValueError, AttributeError, TypeError, KeyError):
+    rows, tasks = None, read(".ai/TASKS.md")
+    if tasks is not None:
+        rows = []
+        for tid, text in re.findall(r"^- \[ \] (" + re.escape(prefix) + r"\d+): (.*)$", tasks, re.M):
+            m = re.search(r"\s*\|\s*Tier:\s*(\d)\s*$", text)
+            rows.append((tid, text[:m.start()] if m else text, int(m.group(1)) if m else None))
+if rows is not None:
+    rows.sort(key=lambda r: int(r[0][len(prefix):]), reverse=True)
+    out.append(f"Next {prefix}## tasks ({min(5, len(rows))} of {len(rows)} open, highest id first; orders: .ai/TASKS.md):" if rows else f"No open {prefix}## tasks in .ai/TASKS.md.")
+    for tid, body, tier in rows[:5]:
+        body = " ".join(body.split())
+        if len(body) > TASK_W: body = body[:TASK_W - 1].rstrip() + "…"
+        out.append(f"- {tid}: {body}" + (f" | Tier {tier}" if tier in (1, 2, 3) else ""))
+comm = read(".ai/COMM.md")
+if comm:
+    heads = re.findall(r"^## .*$", comm, re.M)
+    if heads: out.append("Last handoff (.ai/COMM.md): " + heads[-1][3:].strip()[:200])
+out += [l[:400] for l in env.get("REIN_BRIEF_ANOM", "").splitlines() if l.strip()]
+text = "\n".join(out)
+if len(text.encode()) > LIMIT:
+    mark = "[BRIEF_TRUNCATED] the session brief passed 2048 bytes"
+    keep = []
+    for l in out:
+        if len(("\n".join(keep + [l, mark])).encode()) > LIMIT: break
+        keep.append(l)
+    text = "\n".join((keep or [out[0][:LIMIT - len(mark) - 1]]) + [mark])
+print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext": text}}), end="")
 ' 2>/dev/null || exit 0
 exit 0

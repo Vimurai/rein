@@ -32,6 +32,12 @@ for _p in "${HOME}/.rein/shared/toolchain-pin.sh" "${BASH_SOURCE[0]%/*}/../src/s
 done
 unset _v _p
 
+# E-462: record a commit made outside the Architect's lane, for the pre-push lane check
+# (src/shared/lane-ledger.mjs). Silent where the ledger is read-only: the Architect's sandbox.
+_LL="${HOME}/.rein/shared/lane-ledger.mjs"
+_LR="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+[[ -n "$_LR" && -f "$_LL" ]] && command -v node >/dev/null 2>&1 && { node "$_LL" record --root "$_LR" || true; }
+
 COMMIT_MSG=$(git log -1 --format="%s %b" 2>/dev/null || true)
 [[ -z "$COMMIT_MSG" ]] && exit 0
 

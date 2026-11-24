@@ -65,9 +65,12 @@ File naming:
 
 ## Step 4 — Register E-## Tasks
 
-After writing the blueprint, use `task-planner` skill to write the corresponding E-## tasks to TASKS.md:
+After writing the blueprint, register the corresponding E-## tasks with `add_task` (E-461). It
+refuses a task with no tier, no imperative verb, or an `Acceptance:` text in which no clause
+names a command, a file or a count:
 ```
-skill: "task-planner"
+mcp__task-synchronizer-mcp__add_task({ owner: "Engineer (Claude)", prefix: "E", tier: 2,
+  description: "Add … per .ai/blueprints/<domain>.md §… Acceptance: `<command>` exits 0; …" })
 ```
 
 ## Step 5 — Confirm

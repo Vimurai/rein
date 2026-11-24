@@ -1,0 +1,13 @@
+# machine-local.list — files Rein generates for ONE machine or ONE developer (D-165 r1, E-448).
+# The one copy of the list: `rein init`/`rein sync` write it into .gitignore
+# (_ensure_generated_gitignore), `rein doctor` fails when one is tracked, and the pre-commit
+# hook refuses a staged add or modify of one. One project-relative path per line.
+#
+# .claude/settings.json — install-time absolute hook paths and REIN_WORKSPACE (E-290, D-083 r2).
+# .ai/start.local.json — one developer's account binding (E-333, D-102 §8).
+# .ai/ci.local.json — one machine's CI env allow-list; may hold values (E-343, D-108 r9).
+# .ai/.last-import-blob — the index's last imported state.json blob (E-342, D-106 r2).
+.claude/settings.json
+.ai/start.local.json
+.ai/ci.local.json
+.ai/.last-import-blob

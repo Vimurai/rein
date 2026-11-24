@@ -98,19 +98,20 @@ usage() {
   cat <<USAGE
 rein — Rein v${VERSION}
 
-The shell CLI is a thin bootloader. Operational commands (planning, review,
-testing, archive, digest) now run as prompts inside Claude Code.
-See .ai/blueprints/cli-collapse.md for the migration map.
+The shell CLI owns the ledger and the bookkeeping commands; planning and
+building run inside Claude Code (D-170).
 
 Commands:
   rein install     Install configs to ~/.claude + ~/.config/github-copilot;
-                 enable agent teams; install hooks
+                 build the rein plugin (agents, skills, session hooks) and add
+                 its local marketplace to Claude Code
   rein init        Create .ai/ in a new repo, or UPGRADE an existing one to the installed
                  version: refresh generated files, merge roles/providers, never touch
-                 BRIEF/RULES/SEED/DIGEST/TASKS/LOG/architect.md/blueprints
+                 BRIEF/RULES/SEED/DIGEST/TASKS/LOG/architect.md/blueprints;
+                 enable the rein plugin here; write the role settings files
   rein init --check  Dry run: list what rein init would change (exit 1 when anything would)
-  rein sync        Re-sync agents, skills, bootloaders (ENGINEER.md, ARCHITECT.md +
-                 CLAUDE.md shim, .mcp.json) and hooks into the project
+  rein sync        Re-sync bootloaders (ENGINEER.md, ARCHITECT.md + the role-neutral CLAUDE.md),
+                 .mcp.json, settings, rules and git hooks; enable the rein plugin
   rein sync --github   Fetch assigned GitHub issues for the Architect cycle (§28)
   rein sync --prune-providers
                  Remove the workspace directories of
@@ -124,6 +125,9 @@ Commands:
                  --json prints one document {schema, version, status, checks[]}
                  (default doctor only); --scope install runs only the checks that
                  judge the Rein home itself, from any directory (what an installer reads)
+  rein doctor --fitness [--json]
+                 The lean-core scorecard: one row per measure with value, target and
+                 PASS, FAIL or UNKNOWN (and why); --json prints the rows as an array
   rein uninstall   Remove the global ~/.rein install (project .ai/ stays)
   rein start [--status | --kill [--yes] | --account <name> | --detach | --dry-run]
                  Build or reattach the project's tmux Triad (one session per
@@ -142,8 +146,23 @@ Commands:
                  registered in ~/.rein/accounts.json; 'default' is ~/.claude
   rein add-task [flags] <description>
                  Register a task in .ai/state.sqlite from the shell (no MCP needed)
+  rein done <id> --summary <text>
+                 Close a task: DONE through the completion gates (exit 1 names the
+                 missing stamp), the LOG line, the digest rebuilt
+  rein handoff --to architect|engineer --file <entry>
+                 Append the entry to .ai/COMM.md, run rein archive, commit it with the
+                 dirty tracked .ai/ paths, print the sha and the SendMessage wake line
+  rein decide --file <entry>
+                 Number the entry D-### and append it to .ai/DECISIONS.md; it needs a
+                 decision, a reason and a rollback
+  rein archive [--logs]
+                 Move COMM.md handoffs older than the last ten, and SECURITY.md and
+                 REVIEWS.md sections older than 90 days, to .ai/archive/<FILE>-<year>.md;
+                 --logs also moves LOG.md and SESSION.md to .ai/archive/YYYY-MM/
   rein task done <id> [--summary <text>]
                  Mark a task DONE through the same completion gates as the MCP tool
+  rein task show <id>
+                 Print one task, open or closed (TASKS.md lists open tasks only)
   rein task claim <id> | release <id> [--reason <text>] | claims [--fetch]
                  Team projects (D-102): claim a task on origin/<trunk> before writing
                  source for it, release it on abandon, list who holds what
@@ -164,6 +183,14 @@ Commands:
                  with a throwaway HOME; exit 0 PASS / 1 FAIL / 2 ERROR
   rein ci status [--ref <sha>] [--short] | rein ci list [-n N] | rein ci log [<sha>] [--failed]
                  Read the recorded local CI runs (.ai/state.sqlite ci_runs)
+  rein digest build | check
+  rein review <1|2|3> [--base <ref>]
+                 Review by tier (E-464, D-169 r8): run the deterministic checks on the
+                 diff and print the agents to dispatch — 1 none; 2 reviewer, then
+                 critic_acceptance; 3 those and security_engineer. Exit 1 on a P0.
+                 The DONE gate checks their stamps; a commit needs none.
+                 .ai/DIGEST.md is a generated view (D-159): build rewrites it from the
+                 tracked inputs when they changed; check exits 1 [DIGEST_STALE] when stale
   rein clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]
                  List (and, with --apply, remove) what earlier Rein versions left
                  behind. Dry run by default; removals move to ~/.rein/trash/<date>/
@@ -181,44 +208,13 @@ Commands:
   rein release verify <tarball> [--pubkey <file>]
                  With --pubkey, check the .minisig first; then every member against the
                  manifest inside the tarball (exit 0/3)
-  rein gate off [--minutes N] [--reason TEXT] | on | status
-                 Operator-only escape from the safe-exec policy gate (E-291): a
-                 time-boxed override (default 15, max 60 min). Catastrophic commands
-                 still block; every bypassed call is announced. Run it in YOUR terminal.
   rein version     Print version
-
-Removed — use the agent skill instead (see .ai/blueprints/cli-collapse.md):
-  update / onboard → Run 'rein start', type the planning request in the Architect pane
-  preflight        → skill: rein-preflight  (auto-runs at session start)
-  digest           → skill: rein-digest
-  archive          → skill: rein-archive
-  review           → skill: rein-review (Engineer) / skill: arch-review (Architect)
-  test [--vibe]    → skill: rein-test  (--generate | --fast | --vibe)
-  provider         → removed in v4; providers are configured in .ai/providers.json
-  where            → echo \$REIN  (now stored as ~/.rein)
 
 Recovery (used internally by install/init; surfaced by 'rein doctor' hints):
   migrate-state    Rebuild state from TASKS.md — lossy; refused with [LOSSY_RESEED] when the
                    committed state.json holds more (use: rein state import; or --from-tasks)
   mcp-setup        Install MCP-server npm deps under ~/.rein/mcp
 USAGE
-}
-
-# E-34: Show migration guidance for removed commands. Single source of truth
-# for the deprecation map so usage() and dispatch stay aligned.
-_show_deprecated() {
-  local old_cmd="$1" replacement="$2"
-  cat >&2 <<DEP
-
-[rein] "rein ${old_cmd}" was removed (see .ai/blueprints/cli-collapse.md).
-
-Use the agent flow instead:
-  ${replacement}
-
-The shell CLI is now scoped to: install, init, sync, doctor, uninstall.
-Run "rein" for the full command list.
-DEP
-  exit 1
 }
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -295,79 +291,6 @@ _wal_checkpoint_state_db() {
   _dr wal_checkpoint - "  ✓ WAL checkpoint complete (.ai/state.sqlite-wal flushed)"
 }
 
-# E-98: Regenerate .ai/REPO_MAP.md (AST repository map) during `rein sync`.
-# Runs the ast-parser-mcp generate-map CLI over the workspace. Per blueprint
-# §Execution Constraints this lives in `rein sync` (NOT the synchronous rein init /
-# preflight loops). A missing server or node returns 2 (skipped); a parse error
-# returns 1 (FAILED, E-339). REIN_DISABLE_REPO_MAP=1 is the rollback escape hatch.
-_generate_repo_map() {
-  [[ "${REIN_DISABLE_REPO_MAP:-}" == "1" ]] && { echo "  ⚠ REPO_MAP.md skipped (REIN_DISABLE_REPO_MAP=1)"; return 2; }
-  if ! command -v node >/dev/null 2>&1; then
-    echo "  ⚠ node not found — skipping REPO_MAP.md regeneration" >&2
-    return 2
-  fi
-  local server="${REIN}/mcp/ast-parser-mcp/index.js"
-  if [[ ! -f "$server" ]]; then
-    echo "  ⚠ ast-parser-mcp not installed — skipping REPO_MAP.md (run: rein install)" >&2
-    return 2
-  fi
-  # E-339 (D-107 r2): no 2>/dev/null — the cause of a failed map is the ✗ line. Non-fatal
-  # still holds in the sense of D-107 r1: every later step runs.
-  node "$server" --generate-map || return 1
-  echo "  ✓ .ai/REPO_MAP.md regenerated (AST repository map)"
-}
-
-# E-145 (self-learning-arc, W5-T1): refresh the Memory Palace candidate index during
-# sync so the multimodal-RAG memory layer stays current. API-FREE BY DESIGN — this only
-# SCANS the workspace for eligible artifacts (memory-batch-scanner) and writes the candidate
-# manifest to .ai/memory/palace-index.json. The actual embedding into the Memory Palace is
-# the memory_curator agent's job (it has API access in a session) — a sync hook must never
-# require network/keys. Fail-open; REIN_DISABLE_MEMORY_PALACE=1 is the escape hatch.
-_generate_memory_palace() {
-  [[ "${REIN_DISABLE_MEMORY_PALACE:-}" == "1" ]] && { echo "  ⚠ Memory Palace index skipped (REIN_DISABLE_MEMORY_PALACE=1)"; return 2; }
-  command -v node >/dev/null 2>&1 || { echo "  ⚠ node not found — skipping Memory Palace index" >&2; return 2; }
-  local scanner=""
-  scanner="$(_rein_helper shared/memory-batch-scanner.mjs || true)"
-  [[ -z "$scanner" ]] && { echo "  ⚠ memory-batch-scanner.mjs not found — skipping Memory Palace index" >&2; return 2; }
-  # Every command below is guarded so a filesystem error can NEVER abort do_sync
-  # under `set -euo pipefail` (fail-open is the load-bearing invariant — E-145 W5-T1).
-  mkdir -p ".ai/memory" 2>/dev/null || { echo "  ⚠ cannot create .ai/memory — Memory Palace index not written" >&2; return 1; }
-  if node "$scanner" --scan . > ".ai/memory/palace-index.json.tmp"; then
-    # E-346 (D-109 r3): a failed rename leaves the old index in place — FAILED, not ok.
-    mv -f ".ai/memory/palace-index.json.tmp" ".ai/memory/palace-index.json" \
-      || { rm -f ".ai/memory/palace-index.json.tmp"; return 1; }
-    # palace-index.json is the sync-time CANDIDATE manifest (observability + a fresh
-    # input the memory_curator agent MAY read). The curator currently runs its own
-    # scan when it embeds; wiring it to consume this manifest is an Architect call
-    # (scan-on-sync is a §35 seam, not yet in a blueprint — flagged for ratification).
-    echo "  ✓ .ai/memory/palace-index.json refreshed (Memory Palace candidate manifest)"
-  else
-    rm -f ".ai/memory/palace-index.json.tmp" 2>/dev/null || true
-    return 1   # E-339: the scanner's stderr is the ✗ line
-  fi
-}
-
-# E-112 (caching.md §3.1): rebuild the cache-manager System Context cache during
-# sync so the cache-manager-mcp is actually exercised in a live flow (it was
-# built but never invoked). Fail-open; REIN_DISABLE_CACHE=1 is the escape hatch.
-_rebuild_context_cache() {
-  [[ "${REIN_DISABLE_CACHE:-}" == "1" ]] && { echo "  ⚠ context cache skipped (REIN_DISABLE_CACHE=1)"; return 0; }
-  if ! command -v node >/dev/null 2>&1; then
-    echo "  ⚠ node not found — skipping context cache rebuild" >&2
-    return 0
-  fi
-  local server="${REIN}/mcp/cache-manager-mcp/index.js"
-  if [[ ! -f "$server" ]]; then
-    echo "  ⚠ cache-manager-mcp not installed — skipping context cache (run: rein install)" >&2
-    return 0
-  fi
-  if node "$server" --build 2>/dev/null; then
-    echo "  ✓ context cache rebuilt (cache-manager System Context)"
-  else
-    echo "  ⚠ context cache rebuild failed — non-fatal (sync continues)" >&2
-  fi
-}
-
 # E-62: Resolve canonical Rein framework clone path. Order (E-304: file first):
 #   1. ${REIN}/config/rein-workspace.txt (persisted by install-rein.sh)
 #   2. $REIN_WORKSPACE if exported and no file exists
@@ -420,18 +343,10 @@ generate_mcp_json() {
 import json, sys, os
 registry_path, mcp_path, home, rein, mcp_key, legacy_path = sys.argv[1:7]
 
-servers = {
-  "filesystem": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-filesystem@2026.1.14", "."],
-    "description": "Scoped filesystem access — enforces CAPABILITIES.md path restrictions. Restricts to project root by default."
-  },
-  "memory": {
-    "command": "npx",
-    "args": ["-y", "@modelcontextprotocol/server-memory@2026.1.26"],
-    "description": "Knowledge-graph memory store. Queryable alternative/supplement to DIGEST.md for semantic lookups."
-  }
-}
+# D-170 r5 (E-467): the third-party filesystem and memory servers are retired; only
+# registry servers are generated. Both names stay in registry_history, so a project's
+# old entries are removed as owned on the next sync.
+servers = {}
 
 # The install root as written into the file: `${HOME}/…` whenever it lives under HOME (it
 # always does — REIN is ${HOME}/.rein), an absolute path only if it somehow does not.
@@ -638,173 +553,8 @@ _locate_role_manifest() {
   return 1
 }
 
-# _provider_source_dirs <provider> [--agents|--roles] → one source dir per line.
-# Unions the `shared` role with every role .ai/roles.json binds to <provider>, per the
-# registry.json manifest. Empty output is a NORMAL state (a provider serving no role).
-# Fail-open: if the resolver or node is unavailable, prints nothing and the caller
-# falls back to its legacy hardcoded set, so sync never breaks on a missing helper.
-_provider_source_dirs() {
-  local provider="$1" flag="${2:-}"
-  local rm; rm="$(_locate_role_manifest || true)"
-  [[ -z "$rm" ]] && return 0
-  command -v node >/dev/null 2>&1 || return 0
-  node --no-warnings "$rm" ".ai" "${REIN}/config/registry.json" "$provider" "$flag" 2>/dev/null || true
-}
-
-# _provision_workspace <provider> <workspace_dir> <copy_agents:yes|no> [legacy_skill_dirs...]
-# Copies every source skill dir the provider serves into <workspace_dir>/skills, and
-# (when copy_agents=yes) every agent dir into <workspace_dir>/agents. Falls back to the
-# caller-supplied legacy dirs when the manifest yields nothing, so a project whose
-# registry.json predates E-212 provisions exactly as before.
-#
-# Additive by design (sync_skills_20 is cp -rf, never a prune) — matches existing
-# behaviour: rebinding a role leaves the previous provider's copies until it re-syncs.
-# NOTE ON BASH 3.2 (macOS ships 3.2.57, and this script runs under `set -u`):
-# expanding an EMPTY array as "${arr[@]}" raises "unbound variable" on 3.2 — it only
-# became safe in bash 4.4. Every array expansion below is therefore either guarded by
-# a ${#arr[@]} count or written as ${arr[@]+"${arr[@]}"}. An unserved provider yields
-# an empty list, which is a NORMAL state, so this is the common path, not an edge case.
-# _sync_skills_no_clobber <src_dir> <dst_dir> <label> — E-212 collision guard.
-#
-# WHY: two roles can ship DIFFERENT skills under the SAME name. `rein-task` is the live
-# case — src/shared/skills/rein-task manages the Engineer's E-## lifecycle, while
-# src/agents/skills/rein-task manages the Architect's P-## lifecycle and hands off to
-# Claude. (`repo-oracle` is the second.)
-#
-# THE OVERRIDE RULE DEPENDS ON HOW MANY ROLES THE WORKSPACE SERVES:
-#   - SINGLE-role workspace: a role skill legitimately OVERRIDES the shared baseline.
-#     That is the historical behaviour (an Architect pane gets the Architect's rein-task)
-#     and it is preserved exactly — changing it would regress every split Triad.
-#   - MULTI-role workspace (the D-054 same-provider case): the "override" is no longer
-#     meaningful, because the shared copy is what the OTHER role in the same directory
-#     reads. A flat skills dir cannot hold both, and do_sync cannot know which role the
-#     reading pane will hold — so the shared baseline is KEPT and the role variant is
-#     reported rather than silently swapped in. Without this, the Engineer pane loaded
-#     the Architect's task skill; verified live, it did.
-#
-# The real fix — role-scoped skill directories, or renaming the colliding Architect
-# skills — changes the skill-discovery contract and is an Architect ruling
-# (architect-provider-parity.md §Components 2 does not cover same-name collisions).
-# Escalated 2026-09-07.
-_sync_skills_no_clobber() {
-  local src_dir="$1" dst_dir="$2" label="$3"
-  local count=0 skipped=0 skill_dir name
-  for skill_dir in "${src_dir}"/*/; do
-    [[ -d "$skill_dir" && -f "${skill_dir}SKILL.md" ]] || continue
-    name="$(basename "$skill_dir")"
-    # A name already on DISK is not evidence of a collision: it may simply be a stale
-    # copy this same source wrote on an earlier sync. Only a name PROVIDED BY ANOTHER
-    # SOURCE IN THIS RUN is a real two-role collision. Comparing against disk residue
-    # reported `task-planner` — a skill that exists in exactly one source dir — the
-    # moment its content was edited. bash 3.2 has no associative arrays, so the claim
-    # set is a delimited string.
-    if [[ -e "${dst_dir}/${name}" ]] && [[ "${_SKILL_CLAIMS:-}" == *"|${name}|"* ]]; then
-      # Identical content is not a collision — it is the same skill shipped twice.
-      if ! diff -rq "${skill_dir%/}" "${dst_dir}/${name}" >/dev/null 2>&1; then
-        # E-217 (D-055 R2): a collision in a MULTI-ROLE workspace is now an ERROR, not
-        # a warning. The Architect ruled the resolution is renaming (arch-task /
-        # arch-oracle), so a remaining collision means a skill was added without one —
-        # and silently keeping the older copy is exactly how the Engineer pane ended up
-        # loading the Architect's rein-task. Single-role workspaces never reach here:
-        # they keep the historical role-overrides-shared behaviour.
-        echo "  ✗ COLLISION: '${name}' from ${label} differs from the copy already in ${dst_dir}." >&2
-        echo "    A multi-role workspace cannot hold two different skills under one name." >&2
-        echo "    Rename the role-specific one (see arch-task / arch-oracle, D-055 R2)." >&2
-        skipped=$((skipped + 1))
-        SKILL_COLLISIONS=$((${SKILL_COLLISIONS:-0} + 1))
-      fi
-      continue
-    fi
-    cp -rf "${skill_dir%/}" "${dst_dir}/"
-    _SKILL_CLAIMS="${_SKILL_CLAIMS:-|}${name}|"
-    count=$((count + 1))
-  done
-  # Legacy flat .md files: same first-wins rule.
-  local f
-  for f in "${src_dir}"/*.md; do
-    [[ -f "$f" ]] || continue
-    [[ -e "${dst_dir}/$(basename "$f")" ]] && continue
-    cp -f "$f" "${dst_dir}/"
-  done
-  echo "  $count Skills 2.0 folder(s) synced from ${src_dir}$([[ "$skipped" -gt 0 ]] && echo " (${skipped} name collision(s) — see errors above)")"
-  _generate_skills_index "${dst_dir}"
-}
-
-# _provision_workspace <provider> <ws> <copy_skills:yes|no> <copy_agents:yes|no> [legacy_skill_dirs...]
-_provision_workspace() {
-  local provider="$1" ws="$2" copy_skills="$3" copy_agents="$4"; shift 4
-  local -a legacy=()
-  [[ "$#" -gt 0 ]] && legacy=("$@")
-  local -a skill_dirs=() agent_dirs=()
-  local line
-
-  while IFS= read -r line; do [[ -n "$line" ]] && skill_dirs+=("$line"); done < <(_provider_source_dirs "$provider")
-  # A provider bound to NO role keeps its historical provisioning rather than being
-  # stripped back to `shared` only. Rebinding a role
-  # must not quietly empty the other provider's workspace: the user may switch back,
-  # and sync is additive everywhere else. The manifest always yields at least
-  # `shared/skills`, so the emptiness test is on SERVED ROLES, not on the dir list.
-  if [[ "${#legacy[@]}" -gt 0 ]]; then
-    local _served_probe; _served_probe="$(_provider_source_dirs "$provider" --roles)"
-    [[ -z "$_served_probe" ]] && skill_dirs=("${legacy[@]}")
-  fi
-
-  # How many roles this workspace serves decides the override rule (see the comment
-  # on _sync_skills_no_clobber). One role → historical overwrite semantics; two or
-  # more → keep the shared baseline and report the collision.
-  local -a served_roles=()
-  while IFS= read -r line; do [[ -n "$line" ]] && served_roles+=("$line"); done < <(_provider_source_dirs "$provider" --roles)
-  local multi_role=0
-  [[ "${#served_roles[@]}" -gt 1 ]] && multi_role=1
-
-  if [[ "$copy_skills" == "yes" ]]; then
-  # Names claimed by an earlier SOURCE while provisioning THIS workspace.
-  _SKILL_CLAIMS="|"
-  mkdir -p "${ws}/skills"
-  if [[ "${#skill_dirs[@]}" -gt 0 ]]; then
-    local first=1
-    for line in "${skill_dirs[@]}"; do
-      [[ -d "${REIN}/${line}" ]] || continue
-      if [[ "$first" -eq 1 || "$multi_role" -eq 0 ]]; then
-        sync_skills_20 "${REIN}/${line}" "${ws}/skills"
-        first=0
-      else
-        _sync_skills_no_clobber "${REIN}/${line}" "${ws}/skills" "$line"
-      fi
-    done
-    # Prune with the SAME source array the copy above just consumed. Deriving the
-    # canonical list a second way would let provisioning and pruning disagree about
-    # what is canonical — which is precisely how a "cleanup" deletes something real.
-    local -a _abs=()
-    for line in "${skill_dirs[@]}"; do
-      [[ -d "${REIN}/${line}" ]] && _abs+=("${REIN}/${line}")
-    done
-    [[ "${#_abs[@]}" -gt 0 ]] && _prune_workspace_dir "${ws}/skills" "${_abs[@]}"
-  fi
-  fi
-
-  if [[ "$copy_agents" == "yes" ]]; then
-    while IFS= read -r line; do [[ -n "$line" ]] && agent_dirs+=("$line"); done < <(_provider_source_dirs "$provider" --agents)
-    mkdir -p "${ws}/agents"
-    if [[ "${#agent_dirs[@]}" -gt 0 ]]; then
-      for line in "${agent_dirs[@]}"; do
-        [[ -d "${REIN}/${line}" ]] && cp -f "${REIN}/${line}/"*.md "${ws}/agents/" 2>/dev/null || true
-      done
-      # E-273 (D-074 §Components 5): agents get the skills' manifest treatment. An agent
-      # sync wrote, nobody edited, and the role manifest no longer provides is pruned; an
-      # agent the user added was never recorded and is kept (E-220 evidence rule).
-      local -a _aabs=()
-      for line in "${agent_dirs[@]}"; do
-        [[ -d "${REIN}/${line}" ]] && _aabs+=("${REIN}/${line}")
-      done
-      [[ "${#_aabs[@]}" -gt 0 ]] && _prune_workspace_dir "${ws}/agents" "${_aabs[@]}"
-    fi
-  fi
-
-  local served; served="$(_provider_source_dirs "$provider" --roles | tr '\n' ' ')"
-  [[ -n "$served" ]] && echo "  ${ws}/ serves role(s): ${served}"
-  return 0
-}
+# E-469: _provider_source_dirs, _provision_workspace and _sync_skills_no_clobber are removed —
+# the agents and skills are the rein plugin's (shared/plugin-build.mjs), not copied into .claude/.
 
 
 # ── E-220 (D-056 R2): manifest-scoped pruning ────────────────────────────────
@@ -1161,56 +911,6 @@ _provision_rules() {
   return 0
 }
 
-# ── E-291 (D-081 r2, D-083 r5-8): `rein gate off|on|status` ──────────────────────
-# The operator's escape from the safe-exec POLICY gate, replacing the two environment
-# switches (removed in E-291) that a project's settings `env` could set. It writes
-# ~/.rein/gate-override.json through src/shared/gate-override.py — the same module the hook
-# reads it with — so writer and reader agree on what "active" means. Default 15 minutes,
-# hard max 60 (clamped, with a notice). The catastrophic set and the self-disable guard
-# still block under an override, and every bypassed call is loud (systemMessage + telemetry).
-# Run it in YOUR terminal: the analyzer blocks `rein gate` for every agent role (GATE_SELF_DISABLE).
-_gate_py() { rein_locate shared/gate-override.py 2>/dev/null || printf '%s' "${REIN}/shared/gate-override.py"; }
-
-do_gate() {
-  local sub="${1:-status}"; shift || true
-  local f="${REIN}/gate-override.json" py out rc
-  py="$(_gate_py)"
-  [[ -f "$py" ]] || { echo "rein gate: ${py} missing — $(_rein_fix_install)" >&2; return 2; }
-  case "$sub" in
-    off)
-      local minutes=15 reason=""
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --minutes)   minutes="${2:-}"; shift 2 ;;
-          --minutes=*) minutes="${1#*=}"; shift ;;
-          --reason)    reason="${2:-}"; shift 2 ;;
-          --reason=*)  reason="${1#*=}"; shift ;;
-          *) echo "rein gate off: unknown argument '$1' (usage: rein gate off [--minutes N] [--reason TEXT])" >&2; return 2 ;;
-        esac
-      done
-      out="$(python3 -I "$py" write "$f" "$minutes" "$reason")" || return 2
-      local until m clamped
-      IFS=$'\t' read -r until m clamped <<< "$out"
-      [[ "$clamped" == "1" ]] && echo "rein gate: --minutes ${minutes} exceeds the 60-minute maximum — clamped to 60." >&2
-      echo "⚠ safe-exec policy gate OFF until ${until} (${m} min). Catastrophic commands and gate self-disable still block."
-      echo "  Every bypassed call is announced in the session. Restore early: rein gate on"
-      ;;
-    on)
-      rm -f "$f"
-      echo "✓ safe-exec gate fully on (no override)."
-      ;;
-    status)
-      out="$(python3 -I "$py" status "$f")"
-      case "$out" in
-        OK*)      IFS=$'\t' read -r _ until reason <<< "$out"; echo "⚠ override ACTIVE until ${until} (${reason}) — rein gate on to end it" ;;
-        IGNORED*) echo "! override file present but IGNORED (${out#IGNORED$'\t'}) — the gate is fully on" ;;
-        *)        echo "✓ no override — the safe-exec gate is fully on" ;;
-      esac
-      ;;
-    *) echo "Usage: rein gate off [--minutes N] [--reason TEXT] | on | status" >&2; return 2 ;;
-  esac
-}
-
 # E-286 (D-078): `rein doctor` line for the hook toolchain pin. Parsed with the same strict
 # pattern the hooks use (src/shared/toolchain-pin.sh) — never sourced.
 _doctor_toolchain_report() {
@@ -1231,21 +931,62 @@ _doctor_toolchain_report() {
       return 0
     fi
   done
-  _dr hook_toolchain - "  ✓ hook toolchain: node $("$node" --version 2>/dev/null) · python3 $("$py" -I -c 'import platform;print(platform.python_version())' 2>/dev/null)"
+  # E-433 (D-160 addendum 1): tmux, recorded for the pane waiting signal. Optional — a warning
+  # names a record pointing at a missing file, or a tmux on PATH the record lacks.
+  local tm="" tre='^REIN_TC_TMUX=(/[A-Za-z0-9._/@+:-]+)$' tv=""
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ "$line" =~ $tre ]] && tm="${BASH_REMATCH[1]}"
+  done < "$f"
+  [[ -n "$tm" && -f "$tm" && -x "$tm" ]] && tv=" · tmux $("$tm" -V 2>/dev/null | sed 's/^tmux //')"
+  _dr hook_toolchain - "  ✓ hook toolchain: node $("$node" --version 2>/dev/null) · python3 $("$py" -I -c 'import platform;print(platform.python_version())' 2>/dev/null)${tv}"
+  if [[ -n "$tm" && -z "$tv" ]]; then
+    _dr hook_toolchain warn "  ⚠ hook toolchain: tmux ${tm} missing — the pane waiting signal is off; $(_rein_fix_install)"
+  elif [[ -z "$tm" ]] && command -v tmux >/dev/null 2>&1; then
+    _dr hook_toolchain warn "  ⚠ hook toolchain: tmux is on PATH but not recorded — the pane waiting signal is off; $(_rein_fix_install)"
+  fi
 }
 
 # E-290 (D-083 r2-4): `rein doctor` lines for the hook form. Since E-290 .claude/settings.json
 # is generated (absolute exec-form hook paths) and gitignored, so a project can be missing
 # it, still track it, or carry entries from before E-290 that keep the shell-form line
 # running; and the git stubs in an existing clone are only refreshed by `rein sync`/`rein init`.
+# E-469 (D-170 r4): the rein plugin carries the agents, the skills and the session-start and
+# waiting-signal hooks. What it holds is read from ${REIN}/plugin; whether Claude Code loads it in
+# this project is `claude plugin list` in the config dir in force. One ✗ line names what is
+# missing, so a removed plugin is one line, not a line per unit it carries.
+_doctor_plugin_report() {
+  local pb u n_ag n_sk ag sk hk cfg
+  pb="$(_rein_helper shared/plugin-build.mjs || true)"
+  [[ -n "$pb" ]] && command -v node >/dev/null 2>&1 && u="$(node --no-warnings "$pb" units --rein-home "$REIN" 2>/dev/null || true)"
+  if [[ -z "${u:-}" || "$u" == "null" ]]; then
+    _dr claude_plugin - "  ✗ [PLUGIN_MISSING] ${REIN}/plugin is not built — the agents, skills and session hooks of ${_PLUGIN_ID} are missing; run: bash install-rein.sh" "bash install-rein.sh"
+    return 0
+  fi
+  IFS=$'\t' read -r n_ag ag n_sk sk hk < <(printf '%s' "$u" | python3 -c '
+import json, sys
+u = json.load(sys.stdin)
+print("\t".join([str(len(u["agents"])), ", ".join(u["agents"]), str(len(u["skills"])), ", ".join(u["skills"]), " ".join(u["hooks"])]))')
+  _dr claude_agents - "  ✓ plugin agents: ${n_ag} (${ag})"
+  _dr claude_skills - "  ✓ plugin skills: ${n_sk} (${sk})"
+  cfg="${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"
+  if ! command -v claude >/dev/null 2>&1; then
+    _dr claude_plugin warn "  ⚠ plugin ${_PLUGIN_ID}: cannot check — the claude CLI is not on PATH"
+  elif _plugin_enabled "$cfg"; then
+    _dr claude_plugin - "  ✓ plugin ${_PLUGIN_ID} enabled here ($(_acct_tilde "$cfg"); hooks: ${hk})"
+  else
+    _dr claude_plugin - "  ✗ [PLUGIN_NOT_ENABLED] plugin ${_PLUGIN_ID} is not enabled in this project ($(_acct_tilde "$cfg")) — its ${n_ag} agents, ${n_sk} skills and the ${hk} hooks do not load; run: rein sync" "rein sync"
+  fi
+  return 0
+}
+
 _doctor_hook_form_report() {
   local f=".claude/settings.json"
   if [[ ! -f "$f" ]]; then
     _dr project_settings_json - "  ✗ .claude/settings.json missing (generated since E-290) — run: rein sync"
   else
     # E-391 (D-132 addendum 4 r2): Rein hooks are recognised by file name in any directory
-    # (shared/hook-paths.py, the rule sync and the installer use too). A missing script or an
-    # unregistered gate is a hard failure: the hook exits 127, which is not a block.
+    # (shared/hook-paths.py, the rule sync and the installer use too). A missing script is a hard
+    # failure; an unregistered seatbelt is a warning (it is advice, E-463).
     local hp findings kind ev p stale="" bad=0
     hp="$(_rein_helper shared/hook-paths.py || true)"
     if [[ -z "$hp" ]]; then
@@ -1257,20 +998,44 @@ _doctor_hook_form_report() {
           MISSING)      _dr hook_path_missing - "  ✗ [HOOK_PATH_MISSING] ${p} (${ev}) — the hook cannot run; run: rein sync" "" "$p"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
           FOREIGN)      _dr hook_path_foreign - "  ✗ [HOOK_PATH_FOREIGN] ${p} (${ev}) — a Rein hook name outside ${REIN}/hooks; check it, then: rein sync" "" "$p"; bad=1 ;;
           FORM)         stale="${stale:+${stale} }${ev}:${p}" ;;
-          UNREGISTERED) _dr gate_registered - "  ✗ [GATE_UNREGISTERED] no PreToolUse entry runs ${REIN}/hooks/pre-tool-use.sh — run: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
+          UNREGISTERED) _dr seatbelt_registered warn "  ⚠ [SEATBELT_UNREGISTERED] no PreToolUse entry runs ${REIN}/hooks/pre-tool-use.sh (the seatbelt, advice) — run: rein sync" "rein sync"; bad=1 ;;
           DISABLED)     _dr hooks_disabled - "  ✗ [HOOKS_DISABLED] .claude/settings.json sets disableAllHooks — no Rein hook runs here; remove it, then: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
           UNPARSEABLE)  stale="unparseable" ;;
         esac
       done <<< "$findings"
+      # E-433 (D-160, release-artifact.md §Component 7): the waiting-on-the-operator signal is
+      # registered on every event of its table. Missing is a warning: no gate depends on it.
+      # E-469: the entries are the rein plugin's hooks/hooks.json (whether the plugin loads in
+      # this project is the claude_plugin line); rein install builds them.
+      local wmiss wrc=0 wf="${REIN}/plugin/hooks/hooks.json"
+      wmiss="$(python3 -I "$hp" waiting "$wf" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)" || wrc=$?
+      if [[ ! -f "$wf" ]]; then
+        :   # the plugin is not built: the claude_plugin line says so, once
+      elif [[ "$wrc" -ne 0 ]]; then
+        _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNKNOWN] hook-paths.py could not check the waiting signal — run: bash install-rein.sh" "bash install-rein.sh"
+      elif [[ -z "$wmiss" ]]; then
+        _dr waiting_signal_registered - "  ✓ waiting signal: waiting-signal.sh registered on every event (plugin ${_PLUGIN_ID})"
+      else
+        _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNREGISTERED] the plugin's hooks.json has no waiting-signal.sh entry on: ${wmiss} — run: bash install-rein.sh" "bash install-rein.sh"
+      fi
       if [[ -n "$stale" ]]; then
         _dr hook_form - "  ✗ .claude/settings.json: stale Rein hook entries (not exec-form /bin/bash -p under ${REIN}/hooks): ${stale} — run: rein sync"
       elif [[ "$bad" -eq 0 ]]; then
         _dr hook_form - "  ✓ .claude/settings.json: Rein hooks in exec form (/bin/bash -p, absolute path)"
       fi
     fi
-    if git ls-files --error-unmatch "$f" >/dev/null 2>&1; then
-      _dr settings_json_tracked - "  ! .claude/settings.json is tracked but machine-specific — run: git rm --cached .claude/settings.json"
+  fi
+  # E-448 (D-165 r5): a tracked machine-local file is a hard failure — the warning line it used to
+  # be was not read, and the file kept travelling. The list is shared/machine-local.list (r1).
+  local ml
+  while IFS= read -r ml; do
+    if git ls-files --error-unmatch "$ml" >/dev/null 2>&1; then
+      _dr settings_json_tracked - "  ✗ [MACHINE_LOCAL] ${ml} is tracked but generated for one machine — run: git rm --cached ${ml}" "git rm --cached ${ml}" "$ml"
+      _DOCTOR_HARD_FAIL=1
     fi
+  done < <(_machine_local_paths)
+  if [[ -z "$(_machine_local_paths)" ]]; then
+    _dr settings_json_tracked - "  ✗ [MACHINE_LOCAL] shared/machine-local.list not found — $(_rein_fix_install)"; _DOCTOR_HARD_FAIL=1
   fi
   local gd stub
   gd="$(git rev-parse --git-path hooks 2>/dev/null)" || return 0
@@ -1279,24 +1044,6 @@ _doctor_hook_form_report() {
     head -1 "${gd}/${stub}" | grep -qx '#!/bin/bash -p' || _dr git_stub - "  ✗ git ${stub} stub predates E-290 (not #!/bin/bash -p) — run: rein sync" "" "$stub"
   done
   return 0
-}
-
-# E-282: `rein doctor` line for .claude/rules/. Missing = a shipped rule is absent; stale = it
-# differs from the shipped copy. A rule the user edited reads as stale too — sync keeps it,
-# so the message says so instead of implying sync will overwrite it.
-_doctor_gate_report() {
-  local gp st
-  gp="$(_rein_helper shared/gate-probe.sh || true)"
-  if [[ -z "$gp" ]]; then
-    _dr safe_exec_gate - "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — $(_rein_fix_install)"; return 0
-  fi
-  # shellcheck source=src/shared/gate-probe.sh
-  . "$gp"
-  if st="$(rein_gate_probe)"; then
-    _dr safe_exec_gate - "  ✓ safe-exec gate: ${st}"
-  else
-    _dr safe_exec_gate - "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — $(_rein_fix_install)"
-  fi
 }
 
 # E-338 (D-104 r4a): detection, not cooperation — the model may forget the commit, doctor
@@ -1314,6 +1061,21 @@ _doctor_comm_report() {
     tracked)       _dr comm_channel - "  ✓ tracked and committed" ;;
     absent)        _dr comm_channel - "  ✓ no handoff written yet" ;;
     *)             _dr comm_channel ok "  - not a git work tree" ;;
+  esac
+}
+
+# E-429 (D-159 r6, harness-fitness.md §API): the digest record. Stale or unreadable inputs
+# warn; the builder is the fix. Never a hard fail.
+_doctor_digest_report() {
+  local dg out
+  dg="$(_rein_helper shared/digest-build.mjs || true)"
+  [[ -n "$dg" ]] || { _dr digest - "  ! digest-build.mjs not installed — $(_rein_fix_install)"; return 0; }
+  # check exits 1 when stale: under `set -euo pipefail` an unguarded $(…) would end doctor here.
+  out="$(node --no-warnings "$dg" check "$PWD" 2>/dev/null | head -1)" || true
+  case "$out" in
+    "[DIGEST_OK]"*) _dr digest - "  ✓ ${out}" ;;
+    "")             _dr digest warn "  ⚠ [DIGEST_STALE] check printed nothing — run: rein digest build" ;;
+    *)              _dr digest warn "  ⚠ ${out}" ;;
   esac
 }
 
@@ -1337,20 +1099,21 @@ _doctor_rules_report() {
 
 _sync_workspace_dirs() {
   local mode="${1:-sync}"
-  # E-217: counts unresolved multi-role skill-name collisions across every workspace.
-  SKILL_COLLISIONS=0
 
-  mkdir -p ".claude/agents" ".claude/skills" ".claude/commands"
-  # E-212: role-aware. Under an all-Claude Triad (D-054) this pulls in the Architect's
-  # skills and agents too, instead of only the Engineer-side src/claude/* dirs.
-  _provision_workspace "claude" ".claude" "yes" "yes" "shared/skills" "claude/skills"
+  mkdir -p ".claude"
+  # E-469 (D-170 r4): the agents and skills are the rein plugin's (${REIN}/plugin), no longer
+  # copied into .claude/. The settings first (the plugin install adds enabledPlugins beside them),
+  # then the plugin; the old copies go only once the plugin is enabled here.
   _configure_project_claude_settings ".claude"
-  _write_role_settings_overlays ".claude" ".ai"   # E-208: per-role overlays
+  if _plugin_enable_project; then _prune_plugin_copies; fi
+  # E-462: no role settings here. They live in ~/.rein/roles/ and `rein pane` / `rein start`
+  # write them at every launch — a copy written at sync time would only be older, and a sync
+  # inside a role's sandbox (or a test's temp project) has no business in ~/.rein.
   _provision_rules ".claude/rules"                 # E-282: path-scoped rules
   if [[ "$mode" == "init" ]]; then
-    echo "Created .claude/ (project-scoped agents + skills + settings.json)"
+    echo "Created .claude/ (settings.json + rules; agents, skills and session hooks: plugin ${_PLUGIN_ID})"
   else
-    echo "  .claude/ synced (agents + skills + _SKILLS_INDEX.md + settings.json)"
+    echo "  .claude/ synced (settings.json + rules; agents, skills and session hooks: plugin ${_PLUGIN_ID})"
   fi
 
   # E-254 (D-069): v4 is Claude-native — one provider, three Claude roles — so there is
@@ -1368,7 +1131,6 @@ ensure_ai_templates() {
 
   ensure_file_if_missing "$T/RULES.md"         ".ai/RULES.md"
   ensure_file_if_missing "$T/SEED.md"          ".ai/SEED.md"
-  ensure_file_if_missing "$T/DIGEST.md"        ".ai/DIGEST.md"
   ensure_file_if_missing "$T/BRIEF.md"         ".ai/BRIEF.md"
   ensure_file_if_missing "$T/TASKS.md"         ".ai/TASKS.md"
   ensure_file_if_missing "$T/LOG.md"           ".ai/LOG.md"
@@ -1376,6 +1138,14 @@ ensure_ai_templates() {
   ensure_file_if_missing "$T/state.json"          ".ai/state.json"
   ensure_file_if_missing "$T/roles.json"          ".ai/roles.json"   # E-135: Role Configuration Store
   ensure_file_if_missing "$T/providers.json"      ".ai/providers.json" # E-138: Provider Adapter Registry
+  # E-430 (D-159 r1): the first digest comes from the builder, never from a template — it is a
+  # generated view. Only when absent; a failure is reported and never stops init.
+  if [[ ! -e .ai/DIGEST.md && ! -L .ai/DIGEST.md ]]; then
+    local _dg; _dg="$(_rein_helper shared/digest-build.mjs || true)"
+    if [[ -z "$_dg" ]] || ! node --no-warnings "$_dg" build "$PWD" >/dev/null 2>&1; then
+      echo "  ⚠ [DIGEST_BUILD_FAILED] .ai/DIGEST.md not built — run: rein digest build" >&2
+    fi
+  fi
 
   # E-270 (D-074 §Components 2): an EXISTING roles.json/providers.json is merged with the
   # template (missing roles added, retired providers and the roles bound to them dropped)
@@ -1401,15 +1171,14 @@ ensure_ai_templates() {
   # .mcp.json — always regenerate to pick up new servers. Servers the user added and env
   # they set on ours are carried over (E-274; see generate_mcp_json).
   generate_mcp_json "."
-  echo "Updated .mcp.json (MCP servers: filesystem + memory + Rein custom servers)"
+  echo "Updated .mcp.json (MCP servers: the Rein servers in registry.json)"
 
   # Bootloaders (D-050/E-183): ENGINEER.md/ARCHITECT.md are the canonical rulefiles;
-  # CLAUDE.md is a thin @import shim so Claude Code's auto-load
-  # still bootstraps the right persona. Copy all four so skill invocation stays current.
+  # CLAUDE.md is role-neutral (D-172 r11): `rein pane` appends the role's rulefile.
   cp -f "$T/ENGINEER.md"  "ENGINEER.md"
   cp -f "$T/ARCHITECT.md" "ARCHITECT.md"
   cp -f "$T/CLAUDE.md"    "CLAUDE.md"
-  echo "Updated ENGINEER.md/ARCHITECT.md (canonical bootloaders) + CLAUDE.md (shim)"
+  echo "Updated ENGINEER.md/ARCHITECT.md (canonical bootloaders) + CLAUDE.md (role-neutral)"
 
   # .claude/ — the project-scoped agent dir (v3.0 W3-T3: shared helper).
   _sync_workspace_dirs init
@@ -1443,116 +1212,195 @@ migrate_legacy_ai_if_present() {
 # agent teams env var and registry-driven MCP tool permissions.
 # $1: target dir (e.g. ".claude")
 
-# ── E-208 (D-054, role-abstraction.md §Components 3): per-role settings overlay ──
-# Generates .claude/settings.<role>.json for every role that .ai/roles.json maps to
-# the `claude` provider. `rein pane <role>` selects it via `claude --settings <file>`.
+# ── E-462 (D-169 r3, lean-core.md §Component 1): the role settings files ──────────────────
+# Generates the boundary of each pane role mapped to claude: settings.<role>.json (sandbox, write
+# list, path rules, no bypass) and, for the Architect, mcp.architect.json (the state server only),
+# by src/shared/role-settings.mjs — the shape E-458 measured (plans/e-458-sandbox-measurement.md).
 #
-# The overlay carries ENV ONLY — deliberately NO SessionStart hook. Claude Code
-# MERGES hook arrays rather than replacing them, so registering a second
-# `session-start.sh <role>` here would mint TWO role tokens for one session id with
-# undefined ordering (D-054 §Alternatives, option 3). The launch-time role reaches
-# the hook through REIN_PANE_ROLE instead, which has a single authoritative value.
+# $1: output dir. Empty (the default) = the role dir ~/.rein/roles/<project key>/, which the
+#     Engineer's sandbox write-denies and the Architect's does not list: neither session can edit
+#     a role file (gap 3 of E-458 — in .claude/ the Engineer could write the Architect's).
+# $2: the .ai dir (default .ai); the project is its parent.
+# Prints one line per file written. Returns 1 when it cannot write (inside a role's sandbox, where
+# ~/.rein is read-only by design) — `rein pane` and `rein start` run outside it and refuse then.
+#
+# Still NO hooks in a role file (E-208, D-054 option 3): Claude Code merges hook arrays, so a
+# hook here would run twice next to the project's .claude/settings.json.
 _write_role_settings_overlays() {
-  local target_dir="${1:-.claude}"
-  local ai_dir="${2:-.ai}"
+  local out="${1:-}" ai_dir="${2:-.ai}" gen
   [[ -d "$ai_dir" ]] || return 0
-  command -v python3 >/dev/null 2>&1 || return 0
-  python3 - "$target_dir" "$ai_dir" <<'PY'
-import json, os, sys
+  gen="$(_rein_helper shared/role-settings.mjs || true)"
+  if [[ -z "$gen" ]] || ! command -v node >/dev/null 2>&1; then
+    echo "  ✗ role settings: role-settings.mjs or node not found — $(_rein_fix_install)" >&2
+    return 1
+  fi
+  local -a a=(write --ai-dir "$ai_dir")
+  [[ -n "$out" ]] && a+=(--out "$out")
+  local f rc=0
+  while IFS= read -r f; do
+    [[ "$f" == "__FAILED__" ]] && { rc=1; continue; }
+    [[ -n "$f" ]] && echo "  role settings written: $(_acct_tilde "$f")"
+  done < <(node --no-warnings "$gen" "${a[@]}" || echo "__FAILED__")
+  return "$rc"
+}
 
-target_dir, ai_dir = sys.argv[1], sys.argv[2]
+# The role dir of the project that owns $1 (an .ai dir). Prints nothing on failure.
+_role_settings_dir() {
+  local gen; gen="$(_rein_helper shared/role-settings.mjs || true)"
+  [[ -n "$gen" ]] && node --no-warnings "$gen" dir --ai-dir "$1" 2>/dev/null
+}
 
-def load(path, default):
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f) or default
-    except Exception:
-        return default
+# E-462 (lean-core.md §API): can a role session start sandboxed here? Prints the reason when not.
+# Linux/WSL2 need bubblewrap and socat and working user namespaces; macOS has sandbox-exec.
+_sandbox_missing() {
+  case "$(uname -s 2>/dev/null)" in
+    Darwin) return 1 ;;
+    Linux) ;;
+    *) echo "this platform has no Claude Code sandbox (Rein supports Linux and WSL2)"; return 0 ;;
+  esac
+  local miss=""
+  command -v bwrap >/dev/null 2>&1 || miss+=" bubblewrap"
+  command -v socat >/dev/null 2>&1 || miss+=" socat"
+  if [[ -n "$miss" ]]; then echo "missing:${miss} — install: $(_sandbox_install_line)"; return 0; fi
+  if ! bwrap --ro-bind / / --dev /dev --unshare-user --unshare-pid true >/dev/null 2>&1; then
+    echo "bubblewrap cannot create a user namespace here (see https://code.claude.com/docs/en/sandboxing)"; return 0
+  fi
+  return 1
+}
 
-import re
-# .ai/roles.json is ARCHITECT-WRITABLE, so its keys are untrusted input to a path
-# join. A key containing parent-directory segments would write outside .claude/
-# (E-208 audit). Constrain role names to a safe charset before os.path.join sees them.
-ROLE_RE = re.compile(r"^[a-z][a-z0-9_-]{0,31}$")
+_sandbox_install_line() {
+  local id="" like=""
+  if [[ -r /etc/os-release ]]; then  # rein:allow PATH_TRAVERSAL fixed system file, read-only: the distro id picks the install line
+    id="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID:-}")"  # rein:allow PATH_TRAVERSAL fixed system file, read-only: the distro id picks the install line
+    like="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID_LIKE:-}")"  # rein:allow PATH_TRAVERSAL fixed system file, read-only: the distro id picks the install line
+  fi
+  case " $id $like " in
+    *" debian "*|*" ubuntu "*) echo "sudo apt-get install -y bubblewrap socat" ;;
+    *" fedora "*|*" rhel "*|*" centos "*) echo "sudo dnf install -y bubblewrap socat" ;;
+    *" arch "*) echo "sudo pacman -S --needed bubblewrap socat" ;;
+    *" alpine "*) echo "sudo apk add bubblewrap socat" ;;
+    *" opensuse"*|*" suse "*) echo "sudo zypper install -y bubblewrap socat" ;;
+    *) echo "install bubblewrap and socat with your package manager" ;;
+  esac
+}
 
-roles = load(os.path.join(ai_dir, "roles.json"), {}).get("roles", {})
-for role, cfg in roles.items():
-    if not ROLE_RE.match(str(role)):
-        print(f"  ! skipping role '{role}' — invalid role name (must match [a-z][a-z0-9_-]*)")
-        continue
-    if not isinstance(cfg, dict) or cfg.get("provider") != "claude":
-        continue
-    # E-255: a headless role runs as the Engineer's delegate and inherits its overlay;
-    # it gets no pane, so an overlay of its own would be a launch surface nobody uses.
-    if cfg.get("headless") is True:
-        continue
-    path = os.path.join(target_dir, f"settings.{role}.json")
-    data = load(path, {})
-    env = data.setdefault("env", {})
-    # Authoritative (not setdefault) so a stale/forged role can never linger.
-    env["REIN_CALLER_ROLE"] = role
-    # NEVER register hooks here — see the comment above _write_role_settings_overlays.
-    data.pop("hooks", None)
+# ── E-469 (D-170 r4, lean-core.md §Revision 2 Packaging): the Rein Claude Code plugin ─────────
+# The kept agents, skills and the session-start and waiting-signal hooks ship as one plugin,
+# rein@rein, built into ${REIN}/plugin by `rein install` (shared/plugin-build.mjs) and loaded in
+# place from a local-directory marketplace. `rein install` adds the marketplace to each Claude
+# config dir; `rein init` and `rein sync` enable the plugin for the project (scope project, so its
+# hooks run in Rein projects only, as the settings entries they replace did). The seatbelt
+# (pre-tool-use.sh), the git hooks, the MCP server and the role settings stay here.
+# REIN_PLUGIN_INSTALL=0 skips every `claude plugin` call.
+_PLUGIN_ID="rein@rein"
 
-    # E-213 (§Components 3): the Architect's own tool surface. --settings MERGES with
-    # the base file, so these are ADDITIVE to the Engineer allow-list; they are the
-    # tools an Architect needs to plan and hand off without a permission prompt.
-    #
-    # E-216 (D-055 R1): deny rules are now ALSO applied, for the filesystem-mutating
-    # MCP tools. They remain a SECOND layer, not the mechanism — the pre-tool-use hook
-    # (E-208, widened here) and the Git Lane (E-214) are what is enforced, because a
-    # settings file is config the session could in principle be started without. The
-    # hook cannot see a pre-approved MCP call's arguments reliably, which is exactly
-    # why the MCP channel needs the deny list rather than a path check.
-    if role == "architect":
-        arch_allow = [
-            "Bash(rein add-task *)",
-            "mcp__task-synchronizer-mcp__add_topic_seed",
-            "mcp__task-synchronizer-mcp__add_cluster_page",
-            "mcp__context-guardian-mcp__check_role_access",
-            # D-099 (E-321): the Architect wakes the Engineer with SendMessage.
-            "ListAgents",
-            "SendMessage",
-        ]
-        # Every MCP tool that can mutate the filesystem. The Architect writes through
-        # Write/Edit under .ai//plans/ (path-gated by the hook); these bypass that gate
-        # entirely, so they are denied outright rather than scoped.
-        arch_deny = [
-            "mcp__filesystem__write_file",
-            "mcp__filesystem__edit_file",
-            "mcp__filesystem__move_file",
-            "mcp__filesystem__create_directory",
-            "mcp__patch-mcp__patch_file",
-            "mcp__propose-patch-mcp__propose_patch",
-            "mcp__propose-patch-mcp__confirm_patch",
-            # E-216 audit: the deny list matches TOOL NAMES, so a router forwarding to the
-            # same server under another name walked straight past it. E-277 (D-075) retired
-            # that router; a future forwarding server must be denied here the same way.
-            # The MCP analogue of the "interactive editors" residual: these drive any
-            # GUI editor to write any file. E-279 (D-075) retired that server, but its
-            # mirror copy stays in ~/.rein/mcp until `rein clean` runs, and a hand-added or
-            # user-scope entry could still launch it — so the deny stays; it costs nothing.
-            "mcp__computer-use-mcp__type_text",
-            "mcp__computer-use-mcp__key_press",
-        ]
-        ov_perms = data.setdefault("permissions", {})
-        ov_allow = ov_perms.get("allow", [])
-        for rule in arch_allow:
-            if rule not in ov_allow:
-                ov_allow.append(rule)
-        ov_perms["allow"] = ov_allow
-        ov_deny = ov_perms.get("deny", [])
-        for rule in arch_deny:
-            if rule not in ov_deny:
-                ov_deny.append(rule)
-        ov_perms["deny"] = ov_deny
-    os.makedirs(target_dir, exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-        f.write("\n")
-    _kind = "env + allow/deny rules" if role == "architect" else "env only"
-    print(f"  .claude/settings.{role}.json written (role overlay, {_kind})")
-PY
+# The Claude config dirs the plugin is registered in, one per line: the one in force
+# (CLAUDE_CONFIG_DIR, else ~/.claude), then each `rein account` dir. Only dirs under HOME: a test
+# that moves HOME never registers into the operator's config through an inherited variable.
+_plugin_config_dirs() {
+  local d name _rest home; home="$(cd "$HOME" 2>/dev/null && pwd -P)" || return 0
+  local -a out=()
+  _plugin_under_home() {   # a dir not created yet is judged by its parent's real path
+    local r
+    r="$(cd "$1" 2>/dev/null && pwd -P)" || r="$(cd "$(dirname "$1")" 2>/dev/null && pwd -P)/$(basename "$1")" || r="$1"
+    [[ "$r" == "$home"/* ]]
+  }
+  d="${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"
+  _plugin_under_home "$d" && out+=("$d")
+  if declare -F _account_rows >/dev/null; then
+    while IFS=$'\t' read -r name d _rest; do
+      [[ -n "$name" && -n "$d" ]] && _plugin_under_home "$d" || continue
+      [[ " ${out[*]-} " == *" ${d} "* ]] || out+=("$d")
+    done <<< "$(_account_rows)"
+  fi
+  [[ "${#out[@]}" -gt 0 ]] && printf '%s\n' "${out[@]}"
+  return 0
+}
+
+# _plugin_skip_reason → prints why no `claude plugin` call may run here; nothing when they may.
+_plugin_skip_reason() {
+  if [[ "${REIN_PLUGIN_INSTALL:-1}" == "0" ]]; then echo "REIN_PLUGIN_INSTALL=0"
+  elif ! command -v claude >/dev/null 2>&1; then echo "the claude CLI is not on PATH — install Claude Code, then: rein sync"
+  elif [[ ! -f "${REIN}/plugin/.claude-plugin/marketplace.json" ]]; then echo "${REIN}/plugin is not built — run: bash install-rein.sh"
+  fi
+}
+
+# _plugin_enabled <config dir> → 0 when `claude plugin list` in the current directory shows
+# rein@rein enabled (project scope here, or user scope).
+_plugin_enabled() {
+  CLAUDE_CONFIG_DIR="$1" claude plugin list --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    rows = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+sys.exit(0 if any(isinstance(r, dict) and r.get("id") == sys.argv[1] and r.get("enabled") is True for r in rows) else 1)' "$_PLUGIN_ID"
+}
+
+# `rein install`: build the plugin folder, then add its marketplace to every config dir.
+_plugin_install_global() {
+  local pb out why d
+  pb="$(_rein_helper shared/plugin-build.mjs || true)"
+  if [[ -z "$pb" ]] || ! command -v node >/dev/null 2>&1; then
+    echo "  ✗ plugin: shared/plugin-build.mjs or node not found — $(_rein_fix_install)"; return 1
+  fi
+  if ! out="$(node --no-warnings "$pb" build --rein-home "$REIN" 2>&1)"; then
+    echo "  ✗ ${out}"; return 1
+  fi
+  echo "✓ ${out}"
+  why="$(_plugin_skip_reason)"
+  if [[ -n "$why" ]]; then echo "  ○ plugin marketplace not added: ${why}"; return 0; fi
+  while IFS= read -r d; do
+    [[ -n "$d" ]] || continue
+    if CLAUDE_CONFIG_DIR="$d" claude plugin marketplace add "${REIN}/plugin" >/dev/null 2>&1; then
+      echo "✓ plugin marketplace rein → $(_acct_tilde "$d") (enable per project: rein init)"
+    else
+      echo "  ✗ plugin marketplace rein: \`claude plugin marketplace add ${REIN}/plugin\` failed in $(_acct_tilde "$d")"
+    fi
+  done <<< "$(_plugin_config_dirs)"
+  return 0
+}
+
+# `rein init` / `rein sync`, in the project root: enable rein@rein for this project in every
+# config dir. Returns 0 when it is enabled in the config dir in force, 1 otherwise.
+_plugin_enable_project() {
+  local why d rc=1 first=1 shown
+  why="$(_plugin_skip_reason)"
+  if [[ -n "$why" ]]; then echo "  ○ plugin ${_PLUGIN_ID} not enabled: ${why}"; return 1; fi
+  while IFS= read -r d; do
+    [[ -n "$d" ]] || continue
+    shown="$(_acct_tilde "$d")"
+    if _plugin_enabled "$d"; then
+      [[ "$first" -eq 1 ]] && rc=0
+    else
+      CLAUDE_CONFIG_DIR="$d" claude plugin marketplace add "${REIN}/plugin" >/dev/null 2>&1 || true
+      if CLAUDE_CONFIG_DIR="$d" claude plugin install "$_PLUGIN_ID" --scope project >/dev/null 2>&1 && _plugin_enabled "$d"; then
+        echo "  ✓ plugin ${_PLUGIN_ID} enabled for this project (${shown})"
+        [[ "$first" -eq 1 ]] && rc=0
+      else
+        echo "  ✗ plugin ${_PLUGIN_ID}: \`claude plugin install ${_PLUGIN_ID} --scope project\` failed (${shown})"
+      fi
+    fi
+    first=0
+  done <<< "$(_plugin_config_dirs)"
+  [[ "$first" -eq 1 ]] && echo "  ○ plugin ${_PLUGIN_ID} not enabled: no Claude config dir under HOME"
+  return "$rc"
+}
+
+# E-469: what the project still holds of the agents and skills `rein sync` used to copy into
+# .claude/ — removed by the E-220 evidence rule (written by sync, unedited); the rest is kept.
+# Only once the plugin is enabled here, so a project never loses its copies to nothing.
+_prune_plugin_copies() {
+  local d
+  for d in .claude/agents .claude/skills; do
+    [[ -d "$d" ]] || continue
+    _prune_workspace_dir "$d"
+    rm -f "${d}/_SKILLS_INDEX.md"
+    # Nothing left but the (now empty) manifest: the directory was sync's alone.
+    if [[ "$(ls -A "$d" 2>/dev/null)" == "_SYNC_MANIFEST.json" ]]; then rm -f "${d}/_SYNC_MANIFEST.json"; fi
+    rmdir "$d" 2>/dev/null || true
+  done
+  return 0
 }
 
 _configure_project_claude_settings() {
@@ -1600,10 +1448,8 @@ _rein_ws = os.environ.get("REIN_WORKSPACE", "")
 if _rein_ws:
     env.setdefault("REIN_WORKSPACE", _rein_ws)
 
-# E-127 (sovereignty-hardening.md §Security): bootloader-inject the Triad role so
-# safe-exec trusts the ENVIRONMENT over the agent-self-reported caller_role
-# (anti-impersonation). This is Claude's project → engineer. Set authoritatively
-# (not setdefault) so a stale/forged value can never linger.
+# E-127: the Triad role for attribution (cli-add-task.mjs owner label). This is Claude's
+# project → engineer. Set authoritatively (not setdefault) so a stale value never lingers.
 env["REIN_CALLER_ROLE"] = "engineer"
 
 # Permissions: registry-driven MCP tools.
@@ -1632,7 +1478,6 @@ try:
         _history = {n for n in json.load(lf).get("registry_history", []) if isinstance(n, str)}
     with open(registry_path) as rf:
         _live = set(json.load(rf).get("mcp_servers", {}))
-    _live |= {"filesystem", "memory"}          # always generated into .mcp.json
     _retired = _history - _live
     # A retired name the project's .mcp.json still configures is the user's own server
     # now (critic_security, E-273): its allows stay.
@@ -1708,26 +1553,22 @@ hooks = data.setdefault("hooks", {})
 # project's settings `env` BEFORE `/bin/bash -p` starts (probed). `args` carries the
 # install-time ABSOLUTE path, so `$HOME` is gone from the hook lines; that makes this file
 # machine-specific, so it is gitignored (E-233 mechanism) and regenerated here.
-# Before writing, EVERY Rein-owned entry for the six hooks is removed in ANY older form
+# Before writing, EVERY Rein-owned entry for these hooks is removed in ANY older form
 # (shell form, stale path) — appending beside an old entry would leave the vulnerable line
 # running. User entries are never touched. History kept from the entries this replaces:
-#   E-125/E-208 pre-tool-use is the fail-closed gate on Bash + the write tools;
-#   E-126/E-129/E-294 session-start injects the context cache and mints the role token; the
-#     role comes from the launch-record walk (D-087), never from an argument or the env. It
-#     fires on clear and compact too: `/clear` issues a NEW session id in the same process
-#     (measured 2026-10-04), which needs its own token or the session falls into the union;
-#   E-105 post-tool-use matcher ".*" (universal telemetry; the AQG self-gates);
-#   E-284 permission-denied books REJECTED rows for denied built-ins.
+#   E-463 pre-tool-use is the seatbelt on Bash (advice; it replaced the E-125/E-208 gate);
+#   E-460/E-294 session-start (brief + role stamp) and E-433 waiting-signal are the rein
+#     plugin's since E-469 (plugin-build.mjs carries their matchers and history);
+#   E-467 (D-170 r5): stop-hook, post-tool-log, post-tool-use and permission-denied are
+#     retired; their Rein-owned entries are removed below on every event (_RETIRED).
 import re as _re
 _HOOKS_DIR = os.path.realpath(os.path.join(os.path.expanduser("~"), ".rein", "hooks"))
 _SPECS = [  # (event, matcher, script, extra args)
-    ("Stop", ".*", "stop-hook.sh", []),
-    ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "pre-tool-use.sh", []),
-    ("SessionStart", "startup|resume|clear|compact", "session-start.sh", []),
-    ("PostToolUse", "Write|Edit", "post-tool-log.sh", []),
-    ("PostToolUse", ".*", "post-tool-use.sh", []),
-    ("PermissionDenied", ".*", "permission-denied.sh", []),
+    ("PreToolUse", "Bash", "pre-tool-use.sh", []),
 ]
+# E-469 (D-170 r4): session-start.sh and waiting-signal.sh moved to the rein plugin
+# (${REIN}/plugin/hooks/hooks.json, shared/plugin-build.mjs PLUGIN_HOOKS); their Rein-owned
+# entries here are removed below like the retired ones, so neither runs twice.
 # E-391 (D-132 addendum 4 r2): an entry is ours by the hook's FILE NAME when its script is in
 # the install's hooks dir OR no longer exists (an earlier install's path) — the same rule
 # `rein doctor` reports with (shared/hook-paths.py). An existing script elsewhere is the
@@ -1767,6 +1608,24 @@ for _event, _matcher, _script, _extra in _SPECS:
                 print(f"Replaced {_event} hook entry: {_txt[:200]}")
     _lst[:] = [e for e in _lst if e.get("hooks")]
     _lst.append({"matcher": _matcher, "hooks": [_want]})
+_RETIRED = ("stop-hook.sh", "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh",
+            "session-start.sh", "waiting-signal.sh")
+_MOVED = ("session-start.sh", "waiting-signal.sh")
+for _event, _lst in list(hooks.items()):
+    if not isinstance(_lst, list):
+        continue
+    for _e in _lst:
+        if not isinstance(_e, dict):
+            continue
+        for _script in _RETIRED:
+            _keep = [h for h in _e.get("hooks", []) if not (isinstance(h, dict) and _is_rein_hook(h, _script))]
+            if len(_keep) != len(_e.get("hooks", [])):
+                print(f"Moved {_event} hook {_script} to the rein plugin (E-469)" if _script in _MOVED
+                      else f"Removed retired {_event} hook: {_script} (E-467)")
+            _e["hooks"] = _keep
+    _lst[:] = [e for e in _lst if not isinstance(e, dict) or e.get("hooks")]
+    if not _lst:
+        del hooks[_event]
 
 with open(path, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=2, ensure_ascii=False)
@@ -1883,15 +1742,14 @@ install_global() {
   chmod +x "${REIN}/hooks/"*.sh 2>/dev/null || true
   echo "✓ Hooks ready → ${REIN}/hooks"
 
-  # E-129 (sovereignty-hardening.md §Security): provision the per-machine HMAC key
-  # + runtime dirs for the tamper-resistant role token. getMachineKey() also
-  # lazily creates these, so this is just first-run priming with correct perms.
-  mkdir -p "${HOME}/.rein/secrets" "${HOME}/.rein/run" 2>/dev/null || true
-  chmod 700 "${HOME}/.rein/secrets" "${HOME}/.rein/run" 2>/dev/null || true
-  if command -v node >/dev/null 2>&1 && [[ ! -f "${HOME}/.rein/secrets/role-hmac.key" ]]; then
-    node -e 'const c=require("node:crypto"),fs=require("fs"),p=process.env.HOME+"/.rein/secrets/role-hmac.key"; try{fs.writeFileSync(p,c.randomBytes(32).toString("hex"),{mode:0o600})}catch(e){}' 2>/dev/null || true
-  fi
-  echo "✓ Role-token key ready → ~/.rein/secrets (E-129)"
+  # E-294: the runtime dir for the launch records `rein pane` writes (owner-only).
+  mkdir -p "${HOME}/.rein/run" 2>/dev/null || true
+  chmod 700 "${HOME}/.rein/run" 2>/dev/null || true
+
+  # E-469 (D-170 r4): the rein plugin — the agents, skills and session hooks — built into
+  # ${REIN}/plugin and offered to Claude Code; `rein init` enables it per project. A failure is
+  # reported and never stops the install (rein doctor names what is missing).
+  _plugin_install_global || :
 
   # MCP servers
   if [[ -d "${REIN}/mcp" ]]; then
@@ -1919,17 +1777,10 @@ install_global() {
     fi
   fi
 
-  # E-318 (D-097 r2, D-098): an outdated copy is replaced in place in ~/.claude and every
-  # registered account — consent-free, so a non-TTY install leaves none of them outdated. The
-  # offer below then meets PRESENT or ABSENT only. E-346: it now returns 1/2 for sync's step
-  # counter; a failure has already printed its ✗ line and must not abort the install.
-  _classifier_refresh_all || :
-  # E-293 (D-083 r5(iii)): offer the auto-mode classifier backstop — interactive only.
-  _classifier_offer
 
   echo ""
   echo "✓ Rein global installation complete → ${REIN}"
-  echo "  Run 'rein init' inside any project to scaffold .ai/ and .claude/."
+  echo "  Run 'rein init' inside any project to scaffold .ai/ and .claude/ and enable the rein plugin there."
   # E-420: as the installer does — the hooks were refused (no privileged /bin/bash); say so last.
   if [[ "$_REIN_ARTIFACT" -eq 1 && "${_HOOKS_REFUSED:-0}" -eq 1 ]]; then
     echo "" >&2
@@ -1938,164 +1789,14 @@ install_global() {
   fi
 }
 
-# ── E-293 (D-083 r5(iii), D-080): the auto-mode classifier backstop ─────────────────────
-# ONE prose rule in autoMode.hard_deny of the OPERATOR's ~/.claude/settings.json — the one
-# layer a project cannot reach (a project's autoMode is ignored), so a second, independently
-# configured gate in front of the safe-exec gate. All reading/writing is
-# src/shared/classifier-backstop.py; `rein install` OFFERS it (y/N, default N) and never writes
-# without a TTY or under CI; `rein doctor` reports it.
-_cb_py() { rein_locate shared/classifier-backstop.py 2>/dev/null || printf '%s' "${REIN}/shared/classifier-backstop.py"; }
-_cb_settings() { printf '%s' "${HOME}/.claude/settings.json"; }
-
-_classifier_offer() {
-  local py; py="$(_cb_py)"
-  [[ -f "$py" ]] && command -v python3 >/dev/null 2>&1 || return 0
-  if [[ -n "${CI:-}" || -n "${REIN_CI:-}" || ! -t 0 ]]; then
-    echo "  ○ classifier backstop: not offered (no terminal) — run 'rein install' in a terminal to add it"
-    return 0
-  fi
-  local out rc
-  out="$(python3 -I "$py" plan "$(_cb_settings)" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
-  case "$rc" in
-    1) echo "✓ Classifier backstop present (autoMode.hard_deny in ~/.claude/settings.json)"; return 0 ;;
-    5) echo "  ○ classifier backstop: ~/.claude does not exist yet — run Claude Code once, then 'rein install'"; return 0 ;;
-    3) echo "  ✗ classifier backstop: ~/.claude/settings.json left untouched — ${out#UNPARSABLE$'\t'}"; return 0 ;;
-    0) ;;
-    *) echo "  ⚠  classifier backstop: could not plan the change (rc ${rc}) — nothing written"; return 0 ;;
-  esac
-  echo ""
-  echo "Classifier backstop (E-293): add ONE rule to autoMode.hard_deny in ~/.claude/settings.json."
-  echo "  Auto mode's classifier then refuses gate tampering even if the safe-exec gate were"
-  echo "  bypassed; no project can override it. Resulting hard_deny list:"
-  printf '%s\n' "$out" | sed -n '2,$p' | sed 's/^/    /'
-  [[ "$(printf '%s\n' "$out" | sed -n '1p')" == $'CHANGE\t1' ]] \
-    && echo "  Note: the file is rewritten in Claude Code's own JSON format (formatting normalised)."
-  local reply=""
-  printf 'Add the classifier backstop? [y/N] '
-  IFS= read -r reply || reply=""
-  case "$reply" in
-    y|Y|yes|YES|Yes)
-      out="$(python3 -I "$py" apply "$(_cb_settings)" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
-      case "$rc" in
-        0) echo "✓ Classifier backstop added. Check its wording in YOUR terminal: claude auto-mode critique" ;;
-        1) echo "✓ Classifier backstop already present" ;;
-        *) echo "  ✗ classifier backstop not written: ${out#*$'\t'}" ;;
-      esac ;;
-    *) echo "  ○ classifier backstop: skipped (rein doctor will remind you)" ;;
-  esac
-}
-
-_classifier_report() {
-  _classifier_report_one "$(_cb_settings)" ""
-  # E-314 (D-095, accounts.md §4): every registered account's directory carries its own copy of
-  # settings.json, so a rule missing there is reported like one missing in ~/.claude.
-  declare -F _account_rows >/dev/null || return 0
-  local name dir _rest
-  while IFS=$'\t' read -r name dir _rest; do
-    [[ -n "$name" ]] && _classifier_report_one "${dir}/settings.json" "$name"
-  done <<< "$(_account_rows)"
-  return 0
-}
-
-# E-318 (D-097, accounts.md §4 "never goes stale"): refresh the Rein-owned backstop entry in
-# ~/.claude AND every registered account's settings.json — REPLACE ONLY. An OUTDATED labelled
-# copy is replaced in place (the label is the operator's earlier consent, E-306); ABSENT is
-# reported, never added (adding stays the y/N in `rein install`); unparsable is reported and left.
-# One line per directory changed or needing attention; a current copy prints nothing.
-#
-# E-346 (D-109 r3): the worst outcome over every settings file — 1 if any refresh FAILED (an
-# ERROR, or output outside the helper's protocol), else 2 when the helper or python3 is
-# missing (skipped), else 0. Every file is still visited. Before, an ERROR printed ✗ on
-# stdout and the step counted ok.
-_classifier_refresh_all() {
-  local rc=0 one name dir _rest
-  _classifier_refresh_one "$(_cb_settings)" "" && one=0 || one=$?
-  rc="$one"
-  declare -F _account_rows >/dev/null || return "$rc"
-  while IFS=$'\t' read -r name dir _rest; do
-    [[ -n "$name" ]] || continue
-    _classifier_refresh_one "${dir}/settings.json" "$name" && one=0 || one=$?
-    [[ "$one" -eq 1 || ( "$one" -eq 2 && "$rc" -eq 0 ) ]] && rc="$one"
-  done <<< "$(_account_rows)"
-  return "$rc"
-}
-
-_classifier_refresh_one() {  # <settings.json> <account name, "" = default>
-  local py out rc settings="$1" lbl="classifier backstop" shown="~/.claude/settings.json"
-  if [[ -n "$2" ]]; then
-    lbl="classifier backstop [account $2]"; shown="${settings#"$HOME"/}"; [[ "$shown" != "$settings" ]] && shown="~/${shown}"
-  fi
-  py="$(_cb_py)"
-  [[ -f "$py" ]] && command -v python3 >/dev/null 2>&1 || return 2
-  out="$(python3 -I "$py" refresh "$settings" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
-  case "$out" in
-    APPLIED*)  echo "  ✓ ${lbl}: outdated copy in ${shown} replaced with the current rule" ;;
-    ABSENT*)   if [[ -n "$2" ]]; then
-                 echo "  ○ ${lbl}: not configured in ${shown} — run: rein account sync $2 (copies ~/.claude/settings.json)"
-               else
-                 echo "  ○ ${lbl}: not configured — rein install offers it"
-               fi ;;
-    REFUSED*)  echo "  ✗ ${lbl}: ${shown} left untouched — ${out#REFUSED$'\t'}" ;;
-    CHANGED*)  echo "  ⚠ ${lbl}: ${shown} changed while it was being refreshed — nothing written; re-run" ;;
-    ERROR*)    echo "  ✗ ${lbl}: could not refresh ${shown} (${out#ERROR$'\t'})" >&2; return 1 ;;
-    NOCHANGE*|NOFILE*|NODIR*) ;;   # nothing to say
-    *)         echo "  ✗ ${lbl}: unexpected helper output for ${shown} (exit ${rc}): $(printf '%s' "$out" | tail -1 | cut -c1-200)" >&2
-               return 1 ;;
-  esac
-  return 0
-}
-
-_classifier_report_one() {  # <settings.json> <account name, "" = default>
-  local py out rc settings="$1" lbl="classifier backstop" shown="~/.claude/settings.json"
-  if [[ -n "$2" ]]; then
-    lbl="classifier backstop [account $2]"; shown="${settings#"$HOME"/}"; [[ "$shown" != "$settings" ]] && shown="~/${shown}"
-  fi
-  py="$(_cb_py)"
-  if [[ ! -f "$py" ]] || ! command -v python3 >/dev/null 2>&1; then
-    _dr classifier_backstop - "  ⚠ ${lbl}: cannot check (helper or python3 missing — $(_rein_fix_install))" "" "$2"
-    return 0
-  fi
-  out="$(python3 -I "$py" status "$settings" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
-  case "$(printf '%s\n' "$out" | sed -n '1p')" in
-    PRESENT)   _dr classifier_backstop - "  ✓ ${lbl}: present" "" "$2" ;;
-    OUTDATED*) _cb_old="${out%%$'\n'*}"; _cb_old="${_cb_old#OUTDATED}"; _cb_old="${_cb_old#$'\t'}"
-               _dr classifier_backstop - "  ○ ${lbl}: outdated${_cb_old:+ (${_cb_old})} wording — rein install offers the current rule" "" "$2" ;;
-    UNPARSABLE*) _dr classifier_backstop - "  ✗ ${lbl}: ${shown} is not valid JSON — Claude Code ignores it, so NO autoMode rules are active (${out#UNPARSABLE$'\t'})" "" "$2" ;;
-    ERROR*)    _dr classifier_backstop - "  ✗ ${lbl}: could not check ${shown} (${out#ERROR$'\t'})" "" "$2" ;;
-    *)         if [[ -n "$2" ]]; then
-                 _dr classifier_backstop - "  ○ ${lbl}: not configured in ${shown} — run: rein account sync $2 (copies ~/.claude/settings.json)" "" "$2"
-               else
-                 _dr classifier_backstop - "  ○ ${lbl}: not configured — rein install offers it" "" "$2"
-               fi ;;
-  esac
-  printf '%s\n' "$out" | sed -n "s/^WARN\t/  ⚠ ${lbl}: /p" | _dr_lines classifier_backstop
-  printf '%s\n' "$out" | sed -n 's/^INFO\t/  ⓘ /p' | _dr_lines classifier_info   # D-086: $defaults off, effective default mode
-  return 0
-}
-
-# ── E-294 (D-087, sovereignty-hardening.md Component 8h): launch records and role tokens ──
-# Prunes ONLY records and tokens whose process is gone (or whose start time no longer
-# matches — a reused pid); a live or undisciplined record is never removed, since removing
-# it could only loosen a session. Reports this pane's live record and the pre-E-294 (v1)
-# tokens, which never verify: those sessions run in the union until relaunched.
+# ── E-294 (D-087, sovereignty-hardening.md Component 8h): launch records ──
+# Prunes ONLY records (and role-token files left by installs before E-463) whose process is
+# gone or whose start time no longer matches — a reused pid; a live or undisciplined record is
+# never removed, since removing it could only loosen a session.
 _launch_record_prune() {  # quiet: prints the module's JSON counts or nothing
   local lr; lr="$(rein_locate shared/launch-record.py || true)"
   [[ -n "$lr" ]] && command -v python3 >/dev/null 2>&1 || return 0
   python3 -I "$lr" prune 2>/dev/null || true
-}
-
-# E-305: the gate path's pinned dependencies, and whether the mirror holds exactly them.
-_gate_pins_report() {
-  local gp out rc=0
-  gp="$(rein_locate shared/gate-pins.mjs 2>/dev/null || true)"
-  [[ -n "$gp" ]] && command -v node >/dev/null 2>&1 || { _dr gate_dependencies - "  ⚠ gate dependencies: cannot check (gate-pins.mjs or node missing)"; return 0; }
-  out="$(node --no-warnings "$gp" check "${REIN}/mcp" 2>&1)" || rc=$?
-  if [[ "$rc" -eq 0 ]]; then
-    _dr gate_dependencies - "  ✓ gate dependencies pinned: $(node --no-warnings "$gp" list "${REIN}/mcp" 2>/dev/null | tr '\n' ' ')"
-  else
-    printf '%s\n' "$out" | sed 's/^/  ✗ /' | _dr_lines gate_dependencies
-  fi
-  return 0
 }
 
 # E-304 (D-089 r2): where the mirror came from, and whether two workspace sources disagree.
@@ -2163,11 +1864,9 @@ elif w.get("result") == "role":
     print("  ⓘ launch record: none on this process chain — a session here runs as %s (%s launch)" % (w.get("role"), w.get("launch")))
 if w.get("result") == "union":
     print("  ✗ launch record: %s — sessions on this chain run in the union" % w.get("why"))
-if d.get("v1_tokens"):
-    print("  ⓘ role tokens: %d pre-E-294 (v1) token(s) on disk; v1 never verifies, so a pane still running from before the install is in the union until relaunched (rein pane <role>)" % d["v1_tokens"])
 stale = (d.get("records") or 0) + (d.get("tokens") or 0)
 if stale:
-    print("  ○ launch records: %d stale record(s)/token(s) whose process is gone — pruned now" % stale)
+    print("  ○ launch records: %d stale record(s) whose process is gone — pruned now" % stale)
 ' 2>/dev/null | _dr_lines launch_records || _dr launch_records - "  ⚠ launch records: status unreadable"
   _launch_record_prune >/dev/null
   return 0
@@ -2508,41 +2207,6 @@ _upgrade_legacy_git_hooks() {
   fi
 }
 
-# E-114: Query global memory store for similar projects during rein init (§31 advisory hint)
-# Silent failure — project-local context always takes priority.
-_query_similar_signatures() {
-  local MEM_DIR="${REIN}/memory"
-  local SIG_FILE="${MEM_DIR}/signatures.json"
-  if ! command -v python3 &>/dev/null; then return 0; fi
-  if [[ ! -f "$SIG_FILE" ]]; then return 0; fi
-  local PROJECT_TAG
-  PROJECT_TAG="$(basename "$(pwd)")"
-
-  python3 - "$SIG_FILE" "$PROJECT_TAG" <<'PY' 2>/dev/null || true
-import json, sys
-sig_file  = sys.argv[1]
-query_tag = sys.argv[2].lower()
-
-try:
-    sigs = json.load(open(sig_file))
-    if not isinstance(sigs, list) or not sigs:
-        sys.exit(0)
-    matched = [
-        s for s in sigs
-        if query_tag in str(s.get("project_name", "")).lower()
-        or query_tag in str(s.get("tag", "")).lower()
-        or any(query_tag in str(t).lower() for t in (s.get("tags") or []))
-    ]
-    if not matched:
-        sys.exit(0)
-    print("\nSimilar projects from memory palace (advisory):")
-    for s in matched[:3]:
-        print(f"  • {s.get('project_name','?')}: {str(s.get('summary',''))[:100]}")
-except Exception:
-    pass  # Silent failure per §31
-PY
-}
-
 # ── E-270 (D-074 §Components 2): `rein init` as an idempotent upgrade ───────────
 # Re-running `rein init` in an existing project brings it to the installed version:
 # generated files are REFRESHED, schema-bearing templates are MERGED
@@ -2676,7 +2340,8 @@ _init_check() {
     cp -f "${REIN}/templates/ENGINEER.md"  "ENGINEER.md"
     cp -f "${REIN}/templates/ARCHITECT.md" "ARCHITECT.md"
     cp -f "${REIN}/templates/CLAUDE.md"    "CLAUDE.md"
-    _sync_workspace_dirs sync >/dev/null 2>&1
+    # E-469: a dry run registers no plugin for its scratch copy in the operator's Claude config.
+    REIN_PLUGIN_INSTALL=0 _sync_workspace_dirs sync >/dev/null 2>&1
   ) || true
   local proj_digest scratch_digest
   proj_digest="$(mktemp "${TMPDIR:-/tmp}/rein-dig.XXXXXX")"; scratch_digest="$(mktemp "${TMPDIR:-/tmp}/rein-dig.XXXXXX")"
@@ -2735,6 +2400,13 @@ do_init() {
   migrate_legacy_ai_if_present
   install_git_hooks
 
+  # E-469 (D-170 r4): the role settings files — the sandbox boundary a plugin cannot carry —
+  # under ~/.rein/roles/<project key>/. rein pane and rein start rewrite them at every launch;
+  # inside a role's sandbox ~/.rein is read-only, so a refusal here is reported, never fatal.
+  echo ""
+  echo "Role settings (the boundary of each pane role):"
+  _write_role_settings_overlays "" ".ai" || echo "  ⚠ role settings not written — rein pane and rein start write them at launch"
+
   # E-33: Auto-setup MCP server dependencies (Battery-Included onboarding)
   if command -v node &>/dev/null && [[ -d "${REIN}/mcp" ]]; then
     echo ""
@@ -2758,9 +2430,6 @@ do_init() {
     # the stamp, the summary and everything after this line never ran on a re-init.
     ( do_migrate_state ) 2>/dev/null || echo "  (state.json already populated — skipped re-seed)"
   fi
-
-  # E-114: Query global memory store for similar architectural patterns (§31 advisory)
-  _query_similar_signatures 2>/dev/null || true
 
   # E-270 (D-074 §Components 1): stamp the version that provisioned this project — after
   # the seed above: when state.sqlite does not exist yet, the stamp imports state.json first.
@@ -2791,10 +2460,10 @@ do_init() {
   echo ""
   echo "Next (MANDATORY):"
   echo "1) Fill in .ai/BRIEF.md and .ai/REPO.md"
-  echo "2) Fill in .ai/DIGEST.md — Include Triad Health (Planning/Execution/Testing)"
+  echo "2) .ai/DIGEST.md is generated from state (rein digest build) — never hand-edit it"
   echo "3) Define the initial vision in .ai/architect.md (Template provided)"
   echo "4) Fill in .github/copilot-instructions.md (project-specific context)"
-  echo "5) Open a provider CLI in this repo — the bootloader auto-runs rein-preflight"
+  echo "5) Open Claude Code in this repo — the SessionStart hook injects the session brief"
   echo ""
   # E-228 (D-059): name the one command that does step 5 for you. Without this the
   # launcher exists but is only discoverable by reading the README.
@@ -2812,7 +2481,7 @@ do_init() {
   # E-255: the Tester is a headless Claude role — its label is derived like the other two.
   printf '  Tester    %-18s → Quality gate via skill: rein-test (headless)\n' "(${_tst_label})"
   echo ""
-  echo "MCP servers enabled in .mcp.json (filesystem + memory)."
+  echo "MCP servers enabled in .mcp.json (the Rein servers in registry.json)."
 }
 
 
@@ -3058,96 +2727,6 @@ PY
 
 
 
-sync_skills_20() {
-  # Copy Skills 2.0 folder-based skills (skill-name/SKILL.md structure)
-  local src_dir="$1" dst_dir="$2"
-  local count=0
-  for skill_dir in "${src_dir}"/*/; do
-    if [[ -d "$skill_dir" && -f "${skill_dir}SKILL.md" ]]; then
-      local skill_name
-      skill_name=$(basename "$skill_dir")
-      cp -rf "${skill_dir%/}" "${dst_dir}/"
-      _SKILL_CLAIMS="${_SKILL_CLAIMS:-|}${skill_name}|"
-      count=$((count + 1))
-    fi
-  done
-  # Also copy any remaining legacy flat .md files
-  cp -f "${src_dir}"/*.md "${dst_dir}/" 2>/dev/null || true
-  echo "  $count Skills 2.0 folder(s) + legacy flat files synced from ${src_dir}"
-  # Regenerate _SKILLS_INDEX.md in dst_dir (metadata-only manifest for §29 Level 1 loading)
-  _generate_skills_index "${dst_dir}"
-}
-
-_generate_skills_index() {
-  # Generate _SKILLS_INDEX.md — name + one-line description for each skill.
-  # Agents use this for Level 1 (metadata-only) discovery without loading full SKILL.md content.
-  # E-31: deterministic across locales/filesystems — entries sorted with LC_ALL=C
-  # so the same set of skills always produces byte-identical output. The file
-  # itself is gitignored (regenerated on every `rein sync`), but determinism still
-  # matters for cross-machine consistency and reproducible installs.
-  local dir="$1"
-  local index_file="${dir}/_SKILLS_INDEX.md"
-  {
-    echo "# Skills Index (metadata-only — §29 JIT Skill Loading)"
-    echo "# Invoke with the Skill tool (skill: \"<name>\") to load full content."
-    echo ""
-    # Skills 2.0: folder-based — collect, sort with LC_ALL=C, then emit
-    local skill_dirs
-    skill_dirs=$(find "${dir}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | LC_ALL=C sort)
-    while IFS= read -r skill_dir; do
-      [[ -n "$skill_dir" && -f "${skill_dir}/SKILL.md" ]] || continue
-      local name desc
-      name=$(basename "$skill_dir")
-      desc=$(python3 -c "
-import re, sys
-try:
-    c = open('${skill_dir}/SKILL.md').read()
-    m = re.match(r'^---\n(.*?)\n---', c, re.DOTALL)
-    if m:
-        for line in m.group(1).splitlines():
-            if line.startswith('description:'):
-                print(line.split(':', 1)[1].strip())
-                sys.exit(0)
-except: pass
-print('')
-" 2>/dev/null)
-      if [[ -n "$desc" ]]; then
-        echo "- ${name}: ${desc}"
-      else
-        echo "- ${name}"
-      fi
-    done <<< "$skill_dirs"
-    # Legacy flat .md files — collect, sort with LC_ALL=C, then emit
-    local skill_files
-    skill_files=$(find "${dir}" -mindepth 1 -maxdepth 1 -type f -name '*.md' 2>/dev/null | LC_ALL=C sort)
-    while IFS= read -r skill_file; do
-      [[ -n "$skill_file" && -f "$skill_file" ]] || continue
-      local fname
-      fname=$(basename "$skill_file" .md)
-      [[ "$fname" == "_SKILLS_INDEX" ]] && continue
-      local desc
-      desc=$(python3 -c "
-import re, sys
-try:
-    c = open('${skill_file}').read()
-    m = re.match(r'^---\n(.*?)\n---', c, re.DOTALL)
-    if m:
-        for line in m.group(1).splitlines():
-            if line.startswith('description:'):
-                print(line.split(':', 1)[1].strip())
-                sys.exit(0)
-except: pass
-print('')
-" 2>/dev/null)
-      if [[ -n "$desc" ]]; then
-        echo "- ${fname}: ${desc}"
-      else
-        echo "- ${fname}"
-      fi
-    done <<< "$skill_files"
-  } > "$index_file"
-}
-
 do_sync_github() {
   # §28 GitHub Bridge: fetch assigned issues.
   # Usage: rein sync --github [--repo owner/repo] [--limit N]
@@ -3234,18 +2813,24 @@ PY
 #
 # Idempotent by MEANING, not by exact line: a project that already ignores the artefact in
 # any form is left alone, so re-running never accumulates near-duplicate patterns.
+# _machine_local_paths — E-448 (D-165 r1): the machine-local paths, one per line, from
+# shared/machine-local.list — the one copy the gitignore writer, the doctor and the pre-commit
+# gate all read. Prints nothing when the list is missing (each caller says what that means).
+_machine_local_paths() {
+  local list; list="$(_rein_helper shared/machine-local.list || true)"
+  [[ -n "$list" && -f "$list" ]] || return 0
+  grep -v -e '^[[:space:]]*#' -e '^[[:space:]]*$' "$list"
+}
+
 _ensure_generated_gitignore() {
   local root="${1:-.}"
   git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 0
 
   local gi="${root%/}/.gitignore"
-  # E-290 (D-083 r2): .claude/settings.json now carries install-time ABSOLUTE hook paths
-  # (exec-form hooks), i.e. it is machine-specific — generated
-  # by `rein sync`, never committed. The role overlays (settings.<role>.json) stay tracked.
-  # E-333 (D-102 §8): .ai/start.local.json is one developer's account binding.
-  # E-342 (D-106 r2): .ai/.last-import-blob mirrors the index's last imported state.json blob.
-  # E-343 (D-108 r9): .ai/ci.local.json is one machine's CI env allow-list (may hold values).
-  local want=("**/_SKILLS_INDEX.md" "**/_SYNC_MANIFEST.json" ".ai/blueprints/_INDEX.md" ".claude/settings.json" ".ai/start.local.json" ".ai/.last-import-blob" ".ai/ci.local.json")
+  # The generated views, then the machine-local files (E-448, D-165 r1: shared/machine-local.list
+  # is the one copy, with each entry's reason). The role overlays (settings.<role>.json) stay tracked.
+  local want=("**/_SKILLS_INDEX.md" "**/_SYNC_MANIFEST.json" ".ai/blueprints/_INDEX.md") ml
+  while IFS= read -r ml; do want+=("$ml"); done < <(_machine_local_paths)
   local add=()
   local pat base
   for pat in "${want[@]}"; do
@@ -3261,10 +2846,13 @@ _ensure_generated_gitignore() {
   done
   # A gitignore line does not untrack a file git already tracks. Rewriting the user's index
   # from a sync is too invasive, so name the one command that finishes the job.
-  if git -C "$root" ls-files --error-unmatch .claude/settings.json >/dev/null 2>&1; then
-    echo "  ! .claude/settings.json is tracked but machine-specific since E-290 — untrack it:"
-    echo "      git rm --cached .claude/settings.json && git commit -m 'Untrack generated .claude/settings.json'"
-  fi
+  # D-165 r5: sync keeps its line and never edits the index; the commit gate refuses the file.
+  for ml in "${want[@]:3}"; do
+    if git -C "$root" ls-files --error-unmatch "$ml" >/dev/null 2>&1; then
+      echo "  ! ${ml} is tracked but generated for one machine — a commit that changes it is refused; untrack it:"
+      echo "      git rm --cached ${ml} && git commit -m 'Untrack generated ${ml}'"
+    fi
+  done
   [[ "${#add[@]}" -eq 0 ]] && return 0
 
   {
@@ -3304,8 +2892,7 @@ _untrack_comm_gitignore() {
 _report_policy_staleness() {
   command -v python3 >/dev/null 2>&1 || return 2
   local newest=0 f
-  for f in "${REIN}/shared/traversal-policy.mjs" "${REIN}/shared/markdown-exec.mjs" \
-           "${REIN}/mcp/safe-exec-mcp/architect-writes.mjs" "${REIN}/mcp/shared/caller-role.mjs"; do
+  for f in "${REIN}/shared/traversal-policy.mjs" "${REIN}/shared/markdown-exec.mjs"; do
     [[ -f "$f" ]] || continue
     local m
     m="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
@@ -3500,23 +3087,6 @@ _sync_reap_step_logs() {
   find "$d" -maxdepth 1 -type f -name 'rein-sync-*.??????' -user "$(id -u)" -mmin +1440 -delete
 }
 
-# E-339 (D-107 r3/r4): the last sync step — is the gate this sync leaves behind able to give
-# a verdict? Runs `true` through the mirror's analyzer exactly as hooks/pre-tool-use.sh does
-# (shared/gate-probe.sh). Never repairs: reinstalling the gate is the operator's action.
-_sync_gate_check() {
-  local gp st
-  gp="$(_rein_helper shared/gate-probe.sh || true)"
-  [[ -n "$gp" ]] || { echo "[SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — $(_rein_fix_install)" >&2; return 1; }
-  # shellcheck source=src/shared/gate-probe.sh
-  . "$gp"
-  if st="$(rein_gate_probe)"; then
-    echo "  ✓ safe-exec gate: ${st}"
-    return 0
-  fi
-  echo "[SAFE_EXEC_BROKEN] ${st} — $(_rein_fix_install)" >&2
-  return 1
-}
-
 # E-342 (D-106 r2): bring the index up to what HEAD tracks — the pulled record files of a
 # team project, HEAD:.ai/state.json of a legacy one — before the steps below regenerate a
 # view from it. The import never fails; its lines are the step's output.
@@ -3612,8 +3182,8 @@ _sync_reap_run_records() {
 #
 # E-304 (D-089 r2): `rein sync` NEVER writes into ~/.rein. It used to copy
 # ${REIN_WORKSPACE}/hooks/*.sh into the mirror — hooks WITHOUT the mcp/ and shared/ they call
-# — and on 2026-10-04 that put E-294's uncommitted hooks live machine-wide twice, against the
-# old safe-exec, so every project's commits hit the Architect lane. `bash install-rein.sh`
+# — and on 2026-10-04 that put E-294's uncommitted hooks live machine-wide twice, so every
+# project's commits hit the Architect lane. `bash install-rein.sh`
 # is the one installer.
 _sync_install_hooks() {
   install_git_hooks
@@ -3643,11 +3213,11 @@ do_sync() {
     echo "Syncing project-scoped .claude/ from ${REIN} ..."
 
     # Always update bootloaders so skill invocation stays current (D-050/E-183:
-    # canonical ENGINEER.md/ARCHITECT.md + the CLAUDE.md @import shim).
+    # canonical ENGINEER.md/ARCHITECT.md + the role-neutral CLAUDE.md, D-172 r11).
     local T="${REIN}/templates"
     cp -f "$T/ENGINEER.md"  "ENGINEER.md"  && echo "  ENGINEER.md updated (canonical bootloader)"
     cp -f "$T/ARCHITECT.md" "ARCHITECT.md" && echo "  ARCHITECT.md updated (canonical bootloader)"
-    cp -f "$T/CLAUDE.md"    "CLAUDE.md"    && echo "  CLAUDE.md updated (shim → ENGINEER.md)"
+    cp -f "$T/CLAUDE.md"    "CLAUDE.md"    && echo "  CLAUDE.md updated (role-neutral)"
 
     # Always regenerate .mcp.json to pick up new servers; user-added servers and env on
     # ours are carried over (E-274; see generate_mcp_json).
@@ -3655,14 +3225,6 @@ do_sync() {
 
     # .claude/ — the project-scoped workspace (v3.0 W3-T3: shared helper).
     _sync_workspace_dirs sync
-    if [[ "${SKILL_COLLISIONS:-0}" -gt 0 ]]; then
-      echo "" >&2
-      echo "rein sync: ${SKILL_COLLISIONS} unresolved skill-name collision(s) — see the errors above." >&2
-      echo "  A provider serving BOTH roles cannot hold two different skills under one name," >&2
-      echo "  and sync cannot know which role the reading pane holds. Rename the role-specific" >&2
-      echo "  skill (D-055 R2 precedent: arch-task, arch-oracle, arch-review)." >&2
-      return 1
-    fi
     # E-244: explicit provider-workspace pruning, after provisioning so a workspace that
     # was just (re)synced for a live binding is never a candidate. Reporting is the
     # default; deleting requires the flag.
@@ -3691,7 +3253,7 @@ do_sync() {
     if [[ "${REIN_SYNC_MINIMAL:-0}" == "1" ]]; then
       echo ""
       echo "  Stopping after provisioning (REIN_SYNC_MINIMAL=1) — hooks, doc regeneration,"
-      echo "  the WAL checkpoint, REPO_MAP, the Memory Palace index and the policy report"
+      echo "  the WAL checkpoint and the policy report"
       echo "  were NOT run. Unset it to complete a full sync."
       return 0
     fi
@@ -3710,14 +3272,10 @@ do_sync() {
     _sync_step version_stamp   _sync_stamp_version
     _sync_step run_reap        _sync_reap_run_records
     _sync_step watcher_reap    _sync_reap_watcher_state
-    _sync_step repo_map        _generate_repo_map
-    _sync_step memory_palace   _generate_memory_palace
     _sync_step gitignore       _ensure_generated_gitignore "."
     _sync_step comm_tracked    _untrack_comm_gitignore "."   # E-338 (D-104 r1)
     _sync_step policy_report   _report_policy_staleness
     _sync_step stale_servers   _report_stale_servers
-    _sync_step classifier      _classifier_refresh_all   # E-318 (D-097): replace-only, every account
-    _sync_step gate_check      _sync_gate_check          # E-339 (D-107 r3): LAST — the gate we leave behind
 
     # The summary is what makes a silent loss loud. "Done." on its own returned in E-217's
     # shape too — a function reaching its end says nothing about how much of it ran, which
@@ -3792,30 +3350,30 @@ import(pathToFileURL(process.argv[1]).href).then(m =>
       continue
     fi
 
-    # Skills: does the workspace hold this role's skill set?
-    skills_dir="${ws}/skills"
+    # Skills and agents (E-469): the rein plugin's, the same for both roles.
+    skills_dir="${REIN}/plugin/skills"
     if [[ -d "$skills_dir" ]]; then
       n_sk="$(find "$skills_dir" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | tr -d " ")"
-      _dr role_skills - "      ✓ skills   ${skills_dir} (${n_sk})" "" "$role"
+      _dr role_skills - "      ✓ skills   plugin ${_PLUGIN_ID} (${n_sk})" "" "$role"
     else
-      _dr role_skills - "      ✗ skills   ${skills_dir} missing — run: rein sync" "" "$role"
+      _dr role_skills - "      ✗ skills   plugin ${_PLUGIN_ID} not built — run: bash install-rein.sh" "" "$role"
     fi
-
-    # Agents
-    agents_dir="${ws}/agents"
+    agents_dir="${REIN}/plugin/agents"
     if [[ -d "$agents_dir" ]]; then
       n_ag="$(find "$agents_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d " ")"
-      _dr role_agents - "      ✓ agents   ${agents_dir} (${n_ag})" "" "$role"
+      _dr role_agents - "      ✓ agents   plugin ${_PLUGIN_ID} (${n_ag})" "" "$role"
     else
-      _dr role_agents - "      ✗ agents   ${agents_dir} missing — run: rein sync" "" "$role"
+      _dr role_agents - "      ✗ agents   plugin ${_PLUGIN_ID} not built — run: bash install-rein.sh" "" "$role"
     fi
 
-    # Settings overlay (E-208) — only meaningful for a claude-hosted role.
+    # Role settings (E-462) — only meaningful for a claude-hosted pane role. They live in
+    # ~/.rein/roles/<project key>/ and `rein pane` regenerates them at every launch.
     if [[ "$provider" == "claude" ]]; then
-      if [[ -f "${ws}/settings.${role}.json" ]]; then
-        _dr role_overlay - "      ✓ overlay  ${ws}/settings.${role}.json" "" "$role"
+      local _rsd; _rsd="$(_role_settings_dir "$(pwd)/.ai")"
+      if [[ -f "${_rsd}/settings.${role}.json" ]]; then
+        _dr role_overlay - "      ✓ settings $(_acct_tilde "$_rsd")/settings.${role}.json" "" "$role"
       else
-        _dr role_overlay - "      ✗ overlay  ${ws}/settings.${role}.json missing — run: rein sync" "" "$role"
+        _dr role_overlay - "      ○ settings $(_acct_tilde "$_rsd")/settings.${role}.json not written yet — rein pane writes it at launch" "" "$role"
       fi
     else
       _dr role_overlay ok "      - overlay  n/a for provider '${provider}'" "" "$role"
@@ -4000,6 +3558,25 @@ _dr_lines() {  # <id> — stdin: lines a helper printed. Glyph lines are records
 
 doctor() {
   local a json=0 other=0 scope="" want_scope=0
+  # E-459 (D-169 r11, lean-core.md §Component 6): the scorecard, one row per measure. Takes
+  # --json only; it reports and exits 0 whatever the rows say (exit 2 on bad arguments).
+  case " $* " in *" --fitness "*)
+    local -a fa=()
+    for a in "$@"; do
+      case "$a" in
+        --fitness) ;;
+        --json) fa+=(--json) ;;
+        *) echo "rein doctor: --fitness takes --json only (got '${a}')" >&2; return 2 ;;
+      esac
+    done
+    local fit; fit="$(_rein_helper shared/fitness.mjs || true)"
+    if [[ -z "$fit" ]] || ! command -v node >/dev/null 2>&1; then
+      echo "rein doctor: shared/fitness.mjs or node missing — $(_rein_fix_install)" >&2
+      return 2
+    fi
+    node --no-warnings "$fit" ${fa[@]+"${fa[@]}"}
+    return $?
+  ;; esac
   for a in "$@"; do
     if [[ "$want_scope" -eq 1 ]]; then scope="$a"; want_scope=0; continue; fi
     case "$a" in
@@ -4121,10 +3698,14 @@ _doctor_text() {
   fi
   echo ""
 
-  # E-339 (D-107 r3): the same probe sync's gate_check runs — `true` through the mirror's
-  # analyzer, exactly as hooks/pre-tool-use.sh calls it.
-  echo "Command gate:"
-  _doctor_gate_report
+  # E-462 (lean-core.md §API): the role boundary is Claude Code's sandbox.
+  echo "Role sandbox:"
+  local _sbx_why
+  if _sbx_why="$(_sandbox_missing)"; then
+    _dr sandbox - "  ✗ [SANDBOX_MISSING] ${_sbx_why} — rein pane refuses to start a role session" "$(_sandbox_install_line)"
+  else
+    _dr sandbox - "  ✓ sandbox available (bubblewrap, socat, user namespaces)"
+  fi
   echo ""
 
   # E-272 (D-074 §Component 6): what earlier versions left behind.
@@ -4143,6 +3724,11 @@ _doctor_text() {
 
     echo "Handoff channel (.ai/COMM.md):"
     _doctor_comm_report
+    echo ""
+
+    # E-429 (D-159 r6): a stale digest is a warning, never a hard fail.
+    echo "Digest (.ai/DIGEST.md):"
+    _doctor_digest_report
     echo ""
 
     # E-372 (D-123) / E-379 (D-130): privacy. The automated writers redact what they write into
@@ -4185,38 +3771,14 @@ _doctor_text() {
     fi
     echo ""
 
-    echo "Project-Scoped (.claude/):"
-    if [[ -d ".claude/agents" ]]; then
-      _dr claude_agents - "  ✓ .claude/agents: $(ls ".claude/agents" | wc -l | tr -d ' ') files"
-    else
-      _dr claude_agents - "  ✗ .claude/agents: missing — run: rein init"
-    fi
+    echo "Project-Scoped (.claude/ and the rein plugin):"
+    _doctor_plugin_report
     _doctor_rules_report
     _doctor_hook_form_report
-    if [[ -d ".claude/skills" ]]; then
-      _dr claude_skills - "  ✓ .claude/skills: $(ls ".claude/skills" | wc -l | tr -d ' ') entries"
-    else
-      _dr claude_skills - "  ✗ .claude/skills: missing — run: rein init"
-    fi
     echo ""
   fi
 
   echo "Hooks:"
-  if [[ -f "${HOME}/.rein/hooks/stop-hook.sh" ]]; then
-    _dr hook_present - "  ✓ stop-hook.sh present (auto SESSION stamp)" "" "stop-hook.sh"
-  else
-    _dr hook_present - "  ✗ stop-hook.sh missing — run: rein install" "" "stop-hook.sh"
-  fi
-  if [[ -f "${HOME}/.rein/hooks/post-tool-log.sh" ]]; then
-    _dr hook_present - "  ✓ post-tool-log.sh present (auto LOG append)" "" "post-tool-log.sh"
-  else
-    _dr hook_present - "  ✗ post-tool-log.sh missing — run: rein install" "" "post-tool-log.sh"
-  fi
-  if [[ -f "${HOME}/.rein/hooks/post-tool-use.sh" ]]; then
-    _dr hook_present - "  ✓ post-tool-use.sh present (AQG: auto test gate)" "" "post-tool-use.sh"
-  else
-    _dr hook_present - "  ✗ post-tool-use.sh missing — run: rein install" "" "post-tool-use.sh"
-  fi
   if [[ -f "${HOME}/.rein/hooks/pre-commit.sh" ]]; then
     _dr hook_present - "  ✓ pre-commit.sh present (Gate 2: Quality Gate)" "" "pre-commit.sh"
   else
@@ -4339,23 +3901,6 @@ for name, info in d.get('mcp_servers', {}).items():
   fi
   echo ""
 
-  # ── E-235 (D-061 §3): browsers are opt-in, so say whether they are here ────
-  echo "Vibe-check browsers (rein mcp-setup --browsers):"
-  local _vdir="${REIN}/mcp/vibe-check-mcp"
-  if [[ ! -d "$_vdir" ]]; then
-    _dr vibe_check_browsers - "  ⚠  vibe-check-mcp not installed"
-  elif node --input-type=module -e "
-    const { browserStatus } = await import('file://${_vdir}/browser-check.mjs');
-    const { chromium } = await import('file://${_vdir}/node_modules/@playwright/test/index.js');
-    process.exit(browserStatus(chromium).ok ? 0 : 1);
-  " >/dev/null 2>&1; then
-    _dr vibe_check_browsers - "  ✓ Chromium present"
-  else
-    _dr vibe_check_browsers - "  ✗ Chromium not installed — vibe-check tools will report [BROWSER_MISSING]"
-    _dr + - "    run: rein mcp-setup --browsers"
-  fi
-  echo ""
-
   # ── E-228 (D-059): is `rein start` actually usable here? ─────────────────────
   # Three things have to hold, and each fails differently, so each is reported
   # separately rather than as one "Triad: ok/not ok" verdict a reader cannot act on.
@@ -4363,12 +3908,8 @@ for name, info in d.get('mcp_servers', {}).items():
   echo "Hook toolchain (E-286):"
   _doctor_toolchain_report
   echo ""
-  echo "Safe-exec gate override (E-291):"
-  _dr gate_override - "  $(do_gate status 2>&1)"
-  _classifier_report
   _launch_record_report
   _install_report
-  _gate_pins_report
   echo ""
   # E-427: the account probe runs `claude auth status` — not executed under --scope install.
   if [[ -z "${_DR_SCOPE:-}" ]]; then
@@ -4737,7 +4278,8 @@ if Path(".ai").exists():
         Path("src/claude/agents"),
         Path("src/claude/skills"),
         Path("src/shared/skills"),
-        # E-118: project-scoped dirs (populated by rein init / rein sync)
+        # E-118: project-scoped dirs — the project's own units; since E-469 rein sync copies
+        # none (the shipped ones are the rein plugin's, the same files as claude/ above)
         Path(".claude/agents"),
         Path(".claude/skills"),
     ]
@@ -4782,13 +4324,12 @@ for base in search_paths:
                 })
 
 # E-121: ANTI-DRIFT PROTOCOL check — the canonical project rulefiles must contain the
-# header. E-183/D-050: these are now ENGINEER.md/ARCHITECT.md (CLAUDE.md is an
-# @import shim and carries no header). The global install rulefile keeps its vendor name.
+# header. E-183/D-050: these are now ENGINEER.md/ARCHITECT.md (CLAUDE.md is role-neutral, D-172
+# r11, and carries no header). D-172 r22 deleted the global install rulefile claude/CLAUDE.md.
 ANTI_DRIFT_HEADER = "ANTI-DRIFT PROTOCOL"
 anti_drift_targets = []
 if Path(".ai").exists():
     anti_drift_targets += [Path("ENGINEER.md"), Path("ARCHITECT.md")]
-anti_drift_targets += [Path(rein) / "claude" / "CLAUDE.md"]
 seen_targets = set()
 for t in anti_drift_targets:
     if t in seen_targets or not t.exists():
@@ -4821,40 +4362,6 @@ else:
         print("ACTION REQUIRED: Remove or register Ghost Tools before next commit.")
         sys.exit(1)
 PY
-}
-
-# _install_browsers — the Playwright download, BOUNDED and visible (E-235 / D-061 §3).
-#
-# Two things the previous inline version lacked, both of which mattered:
-#
-#   1. A TIMEOUT. It once ran over an hour with no bound. `timeout` is not present on
-#      macOS by default, so the limit is enforced with a watchdog rather than assumed —
-#      a timeout that silently is not applied is worse than none, because it is believed.
-#   2. PROGRESS. Output was piped through `tail -2`, so a long download looked identical
-#      to a hung one. Nothing tells an operator less than a silent process.
-_install_browsers() {
-  local sdir="$1"
-  local budget="${REIN_BROWSER_TIMEOUT:-600}"
-  echo "  Installing Playwright Chromium (bounded to ${budget}s; ~150MB download)..."
-
-  ( cd "$sdir" && npx playwright install chromium ) &
-  local dl=$!
-  ( sleep "$budget"; kill -TERM "$dl" 2>/dev/null ) &
-  local wd=$!
-
-  local rc=0
-  wait "$dl" 2>/dev/null || rc=$?
-  kill "$wd" 2>/dev/null
-  wait "$wd" 2>/dev/null || true
-
-  if [[ "$rc" -eq 0 ]]; then
-    echo "  ✓ Chromium installed."
-  else
-    echo "  ✗ Chromium install did not complete (exit ${rc}; budget ${budget}s)." >&2
-    echo "    The vibe-check tools will report [BROWSER_MISSING] until it succeeds." >&2
-    echo "    Retry: rein mcp-setup --browsers    (raise the budget: REIN_BROWSER_TIMEOUT=1800)" >&2
-  fi
-  return 0   # never fail the install over an optional browser
 }
 
 # ── E-426 (D-158 r1-r6, r13; release-artifact.md §Component 4): no rein command writes a shipped
@@ -4939,22 +4446,8 @@ for name, info in d.get('mcp_servers', {}).items():
 
   # Fallback if registry parse fails
   if [[ ${#CUSTOM_SERVERS[@]} -eq 0 ]]; then
-    CUSTOM_SERVERS=(vibe-check-mcp task-synchronizer-mcp safe-exec-mcp blueprint-aligner-mcp context-guardian-mcp risk-analyzer-mcp)
+    CUSTOM_SERVERS=(task-synchronizer-mcp)
   fi
-  # E-339 (D-107 r2): ast-parser-mcp is a CLI (`rein sync`'s REPO_MAP step), not a registered
-  # server, so the registry list never installed its web-tree-sitter dependency and every
-  # mirror's map generation failed — silently, until sync stopped discarding the error.
-  local _s _have=0
-  for _s in "${CUSTOM_SERVERS[@]}"; do [[ "$_s" == "ast-parser-mcp" ]] && _have=1; done
-  [[ "$_have" -eq 1 ]] || CUSTOM_SERVERS+=(ast-parser-mcp)
-
-  # E-235: explicit opt-in, so the default install never blocks on a browser download.
-  local WANT_BROWSERS=0
-  [[ "${REIN_INSTALL_BROWSERS:-0}" == "1" ]] && WANT_BROWSERS=1
-  local _a
-  for _a in "$@"; do
-    [[ "$_a" == "--browsers" ]] && WANT_BROWSERS=1
-  done
 
   echo "Installing MCP server dependencies from ${MCP_DIR} ..."
   echo ""
@@ -4965,24 +4458,6 @@ for name, info in d.get('mcp_servers', {}).items():
     if [[ -d "$sdir" && -f "${sdir}/package.json" ]]; then
       echo "  Installing ${server}..."
       _mcp_deps "$server" "$sdir" || true   # E-426: npm ci for a shipped lock; the install continues
-      # E-235 (D-061 §3): the browser download is NO LONGER part of the default install.
-      #
-      # `npx playwright install chromium` is an unbounded ~150MB network fetch. On
-      # 2026-09-09 it ran for over an HOUR here without finishing — inside install-rein.sh,
-      # which every user install and every CI run depends on. The `|| true` that used to
-      # wrap it gave no protection whatsoever: the failure mode is HANGING, not erroring,
-      # and you cannot `|| true` your way out of a process that never returns.
-      #
-      # Opt in with `rein mcp-setup --browsers`, or REIN_INSTALL_BROWSERS=1 to restore the
-      # old behaviour. Missing browsers now produce a clear [BROWSER_MISSING] rejection at
-      # first use rather than a hang.
-      if [[ "$server" == "vibe-check-mcp" ]]; then
-        if [[ "$WANT_BROWSERS" -eq 1 ]]; then
-          _install_browsers "$sdir"
-        else
-          echo "  (skipping Playwright browsers — run: rein mcp-setup --browsers)"
-        fi
-      fi
       echo "  ✓ ${server}: ready"
       SETUP_OK=$((SETUP_OK + 1))
     else
@@ -4992,24 +4467,6 @@ for name, info in d.get('mcp_servers', {}).items():
 
   echo ""
   echo "✓ MCP setup complete (${SETUP_OK}/${#CUSTOM_SERVERS[@]} servers installed)."
-
-  # E-305 (D-089 r3): a gate path's dependencies must be EXACTLY the pinned versions — a parser
-  # is the gate's input model (shell-quote 1.12 changed what `&>` parses to, b36a818). A
-  # mismatch is the moved-interpreter class: refuse, like [TOOLCHAIN_STALE].
-  local _gp; _gp="$(rein_locate shared/gate-pins.mjs 2>/dev/null || true)"
-  if [[ -n "$_gp" ]] && command -v node >/dev/null 2>&1; then
-    local _gp_out _gp_rc=0
-    _gp_out="$(node --no-warnings "$_gp" check "$MCP_DIR" 2>&1)" || _gp_rc=$?
-    if [[ "$_gp_rc" -eq 1 || "$_gp_rc" -eq 2 ]]; then
-      printf '%s\n' "$_gp_out"            # stdout: install_global silences stderr
-      echo "✗ gate dependencies do not match their pins — refusing (E-305)."
-      return 3
-    elif [[ "$_gp_rc" -eq 4 ]]; then
-      printf '%s\n' "$_gp_out" | sed 's/^/  ⚠ /'   # absent, not drifted: the gate fails closed without them
-    else
-      echo "✓ Gate dependencies match their pins: $(node --no-warnings "$_gp" list "$MCP_DIR" 2>/dev/null | tr '\n' ' ')"
-    fi
-  fi
 
   # E-32: Dynamically regenerate .mcp.json with absolute paths if in a project
   if [[ -d ".ai" || -f ".mcp.json" ]]; then
@@ -5133,6 +4590,20 @@ fi
 
 # _start_shell_re — commands that count as "an interactive shell is ready in this pane".
 _START_SHELL_RE='^(-?(ba|z|k|a|da)?sh|fish|login)$'
+# E-434 (D-161, release-artifact.md §Component 8): a pane is IDLE when its shell (#{pane_pid}) is
+# the foreground — pane_current_command is a shell — and has no child process. The command name
+# alone is not the test: `rein pane` is itself a bash script, so a pane where it is starting (or
+# running `bash -c …`) reads as `bash`. Status only; prints nothing.
+_start_pane_idle() {  # <pane>
+  local info pid cur
+  info="$(tmux display-message -p -t "$1" '#{pane_pid} #{pane_current_command}' 2>/dev/null)" || return 1
+  read -r pid cur <<< "$info"
+  [[ "$pid" =~ ^[0-9]+$ && "$cur" =~ $_START_SHELL_RE ]] || return 1
+  # E-436: a `ps` that fails or prints nothing proves nothing — the pane is then NOT idle.
+  local procs; procs="$(ps -A -o ppid= 2>/dev/null)" || return 1
+  [[ -n "$procs" ]] || return 1
+  ! awk -v p="$pid" '$1 == p { f = 1 } END { exit !f }' <<< "$procs"
+}
 
 # _start_config — read and VALIDATE .ai/start.json, printing "session|layout|main|account"
 # (account empty = default; E-315, accounts.md §2). E-333 (D-102 §8): a gitignored
@@ -5310,36 +4781,6 @@ do_start() {
   local r
   while IFS= read -r r; do [[ -n "$r" ]] && roles+=("$r"); done < <(_start_roles "$ai_dir")
 
-  # E-242 (D-066): pre-check every role's overlay HERE, before any pane is created.
-  #
-  # `rein pane` self-heals too, but by then the failure is inside a tmux pane whose output
-  # scrolls past and whose exit leaves an empty shell — the operator sees a dead pane, not
-  # a message. Checking up front reports all roles at once, in the terminal they are
-  # actually looking at.
-  local _pj _missing=0
-  _pj="$(cd "$(dirname "$ai_dir")" && pwd)"
-  for r in "${roles[@]}"; do
-    [[ -f "${_pj}/.claude/settings.${r}.json" ]] || _missing=1
-  done
-  if [[ "$_missing" -eq 1 ]]; then
-    # --dry-run DESCRIBES; it must not write. Regenerating overlays here would make a
-    # "show me what you would do" invocation modify the project, which is the one thing a
-    # dry run promises not to do.
-    if [[ "$dry" -eq 1 ]]; then
-      echo "rein start: (dry run) per-role settings overlays are missing; a real run regenerates them."
-      _missing=0
-    else
-    echo "rein start: regenerating missing per-role settings overlays..."
-    ( cd "$_pj" && _write_role_settings_overlays ".claude" ".ai" ) 2>/dev/null || true
-    for r in "${roles[@]}"; do
-      if [[ -f "${_pj}/.claude/settings.${r}.json" ]]; then
-        echo "  ✓ .claude/settings.${r}.json"
-      else
-        echo "  ✗ .claude/settings.${r}.json still missing — run 'rein init' in ${_pj}" >&2
-      fi
-    done
-    fi
-  fi
   if [[ "${#roles[@]}" -eq 0 ]]; then
     echo "rein start: no roles in .ai/roles.json — run 'rein init' or add engineer/architect." >&2
     return 2
@@ -5369,6 +4810,25 @@ do_start() {
   if [[ "$want_kill" -eq 1 ]]; then
     _start_kill "$session" "$window" "$project" "$assume_yes" "$dry"
     return $?
+  fi
+
+  # E-462 (D-169 r3): the role settings are the boundary. Every real run regenerates them (gap 3
+  # of E-458): a file edited since the last launch is overwritten. D-172 r22: without the sandbox
+  # `rein start` REFUSES, as `rein pane` does — up front, where the operator is looking (E-242: a
+  # refusal inside a tmux pane scrolls past), and before any pane or window is made. --dry-run
+  # refuses too: it describes a launch that cannot happen. --dry-run otherwise must not write.
+  local _sbx
+  if _sbx="$(_sandbox_missing)"; then
+    echo "[SANDBOX_MISSING] rein start: ${_sbx} — a role session needs the Claude Code sandbox (D-169 r3); refusing." >&2
+    return 2
+  fi
+  local _rd; _rd="$(_role_settings_dir "$ai_dir")"
+  if [[ "$dry" -eq 1 ]]; then
+    echo "rein start: (dry run) the role settings would be regenerated in $(_acct_tilde "$_rd")."
+  else
+    echo "rein start: regenerating the role settings..."
+    _write_role_settings_overlays "" "$ai_dir" \
+      || echo "rein start: could not write the role settings in ${_rd} — each pane retries, and refuses if it cannot." >&2
   fi
 
   # E-315 (D-095, accounts.md §2): which Claude account the panes launch under. `rein start` never
@@ -5518,14 +4978,23 @@ do_start() {
       return 2
     fi
     if [[ "$dry" -eq 0 ]]; then
-      # Wait for the prompt before sending: keys delivered to a pane whose shell has not
-      # finished starting are simply lost, and a fixed sleep is a bet on machine speed.
+      # E-434 (D-161): keys go only to an IDLE pane (_start_pane_idle). A pane this run created
+      # gets up to 5 s to reach its prompt — keys sent to a shell still starting are lost — and
+      # is never sent into an unknown foreground after that. A live pane is checked once: busy
+      # means its agent is running, and typing into it would type into the agent.
       local w=0 cur
-      while [[ "$w" -lt 100 ]]; do
+      if [[ "$existing" -eq 0 ]]; then
+        while [[ "$w" -lt 100 ]] && ! _start_pane_idle "$pane"; do sleep 0.05; w=$((w + 1)); done
+        if ! _start_pane_idle "$pane"; then
+          echo "[START_PANE_NOT_READY] ${r} — the new pane did not reach an idle shell in 5 s; in that pane run: rein pane ${r}" >&2
+          return 2
+        fi
+      elif ! _start_pane_idle "$pane"; then
         cur="$(tmux display-message -p -t "$pane" '#{pane_current_command}' 2>/dev/null || true)"
-        [[ "$cur" =~ $_START_SHELL_RE ]] && break
-        sleep 0.05; w=$((w + 1))
-      done
+        echo "rein start: ${r} pane is busy (${cur:-unknown}) — not re-sent"
+        idx=$((idx + 1))
+        continue
+      fi
     fi
     _run send-keys -t "$pane" "rein pane ${r}" C-m
     idx=$((idx + 1))
@@ -5832,26 +5301,9 @@ do_pane() {
     return 2
   fi
 
-  # E-242 (D-066): SELF-HEAL a missing per-role overlay before launching.
-  #
-  # The reported failure — "Settings file not found: .claude/settings.architect.json" —
-  # was a PATH bug (fixed in resolve-launch.mjs), but the same message appears for a
-  # genuinely absent overlay: a project cloned before E-208, or one whose `.claude/` was
-  # cleaned. Regenerating it costs nothing and turns a dead-end error into a working pane.
-  #
-  # It writes only the ROLE OVERLAY, never `.claude/settings.json` — that file carries the
-  # hooks and the env block, and rewriting it here would be a much larger side effect than
-  # "start a pane" implies.
+  # E-462: where the role settings are generated (written below, once the provider is checked).
   local _proj; _proj="$(cd "$(dirname "$ai_dir")" && pwd)"
-  if [[ ! -f "${_proj}/.claude/settings.${role}.json" ]]; then
-    echo "rein pane: .claude/settings.${role}.json missing — regenerating it." >&2
-    ( cd "$_proj" && _write_role_settings_overlays ".claude" ".ai" ) 2>/dev/null || true
-    if [[ -f "${_proj}/.claude/settings.${role}.json" ]]; then
-      echo "rein pane: overlay restored." >&2
-    else
-      echo "rein pane: could not regenerate the overlay — run 'rein init' in ${_proj}." >&2
-    fi
-  fi
+  local _rd; _rd="$(_role_settings_dir "$ai_dir")"
 
   # `|| true`: the script runs under `set -e`, so an unguarded non-zero from the
   # locator would abort with exit 1 before the explicit error branch below could
@@ -5866,8 +5318,16 @@ do_pane() {
   # provider-adapter.mjs), the same module advisor-mcp uses (E-210). One code path, so
   # the A2A bridge, the launcher and the tests cannot drift apart about which provider
   # owns a role. Output: line 1 = provider, remaining lines = argv.
-  local resolved rc
-  resolved="$(node --no-warnings "$helper" "$role" "$ai_dir" 2>/dev/null)"; rc=$?
+  local resolved rc=0
+  # stderr is NOT discarded: exit 4 is a refusal whose reason the resolver prints there (an invalid
+  # roles.json model, an argv element with a line break — SECURITY.md lean-core round F1).
+  # `|| rc=$?`: under `set -e` a failing assignment would otherwise end the script right here,
+  # with the resolver's code and without the line below.
+  resolved="$(node --no-warnings "$helper" "$role" "$ai_dir" "$_rd")" || rc=$?
+  if [[ "$rc" -eq 4 ]]; then
+    echo "rein pane: refusing to launch ${role} — the launch line from ${ai_dir} is invalid (reason above)." >&2
+    return 2
+  fi
   if [[ "$rc" -ne 0 || -z "$resolved" ]]; then
     echo "rein pane: role '${role}' is not mapped to a provider in ${ai_dir}/roles.json." >&2
     return 2
@@ -5896,6 +5356,32 @@ do_pane() {
   if ! command -v "$provider" >/dev/null 2>&1; then
     echo "rein pane: provider CLI '${provider}' is not on PATH (role ${role})." >&2
     return 2
+  fi
+
+  # E-462 (D-169 r3, lean-core.md §API): a role session does not start without its boundary.
+  # The sandbox and its role settings are Claude Code's, and .ai/roles.json is Architect-writable:
+  # another provider here would start a role session with no boundary at all.
+  if [[ "$provider" != "claude" ]]; then
+    echo "rein pane: role '${role}' is mapped to '${provider}' — a role session runs only on claude, whose sandbox holds the role boundary (D-169 r3)." >&2
+    return 2
+  fi
+  local _sbx; _sbx="$(_sandbox_missing)" && {
+    echo "[SANDBOX_MISSING] rein pane: the ${role} session needs the Claude Code sandbox: ${_sbx}" >&2
+    return 2
+  }
+  # The role settings are regenerated on EVERY launch into ~/.rein/roles/<project key>/ (gap 3 of
+  # E-458): neither session can write there, and a file edited since the last launch is
+  # overwritten. A failed write refuses the launch — an Architect pane
+  # without its file would be unsandboxed.
+  if [[ -z "$_rd" ]] || ! _write_role_settings_overlays "" "$ai_dir" >/dev/null || [[ ! -f "${_rd}/settings.${role}.json" ]]; then
+    echo "rein pane: could not generate ${_rd:-the role dir}/settings.${role}.json — refusing to launch." >&2
+    return 2
+  fi
+  # The lane ledger (gap 2): must exist before the Architect's sandbox write-denies it.
+  local _ll; _ll="$(_rein_helper shared/lane-ledger.mjs || true)"
+  if [[ -n "$_ll" ]] && git -C "$_proj" rev-parse --git-dir >/dev/null 2>&1; then
+    node --no-warnings "$_ll" seed --root "$_proj" >&2 || {
+      echo "rein pane: could not create the lane ledger — refusing to launch." >&2; return 2; }
   fi
 
   # E-315 (D-095, accounts.md §3): the project's account, read through the same validator as
@@ -5952,8 +5438,12 @@ do_pane() {
   # E-294: the launch record for THIS pid, written immediately before exec — the provider keeps
   # the pid (and its start time), so the SessionStart mint finds it on its chain. A failed
   # write refuses the launch: an unbound Architect pane would mint the plain-launch default.
+  # E-433 (D-160 addendum 2): the tmux server socket and pane as the OPERATOR's shell sees them,
+  # before the agent starts, so the waiting-signal hook never reads them from its environment.
+  local _lr_tmux=()
+  [[ -n "${TMUX:-}" && "${TMUX_PANE:-}" =~ ^%[0-9]+$ ]] && _lr_tmux=("${TMUX%%,*}" "$TMUX_PANE")
   _lr_rc=0
-  python3 -I "$_lr" write "$$" "$role" >/dev/null || _lr_rc=$?
+  python3 -I "$_lr" write "$$" "$role" ${_lr_tmux[@]+"${_lr_tmux[@]}"} >/dev/null || _lr_rc=$?
   if [[ "$_lr_rc" -ne 0 ]]; then
     [[ "$_lr_rc" -eq 3 ]] && echo "[PANE_NESTED] rein pane: an ancestor became a live session — refusing." >&2
     echo "rein pane: could not write the launch record (rc ${_lr_rc}) — refusing to launch." >&2
@@ -5967,6 +5457,13 @@ do_pane() {
   if [[ -n "$_acct_dir" ]]; then
     echo "rein pane: account '${_acct}' ($(_acct_tilde "$_acct_dir"))"
     export CLAUDE_CONFIG_DIR="$_acct_dir"
+  fi
+  # D-172 r2a (SECURITY.md lean-core round F3): the Architect's session runs in <project>/.ai.
+  # Claude Code's sandbox makes the working directory writable and nothing else by default, so
+  # the project root is read-only to the Architect's Bash and nothing can be planted there for
+  # the Engineer's tools to load. Every launch path is absolute (resolve-launch.mjs).
+  if [[ "$role" == "architect" ]]; then
+    cd "${_proj}/.ai" || { echo "rein pane: cannot enter ${_proj}/.ai — refusing to launch." >&2; return 2; }
   fi
   exec "$provider" "${argv[@]}" "$@"
 }
@@ -6021,8 +5518,8 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
        rein ci status [<sha>|--ref <sha>] [--short]
        rein ci list [-n <N>]
        rein ci log [<sha>] [--failed]
-       rein ci evals
        rein ci hosted [<provider>] [--check] [--force] | --required
+       rein ci plan [--base <ref>] [--json]
        rein ci budget [set --ruling D-### <field>=<n> …]
 
   hosted         Render the hosted trunk check for the provider (github; azure, gitlab,
@@ -6036,10 +5533,13 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
                  keeps merged branches (advisory; the exit code is the wrapper's).
                  --required prints the required check names one per line — the source
                  the branch protection and the release publish gate read (D-137).
-  evals         Run the core-skill evals (tests/suites/skill_evals_test.sh, E-285) under
-                 YOUR HOME — the model needs your claude login, which a run's throwaway
-                 HOME never has. Needs a clean tree outside .ai/; the JSON report is kept
-                 as ~/.rein/ci/evals/<sha>.json and 'rein ci log' prints its path.
+  plan          How much CI the change needs (E-449, D-166): none (bookkeeping only), fast
+                 (docs only), affected (the suites whose census footprint reads a changed
+                 path) or full. Full whenever lower cannot be proven: a path on the full list
+                 or unknown to the census, a [TIER_3] commit, no base, a shallow clone, a
+                 missing or stale baseline, over half the suites, ci.smart false, or a
+                 planner error ([PLAN_FALLBACK]). --base <ref> (default: the merge base with
+                 the trunk), --json for the plan object.
   --ref <rev>    Commit to test (default HEAD). Tested in a detached git worktree, so
                  uncommitted files are invisible to the run.
   --dirty        Test HEAD plus the working tree's uncommitted changes (the run is
@@ -6053,9 +5553,10 @@ Usage: rein ci run [--ref <sha>|HEAD] [--dirty] [--suite-only|--unit-only] [--la
                  and the budget run on shard 1 only; a shard run never certifies a commit
                  ('rein ci status' reports SHARD i/N) and never writes the census baseline.
   --keep         Keep the worktree and throwaway HOME for debugging.
-  budget         The test budget (E-303): suites, test_lines and fast_tier_seconds only move
-                 down — a full run over the best recorded value (slack: suites +0, test_lines
-                 +2%, fast tier +10%) FAILS. 'set --ruling D-###' is the only way to raise it.
+  budget         The test budget (E-303): suites and fast_tier_seconds only move down — a
+                 full run over the best recorded value (slack: suites +0, fast tier +10%)
+                 FAILS. 'set --ruling D-###' is the only way to raise it. full_seconds is
+                 recorded. (The test_lines ratchet was retired in E-464, D-169 r9.)
 
 Per-machine environment (E-343, D-108): the run starts from an empty environment. A project
 service this machine runs differently (a port, a local URL) is listed in the gitignored
@@ -6080,8 +5581,8 @@ do_ci() {
   local sub="${1:-}"
   case "$sub" in
     run) shift; _ci_run "$@" ;;
-    evals) shift; _ci_evals "$@" ;;
     hosted) shift; _ci_hosted "$@" ;;
+    plan) shift; _ci_plan "$@" ;;
     status|list|log) shift; _ci_read "$sub" "$@" ;;
     budget) shift; _ci_budget "$@" ;;
     ""|-h|--help|help) _ci_usage ;;
@@ -6100,44 +5601,37 @@ _ci_budget() {
   case "${1:-}" in
     "") node "${_CI_NODE_FLAGS[@]}" "$helper" budget --ai-dir "${root}/.ai" ;;
     set) shift
-         local ruling=""
-         local -a vals=()
+         local ruling="" at=""
+         local -a vals=() atopt=()
          while [[ $# -gt 0 ]]; do
            case "$1" in
              --ruling) ruling="${2:-}"; shift 2 || { echo "rein ci budget set: --ruling needs D-###" >&2; return 2; } ;;
              --ruling=*) ruling="${1#--ruling=}"; shift ;;
+             # E-443 (D-164 addendum 1 r5): the commit the value is ruled for (default HEAD).
+             --at) at="${2:-}"; shift 2 || { echo "rein ci budget set: --at needs a commit" >&2; return 2; } ;;
+             --at=*) at="${1#--at=}"; shift ;;
              *) vals+=("$1"); shift ;;
            esac
          done
-         node "${_CI_NODE_FLAGS[@]}" "$helper" budget-set --ai-dir "${root}/.ai" --ruling "$ruling" "${vals[@]+"${vals[@]}"}" ;;
-    *) echo "rein ci budget: unknown argument '$1' — usage: rein ci budget [set --ruling D-### field=n …]" >&2; return 2 ;;
+         if [[ -n "$at" ]]; then
+           at="$(git rev-parse --verify --quiet "${at}^{commit}")" || { echo "rein ci budget set: --at names no commit" >&2; return 2; }
+           atopt=(--at "$at")
+         fi
+         node "${_CI_NODE_FLAGS[@]}" "$helper" budget-set --ai-dir "${root}/.ai" --ruling "$ruling" ${atopt[@]+"${atopt[@]}"} "${vals[@]+"${vals[@]}"}" ;;
+    *) echo "rein ci budget: unknown argument '$1' — usage: rein ci budget [set --ruling D-### [--at <commit>] field=n …]" >&2; return 2 ;;
   esac
 }
 
-# _ci_evals — E-285 (D-075 native-first §8): the core-skill evals need an authenticated
-# claude, and `rein ci run`'s throwaway HOME never has one (its suite layer SKIPs there by
-# design). So this runs the eval suite in the working tree under the operator's own HOME and
-# keeps the report by HEAD's sha. A tree dirty outside .ai/ is refused: the report must
-# describe the commit it is filed under.
-_ci_evals() {
-  [[ $# -eq 0 ]] || { echo "rein ci evals: takes no arguments" >&2; return 2; }
-  local root sha dir report rc=0
-  root="$(git rev-parse --show-toplevel 2>/dev/null)" || {
-    echo "rein ci evals: not inside a git repository" >&2; return 2; }
-  if [[ -n "$(git -C "$root" status --porcelain -- . ':!.ai' 2>/dev/null)" ]]; then
-    echo "rein ci evals: uncommitted changes outside .ai/ — commit first; the report is filed under HEAD" >&2
-    return 2
-  fi
-  sha="$(git -C "$root" rev-parse HEAD)"
-  dir="${REIN}/ci/evals"; report="${dir}/${sha}.json"
-  mkdir -p "$dir" && rm -f "$report"
-  REIN_SKILL_EVAL_REPORT="$report" bash "${root}/tests/suites/skill_evals_test.sh" || rc=$?
-  if [[ ! -f "$report" ]]; then
-    echo "rein ci evals: no report for ${sha:0:7} — the live layer did not run (see SKIPPED above)"
-    return $(( rc ? 1 : 2 ))
-  fi
-  echo "rein ci evals: $([[ $rc -eq 0 ]] && echo PASS || echo FAIL) ${sha:0:7} — report: ${report}"
-  return $(( rc ? 1 : 0 ))
+# _ci_plan — E-449 (D-166 r1): how much CI the change needs (none|fast|affected|full). The logic
+# is src/shared/ci-plan.mjs; this only finds the repository root. Exit 0 for a computed plan
+# (a [PLAN_FALLBACK] full plan included), 2 on a usage error.
+_ci_plan() {
+  local root helper
+  root="$(git rev-parse --show-toplevel 2>/dev/null)" || { echo "rein ci plan: not inside a git repository" >&2; return 2; }
+  helper="$(_rein_helper shared/ci-plan.mjs || true)"
+  [[ -n "$helper" ]] && command -v node >/dev/null 2>&1 || {
+    echo "rein ci plan: ci-plan.mjs or node unavailable — $(_rein_fix_install)" >&2; return 2; }
+  node --no-warnings "$helper" --root "$root" "$@"
 }
 
 # _ci_hosted — E-335 (D-103): render / check the provider's hosted-check wrapper. The logic is
@@ -6678,8 +6172,8 @@ _ci_run() {
   fi
 
   # ── budget ── E-303 (D-088, test-economics.md §Component 7): the ratchet. A full run (suite and
-  # unit) of a repository that carries the census measures suites and test_lines (the census's
-  # own inventory), the fast tier's wall seconds (`tests/run.sh --tier fast`, timed alone) and
+  # unit) of a repository that carries the census measures suites (the census's own inventory;
+  # E-464 retired test_lines, D-169 r9), the fast tier's wall seconds (`tests/run.sh --tier fast`, timed alone) and
   # full_seconds (the suite step); then ci-record.mjs compares them with the best recorded
   # since the latest ruling. A regression FAILS the run, with recorded/measured/slack on one
   # line. No flag or env var lifts it: `rein ci budget set --ruling D-###` is the only way up.
@@ -6692,13 +6186,13 @@ _ci_run() {
     _inv="$(CENSUS_MJS="${CI_WT}/tests/tools/census.mjs" CENSUS_REPO="$CI_WT" node --no-warnings --input-type=module -e '
       const { inventory } = await import(process.env.CENSUS_MJS);
       const i = inventory(process.env.CENSUS_REPO);
-      process.stdout.write(`${i.suites.length} ${i.testLines}`);' 2>/dev/null || true)"
+      process.stdout.write(`${i.suites.length}`);' 2>/dev/null || true)"
     printf '\n[ci] ── fast tier: /bin/bash tests/run.sh --tier fast\n' >> "$CI_LOG"
     _fast_s0=$SECONDS
     ( cd "$CI_WT" && env -i "${CI_ENV[@]}" /bin/bash tests/run.sh --tier fast ) >> "$CI_LOG" 2>&1 || _fast_rc=$?
     [[ "$_fast_rc" -eq 0 ]] && fast_s=$(( SECONDS - _fast_s0 ))
-    printf '[ci] budget suites=%s test_lines=%s fast_tier_seconds=%s full_seconds=%s peak_rss_mb=%s peak_sum_rss_mb=%s\n' \
-      "$(cut -d' ' -f1 <<< "${_inv:--}")" "$(cut -d' ' -f2 <<< "${_inv:-- -}")" "$fast_s" \
+    printf '[ci] budget suites=%s fast_tier_seconds=%s full_seconds=%s peak_rss_mb=%s peak_sum_rss_mb=%s\n' \
+      "${_inv:--}" "$fast_s" \
       "$([[ -n "$shard" ]] && echo - || echo "${suite_seconds:--}")" "$([[ -n "$shard" ]] && echo - || echo "${peak_rss:--}")" \
       "$([[ -n "$shard" ]] && echo - || { sed -nE 's/^\[run\] peak_sum_rss_mb=([0-9]+).*/\1/p' "$CI_LOG" | tail -1 | grep . || echo -; })" >> "$CI_LOG"
     budget_helper="$(_rein_helper shared/ci-record.mjs || true)"
@@ -6811,7 +6305,6 @@ _ci_read() {
   local extra=()
   [[ "$short" -eq 1 ]] && extra+=(--short)
   [[ "$failed" -eq 1 ]] && extra+=(--failed)
-  [[ "$sub" == "log" ]] && extra+=(--evals-dir "${REIN}/ci/evals")
   node "${_CI_NODE_FLAGS[@]}" "$helper" "$sub" --ai-dir "${root}/.ai" --sha "$sha" ${extra[@]+"${extra[@]}"}
 }
 
@@ -7017,7 +6510,7 @@ case "$cmd" in
   # verify_markdown_sync. Usage: rein add-task [flags] <description>.
   add-task)      do_add_task "${@:2}" ;;
   # E-325 (D-102, team-collaboration.md §Component 1): `rein state migrate --team|--legacy` and
-  # `rein task done <id>` — one node helper, writing through the same library as the MCP server.
+  # `rein task done|show <id>` — one node helper, writing through the same library as the MCP server.
   # E-333: `rein log path|recent` — the LOG file (shared per developer when team.json says so).
   # E-341 (D-105 r2): `rein trunk` — the project's trunk (team.json → origin/HEAD → main|master).
   state|task|team|log|trunk)
@@ -7025,6 +6518,12 @@ case "$cmd" in
     [[ -n "$_st" ]] || { echo "rein ${cmd}: cli-state.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
     command -v node >/dev/null 2>&1 || { echo "rein ${cmd}: node not found" >&2; exit 1; }
     node --no-warnings "$_st" "$cmd" "${@:2}" ;;
+  # E-461 (D-169 r7, lean-core.md §Component 4): bookkeeping is three commands, not skills.
+  done|handoff|decide|archive)
+    _bk="$(_rein_helper shared/cli-bookkeeping.mjs || true)"
+    [[ -n "$_bk" ]] || { echo "rein ${cmd}: cli-bookkeeping.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
+    command -v node >/dev/null 2>&1 || { echo "rein ${cmd}: node not found" >&2; exit 1; }
+    node --no-warnings "$_bk" "$cmd" "${@:2}" ;;
   # E-208 (role-abstraction.md §Same-Provider Triad): bind THIS tmux pane to a role
   # and launch that role's provider CLI. Usage: rein pane <architect|engineer>.
   pane)          do_pane "${@:2}" ;;
@@ -7035,33 +6534,29 @@ case "$cmd" in
     do_account "${@:2}" ;;
   # E-265 (D-072, local-ci.md): local CI — tests a committed sha in an isolated worktree.
   ci)            do_ci "${@:2}" ;;
+  # E-429 (D-159 r1-r2, harness-fitness.md §Component 1): the digest is built, never written by hand.
+  digest)
+    _dg="$(_rein_helper shared/digest-build.mjs || true)"
+    [[ -n "$_dg" ]] || { echo "rein digest: digest-build.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
+    command -v node >/dev/null 2>&1 || { echo "rein digest: node not found" >&2; exit 1; }
+    case "${2:-}" in
+      build|check) node --no-warnings "$_dg" "$2" "$PWD" ;;
+      *) echo "usage: rein digest build | check" >&2; exit 2 ;;
+    esac ;;
   # E-417 (D-155 r1): build a release artifact's stage from the clone this rein belongs to.
   release)       do_release "${@:2}" ;;
   # E-272 (D-074, version-lifecycle.md §Component 4): remove what earlier versions left
   # behind. Dry run by default; every removal is reversible via the trash.
   clean)         do_clean "${@:2}" ;;
-  # E-291 (D-081 r2, D-083): the operator's time-boxed safe-exec override (replaces the
-  # removed env opt-outs). Operator-only — the analyzer blocks it for every agent role.
-  gate)          do_gate "${@:2}" ;;
-  # E-254 (D-069): `rein provider` is removed. v4 ships ONE provider, and a subcommand whose
-  # whole purpose was registering a second one is dead surface — the registry file remains
-  # the place to edit, so the exit says where rather than only that the command is gone.
-  provider)
-    echo "rein provider: removed in v4 — providers are configured in .ai/providers.json." >&2
-    echo "  Rein is Claude-native (D-069): one provider, three Claude roles." >&2
-    exit 2
-    ;;
   version|-v|--version) echo "rein ${VERSION}" ;;
   ""|help|-h|--help) usage ;;
 
-  # Deprecated user surface — removed, see .ai/blueprints/cli-collapse.md
-  update|onboard) _show_deprecated "$cmd" "Run 'rein start' and type the planning request in the Architect pane." ;;
-  preflight)     _show_deprecated "preflight" "skill: rein-preflight  (auto-runs at every session start)" ;;
-  digest)        _show_deprecated "digest" "skill: rein-digest" ;;
-  archive)       _show_deprecated "archive" "skill: rein-archive" ;;
-  review)        _show_deprecated "review" "skill: arch-review  (Architect codebase audit; the old review skill was renamed in E-147)" ;;
-  test)          _show_deprecated "test" "skill: rein-test  (use --vibe arg inside the skill for chaos audit)" ;;
-  where)         _show_deprecated "where" "echo \"\$HOME/.rein\"  (install root is fixed)" ;;
+  # E-464 (D-169 r8, D-170 r5): review by tier; run_review's checks moved here from orchestrator-mcp.
+  review)
+    _rv="$(_rein_helper shared/review-checks.mjs || true)"
+    [[ -n "$_rv" ]] || { echo "rein review: review-checks.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
+    command -v node >/dev/null 2>&1 || { echo "rein review: node not found" >&2; exit 1; }
+    node --no-warnings "$_rv" "${@:2}" ;;
 
   # Recovery helpers — documented under "Recovery" in usage(); also called by the
   # init/install paths directly and exercised by the test suites.

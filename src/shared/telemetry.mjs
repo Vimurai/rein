@@ -172,6 +172,7 @@ let _cachedDb = null;
 // every open re-tries until this is true.
 let _sourceReady = false;
 let _velocityReady = false; // E-259: same contract for the task_velocity columns
+let _ruleReady = false;     // E-432: same contract for tool_executions.rule
 let _cachedPath = null;
 
 function _isDisabled() {
@@ -257,6 +258,21 @@ function _ensureSourceColumn(db, { inTxn = false } = {}) {
   }
 }
 
+// E-432 (D-159 r7): tool_executions.rule — the rule the retired command gate (E-463) attributed a
+// block to, or 'UNLISTED'; NULL on every other row and on rows written before
+// it. Additive and race-safe exactly as `source` above; retried on the next open when refused.
+function _ensureRuleColumn(db) {
+  try {
+    if (_hasColumn(db, "tool_executions", "rule")) return true;
+    try { db.exec("ALTER TABLE tool_executions ADD COLUMN rule TEXT"); }
+    catch (e) { if (!/duplicate column/i.test(e.message)) throw e; }
+    return true;
+  } catch (e) {
+    _logErr("rule-column-migration-failed", e.message);
+    return false;
+  }
+}
+
 // E-259: add the task_velocity columns to a store created before them — the E-261 pattern:
 // additive, race-safe ("duplicate column" is the other process's success), retried on the
 // next open when refused (a busy lock), never cached as done while one is missing.
@@ -312,6 +328,7 @@ function _openDb(pathOverride) {
   if (_cachedDb && _cachedPath === targetPath) {
     if (!_sourceReady) _sourceReady = _ensureSourceColumn(_cachedDb);
     if (!_velocityReady) _velocityReady = _ensureVelocityColumns(_cachedDb);
+    if (!_ruleReady) _ruleReady = _ensureRuleColumn(_cachedDb);
     return _cachedDb;
   }
   if (_cachedDb && _cachedPath !== targetPath) {
@@ -320,6 +337,7 @@ function _openDb(pathOverride) {
     _cachedPath = null;
     _sourceReady = false;
     _velocityReady = false;
+    _ruleReady = false;
   }
   // E-173: best-effort dir creation + writability preflight. Both are FAIL-OPEN — a
   // read-only/unwritable path logs a clear warning but does not throw here; the
@@ -342,7 +360,8 @@ function _openDb(pathOverride) {
       execution_time_ms INTEGER NOT NULL CHECK(execution_time_ms >= 0),
       status TEXT NOT NULL CHECK(${STATUS_SQL_IN}),
       timestamp TEXT NOT NULL,
-      source TEXT CHECK(${SOURCE_SQL_CHECK})
+      source TEXT CHECK(${SOURCE_SQL_CHECK}),
+      rule TEXT
     );
     CREATE TABLE IF NOT EXISTS task_velocity (
       id TEXT PRIMARY KEY,
@@ -394,7 +413,8 @@ function _openDb(pathOverride) {
           // E-261: carry `source` when both sides have it (db_architect P2) — a stranded table
           // written by E-261+ code holds values a positional or base-column copy would null.
           _ensureSourceColumn(db, { inTxn: true });
-          const src = _hasColumn(db, "_tool_executions_old", "source") ? ", source" : "";
+          const src = (_hasColumn(db, "_tool_executions_old", "source") ? ", source" : "") +
+            (_hasColumn(db, "_tool_executions_old", "rule") && _hasColumn(db, "tool_executions", "rule") ? ", rule" : "");
           db.exec(
             `INSERT OR IGNORE INTO tool_executions (${TE_BASE_COLS}${src}) ` +
             "SELECT id, project_hash, session_id, tool_name, execution_time_ms, " +
@@ -416,14 +436,15 @@ function _openDb(pathOverride) {
           // E-261 (db_architect P2): the rebuilt table carries `source` from the start, inside
           // this transaction, so no other writer ever sees a table without it; and a table
           // that already holds `source` values keeps them across the next enum hop.
-          const src = _hasColumn(db, "tool_executions", "source") ? ", source" : "";
+          const src = (_hasColumn(db, "tool_executions", "source") ? ", source" : "") +
+            (_hasColumn(db, "tool_executions", "rule") ? ", rule" : "");   // E-432: keep attribution
           db.exec(
             "ALTER TABLE tool_executions RENAME TO _tool_executions_old; " +
             "CREATE TABLE tool_executions (" +
             "id TEXT PRIMARY KEY, project_hash TEXT NOT NULL, session_id TEXT NOT NULL, " +
             "tool_name TEXT NOT NULL, execution_time_ms INTEGER NOT NULL CHECK(execution_time_ms >= 0), " +
             `status TEXT NOT NULL CHECK(${STATUS_SQL_IN}), timestamp TEXT NOT NULL, ` +
-            `source TEXT CHECK(${SOURCE_SQL_CHECK})); ` +
+            `source TEXT CHECK(${SOURCE_SQL_CHECK}), rule TEXT); ` +
             `INSERT INTO tool_executions (${TE_BASE_COLS}${src}) ` +
             `SELECT ${TE_BASE_COLS}${src} FROM _tool_executions_old; ` +
             "DROP TABLE _tool_executions_old; " +
@@ -441,6 +462,7 @@ function _openDb(pathOverride) {
   }
   _sourceReady = _ensureSourceColumn(db);
   _velocityReady = _ensureVelocityColumns(db);
+  _ruleReady = _ensureRuleColumn(db);
   _cachedDb = db;
   _cachedPath = targetPath;
   return db;
@@ -457,11 +479,17 @@ function _doRecordToolExecution(payload, opts) {
   const status = STATUS_VALUES.has(payload?.status) ? payload.status : "SUCCESS";
   const project_hash = _hashProjectRoot(payload?.project_root);
   const session_id = _sanitiseSessionId(payload?.session_id);
+  // E-432: the column held the retired command gate's rule (E-463 removed its writer); old rows
+  // keep it. A caller that still passes one is booked UNLISTED, so no text reaches the store.
+  const rule = payload?.rule === undefined || payload?.rule === null ? null : "UNLISTED";
 
   try {
     const db = _openDb(opts?.db_path);
     const row = [randomUUID(), project_hash, session_id, tool_name, exec_ms, status, new Date().toISOString()];
-    if (_sourceReady) {
+    if (_sourceReady && _ruleReady) {
+      db.prepare(`INSERT INTO tool_executions (${TE_BASE_COLS}, source, rule) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(...row, source, rule);
+    } else if (_sourceReady) {
       db.prepare(`INSERT INTO tool_executions (${TE_BASE_COLS}, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
         .run(...row, source);
     } else {
@@ -538,7 +566,7 @@ export function recordTaskVelocity(payload, opts) {
 }
 
 // Read-side: SQL aggregates for the meta_analyst agent (E-85) and the
-// rein-preflight staleness check (E-86). Returns counts + last-write
+// insights staleness check (E-86). Returns counts + last-write
 // timestamps. Bounded by the optional `since_iso` window.
 export function getTelemetryStats(opts = {}) {
   const path = opts.db_path || TELEMETRY_DB_PATH;
@@ -712,13 +740,17 @@ async function _runCli() {
     const payload = await _readStdinJson();
     if (payload && typeof payload === "object") {
       const project_root = _findProjectRoot(process.cwd());
-      const session_id = process.env.CLAUDE_CODE_SESSION_ID || "unknown";
+      // E-432: the pre-tool-use hook passes the session id from the harness payload (the ledger
+      // pairs a block with a BYPASS in the same session); otherwise the environment's.
+      const session_id = typeof payload.session_id === "string" && SESSION_ID_RE.test(payload.session_id)
+        ? payload.session_id : (process.env.CLAUDE_CODE_SESSION_ID || "unknown");
       recordToolExecution({
         project_root,
         session_id,
         tool_name: payload.tool_name,
         execution_time_ms: payload.execution_time_ms,
         status: payload.status,
+        rule: payload.rule,
         // The CLI is the hook's path (post-tool-use.sh pipes into it); an explicit, valid
         // source in the payload wins so another caller can say what it is.
         source: SOURCE_VALUES.has(payload.source) ? payload.source : "hook",

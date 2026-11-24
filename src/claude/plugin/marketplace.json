@@ -1,0 +1,12 @@
+{
+  "name": "rein",
+  "owner": { "name": "Rein" },
+  "description": "The local Rein install (E-469): one plugin, loaded in place from the install home. Never published.",
+  "plugins": [
+    {
+      "name": "rein",
+      "source": "./",
+      "description": "Rein's agents, skills and session hooks"
+    }
+  ]
+}

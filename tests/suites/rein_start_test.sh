@@ -41,6 +41,27 @@ EOF
 }
 _dry() { ( cd "$1" && shift && bash "$AI" start --dry-run "$@" 2>&1 ); }
 
+# D-172 r22: `rein start` refuses without the sandbox, as `rein pane` does. The rows below test the
+# layout, not the sandbox (tests/suites/sandbox_escape_test.sh does), so a host without bubblewrap
+# gets stubs that pass the availability check, as pane_binding_test's _sbx_stub does.
+_SBX_OK="$(mktemp -d)"; on_exit "rm -rf '$_SBX_OK'"
+_SBX_BAD="$(mktemp -d)"; on_exit "rm -rf '$_SBX_BAD'"
+for _b in bwrap socat; do printf '#!/bin/sh\nexit 0\n' > "$_SBX_OK/$_b"; cp "$_SBX_OK/$_b" "$_SBX_BAD/$_b"; chmod +x "$_SBX_OK/$_b" "$_SBX_BAD/$_b"; done
+printf '#!/bin/sh\nexit 1\n' > "$_SBX_BAD/bwrap"   # present, but cannot create a user namespace
+if [[ "$(uname -s)" == Linux ]]; then
+  _sp="$(_proj 0 1)"; on_exit "rm -rf '$_sp'"
+  _so="$( cd "$_sp" && PATH="$_SBX_BAD:$PATH" bash "$AI" start --dry-run 2>&1 )"; _src=$?
+  assert_status 0 "D-172.r22a: rein start refuses without a working sandbox (rc=${_src})" test "$_src" -eq 2
+  assert_contains "D-172.r22b: …saying [SANDBOX_MISSING], before any pane is planned" "[SANDBOX_MISSING] rein start:" "$_so"
+else
+  _skip "D-172.r22: rein start's sandbox refusal — the bubblewrap check runs on Linux only"
+fi
+export PATH="$_SBX_OK:$PATH"
+# D-172 r22: a real `rein start` regenerates the role settings under ~/.rein/roles/; every one here
+# runs under a scratch Rein home built from this checkout, never the operator's.
+source "${SCRIPT_DIR}/../lib/generated-settings.sh"
+_RH="$(mktemp -d)"; on_exit "rm -rf '$_RH'"; gen_rein_home "$_RH"
+
 # E-384 (D-135 addendum 2, harness rule 1): `rein start` — dry run included — needs tmux to
 # plan panes; without it it prints the manual recipe (E-227.7). A host without tmux (the
 # macOS runner image) records ONE skip per section instead of failing each assertion.
@@ -172,7 +193,7 @@ if command -v tmux >/dev/null 2>&1; then
   # Keep `rein start`'s own output. Discarding it meant that when only one pane appeared on
   # CI, the suite could say the pane count was wrong but not what the launcher had said
   # about it — which is the only thing that explains a tmux-version difference.
-  _startout="$( cd "$_lp" && PATH="$_shim:$PATH" bash "$AI" start --detach 2>&1 )"
+  _startout="$( cd "$_lp" && PATH="$_shim:$PATH" HOME="$_RH" bash "$AI" start --detach 2>&1 )"
 
   _win="$(basename "$_lp")"
   # Resolve by ID — the window name is the project basename and mktemp names contain a
@@ -226,7 +247,7 @@ if command -v tmux >/dev/null 2>&1; then
   _before="$_npanes"
   assert_status 0 "E-227.06f-pre: there were panes to duplicate (guards 06f)" \
     bash -c "[[ '$_before' -gt 0 ]]"
-  ( cd "$_lp" && PATH="$_shim:$PATH" bash "$AI" start --detach >/dev/null 2>&1 )
+  ( cd "$_lp" && PATH="$_shim:$PATH" HOME="$_RH" bash "$AI" start --detach >/dev/null 2>&1 )
   _after="$("$_tb" -L "$_sock" list-panes -t "$_wid" 2>/dev/null | grep -c .)"
   assert_contains "E-227.06f: a re-run does not duplicate panes (before=${_before} after=${_after})" \
     "$_before" "$_after"
@@ -240,6 +261,85 @@ else
   for _n in a b c d e0 e1 e2 f f-pre; do
     _skip "E-227.06${_n}: live tmux layer (tmux not installed)"
   done
+fi
+
+# ── E-434 (D-161; release-artifact.md §Component 8): a re-run never types into a busy pane ──
+# Extends E-227.06f (the re-run over live panes): there the panes sat at a shell prompt; here
+# one runs a foreground program. A key sent into it is typed into a running agent.
+if skip_unless_cmd tmux "E-434.01–05: rein start on a live session (real tmux)"; then
+  _tb4="$(command -v tmux)"
+  _sock4="$(test_tmux_socket e434)"
+  _shim4="$(mktemp -d)"; on_exit "rm -rf '$_shim4'"
+  printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$_tb4" "$_sock4" > "$_shim4/tmux"; chmod +x "$_shim4/tmux"
+  _t4() { "$_tb4" -L "$_sock4" "$@"; }
+  _lp4="$(_proj 0 1)"; on_exit "rm -rf '$_lp4'"
+  # The panes inherit the server's PATH: give it one without a `rein`, so the first run's
+  # `rein pane <role>` fails at once and leaves an idle shell rather than starting an agent
+  # the rows below would then type into. node stays reachable for rein start itself.
+  _P4="${_shim4}:${_SBX_OK}:$(dirname "$(command -v node)"):/usr/bin:/bin"
+  ( cd "$_lp4" && PATH="$_P4" HOME="$_RH" bash "$AI" start --detach >/dev/null 2>&1 )
+  _s4="$(awk '/^_start_session_name\(\) \{/,/^\}$/' "$AI" > "$_shim4/fn.sh"; ( . "$_shim4/fn.sh"; _start_session_name "$_lp4" ))"
+  _w4="$(_t4 list-windows -t "$_s4" -F '#{window_id} #{window_name}' 2>/dev/null | awk -v n="$(basename "$_lp4")" '$2 == n { print $1; exit }')"
+  _eng4="$(_t4 list-panes -t "$_w4" -F '#{pane_index} #{pane_id}' 2>/dev/null | sort -n | awk 'NR==1 {print $2}')"
+  _arc4="$(_t4 list-panes -t "$_w4" -F '#{pane_index} #{pane_id}' 2>/dev/null | sort -n | awk 'NR==2 {print $2}')"
+  _cur4() { _t4 display-message -p -t "$1" '#{pane_current_command}' 2>/dev/null; }
+  _cap4() { _t4 capture-pane -p -J -S - -t "$1" 2>/dev/null; }
+  _idle4() { [[ "$(_cur4 "$1")" =~ ^(-?(ba|z|k|a|da)?sh|fish|login)$ ]] && ! ps -A -o ppid= | awk -v p="$(_t4 display-message -p -t "$1" '#{pane_pid}')" '$1 == p { f = 1 } END { exit !f }'; }
+  # Both panes back at a prompt (the first run's `rein pane` is not on this PATH), cleared.
+  wait_for "_idle4 '$_eng4' && _idle4 '$_arc4'" 5000 50 || true
+  _fresh4() { _t4 send-keys -t "$1" "clear" C-m; _t4 clear-history -t "$1"; wait_for "_idle4 '$1'" 3000 50 || true; }
+  _fresh4 "$_eng4"; _fresh4 "$_arc4"; _t4 clear-history -t "$_eng4"; _t4 clear-history -t "$_arc4"
+
+  # (1) the architect pane's foreground is a program: `sleep 300`.   REIN_SLEEP_ALLOWED: names it
+  _t4 send-keys -t "$_arc4" "clear; sleep 300" C-m   # REIN_SLEEP_ALLOWED: the busy foreground program under test
+  wait_for "[[ \"\$(_cur4 '$_arc4')\" == sleep ]]" 3000 50 || true
+  _t4 clear-history -t "$_arc4"
+  _o4="$( cd "$_lp4" && PATH="$_P4" HOME="$_RH" bash "$AI" start --detach 2>&1 )"; _rc4=$?
+  sleep 0.5   # REIN_SLEEP_ALLOWED: an ABSENCE is asserted next; a sent line would be echoed by now
+  assert_not_contains "E-434.01a: the busy architect pane got no 'rein pane' text" "rein pane" "$(_cap4 "$_arc4")"
+  assert_contains "E-434.01b: the busy line names the role and its command" "rein start: architect pane is busy (sleep) — not re-sent" "$_o4"
+  assert_status 0 "E-434.01c: and rein start exits 0 (rc=${_rc4})" test "$_rc4" -eq 0
+  # (3) the idle engineer pane did get its command.
+  wait_for "[[ \"\$(_cap4 '$_eng4')\" == *'rein pane engineer'* ]]" 2000 50 || true
+  assert_contains "E-434.03: the idle engineer pane received 'rein pane engineer'" "rein pane engineer" "$(_cap4 "$_eng4")"
+  # (4) both roles are still pinned.
+  assert_contains "E-434.04: @rein_role still names both roles" "engineer architect" \
+    "$(_t4 list-panes -t "$_w4" -F '#{@rein_role}' 2>/dev/null | tr '\n' ' ')"
+
+  # (2) the foreground is a bash script — pane_current_command reads as a shell.
+  _t4 send-keys -t "$_arc4" C-c; wait_for "_idle4 '$_arc4'" 3000 50 || true
+  _t4 send-keys -t "$_arc4" "clear; bash -c 'sleep 300'" C-m   # REIN_SLEEP_ALLOWED: the busy foreground program under test
+  wait_for "! _idle4 '$_arc4'" 3000 50 || true
+  _t4 clear-history -t "$_arc4"
+  _o4="$( cd "$_lp4" && PATH="$_P4" HOME="$_RH" bash "$AI" start --detach 2>&1 )"; _rc4=$?
+  sleep 0.5   # REIN_SLEEP_ALLOWED: an ABSENCE is asserted next; a sent line would be echoed by now
+  assert_not_contains "E-434.02a: a pane running a bash script got no 'rein pane' text" "rein pane" "$(_cap4 "$_arc4")"
+  assert_contains "E-434.02b: and is reported busy" "rein start: architect pane is busy (" "$_o4"
+  assert_status 0 "E-434.02c: rein start exits 0 (rc=${_rc4})" test "$_rc4" -eq 0
+
+  # E-436 (D-160 addendum 3): a `ps` that fails proves nothing — the idle engineer pane is then
+  # treated as busy, never typed into.
+  _psbad="$(mktemp -d)"; on_exit "rm -rf '$_psbad'"
+  printf '#!/bin/sh\nexit 1\n' > "$_psbad/ps"; chmod +x "$_psbad/ps"
+  _fresh4 "$_eng4"; _t4 clear-history -t "$_eng4"
+  _o4="$( cd "$_lp4" && PATH="${_psbad}:${_P4}" HOME="$_RH" bash "$AI" start --detach 2>&1 )"
+  sleep 0.5   # REIN_SLEEP_ALLOWED: an ABSENCE is asserted next; a sent line would be echoed by now
+  assert_contains "E-436.04a: with ps failing, the engineer pane is reported busy" "rein start: engineer pane is busy (" "$_o4"
+  assert_not_contains "E-436.04b: …and gets no 'rein pane' text" "rein pane" "$(_cap4 "$_eng4")"
+  _t4 kill-server 2>/dev/null
+
+  # A pane this run creates that never reaches an idle shell gets no keys: exit 2 and the
+  # command to run by hand. The server's default command makes every new pane a program.
+  _sock5="$(test_tmux_socket e434n)"
+  printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$_tb4" "$_sock5" > "$_shim4/tmux"
+  "$_tb4" -L "$_sock5" -f /dev/null new-session -d -s keep "sleep 300"   # REIN_SLEEP_ALLOWED: the busy foreground program under test
+  "$_tb4" -L "$_sock5" set-option -g default-command "sleep 300"   # REIN_SLEEP_ALLOWED: every new pane runs a busy program
+  _lp5="$(_proj 0 1)"; on_exit "rm -rf '$_lp5'"
+  _o5="$( cd "$_lp5" && PATH="$_P4" HOME="$_RH" bash "$AI" start --detach 2>&1 )"; _rc5=$?
+  assert_status 0 "E-434.06a: a new pane that never idles → exit 2 (rc=${_rc5})" test "$_rc5" -eq 2
+  assert_contains "E-434.06b: with [START_PANE_NOT_READY] and the command to run" "[START_PANE_NOT_READY] engineer" "$_o5"
+  assert_contains "E-434.06c: naming rein pane for the role" "rein pane engineer" "$_o5"
+  "$_tb4" -L "$_sock5" kill-server 2>/dev/null
 fi
 
 
@@ -305,7 +405,7 @@ if skip_unless_cmd tmux "E-252 live session-isolation layer"; then
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$_tb2" "$_sock2" > "$_shim2/tmux"
   chmod +x "$_shim2/tmux"
   _t2() { "$_tb2" -L "$_sock2" "$@"; }
-  _start2() { ( cd "$1" && PATH="$_shim2:$PATH" bash "$AI" start --detach 2>&1 ); }
+  _start2() { ( cd "$1" && PATH="$_shim2:$PATH" HOME="$_RH" bash "$AI" start --detach 2>&1 ); }
 
   # TWO PROJECTS → TWO SESSIONS. The headline property.
   _pA="$(_proj 0 1)"; _pB="$(_proj 0 1)"
@@ -430,7 +530,7 @@ assert_status 1 "E-227.07pre: the no-tmux PATH really has no tmux (guards the ex
   bash -c "PATH='$_notmux' command -v tmux"
 assert_status 0 "E-227.07pre2: but coreutils are still reachable (guards the guard)" \
   bash -c "PATH='$_notmux' command -v python3 >/dev/null && PATH='$_notmux' command -v basename >/dev/null"
-_out="$( cd "$_p" && PATH="$_notmux" bash "$AI" start 2>&1 )"; _rc=$?
+_out="$( cd "$_p" && PATH="$_notmux" HOME="$_RH" bash "$AI" start 2>&1 )"; _rc=$?
 assert_status 0 "E-227.07a: no tmux → exit 2 (rc=$_rc)" bash -c "[[ $_rc -eq 2 ]]"
 assert_contains "E-227.07b: the recipe names rein pane engineer"  "rein pane engineer"  "$_out"
 assert_contains "E-227.07c: the recipe names rein pane architect" "rein pane architect" "$_out"
@@ -579,7 +679,7 @@ if command -v tmux >/dev/null 2>&1; then
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$_tb" "$_sock" > "$_shim/tmux"
   chmod +x "$_shim/tmux"
   _lp="$(_sf_proj)"
-  ( cd "$_lp" && PATH="$_shim:$PATH" bash "$AI" start --detach >/dev/null 2>&1 )
+  ( cd "$_lp" && PATH="$_shim:$PATH" HOME="$_RH" bash "$AI" start --detach >/dev/null 2>&1 )
 
   _st="$( cd "$_lp" && PATH="$_shim:$PATH" bash "$AI" start --status 2>&1 )"
   assert_contains "E-228.03a: --status names the engineer pane"  "engineer"  "$_st"

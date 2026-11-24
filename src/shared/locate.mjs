@@ -72,7 +72,7 @@ export function isFrameworkClone(cwd = process.cwd()) {
 }
 
 /**
- * Resolve an install-mirror-relative logical path ("mcp/safe-exec-mcp/index.js").
+ * Resolve an install-mirror-relative logical path ("mcp/task-synchronizer-mcp/index.js").
  * Returns an absolute path, or null.
  */
 export function locate(logical, cwd = process.cwd()) {

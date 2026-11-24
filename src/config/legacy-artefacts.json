@@ -202,6 +202,30 @@
       "note": "E-283 (D-075): the ai-topic skill is retired — call mcp__task-synchronizer-mcp__add_topic_seed directly. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
     },
     {
+      "id": "retired-skill-rein-digest",
+      "path": ".claude/skills/rein-digest/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "known_hashes": [
+        "7332f1f8ac5902669b80f976f5d71bd1ad04c730a8c6758d1d9836c4d4ff7b34"
+      ],
+      "note": "E-430 (D-159 r5): the rein-digest skill is retired — DIGEST.md is a generated view; run: rein digest build. Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
+      "id": "retired-skill-digest_updater",
+      "path": ".claude/skills/digest_updater/SKILL.md",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "known_hashes": [
+        "6ea8c433dd5c5247e7b7701f3ef87ad52ae90b054633688b88b849de11a5e2de",
+        "7aabb949e8c214c76bbdc9e2584539b446cfa59531922d52c11f8b7797249c59",
+        "891f30cc1e7b894db71255533a98ee4cc2fb76a41854865ef823edff34bd1fd1"
+      ],
+      "note": "E-430 (D-159 r5): the digest_updater skill is retired — the session-start hook and run_handover rebuild DIGEST.md (rein digest build). Safe only while byte-identical to a shipped version (every version recovered from git history); an edited copy is reported as prompt."
+    },
+    {
       "id": "settings-allow-orphan",
       "path": ".claude/settings.json",
       "kind": "setting",
@@ -297,7 +321,7 @@
       "since": "4.0.0",
       "rule": "not-in-src",
       "src_root": "src/shared",
-      "note": "The signal.json writer behind `ai handoff` and handoff_control, both removed by D-099 (E-322)."
+      "note": "The signal.json writer behind the old handoff command and handoff_control, both removed by D-099 (E-322)."
     },
     {
       "id": "watcher-lock",
@@ -341,12 +365,302 @@
       "note": "An ai-watch process whose cwd is under the temp root and which holds no project watcher lock — a test fixture that outlived its suite. 24 were alive on 2026-09-17, some over a day old. `rein start` runs a watcher from a real project, never from the temp root, and a watcher the operator is using holds .ai/.ai-watch.lock, so both halves are needed and neither is ppid: a process whose parent has exited but not been reaped still reports the zombie as its parent. Processes are signalled TERM then KILL, never trashed."
     },
     {
+      "id": "mirror-orphan-claude-agent",
+      "path": "~/.rein/claude/agents/*",
+      "kind": "file",
+      "class": "safe",
+      "since": "*",
+      "rule": "not-in-src",
+      "src_root": "src/claude/agents",
+      "note": "E-467 (D-170 r5): an agent the mirror holds that src/claude/agents no longer ships (15 retired; tag v0.5.0 holds them). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "mirror-orphan-claude-skill",
+      "path": "~/.rein/claude/skills/*",
+      "kind": "dir",
+      "class": "safe",
+      "since": "*",
+      "rule": "not-in-src",
+      "src_root": "src/claude/skills",
+      "note": "E-467 (D-170 r5): a skill directory the mirror holds that src/claude/skills no longer ships. Same reasoning as mirror-orphan-claude-agent."
+    },
+    {
+      "id": "mirror-orphan-shared-skill",
+      "path": "~/.rein/shared/skills/*",
+      "kind": "dir",
+      "class": "safe",
+      "since": "*",
+      "rule": "not-in-src",
+      "src_root": "src/shared/skills",
+      "note": "E-467 (D-170 r5): a skill directory the mirror holds that src/shared/skills no longer ships. Same reasoning as mirror-orphan-claude-agent."
+    },
+    {
+      "id": "retired-shared-insights-staleness",
+      "path": "~/.rein/shared/insights-staleness.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-467 (D-170 r5): the module of a retired unit (insights, the instinct stager, the memory palace, the SEO units, the incident aggregator or the task-velocity meter). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-instinct-stager",
+      "path": "~/.rein/shared/instinct-stager.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-467 (D-170 r5): the module of a retired unit (insights, the instinct stager, the memory palace, the SEO units, the incident aggregator or the task-velocity meter). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-skill-promoter",
+      "path": "~/.rein/shared/skill-promoter.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-467 (D-170 r5): the module of a retired unit (insights, the instinct stager, the memory palace, the SEO units, the incident aggregator or the task-velocity meter). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-memory-batch-scanner",
+      "path": "~/.rein/shared/memory-batch-scanner.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-467 (D-170 r5): the module of a retired unit (insights, the instinct stager, the memory palace, the SEO units, the incident aggregator or the task-velocity meter). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-memory-worker-pool",
+      "path": "~/.rein/shared/memory-worker-pool.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-467 (D-170 r5): the module of a retired unit (insights, the instinct stager, the memory palace, the SEO units, the incident aggregator or the task-velocity meter). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-seo-cluster-intents",
+      "path": "~/.rein/shared/seo-cluster-intents.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-467 (D-170 r5): the module of a retired unit (insights, the instinct stager, the memory palace, the SEO units, the incident aggregator or the task-velocity meter). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-incident-aggregate",
+      "path": "~/.rein/shared/incident-aggregate.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-467 (D-170 r5): the module of a retired unit (insights, the instinct stager, the memory palace, the SEO units, the incident aggregator or the task-velocity meter). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-task-usage",
+      "path": "~/.rein/shared/task-usage.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-467 (D-170 r5): the module of a retired unit (insights, the instinct stager, the memory palace, the SEO units, the incident aggregator or the task-velocity meter). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-data-insights",
+      "path": "~/.rein/INSIGHTS.md",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): the meta_analyst's report; insights are retired."
+    },
+    {
+      "id": "retired-data-memory-palace",
+      "path": "~/.rein/memory-palace.md",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): the memory_curator's index; the memory palace is retired."
+    },
+    {
+      "id": "retired-data-memory-palace-hashes",
+      "path": "~/.rein/memory-palace.embeddings.json",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): the memory palace's artefact hash index; the memory palace is retired."
+    },
+    {
+      "id": "retired-data-signatures",
+      "path": "~/.rein/memory/",
+      "kind": "dir",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): memory-manager-mcp's signature store; the server is retired."
+    },
+    {
+      "id": "retired-data-approvals",
+      "path": "~/.rein/approvals.sqlite",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): approval-mcp's decision record; the server is retired. It is an audit trail, so it is removed only with --all."
+    },
+    {
+      "id": "retired-data-usage",
+      "path": "~/.rein/usage.sqlite",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): token-budget-mcp's usage store; the server is retired."
+    },
+    {
+      "id": "retired-data-cache",
+      "path": "~/.rein/cache.sqlite",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): cache-manager-mcp's context cache; the server is retired."
+    },
+    {
+      "id": "retired-repo-map",
+      "path": ".ai/REPO_MAP.md",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): the AST repository map; REPO_MAP and ast-parser-mcp are retired. The project may have edited or committed it."
+    },
+    {
+      "id": "retired-palace-index",
+      "path": ".ai/memory/",
+      "kind": "dir",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): the memory palace's per-project candidate index (palace-index.json); the memory palace is retired."
+    },
+    {
+      "id": "retired-proposed-skills",
+      "path": ".claude/skills/proposed/",
+      "kind": "dir",
+      "class": "prompt",
+      "since": "0.5.0",
+      "note": "E-467 (D-170 r5): skills the instinct stager staged; the stager and its promotion skill are retired. A staged skill may be one the operator meant to keep."
+    },
+    {
       "id": "gemini-home",
       "path": "~/.gemini/",
       "kind": "dir",
       "class": "not-ours",
       "since": "*",
       "note": "Antigravity's own user data, including OAuth credentials. NOT a Rein artefact: printed so the operator can decide, never touched by any flag."
+    },
+    {
+      "id": "retired-gate-shared-gate-rules",
+      "path": "~/.rein/shared/gate-rules.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-gate-ledger",
+      "path": "~/.rein/shared/gate-ledger.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-gate-pins",
+      "path": "~/.rein/shared/gate-pins.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-gate-probe",
+      "path": "~/.rein/shared/gate-probe.sh",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-gate-override",
+      "path": "~/.rein/shared/gate-override.py",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-shell-word",
+      "path": "~/.rein/shared/shell-word.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-classifier-backstop",
+      "path": "~/.rein/shared/classifier-backstop.py",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-mcp-shared-caller-role",
+      "path": "~/.rein/mcp/shared/caller-role.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/mcp/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-mcp-shared-load-policy",
+      "path": "~/.rein/mcp/shared/load-policy.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/mcp/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-safe-exec-modules",
+      "path": "~/.rein/mcp/safe-exec-mcp/*",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/mcp/safe-exec-mcp",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate, and since D-172 r26 the seatbelt's old place (now ~/.rein/shared/seatbelt.mjs). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback. Reinstall before rein clean, or the installed old hook loses its seatbelt (fail-open)."
     }
   ]
 }

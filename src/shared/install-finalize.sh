@@ -57,18 +57,20 @@ rein_fin_record_toolchain() {  # <rein> <toolchain-record.sh> [root…]
   rn="$(rein_tc_check "$n" ${roots[@]+"${roots[@]}"})"   || { echo "✗ hook toolchain: node not recorded (${n:-not found})" >&2; ok=0; }
   rp="$(rein_tc_check "$p" ${roots[@]+"${roots[@]}"})"   || { echo "✗ hook toolchain: python3 not recorded (${p:-not found})" >&2; ok=0; }
   rnc="$(rein_tc_check "$nc" ${roots[@]+"${roots[@]}"})" || { echo "✗ hook toolchain: nice not recorded (${nc})" >&2; ok=0; }
-  if [[ "$ok" -eq 1 ]] && rein_tc_write "${rein}/shared/toolchain.sh" "$rn" "$rp" "$rnc"; then
-    echo "✓ Hook toolchain pinned: node ${rn} · python3 ${rp}"
-    # E-305 (D-089 r3): the gate path's pinned dependencies, recorded beside the interpreters
-    # (readers skip any line they do not recognise; `rein doctor` prints the set).
-    if command -v node >/dev/null 2>&1 && [[ -f "${rein}/shared/gate-pins.mjs" ]]; then
-      node --no-warnings "${rein}/shared/gate-pins.mjs" list "${rein}/mcp" 2>/dev/null \
-        | sed 's/^/REIN_TC_GATEDEP=/' >> "${rein}/shared/toolchain.sh" || true
-    fi
+  # E-433 (D-160 addendum 1): tmux is recorded by the same check, for the waiting-signal hook
+  # (the pinned PATH may not hold it). Optional: absent or refused is a note, never a failure.
+  local t rt=""
+  # `|| true`: the installer runs under `set -e`, and a host with no tmux (the macOS runner)
+  # made this assignment the installer's silent exit 1 (hosted CI on the E-457 stack).
+  t="$(command -v tmux 2>/dev/null || true)"
+  if [[ -n "$t" ]]; then
+    rt="$(rein_tc_check "$t" ${roots[@]+"${roots[@]}"})" || { echo "! hook toolchain: tmux not recorded (${t}) — the pane waiting signal stays off" >&2; rt=""; }
+  fi
+  if [[ "$ok" -eq 1 ]] && rein_tc_write "${rein}/shared/toolchain.sh" "$rn" "$rp" "$rnc" "$rt"; then
+    echo "✓ Hook toolchain pinned: node ${rn} · python3 ${rp}${rt:+ · tmux ${rt}}"
   else
     rm -f "${rein}/shared/toolchain.sh"
-    echo "! Hook toolchain NOT pinned — the hooks fall back to a fixed system PATH and the gate" >&2
-    echo "  blocks with [TOOLCHAIN_STALE] if it finds no interpreter there. Fix the path above and re-run." >&2
+    echo "! Hook toolchain NOT pinned — the hooks fall back to a fixed system PATH. Fix the path above and re-run." >&2
   fi
   return 0
 }

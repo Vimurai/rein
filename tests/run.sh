@@ -628,6 +628,10 @@ _run_suite() {
   # still parses. A skip is neither a pass nor a failure — it is a layer that did not run.
   skips=$(echo "$summary"  | grep -oE 'SKIP=[0-9]+' | grep -oE '[0-9]+' || echo 0)
   passes="${passes:-0}"; fails="${fails:-0}"; skips="${skips:-0}"
+  # D-172 r6: the sandbox escape suite reports a case whose session made no call as UNKNOWN, not
+  # FAIL; the run passes only with none, so an UNKNOWN counts against the run like a failure.
+  unknowns=$(echo "$summary" | grep -oE 'UNKNOWN=[0-9]+' | grep -oE '[0-9]+' || echo 0)
+  fails=$(( fails + ${unknowns:-0} ))
 
   # If the suite script itself crashed (non-zero exit, no SUITE_RESULT line), count it as 1 failure
   if [[ $suite_exit -ne 0 && -z "$summary" ]]; then

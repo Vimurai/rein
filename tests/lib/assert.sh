@@ -678,3 +678,10 @@ if [[ -z "${AI_TELEMETRY_DB_PATH:-}" && "${AI_TELEMETRY_DISABLE:-0}" != "1" ]]; 
   _REIN_TELEMETRY_DIR="$(test_tmpdir telemetry)"
   export AI_TELEMETRY_DB_PATH="${_REIN_TELEMETRY_DIR}/telemetry.sqlite"
 fi
+
+# ── E-469 (D-170 r4): no suite registers the rein plugin with a real Claude config ──
+# `rein install`, `rein init` and `rein sync` call `claude plugin …` when the claude CLI is on
+# PATH; under a suite that would write install records for temp projects into whatever config
+# dir HOME holds. Off for every suite; a suite that tests the plugin wiring sets
+# REIN_PLUGIN_INSTALL=1 itself, with a stub `claude` on PATH (as rule 7c does for gh).
+export REIN_PLUGIN_INSTALL=0

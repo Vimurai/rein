@@ -37,8 +37,10 @@ function clone(base, origin, name, email) {
   return dir;
 }
 
+// Tier 1: these rows are about claims, and a Tier 2/3 E-## above E-444 also needs an
+// [ACCEPT_PASS] before DONE (E-431) — that gate has its own rows in completion-gates.test.mjs.
 const task = (id, extra = {}) => ({
-  id, owner: "Engineer (Claude)", status: "OPEN", tier: 2, description: `task ${id}`,
+  id, owner: "Engineer (Claude)", status: "OPEN", tier: 1, description: `task ${id}`,
   created_at: "2026-10-19T00:00:00.000Z", depends_on: [], ...extra,
 });
 

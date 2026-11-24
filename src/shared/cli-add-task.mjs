@@ -27,9 +27,10 @@ import { existsSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { getDbSeeded, addTask } from "../mcp/shared/state-db.js";
 import { roleProvider } from "./provider-adapter.mjs";
+import { checkTaskQuality } from "./task-quality.mjs";
 
-// Triad caller_role → TASKS.md owner label. Attribution only (safe-exec-mcp owns the
-// tamper-resistant HMAC role boundary, E-129); here we just record who created the row.
+// Triad caller_role → TASKS.md owner label. Attribution only (the role sandbox is the
+// boundary, E-462); here we just record who created the row.
 //
 // E-213 (architect-provider-parity.md §Components 4): the PROVIDER half is resolved
 // from .ai/roles.json rather than hardcoded, so the label always names the provider the
@@ -131,6 +132,9 @@ export function parseArgs(argv) {
  * @returns {{ok:true, task:object, owner:string} | {ok:false, code:string, error:string}}
  */
 export function runAddTask({ aiDir, description, owner, role, tier, prefix, depends_on } = {}) {
+  // E-461 (D-169 r7): the same task-planner checks as task-synchronizer-mcp::add_task.
+  const quality = checkTaskQuality({ description, tier });
+  if (quality) return { ok: false, ...quality };
   const finalOwner = resolveOwner({ owner, role });
   let db;
   try {

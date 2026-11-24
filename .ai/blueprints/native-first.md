@@ -98,10 +98,10 @@ experimental one.
      the turn — no retry, no queue, no fallback. Busy target: the message drains into the running turn (spike b);
      accepted. The E-119 rule reads "never end the turn without calling `SendMessage`".
      `evals/rein-handoff` graders assert the `SendMessage` call to the target, not a signal
-     entry. `ai-watch` is untouched in this task; the skills simply stop calling `ai handoff`
+     entry. `ai-watch` is untouched in this task; the skills simply stop calling the signal `handoff` subcommand
      and `handoff_control`.
    - **Removal (E-322, Tier 3)**: delete `src/bin/ai-watch`, `src/shared/signal-handoff.mjs`,
-     the `ai watch` and `ai handoff` subcommands, and from `rein start` the watcher pane, the
+     the `ai watch` subcommand and the signal `handoff` subcommand, and from `rein start` the watcher pane, the
      `.ai/.ai-watch.lock` directory, the E-229 restart backstop and `--no-watch` — `rein start`
      still creates the window, binds each pane's role (`@rein_role`) and account
      (`CLAUDE_CONFIG_DIR`) and launches `claude` in each. Delete `handoff_control` from
@@ -115,7 +115,7 @@ experimental one.
      D-100 ruling 2; covered by `tests/unit/skill-wake.test.mjs`).
    - **Docs (E-323)**: README (11 mentions), `src/templates/ARCHITECT.md`, `ARCHITECT.md`
      §Handing Off, `ENGINEER.md`, CHANGELOG `Unreleased` with a BREAKING list (`ai watch`,
-     `ai handoff`, `handoff_control`, `.ai/signal.json`), DIGEST via `rein-digest`. E-263 ships
+     the signal `handoff` subcommand, `handoff_control`, `.ai/signal.json`), DIGEST via `rein-digest`. E-263 ships
      after E-323 so the 4.0.0 BREAKING list carries the removals.
    - **Accepted risk (D-099 ruling 6)**: delivery is over Claude Code's local session sockets
      and is model-independent; the wake depends on the model calling a deferred tool;
@@ -186,7 +186,7 @@ revertable PR; `REIN_DISABLE_CACHE=1` bypasses the blob; retired blueprints (`mc
 | E-285 | 8 Skill evals | E-283 | 2 |
 | E-295 | 5 Agent frontmatter correction (`tools`, `disallowedTools`) — D-084 | — | 2 |
 | E-321 | 9 Skills + evals wake by `SendMessage` — D-099 | — | 2 |
-| E-322 | 9 Delete `ai-watch`, `signal-handoff`, `ai handoff`, `handoff_control`, tests — D-099 | E-321 | 3 |
+| E-322 | 9 Delete `ai-watch`, `signal-handoff`, the signal `handoff` subcommand, `handoff_control`, tests — D-099 | E-321 | 3 |
 | E-323 | 9 README, templates, rulefiles, CHANGELOG, DIGEST — D-099 | E-322 | 2 |
 | E-324 | 9 Classifier rule text v4 (drop `ai watch`) + pin swap — D-101 r1 | E-322 | 3 |
 

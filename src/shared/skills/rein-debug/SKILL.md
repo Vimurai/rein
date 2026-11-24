@@ -1,9 +1,9 @@
 ---
 name: rein-debug
-description: Enforce structured hypothesis→test→observe debugging loop for failing tests or bugs. Blocks git add until green. 3-cycle TASK_BUDGET — escalates to Architect via advisor-mcp on BUDGET_EXHAUSTED. Prevents trial-and-error token burn.
+description: Enforce structured hypothesis→test→observe debugging loop for failing tests or bugs. Blocks git add until green. 3-cycle TASK_BUDGET — escalates to the Architect with `rein handoff` on BUDGET_EXHAUSTED. Prevents trial-and-error token burn.
 disable-model-invocation: false
 user-invocable: true
-allowed-tools: Read, Bash, Grep, Glob, mcp__advisor-mcp__ask_architect
+allowed-tools: Read, Bash, Grep, Glob
 context: default
 agent: default
 ---
@@ -104,7 +104,7 @@ Run the full suite:
 bash tests/run.sh 2>&1 | tail -5
 ```
 
-If green → UNLOCKED. Proceed to `skill: "rein-task"` then `skill: "commit-crafter"`.
+If green → UNLOCKED. Commit, then close the task with `rein done E-## --summary <text>`.
 If still failing → return to Cycle Step 1 with a **new** hypothesis, provided `iterations < 3`. Otherwise → Escalation.
 
 ## Escalation — BUDGET_EXHAUSTED (mandatory)
@@ -112,7 +112,7 @@ If still failing → return to Cycle Step 1 with a **new** hypothesis, provided 
 When `iterations == 3` and the assertion is still red:
 
 1. **Mark state:** `status = "BUDGET_EXHAUSTED"`, `escalation_required = true`.
-2. **Format an A2A query** capturing the failure and every hypothesis tried:
+2. **Write the escalation entry** capturing the failure and every hypothesis tried:
    ```
    Task: <E-##>
    Failing test: <suite>::<assertion>
@@ -126,14 +126,10 @@ When `iterations == 3` and the assertion is still red:
    Question for Architect: <specific blocker, e.g. "Is this assertion correct
      given the blueprint, or is the implementation contract wrong?">
    ```
-3. **Invoke the Advisor:**
-   ```
-   mcp__advisor-mcp__ask_architect({
-     query: "<the formatted query above>",
-     domain: "debugging"
-   })
-   ```
-4. **Halt:** Do NOT start a 4th cycle. Wait for the [A2A_RULING] response, integrate the architect's guidance, then either:
+3. **Hand off to the Architect:** write the query above as a handoff entry (it must carry a
+   "Next action needed" line), run `rein handoff --to architect --file <entry>`, and send the
+   wake line it prints with SendMessage.
+4. **Halt:** Do NOT start a 4th cycle. Wait for the Architect's answer in COMM.md, integrate the guidance, then either:
    - resume with a fresh budget if the architect identifies a concrete next step, OR
    - report to the user with the architect's ruling and pause for human input.
 

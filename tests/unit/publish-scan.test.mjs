@@ -452,7 +452,7 @@ test("E-370: LICENSE is the Apache License 2.0, verbatim", () => {
   assert.equal(createHash("sha256").update(t).digest("hex"), APACHE_SHA256);
 });
 
-test("E-370: NOTICE names the product and the root package.json author as copyright holder, and carries the grammars' MIT notices", () => {
+test("E-370: NOTICE names the product and the root package.json author as copyright holder", () => {
   // D-124: the holder is the operator's real name. This file ships, so it never spells the name:
   // the copyright line must agree with the one place that declares the author.
   const t = _read(_resolve(REPO, "NOTICE"), "utf8");
@@ -460,12 +460,13 @@ test("E-370: NOTICE names the product and the root package.json author as copyri
   assert.ok(author.length > 0);
   assert.ok(t.startsWith(`Rein\nCopyright 2026 ${author}\n`), "NOTICE opens with the product (D-125) and the author's copyright line");
   assert.equal(t.split(author).length - 1, 1, "the holder is named once; the rest are third-party");
-  assert.equal((t.match(/The MIT License \(MIT\)/g) || []).length, 2, "tree-sitter-javascript and tree-sitter-typescript");
+  // E-467 (D-170 r5): the tree-sitter grammars left with ast-parser-mcp, and their MIT notices with them.
+  assert.equal((t.match(/The MIT License \(MIT\)/g) || []).length, 0, "no vendored third-party code is left");
 });
 
 test("E-370: every package.json declares Apache-2.0", () => {
   const pkgs = tracked().filter((f) => /(^|\/)package\.json$/.test(f) && !f.includes("node_modules/"));
-  assert.equal(pkgs.length, 18);
+  assert.equal(pkgs.length, 2);   // the root and task-synchronizer-mcp (E-467 removed 15 servers, E-463 safe-exec-mcp's)
   for (const f of pkgs) assert.equal(JSON.parse(_read(_resolve(REPO, f), "utf8")).license, "Apache-2.0", f);
 });
 

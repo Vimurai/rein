@@ -1,25 +1,28 @@
 // ci-budget.js — the test budget ratchet (E-303, D-088, test-economics.md §Component 7).
 //
 // Every green, non-dirty `rein ci run` records a budget block in its ci_runs row (budget_json):
-//   { suites, test_lines, fast_tier_seconds, full_seconds, peak_rss_mb, peak_sum_rss_mb }
+//   { suites, fast_tier_seconds, full_seconds, peak_rss_mb, peak_sum_rss_mb }
 // The BEST value of a field is the lowest one recorded since the latest ruling. A run FAILS
 // when a ratcheted field exceeds its best by more than its slack, so the numbers only move
 // down. Equal or lower passes and, once recorded, is the new best. No flag or env var lifts
 // it: raising a budget is a D-ruling, written into the record by `rein ci budget set --ruling
 // D-###` (budgetSet), and the best is then computed from that row onward.
 //
-// Ratcheted (E-303's task text): suites +0, test_lines +2%, fast_tier_seconds +10%.
+// Ratcheted (E-303's task text): suites +0, fast_tier_seconds +10%. E-464 (D-169 r9) retired the
+// test_lines ratchet (+2%): time is the cost; "one test per behaviour at the cheapest layer" (D-088)
+// is a rule the reviewer applies. A test_lines value in an older run's budget_json is ignored.
 // full_seconds and the two peak-memory fields are RECORDED, not ratcheted: four full runs on
 // one host on 2026-10-28 spread 466–514 s (10.3%), so a +10% wall-time ratchet on the best
 // ever would fail on host load alone. §11's "ratchet full_seconds and peak_rss_mb" is put to
 // the Architect with those numbers rather than shipped as a gate that fails on noise.
 
-export const BUDGET_FIELDS = ["suites", "test_lines", "fast_tier_seconds", "full_seconds", "peak_rss_mb", "peak_sum_rss_mb"];
+import { spawnSync } from "node:child_process";
+
+export const BUDGET_FIELDS = ["suites", "fast_tier_seconds", "full_seconds", "peak_rss_mb", "peak_sum_rss_mb"];
 
 /** field → slack. `abs` is an absolute allowance, `pct` a fraction of the best. */
 export const RATCHET = {
   suites: { abs: 0 },
-  test_lines: { pct: 0.02 },
   fast_tier_seconds: { pct: 0.10 },
 };
 
@@ -29,7 +32,7 @@ function _parse(json) {
   try { const v = JSON.parse(json || "null"); return v && typeof v === "object" ? v : null; } catch { return null; }
 }
 
-/** `[ci] budget suites=45 test_lines=39444 …` → { suites: 45, … } (a `-` value is absent). */
+/** `[ci] budget suites=45 fast_tier_seconds=37 …` → { suites: 45, … } (a `-` value or an unknown field is absent). */
 export function parseBudgetLine(line) {
   const out = {};
   for (const tok of String(line).replace(/^\[ci\] budget\s*/, "").split(/\s+/)) {
@@ -43,23 +46,47 @@ export function parseBudgetLine(line) {
  * The current budget: per field the lowest value recorded by a PASS, non-dirty run since the
  * latest ruling (the ruling row itself included). → { best, ruling, rulingSha, runs }
  */
-export function budgetBest(db) {
+// E-443 (D-164 addendum 1 r5): a ruled value belongs to a tree. After a ruling, a later green run
+// lowers it only when its commit CONTAINS the ruled commit — `contains(ruledSha, runSha)` returns
+// true, false, or null when the ancestry cannot be read; only true lowers. A run on a branch that
+// lacks part of the ruled tree (census run 107: no E-433 rows) can no longer drift the value below
+// the ruling. No reader given: nothing after the ruling lowers it. Before any ruling: unchanged.
+export function budgetBest(db, { contains = null } = {}) {
   const rows = db.prepare(
-    "SELECT id, sha, budget_json, budget_ruling FROM ci_runs WHERE status = 'PASS' AND dirty = 0 AND budget_json IS NOT NULL ORDER BY id",
+    "SELECT id, sha, budget_json, budget_ruling, budget_ruled_sha FROM ci_runs WHERE status = 'PASS' AND dirty = 0 AND budget_json IS NOT NULL ORDER BY id",
   ).all();
   let from = 0;
   rows.forEach((r, i) => { if (r.budget_ruling) from = i; });
-  const since = rows.slice(from);
-  const best = {};
-  for (const r of since) {
-    const b = _parse(r.budget_json);
-    if (!b) continue;
-    for (const f of BUDGET_FIELDS) {
-      if (Number.isFinite(b[f]) && (best[f] == null || b[f] < best[f])) best[f] = b[f];
-    }
-  }
   const head = rows[from];
-  return { best, ruling: head?.budget_ruling || null, rulingSha: head?.budget_ruling ? head.sha : null, runs: since.length };
+  const ruled = head?.budget_ruling ? (head.budget_ruled_sha || head.sha) : null;
+  const best = {}, lowered = {};
+  rows.slice(from).forEach((r, k) => {
+    const b = _parse(r.budget_json);
+    if (!b) return;
+    if (ruled && k > 0) {
+      let c = null;
+      try { c = typeof contains === "function" ? contains(ruled, r.sha) : null; } catch { c = null; }
+      if (c !== true) return;
+    }
+    for (const f of BUDGET_FIELDS) {
+      if (Number.isFinite(b[f]) && (best[f] == null || b[f] < best[f])) {
+        best[f] = b[f];
+        if (k > 0) lowered[f] = r.sha; else delete lowered[f];
+      }
+    }
+  });
+  const ruledValues = ruled ? (_parse(head.budget_json) || {}) : {};
+  return { best, ruling: head?.budget_ruling || null, rulingSha: ruled, ruled: ruledValues, lowered,
+    runs: rows.length - from };
+}
+
+/** `contains` for budgetBest from git: true / false, or null when git cannot say (unknown sha, no git). */
+export function gitContains(repoDir) {
+  return (ancestor, descendant) => {
+    if (!/^[0-9a-f]{7,64}$/i.test(String(ancestor)) || !/^[0-9a-f]{7,64}$/i.test(String(descendant))) return null;
+    const r = spawnSync("git", ["-C", repoDir, "merge-base", "--is-ancestor", ancestor, descendant], { stdio: "ignore", timeout: 5000 });
+    return r.status === 0 ? true : r.status === 1 ? false : null;
+  };
 }
 
 /** The limit a measurement may reach for one field. */
@@ -92,7 +119,7 @@ export function regressionLine(r) {
  * newest PASS, non-dirty row that carries a budget, so the best is computed from it onward.
  * Throws on a missing or malformed ruling id, an unknown field or no such row.
  */
-export function budgetSet(db, ruling, values) {
+export function budgetSet(db, ruling, values, { at = null } = {}) {
   if (!RULING_RE.test(String(ruling || ""))) throw new Error("a budget changes only by ruling: --ruling D-### (e.g. D-118)");
   const keys = Object.keys(values || {});
   if (!keys.length) throw new Error("name at least one field=value");
@@ -105,8 +132,11 @@ export function budgetSet(db, ruling, values) {
   ).get();
   if (!row) throw new Error("no green run with a budget is recorded yet — run: rein ci run");
   const merged = { ...(_parse(row.budget_json) || {}), ...values };
-  db.prepare("UPDATE ci_runs SET budget_json = ?, budget_ruling = ? WHERE id = ?").run(JSON.stringify(merged), ruling, row.id);
-  return { sha: row.sha, budget: merged };
+  // E-443: the commit the value is ruled for — `--at <sha>`, else (the CLI passes HEAD) this row's.
+  const ruledSha = at || row.sha;
+  db.prepare("UPDATE ci_runs SET budget_json = ?, budget_ruling = ?, budget_ruled_sha = ? WHERE id = ?")
+    .run(JSON.stringify(merged), ruling, ruledSha, row.id);
+  return { sha: row.sha, ruledSha, budget: merged };
 }
 
 /**
@@ -139,8 +169,16 @@ export function budgetDrift(db) {
 export const driftLine = (d) => `[BUDGET_DRIFT] ${d.field} ${d.latest} vs median-of-5 ${d.median} (+${d.pct}%)`;
 
 /** One human line for `rein ci status` / `rein doctor`. */
-export function budgetSummary({ best, ruling, rulingSha, runs }) {
+// E-443: with a ruling, the line also names the ruled value of each ratcheted field a contained run
+// has lowered, and that run's commit.
+export function budgetSummary({ best, ruling, rulingSha, runs, ruled = {}, lowered = {} }) {
   if (!runs) return "no budget recorded yet";
   const parts = BUDGET_FIELDS.filter((f) => best[f] != null).map((f) => `${f} ${best[f]}${RATCHET[f] ? "" : " (recorded)"}`);
-  return `${parts.join(", ")}${ruling ? ` — ruled by ${ruling} at ${String(rulingSha).slice(0, 7)}` : ""}`;
+  let line = `${parts.join(", ")}${ruling ? ` — ruled by ${ruling} at ${String(rulingSha).slice(0, 7)}` : ""}`;
+  const low = Object.keys(RATCHET).filter((f) => lowered[f] && Number.isFinite(ruled[f]) && best[f] < ruled[f]);
+  if (ruling && low.length) {
+    line += ` (${low.map((f) => `${f} ${ruled[f]}`).join(", ")}); lowest contained run ` +
+      low.map((f) => `${String(lowered[f]).slice(0, 7)}: ${f} ${best[f]}`).join(", ");
+  }
+  return line;
 }

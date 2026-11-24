@@ -1,6 +1,6 @@
 ---
 name: rein-test
-description: Use this skill when asked to run tests, before committing, or for Tier 3 releases. Runs the project's real test command by default; --generate dispatches the headless test_engineer Tester (Claude, sonnet) to write tests; --fast runs the Tester on haiku; --vibe triggers the two-phase Vibe & Chaos audit (ux_reviewer + chaos_monkey).
+description: Use this skill when asked to run tests, before committing, or for Tier 3 releases. Runs the project's real test command by default; --generate dispatches the headless test_engineer Tester (Claude, sonnet) to write tests; --fast runs the Tester on haiku.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Bash, Glob
@@ -44,7 +44,7 @@ Gate: all tests must pass before any commit. If a test fails, you are **LOCKED**
 non-zero, report `[LOCKED]` with the failing assertion, and fix the failure (`skill: rein-debug`)
 before proceeding.
 
-**In a review** (critic_tests, rein-review) the Rein runner is invoked as
+**In a review** (the `reviewer` agent) the Rein runner is invoked as
 `bash tests/run.sh --tier fast --changed <base>` — the unit layer, every contract table, and the
 suites whose census footprint the change touches (E-298, D-088). The full matrix is `rein ci run`'s
 and pre-push's job, not a review's.
@@ -63,37 +63,4 @@ new test names the one it extends or replaces.
 Same as the default or `--generate`, with the Tester on `haiku` — a smoke tier for quick
 checks, not a release gate.
 
----
-
-## Vibe & Chaos Audit (--vibe flag)
-
-Trigger this when the user requests `--vibe` or for any **Tier 3** release.
-
-### Phase 1 — Visual Audit (ux_reviewer)
-Use the `ux_reviewer` agent to:
-1. Spin up the dev server (`npm run dev` or `npm start`).
-2. Check each primary route for: CLS < 0.1, WCAG AA contrast, 44px touch targets, visible focus rings.
-3. Run Lighthouse: Performance ≥ 80, Accessibility ≥ 90.
-4. Rapid-click stress: 10× clicks on primary CTA.
-5. Record the verdict via `mcp__task-synchronizer-mcp__add_stamp({type:"VIBE_CLEARED", agent:"ux_reviewer", summary:"Score X/10 — <one-line>"})` on a clean pass (no P0), or `type:"VIBE_BLOCKED"` on a P0. Do NOT append to `.ai/REVIEWS.md` directly — it is regenerated from the SQLite stamps table, so the stamp must go through `add_stamp` to surface there for `review_synthesizer` (which gates Tier 3 on `[VIBE_CLEARED]`).
-
-Or use `vibe-check-mcp`:
-```
-run_vibe_audit(url: "http://localhost:3000")
-run_chaos_test(url: "http://localhost:3000", interactions: 20)
-get_performance_metrics(url: "http://localhost:3000")
-```
-
-### Phase 2 — Chaos Stress Test (chaos_monkey)
-Use the `chaos_monkey` agent to:
-1. Verify `[SEC_CLEARED]` in `.ai/LOG.md` before starting.
-2. Run 5-phase chaos suite: invalid inputs, network latency, rapid-click, concurrent sessions, resource exhaustion.
-3. Append `[CHAOS_REPORT] YYYY-MM-DD` to `.ai/REVIEWS.md`.
-4. Tag `[CHAOS_CLEARED]` or `[CHAOS_BLOCKED]` in `.ai/LOG.md`.
-
-### Required Stamps (Tier 3 Release Gate)
-All three must exist before committing (recorded via `add_stamp`, surfaced in
-`.ai/REVIEWS.md` / `.ai/LOG.md` — never hand-appended):
-- `[VIBE_CLEARED]` (≤ 7 days old) — the stamp `review_synthesizer` requires for Tier 3
-- `[CHAOS_CLEARED]`
-- `[CRITIC_STAMP]` (from `skill: rein-review`)
+The task's own review is by tier (E-464): `rein review <tier>` names the agents.

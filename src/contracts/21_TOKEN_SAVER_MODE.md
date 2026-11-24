@@ -18,8 +18,8 @@ Goal: minimize tokens without losing correctness by leveraging the Tripartite En
 4) **Architect Ingestion:** Large files/repo-maps are digested by the Architect first; its blueprint summary is the context for the Engineer.
 
 ## 3. Maintenance
-1) DIGEST as cache: after each run, the Stop hook auto-appends a short update.
-2) Archive old LOG/COMM/REVIEWS entries when they exceed 200 lines (run `rein archive`).
+1) DIGEST as cache: a generated view, rebuilt from tracked state at session start and at handover (`rein digest build`, D-159).
+2) The record stays small (E-466): `rein handoff` runs `rein archive`, which keeps the last ten COMM.md handoffs and 90 days of SECURITY.md and REVIEWS.md, and moves the rest to `.ai/archive/<FILE>-<year>.md`. TASKS.md lists open tasks only (`rein task show <id>` prints a closed one). Archive LOG.md past 200 lines with `rein archive --logs`.
 
 ## 4. Model selection (Auto-Switching)
 - **Haiku:** Preflight, command execution, log updates, simple edits.

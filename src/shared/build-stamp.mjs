@@ -28,7 +28,7 @@
 // same-second rewrites, which is the exact `rein sync` case.
 //
 // HOW A SEPARATE PROCESS FINDS OUT. Each server writes ~/.rein/run/build-<server>.json at
-// startup. `verify_markdown_sync`, the `rein-preflight` skill, `rein doctor`, `rein sync` and
+// startup. `verify_markdown_sync`, the session-start hook, `rein doctor`, `rein sync` and
 // `install-rein.sh` read that directory, drop records whose pid is gone, recompute the
 // stamp from the SAME paths the record names, and report every mismatch. Comparing
 // booted-against-current-at-the-same-path is what makes the check correct for a server
@@ -138,7 +138,7 @@ export function bootedBuild(serverName, entryFile = process.argv[1], runDir = RU
 }
 
 // Only a LONG-LIVED stdio server gets a run-dir record. Several servers double as one-shot
-// CLIs — safe-exec-mcp's `--check` runs on every Bash tool call through the PreToolUse hook —
+// CLIs — a hook may start one per tool call —
 // and those processes are gone microseconds later. Recording them would put a file write on
 // the hook's hot path and fill the run dir with records the next scan only has to reap.
 //
@@ -379,7 +379,7 @@ function main(argv) {
   return 0;
 }
 
-// Run-directly detection, matching the src/shared convention (insights-staleness.mjs) but
+// Run-directly detection, matching the src/shared convention (cli-state.mjs) but
 // via pathToFileURL, which encodes a path containing spaces the way import.meta.url does.
 // Note the standing limitation of every argv[1]-based check in this tree: `node -e '…'
 // <this-file>` puts the module's own path in argv[1] and reads as "run directly". That is

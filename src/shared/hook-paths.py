@@ -13,7 +13,7 @@ final report — so the rule cannot drift between them.
         MISSING   <event> <path>  a Rein-named entry whose script does not exist
         FOREIGN   <event> <path>  a Rein-named script outside the install's hooks dir
         FORM      <event> <name>  ours, but not the exec form /bin/bash -p <absolute path>
-        UNREGISTERED              no PreToolUse entry runs the install's pre-tool-use.sh in exec form
+        UNREGISTERED              no PreToolUse entry runs the install's pre-tool-use.sh (the seatbelt) in exec form
                                   under a matcher that covers Bash
         DISABLED                  the file sets disableAllHooks: no hook runs at all
         UNPARSEABLE               the file is not JSON (doctor reports it; nothing else said)
@@ -35,14 +35,22 @@ import re
 import shlex
 import sys
 
+# E-467: stop-hook, post-tool-log, post-tool-use and permission-denied are retired; their names
+# stay so `rein sync` can recognise and remove an old entry as ours.
 HOOK_NAMES = ("stop-hook.sh", "pre-tool-use.sh", "session-start.sh",
-              "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh")
+              "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh",
+              "waiting-signal.sh")
+# E-433 (D-160): the events waiting-signal.sh is registered on — the rein plugin's hooks.json
+# since E-469 (src/shared/plugin-build.mjs PLUGIN_HOOKS).
+WAITING_EVENTS = ("PermissionRequest", "Notification", "PreToolUse", "PostToolUse",
+                  "PostToolUseFailure", "UserPromptSubmit", "Stop", "SessionStart",
+                  "SessionEnd", "PermissionDenied")
 _SHELLS = ("bash", "sh", "zsh", "dash")
 _SHELL_FLAGS = ("-p", "-e", "-u", "-x", "-l", "--norc", "--noprofile")
 _OPERATORS = re.compile(r"[;&|<>`]|\$\(")
 # The tools the shipped gate matcher covers (src/bin/rein _SPECS): a matcher missing one
 # leaves that tool ungated — the Architect's write gate lives in the same hook (M3).
-_GATE_TOOLS = {"Bash", "Write", "Edit", "MultiEdit", "NotebookEdit"}
+_GATE_TOOLS = {"Bash"}   # the seatbelt reads Bash commands only (E-463)
 # Control (C0, DEL, C1) and bidi characters: a path carrying one is never printed (N5).
 _UNSAFE = re.compile("[\x00-\x1f\x7f-\x9f‎‏‪-‮⁦-⁩]")
 _LINE, _FILE = 1 << 20, 4 << 20   # per-line and per-file read caps for a transcript (N4)
@@ -216,6 +224,29 @@ def check(settings, hooks_dir):
     return out
 
 
+def waiting_missing(settings, hooks_dir):
+    """E-433: the WAITING_EVENTS with no exec-form entry running hooks_dir/waiting-signal.sh.
+    An unreadable settings file misses every event."""
+    try:
+        with open(settings, encoding="utf-8") as f:
+            d = json.load(f)
+        hooks = d.get("hooks") if isinstance(d, dict) else None
+    except Exception:
+        hooks = None
+    if not isinstance(hooks, dict) or not _hooks_ok(hooks_dir):
+        return list(WAITING_EVENTS)
+    want = _real(os.path.join(hooks_dir, "waiting-signal.sh"))
+    project = os.path.dirname(os.path.dirname(os.path.abspath(settings)))
+    have = set()
+    for ev, lst in hooks.items():
+        for e in lst if isinstance(lst, list) else []:
+            for h in (e.get("hooks") or []) if isinstance(e, dict) else []:
+                r = _runs(h, project) if isinstance(h, dict) else None
+                if r and _real(r[0]) == want and os.path.isfile(r[0]):
+                    have.add(ev)
+    return [ev for ev in WAITING_EVENTS if ev not in have]
+
+
 def _session_cwds():
     """`cwd` values from Claude Code's per-project session dirs (D-132 addendum 5 r1-r2)."""
     home = os.path.expanduser("~")
@@ -301,11 +332,14 @@ def main(argv):
             # the terminal (M6, as N5 for the installer's list).
             print("\t".join(_UNSAFE.sub("?", f) for f in r))
         return 0
+    if len(argv) == 4 and argv[1] == "waiting":
+        print(" ".join(waiting_missing(argv[2], argv[3])))
+        return 0
     if len(argv) == 4 and argv[1] == "projects":
         for p in projects(argv[2], argv[3]):
             print(p)
         return 0
-    print("usage: hook-paths.py check <settings.json> <hooks dir> | projects <clone> <hooks dir>", file=sys.stderr)
+    print("usage: hook-paths.py check <settings.json> <hooks dir> | waiting <settings.json> <hooks dir> | projects <clone> <hooks dir>", file=sys.stderr)
     return 2
 
 

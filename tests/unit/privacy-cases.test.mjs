@@ -8,11 +8,10 @@
 import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createRequire } from "node:module";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const { tcFixtureHome } = await import("../lib/toolchain-fixture.mjs");
@@ -25,11 +24,10 @@ after(() => { process.env.HOME = _home; rmSync(HOME, { recursive: true, force: t
 const { redact, redactedToday, REDACT_WRITERS } = await import("../../src/shared/publish-scan.mjs");
 const { getDbSeeded, addTask, completeTask, regenerateViews } = await import("../../src/mcp/shared/state-db.js");
 const { insertStamp, setProject } = await import("../../src/mcp/shared/record-store.mjs");
+const { runTaskShow } = await import("../../src/shared/cli-state.mjs");
 const { appendLog, newTeam, writeTeam } = await import("../../src/mcp/shared/team.mjs");
-const { runHandover } = await import("../../src/mcp/orchestrator-mcp/run-handover.mjs");
 const { writeCiRecord } = await import("../../src/mcp/shared/ci-evidence.mjs");
 const { hosted, PROVIDERS } = await import("../../src/shared/hosted-ci.mjs");
-const { stageInstincts } = await import("../../src/shared/instinct-stager.mjs");
 
 const ROWS = JSON.parse(readFileSync(join(REPO, "tests/fixtures/privacy-cases.json"), "utf8"));
 const LISTS = { client_names: ["Fabrikam"], operator_names: ["Ada Quill"] };
@@ -110,7 +108,11 @@ const WRITERS = {
     addTask(ai, db, { owner: "Engineer (Claude)", description: "build it" });
     completeTask(ai, db, "E-1", PAYLOAD);
     regenerateViews(ai, db);
-    clean(read(ai, "TASKS.md"), "TASKS.md");
+    // E-466: TASKS.md lists open tasks only, so the closed task's summary is read where it is
+    // shown — state.json and `rein task show`.
+    const shown = runTaskShow(ai, "E-1");
+    assert.equal(shown.code, 0, shown.out);
+    clean(shown.out, "rein task show");
     clean(read(ai, "state.json"), "state.json");
   },
   stamp_summary(t) {
@@ -121,52 +123,11 @@ const WRITERS = {
     clean(read(ai, "REVIEWS.md"), "REVIEWS.md");
     clean(read(ai, "state.json"), "state.json");
   },
-  handover(t) {
-    const { root, ai } = project(t);
-    writeFileSync(join(ai, "LOG.md"), "# LOG\n");
-    const db = getDbSeeded(ai);
-    addTask(ai, db, { owner: "Engineer (Claude)", description: "build it" });
-    regenerateViews(ai, db);
-    writeFileSync(join(root, "a.txt"), "1\n");
-    git(root, "add", "-A"); git(root, "commit", "-q", "-m", "seed");
-    writeFileSync(join(root, "a.txt"), "2\n");
-    runHandover(root, { task_id: "E-1", summary: PAYLOAD }, {}, { ...process.env, REIN_CI_GATE: "0", REIN_BUILD_STAMP: "0" });
-    clean(read(ai, "state.json"), "state.json (task summary, delta)");
-    clean(read(ai, "LOG.md"), "LOG.md");
-    const reason = getDbSeeded(ai).prepare("SELECT value FROM meta WHERE key = 'digest_stale_reason'").get();
-    if (reason) clean(reason.value, "digest_stale_reason");
-  },
   log_line(t) {
     const { ai } = project(t);
     writeFileSync(join(ai, "LOG.md"), "# LOG\n");
     appendLog(ai, `2026-10-28 | Claude | E-1 | ${PAYLOAD}`);
     clean(read(ai, "LOG.md"), "LOG.md");
-  },
-  repo_map(t) {
-    // E-412 / D-146 (extends this row): the writer needs ast-parser-mcp's own dependencies, which a
-    // checkout that was never bootstrapped (a fresh worktree) does not have — a recorded SKIP there
-    // (test-harness rule 1). `rein ci run` (REIN_CI=local|hosted) and the hosted check (CI=true) bootstrap
-    // first, so under them a missing dependency is a FAILURE, never a skip.
-    const ast = join(REPO, "src/mcp/ast-parser-mcp");
-    let deps = true;
-    try { createRequire(join(ast, "extractor.mjs")).resolve("web-tree-sitter"); } catch { deps = false; }
-    if (!deps) {
-      const bootstrapped = process.env.CI === "true" || !!process.env.REIN_CI;   // local or hosted (D-148)
-      assert.ok(!bootstrapped, "ast-parser-mcp's dependencies are missing after a bootstrap (web-tree-sitter unresolvable)");
-      t.skip("ast-parser-mcp's dependencies are not installed in this checkout (web-tree-sitter) — run its npm ci");
-      return;
-    }
-    const { root, ai } = project(t);
-    mkdirSync(join(root, "src", "fabrikam"), { recursive: true });
-    writeFileSync(join(root, "src", "fabrikam", "client.js"), "export function connect(url) { return url; }\n");
-    try {
-      execFileSync(process.execPath, [join(ast, "index.js"), "--generate-map"], { cwd: root, stdio: ["ignore", "pipe", "pipe"], env: process.env });
-    } catch (e) {   // a real failure says why (the child's stderr), not just "Command failed"
-      assert.fail(`--generate-map exited ${e.status}: ${String(e.stderr || "").trim().split("\n").slice(-5).join(" | ")}`);
-    }
-    const map = read(ai, "REPO_MAP.md");
-    assert.ok(!/fabrikam/i.test(map), "REPO_MAP.md still names the client");
-    assert.match(map, /\[redacted:client_name\]/);
   },
   ci_evidence(t) {
     const { ai } = project(t);
@@ -199,26 +160,15 @@ const WRITERS = {
     regenerateViews(ai, db);
     clean(read(ai, "state.json"), "state.json project");
   },
-  // The two LOG writers inside a server or CLI entry point are checked at their write line: the
-  // line they append is the redact() call's result (their process boundary is not the behaviour).
-  advisor_ruling() {
-    assert.match(read(REPO, "src/mcp/advisor-mcp/index.js"), /appendFileSync\(LOG_MD, redact\(line,/);
-  },
+  // The LOG writer inside a CLI entry point is checked at its write line: the line it appends is
+  // the redact() call's result (its process boundary is not the behaviour). E-467 (D-170 r5)
+  // retired the handover, repo_map, instinct_stager, advisor_ruling and stop_hook writers.
   ai_clean_log() {
     assert.match(read(REPO, "src/shared/rein-clean.mjs"), /appendFileSync\(projLog, redact\(/);
-  },
-  instinct_stager(t) {
-    const { root } = project(t);
-    const proposedDir = join(root, ".claude", "skills", "proposed");
-    const r = stageInstincts([{ pattern_id: "p-1", confidence_score: 0.9, trigger_condition: "when a test fails",
-      proposed_skill_content: `Rerun the suite. ${PAYLOAD}` }], { proposedDir });
-    assert.equal(r.staged.length, 1, JSON.stringify(r.skipped));
-    clean(read(r.staged[0].path), "proposed SKILL.md");
   },
 };
 
 for (const r of ROWS.filter((x) => x.kind === "writer")) {
-  if (r.writer === "stop_hook") continue;   // hooks_surface_test.sh
   test(`E-379 writer: ${r.label}`, (t) => {
     assert.ok(WRITERS[r.writer], `no runner for ${r.writer}`);
     WRITERS[r.writer](t);
@@ -227,16 +177,13 @@ for (const r of ROWS.filter((x) => x.kind === "writer")) {
 
 test("E-379: every writer row has a runner and rein doctor counts the wrapped writers", () => {
   const rows = ROWS.filter((x) => x.kind === "writer").map((x) => x.writer);
-  assert.deepEqual(rows.filter((w) => w !== "stop_hook").sort(), Object.keys(WRITERS).sort());
-  assert.equal(REDACT_WRITERS.length, 12);
-  assert.ok(existsSync(join(REPO, "tests/suites/hooks_surface_test.sh")) &&
-    read(REPO, "tests/suites/hooks_surface_test.sh").includes("E-379"), "the stop hook row runs in hooks_surface_test.sh");
+  assert.deepEqual(rows.sort(), Object.keys(WRITERS).sort());
+  assert.equal(REDACT_WRITERS.length, 7);
 });
 
-test("E-379: what lives under the install directory is not tracked — telemetry, incidents, insights, the palace", () => {
+test("E-379: what lives under the install directory is not tracked — telemetry, incidents", () => {
   // The readers and writers of these files resolve them under $HOME/.rein, never under a project.
-  for (const [f, needle] of [["src/shared/telemetry.mjs", ".rein"], ["src/shared/incident-append.mjs", ".rein"],
-    ["src/shared/insights-staleness.mjs", ".rein"], ["src/mcp/memory-manager-mcp/index.js", ".rein"]]) {
+  for (const [f, needle] of [["src/shared/telemetry.mjs", ".rein"], ["src/shared/incident-append.mjs", ".rein"]]) {
     assert.ok(read(REPO, f).includes(needle), `${f} resolves under the install directory`);
   }
   assert.deepEqual(readdirSync(HOME).filter((d) => d !== ".rein"), [], "the redactor writes nothing in HOME but its counter");

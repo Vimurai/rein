@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # resilience_test.sh — Bootloader Resilience Validation Suite (E-113 / P-52 §34)
-# Validates: 3-layer bootloader fallback (orchestrator-mcp → rein-preflight → CLAUDE.md),
+# Validates: the MCP server is startable (task-synchronizer-mcp since E-467 retired orchestrator-mcp),
 # the state.json import's version/corruption guard, and state corruption recovery.
 set -euo pipefail
 
@@ -8,49 +8,21 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 
 REPO_ROOT="${SCRIPT_DIR}/../.."
-ORCH_MCP="${REPO_ROOT}/src/mcp/orchestrator-mcp/index.js"
+STATE_MCP="${REPO_ROOT}/src/mcp/task-synchronizer-mcp/index.js"
 SHARED_STATE="${REPO_ROOT}/src/mcp/shared/state-db.js"
-PREFLIGHT_SKILL="${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
-# E-183/D-050: Emergency Recovery (Layer 3) lives in the canonical ENGINEER.md bootloader;
-# CLAUDE.md is now a thin @import shim that re-exports it.
-CLAUDE_MD_TEMPLATE="${REPO_ROOT}/src/templates/ENGINEER.md"
 
 echo "── Suite: resilience_test ─────────────────────────────────────────"
 
-# ── Scenario A: Layer 1 Failure (orchestrator-mcp unavailability) ─────────────
+# ── Scenario A: Layer 1 Failure (MCP server unavailability) ───────────────────
 
-# T-RES-01: orchestrator-mcp syntax is valid (server is startable)
-assert_status 0 "T-RES-01: orchestrator-mcp syntax OK" \
-  node --check "${ORCH_MCP}"
+# T-RES-01: task-synchronizer-mcp syntax is valid (server is startable)
+assert_status 0 "T-RES-01: task-synchronizer-mcp syntax OK" \
+  node --check "${STATE_MCP}"
 
-# T-RES-02: Layer 2 fallback skill exists and is non-empty
-assert_exists "$PREFLIGHT_SKILL"
-
-# T-RES-03: rein-preflight skill has valid YAML frontmatter
-preflight_name=$(grep "^name:" "$PREFLIGHT_SKILL" | awk '{print $2}')
-assert_contains "T-RES-03: rein-preflight skill has correct name" "rein-preflight" "$preflight_name"
-
-# T-RES-04: rein-preflight skill contains bash fallback read instructions
-assert_status 0 "T-RES-04: rein-preflight contains bash jq fallback" \
-  grep -q "state.json\|jq\|grep" "$PREFLIGHT_SKILL"
-
-# T-RES-05: Layer 3 — global CLAUDE.md has Emergency Recovery section
-assert_status 0 "T-RES-05: global CLAUDE.md has Emergency Recovery section (Layer 3)" \
-  grep -q "Emergency Recovery\|Bootloader Resilience\|Layer 3\|Absolute last resort" "$CLAUDE_MD_TEMPLATE"
-
-# ── Scenario B: Layer 2 Failure (rein-preflight skill missing) ─────────────────
-
-# T-RES-06: global CLAUDE.md contains manual recovery bash commands
-assert_status 0 "T-RES-06: global CLAUDE.md manual recovery has 'grep TASKS.md' fallback" \
-  grep -q "TASKS.md" "$CLAUDE_MD_TEMPLATE"
-
-# T-RES-07: global CLAUDE.md contains state.json python/jq read for focus
-assert_status 0 "T-RES-07: global CLAUDE.md manual recovery reads state.json focus" \
-  grep -q "state.json\|focus\|python3\|jq" "$CLAUDE_MD_TEMPLATE"
-
-# T-RES-08: global CLAUDE.md contains LOG.md tail fallback
-assert_status 0 "T-RES-08: global CLAUDE.md manual recovery has LOG.md tail fallback" \
-  grep -q "LOG.md" "$CLAUDE_MD_TEMPLATE"
+# T-RES-02..08 (the preflight skill's Bash fallback and the rulefiles' Emergency Recovery
+# section) were deleted by E-460: the session brief is built by the SessionStart hook from
+# .ai/TASKS.md and .ai/COMM.md with no MCP server, so there is no fallback ladder left to pin
+# (hooks_surface_test.sh S03 covers the brief).
 
 # ── Scenario C: State Corruption (invalid state.json) ────────────────────────
 
@@ -92,12 +64,12 @@ assert_exists "$AI_EXEC"
 assert_status 0 "T-RES-12: rein-exec is executable" \
   test -x "$AI_EXEC"
 
-# T-RES-13: Simulated node failure — chmod orchestrator-mcp to non-executable,
+# T-RES-13: Simulated node failure — chmod task-synchronizer-mcp to non-executable,
 # assert fallback shell cat of TASKS.md still works, then restore.
-ORIG_MODE=$(stat -f "%p" "$ORCH_MCP" 2>/dev/null || stat -c "%a" "$ORCH_MCP" 2>/dev/null)
-chmod 000 "$ORCH_MCP"
+ORIG_MODE=$(stat -f "%p" "$STATE_MCP" 2>/dev/null || stat -c "%a" "$STATE_MCP" 2>/dev/null)
+chmod 000 "$STATE_MCP"
 fallback_result=$(cat "${REPO_ROOT}/.ai/TASKS.md" 2>/dev/null | head -1 || echo "FAIL")
-chmod 644 "$ORCH_MCP"
+chmod 644 "$STATE_MCP"
 assert_contains "T-RES-13: shell cat fallback reads TASKS.md during simulated node failure" \
   "TASKS" "$fallback_result"
 

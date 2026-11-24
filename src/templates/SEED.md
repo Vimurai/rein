@@ -1,20 +1,17 @@
-# SEED (Preflight guide)
+# SEED (session guide)
 
 Purpose: Absolute memory synchronization via `.ai/`.
 
-## Preflight (MANDATORY — every session)
+## Session start
 
-Run the preflight skill at session start — do NOT manually read files:
-```
-skill: "rein-preflight"
-```
-The skill's `!` lines inject DIGEST freshness, open tasks and live status; it then
-verifies TASKS.md against state.sqlite and surfaces unread deltas.
+The SessionStart hook injects a brief of at most 2 KB (E-460): the role stamp, the branch,
+the role's next five open tasks, the last handoff's heading and one line per anomaly.
+Nothing to run; read further files only when a task needs them.
 
 ## Token Economics (MANDATORY RULE)
-- Do NOT read `.ai/architect.md` during preflight — load it only when your task requires it.
+- Do NOT read `.ai/architect.md` at session start — load it only when your task requires it.
 - Do NOT read `src/**` unless your task involves a specific file.
-- Trust DIGEST.md. If it is stale (preflight will warn you), run `skill: "rein-digest"` first.
+- Trust DIGEST.md: it is generated from state at every session start and handover (`rein digest build`); never hand-edit it.
 
 ## Task Creation
 - All tasks live in `state.sqlite` (primary) and are regenerated to `TASKS.md` / `state.json` automatically.

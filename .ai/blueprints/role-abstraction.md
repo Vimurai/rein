@@ -90,7 +90,7 @@ reachable by the A2A bridge (G4) — with sovereignty enforced by the gate, not 
 
 ### Components
 1. **`rein pane <role>` launcher (`src/bin/rein`)** — the single provider-agnostic binding surface,
-   symmetric to `ai handoff <role>` and `rein add-task` (D-053). It reads `.ai/roles.json`, looks
+   symmetric to the signal `handoff <role>` subcommand (retired, D-099) and `rein add-task` (D-053). It reads `.ai/roles.json`, looks
    up the role's `provider` in `providers.json`, and execs the provider CLI with:
    - launch env `REIN_PANE_ROLE=<role>` and `REIN_CALLER_ROLE=<role>`;
    - the provider's `launch` adapter argv (see Data Model) — for `claude`:

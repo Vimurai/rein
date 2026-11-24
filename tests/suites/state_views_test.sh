@@ -13,6 +13,8 @@
 #   2. id checkbox [x] in TASKS.md but status != DONE in state
 #   3. id checkbox [ ] in TASKS.md but status == DONE in state
 #   4. id in state but missing from TASKS.md
+#   E-466: TASKS.md lists open tasks only — 4 applies to open tasks, and a closed task listed
+#   in the view is drift that the regeneration fixes (E-466.V1).
 #
 # Each case spawns the real MCP server via stdio JSON-RPC (no inline
 # reimplementation) so the test fails if the algorithm drifts from spec.
@@ -152,10 +154,10 @@ const now = new Date().toISOString();
 db.prepare("INSERT INTO tasks(id,owner,status,tier,description,created_at,completed_at,summary) VALUES (?,?,?,?,?,?,?,?)")
   .run("E-4","Engineer (Claude)","DONE",2,"shipped already",now,now,"summary");
 regenerateViews(aiDir, db);
-// Force the checkbox back to [ ] without updating state.
+// List the closed task as open by hand (E-466: the view does not list closed tasks at all).
 const tp = resolve(aiDir, "TASKS.md");
 const cur = readFileSync(tp, "utf8");
-writeFileSync(tp, cur.replace("- [x] E-4:", "- [ ] E-4:"));
+writeFileSync(tp, cur + "\n## Engineer\n- [ ] E-4: shipped already | Tier: 2\n");
 JS
 OUT="$(_run_verify_in_sbox "$DRIFT3_SEED")"
 rm -f "$DRIFT3_SEED"
@@ -163,6 +165,35 @@ assert_status 0 "T-VS-S04a: emits [SYNC_FAIL]" \
   grep -qE '\[SYNC_FAIL\]' <<<"$OUT"
 assert_status 0 "T-VS-S04b: anomaly E-4 [ ] but DONE in state" \
   grep -qE 'E-4 is \[ \] in TASKS\.md but DONE in state' <<<"$OUT"
+
+# ── E-466.V1: a closed task listed in TASKS.md (a view from before E-466) is regenerated away ──
+echo ""
+echo "  [E-466.V1] A closed task listed [x] — TASKS.md lists open tasks only"
+
+CLOSED_SEED="$(mktemp).mjs"
+cat > "$CLOSED_SEED" <<'JS'
+const { getDb, regenerateViews } = await import(`${process.env.REPO_ROOT}/src/mcp/shared/state-db.js`);
+const { readFileSync, writeFileSync } = await import("fs");
+const { resolve }                     = await import("path");
+const aiDir = process.env.AIDIR;
+const db = getDb(aiDir);
+const now = new Date().toISOString();
+db.prepare("INSERT INTO tasks(id,owner,status,tier,description,created_at,completed_at,summary) VALUES (?,?,?,?,?,?,?,?)")
+  .run("E-11","Engineer (Claude)","DONE",1,"closed long ago",now,now,"done");
+db.prepare("INSERT INTO tasks(id,owner,status,tier,description,created_at,completed_at,summary) VALUES (?,?,?,?,?,?,?,?)")
+  .run("E-12","Engineer (Claude)","OPEN",1,"still open",now,null,null);
+regenerateViews(aiDir, db);
+const tp = resolve(aiDir, "TASKS.md");
+writeFileSync(tp, readFileSync(tp, "utf8") + "\n## Engineer\n- [x] E-11: closed long ago | Tier: 1\n");
+JS
+OUT="$(_run_verify_in_sbox "$CLOSED_SEED")"
+rm -f "$CLOSED_SEED"
+assert_status 0 "E-466.V1a: the closed row is an anomaly" \
+  grep -qE 'E-11 is closed and listed in TASKS\.md, which lists open tasks only' <<<"$OUT"
+assert_status 0 "E-466.V1b: and is auto-fixed by regenerating the view" \
+  grep -qE 'TASKS\.md regenerated' <<<"$OUT"
+assert_status 1 "E-466.V1c: a closed task missing from the view is not drift" \
+  grep -qE 'E-11 exists in state but is missing' <<<"$OUT"
 
 # ── T-VS-S05: drift 4 — id in state but missing from TASKS.md ────────────
 echo ""
@@ -758,31 +789,7 @@ fs.unlinkSync(tmp);
 ")
 assert_contains "T-02.10: corrupt JSON is caught by parse" "ok" "$corrupt_check"
 
-# ── T-02.11: marking deltas read: true (inline logic, E-115) ─────────
-DELTA_DIR=$(mktemp -d)
-cp "$TEMPLATE" "${DELTA_DIR}/state.json"
-python3 -c "
-import json; s=json.load(open('${DELTA_DIR}/state.json'))
-s['deltas']=[{'task_id':'E-99','timestamp':'2026-01-01T00:00:00Z','summary':'Test delta','files_changed':[],'read':False}]
-json.dump(s, open('${DELTA_DIR}/state.json','w'), indent=2)
-"
-# Inline delta-marking logic
-node -e "
-  import { readFileSync, writeFileSync } from 'fs';
-  import { resolve } from 'path';
-  const statePath = resolve(process.argv[1], 'state.json');
-  const state = JSON.parse(readFileSync(statePath, 'utf8'));
-  const unread = (state.deltas || []).filter(d => !d.read);
-  for (const d of unread) { d.read = true; }
-  if (unread.length > 0) writeFileSync(statePath, JSON.stringify(state, null, 2) + '\n');
-" "$DELTA_DIR" --input-type=module 2>/dev/null
-delta_check=$(python3 -c "
-import json; s=json.load(open('${DELTA_DIR}/state.json'))
-deltas=s.get('deltas',[])
-print('ok' if len(deltas)==1 and deltas[0].get('read')==True else 'fail:'+str(deltas))
-")
-assert_contains "T-02.11: unread deltas are marked read:true" "ok" "$delta_check"
-rm -rf "$DELTA_DIR"
+# T-02.11 (inline delta marking, E-115) deleted: the delta channel is retired (D-172 r18).
 
 # ── T-02.12: readStateStrict returns null for wrong schema version (E-117) ──
 VERSION_DIR=$(mktemp -d)
@@ -814,6 +821,8 @@ STATE_DB="${REPO_ROOT}/src/mcp/shared/state-db.js"
 BIN_AI="${REPO_ROOT}/src/bin/rein"
 TEMPLATE="${REPO_ROOT}/src/templates/state.json"
 
+# E-461 (D-169 r7): add-task refuses a task with no tier, no verb or no observable Acceptance.
+ACC='Acceptance: `true` exits 0.'
 # Fresh temp project with a state.json seed (getDb builds state.sqlite from it).
 PROJ="$(mktemp -d)"
 on_exit 'rm -rf "$PROJ"'
@@ -854,47 +863,54 @@ assert_status 0 "helper routes through the shared addTask" \
 
 # ── T-04: functional create + caller_role stamping ───────────────────────────
 echo ""; echo "  [T-04] Create + caller_role → owner"
-id_arch="$(run_add architect --tier 2 "Architect created task")"
+id_arch="$(run_add architect --tier 2 "Add the architect created task. ${ACC}")"
 assert_contains "T-04.01: returns an E-id on stdout" "E-" "$id_arch"
 # D-066: the owner label is derived from roles.json, whose default is now all-Claude.
 assert_contains "T-04.02: architect role → owner 'Architect (Claude)'" "Architect (Claude)" "$(task_field "$id_arch" owner)"
 assert_contains "T-04.03: status OPEN (no deps)" "OPEN" "$(task_field "$id_arch" status)"
 assert_contains "T-04.04: tier persisted" "2" "$(task_field "$id_arch" tier)"
 
-id_eng="$(run_add engineer "Engineer created task")"
+id_eng="$(run_add engineer --tier 2 "Add the engineer created task. ${ACC}")"
 assert_contains "T-04.05: engineer role → owner 'Engineer (Claude)'" "Engineer (Claude)" "$(task_field "$id_eng" owner)"
 
 # explicit --owner overrides the role mapping
-id_own="$(run_add architect --owner "Tester (claude · sonnet)" "Explicit owner task")"
+id_own="$(run_add architect --tier 2 --owner "Tester (claude · sonnet)" "Add the explicit owner task. ${ACC}")"
 assert_contains "T-04.06: explicit --owner wins over role" "Tester (claude · sonnet)" "$(task_field "$id_own" owner)"
 
 # ── T-05: survives verify_markdown_sync (row is in the regenerated view) ─────
 echo ""; echo "  [T-05] Regenerated views"
 assert_status 0 "T-05.01: TASKS.md regenerated with the new task" \
-  grep -q "Architect created task" "${PROJ}/.ai/TASKS.md"
+  grep -q "architect created task" "${PROJ}/.ai/TASKS.md"
 assert_status 0 "T-05.02: state.json view holds the new task" \
-  grep -q "Engineer created task" "${PROJ}/.ai/state.json"
+  grep -q "engineer created task" "${PROJ}/.ai/state.json"
 
 # ── T-06: DAG — depends_on unmet → BLOCKED ───────────────────────────────────
 echo ""; echo "  [T-06] Dependencies"
-id_dep="$(run_add engineer --depends-on "${id_arch}" "Blocked-by-dep task")"
+id_dep="$(run_add engineer --tier 2 --depends-on "${id_arch}" "Add the blocked-by-dep task. ${ACC}")"
 assert_contains "T-06.01: unmet dependency → BLOCKED" "BLOCKED" "$(task_field "$id_dep" status)"
 
 # ── T-07: prefix + input validation ──────────────────────────────────────────
 echo ""; echo "  [T-07] Prefix + validation"
-id_p="$(run_add architect --prefix P "Architect plan task")"
+id_p="$(run_add architect --tier 2 --prefix P "Plan the architect task. ${ACC}")"
 assert_contains "T-07.01: --prefix P → P-id" "P-" "$id_p"
 assert_status 2 "T-07.02: empty description → usage exit 2" \
   bash -c "cd '$PROJ' && REIN_CALLER_ROLE=engineer node '$HELPER' --tier 1 2>/dev/null"
 
+# E-461 (D-169 r7): the task-planner checks, through the CLI (rows of task-quality.test.mjs
+# cover each rule; this pins that the CLI reaches them and writes nothing).
+_refused="$(cd "$PROJ" && REIN_CALLER_ROLE=engineer node "$HELPER" --tier 2 "Add a task with no acceptance" 2>&1 >/dev/null; echo "rc=$?")"
+assert_contains "T-07.03: no Acceptance text → [TASK_NO_ACCEPTANCE], exit 1" "[TASK_NO_ACCEPTANCE]" "$_refused"
+assert_contains "T-07.04: and the exit is 1" "rc=1" "$_refused"
+assert_status 1 "T-07.05: nothing was written" grep -q "task with no acceptance" "${PROJ}/.ai/TASKS.md"
+
 # ── T-08: stdout purity (only the id on stdout; noise → stderr) ──────────────
 echo ""; echo "  [T-08] stdout purity"
-out="$(run_add engineer "Purity check task")"
+out="$(run_add engineer --tier 1 "Check the stdout purity. ${ACC}")"
 assert_status 0 "T-08.01: stdout is a single bare id line" \
   bash -c "grep -qxE 'E-[0-9]+' <<< '$out'"
 
 # D-099 (E-322): add-task no longer wakes the other role — a cross-role task writes no queue.
-run_add architect --prefix E "Cross-role task, no wake" >/dev/null
+run_add architect --tier 2 --prefix E "Add a cross-role task, no wake. ${ACC}" >/dev/null
 assert_status 1 "T-10.01: a cross-role add writes no handoff queue" test -e "${PROJ}/.ai/signal.json"
 set +e
 
@@ -902,12 +918,11 @@ set +e
 # ── E-89 (from migrate_state — E-302): rein migrate-state and the P-44 mandate ──
 # Tests for rein migrate-state (E-89/P-43) and P-44 mandate enforcement
 # Validates: parser correctness, status preservation, tier detection, guard check,
-#            JSON schema, blueprint-aligner fail-safe, task-synchronizer strict writes,
+#            JSON schema, task-synchronizer strict writes,
 #            and post-commit.sh state-first ordering.
 set -e   # this section ran under its own suite's error mode
 TEMPLATE="${REPO_ROOT}/src/templates/state.json"
 AI_BIN="${REPO_ROOT}/src/bin/rein"
-ALIGNER_MCP="${REPO_ROOT}/src/mcp/blueprint-aligner-mcp/index.js"
 POST_COMMIT="${REPO_ROOT}/hooks/post-commit.sh"
 
 # ── T-04.01: migrate-state seeds tasks from a well-formed TASKS.md fixture ──
@@ -1018,14 +1033,7 @@ except Exception as e:
 ")
 assert_contains "T-04.05: migration produces valid JSON with correct schema" "ok" "$schema_check"
 
-# ── T-04.06: blueprint-aligner-mcp TIER3_NO_SECURITY_REVIEW fails when state.json missing ──
-# Verify the source code has the fail-safe return for missing state.json
-aligner_failsafe=$(grep -c 'state.json missing — run: rein migrate-state' "$ALIGNER_MCP" || echo "0")
-assert_contains "T-04.06: blueprint-aligner-mcp has fail-safe for missing state.json" "1" "$aligner_failsafe"
-
-# Verify the TASKS.md fallback regex is gone
-legacy_fallback=$(grep -c 'TASKS.md.*regex\|Fallback.*legacy TASKS' "$ALIGNER_MCP" 2>/dev/null || echo "0")
-assert_contains "T-04.06b: TASKS.md fallback regex removed from blueprint-aligner-mcp" "0" "$legacy_fallback"
+# T-04.06 (blueprint-aligner-mcp's missing-state fail-safe) went with the server (E-467, D-170 r5).
 
 # ── T-04.07: task-synchronizer-mcp gates on missing .ai/ directory ──
 # E-156: readStateStrict replaced by SQLite getDb() — verify the new guard is present
@@ -1073,61 +1081,7 @@ assert_status 0 "T-04.08b2: post-commit.sh closes tasks through the mirror's rei
 warn_check=$(grep -c 'WARN: .* not found' "$POST_COMMIT" || echo "0")
 assert_contains "T-04.08c: post-commit.sh warns and exits when ai is absent" "1" "$warn_check"
 
-# ── T-04.09: TIER3_NO_SECURITY_REVIEW does NOT clear when only LOG.md has evidence ──
-# P-44: gate must require stamps[], not LOG.md text
-T49_DIR=$(mktemp -d)
-mkdir -p "${T49_DIR}/.ai"
-
-# state.json with a Tier-3 DONE task and empty stamps[]
-cat > "${T49_DIR}/.ai/state.json" <<'JSON'
-{
-  "version": "1.0",
-  "project": { "focus": "test" },
-  "tasks": [
-    {
-      "id": "E-1",
-      "owner": "claude",
-      "status": "DONE",
-      "tier": 3,
-      "description": "Security feature",
-      "created_at": "2026-03-01",
-      "completed_at": "2026-03-16",
-      "summary": "done"
-    }
-  ],
-  "stamps": []
-}
-JSON
-
-# LOG.md with security keywords that used to bypass the gate
-cat > "${T49_DIR}/.ai/LOG.md" <<'LOG'
-## 2026-03-16
-- security_engineer activated
-- [SEC_PASS] THREAT_MODEL written
-- [SECURITY] review complete
-LOG
-
-# The check function in the aligner must still return a violation
-t49_result=$(node --input-type=module -e "
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
-
-const cwd = '${T49_DIR}';
-const statePath = resolve(cwd, '.ai/state.json');
-const logPath = resolve(cwd, '.ai/LOG.md');
-
-const readFileSafe = (p) => { try { return readFileSync(p, 'utf8'); } catch { return ''; } };
-
-const state = JSON.parse(readFileSafe(statePath));
-const tier3Done = (state.tasks || []).some(t => t.tier === 3 && t.status === 'DONE');
-const hasSecStamp = (state.stamps || []).some(s => /SEC_PASS|SEC_CLEARED/i.test(s.type));
-// Replicate the P-44 gate logic (no LOG.md bypass)
-if (!tier3Done) { console.log('no-tier3'); process.exit(0); }
-if (hasSecStamp) { console.log('has-stamp'); process.exit(0); }
-console.log('violation');
-" 2>/dev/null || echo "violation")
-assert_contains "T-04.09: TIER3_NO_SECURITY_REVIEW blocks when stamps[] empty despite LOG.md keywords" "violation" "$t49_result"
-rm -rf "$T49_DIR"
+# T-04.09 (an inline copy of blueprint-aligner-mcp's Tier 3 gate) went with the server (E-467).
 
 # ── T-04.10: migrate-state --force is NON-DESTRUCTIVE over a populated state ──
 # Regression for the recurring corruption: TASKS.md is a LOSSY view (date-only

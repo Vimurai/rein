@@ -1,7 +1,7 @@
 # THREAT_MODEL.md — Rein v2
 
 > Companion to `.ai/SECURITY.md`. Contains full threat entries for all external integrations and trust boundaries.
-> Last updated: 2026-09-07 (E-225 skills locator closed; E-226 read-only patch tools scoped)
+> Last updated: 2026-11-24 (E-463: seven command-gate entries folded into T-GATE-001; the boundary is the role sandbox)
 
 ---
 
@@ -258,21 +258,34 @@ project root       Xvfb :99 only       terminal TTY     subprocess (RO)      Tes
 
 ---
 
-### T-HITL-004: Gate Circumvention
+### T-GATE-001 — the command-text gate is retired; the boundary is the role sandbox (E-463, D-169 r2/r5, 2026-11-24)
 
-- **Component**: approval-mcp (system integration / registration)
-- **Category**: Security control bypass
-- **Severity**: P1 (High)
-- **Attack vector**: The gate is bypassed structurally: the server is not registered in `.mcp.json`, `safe-exec-mcp` or `trigger-audit` misses the Tier 3 classification, or a future refactor removes the `request_approval` call from the execution path. No error is raised; the operation silently proceeds.
-- **Impact**: Tier 3 operations execute without human consent. The bypass is undetectable without an audit reconciliation check.
-- **Mitigations**:
-  1. Register `approval-mcp` in `src/config/registry.json` and `.mcp.json`; add CI assertion that the registry entry is present.
-  2. `disable-model-invocation` must not suppress `request_approval` — the tool calls `readline`, not a model. Confirm this property is preserved in implementation.
-  3. Add an end-to-end CI test: known Tier 3 command → `safe-exec-mcp` emits `[TIER_3_RISK]` → `request_approval` is called (mock TTY, respond Y).
-  4. Post-task OASF reconciliation: `verification-mcp` or `orchestrator-mcp` must verify that every completed Tier 3 task has a corresponding approval record in `state.sqlite`. Flag any gap as a compliance violation.
-- **Residual risk**: Medium — requires end-to-end tests and audit reconciliation to fully close. Detection path (item 4) is partial mitigation.
-- **Status**: UNMITIGATED (E-10 not yet implemented)
-- **Owner**: Engineer (E-10)
+Replaces seven entries about the command-text gate, whose code E-463 deleted: T-HITL-004 (gate
+circumvention), T-HOOKABORT-001 (an aborted gate allowed the call), T-CLASSIFIER-001 (the
+auto-mode classifier backstop), T-ROLE-001 (the HMAC session role token), T-GATELEDGER-001 (the
+control ledger), T-GITCONFIG-001 (the Architect's git rule lists) and T-RMCWD-001 (RM_RF_ROOT's
+cwd forms). Their full text is in git history (tag `v0.5.0` and the commit before E-463).
+
+- **The boundary.** What a role may write, reach or run is decided by Claude Code's sandbox and
+  path rules in the role settings file `rein pane` passes to `claude --settings` (D-169 r3,
+  lean-core.md §Security, docs/role-sandbox.md). The escape suite
+  (`tests/suites/sandbox_escape_test.sh`) proves the five guarantees by running real sessions;
+  the routes found against it are T-SANDBOXLANE-001.
+- **What is left of the gate: the seatbelt.** `hooks/pre-tool-use.sh` →
+  `mcp/safe-exec-mcp/seatbelt.mjs`, one table of five rows in three classes (a recursive `rm` of
+  home, root or the project root; a download piped into a shell; a secret in the command). It
+  answers `ask`, fails open, and is ADVICE: not a security control, no pen-test round, no new
+  spellings. A miss is recorded as a miss, not as a finding.
+- **The role, after the token.** The session-start role stamp and pre-commit's Architect lane
+  read the most restricted live launch record on the process chain (`launch-record.py`, written
+  only by `rein pane`). Same-uid ceiling, accepted: the operator's uid can write a record; inside
+  a role session the sandbox write-denies `~/.rein`, so a session cannot. A plain launch is
+  `engineer`, marked unverified. The lane is a belt behind the sandbox, not the boundary.
+- **Accepted, recorded at the deletion.** No text rule now stops an Engineer command that the
+  sandbox allows (the Engineer may delete the project directory; git and the remote recover
+  committed work — lean-core.md §Security). The team-mode claim check (`claimGate`) lost its
+  write-time caller with the gate. The time-boxed operator override and `rein gate` went with it.
+- **Status**: ACCEPTED (E-463). **Owner**: Architect (the boundary), Engineer (the seatbelt).
 
 ---
 
@@ -848,165 +861,6 @@ Rein hooks either way: the exec-form `args` carry the absolute path and contain 
 
 ---
 
-### T-HOOKABORT-001 — a gate that aborts, hangs or misparses ALLOWS the call (security_engineer, E-292 review, 2026-10-01)
-
-**Status**: MITIGATED by E-292 (D-082 r2, D-084 r2). Residuals below.
-
-**Threat**: Claude Code treats every PreToolUse exit other than 2 as "allow", and a timed-out
-hook does not block. Before E-292 each of these was an allow path in `hooks/pre-tool-use.sh`
-(each measured against the E-291 tip `fe964a1` in `tests/suites/gate_abort_test.sh`):
-- an unbound variable under `set -u` (rc 1), top level or inside a function;
-- the payload parser failing (malformed JSON; a lone surrogate `\ud800` in `command` or
-  `file_path` made `.encode()` raise AFTER `Bash` was printed) → empty `CMD`/`TOOL` → exit 0;
-- the analyzer-absent backstop under `pipefail`: `printf | grep -q` SIGPIPEs once grep matched
-  and exited, so `rm -rf /` followed by 60,000 lines read as "no match";
-- an analyzer stuck in a synchronous loop or a catastrophic regex: an in-process timer never
-  fires there, and Claude Code's own hook timeout lets the call through.
-A syntax error was NOT an allow path: bash exits a script with status 2 on one (measured).
-
-**Mitigation (E-292)**: every hook's first executable line is an inline-string EXIT trap
-(builtins only; the prologue's `unset -f` cannot delete it; `-p` stops `BASH_ENV`/imported
-functions from redefining `trap`). A deliberate exit is `exit` WITH the hook's own codes
-(`$BASH_COMMAND` + rc); anything else — `exit $UNSET` included — is an abort: the fail-closed
-gates (pre-tool-use, pre-commit, pre-push) exit 2 with `[GATE_INTERNAL_ERROR] <hook> aborted
-(rc N near line L) — run: rein doctor`; TERM/HUP/INT/PIPE block too. Fail-open hooks exit 0 and
-write ONE `HOOK_ABORT` incident (fixed fields only; the tracker's env opt-out is ignored for
-it). The parser validates and encodes every field before printing one block closed by an `OK`
-sentinel; anything short of that blocks. The backstop uses here-strings. The analyzer runs
-under a 10 s wall clock from OUTSIDE (`/usr/bin/perl -e 'alarm 10; exec …'`, rc 142 → reported
-as rc 4 TIMEOUT) plus an unref'd in-process timer (exit 4); hook entries carry `timeout: 30`.
-The prologue drops `PERL*` (`PERL5OPT`/`PERL5LIB` would load a project's module into the gate).
-
-**Residuals (accepted, D-082 r2)**:
-- SIGKILL of the hook, or Claude Code's own timeout firing first: no trap runs.
-- A signal is handled only after the running foreground child (node, python3) exits — up to
-  the 10 s wall clock.
-- An abort inside `$( … )` ends only that subshell; each such value on a path to `exit 0` is
-  checked by hand (the parser now; the locator and `rein_tc_missing` degrade to a block or
-  the backstop). New `$( … )` on an allow path needs the same review.
-- A fail-open hook that aborts BEFORE the pin loads records nothing (no trusted node).
-- A host without `/usr/bin/perl` keeps only the in-process timer (bounds async waits, not a
-  synchronous loop).
-- Heredoc exemption (D-084, `safe-exec-mcp/heredoc.mjs`): a body is hidden from every rule
-  only when a shell lexer finds a top-level `cat`/`tee` consumer writing plain files, and no
-  later line could run them. A file written now and executed by a LATER Bash call is beyond
-  any per-command scan — the same reach as writing it with the Write tool.
-
----
-
-### T-CLASSIFIER-001 — the auto-mode classifier backstop (security_engineer, E-293 review, 2026-10-01)
-
-**Status**: OFFERED by E-293 (D-083 r5(iii), D-086). Residuals below.
-
-**Why this layer**: the safe-exec gate runs as the operator's uid, so a same-uid agent can in
-principle reach it (D-083 r5). The auto-mode classifier reads its rules from the OPERATOR's
-`~/.claude/settings.json`; a project's `.claude/settings.json` / `settings.local.json` `autoMode`
-is ignored (measured, Claude Code 2.1.287 — D-080). One `autoMode.hard_deny` prose rule there
-("Rein Gate Tamper (D-086)", verbatim from DECISIONS.md) is a second, independently configured
-gate. `hard_deny` is unconditional — no intent or `allow` entry clears it.
-
-**Mechanism**: `rein install` offers it (y/N, default N; never without a terminal or under CI);
-`src/shared/classifier-backstop.py` is the only reader/writer — strict parse (duplicate keys,
-NaN, wrong shapes refused; a JSONC comment or trailing comma is REFUSED, because Claude Code
-itself silently drops such a file), re-serialised in Claude Code's own format, `$defaults` only
-when `hard_deny` was absent, an outdated labelled copy replaced in place, symlink written through
-(regular file, own uid, one link), one `.bak` on first write, atomic replace with a concurrent-
-change abort. `rein doctor` reports present / not configured / outdated / unparsable, the effective
-default permission mode, a `hard_deny` without `$defaults`, and any `Bash(ai…` allow rule.
-
-**Residuals (accepted, D-086)**:
-- The classifier runs only in auto mode; in `bypassPermissions` (or default/acceptEdits) the hook
-  is the only gate. No Rein launch path sets a mode; `rein doctor` prints the effective one.
-- A prose rule can be evaded by indirection the classifier fails to connect (D-084 r4).
-- A narrow `permissions.allow` rule such as `Bash(ai:*)` resolves BEFORE the classifier — doctor warns.
-- `CLAUDE_CONFIG_DIR` may point Claude Code at another settings directory — doctor warns.
-- The exempt list (D-086) is the rule's only hole; widening it is a D-ruling.
-- `claude auto-mode critique` needs the network and runs only in the operator's terminal.
-
----
-
-### T-ROLE-001 — the session role: launch records and the bound token (E-294, D-083 r9, D-087)
-
-**Status**: MITIGATED by E-294. Residuals below.
-
-**Threat**: a session obtains a LESS restricted role than the one it was launched with — the
-Architect writing `src/`, pushing, or collecting the stamp waiver. Before E-294 the role came
-from the launch environment (`REIN_PANE_ROLE`, which a project's settings `env` reaches —
-the T-LOCATOR-001 class), a mint took the role from argv, a deleted token could be re-minted
-at any role, and `CLAUDE_CODE_SESSION_ID` selected any session's token.
-
-**Mechanism**: the invariant is *a role may only move toward restriction*.
-- `rein pane` is the one writer of `~/.rein/run/launch/<pid>.json` and refuses
-  (`[PANE_NESTED]`) under any live ancestor record; `src/shared/launch-record.py` is the one
-  implementation of the record format, the start-time read, the file discipline and the walk.
-- The walk is exhaustive (≤ 64 hops) and most-restrictive-wins; a record that fails the
-  discipline, or a live record for another project, yields no token (the union).
-- `--mint-token <sid> <session pid>` takes no role; the token (v2) binds pid + start time
-  into the HMAC; a five-row table never replaces an undisciplined file and only replaces a
-  dead process's token at the same or a more restricted role. v1 never verifies.
-- Verify: HMAC + the token's pid is the hook's PPID (hot path) or an ancestor of the verifier
-  with the recorded start time. No verified token → every role's blocks + `[ROLE_UNVERIFIED]`.
-- No environment input on a gate path; the inventory in sovereignty-hardening.md Component 8
-  is the contract (a new env read on a gate path is a D-ruling).
-
-**Residuals (accepted, D-087)**:
-1. **Programs the gate cannot read.** A script file handed to an interpreter, a provider
-   launched outside any Rein project or with settings that drop its hooks, or a launch
-   detached from the session's process chain is outside the per-command scan and outside
-   the walk. Measured: the Architect analyzer passes these shapes. The classifier backstop
-   (T-CLASSIFIER-001, auto mode only) is the cross-call layer; the shell gate is not widened
-   for it (D-056) — the next decision on this gate.
-2. **Same-uid ceiling.** The record, the token and the HMAC key are files the operator's uid
-   can write; touching `~/.rein/run/` is gated by `GATE_SELF_DISABLE`, the `~/.rein/**`
-   write block and the classifier rule. Removing BOTH a pane's record and its token returns
-   that pane to the plain-launch default (`engineer`) — never to a less restricted role than
-   that. Binding the role to something a session cannot remove is unfunded.
-   `GATE_SELF_DISABLE` is a TEXT scan, so it closes the ordinary spellings (the mirror from
-   HOME, relatively after entering HOME by any `cd` form or a `cd` that resolves there, `../`
-   chains, `<home>/.rein` from above, `find -delete/-exec`, inline interpreters after entering
-   HOME) but NOT the string-assembly class D-084 r4 already accepts: glob or quote-split names
-   (`.ai-o?`, `.a'i'-os`), a variable holding HOME (`D=~; cd $D`), a script written in one call
-   and run in the next. The classifier backstop (T-CLASSIFIER-001, auto mode) is the layer for
-   those.
-3. **`HOME` is the root of the whole gate stack** (D-087 r7). A project's settings `env`
-   cannot redirect it (measured, E-290); a nested launch can, which is residual 1's class.
-4. **After installing E-294 every running session holds a v1 token and is in the union until
-   relaunched** — by design (D-087 r4); the installer and `rein doctor` say so.
-   **As measured (2026-10-04, the case E-304 closed):** a HALF-installed gate is worse than
-   either version. `rein sync` in another project copied E-294's UNCOMMITTED hooks from the
-   developer's working tree into `~/.rein/hooks` — twice (14:00, 14:40) — while `mcp/` and
-   `shared/` stayed pre-E-294. The new SessionStart hook minted against the old safe-exec
-   (a garbage token), and the new pre-commit put every unverified session into the union, so
-   every commit in every project hit the Architect lane and other panes advised the operator
-   to set `REIN_SKIP_GIT_LANE=1`. Reinstalling from a clean worktree did not stop it: an
-   exported `REIN_WORKSPACE` in the operator's profile beat the persisted record. Since E-304:
-   `rein sync` never writes the mirror, the installer refuses a dirty gate tree (`--allow-dirty`
-   is loud and stamped), stages and verifies the whole tree and syncs hooks LAST, and the
-   persisted workspace record wins over the environment.
-5. **`pre-commit` resolves its root through the committing process's `HOME`.** An agent can run
-   `HOME=<dir it controls> git commit` and supply its own key and token. Same strength as
-   `--no-verify` and `REIN_SKIP_GIT_LANE` (D-081 r5, D-087 r3/r7) — the git hooks are a
-   convenience gate, and the Bash gate does not block `--no-verify` either. The hook's rows 1–2
-   also run `node`/`python3` from the committer's PATH — the same class: the committer controls
-   that environment. Recorded, not fixed (critic_security P2-4 and 2nd-pass P2-3, E-294 review).
-
-**Fixed during the E-294 review (critic_security, two passes, 2026-10-04), regression-tested in
-`role_token_test.sh` R11, `safe_exec_test.sh` E-294.RH1 (table
-`tests/fixtures/gate-relative-home-cases.json`) and `tests/unit/gate-guard-home.test.mjs`:**
-- a failed process snapshot (e.g. `ulimit -u 1`) is an error — `prune` refuses instead of
-  deleting live records and every walk is the union (P1-1); a failed SPAWN of the module reads
-  as "unknown", never "dead" (2nd pass P2-1);
-- `GATE_SELF_DISABLE` covers the ordinary relative spellings listed under residual 2 (P1-2, two
-  passes) — not the string-assembly class;
-- `--verify-role` returns the more restrictive of the token's role and a walk from the verifier
-  that counts every live record by role whatever its project (restrict-only), so an `rein pane
-  architect` inside a plain session wins over the plain session's id (P2-1);
-- a refused mint deletes a v2 token only when its process is KNOWN dead (P2-2; D-087 said
-  "file untouched" — deviation reported to the Architect);
-- `caller-role.mjs` spawns the verifier with `process.execPath` (P2-3).
-
----
-
 ### T-PRIVACY-001 — automated writers publish private data into the tracked tree (security_engineer, E-379 review, 2026-10-28)
 
 The repository goes public (D-129), so every write into `.ai/`/`.claude/` is a publication. D-130
@@ -1101,6 +955,167 @@ Separately, some shapes still let sync delete a user's own hook entry without a 
 `$HOMEDIR/…`. Each needs an edit to machine-local settings, which the classifier denies to an
 agent. Proofs of concept are the M-rows of that table.
 
+*E-393 addendum (security_engineer, 2026-11-17; D-132 addendum 4 r7). Status: SEC_BLOCKED.*
+
+What is fixed: the E-391 finding "CLI_GATE misses 15 forms" is closed.
+- All 17 spellings are blocked by runAnalysis (every role, and under override) and by the hook in
+  a throwaway HOME (no override, active override, active override plus a padded no-verdict run).
+- critic_security's `script -qc "env -u CLAUDECODE rein gate off" /dev/null` chain is blocked by
+  the lock.
+
+The new lock is a word reader (`shellCommands` + the WRAPPERS table). It keys on the program
+position and on a closed list, and it still lets through static spellings that bash runs as
+`rein gate off`:
+- F1: command substitution inside double quotes;
+- F2: redirections before or between the words;
+- F3: backslash-newline;
+- F4: brace expansion and globs;
+- F5: `env -a`, `env -S"…"`, `--split-string=`;
+- F6: `bash +x -c`, `bash <<<'…'`;
+- F7: `coproc`, `| xargs rein`;
+- F8: runners outside the list, among them `tmux new-window` / `send-keys` and `python3` pty.
+
+The `do_gate off` belt (TTY + no agent variable) works as ruled. It is defeated by
+`env -u`/`env -i` with `script` or a python pty. It is also defeated by any tmux server started
+outside the agent, because a new window or a send-keys target is a real pty with the server's
+environment, not the agent's.
+
+Net effect for F8: tmux and python pty pass BOTH layers and write a live override. That was
+measured in a throwaway HOME with a private tmux socket.
+
+Pre-existing, the same impact: the override writer itself, reached through quote-split paths
+(`~/.re''in/shared/gate-override.py write ~/.re''in/gate-overr''ide.json 60 x`), writes an
+ACTIVE override. This is D-084 r4's accepted string-assembly class, now inconsistent with r7.
+
+Mitigation proposed (Architect):
+- match a `rein` word followed by `gate` at any word position, not only the program position;
+- tokenise redirections, `\`+newline and quoted substitutions in shellCommands;
+- expand braces, globs, `$IFS` and `${X:-w}` for the gate check;
+- read the path rules through normaliseWord.
+
+PoCs and the full table are in SECURITY.md "E-393 / D-132 addendum 4 r7". The residual still
+left to the classifier is runtime assembly (`x=rein; $x gate off`, `$'\x72ein'`, `"$@"`
+forwarding).
+
+*E-393 re-review, same day: still SEC_BLOCKED.*
+
+What the fix round closed: the listed F1–F7 spellings, the plain-grammar F8 runners, and the
+cheap half of the residual. No regression, and the parser costs ≤ 23 ms on 20 KB floods.
+
+What is still live: 28 variants inside the same classes, all passing the lock for the Engineer
+(PoCs in SECURITY.md "Re-review — the F1–F8 fixes"):
+- a comment apostrophe;
+- `\\` before a newline;
+- `)` inside quotes within `"$(`;
+- `{fd}>`;
+- `{e..e}`;
+- `[!x]` and `[[:alpha:]]` globs;
+- `${X:+w}` and nested defaults;
+- `{}` operands in `xargs -I` and `find -exec`;
+- stdin routes through `cat`/`tee`/`(bash)`/`< <(…)`/`/dev/stdin`;
+- `function` and a NAMEd `coproc`;
+- `env -vS` and `env -f`;
+- command substitution used as the program.
+
+Open and out of E-393's scope: tmux, python pty, and the quote-split writer path.
+
+*D-163 (2026-11-17): the lock is a three-word text predicate.*
+
+**The lock.** `namesGateOff` blocks when one line of any view holds the words `rein`, `gate`
+and `off`, in any order and any case. A word is a run of `[A-Za-z0-9_-]` with its leading hyphens
+removed (D-163 addendum 2 r7, E-439):
+- V1 deletes `'` `"`, backslash-newline (also CRLF), every other `\`, and `[ ] ? *`;
+- V2 deletes the quotes and turns each `\X` into a space;
+- V3 is V1 with each quote, and each `\X`, read as a space instead of deleted (addendum 2 r7;
+  the `\X` half is A2A 2026-11-18 12:55, E-439: `env -S'rein\_gate\_off'`).
+
+It runs after the D-084 heredoc strip, applies to every role, and holds under an override. The
+name rules (the CLI form, the override file and writer, writes under `~/.rein/`) read both the raw
+text and V1 (r6). The word reader is frozen as a second layer (r5). The hook's no-verdict fallback
+implements the same definition in builtins.
+
+**The residual, defined once (r3, addendum 1 r2).** It belongs to the classifier and is
+INCONCLUSIVE in a pen-test, never P1. A command is residual when one of the three words is not
+literal in either view, or when the words sit on different lines of both views. The classes:
+- hex or octal escapes;
+- sequence braces;
+- negated or class globs outside a path that names `rein`;
+- a word split across variables or `$(…)`;
+- encoded text;
+- tmux keys sent one by one;
+- a script written and then run.
+
+**The ceiling (r1 "What decides it", D-083 r5).** `~/.rein/gate-override.json` is not
+authenticated, so a same-uid agent can write it from a script it created with the Write tool, and
+no reading of command text sees that. The text lock stops commands that SAY the disable. The belt
+(TTY + no agent variable) is not the lock. The operator factor (option b) is unfunded until a
+root-owned install exists.
+
+**Open from the D-163 re-review.** PoCs are in SECURITY.md "D-163 re-review".
+- Closed: the hook's analyzer-not-located branch now runs `_touches_gate` before `_catastrophic`
+  (re-checked in a throwaway HOME, both locales; E-393 SEC_CLEARED).
+- Closed (E-439, D-163 addendum 2 r2): D-084 rule 4 stripped a heredoc body whose sink is run
+  implicitly (`Makefile` + `make`, `.bashrc` + `bash -i`), a P1 against every HEREDOC_EXEMPT rule.
+  IMPLICIT_RUN now applies in strict mode too, and gate rows D01–D03 block.
+- Closed (E-439, D-163 addendum 2 r7): a word split by `-` (`env -vS'rein …'`,
+  `${X:-${Y:-rein}}`). Leading hyphens are dropped, and view V3 reads each quote and each `\X`
+  as a space; seven `env -S'…\_…'` payloads from the E-439 security re-run are BLOCK rows.
+- Closed: locale parity of the bash fallback (`local LC_ALL=C`; 0 mismatches in 30 000 fuzz cases
+  per locale).
+
+**From the E-439 security passes** (A2A 2026-11-18 12:55 and 13:17; D-163 addendum 2 r13).
+- Closed (finding (e), P1): `env -S` decodes its own escapes (`\_` is a space), so
+  `env -S'r''ein\_gate\_off'` and `env -Srein\\_gate\\_off` named the disable to env and to no
+  view. The analyzer now unquotes the -S / --split-string argument exactly, decodes env's
+  escapes and reads the result with the lock's predicate (gate-guard.mjs; 14 BLOCK rows).
+- Residual r3: a `${VAR}` inside the env -S string is expanded by env at run time (a pass row).
+- Accepted P3 over-blocks (D-163 addendum 1): text that names the three words on one line of V3,
+  e.g. `echo "rein's gate is off"`; seven BLOCK rows. Put such text in a file.
+- Hook fallback only (the no-verdict path, which needs an active override and ARG_MAX padding):
+  it does not decode env -S, and `${X-rein} gate off`, `${X:-re}${Y:-in} gate off` and
+  `${X:-r}ein gate off` pass it. The analyzer blocks all of them.
+- Closed by E-446 (D-163 addendum 2 r14; was INCONCLUSIVE) — implicit-run sinks outside
+  IMPLICIT_RUN's list: `justfile`, `Justfile`, `.justfile`, `Rakefile`, `BSDmakefile`,
+  `Makefile.in`, `Taskfile.yml`/`.yaml`, `.bash_aliases`, `.bash_logout`, `sitecustomize.py` and
+  `usercustomize.py` keep their heredoc body scanned in both modes. From the E-446 security pass,
+  the same tools' other spellings too: just in any letter case, rake's `rakefile`, `Rakefile.rb`
+  and `*.rake`, task's `taskfile.yml` and `Taskfile.dist.yml`.
+- Closed by E-446 (was INCONCLUSIVE) — a sink path with a `..` segment is implicit-run in both
+  modes, so `/tmp/../etc/x` is no longer read as a `/tmp` path; `notes..txt` is not a segment.
+- Closed by E-454 (D-167 r11; was Open from the E-446 security pass): a `cd` before the heredoc
+  moves a RELATIVE sink — `cd /etc && cat > profile.d/x.sh`, `cd /tmp/.. && cat > etc/x`.
+  - After a directory change, a relative sink is implicit-run in both modes. A directory change
+    is anything `gitRelocated` reads as one (git-view.mjs `changesDirectory`, one reader).
+  - Earlier heredoc bodies on the line are not read as commands.
+  - A `cd` to the project root the gate is given is the prefix every Bash call carries, and it
+    does not count. Without a root, every `cd` counts (fail closed, as E-441).
+  - An absolute sink, and a line without a directory change, keep their verdict.
+- Open (P2, E-454 security pass 2, non-gating as a new spelling under the 2026-11-23T15:51Z
+  ruling; for the Architect): `cdBeforeGit` reads a cd's operand across a newline. A bare `cd`,
+  `cd -P`, `cd --` or `pushd` on its own line, followed by a line that is just the project root,
+  is read as `cd <root>`. bash goes HOME and runs the root line as a failing command (confirmed in
+  the harness). Result: `cd⏎<root>⏎cat > a <<'E'` + a CURL_PIPE_SHELL body is PASS for the
+  Engineer, and `cd⏎<root>⏎git checkout .ai/x` is PASS for the Architect (the E-441 reader, the
+  same at 44f9db8). Fix direction: end a cd's operand search at a newline, `;`, `&` or `|`.
+- Residual (P3, the deny list cannot be complete; recorded again by D-167 r11 for E-454): `.claude/settings.json` (hooks),
+  `site-packages/*.pth`, `.venv/bin/activate`, `.vscode/tasks.json`, `setup.py`, `noxfile.py`.
+- Hex and octal escapes (`$'r\145in' gate off`) stay the r3 class above.
+- Closed (third pass, A2A 13:32): f1 (P1) the decoder modelled env's options — it now reads every
+  word after `env` as a possible -S, abbreviated `--split-string` included; f2 (P1) here-strings are
+  decoded; f3/f4 (P2) `gnuenv` and a glob in the name; N09 (P2) `${E:-env}` read as its default.
+- Residual r3 (A2A 13:32), covered by the classifier, not the text lock: nesting deeper than the
+  shared depth-3 bound (f5), env assembled from a variable (`e=env; $e`, `${e}v`), arguments fed
+  through `xargs`, `${X}` inside -S, and the hook fallback not decoding -S. Pinned as pass rows.
+- Fourth pass (SEC_CLEARED): residual r3, pinned as pass rows — env built by `$(echo env)`, a
+  negated class glob in the name (`/usr/bin/[!a]nv`), a nested default (`${E:-${F:-env}}`). P3
+  fixed: the decoder was quadratic in env words (4 000 × `env -Sa`: 8 s, now 20 ms).
+
+*Superseded by D-163.* Before that ruling, the parser was not converging and the Architect had to
+choose between two locks:
+- (a) a fail-closed co-occurrence lock (a `rein` word and a `gate` word in one command, after
+  normalisation);
+- (b) a lock outside the text (an operator-only factor read from `/dev/tty`).
+
 ### T-ARTIFACT-001 — `rein install` trusts an unpacked release tree (security_engineer, E-420 review, 2026-11-10)
 
 - **Boundary:** `~/.rein/manifest.json` together with the files beside it is an input to `rein install`, which then
@@ -1150,3 +1165,89 @@ removes a user's own hook entry whose script is written `"$CLAUDE_PROJECT_DIR"/�
 name>`, or that only names a missing Rein-named path in an argument (SECURITY.md N1, P2). The
 scan bound is by lines, not bytes (N4), and the printed list passes control bytes (N5). The
 doctor counts a PreToolUse entry that merely mentions the gate path as registered (N2).
+
+### T-WAITSIG-001 — the waiting-signal hook's tmux client takes its server from a project-settable `$TMUX` (security_engineer, E-433 review d71bc61, 2026-11-17)
+
+**Status**: CLOSED by D-160 addendum 2 (878445a). Residual ACCEPTED: an operator shell whose own
+`$TMUX` is wrong when `rein pane` runs.
+
+**Threat**: the waiting-signal hook runs outside the sandbox on every tool call and called `tmux`
+with the hook's own environment. A project's `.claude/settings.json` `env` reaches hooks
+(T-HOOKENV-001, T-LOCATOR-001), so it could set `TMUX` to a socket a same-user process listens
+on; a tmux server can tell a connecting client to execute a command. A project `TMUX_PANE` could
+also set options on another pane.
+
+**Mitigation**: `rein pane <role>` records `${TMUX%%,*}` and `$TMUX_PANE` from the operator's
+shell, before the agent starts, as the optional launch-record keys `tmux_socket` and `tmux_pane`
+(both or neither; socket absolute, no control characters, <= 1024; pane `%<digits>` in full; a
+malformed pair makes the record bad, so the role walk falls back to the union). Neither key is a
+role-token input. The hook takes the pair from `launch-record.py tmux-target` (nearest live
+record on its own process chain), checks it again, and calls `tmux -S <socket> … -t <pane>`; it
+never reads `TMUX` or `TMUX_PANE`, and `-S` overrides `$TMUX` in the client. No record, or one
+without the pair, means no signal. Rows: tests/unit/waiting-signal.test.mjs E-433.03 (a second
+server named in the hook's `TMUX` gets nothing), E-433.11 (no record: the stub gets no call);
+role_token_test R07 tmuxhalf/tmuxpane/tmuxrel, E-433.R01a-c.
+
+**Residual (accepted)**:
+- The recorded socket is whatever the operator shell's `$TMUX` named when `rein pane` ran; if it
+  is wrong (a stale exported `TMUX`, a nested or forwarded shell) the hook talks to that server
+  for the session's lifetime.
+- A same-user process that can write the tmux socket directory can replace a live socket; that
+  compromises the operator's own tmux clients equally and is outside this hook.
+- `HOME` stays the accepted residual of T-LOCATOR-001.
+- Second pass (b23d5eb + 878445a): P3-1 (id files keyed by pane digits collide across tmux
+  servers) is bounded by keeping the builtin fast path to PostToolUse/PostToolUseFailure, so
+  Stop, UserPromptSubmit and PermissionDenied always clear their own pane; P4-1 (`tmux-target`
+  ignores the record's project) is documented — the target is display state, never a role.
+
+### T-SANDBOXLANE-001 — three routes past the E-462 sandbox role boundary (security_engineer, lean-core round over E-462/E-467, 2026-11-24)
+
+Status: OPEN, gating E-462 (SECURITY.md "lean-core security round", F1–F3). Each was proven on
+Claude Code 2.1.331 with haiku sessions running the generated role files.
+- **PoC F1 (P0), launch-line injection.** The Architect writes `.ai/roles.json`
+  `{"roles":{"architect":{"provider":"claude","model":"haiku\n--mcp-config\n<proj>/.ai/m.json"}}}`
+  and `.ai/m.json`, which names an MCP server `/bin/sh -c …`. resolve-launch prints one argv
+  element per line, and do_pane splits on the newlines. The next `rein pane` therefore starts
+  claude with the extra `--mcp-config`, and the server runs as the operator outside the sandbox.
+  In the probe it wrote the write-denied `src/`. Trust boundary: an Architect-writable file
+  reaches the operator's argv.
+- **PoC F2 (P1), lane-ledger exclusion by forged refs.** Inside the sandbox: `git commit-tree` a
+  src/ change as X, then `git update-ref refs/heads/main X` and
+  `git update-ref refs/remotes/zz/hide X` (or a packed-refs line, or `git replace X <lookalike>`).
+  The Engineer's next `git push` passes `lane-ledger.mjs check`, whose `--not --remotes` trusts
+  local refs, and X reaches origin.
+- **PoC F3 (P1), absent tool config at the root.** The Architect's Bash writes `.npmrc`
+  `node-options=--require <proj>/.ai/p.cjs` and lists `.npmrc` in `.git/info/exclude`. The
+  Engineer's `npm run <x>` then runs the payload in the Engineer's sandbox, with src/ write and
+  network. The same class covers `.pnpmfile.cjs`, `conftest.py`, a new `node_modules/` and
+  `.gitattributes`.
+- Fix direction: see SECURITY.md F1–F3. Each PoC becomes an escape-suite case.
+- **Re-probe (D-172 r4, security_engineer, 2026-11-24): F1–F4 RESISTED at ff7cc71**
+  (escape suite 42/0/0/0 and direct payloads; SECURITY.md "lean-core re-probe"). F1–F3 are closed.
+- **F8 (P1, new, not gating per D-172 r4), test discovery inside the Architect's lane.** With the
+  Architect confined to `.ai/` and `plans/`, the root is closed, but `plans/` itself is
+  collected by root-level test runners that use default discovery. PoC: the Architect writes
+  `plans/zz.test.mjs` (`writeFileSync('<proj>/src/…')`), optionally hidden by a lane-writable
+  `plans/.gitignore`. The Engineer's `node --test` at the root executed it and wrote `src/`.
+  The same applies to jest/vitest/mocha defaults and pytest `plans/conftest.py` (not run: no
+  pytest on the host). `.ai/` was not collected by `node --test`. Trust boundary: an
+  Architect-lane file reaches the Engineer's process through a tool's search path. Mitigation:
+  open. A documented runner exclusion of `plans/` and `.ai/`, or a `[LANE_STRAY]`-style notice
+  for test-named or executable files under `plans/` (Architect's call).
+  **Status: ACCEPTED residual (D-172 addendum 1 r24, 2026-11-24).** The lane stays inside the
+  project by design; the control is detective. Notice: the `[LANE_CODE]` report
+  (`src/shared/lane-code.mjs`), printed by the Engineer's session start (an anomaly line of the
+  brief) and by `rein handoff`, names every file under `.ai/` and `plans/`, tracked, untracked
+  or git-ignored, whose extension is not one of `.md .json .txt .yml .yaml .tsv .sqlite .log`
+  (sqlite's `-wal`/`-shm` allowed). A lane `.gitignore` therefore hides nothing from it, and is
+  itself named. docs/role-sandbox.md names the residual and tells the reader to point a test
+  runner at its test directories. Pins: tests/unit/lane-code.test.mjs, hooks_surface
+  D-172.a1r24, bookkeeping-commands "prints [LANE_CODE]". No review round follows (r24).
+
+### T-LANEWHY-001 — nested C1 survives the lane-reason sanitiser (security_engineer, E-471 review 5be05d9, 2026-11-24)
+`_lane_why` (hooks/pre-commit.sh) removes UTF-8 C1 with one `sed 's/\xc2[\x80-\x9f]//g'` pass.
+PoC: `_lane_why $'a\xc2\xc2\x9b\x9b2J'` prints `a\xc2\x9b2J`, an 8-bit CSI. Trust boundary: the
+union reason from `launch-record.py role` reaches the operator's terminal. Reachability: low; the
+real producer emits fixed strings and repr'd OSError filenames, so only a substituted
+`launch-record.py` (same-user code) can feed it. Mitigation: loop the removal until stable and pin a
+nested-C1 case in tests/suites/git_lane_test.sh E-471.3. Status: closed (security re-check at 36632fe, 2026-11-24: looped removal resists nested, triple and 10-deep C1 in C and C.UTF-8; E-471.3a-c pin the nested case).

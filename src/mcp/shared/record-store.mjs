@@ -13,14 +13,14 @@
  * renderViews() is the only producer of the generated views state.json, TASKS.md and
  * REVIEWS.md (state-db.js re-exports it as regenerateViews for existing importers).
  *
- * Deltas and the digest_stale flags stay per-machine in sqlite: they are notices between
+ * Deltas stay per-machine in sqlite: they are notices between
  * the two panes of ONE developer, and a tracked file would make every handover conflict.
  */
 
 import { readFileSync, writeFileSync, existsSync, readdirSync, mkdirSync, renameSync, lstatSync, statSync } from "fs";
 import { resolve, dirname, join } from "path";
 import { execFileSync } from "child_process";
-import { readState, roleFromOwner, archivePointerLines, parseDeps, recordIdHighWater, withTransaction } from "./state-db.js";
+import { readState, roleFromOwner, archivePointerLines, parseDeps, recordIdHighWater, withTransaction, oneLineSummary } from "./state-db.js";
 import { assertNotBehindHead } from "./legacy-import.mjs";
 import { redact } from "../../shared/publish-scan.mjs";
 
@@ -259,7 +259,7 @@ export function stampRecord(stamp, sha, author = stamp.author ?? null) {
     task_id:    stamp.task_id ?? null,
     type:       stamp.type,
     agent:      stamp.agent ?? null,
-    summary:    stamp.summary ?? null,
+    summary:    oneLineSummary(stamp.summary),
     sha:        sha ?? null,
     author:     author ?? null,
     created_at: stamp.timestamp,
@@ -374,6 +374,7 @@ export function updateTask(aiDir, db, id, patch) {
  */
 export function insertStamp(aiDir, db, stamp) {
   stamp = _redactFields(aiDir, stamp, "stamp");
+  stamp = { ...stamp, summary: oneLineSummary(stamp.summary) };   // E-431 fix: one line in every mode
   const sha    = headSha(aiDir);
   const email  = gitEmail(aiDir);
   const author = email === "unknown" ? null : email;
@@ -491,7 +492,7 @@ export function orderRecords(items) {
 /**
  * Rebuild the tasks and stamps tables and the project fields from the record files.
  * Every file is parsed BEFORE the transaction opens, so a corrupt record throws and
- * leaves the index as it was. Deltas and digest flags (per-machine) are not touched.
+ * leaves the index as it was. Deltas (per-machine) are not touched.
  * @returns {{tasks:number, stamps:number}}
  */
 export function rebuildIndex(aiDir, db) {
@@ -527,6 +528,44 @@ export function rebuildIndex(aiDir, db) {
   return { tasks: tasks.length, stamps: stamps.length };
 }
 
+// ── E-466: the REVIEWS.md window ─────────────────────────────────────────────
+
+const REVIEWS_ARCHIVE_RE = /^REVIEWS-\d{4}\.md$/;
+const STAMP_LINE_DATE_RE = /^\[[\w_]+\] (\d{4}-\d{2}-\d{2}) \|/;
+
+/** The date of a rendered REVIEWS.md stamp line, or null. */
+export function stampLineDate(line) {
+  const m = STAMP_LINE_DATE_RE.exec(line);
+  return m ? m[1] : null;
+}
+
+/** True when a stamp dated `date` (YYYY-MM-DD) is in the archive that ends at `through`. */
+export function reviewsLineArchived(date, through) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= through;
+}
+
+/**
+ * The newest stamp date in .ai/archive/REVIEWS-<year>.md, or null when nothing was archived.
+ * `rein archive` moves whole days, so every stamp dated on or before it is in the archive.
+ * The archive files are tracked, so every clone renders the same window.
+ */
+export function reviewsArchivedThrough(aiDir) {
+  let max = null;
+  try {
+    const dir = resolve(aiDir, "archive");
+    if (!existsSync(dir)) return null;
+    for (const f of readdirSync(dir).filter((x) => REVIEWS_ARCHIVE_RE.test(x))) {
+      for (const line of readFileSync(resolve(dir, f), "utf8").split("\n")) {
+        const d = stampLineDate(line);
+        if (d && (!max || d > max)) max = d;
+      }
+    }
+  } catch {
+    return max;
+  }
+  return max;
+}
+
 // ── views ────────────────────────────────────────────────────────────────────
 
 /**
@@ -541,6 +580,15 @@ export function writeStateFile(aiDir, state) {
 export function renderStateJson(aiDir, db) {
   assertNotBehindHead(aiDir, db);
   writeStateFile(aiDir, readState(db));
+}
+
+/** D-172 r12: the most characters a TASKS.md task line holds. `rein task show <id>` prints the rest. */
+export const VIEW_LINE_MAX = 300;
+/** A view line cut at VIEW_LINE_MAX characters (code points, so no surrogate pair is split); a cut
+ *  line ends in "…" and still begins with its `- [ ] <id>:`. */
+export function viewLine(line) {
+  const cps = [...line];
+  return cps.length <= VIEW_LINE_MAX ? line : cps.slice(0, VIEW_LINE_MAX - 1).join("") + "…";
 }
 
 /**
@@ -558,23 +606,28 @@ export function renderViews(aiDir, db) {
     const tasksPath = resolve(aiDir, "TASKS.md");
     const lines = ["# TASKS (Generated from state.json)", ""];
     const byRole = {}; // E-136 (role-abstraction.md): group by provider-agnostic role
-    for (const t of state.tasks) {
+    // E-466 (D-169, lean-core.md §Component 7): the view lists open tasks only. A closed task
+    // stays in state.sqlite and state.json, and `rein task show <id>` prints it.
+    const closed = state.tasks.filter((t) => t.status === "DONE").length;
+    for (const t of state.tasks.filter((x) => x.status !== "DONE")) {
       const role = roleFromOwner(t.owner);
       if (!byRole[role]) byRole[role] = [];
       byRole[role].push(t);
     }
+    let cut = 0;
     for (const [role, roleTasks] of Object.entries(byRole)) {
       lines.push(`## ${role}`);
       for (const t of roleTasks) {
-        const check   = t.status === "DONE" ? "x" : " ";
         const tierStr = t.tier ? ` | Tier: ${t.tier}` : "";
-        lines.push(`- [${check}] ${t.id}: ${t.description}${tierStr}`);
-        if (t.status === "DONE" && t.completed_at) {
-          lines.push(`  Status: DONE ${t.completed_at.split("T")[0]} — ${t.summary || "Complete"}`);
-        }
+        const full = `- [ ] ${t.id}: ${t.description}${tierStr}`;
+        const shown = viewLine(full);
+        if (shown !== full) cut++;
+        lines.push(shown);
       }
       lines.push("");
     }
+    if (closed > 0) lines.push(`${closed} closed tasks are not listed. Print one with: rein task show <id>`, "");
+    if (cut > 0) lines.push(`${cut} task lines are cut at ${VIEW_LINE_MAX} characters (they end in "…"). Print one in full with: rein task show <id>`, "");
     lines.push(...archivePointerLines(aiDir));
     writeFileSync(tasksPath, lines.join("\n"), "utf8");
   }
@@ -583,8 +636,12 @@ export function renderViews(aiDir, db) {
   if (state.stamps.length > 0) {
     const reviewsPath = resolve(aiDir, "REVIEWS.md");
     const stampLines  = ["# REVIEWS.md (Generated from state.json)", ""];
+    // E-466: `rein archive` moves the lines of stamps older than 90 days to
+    // .ai/archive/REVIEWS-<year>.md; the view shows only the stamps dated after the newest of them.
+    const through = reviewsArchivedThrough(aiDir);
     for (const s of state.stamps) {
       const date = s.timestamp ? s.timestamp.split("T")[0] : "unknown";
+      if (through && reviewsLineArchived(date, through)) continue;
       // E-329: the reviewed commit and who stamped it, when the stamp carries them.
       const at = s.sha ? `${s.sha.slice(0, 7)}${s.author ? ` ${s.author}` : ""} | ` : "";
       stampLines.push(`[${s.type}] ${date} | ${at}${s.summary || s.agent || ""}`);

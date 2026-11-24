@@ -5221,3 +5221,994 @@ E-426: restore `npm install` for every server and accept the mismatch by reverti
 Remove the dry-run job; the rows keep skipping where the binary is absent.
 
 ---
+
+## D-159 — The digest is a generated view rebuilt at session start and at handover; every gate block names its rule; a fresh agent runs the acceptance line before a Tier 2 or Tier 3 task closes
+
+**Date**: 2026-11-17
+**Task**: E-429, E-430, E-431, E-432; P-51, P-52. Blueprint: `.ai/blueprints/harness-fitness.md`
+**Decision**: The operator asked that the digest refresh itself when stale, and for a blueprint covering the improvements the Architect listed after comparing Rein with published harness practice. `.ai/DIGEST.md` stops being written by a model and becomes a deterministic function of tracked files; the gate records which rule blocked; an evaluator with no write tools checks each acceptance clause by observation.
+
+### Why needed
+On 2026-11-17 the digest was 26 days old and described a product name and version two renames back, while preflight reads it first. The stop hook's stale banner goes to stderr on exit 0, which the session does not show, and its flag is set only by `run_handover` and only on one machine. Separately, telemetry cannot say which gate rule fired, and the Engineer verifies its own acceptance lines.
+
+### Rulings
+1. **The digest is generated, never authored.** `rein digest build` is its only writer. Inputs are tracked files and git only (`state.json`, `DECISIONS.md` headings, `BRIEF.md`, `package.json`, the newest tag), so two clones at the same commit hold the same bytes. No wall clock: the date in the header is the date of the newest input record.
+2. **Staleness is a hash, not an age.** The header carries the hash of the inputs; stale means the inputs hash differently now. The "older than 3 days" rule is withdrawn: a quiet week is not staleness, and a busy hour is.
+3. **Two triggers: session start and `run_handover`.** Session start guarantees no session reads a stale digest; handover puts the rebuilt file in the same bookkeeping commit as the change. The stop hook's digest code is removed, not repaired.
+4. **The curated sections go.** "Known Risks" and "Triad Health" as prose are replaced by computed sections (open tasks by tier and age, FAIL stamps with no later PASS). Prose that mattered belongs in a task, a decision or `SECURITY.md`, where it has an owner. This loses hand-written nuance and is accepted: a nuance nobody refreshed for 26 days was misinformation.
+5. **`rein-digest` and `digest_updater` are removed** with the `digest_stale` meta keys. No compatibility shim (sole operator).
+6. **A stale digest is a doctor warning, not a CI failure.** A red required check for a bookkeeping view would block merges for a file any session repairs on start.
+7. **Every gate block writes its rule id to telemetry; no command text.** The change is attribution only: no verdict changes, the pinned fixture hashes do not move.
+8. **The ledger reports, the Architect rules.** `[CONTROL_QUIET]` and `[CONTROL_NOISY]` are advisory. A quiet rule guarding a catastrophic or sovereignty class is kept without argument. Nothing is retired except by a ruled task.
+9. **`critic_acceptance` is required for Tier 2 and Tier 3.** A clause is PASS only when observed; UNVERIFIED carries its reason and does not fail the task; a clause nobody could observe is not silently PASS. `task-planner` refuses an acceptance clause that names nothing to run or look at.
+10. **Order**: E-429, E-430, then the open security tasks E-393 and E-353, then E-431, then E-432 (same gate file as the security tasks, so after them).
+11. **A worktree per Engineer is not built.** One Engineer pane, one operator; designed when a second pane is wanted.
+
+### Alternatives considered
+1. **Inject `[DIGEST_STALE]` at session start and let the model run `rein-digest`** — rejected: it still depends on a model choosing to act, spends tokens every time, and produces different text per run, so the tracked file churns.
+2. **Fix the stop hook's banner so it is visible** — rejected: it repairs the notice, not the cause; the flag stays per-machine and handover-only.
+3. **Keep a hand-curated block between markers inside the generated file** — rejected: it is the part that went stale.
+4. **Feed "Recent changes" from `LOG.md`** — rejected: the log is not tracked, so the digest would differ per clone; DONE tasks with their summaries carry the same information.
+5. **Extend `critic_tests` to check acceptance** — rejected: it is a rule-matcher on sonnet over the diff (D-110); acceptance is a judgment that needs to run things.
+6. **Label each block true or false positive by asking the model** — rejected: the override-within-ten-minutes proxy is free and honest about being a proxy.
+
+### Impact
+- Unlocks: E-429..E-432. Changes how the Architect writes acceptance lines from now on (r9).
+- Risk if wrong: the computed digest is less readable than a written one; the evaluator adds minutes and tokens to every Tier 2 task. Both are measurable after two weeks and reversible.
+
+### Rollback
+Per component, in the blueprint's Rollback Plan: revert E-430 to stop the triggers; drop the evaluator from the dispatch list and the DONE check; the `rule` column is nullable and ignored.
+
+---
+
+## D-160 — An agent waiting on the operator is a tmux pane option, `@rein_waiting`, set and cleared by Rein's hooks and named in the app contract
+
+**Date**: 2026-11-17
+**Task**: E-433. Blueprint: `.ai/blueprints/release-artifact.md` §Component 7. Request: rein-app `plans/rein-panels-request.md` item 2 (rein-app D-062), delivered 2026-11-17.
+**Decision**: Yes, in the shape rein-app proposed, with two additions. The pane option `@rein_waiting` holds `permission` or `question` while the pane's agent is at a prompt and is unset otherwise; `@rein_waiting_since` holds the time it was set; `@rein_signals` says that the pane's session reports at all.
+
+### Why needed
+rein-app shows a status per open project and raises notifications. From outside, an agent at a permission prompt and an agent that finished look the same: a quiet pane. Only a hook inside the session knows, and Rein owns the hooks.
+
+### Rulings
+1. **The state is a pane option, not a file and not a command.** It lives in the tmux server the pane lives in, so it survives the app being closed, dies with the pane, and is read with the `list-panes -F` call the app already makes for `@rein_role`. Rein writes no new file.
+2. **Values are a closed list**: `permission` (tool approval, sandbox network request) and `question` (`AskUserQuestion`, plan approval, MCP elicitation). A reader treats any non-empty value as waiting; values may be added inside a major version.
+3. **`@rein_signals` separates "not waiting" from "not reporting".** It is set at session start and unset at session end. Without it an empty `@rein_waiting` would read as "working" on a session started before the hooks were registered, which is the wrong answer for a notification.
+4. **Two bounds are the contract, not exactness**: a prompt on screen for 7 seconds is reported; a report ends at the latest at turn end, prompt submit, or session start or end. Claude Code names no event for a hand-denied or escaped prompt, and the ordering of events across parallel calls and subagents is not documented, so exactness is not promised. The Engineer observes those points in a live session and tightens the clear rule as far as the payloads allow.
+5. **The hook never answers a prompt.** It is fail-open, prints nothing on stdout and exits 0 on every path, because a `PermissionRequest` or `PreToolUse` hook with output is a permission decision. The gate hook `pre-tool-use.sh` is not edited (D-056).
+6. **Nothing from the payload is stored**: no tool input, no notification text. The option carries a literal from the list.
+7. **Not a "finished" signal.** A plain-text question at the end of a turn is a finished turn. rein-app keeps deriving "finished" from quiet without `@rein_waiting`.
+8. **Order**: E-433 is built after E-429 merges and before E-430 (operator priority, 2026-11-17). It does not touch the gate file, so it does not wait for E-393 or E-353.
+9. **The other items of the request are not ruled here.** Item 1 (a read interface for tasks and handoffs), item 3 and the lifecycle and team items a–f stand as received; c2 (text typed into a running agent by `rein start` on a live session) is a bug report and is ruled next.
+
+### Alternatives considered
+1. **A file per project (`.ai/run/waiting.json` or under `~/.rein/run/`)** — rejected: it outlives the pane after a crash, needs a writer protocol for two roles, and the app writes no file in a project and would have to watch one more path.
+2. **`rein start --status --json` computing it on demand** — rejected: nothing outside the session can see a prompt; the command could only read the same option, at the cost of a process per poll.
+3. **Only the `Notification` event** — rejected: it fires about six seconds after the prompt appears and does not cover `AskUserQuestion`; kept as the backstop.
+4. **A three-state option (working, waiting, idle)** — rejected for now: `Stop` does not fire on an interrupt, so "working" would be stale after every Escape. The app already derives quiet from the pane.
+5. **Storing the prompt's text for the notification** — rejected: tool input can hold secrets, and a user option is readable by anything on the tmux socket.
+
+### Impact
+- Unlocks: E-433; rein-app's reserved status field.
+- Risk if wrong: a wait that is not reported (bounded at 7 s by ruling 4), or a report that outlives a denied prompt until the turn ends. Both are visible to the operator in the pane and neither changes what the agent may do.
+
+### Rollback
+Remove the settings entries with `rein sync` on a reverted tree. Rein reads none of the options.
+
+---
+
+## D-116 addendum 2 — E-428: files under `tests/fixtures/` are not test files for the PATH_TRAVERSAL exemption
+
+**Date**: 2026-11-17
+**Task**: E-428 (PR #49)
+**Decision**: The Engineer's divergence is accepted. E-428's text exempted `tests/**`; as built, `isTestFile` excludes `tests/fixtures/`, so a script under it is graded like source.
+
+### Why needed
+With the literal `tests/**` glob, three markdown-exec rows (E-363) failed in CI: a script under `tests/fixtures/` is something a test executes, and those rows exist to prove it is still graded.
+
+### Alternatives considered
+1. **Keep `tests/**` and change the three rows** — rejected: it would remove the only proof that an executed fixture is reviewed.
+2. **Exclude `tests/fixtures/` (chosen)** — a fixture is input to a test, not a test. The inert tables there (`*-cases.json`, `wave1-inputs.json`) stay covered by ruling 2 of D-116, which is a separate predicate; a fixture that needs a traversal literal elsewhere uses the `rein:allow PATH_TRAVERSAL <reason>` marker.
+
+### Impact
+- Unlocks: PR #49 as built.
+- Risk if wrong: a downstream project that keeps hostile-input samples as loose files under `tests/fixtures/` still gets the block and must add the marker; that is one line with a reason.
+
+### Rollback
+Remove the exclusion in `traversal-policy.mjs` and its two boundary rows.
+
+---
+
+## D-161 — `rein start` on a live session sends keys only to an idle pane; that is also how one exited agent is restarted
+
+**Date**: 2026-11-17
+**Task**: E-434. Blueprint: `.ai/blueprints/release-artifact.md` §Component 8. Request: rein-app `plans/rein-panels-request.md` items c and c2 (rein-app D-061 addendum 3).
+**Decision**: The report is confirmed in the code: the binding loop waits up to 5 s for a shell and then sends `rein pane <role>` and Enter regardless, so a second `rein start` types into running agents. It now sends only to a pane whose shell is in the foreground with no child process, skips a busy pane with one line, and refuses (exit 2) to send into a new pane that never became idle.
+
+### Why needed
+The operator saw it on 2026-11-13: reopening a project typed `rein pane engineer` and `rein pane architect` into the two running agents, which then read the text as a prompt. rein-app attaches instead of starting since today, but one case remains on its side and it built no fallback, relying on this fix.
+
+### Alternatives considered
+1. **Return early when the session already exists** — rejected: it removes the one useful thing a re-run does, restarting an agent that has exited, and the re-pinning of the pane options.
+2. **Test `pane_current_command` against the shell pattern only** — rejected: `rein pane` is a bash script, so a pane where it is still starting reads as `bash`, and that window of a few seconds is exactly the case rein-app has left.
+3. **End the pane when its agent exits (request item b)** — not ruled here: it changes what the operator sees after an agent exits and needs its own decision.
+4. **Idle = the pane's shell has no child (chosen)** — true for a prompt, false for a running agent and for one still starting.
+
+### Impact
+- Unlocks: E-434. Answers item c: `rein start` on a live session is the supported way to restart one exited agent.
+- Risk if wrong: a pane with a background job left by the operator counts as busy and is skipped; the line names the pane and the operator runs `rein pane <role>` there.
+
+### Rollback
+Revert E-434; the loop sends unconditionally again.
+
+---
+
+## D-160 addendum 1 — E-433: the installer records `tmux` in the hook toolchain; the waiting-signal helper reads it from there
+
+**Date**: 2026-11-17
+**Task**: E-433
+**Decision**: Option (a) of the Engineer's report. The hooks' pinned PATH is the recorded `node` and `python3` directories plus four system directories, and on this machine `tmux` is under the Linuxbrew prefix, so no hook can find it by name and the signal of D-160 would never fire. The installer records `REIN_TC_TMUX` in `~/.rein/shared/toolchain.sh` with the writer, the resolution rule and the trust of the `node` record; the helper parses it, never sources it, and falls back to the pinned PATH.
+
+### Why needed
+Component 7 assumed `tmux` was reachable from a hook. It is not on any machine where tmux comes from Homebrew or Linuxbrew, which includes the operator's.
+
+### Alternatives considered
+1. **Add the Linuxbrew prefix to the fixed fallback list** — rejected: rule 7b forbids extending that list for one host, and a directory a package manager writes is not a system directory.
+2. **Derive the binary from `$TMUX` (the server's pid)** — rejected: `$TMUX` reaches the hook through the project's settings `env`, so it could name any binary (T-HOOKENV-001).
+3. **Record it at install (chosen)** — the operator's own install run is the one moment Rein trusts a PATH lookup, and it already does so for `node` and `python3`.
+
+### Rulings
+1. `tmux` stays optional: nothing recorded means the helper does nothing; an install never fails for it.
+2. The recorded value is used only if it is an absolute path to an executable regular file.
+3. Doctor names `tmux` on the toolchain line: `warn` when the record points at a missing file, or when the operator's PATH has `tmux` and the record does not; the fix is the one the `node` line gives. An app that installs tmux after Rein sees that warning and runs the fix.
+4. The security_engineer pass already required for E-433 covers the installer and record change.
+5. E-433 acceptance gains one clause: a row runs the helper under the pinned PATH with `tmux` only at a recorded path outside it, and the stub at that path receives the call; the same row with the record pointing at a non-executable file makes no call and exits 0.
+
+### Impact
+- Unlocks: E-433 on the operator's machine. `shared/toolchain.sh` is already operator-owned in the layout, so the manifest and the layout version do not change.
+- Risk if wrong: a `brew upgrade` moves the recorded path and the signal goes quiet until the next install; ruling 3 makes that visible.
+
+### Rollback
+Remove the record line and the helper's lookup; the helper finds `tmux` only where the pinned PATH has it.
+
+---
+
+## D-160 addendum 2 — E-433 security review: the pane and the tmux socket come from the launch record, never from the hook's environment; the per-pane id file is ratified as private state
+
+**Date**: 2026-11-17
+**Task**: E-433 (security review d71bc61, SEC_CLEARED Tier 2; findings P2-1 and P3-6)
+**Decision**: (1) P2-1 is closed, not accepted: `rein pane <role>` stores `$TMUX` and `$TMUX_PANE` in the session's launch record, and the hook addresses tmux as `tmux -S <recorded socket> -t <recorded pane>`. The hook reads neither variable from its own environment. (2) P3-6 is ratified: `~/.rein/run/waiting/<pane digits>` stays.
+
+### Why needed
+The review found that the tmux client takes its server from `$TMUX`, which a project's settings `env` can set; a client pointed at a foreign socket can be made to execute by that server, from a hook that runs outside the sandbox. A listener must exist first, but a sandboxed process of the same user can be one, which makes it an escape path rather than a no-op. Separately the review found a file that ruling 1 of D-160 appeared to forbid.
+
+### Rulings
+1. **Same rule as the role (D-087)**: what a hook needs to know about its session comes from the launch record on the process chain, written before the agent started, and from nothing a project can set. This also closes the related P3 (a project `TMUX_PANE` setting options on another pane).
+2. **A session not started by `rein pane` does not report.** No launch record means no signal and no `@rein_signals`. This narrows D-160 from "any tmux pane" to "a pane bound by `rein pane`", which is every pane an app reads.
+3. **No fallback to the environment**, including when the record has no socket (a pane bound by an older `rein pane`): the session reports after its next start.
+4. **If the launch record cannot carry the two values without changing the fields the role token verifies**, the Engineer stops and reports before building; option (b), accepting the residual, is not chosen by default.
+5. **The id file is private state, not the signal.** Ruling 1 of D-160 rejected a file as the thing an app reads; that stands. The file is under `run/`, which the layout already lists as operator-owned, holds a tool-use id only, and is removed on clear and at session start and end. The contract document does not name it.
+6. **E-433 acceptance changes**: clause (3) binds the pane through a launch record instead of the environment, and gains: with `TMUX` in the hook's environment naming a second server on another socket, that server's pane has no `@rein_waiting` after a PermissionRequest payload and the recorded server's pane has `permission`; with no launch record the stub `tmux` receives no call.
+7. `THREAT_MODEL` gets T-WAITSIG-001 as closed by ruling 1, with the residual stated: an operator shell whose own `$TMUX` is wrong at `rein pane` time.
+
+### Alternatives considered
+1. **Check that the `$TMUX` pid is an ancestor and owns the socket** — rejected: proving which process listens on a socket path needs `/proc/net/unix` on Linux and `lsof` on macOS, two implementations of a check on the permission path.
+2. **Accept as residual** — rejected: this repository treats the settings `env` as an attacker channel everywhere else (T-HOOKENV-001), and the fix is one more field in a record that already exists.
+3. **Drop the id file and call tmux on every tool call** — rejected: it costs a process per call and cannot tell a sibling call from the waiting one, which is bound 1 of D-160 failing in the busy case.
+
+### Impact
+- Unlocks: E-433 merge after the rows of ruling 6.
+- Risk if wrong: a session started by plain `claude` in a tmux pane never reports; the operator binds it with `rein pane`.
+
+### Rollback
+Revert to reading `TMUX_PANE` and record T-WAITSIG-001 as an accepted residual by a new ruling.
+
+---
+
+## D-162 — The test_lines budget rises to the measured value of the E-433 tree (44476 at 878445a); nothing in advance for E-434 and E-430; the row census D-157 r4 named is now ordered
+
+**Date**: 2026-11-17
+**Task**: E-433 (878445a; every suite passes); covers the rows of E-428 and E-429 under it. E-435.
+**Decision**: `rein ci run` fails only `[BUDGET_REGRESSION] test_lines`: recorded 43381, measured 44476, limit 44248. The budget is set to the measured value of the E-433 tree. The Engineer's suggested 44650 is declined: it is a figure with room for two tasks that have not landed.
+
+Composition, measured by the Architect (`git diff --numstat main HEAD -- tests` at c1ef1ae, net +559): the waiting signal at the unit layer, 285 (`waiting-signal.test.mjs`, `waiting-signal-cases.json`; D-160 and both addenda, the security review's rows included); the digest builder at the unit layer, 179 (`digest-build.test.mjs`, `digest-cases.json`; D-159 r1–r2); the traversal policy, 53 (E-428, D-116 addendum 2); hook registration and the launch record at the suite layer, 42 (`exec_form_hooks_test.sh`, `role_token_test.sh`; D-160 addendum 2); the contract fixture `pane-options.json`, 10; `mcp_servers_test.sh` shrank by 11. The other 536 lines of the 1095 between recorded and measured were already on `main`: tasks since D-157 that each landed inside the tolerance.
+
+### Rulings
+1. **Budget**: `rein ci budget set --ruling D-162 test_lines=<measured>` on the E-433 branch, with the value the final run measures; 44476 is expected, and a different measured value is used and named in the handoff. No headroom (D-149 r1, D-157 r1).
+2. **Nothing in advance for E-434 or E-430** (D-157 r2). By the Engineer's projection both land inside the new tolerance (about 44610 against a limit of 45365); if one does not, it comes back with its composition.
+3. **Layer review, at the depth of D-157 r4**: the signal's set and clear logic is pinned at the unit layer only, its settings registration and the launch record at the suite layer only, the digest builder at the unit layer only. No behaviour was found pinned twice at that depth.
+4. **The census D-157 r4 named is ordered now** (E-435). This is the fourth raise in six weeks, and half of this gap accumulated without a ruling, inside the tolerance. The next request to raise `test_lines` is not ruled before E-435's report exists.
+5. **Not a precedent for growth without a ruling** (D-149 r4).
+
+### Alternatives considered
+1. **44650, measured from the final tree of the arc** — rejected in the decision line and r2.
+2. **Cut rows from `waiting-signal.test.mjs` to fit** — rejected: its rows pin a hook on the permission path, and the 228 lines over the limit are not there; they are older drift.
+3. **Hold E-433 until the census is done** — rejected: the signal is the operator's priority and another repository waits on its merge commit.
+
+### Impact
+- Unlocks: the E-433 push. Risk if wrong: the number only.
+
+### Rollback
+`rein ci budget set --ruling D-162 test_lines=43381`.
+## D-159 addendum 1 — E-430: the retired digest skills are registered in `src/config/legacy-artefacts.json`; the acceptance grep excludes that file
+
+**Date**: 2026-11-17
+**Task**: E-430
+**Decision**: The Engineer's divergence is accepted. E-430 and the blueprint named `src/shared/legacy-registry.mjs` as the place the retired skills `rein-digest` and `digest_updater` are registered; that file is only the loader, and the entries live in `src/config/legacy-artefacts.json`. The acceptance clause now reads: `grep -rn "digest_stale\|digest_updater\|rein-digest" src hooks .claude` finds nothing outside `src/config/legacy-artefacts.json` and `src/shared/legacy-registry.mjs`.
+
+### Why needed
+As written, the clause fails on the file that correctly holds the entries, and the acceptance evaluator of D-159 r9 would report it.
+
+### Alternatives considered
+1. **Move the entries into the loader to satisfy the text** — rejected: it would put data for two skills in code while every other retired artefact is in the JSON.
+2. **Correct the text (chosen)** — the Architect named the wrong file.
+
+### Impact
+- Unlocks: E-430 closes on the corrected clause. No behaviour changes.
+- Risk if wrong: none; the names in the JSON are what lets `rein sync` remove installed copies.
+
+### Rollback
+None needed; the blueprint line can be reverted.
+
+---
+
+## D-160 addendum 3 — Review of E-433 and E-434 as built: accepted; two findings go to E-436 and do not hold the merges
+
+**Date**: 2026-11-17
+**Task**: E-433 (PR #51), E-434 (PR #52), E-430 (PR #53); E-436, E-437
+**Decision**: The Architect read `hooks/waiting-signal.sh`, `src/shared/waiting-signal.sh`, `_start_pane_idle` and section 6 of `docs/app-contract.md` against D-160, its addenda and D-161. They match. The Engineer's three divergences are accepted. Two defects were found by reading, not by a run.
+
+### Rulings
+1. **Accepted as built**: the PostToolUse fast path ("no id file for any pane", builtin only); the helper never creating `~/.rein/run` (a session with a launch record already has it, and a session without one does not report); the `.claude` mirrors brought to `src` by copy for E-430, to be confirmed by the operator's `rein sync` leaving no diff.
+2. **F1 — `PermissionDenied` clears without matching the id.** In auto mode, a sibling or subagent call that the classifier denies clears a prompt that is still open; if that prompt is older than six seconds the `Notification` backstop has already fired, so bound 1 of D-160 fails. It clears by id, like `PostToolUse`.
+3. **F2 — the id file is keyed by pane digits only.** Two tmux servers each have a pane `%N` (rein-app runs its own server), so one session can overwrite the other's id and the first stays "waiting" until its turn ends. Bound 2 still holds, the accuracy does not. The file name carries the server as well.
+4. **`_start_pane_idle` reads a failed `ps` as idle** and would send keys. A failed or empty `ps` is "not idle".
+5. **These go to E-436 on top of the stack and do not hold #49..#53.** F1 needs auto mode, a parallel denial and a prompt older than six seconds; F2 needs two servers with equal pane ids. Neither can answer a prompt or run anything.
+6. **Still open on E-433**: acceptance clause (8), the live run, and with it the four undocumented points of Component 7. If the live run shows an event that ends a hand-denied prompt, the clear rule is tightened by a further addendum.
+7. **E-437**: the `rein-migration` skill reads a `- Schema` line the generated digest no longer has; it reads the version from the store instead.
+
+### Alternatives considered
+1. **Hold PR #51 for F1 and F2** — rejected in r5; another repository waits on the merge commit and the contract text does not change.
+2. **Fold E-437 into E-430** — rejected: E-430 is built and reviewed; a skill outside its removal list is a separate change.
+
+### Impact
+- Unlocks: the merges of #49..#53 once the operator's install and live run are done.
+- Risk if wrong: a wait missed in the F1 corner until E-436 lands.
+
+### Rollback
+None; a review record.
+
+---
+
+## D-163 — The self-disable lock is a three-word text predicate with a defined residual; the word reader is frozen as a second layer; an operator factor is not funded
+
+**Date**: 2026-11-17
+**Task**: E-393 (scope amended), E-353 (order and reporting rule)
+**Decision**: Option (a), narrowed to three words. A command whose text names `rein`, `gate` and `off` is blocked wherever the words sit. What the predicate cannot see is defined once as the residual and belongs to the classifier. Option (b) is not built.
+
+### Why needed
+D-132 addendum 4 r7(a) designed the lock as a word reader keyed on the program position. As built it closes the 15 ruled forms, but two security_engineer rounds found 8 classes and then 28 live variants inside them (`.ai/SECURITY.md` "E-393"). A partial bash parser has no end state. The Engineer holds E-393 at SEC_BLOCKED and asks for the lock's shape.
+
+### What decides it
+The override record `~/.rein/gate-override.json` is not authenticated: the hook honours any file of the right owner, mode and window. A same-uid agent that means to disable the gate can write that file from a script it wrote with the Write tool, and no reading of command text sees that. D-083 r5 named this ceiling. So the text lock has one job: stop a command that *says* the disable. It must be cheap, closed-form and fail-closed. Deliberate assembly is the classifier's, as since D-089.
+
+### Rulings
+1. **The predicate.** Two views of the command text are built, after the D-084/D-085 heredoc-body exemption is applied as today:
+   - V1: delete `'`, `"`, backslash-newline, every remaining `\`, and the characters `[ ] ? *`.
+   - V2: delete `'` and `"`, and replace each `\` with the character after it by one space.
+   A word is a maximal run of `[A-Za-z0-9_-]`. The command is `GATE_SELF_DISABLE` when one view holds the three words `rein`, `gate` and `off`, in any order, at any position. It applies to every role and under an active override. One helper in `src/shared/shell-word.mjs` holds it; the analyzer calls it, and the hook's no-verdict fallback implements the same definition against the same rows.
+2. **Why three words, not two.** Every Bash call in a project whose path contains `rein` carries that word (`cd /home/…/rein && …`, `~/.rein/…`). A two-word rule would block every command that names `gate` in this repository. `off` is the only disabling subcommand.
+3. **The residual, by definition.** A command is outside the lock when one of the three words is not literal in either view: hex or octal escapes, sequence braces, a negated or class glob outside a path that names `rein`, a word split across variables, encoded text, a script written and then run. These are classes, recorded once in THREAT_MODEL.md. They are INCONCLUSIVE in a pen-test table, not P1, and they do not gate a task.
+4. **How a new bypass report is classified.** If the three words are literal in a view and the command passes, the predicate has a bug: P1, fixed. Otherwise it is residual (r3). No third outcome adds grammar.
+5. **The word reader stays and is frozen.** `shellCommands` and `gateCommandHit` as built (144 rows) remain a second layer; they catch some forms r1 does not, such as a glob that resolves to the program. No grammar is added to them for the gate lock without a D-ruling. The 28 round-2 variants are not fixed in the reader.
+6. **The name rules read V1 as well as the raw text.** Every existing `GATE_SELF_DISABLE` pattern — the CLI form, `gate-override.json`, `gate-override.py`, a shell write under `~/.rein/` — is evaluated on both. This closes the quote-split writer (N51/N52) and amends D-084 r4: static quoting is no longer an accepted residual; assembly from variables still is.
+7. **tmux and pty routes (N40, N41, N45)** are in E-393's scope through r1: their text carries the three words. No runner list.
+8. **The belt is unchanged.** It is not the lock.
+9. **Over-block, accepted.** Text that names all three words is blocked: a commit message, a grep pattern, a test filter. The workaround is the Write tool, and `git commit -F <file>`. Rows that flip from PASS to BLOCK are listed with the re-pin.
+10. **E-393 scope, amended.** In addition to its text: r1, r6; the fixture table gains every round-1 and round-2 payload and N40–N52 with the verdict this ruling gives each, the r3 residual rows as PASS rows marked `residual`, and the r9 flips; the table is re-pinned under this ruling with old and new sha and row counts in the PR. security_engineer re-runs and gates on: the 15 forms RESISTED; no row with three literal words passes; nothing fails open; the r9 over-block is no wider than ruled. THREAT_MODEL.md records r3 and the ceiling.
+11. **Full `rein ci run`** for E-393 runs after `bash install-rein.sh` on the branch. If `provider_workspace` or `hooks_surface` still fail on a clean HEAD after that, the Engineer stops and reports the failing rows; that is a harness defect for its own task, not E-393's.
+12. **E-353** starts after E-393, as written, on its closed class list. r4's rule applies to it in the same form: a finding outside the listed classes is reported for a ruling, not fixed in the task.
+
+### Alternatives considered
+1. **Two-word co-occurrence, as proposed in (a)** — rejected in r2: unusable in a project whose path names `rein`.
+2. **Continue the word reader until it converges** — rejected: two rounds grew the bypass list; each added grammar adds edge cases.
+3. **(b) An operator factor read from `/dev/tty`** — not funded. It protects the CLI only while the record stays unauthenticated. Authenticating the record needs a verifier, and a verifier under `~/.rein/` is one more file the same uid can write; the hook itself is too. It becomes a real boundary only with a root-owned install, which changes how Rein is installed and adds a prompt to every operator escape. That is D-083 r5 (iv), still recorded as the next rung; the operator may fund it.
+4. **Remove the word reader** — rejected: built, green, no over-block found in ordinary work; removal is a second re-pin for no gain.
+
+### Impact
+- Unlocks: E-393, then E-353, E-431, E-432, E-435.
+- Risk if wrong: the r9 over-block is hit more often than expected in gate work; the predicate is one function and one definition to narrow.
+
+### Rollback
+Remove the r1 call and the V1 pass of r6; the word reader and the belt remain as the lock of D-132 addendum 4 r7.
+
+---
+
+## D-163 addendum 1 — The three words must stand on one line of a view
+
+**Date**: 2026-11-17
+**Task**: E-393
+**Decision**: D-163 r1 is read per line: the command is `GATE_SELF_DISABLE` when one line of V1 or V2 holds the three words. Lines are split after the view is built, so a backslash-newline never separates them.
+
+### Why needed
+As written, r1 matched over the whole text. The Engineer measured that this flips two rows pinned under D-112 in `operand-scope-cases.json` (blocks 2 and 3, the D-105 verbatim Architect appends): 18 KB of prose with the three words once each, far apart, in unrelated sentences. In this repository all three are common words, so whole-text matching blocks most long prose written through Bash. That is wider than r9 ruled.
+
+### Rulings
+1. **Per line**, as above. Measured by the Engineer: verdicts identical to whole-text on all 144 table rows, the 91 round-1 payloads and the 67 round-2 payloads (231 hits in both); both verbatim rows pass.
+2. **r3 gains one class**: the three words literal but on different lines of both views. It is residual on the same terms: recorded once, INCONCLUSIVE, the classifier's. A line-joining rule beyond backslash-newline (a trailing `|`, `&&`, an open quote) is grammar and is not added (r5).
+3. **`operand-scope-cases.json` is not re-pinned** by E-393. The table gains at least one PASS row marked `residual` for the r2 class and one BLOCK row with the words split by a backslash-newline.
+
+### Alternatives considered
+1. **Whole text, re-pin the two rows** — rejected: it blocks the Architect's and the Engineer's ordinary long appends for a gain the measurement puts at zero rows.
+2. **A word-distance window across lines** — rejected: a second parameter to tune, harder to state in the hook's fallback, and padding defeats it as cheaply as a newline defeats r1.
+
+### Impact
+- Unlocks: E-393 r10 as amended.
+- Risk if wrong: a split across lines is reported as a bypass in a later review; under r2 it is residual, and narrowing it is a ruling, not a fix.
+
+### Rollback
+Match over the whole view again and re-pin `operand-scope-cases.json` with the two flips.
+
+---
+
+## D-163 addendum 2 — Review of E-393 and E-353 as built: accepted; four A2A rulings recorded; three tables pinned; the open findings become E-438, E-439 and E-440
+
+**Date**: 2026-11-18
+**Task**: E-393 (PR #55), E-353 (PR #56); E-438, E-439, E-440
+**Decision**: Both tasks are accepted as built. The rulings the headless Architect gave through `ask_architect` during the work stood only in `.ai/SECURITY.md`; they are recorded here and ratified. The findings reported and not fixed, per D-163 r12, are written as three tasks.
+
+### Rulings
+1. **E-393 as built matches D-163 and addendum 1.** Read by the Architect: `namesGateOff` in `src/shared/shell-word.mjs`, `_names_gate_off` and `_touches_gate` in `hooks/pre-tool-use.sh`. Accepted beyond the text: the match is case-insensitive, and the hook sets `LC_ALL=C` so its word class is the analyzer's.
+2. **A2A rulings ratified**:
+   - 2026-11-17 22:18 — a heredoc body written to a sink that a later line runs implicitly (`Makefile`, `.bashrc`) is stripped before any rule reads it. Pre-existing, D-084 rule 4, and it reaches every heredoc-exempt rule. Rows D01–D03 are residual PASS rows in the gate table; the fix is its own task (E-439).
+   - 2026-11-17 22:20 — when the hook cannot locate the analyzer it ran only the catastrophic backstop, so the disable passed. The three-word predicate and the name rules run in that branch before the backstop. Built in E-393.
+   - 2026-11-18 08:19 — E-353 classification: a static spelling of a ruled form is in class and fixed with a row; `r=rm; $r -rf /` is folded into E-353; the base-rule gap (`"git" push`, `git -C . push`) and the further git exec keys and roots are out of class.
+   - 2026-11-18 08:26 — `$PWD` and `$OLDPWD` are the values of the ruled `~+` and `~-` and block for `RM_RF_ROOT` in the listed forms; `rm -rf "${X:?}"/*` stays allowed and is pinned as such.
+3. **Pinned by this ruling** (hashes recomputed by the Architect on c7b37b6):
+   - `operand-scope-cases.json`, 438 rows, `4034da7a969ac8c26768075f7b776f3ddd6fff131391c6f21d7277bcfe15c5f0`
+   - `block-rules-cases.json`, 61 rows, `65a831520c643682f3fe62f3e1c7859c5288a42a619fac567d882dc4d9d70eac`
+   - `pipe-shell-cases.json`, 49 rows, `75ed95a661f608492d5ec57d90e4c332215ba18775a0be638fc121c64a29c9b4`
+   - `gate-self-disable-cases.json`, 225 rows, `80ab99d0495180464e5612f07ecd9aee4c7487518df32962ff71dd9a86afdcb5` (D-163 r10)
+   - `arch-write-cases.json` unchanged, `26f7da12…`.
+4. **The `reverdict` field is ratified.** A wave-1 row whose verdict a ruling changed keeps its recorded verdict and gains `reverdict` and `reverdict_by` naming the ruling; the subset proof matches the ruled verdict and asserts the ruling is named. One row carries it: the commit message that names the three words (D-163 r9).
+5. **The hook/analyzer parity check in the unit layer is ratified** (one bash spawn over all rows); it had pulled a suite into the fast tier.
+6. **E-353 (f) is accepted**: the two pipe rules block only when the strict strip and the read-only strip both match; `SECRET_IN_COMMAND` and `GATE_SELF_DISABLE` keep the strict strip. This narrows D-111 r4 for those two rules.
+7. **Two artefacts of D-163 r1's word definition are fixed, in E-439.** A leading hyphen is not part of a word, so `${X:-rein}` yields `rein`. A third view reads each quote as a space, so `-S'rein gate off'` yields the three words. Both are changes to the definition, not grammar; r5's freeze of the reader stands.
+8. **Accepted over-block, not fixed**: `HOME=` text anywhere on a git line (Architect); a `..` in a comment or string on an rm line; `"$OUT"/bin` (D-112 r1–r2). Telling these apart needs a parser. Fixed in E-440 because a boundary is enough: `$PWD` that is not an rm operand, and `/opt-cache-x` matched by the `/opt` prefix.
+9. **Residual, recorded**: `luajit -e`, `echo cmd | parallel`, `HOME=.ai make`, `parallel git ::: push`, `ag --pager`.
+10. **Order**: E-438, E-439, E-431, E-432, E-435, E-440. `tests/census-baseline.tsv`, rewritten by the CI run, is committed as its own chore commit at the start of E-438's branch.
+
+### Alternatives considered
+1. **Reopen PR #55 for r7** — rejected: the table is pinned and reviewed; a definition change is a re-pin and a security re-run, which is a task.
+2. **Fix the r8 over-blocks** — rejected: each needs comment and string state; they fail closed.
+
+### Impact
+- Unlocks: the merges of #55 and #56; E-438 to E-440.
+- Risk if wrong: until E-438 lands, the Architect lane can push with a quoted verb or `-C`; until E-439, a body written to a Makefile and run by `make` is unread by four rules.
+
+### Rollback
+None; a review record. The tasks carry their own.
+
+---
+
+## D-164 — The test_lines raise for E-438 is not ruled before the census exists; E-435 runs now and covers the gate arc; E-438 is accepted as built and waits unpushed
+
+**Date**: 2026-11-18
+**Task**: E-438 (120e539), E-435 (order and scope amended); E-441, E-442
+**Decision**: D-162 r4 holds: "the next request to raise `test_lines` is not ruled before E-435's report exists". This is that request (measured 45078, recorded 44144, limit 45026). E-435 moves to the front of the queue, and the budget is ruled from its report.
+
+### Why needed
+E-438 passes every suite (7718/0/26) and is SEC_CLEARED; it fails only the budget, by 52 lines, on 79 new contract rows. The Engineer recommends raising to the measured value. That would be the fifth raise in seven weeks, and D-162 r4 was written so the fifth is not ruled blind.
+
+### Rulings
+1. **No raise now.** Holding E-438 costs nothing today: it is stacked on #56, and #49..#56 wait for the operator's merges; the gate installed on this machine already runs E-438's code.
+2. **E-435 runs next, before E-439**, with its text unchanged and one table added: for the gate arc not yet on `main` (E-436, E-393, E-353, E-438) the net test lines per task against `main`, and, for `gate-self-disable-cases.json` and the rows E-438 added to `operand-scope-cases.json`, every group of rows that reaches the same verdict through the same branch of the same reader (same option class, same view), with row ids. The Engineer removes nothing.
+3. **The budget is ruled on that report**: rows the report shows as one branch asserted many times are merged first; what remains over the limit is raised to the measured value, without headroom (D-149 r1).
+4. **E-438 is accepted as built.** Read by the Architect: `src/mcp/safe-exec-mcp/git-view.mjs`. It goes beyond the task's "skip the listed globals": a general option walk, two readers without shell grammar beside the frozen one, and a candidate must equal a forbidden verb. That is the shape the A2A rulings of 2026-11-18 09:06, 09:12, 09:16, 09:19 and 09:22 gave it; they are ratified by reference to `.ai/SECURITY.md` "E-438". The 09:16 rule is kept as standing: a view added to a reader never turns a blocked row into a pass.
+5. **`operand-scope-cases.json` at 517 rows, `cdcf97afa3628f845b64ae0b692467e3da81dd2db56e3d5aa1b1714665b45f4b`**, is confirmed by the Architect on 7bed34a. It is pinned with the budget ruling, because r3 may merge rows.
+6. **A2A and security rounds.** E-438 took six security rounds and five A2A rulings, and grew a reader the task did not describe. From the third security round of a task on, the classification question comes to the Architect's pane by handoff, not by `ask_architect`: the pane can re-scope, split a task and record; the headless Architect cannot.
+7. **The `cd` relocation (RX1, RX2; P2) is E-441.** `cd /tmp/o && git checkout .ai/x` passes for the Architect because the path is under `.ai/`, in another tree.
+8. **`src/mcp/safe-exec-mcp/index.js` is split in E-442** before E-441 and E-440 add to it: 818 lines against a limit of 1000.
+9. **Order**: E-435, then this ruling's follow-up on the budget, then E-439, E-431, E-432, E-442, E-441, E-440.
+
+### Alternatives considered
+1. **Raise to 45078 now** — rejected by D-162 r4; the report is a Tier 1 task and nothing waits on E-438's push.
+2. **Name rows to drop today** — rejected: without the grouping of r2 it would be a guess over rows six security rounds produced.
+
+### Impact
+- Unlocks: E-435 now; E-438's push after the budget ruling.
+- Risk if wrong: one task of delay on a stack that is waiting for merges anyway.
+
+### Rollback
+`rein ci budget set --ruling D-164 test_lines=45078` and push E-438 as it is.
+
+---
+
+## D-164 addendum 1 — The budget from the census: no raise; the recorded value returns to D-162's 44481; sixteen E-438 rows merge; the ratchet reads only trees that contain the ruled tree; contract tables grow by branch, not by payload
+
+**Date**: 2026-11-18
+**Task**: E-435 (report `plans/test-census-2026-11.md`, accepted), E-438 (rows merged, then pushed), E-439 (scope amended); E-443, E-444
+**Decision**: D-164 r3, ruled from the report. There was no overrun against a ruled value: the 44144 the request was measured against was never ruled. It is corrected, not raised.
+
+### What the census found
+1. **The recorded value drifted below the ruling.** `budgetBest()` keeps the lowest green run since the ruling. Run 107, on a branch without E-433's rows, measured 44144; D-162 ruled 44481. D-162's own "recorded 43381" had the same cause. Against 44481 the limit is 45370 and E-438's 45078 is inside it.
+2. **The gate table is mostly one branch.** 143 of its 225 rows are decided by the three-word predicate before any other reader runs. 117 of them were written for the word reader or the CLI regex and no longer reach it: if the frozen reader broke, almost no row would fail.
+3. **E-438's rows repeat three branches**: 13 rows on the unknown-option branch, 7 on the space-valued branch, 4 on the `=` branch.
+4. **Fifteen behaviours of the release arc are asserted at two layers**; for seven of them the suite row adds nothing the unit row lacks.
+
+### Rulings
+1. **Budget.** `rein ci budget set --ruling D-164 test_lines=44481`: D-162's value, restored. No raise. Until E-443 lands, no `rein ci run` is made on a tree that lacks part of the stack (`main` included), because a green run there lowers the recorded value again.
+2. **E-438 merges sixteen rows before its push** (0-based ids of the 517-row table): on the unknown-option branch keep #455, #458, #474 and remove #456, #457, #459–#462, #470–#473; on the space-valued branch keep #439, #444, #476 and remove #450, #452, #454, #477; on the `=` branch keep #449, #453 and remove #451, #475. The task's "one row per global option" is withdrawn: the reader no longer has a per-option list. No source changes, so the security clearance stands; the table test and critic_tests run on the new commit. Expected: 501 rows, 45062 lines. The Engineer reports the sha256; it is pinned at the next handoff.
+3. **The gate table is not merged.** It is pinned, reviewed and on PR #55; its rows are the ruled payloads of D-163 r10, one line each. Its defect is finding 2, and that is fixed without a new line: in E-439 the 92 rows the census lists under the word reader gain `"reader": "word"`, the 25 under the CLI regex gain `"reader": "cli"`, and the unit runner also calls that reader directly on each and asserts a hit. The second layer is then tested by the rows written for it.
+4. **Contract tables grow by branch, not by payload.** In `gate-self-disable-cases.json`, `operand-scope-cases.json`, `block-rules-cases.json` and `pipe-shell-cases.json`, a review round adds a row only when it reaches a branch no row reaches, or pins a ruled boundary (a residual, a pass that must stay a pass). The other payloads stay in the security notes and their payload files. The handoff that adds rows names the branch of each. This replaces "a contract row each" in the A2A ruling of 2026-11-18 08:19 and "every round-1 and round-2 payload" in D-163 r10 for future rounds.
+5. **The ratchet (E-443).** A ruled value belongs to a tree. `budget set` records the commit it was ruled for, and `budgetBest()` lowers the recorded value only from a green run whose commit contains that commit. A run whose ancestry cannot be read does not lower it.
+6. **The seven suite assertions that add nothing are removed (E-444)**: census rows D2, D4, D6, D10, D11, D14, D15, and the same-layer duplicate E-421.01e. The other eight keep their suite row: each carries a claim only a process shows.
+7. **Order**: E-438 (r2, push), E-443, E-439, E-431, E-432, E-444, E-442, E-441, E-440.
+
+### Alternatives considered
+1. **Raise to 45078** — rejected: nothing is over a ruled limit.
+2. **Merge the 143 rows of the gate table to one per branch** — rejected in r3: a re-pin and a security re-run of a cleared table to save about 120 lines, and the rows are the ruled record of what was tried.
+3. **Lower the recorded value only from runs on the trunk** — rejected for r5: `main` after the first merge of a stack lacks the rest of it and would lower the value the same way.
+
+### Impact
+- Unlocks: E-438's push; E-439.
+- Risk if wrong: r4 leaves a payload without a row and a later change reopens it unnoticed; the payload files are kept so a re-run finds it.
+
+### Rollback
+Restore the sixteen rows from 120e539; `rein ci budget set --ruling D-164 test_lines=45078`.
+
+---
+
+## D-163 addendum 2 r11–r15 — Review of E-439 as built: accepted; three tables pinned; the env -S decoder is ratified and frozen; the repeated rows merge and the reader tags land in E-445; the sink list widens in E-446
+
+**Date**: 2026-11-18
+**Task**: E-439 (PR #59, 7570d58 and d78fba0); E-445, E-446
+**Decision**: E-439 is accepted as built. This entry continues the numbering of D-163 addendum 2 (rulings 1–10), because the source, the gate table and `.ai/SECURITY.md` already cite "D-163 addendum 2 r13". DECISIONS.md is append-only, so rulings 11 to 15 stand here.
+
+### Why needed
+E-439 took four security passes and three A2A rulings (12:55, 13:17, 13:32) that stood only in LOG.md and `.ai/SECURITY.md`. It added a decoder the task did not describe and 50 rows to a pinned table. Two rulings of D-164 addendum 1, made the same morning, were not applied to it.
+
+### Rulings
+11. **E-439 as built matches addendum 2 r2 and r7.** Read by the Architect: `stripInertHeredocs` in `src/mcp/safe-exec-mcp/heredoc.mjs` (the implicit-run sink check runs before the mode branch), `gateViews`, `namesGateOff` and `unquoteWord` in `src/shared/shell-word.mjs`, `envSplitNamesGateOff` in `src/mcp/safe-exec-mcp/gate-guard.mjs`, `_names_gate_off` in `hooks/pre-tool-use.sh`. **Pinned** (hashes recomputed by the Architect on f6b8959):
+    - `gate-self-disable-cases.json`, 275 rows (227 BLOCK, 48 pass), `c80f9b681c8a514ba473411e68f2e9647a08ee63fc082c1e312f91f7d48065f8`. PASS→BLOCK: D01, D02, D03, P16, P19. No BLOCK row became a pass.
+    - `pipe-shell-cases.json`, 52 rows, `5940886e4133a7a49c1a44818197c1ebafe8d85fe082a6614323a6284b68a621`.
+    - `operand-scope-cases.json`, 501 rows, `cb100e3f3e3420c495e1b2b8f7c6927ded7951cd4747df7e3cf96ae04a7968c5` (the pin D-164 addendum 1 r2 left for this handoff).
+    - `block-rules-cases.json` `65a83152…` and `arch-write-cases.json` `26f7da12…` are unchanged.
+12. **D-164 addendum 1 r3 and r4 are applied in E-445, in one re-pin.**
+    - r3 (the `"reader"` tags) was ruled for E-439 and never written into its task text. That is the Architect's omission, not a defect of the build.
+    - r4 (a table grows by branch, not by payload) was not applied: about twenty of the fifty new rows repeat a branch another new row reaches. The A2A rulings asked for "BLOCK rows" without naming r4.
+    - Tagging the rows changes the table's hash anyway, so the merge rides the same re-pin. No source changes; the security clearance stands (the D-164 addendum 1 r2 precedent). The rows to remove are named in E-445 by command text. A named row that turns out to be the only one reaching a branch is kept and reported.
+    - The residual pass rows all stay: each pins a ruled boundary.
+13. **The env -S decoder is ratified, and it is frozen.** The three A2A rulings are ratified:
+    - 12:55 — view V3 also reads a backslash with the character after it as a space. There is no fourth view.
+    - 13:17 — finding (e) is a P1 of E-439, not residual r3: `env -S` has an escape layer of its own, so the three words were literal to env and to no view. It is closed by a decoder beside the reader: every word after the first `env` word is unquoted as bash does, decoded as env does, and read by the lock's predicate, to depth 3. r5 stands: `shellCommands` and `gateCommandHit` are unchanged. The seven P3 over-blocks (text that puts the three words on one line of V3) are accepted under addendum 1.
+    - 13:32 — f1 and f2 are P1, f3, f4 and N09 are P2, all fixed in the decoder.
+    - **Residual r3, recorded** (the classifier's, pinned as pass rows): `${VAR}` inside the -S string; env named through a variable, `$(…)`, a negated class glob or a nested default; arguments fed through `xargs`; nesting deeper than 3; hex and octal ANSI-C escapes. The hook's no-verdict fallback does not decode -S; that path needs an active override and ARG_MAX padding.
+    - **Standing rule.** The decoder is the third frozen piece, with the word reader and the views. A second carrier with an escape layer of its own gets a decoder only by a D-ruling; a security pass that finds one reports it and does not build it.
+    - **D-164 r6 was not followed**: the third pass of E-439 went to `ask_architect`. From the third security round of a task on, the classification question comes to the Architect's pane by handoff. The rule is repeated in E-446.
+14. **The implicit-run sink list widens in E-446** (P2, both findings INCONCLUSIVE in the fourth pass): the eight names the security passes listed, and a sink path with a `..` segment is implicit-run (`/tmp/../etc/x` is read as a `/tmp` path today). The list is a deny list and stays one: a file some tool runs unnamed and that is not on it is residual by definition. An allow list of text sinks was considered and is not ruled here.
+15. **Order**: E-432 (already in progress when this was ruled), E-444, E-445, E-442, E-441, E-440, E-446. The tree is at 45301 test lines against a limit of 45370. If E-432's `rein ci run` fails on `test_lines` alone, E-444 and E-445 are built first and E-432 is stacked on them: both remove lines. No raise is requested for that.
+
+### Alternatives considered
+1. **Record this as "D-163 addendum 3"** — rejected: `gate-guard.mjs`, 28 row labels of the pinned table and `.ai/SECURITY.md` cite "addendum 2 r13"; renaming means a third re-pin for a label.
+2. **Pin 275 rows and leave r4 unapplied** (the reasoning of D-164 addendum 1 alternative 2) — rejected: that alternative refused a re-pin made only to save lines. Here r3 forces the re-pin, and a rule ignored on the day it was made is not a rule.
+3. **Hold PR #59 until the rows merge** — rejected: the source is cleared and the stack is waiting on the operator; E-445 is a test-only commit on top.
+4. **Replace the sink deny list with an allow list of text sinks now** — rejected for this ruling: it changes which heredocs the content rules read for every role and needs its own over-block census.
+
+### Impact
+- Unlocks: the merge of #59; E-445, E-446.
+- Risk if wrong: a row removed in E-445 was the only one on its branch and a later change reopens the payload unnoticed. The payloads stay in `.ai/SECURITY.md`, and E-445 keeps any row whose removal changes what the runner reaches.
+
+### Rollback
+None for the review record. E-445: restore the table from d78fba0 (`c80f9b68…`).
+
+---
+
+## D-159 addendum 2 — Review of E-431 as built: accepted; the acceptance gate is the first stamp-based DONE gate; floor 444; `superseded_by` names a decision; E-## of Tier 2 and 3 only
+
+**Date**: 2026-11-18
+**Task**: E-431 (PR #60, 358d92d and 06d8c37); P-51
+**Decision**: E-431 is accepted as built. The A2A ruling of 2026-11-18 14:24 is ratified, and the blueprint sentence it had to interpret is corrected.
+
+### Why needed
+`.ai/blueprints/harness-fitness.md` §Component 3 said a task does not reach DONE without `[ACCEPT_PASS]` "by the same check that requires the other stamps". No such check exists: before E-431 the build gate and the CI gate were the only DONE gates, and the critic stamps are enforced at the commit gate. The Engineer asked instead of inventing one.
+
+### Rulings
+1. **Where the gate lives.** `checkAcceptGate` in `src/shared/completion-gates.mjs`, third after the build gate and the CI gate. It uses the CI gate's sha rule (`aiOnlyAncestor`, now shared from `ci-runs.js`): a stamp stands for HEAD when its sha is HEAD or an ancestor that differs only in `.ai/`. The newest `ACCEPT_*` stamp that stands for HEAD decides, so a later `[ACCEPT_FAIL]` voids an earlier pass. Read by the Architect: `completion-gates.mjs`.
+2. **Floor.** `ACCEPT_GATE_FLOOR = 444`: an E-## task numbered 444 or lower closes as before. Those tasks were written before `task-planner` Check 6 and many carry clauses nobody can observe. E-431, E-432 and E-440 to E-444 are therefore exempt from the gate; E-445 is the first task under it.
+3. **`superseded_by`.** `update_task_status` takes `superseded_by: "D-###"`. The value must be a `## D-###` heading in DECISIONS.md. It skips the acceptance gate only, and the summary reads "superseded by D-### — not implemented". There is no environment switch (D-084 r1).
+4. **Scope.** E-## tasks of Tier 2 and Tier 3. P-## tasks and Tier 1 are exempt: a P-## task's product is a ruling, and its reviewer is the operator.
+5. **The other stamps are not moved to DONE.** `[SEC_CLEARED]`, `[ARCH_PASS]` and the rest stay at the commit gate. The acceptance gate asks a different question (does the built thing meet the task's own clauses) at the only point where it can be asked.
+6. **E-431's own stamp is accepted**: `[ACCEPT_PASS]` at 358d92d with 5 PASS and 2 UNVERIFIED. The two clauses need the evaluator run on a fixture task, which a forked agent cannot dispatch; the Engineer's dry run on fixture E-999 returned `[ACCEPT_FAIL]` with the observed exit code, as the blueprint requires.
+7. **Residual, recorded.** The gate checks that a stamp exists for the sha, not which agent wrote it: `add_stamp` is callable from the Engineer's session. This is the trust every stamp has today (D-084). E-432's control ledger is where a stamp without a matching dispatch would show.
+8. **The `task-claims.test.mjs` fixture task moves to Tier 1.** Accepted: the row is about claims.
+9. **`src/mcp/task-synchronizer-mcp/index.js` is at 923 lines** against a limit of 1000. The next task that adds lines to it splits it first, in its own commit, as E-442 does for safe-exec. No separate task.
+10. **`.ai/blueprints/agents.md` gains the `critic_acceptance` row** (done with this ruling). The agent has no model pin: it judges (D-110).
+11. **P-51 closes overtaken tasks with `superseded_by`.**
+
+### Alternatives considered
+1. **Build the stamp check the blueprint assumed, for every critic stamp** — rejected: it would move the commit gate's stamps to DONE for 34 open tasks at once, and nobody ruled that.
+2. **No floor; exempt tasks one by one with `superseded_by`** — rejected: a task that was implemented is not superseded, and the field would lose its meaning.
+3. **An environment switch for the gate** — rejected by D-084 r1 and D-087 r3: the agent can set its own environment.
+
+### Impact
+- Unlocks: the merge of #60; P-51; every task from E-445 on is checked against its own acceptance text.
+- Risk if wrong: a task above the floor carries a clause that cannot be observed and cannot close. `task-planner` Check 6 exists to stop that at planning time; an `UNVERIFIED` clause with a named reason does not fail the stamp.
+
+### Rollback
+Raise `ACCEPT_GATE_FLOOR` above the highest task id; the gate is then inactive.
+
+---
+
+## D-163 addendum 2 r16 — E-447 as built: eleven operand-scope rows merge and the table is re-pinned at 490 rows; the test_lines value is 45408 at c0274fa
+
+**Date**: 2026-11-20
+**Task**: E-447 (PR #63, 24913ce), E-432 (PR #64, the budget run on c0274fa)
+**Decision**: E-447 is accepted as built and the raise the Engineer applied on 2026-11-18 is ratified. This entry continues the numbering of D-163 addendum 2 for the reason given at r11–r15: the task text, PR #63 and the budget record already cite "r16".
+
+### Why needed
+The A2A ruling of 2026-11-18 15:58 stood only in the pane message and in E-447's task text. `rein ci budget` already reads "ruled by D-163 at c0274fa" for a value no entry of D-163 names. The 15:58 message is not on disk; the rulings below are restated from E-447's task text, PR #63 and the handoff of 2026-11-18 19:02, and they are the record from here on.
+
+### Rulings
+16. **E-447 and the budget.**
+    - **(a) The selection rule.** In rows #438–#516 of `operand-scope-cases.json` (the E-438 rows, census §3b.2), one row is kept per group of rows that share branch, verdict and role. Also kept: every row that is the only carrier of a `T-*` label or of a D-ruling row label, and every row whose path through the git readers no remaining row shares. This is D-164 addendum 1 r4 applied to rows that predate it, the same way as E-445.
+    - **(b) As built.** Eleven rows are removed, by 0-based id of the 501-row table, each with the row that now carries it: 452→451, 454→133, 455→381, 460→451, 467→466, 472→458, 473→22, 487→462, 495→462, 496→462, 500→499. Read by the Architect on 53465d9 and 24913ce: exactly these eleven rows are gone, and no remaining row changed in `cmd`, `role`, `want` or label. The carrier of each is the Engineer's mapping, stamped TESTS_PASS; the Architect did not re-derive the branch of each carrier.
+    - **(c) One difference from the task text.** The task's third keep clause read "the only one killing a mutant on its path". It was applied as "the only row on its V8 block-coverage path". That is accepted for this table: there is no mutation run in the harness, and block coverage is what E-445 used. A later table merge names the measure in its task text.
+    - **(d) Pinned.** `operand-scope-cases.json`, 490 rows (381 BLOCK, 109 pass), `4e41906fc55d0723147a96bb8bf148118faccf7e9f3470eb416529cb8129627e`, recomputed by the Architect on 24913ce and c0274fa. It replaces `cb100e3f…` of r11. No source changed, so the security clearance stands (the D-164 addendum 1 r2 precedent).
+    - **(e) The budget.** E-447 freed 11 lines (45277 → 45266), not the 48 the ruling needed. E-432 adds 142 lines on top; its first run on c0274fa measured 45408 against the limit of 45370 (44481 + 2%) and failed on `test_lines` alone. Point 4 of the 15:58 ruling covered this case, and the Engineer applied it: `rein ci budget set --ruling D-163 --at c0274fa test_lines=45408`. Ratified. E-444 and E-445 were already under E-432 in the stack, so r15's "build them first" was exhausted before the raise.
+    - **(f) What the raise is and is not.** The recorded value is the measured tree; by the budget's own rule the limit is now 46316 (+2%). The 908 lines between them are not a grant. D-164 addendum 1 r4 stands for all four contract tables, and the E-443 ratchet lowers the value from any green run on a tree that contains c0274fa. The next request to raise `test_lines` comes with a census, as D-164 r3 ruled.
+    - **(g) Still due.** E-445 and E-447 are above the acceptance floor (444): each needs `[ACCEPT_PASS]` for its HEAD before DONE (D-159 addendum 2). Neither has one.
+
+### Alternatives considered
+1. **Hold E-432 until more rows merge** — rejected: the census found no further group in these four tables that merges without a re-pin of a cleared table, and E-432 is the control ledger P-52 waits on.
+2. **Set the value below the measured tree so the limit lands on 45408** — rejected: a recorded value that no tree measured is the defect D-164 addendum 1 corrected.
+3. **Cut 38 lines from E-432's own tests** — rejected: its rows are the rule-attribution table of a Tier 3 gate change, cleared in two security passes.
+
+### Impact
+- Unlocks: the merge of #63 and #64; E-442 and the tasks behind it run against 45408.
+- Risk if wrong: a removed row was the only one on its branch and a later change to the git readers reopens that payload unnoticed. The eleven rows stay in 53465d9 and their payloads in `.ai/SECURITY.md` "E-438".
+
+### Rollback
+Restore the table from 53465d9 (`cb100e3f…`). The budget: `rein ci budget set --ruling D-163 --at c0274fa test_lines=45408` is the state to return to if the value is lowered by mistake; there is no lower ruled value for a tree that contains E-432.
+
+---
+
+## D-165 — A machine-local generated file is refused at commit in every Rein project, not only reported
+
+**Date**: 2026-11-20
+**Task**: E-448
+**Decision**: The pre-commit gate refuses a commit that stages a file from the machine-local list, and refuses a staged `.claude/**` or `.mcp.json` blob that contains the committer's home directory as a literal path. `rein doctor` counts a tracked machine-local file as a hard failure.
+
+### Why needed
+A colleague who pulled a project the operator works on with Rein received `.claude/settings.json` with the operator's absolute paths in it (reported 2026-11-20). Since E-290 (D-083 r2) that file carries install-time absolute hook paths and `REIN_WORKSPACE`, by design. `rein init` and `rein sync` write the ignore pattern, and sync and doctor print one `!` line when the file is tracked. An ignore pattern does not untrack a file, and a warning line in a sync log was not read: the file kept travelling. Read by the Architect on dd37211: in the framework's own clone `.claude/settings.json` is the only file in the tree that holds the home path, and it is ignored and untracked there.
+
+### Rulings
+1. **The machine-local list is one constant.** It is the list `_ensure_generated_gitignore` already writes: `.claude/settings.json`, `.ai/start.local.json`, `.ai/ci.local.json`, `.ai/.last-import-blob`. The ignore writer, the commit gate and the doctor read the same list; a file added to it later is covered in all three.
+2. **The commit gate refuses a staged path on the list** (added or modified), in every Rein project, with or without `.ai/publish.json`. The message names the path and the one command: `git rm --cached <path>`. Staging the **deletion** of such a path passes: that is the fix.
+3. **A content check on two places only.** A staged blob under `.claude/` or a staged `.mcp.json` that contains the literal value of `$HOME` followed by `/` is refused. The role overlays (`settings.<role>.json`) and the skills stay committable because they hold no such path. No other file is scanned: docs and fixtures name example paths, and the public repository's privacy gate (D-129) already covers the operator's names there.
+4. **No opt-out switch.** An env switch is the project's switch (E-291). A project that wants the file shared removes its own paths from it first; the gate reads content, so that file then passes ruling 3, and ruling 2 is the only bar left. That bar stands: the file is regenerated by every sync.
+5. **`rein doctor`**: a tracked path from the list sets the hard-fail flag (the E-391 flag), so the exit code is non-zero. `rein sync` keeps its line and does not rewrite the index (the E-290 reasoning stands: a sync that edits the user's index is too invasive).
+6. **Not ruled**: making the hook paths relative or `${HOME}`-based. D-083 r2 fixed them absolute for a reason (the hook that runs must be the installed one), and this decision does not reopen it.
+
+### Alternatives considered
+1. **Leave it as a warning** — rejected: that is the state that produced the report.
+2. **`rein sync` runs `git rm --cached` itself** — rejected in E-290 and again here: it changes the user's index outside a commit they asked for.
+3. **Write `${HOME}` into `.claude/settings.json`** — rejected: reopens D-083 r2, and `REIN_WORKSPACE` would still be one machine's path.
+4. **Scan every staged file for the home path** — rejected: over-blocks docs, logs and fixtures in private projects; the two places of ruling 3 are where Rein itself writes paths.
+
+### Impact
+- Unlocks: E-448.
+- Risk if wrong: a project that deliberately commits `.claude/settings.json` (no Rein hooks in it) can no longer commit a change to it. The refusal names the file; the operator untracks it or reports the case.
+
+### Rollback
+Revert E-448's commit; the warning lines of E-290 remain.
+
+---
+
+## D-163 addendum 2 r16 — correction to (c)
+
+**Date**: 2026-11-20
+**Task**: E-447
+**Decision**: The sentence "there is no mutation run in the harness" in r16 (c) is wrong and is withdrawn. `tests/tools/mutation/` exists (the gate-table probes and a Stryker unit config). The Architect wrote the sentence without looking.
+
+### What stands
+- The acceptance of E-447 and the pin stand: they rest on the row comparison in r16 (b), not on (c).
+- The keep clause was applied by V8 block-coverage path. Whether a mutation run over rows #438–#516 would keep a row that block coverage dropped is **not known**.
+
+### Ruling
+- E-447 does not close on (c) as written. Before DONE the Engineer either runs `tests/tools/mutation/gate-tables.sh` (or the probe that covers `operand-scope-cases.json`) against the 490-row table and reports that no mutant killed at 501 rows survives at 490, or reports that the tool does not cover this table. The result goes in the handoff; a surviving mutant restores its row and re-pins the table.
+
+### Alternatives considered
+1. **Leave (c) and note it in COMM.md only** — rejected: the wrong reason would stay in the ruling a later table merge cites.
+
+### Impact
+- Risk if wrong: none added; this narrows an acceptance that was given on a false premise.
+
+### Rollback
+None.
+
+---
+
+## D-166 — CI runs the level the change needs, once: a plan from the diff, evidence by tree, one required check
+
+**Date**: 2026-11-20
+**Task**: E-449, E-450, E-451, E-452 (`.ai/blueprints/smart-ci.md`)
+**Decision**: One planner decides from the diff whether a change needs nothing, the fast tier, the affected suites or the full run. The local run, the pre-push gate and the hosted workflow obey it. A green result for a tree is not obtained twice. The nightly stays full and audits what the plans skipped.
+
+### Why needed
+The operator (2026-11-20): the CI is overkill, it should be smart and skipped when what ran is sufficient, in every project. Measured today: a full local run of about 10 minutes before each push, then 15–20 minutes on 8 or more hosted legs per pull request to the trunk, for any diff. The pieces exist and are not connected: `--changed` (E-298) is a local tool nobody is required to use, the pre-push gate asks for a full run per sha, and the hosted matrix is fixed.
+
+### Rulings
+1. **Four levels, full by default**: `none`, `fast`, `affected`, `full`, as the blueprint's table defines them. The planner returns `full` whenever it cannot prove less, including on its own errors.
+2. **Evidence is keyed by tree and level.** A commit whose tree has a sufficient green record needs no run. Old records read as `full`.
+3. **Where a hosted check is the merge gate, the local gate asks for at most `affected`.** The hosted run is the full run. Without a hosted gate the plan's level stands locally. A `[TIER_3]` commit is always full locally. This amends the E-267 rule ("a full green run per pushed tip").
+4. **Pull requests run Linux × Node 22 only.** macOS runs on a push to the trunk; every leg runs nightly and on a release. This withdraws the macOS × 22 legs from the required set (D-138 r4, DEVOPS-017) and the Node 24 pull request legs of D-133.
+5. **The required checks are `ci-result`, `privacy`, `CodeQL`.** `ci-result` is green when every leg the plan asked for is green. The per-leg names of D-135 leave the branch policy. The operator changes the ruleset; E-451 names the moment.
+6. **The hosted run trusts only hosted evidence** (its own cache, keyed by leg, level and tree). A tracked `.ai/ci/<sha>.json` certifies nothing on a runner.
+7. **The nightly audits escapes.** A suite that fails in the nightly and that a plan since the last green nightly did not select is a `[PLAN_ESCAPE]`, and the fix widens the full list or corrects the footprint.
+8. **One switch**: `team.json` `ci.smart: false` makes every plan `full`. `rein ci run --full` and the `ci:full` label force one run.
+9. **A run below `full` never writes the census baseline and never lowers a budget value** (D-164 addendum 1 r5 unchanged).
+
+### Alternatives considered
+1. **Path filters in the workflow file (`paths-ignore`)** — rejected: a skipped required check never reports and blocks the merge, the rule would live in YAML per project, and the local run would not share it.
+2. **Trust the committed local record on the runner and skip the hosted run** — rejected: a pull request writes that file.
+3. **Keep macOS on pull requests for shell changes only** — rejected for now: Rein is mostly shell, so the rule would fire on nearly every change and save nothing. The operator chose macOS at merge; the trunk run and the issue are the control.
+4. **A test-impact map built from coverage** — rejected: the census footprint already is that map and is already committed.
+
+### Impact
+- Unlocks: E-449 to E-452.
+- Risk if wrong: a regression in a suite the plan did not select reaches the trunk and is found by the nightly, at most a day later; a macOS-only break is found after merge. Ruling 7 measures the first; ruling 8 turns it all off.
+
+### Rollback
+`ci.smart: false`; `rein ci hosted --force` on the previous version; the operator restores the previous required names (the blueprint's Rollback Plan gives the order).
+
+---
+
+## D-167 — Review of E-441, E-440, E-446 and E-448 as built: accepted; three tables pinned; three interpretations ratified; two deny lists become prefix rules; the rounds stop
+
+**Date**: 2026-11-20
+**Task**: E-441 (ffed1e8), E-440 (57d1684), E-446 (e685418), E-448 (183b151, a84957f); E-453, E-454, E-455
+**Decision**: The four tasks are accepted as built. The open P2 residuals are not closed by more spellings: where a list of names can never be complete, the rule becomes a prefix or a shape.
+
+### Why needed
+The handoff of 2026-11-20 15:51 asks for three pins and three interpretations, and lists about thirty residuals. E-441 took four security rounds and added 43 rows; E-440 added 25. Both ended with a deny list and a list of names that are not on it.
+
+### Rulings
+1. **Pinned** (hashes and counts recomputed by the Architect on a84957f):
+    - `operand-scope-cases.json`, 556 rows (438 BLOCK, 118 pass), `fafef2deaafb7c8805fd05705d43b7a0511d7e899f96dde51bdc1ff7478e03da`. Against the 490-row pin: 68 rows added, and the two E-438 residual rows changed pass → BLOCK as D-164 r7 ruled. No other row changed.
+    - `block-rules-cases.json`, 74 rows (47 BLOCK, 27 pass), `e72af434978597269a616bcfab3daaeeec73f341abc123efd3d6fbba7f4ab0d8`. 13 rows added, none changed.
+    - `pipe-shell-cases.json`, 56 rows (45 BLOCK, 11 pass), `066124139c1c115b1eda3d481525e33a69c79fac6c0fa90006c1f831f5b56f3b`. 4 rows added, none changed.
+    - Unchanged: `arch-write-cases.json` `26f7da12…` (108 rows) and `gate-self-disable-cases.json` `9eb38fc4…` (254 rows). The handoff says E-445's re-pin is not in this lineage. It is: 254 rows and `9eb38fc4…` are E-445's table (b553d6c is an ancestor of dc6619e).
+2. **Interpretation (1), E-440 (d): ratified.** The `$PWD` match ends after the optional `/` or `/*`, so `rm -rf $PWD/dist` stays a WARN. The literal reading over-blocked a named subdirectory.
+3. **Interpretation (2), E-441: ratified.** `popd`, a bare `cd`, `cd -`, `pushd +N` and a run-time-built command word count as a directory change. Fail closed is D-164 r7's intent.
+4. **Interpretation (3), E-446: ratified.** The other spellings of the task runners already on the list are inside D-163 addendum 2 r14.
+5. **E-448 matches D-165.** `src/shared/machine-local.list` is the one list. Resolving it install-first and then from the hook's own tree is accepted: it is the toolchain-pin rule, and never the visited repository.
+6. **D-164 r6 meant what it says, and it was not followed.** E-441 ran four security rounds without a handoff. From the third round the classification question comes to the Architect's pane. The reason is this entry: rounds three and four each added spellings to a list that rulings 7 and 8 now replace.
+7. **The Architect passes no configuration to git (E-453).** For the Architect role, on a line that runs git: any `-c`, any `--config-env`, any `GIT_*` assignment or export, and `EDITOR`, `VISUAL`, `PAGER`, `XDG_CONFIG_HOME` assigned or exported, is a BLOCK. So is a `git config` that sets or unsets a value. Reading (`git config --get`, `--list`) passes. This replaces the key list and the env-name list of E-440 (a): the eight env names and seven keys the handoff lists as P2 are closed by it, and so is the next one.
+8. **A command that runs another command in a named directory is a directory change (E-453).** `env -C`/`--chdir`, `sudo -D`/`--chdir`, `find -execdir`/`-okdir`, `source` and `.` join `cd`, `pushd`, `popd` in `gitRelocated`. This is the last list ruling for E-441: what remains is residual.
+9. **Residuals of E-441, recorded and accepted**: `cd -P` through a symlink planted under `.ai/`; a `c[d]` glob; `chroot`; `autocd`; `coproc`; the over-block of a `cd` inside `$( )`. The git operand scope reading past `&&` and `;` (`git checkout .ai/x && echo done` blocks for the Architect) is an over-block, accepted: the Architect issues the git command alone.
+10. **The cwd forms of RM_RF_ROOT (E-454).** `${PWD<any operator>…}` and `$( [builtin|command] pwd [options] )` are the cwd. A cwd or `$HOME` operand ends at whitespace, end of line, or one of `;` `&` `|` `)`: `rm -rf $PWD; ls` is a BLOCK. The handoff calls the WARN there "the ruled `$HOME` class"; the Architect did not find that ruling, so the Engineer cites it in the E-454 handoff or the `$HOME` form gets the same terminators. `$(dirname $PWD)`, `$(realpath .)`, `/lib32`, `/libx32`: residual, recorded.
+11. **A directory change before a heredoc write (E-454).** After a `cd`, `pushd` or `popd` on the line, a relative sink path is not known: it is read as implicit-run in both modes (`cd /etc && cat > profile.d/x`). The deny list of sink names stays a deny list (r14); the six names the handoff lists under P3 are residual.
+12. **The rows merge after the rules change (E-455).** D-164 addendum 1 r4 applies to the 85 rows added here, and the handoff did not name the branch of each as r4 asks. About nineteen "the command word may be cd" rows differ only in the prefix before the same expansion; the E-440 key rows collapse under ruling 7. E-455 merges them the way E-445 and E-447 did, with the measure named: a row is kept when it is the only row on its branch by V8 block coverage **and** when removing it lets a mutant of `tests/tools/mutation/gate-tables.sh` survive that was killed before.
+13. **Budget.** a84957f measures 45593 against the limit of 46316. No raise is asked and none is given. The 185 lines above 45408 are the headroom r16 (f) said is not a grant: E-455 returns what the merge frees.
+14. **Order**: E-449 (the planner; the operator's request), E-453, E-454, E-455, then E-450 to E-452. E-441, E-440, E-446 and E-448 close on their own acceptance once the operator has installed and the pull requests are open.
+15. **E-448's cosmetic P2** (a newline in a path prints a multi-line message): fixed in E-454 by printing the path through `printf %q`. It is still a refusal today.
+
+### Alternatives considered
+1. **A fifth security round on E-441 and a third on E-440** — rejected: each round found spellings of the same two ideas (a directory change, a program named by configuration). A list of names cannot be finished.
+2. **Make the Architect's `.ai/` exemption hold only for a line that is one git command** — rejected: every handoff commit is a line with `cd <root>;`, a digest rebuild, `git add` and `git commit`, and would have to be issued in four calls. Ruling 8 keeps the built reader and closes the P2 list.
+3. **Block `rm -rf` on any operand that is a bare expansion** — rejected: `rm -rf "$tmpdir"` is ordinary Engineer work.
+4. **Hold the four pull requests until E-453 to E-455 land** — rejected: the built code is cleared and stricter than what is installed.
+
+### Impact
+- Unlocks: the pull requests for E-441, E-440, E-446 and E-448; E-453, E-454, E-455.
+- Risk if wrong: ruling 7 blocks an Architect command that passes a harmless `-c` (for example `-c core.quotepath=off`). The Architect drops the option. Ruling 10's terminators can turn a WARN into a BLOCK for the Engineer on `rm -rf $PWD; …`; that is the intent.
+
+### Rollback
+None for the review record. E-453 and E-454 are each one commit; reverting E-453 restores the key and name lists of 57d1684.
+
+---
+
+## D-168 — Review of E-453 as built and E-449's follow-up: accepted; one re-probe round, no discovery; the fail-closed extensions ratified; the Architect's git verbs become an allowlist (E-456)
+
+**Date**: 2026-11-23
+**Task**: E-453 (e68b40f), E-449 (9eda65a); E-456
+**Decision**: E-453 is accepted as built. A third security round runs, limited to re-running the payloads already written down. What the two rounds kept finding is not closed by more spellings in E-453: the Architect's git subcommands become an allowlist in E-456.
+
+### Why needed
+The handoff of 2026-11-23 15:27 brings the D-164 r6 question: E-453 is SEC_BLOCKED after two rounds, and G1–G4 (two P1, two P2) are fixed in e68b40f but not re-tested. It also asks for a ruling on four fail-closed extensions and one over-block.
+
+### What the Architect read and checked
+- `src/mcp/safe-exec-mcp/git-view.mjs` and `git-redirect.mjs` at e68b40f, both security passes in `.ai/SECURITY.md`, and T-GITCONFIG-001.
+- `operand-scope-cases.json` at e68b40f: 598 rows, sha256 `04dfe55b26ee21cf4dd7d8f8754bb6254007695ac38a03d9747bedf6955b1df0`. Both recomputed; they match the handoff.
+- Not checked by the Architect: the three E-440 rows that flip pass → BLOCK, and the suite results. They are taken from the handoff.
+
+### Rulings
+1. **E-453 is accepted as built** against D-167 r7 and r8. The table is pinned at 598 rows and the hash above once ruling 2's round clears. If that round changes a row, the pin is the new count and hash from the Engineer's handoff.
+2. **A third round runs, and it is a re-probe.** G1 and G2 were each shown in the harness to make git run a program. Their fixes have been read by a critic and not run. Accepting them from the diff is what D-159 r9 forbids the acceptance evaluator to do, and the same holds here. The security_engineer runs, on e68b40f:
+    - every payload of the second-pass Pen-Test table (G1–G4 and the round-1 re-runs);
+    - the pass list of the second pass ("Everyday Architect commands"), plus the D-104 handoff commit line of `task-planner` Step 7 as it is written there;
+    - Engineer parity over the fixture lines;
+    - the time of `git config x `×3000 (critic_security measured 390 ms).
+3. **What gates in that round.** A G1–G4 payload that still passes; a line that blocked at d0954fa and passes now; a line of the pass list that blocks; a shape over the 1000 ms unit ceiling. Each is fixed in E-453. Nothing else gates. A new spelling found on the way is written under "E-453 third pass" as input for E-456 and is not fixed in E-453. When nothing gates, the round records SEC_CLEARED.
+4. **No fourth round.** If ruling 3 gates twice, the Engineer hands off and E-453 waits for E-456.
+5. **The fail-closed extensions are ratified.**
+    - `env -C` and `sudo -D` count as a directory change whatever the operand.
+    - `trap` counts as a directory change.
+    - `xargs` or `parallel` before git, and a `{}` placeholder, count as configuration.
+    - A dynamic word between `env` or `sudo` and git counts as an assignment.
+    - Any nameref declaration on a git line counts as an assignment.
+6. **The over-blocks listed in T-GITCONFIG-001 are accepted**, with `git grep -n 'git config' src/` among them. The Architect searches with the Grep tool or `rg`.
+7. **Residual, recorded in T-GITCONFIG-001 by the Engineer with the re-probe commit**:
+    - `PATH=`, `LESSOPEN=`, and configuration that arrives through a sourced file or stdin;
+    - `nsenter --wd`, `tmux -c`, `systemd-run -d` and `--setenv`, `start-stop-daemon -d`;
+    - `(( HOME = 5 ))`;
+    - `HOME=x make` off a git line (E-353 does not catch it either);
+    - the quadratic of the unclosed-brace scan (726 ms at 15 KB, 546 ms before E-453).
+8. **The verb rule is a deny list, and that is why the rounds do not end (E-456).** r7 closes "configuration names a program". The verbs are still three deny lists: `FORBIDDEN` in git-view.mjs, `FORBIDDEN_ARCHITECT_GIT_GLOBAL` in sovereignty.mjs:30 and `ARCH_GIT_WRITE_SUBS` in architect-writes.mjs:294. No other rule names a subcommand. So a subcommand that runs a program by itself is on no list: `bisect run`, `submodule foreach`, `difftool --extcmd`, `fetch --upload-pack`, `clone --template`. This is read from the code; the Architect did not run these lines. G1 (`clone -qc`) is the same thing seen through r7: the Architect has no use for `clone`.
+9. **For the Architect role, a git subcommand passes only when it is on this list (E-456)**: `status`, `log`, `diff`, `show`, `blame`, `add`, `commit`, `grep`, `config`, `ls-files`, `ls-tree`, `rev-parse`, `rev-list`, `cat-file`, `merge-base`, `describe`, `shortlog`, `for-each-ref`, `diff-tree`, `name-rev`, `check-ignore`.
+    - `reset`, `revert`, `checkout` and `clean` keep today's rule: they pass when every target is under `.ai/` or `plans/` and the line is not relocated.
+    - Any other subcommand is a BLOCK. So is a subcommand word that is dynamic, and a git command with no subcommand word other than `--version` or `--help`.
+    - The dashed form `git-<sub>` is read as `git <sub>`.
+    - A verb that has its own rule id today (`ARCH_GIT_PUSH`, `ARCH_GIT_WRITE`, …) keeps it, so the control ledger of E-432 still attributes it. Every other refusal is `ARCH_GIT_VERB`.
+10. **On a listed verb, three options are a BLOCK (E-456)**: `--exec-path` with a value, `-O` / `--open-files-in-pager` on `grep`, and `--output` on the diff family (it writes a file the write gate does not see). This list is closed over the 21 verbs: the security round's question for E-456 is whether a listed verb runs a program or writes outside `.ai/` and `plans/` through an option. That question is finite. "Which git spelling is missing" is not.
+11. **What E-456 removes.** The `clone` branch of `commandPassesConfig` (F2, G1) and its rows: `clone` blocks by verb. r7's configuration rule stays for the listed verbs.
+12. **E-449's follow-up is accepted.** `platformsFor` lives in `hosted-ci.mjs` and `ci-plan.mjs` re-exports it; E-268.02a is unchanged. E-451 adds the assertion on its values that critic_tests asked for.
+13. **Order**: after the operator's install, E-449 DONE; the E-453 re-probe and its critic_acceptance; E-454; E-455; E-456; then E-450 to E-452.
+
+### Alternatives considered
+1. **Accept the tree without a third round** — rejected: two P1 fixes would be cleared without anyone running them.
+2. **A full third round** — rejected: rounds one and two each found a new set of spellings. D-167 alternative 1 already says a list of names cannot be finished.
+3. **Add the verb allowlist to E-453** — rejected: E-453 is built against r7 and r8 and its table is counted. A second rule in the same commit would need its own rounds on a tree that is already at the limit.
+4. **Leave the verbs as deny lists and record the program-running subcommands as residual** — rejected: they reach the same result as the configuration r7 blocks, with less effort.
+
+### Impact
+- Unlocks: E-453's close; E-456.
+- Risk if wrong: the allowlist blocks a git command the Architect or the operator's Architect workflow needs. The Architect asks the Engineer, or the verb is added by a ruling. E-456's acceptance lists every git line in the Architect's skills with its verdict, so this is seen before the merge.
+
+### Rollback
+E-456 is one commit; reverting it restores the three deny lists. Ruling 2's round changes no code unless it gates.
+
+---
+
+## D-169 — Lean core: the platform enforces, commands keep the books, review follows the tier; the text gate is deleted once the sandbox is proven; merges are delegated
+
+**Date**: 2026-11-23
+**Task**: E-457 to E-466; E-455, E-456 not executed; `.ai/blueprints/lean-core.md`
+**Decision**: Rein keeps only what Claude Code does not do. The role boundary moves to the Bash sandbox and path rules, bookkeeping moves from skills to three commands, and review is sized by tier.
+
+### Why needed
+The operator asked on 2026-11-23 for the four weaknesses to be fixed in the core, with no overhead, and for every axis to reach 8/10 or better. Measured the same day: the command gate is 3,497 lines with about 1,240 table rows; 22 of 61 open tasks are about the gate or its test budget; a session loads 18 MCP servers, 42 skill descriptions and up to 20,000 characters of blueprint text; six finished branches wait for the operator.
+
+### Operator's rulings (asked and answered 2026-11-23)
+1. **Merges are delegated.** The Engineer pushes, opens pull requests, merges on green CI with `[ACCEPT_PASS]` recorded, and runs `install-rein.sh`. Release tags and anything that publishes a version stay with the operator. This widens D-126.
+2. **The text gate is deleted once the sandbox is proven.** A short advisory list stays. Rein supports Linux and WSL2; native Windows is not a target.
+
+### Rulings
+3. **The boundary is the role settings file** that `rein pane <role>` passes to `claude --settings`: sandbox on, no unsandboxed retry, the write list, the `Edit` deny rules, no bypass mode. Details: lean-core.md §Component 1 and §Security.
+4. **Measure before building (E-458).** Claude Code's documentation does not state whether a narrower `allowWrite` wins over a broader `denyWrite`, and does not show the `Edit(!…)` carve-out for "everything except two directories". Nothing in E-462 is built on an assumption about either.
+5. **The text gate goes in its own task (E-463), after the escape suite passes on the operator's machine.** Until then both run.
+6. **The gate line stops now.** E-453 is cleared and E-454 is built; both land with the stack. E-455 (row merge) and E-456 (verb allowlist, D-168 r8–r11) are not executed: the tables and the rules they touch are deleted in E-463. They are closed as superseded when E-463 lands, not before. E-394, E-395, E-410 and P-52 are held and ruled again then.
+7. **Bookkeeping is three commands**: `rein done`, `rein handoff`, `rein decide`. The task-planner checks move into `add_task`. `[BUILD_STALE]` no longer refuses DONE.
+8. **Review by tier.** Tier 1: none. Tier 2: one `reviewer` agent and `critic_acceptance`. Tier 3: plus one `security_engineer` round. Tier 3 is the boundary of ruling 3, the install, hooks, secrets and release signing; nothing else.
+9. **The `test_lines` ratchet is retired.** The time budgets stay. This ends the line of rulings D-149, D-157, D-162, D-164 addendum 1 and D-167 r13.
+10. **MCP servers**: the target is at most two. `filesystem` and `memory` are removed now. The rest are ruled on E-465's call counts, with retire as the default verdict. This replaces P-52's 30-day wait for the servers; P-52 itself is ruled again after E-463.
+11. **The bar is a command.** `rein doctor --fitness` prints the scorecard of lean-core.md §Data Model. A row is done when the command says PASS.
+12. **Order**: E-457, E-458, E-459, E-460, E-461, E-462, E-463, E-464, E-465, E-466; then E-450 to E-452. The Architect runs P-51 in parallel.
+13. **Until E-461 and E-464 land, today's skills and critics apply.** A task is built under the rules that are installed.
+
+### Alternatives considered
+1. **Keep the text gate and add the sandbox on top** — rejected by the operator: the cost that was asked to go would stay.
+2. **Delete the gate first and add the sandbox after** — rejected: there would be a window with no boundary, and ruling 4's two unknowns could fail.
+3. **Start each role with `claude --agent`** — rejected for now: the agent prompt replaces the default system prompt. `--settings`, already used, carries the boundary.
+4. **Use Claude Code's task tools for state** — rejected: persistence across sessions is not documented, and the record is one of the things Rein does better.
+
+### Impact
+- Unlocks: E-457 to E-466.
+- Risk if wrong: the sandbox cannot express the Architect's write scope on WSL2. Then E-458 says so, E-462 and E-463 do not start, and the Architect rules again with the measurements. Components 3 to 7 do not depend on it.
+
+### Rollback
+Each task is one commit. Removing the `sandbox` block from the role settings restores today's behaviour while the gate is still in place; reverting E-463 restores the gate. v0.5.0 is the last tag with the gate.
+
+---
+
+## D-170 — Bones: Rein keeps only what Claude Code does not have; the lean-core work is one batch with one CI run at its end
+
+**Date**: 2026-11-23
+**Task**: E-458 to E-470, P-53 (amends D-169; `.ai/blueprints/lean-core.md` §Revision 2)
+**Decision**: Rein is cut to four things the platform lacks (a durable task ledger, DONE by observed acceptance, a decision record, two roles with enforced lanes); everything else leaves the repository; the whole change is built on one branch with no CI, no critics and no handoff between tasks, and is checked once at the end.
+
+### Why needed
+The operator asked on 2026-11-23 for three things: strip Rein to its bones and keep only the features Claude Code does not have; stop running CI for every small change and run it once when all the tasks are done; update the documentation. D-169 trimmed Rein but kept most of its parts pending usage counts, and kept a CI run and a review per task.
+
+### The operator's rulings
+1. **One CI run for the batch.** No `rein ci run` and no hosted CI between tasks. CI runs when all the tasks are built.
+2. **Strip to the bones.** Only what the platform lacks stays.
+3. **The documentation is rewritten to match.**
+
+### The Architect's rulings
+4. **What stays** (the keep list; anything not named here goes):
+   - *Ledger*: `state.sqlite`, `task-synchronizer-mcp` as the only MCP server, the generated views (TASKS.md, REVIEWS.md, DIGEST.md), tiers, acceptance text.
+   - *Acceptance*: `critic_acceptance`; a Tier 2 or Tier 3 task is refused DONE without `[ACCEPT_PASS]`.
+   - *Record*: DECISIONS.md, COMM.md, blueprints; `rein decide`; skill `blueprint-writer`.
+   - *Roles*: the role settings files with the sandbox (D-169 r3), `rein start`, `rein pane`, rulefiles of at most 2 KB, `rein handoff` with the `SendMessage` wake, the waiting signal and `docs/app-contract.md` (rein-app depends on both).
+   - *CLI*: `init`, `start`, `pane`, `sync`, `doctor` (with `--fitness`), `done`, `handoff`, `decide`, `review`, `ci run`, `state import`, `digest build`, `archive`.
+   - *Agents* (4): `reviewer`, `critic_acceptance`, `security_engineer`, `test_engineer`.
+   - *Skills* (at most 6): `blueprint-writer`, `rein-test`, `rein-debug`, `release-manager`; two places are free.
+   - *Hooks* (at most 900 lines in total, from 2,490): session start, waiting signal, state import, pre-commit (lane, machine-local file, publish checks only), pre-push (a green `rein ci run` row for the pushed tip), and the seatbelt of D-169 r5.
+5. **What goes**: every other MCP server (advisor, approval, archive-manager, ast-parser, blueprint-aligner, cache-manager, context-guardian, memory-manager, orchestrator, patch, propose-patch, risk-analyzer, token-budget, verification, vibe-check, and safe-exec with E-463), the third-party `filesystem` and `memory` servers, telemetry and insights, the incident tracker, the memory palace, REPO_MAP, the instinct stager, the SEO units, the vibe and chaos units, every agent and skill not in ruling 4, the deprecated CLI stubs, and the tests of each. A function a kept command needs moves into the CLI first (`run_review` into `rein review`, `run_handover` into `rein done`).
+6. **Removed agents and skills are not lost.** `plans/rein-plugins-plan.md` already makes the plugin marketplace their home. The Engineer deletes them here and lists each in the handoff; tag v0.5.0 holds every one.
+7. **Not in scope, left as they are**: team mode (`team.json`, claims, the shared log), `rein ci run` and its planner, the release and signing path. They are ruled separately.
+8. **E-465 (the usage census) is superseded by this decision.** The operator ruled the cut; counts are not needed. Its removals are in E-467.
+9. **Batch rules**, for E-458 to E-469:
+   - One branch, `lean-core`, cut from the top of the built stack. One commit per task. Nothing is pushed and no pull request is opened before E-470.
+   - No `rein ci run`, no critics, no `critic_acceptance`, no security round and no handoff between tasks. The Engineer may run the test file it is editing.
+   - Tasks stay open until E-470 and are closed there in one pass.
+   - Two checks are not CI and are kept, because they guard the boundary: the probe of E-458 is run, and the escape suite of E-462 passes on this machine before E-463 deletes the gate.
+   - E-464 is built first. It moves the critic-stamp check from the commit hook to task close, so no commit in the batch waits on a review.
+10. **E-458 needs no ruling to continue.** If the probe shows that the Architect's Bash can be confined to `.ai/`, `plans/` and what a commit needs, by any configuration of lean-core.md §Component 1, the Engineer builds E-462 and E-463 with that configuration and records it. If it cannot, E-462 and E-463 are skipped, safe-exec and its hook stay, and the rest of the batch continues. D-169 r4's second ruling is withdrawn.
+11. **E-457 becomes one pull request** from the top of the stack (`e-454-cwd-terminators`), with one hosted CI run. The Engineer does not wait for it: `lean-core` is cut from the same commit and work starts at once. The handoff names the merge commit, which is the commit rein-app asked for (it holds E-433).
+12. **E-470 closes the batch**: one `rein ci run`, one review (`reviewer`, plus one `security_engineer` round over E-462, E-463 and E-467 together), `critic_acceptance` for every task, one pull request, merge on green CI under D-169 r1, reinstall. A failure is fixed on the branch and the failed check alone is repeated.
+13. **The gate's open questions are closed without work.** The three tables of the 16:23 UTC handoff stand as committed and are not pinned again; N1 and the two over-blocks of E-454 are not fixed. All of it is deleted by E-463. If ruling 10 keeps the gate, the Architect rules on them then.
+14. **Order**: E-457 (in parallel), E-464, E-458, E-460, E-461, E-462, E-463, E-467, E-466, E-459, E-469, E-468, E-470. E-450 to E-452 stay held and are ruled again after E-470.
+15. **Targets added to the scorecard**: MCP servers at most 1; default skills at most 6; agents at most 4; hook lines at most 900. `src/` is 97,956 tracked lines today; the handoff reports the number after.
+
+### Alternatives considered
+1. **Keep D-169's census and rule server by server** — rejected: the operator ruled the cut, and the census is a task that only produces a list.
+2. **CI per task, as D-169 ordered** — rejected by the operator.
+3. **No checks at all until the end, including the escape suite** — rejected: deleting the gate before the sandbox is seen to hold leaves a window with no boundary. The suite is one local test run.
+4. **Delete Rein and use Claude Code alone** — rejected: the ledger, observed acceptance, the record and the role lanes do not exist there.
+
+### Constraints driving this decision
+- The pre-push hook refuses a tip without a green `rein ci run` row, so the batch cannot be pushed early; the work is on one disk until E-470.
+- One run at the end finds failures late. They are harder to place than failures found per task; the one-commit-per-task rule is what keeps them placeable.
+
+### Impact
+- Unlocks: E-467 to E-470, P-53. Amends E-457 to E-466.
+- Risk if wrong: something deleted was in use. Tag v0.5.0 holds everything, and each task is one commit.
+
+### Rollback
+Before E-470 merges, delete the `lean-core` branch. After, revert the merge commit; v0.5.0 is the last tag with the full framework.
+
+---
+
+## D-171 — Pane mode stays the only mode; model routing by tier comes after the batch; rein-app's value is reviewed after the strip
+
+**Date**: 2026-11-23
+**Task**: P-54, P-55
+**Decision**: The operator ruled three things: Rein keeps the two-pane mode and no solo mode is built; tier-based model routing is added after E-470; after the strip, rein-app is reviewed for what it gives that Claude Code does not.
+
+### Why needed
+The operator asked whether two panes are needed, how to lower cost, and whether rein-app is still needed once Rein is small. The answers change what is built after the batch, so they are recorded.
+
+### Rulings
+1. **Pane mode is the only mode.** No solo settings file, rulefile or command path is built. The independent planner and the enforced lane are what Rein adds to the platform; a single session with plan mode is available to the operator without any Rein work.
+2. **Model routing by tier, after E-470** (P-54). Start with Tier 1 only: a cheaper model builds it, by delegation to a subagent with a set model. Tier 3 and planning never route down. A task that fails acceptance once on the cheaper model goes to the stronger one. Tier 2 is ruled after a few weeks of Tier 1 results. A cost baseline (one ordinary Tier 2 task, usage by session) is taken first.
+3. **rein-app is reviewed after the strip** (P-55): a feature-by-feature comparison with what Claude Code ships, ending in a keep and cut list. Until then the batch does not change the waiting signal or `docs/app-contract.md` (D-170 r4), and the two open asks of `rein-app/plans/rein-desk-request.md` (the summary of the ask with an answer path; the operator-owed record) stay unruled.
+
+### Alternatives considered
+1. **Build solo mode now** — rejected by the operator: a second mode to maintain right after the strip, and it gives up the planner and the lane.
+2. **Route models now, inside the batch** — rejected: no baseline to compare against, and the batch should not grow.
+3. **Stop rein-app's work now** — not ruled: nothing has been compared yet.
+
+### Impact
+- Unlocks: P-54, P-55, both after E-470. The batch is unchanged.
+- Risk if wrong: Tier 1 work on a cheaper model fails more often than it saves; ruling 2's escalation and the Tier 1 limit bound it.
+
+### Rollback
+Routing is one setting per tier; remove it. Rulings 1 and 3 build nothing.
+
+---
+
+## D-172 — Review of the lean-core batch as built: accepted with three fixes; F3 closed by moving the Architect's working directory; one re-probe round; one pull request and one CI run for everything
+
+**Date**: 2026-11-24
+**Task**: E-457 to E-470 (review of the handoff of 2026-11-24 01:26 UTC, `plans/lean-core-batch-notes.md`, `.ai/SECURITY.md` "lean-core security round")
+**Decision**: The batch is accepted as built except where the rulings below order a change; the Architect's lane hole F3 is closed before the text gate is deleted; the stack of pull request #68 and the batch reach main as one pull request with one CI run.
+
+### Why needed
+The Engineer built eleven of twelve batch tasks overnight. E-463 (delete the text gate) was refused by the permission classifier in its session, and so was `bash install-rein.sh`. The one security round ended SEC_BLOCKED with F1 to F3 gating; F1, F2 and F5 are fixed and not re-tested. A further round is the Architect's to order (D-164 r6). The batch notes list eleven open questions.
+
+### What was checked
+The fix commit 5dfd82b was read. F1: `roleModel` throws on anything that is not a model name, and `resolve-launch` refuses an argv element holding a line break. F2: the push check excludes only the remote sha git supplies and the bases recorded in the ledger, runs git with replace objects and grafts off, and the role file write-denies `refs/remotes`, `refs/replace`, `packed-refs` and `info`. Both follow the fix direction of the round. Nothing was run by the Architect.
+
+### Rulings — security
+1. **F1 and F2 are accepted as fixed, pending the re-probe of ruling 4.**
+2. **F3 (a file the Architect plants at the project root runs in the Engineer's lane) is closed in E-462, by the first of these that the probe shows to work:**
+   a. Start the Architect's session with its working directory at `<project>/.ai`. The sandbox makes the working directory writable and nothing else by default, so the project root needs no deny list; `plans/` and `.git` stay on the write-allow list with the denials of F2. The probe must show, in one Architect session: a write to a new top-level name fails; `.ai/`, `plans/` and a commit work; the rulefile, the plugin and the state server are loaded.
+   b. If (a) fails on any of those, keep today's launch and add a detective control: the Engineer's session start and `rein handoff` print `[LANE_STRAY]` with every top-level entry that is untracked or ignored and absent from the list recorded at the Engineer's last commit. F3 is then an accepted residual in T-SANDBOXLANE-001, named as such in docs/role-sandbox.md.
+   The Engineer picks by the probe and records which. No ruling is needed between.
+3. **F4: every project keeps a secret check at commit.** `hooks/pre-commit.sh` runs the `secret` class of publish-scan in every Rein project, with or without `.ai/publish.json`. A leaked credential is an accident, not an attack, and the check is a few lines. This is part of E-467.
+4. **One re-probe round, no discovery** (the shape of D-168 r2 to r4). After rulings 2 and 3 are built, `security_engineer` re-runs the payloads of F1, F2 and F3 and the F4 probe, and each is a case in `tests/suites/sandbox_escape_test.sh`. SEC_CLEARED if all resist. A new finding is recorded in T-SANDBOXLANE-001 and does not gate unless it is P0. There is no further round.
+5. **F5, F6, F7**: F5 is accepted as fixed. F6: CAPABILITIES.md drops the `~/.rein/*.sqlite` write; the sandbox is the rule. F7: `.bashrc` and `.gitconfig` at the root go into `.gitignore` and the template.
+6. **A case that depends on the model making a call reports UNKNOWN, never FAIL or PASS**, and is repeated once. The suite passes with no FAIL and no UNKNOWN. It runs on the operator's machine (E-470 and each release), not in hosted CI: it needs a login.
+
+### Rulings — E-463, install, CI
+7. **E-463 is built only on the operator's word in the Engineer's own pane, and only after ruling 4 returns SEC_CLEARED.** The classifier's refusal is not worked around by either role. D-169 r2 stands as the operator's intent; the go at the moment of deletion is theirs.
+8. **`bash install-rein.sh` is the operator's act**, now and after the strip: the Engineer's sandbox write-denies `~/.rein`, and that is the boundary working. `rein sync` in a role pane cannot write `.claude/`; the operator runs it. docs/install.md says so.
+9. **One pull request, one CI run.** D-170 r11 is withdrawn: the operator stopped #68's CI. `lean-core` contains the whole stack, so #68 is closed unmerged and `lean-core` is the one pull request. Its merge commit is the commit rein-app waits for. CI runs once, on the operator's word, after E-463 (or after the operator says E-463 waits).
+10. **Order from here**: E-462 and E-467 fixes (rulings 2, 3, 5) with rulings 11 to 22; the re-probe; the operator's go for E-463; E-463; then the operator's sitting: `rein ci run`, `bash install-rein.sh`, restart; then `reviewer` again for E-460, E-466 and E-469 only, `critic_acceptance` per task, the pull request, the merge.
+
+### Rulings — the notes' open questions
+11. **Session bytes (5313 against 4096)**: CLAUDE.md becomes role-neutral, one short paragraph that says roles start with `rein pane`. It imports no rulefile. The appended rulefile carries the role.
+12. **TASKS.md (110 KB against 80 KB)**: each line of the view is cut at 300 characters; `rein task show <id>` prints the full text. The Architect's P-51 closes the overtaken tasks.
+13. **The `rein task show` clause** is checked with E-427.
+14. **`archive_done_tasks` is retired.** A rotation that removes stamps the DONE checks read is a defect.
+15. **The brief's next five tasks**: the role's OPEN tasks, highest id first.
+16. **Hook lines**: the target becomes 950. `post-commit.sh` carries the lane ledger, which is part of the new boundary; the first number was set before that existed.
+17. **The eval harness is deleted**, with the repository-root `.claude-plugin/plugin.json` that shares the plugin's name.
+18. **The delta channel is retired**: `rein handoff` carries what changed. The unread-deltas view goes.
+19. **The tracked `.claude/agents` and `.claude/skills` copies are untracked**, and the suites that compare them read `src/`.
+20. **docs/assets is outside the E-468 grep.** The demo is recorded again at the next release, by the operator.
+21. **The documentation states what was measured**: the sandbox on Linux and WSL2. macOS is named as not measured.
+22. **Ratified as built**: review checked at close, not at commit (D-170 r9 over the E-464 clause); `release-manager` asks for `[REVIEW_PASS]`; `blueprint-writer` kept; `rein start` refuses without the sandbox as `rein pane` does (change the warning to a refusal); `src/claude/CLAUDE.md` is deleted; `.ai/blueprints/mcp.md` is a generated view from now and the Engineer regenerates it; tests that create role folders use a scratch Rein home.
+
+### Alternatives considered
+1. **Accept F3 as a residual now** — rejected while option 2a is one probe away: the text gate being deleted is today's only cover for that route.
+2. **A full second discovery round** — rejected (D-164 r6, D-167): rounds that discover do not end.
+3. **Merge #68 first, then the batch** — rejected: two CI runs, against the operator's order.
+4. **Ask the Engineer to retry the deletion or the install another way** — rejected: that would be working past a refusal.
+
+### Impact
+- Unlocks: the close of E-458 to E-470.
+- Risk if wrong: option 2a changes where the Architect's session runs, and path habits in the rulefile break. The probe in ruling 2 is the check, and 2b is the fallback.
+
+### Rollback
+Each ruling is a change inside one task's commit or a follow-up commit on `lean-core`; the branch is not on origin. Ruling 2a is one launch setting.
+
+### Addendum 1 (2026-11-24) — the re-probe is accepted; F8 is a reported residual
+23. **The re-probe of r4 is accepted**: SEC_CLEARED at ff7cc71, escape suite 42 PASS, 0 FAIL, 0 UNKNOWN; F3 closed by r2a (the Architect starts in `<project>/.ai`). The security rounds for the batch are over. E-463 waits only on the operator's word (r7).
+24. **F8** (a test runner with default discovery collects an Architect-written `plans/*.test.mjs` and runs it in the Engineer's lane) **is an accepted residual with a report.** The Architect's lane is inside the project by design, so a tool the Engineer points at the whole tree reads it. The control is detective and small: the Engineer's session start and `rein handoff` print `[LANE_CODE]` with every file under `.ai/` and `plans/`, tracked or not, whose extension is not one of `.md .json .txt .yml .yaml .tsv .sqlite .log` (and sqlite's `-wal`, `-shm`). docs/role-sandbox.md names the residual and says to point a test runner at its test directories. This is part of E-462; no review round follows it. T-SANDBOXLANE-001 keeps F8 as accepted.
+25. **`[LANE_CODE]` is quiet on a clean project** (same day): a notice that always fires is not read. Exempt by exact name `.ai/.gitignore` and `.ai/.last-import-blob`, which Rein writes itself. Add the extensions `.svg .html .png .gif .jpg .pdf`: no test runner or build tool loads them from a directory it was not pointed at.
+
+### Addendum 2 (2026-11-24) — the seatbelt lives in `src/shared/`
+26. **The seatbelt moves to `src/shared/seatbelt.mjs`; `src/mcp/safe-exec-mcp/` is deleted.** Three clauses could not all hold: E-463 clause 1 counts lines under `src/mcp/safe-exec-mcp/`, E-467 clause 1 lists only `shared` and `task-synchronizer-mcp` under `src/mcp`, and E-468's grep forbids `safe-exec` in CONTRIBUTING.md and docs/. The file is no MCP server, so the directory name is the wrong one.
+   a. E-463 clause 1 now reads `wc -l src/shared/seatbelt.mjs`. E-467 clause 1 and E-468's grep stand as written.
+   b. The fitness row `command_text_lines` counts that one file, not `src/shared/`.
+   c. The installed copy is `~/.rein/shared/seatbelt.mjs`. `hooks/pre-tool-use.sh`, `install-rein.sh`, CONTRIBUTING.md and docs/gates-and-review.md name the new path. `~/.rein/mcp/safe-exec-mcp/` is a legacy artefact that `rein clean` removes.
+   d. The locator cases in `tests/suites/locator_policy_test.sh` keep every case, at the new path.
+   e. No extra security round: the move is inside E-463, and E-470's one round over the branch diff reads it.
+
+### Addendum 3 (2026-11-24) — four tasks that named the deleted gate
+27. **E-394, E-395, E-410 and P-52 are closed as superseded by D-169, not implemented** (the E-463 clause asked for a ruling on each).
+   a. **E-394** (doctor reads `disableAllHooks` from every settings layer): closed. It was a P3 finding from when hooks held the role boundary. The sandbox holds it now (D-169 r2, r5); a session with hooks off loses the brief and the seatbelt's advice, and the operator sees a missing brief at once. The doctor's existing check of the project file stays.
+   b. **E-395** (doctor exits non-zero on `[SAFE_EXEC_BROKEN]` and `[GATE_DEP_MISSING]`): closed. Both lines went with the gate.
+   c. **E-410** (`rein incident` as an allowlisted install-tree writer): closed. The allowlist went with the gate, and E-467 removed the `rein-incident` skill.
+   d. **P-52** (first control review from `rein gate ledger`): closed. The ledger went with the gate. The controls left are the keep list of D-170, which the operator ruled by hand.
+
+### Addendum 4 (2026-11-24) — telemetry and the incident tracker leave in a follow-up task
+28. **The removal of telemetry and the incident tracker (D-170 r5) moves out of E-467 into its own task, on the operator's choice.** The batch notes kept them because the command gate used them; the gate is gone, so D-170 r5 applies again. The removal is about 15 files and a rewrite of the test runner's isolation guard, which is too much for a fix commit on a branch whose stamps bind to HEAD.
+   a. E-467's review and acceptance read "telemetry and insights, the incident tracker" as moved to the new task. Their presence at the batch tip is not a FAIL of E-467.
+   b. The new task removes `src/shared/telemetry.mjs`, the recording half of `src/shared/mcp-telemetry.mjs`, `src/shared/incident-append.mjs`, the incident writer in the hooks, and the tests of each. The build stamp that `rein doctor` reads for a stale server stays.
+   c. The test runner keeps a guard that no test writes under the operator's `~/.rein`; it stops naming telemetry.
+   d. It is Tier 3 (hooks and the install list) and it lands before v0.6.0: D-173 r2 gains it between #69 and the bump, so the release is the lean core as D-170 ruled it and the CHANGELOG lists one removal, not two.
+
+---
+
+## D-173 — The lean core is released as v0.6.0 after pull request #69 merges; the operator creates the tag
+
+**Date**: 2026-11-24
+**Task**: the release task registered with this entry (after E-470)
+**Decision**: On the operator's order of 2026-11-24, the lean-core batch is published as v0.6.0, the second signed release, by the path v0.5.0 took (D-156 r5, r6).
+
+### Why needed
+`package.json` says 0.5.0 on `main` and on `lean-core`, and the batch sits under `[Unreleased]` in CHANGELOG.md. E-470 forbids a tag and a version. Without a release, GitHub shows 0.5.0 for a tree that has lost most of what 0.5.0 had.
+
+### Rulings
+1. **The number is 0.6.0.** Below 1.0.0 a breaking change raises the minor number. The batch removes commands, agents, skills, MCP servers and the command gate, so it is breaking and the CHANGELOG section carries a BREAKING list.
+2. **Order**: #69 merges and E-470 closes; then one pull request with the bump and the CHANGELOG; then the operator's tag `v0.6.0` on that merge commit; then `release.yml` publishes; then the Engineer verifies the published assets.
+3. **The operator creates and pushes the tag.** No role creates it, reads the release key, or signs with any key but the throwaway fixture (D-156 r6).
+4. **The escape suite runs on the operator's machine at the commit to be tagged** (D-172 r6). PASS with 0 FAIL and 0 UNKNOWN, or no tag.
+5. **The demo recording** (D-172 r20) is the operator's and does not hold the release. Until it is recorded again, README keeps the sentence that says the demo shows v0.5.0.
+6. **The task is Tier 2.** It changes no signing code and no workflow: it runs an unchanged release path. A change to `release.yml`, the release scripts or the key makes it Tier 3.
+7. **rein-app** gets the release URL, the tarball sha256 and the tagged commit from the closing handoff. Whether it follows 0.6.0 is part of P-55.
+
+### Alternatives rejected
+1. **1.0.0** — rejected: the lean core has not run a single ordinary task on `main` yet.
+2. **0.5.1** — rejected: a patch number for a release that removes most of the product misleads.
+3. **Bump inside #69** — rejected: E-470's text forbids it, and the branch's stamps bind to HEAD, so one more commit voids them all.
+
+### Rollback
+Before the tag: revert the bump pull request. After the tag: `gh release delete v0.6.0`, delete the tag (the operator), and v0.5.0 stays the latest signed release.
+
+---

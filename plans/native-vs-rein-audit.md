@@ -16,7 +16,7 @@
 | Safety | permission allow/deny/ask, auto-mode NL classifier, sandbox | safe-exec PASS/WARN/BLOCK, TSRT tiers, approval-mcp, propose-patch HITL |
 | Git gates | none native (`/code-review`, `/security-review` are on-demand) | pre-commit needs a ≤7-day `[CRITIC_STAMP]`; pre-push needs a green local CI row |
 | CI | worktrees exist, no CI runner | `rein ci run` in a detached worktree + throwaway HOME (D-072) |
-| Cross-session wake | `SendMessage` to other local sessions (unverified as a wake primitive) | `ai handoff` → `signal.json` → `ai-watch` idle-detect + `tmux send-keys` |
+| Cross-session wake | `SendMessage` to other local sessions (unverified as a wake primitive) | the signal `handoff` subcommand → `signal.json` → `ai-watch` idle-detect + `tmux send-keys` |
 | Observability | `/usage`, `/insights`, `/skill-doctor`, OTEL export (all per-session / per-user) | cross-project `telemetry.sqlite` → `meta_analyst` → INSIGHTS.md → proposed skills (HITL) |
 | Orchestration | Workflow tool (JS scripts, `parallel`/`pipeline`), agent hooks | orchestrator-mcp scripted workflows, critic agents dispatched by `rein-review` |
 

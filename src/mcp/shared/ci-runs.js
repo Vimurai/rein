@@ -68,6 +68,9 @@ export const CI_RESOURCE_COLUMNS = [
   ["peak_sum_rss_mb", "INTEGER"],
   // E-303 (D-088): the budget block a run measured, and the ruling that set it (ci-budget.js).
   ["budget_json", "TEXT"], ["budget_ruling", "TEXT"],
+  // E-443 (D-164 addendum 1 r5): the commit a ruling was made for (NULL on a ruling row written
+  // before it: that row's own sha is read instead).
+  ["budget_ruled_sha", "TEXT"],
   // E-386 (D-135 r3, r6): "i/N" for one shard of a run (NULL = the full run — the only kind that
   // certifies), and the seconds the serial exclusive tail took.
   ["shard", "TEXT"], ["exclusive_seconds", "INTEGER"],
@@ -267,7 +270,7 @@ export function parseCiLog(text, logPath = null) {
       // The LAST one is the run's own: a suite that starts a runner prints its line earlier.
       run.peak_sum_rss_mb = _int(_kv(line.slice(6)).peak_sum_rss_mb);
     } else if (line.startsWith("[ci] budget ")) {
-      // E-303: `[ci] budget suites=45 test_lines=39444 fast_tier_seconds=37 full_seconds=418 …`
+      // E-303: `[ci] budget suites=45 fast_tier_seconds=37 full_seconds=418 …`
       const b = parseBudgetLine(line);
       if (Object.keys(b).length) run.budget_json = JSON.stringify(b);
     } else if (line.startsWith("[ci] lanes=")) {
@@ -408,6 +411,20 @@ function _isAncestor(root, a, b) {
 const ANCESTOR_SEARCH_ROWS = 50;
 
 /**
+ * Does `ancestor` stand for `sha`? Null when it is not an ancestor (or git cannot say); else
+ * { ok, differs, outside } — ok when every path that differs between the two is under .ai/.
+ * The CI gate's ancestor rule, shared with the acceptance gate (E-431, D-159 r9).
+ */
+export function aiOnlyAncestor(repoRoot, ancestor, sha) {
+  if (!_isAncestor(repoRoot, ancestor, sha)) return null;
+  let differs;
+  try { differs = _git(repoRoot, ["diff", "--name-only", ancestor, sha]).split("\n").filter(Boolean); }
+  catch { return null; }
+  const outside = differs.filter((p) => !p.startsWith(".ai/"));
+  return { ok: outside.length === 0, differs, outside };
+}
+
+/**
  * Is `sha` certified by CI?
  *
  *   1. its own newest non-dirty row decides, if it has one (PASS → ok; anything else → no;
@@ -417,7 +434,7 @@ const ANCESTOR_SEARCH_ROWS = 50;
  *      certifies, a FAIL or SKIPPED record never does;
  *   3. otherwise the newest non-dirty PASS row — or PASS record — for an ANCESTOR counts
  *      when every path that differs between the two is under .ai/ — the bookkeeping commits
- *      rein-task makes after a DONE, and a merge commit whose tree equals the tested tip, are
+ *      `rein handoff` makes after a DONE, and a merge commit whose tree equals the tested tip, are
  *      never CI'd on their own and must not block (local-ci.md §Components 5b).
  *
  * A local row outranks a record for the same sha: this machine's own newest verdict is the
@@ -446,15 +463,11 @@ export function certifyingRunFor(db, repoRoot, sha, { allowSkipped = false, aiDi
   ];
   let nearest = null;
   for (const c of candidates) {
-    if (!_isAncestor(repoRoot, c.sha, sha)) continue;
-    let differs;
-    try {
-      differs = _git(repoRoot, ["diff", "--name-only", c.sha, sha]).split("\n").filter(Boolean);
-    } catch { continue; }
-    const outside = differs.filter((p) => !p.startsWith(".ai/"));
+    const a = aiOnlyAncestor(repoRoot, c.sha, sha);
+    if (!a) continue;
     const via = c.row ? "ancestor" : "record-ancestor";
-    if (!outside.length) return { ok: true, kind: "PASS", via, row: c.row, record: c.record, differs, warnings };
-    if (!nearest) nearest = { ...c, differs: outside };
+    if (a.ok) return { ok: true, kind: "PASS", via, row: c.row, record: c.record, differs: a.differs, warnings };
+    if (!nearest) nearest = { ...c, differs: a.outside };
   }
   return {
     ok: false, kind: "NONE", via: null, row: nearest ? nearest.row : null, record: nearest ? nearest.record : null,

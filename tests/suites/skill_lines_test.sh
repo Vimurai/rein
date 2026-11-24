@@ -8,7 +8,7 @@
 # Four of them resolved framework helpers cwd-relative — `for c in
 # src/shared/incident-aggregate.mjs ...` — so running a session inside ANY project that
 # planted that file executed THAT file. Worse than the hook form E-223 fixed: no git repo
-# is needed, and `rein-preflight` runs at the start of every single session.
+# is needed, and the preflight skill (removed by E-460) ran at the start of every session.
 #
 # The assertions are on EXECUTION, not on the text of the SKILL.md. A grep would pass
 # against any rewrite that still resolved cwd-relative by another route.
@@ -23,10 +23,10 @@ STD_MJS="${REPO_ROOT}/src/shared/standards-checker.mjs"
 
 echo "── Suite: skill_lines_test (E-225, E-232) ───────────────────────────"
 
+# E-467 (D-170 r5) retired rein-insights and rein-review-proposed-skills, the two skills these
+# rows first covered; rein-test's Test command line is the kept skill with the same shape.
 SKILLS=(
-  "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md"
-  "${REPO_ROOT}/src/shared/skills/rein-insights/SKILL.md"
-  "${REPO_ROOT}/src/shared/skills/rein-review-proposed-skills/SKILL.md"
+  "${REPO_ROOT}/src/shared/skills/rein-test/SKILL.md"
 )
 
 # ── E-225.1: THE CANARY — no skill executes a decoy project's helper ────────
@@ -45,7 +45,7 @@ if [[ -n "$_out" ]]; then echo "    executed: $(printf '%s' "$_out" | tr '\n' ' 
 # A test that asserts "the old code was broken" has to carry the old code.
 _old="$(mktemp -d)"; mkdir -p "$_old/prefix"
 cat > "$_old/prefix/SKILL.md" <<'PREFIX'
-# Pre-fix rein-preflight (verbatim shape of the E-225 defect)
+# Pre-fix preflight skill (verbatim shape of the E-225 defect)
 
 Incident status: !for c in src/shared/incident-aggregate.mjs "${HOME}/.rein/shared/incident-aggregate.mjs"; do [ -f "$c" ] && node "$c" 2>/dev/null && break; done 2>/dev/null || echo "(aggregator unavailable)"
 
@@ -70,10 +70,13 @@ rm -rf "$_old"
 # the fix works. With locate.sh unreachable AND an inherited exported `rein_locate`, the
 # first cut executed the decoy — `declare -f` is satisfied by an environment-supplied
 # function, which is exactly what E-223 F13 fixed for the hooks and E-225 did not port.
-_line="$(grep -m1 '^Incident status:' "${REPO_ROOT}/src/shared/skills/rein-preflight/SKILL.md" | sed 's/^[^!]*!//')"
+# E-460: the preflight skill's incident line went with the skill; E-467 retired rein-insights,
+# whose telemetry line replaced it. rein-test's Test command line has the same shape
+# (locate.sh, then rein_locate, then node on the result).
+_line="$(grep -m1 '^Test command:' "${REPO_ROOT}/src/shared/skills/rein-test/SKILL.md" | sed 's/^[^!]*!//')"
 _d="$(mktemp -d)"; mkdir -p "$_d/src/shared"
-printf 'console.log(%s);\n' "'{\"status\":\"PWNED\"}'" > "$_d/src/shared/incident-aggregate.mjs"
-_got="$( cd "$_d" && env "BASH_FUNC_rein_locate%%=() { printf '%s' \"\$PWD/src/shared/incident-aggregate.mjs\"; }" \
+printf 'console.log(%s);\n' "'{\"status\":\"PWNED\"}'" > "$_d/src/shared/test-command.mjs"
+_got="$( cd "$_d" && env "BASH_FUNC_rein_locate%%=() { printf '%s' \"\$PWD/src/shared/test-command.mjs\"; }" \
           HOME=/nonexistent bash -c "$_line" 2>/dev/null )"
 assert_not_contains "E-225.01f: a forged resolver cannot run the decoy (degraded install)" \
   "PWNED" "$_got"
@@ -342,14 +345,14 @@ assert_contains "E-225.07b: a bad chain in a MIRROR is flagged" "FLAGGED" \
   "$(node --no-warnings "$RULECHK" "$_mm" .claude/skills/x/SKILL.md 2>/dev/null)"
 rm -rf "$_mm"
 
-# ── E-225.5: mirrors carry the fix ─────────────────────────────────────────
-# A fix that lives only in src/ is not deployed: the harness loads .claude/skills.
-for m in ".claude/skills/rein-preflight/SKILL.md" ".agents/skills/rein-preflight/SKILL.md"; do
+# ── E-225.5: the source carries the fix (D-172 r19: the .claude/ mirror is untracked; the plugin
+# is built from src/, so src/ is what a session loads) ──────────────────────────────────────
+for m in "src/shared/skills/rein-test/SKILL.md"; do
   if [[ -f "${REPO_ROOT}/$m" ]]; then
     assert_status 0 "E-225.05 $m carries the resolver" \
-      grep -q 'rein_locate shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
+      grep -q 'rein_locate shared/test-command.mjs' "${REPO_ROOT}/$m"
     assert_status 1 "E-225.05 $m has no cwd-relative chain left" \
-      grep -q 'for c in src/shared/incident-aggregate.mjs' "${REPO_ROOT}/$m"
+      grep -q 'for c in src/shared/' "${REPO_ROOT}/$m"
   fi
 done
 
@@ -422,7 +425,9 @@ CASES
 
 # ── E-232.3: the shipped corpus is clean, and the scan is not vacuous ───────
 _CORPUS_FILE="$(test_tmpdir e232-corpus)/corpus.txt"
-_corpus_list="$(cd "$REPO_ROOT" && corpus_or_fail 100 src .claude \
+# E-467 (D-170 r4) left 5 skills and 4 agents. D-172 r19 untracked the .claude/ copies, so
+# the corpus is src/ alone: 9 files and the skill template, floor 9.
+_corpus_list="$(cd "$REPO_ROOT" && corpus_or_fail 9 src \
                  -- -name "SKILL.md" -o -path "*/agents/*.md")"
 _corpus_rc=$?
 printf '%s\n' "$_corpus_list" > "$_CORPUS_FILE"
@@ -465,27 +470,20 @@ _corpus_n="$(printf '%s\n' "$_corpus_list" | grep -c . || true)"
 assert_contains "E-232.03c: the scanner read the whole corpus (${_corpus_n} files)" \
   "${_corpus_n}" "${_files}"
 
-# ── E-232.4: the three converted skills kept their capability, as STEPS ────
+# ── E-232.4: the converted skill kept its capability, as STEPS ─────────────
 # Removing the `!` line must not remove the ability — otherwise this "fix" is a deletion.
-for f in src/shared/skills/rein-debug/SKILL.md \
-         src/claude/skills/bug-reproducer/SKILL.md \
-         src/shared/skills/rein-upgrade/SKILL.md; do
+# (bug-reproducer and rein-upgrade, the other two, were retired by E-467.)
+for f in src/shared/skills/rein-debug/SKILL.md; do
   assert_status 0 "E-232.04: ${f##*/} ($(dirname "$f" | xargs basename)) still instructs the agent to run the suite" \
     grep -q "Step 0" "${REPO_ROOT}/$f"
 done
 assert_status 0 "E-232.04b: rein-debug still names the project's test command" \
   grep -q "tests/run.sh" "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md"
-assert_status 0 "E-232.04c: rein-upgrade still names npm run test" \
-  grep -q "npm run test" "${REPO_ROOT}/src/shared/skills/rein-upgrade/SKILL.md"
 
 # ── E-232.5: mirrors are byte-identical ────────────────────────────────────
-assert_status 0 "E-232.05a: rein-debug .claude mirror matches src" \
-  diff -q "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-debug/SKILL.md"
+# E-232.05a (the .claude/ mirror) deleted: that copy is untracked (D-172 r19).
 assert_mirror_if_present "E-232.05b: rein-debug .agents mirror matches src" "${REPO_ROOT}/src/shared/skills/rein-debug/SKILL.md" "${REPO_ROOT}/.agents/skills/rein-debug/SKILL.md"
-assert_status 0 "E-232.05c: rein-upgrade .claude mirror matches src" \
-  diff -q "${REPO_ROOT}/src/shared/skills/rein-upgrade/SKILL.md" "${REPO_ROOT}/.claude/skills/rein-upgrade/SKILL.md"
-assert_status 0 "E-232.05d: bug-reproducer .claude mirror matches src" \
-  diff -q "${REPO_ROOT}/src/claude/skills/bug-reproducer/SKILL.md" "${REPO_ROOT}/.claude/skills/bug-reproducer/SKILL.md"
+# E-232.05c-d (rein-upgrade and bug-reproducer mirrors) went with those skills (E-467).
 
 # ── E-232.6: the rule is registered, and has a rollback ────────────────────
 assert_status 0 "E-232.06a: registered in standards.json" \

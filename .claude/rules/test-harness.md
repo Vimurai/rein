@@ -6,7 +6,7 @@ paths:
 # Test harness rules (tests/)
 
 Source: `.ai/blueprints/test-harness-isolation.md` (D-061…D-071). Each rule is a standing
-review question for `critic_tests` and `rein-review`.
+review question for the `reviewer` agent (E-464).
 
 1. **What the machine has (E-236)**: every assertion states what it needs from the host. An
    optional need is a recorded SKIP via `skip_unless_cmd` / `skip_unless_env` — never a
@@ -18,7 +18,7 @@ review question for `critic_tests` and `rein-review`.
    measured in the same run (`elapsed ≤ k × baseline + slack`) on every host. An absolute number
    is allowed only as a declared **ceiling** that states its reason (a linear-time bound, a
    latency contract), is at least 5× the CI median, and applies on every host — never only under
-   `CI=true`; a `CI=true`-only absolute is a `critic_tests` finding. Print baseline and elapsed
+   `CI=true`; a `CI=true`-only absolute is a `reviewer` finding. Print baseline and elapsed
    every run. A suite timeout is a hang detector, not a budget: a suite whose green hosted time
    exceeds a third of the default declares `# REIN_SUITE_TIMEOUT=<s>` at 3× its slowest green
    hosted run, the measurement in a trailing comment.
@@ -52,7 +52,7 @@ review question for `critic_tests` and `rein-review`.
    before the first suite, fails the run with `[GH_ENV_LEAKED]` if any survived. A token exported
    in the launching shell is normal and never blocks a run. A suite that needs a `gh` answer puts a
    stub `gh` on `PATH` (or injects one, as hosted-ci.test.mjs does). Review question #9
-   (`critic_tests`): "does this test run `gh`, `rein doctor` or `rein ci hosted` — and is the `gh`
+   (`reviewer`): "does this test run `gh`, `rein doctor` or `rein ci hosted` — and is the `gh`
    it reaches a stub on the lane's PATH?" Rollback: `REIN_TEST_KEEP_GH_ENV=1` skips the scrub and
    the guard, for a deliberate live run only.
 
@@ -69,8 +69,9 @@ A test is a claim about a BEHAVIOUR, at the cheapest layer that can observe it, 
 11. **Delete with a LOG line.** A test whose behaviour another test or table already covers is
    deleted with one `.ai/LOG.md` line naming what covers it. A `T-*` regression pin is deleted
    only when the Architect's Consolidation Map names the row that now carries it.
-12. **The budget only moves down.** `rein ci run` records suites, test lines and fast-tier
-   seconds; exceeding the best recorded value fails the run, and raising it is a D-ruling.
+12. **The budget only moves down.** `rein ci run` records suites and fast-tier seconds;
+   exceeding the best recorded value fails the run, and raising it is a D-ruling. The test-lines
+   ratchet is retired (E-464, D-169 r9): time is the cost.
 
 ## A new CI failure is presumed REAL until you have read its log (D-062 / E-238)
 After a run of environmental failures it is tempting to file the next one the same way. Two

@@ -6,8 +6,8 @@
 # A Claude Architect HAS git, so the D-053 proxy-commit workaround (the
 # Engineer commits the Architect's .ai/ edits) is retired for same-provider Triads.
 # The lane is the LAST checkpoint before history: an Architect may commit only paths
-# under .ai/ or plans/, and for such a commit the [CRITIC_STAMP] requirement is waived
-# because the critics review src/ and an .ai/-only diff gives them nothing to read.
+# under .ai/ or plans/. E-464 (D-170 r9): no role needs a review stamp to commit any more —
+# review is checked at task close — so the lane's stamp waiver went with Gate 2's stamp check.
 #
 # Every assertion drives the REAL hook in a disposable git repo with real staged files.
 set -uo pipefail
@@ -16,30 +16,25 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HOOK="${REPO_ROOT}/hooks/pre-commit.sh"
-SAFE_EXEC="${REPO_ROOT}/src/mcp/safe-exec-mcp/index.js"
 
 echo "── Suite: git_lane_test (E-214) ─────────────────────────────────────"
 
 _RC=0   # declared up front: the suite runs under `set -u`
 
-# E-294 (D-087, Component 8g): pre-commit resolves the role from four sources, in order —
-# (1) a CLAUDE_CODE_SESSION_ID whose token VERIFIES → record (the only waiver source),
-# (2) a live launch record on the commit process's chain → chain, (3) a session id that does
-# not verify → union (architect), (4) the advisory env, then engineer. Every hook run below
-# uses a throwaway HOME (rule 6) whose ~/.rein/{mcp,shared} are this checkout's src/ — the
-# hook locates safe-exec and launch-record.py there (never the operator's install, and never
-# a launch record on the operator's own process chain). Real sessions come from as-session.sh.
+# E-294 (D-087, Component 8g), E-463: pre-commit resolves the role from two sources, in order —
+# (1) a live launch record on the commit process's chain → chain, (2) the advisory env, then
+# engineer. Every hook run below uses a throwaway HOME (rule 6) whose ~/.rein/{mcp,shared} are
+# this checkout's src/ — the hook locates launch-record.py there (never the operator's install,
+# and never a launch record on the operator's own process chain). Real sessions come from
+# as-session.sh.
 GH="$(test_tmpdir glhome)"
 mkdir -p "${GH}/.rein"
 tc_link_shared "$GH"   # E-345 (D-109 r1): mirror = this tree + the toolchain record the hooks pin
 ln -s "${REPO_ROOT}/src/mcp" "${GH}/.rein/mcp"
 AS="${REPO_ROOT}/tests/lib/as-session.sh"
 
-# Disposable repo with a seeded stamp, so Gate 2 is satisfied for the engineer path
-# and the ONLY variable under test is the role + staged scope.
-# E-329: a stamp is bound to a commit, so the repo has a parent commit and the seeded
-# [CRITIC_STAMP] names it (in the state.json view — there is no state.sqlite here). It is
-# removed with `rm -f .ai/state.json`. A line in REVIEWS.md no longer counts (E-329.06).
+# Disposable repo with a parent commit; the ONLY variable under test is the role + staged
+# scope. E-464: no stamp is seeded — pre-commit asks for none.
 _mkrepo() {
   local d; d="$(test_tmpdir glrepo)"
   ( cd "$d"
@@ -48,13 +43,8 @@ _mkrepo() {
     mkdir -p .ai/blueprints plans src tests
     echo base > README
     git add README && git commit -q --no-verify -m base
-    _seed_stamp "$(git rev-parse HEAD)" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
   )
   printf '%s' "$d"
-}
-_seed_stamp() {  # <sha> <iso time> → .ai/state.json with one CRITIC_STAMP for <sha> (cwd = repo)
-  printf '{"tasks":[],"stamps":[{"type":"CRITIC_STAMP","agent":"t","sha":"%s","author":"t@t","timestamp":"%s","summary":"seeded"}]}\n' \
-    "$1" "$2" > .ai/state.json
 }
 
 # Run the hook with an explicit role, assigning into _OUT/_RC in the CURRENT shell.
@@ -76,17 +66,17 @@ _OUT=""
 _run() {  # <repo> <role> → sets _OUT and _RC
   local d="$1" role="$2"
   _OUT="$( cd "$d" && env HOME="$GH" REIN_CALLER_ROLE="$role" \
-           REIN_SKIP_STANDARDS=1 CLAUDE_CODE_SESSION_ID= \
+           CLAUDE_CODE_SESSION_ID= \
            bash "$HOOK" 2>&1 )"
   _RC=$?
 }
 
-# ── E-214.1: in-scope architect commit passes and waives the stamp ───────────
+# ── E-214.1: in-scope architect commit passes ────────────────────────────────
 R1="$(_mkrepo)"
 ( cd "$R1" && echo x > .ai/blueprints/new.md && echo y > plans/p.md && git add .ai/blueprints/new.md plans/p.md )
 _run "$R1" architect
 assert_contains "E-214.01a: architect in-scope commit is allowed (rc 0)" "0" "$_RC"
-assert_contains "E-214.01b: the lane announces the waiver" "ARCHITECT_LANE" "$_OUT"
+assert_contains "E-214.01b: the lane announces the in-scope commit" "ARCHITECT_LANE" "$_OUT"
 assert_not_contains "E-214.01c: no sovereignty block for an in-scope commit" "SOVEREIGNTY_BLOCK" "$_OUT"
 
 # ── E-214.2: any out-of-scope path blocks ────────────────────────────────────
@@ -96,7 +86,7 @@ _run "$R2" architect
 assert_contains "E-214.02a: a single src/ path blocks the whole commit (rc 1)" "1" "$_RC"
 assert_contains "E-214.02b: the block is labelled [SOVEREIGNTY_BLOCK]" "SOVEREIGNTY_BLOCK" "$_OUT"
 assert_contains "E-214.02c: the offending path is named" "src/impl.js" "$_OUT"
-assert_contains "E-214.02d: the hint routes work to the Engineer" "skill: rein-handoff" "$_OUT"
+assert_contains "E-214.02d: the hint routes work to the Engineer" "rein handoff --to engineer" "$_OUT"
 assert_contains "E-214.02e: the hint says how to unstage" "git restore --staged" "$_OUT"
 # Mixed staging must not be partially accepted — .ai/ok.md is in scope but the commit
 # is atomic, so the whole thing is refused.
@@ -130,9 +120,9 @@ assert_contains "E-214.04b: renaming WITHIN .ai/ is allowed" "ARCHITECT_LANE" "$
 R7="$(_mkrepo)"
 ( cd "$R7" && echo z > src/impl.js && git add src/impl.js )
 _run "$R7" engineer
-assert_contains "E-214.05a: engineer commits src/ freely (rc 0, stamp present)" "0" "$_RC"
+assert_contains "E-214.05a: engineer commits src/ freely (rc 0)" "0" "$_RC"
 assert_not_contains "E-214.05b: engineer never sees the sovereignty block" "SOVEREIGNTY_BLOCK" "$_OUT"
-assert_not_contains "E-214.05c: engineer never gets the stamp waiver" "ARCHITECT_LANE" "$_OUT"
+assert_not_contains "E-214.05c: engineer never enters the architect lane" "ARCHITECT_LANE" "$_OUT"
 
 # An unset role must behave exactly like engineer — no new restriction by default.
 R8="$(_mkrepo)"
@@ -142,34 +132,58 @@ _OUT="$( cd "$R8" && env HOME="$GH" REIN_SKIP_STANDARDS=1 \
 assert_contains "E-214.05d: no role set → engineer behaviour, rc 0" "0" "$_RC"
 assert_not_contains "E-214.05e: no role set → no sovereignty block" "SOVEREIGNTY_BLOCK" "$_OUT"
 
-# ── E-214.6: the waiver is real — it must hold with NO stamp at all ──────────
+# ── E-214.6 / E-464 (D-169 r8, D-170 r9): no review stamp at commit time ─────
+# A Tier 1 commit — and any other — passes pre-commit with no stamp at all; review by tier is
+# checked when the task closes (tests/unit/completion-gates.test.mjs, [REVIEW_GATE]).
 R9="$(_mkrepo)"
-( cd "$R9" && rm -f .ai/state.json && echo x > plans/only.md && git add plans/only.md )
-# E-218 (D-055 R4) NARROWED this: the waiver now requires a VERIFIED session record.
-# `_run` deliberately empties CLAUDE_CODE_SESSION_ID, so this is the env-only path and
-# the stamp requirement correctly still applies. The waiver itself is asserted with a
-# minted record in E-218.01a.
+( cd "$R9" && echo x > plans/only.md && git add plans/only.md )
 _run "$R9" architect
-assert_contains "E-214.06a: env-only architect in-scope does NOT waive the stamp (E-218)" "1" "$_RC"
-assert_contains "E-214.06b: and it says why the waiver did not apply" "still applies" "$_OUT"
+assert_contains "E-214.06a: env-only architect in-scope commit with no stamp passes (rc 0)" "0" "$_RC"
+assert_not_contains "E-214.06b: …and sees no Gate 2 banner" "GATE 2" "$_OUT"
 _run "$R9" engineer
-assert_contains "E-214.06c: the SAME commit as engineer is still Gate-2 blocked" "1" "$_RC"
-assert_contains "E-214.06d: engineer sees the Gate 2 banner" "GATE 2" "$_OUT"
+assert_contains "E-214.06c: the SAME commit as engineer passes too (rc 0)" "0" "$_RC"
+assert_not_contains "E-214.06d: …with no CRITIC_STAMP request" "CRITIC_STAMP" "$_OUT"
 
 # ── E-214.7: role resolution prefers the HMAC record over the env ────────────
 # The record is authoritative: an architect-bound session cannot become the Engineer by
-# exporting REIN_CALLER_ROLE=engineer. E-294: the token is minted from a real launch record
-# and bound to the session process (as-session.sh), never from a role word in argv.
+# exporting REIN_CALLER_ROLE=engineer (a real launch record on the chain, as-session.sh).
 R10="$(_mkrepo)"
 ( cd "$R10" && echo z > src/impl.js && git add src/impl.js )
 _OUT="$( cd "$R10" && HOME="$GH" bash "$AS" architect e214-l -- env REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer \
-         REIN_SKIP_STANDARDS=1 CLAUDE_CODE_SESSION_ID=e214-l bash "$HOOK" 2>&1 )"; _RC=$?
-assert_contains "E-214.07a: the HMAC record beats a forged REIN_CALLER_ROLE=engineer" \
+         CLAUDE_CODE_SESSION_ID=e214-l bash "$HOOK" 2>&1 )"; _RC=$?
+assert_contains "E-214.07a: the launch record beats a forged REIN_CALLER_ROLE=engineer" \
   "SOVEREIGNTY_BLOCK" "$_OUT"
-assert_status 0 "E-214.07b: --verify-role returns the recorded role inside its session" \
-  bash -c "cd '$R10' && [[ \"\$(HOME='$GH' bash '$AS' architect e214-v -- node --no-warnings '$SAFE_EXEC' --verify-role e214-v)\" == 'architect' ]]"
-assert_status 1 "E-214.07c: --verify-role exits 1 for an unknown session" \
-  bash -c "HOME='$GH' node --no-warnings '$SAFE_EXEC' --verify-role no-such-session >/dev/null 2>&1"
+# ── E-471: the block names the role's source, and for union the walk's reason ──
+# A fail-closed fallback (union) must not read as a real Architect. Extends E-214.7.
+# (1) a live record naming ANOTHER project on the chain → union, with the reason and the fix.
+R10b="$(_mkrepo)"; OTHER="$(test_tmpdir glother)"; mkdir -p "$OTHER/.ai"
+( cd "$R10b" && echo z > src/impl.js && git add src/impl.js )
+_OUT="$( cd "$OTHER" && HOME="$GH" bash "$AS" engineer e471-u -- \
+         bash -c 'cd "$1" && exec bash "$2"' _ "$R10b" "$HOOK" 2>&1 >/dev/null )"; _RC=$?
+assert_status 0 "E-471.1a: a record for another project blocks out-of-scope paths (rc 1)" test "$_RC" -eq 1
+assert_contains "E-471.1b: …naming the source" "source: union" "$_OUT"
+assert_contains "E-471.1c: …and the walk's reason" "is for another project" "$_OUT"
+assert_contains "E-471.1d: …and the fix" "rein pane <role>" "$_OUT"
+# (2) a live architect record for this project → chain, with no reason text.
+_OUT="$( cd "$R10" && HOME="$GH" bash "$AS" architect e471-c -- bash "$HOOK" 2>&1 >/dev/null )"
+assert_contains "E-471.2a: an architect record prints source: chain (on stderr)" "source: chain)" "$_OUT"
+assert_not_contains "E-471.2b: …and no reason" "is for another project" "$_OUT"
+# (3) a reason holding a newline and escape sequences prints on one line, controls removed —
+# including a C1 nested inside another (\xc2 \xc2\x9b \x9b, F-471-1).
+# A stub launch-record.py stands in for a record whose content reaches the reason.
+GH3="$(test_tmpdir glhome3)"; mkdir -p "$GH3/.rein/shared"
+printf '%s\n' 'import sys' \
+  'sys.stdout.buffer.write(b"union\tline-one\nline-two \x1b[31mRED\x07 \xc2\x9b2J \xc2\xc2\x9b\x9b2K end")' \
+  > "$GH3/.rein/shared/launch-record.py"
+tc_link_shared "$GH3"; ln -s "${REPO_ROOT}/src/mcp" "${GH3}/.rein/mcp"
+_OUT="$( cd "$R10" && env HOME="$GH3" REIN_CALLER_ROLE= bash "$HOOK" 2>&1 >/dev/null )"; _RC=$?
+_why_line="$(grep -a 'Session role:' <<< "$_OUT")"
+assert_status 0 "E-471.3: the union fallback blocks (rc 1)" test "$_RC" -eq 1
+assert_contains "E-471.3a: the reason is printed on the role line" "line-one line-two [31mRED 2J 2K end" "$_why_line"
+assert_status 1 "E-471.3b: no control character reaches the output" \
+  bash -c 'LC_ALL=C grep -aq "[[:cntrl:]]" <<< "$1"' _ "$_why_line"
+assert_status 1 "E-471.3c: no C1 control (UTF-8) reaches the output" \
+  bash -c 'LC_ALL=C grep -aq $'"'"'\xc2[\x80-\x9f]'"'"' <<< "$1"' _ "$_why_line"
 
 # ── E-214.8: rollback escape hatch ──────────────────────────────────────────
 R11="$(_mkrepo)"
@@ -183,12 +197,8 @@ assert_not_contains "E-214.08b: bypass produces no sovereignty block" "SOVEREIGN
 # honoured (REIN_SKIP_GIT_LANE was silent before).
 assert_contains "E-294.08c: REIN_SKIP_GIT_LANE=1 prints its [GATE_SKIPPED] line" \
   "[GATE_SKIPPED] REIN_SKIP_GIT_LANE=1" "$_OUT"
-assert_contains "E-294.08d: REIN_SKIP_STANDARDS=1 prints its [GATE_SKIPPED] line" \
-  "[GATE_SKIPPED] REIN_SKIP_STANDARDS=1" "$_OUT"
-_OUT="$( cd "$R11" && env HOME="$GH" REIN_SKIP_CONFLICT_GATE=1 REIN_SKIP_STANDARDS=1 \
-         CLAUDE_CODE_SESSION_ID= bash "$HOOK" 2>&1 )"
-assert_contains "E-294.08e: REIN_SKIP_CONFLICT_GATE=1 prints its [GATE_SKIPPED] line" \
-  "[GATE_SKIPPED] REIN_SKIP_CONFLICT_GATE=1" "$_OUT"
+# E-294.08d/e (the standards and conflict-marker gates' [GATE_SKIPPED] lines) went with those
+# gates (E-467, D-170 r4: pre-commit keeps the lane, machine-local and publish checks only).
 _OUT="$( cd "$R11" && env HOME="$GH" CLAUDE_CODE_SESSION_ID= bash "$HOOK" 2>&1 )"
 assert_not_contains "E-294.08f: without any opt-out no [GATE_SKIPPED] line is printed" "[GATE_SKIPPED]" "$_OUT"
 _OUT="$( cd "$R11" && env HOME="$GH" REIN_CI_SKIP=1 REIN_CI_SKIP_REASON=e294-test \
@@ -197,8 +207,8 @@ assert_contains "E-294.08g: REIN_CI_SKIP=1 (pre-push) prints its [GATE_SKIPPED] 
   "[GATE_SKIPPED] REIN_CI_SKIP=1" "$_OUT"
 
 # ── E-214.9: other Gate 2 checks still run for an architect commit ──────────
-# The waiver covers the [CRITIC_STAMP] ONLY. The credential scan lives in the E-82
-# standards gate, which must still fire — assert it is not short-circuited by the lane.
+# The credential scan lives in the E-82 standards gate, which must still fire — assert it is
+# not short-circuited by the lane.
 assert_status 0 "E-214.09a: the standards gate is still invoked before the lane" \
   bash -c "grep -n 'check_standards_gate' '$HOOK' | head -1 | cut -d: -f1 | \
            xargs -I{} test {} -lt \$(grep -n 'check_architect_git_lane\$' '$HOOK' | tail -1 | cut -d: -f1)"
@@ -215,8 +225,8 @@ echo "  [E-214.10] security-audit regressions"
 
 # S1 (BLOCKING) — the lane read the staged list from a process substitution and never
 # checked git's exit status. A failed `git diff` produced zero records, the
-# out-of-scope list stayed empty, and the waiver was granted: any diff hiccup became a
-# full Gate 2 bypass with arbitrary staged content. Proven with a stubbed git.
+# out-of-scope list stayed empty, and the lane passed: any diff hiccup let arbitrary staged
+# content through. Proven with a stubbed git.
 R12="$(_mkrepo)"
 mkdir -p "$R12/stub"
 cat > "$R12/stub/git" <<'EOS'
@@ -232,27 +242,24 @@ tc_overlay_home "$R12/fh" "$R12/stub"
 _OUT="$( cd "$R12" && env HOME="$R12/fh" REIN_CALLER_ROLE=architect \
          REIN_SKIP_STANDARDS=1 \
          CLAUDE_CODE_SESSION_ID= bash "$HOOK" 2>&1 )"; _RC=$?
-assert_contains "E-214.10a: a FAILED git diff blocks (fail-closed), never waives" "1" "$_RC"
-assert_not_contains "E-214.10b: a failed diff never grants the stamp waiver" "ARCHITECT_LANE" "$_OUT"
+assert_contains "E-214.10a: a FAILED git diff blocks (fail-closed)" "1" "$_RC"
+assert_not_contains "E-214.10b: a failed diff never passes the lane" "ARCHITECT_LANE" "$_OUT"
 assert_contains "E-214.10c: the fail-closed block explains itself" "fail-closed" "$_OUT"
 
-# S1b — nothing staged must NOT be treated as an architect-scoped commit; it falls
-# through to the normal Gate 2 stamp check instead of collecting a waiver.
+# S1b — nothing staged is not an architect-scoped commit: nothing is classified or announced.
 R13="$(_mkrepo)"
-( cd "$R13" && rm -f .ai/state.json )
 _run "$R13" architect
-assert_not_contains "E-214.10d: an EMPTY diff grants no waiver" "ARCHITECT_LANE" "$_OUT"
-assert_contains "E-214.10e: an empty diff falls through to Gate 2" "1" "$_RC"
+assert_not_contains "E-214.10d: an EMPTY diff is not announced as in-scope" "ARCHITECT_LANE" "$_OUT"
 
 # S3 — git emits a bare `.ai` entry only when .ai/ is no longer a directory. Matching
 # it as in-scope let a commit that DELETES every .ai/ file and stages a symlink in its
-# place ride through on the waiver.
+# place ride through the lane.
 R14="$(_mkrepo)"
 ( cd "$R14" && echo x > .ai/seed.md && git add .ai/seed.md && git commit -qm seed --no-verify
   rm -rf .ai && ln -s /tmp .ai && git add -A .ai >/dev/null 2>&1 )
 _run "$R14" architect
 assert_contains "E-214.10f: replacing .ai/ with a symlink is BLOCKED" "SOVEREIGNTY_BLOCK" "$_OUT"
-assert_not_contains "E-214.10g: and it never collects the waiver" "ARCHITECT_LANE" "$_OUT"
+assert_not_contains "E-214.10g: and it is never announced as in-scope" "ARCHITECT_LANE" "$_OUT"
 
 # S5 — the role comparison was exact-match, so `Architect` or a trailing space
 # silently disabled the lane for a real Architect. (Since E-294 this is the row-4 advisory
@@ -264,15 +271,6 @@ for _r in "Architect" "ARCHITECT" "architect "; do
   assert_contains "E-214.10h [role='$_r']: case/whitespace variant still activates the lane" \
     "SOVEREIGNTY_BLOCK" "$_OUT"
 done
-
-# S6 — `--verify-role --mint-token` was captured by the mint block, which exits 0
-# printing nothing, violating the contract that exit 0 means a role on stdout.
-assert_status 1 "E-214.10i: --verify-role is not captured by the mint mode scan" \
-  bash -c "HOME='$GH' node --no-warnings '$SAFE_EXEC' --verify-role --mint-\"\$(printf 'to')ken\" >/dev/null 2>&1"
-# The real mint path must still work — the fix binds modes to argv[2], so verify it.
-# E-294: minted the production way (launch record + `--mint-token <sid> <session pid>`).
-assert_status 0 "E-214.10j: the normal mint path still works after the argv fix" \
-  bash -c "cd '$REPO_ROOT' && [[ \"\$(HOME='$GH' bash '$AS' architect e214-m -- node --no-warnings '$SAFE_EXEC' --verify-role e214-m)\" == 'architect' ]]"
 
 # Round-2 nit: `read` folds EXTRA tab fields into the last variable, so a 4-field
 # record would hide a path inside path2 (`.ai/b<TAB>src/c` matches the .ai/* arm) while
@@ -294,27 +292,13 @@ _OUT="$( cd "$R16" && env HOME="$R16/fh" REIN_CALLER_ROLE=architect \
          CLAUDE_CODE_SESSION_ID= bash "$HOOK" 2>&1 )"; _RC=$?
 assert_contains "E-214.10k: a 4-field diff record blocks (fail-closed)" "1" "$_RC"
 assert_contains "E-214.10l: and it says the shape was unexpected" "Unexpected diff record shape" "$_OUT"
-assert_not_contains "E-214.10m: a hidden 4th-field path never collects the waiver" "ARCHITECT_LANE" "$_OUT"
+assert_not_contains "E-214.10m: a hidden 4th-field path never passes the lane" "ARCHITECT_LANE" "$_OUT"
 
-# Both CLI modes are argv[2]-bound, so neither can capture the other's arguments.
-# Prove WHICH mode handled the call: with no session token (E-294: the union, i.e. the
-# Architect's path rules — the env var below no longer selects anything), --check-path must treat
-# "--verify-role" as an ordinary (out-of-scope) path and exit 2. If the verify block had
-# captured the argv instead, it would exit 0 or 1 and never reach a path verdict.
-assert_status 2 "E-214.10n: --check-path handles its own argv, not --verify-role's" \
-  bash -c "HOME='$GH' REIN_CALLER_ROLE=engineer node --no-warnings '$SAFE_EXEC' --check-path --verify-role >/dev/null 2>&1"
-
-# ── E-218 (D-055 R4): the stamp waiver requires a VERIFIED record ───────────
-# The path-scope BLOCK may act on the env fallback — restricting an unverified session
-# is safe in the strict direction. The WAIVER may not: it is a hole in the Engineer's
-# own quality gate, and `.ai/` contains REVIEWS.md, the file Gate 2 reads. So anyone
-# exporting REIN_CALLER_ROLE=architect could previously commit stamp-file edits with
-# no stamp.
-# E-329: Gate 2 no longer reads REVIEWS.md, and a commit touching ONLY .ai/ is bookkeeping
-# for every role (operator ruling 2026-10-19). The waiver rows below therefore stage a
-# plans/ file — in the Architect lane, not bookkeeping — so "no waiver" still means
-# "Gate 2 blocks".
-echo "  [E-218] waiver requires a verified session record"
+# ── E-218 / E-294: role resolution for the lane ─────────────────────────────
+# The path-scope BLOCK may act on every source — restricting is safe in the strict direction.
+# E-464 removed the stamp waiver these rows also pinned (a verified record was its only
+# source); what stays is who is path-restricted and that no role needs a stamp to commit.
+echo "  [E-218] role sources for the lane"
 
 _e218_verdict() {  # <repo> <env...> → rc + label  (no session: env / chain-less rows)
   local d="$1"; shift
@@ -333,101 +317,50 @@ _e218_as() {  # <repo> <architect|engineer|none> <sid> <env...> → rc + label, 
 _e218_label() {
   local rc="$1" out="$2" l=pass
   grep -q SOVEREIGNTY_BLOCK <<< "$out" && l=BLOCK
-  grep -q 'stamp waived' <<< "$out" && l=WAIVED
-  grep -q 'still applies' <<< "$out" && l=NO_WAIVER
   grep -q 'GATE 2' <<< "$out" && l="${l}+gate2"
   printf 'rc=%s %s' "$rc" "$l"
 }
-_nostamp_ai() { local R; R="$(_mkrepo)"; ( cd "$R" && rm -f .ai/state.json && echo x > plans/n.md && git add plans/n.md ); printf '%s' "$R"; }
+_nostamp_ai() { local R; R="$(_mkrepo)"; ( cd "$R" && echo x > plans/n.md && git add plans/n.md ); printf '%s' "$R"; }
 _src()        { local R; R="$(_mkrepo)"; ( cd "$R" && echo z > src/x.js && git add src/x.js ); printf '%s' "$R"; }
 
-# ── Row 1: verified record — the ONLY waiver source ──────────────────────────
-# Verified record + in scope + NO stamp → waiver applies.
-assert_contains "E-218.01a: verified architect record waives the stamp" "rc=0 WAIVED" \
+# ── Row 1: a launch record on the chain ───────────────────────────────────────────────────
+assert_contains "E-218.01a: architect record, in scope, no stamp → passes" "rc=0 pass" \
   "$(_e218_as "$(_nostamp_ai)" architect e218-a1 CLAUDE_CODE_SESSION_ID=e218-a1 REIN_CALLER_ROLE=engineer)"
-
-# Env-only architect + in scope + NO stamp → NO waiver, Gate 2 still blocks.
-_E218_OUT="$(_e218_verdict "$(_nostamp_ai)" CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=architect)"
-assert_contains "E-218.01b: an env-only architect gets NO waiver" "NO_WAIVER" "$_E218_OUT"
-assert_contains "E-218.01c: and Gate 2 still blocks the commit" "rc=1" "$_E218_OUT"
-
-# Env-only architect + in scope + WITH a stamp → passes normally.
-R="$(_mkrepo)"; ( cd "$R" && echo x > .ai/n.md && git add .ai/n.md )
-assert_contains "E-218.01d: env-only architect passes when a stamp exists" "rc=0" \
-  "$(_e218_verdict "$R" CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=architect)"
+assert_contains "E-218.01b: env-only architect, in scope, no stamp → passes (E-464)" "rc=0 pass" \
+  "$(_e218_verdict "$(_nostamp_ai)" CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=architect)"
 
 # The RESTRICTION still acts on the env fallback — strict in both directions.
 assert_contains "E-218.02a: env-only architect is still path-restricted" "BLOCK" \
   "$(_e218_verdict "$(_src)" CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=architect)"
-assert_contains "E-218.02b: verified architect is path-restricted too" "BLOCK" \
+assert_contains "E-218.02b: an architect record is path-restricted too" "BLOCK" \
   "$(_e218_as "$(_src)" architect e218-a2 CLAUDE_CODE_SESSION_ID=e218-a2 REIN_CALLER_ROLE=engineer)"
 
 # Engineer unchanged in both directions.
-assert_contains "E-218.03a: engineer with a verified record commits src/ freely" "rc=0" \
+assert_contains "E-218.03a: engineer with a record commits src/ freely" "rc=0" \
   "$(_e218_as "$(_src)" engineer e218-e1 CLAUDE_CODE_SESSION_ID=e218-e1 REIN_CALLER_ROLE=architect)"
-R="$(_mkrepo)"; ( cd "$R" && rm -f .ai/state.json && echo z > src/x.js && git add src/x.js )
-assert_contains "E-218.03b: engineer with no stamp still hits Gate 2" "gate2" \
-  "$(_e218_as "$R" engineer e218-e2 CLAUDE_CODE_SESSION_ID=e218-e2 REIN_CALLER_ROLE=engineer)"
-assert_contains "E-294.03c: a plain launch (no record → engineer token) commits src/ freely" "rc=0" \
+assert_contains "E-218.03b: engineer with no stamp commits src/ (E-464: review is checked at DONE)" "rc=0 pass" \
+  "$(_e218_as "$(_src)" engineer e218-e2 CLAUDE_CODE_SESSION_ID=e218-e2 REIN_CALLER_ROLE=engineer)"
+assert_contains "E-294.03c: a plain launch (no record → engineer) commits src/ freely" "rc=0" \
   "$(_e218_as "$(_src)" none e218-n1 CLAUDE_CODE_SESSION_ID=e218-n1)"
 
 # ── Row 2: a live launch record on the commit's process chain (no session id) ──
 # Restrict-only and env-free: clearing the session id no longer drops a `rein pane` session
-# out of its lane — and it never waives.
+# out of its lane.
 assert_contains "E-294.R2a: architect record on the chain, session id cleared → path-restricted" "BLOCK" \
   "$(_e218_as "$(_src)" architect e294-r2a CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer)"
-_E294_OUT="$(_e218_as "$(_nostamp_ai)" architect e294-r2b CLAUDE_CODE_SESSION_ID=)"
-assert_contains "E-294.R2b: …and in-scope with no stamp it gets NO waiver (row 2 never waives)" "NO_WAIVER" "$_E294_OUT"
-assert_contains "E-294.R2c: …so Gate 2 blocks" "rc=1" "$_E294_OUT"
-# Row 2 ranks above row 3: an engineer record on the chain beats a non-verifying session id
-# (row 3 alone would be the union and block src/).
-assert_contains "E-294.R2d: engineer record on the chain outranks a non-verifying session id" "rc=0 pass" \
-  "$(_e218_as "$(_src)" engineer e294-r2d CLAUDE_CODE_SESSION_ID=e294-not-a-session)"
-
-# ── Row 3: a session id present but not verifying → the union ────────────────
-assert_contains "E-294.R3a: an unknown session id (no record on the chain) is path-restricted" "BLOCK" \
+# A session id is a selector, never a role (E-463): with no record on the chain it is the
+# plain-launch default, whatever id it names.
+assert_contains "E-294.R3a: an unknown session id with no record commits as engineer" "rc=0 pass" \
   "$(_e218_verdict "$(_src)" CLAUDE_CODE_SESSION_ID=e294-no-such-session REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer)"
-_E294_OUT="$(_e218_verdict "$(_nostamp_ai)" CLAUDE_CODE_SESSION_ID=e294-no-such-session)"
-assert_contains "E-294.R3b: …and in-scope with no stamp gets NO waiver" "NO_WAIVER" "$_E294_OUT"
-assert_contains "E-294.R3c: …so Gate 2 blocks" "rc=1" "$_E294_OUT"
 
-# A session id BORROWED from another live session (T-GITLANE-001 residual 2, closed): its
-# token is HMAC-valid but bound to a process that is not an ancestor of this commit, so it
-# verifies nothing — the commit gets the union, not the other session's role or its waiver.
-_bg_session() {  # <repo> <role> <sid> → starts a live session in <repo> in the background; prints its pid
-  local d="$1"; shift
-  local stop="${GH}/stop-$2"
-  ( cd "$d" && HOME="$GH" bash "$AS" "$1" "$2" -- \
-      bash -c 'i=0; while [ ! -e "$1" ] && [ -d "${1%/*}" ] && [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done' _ "$stop" ) >/dev/null 2>&1 &   # REIN_SLEEP_ALLOWED: keep-alive loop of a child session shell (no assert.sh there); ends on the stop file
-  local pid=$!
-  on_exit "touch '${stop}'; wait_for '! kill -0 ${pid} 2>/dev/null' 3000 100 2>/dev/null; kill ${pid} 2>/dev/null || true"
-  wait_for "[ -e \"${GH}/.rein/run/role-$2.lock\" ]" 10000 100 || true
-  printf '%s' "$pid"
-}
-# Each borrowed session runs in the very repo the commit happens in, so the only thing that
-# differs from a legitimate commit is the process chain (not the project).
-_R3D="$(_src)"; _R3E="$(_nostamp_ai)"
-_BE_PID="$(_bg_session "$_R3D" engineer e294-live-eng)"
-_BA_PID="$(_bg_session "$_R3E" architect e294-live-arch)"
-assert_status 0 "E-294.R3d0: both live sessions hold a token (fixture)" \
-  test -f "${GH}/.rein/run/role-e294-live-eng.lock" -a -f "${GH}/.rein/run/role-e294-live-arch.lock"
-assert_contains "E-294.R3d: a borrowed ENGINEER session id does not unlock src/ (union)" "BLOCK" \
-  "$(_e218_verdict "$_R3D" CLAUDE_CODE_SESSION_ID=e294-live-eng)"
-_E294_OUT="$(_e218_verdict "$_R3E" CLAUDE_CODE_SESSION_ID=e294-live-arch)"
-assert_contains "E-294.R3e: a borrowed ARCHITECT session id does not collect the waiver" "NO_WAIVER" "$_E294_OUT"
-assert_contains "E-294.R3f: …so Gate 2 blocks" "rc=1" "$_E294_OUT"
-touch "${GH}/stop-e294-live-eng" "${GH}/stop-e294-live-arch"
-wait "$_BE_PID" "$_BA_PID" 2>/dev/null || true
-
-# ── Row 4: the advisory env (restrict-only), then engineer — covered by E-214.01–06 above ──
+# ── Row 2: the advisory env (restrict-only), then engineer — covered by E-214.01–06 above ──
 assert_contains "E-294.R4a: no session id, no record, env engineer → engineer behaviour" "rc=0 pass" \
   "$(_e218_verdict "$(_src)" CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=engineer)"
 
 # The role source must be RETURNED, not assigned inside a command substitution — a
-# variable set in the subshell never reaches the caller, and the first cut of this
-# change did exactly that, so the waiver silently never fired.
+# variable set in the subshell never reaches the caller.
 assert_status 0 "E-218.04a: role source is returned as <source>:<role>" \
-  grep -q "printf 'record:%s'" "$HOOK"
+  grep -q "printf 'chain:architect'" "$HOOK"
 assert_status 0 "E-218.04b: the subshell trap is recorded in the comment" \
   grep -q "set in the SUBSHELL and lost" "$HOOK"
 assert_status 0 "E-218.04c: THREAT_MODEL item 4 is marked FIXED" \
@@ -450,12 +383,7 @@ _seed_state() {  # <repo> <team:0|1> — two tasks through the real writer; TASK
         execFileSync('git', ['add', '-A']); execFileSync('git', ['commit', '-qm', 'seed', '--no-verify']);
         const r = migrateTeam('.ai', { trunk: 'master' }); if (!r.ok) throw new Error(r.message);
       }
-    " && printf 'state.sqlite*\n' >> .ai/.gitignore && git add -A && git commit -qm state --no-verify \
-    && node --no-warnings --input-type=module -e "
-      const { getDb } = await import('file://${REPO_ROOT}/src/mcp/shared/state-db.js');
-      const { insertStamp } = await import('file://${REPO_ROOT}/src/mcp/shared/record-store.mjs');
-      insertStamp('.ai', getDb('.ai'), { type: 'CRITIC_STAMP', agent: 't', timestamp: new Date().toISOString(), summary: 'seeded' });
-    " )   # E-329: the review that unlocks the next commit names THIS HEAD
+    " && printf 'state.sqlite*\n' >> .ai/.gitignore && git add -A && git commit -qm state --no-verify )
 }
 S1="$(_mkrepo)"; _seed_state "$S1" 0
 # What a pull leaves behind: three tasks in the tracked view that the local index lacks.
@@ -480,99 +408,16 @@ assert_contains "E-326.g2c: …and the one command that fixes it" "fix: rein sta
 _run "$S2" engineer
 assert_status 0 "E-326.g3: after the import the same commit passes (rc 0)" test "$_RC" -eq 0
 
-# ── E-329 (D-102 §Component 6): Gate 2 wants a [CRITIC_STAMP] for the commit's parent ──
-# The real hook in a repo with a parent commit; shared/stamp-gate.mjs resolves from $GH
-# (this checkout's src/shared). The seven-day window is gone in both directions.
-echo "  [E-329] stamps bound to a commit"
-_head() { git -C "$1" rev-parse HEAD; }
-
+# ── E-464 (D-169 r8, D-170 r9): the commit-time stamp check is gone ─────────────────
+# E-329's rows (a [CRITIC_STAMP] bound to the parent HEAD; bookkeeping-only, first-commit and
+# orphan-branch exceptions; a missing stamp-gate.mjs blocking) were removed with the check and
+# with src/shared/stamp-gate.mjs. The stamp's sha still binds it, now at task close.
+echo "  [E-464] no review stamp at commit time"
 G1="$(_mkrepo)"; ( cd "$G1" && echo z > src/x.js && git add src/x.js )
 _run "$G1" engineer
-assert_status 0 "E-329.01a: a CRITIC_STAMP for HEAD lets a src/ commit through (rc 0)" test "$_RC" -eq 0
-assert_contains "E-329.01b: …and says which review" "[GATE2] HEAD $(_head "$G1" | cut -c1-7) reviewed: CRITIC_STAMP by t@t" "$_OUT"
-
-G2="$(_mkrepo)"; _G2_OLD="$(_head "$G2")"
-( cd "$G2" && echo more > README && git commit -qam next --no-verify && echo z > src/x.js && git add src/x.js )
-_run "$G2" engineer
-assert_status 0 "E-329.02a: a stamp for an OLDER sha blocks (rc 1)" test "$_RC" -eq 1
-assert_contains "E-329.02b: …naming HEAD" "no CRITIC_STAMP for HEAD $(_head "$G2" | cut -c1-7)" "$_OUT"
-assert_contains "E-329.02c: …and the sha the newest stamp is for" "is for ${_G2_OLD:0:7}" "$_OUT"
-
-G3="$(_mkrepo)"; ( cd "$G3" && rm -f .ai/state.json && echo done > .ai/LOG.md && git add .ai/LOG.md )
-_run "$G3" engineer
-assert_status 0 "E-329.03a: a bookkeeping-only .ai/ commit needs no stamp (rc 0)" test "$_RC" -eq 0
-assert_contains "E-329.03b: …and says so" "bookkeeping-only commit" "$_OUT"
-_run "$G3" architect
-assert_status 0 "E-329.03c: …for an env-only Architect too (operator ruling: any role)" test "$_RC" -eq 0
-G3B="$(_mkrepo)"; ( cd "$G3B" && echo m > .ai/m.md && git add .ai/m.md && git commit -qm m --no-verify \
-    && rm -f .ai/state.json && git mv .ai/m.md src/m.md )
-_run "$G3B" engineer
-assert_status 0 "E-329.03d: a rename OUT of .ai/ is not bookkeeping (rc 1)" test "$_RC" -eq 1
-assert_contains "E-329.03d2: …blocked by Gate 2 itself" "no CRITIC_STAMP for HEAD" "$_OUT"
-G3C="$(_mkrepo)"; ( cd "$G3C" && rm -f .ai/state.json && echo d > .ai/LOG.md && echo z > src/x.js && git add .ai/LOG.md src/x.js )
-_run "$G3C" engineer
-assert_status 0 "E-329.03e: .ai/ plus one src/ file is not bookkeeping (rc 1)" test "$_RC" -eq 1
-assert_contains "E-329.03e2: …blocked by Gate 2 itself" "no CRITIC_STAMP for HEAD" "$_OUT"
-
-G4="$(_mkrepo)"; ( cd "$G4" && _seed_stamp "$(git rev-parse HEAD)" "2026-01-01T00:00:00Z" && echo z > src/x.js && git add src/x.js )
-_run "$G4" engineer
-assert_status 0 "E-329.04: a stamp months old for the current HEAD still passes (no seven-day window)" test "$_RC" -eq 0
-
-G5="$(_mkrepo)"
-( cd "$G5" && rm -f .ai/state.json && mkdir -p .ai/stamps/2026-10 && printf '{"tasks":[]}\n' > .ai/state.json \
-    && node --no-warnings --input-type=module -e "
-      const { writeRecord, stampRecord, stampRecordId } = await import('file://${REPO_ROOT}/src/mcp/shared/record-store.mjs');
-      const { writeFileSync } = await import('fs');
-      writeFileSync('.ai/project.json', JSON.stringify({ schema: 2 }) + '\n');
-      const s = { type: 'CRITIC_STAMP', agent: 'critic', summary: 'teammate review', timestamp: '2026-10-19T09:00:00Z' };
-      const sha = '$(_head "$G5")';
-      writeRecord('.ai', 'stamp', stampRecordId('.ai', s, sha), stampRecord(s, sha, 'b@x.test'), { fresh: true });
-    " && echo z > src/x.js && git add src/x.js )
-_run "$G5" engineer
-assert_status 0 "E-329.05a: a teammate's pulled stamp record for HEAD lets the commit through (rc 0)" test "$_RC" -eq 0
-assert_contains "E-329.05b: …naming the teammate" "CRITIC_STAMP by b@x.test" "$_OUT"
-
-G6="$(_mkrepo)"
-( cd "$G6" && rm -f .ai/state.json && printf '[CRITIC_STAMP] %s | typed by hand\n' "$(date +%Y-%m-%d)" > .ai/REVIEWS.md \
-    && echo z > src/x.js && git add src/x.js )
-_run "$G6" engineer
-assert_status 0 "E-329.06: a [CRITIC_STAMP] line typed into REVIEWS.md unlocks nothing (rc 1)" test "$_RC" -eq 1
-assert_contains "E-329.06b: …blocked by Gate 2 itself" "no CRITIC_STAMP at all" "$_OUT"
-
-# Bookkeeping is an allowlist, not all of .ai/ (critic_security P1): a launch-flag file needs a review.
-G8="$(_mkrepo)"; ( cd "$G8" && rm -f .ai/state.json && echo '{"launch":["--dangerously"]}' > .ai/providers.json && git add .ai/providers.json )
-_run "$G8" engineer
-assert_status 0 "E-329.08a: .ai/providers.json alone is NOT bookkeeping (rc 1)" test "$_RC" -eq 1
-assert_contains "E-329.08b: …Gate 2 asks for a review" "no CRITIC_STAMP" "$_OUT"
-G8B="$(_mkrepo)"; ( cd "$G8B" && rm -f .ai/state.json && mkdir -p .ai/ci .ai/tasks && echo '{}' > ".ai/ci/$(git rev-parse HEAD).json" \
-    && echo '{}' > .ai/tasks/E-1.json && git add .ai/ci .ai/tasks )
-_run "$G8B" engineer
-assert_status 0 "E-329.08c: a CI record and a task record are bookkeeping (rc 0)" test "$_RC" -eq 0
-
-# The first-commit skip is the repository's FIRST commit only (critic_security / critic_tests P1).
-G9="$(test_tmpdir glfirst)"
-( cd "$G9" && git init -q . && git config user.email t@t && git config user.name t \
-    && mkdir -p .ai src && echo z > src/x.js && git add src/x.js )
-_run "$G9" engineer
-assert_status 0 "E-329.09a: the repository's first commit needs no stamp (rc 0)" test "$_RC" -eq 0
-assert_contains "E-329.09b: …and says why" "first commit of the repository" "$_OUT"
-G9B="$(_mkrepo)"; ( cd "$G9B" && git checkout -q --orphan elsewhere && echo z > src/x.js && git add src/x.js )
-_run "$G9B" engineer
-assert_status 0 "E-329.09c: an orphan branch in a repo WITH history is blocked (rc 1)" test "$_RC" -eq 1
-assert_contains "E-329.09d: …naming the reason" "HEAD is not a commit in a repository that has history" "$_OUT"
-
-
-# Fail closed: no stamp-gate.mjs in the install mirror is a BLOCK, not a pass.
-GH_NOGATE="$(test_tmpdir glnogate)"; mkdir -p "${GH_NOGATE}/.rein/shared"
-ln -s "${REPO_ROOT}/src/mcp" "${GH_NOGATE}/.rein/mcp"
-for _f in "${REPO_ROOT}"/src/shared/*; do
-  [[ "${_f##*/}" == "stamp-gate.mjs" ]] || ln -s "$_f" "${GH_NOGATE}/.rein/shared/${_f##*/}"
-done
-tc_fixture_home "$GH_NOGATE"   # E-345: node is found, so only the missing stamp-gate.mjs can explain the verdict
-G7="$(_mkrepo)"; ( cd "$G7" && echo z > src/x.js && git add src/x.js )
-_OUT="$( cd "$G7" && env HOME="$GH_NOGATE" REIN_CALLER_ROLE=engineer REIN_SKIP_STANDARDS=1 CLAUDE_CODE_SESSION_ID= bash "$HOOK" 2>&1 )"; _RC=$?
-assert_status 0 "E-329.07a: a missing stamp-gate helper blocks the commit (rc 1)" test "$_RC" -eq 1
-assert_contains "E-329.07b: …and names what is missing" "stamp-gate.mjs or node unavailable" "$_OUT"
+assert_status 0 "E-464.01a: a src/ commit with no stamp passes pre-commit (rc 0)" test "$_RC" -eq 0
+assert_not_contains "E-464.01b: …and nothing asks for a review" "CRITIC_STAMP" "$_OUT"
+assert_status 1 "E-464.01c: the hook no longer calls stamp-gate.mjs" grep -q 'stamp-gate.mjs' "$HOOK"
 
 # ── E-41 (from git_hooks_stub — E-301): the git hooks are thin execution stubs ──
 # install_git_hooks emits a stub instead of a full copy of pre-commit.sh / post-commit.sh; the

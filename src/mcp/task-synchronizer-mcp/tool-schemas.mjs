@@ -3,10 +3,9 @@
  *
  * Extracted from index.js (E-91, ecc-integrations.md) to keep index.js within
  * the 1000-line engineering-standards cap and give the tool surface one
- * scannable home. The archive tool's description interpolates the live
- * thresholds, so they are passed in by the caller rather than imported here.
+ * scannable home.
  */
-export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
+export function buildToolSchemas() {
   return [
     {
       name: "get_state",
@@ -28,18 +27,18 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
         type: "object",
         properties: {
           owner:             { type: "string",  description: "Task owner label, derived from .ai/roles.json: e.g. 'Architect (Claude)', 'Engineer (Claude)', 'Tester (claude · sonnet)'" },
-          description:       { type: "string",  description: "Task description" },
-          tier:              { type: "number",  description: "Risk tier (1, 2, or 3)", enum: [1, 2, 3] },
+          description:       { type: "string",  description: "E-461: starts with an imperative verb and carries an 'Acceptance:' text in which a clause names a command, a file or a count; else [TASK_NO_VERB], [TASK_NO_ACCEPTANCE] or [TASK_ACCEPTANCE_UNOBSERVABLE]" },
+          tier:              { type: "number",  description: "Risk tier (1, 2, or 3) — required (E-461)", enum: [1, 2, 3] },
           prefix:            { type: "string",  description: "ID prefix: P (architect), E (engineer), T (tester)", enum: ["P", "E", "T"], default: "E" },
           is_framework_task: { type: "boolean", description: "If true, persist into $REIN_WORKSPACE/.ai (canonical Rein clone) instead of local .ai/. Errors with [WORKSPACE_NOT_FOUND] when REIN_WORKSPACE is unset/invalid. (E-63)", default: false },
           depends_on:        { type: "array", items: { type: "string" }, description: "E-91: task IDs this task depends on. Starts BLOCKED until all are DONE, then auto-OPENs. Self-references, cycles, unknown deps, and chains deeper than 5 are rejected with [DAG_FAIL]." },
         },
-        required: ["owner", "description"],
+        required: ["owner", "description", "tier"],
       },
     },
     {
       name: "update_task_status",
-      description: "Updates a task's status (OPEN, BLOCKED, IN_PROGRESS, DONE). In a team project (.ai/team.json) IN_PROGRESS is set only by claim_task. Marks completed_at for DONE and clears the claim. Completing a task auto-unblocks any dependents whose dependencies are now all DONE. E-101: DONE tasks are locked — pass reopen:true to mutate one, else returns [TASK_LOCKED].",
+      description: "Updates a task's status (OPEN, BLOCKED, IN_PROGRESS, DONE). In a team project (.ai/team.json) IN_PROGRESS is set only by claim_task. Marks completed_at for DONE and clears the claim. Completing a task auto-unblocks any dependents whose dependencies are now all DONE. E-101: DONE tasks are locked — pass reopen:true to mutate one, else returns [TASK_LOCKED]. E-431/E-464: a Tier 2 or 3 E-## task needs [REVIEW_PASS] (reviewer) and [ACCEPT_PASS] (critic_acceptance) for HEAD, and Tier 3 also [SEC_CLEARED] (security_engineer), before DONE ([REVIEW_GATE], [ACCEPT_GATE], [SEC_GATE]); superseded_by closes one unimplemented.",
       inputSchema: {
         type: "object",
         properties: {
@@ -48,6 +47,7 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
           summary:    { type: "string", description: "Completion summary (for DONE status)" },
           reopen:     { type: "boolean", description: "E-101 (sovereignty-hardening.md §Components 2): required to mutate a task already in DONE status. Without it, a DONE task returns [TASK_LOCKED] to protect completed implementation history." },
           depends_on: { type: "array", items: { type: "string" }, description: "E-91: optionally revise this task's dependency list. Validated for existence, cycles, and depth (<=5) before write." },
+          superseded_by: { type: "string", description: "E-431 (D-159 r9): close a task unimplemented because decision D-### overtook it. Only with status DONE; the id must be a '## D-###' heading in DECISIONS.md. Skips the acceptance gate only (the build and CI gates still run) and writes 'superseded by D-### — not implemented' into the summary." },
         },
         required: ["id", "status"],
       },
@@ -99,11 +99,6 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
         required: ["focus"],
       },
     },
-    {
-      name: "archive_done_tasks",
-      description: `State-hygiene rotation (token-optimization.md). Moves old DONE tasks (beyond the last ${DONE_KEEP_RECENT}) to .ai/archive/state-done-YYYYMM.json (a team project: the tracked .ai/tasks/archive/YYYY-MM/ — E-330) when DONE count exceeds ${DONE_ARCHIVE_THRESHOLD}, AND rotates old audit stamps (beyond the last 10) to .ai/archive/stamps-YYYYMM.json when the stamp count exceeds 50. Returns { archived_tasks, archived_stamps, archivePath }.`,
-      inputSchema: { type: "object", properties: {} },
-    },
     // append_tasks intentionally removed from tool list — disabled (bypasses SQLite).
     // Call add_task instead.
     {
@@ -143,74 +138,6 @@ export function buildToolSchemas({ DONE_KEEP_RECENT, DONE_ARCHIVE_THRESHOLD }) {
         },
         required: ["schema_name", "payload"],
         additionalProperties: false,
-      },
-    },
-    {
-      name: "mark_deltas_read",
-      description: "Marks implementation deltas as read after the Architect has incorporated them into architect.md. Pass specific task_ids to acknowledge selectively, or omit to acknowledge all unread deltas.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          task_ids: {
-            type: "array",
-            items: { type: "string" },
-            description: "Task IDs whose deltas to acknowledge (e.g. ['E-78', 'E-79']). Omit to acknowledge all unread.",
-          },
-        },
-      },
-    },
-    // ── E-88: Multi-Variation-State-Tracker tools (SEO Topic Cluster Engine) ──
-    // Backing tables (topic_seeds, cluster_pages) live in state-db.js. Wired
-    // here per .ai/blueprints/seo-keyword-multiplier.md §Components 3 + §API.
-    // Cloud sync hook does NOT fire from these — the managed-agents
-    // projection contract (E-73 §Data Privacy) covers only tasks, not SEO
-    // state.
-    {
-      name: "add_topic_seed",
-      description: "Register a new TopicSeed (E-88). Returns an auto-assigned TS-N id. Use this once at the start of a generateTopicCluster(term) expansion in src/claude/agents/seo_manager.md; the SEO-Content-Generator then attaches one Pillar + up to MAX_CLUSTER_PAGES_PER_SEED Cluster pages to it.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          term:          { type: "string", description: "The topic seed term (1..256 chars, no shell metachars)" },
-          target_volume: { type: "number", description: "Target number of Cluster pages to generate (1..10, default 10)", default: 10 },
-        },
-        required: ["term"],
-      },
-    },
-    {
-      name: "add_cluster_page",
-      description: "Register a ClusterPage against an existing TopicSeed (E-88). Refuses intent_type values outside the canonical set (1 Pillar + Cluster intents) defined in src/shared/seo-cluster-intents.mjs. Enforces the cannibalization guard (unique intent per seed) and the lifted cluster-page cap (defence-in-depth on blueprint §Execution Constraints/Generation Limits).",
-      inputSchema: {
-        type: "object",
-        properties: {
-          seed_id:      { type: "string", description: "TopicSeed id (e.g. 'TS-1')" },
-          intent_type:  { type: "string", description: "One of the canonical intents (pillar-overview, cost, comparison, how-to, …, faq)" },
-          content_blob: { type: "string", description: "Optional inline markdown body, or a relative repo path if content lives on disk" },
-        },
-        required: ["seed_id", "intent_type"],
-      },
-    },
-    {
-      name: "report_performance",
-      description: "Update a ClusterPage.performance_metrics with new SEO metrics (E-88 reportPerformance API). Merges supplied keys into the existing JSON object — pass only the fields that changed.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          page_id: { type: "string", description: "ClusterPage id (e.g. 'CP-1')" },
-          metrics: { type: "object", description: "JSON merge patch — e.g. { clicks: 120, impressions: 4500, ctr: 0.027, position: 8.4 }" },
-        },
-        required: ["page_id", "metrics"],
-      },
-    },
-    {
-      name: "get_topic_cluster",
-      description: "Return a TopicSeed plus every ClusterPage attached to it (E-88). Used by the SEO-Content-Generator duplicate-content gate and by the Architect to audit a cluster's progress toward its target.",
-      inputSchema: {
-        type: "object",
-        properties: {
-          seed_id: { type: "string", description: "TopicSeed id (e.g. 'TS-1')" },
-        },
-        required: ["seed_id"],
       },
     },
   ];

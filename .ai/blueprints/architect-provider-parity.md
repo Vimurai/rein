@@ -21,7 +21,7 @@ the manifest instead of hardcoding `claude=engineer`, `agents/gemini=architect`.
 | Skills | shared (25) + `src/agents/skills` (15: blueprint-writer, task-planner, decision-recorder, arch-review, architectural-aligner, digest_updater, review_synthesizer, ux_template, aqg-resolver, identity_guardian, seo_content_checklist, rein-seo, rein-task, repo-oracle, proposed) | shared + `src/claude/skills` (9, Engineer-side) | **15 Architect skills missing** from `.claude/skills` |
 | Agents | 21 via agy plugin (built from `src/claude/agents` + `src/gemini/agents`) | 13 from `src/claude/agents` | **7 missing**: ux_reviewer, docs-architect, knowledge_architect, meta_analyst, memory_curator, seo_manager, seo_content_generator |
 | Rulefile | `GEMINI.md → ARCHITECT.md` auto-load | `CLAUDE.md → ENGINEER.md`; `ARCHITECT.md` appended by `rein pane` (E-208) | `ARCHITECT.md` assumes `activate_skill`; needs the ENGINEER.md-style runtime ladder (Skill tool → MCP → activate_skill) |
-| Permissions | agy: no allow-list gate | `.claude/settings.json` allow-list is Engineer-scoped (68 rules, legacy `Bash(gemini -p *)`) | Architect overlay needs `rein add-task`/`ai handoff` Bash allows + `handoff_control`, `add_topic_seed`, `add_cluster_page`, `check_role_access` |
+| Permissions | agy: no allow-list gate | `.claude/settings.json` allow-list is Engineer-scoped (68 rules, legacy `Bash(gemini -p *)`) | Architect overlay needs Bash allows for `rein add-task` and the signal `handoff` subcommand (retired, D-099) + `handoff_control`, `add_topic_seed`, `add_cluster_page`, `check_role_access` |
 | Identity labels | owner "Architect (Agy)" hardcoded in `cli-add-task.mjs`; Stop hook stamps Actor "Claude" | same | Labels must be `<Role> (<provider>)` from roles.json |
 | Git | agy has no git tool → Engineer proxy-commits `.ai/` edits (D-053 precedent) | Claude Architect HAS git | New capability: Architect-scoped commit lane (path-scoped, see §Git Lane) |
 | Health | `rein doctor` reports agy plugin install state | — | Per-role provisioning report |
@@ -46,7 +46,7 @@ the manifest instead of hardcoding `claude=engineer`, `agents/gemini=architect`.
    normalized to the Claude agent frontmatter contract (`name`, `description`, `allowed-tools`,
    `context: fork`, `agent: general-purpose`) — verify each of the 7 loads in `/agents`.
 3. **Architect settings overlay** (`.claude/settings.architect.json`, generated per E-208): adds the Architect
-   allow rules (`Bash(rein add-task *)`, `Bash(ai handoff *)`, `mcp__task-synchronizer-mcp__handoff_control`,
+   allow rules (`Bash(rein add-task *)`, the same for the signal `handoff` subcommand (retired, D-099), `mcp__task-synchronizer-mcp__handoff_control`,
    `add_topic_seed`, `add_cluster_page`, `mcp__context-guardian-mcp__check_role_access`); the base
    settings drop the legacy `Bash(gemini -p *)`. Deny rules are NOT the sovereignty mechanism (the hook is).
 4. **Role-correct identity everywhere**: `REIN_CALLER_ROLE` in the `rein pane` launch env reaches every MCP

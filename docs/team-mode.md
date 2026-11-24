@@ -23,7 +23,7 @@ Each developer mints task ids only from their own range, so ids never collide ac
 | :--- | :--- |
 | `trunk` | The branch claims are recorded on. Default: `origin/HEAD`, else whichever of `main`/`master` the remote has. `rein trunk` prints it. |
 | `claim_ttl_days` | How long a claim holds before a teammate may take it over. |
-| `shared_log` | When true, preflight shows every developer's recent log entries, not just yours. |
+| `shared_log` | When true, `rein log recent` shows every developer's recent log entries, not just yours. |
 
 ## Claims
 
@@ -50,6 +50,6 @@ automatically. `rein task claims` lists who holds what.
 ## Keeping machines in step
 
 Each machine keeps a local index (`.ai/state.sqlite`) of what git tracks. After a pull,
-`rein state import` brings it up to date losslessly; `rein doctor` and preflight warn when the index
+`rein state import` brings it up to date losslessly; `rein doctor` and the session brief warn when the index
 is behind. `rein state migrate --legacy` folds the record files back into one `state.json` if you
 leave team mode.

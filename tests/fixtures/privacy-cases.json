@@ -18,14 +18,9 @@
   {"kind": "writer", "writer": "task_description", "label": "a task description reaches TASKS.md and state.json redacted"},
   {"kind": "writer", "writer": "task_summary", "label": "a completion summary reaches TASKS.md and state.json redacted"},
   {"kind": "writer", "writer": "stamp_summary", "label": "a stamp summary reaches REVIEWS.md and state.json redacted"},
-  {"kind": "writer", "writer": "handover", "label": "run_handover's delta, digest reason and LOG line are redacted"},
   {"kind": "writer", "writer": "log_line", "label": "appendLog redacts every log line"},
-  {"kind": "writer", "writer": "repo_map", "label": "generate_map redacts REPO_MAP.md"},
   {"kind": "writer", "writer": "ci_evidence", "label": "a CI evidence record's host is redacted"},
   {"kind": "writer", "writer": "hosted_ci", "label": "a hosted CI wrapper is redacted, and stays current"},
-  {"kind": "writer", "writer": "instinct_stager", "label": "a proposed skill is redacted"},
   {"kind": "writer", "writer": "project_focus", "label": "set_project_focus's focus and verdict reach state.json redacted (security P1-2)"},
-  {"kind": "writer", "writer": "advisor_ruling", "label": "the advisor's LOG line passes through redact() (security P2-3)"},
-  {"kind": "writer", "writer": "ai_clean_log", "label": "rein clean's LOG line passes through redact() (security P2-3)"},
-  {"kind": "writer", "writer": "stop_hook", "label": "the stop hook's digest line is redacted (hooks_surface_test, a process boundary)"}
+  {"kind": "writer", "writer": "ai_clean_log", "label": "rein clean's LOG line passes through redact() (security P2-3)"}
 ]

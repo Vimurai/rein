@@ -225,6 +225,14 @@ _shadowed="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="${SHADOW}
 assert_contains "E-270.05d: doctor: another rein earlier on PATH is reported as shadowing" \
   "(shadowed by ${SHADOW}/rein)" "$(_path_line "$_shadowed")"
 
+# ── E-448 (D-165 r5): a tracked machine-local file fails doctor (it was a `!` line) ──
+assert_not_contains "E-448.D0: the fresh project tracks no machine-local file" "[MACHINE_LOCAL]" "$(_ai doctor)"
+( cd "$PROJ" && git add -f .claude/settings.json )
+assert_contains "E-448.D1: doctor names a tracked .claude/settings.json as [MACHINE_LOCAL]" \
+  "[MACHINE_LOCAL] .claude/settings.json is tracked" "$(_ai doctor)"
+assert_rc 1 "E-448.D2: …and exits non-zero" doctor
+( cd "$PROJ" && git rm -q --cached .claude/settings.json )
+
 # ── E-391.03 (D-132 addendum 4 r2): doctor and sync know a Rein hook by its file name ──
 # A hook entry under a home directory that no longer exists (what removing an earlier
 # install's directory leaves) is reported, fails doctor, and is rewritten by sync; a script
@@ -257,19 +265,20 @@ python3 - "${PROJ}/.claude/settings.json" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p)); d["hooks"].pop("PreToolUse", None); json.dump(d, open(p, "w"), indent=2)
 PY
-assert_contains "E-391.03g: no PreToolUse entry for the install's gate is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
-assert_rc 1 "E-391.03h: …and doctor exits non-zero" doctor
-# E-421 (D-153 r3, D-155 r5): extends E-391.03g-h — the same fixture, read as `doctor --json`.
+# E-463: the seatbelt is advice, so an unregistered one is a warning, not a hard failure.
+assert_contains "E-391.03g: no PreToolUse entry for the install's seatbelt is [SEATBELT_UNREGISTERED]" "[SEATBELT_UNREGISTERED]" "$(_ai doctor)"
+# E-421 (D-153 r3, D-155 r5): extends E-391.03g — the same fixture, read as `doctor --json`.
 # The document is the only stdout; its records are exactly the text run's check lines; a
 # failing record names its fix unless its id is one whose line names no command (the list).
 _dtext="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor 2>/dev/null )"
 _djson="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --json 2>/dev/null )"; _djrc=$?
-assert_status 0 "E-421.01a: doctor --json exits 1 on [GATE_UNREGISTERED], as text mode does (rc=${_djrc})" test "$_djrc" -eq 1
+_dtrc=0; ( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor >/dev/null 2>&1 ) || _dtrc=$?
+assert_status 0 "E-421.01a: doctor --json exits as text mode does (json rc=${_djrc}, text rc=${_dtrc})" test "$_djrc" -eq "$_dtrc"
 _dcheck="$(node -e '
 const [json, text] = process.argv.slice(1);
 const NO_AUTO_FIX = new Set(["classifier_backstop", "claude_home", "hook_path_foreign", "hooks_disabled", "hosted_ci",
   "mcp_builds", "mcp_server", "mcp_syntax", "node_present", "npx_present", "path_has_rein_bin", "rein_on_path",
-  "role_provider", "settings_json", "start_account", "state_health", "tmux", "vibe_check_browsers",
+  "role_provider", "settings_json", "start_account", "state_health", "tmux",
   "install", "mcp_paths", "mcp_path_consistency"]);
 let d; try { d = JSON.parse(json); } catch (e) { console.log("parse: " + e.message); process.exit(0); }
 const out = [];
@@ -279,15 +288,14 @@ const tl = new Set(text.split("\n").map((l) => l.trimStart()).filter((l) => G.te
 const jl = new Set(d.checks.map((c) => c.line.split("\n")[0]));
 for (const l of tl) if (!jl.has(l)) out.push("text only: " + l);
 for (const l of jl) if (!tl.has(l)) out.push("json only: " + l);
-const keys = d.checks.map((c) => c.id + "\u0000" + c.subject);
-if (new Set(keys).size !== keys.length) out.push("duplicate (id, subject)");
 for (const c of d.checks) if (!/^[a-z][a-z0-9_]*$/.test(c.id)) out.push("id not snake_case: " + c.id);
 for (const c of d.checks) if (c.status === "fail" && !c.fix && !NO_AUTO_FIX.has(c.id)) out.push("fail without fix: " + c.id);
-const g = d.checks.find((c) => c.id === "gate_registered");
-if (d.status !== "fail" || !g || g.status !== "fail" || g.fix !== "rein sync") out.push("gate_registered: " + JSON.stringify(g));
+const g = d.checks.find((c) => c.id === "seatbelt_registered");
+if (!g || g.status === "pass" || g.fix !== "rein sync") out.push("seatbelt_registered: " + JSON.stringify(g));
 console.log(out.join("\n") || "OK");
 ' "$_djson" "$_dtext" 2>&1)"
-assert_status 0 "E-421.01b: one document; records = the text run's check lines; (id, subject) unique; gate_registered fails with fix rein sync${_dcheck:+ — ${_dcheck:0:600}}" \
+# (id, subject) uniqueness and the document status are doctor-json.test.mjs "E-421.04" (E-444, census D4, D6).
+assert_status 0 "E-421.01b: one document; records = the text run's check lines; seatbelt_registered warns with fix rein sync${_dcheck:+ — ${_dcheck:0:600}}" \
   test "$_dcheck" = "OK"
 # E-422 (D-153 r3, D-155 r5): extends E-421.01b — that document against the published schema.
 _dsf="$(mktemp "${FAKE_TMP}/doctor-json.XXXXXX")"; printf '%s\n' "$_djson" > "$_dsf"
@@ -318,8 +326,7 @@ assert_contains "E-427.02h: …saying so" "--scope takes install" "$_bad"
 _dusage="$( cd "$PROJ" && HOME="$FAKE_HOME" TMPDIR="$FAKE_TMP" PATH="$BASE_PATH" bash "$AI_BIN" doctor --json --repair 2>&1 >/dev/null )"; _durc=$?
 assert_status 0 "E-421.01c: --json with --repair is a usage error, exit 2 (rc=${_durc})" test "$_durc" -eq 2
 assert_contains "E-421.01d: …with one line on stderr" "--json runs the default doctor only" "$_dusage"
-assert_status 0 "E-421.01e: rein help shows doctor [--json]" \
-  bash -c "grep < <(bash '$AI_BIN' help 2>&1) -qF 'rein doctor [--json]'"
+# `doctor --json` in rein help: cli_test.sh E-422.03a, through cli-surface.json (E-444, census §1.3).
 _ai sync >/dev/null
 # Security re-review N1: an entry counts by the ONE script it runs. The form Claude Code
 # documents ("$CLAUDE_PROJECT_DIR"/…) and a Rein name passed as an ARGUMENT are not missing
@@ -342,7 +349,7 @@ assert_rc 0 "E-391.03j: …and neither entry fails doctor" doctor
 _ai sync >/dev/null
 assert_status 0 "E-391.03k: sync keeps the project's own hook" python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert any(h.get("command") == "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/session-start.sh" for e in d["hooks"].get("SessionStart", []) for h in e.get("hooks", []))' "${PROJ}/.claude/settings.json"
 assert_contains "E-391.03l: sync keeps an entry that only names a Rein hook as an argument" "myaudit --note /nope/stop-hook.sh" "$(cat "${PROJ}/.claude/settings.json")"
-# N2: the gate counts only as it ships — exec form, under a matcher that covers Bash.
+# N2: the seatbelt counts only as it ships — exec form, under a matcher that covers Bash.
 _gate_variant() {  # <python expression for the PreToolUse list, with G = the gate path>
   python3 - "${PROJ}/.claude/settings.json" "$(cd "${FAKE_HOME}/.rein/hooks" && pwd -P)/pre-tool-use.sh" "$1" <<'PY'
 import json, sys
@@ -351,9 +358,9 @@ d = json.load(open(p)); d["hooks"]["PreToolUse"] = eval(expr); json.dump(d, open
 PY
 }
 _gate_variant '[{"matcher": ".*", "hooks": [{"type": "command", "command": "true " + G}]}]'
-assert_contains "E-391.03m: a PreToolUse entry that names the gate but never runs it is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+assert_contains "E-391.03m: a PreToolUse entry that names the seatbelt but never runs it is [SEATBELT_UNREGISTERED]" "[SEATBELT_UNREGISTERED]" "$(_ai doctor)"
 _gate_variant '[{"matcher": "NoSuchTool", "hooks": [{"type": "command", "command": "/bin/bash", "args": ["-p", G]}]}]'
-assert_contains "E-391.03n: …and so is the gate under a matcher that never covers Bash" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+assert_contains "E-391.03n: …and so is the seatbelt under a matcher that never covers Bash" "[SEATBELT_UNREGISTERED]" "$(_ai doctor)"
 _ai sync >/dev/null
 python3 - "${PROJ}/.claude/settings.json" <<'PY'
 import json, sys
@@ -368,9 +375,9 @@ _set_cmd SessionStart 'bash --rcfile /nope/session-start.sh /u/bin/myaudit'
 _ai sync >/dev/null
 assert_contains "E-391.03q: sync keeps a multi-command line that mentions a Rein hook" "/u/bin/myaudit; /nope/stop-hook.sh" "$(cat "${PROJ}/.claude/settings.json")"
 assert_contains "E-391.03r: …and one whose Rein name is an option's argument" "--rcfile /nope/session-start.sh" "$(cat "${PROJ}/.claude/settings.json")"
-# M3: a matcher that leaves a gated tool out does not count as the gate.
+# M3 → E-463: the seatbelt reads Bash only, so a Bash-only matcher is the shipped registration.
 _gate_variant '[{"matcher": "Bash", "hooks": [{"type": "command", "command": "/bin/bash", "args": ["-p", G], "timeout": 30}]}]'
-assert_contains "E-391.03s: a Bash-only matcher (Write/Edit ungated) is [GATE_UNREGISTERED]" "[GATE_UNREGISTERED]" "$(_ai doctor)"
+assert_not_contains "E-391.03s: a Bash-only matcher registers the seatbelt (E-463)" "[SEATBELT_UNREGISTERED]" "$(_ai doctor)"
 _ai sync >/dev/null
 python3 - "${PROJ}/.claude/settings.json" <<'PY'
 import json, sys

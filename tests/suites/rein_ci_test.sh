@@ -630,7 +630,9 @@ assert_contains "E-303.01b: …with recorded, measured and slack on one line" \
 OUT="$(node --no-warnings "$CIREC" budget-check --ai-dir "${REPO}/.ai" --log "${RUN_TMP}/b45.log" 2>&1)"; RC=$?
 assert_status 0 "E-303.01c: an equal measurement passes" test "$RC" -eq 0
 OUT="$(_ci budget)"
-assert_contains "E-303.02a: rein ci budget prints the current budget" "test budget: suites 45, test_lines 1000, fast_tier_seconds 30" "$OUT"
+assert_contains "E-303.02a: rein ci budget prints the current budget" "test budget: suites 45, fast_tier_seconds 30" "$OUT"
+# E-464 (D-169 r9): the log line still carries an old test_lines=; the retired ratchet prints nothing.
+assert_not_contains "E-464.02a2: rein ci budget prints no test_lines" "test_lines" "$OUT"
 OUT="$(_ci budget set suites=46)"; RC=$?
 assert_status 0 "E-303.02b: raising the budget without a ruling is refused (rc=${RC})" test "$RC" -eq 2
 assert_contains "E-303.02c: …and says a ruling is the way" "only by ruling: --ruling D-###" "$OUT"
@@ -815,7 +817,7 @@ _done() {  # <task> [env...] → the update_task_status text
   local id="$1"; shift
   _mcp "$@" bash -c "source '${REPO_ROOT}/tests/lib/mcp-client.sh'; mcp_call_tool '$SYNC_SERVER' update_task_status '{\"id\":\"$id\",\"status\":\"DONE\",\"summary\":\"probe\"}'"
 }
-_add() { _mcp bash -c "source '${REPO_ROOT}/tests/lib/mcp-client.sh'; mcp_call_tool '$SYNC_SERVER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"Probe the CI gate $1\",\"prefix\":\"E\"}'" >/dev/null; }
+_add() { _mcp bash -c "source '${REPO_ROOT}/tests/lib/mcp-client.sh'; mcp_call_tool '$SYNC_SERVER' add_task '{\"owner\":\"Engineer (Claude)\",\"description\":\"Add Probe the CI gate $1. Acceptance: TASKS.md lists it.\",\"tier\":2,\"prefix\":\"E\"}'" >/dev/null; }
 for n in 1 2 3; do _add "$n"; done
 C8="$(_commit src/a.js 8 "eighth")"
 OUT="$(_done E-1)"
@@ -840,29 +842,14 @@ assert_contains "E-267.08g: a .ai/-only HEAD above the tested commit is accepted
 EMPTY="$(test_tmpdir cigate-empty)"
 git -C "$EMPTY" init -q; mkdir -p "${EMPTY}/.ai"
 git -C "$EMPTY" -c user.name=t -c user.email=t@t -c commit.gpgsign=false commit -q --allow-empty -m x
-OUT="$( cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" add_task '{"owner":"Engineer (Claude)","description":"Probe adoption off","prefix":"E"}' >/dev/null
+OUT="$( cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" add_task '{"owner":"Engineer (Claude)","description":"Add Probe adoption off. Acceptance: TASKS.md lists it.","tier":2,"prefix":"E"}' >/dev/null
         cd "$EMPTY" && HOME="$FAKE_HOME" mcp_call_tool "$SYNC_SERVER" update_task_status '{"id":"E-1","status":"DONE","summary":"x"}' \
           | python3 -c 'import json,sys; print((json.load(sys.stdin).get("content") or [{}])[0].get("text",""))' )"
 assert_contains "E-267.08h: a project that never ran rein ci is not gated" "E-1 → DONE" "$OUT"
 
 # ── E-267.9: the consumers ───────────────────────────────────────────────
-TASK_SKILL="${REPO_ROOT}/src/shared/skills/rein-task/SKILL.md"
-# The needles below are REGEXES ('gh +run'), not the literal phrase, so E-268's repo-wide
-# "nothing names the hosted runner any more" grep is not tripped by its own negative tests.
-assert_status 1 "E-267.09a: rein-task no longer reads the hosted runner" grep -qE 'gh +run' "$TASK_SKILL"
-assert_status 1 "E-267.09b: rein-task's injection no longer shells out to python3" grep -q '^Local CI.*python3' "$TASK_SKILL"
-INJ="$(sed -n 's/^Local CI (HEAD): !//p' "$TASK_SKILL")"
-assert_contains "E-267.09c: rein-task injects rein ci status --short" "rein ci status --ref HEAD --short" "$INJ"
-# Run the injection line itself against a fixture, with a `rein` on PATH that is this tree.
-BIN="$(test_tmpdir cigate-bin)"
-printf '#!/usr/bin/env bash\nexec bash "%s" "$@"\n' "$AI" > "${BIN}/rein"; chmod +x "${BIN}/rein"
-OUT="$( cd "$REPO" && git checkout -qf "$C8" && HOME="$FAKE_HOME" PATH="${BIN}:$PATH" bash -c "$INJ" 2>&1 )"
-assert_match "E-267.09d: the injected line reads PASS for a tested HEAD" "^PASS ${C8:0:7} " "$OUT"
-OUT="$( cd "$REPO" && git checkout -qf "$C1" && HOME="$FAKE_HOME" PATH="${BIN}:$PATH" bash -c "$INJ" 2>&1 )"
-assert_match "E-267.09e: and NONE for an untested one" "^NONE ${C1:0:7} " "$OUT"
-OUT="$( cd "$REPO" && HOME="$FAKE_HOME" PATH="/usr/bin:/bin" bash -c "$INJ" 2>&1 )"
-assert_contains "E-267.09f: and says unavailable when ai is not installed" "(rein ci unavailable" "$OUT"
-git -C "$REPO" checkout -qf main
+# E-267.09a-f (the rein-task skill's injected `rein ci status --ref HEAD --short` line) were
+# deleted by E-461 with the skill; the command's PASS/NONE/--short output is pinned by E-266.02.
 
 # E-282: the triage rule moved from ENGINEER.md to the tests/** path-scoped rule.
 assert_status 0 "E-267.09g: the tests/** rule triages with rein ci log --failed" \
@@ -870,22 +857,14 @@ assert_status 0 "E-267.09g: the tests/** rule triages with rein ci log --failed"
 for f in ENGINEER.md src/templates/ENGINEER.md src/claude/rules/test-harness.md; do
   assert_status 1 "E-267.09h: ${f} no longer names the hosted runner" grep -qE 'gh +run +view' "${REPO_ROOT}/${f}"
 done
-for f in src/claude/agents/critic_tests.md src/claude/skills/rein-review/SKILL.md; do
-  assert_status 0 "E-267.09i: ${f} says 'under \`rein ci\`'" grep -q 'under `rein ci`' "${REPO_ROOT}/${f}"
-  assert_status 1 "E-267.09j: ${f} no longer says 'fails the run on CI'" grep -q 'fails the run on CI' "${REPO_ROOT}/${f}"
-done
-assert_status 0 "E-267.09k: ci_gate forbids pushing without a green rein ci run" \
-  grep -q 'without a green `rein ci run`' "${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
+# E-267.09i/j (critic_tests and rein-review said 'under `rein ci`') retired with those texts in E-464.
+# E-267.09k (the ci_gate skill forbade pushing without a green run) went with the skill (E-467);
+# hooks/pre-push.sh itself refuses such a push.
 assert_status 0 "E-267.09l: install_git_hooks installs the pre-push stub" \
   grep -q '_write_pre_push_stub "\$PP_DST"' "$AI"
 assert_status 0 "E-267.09m: uninstall tells the operator to remove it" \
   grep -q 'rm .git/hooks/pre-push' "$AI"
-for m in .claude/skills/rein-task/SKILL.md:src/shared/skills/rein-task/SKILL.md \
-         .claude/skills/rein-review/SKILL.md:src/claude/skills/rein-review/SKILL.md \
-         .claude/skills/ci_gate/SKILL.md:src/claude/skills/ci_gate/SKILL.md \
-         .claude/agents/critic_tests.md:src/claude/agents/critic_tests.md; do
-  assert_mirror_if_present "E-267.09n: ${m%%:*} mirrors ${m##*:}" "${REPO_ROOT}/${m##*:}" "${REPO_ROOT}/${m%%:*}"
-done
+# E-267.09n (the .claude/ rein-review and reviewer mirrors) deleted: those copies are untracked (D-172 r19).
 
 echo ""
 
@@ -992,25 +971,13 @@ assert_status 0 "E-268.04c: and names the recorded bypass" \
   grep -q 'REIN_CI_SKIP=1' "${REPO_ROOT}/CONTRIBUTING.md"
 
 # ── E-268.5: the agent-facing surfaces ───────────────────────────────────
-CG="${REPO_ROOT}/src/claude/skills/ci_gate/SKILL.md"
-assert_status 0 "E-268.05a: ci_gate names the local config files it protects" \
-  grep -q 'hooks/pre-push.sh' "$CG"
-assert_status 0 "E-268.05b: ci_gate injects the local CI verdict, not a workflow find" \
-  grep -q 'rein ci status --ref HEAD --short' "$CG"
-assert_status 0 "E-268.05c: ci_gate enforces the step order of the runner" \
-  grep -q 'worktree → env → deps' "$CG"
+# E-268.05a-c (ci_gate) and E-268.05e (devops_engineer) went with that skill and agent (E-467).
 assert_status 0 "E-268.05d: the DevOps contract says what CI means here" \
   grep -q 'rein ci run` on the machine' "${REPO_ROOT}/src/contracts/40_DEVOPS.md"
-assert_status 0 "E-268.05e: devops_engineer knows CI is local" \
-  grep -q 'Rein itself runs CI locally' "${REPO_ROOT}/src/claude/agents/devops_engineer.md"
 assert_status 0 "E-268.05f: the copilot brief no longer offers CI triggers" \
   bash -c "! grep -q 'CI triggers' '${REPO_ROOT}/src/copilot/COPILOT.md'"
 
-# ── E-268.6: mirrors carry the same text ─────────────────────────────────
-assert_mirror_if_present "E-268.06a: .claude/skills/ci_gate mirrors src/" \
-  "$CG" "${REPO_ROOT}/.claude/skills/ci_gate/SKILL.md"
-assert_mirror_if_present "E-268.06b: .claude/agents/devops_engineer mirrors src/" \
-  "${REPO_ROOT}/src/claude/agents/devops_engineer.md" "${REPO_ROOT}/.claude/agents/devops_engineer.md"
+# E-268.6 (the ci_gate and devops_engineer mirrors) went with them (E-467).
 
 echo ""
 

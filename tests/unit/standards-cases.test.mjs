@@ -21,7 +21,12 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { repo, loadTable } from "../lib/check-table.mjs";
+import { fileURLToPath } from "node:url";
+
+// The two helpers this runner used from tests/lib/check-table.mjs, which went with the gate's
+// contract tables (E-463).
+const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const loadTable = (name) => JSON.parse(readFileSync(join(repo, "tests/fixtures", `${name}-cases.json`), "utf8"));
 import {
   RULE_REGISTRY, loadStandards, reportDrift, validateFile, validateFiles,
 } from "../../src/shared/standards-checker.mjs";
@@ -174,7 +179,8 @@ function corpus(root) {
 test("E-234.06c-e / E-231.06a-c: the src + .claude markdown corpus is built and has no locator findings", () => {
   for (const r of ["src", ".claude"]) assert.ok(existsSync(join(repo, r)), `corpus root ${r} missing`);
   const files = [...corpus("src"), ...corpus(".claude")];
-  assert.ok(files.length >= 100, `corpus has ${files.length} files, floor 100`);
+  // Floor 40: E-467 (D-170 r5) cut the corpus from 100+ files to 53; the floor still refuses an empty walk.
+  assert.ok(files.length >= 40, `corpus has ${files.length} files, floor 40`);
   const hits = [];
   for (const f of files) {
     const c = readFileSync(join(repo, f), "utf8");

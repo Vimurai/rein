@@ -1,0 +1,9 @@
+{
+  "name": "rein",
+  "displayName": "Rein",
+  "version": "0.0.0",
+  "description": "Rein's review and acceptance agents, its skills and its session hooks (session brief and role token; the waiting-on-the-operator pane signal). The ledger and the commands stay in the rein CLI.",
+  "author": { "name": "Rein" },
+  "license": "Apache-2.0",
+  "keywords": ["rein", "review", "acceptance", "ledger"]
+}

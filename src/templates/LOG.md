@@ -1,4 +1,4 @@
-# LOG (Append-only — auto-updated by PostToolUse hook)
+# LOG (Append-only)
 Format: YYYY-MM-DD HH:MM | Actor | Tool | File
 
-Archive when > 200 lines: invoke `skill: rein-archive`.
+Archive when > 200 lines: run `rein archive --logs`.

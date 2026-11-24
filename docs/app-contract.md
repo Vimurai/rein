@@ -12,7 +12,7 @@ a reader. The machine-checkable parts are published beside it:
 | [`contract/manifest.schema.json`](contract/manifest.schema.json) | `manifest.json`, schema 1 |
 | [`contract/doctor.schema.json`](contract/doctor.schema.json) | `rein doctor --json`, schema 1 |
 | [`contract/accounts.schema.json`](contract/accounts.schema.json) | `~/.rein/accounts.json` — see [Accounts](accounts.md) |
-| [`../tests/fixtures/release/`](../tests/fixtures/release/) | Shared fixtures: `layout-v1.json`, `operator-owned-cases.json`, `profile-settings-cases.json`, `cli-surface.json`, `doctor-sample.json` |
+| [`../tests/fixtures/release/`](../tests/fixtures/release/) | Shared fixtures: `layout-v1.json`, `operator-owned-cases.json`, `profile-settings-cases.json`, `cli-surface.json`, `doctor-sample.json`, `pane-options.json` |
 
 Each schema is pinned by a test that validates a real output against it, so a schema that
 drifts from what Rein produces fails Rein's own CI first.
@@ -86,8 +86,8 @@ The Rein home (`$HOME/.rein`) holds the ten `layout.mirrored` directories, `mani
    Every other top-level entry is left alone, listed or not.
 2. Inside a mirrored directory: writes each path in `files` (temporary file and rename, never a
    directory swap); deletes each path not in `files` unless it matches `layout.operator_owned`.
-3. **A shipped path wins over a pattern.** `mcp/orchestrator-mcp/package-lock.json` is shipped
-   and also matches `mcp/*/package-lock.json`; it is written. The patterns protect from deletion.
+3. **A shipped path wins over a pattern.** A shipped `mcp/<server>/package-lock.json` also
+   matches `mcp/*/package-lock.json`; it is written. The patterns protect from deletion.
 4. Writes `hooks/` last, and `VERSION` (one line, `manifest.version`) after everything, so a
    failed copy never advertises a version.
 5. Runs `rein install`, then `rein doctor --scope install --json` from any directory, and judges
@@ -130,7 +130,7 @@ paths. An app writes no file inside a project. The accept/refuse cases are
 
 ## 4. Headless entry points
 
-These eight stay stable. Flags may be added, never removed, inside a major version (the minor,
+These nine stay stable (`rein digest` joined in 0.5.x, D-159). Flags may be added, never removed, inside a major version (the minor,
 before 1.0.0). The flags each one documents today are pinned in
 [`cli-surface.json`](../tests/fixtures/release/cli-surface.json), and Rein's CI fails when one
 disappears from `rein help`.
@@ -141,10 +141,10 @@ disappears from `rein help`.
 | `rein sync` | Re-provision a project (`--github`, `--prune-providers`) |
 | `rein init` | Create or upgrade a project's `.ai/` (`--check` for a dry run) |
 | `rein doctor` | Health, as text or `--json` (below) |
-| `rein start` | Build or reattach a project's tmux Triad |
-| `rein pane <architect\|engineer>` | Bind a pane to a role — the only way a role is bound; an app never mints a role token |
+| `rein start` | Build or reattach a project's tmux Triad. On a live session it restarts only the agents that have exited and leaves running ones untouched |
+| `rein pane <architect\|engineer>` | Bind a pane to a role — the only way a role is bound (it writes the launch record) |
 | `rein account list\|add\|remove\|sync` | The Claude account registry ([Accounts](accounts.md)) |
-| `rein gate on\|status` | The safe-exec gate override's state (`off` is the operator's, in their own terminal) |
+| `rein digest build\|check` | Rebuild `.ai/DIGEST.md` from its tracked inputs, or exit 1 `[DIGEST_STALE]` when it is out of date |
 
 ## 5. The doctor document
 
@@ -184,3 +184,41 @@ from a fixture project is [`doctor-sample.json`](../tests/fixtures/release/docto
 install, an upgrade, or a person asking. An app that wants to
 watch state polls `rein state health --short`, which is cheap; it renders both and never
 re-implements a check.
+
+## 6. Pane options
+
+What an app reads to know that a pane's agent has stopped at a prompt, without parsing the
+screen. Rein's hooks write the state into the tmux server from inside the session, so it is
+true whether or not an app is running (D-160).
+
+| Option | Value | Set | Unset |
+| :--- | :--- | :--- | :--- |
+| `@rein_role`, `@rein_account` | the bound role and account | `rein pane`, `rein start` | never |
+| `@rein_signals` | `waiting` (a space-separated list; one entry in this version) | session start | session end |
+| `@rein_waiting` | `permission` or `question` | a prompt opens | the agent continues |
+| `@rein_waiting_since` | epoch seconds of the set | with `@rein_waiting` | with `@rein_waiting` |
+
+- `permission`: a tool approval dialog, or a sandboxed command's network request. `question`:
+  `AskUserQuestion`, plan approval, or an MCP elicitation dialog.
+- Treat any non-empty `@rein_waiting` as waiting (values may be added inside a major version),
+  and read it only when `@rein_signals` contains `waiting`. Without that the pane's session does
+  not report, and an empty `@rein_waiting` means "unknown", not "working".
+- Read: `tmux list-panes -a -F '#{pane_id}|#{@rein_role}|#{@rein_signals}|#{@rein_waiting}|#{@rein_waiting_since}'`.
+- It is not a "finished" signal. A question the model writes as plain text at the end of its
+  turn is a finished turn.
+
+**The accuracy an app may rely on:**
+1. *No missed wait*: a prompt that has been on screen for 7 s has `@rein_waiting` set.
+2. *No stuck wait*: `@rein_waiting` is unset at the latest when the turn ends, the operator
+   submits a prompt, or the session starts or ends.
+
+Only a session started by `rein pane <role>` (which `rein start` sends) reports: the hooks
+address the tmux server and pane `rein pane` recorded from the operator's shell, never the
+session's own environment, so a plain `claude` in a tmux pane has no `@rein_signals`. A session
+reports from its first start after `rein sync` on a version that ships this; a session already
+running keeps the hooks it started with and has no `@rein_signals`. A pane whose agent
+was killed without a session end keeps its options until the next session in that pane starts:
+check the pane's process as for any pane. `rein doctor` reports the hook registration as
+`waiting_signal_registered`, and the hook toolchain line names the tmux the hooks use. The names
+and the closed value lists are pinned in
+[`pane-options.json`](../tests/fixtures/release/pane-options.json).

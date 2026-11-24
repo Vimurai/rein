@@ -313,11 +313,11 @@ assert_status 0 "E-249.03g: the installer's probe is guarded and non-fatal" \
 
 # The interceptor stamps every server, not a hand-maintained list of them.
 assert_status 0 "E-249.03h: the stamp rides on the shared instrument() interceptor" \
-  grep -q 'bootedBuild(serverName)' "${REPO_ROOT}/src/shared/mcp-telemetry.mjs"
+  grep -q 'bootedBuild(serverName)' "${REPO_ROOT}/src/shared/mcp-result.mjs"
 _instrumented="$(grep -lE '^\s*instrument\(server' "${REPO_ROOT}"/src/mcp/*/index.js | wc -l | tr -d ' ')"
 # Compared with the registry, not a literal: D-075 retires servers (E-276..E-279), and a
-# hard-coded floor of 20 failed the moment the count legitimately dropped below it. The
-# per-server check also lives in tests/unit/telemetry.test.mjs (E-277, the mcp_telemetry rows); >=1 guards a
+# hard-coded floor of 20 failed the moment the count legitimately dropped below it. A
+# count >=1 guards a
 # vacuous glob (E-463 left one server). Every REGISTRY server must be instrumented.
 _uninstrumented="$(node -e "const r=require(process.argv[1]); for (const [n,v] of Object.entries(r.mcp_servers)) if (v.path) console.log(n)" "${REPO_ROOT}/src/config/registry.json" \
   | while read -r _s; do grep -qE '^\s*instrument\(server' "${REPO_ROOT}/src/mcp/${_s}/index.js" 2>/dev/null || printf '%s ' "$_s"; done)"

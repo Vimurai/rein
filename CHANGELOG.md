@@ -31,6 +31,12 @@ is held for the operator.
 - **Units** (E-467): telemetry insights, the incident tracker, the memory palace, REPO_MAP, the
   instinct stager, the SEO and vibe units, and the deprecated CLI stubs.
 - **The critic stamp at commit** (E-464). Review is checked when the task closes.
+- **Telemetry and the incident writer** (E-473, D-172 r28): `src/shared/telemetry.mjs`, the
+  recording half of `mcp-telemetry.mjs` and `incident-append.mjs`, the hooks' abort record and
+  the test runner's telemetry store. Nothing writes `~/.rein/telemetry.sqlite` or
+  `~/.rein/incidents.ndjson`; `rein clean --all` removes them. The booted-build stamp
+  `rein doctor` reads stays, in `src/shared/mcp-result.mjs`. `tests/run.sh` now fails a run that
+  writes any file under the operator's `~/.rein` outside `run/` and `ci/` (`[REIN_HOME_WRITTEN]`).
 - **The `test_lines` ratchet** (E-464, D-169 r9). The time budgets stay.
 
 ### Added

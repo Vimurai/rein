@@ -6,7 +6,7 @@
 #
 # E-302 folds in every other harness-isolation property (one suite per variety of
 # environment dependence): leaked external state and trap chaining (E-240/E-241), inherited
-# launch variables (E-264), SKIP accounting (E-236), telemetry isolation (E-257) and
+# launch variables (E-264), SKIP accounting (E-236), the ~/.rein guard (E-257) and
 # same-host perf budgets (E-239). `set -e` is dropped: an absorbed section's failing setup
 # command must reach its assertions, not end the suite.
 set -uo pipefail
@@ -884,121 +884,61 @@ assert_status 0 "E-236.06c: it names BOTH remedies, not just skipping" \
 
 echo ""
 
-# ── E-257 (from telemetry_isolation_test — E-302, D-070 §1): the production instrument must stop recording the suite ──
-# AI_TELEMETRY_DB_PATH honoured only in the accepted shape; a fixture emitting with the override
-# leaves the live store unchanged; tests/run.sh FAILS a run that wrote a marked live row;
-# `telemetry.mjs --reset --backup` moves the store aside; review question #6 is recorded.
+# ── E-257, E-473 (D-070 §1): tests/run.sh fails a run that wrote the operator's ~/.rein ──
+# The guard watches the account's real ~/.rein; REIN_TEST_GUARD_HOME points it at a fixture
+# home here. A fixture suite that writes there fails the run; one that writes only its own
+# temp path, or under run/ (live servers' records), passes. Under REIN_CI (a throwaway
+# HOME) the guarded root is still the operator's, not HOME.
 # (TI_ROOT is the physical repo path — this section resolved REPO_ROOT with `pwd -P`.)
 TI_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd -P)"
-TELEMETRY="${TI_ROOT}/src/shared/telemetry.mjs"
-FAKE_HOME="$(test_tmpdir tel-home)"
-mkdir -p "${FAKE_HOME}/.rein"
-LIVE="${FAKE_HOME}/.rein/telemetry.sqlite"
-_count() {  # <db> [session] → row count (0 when absent)
-  [[ -f "$1" ]] || { echo 0; return; }
-  node --no-warnings -e '
-    const { DatabaseSync } = require("node:sqlite");
-    const db = new DatabaseSync(process.argv[1], { readOnly: true });
-    const q = process.argv[2]
-      ? db.prepare("SELECT count(*) n FROM tool_executions WHERE session_id = ?").get(process.argv[2])
-      : db.prepare("SELECT count(*) n FROM tool_executions").get();
-    console.log(q.n);' "$1" "${2:-}"
-}
-_emit() {  # <env…> — one tool row through the CLI the post-tool-use hook uses
-  printf '{"tool_name":"Bash","execution_time_ms":3,"status":"SUCCESS"}' \
-    | ( cd "$FAKE_HOME" && env "$@" HOME="$FAKE_HOME" node --no-warnings "$TELEMETRY" --record-tool ) 2>/dev/null
-}
-
-# Seed the fixture "live" store with one row, through the default path.
-_emit -u AI_TELEMETRY_DB_PATH CLAUDE_CODE_SESSION_ID=seed
-assert_status 0 "E-257.01a: the default path writes the (fixture) live store" test "$(_count "$LIVE")" = "1"
-
-# ── E-257.1: the override redirects, and only in the accepted shape ──────────
-TMPSTORE_DIR="$(test_tmpdir tel-store)"
-_emit AI_TELEMETRY_DB_PATH="${TMPSTORE_DIR}/run.sqlite" CLAUDE_CODE_SESSION_ID=fixture
-assert_status 0 "E-257.01b: with AI_TELEMETRY_DB_PATH set the live store is unchanged" test "$(_count "$LIVE")" = "1"
-assert_status 0 "E-257.01c: …and the row went to the per-run store" test "$(_count "${TMPSTORE_DIR}/run.sqlite")" = "1"
-assert_status 0 "E-257.01d: --path prints the override" \
-  test "$(AI_TELEMETRY_DB_PATH="${TMPSTORE_DIR}/run.sqlite" node --no-warnings "$TELEMETRY" --path)" = "${TMPSTORE_DIR}/run.sqlite"
-# "/x.sqlite": absolute, *.sqlite, directory exists — but outside the temp dir and ~/.rein,
-# the shape a hostile project env would use to aim writes at a foreign database.
-for bad in "relative.sqlite" "${TMPSTORE_DIR}/no-such-dir/x.sqlite" "${TMPSTORE_DIR}/x.db" "/x.sqlite"; do
-  _p="$(HOME="$FAKE_HOME" AI_TELEMETRY_DB_PATH="$bad" node --no-warnings "$TELEMETRY" --path 2>/dev/null)"
-  assert_status 0 "E-257.01e: a rejected override ('${bad##*/}') falls back to the live store" test "$_p" = "$LIVE"
-done
-assert_status 1 "E-257.01f: a rejected override never creates its directory" test -e "${TMPSTORE_DIR}/no-such-dir"
-assert_contains "E-257.01g: the rejection is announced once on stderr" "telemetry-path-override-rejected" \
-  "$(AI_TELEMETRY_DB_PATH=relative.sqlite node --no-warnings "$TELEMETRY" --path 2>&1 >/dev/null)"
-assert_status 0 "E-257.01h: tests/lib set a per-suite store for this very suite" \
-  bash -c "[[ '${AI_TELEMETRY_DB_PATH:-}' == /*.sqlite ]]"
-
-# ── E-257.2: tests/run.sh fails a run that wrote into the live store ──────────
-FIX="$(test_tmpdir tel-suites)"
+GUARD_HOME="$(test_tmpdir guard-home)"
+mkdir -p "${GUARD_HOME}/.rein/run" "${GUARD_HOME}/.rein/shared"
+THROWAWAY_HOME="$(test_tmpdir guard-throwaway)"
+FIX="$(test_tmpdir guard-suites)"
 cat > "${FIX}/clean_test.sh" <<EOF
 source "${TI_ROOT}/tests/lib/assert.sh"
-printf '{"tool_name":"Bash","execution_time_ms":1,"status":"SUCCESS"}' | node --no-warnings "${TELEMETRY}" --record-tool
-_pass "clean fixture emitted through the redirect"
+echo x > "\$(test_tmpdir clean)/out"
+_pass "clean fixture wrote only its temp path"
 assert_summary
 EOF
 cat > "${FIX}/leaky_test.sh" <<EOF
 source "${TI_ROOT}/tests/lib/assert.sh"
-# Deliberately bypasses the redirect: the shape a hand-built env or env -i produces.
-printf '{"tool_name":"Bash","execution_time_ms":1,"status":"SUCCESS"}' | env -u AI_TELEMETRY_DB_PATH node --no-warnings "${TELEMETRY}" --record-tool
-_pass "leaky fixture wrote to the live store"
+echo x > "${GUARD_HOME}/.rein/shared/leaked.json"
+_pass "leaky fixture wrote the operator's ~/.rein"
 assert_summary
 EOF
-# Local mode explicitly (the outer run may be `rein ci run`, which sets REIN_CI=local and
-# switches the gate to the growth rule); the CI mode is driven separately below.
-_run() { ( cd "$TI_ROOT" && env -u REIN_CI -u CI HOME="$FAKE_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
-_run_ci() { ( cd "$TI_ROOT" && env -u CI REIN_CI=local HOME="$FAKE_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
+cat > "${FIX}/runrecord_test.sh" <<EOF
+source "${TI_ROOT}/tests/lib/assert.sh"
+echo x > "${GUARD_HOME}/.rein/run/boot.json"
+_pass "fixture wrote a run record"
+assert_summary
+EOF
+# Local mode explicitly (the outer run may be `rein ci run`, which sets REIN_CI=local).
+_run() { ( cd "$TI_ROOT" && env -u REIN_CI -u CI HOME="$GUARD_HOME" REIN_TEST_GUARD_HOME="$GUARD_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
+_run_ci() { ( cd "$TI_ROOT" && env -u CI REIN_CI=local HOME="$THROWAWAY_HOME" REIN_TEST_GUARD_HOME="$GUARD_HOME" REIN_TEST_SUITES_DIR="$FIX" REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1; }
 
 _clean_out="$(_run 'clean_test.sh')"; _clean_rc=$?
-assert_status 0 "E-257.02a: a run whose suites use the redirect passes" test "$_clean_rc" -eq 0
-assert_match "E-257.02b: the run prints both live counts" 'Live telemetry: [0-9]+ rows at start, [0-9]+ at end; 0 written by this run' "$_clean_out"
-assert_status 0 "E-257.02c: …and the live store did not grow" test "$(_count "$LIVE")" = "1"
+assert_status 0 "E-257.01a: a run whose suites write only their temp paths passes" test "$_clean_rc" -eq 0
+assert_contains "E-257.01b: …and says the operator's ~/.rein was untouched" "Operator ~/.rein: untouched" "$_clean_out"
 
 _leak_out="$(_run 'leaky_test.sh')"; _leak_rc=$?
-assert_status 0 "E-257.02d: a run whose suite wrote to the live store FAILS" test "$_leak_rc" -ne 0
-assert_contains "E-257.02e: the failure is named" "[TELEMETRY_LEAKED] 1 row(s)" "$_leak_out"
-assert_match "E-257.02f: with both numbers" 'Live telemetry: 1 rows at start, 2 at end; 1 written by this run' "$_leak_out"
+assert_status 0 "E-257.02a: a run whose suite wrote under the real ~/.rein FAILS" test "$_leak_rc" -ne 0
+assert_contains "E-257.02b: the failure is named" "[REIN_HOME_WRITTEN] 1 file(s)" "$_leak_out"
+assert_contains "E-257.02c: …with the path" "${GUARD_HOME}/.rein/shared/leaked.json" "$_leak_out"
+rm -f "${GUARD_HOME}/.rein/shared/leaked.json"
 
-# CI mode: the store belongs to a throwaway HOME, so ANY growth is the run's — including a
-# row that carries no marker (a spawn with a hand-built env drops the marker too).
-cat > "${FIX}/unmarked_test.sh" <<EOF
-source "${TI_ROOT}/tests/lib/assert.sh"
-printf '{"tool_name":"Bash","execution_time_ms":1,"status":"SUCCESS"}' | env -u AI_TELEMETRY_DB_PATH CLAUDE_CODE_SESSION_ID=someone-else node --no-warnings "${TELEMETRY}" --record-tool
-_pass "unmarked fixture wrote to the store"
-assert_summary
-EOF
-_ci_out="$(_run_ci 'unmarked_test.sh')"; _ci_rc=$?
-assert_status 0 "E-257.02g: under CI an UNMARKED row in the store still fails the run" test "$_ci_rc" -ne 0
-assert_contains "E-257.02h: …named as growth of the throwaway store" "store grew by 1 row(s)" "$_ci_out"
+_rr_out="$(_run 'runrecord_test.sh')"; _rr_rc=$?
+assert_status 0 "E-257.03: a write under run/ (live servers' records) does not fail the run" test "$_rr_rc" -eq 0
+
+_ci_out="$(_run_ci 'leaky_test.sh')"; _ci_rc=$?
+assert_status 0 "E-257.04a: under REIN_CI with a throwaway HOME a write to the operator's ~/.rein still FAILS" test "$_ci_rc" -ne 0
+assert_contains "E-257.04b: …named the same way" "[REIN_HOME_WRITTEN]" "$_ci_out"
+rm -f "${GUARD_HOME}/.rein/shared/leaked.json"
 _ci_clean="$(_run_ci 'clean_test.sh')"; _ci_crc=$?
-assert_status 0 "E-257.02i: a clean run passes under CI mode too" test "$_ci_crc" -eq 0
+assert_status 0 "E-257.04c: a clean run passes under REIN_CI too" test "$_ci_crc" -eq 0
 
-# ── E-257.3: the operator's one-time reset ─────────────────────────────────────
-_rs="$(HOME="$FAKE_HOME" env -u AI_TELEMETRY_DB_PATH node --no-warnings "$TELEMETRY" --reset 2>&1)"; _rsrc=$?
-assert_status 0 "E-257.03a: --reset without --backup refuses (exit 2)" test "$_rsrc" -eq 2
-assert_status 0 "E-257.03b: …and leaves the store alone" test "$(_count "$LIVE")" = "3"
-_rb="$(HOME="$FAKE_HOME" env -u AI_TELEMETRY_DB_PATH node --no-warnings "$TELEMETRY" --reset --backup 2>&1)"
-BAK="${LIVE}.$(date -u +%Y-%m-%d).bak"
-assert_status 0 "E-257.03c: the store is moved to a dated backup" test -f "$BAK"
-assert_status 0 "E-257.03d: the backup holds every row (WAL folded in)" test "$(_count "$BAK")" = "3"
-assert_status 0 "E-257.03e: a fresh, empty store with the schema is in place" test "$(_count "$LIVE")" = "0"
-assert_contains "E-257.03f: the operator is told to restart the servers" "Restart the MCP servers" "$_rb"
-HOME="$FAKE_HOME" env -u AI_TELEMETRY_DB_PATH node --no-warnings "$TELEMETRY" --reset --backup >/dev/null 2>&1
-assert_status 0 "E-257.03g: a second reset the same day never overwrites the first backup" \
-  test "$(_count "$BAK")" = "3" -a -f "${LIVE}.$(date -u +%Y-%m-%d).1.bak"
-
-# The reset targets the LIVE store even when the env redirects telemetry (critic_security).
-OVR="${TMPSTORE_DIR}/run.sqlite"
-_before_ovr="$(_count "$OVR")"
-HOME="$FAKE_HOME" AI_TELEMETRY_DB_PATH="$OVR" node --no-warnings "$TELEMETRY" --reset --backup >/dev/null 2>&1
-assert_status 0 "E-257.03h: --reset never moves the file AI_TELEMETRY_DB_PATH names" \
-  test -f "$OVR" -a "$(_count "$OVR")" = "$_before_ovr" -a ! -e "${OVR}.$(date -u +%Y-%m-%d).bak"
-
-# ── E-257.4: review question #6 ────────────────────────────────────────────────
-assert_status 0 "E-257.04: review question #6 is in the reviewer" grep -q 'review question #6 — E-257' "${TI_ROOT}/src/claude/agents/reviewer.md"
+# ── E-257.5: review question #6 ────────────────────────────────────────────────
+assert_status 0 "E-257.05: review question #6 is in the reviewer" grep -q 'review question #6 — E-257' "${TI_ROOT}/src/claude/agents/reviewer.md"
 
 # ── E-239 (from perf_budget_test — E-302, D-062 §2): a perf budget measures the CODE, not the host ──
 # Both properties are pinned: a REAL regression must still fail, and the SAME code on a slow host

@@ -37,8 +37,8 @@ import {
   checkCompletionBuildGate,
 } from "../../src/shared/build-stamp.mjs";
 
-import { stampBootedBuild, withTelemetry, BOOTED_BUILD_META, EXPECTED_REJECTION_META, statusForResult }
-  from "../../src/shared/mcp-telemetry.mjs";
+import { stampBootedBuild, withBuildStamp, BOOTED_BUILD_META, EXPECTED_REJECTION_META }
+  from "../../src/shared/mcp-result.mjs";
 
 // ── fixtures ────────────────────────────────────────────────────────────────────────────
 const temps = [];
@@ -264,24 +264,19 @@ test("stampBootedBuild leaves a non-object result alone", () => {
   assert.equal(stampBootedBuild("oops", "x"), "oops");
 });
 
-test("withTelemetry stamps every result and still classifies status correctly", async () => {
-  // Ordering matters: statusForResult reads _meta.expected_rejection and stampBootedBuild
-  // rebuilds _meta. This asserts a REJECTED result is still booked REJECTED after stamping.
+test("withBuildStamp stamps every result and keeps an expected-rejection mark", async () => {
+  // stampBootedBuild rebuilds _meta; the expected_rejection key must survive it.
   const f = serverFixture({ name: "wt-mcp" });
   _resetBootedBuild();
   bootedBuild("wt-mcp", f.entry, runDirFixture());
 
-  const rows = [];
   const handler = async () => ({ content: [], isError: true, _meta: { [EXPECTED_REJECTION_META]: true } });
-  const wrapped = withTelemetry("wt-mcp", handler, { record: (r) => rows.push(r) });
-
-  const out = await wrapped({ params: { name: "t" } });
-  assert.equal(rows[0].status, "REJECTED", "an expected rejection is not re-classified by stamping");
+  const out = await withBuildStamp("wt-mcp", handler)({ params: { name: "t" } });
   assert.equal(out._meta[BOOTED_BUILD_META].hash, stampFor(f.entry).hash);
-  assert.equal(statusForResult(out), "REJECTED");
+  assert.equal(out._meta[EXPECTED_REJECTION_META], true, "the rejection mark is kept");
 });
 
-test("withTelemetry never lets a stamping failure surface as a tool error", async () => {
+test("withBuildStamp never lets a stamping failure surface as a tool error", async () => {
   // A frozen result cannot take a new _meta. The tool's answer must still come back.
   // The cache is seeded against a FIXTURE run dir first: stampBootedBuild() otherwise
   // resolves bootedBuild()'s defaults — this test file as the entry, and the machine's real
@@ -292,7 +287,7 @@ test("withTelemetry never lets a stamping failure surface as a tool error", asyn
   bootedBuild("frozen-mcp", ff.entry, runDirFixture());
 
   const frozen = Object.freeze({ content: [{ type: "text", text: "ok" }] });
-  const wrapped = withTelemetry("frozen-mcp", async () => frozen, { record: () => {} });
+  const wrapped = withBuildStamp("frozen-mcp", async () => frozen);
   assert.equal((await wrapped({ params: { name: "t" } })).content[0].text, "ok");
 });
 

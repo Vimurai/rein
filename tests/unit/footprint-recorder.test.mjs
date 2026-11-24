@@ -208,7 +208,7 @@ test("tests/run.sh: census input per suite, in the CI log block and a $TMPDIR co
       `${head}node "$R/src/shared/x.mjs"; node "$R/src/shared/x.mjs"\nassert_status 0 "ok" true\nassert_summary\n`);
     writeFileSync(join(R, "tests", "suites", "two_test.sh"), `${head}bash -c 'exit 0'\n_fail "deliberate"\nassert_summary\n`);
     const run = (extra) => {
-      const e = { ...process.env, HOME: join(R, "home"), TMPDIR: join(R, "tmp"), REIN_TEST_NO_SWEEP: "1", AI_TELEMETRY_DISABLE: "1", ...extra };
+      const e = { ...process.env, HOME: join(R, "home"), TMPDIR: join(R, "tmp"), REIN_TEST_NO_SWEEP: "1", ...extra };
       for (const k of ["REIN_TEST_TMPDIR", "REIN_TEST_SUITES_DIR", "CI"]) if (!(k in extra)) delete e[k];
       return spawnSync(BASH, [join(R, "tests", "run.sh")], { encoding: "utf8", env: e, cwd: R });
     };

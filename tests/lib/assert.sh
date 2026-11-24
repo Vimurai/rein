@@ -668,17 +668,6 @@ strip_launch_vars
 # See tests/lib/footprint.sh for the contract and what it cannot see.
 source "$(dirname "${BASH_SOURCE[0]}")/footprint.sh"
 
-# ── E-257 (D-070 §1): telemetry isolation for a suite run on its own ─────────
-# tests/run.sh points the whole run at one temp store; a suite run directly (bash
-# tests/suites/x_test.sh) gets its own here, BEFORE it can spawn a server or a hook —
-# otherwise every MCP call it makes is recorded in the operator's
-# ~/.rein/telemetry.sqlite as if the operator had made it. AI_TELEMETRY_DISABLE=1 is
-# the other accepted form and is left alone.
-if [[ -z "${AI_TELEMETRY_DB_PATH:-}" && "${AI_TELEMETRY_DISABLE:-0}" != "1" ]]; then
-  _REIN_TELEMETRY_DIR="$(test_tmpdir telemetry)"
-  export AI_TELEMETRY_DB_PATH="${_REIN_TELEMETRY_DIR}/telemetry.sqlite"
-fi
-
 # ── E-469 (D-170 r4): no suite registers the rein plugin with a real Claude config ──
 # `rein install`, `rein init` and `rein sync` call `claude plugin …` when the claude CLI is on
 # PATH; under a suite that would write install records for temp projects into whatever config

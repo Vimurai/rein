@@ -30,7 +30,7 @@ _decoy() {
   mkdir -p "$d/src/shared" "$d/src/mcp/task-synchronizer-mcp" "$d/src/shared" "$d/.ai"
   local marker="$d/CANARY_EXECUTED"
   for f in "src/shared/seatbelt.mjs" "src/mcp/task-synchronizer-mcp/index.js" \
-           "src/shared/telemetry.mjs" "src/shared/provider-adapter.mjs" \
+           "src/shared/build-stamp.mjs" "src/shared/provider-adapter.mjs" \
            "src/shared/sync-manifest.mjs" "src/shared/role-manifest.mjs" \
            "src/shared/resolve-launch.mjs"; do
     printf 'require("fs").appendFileSync(%s,"%s\\n");\n' "\"$marker\"" "$f" > "$d/$f"
@@ -51,7 +51,7 @@ assert_contains "E-223.01c: the framework clone still resolves the dev tree (dog
 
 # ── E-223.2: the node twin answers identically ──────────────────────────────
 # Two implementations of one policy drift silently. Compare their ANSWERS, not their text.
-for _lg in "mcp/task-synchronizer-mcp/index.js" "shared/telemetry.mjs"; do
+for _lg in "mcp/task-synchronizer-mcp/index.js" "shared/build-stamp.mjs"; do
   for _cwd in "$_D" "$REPO_ROOT"; do
     _a="$(cd "$_cwd" && bash -c "source '$LOC_SH'; rein_locate $_lg" 2>/dev/null)"
     _b="$(cd "$_cwd" && node --no-warnings "$LOC_MJS" "$_lg" 2>/dev/null)"
@@ -61,9 +61,9 @@ for _lg in "mcp/task-synchronizer-mcp/index.js" "shared/telemetry.mjs"; do
 done
 
 # ── E-223.3: REIN_LOCATE_DEV=1 restores dev-first ──────────────────────────
-_resolved="$(cd "$_D" && REIN_LOCATE_DEV=1 bash -c "source '$LOC_SH'; rein_locate shared/telemetry.mjs" 2>/dev/null)"
+_resolved="$(cd "$_D" && REIN_LOCATE_DEV=1 bash -c "source '$LOC_SH'; rein_locate shared/build-stamp.mjs" 2>/dev/null)"
 assert_contains "E-223.03a: the rollback flag reaches the dev tree" "$_D" "$_resolved"
-_resolved="$(cd "$_D" && bash -c "source '$LOC_SH'; rein_locate shared/telemetry.mjs" 2>/dev/null)"
+_resolved="$(cd "$_D" && bash -c "source '$LOC_SH'; rein_locate shared/build-stamp.mjs" 2>/dev/null)"
 assert_not_contains "E-223.03b: without it, the decoy tree is not consulted" "$_D" "$_resolved"
 
 # ── E-223.4: THE CANARY — no hook executes a decoy repo's helpers ───────────

@@ -25,14 +25,14 @@
 //      below REVIEW_GATE_FLOOR were reviewed by the critics at commit time and close without it.
 //
 // The texts stay where they are defined (build-stamp.mjs, ci-runs.js); a refusal is returned as
-// rejection() — isError plus _meta.expected_rejection, so telemetry books REJECTED (D-049).
+// rejection() — isError plus _meta.expected_rejection: bad input, not a malfunction (D-049).
 
 import { checkCompletionBuildGate } from "./build-stamp.mjs";
 import { execFileSync } from "child_process";
 import { readFileSync } from "fs";
 import { join } from "path";
 import { checkCiDoneGate, aiOnlyAncestor } from "../mcp/shared/ci-runs.js";
-import { rejection } from "./mcp-telemetry.mjs";
+import { rejection } from "./mcp-result.mjs";
 
 /**
  * @param {{cwd: string, db: object, id?: string, buildOpts?: object, env?: object}} o

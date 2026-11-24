@@ -9,7 +9,7 @@
 # Installed to ~/.rein/hooks/waiting-signal.sh
 
 # ── E-292 (D-082 r2): the hook's ONLY EXIT trap; an abort still exits 0 (fail-open) ──
-trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; rein_hook_incident waiting-signal "$_rein_rc" "$LINENO" >/dev/null 2>&1; exit 0' EXIT
+trap '_rein_rc=$?; trap - EXIT; case "$_rein_rc:$BASH_COMMAND" in 0:*) exit "$_rein_rc" ;; esac; exit 0' EXIT
 
 # Builtins only until the toolchain pin: read the payload and, on the per-tool-call events
 # (PostToolUse, PostToolUseFailure), leave at once when no wait is recorded for any pane — that

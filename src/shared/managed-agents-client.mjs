@@ -70,7 +70,7 @@ const DEFAULT_DB_PATH = ".ai/state.sqlite";
 const DEFAULT_DEBOUNCE_MS = 2_000;
 const PROJECTION_PATH = "/v1/managed-agents/state/projection";
 
-// ── Sensitive-key redaction (mirrors E-47 spike + E-65 incident-append) ──────
+// ── Sensitive-key redaction (mirrors the E-47 spike) ──────
 const SENSITIVE_KEY_RE = /(?:secret|password|token|apikey|api_key|private_key|credential|bearer)/i;
 
 function redact(obj, depth = 0) {

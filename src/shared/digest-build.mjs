@@ -3,8 +3,8 @@
 // `.ai/DIGEST.md` is a generated view: a pure function of tracked inputs, rebuilt rather than
 // remembered. This module is its ONLY writer.
 //
-// Inputs, fixed order, tracked files and git only (never LOG.md, SESSION.md, state.sqlite,
-// telemetry or the wall clock — those differ per machine, and a digest built from them differs
+// Inputs, fixed order, tracked files and git only (never LOG.md, SESSION.md, state.sqlite
+// or the wall clock — those differ per machine, and a digest built from them differs
 // per clone): .ai/state.json, the `^## D-` headings of .ai/DECISIONS.md, .ai/BRIEF.md,
 // package.json, the newest `v*` tag reachable from HEAD. `inputs` = first 12 hex of sha256 over
 // exactly those bytes; it is how staleness is decided.

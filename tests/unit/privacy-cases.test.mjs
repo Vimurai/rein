@@ -181,10 +181,6 @@ test("E-379: every writer row has a runner and rein doctor counts the wrapped wr
   assert.equal(REDACT_WRITERS.length, 7);
 });
 
-test("E-379: what lives under the install directory is not tracked — telemetry, incidents", () => {
-  // The readers and writers of these files resolve them under $HOME/.rein, never under a project.
-  for (const [f, needle] of [["src/shared/telemetry.mjs", ".rein"], ["src/shared/incident-append.mjs", ".rein"]]) {
-    assert.ok(read(REPO, f).includes(needle), `${f} resolves under the install directory`);
-  }
+test("E-379: the redactor writes nothing in HOME but its counter", () => {
   assert.deepEqual(readdirSync(HOME).filter((d) => d !== ".rein"), [], "the redactor writes nothing in HOME but its counter");
 });

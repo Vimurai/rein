@@ -499,6 +499,52 @@
       "note": "E-467 (D-170 r5): the memory palace's artefact hash index; the memory palace is retired."
     },
     {
+      "id": "retired-shared-telemetry",
+      "path": "~/.rein/shared/telemetry.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.6.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-473 (D-170 r5, D-172 r28): the module of retired telemetry or the incident tracker. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-mcp-telemetry",
+      "path": "~/.rein/shared/mcp-telemetry.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.6.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-473 (D-170 r5, D-172 r28): the module of retired telemetry or the incident tracker. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-shared-incident-append",
+      "path": "~/.rein/shared/incident-append.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.6.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-473 (D-170 r5, D-172 r28): the module of retired telemetry or the incident tracker. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-data-telemetry",
+      "path": "~/.rein/telemetry.sqlite*",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.6.0",
+      "note": "E-473 (D-170 r5, D-172 r28): the tool-call telemetry store with its WAL, shm and backup files; telemetry is retired."
+    },
+    {
+      "id": "retired-data-incidents",
+      "path": "~/.rein/incidents.ndjson*",
+      "kind": "file",
+      "class": "prompt",
+      "since": "0.6.0",
+      "note": "E-473 (D-170 r5, D-172 r28): the incident log and its rotations; the incident tracker is retired."
+    },
+    {
       "id": "retired-data-signatures",
       "path": "~/.rein/memory/",
       "kind": "dir",

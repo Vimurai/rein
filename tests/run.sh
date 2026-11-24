@@ -13,7 +13,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # REIN_TEST_SUITES_DIR: a fixture suites directory, so the runner's own gates (the leak
-# and telemetry checks) can be tested by running it over a known-bad suite (E-257).
+# and ~/.rein guard) can be tested by running it over a known-bad suite (E-257).
 SUITES_DIR="${REIN_TEST_SUITES_DIR:-${SCRIPT_DIR}/suites}"
 # E-240: --sweep removes what a run leaked (locally; on CI a leak FAILS the run instead,
 # because CI has no operator to run a sweep and a green run that leaks is a lie).
@@ -43,7 +43,7 @@ PATTERN="${1:-*_test.sh}"
 # markers are this process's own; a value in the environment never makes a run a lane.
 unset REIN_LANE_LABEL
 # The lane settings configure THIS run only: a runner a suite starts (the fixture runs in
-# harness_isolation_test's leaked-state and telemetry-isolation sections) is serial unless it asks — so they are read
+# harness_isolation_test's leaked-state and ~/.rein-guard sections) is serial unless it asks — so they are read
 # here and kept, but no longer exported to the suites.
 export -n REIN_TEST_LANES REIN_TEST_LANES_AUTO REIN_TEST_WALL_HINTS REIN_TEST_FREE_MB REIN_TEST_SHARD 2>/dev/null || true
 REIN_LANES="${REIN_TEST_LANES:-1}"
@@ -196,50 +196,29 @@ _gh_isolate "$TEST_TMPDIR"
 _gh_lane_env
 _gh_guard "$TEST_TMPDIR" || { echo "[TEST_FAILED] the run stopped before its first suite ✗"; exit 1; }
 
-# ── E-257 (D-070 §1): the suite must not be recorded as operator behaviour ────
-# Every MCP call a suite makes used to be telemetered into the operator's
-# ~/.rein/telemetry.sqlite: 47,391 of 51,382 in-window rows were fixtures on 2026-09-11,
-# and two rein-insights reports read them as the operator's habits. The whole run writes to
-# a per-run temp store instead (telemetry.mjs honours AI_TELEMETRY_DB_PATH; the
-# interceptor and the post-tool-use hook both go through it). AI_TELEMETRY_DISABLE=1 is
-# the other accepted form and is left alone.
-#
-# The live store is then checked like any other leaked external state (E-240 lineage).
-# NOT by "did it grow": the operator's other sessions write to it continuously, so growth
-# during a 13-minute run is normal and says nothing about this run. Every process the run
-# spawns carries a per-run session marker instead, and the check counts live rows carrying
-# THAT marker — exact, and immune to concurrent sessions. (A synthetic session id also
-# means no suite can verify the operator's real E-129 role token: an unknown id takes the
-# same path as an unset one, which is what CI always had.)
 # ── E-264 (D-071 §4): strip inherited launch variables before any suite is spawned ──
 # A run started from a bound tmux pane inherits REIN_PANE_ROLE & co., which the hooks rank
 # above the test's own inputs. See tests/lib/launch-vars.sh.
 source "${SCRIPT_DIR}/lib/launch-vars.sh"
 strip_launch_vars
 
-REIN_TELEMETRY_LIVE="${HOME}/.rein/telemetry.sqlite"
-REIN_TELEMETRY_MARKER="rein-test-run-$$-$(date +%s)"
-export CLAUDE_CODE_SESSION_ID="$REIN_TELEMETRY_MARKER"
-if [[ "${AI_TELEMETRY_DISABLE:-0}" != "1" ]]; then
-  export AI_TELEMETRY_DB_PATH="${TEST_TMPDIR}/telemetry.sqlite"
-fi
-# _live_telemetry_counts → "<total rows> <rows carrying this run's marker>" (or "0 0").
-_live_telemetry_counts() {
-  [[ -f "$REIN_TELEMETRY_LIVE" ]] || { echo "0 0"; return 0; }
-  node --no-warnings -e '
-    const { DatabaseSync } = require("node:sqlite");
-    try {
-      const db = new DatabaseSync(process.argv[1], { readOnly: true });
-      const t = db.prepare("SELECT count(*) AS n FROM tool_executions").get().n +
-        (() => { try { return db.prepare("SELECT count(*) AS n FROM task_velocity").get().n; } catch { return 0; } })();
-      const m = db.prepare("SELECT count(*) AS n FROM tool_executions WHERE session_id = ?").get(process.argv[2]).n;
-      console.log(`${t} ${m}`);
-    } catch { console.log("0 0"); }
-  ' "$REIN_TELEMETRY_LIVE" "$REIN_TELEMETRY_MARKER" 2>/dev/null || echo "0 0"
+# ── E-257, E-473 (D-070 §1): a run never writes the operator's ~/.rein ─────────
+# A suite writes under its fixture HOME or a per-run temp path. The guarded root is the
+# account's real ~/.rein (the user record, not $HOME, so it is the operator's even under
+# `rein ci run`'s throwaway HOME); REIN_TEST_GUARD_HOME points it at a fixture for
+# harness_isolation_test. Every file created or modified there during the run fails it,
+# except run/ (live servers' boot and launch records) and ci/ (the outer `rein ci run`).
+# A synthetic session id: no suite can reach the operator's real E-129 role token.
+export CLAUDE_CODE_SESSION_ID="rein-test-run-$$-$(date +%s)"
+REIN_GUARD_REIN="${REIN_TEST_GUARD_HOME:-$(node -p 'require("os").userInfo().homedir' 2>/dev/null || echo "$HOME")}/.rein"
+REIN_GUARD_STAMP="${TEST_TMPDIR}/rein-home-guard.stamp"
+: > "$REIN_GUARD_STAMP"
+# _rein_home_writes → one line per file under the guarded root newer than the run's start.
+_rein_home_writes() {
+  [[ -d "$REIN_GUARD_REIN" ]] || return 0
+  find "$REIN_GUARD_REIN" \( -path "${REIN_GUARD_REIN}/run" -o -path "${REIN_GUARD_REIN}/ci" \) -prune \
+    -o -type f -newer "$REIN_GUARD_STAMP" -print 2>/dev/null
 }
-read -r REIN_TELEMETRY_BEFORE _ <<< "$(_live_telemetry_counts)"
-# _store_rows <db> → its total row count (E-309: a lane's HOME clone is checked like the run's).
-_store_rows() { REIN_TELEMETRY_LIVE="$1" _live_telemetry_counts | cut -d' ' -f1; }
 
 # ── Discovery (bash 3 compatible) ────────────────────────────────────────────
 SUITES=()
@@ -452,7 +431,7 @@ _wall_hint() {
 
 # _lanes_run — run SUITES[] into $RUN_DIR: shared suites longest-first across REIN_LANES
 # workers, then the exclusive ones serially in this shell. Each lane owns its prefixes
-# (rein-test-L<n>-, rein-t-L<n>-), its REIN_TEST_TMPDIR (footprint log) and telemetry store,
+# (rein-test-L<n>-, rein-t-L<n>-), its REIN_TEST_TMPDIR (footprint log),
 # and — under `rein ci run`, whose HOME is the run's throwaway one — a HOME clone.
 # _lane_clone_home_set — clone HOME per lane only under CI, and NEVER the account's real home
 # (the user record, not $HOME): a local `REIN_CI=local bash tests/run.sh --lanes 4` must not
@@ -502,7 +481,6 @@ _lanes_run() {
       export REIN_TEST_TMPDIR="$ldir"
       # This shell's own state, NOT exported: a nested runner is a run, not a lane.
       REIN_LANE_LABEL="lane ${l}"
-      [[ "${AI_TELEMETRY_DISABLE:-0}" != "1" ]] && export AI_TELEMETRY_DB_PATH="${ldir}/telemetry.sqlite"
       if [[ "$_lane_clone_home" -eq 1 ]]; then
         # The throwaway HOME, cloned (APFS clonefile when available) so lanes never share
         # ~/.rein/run tokens, locks or stores.
@@ -531,13 +509,6 @@ _lanes_run() {
       cat "${TEST_TMPDIR}/lane${l}/gh-guard.out"; echo "[TEST_FAILED] lane ${l} stopped before its first suite ✗"; exit 1
     fi
   done
-  # E-257 under CI: a lane's HOME clone is a throwaway store too — any growth is the run's.
-  if [[ "$_lane_clone_home" -eq 1 ]]; then
-    for ((l = 1; l <= REIN_LANES; l++)); do
-      n=$(( $(_store_rows "${TEST_TMPDIR}/lane${l}/home/.rein/telemetry.sqlite") - REIN_TELEMETRY_BEFORE ))
-      REIN_LANE_TEL_GREW=$(( ${REIN_LANE_TEL_GREW:-0} + (n > 0 ? n : 0) ))
-    done
-  fi
   # E-386 (D-135 r6): the serial tail, measured — `rein ci run` records it as exclusive_seconds.
   local _ex0; _ex0="$(_now_ms)"
   for i in "${excl[@]+"${excl[@]}"}"; do _run_suite "$i" "${SUITES[$i]}"; done
@@ -814,31 +785,21 @@ if [[ "${TOTAL_LEAKED:-0}" -gt 0 ]]; then
   fi
 fi
 
-# E-257: the live telemetry store. Both numbers are printed so a reader can tell "the
-# store grew because other sessions were busy" from "this run wrote into it".
-read -r REIN_TELEMETRY_AFTER REIN_TELEMETRY_OURS <<< "$(_live_telemetry_counts)"
-echo "   Live telemetry: ${REIN_TELEMETRY_BEFORE:-0} rows at start, ${REIN_TELEMETRY_AFTER:-0} at end; ${REIN_TELEMETRY_OURS:-0} written by this run"
 # D-138 r3: advisory only — a long suite without its own budget runs on the default's margin.
 for _u in "${RUN_DIR}"/*.undeclared; do
   [[ -f "$_u" ]] || continue
   IFS=$'\t' read -r _un _ums < "$_u"
   echo "   [SUITE_TIMEOUT_UNDECLARED] ${_un} ran $(( _ums / 1000 )) s, over a third of the ${REIN_SUITE_TIMEOUT:-180} s default, with no '# REIN_SUITE_TIMEOUT=<s>' header (D-138 r3: 3x its slowest green hosted run)"
 done
-# Under CI (a throwaway HOME nothing else writes to) ANY growth is this run's: the marker
-# alone missed 56 rows from drivers that spawned servers with a hand-built env, dropping
-# both the redirect and the marker. Locally, other sessions write concurrently, so only
-# the marker is attributable.
-_tel_grew=$(( ${REIN_TELEMETRY_AFTER:-0} - ${REIN_TELEMETRY_BEFORE:-0} + ${REIN_LANE_TEL_GREW:-0} ))
-if [[ "${CI:-}" == "true" || -n "${REIN_CI:-}" ]]; then
-  if [[ "$_tel_grew" -gt 0 ]]; then
-    echo "   [TELEMETRY_LEAKED] the throwaway HOME's store grew by ${_tel_grew} row(s) — only tests write there under CI"
-    echo "   A test wrote to the telemetry store outside AI_TELEMETRY_DB_PATH (E-257 / D-070 §1)."
-    TOTAL_FAIL=$(( TOTAL_FAIL + 1 ))
-  fi
-elif [[ "${REIN_TELEMETRY_OURS:-0}" -gt 0 ]]; then
-  echo "   [TELEMETRY_LEAKED] ${REIN_TELEMETRY_OURS} row(s) with session_id ${REIN_TELEMETRY_MARKER} reached ${REIN_TELEMETRY_LIVE}"
-  echo "   A test wrote to the operator's telemetry store — it must use AI_TELEMETRY_DB_PATH (E-257 / D-070 §1)."
+# E-257, E-473: the operator's ~/.rein (see the guard's setup above).
+_rein_written="$(_rein_home_writes)"
+if [[ -n "$_rein_written" ]]; then
+  echo "   [REIN_HOME_WRITTEN] $(grep -c . <<< "$_rein_written") file(s) under ${REIN_GUARD_REIN} changed during the run (E-257 / D-070 §1):"
+  head -10 <<< "$_rein_written" | sed 's/^/     /'
+  echo "   A test must write under its fixture HOME (tc_fixture_home) or a per-run temp path."
   TOTAL_FAIL=$(( TOTAL_FAIL + 1 ))
+else
+  echo "   Operator ~/.rein: untouched (${REIN_GUARD_REIN})"
 fi
 
 # E-298 (D-088): the fast tier's budget, E-239 style — both numbers always; the absolute

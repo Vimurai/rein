@@ -346,7 +346,7 @@ test("seq stays monotonic per origin across a fresh index (archived records coun
 function callTools(cwd, home, calls) {
   return new Promise((done, fail) => {
     const child = spawn(process.execPath, ["--no-warnings", SYNC_SERVER], {
-      cwd, env: { PATH: process.env.PATH, HOME: home, AI_TELEMETRY_DISABLE: "1", REIN_CI_GATE: "0", REIN_BUILD_STAMP: "0" },
+      cwd, env: { PATH: process.env.PATH, HOME: home, REIN_CI_GATE: "0", REIN_BUILD_STAMP: "0" },
       stdio: ["pipe", "pipe", "ignore"],
     });
     const frames = [
@@ -471,7 +471,7 @@ test("with the seed off (an import on record) an empty index is refused: [STATE_
   assert.match(nogit.content[0].text, /\[EMPTY_STATE_DB\] index has 0 tasks, TASKS\.md lists 2 — run: rein state import/);
   assert.deepEqual(views(ai), before, "no auto-fix from an empty index");
   // …and the advice works: the import takes the working state.json when nothing is committed.
-  const imp = spawnSync(process.execPath, ["--no-warnings", join(REPO, "src/shared/cli-state.mjs"), "state", "import"], { cwd: root, encoding: "utf8", env: { ...process.env, AI_TELEMETRY_DISABLE: "1" } }).stdout;
+  const imp = spawnSync(process.execPath, ["--no-warnings", join(REPO, "src/shared/cli-state.mjs"), "state", "import"], { cwd: root, encoding: "utf8", env: { ...process.env } }).stdout;
   assert.match(imp, /^\[STATE_IMPORT\] legacy: \+3 tasks \(E-1\.\.P-1\), ~0 updated, \+2 stamps from the working state\.json$/m);
   assert.equal(new DatabaseSync(join(ai, "state.sqlite")).prepare("SELECT COUNT(*) AS n FROM tasks").get().n, 3);
 });
@@ -492,7 +492,7 @@ test("rein doctor's State Health names rein state import for an empty or behind 
   seedLegacy(ai); commitAll(root, "seed");
   emptyIndex(ai).close();
   // A child process: this one's getDb cache still holds the index emptyIndex() replaced.
-  const health = (...a) => spawnSync(process.execPath, ["--no-warnings", join(REPO, "src/shared/cli-state.mjs"), "state", "health", ...a], { cwd: root, encoding: "utf8", env: { ...process.env, AI_TELEMETRY_DISABLE: "1" } }).stdout;
+  const health = (...a) => spawnSync(process.execPath, ["--no-warnings", join(REPO, "src/shared/cli-state.mjs"), "state", "health", ...a], { cwd: root, encoding: "utf8", env: { ...process.env } }).stdout;
   const out = health();
   assert.match(out, /index: tasks=0, stamps=0 · HEAD state\.json: tasks=3/);
   assert.match(out, /WARN: the index is empty but HEAD has 3 task\(s\) — run: rein state import/);
@@ -512,7 +512,7 @@ test("rein migrate-state refuses [LOSSY_RESEED] when HEAD's state.json holds mor
   rmSync(join(ai, "state.json"));
   const h = tmp(t, "h");
   tcFixtureHome(h);   // E-345 (D-109 r1): the toolchain record the hooks pin
-  const run = (...a) => spawnSync("bash", [join(REPO, "src/bin/rein"), "migrate-state", ...a], { cwd: root, encoding: "utf8", env: { ...process.env, HOME: h, AI_TELEMETRY_DISABLE: "1" } });
+  const run = (...a) => spawnSync("bash", [join(REPO, "src/bin/rein"), "migrate-state", ...a], { cwd: root, encoding: "utf8", env: { ...process.env, HOME: h } });
   const r = run();
   assert.equal(r.status, 1);
   assert.match(r.stdout, /\[LOSSY_RESEED\] HEAD:\.ai\/state\.json has 3 tasks, TASKS\.md lists 1 — run: rein state import/);

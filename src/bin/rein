@@ -4194,7 +4194,7 @@ _run_env_diagnostics() {
   fi
 
   # E-176: live MCP connectivity probe (tools/list handshake). Locator chain mirrors
-  # the telemetry/incident helpers: dev tree → installed mirror → cwd fallback.
+  # the other shared helpers: dev tree → installed mirror → cwd fallback.
   echo ""
   echo "MCP connectivity (tools/list handshake):"
   local tester="" self_dir
@@ -5507,7 +5507,7 @@ _locate_resolve_launch() {
 # Isolation is by construction, not by list: the steps run under `env -i` with a curated
 # environment, so CI, TMUX and every launch variable `rein pane`/`rein start` export are simply
 # absent — there is no strip list to fall out of date. HOME and TMPDIR are throwaway, so a
-# run cannot write the operator's telemetry store, mirror or shell rc files.
+# run cannot write the operator's ~/.rein, mirror or shell rc files.
 #
 # Exit codes: 0 PASS, 1 FAIL (suite, unit layer or secrets check failed), 2 ERROR (a step
 # could not start: bad ref, lock held, deps/install failed). Unknown is not green (D-060).

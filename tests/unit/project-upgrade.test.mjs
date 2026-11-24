@@ -264,7 +264,7 @@ function fixtureRepo(t) {
   const home = mkdtempSync(join(tmpdir(), "rein-t-comm-home-"));
   tcFixtureHome(home);   // E-345 (D-109 r1): the toolchain record the hooks pin
   const dir = join(t.d, "r");
-  const env = { PATH: process.env.PATH, HOME: home, GIT_CONFIG_NOSYSTEM: "1", AI_TELEMETRY_DISABLE: "1" };
+  const env = { PATH: process.env.PATH, HOME: home, GIT_CONFIG_NOSYSTEM: "1" };
   const git = (...a) => execFileSync("git", a, { cwd: dir, env, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   mkdirSync(dir);
   git("init", "-q", "-b", "master");

@@ -1603,3 +1603,15 @@ Claude Code 2.1.331 with haiku sessions running the generated role files.
   network. The same class covers `.pnpmfile.cjs`, `conftest.py`, a new `node_modules/` and
   `.gitattributes`.
 - Fix direction: see SECURITY.md F1–F3. Each PoC becomes an escape-suite case.
+- **Re-probe (D-172 r4, security_engineer, 2026-11-24): F1–F4 RESISTED at ff7cc71**
+  (escape suite 42/0/0/0 and direct payloads; SECURITY.md "lean-core re-probe"). F1–F3 are closed.
+- **F8 (P1, new, not gating per D-172 r4), test discovery inside the Architect's lane.** With the
+  Architect confined to `.ai/` and `plans/`, the root is closed, but `plans/` itself is
+  collected by root-level test runners that use default discovery. PoC: the Architect writes
+  `plans/zz.test.mjs` (`writeFileSync('<proj>/src/…')`), optionally hidden by a lane-writable
+  `plans/.gitignore`. The Engineer's `node --test` at the root executed it and wrote `src/`.
+  The same applies to jest/vitest/mocha defaults and pytest `plans/conftest.py` (not run: no
+  pytest on the host). `.ai/` was not collected by `node --test`. Trust boundary: an
+  Architect-lane file reaches the Engineer's process through a tool's search path. Mitigation:
+  open. A documented runner exclusion of `plans/` and `.ai/`, or a `[LANE_STRAY]`-style notice
+  for test-named or executable files under `plans/` (Architect's call).

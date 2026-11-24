@@ -7628,84 +7628,24 @@
       "summary": "Records-only commit: COMM handoff, the security_engineer's SECURITY.md/THREAT_MODEL.md entries (SEC_BLOCKED, written by the agent), generated views. No source. Satisfies the stale installed pre-commit hook only.",
       "sha": "5dfd82b891c65f12d2b5f1345c2433f8cc94247b",
       "author": "32126521+Vimurai@users.noreply.github.com"
-    }
-  ],
-  "deltas": [
-    {
-      "task_id": "E-59",
-      "summary": "E-59: CI hotfix (Tier 1). _wal_checkpoint_state_db() in src/bin/ai now resolves wal-flusher.mjs via a SELF_DIR-derived path (third candidate, between cwd-relative and ${AIOS}/shared). Root cause: sqlite_wal_checkpoint_test.sh T-WAL-S04 sources bin/ai inside a mktemp SBOX where neither `src/shared/wal-flusher.mjs` (cwd-relative) nor `${AIOS}/shared/wal-flusher.mjs` (=~/.ai-os, unpopulated in CI) exists, so the helper printed \"wal-flusher.mjs not found\" instead of \"WAL checkpoint complete\". Fix uses BASH_SOURCE[0] of the function to derive `${SELF_DIR}/../shared/wal-flusher.mjs`, which resolves the dev-tree script regardless of cwd or install state. SBOX repro under simulated empty AIOS now emits the success line and exits 0. Local: 1123/1123 PASS, sqlite_wal_checkpoint_test.sh 13/13. Files: src/bin/ai (+6 lines, locator chain only). Commit: f4d54bf, pushed to origin/master, fresh CI run 25612953667 in flight. | Files: .ai/DIGEST.md, .ai/TASKS.md, .ai/state.json",
-      "files": [
-        ".ai/DIGEST.md",
-        ".ai/TASKS.md",
-        ".ai/state.json"
-      ],
-      "read": true,
-      "created_at": "2026-05-09 22:07:57"
     },
     {
-      "task_id": "E-60",
-      "summary": "E-60: Per-task anomaly detection in verify_markdown_sync (Tier 2). Replaced count-based check in src/mcp/task-synchronizer-mcp/index.js with per-task cross-reference of TASKS.md checkboxes vs state.sqlite. Detects 4 drift types: (1) id in md but missing from state, (2) [x] in md but status != DONE in state, (3) [ ] in md but status == DONE in state, (4) id in state but missing from md. Auto-regenerates TASKS.md only on missing-row drift (1 and 4); checkbox-mismatch drift (2 and 3) is human-decision territory and surfaces verbatim. Header tampering still flagged. Emits structured `__SYNC_RESULT__ {status, anomalies, auto_fixes}` JSON tail for programmatic consumers (skills, CI, hooks). Mirrored to ~/.ai-os/mcp/task-synchronizer-mcp/index.js for live process pickup on restart. New behavioral test tests/suites/verify_sync_per_task_test.sh (16 assertions) drives the real MCP via stdio JSON-RPC across all 4 drift cases + clean state + header tamper + JSON-tail parse. Tests: 1123→1139 PASS (+16). Files: src/mcp/task-synchronizer-mcp/index.js (-37 +91), tests/suites/verify_sync_per_task_test.sh (new, 200 lines), ~/.ai-os/mcp/task-synchronizer-mcp/index.js (mirror). | Files: .ai/TASKS.md, .ai/state.json, src/mcp/task-synchronizer-mcp/index.js, src/shared/skills/ai-handoff/SKILL.md, src/shared/skills/ai-preflight/SKILL.md",
-      "files": [
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        "src/mcp/task-synchronizer-mcp/index.js",
-        "src/shared/skills/ai-handoff/SKILL.md",
-        "src/shared/skills/ai-preflight/SKILL.md"
-      ],
-      "read": true,
-      "created_at": "2026-05-10 19:44:43"
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T02:09:41.763Z",
+      "summary": "D-172 build (r2 F3 Architect in .ai, r3 F4 all-projects secret check, r5-r6, r11-r22). Escape suite 42/0/0 final. security_engineer re-probe (r4) follows this commit. Satisfies the stale installed pre-commit hook only.",
+      "sha": "f5a0333ad4c6d75d9ece06243e3157411cdaaa34",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     },
     {
-      "task_id": "E-61",
-      "summary": "E-61: Wire verify_markdown_sync into ai-preflight + ai-handoff skills (Tier 1). src/shared/skills/ai-preflight/SKILL.md gains \"Step 4 — Verify markdown↔state sync\" between Step 3 (TASKS.md) and Step 5 (deltas) with explicit guidance on resolving each anomaly class. src/shared/skills/ai-handoff/SKILL.md gains \"Step 0 — Verify state is consistent before packaging\" with rationale (next agent plans against COMM.md, fiction here propagates downstream). Both skills add `mcp__task-synchronizer-mcp__verify_markdown_sync` to allowed-tools frontmatter. Mirrored to ~/.ai-os/shared/skills/ai-preflight/SKILL.md and ~/.ai-os/shared/skills/ai-handoff/SKILL.md. Registry already permits the tool (no change needed). Files: src/shared/skills/ai-preflight/SKILL.md (+18 lines), src/shared/skills/ai-handoff/SKILL.md (+17 lines), 2 ~/.ai-os mirrors. Tests: 1139/1139 PASS (no test added — wiring is documentation-only and covered by skill/agent end-to-end behavior). | Files: .ai/TASKS.md, .ai/state.json, src/mcp/task-synchronizer-mcp/index.js, src/shared/skills/ai-handoff/SKILL.md, src/shared/skills/ai-preflight/SKILL.md",
-      "files": [
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        "src/mcp/task-synchronizer-mcp/index.js",
-        "src/shared/skills/ai-handoff/SKILL.md",
-        "src/shared/skills/ai-preflight/SKILL.md"
-      ],
-      "read": true,
-      "created_at": "2026-05-10 19:44:49"
-    },
-    {
-      "task_id": "E-77",
-      "summary": "E-77: E-77 Keyword-Multiplier-Manager (Tier 2) — new src/gemini/agents/seo_manager.md (160 lines) + 44-assertion test suite; 1523/1523 PASS; unblocks E-78 (SEO-Content-Generator) + E-79 (Multi-Variation-State-Tracker). | Files: .ai/TASKS.md, .ai/state.json, .mcp.json",
-      "files": [
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        ".mcp.json"
-      ],
-      "read": true,
-      "created_at": "2026-05-19 09:44:16"
-    },
-    {
-      "task_id": "E-79",
-      "summary": "E-79: E-79 Multi-Variation-State-Tracker (Tier 2) — new seo-approach-types.mjs + state-db.js schema bump (2 tables + FK + indices) + 4 new MCP tools (add_keyword_seed/add_content_variation/report_performance/get_seed_cohort) + 64-assertion test suite; 1638/1638 PASS; seo-keyword-multiplier blueprint complete. | Files: .ai/TASKS.md, .ai/state.json, .mcp.json, src/mcp/shared/state-db.js, src/mcp/task-synchronizer-mcp/index.js",
-      "files": [
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        ".mcp.json",
-        "src/mcp/shared/state-db.js",
-        "src/mcp/task-synchronizer-mcp/index.js"
-      ],
-      "read": true,
-      "created_at": "2026-05-19 10:51:33"
-    },
-    {
-      "task_id": "P-2",
-      "summary": "P-2: Accepted Claude's token-bottleneck proposals; authored .ai/blueprints/token-optimization.md and registered E-107, E-108, E-109. Updated GEMINI.md with the Subagent-Audit-First pattern. Project focus updated to sovereignty + telemetry hardening. | Files: .ai/DECISIONS.md, .ai/DIGEST.md, .ai/REVIEWS.md, .ai/RULES.md, .ai/TASKS.md",
-      "files": [
-        ".ai/DECISIONS.md",
-        ".ai/DIGEST.md",
-        ".ai/REVIEWS.md",
-        ".ai/RULES.md",
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        "GEMINI.md"
-      ],
-      "read": true,
-      "created_at": "2026-06-02 12:38:06"
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T02:16:31.235Z",
+      "summary": "D-172 r4 re-probe at ff7cc71: F1 (roles.json model launch injection), F2 (forged refs/remotes, packed-refs, replace, shallow, grafts vs pre-push), F3 (root .npmrc/.pnpmfile/conftest + wider class; Architect in .ai) and F4 (secret scan without publish.json) all RESISTED; escape suite PASS=42 FAIL=0 UNKNOWN=0; new non-gating P1 F8 (plans/*.test.mjs run by Engineer's default-discovery node --test) in T-SANDBOXLANE-001",
+      "sha": "ff7cc71e05e208a1aa431cb86501000002bf2063",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]
 }

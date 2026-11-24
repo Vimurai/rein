@@ -23,9 +23,10 @@ function tree(t, files) {
 
 test("laneAllowed: the record extensions and sqlite's -wal/-shm pass; code, dotfiles and other sides do not", () => {
   for (const n of ["a.md", "a.json", "a.txt", "a.yml", "a.yaml", "a.tsv", "state.sqlite", "a.log", "A.MD",
-    "state.sqlite-wal", "state.sqlite-shm"]) assert.equal(laneAllowed(n), true, n);
+    "state.sqlite-wal", "state.sqlite-shm", "a.svg", "a.dc.html", "a.png", "a.gif", "a.jpg", "a.pdf"])
+    assert.equal(laneAllowed(n), true, n);   // D-172 a1 r25 added the drawing and document extensions
   for (const n of ["zz.test.mjs", "conftest.py", "p.cjs", "x.sh", ".gitignore", "Makefile", "a.md.mjs",
-    "state.sqlite-journal", "a.json-wal", "a.svg"]) assert.equal(laneAllowed(n), false, n);
+    "state.sqlite-journal", "a.json-wal", "a.js", "a.htm"]) assert.equal(laneAllowed(n), false, n);
 });
 
 test("laneCodeFiles / laneCodeLine: the empty case prints nothing", (t) => {
@@ -56,4 +57,12 @@ test("laneCodeLine: many files → the first ten at most, a count, and one line 
   assert.ok(!line.includes("\n") && line.length <= 380, line);
   assert.match(line, /^\[LANE_CODE\] 25 file\(s\) .*plans\/f00\.mjs, .*\(\+\d+ more\)/);
   assert.ok(!line.includes("plans/f10.mjs"), "at most ten named");
+});
+
+// D-172 a1 r25: Rein's two lane files are exempt by exact path, and drawings and documents
+// (.svg .html .png .gif .jpg .pdf) are records. Any other dotfile is still named.
+test("laneCodeFiles: the two exempt .ai files and the r25 extensions are quiet; another dotfile is not", (t) => {
+  const root = tree(t, [".ai/.gitignore", ".ai/.last-import-blob", "plans/icon/a.svg", "plans/icon/a.dc.html",
+    "plans/x.png", "plans/x.gif", "plans/x.jpg", "plans/x.pdf", ".ai/.envrc", "plans/.gitignore"]);
+  assert.deepEqual(laneCodeFiles(root).files, [".ai/.envrc", "plans/.gitignore"]);
 });

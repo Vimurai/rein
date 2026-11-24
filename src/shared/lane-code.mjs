@@ -19,7 +19,11 @@ import { join, resolve } from "node:path";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 
 /** The record extensions D-172 a1 r24 allows (compared lower-case). */
-export const LANE_ALLOWED_EXT = Object.freeze([".md", ".json", ".txt", ".yml", ".yaml", ".tsv", ".sqlite", ".log"]);
+// D-172 a1 r25 adds .svg .html .png .gif .jpg .pdf (records and drawings, not code a tool loads).
+export const LANE_ALLOWED_EXT = Object.freeze([".md", ".json", ".txt", ".yml", ".yaml", ".tsv", ".sqlite", ".log",
+  ".svg", ".html", ".png", ".gif", ".jpg", ".pdf"]);
+/** D-172 a1 r25: Rein's own lane files, exempt by exact path. No other dotfile is. */
+export const LANE_EXEMPT_PATHS = Object.freeze([".ai/.gitignore", ".ai/.last-import-blob"]);
 /** sqlite's side files of an allowed `.sqlite` database. */
 const SQLITE_SIDE = /\.sqlite-(wal|shm)$/;
 export const LANE_DIRS = Object.freeze([".ai", "plans"]);
@@ -52,7 +56,7 @@ export function laneCodeFiles(root) {
       if (++seen > MAX_ENTRIES) { partial = true; return; }
       const r = `${rel}/${e.name}`;
       if (e.isDirectory()) walk(join(abs, e.name), r);
-      else if (!laneAllowed(e.name)) files.push(r);
+      else if (!laneAllowed(e.name) && !LANE_EXEMPT_PATHS.includes(r)) files.push(r);
       if (partial) return;
     }
   };

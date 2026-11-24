@@ -2206,12 +2206,12 @@
     {
       "id": "E-455",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Merge the gate-table rows added by E-441, E-440, E-446, E-453 and E-454 that reach the same verdict through the same branch, per D-167 r12, r13, D-164 addendum 1 r4 and .ai/blueprints/test-economics.md, the same way as E-445 and E-447. Test-only: tests/fixtures/operand-scope-cases.json, block-rules-cases.json and pipe-shell-cases.json, rows added after the pins 4e41906f, 65a83152 and 59408 (the 490-, 61- and 52-row tables). Within each group of rows sharing branch, verdict and role keep one row. Also keep every row that is the only carrier of a D-ruling or security-pass label, every pass row that pins a ruled boundary, and every row that is the only one on its V8 block-coverage path AND whose removal lets a mutant of tests/tools/mutation/gate-tables.sh survive that was killed before; if that tool does not cover a table, say so in the handoff and keep the coverage rule alone for it. Expected: most of the nineteen \"the command word may be cd\" rows and the per-key E-440 rows merge. Acceptance: `git diff --stat` against the parent shows only the three fixture files and .ai/; every row of the parent tables that is not removed is present with the same cmd, role and want (the handoff gives the jq or script line that shows it); the handoff lists every dropped row with the row that now carries it, the mutation result before and after, and the row count and sha256 of each table; `node --test tests/unit/operand-scope-cases.test.mjs` passes; critic_tests stamps TESTS_PASS; `rein ci run` is green and its test_lines value is below 45593. Framework task.",
       "created_at": "2026-11-20T15:53:58.640Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T13:35:40.606Z",
+      "summary": "superseded by D-169 — not implemented. The gate-table rows it would merge were deleted with the command-text gate (E-463).",
       "depends_on": [
         "E-453",
         "E-454"
@@ -2221,21 +2221,21 @@
         "E-453",
         "E-454"
       ],
-      "updated_at": "2026-11-20T15:53:58.641Z"
+      "updated_at": "2026-11-24T13:35:40.607Z"
     },
     {
       "id": "E-456",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Replace the Architect's three git verb deny lists with one subcommand allowlist per D-168 r8-r11 (the rulings carry the verb list, the three blocked options and the rule ids) and .ai/blueprints/sovereignty-hardening.md §Operand Scope and Inert Heredocs (gate surface: security_engineer then critic_security; at most two security rounds, D-164 r6; the round's question is D-168 r10's). Ordering by text: after E-455. (1) In src/mcp/safe-exec-mcp, for role architect, a git subcommand passes only when it is on D-168 r9's list; any other, a dynamic subcommand word, and the dashed git-<sub> of one, are BLOCK (ARCH_GIT_VERB, or the verb's existing rule id). (2) BLOCK the three options of r10. (3) Remove the clone branch of commandPassesConfig and the rows only it carries. (4) Rows by branch only (D-164 addendum 1 r4), each named in the handoff; update T-GITCONFIG-001. The Engineer's verdicts do not change. Acceptance: with role architect through `safe-exec-mcp --check`, `git bisect run sh x`, `git submodule foreach 'echo x'`, `git difftool --extcmd=x`, `git fetch --upload-pack=x .`, `git clone -qc core.fsmonitor=x a b`, `git st`, `git $v`, `git diff --output=src/x` and `git grep -O x` each BLOCK; `git status`, `git log --oneline -5`, `git show HEAD:README.md`, `git config --get user.name`, `git checkout .ai/x` and the D-104 handoff commit line of task-planner Step 7 pass; `git push` still reports ARCH_GIT_PUSH and `git switch x` ARCH_GIT_WRITE; the handoff lists every git line found in ARCHITECT.md and the skills arch-task, arch-oracle, arch-review, rein-handoff, task-planner, decision-recorder, blueprint-writer, rein-preflight and rein-sync-state with its verdict, and none is BLOCK; the same lines with role engineer keep their e68b40f verdict; `node --test tests/unit/operand-scope.test.mjs` passes; the handoff gives the row count and sha256 of each changed table; .ai/SECURITY.md carries SEC_CLEARED; `rein ci run` is green. Framework task.",
       "created_at": "2026-11-23T15:31:18.444Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T13:35:41.692Z",
+      "summary": "superseded by D-169 — not implemented. The Architect's git verb deny lists went with the command-text gate (E-463); the role sandbox and the pre-commit lane hold the boundary.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T15:31:18.451Z"
+      "updated_at": "2026-11-24T13:35:41.692Z"
     },
     {
       "id": "E-457",
@@ -2352,16 +2352,16 @@
     {
       "id": "E-465",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Count what each MCP server is used for and remove what is already native, per D-169 r10 and .ai/blueprints/lean-core.md §Component 6 (after E-464). (1) From ~/.rein/telemetry.sqlite print, for the last 30 days, the calls per server and per tool, split by project, and for each server the command or native tool that would replace it. (2) Remove the third-party `filesystem` and `memory` servers from the generated .mcp.json and from the role settings that name their tools. (3) Remove the deprecated CLI stubs provider, update, onboard, preflight, archive, review, test and where from src/bin/rein, unless E-464 gave `review` a new body. (4) Remove no other server here: the Architect rules on the table. Acceptance: the handoff carries the table with one row per server (calls, tools called, tools never called, proposed replacement) and the SQL that produced it; `jq '.mcpServers | keys' .mcp.json` in a freshly synced scratch project lists neither filesystem nor memory; `rein provider` and the other removed stubs print the unknown-command line; `rein ci run` is green. Framework task.",
       "created_at": "2026-11-23T16:23:23.952Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T13:35:42.693Z",
+      "summary": "superseded by D-170 — not implemented. D-170 r8: the operator ruled the cut, so the usage census is not needed; its removals (filesystem and memory servers, the retired command stubs) are in E-467.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T16:23:23.952Z"
+      "updated_at": "2026-11-24T13:35:42.693Z"
     },
     {
       "id": "E-466",

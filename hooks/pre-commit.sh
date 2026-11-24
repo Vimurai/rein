@@ -173,7 +173,8 @@ if [[ -f "${AI_DIR}/project.json" ]]; then check_record_parity; fi
 #
 # Residual (D-087 r3): REIN_SKIP_GIT_LANE=1 skips the lane — same strength as --no-verify
 # (D-081 r5) — and says so on stderr.
-# Prints "<source>:<role>" (chain | union | env).
+# Prints "<source>:<role>" (chain | union | env), then a TAB and the walk's reason when the
+# source is union (E-471): a fail-closed fallback must not read as a real Architect.
 #
 # It PRINTS both rather than setting a global: the caller invokes this in a command
 # substitution, so any variable assigned inside is set in the SUBSHELL and lost.
@@ -184,19 +185,18 @@ _resolve_commit_role() {
     printf 'env:engineer'; return 0
   fi
 
-  local lr walk
+  local lr line
 
   # 1. A live launch record on this process chain — most restricted wins, restrict-only.
+  # `role` is the walk as one hook line (E-463): "<role>\t<record|unverified>" or
+  # "union\t<why>". A role with no record ("unverified") falls through to the env.
   lr="$(rein_locate shared/launch-record.py || true)"
   if [[ -n "$lr" ]] && command -v python3 >/dev/null 2>&1; then
-    walk="$(python3 -I "$lr" walk 2>/dev/null)"
-    case "$walk" in
-      *'"result": "union"'*) printf 'union:architect'; return 0 ;;
-      *'"launch": "record"'*)
-        case "$walk" in
-          *'"role": "architect"'*) printf 'chain:architect'; return 0 ;;
-          *'"role": "engineer"'*)  printf 'chain:engineer';  return 0 ;;
-        esac ;;
+    line="$(python3 -I "$lr" role 2>/dev/null)"
+    case "$line" in
+      union$'\t'*|union) printf 'union:architect\t%s' "${line#union$'\t'}"; return 0 ;;
+      architect$'\t'record) printf 'chain:architect'; return 0 ;;
+      engineer$'\t'record)  printf 'chain:engineer';  return 0 ;;
     esac
   fi
 
@@ -211,8 +211,22 @@ _resolve_commit_role() {
   printf 'env:engineer'
 }
 
+# The walk's reason, fit to print (E-471): a record's content can reach it, so it is one line,
+# with no control characters (C0, DEL, C1 as UTF-8) and at most 160 characters.
+_lane_why() {
+  local w
+  w="$(printf '%s' "$1" | LC_ALL=C tr '\n\r\t' '   ' | LC_ALL=C tr -d '\000-\037\177' \
+       | LC_ALL=C sed -e $'s/\xc2[\x80-\x9f]//g' -e 's/  */ /g' -e 's/^ //' -e 's/ $//')" || w=""
+  printf '%s' "${w:0:160}"
+}
+
 check_architect_git_lane() {
   local resolved; resolved="$(_resolve_commit_role)"
+  local why=""
+  if [[ "$resolved" == *$'\t'* ]]; then
+    why="$(_lane_why "${resolved#*$'\t'}")"
+    resolved="${resolved%%$'\t'*}"
+  fi
   local ROLE_SOURCE="${resolved%%:*}"
   local role="${resolved#*:}"
   # Normalize before comparing: an exact match meant `Architect` or a trailing space
@@ -285,7 +299,14 @@ check_architect_git_lane() {
       echo "║  [SOVEREIGNTY_BLOCK] ARCHITECT GIT LANE — COMMIT BLOCKED                 ║"
       echo "╚══════════════════════════════════════════════════════════════════════════╝"
       echo ""
-      echo "Session role: architect. An Architect may commit only paths under .ai/ or plans/."
+      if [[ "$ROLE_SOURCE" == "union" ]]; then
+        echo "Session role: architect (source: union${why:+ — ${why}})."
+        echo "A launch record could not be trusted, so the lane fails closed to architect. If the record"
+        echo "is for another project, relaunch with \`rein pane <role>\` from the repo you are committing in."
+      else
+        echo "Session role: architect (source: ${ROLE_SOURCE})."
+      fi
+      echo "An Architect may commit only paths under .ai/ or plans/."
       echo "These staged paths are outside that scope:"
       echo ""
       printf '%s' "$out_of_scope"

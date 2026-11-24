@@ -6099,3 +6099,61 @@ The operator asked whether two panes are needed, how to lower cost, and whether 
 Routing is one setting per tier; remove it. Rulings 1 and 3 build nothing.
 
 ---
+
+## D-172 — Review of the lean-core batch as built: accepted with three fixes; F3 closed by moving the Architect's working directory; one re-probe round; one pull request and one CI run for everything
+
+**Date**: 2026-11-24
+**Task**: E-457 to E-470 (review of the handoff of 2026-11-24 01:26 UTC, `plans/lean-core-batch-notes.md`, `.ai/SECURITY.md` "lean-core security round")
+**Decision**: The batch is accepted as built except where the rulings below order a change; the Architect's lane hole F3 is closed before the text gate is deleted; the stack of pull request #68 and the batch reach main as one pull request with one CI run.
+
+### Why needed
+The Engineer built eleven of twelve batch tasks overnight. E-463 (delete the text gate) was refused by the permission classifier in its session, and so was `bash install-rein.sh`. The one security round ended SEC_BLOCKED with F1 to F3 gating; F1, F2 and F5 are fixed and not re-tested. A further round is the Architect's to order (D-164 r6). The batch notes list eleven open questions.
+
+### What was checked
+The fix commit 5dfd82b was read. F1: `roleModel` throws on anything that is not a model name, and `resolve-launch` refuses an argv element holding a line break. F2: the push check excludes only the remote sha git supplies and the bases recorded in the ledger, runs git with replace objects and grafts off, and the role file write-denies `refs/remotes`, `refs/replace`, `packed-refs` and `info`. Both follow the fix direction of the round. Nothing was run by the Architect.
+
+### Rulings — security
+1. **F1 and F2 are accepted as fixed, pending the re-probe of ruling 4.**
+2. **F3 (a file the Architect plants at the project root runs in the Engineer's lane) is closed in E-462, by the first of these that the probe shows to work:**
+   a. Start the Architect's session with its working directory at `<project>/.ai`. The sandbox makes the working directory writable and nothing else by default, so the project root needs no deny list; `plans/` and `.git` stay on the write-allow list with the denials of F2. The probe must show, in one Architect session: a write to a new top-level name fails; `.ai/`, `plans/` and a commit work; the rulefile, the plugin and the state server are loaded.
+   b. If (a) fails on any of those, keep today's launch and add a detective control: the Engineer's session start and `rein handoff` print `[LANE_STRAY]` with every top-level entry that is untracked or ignored and absent from the list recorded at the Engineer's last commit. F3 is then an accepted residual in T-SANDBOXLANE-001, named as such in docs/role-sandbox.md.
+   The Engineer picks by the probe and records which. No ruling is needed between.
+3. **F4: every project keeps a secret check at commit.** `hooks/pre-commit.sh` runs the `secret` class of publish-scan in every Rein project, with or without `.ai/publish.json`. A leaked credential is an accident, not an attack, and the check is a few lines. This is part of E-467.
+4. **One re-probe round, no discovery** (the shape of D-168 r2 to r4). After rulings 2 and 3 are built, `security_engineer` re-runs the payloads of F1, F2 and F3 and the F4 probe, and each is a case in `tests/suites/sandbox_escape_test.sh`. SEC_CLEARED if all resist. A new finding is recorded in T-SANDBOXLANE-001 and does not gate unless it is P0. There is no further round.
+5. **F5, F6, F7**: F5 is accepted as fixed. F6: CAPABILITIES.md drops the `~/.rein/*.sqlite` write; the sandbox is the rule. F7: `.bashrc` and `.gitconfig` at the root go into `.gitignore` and the template.
+6. **A case that depends on the model making a call reports UNKNOWN, never FAIL or PASS**, and is repeated once. The suite passes with no FAIL and no UNKNOWN. It runs on the operator's machine (E-470 and each release), not in hosted CI: it needs a login.
+
+### Rulings — E-463, install, CI
+7. **E-463 is built only on the operator's word in the Engineer's own pane, and only after ruling 4 returns SEC_CLEARED.** The classifier's refusal is not worked around by either role. D-169 r2 stands as the operator's intent; the go at the moment of deletion is theirs.
+8. **`bash install-rein.sh` is the operator's act**, now and after the strip: the Engineer's sandbox write-denies `~/.rein`, and that is the boundary working. `rein sync` in a role pane cannot write `.claude/`; the operator runs it. docs/install.md says so.
+9. **One pull request, one CI run.** D-170 r11 is withdrawn: the operator stopped #68's CI. `lean-core` contains the whole stack, so #68 is closed unmerged and `lean-core` is the one pull request. Its merge commit is the commit rein-app waits for. CI runs once, on the operator's word, after E-463 (or after the operator says E-463 waits).
+10. **Order from here**: E-462 and E-467 fixes (rulings 2, 3, 5) with rulings 11 to 22; the re-probe; the operator's go for E-463; E-463; then the operator's sitting: `rein ci run`, `bash install-rein.sh`, restart; then `reviewer` again for E-460, E-466 and E-469 only, `critic_acceptance` per task, the pull request, the merge.
+
+### Rulings — the notes' open questions
+11. **Session bytes (5313 against 4096)**: CLAUDE.md becomes role-neutral, one short paragraph that says roles start with `rein pane`. It imports no rulefile. The appended rulefile carries the role.
+12. **TASKS.md (110 KB against 80 KB)**: each line of the view is cut at 300 characters; `rein task show <id>` prints the full text. The Architect's P-51 closes the overtaken tasks.
+13. **The `rein task show` clause** is checked with E-427.
+14. **`archive_done_tasks` is retired.** A rotation that removes stamps the DONE checks read is a defect.
+15. **The brief's next five tasks**: the role's OPEN tasks, highest id first.
+16. **Hook lines**: the target becomes 950. `post-commit.sh` carries the lane ledger, which is part of the new boundary; the first number was set before that existed.
+17. **The eval harness is deleted**, with the repository-root `.claude-plugin/plugin.json` that shares the plugin's name.
+18. **The delta channel is retired**: `rein handoff` carries what changed. The unread-deltas view goes.
+19. **The tracked `.claude/agents` and `.claude/skills` copies are untracked**, and the suites that compare them read `src/`.
+20. **docs/assets is outside the E-468 grep.** The demo is recorded again at the next release, by the operator.
+21. **The documentation states what was measured**: the sandbox on Linux and WSL2. macOS is named as not measured.
+22. **Ratified as built**: review checked at close, not at commit (D-170 r9 over the E-464 clause); `release-manager` asks for `[REVIEW_PASS]`; `blueprint-writer` kept; `rein start` refuses without the sandbox as `rein pane` does (change the warning to a refusal); `src/claude/CLAUDE.md` is deleted; `.ai/blueprints/mcp.md` is a generated view from now and the Engineer regenerates it; tests that create role folders use a scratch Rein home.
+
+### Alternatives considered
+1. **Accept F3 as a residual now** — rejected while option 2a is one probe away: the text gate being deleted is today's only cover for that route.
+2. **A full second discovery round** — rejected (D-164 r6, D-167): rounds that discover do not end.
+3. **Merge #68 first, then the batch** — rejected: two CI runs, against the operator's order.
+4. **Ask the Engineer to retry the deletion or the install another way** — rejected: that would be working past a refusal.
+
+### Impact
+- Unlocks: the close of E-458 to E-470.
+- Risk if wrong: option 2a changes where the Architect's session runs, and path habits in the rulefile break. The probe in ruling 2 is the check, and 2b is the fallback.
+
+### Rollback
+Each ruling is a change inside one task's commit or a follow-up commit on `lean-core`; the branch is not on origin. Ruling 2a is one launch setting.
+
+---

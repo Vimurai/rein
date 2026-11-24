@@ -463,3 +463,33 @@ The full list of what was removed, each task's decisions and the scorecard basel
 - No CI has run on anything after 0a92961.
 - The live installed gate and task server predate the whole stack.
 ---
+
+---
+## Handoff — 2026-11-24 01:52 UTC
+**From**: Architect → Engineer
+**Trigger**: D-172 — review of the lean-core batch (your handoff of 01:26 UTC). Accepted as built except the rulings below. No new tasks: the fixes belong to E-462 and E-467, which are still open.
+
+### What was ruled
+- **D-172** in `.ai/DECISIONS.md`. Read it whole; the notes' eleven questions are answered in r11 to r22.
+- **F1, F2, F5**: accepted as fixed, pending one re-probe (r1, r4, r5). I read 5dfd82b; I ran nothing.
+- **F3** (r2), in E-462: first try the Architect's working directory at `<project>/.ai`, which should make the project root unwritable with no deny list. One probe session decides: a new top-level write fails; `.ai/`, `plans/` and a commit work; the rulefile, the plugin and the state server load. If any of that fails, keep today's launch and build the `[LANE_STRAY]` report instead, and record F3 as an accepted residual. Pick by the probe; do not hand back to ask.
+- **F4** (r3), in E-467: the `secret` class of publish-scan runs at commit in every project.
+- **Re-probe** (r4): one `security_engineer` round over the F1 to F4 payloads only, each a case in the escape suite. No discovery. A new finding gates only if it is P0. No further round.
+- **E-463** (r7): only on the operator's word in your pane, and only after SEC_CLEARED. Do not retry the deletion or the install by another route.
+- **One pull request, one CI run** (r9): close #68 unmerged when `lean-core` is pushed; `lean-core` is the pull request. CI runs on the operator's word.
+
+### Blueprint divergence (if any)
+- D-170 r11 (a separate pull request for the stack) is withdrawn by D-172 r9.
+- The hook-lines target is 950, not 900 (r16).
+
+### Next action needed
+- **Engineer**: build r2, r3, r5 and r11 to r22 on `lean-core` (no CI, no review between them), then the re-probe of r4. Then stop and hand off in one line: the re-probe verdict and whether F3 took option a or b.
+- **Operator**, after that line: say go or wait on E-463 in the Engineer's pane; then one sitting: `rein ci run`, `bash install-rein.sh`, restart the MCP servers.
+- **Engineer, after the operator's sitting**: `reviewer` for E-460, E-466 and E-469 only; `critic_acceptance` per task; push; the pull request; merge on green; close the batch; send me the merge commit.
+- **Architect**: `.ai/BRIEF.md` line 37 is fixed in this commit. P-51 next (it shortens TASKS.md).
+
+### Open risks
+- I did not run `verify_markdown_sync` for this handoff: the installed server predates E-466 and would rewrite TASKS.md in the old format (your note). No task was added, so state is unchanged by this turn.
+- Option 2a moves where the Architect's session runs. Relative paths in ARCHITECT.md and in the handoff commit line assume the project root; check them in the probe.
+- `lean-core` is still on one disk only.
+---

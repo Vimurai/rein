@@ -34,7 +34,7 @@
 
 ## Frontend Notes- Framework: none (CLI tool).
 - State approach: SQLite (WAL) authoritative + JSON projections for Markdown rendering.
-- Routing: skills addressed by name (`skill: rein-preflight`); MCP tools by qualified path (`mcp__server__tool`).
+- Routing: skills addressed by name (`skill: rein-test`); MCP tools by qualified path (`mcp__server__tool`).
 - UI patterns: deterministic Markdown blocks, structured-output JSON tails (`__SYNC_RESULT__`, `__INCIDENT_REPORT__`) for programmatic consumers.
 
 ## Architecture Notes (Claude-owned)

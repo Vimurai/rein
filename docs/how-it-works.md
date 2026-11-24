@@ -1,160 +1,131 @@
-# How it works
+# What Rein adds to Claude Code
 
-Stop prompting the intelligence and start navigating it.
+Claude Code already plans, edits, runs tests, dispatches subagents and sandboxes commands. Rein
+keeps only what it does not have, and nothing else:
 
-Rein turns Claude Code into a small team: an **Architect** that plans, an **Engineer** that
-builds, a **Tester** and **critics** that check. One memory, `.ai/`, lives in your repository.
-Hooks enforce the rules between them, so the rules hold even when the model forgets them.
+1. **A durable task ledger.** Tasks, tiers, acceptance text and review stamps live in
+   `.ai/state.sqlite`, in your repository, and outlive every session.
+2. **DONE by observed acceptance.** A task closes only when an independent agent has run its
+   acceptance clauses and recorded a pass for the commit that is checked out.
+3. **A decision record.** Blueprints, numbered decisions and handoff notes, written by commands
+   and kept in git.
+4. **Two roles with enforced lanes.** An Architect pane that plans and an Engineer pane that
+   builds, each held to its lane by Claude Code's own sandbox, and a wake from one to the other.
 
 ```mermaid
 flowchart LR
     You(["You<br/>ask, answer, approve"])
-    subgraph A["Architect pane · claude fable"]
-        A1["blueprint · tasks · decisions"]
+    subgraph A["Architect pane · plans"]
+        A1["blueprints · tasks · decisions"]
     end
-    subgraph E["Engineer pane · claude opus"]
-        E1["code · tests · commit"]
+    subgraph E["Engineer pane · builds"]
+        E1["code · tests · commits"]
     end
-    subgraph M[".ai/ shared memory"]
-        M1[("state.sqlite<br/>ACID · WAL")]
+    subgraph M[".ai/ in your repository"]
+        M1[("state.sqlite<br/>the ledger")]
         M2["TASKS · DIGEST · COMM<br/>blueprints · DECISIONS"]
     end
-    C["critics + tester<br/>arch · security · tests"]
+    R["reviewer + critic_acceptance"]
     You -->|"plan X"| A
     A -->|"writes"| M
     A -->|"wake"| E
     E -->|"reads"| M
-    E -->|"dispatches"| C
-    C -->|"stamps"| M
-    E -->|"hands back"| A
-    E -->|"commit, gated"| G["git · pre-commit · rein ci run · pre-push"]
-    G -->|"PR"| H["hosted CI · fast + shards"]
+    E -->|"dispatches by tier"| R
+    R -->|"stamps"| M
+    E -->|"rein done · rein handoff"| A
 ```
 
-![Rein: the Architect plans and hands off, the gate holds, the Engineer builds, tests and commits — a real run, 80 seconds](assets/demo.gif)
+## The ledger
 
-## The roles
+`.ai/state.sqlite` is the store (SQLite in WAL mode, so two panes never corrupt it).
+`task-synchronizer-mcp`, the one Rein MCP server, is how a session reads and writes it; the shell
+commands write through the same library. `state.json` is its readable mirror, tracked in git, and
+`rein state import` rebuilds a machine's index from what git tracks.
 
-| Role | Rulefile | Model (default) | Owns | Cannot |
+Three views are generated from it and never hand-edited:
+
+| View | Holds |
+| :--- | :--- |
+| `.ai/TASKS.md` | The open tasks only. `rein task show <id>` prints any task, open or closed. |
+| `.ai/REVIEWS.md` | The review stamps (`[REVIEW_PASS]`, `[ACCEPT_FAIL]`, …). |
+| `.ai/DIGEST.md` | The project snapshot. `rein digest build` rebuilds it; `rein digest check` says whether it is current. |
+
+Each task has a **tier** and an **acceptance** line. `add_task` refuses a task with no tier, no
+imperative verb, or no `Acceptance:` clause that names a command, a file or a count.
+
+## Observed acceptance
+
+`rein done <id> --summary <text>` closes a task through the completion gates:
+
+- **Tier 2 and 3** need `[REVIEW_PASS]` from the `reviewer` agent and `[ACCEPT_PASS]` from
+  `critic_acceptance`, each for HEAD (or an ancestor that differs only under `.ai/`). Tier 3 also
+  needs `[SEC_CLEARED]` from one `security_engineer` round.
+- `critic_acceptance` does not read the diff and agree. It splits the acceptance line into
+  clauses and observes each one: it runs the command, opens the file, counts the rows.
+- Once a project has run `rein ci run`, the task also needs a green run for HEAD.
+
+A refusal names the missing stamp (`[REVIEW_GATE]`, `[ACCEPT_GATE]`, `[SEC_GATE]`, `[CI_GATE]`)
+and exits 1. See [Review by tier](gates-and-review.md).
+
+## The decision record
+
+| File | Written by | Holds |
+| :--- | :--- | :--- |
+| `.ai/blueprints/<name>.md` | the Architect (skill `blueprint-writer` checks the sections) | One design per feature or domain. |
+| `.ai/DECISIONS.md` | `rein decide --file <entry>` | Numbered `D-###` decisions; each needs a decision, a reason and a rollback. |
+| `.ai/COMM.md` | `rein handoff --to <role> --file <entry>` | The handoff notes between the roles. |
+| `.ai/LOG.md` | `rein done` | One line per closed task. |
+
+`rein archive [--logs]` moves old handoffs and dated sections to `.ai/archive/<FILE>-<year>.md`,
+so the files a session reads stay short. `rein handoff` runs it for you.
+
+## Two roles
+
+| Role | Rulefile | Model (default) | Writes | Cannot |
 | :--- | :--- | :--- | :--- | :--- |
-| **Architect** | `ARCHITECT.md` | `fable`, pane 1 | `.ai/architect.md`, `.ai/blueprints/`, decisions, planning tasks | write source code |
-| **Engineer** | `ENGINEER.md` | `opus`, pane 0 | `src/`, `tests/`, implementation tasks, commits | rewrite the blueprint |
-| **Tester** | `test_engineer` agent | `sonnet`, headless | tests under `tests/`, test stamps | write outside `tests/` |
+| **Architect** | `ARCHITECT.md` | `fable`, right pane | `.ai/`, `plans/` | write source, switch the branch, reach the network |
+| **Engineer** | `ENGINEER.md` | `opus`, left pane | the source and tests | write `~/.rein` (but its CI logs) or the project's `.claude/` |
+| **Tester** | `test_engineer` agent | `sonnet`, headless | tests under `tests/` | — |
 
-`rein pane <role>` launches Claude Code with the role's model and permission overlay
-(`.claude/settings.<role>.json`) and stamps the session with its role. The SessionStart hook reads
-that stamp, so the right rulefile governs even though `CLAUDE.md` statically imports the Engineer
-one. The Tester has no pane: the Engineer dispatches it with `skill: rein-test --generate`.
+`rein pane <role>` starts Claude Code with that role's settings file, which holds the sandbox,
+and stamps the session with its role. The lanes are enforced by Claude Code's sandbox, not by
+asking the model: see [The role sandbox](role-sandbox.md). Role bindings are data in
+`.ai/roles.json`; change a model there and relaunch the pane.
 
-Role bindings are data, in `.ai/roles.json`. To give the Architect a different model, change it
-there and relaunch the pane.
-
-## A task's life
-
-1. **Plan.** You describe the intent to the Architect. It reads the snapshot, writes or amends a
-   blueprint under `.ai/blueprints/`, records any decision in `.ai/DECISIONS.md`, and adds
-   implementation tasks (`E-##`) with acceptance criteria. Its last action is to wake the
-   Engineer.
-2. **Implement.** The Engineer's session starts with the brief the SessionStart hook injects: the
-   branch, the next open tasks, the last handoff and any anomaly. It implements the next task, under the gates.
-3. **Validate.** `skill: rein-test` runs the project's own test command; `--generate` has the Tester
-   write missing tests.
-4. **Review.** `skill: rein-review` classifies the change's risk tier and runs the matching critics.
-5. **Commit.** The pre-commit gate checks for a review stamp; `rein ci run` tests the commit in a
-   clean worktree.
-6. **Close.** `rein done <id> --summary <text>` marks the task done once CI is green and its
-   review stamps are recorded, writes the LOG line and rebuilds the digest. When the queue is
-   empty, `rein handoff --to architect --file <entry>` commits the handoff and prints the wake
-   line the session sends to the Architect.
-
-## Memory that survives the chat
-
-A session never re-reads your repository to find its place. It starts from a brief of its
-open tasks, then reads a blueprint only when a task names one. Everything it does is written back as
-it goes.
+Each session starts with a brief of at most 2 KB that the session-start hook prints: the role,
+the branch, the next open tasks, the last handoff and any anomaly. A session reads a blueprint
+only when its task names one.
 
 ```mermaid
 flowchart TD
-    S["session start<br/>brief ≤ 2 KB"] --> T["TASKS.md<br/>open E-## / P-##"]
+    S["session start<br/>brief ≤ 2 KB"] --> T["next open task"]
     T --> B{"task names a blueprint?"}
     B -->|yes| BP[".ai/blueprints/&lt;name&gt;.md"]
     B -->|no| W["work"]
     BP --> W
-    W --> L["LOG · COMM · stamps<br/>written as it goes"]
-    L --> M[("state.sqlite ⇄ Markdown mirrors")]
+    W --> D["rein done · rein handoff · rein decide"]
+    D --> M[("state.sqlite ⇄ the generated views")]
 ```
-
-### The `.ai/` directory
-
-```
-.ai/
-  state.sqlite       ACID task store (WAL mode). Never hand-edit.
-  state.json         Readable mirror of it, tracked in git.
-  DIGEST.md          The generated snapshot (≤ 60 lines) every session reads first.
-  TASKS.md           Planning (P-##) and implementation (E-##) tasks — a generated view.
-  architect.md       The system blueprint. Architect-owned.
-  blueprints/        One blueprint per domain or feature.
-  DECISIONS.md       Decisions (D-###): context, rulings, rejected alternatives.
-  BRIEF.md           Product goals, non-goals, constraints.
-  RULES.md           Token economics and the role contract.
-  CAPABILITIES.md    Paths and commands the agents may use (an input to the security gate).
-  REVIEWS.md         Review stamps ([ARCH_PASS], [SEC_FAIL], …) — a generated view.
-  LOG.md             Append-only action log; rotated past 200 lines.
-  COMM.md            Handoff notes between the roles.
-  SESSION.md         Per-session stamps (Stop hook).
-  REPO_MAP.md        A token-budgeted map of the code (most central files, signatures only).
-  roles.json, providers.json, start.json, team.json   Configuration.
-  archive/YYYY-MM/   Rotated LOG, COMM and REVIEWS.
-```
-
-`TASKS.md` and `REVIEWS.md` are regenerated from the store: change tasks through the agents'
-tools or `rein add-task` / `rein task done`, never by hand. `.ai/` is primary memory: when the chat
-and the files disagree, the files win.
-
-### Context economy
-
-Skills load their full text only when invoked; until then only a one-line description is in
-context. Subagents (critics, specialists) run in their own context and return a short report, so
-their file reads never land in the main session. `REPO_MAP.md` gives orientation without opening
-files.
 
 ## The wake
 
-When a role finishes, its skill appends a structured entry to `.ai/COMM.md`: what was built,
-decisions, divergence from the blueprint, the next action, open risks. It commits the entry.
-Then, as the last action of the turn, it calls Claude Code's `SendMessage` to the other pane's
-session, named `<project directory> · <Role>`.
+`rein handoff --to <role> --file <entry>` appends the entry to `.ai/COMM.md`, commits it with the
+other changed `.ai/` files and prints the `SendMessage` line that wakes the other pane. The
+session sends it as the last action of its turn, to the pane named `<project> · <Role>`.
 
 - A busy pane receives the message when its current tool call ends.
-- If the other pane is closed, the send fails with "not reachable". The skill prints one line
-  naming the undelivered handoff and stops: no retry, no queue. Relaunch the pane and carry on;
-  the note is waiting in `.ai/COMM.md`.
+- A closed pane gets "not reachable". Nothing is queued or retried: relaunch the pane, and the
+  note is waiting in `.ai/COMM.md`.
 
-## The hooks and the gates
+While a pane waits on a permission prompt or a question, the waiting-signal hook sets tmux pane
+options that an app can read ([App contract](app-contract.md#6-pane-options)).
 
-Every change gets a **risk tier**: 1 for docs and config, 2 for ordinary code, 3 for security,
-state, hooks and removals. The tier decides how much review the change needs before its commit.
-Hooks enforce the rest at three points:
+## What ships where
 
-```mermaid
-flowchart LR
-    T["tool call"] --> H{"hook"}
-    H -->|"Architect writes source?"| X1["refused"]
-    H -->|"destructive shell?"| X2["refused"]
-    H -->|ok| R["runs"]
-    R --> C["git commit"]
-    C --> P{"pre-commit<br/>fresh review stamp?"}
-    P -->|no| X3["refused"]
-    P -->|yes| CI["rein ci run<br/>clean worktree, lanes, budget"]
-    CI --> PP{"pre-push"} --> HC["hosted CI<br/>fast · shards · CodeQL · privacy"]
-```
-
-1. **Tool-call gate** (Claude Code's PreToolUse hook, on every tool call): role boundaries,
-   destructive shell commands, secrets in a command line, writes outside the project.
-2. **Pre-commit gate** (git): the commit needs a review stamp bound to its parent. A commit
-   that only touches `.ai/` bookkeeping is exempt. Conflict markers and broken `.ai/*.json`
-   are refused.
-3. **Pre-push gate** (git): the tip needs a green `rein ci run`.
-
-What the critics check and how each gate decides: [Gates and review](gates-and-review.md). The
-CI side: [CI](ci.md).
+| Part | How it is installed |
+| :--- | :--- |
+| 4 agents, 5 skills, the session-start and waiting-signal hooks | The `rein` Claude Code plugin, built by `rein install` and enabled per project by `rein init` / `rein sync`. |
+| Role settings files | Written by `rein init`, `rein pane` and `rein start` under `~/.rein/roles/<project>/` (a plugin cannot carry settings). |
+| Git hooks: pre-commit, pre-push, post-commit, state import | Installed into `.git/hooks/` by `rein init` / `rein sync`. |
+| The command gate (PreToolUse hook) | The project's `.claude/settings.json`. It predates the sandbox and is removed by E-463; until then both run. |
+| `task-synchronizer-mcp` | The project's `.mcp.json`. |

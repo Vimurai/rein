@@ -1,6 +1,8 @@
 # CAPABILITIES (Declarative Capability Schema)
-# Source of truth for rein-exec and .mcp.json enforcement.
-# Edit this file to define what AI agents are allowed to do in THIS project.
+# What AI agents may read, write and run in THIS repository; the security_engineer reads it.
+# A project's copy lives at .ai/CAPABILITIES.md (rein-exec reads that one; the template is
+# src/templates/CAPABILITIES.md). The role boundary itself is the Claude Code sandbox in the
+# role settings files (docs/role-sandbox.md), not this file.
 
 ## filesystem.read
 # Allowed path patterns for READ operations (no approval required).
@@ -14,7 +16,6 @@
 - *.js
 - *.sh
 - ~/.rein/config/**
-- ~/.rein/memory/**
 - ~/.rein/*.sqlite
 
 ## filesystem.write
@@ -22,7 +23,6 @@
 - src/**
 - .ai/**
 - tests/**
-- ~/.rein/memory/**
 - ~/.rein/*.sqlite
 
 ## shell.exec
@@ -34,7 +34,6 @@
 - git add
 - git status
 - git diff
-- rein test
 - npx tsc --noEmit
 - delta
 - diff -u

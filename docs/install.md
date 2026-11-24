@@ -5,10 +5,9 @@ assumed installed. Each step says why, gives the commands, and says what you sho
 
 ```mermaid
 flowchart LR
-    P["prerequisites<br/>node 22+ · git · sqlite3 · python3 · tmux"] --> CC["Claude Code<br/>installed and logged in"]
-    CC --> I["bash install-rein.sh<br/>→ ~/.rein"]
-    I --> AI["rein install<br/>Claude settings + hooks"]
-    AI --> DR["rein doctor<br/>all ✓"]
+    P["prerequisites<br/>node 22+ · git · sqlite3 · python3 · tmux<br/>bubblewrap · socat"] --> CC["Claude Code<br/>installed and logged in"]
+    CC --> I["bash install-rein.sh<br/>→ ~/.rein · the rein plugin"]
+    I --> DR["rein doctor<br/>all ✓"]
     DR --> IN["cd project · rein init"]
     IN --> ST["rein start<br/>two panes"]
 ```
@@ -45,9 +44,11 @@ Rein is bash: its installer and its hooks run in a Unix shell. That gives three 
 
 ## 2. Prerequisites
 
-Rein needs five tools: **Node.js 22 or later** (the MCP servers use the built-in `node:sqlite`),
+Rein needs five tools: **Node.js 22 or later** (the ledger uses the built-in `node:sqlite`),
 **git**, **sqlite3** (the hooks read the task store), **python3** (it renders `.mcp.json`) and
-**tmux** (the two-pane layout). `curl` is needed once, for Claude Code's installer.
+**tmux** (the two-pane layout). On Linux and WSL2, Claude Code's sandbox, which holds each role
+to its lane, also needs **bubblewrap** and **socat** ([The role sandbox](role-sandbox.md)).
+`curl` is needed once, for Claude Code's installer.
 
 ### macOS
 
@@ -64,7 +65,7 @@ for this guide. If you confirm it on macOS, an issue saying so is welcome.
 
 ```bash
 sudo apt update
-sudo apt install -y nodejs npm git sqlite3 python3 tmux curl ca-certificates
+sudo apt install -y nodejs npm git sqlite3 python3 tmux curl ca-certificates bubblewrap socat
 ```
 
 Ubuntu 26.04 ships Node 22. Older releases ship an older Node: check `node --version` after the
@@ -75,7 +76,7 @@ as fnm or nvm, or the NodeSource packages).
 ### Fedora
 
 ```bash
-sudo dnf install -y nodejs git sqlite python3 tmux curl
+sudo dnf install -y nodejs git sqlite python3 tmux curl bubblewrap socat
 ```
 
 *Documented, not run* on Fedora for this guide; Fedora 40 and later ship Node 22. On an
@@ -84,7 +85,7 @@ older release, use fnm as above.
 ### Arch
 
 ```bash
-sudo pacman -S --needed nodejs npm git sqlite python tmux curl
+sudo pacman -S --needed nodejs npm git sqlite python tmux curl bubblewrap socat
 ```
 
 *Documented, not run* on Arch for this guide.
@@ -203,20 +204,21 @@ the browser it opens; back in the terminal, the session starts. Type `/exit` to 
 
 ## 5. Rein
 
-Clone the repository and run its installer. It copies the framework to `~/.rein`, installs
-the MCP servers' dependencies, and adds `~/.rein/bin` to your `PATH`.
+Clone the repository and run its installer. It copies Rein to `~/.rein`, installs the MCP
+server's dependencies, adds `~/.rein/bin` to your `PATH`, and runs `rein install`, which builds
+the `rein` Claude Code plugin (4 agents, 5 skills, the session hooks) and adds its local
+marketplace to Claude Code.
 
 ```bash
 git clone https://github.com/Vimurai/rein.git && cd rein
 bash install-rein.sh
 exec "$SHELL"            # reload the shell so `rein` is found
-rein install             # Claude Code settings and hooks under ~/.claude
 rein doctor
 ```
 
-*What you should see:* the installer ends with a summary and no `[ERROR]` line. `rein install`
-lists the settings and hooks it wrote. `rein doctor` prints sections of `✓` lines. A `✗` line
-names its own fix:
+*What you should see:* the installer ends with a summary and no `[ERROR]` line, after
+`✓ plugin rein@rein built in ~/.rein/plugin: 4 agents, 5 skills, …`. `rein doctor` prints
+sections of `✓` lines. A `✗` line names its own fix:
 
 | `rein doctor` line | Means | Fix |
 | :--- | :--- | :--- |
@@ -225,11 +227,13 @@ names its own fix:
 | `✗ ~/.claude missing` | Claude Code has never run. | [Step 4](#4-claude-code): run `claude` once. |
 | `✗ node not found — MCP servers need Node.js` | Node is missing. | [Step 2](#2-prerequisites). |
 | `✗ <server>: node_modules missing — run: rein mcp-setup` | An MCP server's dependencies are missing. | `rein mcp-setup` |
-| `✗ stop-hook.sh missing — run: rein install` | The Claude Code hooks are not installed. | `rein install` |
+| `✗ pre-commit.sh missing — run: rein install` | The hooks are not installed. | `rein install` |
+| `✗ [SANDBOX_MISSING] …` | bubblewrap, socat or user namespaces are missing; `rein pane` will refuse. | The install line it prints ([step 2](#2-prerequisites)). |
 | `✗ tmux not found — 'rein start' exits 2 …` | tmux is missing. | [Step 2](#2-prerequisites), or use the manual layout below. |
 | `✗ hook toolchain: … missing — run: bash install-rein.sh` | The install is incomplete. | Rerun `bash install-rein.sh`. |
 | `✗ .claude/settings.json missing … — run: rein sync` | Inside a project: it was set up by an older Rein. | `rein sync` |
 | `✗ .git/hooks/pre-commit: Gate 2 NOT installed — run: rein init` | Inside a project: the git hooks are missing. | `rein init` |
+| `✗ [PLUGIN_NOT_ENABLED] …` | Inside a project: the `rein` plugin is not enabled there. | `rein sync` |
 | `✗ local CI: no run for HEAD … — run: rein ci run` | Inside a project: the current commit has not been tested. | `rein ci run`; see [CI](ci.md). |
 | GitHub CLI, Copilot or Chromium lines | Optional tools. | Only the features they power are off. |
 
@@ -249,9 +253,11 @@ rein init
 *What you should see:* a list of what was created, then the next steps. In the repository:
 
 - `.ai/` — the project memory: tasks, blueprints, decisions, the digest (see
-  [How it works](how-it-works.md#the-ai-directory));
-- `.claude/` — the agents, the skills and one settings overlay per role;
-- `.mcp.json` — the MCP servers Claude Code starts for this project;
+  [How it works](how-it-works.md#the-ledger));
+- `.claude/settings.json` and `.claude/rules/`; the agents, skills and session hooks come from
+  the `rein` plugin, which `rein init` enables for this project;
+- the role settings files, under `~/.rein/roles/<project>/` ([The role sandbox](role-sandbox.md));
+- `.mcp.json` — the ledger's MCP server;
 - `ENGINEER.md`, `ARCHITECT.md` and a `CLAUDE.md` that imports the Engineer rulefile;
 - `.github/copilot-instructions.md`, the lines it needs in `.gitignore`, and the git hooks
   (`pre-commit`, `pre-push`, `post-commit`).
@@ -275,8 +281,8 @@ Move to the Architect pane (`Ctrl-b` `o`) and type your first request:
 > *Plan a `/health` endpoint that reports the app version and database status.*
 
 The Architect writes `.ai/blueprints/health.md`, adds `E-##` tasks to `.ai/TASKS.md`, and
-wakes the Engineer. The Engineer implements the tasks, runs the tests and the critics, commits,
-and wakes the Architect again. You answer questions and approve. For an existing codebase, ask
+wakes the Engineer. The Engineer implements the tasks, runs the tests and the review for each
+task's tier, closes them with `rein done`, and wakes the Architect again. You answer questions and approve. For an existing codebase, ask
 first: *"Reverse-engineer this repository into `.ai/BRIEF.md` and
 `.ai/architect.md`."* The first hour is in [Getting started](getting-started.md).
 
@@ -313,9 +319,10 @@ cd rein && git pull && bash install-rein.sh
 cd ~/code/my-project && rein init && rein sync && rein doctor
 ```
 
-`rein sync` refreshes the rulefiles, `.mcp.json`, `.claude/agents/`, `.claude/skills/` and the
-git hooks. It never touches what you wrote. Restart both Claude Code panes afterwards so the MCP
-servers run the new code. Older versions leave files behind: `rein clean` lists them,
+`install-rein.sh` rebuilds the plugin. `rein sync` refreshes the rulefiles, `.mcp.json`,
+`.claude/settings.json` and the git hooks, and enables the plugin. Run it in your own terminal:
+the Engineer's sandbox cannot write `.claude/`. It never touches what you wrote. Restart both
+Claude Code panes afterwards so they load the new plugin and server code. Older versions leave files behind: `rein clean` lists them,
 `rein clean --apply` moves them to `~/.rein/trash/<date>/`, and `rein clean --restore <date>`
 puts them back.
 
@@ -339,6 +346,6 @@ Start with `rein doctor`. These are the five most common failures:
 | Node too old | The installer stops with `[ERROR] Node.js 22+ required (found v20…)`; doctor's `✓ node v…` line shows the version | Install Node 22 or later ([step 2](#2-prerequisites)), then rerun `bash install-rein.sh`. |
 | `rein: command not found` | `✗ NO — add to shell: export PATH="$HOME/.rein/bin:$PATH"` | Open a new terminal, or add that line to your shell rc. |
 | Claude not logged in | `✓ account: default (~/.claude, login: logged out)` | Run `claude` and log in ([step 4](#4-claude-code)). |
-| Hooks not installed | `✗ stop-hook.sh missing — run: rein install`, or in a project `✗ .git/hooks/pre-commit: Gate 2 NOT installed — run: rein init` | `rein install`, then `rein init` in the project. |
+| Hooks not installed | `✗ pre-commit.sh missing — run: rein install`, or in a project `✗ .git/hooks/pre-commit: Gate 2 NOT installed — run: rein init` | `rein install`, then `rein init` in the project. |
 
 More symptoms and the FAQ: [Troubleshooting](troubleshooting.md).

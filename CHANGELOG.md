@@ -3,6 +3,66 @@
 All notable changes to **@vimurai/rein** are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased] — Lean core
+
+D-169 and D-170 cut Rein to what Claude Code does not have: a task ledger, DONE by observed
+acceptance, a decision record, and two roles held to their lanes (`.ai/blueprints/lean-core.md`).
+Built as one batch on `lean-core` (E-458 to E-469); tag `v0.5.0` holds everything removed. The
+command gate (`hooks/pre-tool-use.sh` and its MCP server) is still present: its removal, E-463,
+is held for the operator.
+
+### Removed
+
+- **15 MCP servers** (E-467): advisor, approval, archive-manager, ast-parser, blueprint-aligner,
+  cache-manager, context-guardian, memory-manager, orchestrator, patch, propose-patch,
+  risk-analyzer, token-budget, verification and vibe-check, and the third-party `filesystem` and
+  `memory` servers. Replaced by: `task-synchronizer-mcp` alone; `run_review` became
+  `rein review`, `run_handover` became `rein done`, log rotation became `rein archive`.
+- **19 agents** (E-464, E-467), among them critic_arch, critic_tests, critic_clean_code and
+  critic_security. Replaced by: one `reviewer`, with `critic_acceptance`, `security_engineer` and
+  `test_engineer`.
+- **35 skills** (E-460, E-461, E-464, E-467), among them rein-preflight, rein-task, rein-handoff,
+  rein-log, task-planner, decision-recorder, review_synthesizer, dependency_gate, ci_gate,
+  repo-oracle, commit-crafter and rein-archive. Replaced by: the session brief, the commands
+  `rein done`, `rein handoff`, `rein decide`, `rein archive`, and 5 kept skills.
+- **Hooks** (E-467): stop-hook, post-tool-log, post-tool-use and permission-denied. The
+  pre-commit hook keeps only the machine-local, privacy, team record-parity and Architect-lane
+  checks; the conflict-marker, `.ai/*.json` and standards checks left it.
+- **Units** (E-467): telemetry insights, the incident tracker, the memory palace, REPO_MAP, the
+  instinct stager, the SEO and vibe units, and the deprecated CLI stubs.
+- **The critic stamp at commit** (E-464). Review is checked when the task closes.
+- **The `test_lines` ratchet** (E-464, D-169 r9). The time budgets stay.
+
+### Added
+
+- **Review by tier** (E-464). `rein review <tier>` runs the deterministic checks and prints the
+  agents to dispatch. `rein done` refuses a Tier 2 task without `[REVIEW_PASS]` and
+  `[ACCEPT_PASS]` for HEAD, and a Tier 3 task also without `[SEC_CLEARED]`.
+- **The role sandbox** (E-458, E-462). Each pane runs with a role settings file under
+  `~/.rein/roles/<project>/` that turns on Claude Code's sandbox: the Architect writes only `.ai/`
+  and `plans/` and has no network; the Engineer cannot write `~/.rein` or `.claude/`.
+  `rein pane` refuses without the sandbox (`[SANDBOX_MISSING]`). The pre-push hook refuses a
+  commit outside `.ai/` and `plans/` that the Engineer's lane ledger did not record.
+  `tests/suites/sandbox_escape_test.sh` checks each guarantee in real sessions.
+- **A 2 KB session brief** (E-460) instead of the preflight skill; rulefiles of at most 2 KB.
+- **Bookkeeping commands** (E-461): `rein done`, `rein handoff` (commits the COMM.md entry and
+  prints the `SendMessage` wake line), `rein decide`. `add_task` refuses a task without a tier,
+  an imperative verb or an observable `Acceptance:` clause.
+- **A small record** (E-466): `TASKS.md` lists open tasks only; `rein task show <id>` prints any
+  task; `rein archive [--logs]` moves old handoffs and dated sections to tracked
+  `.ai/archive/<FILE>-<year>.md` files.
+- **`rein doctor --fitness [--json]`** (E-459): the lean-core scorecard.
+- **The `rein` plugin** (E-469). `rein install` builds the 4 agents, 5 skills and the
+  session-start and waiting-signal hooks into `~/.rein/plugin/` and adds a local marketplace;
+  `rein init` and `rein sync` enable `rein@rein` for the project and stop copying agents and
+  skills into `.claude/`. Agents are named `rein:reviewer` and so on.
+
+### Changed
+
+- The documentation describes the lean core only (E-468): new pages for the commands and the
+  role sandbox; the MCP and agents pages cut to what ships.
+- `[BUILD_STALE]` is a note at DONE, not a refusal (E-461).
+
 ## [0.5.0] — First signed release
 
 The first release published as a signed artifact (D-153, D-155, D-156): every `v*` tag from

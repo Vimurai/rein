@@ -53,192 +53,146 @@ By making a contribution to this project, I certify that:
 A pull request whose commits are not all signed off is asked to add the sign-off before merge
 (`git rebase --signoff` fixes a branch in one step).
 
-## Development Setup
+
+## Development setup
 
 ### Prerequisites
-- **Node.js 22.5+** — required for all MCP servers (uses `node:sqlite` / DatabaseSync)
-- **Python 3.10+** — required for state fallbacks and hooks
-- **sqlite3 CLI** — required for system hooks
-- **Bash/Zsh** — macOS or Linux
+
+- **Node.js 22.5+**: the ledger uses `node:sqlite`.
+- **Python 3.10+**, the **sqlite3** CLI, **git** and **tmux**.
+- On Linux and WSL2, **bubblewrap** and **socat** for Claude Code's sandbox
+  ([The role sandbox](docs/role-sandbox.md)).
 
 ### Install from source
+
 ```bash
 git clone https://github.com/Vimurai/rein.git && cd rein
-npm ci                  # the clone's own dependencies: inside this repository the gate runs from src/
-bash install-rein.sh   # copies src/ to ~/.rein and adds it to PATH
+npm ci                  # the clone's own dependencies: inside this repository the hooks run from src/
+bash install-rein.sh    # copies src/ to ~/.rein, builds the rein plugin, adds rein to PATH
 exec "$SHELL"
-rein install && rein sync
-rein doctor               # every gate line ✓ (a ✗ safe-exec gate line here means `npm ci` was skipped)
+rein sync               # in this repository, from your own terminal
+rein doctor             # every ✗ names its fix
 ```
 
-### Recommended dev environment — tmux
-Contributors are strongly encouraged to develop with `brew install tmux` (or apt) and then simply run **`rein start`** in the project — it builds the two-pane Triad layout, binds each pane to its role from `.ai/roles.json`, idempotently. Use `rein start --status` to see what is running and `rein start --kill` to tear it down. `rein doctor` tells you whether the launcher can work on this host (tmux present, roles mapped, providers on `PATH`). The layout it produces, and the manual fallback for hosts without tmux, are described in the [install guide](docs/install.md#6-your-first-project): Architect ⬌ Engineer — by default both agent panes are Claude Code (Architect on `fable`, Engineer on `opus`, D-066). The Triad is designed for concurrent agent work — tmux keeps the Architect's blueprint pane visible while the Engineer is implementing in the next pane, which makes hand-offs cheap and reduces stale-context bugs.
+The installer refuses uncommitted changes under the paths it installs and names them;
+`--allow-dirty` overrides it and records the install as dirty. A role pane's sandbox
+cannot write `~/.rein`, so run `bash install-rein.sh` from your own terminal.
 
-### Run the test suite
+### Work in the two panes
+
+Run **`rein start`** in the repository: it builds the two-pane tmux layout and binds each pane
+to its role from `.ai/roles.json` (Architect on `fable`, Engineer on `opus`), idempotently.
+`rein start --status` shows what runs, `rein start --kill` tears it down. Without tmux, see the
+manual layout in the [install guide](docs/install.md#6-your-first-project).
+
+### Run the tests
+
 ```bash
-bash tests/run.sh         # full suite (should be 100% green)
-bash tests/suites/<name>_test.sh  # single suite
+bash tests/run.sh                    # every suite
+bash tests/run.sh --tier fast        # the unit layer and the contract tables (about a minute)
+bash tests/suites/<name>_test.sh     # one suite
+node --test tests/unit/<name>.test.mjs
 ```
 
 ### Local CI (`rein ci`) — what "green" means
 
-There is no hosted pipeline (D-072). `rein ci run` tests a **committed** sha in a detached
-worktree under a throwaway `HOME`, with the framework installed from that commit, and records
-the outcome in `.ai/state.sqlite`:
+`rein ci run` tests a **committed** sha in a detached worktree under a throwaway `HOME`, with
+Rein installed from that commit, and records the outcome in `.ai/state.sqlite`:
 
 ```bash
-rein ci run              # ~10-14 min; 0 PASS / 1 FAIL / 2 ERROR
+rein ci run              # 0 PASS / 1 FAIL / 2 ERROR
 rein ci status --short   # the recorded verdict for HEAD
 rein ci log --failed     # the failing suites of the last run — read this BEFORE theorising
 ```
 
-A working-tree run is not evidence about a commit: `rein ci run` exists to exclude the
-machine's own mirror and whatever a previous run left behind. Every PR needs a non-dirty
-PASS row for its head commit; `update_task_status(DONE)` and the `pre-push` hook both refuse
-without one. A commit that only adds `.ai/` bookkeeping above a tested commit is accepted.
-To bypass one push, `REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="<why>" git push` — recorded as a
-`SKIPPED` run; a skip without a reason is refused.
+A working-tree run is not evidence about a commit. Every pull request needs a non-dirty PASS
+row for its head commit; the `pre-push` hook refuses without one, and so does `rein done` once
+the project has run CI. A commit that only adds `.ai/` bookkeeping above a tested commit is
+accepted. To bypass one push, `REIN_CI_SKIP=1 REIN_CI_SKIP_REASON="<why>" git push`, recorded
+as a `SKIPPED` run; a skip without a reason is refused. The hosted pipeline: [CI](docs/ci.md).
 
 ---
 
-## Project Structure
+## Project structure
 
 ```
 src/
-  bin/            # ai, rein-exec and rein-account.sh (the CLI and its helpers)
-  mcp/            # one dir per MCP server + shared/ helpers — 16 registered in .mcp.json,
-                  # plus ast-parser-mcp, which rein sync runs as a CLI to build REPO_MAP.md
-  shared/         # skills/ for both roles + the shared .mjs helpers the hooks and CLI use
-  claude/         # the Claude Code adapter: agents/ (subagents), skills/, the CLAUDE.md shim
-  config/         # registry.json (MCP servers, roles) + legacy-artefacts.json (rein clean)
-  templates/      # ENGINEER.md, ARCHITECT.md, CLAUDE.md, roles.json, state.json and the .ai/ seeds
-  contracts/      # Capability and security contracts
-  copilot/        # GitHub Copilot CLI config (the copilot skill)
-.ai/              # Project memory (generated by rein init — do not hand-edit)
+  bin/            # rein (the CLI), rein-account.sh, rein-exec
+  mcp/            # task-synchronizer-mcp (the ledger), the command gate's server until E-463, shared/
+  shared/         # the helpers the CLI and hooks use; skills/ shared by both roles
+  claude/         # agents/, skills/, plugin/ (the plugin manifest templates), the CLAUDE.md shim
+  config/         # registry.json (the MCP server, the roles)
+  templates/      # ENGINEER.md, ARCHITECT.md, CLAUDE.md, roles.json and the .ai/ seeds
+  contracts/      # capability and security contracts
+  copilot/        # GitHub Copilot CLI config
+hooks/            # session-start and waiting-signal (the plugin); pre-commit, pre-push,
+                  # post-commit, state-import (git); pre-tool-use (the command gate, until E-463)
 tests/
-  run.sh          # Test runner
-  suites/         # One .sh file per test domain
+  run.sh          # the runner
+  suites/         # one bash suite per process boundary
   unit/           # node:test unit layer (*.test.mjs)
-  lib/assert.sh   # Shared assertion helpers
-hooks/            # Git and Claude Code hooks
+  fixtures/       # contract tables (*-cases.json)
+  lib/            # shared helpers (assert.sh, toolchain-fixture)
+.ai/              # Rein's own record: tasks, blueprints, decisions
 ```
 
 ---
 
-## Authoring Skills
+## Agents and skills
 
-Skills are Markdown files with YAML frontmatter. They live in `src/shared/skills/<name>/SKILL.md` or `src/claude/skills/<name>/SKILL.md`; `rein sync` provisions both trees into `.claude/skills/`, and both roles receive every skill (`registry.json → roles`, joined by `role-manifest.mjs`).
+They ship in the `rein` plugin, which `rein install` builds from `src/claude/agents/`,
+`src/claude/skills/` and `src/shared/skills/`; see [Agents and skills](docs/agents-and-skills.md).
+The plugin build refuses two units with the same name.
 
-### Skill frontmatter
+A skill is `SKILL.md` with YAML frontmatter:
 
 ```yaml
 ---
 name: my-skill
-description: One-line description used in _SKILLS_INDEX.md — be specific about when to trigger.
+description: One line that says when to trigger it and what it does.
 disable-model-invocation: false
 user-invocable: true
 allowed-tools: Read, Bash, Grep
-context: default
-agent: default
 ---
 ```
 
-| Field | Required | Notes |
-| :--- | :--- | :--- |
-| `name` | Yes | Matches directory name |
-| `description` | Yes | Used by `_SKILLS_INDEX.md` — must describe trigger conditions |
-| `disable-model-invocation` | Yes | Always `false` for active skills |
-| `user-invocable` | Yes | `true` if user can call via `skill: "name"` |
-| `allowed-tools` | Yes | Comma-separated list — only declare tools actually used |
-| `context` | No | Defaults to `default` |
-| `agent` | No | Defaults to `default` |
+`allowed-tools` (a skill) and `tools` (an agent) may name only tools that exist: built-ins
+(`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`, `WebSearch`, `WebFetch`, `Agent`) or
+`mcp__<server>__<tool>` of a server Rein ships. `rein doctor --compliance` audits it.
 
-### Ghost Tools
-
-`allowed-tools` must only list tools that actually exist. Declaring a non-existent tool is a **Ghost Tool** — caught by `verification-mcp` and blocks commit via the pre-commit hook.
-
-Valid tool categories:
-- Built-ins: `Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`, `WebSearch`, `WebFetch`, `Agent`
-- MCP tools: any `mcp__<server>__<tool>` pattern (e.g. `mcp__task-synchronizer-mcp__add_task`)
-- Wildcard: `*` (grants all built-ins — use sparingly)
-
-### Register in `_SKILLS_INDEX.md`
-
-After creating a skill, add a one-line entry to the relevant index:
-```
-- skill-name: <trigger description — when to invoke, what it does>
-```
-
-The `rein sync` command auto-regenerates this index from frontmatter, but manual entries give more context.
+D-170 keeps Rein to 4 agents and at most 6 skills. A new one is a decision for the Architect;
+removed units belong to a plugin marketplace, not to this repository.
 
 ---
 
-## Authoring MCP Servers
+## Git workflow
 
-Each MCP server lives in `src/mcp/<server-name>/` and must have:
-- `index.js` — the server implementation (ES module, Node.js 20+)
-- `package.json` — with `"scripts": { "start": "node index.js" }`
+- One branch per task or batch; `main` is protected and takes pull requests only.
+- Commit subject: `[TIER_N] <type>(<scope>): <summary>`, with the task id in the summary or body.
+  Types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`.
+- Sign off every commit (`git commit -s`).
+- Do not use `--no-verify`: fix what the hook names.
 
-Use `@modelcontextprotocol/sdk` (already in root workspace — no need to install separately).
+The pre-commit hook checks machine-local files, the privacy scan, record parity in a team
+project, and the Architect's lane. It asks for no review stamp. Review is by tier and is checked
+when the task closes:
 
-Skeleton:
-```js
-import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+1. `rein review <tier>` and the agents it prints (skill `rein-review` in a pane).
+2. `rein done <id> --summary <text>`: refused without the stamps the tier needs.
+3. `rein ci run` on the commit, then push.
 
-const server = new Server({ name: "my-mcp", version: "1.0.0" }, { capabilities: { tools: {} } });
-
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [ /* tool definitions */ ] }));
-server.setRequestHandler(CallToolRequestSchema, async (request) => { /* handler */ });
-
-const transport = new StdioServerTransport();
-await server.connect(transport);
-```
-
-After adding a server, re-run the global installer to refresh the registry:
-```bash
-cd ~/.rein && bash install-rein.sh
-```
-Then run `rein sync` in any project to regenerate `.mcp.json`. (The previous `rein mcp-setup` shell command was removed in E-34; the install script does the same npm setup plus refreshes the global registry.)
+See [Review by tier](docs/gates-and-review.md).
 
 ---
 
-## Git Workflow
+## Adding tests
 
-### Branch strategy
-- Work directly on `master` for small Tier 1 fixes
-- Use feature branches for Tier 2/3 tasks: `feat/E-##-description`
+A test is a claim about one behaviour, at the cheapest layer that can observe it (D-088):
 
-### Commit format (Conventional Commits)
-```
-<type>(<scope>): <summary> (E-##)
-
-[Optional body — what and why, not how]
-```
-
-Types: `feat`, `fix`, `refactor`, `test`, `chore`, `docs`
-
-Use `skill: "commit-crafter"` in Claude Code to auto-format commits correctly.
-
-### Pre-commit hook
-The pre-commit hook runs automatically and:
-- Verifies all agent/skill frontmatter via `verification-mcp`
-- Blocks commits with Ghost Tools or missing required fields
-- Checks Tier 3 tasks for `[SEC_CLEARED]` evidence
-
-Do **not** use `--no-verify` to bypass — fix the underlying issue.
-
-### Before merging
-1. `bash tests/run.sh` — all tests must pass
-2. `skill: "rein-review"` — run tier-appropriate critic review
-3. `skill: "commit-crafter"` — format the commit message
-
----
-
-## Adding Tests
-
-Test suites live in `tests/suites/<domain>_test.sh`. Each suite sources `tests/lib/assert.sh` for helpers:
+- a pure function: `tests/unit/<name>.test.mjs` under `node --test`;
+- several inputs to one rule: rows of a contract table, `tests/fixtures/<family>-cases.json`;
+- a process boundary (a hook, git, tmux, the installer): a bash suite in
+  `tests/suites/<behaviour>_test.sh` that sources `tests/lib/assert.sh`.
 
 ```bash
 #!/usr/bin/env bash
@@ -246,13 +200,13 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
 
-echo "── Suite: my_test ──"
+echo "── Suite: my_behaviour ──"
 
-assert_status 0 "T-01: description" <command>
-assert_contains "T-02: description" "expected" "$actual"
-assert_exists "/path/to/file"
+assert_status 0 "E-##.01: description" <command>
+assert_contains "E-##.02: description" "expected" "$actual"
 
 assert_summary
 ```
 
-Add the suite to `tests/run.sh` by placing it in `tests/suites/` — the runner auto-discovers all `*_test.sh` files.
+The runner discovers every `*_test.sh` in `tests/suites/`. Name a suite for the behaviour it
+observes, never for a task id.

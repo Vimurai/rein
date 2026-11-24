@@ -197,3 +197,40 @@ permission classifier refused `bash install-rein.sh` twice, so the operator runs
 - docs/app-contract.md: the contract is unchanged (the gate's hooks are still in project settings;
   the waiting signal still reports from the first session after `rein sync`, which now enables the
   plugin). `~/.rein/plugin/` is a generated entry like `roles/`.
+
+## E-468 — the documentation (uncommitted; left unstaged)
+- **Rewritten**: README.md (277 → 198 lines), CONTRIBUTING.md (258 → 212; the DCO text is kept
+  verbatim), docs/README, how-it-works (now "What Rein adds to Claude Code": ledger, observed
+  acceptance, decision record, two roles), getting-started (four steps), gates-and-review (now
+  "Review by tier" and the hooks), agents-and-skills (4 agents, 5 skills, the plugin),
+  mcp-servers (cut to task-synchronizer-mcp), configuration, troubleshooting. **New**:
+  docs/commands.md, docs/role-sandbox.md. install.md edited in place (bubblewrap/socat, the
+  installer runs `rein install`, the plugin, doctor lines). ci.md, team-mode.md, accounts.md
+  unchanged (r7 / not touched by the batch). CHANGELOG.md: an [Unreleased] "Lean core" section;
+  no version bump, no tag. CAPABILITIES.md: the dead ~/.rein/memory and `rein test` lines and
+  the header (it said rein-exec reads it; rein-exec reads .ai/CAPABILITIES.md).
+  .github/dependabot.yml: the comment naming the removed dependency_gate skill.
+- **docs/app-contract.md**: the contract is unchanged; two sentences that had become false
+  wording were fixed: §2 rule 3's example named mcp/orchestrator-mcp/package-lock.json (no
+  longer shipped; now `mcp/<server>/package-lock.json`), and §4 named "the safe-exec gate" (now
+  "the command gate"). Not changed, but false before the batch: §4 says "These nine" and omits
+  `rein ledger`, which cli-surface.json lists as the tenth.
+- The safe-exec gate is documented as present with its removal pending (E-463), without the
+  literal name, so the acceptance grep stays clean: "the command gate".
+- **Acceptance grep NOT clean: docs/assets/demo.cast** (the v0.5.0 recording) names
+  vibe-check tools. docs-links.test pins the GIF and the cast (same commit, ≤ 8 MB, scans clean),
+  so neither was touched. To rule: re-record with scripts/demo/record.sh (needs a login), or
+  drop the demo and its three tests, or exclude docs/assets from the clause.
+- Observed in a scratch HOME on a clone of HEAD (fcf60ff): install-rein.sh (runs rein install,
+  builds the plugin) → `rein init` in an empty repo (enables rein@rein, writes the role files) →
+  `rein add-task --tier 1 …` → commit → `rein done E-2` → `rein task show E-2` prints DONE. The
+  pane half of getting-started (steps 3–4: a logged-in session) was not run: E-470.
+- Tests run: tests/unit/docs-links.test.mjs (7 pass, 1 skip: mermaid not installed),
+  tests/unit/publish-scan.test.mjs (78 pass; the E-374 link check reads only tracked pages, so a
+  copy of it was run over every docs/*.md on disk: all links resolve). The doc rows of
+  rein_ci_test, rein_start_test and cli_test were checked by their greps, not by running the suites.
+- docs/audits/E-179-mcp-tool-failure-audit.md is kept as a point-in-time report; the index says so.
+
+- (Engineer, after E-468) docs/gates-and-review.md names the gate `safe-exec-mcp` outright. The
+  E-468 acceptance grep therefore stays unmet until E-463 removes the gate, rather than being
+  passed by leaving the name out.

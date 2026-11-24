@@ -86,8 +86,8 @@ The Rein home (`$HOME/.rein`) holds the ten `layout.mirrored` directories, `mani
    Every other top-level entry is left alone, listed or not.
 2. Inside a mirrored directory: writes each path in `files` (temporary file and rename, never a
    directory swap); deletes each path not in `files` unless it matches `layout.operator_owned`.
-3. **A shipped path wins over a pattern.** `mcp/orchestrator-mcp/package-lock.json` is shipped
-   and also matches `mcp/*/package-lock.json`; it is written. The patterns protect from deletion.
+3. **A shipped path wins over a pattern.** A shipped `mcp/<server>/package-lock.json` also
+   matches `mcp/*/package-lock.json`; it is written. The patterns protect from deletion.
 4. Writes `hooks/` last, and `VERSION` (one line, `manifest.version`) after everything, so a
    failed copy never advertises a version.
 5. Runs `rein install`, then `rein doctor --scope install --json` from any directory, and judges
@@ -144,7 +144,7 @@ disappears from `rein help`.
 | `rein start` | Build or reattach a project's tmux Triad. On a live session it restarts only the agents that have exited and leaves running ones untouched |
 | `rein pane <architect\|engineer>` | Bind a pane to a role — the only way a role is bound; an app never mints a role token |
 | `rein account list\|add\|remove\|sync` | The Claude account registry ([Accounts](accounts.md)) |
-| `rein gate on\|status` | The safe-exec gate override's state (`off` is the operator's, in their own terminal) |
+| `rein gate on\|status` | The command gate override's state (`off` is the operator's, in their own terminal) |
 | `rein digest build\|check` | Rebuild `.ai/DIGEST.md` from its tracked inputs, or exit 1 `[DIGEST_STALE]` when it is out of date |
 
 ## 5. The doctor document

@@ -1,84 +1,77 @@
-# Gates and review
+# Review by tier
 
-Rein's rules are enforced by hooks, not by asking the model nicely. A rule the model forgets
-still holds.
+Review is sized by the task's tier and checked when the task closes, not when it commits. A
+commit never waits on a review; `rein done` refuses a task whose stamps are missing.
 
-## Risk tiers
-
-Every change is classified by `risk-analyzer-mcp` (or by the `[TIER_N]` tag in its commit
-message):
+## Tiers
 
 | Tier | Typical change | Review before DONE |
 | :--- | :--- | :--- |
-| 1 | No behaviour change (docs, text, renames) | None |
+| 1 | No behaviour change: docs, text, renames | None |
 | 2 | Everything else | `reviewer`, then `critic_acceptance` |
 | 3 | The role boundary, the install, hooks, secrets, release signing | Tier 2 plus one `security_engineer` round |
 
-`rein review <tier>` runs the deterministic checks and prints the agents to dispatch. The stamps
-are checked when the task closes, not at commit: a Tier 2/3 task is refused DONE without
-`REVIEW_PASS` and `ACCEPT_PASS` for HEAD (`[REVIEW_GATE]`, `[ACCEPT_GATE]`), and a Tier 3 task
-also without `SEC_CLEARED` (`[SEC_GATE]`).
+The tier is set when the task is added (`rein add-task --tier N`, or `add_task`), and the commit
+message carries it as `[TIER_N]`.
 
-## The three gates
+## Running a review
 
-### 1. Tool-call gate (pre-tool-use hook)
+```bash
+rein review 2            # or 1, 3; --base <ref> reviews against another base
+```
 
-Runs before every tool call in either pane.
+It runs the deterministic checks on the diff (a hardcoded secret, a path traversal, …) and prints
+the agents to dispatch, by their plugin names:
 
-- **Role boundaries.** The Architect may write only under `.ai/` and `plans/`. The Engineer may
-  not rewrite `.ai/architect.md`.
-- **Destructive commands.** `rm -rf` outside the project, force pushes to protected branches,
-  history rewrites and similar are refused or need approval. Commands are parsed, not
-  pattern-matched on the raw string, so quoting tricks do not get through.
-- **Secrets.** A private-key header, a key's encoded prefix, or a token-shaped string in a
-  command line is refused, as is reading from the secrets directory.
-- **Scope.** Writes outside the project and the agent's allowed paths are refused.
+```
+Dispatch:
+  1. rein:reviewer on <task id> → REVIEW_PASS or REVIEW_FAIL
+  2. rein:critic_acceptance on <task id> → ACCEPT_PASS or ACCEPT_FAIL
+```
 
-`rein gate off --minutes 15 --reason "…"` is the operator's escape, time-boxed (at most 60
-minutes). Catastrophic commands still block, and each bypassed call is announced. Run it in
-your own terminal — an agent cannot switch the gate off.
+A P0 finding exits 1 and dispatches nothing until it is fixed. In a pane, skill `rein-review`
+runs the command and dispatches the agents for you.
 
-### 2. Pre-commit gate (git hook)
+## The reviewers
 
-- No review stamp is needed to commit (review is checked at DONE).
-- No conflict markers anywhere staged; every staged `.ai/*.json` must parse.
-- Agent and skill frontmatter may not name tools that do not exist ("ghost tools"); `rein doctor
-  --compliance` audits it on demand.
-
-### 3. Pre-push gate (git hook)
-
-The tip must have a green, non-dirty `rein ci run`. A tip that only adds `.ai/` bookkeeping on top
-of a tested commit passes. A recorded skip is possible, with a mandatory reason — see
-[Local CI](ci.md#skipping-once).
-
-## Reviewers
-
-Reviewers are subagents with a fixed brief, their own context and no stake in the change. Each
-records a stamp through `task-synchronizer-mcp`; none edits `REVIEWS.md` directly.
+Each is a subagent with its own context and no stake in the change. Each records one stamp
+through `task-synchronizer-mcp`; none edits `REVIEWS.md`.
 
 | Agent | Checks | Stamps |
 | :--- | :--- | :--- |
-| `reviewer` | The diff against the task text and the blueprint it names; one test per changed behaviour at the cheapest layer (D-088); correctness and safety. | `REVIEW_PASS` / `REVIEW_FAIL` |
-| `critic_acceptance` | Runs after the reviewer passes, on Tier 2 and 3: observes each clause of the task's acceptance line (runs the command, reads the file); a clause it cannot observe here is `UNVERIFIED` with the reason. A Tier 2/3 task is refused DONE (`[ACCEPT_GATE]`) without `ACCEPT_PASS` for HEAD. | `ACCEPT_PASS` / `ACCEPT_FAIL` |
-| `security_engineer` | Tier 3 only: one round of threat review and active probing. | `SEC_CLEARED` / `SEC_BLOCKED` |
+| `rein:reviewer` | The diff against the task text and the blueprint it names; one test per changed behaviour at the cheapest layer (D-088); correctness and safety. | `REVIEW_PASS` / `REVIEW_FAIL` |
+| `rein:critic_acceptance` | Observes each clause of the task's acceptance line: runs the command, reads the file. A clause it cannot observe is `UNVERIFIED`, with the reason. | `ACCEPT_PASS` / `ACCEPT_FAIL` |
+| `rein:security_engineer` | Tier 3 only: one round of threat review and active probing in a throwaway directory. | `SEC_CLEARED` / `SEC_BLOCKED` |
 
-## Mid-task triggers
+A stamp binds to HEAD. A source commit after a stamp needs the stamp again; a commit that only
+touches `.ai/` does not.
 
-The Engineer's rulefile names skills that must run when a change touches certain things:
+## Closing the task
 
-| Touched | Runs | Why |
+```bash
+rein done E-12 --summary "health endpoint and its tests"
+```
+
+| Refusal | Means |
+| :--- | :--- |
+| `[REVIEW_GATE]` | A Tier 2/3 task has no `REVIEW_PASS` for HEAD. |
+| `[ACCEPT_GATE]` | A Tier 2/3 task has no `ACCEPT_PASS` for HEAD, or a later `ACCEPT_FAIL` voids it. |
+| `[SEC_GATE]` | A Tier 3 task has no `SEC_CLEARED` for HEAD. |
+| `[CI_GATE]` | The project has run `rein ci run`, and HEAD has no green run. `REIN_CI_GATE=0` lifts this one; say so when you use it. |
+
+There is no switch for the stamp gates. A task closed without being built is closed as
+superseded by a decision, which skips the stamp gates only.
+
+## The hooks
+
+| Hook | Where | Checks |
 | :--- | :--- | :--- |
-| auth, secrets, capabilities | `security_engineer` agent | Threat model updated before the change lands |
-| a new dependency | `dependency_gate` skill | Justification, alternatives and licence recorded |
-| CI/CD configuration | `ci_gate` skill | Change and rollback plan recorded |
-| a failing test | `rein-debug` skill | Commits stay locked until green |
-| existing code | `repo-oracle` skill | History read before the edit |
+| session start | plugin | Prints the session brief (at most 2 KB). |
+| waiting signal | plugin | Sets the tmux pane options while a prompt waits. |
+| pre-commit | git | Machine-local files, the privacy scan, record parity in a team project, the Architect's lane. No review stamp. |
+| post-commit | git | Records the Engineer's commits in the lane ledger; closes `Fixes E-##` in a team project. |
+| pre-push | git | Every pushed commit outside `.ai/` and `plans/` is in the lane ledger; the tip has a green, non-dirty `rein ci run` ([CI](ci.md)). |
+| state import | git | Brings the machine's index up to what git tracks after a checkout or merge. |
+| command gate (`safe-exec-mcp`, `hooks/pre-tool-use.sh`) | `.claude/settings.json` | Every tool call in both panes. Held for removal (E-463): see [The role sandbox](role-sandbox.md#known-limits). Its block messages and `.mcp.json` entry carry the name `safe-exec`. |
 
-## Test economics and the budget
-
-Tests are kept cheap on purpose. Behaviour is expressed as rows in contract tables
-(`tests/fixtures/*-cases.json`, one row per case) run in process; a shell suite is reserved for
-what only a real process boundary can show. Every green CI run records the number of suites and
-fast-tier seconds; the next run fails if one grows past its slack (suites +0, fast-tier time
-+10 %). The numbers only go down. Raising one is a recorded decision:
-`rein ci budget set --ruling D-### <field>=<n>`. See [Local CI](ci.md#the-test-budget).
+A hook that cannot run says `[GATE_INTERNAL_ERROR]` and blocks; `rein doctor` names the fix.

@@ -2499,13 +2499,33 @@
       "completed_at": null,
       "summary": null,
       "depends_on": [
+        "E-470",
+        "E-473"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-470",
+        "E-473"
+      ],
+      "updated_at": "2026-11-24T13:57:56.285Z"
+    },
+    {
+      "id": "E-473",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 3,
+      "description": "Remove telemetry and the incident tracker per D-170 r5 and D-172 r28 (after E-470; before E-472; one pull request on a branch from merged main). (1) Delete src/shared/telemetry.mjs, src/shared/incident-append.mjs, the incident writer in the hooks, and every call that records a telemetry row or an incident (the files `git grep -l \"telemetry\\|incident-append\" -- src hooks install-rein.sh` prints). (2) Split src/shared/mcp-telemetry.mjs: keep only what stamps the booted build on a result (`rein doctor` reads it for a stale server), under a name that does not say telemetry; delete the recording half. (3) Nothing creates or writes ~/.rein/telemetry.sqlite or the incident log; both become legacy artefacts that `rein clean` removes; install-rein.sh and the release layout stop listing the removed files. (4) Tests: delete tests/suites/telemetry_test.sh, incident_tracker_test.sh, tests/unit/telemetry-naming.test.mjs and the rows that test removed code; keep tests/unit/build-stamp.test.mjs. Rewrite the isolation guard in tests/run.sh and the E-257 rows of harness_isolation_test.sh: a test that writes under the operator's ~/.rein still fails the run, and the guard no longer names telemetry. Update tests/census-baseline.tsv. (5) Rules and docs describe only what is left; CHANGELOG `[Unreleased]` names the removal. Acceptance: `git grep -il \"telemetry\" -- src hooks install-rein.sh` prints nothing except src/config/legacy-artefacts.json; `git ls-files | grep -c \"incident\"` prints 0; `node --test tests/unit/build-stamp.test.mjs` passes; the harness_isolation suite has a row where a write under the real ~/.rein fails the run; `rein doctor` still prints the stale-server line in its suite; `rein ci run` green; security_engineer [SEC_CLEARED]; the handoff gives `git ls-files src | xargs cat | wc -l` before and after.",
+      "created_at": "2026-11-24T13:57:54.489Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
         "E-470"
       ],
       "ready": false,
       "blocked_by": [
         "E-470"
       ],
-      "updated_at": "2026-11-24T13:50:05.040Z"
+      "updated_at": "2026-11-24T13:57:54.494Z"
     }
   ],
   "stamps": [

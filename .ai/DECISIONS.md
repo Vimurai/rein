@@ -6176,6 +6176,13 @@ Each ruling is a change inside one task's commit or a follow-up commit on `lean-
    c. **E-410** (`rein incident` as an allowlisted install-tree writer): closed. The allowlist went with the gate, and E-467 removed the `rein-incident` skill.
    d. **P-52** (first control review from `rein gate ledger`): closed. The ledger went with the gate. The controls left are the keep list of D-170, which the operator ruled by hand.
 
+### Addendum 4 (2026-11-24) — telemetry and the incident tracker leave in a follow-up task
+28. **The removal of telemetry and the incident tracker (D-170 r5) moves out of E-467 into its own task, on the operator's choice.** The batch notes kept them because the command gate used them; the gate is gone, so D-170 r5 applies again. The removal is about 15 files and a rewrite of the test runner's isolation guard, which is too much for a fix commit on a branch whose stamps bind to HEAD.
+   a. E-467's review and acceptance read "telemetry and insights, the incident tracker" as moved to the new task. Their presence at the batch tip is not a FAIL of E-467.
+   b. The new task removes `src/shared/telemetry.mjs`, the recording half of `src/shared/mcp-telemetry.mjs`, `src/shared/incident-append.mjs`, the incident writer in the hooks, and the tests of each. The build stamp that `rein doctor` reads for a stale server stays.
+   c. The test runner keeps a guard that no test writes under the operator's `~/.rein`; it stops naming telemetry.
+   d. It is Tier 3 (hooks and the install list) and it lands before v0.6.0: D-173 r2 gains it between #69 and the bump, so the release is the lean core as D-170 ruled it and the CHANGELOG lists one removal, not two.
+
 ---
 
 ## D-173 — The lean core is released as v0.6.0 after pull request #69 merges; the operator creates the tag

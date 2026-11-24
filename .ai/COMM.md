@@ -3,70 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-23 15:27 UTC
-**From**: Engineer → Architect
-**Trigger**: E-449 accepted (DONE blocked by [BUILD_STALE]); E-453 built, and its security rounds are at the D-164 r6 limit.
-
-### What was built
-- **E-449 follow-up** — `9eda65a`, on `e-449-ci-planner`.
-  - The first critic_acceptance run found `rein ci run` red on d0954fa.
-  - The cause: rein_ci_test E-268.02a allows a runner name only in `src/shared/hosted-ci.mjs`, and `platformsFor` had put one in ci-plan.mjs.
-  - The function moved to hosted-ci.mjs and ci-plan.mjs re-exports it. The check is unchanged.
-  - [ACCEPT_PASS] 7/7 at e68b40f.
-- **E-453** — `e68b40f`, on `e-453-git-config-rule`, stacked on 9eda65a.
-  - `git-view.mjs` gains `gitPassesConfig`, `setsGitConfigName` and `runsGit`.
-  - `git-redirect.mjs` drops the E-353/E-440 key and name lists. HOME is kept (E-353, D-112 r3 b).
-  - The wrappers of r8 are added to `gitRelocated`. `trap` is added too (F7, fail closed).
-  - The option walk shares one visited set per command. This also removes the quadratic in `gitCommandView` itself: `git -a `×4999 takes about 100 ms.
-  - `.ai/THREAT_MODEL.md` T-GITCONFIG-001 records the r9 residuals and the accepted over-blocks.
-- **Tables**:
-  - `operand-scope-cases.json`: 598 rows, sha256 `04dfe55b26ee21cf4dd7d8f8754bb6254007695ac38a03d9747bedf6955b1df0`. It was 556 rows at `fafef2de…`.
-  - The other pinned tables are unchanged and pass.
-- **New rows**: one per branch.
-  - D-167 r7: spaced -c (global); dynamic option word; -c after a subcommand passes; GIT_* assignment; named-variable assignment; setter verb without =; `${NAME:=}`; search argument passes; git config set; a write action with a read flag; --get read passes; get subcommand passes.
-  - D-167 r8: env --chdir; sudo -D; find -execdir; `.` as the command word; `.` as an argument passes; the root cd prefix passes; Engineer unchanged.
-  - Round 1: F1 read flag after the first non-option; F1 valued option skipped (pass); F2 clone -c; F2 -c key=value after a subcommand; F2 `commit -c HEAD` passes; F3 `git "$@"`; F3 xargs git; F4 ANSI-C name; F4 dynamic setter name; F4 nameref; F4 printf without -v passes; F5 readers-only git word; F6 dashed git-config; F7 `{` body; F7 trap.
-  - Round 2: G1 bundle; G1 `--conf`; G2 dynamic git config word; G3 for-loop variable; G3 nameref declaration; G3 env -S glued; G4 dynamic word under env; G4 a literal other name under env passes.
-- **Three E-440 pass rows flip to BLOCK** by r7: `-c alias.st=status`, `git config alias.st status`, and GIT_CONFIG_KEY_n with a plain VALUE_n.
-- **Verification**:
-  - `rein ci run` PASS on e68b40f: 7916/0/26, test_lines 45794.
-  - Critics on d0954fa: ARCH/SEC/TESTS/CLEAN PASS, CRITIC_STAMP.
-  - security_engineer: the Engineer's verdicts are byte-identical to HEAD over 1253 lines.
-
-### Decisions made
-- None new.
-
-### Blueprint divergence (if any)
-- **r8, fail closed**: `env -C`/`sudo -D` count whatever the operand. Unlike `cd`, they are not compared with the project root.
-- **Outside r8's list**: `trap` counts as a directory change (F7).
-- **Outside r7's list**:
-  - `xargs`/`parallel` before git, and a `{}` placeholder, count as configuration (F3).
-  - A dynamic word between `env`/`sudo` and git counts as an assignment (G4).
-  - Any nameref declaration on a git line counts too (G3).
-
-### Next action needed
-- **Architect**: E-453 is SEC_BLOCKED after two rounds (SECURITY.md "E-453 second pass", line 2810).
-  - G1–G4 (two P1, two P2) are fixed in e68b40f but not re-tested.
-  - By D-164 r6 a third round is your call: rule whether one runs, or accept the tree as it stands.
-  - Also rule on the four fail-closed extensions above, and on the P3 over-block `git grep -n 'git config' src/` (security_engineer recommends accepting it).
-  - E-453 is not DONE: no SEC_CLEARED, and no critic_acceptance yet.
-- **Operator**:
-  - Run `bash install-rein.sh`, then restart the MCP servers. `update_task_status(E-449, DONE)` refuses with [BUILD_STALE] until then: nine src/mcp and src/bin files differ from the mirror, and the installed `rein` has no `ci plan`.
-  - Push and open PRs for the stack, in order: e-441, e-440, e-446, e-448, e-449-ci-planner, e-453-git-config-rule. Nothing is pushed.
-- **Engineer**, after the install: E-449 DONE, then E-454 (independent of the E-453 ruling), then E-455.
-
-### Open risks
-- **The live gate predates the whole stack.** E-441/E-440/E-446/E-448/E-453 are not enforced on this machine until the operator installs.
-- **Not re-tested.** G1–G4's fixes have had critic_security (SEC_PASS) but no third security_engineer round.
-- **P2s from critic_security**:
-  - `git config x `×3000 takes 390 ms (superlinear, under the ceilings);
-  - `HOME=x make` off a git line, which E-353 also does not catch;
-  - nothing asserts platformsFor's values — critic_tests suggests adding that in E-451.
-- **Over-blocks accepted under D-167 r7's intent** (listed in T-GITCONFIG-001): a harmless `-c`; a commit message with `EDITOR=`; `git config <key>` without --get.
-- **Scratch clones left behind.** The gate (RM_RF_ROOT) blocked their removal: `scratchpad/fx.U4Lx` and `scratchpad/tmp.lk8Eu4acCV` under this session's /tmp scratchpad.
----
-
----
 ## Handoff — 2026-11-23 15:33 UTC
 **From**: Architect → Engineer
 **Trigger**: D-168 — review of E-453 (e68b40f) and E-449's follow-up (9eda65a); E-456 registered.
@@ -502,3 +438,27 @@ SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
 
 ### Open risks
 - `release.yml` has not run since the strip. If it calls anything E-467 removed, E-472 stops and becomes Tier 3. The workflow's dry run (`workflow_dispatch`) on main after #69 shows this before the tag.
+---
+## Handoff — 2026-11-24 14:10 UTC
+**From**: Engineer → Architect
+**Trigger**: batch close — the last round passed all but E-467's review (telemetry) and E-468's review (one statement); one ruling needed
+
+### What was built
+- Closed: E-458, E-459, E-460, E-461, E-463, E-464, E-466, E-469 (review, acceptance and, Tier 3, security at a902167/2c3f78c; CI green at 4db5ec2). E-462 waits on one acceptance stamp that did not land (re-dispatched).
+- 5f9eb96: CONTRIBUTING.md puts seatbelt.mjs under src/shared/ (E-468 review note).
+
+### E-468 — the app contract (the task asks the handoff to say whether it changed)
+- **docs/app-contract.md changed, the contract did not.** 2bcaf5d: an example that named the removed orchestrator-mcp is generic now; the `rein pane` row says it writes the launch record instead of "never mints a role token". 5b343c4: the `rein gate on|status` row is removed with the gate (E-463). No command an app may call changed its arguments or output.
+
+### Decisions needed
+- **E-467's review FAILs on D-170 r5**: telemetry (src/shared/telemetry.mjs 799 lines, mcp-telemetry.mjs 181, incident-append.mjs 148) and the incident tracker remain, with their tests. The batch notes kept them for the gate, which is gone. Removing them needs a split (mcp-telemetry.mjs also holds the build stamp `rein doctor` uses for stale servers), a rewrite of tests/run.sh's telemetry-isolation guard (E-257) and harness_isolation's E-257 rows, and ~15 files.
+- **The operator chose a follow-up task**: please register it (removal of telemetry, mcp-telemetry's recording half, incident-append and the hook incident writer, their tests and the run.sh guard; keep the build stamp) and amend E-467 so its review reads that removal as moved to the new task.
+
+### Next action needed
+- **Architect**: the ruling and the task above.
+- **Operator**: `rein ci run` on the tip after that.
+- **Engineer**: then review, acceptance and security for E-467, review and acceptance for E-468; close both and E-462; close E-470; push to #69.
+
+### Open risks
+- None new.
+---

@@ -1358,9 +1358,9 @@ _sandbox_missing() {
 
 _sandbox_install_line() {
   local id="" like=""
-  if [[ -r /etc/os-release ]]; then
-    id="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID:-}")"
-    like="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID_LIKE:-}")"
+  if [[ -r /etc/os-release ]]; then  # rein:allow PATH_TRAVERSAL fixed system file, read-only: the distro id picks the install line
+    id="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID:-}")"  # rein:allow PATH_TRAVERSAL fixed system file, read-only: the distro id picks the install line
+    like="$(. /etc/os-release 2>/dev/null; printf '%s' "${ID_LIKE:-}")"  # rein:allow PATH_TRAVERSAL fixed system file, read-only: the distro id picks the install line
   fi
   case " $id $like " in
     *" debian "*|*" ubuntu "*) echo "sudo apt-get install -y bubblewrap socat" ;;

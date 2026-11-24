@@ -18,7 +18,7 @@
 
 ## Constraints
 - Security: capability boundaries declared in CAPABILITIES.md; secrets never persisted to state.json; code execution constrained to Docker sandbox (network=none, read-only, cap-drop=ALL).
-- Performance: the session-start hook under 500ms; WAL checkpoint under 100ms via node:sqlite; aggregator pass over incidents.ndjson under 50ms for 100 records.
+- Performance: preflight under 200ms cold; WAL checkpoint under 100ms via node:sqlite; aggregator pass over incidents.ndjson under 50ms for 100 records.
 - Compliance: no GDPR-relevant PII ever written to `.ai/`; PII sanitiser strips emails/tokens/HOME paths from incident logs.
 - Deployment: macOS + Linux dev boxes (Node 22+, Docker for code-exec); Windows unsupported.
 
@@ -34,7 +34,7 @@
 
 ## Frontend Notes- Framework: none (CLI tool).
 - State approach: SQLite (WAL) authoritative + JSON projections for Markdown rendering.
-- Routing: skills addressed by name (`skill: rein-task`); MCP tools by qualified path (`mcp__server__tool`).
+- Routing: skills addressed by name (`skill: rein-preflight`); MCP tools by qualified path (`mcp__server__tool`).
 - UI patterns: deterministic Markdown blocks, structured-output JSON tails (`__SYNC_RESULT__`, `__INCIDENT_REPORT__`) for programmatic consumers.
 
 ## Architecture Notes (Claude-owned)

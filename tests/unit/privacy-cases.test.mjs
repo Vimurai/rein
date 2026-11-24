@@ -24,6 +24,7 @@ after(() => { process.env.HOME = _home; rmSync(HOME, { recursive: true, force: t
 const { redact, redactedToday, REDACT_WRITERS } = await import("../../src/shared/publish-scan.mjs");
 const { getDbSeeded, addTask, completeTask, regenerateViews } = await import("../../src/mcp/shared/state-db.js");
 const { insertStamp, setProject } = await import("../../src/mcp/shared/record-store.mjs");
+const { runTaskShow } = await import("../../src/shared/cli-state.mjs");
 const { appendLog, newTeam, writeTeam } = await import("../../src/mcp/shared/team.mjs");
 const { writeCiRecord } = await import("../../src/mcp/shared/ci-evidence.mjs");
 const { hosted, PROVIDERS } = await import("../../src/shared/hosted-ci.mjs");
@@ -107,7 +108,11 @@ const WRITERS = {
     addTask(ai, db, { owner: "Engineer (Claude)", description: "build it" });
     completeTask(ai, db, "E-1", PAYLOAD);
     regenerateViews(ai, db);
-    clean(read(ai, "TASKS.md"), "TASKS.md");
+    // E-466: TASKS.md lists open tasks only, so the closed task's summary is read where it is
+    // shown — state.json and `rein task show`.
+    const shown = runTaskShow(ai, "E-1");
+    assert.equal(shown.code, 0, shown.out);
+    clean(shown.out, "rein task show");
     clean(read(ai, "state.json"), "state.json");
   },
   stamp_summary(t) {

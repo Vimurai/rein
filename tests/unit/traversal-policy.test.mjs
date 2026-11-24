@@ -92,7 +92,8 @@ const diffOf = (file, line) => `diff --git a/${file} b/${file}\n--- a/${file}\n+
 test("E-464.R1: the dispatch list per tier — 1 none; 2 reviewer then critic_acceptance; 3 plus security_engineer", () => {
   assert.deepEqual(TIER_DISPATCH, { 1: [], 2: ["reviewer", "critic_acceptance"], 3: ["reviewer", "critic_acceptance", "security_engineer"] });
   assert.match(reviewReport(1, "").text, /none — Tier 1 needs no review and no stamp/);
-  assert.match(reviewReport(3, "").text, /1\. reviewer .*\n {2}2\. critic_acceptance .*\n {2}3\. security_engineer .*SEC_CLEARED/);
+  // E-469: the agents ship in the rein plugin, so the report names them plugin-scoped.
+  assert.match(reviewReport(3, "").text, /1\. rein:reviewer .*\n {2}2\. rein:critic_acceptance .*\n {2}3\. rein:security_engineer .*SEC_CLEARED/);
 });
 test("E-464.R2 (E-169): an Architect-owned file or any blueprint is a P0, and a P0 dispatches nothing", () => {
   for (const f of [".ai/architect.md", ".ai/blueprints/x.md"]) {

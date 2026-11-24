@@ -21,7 +21,7 @@ import {
   insertStamp, setProject, rebuildIndex, orderRecords,
 } from "../../src/mcp/shared/record-store.mjs";
 import { migrateTeam, migrateLegacy, IGNORE_BEGIN, ATTRIBUTES } from "../../src/mcp/shared/record-migrate.mjs";
-import { runTaskDone, main as cliMain, GATE_ROLLBACK_VARS } from "../../src/shared/cli-state.mjs";
+import { runTaskDone, runTaskShow, main as cliMain, GATE_ROLLBACK_VARS } from "../../src/shared/cli-state.mjs";
 import { tcFixtureHome } from "../lib/toolchain-fixture.mjs";
 
 const REPO = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
@@ -447,7 +447,10 @@ test("an empty index next to a committed state.json is seeded by the next opener
   assert.deepEqual(views(ai), VIEWS.map((f) => git(root, "show", `HEAD:.ai/${f}`)), "byte-identical to HEAD");
   const [upd] = await callTools(root, home, [["update_task_status", { id: "E-1", status: "BLOCKED" }]]);
   assert.notEqual(upd.isError, true, JSON.stringify(upd));
-  assert.match(readFileSync(join(ai, "TASKS.md"), "utf8"), /- \[ \] P-1|- \[x\] P-1/, "the rest of the tasks are still in the view");
+  const after = readFileSync(join(ai, "TASKS.md"), "utf8");   // E-466: open tasks only, the count names the closed
+  assert.match(after, /- \[ \] E-2: ship it/, "the rest of the open tasks are still in the view");
+  assert.match(after, /^1 closed tasks are not listed\. Print one with: rein task show <id>$/m);
+  assert.equal(runTaskShow(ai, "P-1").code, 0, "the closed task is still in state");
 });
 
 test("with the seed off (an import on record) an empty index is refused: [STATE_BEHIND_HEAD], or [EMPTY_STATE_DB] without git; nothing written", async (t) => {
@@ -464,7 +467,7 @@ test("with the seed off (an import on record) an empty index is refused: [STATE_
 
   rmSync(join(root, ".git"), { recursive: true, force: true });   // no git: nothing to compare with
   const [nogit] = await callTools(root, home, [["verify_markdown_sync", {}]]);
-  assert.match(nogit.content[0].text, /\[EMPTY_STATE_DB\] index has 0 tasks, TASKS\.md lists 3 — run: rein state import/);
+  assert.match(nogit.content[0].text, /\[EMPTY_STATE_DB\] index has 0 tasks, TASKS\.md lists 2 — run: rein state import/);
   assert.deepEqual(views(ai), before, "no auto-fix from an empty index");
   // …and the advice works: the import takes the working state.json when nothing is committed.
   const imp = spawnSync(process.execPath, ["--no-warnings", join(REPO, "src/shared/cli-state.mjs"), "state", "import"], { cwd: root, encoding: "utf8", env: { ...process.env, AI_TELEMETRY_DISABLE: "1" } }).stdout;
@@ -542,7 +545,10 @@ test("rein task done closes through completeTask: record, cascade, views", (t) =
   assert.match(res.out, /E-1 → DONE.*unblocked: E-2/);
   assert.equal(readRecord(ai, "task", "E-1").status, "DONE");
   assert.equal(readRecord(ai, "task", "E-2").status, "OPEN", "the cascade wrote the record too");
-  assert.match(readFileSync(join(ai, "TASKS.md"), "utf8"), /- \[x\] E-1: build it/);
+  const view = readFileSync(join(ai, "TASKS.md"), "utf8");   // E-466: the closed task leaves the view
+  assert.doesNotMatch(view, /E-1: build it/);
+  assert.match(view, /^2 closed tasks are not listed\. Print one with: rein task show <id>$/m);
+  assert.match(runTaskShow(ai, "E-1").out, /^E-1 \| DONE\b[\s\S]*Summary: closed by commit abc1234/);
   assert.equal(runTaskDone(ai, "E-1", null, { env }).out, "E-1 is already DONE.");
   assert.equal(runTaskDone(ai, "E-99", null, { env }).code, 1);
   assert.equal(runTaskDone(ai, "../E-1", null, { env }).code, 2);

@@ -22,8 +22,10 @@ view regenerated from the stamps table). Blueprint: `.ai/blueprints/lean-core.md
 | 2 | `reviewer`, then `critic_acceptance` | `[REVIEW_PASS]`, `[ACCEPT_PASS]` |
 | 3 | Tier 2 plus one `security_engineer` round | those and `[SEC_CLEARED]` |
 
-The deterministic checks (standards, secrets, conflict markers, privacy scan) already ran in
-`pre-commit.sh` and `rein review <tier>`. Do not repeat them; judge what a machine cannot.
+The deterministic checks already ran: `pre-commit.sh` refused machine-local files, ran the
+privacy scan, checked team record parity and the Architect's git lane, and `rein review <tier>`
+checked secrets, path traversal, Architect-owned files and new dependencies. Standards and
+conflict markers are no longer checked at commit (E-467): judge them, and what a machine cannot.
 
 ## Input
 A task id (`E-###`) and, optionally, a commit range. If no task id was given, stop and say so.

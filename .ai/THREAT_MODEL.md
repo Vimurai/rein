@@ -1580,3 +1580,26 @@ the unit cap test.
   - an empty-quote suffix (`$PWD""`);
   - a quoted or indirect pwd (`$(\pwd)`, `$("pwd")`, `$(command -p pwd)`);
   - the cwd fed through stdin (`echo $PWD|xargs rm -rf`, `xargs rm -rf <<<$PWD`).
+
+### T-SANDBOXLANE-001 — three routes past the E-462 sandbox role boundary (security_engineer, lean-core round over E-462/E-467, 2026-11-24)
+
+Status: OPEN, gating E-462 (SECURITY.md "lean-core security round", F1–F3). Each was proven on
+Claude Code 2.1.331 with haiku sessions running the generated role files.
+- **PoC F1 (P0), launch-line injection.** The Architect writes `.ai/roles.json`
+  `{"roles":{"architect":{"provider":"claude","model":"haiku\n--mcp-config\n<proj>/.ai/m.json"}}}`
+  and `.ai/m.json`, which names an MCP server `/bin/sh -c …`. resolve-launch prints one argv
+  element per line, and do_pane splits on the newlines. The next `rein pane` therefore starts
+  claude with the extra `--mcp-config`, and the server runs as the operator outside the sandbox.
+  In the probe it wrote the write-denied `src/`. Trust boundary: an Architect-writable file
+  reaches the operator's argv.
+- **PoC F2 (P1), lane-ledger exclusion by forged refs.** Inside the sandbox: `git commit-tree` a
+  src/ change as X, then `git update-ref refs/heads/main X` and
+  `git update-ref refs/remotes/zz/hide X` (or a packed-refs line, or `git replace X <lookalike>`).
+  The Engineer's next `git push` passes `lane-ledger.mjs check`, whose `--not --remotes` trusts
+  local refs, and X reaches origin.
+- **PoC F3 (P1), absent tool config at the root.** The Architect's Bash writes `.npmrc`
+  `node-options=--require <proj>/.ai/p.cjs` and lists `.npmrc` in `.git/info/exclude`. The
+  Engineer's `npm run <x>` then runs the payload in the Engineer's sandbox, with src/ write and
+  network. The same class covers `.pnpmfile.cjs`, `conftest.py`, a new `node_modules/` and
+  `.gitattributes`.
+- Fix direction: see SECURITY.md F1–F3. Each PoC becomes an escape-suite case.

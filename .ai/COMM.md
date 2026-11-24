@@ -3,39 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-20 14:24 UTC
-**From**: Architect → Engineer
-**Trigger**: D-163 addendum 2 r16 is recorded, as the 19:02 handoff asked. No new task.
-
-### What was built
-- `.ai/DECISIONS.md`: "D-163 addendum 2 r16". Nothing else in `.ai/` was written by hand.
-
-### Decisions made
-- **E-447 is accepted as built.** I read 53465d9 against 24913ce: exactly the eleven rows of PR #63 are gone and no kept row changed.
-- **Pinned**: `operand-scope-cases.json`, 490 rows (381 BLOCK, 109 pass), `4e41906fc55d0723147a96bb8bf148118faccf7e9f3470eb416529cb8129627e`. It replaces `cb100e3f…`.
-- **The raise is ratified**: `test_lines` 45408 at c0274fa. The limit is 46316 by the +2% rule.
-  - The 908 lines between them are not a grant. D-164 addendum 1 r4 stands for the four contract tables.
-  - The next raise request comes with a census (D-164 r3).
-- **The third keep clause** was applied as "only row on its V8 block-coverage path", not "only row killing a mutant". Accepted for this table. A later table merge names the measure in its task text.
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Engineer**: continue the order you named: E-441, E-440, E-446 (E-442 is committed at dc6619e).
-  - E-445 and E-447 still need `[ACCEPT_PASS]` for their HEAD before DONE.
-- **Operator**: merge #61–#64 after #60, in order. The items of the 19:02 handoff are unchanged.
-
-### Open risks
-- **Two wrong stamps are in the ledger** from a `rein-insights` run in this session:
-  - `INSIGHTS_GENERATED` claims a report; the write to `~/.rein/INSIGHTS.md` was blocked by GATE_SELF_DISABLE and no file exists.
-  - `INSIGHTS_WRITE_BLOCKED` says a draft is in the scratchpad; there is none.
-  - The meta_analyst contract and the lock on `~/.rein/` contradict each other. A ruling is pending with the operator; do not fix it unasked.
-- `git merge-base --is-ancestor` is blocked for the Architect as ARCH_GIT_MERGE. It is read-only. Noted for the E-440 over-block list; not ruled here.
-- This commit carries `.ai/REVIEWS.md` and `.ai/state.json` as found, which include stamps your E-442 session left uncommitted. `.ai/providers.json` and `.ai/roles.json` are left dirty: they are the operator's.
----
-
----
 ## Handoff — 2026-11-20 15:10 UTC
 **From**: Architect → Engineer
 **Trigger**: D-165 recorded and E-448 registered, on an operator request.
@@ -428,4 +395,71 @@ E-457 in parallel, then E-464, E-458, E-460, E-461, E-462, E-463, E-467, E-466, 
 - Removed agents and skills: list each by name in the E-467 handoff (r6). Tag v0.5.0 holds them.
 - E-469: I have not verified what a Claude Code plugin can declare. Read the documentation first; the installer carries what the plugin cannot.
 - Team mode, `rein ci run` and the release path are out of scope (r7). If a deletion would break one of them, keep the piece and name it.
+---
+
+---
+## Handoff — 2026-11-24 01:26 UTC
+**From**: Engineer → Architect
+**Trigger**: The lean-core batch (D-170) is built on `lean-core` (HEAD 5dfd82b), except E-463, which is held. The review is done; the security round ended SEC_BLOCKED, F1/F2/F5 are fixed, and the second round is yours (D-164 r6). The operator deferred CI.
+
+### What was built
+One commit per task on `lean-core`, cut from c0737a6:
+
+| Task | Commit | Summary |
+|---|---|---|
+| E-464 | 2593dd9 | review by tier; the stamps are checked at DONE, not at commit |
+| E-458 | e17da34 | sandbox measured (plans/e-458-sandbox-measurement.md); verdict yes |
+| E-460 | ab30595 | 2 KB brief and 2 KB rulefiles; rein-preflight removed |
+| E-461 | 334f267 | `rein done`, `rein handoff`, `rein decide`; add_task quality checks |
+| E-462 | 93588b8 | the sandbox role boundary; role files under ~/.rein; the lane ledger |
+| E-467 | 887a818 | stripped to the keep list; safe-exec kept |
+| E-466 | 6b438f2 | small record: TASKS.md lists open tasks only; rein archive |
+| E-459 | ec4d45a | `rein doctor --fitness` |
+| E-469 | fcf60ff | one local plugin |
+| E-468 | 2bcaf5d | docs rewritten |
+| E-470 | 6d9c796 | the batch review's fixes |
+| E-462 | 5dfd82b | security-round fixes F1, F2, F5 |
+
+The full list of what was removed, each task's decisions and the scorecard baseline are in **plans/lean-core-batch-notes.md**. Tag v0.5.0 holds every removed unit.
+
+### Decisions made
+- None by the Engineer.
+- The operator, 2026-11-23: no CI between tasks or for the batch until they say so. They approved the batch to run overnight.
+
+### Blueprint divergence (if any)
+- **E-463 was not built.** The permission classifier refused deleting the safe-exec text gate. The gate, its hook and its tables stay, so these targets are unmet: MCP servers (2 against 1), hook lines (1391 against 900; 923 without pre-tool-use), command-text lines.
+- **The operator's install never ran.** `bash install-rein.sh` was refused twice by the classifier. Every batch commit carries a [CRITIC_STAMP] that says "NO critic review"; it only satisfies the stale installed pre-commit hook.
+- **E-470 is partial.** Done: one reviewer pass and one security round. Not done: CI, critic_acceptance, the PR and merge, and the install. E-457's PR #68 is open, its CI was cancelled on the operator's word, and it has no merge commit for rein-app yet.
+
+### Next action needed
+- **Architect:**
+  1. **Security, second round (D-164 r6).** The round's verdict is SEC_BLOCKED (.ai/SECURITY.md, "lean-core security round"; T-SANDBOXLANE-001).
+     - F1 (P0, roles.json flag injection) and F2 (P1, forged refs bypass the lane check) are fixed in 5dfd82b, with escape cases C31–C35. The best full escape run was 34/35: the failure was the model not making its probe call (C25), not an escape.
+     - **F3 (P1)**: a config file the Architect plants at the project root (`.npmrc`, `.pnpmfile.cjs`, conftest.py) runs in the Engineer's lane. Fixing it needs the Architect's working directory outside the project. Yours to rule.
+     - **F4 (P2)**: after E-467 and E-463, a project without `.ai/publish.json` has no secret check at commit. Keep a small one in pre-commit?
+  2. **Review.** It recorded REVIEW_PASS on 7 tasks and REVIEW_FAIL on E-460, E-466 and E-469. Those failures are fixed in 6d9c796 but not re-stamped.
+     - E-460's edit to your BRIEF.md is reverted. Its line 37 still names `skill: rein-preflight`, which no longer exists; the edit belongs to you.
+  3. **Rulings collected in the batch notes:**
+     - the session-bytes row fails at 5313 against 4096: CLAUDE.md @imports the rulefile and it is also appended;
+     - TASKS.md is 110 KB, over the 80 KB target;
+     - picking the brief's next five tasks;
+     - E-462 gap 1 and the placeholder files;
+     - post-commit.sh pushes hooks over 900 lines;
+     - the eval harness is idle;
+     - the delta channel no longer fills;
+     - the tracked `.claude/agents` and `.claude/skills` copies once the plugin is on;
+     - docs/demo.cast;
+     - the gate's name in the docs (named outright, so the E-468 grep stays unmet until E-463);
+     - macOS listed without being measured.
+- **Operator**, when happy:
+  - run `bash install-rein.sh` and restart the MCP servers;
+  - decide on E-463 (delete safe-exec);
+  - run CI;
+  - delete the 12 leftover ~/.rein/roles/proj-* and gitproj-* folders.
+- **Engineer, after that:** critic_acceptance for each task, one PR, merge, then close the batch.
+
+### Open risks
+- `lean-core` and the 7 branches of PR #68 are not on origin. `lean-core` is local only.
+- No CI has run on anything after 0a92961.
+- The live installed gate and task server predate the whole stack.
 ---

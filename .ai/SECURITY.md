@@ -3207,3 +3207,52 @@ runs, and bash could not fork.
 | A05 | fixture parity | 1238 rows × 3 roles vs 44f9db8 | RESISTED | n/a | 0 regressions |
 | A05 | CLI probe skip | table-probe picks, both trees | RESISTED | 0 | 8/8 probes; skipped rows run in process |
 | A04 | bare cd + root line (new, N1) | `cd⏎/work/p⏎cat > a <<'E'` | EXPLOITED (non-gating, new spelling) | 0 (bash: cwd = HOME) | THREAT_MODEL r11 entry; for the Architect |
+
+## lean-core security round (E-462, E-467) — security_engineer, 2026-11-24 — SEC_BLOCKED
+
+One round per D-170 r12 over E-462 (93588b8, role boundary in the Claude Code sandbox) and E-467
+(887a818, strip; pre-commit cut to the D-170 r4 checks), with E-469's plugin (fcf60ff). E-463 is
+held and was not reviewed. Claude Code 2.1.331, bubblewrap and socat present. Real sessions ran
+one at a time on haiku with `--setting-sources project` and a short TMPDIR under /tmp; role files
+were generated with `role-settings.mjs write --out <scratch> --rein-home <scratch>`, so neither
+~/.claude nor ~/.rein was written. Deterministic git probes ran under `env -i` in a scratch dir.
+The scratch dir was removed afterwards. No source file was edited.
+
+**Verdict: SEC_BLOCKED.** One P0 and two P1 findings are gating. The escape suite's 30/30 is
+correct for what it covers. These routes are not in it.
+
+### Findings
+
+| # | Sev | Gating | Finding |
+|---|-----|--------|---------|
+| F1 | P0 | yes | **Launch-line injection through `.ai/roles.json` `model`.** `roleModel()` (src/shared/provider-adapter.mjs) trims the value and passes it on. `resolve-launch.mjs` prints the argv one element per line, and `do_pane` reads it back with `while IFS= read -r line`. So a newline in `model` adds new claude flags to the next `rein pane`/`rein start` launch. `.ai/roles.json` is in the Architect's lane. Proven end to end: `model: "haiku\n--mcp-config\n<proj>/.ai/m.json\n…"` produced argc 15, with an extra `--mcp-config` after the Architect's `--strict-mcp-config` list. The claude session then started the MCP server `/bin/sh -c …`, outside the sandbox. It wrote `<proj>/src/mcp-wrote-src`, a path the Architect's role file write-denies (deny list checked). The same route can add a second `--settings` or `--setting-sources`. It hits either role, as the operator, with no sandbox. E-208's provider-name check and E-462's fixed claude template do not cover `{model}`. Fix (Engineer): validate `model` against a strict pattern (for example `^[A-Za-z0-9._:\[\]-]{1,64}$`) in roleModel or resolve-launch. Also make resolve-launch refuse any argv element containing `\n` or `\r` (or use NUL-delimited output), and add an escape-suite case for it. |
+| F2 | P1 | yes | **Lane-ledger bypass through forged local refs.** `check()` runs `git rev-list <sha> --not --remotes`, and the Architect's sandbox can write `.git/` apart from HEAD, `rein/`, hooks and config. Proven in a real Architect session: `git update-ref refs/remotes/zz/hide <X>` succeeded, where X is a plumbing commit adding `src/evil.js` and main was moved to X with `update-ref`. A plain push through the real lane pre-push hook was then **accepted**, and the origin served `src/evil.js`. Deterministic variants also pass the check: a `packed-refs` line `<X> refs/remotes/origin/zz` (EXPLOITED), and `git replace X <lane-only lookalike>` (EXPLOITED: the check diffs the replacement, while push sends the real X). `.git/shallow` and `info/grafts` RESISTED: the cut commit diffs as a root commit and is refused. Fix direction (Architect): do not trust any ref under `.git/refs` for exclusion. Exclude only the `remoteSha` git supplies, plus ledger-recorded shas (for example, record pushed tips in the ledger). Run the check with `GIT_NO_REPLACE_OBJECTS=1` / `--no-replace-objects`. Alternatively, write-deny `.git/refs/remotes`, `.git/refs/replace` and `.git/packed-refs` to the Architect (check that `git commit` still works). |
+| F3 | P1 | yes | **Gap 1 is an execution route, not only a commit ride.** A new top-level entry is writable by the Architect's Bash, and the Architect can hide it with `.git/info/exclude`, which is writable. Proven: an Architect session wrote `.npmrc` (`node-options=--require <proj>/.ai/p.cjs`) and added `.npmrc` to `.git/info/exclude`, so `git status` showed nothing. An Engineer session ran `npm run hello`, and the payload wrote `src/npmpwn` from inside the Engineer's sandbox. That gives the Architect's code the Engineer's src/ write and network domains, and the resulting commits are lane-ledger recorded because the working tree matches. The same class covers any absent tool config a tool loads from the project root: `.pnpmfile.cjs`, `.yarnrc.yml`, `conftest.py`, a `node_modules/` that does not exist yet, `.gitattributes`. RESERVED_ABSENT cannot list them all. Fix direction (Architect, the E-462 gap-1 ruling): start the Architect with its working directory outside the project root, for example in `.ai/`, so the always-writable cwd is its lane. Also write-deny `.git/info`. |
+| F4 | P2 | residual | **Commit-time credential scan.** E-467 removed the standards gate from pre-commit. What remains: (a) publish-scan's `secret` class (vendor tokens, private keys), which pre-commit runs **only where `.ai/publish.json` exists**. Probed: an AKIA key, a GitHub PAT and an OpenSSH private key staged with the marker are all blocked (plus `forbidden_file .env.sample`); without the marker, nothing scans them. (b) The hosted `privacy.yml` tree scan on push, this repository only. (c) safe-exec's SECRET_IN_COMMAND on Bash command text, which E-463 deletes. So this repository keeps a commit-time scan, and every other Rein project has none once E-463 lands. For the Architect: keep a small all-projects secret check in pre-commit (publish-scan's `_secretHits`), or record the loss as accepted. |
+| F5 | P2 | residual (E-463 blocker) | `src/shared/publish-scan.mjs` imports `containsCredentialToken`/`containsSecret` from `src/mcp/safe-exec-mcp/secret-rule.mjs`, and hosted-ci, incident-append and digest-build import publish-scan. If E-463 deletes the gate's other modules as written, the privacy gate fails closed on every commit in this repository and those modules stop loading. Move secret-rule.mjs to src/shared/ first. |
+| F6 | P3 | residual | E-467 CAPABILITIES change: it only narrows. It drops the ~/.rein/memory write and rewords the registry read for `rein doctor --compliance`; nothing is widened. But `filesystem.write` still grants `~/.rein/*.sqlite` ("telemetry stores"), and the Engineer's sandbox write-denies every ~/.rein entry except ci/. The two documents disagree, and the stricter one, the sandbox, wins. The working-tree `.mcp.json` (gitignored, generated) and `.claude/settings.json` on this machine still list the 18 pre-strip servers until `rein sync` runs after the operator's install. ~/.rein/mcp still holds them. Machine state, not a code defect. |
+| F7 | P3 | residual | Placeholder files the sandbox creates in the project root (`.bashrc`, `.gitconfig`, empty): git and bash do not read them from cwd. Add them to `.gitignore` as hygiene. |
+
+### Checks that held
+- **Provider swap:** a non-claude provider in roles.json is refused by `rein pane` (exit 2). The claude launch line comes from DEFAULT_ADAPTERS, not from `.ai/providers.json`. The `--settings` operand is the generated role file. (Read in the code; the suite covers the rest.)
+- **Role-file and ledger tampering:** the role files live under ~/.rein/roles, outside both lanes (C11, C25). `.git/rein` is write-denied to the Architect (C10). The plugin is built into ~/.rein/plugin from the install tree, and its hooks.json names absolute ~/.rein/hooks paths. `claude plugin marketplace add` takes only `${REIN}/plugin` and registers only config dirs under HOME. No Architect-writable path feeds plugin registration.
+- **Engineer file tools into `.claude/`:** Write to `.claude/skills/zz/SKILL.md`, `.claude/agents/zz.md` and `.mcp.json` asked for approval, so they were denied headless (Claude Code's config-file protection). `.claude/settings.local.json` was denied by rule. Control `src/ctl4` landed. The operator's prompt is the control here.
+- **Account name** (`start.local.json`) is validated against `^[a-z][a-z0-9-]{0,23}$`.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | resolve-launch / do_pane argv | roles.json `model: "haiku\n--mcp-config\n…/.ai/m.json"` | EXPLOITED | 0 | F1; MCP `/bin/sh` wrote denied `src/` outside the sandbox |
+| A01 | lane-ledger check (real Architect session + push) | `git update-ref refs/remotes/zz/hide <X>` | EXPLOITED | 0 | F2; origin serves src/evil.js |
+| A08 | lane-ledger check | `.git/packed-refs` `<X> refs/remotes/origin/zz` | EXPLOITED | 0 | F2 |
+| A08 | lane-ledger check | `git replace X <lane-only lookalike>` | EXPLOITED | 0 | F2; push sends the real X |
+| A08 | lane-ledger check | `.git/shallow` = X; `.git/info/grafts` = X | RESISTED | 1 | root diff lists src/ → refused |
+| A04 | gap 1 (real Architect + Engineer sessions) | `.npmrc node-options=--require .ai/p.cjs` + `.git/info/exclude` | EXPLOITED | 0 | F3; src/npmpwn written in the Engineer's lane |
+| A01 | Engineer Write tool → .claude/skills, .claude/agents, .mcp.json, settings.local.json | content `x` | RESISTED | 0 | approval or deny rule; control landed |
+| A05 | pre-commit secret scan (publish-scan precommit) | AKIA key, GitHub PAT, OpenSSH private key (fake) | RESISTED with marker / not scanned without | 0 | F4 |
+| A05 | E-467 CAPABILITIES grants | diff 887a818 | RESISTED | n/a | narrowing only; F6 drift |
+
+Gate: F1–F3 block Tier 3 sign-off of E-462. Re-run this round's F1–F3 payloads after the fixes,
+and add each one to tests/suites/sandbox_escape_test.sh. A second round goes to the Architect
+(D-164 r6).

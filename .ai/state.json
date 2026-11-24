@@ -7502,6 +7502,132 @@
       "summary": "NO critic review — D-170 r9 batch rule (operator); review at E-470. Satisfies the stale installed pre-commit hook only.",
       "sha": "fcf60ff3f51a4f55df52adb70dd9448c6f5c0acd",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-464",
+      "timestamp": "2026-11-24T01:05:34.024Z",
+      "summary": "[REVIEW_PASS] E-464 at 2bcaf5d — 0 FAIL, 3 notes ‖ src/shared/completion-gates.mjs:83-107 review/sec/accept gates built, completion-gates tests pass; pre_commit_hook suite 73/74 (1 = ~/.rein standards.json mirror drift, env) ‖ \"Tier 2 commit refused without REVIEW_PASS\" built at DONE per D-170 r9 ‖ tests/unit/traversal-policy.test.mjs:92 (this task's E-464.R1) now fails, broken by E-469's rein: prefix ‖ src/claude/agents/reviewer.md:25 claims standards/conflict-marker checks ran in pre-commit; E-467 removed them",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-458",
+      "timestamp": "2026-11-24T01:05:35.861Z",
+      "summary": "[REVIEW_PASS] E-458 at 2bcaf5d — 0 FAIL, 0 notes ‖ tests/tools/sandbox-probe.sh M1..M10 each by an observed file-system result; mktemp work dir, EXIT cleanup, no product code; verdict in plans/e-458-sandbox-measurement.md",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_FAIL",
+      "agent": "reviewer",
+      "task_id": "E-460",
+      "timestamp": "2026-11-24T01:05:38.568Z",
+      "summary": "[REVIEW_FAIL] E-460 at 2bcaf5d — 1 FAIL, 2 notes ‖ .ai/BRIEF.md:21,37 Engineer commit ab30595 writes the Architect-owned BRIEF.md (rein review 2 flags SOVEREIGNTY_VIOLATION P0); line 37 now names skill rein-task, which E-461 removed ‖ doctor --fitness session bytes FAIL 5313>4096: CLAUDE.md @import plus appended rulefile loads ENGINEER.md twice (named in notes) ‖ ENGINEER.md:13 write-scope line omits .ai/BRIEF.md",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-461",
+      "timestamp": "2026-11-24T01:05:40.761Z",
+      "summary": "[REVIEW_PASS] E-461 at 2bcaf5d — 0 FAIL, 3 notes ‖ rein done/handoff/decide and add_task checks built; bookkeeping-commands, task-quality tests pass ‖ blueprint-writer kept per D-170 r4 (task text removes it) ‖ rein done writes no deltas rows: the Architect's unread-deltas view stops filling ‖ eval harness left idle with no cases (skill_evals, evals/)",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T01:05:43.464Z",
+      "summary": "[REVIEW_PASS] E-462 at 2bcaf5d — 0 FAIL, 4 notes (Tier 3: SEC round still due) ‖ src/shared/role-settings.mjs:124 Architect allowWrite includes the whole gitDir; escape suite has no .git/config case (core.hooksPath/fsmonitor then run by the Engineer's git) ‖ src/bin/rein:1361 sourcing /etc/os-release trips rein review PATH_TRAVERSAL P0, blocking dispatch ‖ src/shared/lane-ledger.mjs:84-88 a partially staged commit is never recorded, so push refuses until trust ‖ notes gap 1 (new top-level entries) only partly closed",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-467",
+      "timestamp": "2026-11-24T01:05:46.264Z",
+      "summary": "[REVIEW_PASS] E-467 at 2bcaf5d — 0 FAIL, 4 notes ‖ 21 deleted test files all cover removed units; no broken imports or missing helper paths found; keep-list CLI all in rein help ‖ hooks/*.sh 1391 lines, 923 without pre-tool-use: >900 even after E-463 (named) ‖ src/claude/agents/reviewer.md:25 still says standards and conflict-marker checks run in pre-commit; scripts/standards.mjs has no caller ‖ .ai/blueprints/mcp.md not regenerated, so the rein_sync generator check fails (named)",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_FAIL",
+      "agent": "reviewer",
+      "task_id": "E-466",
+      "timestamp": "2026-11-24T01:05:48.664Z",
+      "summary": "[REVIEW_FAIL] E-466 at 2bcaf5d — 1 FAIL, 3 notes ‖ the open-only TASKS.md view breaks 4 unit tests that were not updated: tests/unit/record-store.test.mjs:440,453,535 and tests/unit/privacy-cases.test.mjs:167 ‖ TASKS.md 110 KB, over the 80 KB target (named) ‖ rein task show E-449 prints an OPEN task (named) ‖ task-synchronizer-mcp/index.js:570 the EMPTY_STATE_DB guard now counts open rows only",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-459",
+      "timestamp": "2026-11-24T01:05:50.969Z",
+      "summary": "[REVIEW_PASS] E-459 at 2bcaf5d — 0 FAIL, 2 notes ‖ src/shared/fitness.mjs 13 rows, UNKNOWN with reason; tests/unit/fitness.test.mjs passes on fixture trees ‖ the session-bytes row runs the session-start hook, which can rebuild .ai/DIGEST.md: a diagnostic with a write ‖ bookkeeping-calls row is counted from the commands, not observed (stated in notes)",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_FAIL",
+      "agent": "reviewer",
+      "task_id": "E-469",
+      "timestamp": "2026-11-24T01:05:53.114Z",
+      "summary": "[REVIEW_FAIL] E-469 at 2bcaf5d — 1 FAIL, 3 notes ‖ src/shared/review-checks.mjs:126 plugin-scoped rein:<agent> names break tests/unit/traversal-policy.test.mjs:92 (E-464.R1), not updated ‖ \"exactly one MCP server\" unmet until E-463 (named) ‖ rein sync prunes tracked .claude/agents and skills, so ~8 suites fail after sync (named, for E-470) ‖ no interactive session observed",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-468",
+      "timestamp": "2026-11-24T01:05:54.818Z",
+      "summary": "[REVIEW_PASS] E-468 at 2bcaf5d — 0 FAIL, 3 notes ‖ README.md 198 lines; every rein command in README/getting-started/commands.md is in rein help ‖ acceptance grep still matches docs/gates-and-review.md (safe-exec, until E-463) and docs/assets/demo.cast (named) ‖ commit 2bcaf5d is prefixed [TIER_1] but the task is Tier 2",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-470",
+      "timestamp": "2026-11-24T01:08:26.740Z",
+      "summary": "Fixes for the E-470 batch review's must-fix list (reviewer REVIEW_FAIL on E-460, E-466, E-469): BRIEF.md restored (Architect-owned), 4 TASKS.md-view tests and E-464.R1 updated, reviewer.md corrected, src/bin/rein traversal allow marker. Unit tests 516/516. Satisfies the stale installed pre-commit hook.",
+      "sha": "2bcaf5d44d3f3b95635c874b066351a275ee8925",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_BLOCKED",
+      "agent": "security_engineer",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T01:09:20.643Z",
+      "summary": "lean-core round (E-462+E-467, haiku sessions + git harness): P0 roles.json model newline injects claude flags at rein pane (extra --mcp-config -> unsandboxed exec, wrote denied src/); P1 lane check bypassed by Architect-forged refs/remotes, packed-refs or refs/replace (origin received src/evil.js); P1 gap 1 .npmrc node-options hidden via .git/info/exclude runs Architect code in the Engineer sandbox. P2: commit-time secret scan only where .ai/publish.json; publish-scan imports safe-exec secret-rule (E-463 blocker). See SECURITY.md lean-core round.",
+      "sha": "6d9c796efc30a48af7c72c11efcd33d14061815f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T01:26:14.670Z",
+      "summary": "Fixes for the lean-core security round (SEC_BLOCKED on E-462): F1 P0 roles.json model flag injection, F2 P1 forged-ref lane bypass, F5 secret-rule moved to src/shared. Not re-reviewed by security_engineer — the second round goes to the Architect (D-164 r6). Satisfies the stale installed pre-commit hook only.",
+      "sha": "6d9c796efc30a48af7c72c11efcd33d14061815f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-470",
+      "timestamp": "2026-11-24T01:26:48.923Z",
+      "summary": "Records-only commit: COMM handoff, the security_engineer's SECURITY.md/THREAT_MODEL.md entries (SEC_BLOCKED, written by the agent), generated views. No source. Satisfies the stale installed pre-commit hook only.",
+      "sha": "5dfd82b891c65f12d2b5f1345c2433f8cc94247b",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

@@ -72,6 +72,6 @@ superseded by a decision, which skips the stamp gates only.
 | post-commit | git | Records the Engineer's commits in the lane ledger; closes `Fixes E-##` in a team project. |
 | pre-push | git | Every pushed commit outside `.ai/` and `plans/` is in the lane ledger; the tip has a green, non-dirty `rein ci run` ([CI](ci.md)). |
 | state import | git | Brings the machine's index up to what git tracks after a checkout or merge. |
-| command gate (`safe-exec-mcp`, `hooks/pre-tool-use.sh`) | `.claude/settings.json` | Every tool call in both panes. Held for removal (E-463): see [The role sandbox](role-sandbox.md#known-limits). Its block messages and `.mcp.json` entry carry the name `safe-exec`. |
+| seatbelt (`hooks/pre-tool-use.sh`, `safe-exec-mcp/seatbelt.mjs`) | `.claude/settings.json` (and the Architect's role file) | Every Bash call. Asks you (`ask`) before a recursive `rm` of home, root or the project root, a download piped into a shell, or a secret in the command. Advice, not a boundary: the [role sandbox](role-sandbox.md) is. |
 
-A hook that cannot run says `[GATE_INTERNAL_ERROR]` and blocks; `rein doctor` names the fix.
+A git hook that cannot run blocks the commit or push; the seatbelt fails open. `rein doctor` names the fix.

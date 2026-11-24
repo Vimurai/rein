@@ -84,10 +84,13 @@ assert_contains "E-247.02b: mcp.md is regenerated from registry.json" \
 # anything, which is the point of running it first.
 assert_contains "E-247.02c: the blueprint index is regenerated" \
   ".ai/blueprints/_INDEX.md" "$_out"
-# E-247.02d-e (the REPO_MAP and Memory Palace steps) went with those steps (E-467, D-170 r5);
-# the gate probe is the last step, so its marker proves the tail ran.
-assert_contains "E-247.02f: the last step, the gate probe, reports" \
-  "safe-exec gate:" "$_out"
+# E-247.02d-e (the REPO_MAP and Memory Palace steps) went with those steps (E-467, D-170 r5).
+# E-463: the gate probe was the last step; stale_servers is now, and it prints nothing on a clean
+# run — so the tail is proven by forcing it to fail: its ✗ line can only come from running it.
+_pt="$(_proj)"
+_tout="$( cd "$_pt" && HOME="$_RH" REIN_E247_FORCE_FAIL=stale_servers bash "$AI" sync 2>&1 )"
+assert_match "E-247.02f: the last step (stale_servers) runs" \
+  '✗ stale_servers: forced failure' "$_tout"
 assert_status 1 "E-467: no retired step reports (REPO_MAP, the Memory Palace)" \
   grep -qE 'REPO_MAP|palace-index' <<< "$_out"
 
@@ -118,16 +121,19 @@ assert_status 0 "E-339.04c: and exits 1 (D-107 r1 — a failed step is not a suc
   bash -c "[[ '$_frc' -eq 1 ]]"
 assert_match "E-247.04d: the summary counts the failure as FAILED" \
   'steps: [0-9]+ ok, [0-9]+ skipped, 1 FAILED — see the ✗ lines' "$_fout"
-assert_contains "E-339.04f: a step AFTER the failed one still ran" \
-  "safe-exec gate:" "$_fout"
+# Every other step still ran: the forced run accounts for as many steps as the clean run.
+_steps() { grep -oE 'steps: [0-9]+ ok, [0-9]+ skipped(, [0-9]+ FAILED)?' <<< "$1" | grep -oE '[0-9]+' | paste -sd+ | bc; }
+_n_clean="$(_steps "$_out")"; _n_forced="$(_steps "$_fout")"
+assert_status 0 "E-339.04f: every step AFTER the failed one still ran (${_n_forced:-?} steps = ${_n_clean:-?})" \
+  bash -c "[[ -n '${_n_clean}' && '${_n_forced}' == '${_n_clean}' ]]"
 
 # ── E-247.5: the rollback ────────────────────────────────────────────────────
 # D-067 §1 makes today's truncated behaviour available EXPLICITLY, so an operator who hits
 # a bad step has a way back that does not involve editing the script.
 _pm="$(_proj)"
-_mout="$( cd "$_pm" && HOME="$_RH" REIN_SYNC_MINIMAL=1 bash "$AI" sync 2>&1 )"
-assert_status 1 "E-247.05a: REIN_SYNC_MINIMAL=1 stops after provisioning" \
-  bash -c "grep -q 'safe-exec gate:' <<< '$_mout'"
+_mout="$( cd "$_pm" && HOME="$_RH" REIN_SYNC_MINIMAL=1 REIN_E247_FORCE_FAIL=stale_servers bash "$AI" sync 2>&1 )"
+assert_status 1 "E-247.05a: REIN_SYNC_MINIMAL=1 stops after provisioning (the last step never runs)" \
+  bash -c "grep -q '✗ stale_servers' <<< '$_mout'"
 assert_contains "E-247.05b: and says why it stopped, rather than looking finished" \
   "REIN_SYNC_MINIMAL=1" "$_mout"
 assert_status 0 "E-247.05c: the minimal path still exits 0" \
@@ -160,26 +166,12 @@ assert_status 0 "E-247.06e: the generated-artefact .gitignore was written (E-233
 assert_status 0 "E-247.06f: and it names an artefact sync regenerates" \
   grep -q '_SKILLS_INDEX.md' "${_pr}/.gitignore"
 
-# ── E-339 (D-107 r3): the gate sync leaves behind is probed ─────────────────────
-# A HOME whose install mirror has no safe-exec analyzer is the shape that blocked every Bash
-# call after the 2026-10-23 sync. Sync and doctor both say so with the repair command; sync
-# never runs the installer itself (r4). The probe and the hook share one file: the analyzer
-# invocation lives in src/shared/gate-probe.sh only.
+# ── E-339 (D-107 r3) → E-463: sync's gate probe went with the gate; doctor's MCP-path check stays ──
 _ph="$(test_tmpdir e339home)"
 tc_fixture_home "$_ph"   # E-345 (D-109 r1): the toolchain record the hooks pin
 # E-339.07f (a real ast-parser exit 1 as the repo_map ✗ line) went with the REPO_MAP step
 # (E-467); E-346.03a below pins a real step's stderr tail as its ✗ line (D-107 r2).
 _pb="$(_proj)"
-_bout="$( cd "$_pb" && HOME="$_ph" bash "$AI" sync 2>&1 )"
-_brc=$?
-assert_match "E-339.07a: sync prints ✗ gate_check: [SAFE_EXEC_BROKEN] with the repair command" \
-  '✗ gate_check: \[SAFE_EXEC_BROKEN\] .* — run: bash install-rein\.sh' "$_bout"
-assert_status 0 "E-339.07b: and exits 1" bash -c "[[ '$_brc' -eq 1 ]]"
-assert_match "E-339.07g: and the failure is counted" \
-  'steps: [0-9]+ ok, [0-9]+ skipped, 1 FAILED' "$_bout"
-_dout="$( cd "$_pb" && HOME="$_ph" bash "$AI" doctor 2>&1 )"
-assert_contains "E-339.07c: doctor prints the same [SAFE_EXEC_BROKEN] finding" \
-  "[SAFE_EXEC_BROKEN]" "$_dout"
 # E-409 (D-143 r2b/r3, extends E-339.07c at the process boundary; the rule's table is
 # tests/unit/mcp-paths.test.mjs): doctor counts servers whose path is dead AFTER expansion. The
 # `${VAR:-default}` form is the case the old os.path.expandvars check could not see.
@@ -188,11 +180,6 @@ _drc=0; _dout="$( cd "$_pb" && HOME="$_ph" bash "$AI" doctor 2>&1 )" || _drc=$?
 assert_contains "E-409.06a: rein doctor counts servers whose expanded paths do not exist" \
   "✗ [MCP_PATHS_MISSING] 2 servers point at paths that do not exist — run: rein sync" "$_dout"
 assert_status 0 "E-409.06b: …and fails (rc=${_drc})" test "$_drc" -ne 0
-assert_status 1 "E-339.07d: the hook and src/bin/rein carry no analyzer invocation of their own" \
-  grep -nE -- '--check(-path)? "\$' "${REPO_ROOT}/hooks/pre-tool-use.sh" "${REPO_ROOT}/src/bin/rein"
-assert_status 0 "E-339.07e: gate-probe.sh carries it" \
-  grep -qE -- '--check "\$' "${REPO_ROOT}/src/shared/gate-probe.sh"
-
 # ── E-346 (D-109 r2): step logs are mktemp'd and reaped ──────────────────────────
 # A private TMPDIR so the reaper's victims and survivors are the only files there. The old
 # fixed name `rein-sync-<step>.<pid>.log` is pre-planted as a symlink: the pid is known because
@@ -277,12 +264,7 @@ printf '%s\n' 'process.stderr.write("probe crashed\n"); process.exit(3);' > "$_r
 _sl="$( cd "$_pl" && bash -c "source '$AI' >/dev/null 2>&1; rein_locate() { printf %s '$_rh/probe.mjs'; }; _sync_step stale_servers _report_stale_servers; echo failed=\$_SYNC_STEPS_FAILED" 2>&1 )"
 assert_match "E-346.04a: a crashing build-stamp probe is ✗ stale_servers, not 'no stale servers'" \
   '✗ stale_servers: probe crashed' "$_sl"
-_cp="$(test_tmpdir e346cb)/cb.py"
-printf '%s\n' 'print("ERROR\tKeyError: boom"); raise SystemExit(6)' > "$_cp"
-_cl="$( cd "$_pl" && HOME="$_rh" bash -c "source '$AI' >/dev/null 2>&1; _cb_py() { printf %s '$_cp'; }; _sync_step classifier _classifier_refresh_all; echo failed=\$_SYNC_STEPS_FAILED" 2>&1 )"
-assert_match "E-346.04b: a classifier refresh ERROR is ✗ classifier (it printed ✗ and counted ok)" \
-  '✗ classifier: .*could not refresh .*KeyError: boom' "$_cl"
-assert_contains "E-346.04c: and counted FAILED" "failed=1" "$_cl"
+# E-346.04b/c (a classifier refresh ERROR) went with the classifier backstop (E-463).
 
 echo ""
 

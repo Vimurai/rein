@@ -51,7 +51,6 @@ These are left as they were (D-170 r7) and are not part of the lean-core keep li
 | `rein ci hosted\|budget` | The hosted check and the test budget: [CI](ci.md). |
 | `rein release stage\|manifest\|sign\|verify` | Building and verifying a signed release: [App contract](app-contract.md). |
 | `rein account list\|add\|remove\|sync` | Extra Claude Code accounts: [Accounts](accounts.md). |
-| `rein gate off\|on\|status`, `rein ledger` | The command gate's operator escape and its ledger; they leave with the gate (E-463). |
 | `rein clean [--apply] [--restore <date>]` | List, then move to a dated trash, what older versions left behind. |
 | `rein task done <id>` | The older form of `rein done`, through the same gates. |
 | `rein uninstall`, `rein version` | Remove `~/.rein`; print the version. |

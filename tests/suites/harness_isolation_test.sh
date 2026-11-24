@@ -705,8 +705,8 @@ export REPO_ROOT
 export CHECKER_URL="file://${REPO_ROOT}/src/shared/standards-checker.mjs"
 # Floor 50: E-302 (D-088) consolidated the bash suites from 146 to 45 by design, so tests/ now
 # holds ~58 .sh files (was ~160 under the old floor of 100); 50 still fails an empty or
-# half-built corpus.
-_trap_corpus="$(cd "$REPO_ROOT" && corpus_or_fail 50 tests -- -name "*.sh")"
+# half-built corpus. Floor 35: E-467 and E-463 (the gate's suites) left ~43 .sh files.
+_trap_corpus="$(cd "$REPO_ROOT" && corpus_or_fail 35 tests -- -name "*.sh")"
 _trap_corpus_rc=$?
 _TRAP_CORPUS_FILE="$(test_tmpdir e241-corpus)/corpus.txt"
 printf '%s\n' "$_trap_corpus" > "$_TRAP_CORPUS_FILE"
@@ -783,7 +783,7 @@ _hostile() {
   ( cd "$REPO_ROOT" && env -u REIN_CI -u CI REIN_PANE_ROLE=architect REIN_CALLER_ROLE=architect \
       REIN_WORKSPACE=/nonexistent REIN_TEST_NO_SWEEP=1 bash tests/run.sh "$1" ) 2>&1
 }
-for s in git_lane_test role_token_test mcp_servers_test; do
+for s in git_lane_test locator_policy_test mcp_servers_test; do   # role_token_test went with the gate (E-463)
   _out="$(_hostile "${s}.sh")"; _rc=$?
   assert_status 0 "E-264.03a: ${s} passes when the harness inherits the Architect pane's exports" \
     test "$_rc" -eq 0

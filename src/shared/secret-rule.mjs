@@ -1,6 +1,6 @@
 // secret-rule.mjs — E-287 (D-078, sovereignty-hardening.md §Secret Rule Precision).
 // Lives in src/shared/ (SECURITY.md lean-core round F5): publish-scan.mjs (the privacy gate) and
-// safe-exec both import it, so retiring safe-exec (E-463) cannot break the privacy gate.
+// the seatbelt (mcp/safe-exec-mcp/seatbelt.mjs, advice) both import it.
 //
 // SECRET_IN_COMMAND used to fire on a KEYWORD followed by any four characters, so prose
 // matched: a heredoc naming "token usage", a commit message titled "Secret Rule

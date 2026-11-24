@@ -17,9 +17,8 @@ through the same library, so a session that has no MCP connection can still keep
 
 The Architect's session loads this server only (`--strict-mcp-config`).
 
-**Until E-463.** The `.mcp.json` of a project still lists a second server: the analyzer behind
-the command gate. It leaves with the gate. See
-[The role sandbox](role-sandbox.md#known-limits).
+A `.mcp.json` written before E-463 may still list `safe-exec-mcp`; `rein sync` regenerates it
+with the one server.
 
 ## When it misbehaves
 

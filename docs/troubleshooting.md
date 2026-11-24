@@ -21,7 +21,7 @@ can.
 | `rein done` refuses: `[CI_GATE]` | `rein ci status --short` | `rein ci run` on HEAD. |
 | `add_task` refuses a task | The message names the missing part. | Add a tier, start with an imperative verb, end with `Acceptance:` naming a command, a file or a count. |
 | Push refused | Lane ledger or CI? The message says which. | `rein ci run`; `rein ci log --failed`. An Architect commit outside its lane is not pushed. |
-| A command was refused by the command gate | The refusal names the rule. | Rephrase. For you, in your own terminal: `rein gate off --minutes 15 --reason "…"`. The gate leaves with E-463. |
+| Claude Code asks before a command with `[SEATBELT]` | The seatbelt matched one of its three classes. | Approve it if you meant it; it is advice. A refusal that names a path or a network host is the sandbox: see [The role sandbox](role-sandbox.md). |
 | Tasks differ between machines | `rein doctor` state health | `rein state import` (lossless). Avoid `rein migrate-state`: it rebuilds from `TASKS.md` and drops summaries. |
 | A closed task is missing from `TASKS.md` | `TASKS.md` lists open tasks only. | `rein task show <id>`. |
 | `DIGEST.md` looks stale | `rein digest check` | `rein digest build` (session start and `rein done` run it too). |

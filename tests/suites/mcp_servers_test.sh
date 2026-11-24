@@ -2,8 +2,8 @@
 # mcp_servers_test.sh — the custom MCP servers as processes: each exists, parses, is registered
 # and answers real JSON-RPC (E-49, E-27); a long-running server announces a stale build (E-249)
 # and reloads a changed policy (E-237); the P-7 bounded read. E-302 merged these suites here;
-# each section names its source. E-467 (D-170 r5) retired every server but task-synchronizer-mcp
-# and safe-exec-mcp (held until E-463), and the sections that tested the retired ones.
+# each section names its source. E-467 (D-170 r5) retired every server but task-synchronizer-mcp,
+# and E-463 retired safe-exec-mcp as a server (its directory holds the seatbelt CLI only).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,7 +18,7 @@ REGISTRY="${REPO_ROOT}/src/config/registry.json"
 echo "── Suite: mcp_servers_test ──────────────────────────────────────────"
 
 # ── 1. All custom MCP servers exist and pass Node.js syntax check ─────────────
-for server in task-synchronizer-mcp safe-exec-mcp; do
+for server in task-synchronizer-mcp; do
   index="${MCP_DIR}/${server}/index.js"
   assert_exists "$index"
   assert_status 0 "${server}: syntax valid" node --check "$index"
@@ -39,9 +39,12 @@ names = [n for n, v in reg.get('mcp_servers', {}).items() if 'path' in v]
 print(' '.join(names))
 " "$REGISTRY")
 
-for server in task-synchronizer-mcp safe-exec-mcp; do
+for server in task-synchronizer-mcp; do
   assert_contains "registry has entry for ${server}" "$server" "$custom_servers"
 done
+# E-463: safe-exec-mcp is not a server any more; no generated .mcp.json names it.
+assert_not_contains "safe-exec-mcp removed from registry.json" "safe-exec-mcp" "$custom_servers"
+assert_status 1 "safe-exec-mcp ships no server entry point" test -e "${MCP_DIR}/safe-exec-mcp/index.js"
 
 # ── 4. E-276 (D-075): context-invoker-mcp is retired ──────────────────────────
 # Its only job was loading skills/agents over MCP; the Skill and Agent tools do that
@@ -76,7 +79,6 @@ declare -a CASES=(
   "task-synchronizer-mcp:add_task"
   "task-synchronizer-mcp:update_task_status"
   "task-synchronizer-mcp:validate_payload"
-  "safe-exec-mcp:analyze_command"
 )
 
 for row in "${CASES[@]}"; do
@@ -315,20 +317,19 @@ assert_status 0 "E-249.03h: the stamp rides on the shared instrument() intercept
 _instrumented="$(grep -lE '^\s*instrument\(server' "${REPO_ROOT}"/src/mcp/*/index.js | wc -l | tr -d ' ')"
 # Compared with the registry, not a literal: D-075 retires servers (E-276..E-279), and a
 # hard-coded floor of 20 failed the moment the count legitimately dropped below it. The
-# per-server check also lives in tests/unit/telemetry.test.mjs (E-277, the mcp_telemetry rows); >=2 guards a
-# vacuous glob (E-467 left two servers). Every REGISTRY server must be instrumented.
+# per-server check also lives in tests/unit/telemetry.test.mjs (E-277, the mcp_telemetry rows); >=1 guards a
+# vacuous glob (E-463 left one server). Every REGISTRY server must be instrumented.
 _uninstrumented="$(node -e "const r=require(process.argv[1]); for (const [n,v] of Object.entries(r.mcp_servers)) if (v.path) console.log(n)" "${REPO_ROOT}/src/config/registry.json" \
   | while read -r _s; do grep -qE '^\s*instrument\(server' "${REPO_ROOT}/src/mcp/${_s}/index.js" 2>/dev/null || printf '%s ' "$_s"; done)"
 assert_status 0 "E-249.03i: every registry server is instrumented (${_instrumented} instrumented; missing: ${_uninstrumented:-none})" \
-  bash -c "[[ -z '${_uninstrumented}' && '${_instrumented}' -ge 2 ]]"
+  bash -c "[[ -z '${_uninstrumented}' && '${_instrumented}' -ge 1 ]]"
 
 # ── §4: THE REFUSAL (D-067 §3) — state-db and the projectors are not hot-reloaded ──
 # E-237 hot-reloads four POLICY modules. The ruling refuses to extend that to state. This
 # is asserted because the tempting "fix" for everything above is to hot-reload the lot, and
 # nothing else in the tree would object.
 assert_status 1 "E-249.04a: state-db is not in the hot-reload set" \
-  grep -qE 'loadPolicy\(.*state-db' "${REPO_ROOT}/src/mcp/shared/load-policy.mjs" \
-    "${REPO_ROOT}"/src/mcp/*/index.js
+  grep -qE 'loadPolicy\(.*state-db' "${REPO_ROOT}"/src/mcp/*/index.js
 assert_status 0 "E-249.04b: the refusal is recorded where the mechanism lives" \
   grep -q 'never patched live' "$STAMP"
 
@@ -408,93 +409,11 @@ assert_status 1 "E-249.05g: REIN_BUILD_STAMP=0 releases the gate" \
 
 echo ""
 
-# ── E-237 (from policy_hot_reload_test — E-302): a long-running server must not serve a stale policy ──
-# An MCP server is spawned once and lives for the whole session, and ESM caches a module by
-# URL forever — so a policy refreshed by `rein sync` never reached the running process.
-# Throughout the 2026-09-09 sprint `run_review` reported a P0 PATH_TRAVERSAL on
-# `source "${SCRIPT_DIR}/../lib/assert.sh"` while the on-disk traversal-policy.mjs graded
-LOADER="${REPO_ROOT}/src/mcp/shared/load-policy.mjs"
-
-
-assert_status 0 "E-237.01a: the loader exists" test -f "$LOADER"
-assert_status 0 "E-237.01b: it exports loadPolicy"      grep -q "export async function loadPolicy" "$LOADER"
-assert_status 0 "E-237.01c: and a staleness reporter"   grep -q "export function policyStaleness" "$LOADER"
-assert_status 0 "E-237.01d: rollback env is honoured"   grep -q "REIN_POLICY_HOT_RELOAD" "$LOADER"
-
-# ── E-237.2: a rewritten policy is picked up, and an unchanged one is not ──
-# Both halves matter. The first is the bug; the second is the leak the fix must not cause.
-_reload_probe() {  # <mode> → observed values, space separated
-  MODE="$1" node --input-type=module -e '
-    const { writeFileSync, mkdtempSync } = await import("fs");
-    const { tmpdir } = await import("os");
-    const { join } = await import("path");
-    const { pathToFileURL } = await import("url");
-
-    // A throwaway policy module of our own, so the real ones are never touched.
-    const dir = mkdtempSync(join(tmpdir(), "e237-"));
-    const file = join(dir, "policy.mjs");
-    const write = (v) => writeFileSync(file, `export const verdict = ${JSON.stringify(v)};\n`);
-
-    const { loadPolicy, POLICY_PATHS, policyLoadCounts } =
-      await import(pathToFileURL(process.env.LOADER).href);
-    POLICY_PATHS["e237-probe"] = file;
-
-    write("P0");
-    const first = (await loadPolicy("e237-probe")).verdict;
-
-    // Unchanged: must NOT re-import.
-    const again = (await loadPolicy("e237-probe")).verdict;
-    const countAfterSame = policyLoadCounts()["e237-probe"];
-
-    // Rewritten — the `rein sync` event. mtimeMs is sub-millisecond, but bump the clock a
-    // little so the test does not depend on filesystem timestamp granularity: a
-    // whole-second stamp is exactly what made the E-229 re-exec inert.
-    await new Promise((r) => setTimeout(r, 20));
-    write("P1");
-    const third = (await loadPolicy("e237-probe")).verdict;
-    const countAfterChange = policyLoadCounts()["e237-probe"];
-
-    console.log([first, again, third, countAfterSame, countAfterChange].join(" "));
-  ' 2>/dev/null
-}
-export LOADER
-
-_out="$(_reload_probe hot)"
-read -r _first _again _third _cSame _cChange <<< "$_out"
-assert_contains "E-237.02a: the first load returns the policy on disk"        "P0" "${_first:-}"
-assert_contains "E-237.02b: an unchanged file returns the same policy"        "P0" "${_again:-}"
-assert_contains "E-237.02c: a REWRITTEN file is picked up (the actual bug)"   "P1" "${_third:-}"
-# The leak guard: one import for the first load, and still one after a no-change call.
-assert_contains "E-237.02d: an unchanged file is NOT re-imported (no leak)"   "1"  "${_cSame:-}"
-assert_contains "E-237.02e: a changed file is imported exactly once more"     "2"  "${_cChange:-}"
-
-# ── E-237.3: the rollback pins the first load ─────────────────────────────
-_pinned="$(REIN_POLICY_HOT_RELOAD=0 _reload_probe pinned)"
-read -r _p1 _p2 _p3 _pc1 _pc2 <<< "$_pinned"
-assert_contains "E-237.03a: pinned, the first load still works"              "P0" "${_p1:-}"
-assert_contains "E-237.03b: pinned, a rewrite is IGNORED (pre-E-237 behaviour)" "P0" "${_p3:-}"
-assert_contains "E-237.03c: pinned, the module is imported exactly once"     "1"  "${_pc2:-}"
-
-# ── E-237.4: the real consumers ask per request ───────────────────────────
-# E-237.04a/b (orchestrator's run_review reloaded the traversal policy per request) retired in
-# E-464: the review checks moved to `rein review` (src/shared/review-checks.mjs), a fresh process
-# per call, so there is no long-lived module cache to refresh.
-# E-237.04c-f (patch-mcp and propose-patch-mcp refreshed per request) went with those servers
-# (E-467, D-170 r5).
-
+# ── E-237: the policy hot-reload loader went with its last consumer (E-463; E-464 and E-467 retired
+# the others). What stays is sync's staleness notice. ──
 # ── E-237.5: `rein sync` reports a running server on an older policy ────────
 assert_status 0 "E-237.05a: rein sync has the staleness notice" \
   grep -q '_report_policy_staleness' "${REPO_ROOT}/src/bin/rein"
-
-# ── E-237.6: mirrors ─────────────────────────────────────────────────────
-if [[ -f "${HOME}/.rein/mcp/shared/load-policy.mjs" ]]; then
-  assert_status 0 "E-237.06a: ~/.rein mirror of the loader matches src" \
-    diff -q "$LOADER" "${HOME}/.rein/mcp/shared/load-policy.mjs"
-else
-  # E-236: an absent install is a SKIP, counted separately. A pass here would claim the
-  # mirror had been verified when nothing was compared.
-  _skip "E-237.06a: ~/.rein mirror comparison (framework not installed)"
-fi
 
 echo ""
 

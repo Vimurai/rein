@@ -138,8 +138,10 @@ A commit never waits on a review; closing the task does. → [Review by tier](do
 - **Git hooks**: pre-commit, pre-push, post-commit, state import.
 - **Role settings files** with the sandbox, under `~/.rein/roles/`.
 
-The older command gate (a PreToolUse hook) still runs beside the sandbox until task E-463
-removes it. Everything else from v0.5.0 was removed by D-170; tag `v0.5.0` holds it.
+A small seatbelt (a PreToolUse hook) asks before a recursive `rm` of home, root or the project,
+a download piped into a shell, or a secret in a command. It is advice; the sandbox is the boundary.
+The older command gate was removed by E-463, and everything else from v0.5.0 by D-170; tag
+`v0.5.0` holds them.
 
 All guides: [docs/](docs/README.md) · what Rein adds: [docs/how-it-works.md](docs/how-it-works.md)
 · the sandbox: [docs/role-sandbox.md](docs/role-sandbox.md).

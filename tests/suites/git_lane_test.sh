@@ -16,19 +16,17 @@ source "${SCRIPT_DIR}/../lib/assert.sh"
 source "${SCRIPT_DIR}/../lib/toolchain-fixture.sh"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 HOOK="${REPO_ROOT}/hooks/pre-commit.sh"
-SAFE_EXEC="${REPO_ROOT}/src/mcp/safe-exec-mcp/index.js"
 
 echo "── Suite: git_lane_test (E-214) ─────────────────────────────────────"
 
 _RC=0   # declared up front: the suite runs under `set -u`
 
-# E-294 (D-087, Component 8g): pre-commit resolves the role from four sources, in order —
-# (1) a CLAUDE_CODE_SESSION_ID whose token VERIFIES → record,
-# (2) a live launch record on the commit process's chain → chain, (3) a session id that does
-# not verify → union (architect), (4) the advisory env, then engineer. Every hook run below
-# uses a throwaway HOME (rule 6) whose ~/.rein/{mcp,shared} are this checkout's src/ — the
-# hook locates safe-exec and launch-record.py there (never the operator's install, and never
-# a launch record on the operator's own process chain). Real sessions come from as-session.sh.
+# E-294 (D-087, Component 8g), E-463: pre-commit resolves the role from two sources, in order —
+# (1) a live launch record on the commit process's chain → chain, (2) the advisory env, then
+# engineer. Every hook run below uses a throwaway HOME (rule 6) whose ~/.rein/{mcp,shared} are
+# this checkout's src/ — the hook locates launch-record.py there (never the operator's install,
+# and never a launch record on the operator's own process chain). Real sessions come from
+# as-session.sh.
 GH="$(test_tmpdir glhome)"
 mkdir -p "${GH}/.rein"
 tc_link_shared "$GH"   # E-345 (D-109 r1): mirror = this tree + the toolchain record the hooks pin
@@ -148,19 +146,13 @@ assert_not_contains "E-214.06d: …with no CRITIC_STAMP request" "CRITIC_STAMP" 
 
 # ── E-214.7: role resolution prefers the HMAC record over the env ────────────
 # The record is authoritative: an architect-bound session cannot become the Engineer by
-# exporting REIN_CALLER_ROLE=engineer. E-294: the token is minted from a real launch record
-# and bound to the session process (as-session.sh), never from a role word in argv.
+# exporting REIN_CALLER_ROLE=engineer (a real launch record on the chain, as-session.sh).
 R10="$(_mkrepo)"
 ( cd "$R10" && echo z > src/impl.js && git add src/impl.js )
 _OUT="$( cd "$R10" && HOME="$GH" bash "$AS" architect e214-l -- env REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer \
          CLAUDE_CODE_SESSION_ID=e214-l bash "$HOOK" 2>&1 )"; _RC=$?
-assert_contains "E-214.07a: the HMAC record beats a forged REIN_CALLER_ROLE=engineer" \
+assert_contains "E-214.07a: the launch record beats a forged REIN_CALLER_ROLE=engineer" \
   "SOVEREIGNTY_BLOCK" "$_OUT"
-assert_status 0 "E-214.07b: --verify-role returns the recorded role inside its session" \
-  bash -c "cd '$R10' && [[ \"\$(HOME='$GH' bash '$AS' architect e214-v -- node --no-warnings '$SAFE_EXEC' --verify-role e214-v)\" == 'architect' ]]"
-assert_status 1 "E-214.07c: --verify-role exits 1 for an unknown session" \
-  bash -c "HOME='$GH' node --no-warnings '$SAFE_EXEC' --verify-role no-such-session >/dev/null 2>&1"
-
 # ── E-214.8: rollback escape hatch ──────────────────────────────────────────
 R11="$(_mkrepo)"
 ( cd "$R11" && echo z > src/impl.js && git add src/impl.js )
@@ -248,15 +240,6 @@ for _r in "Architect" "ARCHITECT" "architect "; do
     "SOVEREIGNTY_BLOCK" "$_OUT"
 done
 
-# S6 — `--verify-role --mint-token` was captured by the mint block, which exits 0
-# printing nothing, violating the contract that exit 0 means a role on stdout.
-assert_status 1 "E-214.10i: --verify-role is not captured by the mint mode scan" \
-  bash -c "HOME='$GH' node --no-warnings '$SAFE_EXEC' --verify-role --mint-\"\$(printf 'to')ken\" >/dev/null 2>&1"
-# The real mint path must still work — the fix binds modes to argv[2], so verify it.
-# E-294: minted the production way (launch record + `--mint-token <sid> <session pid>`).
-assert_status 0 "E-214.10j: the normal mint path still works after the argv fix" \
-  bash -c "cd '$REPO_ROOT' && [[ \"\$(HOME='$GH' bash '$AS' architect e214-m -- node --no-warnings '$SAFE_EXEC' --verify-role e214-m)\" == 'architect' ]]"
-
 # Round-2 nit: `read` folds EXTRA tab fields into the last variable, so a 4-field
 # record would hide a path inside path2 (`.ai/b<TAB>src/c` matches the .ai/* arm) while
 # the field counter still reported progress. Not reachable from git today, which is
@@ -278,14 +261,6 @@ _OUT="$( cd "$R16" && env HOME="$R16/fh" REIN_CALLER_ROLE=architect \
 assert_contains "E-214.10k: a 4-field diff record blocks (fail-closed)" "1" "$_RC"
 assert_contains "E-214.10l: and it says the shape was unexpected" "Unexpected diff record shape" "$_OUT"
 assert_not_contains "E-214.10m: a hidden 4th-field path never passes the lane" "ARCHITECT_LANE" "$_OUT"
-
-# Both CLI modes are argv[2]-bound, so neither can capture the other's arguments.
-# Prove WHICH mode handled the call: with no session token (E-294: the union, i.e. the
-# Architect's path rules — the env var below no longer selects anything), --check-path must treat
-# "--verify-role" as an ordinary (out-of-scope) path and exit 2. If the verify block had
-# captured the argv instead, it would exit 0 or 1 and never reach a path verdict.
-assert_status 2 "E-214.10n: --check-path handles its own argv, not --verify-role's" \
-  bash -c "HOME='$GH' REIN_CALLER_ROLE=engineer node --no-warnings '$SAFE_EXEC' --check-path --verify-role >/dev/null 2>&1"
 
 # ── E-218 / E-294: role resolution for the lane ─────────────────────────────
 # The path-scope BLOCK may act on every source — restricting is safe in the strict direction.
@@ -316,8 +291,8 @@ _e218_label() {
 _nostamp_ai() { local R; R="$(_mkrepo)"; ( cd "$R" && echo x > plans/n.md && git add plans/n.md ); printf '%s' "$R"; }
 _src()        { local R; R="$(_mkrepo)"; ( cd "$R" && echo z > src/x.js && git add src/x.js ); printf '%s' "$R"; }
 
-# ── Row 1: verified record ───────────────────────────────────────────────────
-assert_contains "E-218.01a: verified architect record, in scope, no stamp → passes" "rc=0 pass" \
+# ── Row 1: a launch record on the chain ───────────────────────────────────────────────────
+assert_contains "E-218.01a: architect record, in scope, no stamp → passes" "rc=0 pass" \
   "$(_e218_as "$(_nostamp_ai)" architect e218-a1 CLAUDE_CODE_SESSION_ID=e218-a1 REIN_CALLER_ROLE=engineer)"
 assert_contains "E-218.01b: env-only architect, in scope, no stamp → passes (E-464)" "rc=0 pass" \
   "$(_e218_verdict "$(_nostamp_ai)" CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=architect)"
@@ -325,15 +300,15 @@ assert_contains "E-218.01b: env-only architect, in scope, no stamp → passes (E
 # The RESTRICTION still acts on the env fallback — strict in both directions.
 assert_contains "E-218.02a: env-only architect is still path-restricted" "BLOCK" \
   "$(_e218_verdict "$(_src)" CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=architect)"
-assert_contains "E-218.02b: verified architect is path-restricted too" "BLOCK" \
+assert_contains "E-218.02b: an architect record is path-restricted too" "BLOCK" \
   "$(_e218_as "$(_src)" architect e218-a2 CLAUDE_CODE_SESSION_ID=e218-a2 REIN_CALLER_ROLE=engineer)"
 
 # Engineer unchanged in both directions.
-assert_contains "E-218.03a: engineer with a verified record commits src/ freely" "rc=0" \
+assert_contains "E-218.03a: engineer with a record commits src/ freely" "rc=0" \
   "$(_e218_as "$(_src)" engineer e218-e1 CLAUDE_CODE_SESSION_ID=e218-e1 REIN_CALLER_ROLE=architect)"
 assert_contains "E-218.03b: engineer with no stamp commits src/ (E-464: review is checked at DONE)" "rc=0 pass" \
   "$(_e218_as "$(_src)" engineer e218-e2 CLAUDE_CODE_SESSION_ID=e218-e2 REIN_CALLER_ROLE=engineer)"
-assert_contains "E-294.03c: a plain launch (no record → engineer token) commits src/ freely" "rc=0" \
+assert_contains "E-294.03c: a plain launch (no record → engineer) commits src/ freely" "rc=0" \
   "$(_e218_as "$(_src)" none e218-n1 CLAUDE_CODE_SESSION_ID=e218-n1)"
 
 # ── Row 2: a live launch record on the commit's process chain (no session id) ──
@@ -341,47 +316,19 @@ assert_contains "E-294.03c: a plain launch (no record → engineer token) commit
 # out of its lane.
 assert_contains "E-294.R2a: architect record on the chain, session id cleared → path-restricted" "BLOCK" \
   "$(_e218_as "$(_src)" architect e294-r2a CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer)"
-# Row 2 ranks above row 3: an engineer record on the chain beats a non-verifying session id
-# (row 3 alone would be the union and block src/).
-assert_contains "E-294.R2d: engineer record on the chain outranks a non-verifying session id" "rc=0 pass" \
-  "$(_e218_as "$(_src)" engineer e294-r2d CLAUDE_CODE_SESSION_ID=e294-not-a-session)"
-
-# ── Row 3: a session id present but not verifying → the union ────────────────
-assert_contains "E-294.R3a: an unknown session id (no record on the chain) is path-restricted" "BLOCK" \
+# A session id is a selector, never a role (E-463): with no record on the chain it is the
+# plain-launch default, whatever id it names.
+assert_contains "E-294.R3a: an unknown session id with no record commits as engineer" "rc=0 pass" \
   "$(_e218_verdict "$(_src)" CLAUDE_CODE_SESSION_ID=e294-no-such-session REIN_CALLER_ROLE=engineer REIN_PANE_ROLE=engineer)"
 
-# A session id BORROWED from another live session (T-GITLANE-001 residual 2, closed): its
-# token is HMAC-valid but bound to a process that is not an ancestor of this commit, so it
-# verifies nothing — the commit gets the union, not the other session's role.
-_bg_session() {  # <repo> <role> <sid> → starts a live session in <repo> in the background; prints its pid
-  local d="$1"; shift
-  local stop="${GH}/stop-$2"
-  ( cd "$d" && HOME="$GH" bash "$AS" "$1" "$2" -- \
-      bash -c 'i=0; while [ ! -e "$1" ] && [ -d "${1%/*}" ] && [ $i -lt 600 ]; do sleep 0.1; i=$((i+1)); done' _ "$stop" ) >/dev/null 2>&1 &   # REIN_SLEEP_ALLOWED: keep-alive loop of a child session shell (no assert.sh there); ends on the stop file
-  local pid=$!
-  on_exit "touch '${stop}'; wait_for '! kill -0 ${pid} 2>/dev/null' 3000 100 2>/dev/null; kill ${pid} 2>/dev/null || true"
-  wait_for "[ -e \"${GH}/.rein/run/role-$2.lock\" ]" 10000 100 || true
-  printf '%s' "$pid"
-}
-# Each borrowed session runs in the very repo the commit happens in, so the only thing that
-# differs from a legitimate commit is the process chain (not the project).
-_R3D="$(_src)"
-_BE_PID="$(_bg_session "$_R3D" engineer e294-live-eng)"
-assert_status 0 "E-294.R3d0: the live session holds a token (fixture)" \
-  test -f "${GH}/.rein/run/role-e294-live-eng.lock"
-assert_contains "E-294.R3d: a borrowed ENGINEER session id does not unlock src/ (union)" "BLOCK" \
-  "$(_e218_verdict "$_R3D" CLAUDE_CODE_SESSION_ID=e294-live-eng)"
-touch "${GH}/stop-e294-live-eng"
-wait "$_BE_PID" 2>/dev/null || true
-
-# ── Row 4: the advisory env (restrict-only), then engineer — covered by E-214.01–06 above ──
+# ── Row 2: the advisory env (restrict-only), then engineer — covered by E-214.01–06 above ──
 assert_contains "E-294.R4a: no session id, no record, env engineer → engineer behaviour" "rc=0 pass" \
   "$(_e218_verdict "$(_src)" CLAUDE_CODE_SESSION_ID= REIN_CALLER_ROLE=engineer)"
 
 # The role source must be RETURNED, not assigned inside a command substitution — a
 # variable set in the subshell never reaches the caller.
 assert_status 0 "E-218.04a: role source is returned as <source>:<role>" \
-  grep -q "printf 'record:%s'" "$HOOK"
+  grep -q "printf 'chain:architect'" "$HOOK"
 assert_status 0 "E-218.04b: the subshell trap is recorded in the comment" \
   grep -q "set in the SUBSHELL and lost" "$HOOK"
 assert_status 0 "E-218.04c: THREAT_MODEL item 4 is marked FIXED" \

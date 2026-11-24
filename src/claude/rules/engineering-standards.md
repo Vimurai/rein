@@ -8,7 +8,7 @@ paths:
 Encoded in `src/shared/standards.json` and checked through `validateFile` (`node scripts/standards.mjs`; E-467 took it out of pre-commit, so the `reviewer` judges the rest).
 
 - **File size**: source files stay ≤ 1000 lines (warn at 500). Split into focused modules — a
-  cohesive piece moves to its own file beside the original (e.g. `safe-exec-mcp/architect-writes.mjs`).
+  cohesive piece moves to its own file beside the original (e.g. `task-synchronizer-mcp/` modules).
 - **Reuse `src/shared/`** for common logic; do not copy a helper. A second copy is how two
   implementations of one policy drift apart.
 - **Filenames**: kebab-case (`review-checks.mjs`).
@@ -23,5 +23,5 @@ Encoded in `src/shared/standards.json` and checked through `validateFile` (`node
 - **Suppressions (D-065)**: silence a false positive with `# standards:allow-<rule_id>` on the
   line or the line above; exempt a file BY NAME in `standards.json` with a one-line reason.
   Never loosen a pattern or narrow a rule's scope to make a finding go away.
-- **Fixture-first for gate code**: standards rules, hooks and harness primitives get the failing
+- **Fixture-first for check code**: standards rules, hooks and harness primitives get the failing
   fixture before the implementation — "which fixture would have caught this?"

@@ -1,7 +1,7 @@
 # THREAT_MODEL.md — Rein v2
 
 > Companion to `.ai/SECURITY.md`. Contains full threat entries for all external integrations and trust boundaries.
-> Last updated: 2026-09-07 (E-225 skills locator closed; E-226 read-only patch tools scoped)
+> Last updated: 2026-11-24 (E-463: seven command-gate entries folded into T-GATE-001; the boundary is the role sandbox)
 
 ---
 
@@ -258,21 +258,34 @@ project root       Xvfb :99 only       terminal TTY     subprocess (RO)      Tes
 
 ---
 
-### T-HITL-004: Gate Circumvention
+### T-GATE-001 — the command-text gate is retired; the boundary is the role sandbox (E-463, D-169 r2/r5, 2026-11-24)
 
-- **Component**: approval-mcp (system integration / registration)
-- **Category**: Security control bypass
-- **Severity**: P1 (High)
-- **Attack vector**: The gate is bypassed structurally: the server is not registered in `.mcp.json`, `safe-exec-mcp` or `trigger-audit` misses the Tier 3 classification, or a future refactor removes the `request_approval` call from the execution path. No error is raised; the operation silently proceeds.
-- **Impact**: Tier 3 operations execute without human consent. The bypass is undetectable without an audit reconciliation check.
-- **Mitigations**:
-  1. Register `approval-mcp` in `src/config/registry.json` and `.mcp.json`; add CI assertion that the registry entry is present.
-  2. `disable-model-invocation` must not suppress `request_approval` — the tool calls `readline`, not a model. Confirm this property is preserved in implementation.
-  3. Add an end-to-end CI test: known Tier 3 command → `safe-exec-mcp` emits `[TIER_3_RISK]` → `request_approval` is called (mock TTY, respond Y).
-  4. Post-task OASF reconciliation: `verification-mcp` or `orchestrator-mcp` must verify that every completed Tier 3 task has a corresponding approval record in `state.sqlite`. Flag any gap as a compliance violation.
-- **Residual risk**: Medium — requires end-to-end tests and audit reconciliation to fully close. Detection path (item 4) is partial mitigation.
-- **Status**: UNMITIGATED (E-10 not yet implemented)
-- **Owner**: Engineer (E-10)
+Replaces seven entries about the command-text gate, whose code E-463 deleted: T-HITL-004 (gate
+circumvention), T-HOOKABORT-001 (an aborted gate allowed the call), T-CLASSIFIER-001 (the
+auto-mode classifier backstop), T-ROLE-001 (the HMAC session role token), T-GATELEDGER-001 (the
+control ledger), T-GITCONFIG-001 (the Architect's git rule lists) and T-RMCWD-001 (RM_RF_ROOT's
+cwd forms). Their full text is in git history (tag `v0.5.0` and the commit before E-463).
+
+- **The boundary.** What a role may write, reach or run is decided by Claude Code's sandbox and
+  path rules in the role settings file `rein pane` passes to `claude --settings` (D-169 r3,
+  lean-core.md §Security, docs/role-sandbox.md). The escape suite
+  (`tests/suites/sandbox_escape_test.sh`) proves the five guarantees by running real sessions;
+  the routes found against it are T-SANDBOXLANE-001.
+- **What is left of the gate: the seatbelt.** `hooks/pre-tool-use.sh` →
+  `mcp/safe-exec-mcp/seatbelt.mjs`, one table of five rows in three classes (a recursive `rm` of
+  home, root or the project root; a download piped into a shell; a secret in the command). It
+  answers `ask`, fails open, and is ADVICE: not a security control, no pen-test round, no new
+  spellings. A miss is recorded as a miss, not as a finding.
+- **The role, after the token.** The session-start role stamp and pre-commit's Architect lane
+  read the most restricted live launch record on the process chain (`launch-record.py`, written
+  only by `rein pane`). Same-uid ceiling, accepted: the operator's uid can write a record; inside
+  a role session the sandbox write-denies `~/.rein`, so a session cannot. A plain launch is
+  `engineer`, marked unverified. The lane is a belt behind the sandbox, not the boundary.
+- **Accepted, recorded at the deletion.** No text rule now stops an Engineer command that the
+  sandbox allows (the Engineer may delete the project directory; git and the remote recover
+  committed work — lean-core.md §Security). The team-mode claim check (`claimGate`) lost its
+  write-time caller with the gate. The time-boxed operator override and `rein gate` went with it.
+- **Status**: ACCEPTED (E-463). **Owner**: Architect (the boundary), Engineer (the seatbelt).
 
 ---
 
@@ -848,223 +861,6 @@ Rein hooks either way: the exec-form `args` carry the absolute path and contain 
 
 ---
 
-### T-HOOKABORT-001 — a gate that aborts, hangs or misparses ALLOWS the call (security_engineer, E-292 review, 2026-10-01)
-
-**Status**: MITIGATED by E-292 (D-082 r2, D-084 r2). Residuals below.
-
-**Threat**: Claude Code treats every PreToolUse exit other than 2 as "allow", and a timed-out
-hook does not block. Before E-292 each of these was an allow path in `hooks/pre-tool-use.sh`
-(each measured against the E-291 tip `fe964a1` in `tests/suites/gate_abort_test.sh`):
-- an unbound variable under `set -u` (rc 1), top level or inside a function;
-- the payload parser failing (malformed JSON; a lone surrogate `\ud800` in `command` or
-  `file_path` made `.encode()` raise AFTER `Bash` was printed) → empty `CMD`/`TOOL` → exit 0;
-- the analyzer-absent backstop under `pipefail`: `printf | grep -q` SIGPIPEs once grep matched
-  and exited, so `rm -rf /` followed by 60,000 lines read as "no match";
-- an analyzer stuck in a synchronous loop or a catastrophic regex: an in-process timer never
-  fires there, and Claude Code's own hook timeout lets the call through.
-A syntax error was NOT an allow path: bash exits a script with status 2 on one (measured).
-
-**Mitigation (E-292)**: every hook's first executable line is an inline-string EXIT trap
-(builtins only; the prologue's `unset -f` cannot delete it; `-p` stops `BASH_ENV`/imported
-functions from redefining `trap`). A deliberate exit is `exit` WITH the hook's own codes
-(`$BASH_COMMAND` + rc); anything else — `exit $UNSET` included — is an abort: the fail-closed
-gates (pre-tool-use, pre-commit, pre-push) exit 2 with `[GATE_INTERNAL_ERROR] <hook> aborted
-(rc N near line L) — run: rein doctor`; TERM/HUP/INT/PIPE block too. Fail-open hooks exit 0 and
-write ONE `HOOK_ABORT` incident (fixed fields only; the tracker's env opt-out is ignored for
-it). The parser validates and encodes every field before printing one block closed by an `OK`
-sentinel; anything short of that blocks. The backstop uses here-strings. The analyzer runs
-under a 10 s wall clock from OUTSIDE (`/usr/bin/perl -e 'alarm 10; exec …'`, rc 142 → reported
-as rc 4 TIMEOUT) plus an unref'd in-process timer (exit 4); hook entries carry `timeout: 30`.
-The prologue drops `PERL*` (`PERL5OPT`/`PERL5LIB` would load a project's module into the gate).
-
-**Residuals (accepted, D-082 r2)**:
-- SIGKILL of the hook, or Claude Code's own timeout firing first: no trap runs.
-- A signal is handled only after the running foreground child (node, python3) exits — up to
-  the 10 s wall clock.
-- An abort inside `$( … )` ends only that subshell; each such value on a path to `exit 0` is
-  checked by hand (the parser now; the locator and `rein_tc_missing` degrade to a block or
-  the backstop). New `$( … )` on an allow path needs the same review.
-- A fail-open hook that aborts BEFORE the pin loads records nothing (no trusted node).
-- A host without `/usr/bin/perl` keeps only the in-process timer (bounds async waits, not a
-  synchronous loop).
-- Heredoc exemption (D-084, `safe-exec-mcp/heredoc.mjs`): a body is hidden from every rule
-  only when a shell lexer finds a top-level `cat`/`tee` consumer writing plain files, and no
-  later line could run them. A file written now and executed by a LATER Bash call is beyond
-  any per-command scan — the same reach as writing it with the Write tool.
-
----
-
-### T-CLASSIFIER-001 — the auto-mode classifier backstop (security_engineer, E-293 review, 2026-10-01)
-
-**Status**: OFFERED by E-293 (D-083 r5(iii), D-086). Residuals below.
-
-**Why this layer**: the safe-exec gate runs as the operator's uid, so a same-uid agent can in
-principle reach it (D-083 r5). The auto-mode classifier reads its rules from the OPERATOR's
-`~/.claude/settings.json`; a project's `.claude/settings.json` / `settings.local.json` `autoMode`
-is ignored (measured, Claude Code 2.1.287 — D-080). One `autoMode.hard_deny` prose rule there
-("Rein Gate Tamper (D-086)", verbatim from DECISIONS.md) is a second, independently configured
-gate. `hard_deny` is unconditional — no intent or `allow` entry clears it.
-
-**Mechanism**: `rein install` offers it (y/N, default N; never without a terminal or under CI);
-`src/shared/classifier-backstop.py` is the only reader/writer — strict parse (duplicate keys,
-NaN, wrong shapes refused; a JSONC comment or trailing comma is REFUSED, because Claude Code
-itself silently drops such a file), re-serialised in Claude Code's own format, `$defaults` only
-when `hard_deny` was absent, an outdated labelled copy replaced in place, symlink written through
-(regular file, own uid, one link), one `.bak` on first write, atomic replace with a concurrent-
-change abort. `rein doctor` reports present / not configured / outdated / unparsable, the effective
-default permission mode, a `hard_deny` without `$defaults`, and any `Bash(ai…` allow rule.
-
-**Residuals (accepted, D-086)**:
-- The classifier runs only in auto mode; in `bypassPermissions` (or default/acceptEdits) the hook
-  is the only gate. No Rein launch path sets a mode; `rein doctor` prints the effective one.
-- A prose rule can be evaded by indirection the classifier fails to connect (D-084 r4).
-- A narrow `permissions.allow` rule such as `Bash(ai:*)` resolves BEFORE the classifier — doctor warns.
-- `CLAUDE_CONFIG_DIR` may point Claude Code at another settings directory — doctor warns.
-- The exempt list (D-086) is the rule's only hole; widening it is a D-ruling.
-- `claude auto-mode critique` needs the network and runs only in the operator's terminal.
-
----
-
-### T-ROLE-001 — the session role: launch records and the bound token (E-294, D-083 r9, D-087)
-
-**Status**: MITIGATED by E-294. Residuals below.
-
-**Threat**: a session obtains a LESS restricted role than the one it was launched with — the
-Architect writing `src/`, pushing, or collecting the stamp waiver. Before E-294 the role came
-from the launch environment (`REIN_PANE_ROLE`, which a project's settings `env` reaches —
-the T-LOCATOR-001 class), a mint took the role from argv, a deleted token could be re-minted
-at any role, and `CLAUDE_CODE_SESSION_ID` selected any session's token.
-
-**Mechanism**: the invariant is *a role may only move toward restriction*.
-- `rein pane` is the one writer of `~/.rein/run/launch/<pid>.json` and refuses
-  (`[PANE_NESTED]`) under any live ancestor record; `src/shared/launch-record.py` is the one
-  implementation of the record format, the start-time read, the file discipline and the walk.
-- The walk is exhaustive (≤ 64 hops) and most-restrictive-wins; a record that fails the
-  discipline, or a live record for another project, yields no token (the union).
-- `--mint-token <sid> <session pid>` takes no role; the token (v2) binds pid + start time
-  into the HMAC; a five-row table never replaces an undisciplined file and only replaces a
-  dead process's token at the same or a more restricted role. v1 never verifies.
-- Verify: HMAC + the token's pid is the hook's PPID (hot path) or an ancestor of the verifier
-  with the recorded start time. No verified token → every role's blocks + `[ROLE_UNVERIFIED]`.
-- No environment input on a gate path; the inventory in sovereignty-hardening.md Component 8
-  is the contract (a new env read on a gate path is a D-ruling).
-
-**Residuals (accepted, D-087)**:
-1. **Programs the gate cannot read.** A script file handed to an interpreter, a provider
-   launched outside any Rein project or with settings that drop its hooks, or a launch
-   detached from the session's process chain is outside the per-command scan and outside
-   the walk. Measured: the Architect analyzer passes these shapes. The classifier backstop
-   (T-CLASSIFIER-001, auto mode only) is the cross-call layer; the shell gate is not widened
-   for it (D-056) — the next decision on this gate.
-2. **Same-uid ceiling.** The record, the token and the HMAC key are files the operator's uid
-   can write; touching `~/.rein/run/` is gated by `GATE_SELF_DISABLE`, the `~/.rein/**`
-   write block and the classifier rule. Removing BOTH a pane's record and its token returns
-   that pane to the plain-launch default (`engineer`) — never to a less restricted role than
-   that. Binding the role to something a session cannot remove is unfunded.
-   `GATE_SELF_DISABLE` is a TEXT scan, so it closes the ordinary spellings (the mirror from
-   HOME, relatively after entering HOME by any `cd` form or a `cd` that resolves there, `../`
-   chains, `<home>/.rein` from above, `find -delete/-exec`, inline interpreters after entering
-   HOME) but NOT the string-assembly class D-084 r4 already accepts: glob or quote-split names
-   (`.ai-o?`, `.a'i'-os`), a variable holding HOME (`D=~; cd $D`), a script written in one call
-   and run in the next. The classifier backstop (T-CLASSIFIER-001, auto mode) is the layer for
-   those.
-   *E-353 / D-112 r3 (security_engineer, 2026-11-18):*
-   - **Added to the Architect's sovereignty layer.** These forms block for the Architect:
-     - an assigned or aliased verb on the same line;
-     - the git exec keys include.path, includeIf, core.fsmonitor and core.sshCommand, by every
-       core.hooksPath spelling;
-     - GIT_CONFIG_GLOBAL, GIT_CONFIG_SYSTEM and HOME on a git line;
-     - GIT_DIR / GIT_WORK_TREE assigned on any line;
-     - the carriers yash, posh, lua, tmux and parallel.
-   - **RM_RF_ROOT, every role.** It gains `/bin`, `/opt`, `~+`, `~-` and `..` read from the text.
-   - **Closed in the fix round:** statically quoted, ANSI-C, array and operator-expansion
-     spellings of an assigned verb; `NAME+=` for HOME, GIT_CONFIG_* and GIT_DIR; `~+N`/`~-N` and the bare `~` + digits form,
-     `//root` and `/./root`, and quoted `..` for RM_RF_ROOT; `r=rm; $r -rf /` for every role.
-   - **Closed at re-check (E-353 SEC_CLEARED, 2026-11-18):** `rm -rf $PWD`, `${PWD}`, `"$PWD"`,
-     `${PWD:?}`, `$OLDPWD` and their `/` and `/*` suffixes. These are the values of `~+`/`~-`
-     under their variable names. `$(pwd)`, `${PWD%/*}` and other variables holding the cwd are
-     out of class and go to the follow-up.
-   - **Pre-existing, a High follow-up (E-438):** for the Architect, a quoted verb (`"git" push`) and git
-     global options before the subcommand (`git -C . push`) pass the base rules.
-     - *E-438 review (2026-11-18), SEC_BLOCKED:* the listed forms now block, through
-       `gitCommandView`. Still open, ruled P1 in E-438:
-       - unlisted global options (`--glob-pathspecs`, `--icase-pathspecs`, `--no-lazy-fetch`,
-         `--no-advice`, `--attr-source`), all live on git 2.53;
-       - the frozen shellCommands' quote-state bugs hiding the git command; a grammar-free second
-         reader is ruled;
-       - `${A:+-C .}` before the verb;
-       - `-C <other>` and core.worktree carrying `.ai/` targets into another tree, past the scope
-         check.
-     - *Re-check (2026-11-18 09:12):* the items above are closed.
-       - Still open (P1): ANSI-C and locale-quoted verb words (`$'push'`), a regression of the r3
-         expansion skip; and `.ai/../src/x` accepted by isSafeArchitectPath.
-       - Follow-up (P2): relocation by `cd` before an `.ai/` checkout.
-       - Accepted P3: the Architect-only over-block from the two-candidate option walk.
-     - *Third check (09:16):* the ANSI-C and `..` items are closed.
-       - Still open (P1): the grammar-free reader does not split on `<`/`>`; and adding
-         `(`/`)`/backtick splitting regressed ``git `echo -C` . push`` and
-         `git $(echo -C .) push`. The fix keeps both views; a new view may never unblock a row.
-       - Residual: brace expansion (`push{,}`).
-     - *Fourth check (09:19):* the 09:16 items are closed. Still open (P1): the grammar-free reader
-       keeps a redirect target as a word, so `git -C .>x push` and `git >x push` hide the verb
-       when shellCommands is confused. Fix: drop each redirect operator with its target.
-     - *Fifth check (09:22):* the redirect drop holds. Still open (P1): the named-fd prefix
-       `{fd}>f` is not dropped. A spaced `{fd}` and brace words stay ordinary words.
-     - *Sixth check:* closed; E-438 SEC_CLEARED. Remaining, not gating:
-       - `cd` relocation before an `.ai/` checkout (P2 follow-up);
-       - brace expansion of the verb (residual);
-       - the accepted Architect over-blocks. The same
-     follow-up covers:
-     - the remaining git exec keys and environment (`core.pager`, `alias.*=!`, `diff.external`,
-       `credential.helper`, `core.editor`, `GIT_SSH_COMMAND`, `XDG_CONFIG_HOME`);
-     - `/sbin`, `/lib`, `/lib64`, `/srv` as roots.
-   - **Recorded residual for the D-112 r3 carriers (Low; the classifier backstop covers them):**
-     - `luajit -e`;
-     - a command line piped into `parallel` (`echo cmd | parallel`), or composed by it
-       (`parallel git ::: push`);
-     - `HOME=<dir> make`;
-     - `ag --pager`.
-
-     PoCs: SECURITY.md "E-353".
-3. **`HOME` is the root of the whole gate stack** (D-087 r7). A project's settings `env`
-   cannot redirect it (measured, E-290); a nested launch can, which is residual 1's class.
-4. **After installing E-294 every running session holds a v1 token and is in the union until
-   relaunched** — by design (D-087 r4); the installer and `rein doctor` say so.
-   **As measured (2026-10-04, the case E-304 closed):** a HALF-installed gate is worse than
-   either version. `rein sync` in another project copied E-294's UNCOMMITTED hooks from the
-   developer's working tree into `~/.rein/hooks` — twice (14:00, 14:40) — while `mcp/` and
-   `shared/` stayed pre-E-294. The new SessionStart hook minted against the old safe-exec
-   (a garbage token), and the new pre-commit put every unverified session into the union, so
-   every commit in every project hit the Architect lane and other panes advised the operator
-   to set `REIN_SKIP_GIT_LANE=1`. Reinstalling from a clean worktree did not stop it: an
-   exported `REIN_WORKSPACE` in the operator's profile beat the persisted record. Since E-304:
-   `rein sync` never writes the mirror, the installer refuses a dirty gate tree (`--allow-dirty`
-   is loud and stamped), stages and verifies the whole tree and syncs hooks LAST, and the
-   persisted workspace record wins over the environment.
-5. **`pre-commit` resolves its root through the committing process's `HOME`.** An agent can run
-   `HOME=<dir it controls> git commit` and supply its own key and token. Same strength as
-   `--no-verify` and `REIN_SKIP_GIT_LANE` (D-081 r5, D-087 r3/r7) — the git hooks are a
-   convenience gate, and the Bash gate does not block `--no-verify` either. The hook's rows 1–2
-   also run `node`/`python3` from the committer's PATH — the same class: the committer controls
-   that environment. Recorded, not fixed (critic_security P2-4 and 2nd-pass P2-3, E-294 review).
-
-**Fixed during the E-294 review (critic_security, two passes, 2026-10-04), regression-tested in
-`role_token_test.sh` R11, `safe_exec_test.sh` E-294.RH1 (table
-`tests/fixtures/gate-relative-home-cases.json`) and `tests/unit/gate-guard-home.test.mjs`:**
-- a failed process snapshot (e.g. `ulimit -u 1`) is an error — `prune` refuses instead of
-  deleting live records and every walk is the union (P1-1); a failed SPAWN of the module reads
-  as "unknown", never "dead" (2nd pass P2-1);
-- `GATE_SELF_DISABLE` covers the ordinary relative spellings listed under residual 2 (P1-2, two
-  passes) — not the string-assembly class;
-- `--verify-role` returns the more restrictive of the token's role and a walk from the verifier
-  that counts every live record by role whatever its project (restrict-only), so an `rein pane
-  architect` inside a plain session wins over the plain session's id (P2-1);
-- a refused mint deletes a v2 token only when its process is KNOWN dead (P2-2; D-087 said
-  "file untouched" — deviation reported to the Architect);
-- `caller-role.mjs` spawns the verifier with `process.execPath` (P2-3).
-
----
-
 ### T-PRIVACY-001 — automated writers publish private data into the tracked tree (security_engineer, E-379 review, 2026-10-28)
 
 The repository goes public (D-129), so every write into `.ai/`/`.claude/` is a publication. D-130
@@ -1403,183 +1199,6 @@ role_token_test R07 tmuxhalf/tmuxpane/tmuxrel, E-433.R01a-c.
   servers) is bounded by keeping the builtin fast path to PostToolUse/PostToolUseFailure, so
   Stop, UserPromptSubmit and PermissionDenied always clear their own pane; P4-1 (`tmux-target`
   ignores the record's project) is documented — the target is display state, never a role.
-
-### T-GATELEDGER-001 — the control ledger's evidence is unauthenticated and can be steered (security_engineer, E-432 review, 2026-11-18)
-
-**Status**: MITIGATED for items 1 and 3 as written (second pass, 2026-11-18). Item 2 is
-residual. **P3-6 is OPEN** and gates E-432 until it re-resists (SECURITY.md §E-432 second pass).
-
-**Threat**: under D-159 r8 (P-52), the Architect keeps, changes or retires gate rules based on
-the counts from `rein ledger`. Three weaknesses affect those counts:
-1. **The rule id can be chosen by the command.** The hook takes the rule id from the first
-   `- [ID]` or `### BLOCKED — ID` line of the safe-exec report. The report repeats the command
-   text before its verdict sections, so a command line `- [<LISTED_ID>]` picks the recorded
-   rule. Measured: a pipe-to-shell block was recorded as CHMOD_777.
-2. **Rows are unauthenticated.** Any same-user process can append rows to `tool_executions`
-   through `telemetry.mjs --record-tool` or SQLite. An Engineer-role agent can do this from the
-   repository tree. It can forge REJECTED/BYPASS pairs to raise `[CONTROL_NOISY]`, or hide fires
-   to raise `[CONTROL_QUIET]`.
-3. **Tool names are printed raw.** `tool_name` is free text. The ledger prints the `<x>` of
-   `mcp__<x>__` as is, which carries terminal escapes and instruction text into the Architect's
-   P-52 input (T-HITL-001 class).
-
-**Mitigation (proposed)**:
-- The analyzer prints the rule on a fixed `Rule: <ID>` line before the command echo, and only
-  that line is parsed.
-- Server ids are limited to `^[A-Za-z0-9_-]{1,64}$`.
-- Ledger output is labelled advisory.
-
-Standing bound: D-159 r8 keeps catastrophic and sovereignty rules without argument, so a
-forged quiet count cannot retire them.
-
-**Residual (accept on ruling)**: telemetry is not an authenticated log. A same-user writer can
-always add rows, so the ledger's numbers are evidence, not proof.
-
-**Addendum to T-HOOKABORT-001 (E-432)**: the E-432 tree adds a call that forks
-(`_gate_reject`) to the EXIT and signal traps. When fork fails (RLIMIT_NPROC or ENOMEM), bash
-exits 254 from inside the trap, and Claude Code treats that as an allow. Measured: the old
-builtins-only trap text exits 2 in the same conditions. The call must be removed before merge
-(SECURITY.md §E-432 P1-1). Traps stay builtins-only.
-
-**Second pass (security_engineer, 2026-11-18)**:
-- **Item 1, rule steering: fixed.** Every safe-exec BLOCK report prints `Rule: <ID>` as line
-  2, under a constant header and before any echo of the command or path. The hook and
-  `firstReportId` read only the first such line. Re-probe: command lines `- [CHMOD_777]` and
-  `Rule: …` (also behind NL, CR, U+2028 or a backtick break), 3000 `Rule:` lines
-  (INPUT_TOO_LARGE), `--check-path` targets ending `\nRule: …`, and a claimReport carrying
-  `Rule:` lines. Each was attributed to the analyzer's own id. Crash reports print no `Rule:`
-  line, so they record the bare bracket code.
-- **Item 3, raw rendering: fixed for tool names only.** A non-matching `mcp__<x>__` counts as
-  INVALID, and the header says the rows are unauthenticated.
-- **P3-6 (new, OPEN).** Two fields still reach the terminal raw:
-  - the gate row's `first`/`last` (`timestamp.slice(0,10)`, which needs a direct SQLite
-    writer). Measured: `\e[8m` (SGR conceal) and an OSC title rendered;
-  - configured server names from `.mcp.json` keys, with no length bound. Measured: an OSC key
-    rendered.
-  - Mitigation: an ISO-date check on rendered dates, and the server-id pattern on configured
-    names.
-- **The T-HOOKABORT-001 addendum: resolved.** Trap lines 47-48 are byte-identical to the base
-  and use builtins only. Measured under `ulimit -u 1`: abort and TERM exit 2, and the
-  first-pass trap mutant exits 254. A hook that aborts writes no row, so a missing
-  GATE_INTERNAL_ERROR row is not evidence that no abort happened. This is the named residual.
-
-### T-GITCONFIG-001 — the Architect's git rules as lists of keys, names and directory changes (E-453, D-167 r7–r9, 2026-11-23)
-
-**Status**: MITIGATED by rule (E-453). The residuals below are accepted by D-167 r9.
-
-**Threat**: E-440 and E-441 blocked git configuration and directory changes by listing spellings.
-Each security round found one more: eight environment names, seven keys, and other wrappers
-that change directory. A list misses the next spelling.
-
-**Mitigation (E-453)**:
-- **D-167 r7 — no configuration.** On a line that runs git, the Architect is blocked
-  (ARCH_GIT_EXEC_CONFIG) on:
-  - any `-c` or `--config-env` among git's global options, glued or spaced;
-  - any dynamic word in that position;
-  - any `git config` that is not a read;
-  - any assignment, export or setter-verb use of `GIT_*`, `EDITOR`, `VISUAL`, `PAGER`,
-    `XDG_CONFIG_HOME` or `HOME`.
-- **Round 1 (security_engineer F1–F8), fixed:**
-  - a `git config` read flag counts only before the first non-option word;
-  - `-c`/`--config` after `clone`, and a `-c key=value` after any subcommand, block;
-  - a dynamic word among the options blocks, including when there is no subcommand candidate;
-    so does `xargs git`;
-  - names are read from the decoded words, including a dynamic name after a setter and a
-    nameref;
-  - "a line that runs git" is decided by the readers, and the dashed `git-<sub>` counts;
-  - `{` starts a body where `.` leads, and `trap` counts as a directory change;
-  - the option walk shares one visited set per command, so it is linear.
-- **Round 2 (security_engineer G1–G4), gating; fixed in the tree, not re-tested — a third round is
-  the Architect's call (D-164 r6).** Each was proven in the harness to make git run a program:
-  - `git clone -qc k=v` / `--conf k=v` (bundle and abbreviation of `-c`/`--config`);
-  - `f='.git/config core.fsmonitor X'; git config --file $f --get` (a dynamic option value
-    splits into a write);
-  - `for HOME in DIR`, `declare -n r; r=HOME`, `declare -n r=$n`, `env -SHOME=DIR`;
-  - `x=HOME=DIR; env $x git status`.
-  Details: SECURITY.md "E-453 second pass". Fixes (Engineer, after the second pass):
-  - after `clone`, a short-option bundle holding `c`, or an abbreviated `--conf…`, blocks;
-  - a dynamic word anywhere in `git config`'s arguments is not a read;
-  - on a git line, these block: a `for`/`select` loop variable, any nameref declaration, and
-    env's `-S`/`--split-string`;
-  - a dynamic word between `env`/`sudo` and git blocks.
-- **D-167 r8 — wrappers are directory changes.** `env -C`/`--chdir`, `sudo -D`/`--chdir`,
-  `find -execdir`/`-okdir`, and `source`/`.` as the command word count in `gitRelocated`
-  (`git-view.mjs`). This is fail closed: the operand is not compared with the project root.
-
-**Residual (D-167 r9, accepted)**:
-- `cd -P` through a symlink planted under `.ai/`;
-- a `c[d]` glob;
-- `chroot`, `autocd` and `coproc`;
-- the over-block of a `cd` inside `$( )`;
-- the git operand scope reading past `&&` and `;`. `git checkout .ai/x && echo done` blocks for
-  the Architect; this over-block is accepted.
-
-**Residual (D-168 r7, accepted)**:
-- `PATH=` and `LESSOPEN=`;
-- configuration that arrives through a sourced file or stdin;
-- `nsenter --wd`, `tmux -c`, `systemd-run -d` and `--setenv`, `start-stop-daemon -d`;
-- `(( HOME = 5 ))`;
-- `HOME=x make` off a git line (E-353 does not catch it either);
-- the quadratic of the unclosed-brace scan: 726 ms at 15 KB, against 546 ms before E-453.
-
-**Accepted over-blocks of the rule (E-453; ratified by D-168 r5 and r6)**:
-- a harmless `-c` (`git -c core.quotepath=off status`), as D-167 r7 intends;
-- a `git config <key>` read without `--get`;
-- `git <unknown-option> <sub> -c`, from the two-candidate option walk;
-- a commit message whose quote-stripped text holds `EDITOR=…` (the same class as `HOME=` since
-  E-353).
-- a search or commit message whose quote-stripped text reads as a second command:
-  `git grep -n 'git config' src/` (security_engineer second pass, P3);
-- `trap - DEBUG` before an `.ai/` checkout (F7 fails closed on any trap);
-- a variable word between `env`/`sudo` and git (`sudo -u "$U" git status`; G4 fails closed);
-- any nameref declaration (`declare -n`) on a git line (G3 fails closed).
-
-**Observed, not ruled**: a code string re-analyses its text without the line's context. For
-example, in `cd /tmp && bash -c 'git checkout .ai/x'` the inner command is judged alone and keeps
-the `.ai/` exemption. This predates E-453 and holds the same for `cd`.
-
-### T-RMCWD-001 — RM_RF_ROOT's cwd and $HOME forms (E-454, D-167 r10, 2026-11-23)
-
-**Status**: MITIGATED (E-454). The residuals below are recorded by D-167 r10.
-
-**Threat**: a recursive force-remove of `$PWD` followed by `; ls` was a WARN. The cwd word matched
-only before whitespace or the end of the line, and the rule matches the whole line. Other cwd
-spellings were missed as well: `${PWD:-x}`, `$(pwd -LP)` and `$(builtin pwd)`.
-
-**Mitigation (E-454)**:
-- `${PWD|OLDPWD|HOME<any operator>…}` and `$( [builtin|command] pwd [options] )` (and the
-  backtick form) are the cwd or home.
-- A cwd or `$HOME` operand also ends at `;`, `&`, `|` or `)`.
-- The terminators are judged per simple command, and only for a command that may be the remove:
-  it has an rm word, or its head is not a plain literal word. So `echo $PWD` followed by a remove
-  of `dist` stays a WARN (E-440, D-163 addendum 2 r8 d).
-- No ruling made the `$HOME` form followed by `; ls` a WARN, so `$HOME` takes the same terminators.
-
-**Residual (D-167 r10)**:
-- `$(dirname $PWD)` and `$(realpath .)`;
-- `/lib32` and `/libx32` as roots;
-- a head built at run time with no literal rm token anywhere on the line (`${X:-rm}`). The
-  recursive-force test needs an rm token; this predates E-454.
-
-**From E-454 security pass 1 (EXPLOITED, gating; A2A ruling 2026-11-23T15:51Z on r10) — fixed by
-the Engineer after the pass, to be re-probed in round 2.** The fix: `CWD_WORD` gains the tilde
-forms, and `CWD_OPERAND` ends at `[\s;&|()<>]` or the end of the line. Each PoC below is a BLOCK
-row in operand-scope-cases.json. The R1/R2 residuals are pinned as WARN rows, except
-`$PWD""`: the quote-tolerant match already reads it as the cwd, so it is pinned BLOCK. R5 (time)
-is fixed: the directory change is found once by bisection, and a 300-heredoc time probe is in
-the unit cap test.
-- PoC G1 (P1): `rm -rf ~+;ls`, `(rm -rf ~+)`, `{ rm -rf ~-;}` and `rm -rf ~root;ls` are WARN.
-  The tilde forms end only at whitespace, a quote, `/` or the end of the line.
-- PoC G2 (P2): `rm -rf $PWD>/dev/null` and `rm -rf $(pwd)>&2` are WARN. A redirection operator
-  ends the word.
-- Ruled fix: the terminator set becomes the bash metacharacters (space, tab, newline,
-  `;` `&` `|` `(` `)` `<` `>`). It applies to every cwd and home word, `~+`, `~-` and `~user`
-  included, for every role.
-- Residual P3 by the same ruling:
-  - backslash-newline before a terminator;
-  - an empty-quote suffix (`$PWD""`);
-  - a quoted or indirect pwd (`$(\pwd)`, `$("pwd")`, `$(command -p pwd)`);
-  - the cwd fed through stdin (`echo $PWD|xargs rm -rf`, `xargs rm -rf <<<$PWD`).
 
 ### T-SANDBOXLANE-001 — three routes past the E-462 sandbox role boundary (security_engineer, lean-core round over E-462/E-467, 2026-11-24)
 

@@ -4,9 +4,8 @@
 #          open tasks, the heading of the last COMM.md handoff and one line per anomaly. It
 #          replaced the preflight skill and the E-126 blueprint cache; no blueprint text
 #          is injected (a blueprint is read when a task names it).
-#   E-129: mint a tamper-resistant role token for this session so the safe-exec
-#          gate (--check) reads the role from an HMAC-verified file, not the
-#          mutable REIN_CALLER_ROLE env var.
+#   E-463: the role stamp reads the launch record `rein pane` left on this process chain
+#          (shared/launch-record.py role); the HMAC role token went with the command gate.
 #
 # Claude Code SessionStart contract: a hook that prints JSON with
 # hookSpecificOutput.additionalContext has that text added to the session context.
@@ -44,10 +43,8 @@ unset _v _p
 
 # ── E-223 (D-057 §3): install-first helper resolution ────────────────────────
 # The locators below used to start at "$(git rev-parse --show-toplevel)/src/...", which
-# names the USER's repository, not the Rein install. Any project containing
-# src/mcp/safe-exec-mcp/index.js had THAT file executed by node from inside this hook,
-# with its stdout trusted to decide whether a write is allowed — cloning a repo was
-# enough to run its code and disable the gate meant to stop it.
+# names the USER's repository, not the Rein install: any project carrying a file at that
+# path had it executed from inside this hook — cloning a repo was enough to run its code.
 #
 # Bootstrapping the shared resolver must not repeat the mistake, so it is install-mirror
 # first and script-relative second — never the visited repo.
@@ -81,69 +78,43 @@ set -uo pipefail
 # D-172 r2a: the Architect's session (and so this hook) starts in <project>/.ai: step up to the root.
 [[ ! -d .ai && "${PWD##*/}" == ".ai" ]] && { cd .. || exit 0; }
 
-# E-294 (D-087, sovereignty-hardening.md Components 8c–8d): the role is NOT read here. Neither
-# the positional argument the settings file passes nor REIN_PANE_ROLE is a gate input any more
-# (a project's settings `env` reaches this process). safe-exec derives the role from the
-# launch records on this process chain — the most restricted live one wins; none at all is the
-# plain-launch default, `engineer`, marked unverified — and binds the token to this session's
-# process: our PPID, the claude process (measured stable across startup, resume, clear,
-# compact and a subagent's tool call, LOG 2026-10-04). bash sets PPID itself.
+# E-463: the role is NOT read from an argument or the environment (a project's settings `env`
+# reaches this process). It is the most restricted live launch record on this process chain
+# (shared/launch-record.py role); none at all is the plain-launch default, `engineer`, marked
+# unverified. Fail-open: a missing helper leaves the stamp `unverified`, never a blocked start.
 ROLE=""
 ROLE_LAUNCH=""
 
-# Read the SessionStart payload ONCE for the E-129 session id.
+# Read the SessionStart payload once.
 PAYLOAD="$(cat 2>/dev/null || true)"
 
-# ── E-129/E-294: mint the per-session role token ──────────────────────────────
-# Fail-open: a refused or failed mint never blocks session start — the GATE is where a
-# missing token blocks (the union, [ROLE_UNVERIFIED]). The stamp below names the role that
-# is actually BOUND, read back from safe-exec, so the persona and the gate cannot disagree.
-if command -v node >/dev/null 2>&1 && command -v python3 >/dev/null 2>&1; then
-  _SID="$(printf '%s' "$PAYLOAD" | python3 -c 'import json,sys
-try: print(json.load(sys.stdin).get("session_id","") or "")
-except Exception: pass' 2>/dev/null)"
-  _s="$(rein_locate mcp/safe-exec-mcp/index.js || true)"
-  if [[ -n "$_SID" && -n "$_s" ]]; then
-    IFS=$'\t' read -r ROLE ROLE_LAUNCH < <(node --no-warnings "$_s" --mint-token "$_SID" "$PPID" 2>/dev/null) || true
-    if [[ -z "$ROLE" ]]; then
-      ROLE="$(node --no-warnings "$_s" --verify-role "$_SID" 2>/dev/null)" || ROLE=""
-    fi
-  fi
+_LR="$(rein_locate shared/launch-record.py || true)"
+if [[ -n "$_LR" ]] && command -v python3 >/dev/null 2>&1; then
+  IFS=$'\t' read -r ROLE ROLE_LAUNCH < <(python3 -I "$_LR" role 2>/dev/null) || true
 fi
 case "$ROLE" in architect|engineer) : ;; *) ROLE="" ;; esac
 
 # ── E-208: the role stamp ─────────────────────────────────────────────────────
 # E-208 (D-054, role-abstraction.md §Components 2): the FIRST line of the injected
 # context is an `[REIN_ROLE] <role>` stamp naming the role this session actually
-# minted. The Role Resolution clause at the top of ENGINEER.md / ARCHITECT.md keys
+# holds. The Role Resolution clause at the top of ENGINEER.md / ARCHITECT.md keys
 # off it, so a Claude pane bound to `architect` is governed by ARCHITECT.md even
 # though CLAUDE.md statically imports ENGINEER.md (gap G1 — @import cannot branch).
 #
 # The stamp is emitted even when node is missing: the persona layer must never silently
 # lose its role binding. Only a missing python3 (no way to build the JSON envelope) skips it.
 # No verified role → the stamp says so and names the fix; the persona layer then follows
-# ARCHITECT.md (any stamp other than `engineer`), matching the gate's union.
+# ARCHITECT.md (any stamp other than `engineer`), the restricted reading.
 if [[ -n "$ROLE" ]]; then
   ROLE_STAMP="[REIN_ROLE] ${ROLE}"
   [[ "$ROLE_LAUNCH" == "unverified" ]] && ROLE_STAMP="${ROLE_STAMP}
 [REIN_LAUNCH] unverified — no launch record on this process chain (plain launch); \`rein pane <role>\` binds one"
 else
   ROLE_STAMP="[REIN_ROLE] unverified
-[ROLE_UNVERIFIED] no verified role token for this session — every role's blocks apply. run: rein pane <role>"
+[ROLE_UNVERIFIED] the launch records on this process chain disagree or cannot be read. run: rein pane <role>"
 fi
 
 command -v python3 >/dev/null 2>&1 || exit 0
-
-# E-291 (D-083 r7): an active operator override is announced at session start, beside the
-# role stamp, so neither the operator nor the agent can miss that the gate is lifted.
-_GO_PY="$(rein_locate shared/gate-override.py || true)"
-if [[ -n "$_GO_PY" ]] && [[ -e "${HOME}/.rein/gate-override.json" || -L "${HOME}/.rein/gate-override.json" ]]; then
-  _GO_OUT="$(python3 -I "$_GO_PY" check "${HOME}/.rein/gate-override.json" 2>/dev/null)" && {
-    IFS=$'\t' read -r _ _GO_UNTIL _GO_REASON <<< "$_GO_OUT"
-    ROLE_STAMP="${ROLE_STAMP}
-[GATE_OVERRIDE] the operator lifted the safe-exec policy gate until ${_GO_UNTIL} (${_GO_REASON}). Catastrophic commands and gate self-disable still block. Do not extend or renew it."
-  }
-fi
 
 # E-326 (D-102 §Component 2): bring a team project's index up to the record files a pull
 # brought in while no session was running. E-342 (D-106 r2): a legacy project imports HEAD's

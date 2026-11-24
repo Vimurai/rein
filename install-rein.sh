@@ -230,8 +230,8 @@ fi
 
 _verify_stage() {  # → 0 when the staged tree is complete and parses; prints what is wrong
   local bad=0 f
-  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/hook-paths.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/gate-probe.sh shared/node-version.sh \
-           mcp/safe-exec-mcp/index.js mcp/safe-exec-mcp/role-token.mjs mcp/safe-exec-mcp/gate-guard.mjs; do
+  for f in bin/rein bin/rein-account.sh shared/accounts.py shared/hook-paths.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/node-version.sh \
+           mcp/safe-exec-mcp/seatbelt.mjs mcp/task-synchronizer-mcp/index.js; do
     [[ -f "${_STAGE}/${f}" ]] || { echo "  missing: ${f}"; bad=1; }
   done
   if [[ "$_HOOKS_REFUSED" -eq 0 ]]; then

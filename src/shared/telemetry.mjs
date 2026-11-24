@@ -46,7 +46,6 @@ import { existsSync, mkdirSync, realpathSync, accessSync, renameSync, constants 
 import { resolve, dirname } from "node:path";
 import { homedir, tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { normalizeGateRule } from "./gate-rules.mjs";
 
 export const TELEMETRY_SERVICE = "telemetry";
 // The operator's store. Every consumer that means "the live store" names this one.
@@ -259,8 +258,8 @@ function _ensureSourceColumn(db, { inTxn = false } = {}) {
   }
 }
 
-// E-432 (D-159 r7): tool_executions.rule — the gate rule a pre-tool-use block is attributed to,
-// a value from gate-rules.mjs or 'UNLISTED'; NULL on every other row and on rows written before
+// E-432 (D-159 r7): tool_executions.rule — the rule the retired command gate (E-463) attributed a
+// block to, or 'UNLISTED'; NULL on every other row and on rows written before
 // it. Additive and race-safe exactly as `source` above; retried on the next open when refused.
 function _ensureRuleColumn(db) {
   try {
@@ -480,9 +479,9 @@ function _doRecordToolExecution(payload, opts) {
   const status = STATUS_VALUES.has(payload?.status) ? payload.status : "SUCCESS";
   const project_hash = _hashProjectRoot(payload?.project_root);
   const session_id = _sanitiseSessionId(payload?.session_id);
-  // E-432: a gate block names its rule — a value from the closed list, else 'UNLISTED', bound as
-  // a parameter. Absent on every other row (NULL), so no caller's row changes meaning.
-  const rule = payload?.rule === undefined || payload?.rule === null ? null : normalizeGateRule(payload.rule);
+  // E-432: the column held the retired command gate's rule (E-463 removed its writer); old rows
+  // keep it. A caller that still passes one is booked UNLISTED, so no text reaches the store.
+  const rule = payload?.rule === undefined || payload?.rule === null ? null : "UNLISTED";
 
   try {
     const db = _openDb(opts?.db_path);

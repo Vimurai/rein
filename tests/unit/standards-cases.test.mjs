@@ -21,7 +21,12 @@ import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { repo, loadTable } from "../lib/check-table.mjs";
+import { fileURLToPath } from "node:url";
+
+// The two helpers this runner used from tests/lib/check-table.mjs, which went with the gate's
+// contract tables (E-463).
+const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
+const loadTable = (name) => JSON.parse(readFileSync(join(repo, "tests/fixtures", `${name}-cases.json`), "utf8"));
 import {
   RULE_REGISTRY, loadStandards, reportDrift, validateFile, validateFiles,
 } from "../../src/shared/standards-checker.mjs";

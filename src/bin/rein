@@ -191,9 +191,6 @@ Commands:
                  The DONE gate checks their stamps; a commit needs none.
                  .ai/DIGEST.md is a generated view (D-159): build rewrites it from the
                  tracked inputs when they changed; check exits 1 [DIGEST_STALE] when stale
-  rein ledger [--days N] [--json]
-                 The control ledger (D-159): gate blocks by rule, critic stamps, MCP server
-                 use over the last N days (90); [CONTROL_QUIET]/[CONTROL_NOISY] are advisory
   rein clean [--apply] [--all] [--yes] [--project-only|--home-only] [--json]
                  List (and, with --apply, remove) what earlier Rein versions left
                  behind. Dry run by default; removals move to ~/.rein/trash/<date>/
@@ -211,10 +208,6 @@ Commands:
   rein release verify <tarball> [--pubkey <file>]
                  With --pubkey, check the .minisig first; then every member against the
                  manifest inside the tarball (exit 0/3)
-  rein gate off [--minutes N] [--reason TEXT] | on | status
-                 Operator-only escape from the safe-exec policy gate (E-291): a
-                 time-boxed override (default 15, max 60 min). Catastrophic commands
-                 still block; every bypassed call is announced. Run it in YOUR terminal.
   rein version     Print version
 
 Recovery (used internally by install/init; surfaced by 'rein doctor' hints):
@@ -918,68 +911,6 @@ _provision_rules() {
   return 0
 }
 
-# ── E-291 (D-081 r2, D-083 r5-8): `rein gate off|on|status` ──────────────────────
-# The operator's escape from the safe-exec POLICY gate, replacing the two environment
-# switches (removed in E-291) that a project's settings `env` could set. It writes
-# ~/.rein/gate-override.json through src/shared/gate-override.py — the same module the hook
-# reads it with — so writer and reader agree on what "active" means. Default 15 minutes,
-# hard max 60 (clamped, with a notice). The catastrophic set and the self-disable guard
-# still block under an override, and every bypassed call is loud (systemMessage + telemetry).
-# Run it in YOUR terminal: the analyzer blocks `rein gate` for every agent role (GATE_SELF_DISABLE).
-_gate_py() { rein_locate shared/gate-override.py 2>/dev/null || printf '%s' "${REIN}/shared/gate-override.py"; }
-
-do_gate() {
-  local sub="${1:-status}"; shift || true
-  local f="${REIN}/gate-override.json" py out rc
-  py="$(_gate_py)"
-  [[ -f "$py" ]] || { echo "rein gate: ${py} missing — $(_rein_fix_install)" >&2; return 2; }
-  case "$sub" in
-    off)
-      # E-393 (D-132 addendum 4 r7b) — the belt behind gate-guard's lock: `rein gate off` writes the
-      # override only from the operator's terminal. stdin must be a TTY, and no variable a Rein pane
-      # or a Claude Code session exports may be set. Not the lock: `script` fakes a pty, which is
-      # why gate-guard's word check is the lock and this is the second layer.
-      local _v _agent=""
-      for _v in CLAUDECODE CLAUDE_CODE_ENTRYPOINT CLAUDE_CODE_SESSION_ID CLAUDE_SESSION_ID REIN_PANE_ROLE REIN_CALLER_ROLE; do
-        [[ -n "${!_v+x}" ]] && _agent="${_agent:+${_agent} }${_v}"
-      done
-      if [[ ! -t 0 || -n "$_agent" ]]; then
-        echo "rein gate off: refused — $([[ -n "$_agent" ]] && printf 'an agent session is in the environment (%s)' "$_agent" || printf 'stdin is not a terminal'). Operator escape — in YOUR terminal, not through the agent: rein gate off" >&2
-        return 2
-      fi
-      local minutes=15 reason=""
-      while [[ $# -gt 0 ]]; do
-        case "$1" in
-          --minutes)   minutes="${2:-}"; shift 2 ;;
-          --minutes=*) minutes="${1#*=}"; shift ;;
-          --reason)    reason="${2:-}"; shift 2 ;;
-          --reason=*)  reason="${1#*=}"; shift ;;
-          *) echo "rein gate off: unknown argument '$1' (usage: rein gate off [--minutes N] [--reason TEXT])" >&2; return 2 ;;
-        esac
-      done
-      out="$(python3 -I "$py" write "$f" "$minutes" "$reason")" || return 2
-      local until m clamped
-      IFS=$'\t' read -r until m clamped <<< "$out"
-      [[ "$clamped" == "1" ]] && echo "rein gate: --minutes ${minutes} exceeds the 60-minute maximum — clamped to 60." >&2
-      echo "⚠ safe-exec policy gate OFF until ${until} (${m} min). Catastrophic commands and gate self-disable still block."
-      echo "  Every bypassed call is announced in the session. Restore early: rein gate on"
-      ;;
-    on)
-      rm -f "$f"
-      echo "✓ safe-exec gate fully on (no override)."
-      ;;
-    status)
-      out="$(python3 -I "$py" status "$f")"
-      case "$out" in
-        OK*)      IFS=$'\t' read -r _ until reason <<< "$out"; echo "⚠ override ACTIVE until ${until} (${reason}) — rein gate on to end it" ;;
-        IGNORED*) echo "! override file present but IGNORED (${out#IGNORED$'\t'}) — the gate is fully on" ;;
-        *)        echo "✓ no override — the safe-exec gate is fully on" ;;
-      esac
-      ;;
-    *) echo "Usage: rein gate off [--minutes N] [--reason TEXT] | on | status" >&2; return 2 ;;
-  esac
-}
-
 # E-286 (D-078): `rein doctor` line for the hook toolchain pin. Parsed with the same strict
 # pattern the hooks use (src/shared/toolchain-pin.sh) — never sourced.
 _doctor_toolchain_report() {
@@ -1054,8 +985,8 @@ _doctor_hook_form_report() {
     _dr project_settings_json - "  ✗ .claude/settings.json missing (generated since E-290) — run: rein sync"
   else
     # E-391 (D-132 addendum 4 r2): Rein hooks are recognised by file name in any directory
-    # (shared/hook-paths.py, the rule sync and the installer use too). A missing script or an
-    # unregistered gate is a hard failure: the hook exits 127, which is not a block.
+    # (shared/hook-paths.py, the rule sync and the installer use too). A missing script is a hard
+    # failure; an unregistered seatbelt is a warning (it is advice, E-463).
     local hp findings kind ev p stale="" bad=0
     hp="$(_rein_helper shared/hook-paths.py || true)"
     if [[ -z "$hp" ]]; then
@@ -1067,7 +998,7 @@ _doctor_hook_form_report() {
           MISSING)      _dr hook_path_missing - "  ✗ [HOOK_PATH_MISSING] ${p} (${ev}) — the hook cannot run; run: rein sync" "" "$p"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
           FOREIGN)      _dr hook_path_foreign - "  ✗ [HOOK_PATH_FOREIGN] ${p} (${ev}) — a Rein hook name outside ${REIN}/hooks; check it, then: rein sync" "" "$p"; bad=1 ;;
           FORM)         stale="${stale:+${stale} }${ev}:${p}" ;;
-          UNREGISTERED) _dr gate_registered - "  ✗ [GATE_UNREGISTERED] no PreToolUse entry runs ${REIN}/hooks/pre-tool-use.sh — run: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
+          UNREGISTERED) _dr seatbelt_registered warn "  ⚠ [SEATBELT_UNREGISTERED] no PreToolUse entry runs ${REIN}/hooks/pre-tool-use.sh (the seatbelt, advice) — run: rein sync" "rein sync"; bad=1 ;;
           DISABLED)     _dr hooks_disabled - "  ✗ [HOOKS_DISABLED] .claude/settings.json sets disableAllHooks — no Rein hook runs here; remove it, then: rein sync"; bad=1; _DOCTOR_HARD_FAIL=1 ;;
           UNPARSEABLE)  stale="unparseable" ;;
         esac
@@ -1113,24 +1044,6 @@ _doctor_hook_form_report() {
     head -1 "${gd}/${stub}" | grep -qx '#!/bin/bash -p' || _dr git_stub - "  ✗ git ${stub} stub predates E-290 (not #!/bin/bash -p) — run: rein sync" "" "$stub"
   done
   return 0
-}
-
-# E-282: `rein doctor` line for .claude/rules/. Missing = a shipped rule is absent; stale = it
-# differs from the shipped copy. A rule the user edited reads as stale too — sync keeps it,
-# so the message says so instead of implying sync will overwrite it.
-_doctor_gate_report() {
-  local gp st
-  gp="$(_rein_helper shared/gate-probe.sh || true)"
-  if [[ -z "$gp" ]]; then
-    _dr safe_exec_gate - "  ✗ [SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — $(_rein_fix_install)"; return 0
-  fi
-  # shellcheck source=src/shared/gate-probe.sh
-  . "$gp"
-  if st="$(rein_gate_probe)"; then
-    _dr safe_exec_gate - "  ✓ safe-exec gate: ${st}"
-  else
-    _dr safe_exec_gate - "  ✗ safe-exec gate: [SAFE_EXEC_BROKEN] ${st} — $(_rein_fix_install)"
-  fi
 }
 
 # E-338 (D-104 r4a): detection, not cooperation — the model may forget the commit, doctor
@@ -1376,8 +1289,8 @@ _sandbox_install_line() {
 # rein@rein, built into ${REIN}/plugin by `rein install` (shared/plugin-build.mjs) and loaded in
 # place from a local-directory marketplace. `rein install` adds the marketplace to each Claude
 # config dir; `rein init` and `rein sync` enable the plugin for the project (scope project, so its
-# hooks run in Rein projects only, as the settings entries they replace did). The command gate
-# (pre-tool-use.sh, E-463 held), the git hooks, the MCP server and the role settings stay here.
+# hooks run in Rein projects only, as the settings entries they replace did). The seatbelt
+# (pre-tool-use.sh), the git hooks, the MCP server and the role settings stay here.
 # REIN_PLUGIN_INSTALL=0 skips every `claude plugin` call.
 _PLUGIN_ID="rein@rein"
 
@@ -1535,10 +1448,8 @@ _rein_ws = os.environ.get("REIN_WORKSPACE", "")
 if _rein_ws:
     env.setdefault("REIN_WORKSPACE", _rein_ws)
 
-# E-127 (sovereignty-hardening.md §Security): bootloader-inject the Triad role so
-# safe-exec trusts the ENVIRONMENT over the agent-self-reported caller_role
-# (anti-impersonation). This is Claude's project → engineer. Set authoritatively
-# (not setdefault) so a stale/forged value can never linger.
+# E-127: the Triad role for attribution (cli-add-task.mjs owner label). This is Claude's
+# project → engineer. Set authoritatively (not setdefault) so a stale value never lingers.
 env["REIN_CALLER_ROLE"] = "engineer"
 
 # Permissions: registry-driven MCP tools.
@@ -1645,15 +1556,15 @@ hooks = data.setdefault("hooks", {})
 # Before writing, EVERY Rein-owned entry for these hooks is removed in ANY older form
 # (shell form, stale path) — appending beside an old entry would leave the vulnerable line
 # running. User entries are never touched. History kept from the entries this replaces:
-#   E-125/E-208 pre-tool-use is the fail-closed gate on Bash + the write tools;
-#   E-460/E-129/E-294 session-start (brief + role token) and E-433 waiting-signal are the rein
+#   E-463 pre-tool-use is the seatbelt on Bash (advice; it replaced the E-125/E-208 gate);
+#   E-460/E-294 session-start (brief + role stamp) and E-433 waiting-signal are the rein
 #     plugin's since E-469 (plugin-build.mjs carries their matchers and history);
 #   E-467 (D-170 r5): stop-hook, post-tool-log, post-tool-use and permission-denied are
 #     retired; their Rein-owned entries are removed below on every event (_RETIRED).
 import re as _re
 _HOOKS_DIR = os.path.realpath(os.path.join(os.path.expanduser("~"), ".rein", "hooks"))
 _SPECS = [  # (event, matcher, script, extra args)
-    ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "pre-tool-use.sh", []),
+    ("PreToolUse", "Bash", "pre-tool-use.sh", []),
 ]
 # E-469 (D-170 r4): session-start.sh and waiting-signal.sh moved to the rein plugin
 # (${REIN}/plugin/hooks/hooks.json, shared/plugin-build.mjs PLUGIN_HOOKS); their Rein-owned
@@ -1831,15 +1742,9 @@ install_global() {
   chmod +x "${REIN}/hooks/"*.sh 2>/dev/null || true
   echo "✓ Hooks ready → ${REIN}/hooks"
 
-  # E-129 (sovereignty-hardening.md §Security): provision the per-machine HMAC key
-  # + runtime dirs for the tamper-resistant role token. getMachineKey() also
-  # lazily creates these, so this is just first-run priming with correct perms.
-  mkdir -p "${HOME}/.rein/secrets" "${HOME}/.rein/run" 2>/dev/null || true
-  chmod 700 "${HOME}/.rein/secrets" "${HOME}/.rein/run" 2>/dev/null || true
-  if command -v node >/dev/null 2>&1 && [[ ! -f "${HOME}/.rein/secrets/role-hmac.key" ]]; then
-    node -e 'const c=require("node:crypto"),fs=require("fs"),p=process.env.HOME+"/.rein/secrets/role-hmac.key"; try{fs.writeFileSync(p,c.randomBytes(32).toString("hex"),{mode:0o600})}catch(e){}' 2>/dev/null || true
-  fi
-  echo "✓ Role-token key ready → ~/.rein/secrets (E-129)"
+  # E-294: the runtime dir for the launch records `rein pane` writes (owner-only).
+  mkdir -p "${HOME}/.rein/run" 2>/dev/null || true
+  chmod 700 "${HOME}/.rein/run" 2>/dev/null || true
 
   # E-469 (D-170 r4): the rein plugin — the agents, skills and session hooks — built into
   # ${REIN}/plugin and offered to Claude Code; `rein init` enables it per project. A failure is
@@ -1872,13 +1777,6 @@ install_global() {
     fi
   fi
 
-  # E-318 (D-097 r2, D-098): an outdated copy is replaced in place in ~/.claude and every
-  # registered account — consent-free, so a non-TTY install leaves none of them outdated. The
-  # offer below then meets PRESENT or ABSENT only. E-346: it now returns 1/2 for sync's step
-  # counter; a failure has already printed its ✗ line and must not abort the install.
-  _classifier_refresh_all || :
-  # E-293 (D-083 r5(iii)): offer the auto-mode classifier backstop — interactive only.
-  _classifier_offer
 
   echo ""
   echo "✓ Rein global installation complete → ${REIN}"
@@ -1891,164 +1789,14 @@ install_global() {
   fi
 }
 
-# ── E-293 (D-083 r5(iii), D-080): the auto-mode classifier backstop ─────────────────────
-# ONE prose rule in autoMode.hard_deny of the OPERATOR's ~/.claude/settings.json — the one
-# layer a project cannot reach (a project's autoMode is ignored), so a second, independently
-# configured gate in front of the safe-exec gate. All reading/writing is
-# src/shared/classifier-backstop.py; `rein install` OFFERS it (y/N, default N) and never writes
-# without a TTY or under CI; `rein doctor` reports it.
-_cb_py() { rein_locate shared/classifier-backstop.py 2>/dev/null || printf '%s' "${REIN}/shared/classifier-backstop.py"; }
-_cb_settings() { printf '%s' "${HOME}/.claude/settings.json"; }
-
-_classifier_offer() {
-  local py; py="$(_cb_py)"
-  [[ -f "$py" ]] && command -v python3 >/dev/null 2>&1 || return 0
-  if [[ -n "${CI:-}" || -n "${REIN_CI:-}" || ! -t 0 ]]; then
-    echo "  ○ classifier backstop: not offered (no terminal) — run 'rein install' in a terminal to add it"
-    return 0
-  fi
-  local out rc
-  out="$(python3 -I "$py" plan "$(_cb_settings)" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
-  case "$rc" in
-    1) echo "✓ Classifier backstop present (autoMode.hard_deny in ~/.claude/settings.json)"; return 0 ;;
-    5) echo "  ○ classifier backstop: ~/.claude does not exist yet — run Claude Code once, then 'rein install'"; return 0 ;;
-    3) echo "  ✗ classifier backstop: ~/.claude/settings.json left untouched — ${out#UNPARSABLE$'\t'}"; return 0 ;;
-    0) ;;
-    *) echo "  ⚠  classifier backstop: could not plan the change (rc ${rc}) — nothing written"; return 0 ;;
-  esac
-  echo ""
-  echo "Classifier backstop (E-293): add ONE rule to autoMode.hard_deny in ~/.claude/settings.json."
-  echo "  Auto mode's classifier then refuses gate tampering even if the safe-exec gate were"
-  echo "  bypassed; no project can override it. Resulting hard_deny list:"
-  printf '%s\n' "$out" | sed -n '2,$p' | sed 's/^/    /'
-  [[ "$(printf '%s\n' "$out" | sed -n '1p')" == $'CHANGE\t1' ]] \
-    && echo "  Note: the file is rewritten in Claude Code's own JSON format (formatting normalised)."
-  local reply=""
-  printf 'Add the classifier backstop? [y/N] '
-  IFS= read -r reply || reply=""
-  case "$reply" in
-    y|Y|yes|YES|Yes)
-      out="$(python3 -I "$py" apply "$(_cb_settings)" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
-      case "$rc" in
-        0) echo "✓ Classifier backstop added. Check its wording in YOUR terminal: claude auto-mode critique" ;;
-        1) echo "✓ Classifier backstop already present" ;;
-        *) echo "  ✗ classifier backstop not written: ${out#*$'\t'}" ;;
-      esac ;;
-    *) echo "  ○ classifier backstop: skipped (rein doctor will remind you)" ;;
-  esac
-}
-
-_classifier_report() {
-  _classifier_report_one "$(_cb_settings)" ""
-  # E-314 (D-095, accounts.md §4): every registered account's directory carries its own copy of
-  # settings.json, so a rule missing there is reported like one missing in ~/.claude.
-  declare -F _account_rows >/dev/null || return 0
-  local name dir _rest
-  while IFS=$'\t' read -r name dir _rest; do
-    [[ -n "$name" ]] && _classifier_report_one "${dir}/settings.json" "$name"
-  done <<< "$(_account_rows)"
-  return 0
-}
-
-# E-318 (D-097, accounts.md §4 "never goes stale"): refresh the Rein-owned backstop entry in
-# ~/.claude AND every registered account's settings.json — REPLACE ONLY. An OUTDATED labelled
-# copy is replaced in place (the label is the operator's earlier consent, E-306); ABSENT is
-# reported, never added (adding stays the y/N in `rein install`); unparsable is reported and left.
-# One line per directory changed or needing attention; a current copy prints nothing.
-#
-# E-346 (D-109 r3): the worst outcome over every settings file — 1 if any refresh FAILED (an
-# ERROR, or output outside the helper's protocol), else 2 when the helper or python3 is
-# missing (skipped), else 0. Every file is still visited. Before, an ERROR printed ✗ on
-# stdout and the step counted ok.
-_classifier_refresh_all() {
-  local rc=0 one name dir _rest
-  _classifier_refresh_one "$(_cb_settings)" "" && one=0 || one=$?
-  rc="$one"
-  declare -F _account_rows >/dev/null || return "$rc"
-  while IFS=$'\t' read -r name dir _rest; do
-    [[ -n "$name" ]] || continue
-    _classifier_refresh_one "${dir}/settings.json" "$name" && one=0 || one=$?
-    [[ "$one" -eq 1 || ( "$one" -eq 2 && "$rc" -eq 0 ) ]] && rc="$one"
-  done <<< "$(_account_rows)"
-  return "$rc"
-}
-
-_classifier_refresh_one() {  # <settings.json> <account name, "" = default>
-  local py out rc settings="$1" lbl="classifier backstop" shown="~/.claude/settings.json"
-  if [[ -n "$2" ]]; then
-    lbl="classifier backstop [account $2]"; shown="${settings#"$HOME"/}"; [[ "$shown" != "$settings" ]] && shown="~/${shown}"
-  fi
-  py="$(_cb_py)"
-  [[ -f "$py" ]] && command -v python3 >/dev/null 2>&1 || return 2
-  out="$(python3 -I "$py" refresh "$settings" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
-  case "$out" in
-    APPLIED*)  echo "  ✓ ${lbl}: outdated copy in ${shown} replaced with the current rule" ;;
-    ABSENT*)   if [[ -n "$2" ]]; then
-                 echo "  ○ ${lbl}: not configured in ${shown} — run: rein account sync $2 (copies ~/.claude/settings.json)"
-               else
-                 echo "  ○ ${lbl}: not configured — rein install offers it"
-               fi ;;
-    REFUSED*)  echo "  ✗ ${lbl}: ${shown} left untouched — ${out#REFUSED$'\t'}" ;;
-    CHANGED*)  echo "  ⚠ ${lbl}: ${shown} changed while it was being refreshed — nothing written; re-run" ;;
-    ERROR*)    echo "  ✗ ${lbl}: could not refresh ${shown} (${out#ERROR$'\t'})" >&2; return 1 ;;
-    NOCHANGE*|NOFILE*|NODIR*) ;;   # nothing to say
-    *)         echo "  ✗ ${lbl}: unexpected helper output for ${shown} (exit ${rc}): $(printf '%s' "$out" | tail -1 | cut -c1-200)" >&2
-               return 1 ;;
-  esac
-  return 0
-}
-
-_classifier_report_one() {  # <settings.json> <account name, "" = default>
-  local py out rc settings="$1" lbl="classifier backstop" shown="~/.claude/settings.json"
-  if [[ -n "$2" ]]; then
-    lbl="classifier backstop [account $2]"; shown="${settings#"$HOME"/}"; [[ "$shown" != "$settings" ]] && shown="~/${shown}"
-  fi
-  py="$(_cb_py)"
-  if [[ ! -f "$py" ]] || ! command -v python3 >/dev/null 2>&1; then
-    _dr classifier_backstop - "  ⚠ ${lbl}: cannot check (helper or python3 missing — $(_rein_fix_install))" "" "$2"
-    return 0
-  fi
-  out="$(python3 -I "$py" status "$settings" 2>&1)" && rc=0 || rc=$?   # set -e: capture, never abort
-  case "$(printf '%s\n' "$out" | sed -n '1p')" in
-    PRESENT)   _dr classifier_backstop - "  ✓ ${lbl}: present" "" "$2" ;;
-    OUTDATED*) _cb_old="${out%%$'\n'*}"; _cb_old="${_cb_old#OUTDATED}"; _cb_old="${_cb_old#$'\t'}"
-               _dr classifier_backstop - "  ○ ${lbl}: outdated${_cb_old:+ (${_cb_old})} wording — rein install offers the current rule" "" "$2" ;;
-    UNPARSABLE*) _dr classifier_backstop - "  ✗ ${lbl}: ${shown} is not valid JSON — Claude Code ignores it, so NO autoMode rules are active (${out#UNPARSABLE$'\t'})" "" "$2" ;;
-    ERROR*)    _dr classifier_backstop - "  ✗ ${lbl}: could not check ${shown} (${out#ERROR$'\t'})" "" "$2" ;;
-    *)         if [[ -n "$2" ]]; then
-                 _dr classifier_backstop - "  ○ ${lbl}: not configured in ${shown} — run: rein account sync $2 (copies ~/.claude/settings.json)" "" "$2"
-               else
-                 _dr classifier_backstop - "  ○ ${lbl}: not configured — rein install offers it" "" "$2"
-               fi ;;
-  esac
-  printf '%s\n' "$out" | sed -n "s/^WARN\t/  ⚠ ${lbl}: /p" | _dr_lines classifier_backstop
-  printf '%s\n' "$out" | sed -n 's/^INFO\t/  ⓘ /p' | _dr_lines classifier_info   # D-086: $defaults off, effective default mode
-  return 0
-}
-
-# ── E-294 (D-087, sovereignty-hardening.md Component 8h): launch records and role tokens ──
-# Prunes ONLY records and tokens whose process is gone (or whose start time no longer
-# matches — a reused pid); a live or undisciplined record is never removed, since removing
-# it could only loosen a session. Reports this pane's live record and the pre-E-294 (v1)
-# tokens, which never verify: those sessions run in the union until relaunched.
+# ── E-294 (D-087, sovereignty-hardening.md Component 8h): launch records ──
+# Prunes ONLY records (and role-token files left by installs before E-463) whose process is
+# gone or whose start time no longer matches — a reused pid; a live or undisciplined record is
+# never removed, since removing it could only loosen a session.
 _launch_record_prune() {  # quiet: prints the module's JSON counts or nothing
   local lr; lr="$(rein_locate shared/launch-record.py || true)"
   [[ -n "$lr" ]] && command -v python3 >/dev/null 2>&1 || return 0
   python3 -I "$lr" prune 2>/dev/null || true
-}
-
-# E-305: the gate path's pinned dependencies, and whether the mirror holds exactly them.
-_gate_pins_report() {
-  local gp out rc=0
-  gp="$(rein_locate shared/gate-pins.mjs 2>/dev/null || true)"
-  [[ -n "$gp" ]] && command -v node >/dev/null 2>&1 || { _dr gate_dependencies - "  ⚠ gate dependencies: cannot check (gate-pins.mjs or node missing)"; return 0; }
-  out="$(node --no-warnings "$gp" check "${REIN}/mcp" 2>&1)" || rc=$?
-  if [[ "$rc" -eq 0 ]]; then
-    _dr gate_dependencies - "  ✓ gate dependencies pinned: $(node --no-warnings "$gp" list "${REIN}/mcp" 2>/dev/null | tr '\n' ' ')"
-  else
-    printf '%s\n' "$out" | sed 's/^/  ✗ /' | _dr_lines gate_dependencies
-  fi
-  return 0
 }
 
 # E-304 (D-089 r2): where the mirror came from, and whether two workspace sources disagree.
@@ -2116,11 +1864,9 @@ elif w.get("result") == "role":
     print("  ⓘ launch record: none on this process chain — a session here runs as %s (%s launch)" % (w.get("role"), w.get("launch")))
 if w.get("result") == "union":
     print("  ✗ launch record: %s — sessions on this chain run in the union" % w.get("why"))
-if d.get("v1_tokens"):
-    print("  ⓘ role tokens: %d pre-E-294 (v1) token(s) on disk; v1 never verifies, so a pane still running from before the install is in the union until relaunched (rein pane <role>)" % d["v1_tokens"])
 stale = (d.get("records") or 0) + (d.get("tokens") or 0)
 if stale:
-    print("  ○ launch records: %d stale record(s)/token(s) whose process is gone — pruned now" % stale)
+    print("  ○ launch records: %d stale record(s) whose process is gone — pruned now" % stale)
 ' 2>/dev/null | _dr_lines launch_records || _dr launch_records - "  ⚠ launch records: status unreadable"
   _launch_record_prune >/dev/null
   return 0
@@ -3146,8 +2892,7 @@ _untrack_comm_gitignore() {
 _report_policy_staleness() {
   command -v python3 >/dev/null 2>&1 || return 2
   local newest=0 f
-  for f in "${REIN}/shared/traversal-policy.mjs" "${REIN}/shared/markdown-exec.mjs" \
-           "${REIN}/mcp/safe-exec-mcp/architect-writes.mjs" "${REIN}/mcp/shared/caller-role.mjs"; do
+  for f in "${REIN}/shared/traversal-policy.mjs" "${REIN}/shared/markdown-exec.mjs"; do
     [[ -f "$f" ]] || continue
     local m
     m="$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo 0)"
@@ -3342,23 +3087,6 @@ _sync_reap_step_logs() {
   find "$d" -maxdepth 1 -type f -name 'rein-sync-*.??????' -user "$(id -u)" -mmin +1440 -delete
 }
 
-# E-339 (D-107 r3/r4): the last sync step — is the gate this sync leaves behind able to give
-# a verdict? Runs `true` through the mirror's analyzer exactly as hooks/pre-tool-use.sh does
-# (shared/gate-probe.sh). Never repairs: reinstalling the gate is the operator's action.
-_sync_gate_check() {
-  local gp st
-  gp="$(_rein_helper shared/gate-probe.sh || true)"
-  [[ -n "$gp" ]] || { echo "[SAFE_EXEC_BROKEN] shared/gate-probe.sh not found — $(_rein_fix_install)" >&2; return 1; }
-  # shellcheck source=src/shared/gate-probe.sh
-  . "$gp"
-  if st="$(rein_gate_probe)"; then
-    echo "  ✓ safe-exec gate: ${st}"
-    return 0
-  fi
-  echo "[SAFE_EXEC_BROKEN] ${st} — $(_rein_fix_install)" >&2
-  return 1
-}
-
 # E-342 (D-106 r2): bring the index up to what HEAD tracks — the pulled record files of a
 # team project, HEAD:.ai/state.json of a legacy one — before the steps below regenerate a
 # view from it. The import never fails; its lines are the step's output.
@@ -3454,8 +3182,8 @@ _sync_reap_run_records() {
 #
 # E-304 (D-089 r2): `rein sync` NEVER writes into ~/.rein. It used to copy
 # ${REIN_WORKSPACE}/hooks/*.sh into the mirror — hooks WITHOUT the mcp/ and shared/ they call
-# — and on 2026-10-04 that put E-294's uncommitted hooks live machine-wide twice, against the
-# old safe-exec, so every project's commits hit the Architect lane. `bash install-rein.sh`
+# — and on 2026-10-04 that put E-294's uncommitted hooks live machine-wide twice, so every
+# project's commits hit the Architect lane. `bash install-rein.sh`
 # is the one installer.
 _sync_install_hooks() {
   install_git_hooks
@@ -3548,8 +3276,6 @@ do_sync() {
     _sync_step comm_tracked    _untrack_comm_gitignore "."   # E-338 (D-104 r1)
     _sync_step policy_report   _report_policy_staleness
     _sync_step stale_servers   _report_stale_servers
-    _sync_step classifier      _classifier_refresh_all   # E-318 (D-097): replace-only, every account
-    _sync_step gate_check      _sync_gate_check          # E-339 (D-107 r3): LAST — the gate we leave behind
 
     # The summary is what makes a silent loss loud. "Done." on its own returned in E-217's
     # shape too — a function reaching its end says nothing about how much of it ran, which
@@ -3972,12 +3698,6 @@ _doctor_text() {
   fi
   echo ""
 
-  # E-339 (D-107 r3): the same probe sync's gate_check runs — `true` through the mirror's
-  # analyzer, exactly as hooks/pre-tool-use.sh calls it.
-  echo "Command gate:"
-  _doctor_gate_report
-  echo ""
-
   # E-462 (lean-core.md §API): the role boundary is Claude Code's sandbox.
   echo "Role sandbox:"
   local _sbx_why
@@ -4188,12 +3908,8 @@ for name, info in d.get('mcp_servers', {}).items():
   echo "Hook toolchain (E-286):"
   _doctor_toolchain_report
   echo ""
-  echo "Safe-exec gate override (E-291):"
-  _dr gate_override - "  $(do_gate status 2>&1)"
-  _classifier_report
   _launch_record_report
   _install_report
-  _gate_pins_report
   echo ""
   # E-427: the account probe runs `claude auth status` — not executed under --scope install.
   if [[ -z "${_DR_SCOPE:-}" ]]; then
@@ -4730,7 +4446,7 @@ for name, info in d.get('mcp_servers', {}).items():
 
   # Fallback if registry parse fails
   if [[ ${#CUSTOM_SERVERS[@]} -eq 0 ]]; then
-    CUSTOM_SERVERS=(task-synchronizer-mcp safe-exec-mcp)
+    CUSTOM_SERVERS=(task-synchronizer-mcp)
   fi
 
   echo "Installing MCP server dependencies from ${MCP_DIR} ..."
@@ -4751,24 +4467,6 @@ for name, info in d.get('mcp_servers', {}).items():
 
   echo ""
   echo "✓ MCP setup complete (${SETUP_OK}/${#CUSTOM_SERVERS[@]} servers installed)."
-
-  # E-305 (D-089 r3): a gate path's dependencies must be EXACTLY the pinned versions — a parser
-  # is the gate's input model (shell-quote 1.12 changed what `&>` parses to, b36a818). A
-  # mismatch is the moved-interpreter class: refuse, like [TOOLCHAIN_STALE].
-  local _gp; _gp="$(rein_locate shared/gate-pins.mjs 2>/dev/null || true)"
-  if [[ -n "$_gp" ]] && command -v node >/dev/null 2>&1; then
-    local _gp_out _gp_rc=0
-    _gp_out="$(node --no-warnings "$_gp" check "$MCP_DIR" 2>&1)" || _gp_rc=$?
-    if [[ "$_gp_rc" -eq 1 || "$_gp_rc" -eq 2 ]]; then
-      printf '%s\n' "$_gp_out"            # stdout: install_global silences stderr
-      echo "✗ gate dependencies do not match their pins — refusing (E-305)."
-      return 3
-    elif [[ "$_gp_rc" -eq 4 ]]; then
-      printf '%s\n' "$_gp_out" | sed 's/^/  ⚠ /'   # absent, not drifted: the gate fails closed without them
-    else
-      echo "✓ Gate dependencies match their pins: $(node --no-warnings "$_gp" list "$MCP_DIR" 2>/dev/null | tr '\n' ' ')"
-    fi
-  fi
 
   # E-32: Dynamically regenerate .mcp.json with absolute paths if in a project
   if [[ -d ".ai" || -f ".mcp.json" ]]; then
@@ -6845,21 +6543,11 @@ case "$cmd" in
       build|check) node --no-warnings "$_dg" "$2" "$PWD" ;;
       *) echo "usage: rein digest build | check" >&2; exit 2 ;;
     esac ;;
-  # E-432 (D-159 r8, addendum 2): the control ledger, read-only over telemetry and .ai/state.json.
-  # Its own verb, not a gate subcommand: the self-disable lock refuses those for the agent.
-  ledger)
-    _lg="$(_rein_helper shared/gate-ledger.mjs || true)"
-    [[ -n "$_lg" ]] || { echo "rein ledger: gate-ledger.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
-    command -v node >/dev/null 2>&1 || { echo "rein ledger: node not found" >&2; exit 1; }
-    node --no-warnings "$_lg" "${@:2}" ;;
   # E-417 (D-155 r1): build a release artifact's stage from the clone this rein belongs to.
   release)       do_release "${@:2}" ;;
   # E-272 (D-074, version-lifecycle.md §Component 4): remove what earlier versions left
   # behind. Dry run by default; every removal is reversible via the trash.
   clean)         do_clean "${@:2}" ;;
-  # E-291 (D-081 r2, D-083): the operator's time-boxed safe-exec override (replaces the
-  # removed env opt-outs). Operator-only — the analyzer blocks it for every agent role.
-  gate)          do_gate "${@:2}" ;;
   version|-v|--version) echo "rein ${VERSION}" ;;
   ""|help|-h|--help) usage ;;
 

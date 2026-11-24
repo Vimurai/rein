@@ -561,6 +561,106 @@
       "class": "not-ours",
       "since": "*",
       "note": "Antigravity's own user data, including OAuth credentials. NOT a Rein artefact: printed so the operator can decide, never touched by any flag."
+    },
+    {
+      "id": "retired-gate-shared-gate-rules",
+      "path": "~/.rein/shared/gate-rules.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-gate-ledger",
+      "path": "~/.rein/shared/gate-ledger.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-gate-pins",
+      "path": "~/.rein/shared/gate-pins.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-gate-probe",
+      "path": "~/.rein/shared/gate-probe.sh",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-gate-override",
+      "path": "~/.rein/shared/gate-override.py",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-shell-word",
+      "path": "~/.rein/shared/shell-word.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-shared-classifier-backstop",
+      "path": "~/.rein/shared/classifier-backstop.py",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-mcp-shared-caller-role",
+      "path": "~/.rein/mcp/shared/caller-role.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/mcp/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-mcp-shared-load-policy",
+      "path": "~/.rein/mcp/shared/load-policy.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/mcp/shared",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
+      "id": "retired-gate-safe-exec-modules",
+      "path": "~/.rein/mcp/safe-exec-mcp/*",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.5.0",
+      "rule": "not-in-src",
+      "src_root": "src/mcp/safe-exec-mcp",
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
     }
   ]
 }

@@ -12,7 +12,7 @@
 //     write-denied, so it can commit on the branch but not switch it; also .git/refs/remotes,
 //     refs/replace, packed-refs and info (F2 of the lean-core round). A session started in
 //     .ai/ reads no project .claude/settings.json, so this file carries what the Architect
-//     needs from it: the command gate's PreToolUse entry (until E-463) and the session env;
+//     needs from it: the seatbelt's PreToolUse entry (E-463) and the session env;
 //     `rein pane` loads the rein plugin with --plugin-dir (resolve-launch.mjs);
 //   - the Engineer's Bash runs in the sandbox with every entry of ~/.rein but ci/ (where
 //     `rein ci run` keeps its logs) and the project's .claude/ write-denied, and the network
@@ -50,9 +50,9 @@ export const ARCHITECT_LANE = [".ai", "plans"];
 /** The Architect's working directory, relative to the project (D-172 r2a). `rein pane` starts the
  *  session there; Claude Code makes the working directory writable, so it must be in the lane. */
 export const ARCHITECT_CWD = ".ai";
-/** The command gate's hook, which a project's .claude/settings.json registers (rein sync) and a
- *  session started in .ai/ does not read. Carried in the Architect's file until E-463 deletes it. */
-export const GATE_HOOK = Object.freeze({ event: "PreToolUse", matcher: "Bash|Write|Edit|MultiEdit|NotebookEdit", script: "pre-tool-use.sh" });
+/** The seatbelt's hook (E-463, advice on Bash only), which a project's .claude/settings.json
+ *  registers (rein sync) and a session started in .ai/ does not read, so the Architect's file carries it. */
+export const SEATBELT_HOOK = Object.freeze({ event: "PreToolUse", matcher: "Bash", script: "pre-tool-use.sh" });
 /** MCP tools that write files. The Architect's MCP list no longer loads them; denied anyway. */
 const MCP_WRITE_TOOLS = [
   "mcp__filesystem__write_file", "mcp__filesystem__edit_file", "mcp__filesystem__move_file",
@@ -150,11 +150,11 @@ function sandbox(filesystem, allowedDomains) {
 /** `//` anchors an absolute path in a permission rule (a single `/` is relative to the settings file). */
 const abs = (p) => `/${p}`;
 
-/** The gate's hook entry in exec form (E-290), when the install tree has the script. */
-export function gateHooks(reinHome) {
+/** The seatbelt's hook entry in exec form (E-290), when the install tree has the script. */
+export function seatbeltHooks(reinHome) {
   let script;
-  try { script = realpathSync(join(reinHome, "hooks", GATE_HOOK.script)); } catch { return undefined; }
-  return { [GATE_HOOK.event]: [{ matcher: GATE_HOOK.matcher, hooks: [{ type: "command", command: "/bin/bash", args: ["-p", script], timeout: 30 }] }] };
+  try { script = realpathSync(join(reinHome, "hooks", SEATBELT_HOOK.script)); } catch { return undefined; }
+  return { [SEATBELT_HOOK.event]: [{ matcher: SEATBELT_HOOK.matcher, hooks: [{ type: "command", command: "/bin/bash", args: ["-p", script], timeout: 30 }] }] };
 }
 
 export function architectSettings(project, reinHome = join(homedir(), ".rein")) {
@@ -178,7 +178,7 @@ export function architectSettings(project, reinHome = join(homedir(), ".rein")) 
       disableAutoMode: "disable",
     },
   };
-  const hooks = gateHooks(reinHome);
+  const hooks = seatbeltHooks(reinHome);
   if (hooks) s.hooks = hooks;
   return s;
 }

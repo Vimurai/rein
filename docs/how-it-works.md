@@ -127,5 +127,5 @@ options that an app can read ([App contract](app-contract.md#6-pane-options)).
 | 4 agents, 5 skills, the session-start and waiting-signal hooks | The `rein` Claude Code plugin, built by `rein install` and enabled per project by `rein init` / `rein sync`. |
 | Role settings files | Written by `rein init`, `rein pane` and `rein start` under `~/.rein/roles/<project>/` (a plugin cannot carry settings). |
 | Git hooks: pre-commit, pre-push, post-commit, state import | Installed into `.git/hooks/` by `rein init` / `rein sync`. |
-| The command gate (PreToolUse hook) | The project's `.claude/settings.json`. It predates the sandbox and is removed by E-463; until then both run. |
+| The seatbelt (PreToolUse hook on Bash) | The project's `.claude/settings.json`, and the Architect's role file. Advice only (E-463 removed the command gate it replaced). |
 | `task-synchronizer-mcp` | The project's `.mcp.json`. |

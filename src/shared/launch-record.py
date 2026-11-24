@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """launch-record.py — E-294 (D-083 r9, D-087; sovereignty-hardening.md Component 8a): the ONE
 implementation of the launch record, the process start-time read, the file discipline and the
-ancestry walk. `rein pane` (writer), the safe-exec mint and verifier, `pre-commit` and `rein doctor`
+ancestry walk. `rein pane` (writer), the session-start role stamp, `pre-commit` and `rein doctor`
 all call it, so they cannot disagree about which record is live.
 
 Invariant (D-087): a role may only move toward restriction. The walk is exhaustive and the most
@@ -34,10 +34,8 @@ CLI (python3 -I launch-record.py <cmd> ...; JSON or one word on stdout; exit cod
   tmux-target              0 "<socket>\t<pane>" from the nearest live record on OUR chain that
                            carries both | 1 none (E-433, D-160 addendum 2)
   walk                     0 JSON {"result": "role"|"union", "role", "launch", "why"} from OUR chain
-  mint-context <spid>      0 JSON {"session_on_chain", "session_started", "walk": {...}}
-  ancestor <pid> <started> 0 when <pid> is an ancestor of us with that start time, else 1
+  role                     0 "<role>\t<record|unverified>" or "union\t<why>" from OUR chain
   alive <pid> <started>    0 when <pid> is running with that start time, 1 not, 2 unknown
-  verify-context <pid> <started>  0 JSON {"ancestor", "walk"} — the verifier's one read
   starttime <pid>          0 "<started>" | 1
   status                   0 JSON: the live records on our chain + counts (doctor)
   prune [--dry-run]        0 JSON {"records": n, "tokens": n, "v1_tokens": n} — removes only
@@ -521,52 +519,19 @@ def main(argv):
     if cmd == "walk":
         print(json.dumps(walk(os.getpid(), project_root())))
         return 0
+    if cmd == "role":
+        # One line for a hook (E-463): "<role>\t<record|unverified>", or "union\t<why>".
+        w = walk(os.getpid(), project_root())
+        if w["result"] == "role":
+            print("%s\t%s" % (w["role"], w["launch"]))
+        else:
+            print("union\t%s" % " ".join(str(w.get("why", "")).split()))
+        return 0
     if cmd == "tmux-target":
         t = tmux_target(os.getpid())
         if not t:
             return 1
         print("%s\t%s" % t)
-        return 0
-    if cmd == "mint-context":
-        spid = _int(argv[2] if len(argv) > 2 else "")
-        try:
-            table = snapshot()
-            links = chain(os.getpid(), table)
-        except SnapshotError as e:
-            print(json.dumps({"session_on_chain": False, "session_started": None,
-                              "walk": {"result": "union", "why": str(e)}}))
-            return 0
-        hit = [s for p, s in links if spid is not None and p == spid]
-        print(json.dumps({"session_on_chain": bool(hit), "session_started": hit[0] if hit else None,
-                          "walk": walk(os.getpid(), project_root(), table)}))
-        return 0
-    if cmd == "ancestor":
-        pid = _int(argv[2] if len(argv) > 2 else "")
-        started = argv[3] if len(argv) > 3 else ""
-        if pid is None or not started:
-            return 1
-        try:
-            links = chain(os.getpid())[1:]
-        except SnapshotError:
-            return 1
-        ok = any(p == pid and _norm(s) == _norm(started) for p, s in links)
-        return 0 if ok else 1
-    if cmd == "verify-context":
-        # One read for the verifier (role-token.mjs, off the hot path): is <pid> an ancestor of
-        # us with <started>, and what does the walk from US say? The verified role is the more
-        # restrictive of the token's and the walk's (critic_security P2-1, E-294).
-        pid = _int(argv[2] if len(argv) > 2 else "")
-        started = argv[3] if len(argv) > 3 else ""
-        try:
-            table = snapshot()
-            links = chain(os.getpid(), table)
-        except SnapshotError as e:
-            print(json.dumps({"ancestor": False, "walk": {"result": "union", "why": str(e)}}))
-            return 0
-        anc = pid is not None and bool(started) and any(
-            p == pid and _norm(s) == _norm(started) for p, s in links[1:])
-        print(json.dumps({"ancestor": anc,
-                          "walk": walk(os.getpid(), project_root(), table, any_project=True)}))
         return 0
     if cmd == "alive":
         pid = _int(argv[2] if len(argv) > 2 else "")
@@ -594,7 +559,7 @@ def main(argv):
             print("prune refused: %s" % e, file=sys.stderr)
             return 1
         return 0
-    print("usage: launch-record.py nested|write|walk|mint-context|ancestor|starttime|status|prune",
+    print("usage: launch-record.py nested|write|walk|role|tmux-target|alive|starttime|status|prune",
           file=sys.stderr)
     return 2
 

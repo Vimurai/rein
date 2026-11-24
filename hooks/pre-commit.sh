@@ -37,10 +37,8 @@ unset _v _p
 
 # ── E-223 (D-057 §3): install-first helper resolution ────────────────────────
 # The locators below used to start at "$(git rev-parse --show-toplevel)/src/...", which
-# names the USER's repository, not the Rein install. Any project containing
-# src/mcp/safe-exec-mcp/index.js had THAT file executed by node from inside this hook,
-# with its stdout trusted to decide whether a write is allowed — cloning a repo was
-# enough to run its code and disable the gate meant to stop it.
+# names the USER's repository, not the Rein install: any project carrying a file at that
+# path had it executed from inside this hook — cloning a repo was enough to run its code.
 #
 # Bootstrapping the shared resolver must not repeat the mistake, so it is install-mirror
 # first and script-relative second — never the visited repo.
@@ -167,22 +165,15 @@ if [[ -f "${AI_DIR}/project.json" ]]; then check_record_parity; fi
 # .ai/ or plans/. Anything else is implementation work and belongs to the Engineer.
 #
 # ROLE RESOLUTION — E-294 (D-087 r5, sovereignty-hardening.md Component 8g). A git hook gets
-# no PreToolUse payload. Four sources, in order (E-464 removed the stamp waiver the first unlocked):
-#   1. CLAUDE_CODE_SESSION_ID names a token that VERIFIES (safe-exec --verify-role: HMAC, and
-#      its session process is an ancestor of this hook with the recorded start time) →
-#      `record:<role>`. The session id is a SELECTOR: borrowing another session's id
-#      (CLAUDE_CODE_SESSION_ID=<theirs> git commit) verifies nothing (T-GITLANE-001 r2, closed).
-#   2. A live launch record on THIS process's ancestor chain (launch-record.py walk) →
-#      `chain:<most restricted role>`. Restrict-only, and it needs no environment at all, so
-#      clearing the session id no longer drops a `rein pane` session out of its lane.
-#   3. A session id that is present but does not verify → `union:architect` — the lane
-#      restriction applies.
-#   4. The advisory env (restrict-only), then `engineer` — the operator's own terminal (no
+# no PreToolUse payload. Two sources, in order (E-463 retired the session token with the gate):
+#   1. A live launch record on THIS process's ancestor chain (launch-record.py walk) →
+#      `chain:<most restricted role>`. Restrict-only, and it needs no environment at all.
+#   2. The advisory env (restrict-only), then `engineer` — the operator's own terminal (no
 #      session id, no record) keeps today's behaviour.
 #
 # Residual (D-087 r3): REIN_SKIP_GIT_LANE=1 skips the lane — same strength as --no-verify
 # (D-081 r5) — and says so on stderr.
-# Prints "<source>:<role>" (record | chain | union | env).
+# Prints "<source>:<role>" (chain | union | env).
 #
 # It PRINTS both rather than setting a global: the caller invokes this in a command
 # substitution, so any variable assigned inside is set in the SUBSHELL and lost.
@@ -193,16 +184,9 @@ _resolve_commit_role() {
     printf 'env:engineer'; return 0
   fi
 
-  local se sid role lr walk
-  sid="${CLAUDE_CODE_SESSION_ID:-}"
-  se="$(rein_locate mcp/safe-exec-mcp/index.js || true)"
-  # 1. Verified session token.
-  if [[ -n "$sid" && -n "$se" && -f "$se" ]] && command -v node >/dev/null 2>&1; then
-    role="$(node --no-warnings "$se" --verify-role "$sid" 2>/dev/null)" && [[ -n "$role" ]] && {
-      printf 'record:%s' "$role"; return 0; }
-  fi
+  local lr walk
 
-  # 2. A live launch record on this process chain — most restricted wins, restrict-only.
+  # 1. A live launch record on this process chain — most restricted wins, restrict-only.
   lr="$(rein_locate shared/launch-record.py || true)"
   if [[ -n "$lr" ]] && command -v python3 >/dev/null 2>&1; then
     walk="$(python3 -I "$lr" walk 2>/dev/null)"
@@ -216,10 +200,7 @@ _resolve_commit_role() {
     esac
   fi
 
-  # 3. A session id that does not verify → the union: lane restriction.
-  if [[ -n "$sid" ]]; then printf 'union:architect'; return 0; fi
-
-  # 4. Advisory env (restrict-only), then the default — unchanged Engineer behaviour.
+  # 2. Advisory env (restrict-only), then the default — unchanged Engineer behaviour.
   # Normalised like the lane's own comparison (E-214.10h): `Architect` or `architect ` restricts too.
   local _pr _cr
   _pr="$(printf '%s' "${REIN_PANE_ROLE:-}" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
@@ -235,9 +216,8 @@ check_architect_git_lane() {
   local ROLE_SOURCE="${resolved%%:*}"
   local role="${resolved#*:}"
   # Normalize before comparing: an exact match meant `Architect` or a trailing space
-  # silently DISABLED the lane for a real Architect. safe-exec already lower-cases its
-  # role comparison; match that. (A silently un-laned Architect is exactly the drift
-  # this gate exists to catch.)
+  # silently DISABLED the lane for a real Architect. (A silently un-laned Architect is
+  # exactly the drift this check exists to catch.)
   role="$(printf '%s' "$role" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
   [[ "$role" == "architect" ]] || return 0
 
@@ -248,8 +228,7 @@ check_architect_git_lane() {
   # git's exit status was never seen: a failed `git diff` produced ZERO records, the
   # out-of-scope list stayed empty, and the lane passed — so any diff hiccup silently
   # let arbitrary staged content through. Proven with a stubbed non-zero `git diff`.
-  # This is the same rule already codified for --check-path in safe-exec: an error
-  # must BLOCK, never allow.
+  # An error must BLOCK, never allow.
   local records
   if ! records="$(git diff --cached --name-status -M 2>/dev/null)"; then
     {

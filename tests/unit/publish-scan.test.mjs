@@ -466,7 +466,7 @@ test("E-370: NOTICE names the product and the root package.json author as copyri
 
 test("E-370: every package.json declares Apache-2.0", () => {
   const pkgs = tracked().filter((f) => /(^|\/)package\.json$/.test(f) && !f.includes("node_modules/"));
-  assert.equal(pkgs.length, 3);   // the root, task-synchronizer-mcp and safe-exec-mcp (E-467 removed 15 servers)
+  assert.equal(pkgs.length, 2);   // the root and task-synchronizer-mcp (E-467 removed 15 servers, E-463 safe-exec-mcp's)
   for (const f of pkgs) assert.equal(JSON.parse(_read(_resolve(REPO, f), "utf8")).license, "Apache-2.0", f);
 });
 

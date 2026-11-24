@@ -14,9 +14,9 @@
 //     hooks/hooks.json                  PLUGIN_HOOKS, exec form /bin/bash -p <rein-home>/hooks/<script>
 //
 // What the plugin does NOT carry, and why (the handoff states it):
-//   - hooks/pre-tool-use.sh (the command gate): a plugin can declare it, but E-463 (deleting the
-//     gate) is held, so its registration stays where the gate's tests and `rein doctor` check it —
-//     the project's .claude/settings.json, written by rein init / rein sync.
+//   - hooks/pre-tool-use.sh (the seatbelt, E-463): its registration stays where `rein doctor`
+//     checks it — the project's .claude/settings.json, written by rein init / rein sync — and in
+//     the Architect's role file, since a session started in .ai/ reads no project settings.
 //   - the git hooks (pre-commit, pre-push, post-commit, state-import): a plugin declares Claude
 //     Code hooks only; rein init / rein sync install the git stubs.
 //   - task-synchronizer-mcp: a plugin can declare it, but its tools would be renamed

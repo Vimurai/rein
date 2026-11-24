@@ -29,8 +29,8 @@ import { getDbSeeded, addTask } from "../mcp/shared/state-db.js";
 import { roleProvider } from "./provider-adapter.mjs";
 import { checkTaskQuality } from "./task-quality.mjs";
 
-// Triad caller_role → TASKS.md owner label. Attribution only (safe-exec-mcp owns the
-// tamper-resistant HMAC role boundary, E-129); here we just record who created the row.
+// Triad caller_role → TASKS.md owner label. Attribution only (the role sandbox is the
+// boundary, E-462); here we just record who created the row.
 //
 // E-213 (architect-provider-parity.md §Components 4): the PROVIDER half is resolved
 // from .ai/roles.json rather than hardcoded, so the label always names the provider the

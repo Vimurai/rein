@@ -291,8 +291,9 @@ assert_status 0 "E-256.03a: every entry is removal|absence-test, counted, reason
 
 # ── E-256.4: the grep's hit set EQUALS the allowlist ─────────────────────
 echo "  [E-256.4] repository scan vs allowlist"
-_actual="$(MIN_CORPUS=300 _hits "$REPO_ROOT" "${ROOTS[@]}")"; _rc=$?
-assert_status 0 "E-256.04a: the acceptance corpus was built (>= 300 files)" test "$_rc" -eq 0
+# Floor 200: E-467 and E-463 (the gate's modules, tables and suites) left ~266 files in the roots.
+_actual="$(MIN_CORPUS=200 _hits "$REPO_ROOT" "${ROOTS[@]}")"; _rc=$?
+assert_status 0 "E-256.04a: the acceptance corpus was built (>= 200 files)" test "$_rc" -eq 0
 _expected="$(node -e '
 const a = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
 for (const e of a.entries) console.log(`${e.path}\t${e.hits}`);' "$ALLOW" | LC_ALL=C sort)"
@@ -726,7 +727,7 @@ PY
   assert_not_contains ".mcp.json no longer lists the retired lsp-mcp (E-278)" "lsp-mcp" "$RUN2"
   # E-467 (D-170 r5): patch-mcp and orchestrator-mcp are retired; the kept servers are listed.
   assert_contains ".mcp.json contains task-synchronizer-mcp entry" "task-synchronizer-mcp" "$RUN2"
-  assert_contains ".mcp.json contains safe-exec-mcp entry" "safe-exec-mcp" "$RUN2"
+  assert_not_contains ".mcp.json no longer lists safe-exec-mcp (E-463)" "safe-exec-mcp" "$RUN2"
 else
   _pass ".mcp.json idempotency skipped (python3 unavailable or registry missing)"
   _pass ".mcp.json server entry check skipped"

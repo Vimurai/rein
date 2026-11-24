@@ -313,7 +313,7 @@ test("179.09: markRejection(null) is a safe no-op (no throw)", () => assert.equa
 // Enumerated from the registry, not a literal list; the count guards an empty enumeration.
 const REG = JSON.parse(readFileSync(join(REPO, "src/config/registry.json"), "utf8"));
 const SERVERS = Object.entries(REG.mcp_servers).filter(([, v]) => v.path).map(([n]) => n);
-test(`E-277: the registry enumerates at least 10 custom servers (got ${SERVERS.length})`, () => assert.ok(SERVERS.length >= 10));
+test(`E-277: the registry enumerates at least one custom server (got ${SERVERS.length}; E-467 and E-463 left one)`, () => assert.ok(SERVERS.length >= 1));
 test("E-277: every registry server calls instrument() on its CallTool handler", () => {
   const unwrapped = SERVERS.filter((s) => {
     try { return !readFileSync(join(REPO, "src/mcp", s, "index.js"), "utf8").includes(`instrument(server, "${s}"`); }
@@ -325,12 +325,12 @@ test("E-277: the retired router is not in the registry", () =>
   assert.ok(!readFileSync(join(REPO, "src/config/registry.json"), "utf8").includes('"mcp-router"')));
 
 // ── E-432 (D-159 r7): tool_executions.rule — extends the E-154/E-180 migration rows above ──────
-test("E-432: rule is added to a current store (and to a rebuilt one: M.d); bound from the closed list, else UNLISTED", () => {
+test("E-432: rule is added to a current store (and to a rebuilt one: M.d); any rule a caller passes is booked UNLISTED (E-463 retired the closed list)", () => {
   const p = dbIn();
   seed(p, [["tool_executions", COLS.replace("%S", T.STATUS_ORDER.map((x) => `'${x}'`).join(",")), [["o", "h", "s", "Bash", 0, "BYPASS", "2026-11-01T00:00:00Z"]]]]);
   T.resetTelemetryCache();
   for (const rule of ["SAFE_EXEC_BLOCK:CURL_PIPE_SHELL", "SAFE_EXEC_BLOCK:rm -rf /x", undefined]) tool({ status: "REJECTED", rule }, p);
   T.resetTelemetryCache();
-  assert.deepEqual(all(p, "SELECT rule FROM tool_executions ORDER BY rowid").map((r) => r.rule), [null, "SAFE_EXEC_BLOCK:CURL_PIPE_SHELL", "UNLISTED", null]);
+  assert.deepEqual(all(p, "SELECT rule FROM tool_executions ORDER BY rowid").map((r) => r.rule), [null, "UNLISTED", "UNLISTED", null]);
   assert.match(M.d.ddl, /rule TEXT/);
 });

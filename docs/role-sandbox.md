@@ -30,7 +30,7 @@ top-level file — an `.npmrc`, a `conftest.py`, a `.pnpmfile.cjs` — that the 
 load and run with the Engineer's rights (the lean-core security round, F3). Started in `.ai/`,
 the working directory is its own lane, the project root is read-only to it with no deny list, and
 such a file cannot be made. A session started there reads no project `.claude/settings.json`, so
-the Architect's role file carries what it needs from it: the command gate's hook (until E-463)
+the Architect's role file carries what it needs from it: the seatbelt's hook
 and the session env; `rein pane` loads the rein plugin with `--plugin-dir`, and the state server
 and the session hook find the project root one level up. In Bash the Architect gives paths
 absolute, or `cd ..` first in the same command.
@@ -78,10 +78,10 @@ the content of a commit:
     of `.md .json .txt .yml .yaml .tsv .sqlite .log` (sqlite's `-wal` and `-shm` count as
     records). It is a notice, not a block: open the files it names before running a tool over
     the tree.
-- **The command gate still runs.** The older PreToolUse gate (`hooks/pre-tool-use.sh`, with its
-  operator escape `rein gate off`) is still installed and checks every tool call in both panes.
-  Its removal is task E-463, held until the operator runs the sandbox escape suite; until then
-  both apply.
+- **The seatbelt is advice.** `hooks/pre-tool-use.sh` asks before three kinds of Bash command (a
+  recursive `rm` of home, root or the project root, a download piped into a shell, a secret in
+  the command). It is not a boundary and gets no new spellings: a miss is a miss. E-463 removed
+  the command gate it replaced, with its tables and role token.
 - The Engineer cannot write the project's `.claude/`, so run `rein sync` from your own terminal,
   not from the Engineer pane.
 

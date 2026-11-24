@@ -142,9 +142,8 @@ disappears from `rein help`.
 | `rein init` | Create or upgrade a project's `.ai/` (`--check` for a dry run) |
 | `rein doctor` | Health, as text or `--json` (below) |
 | `rein start` | Build or reattach a project's tmux Triad. On a live session it restarts only the agents that have exited and leaves running ones untouched |
-| `rein pane <architect\|engineer>` | Bind a pane to a role — the only way a role is bound; an app never mints a role token |
+| `rein pane <architect\|engineer>` | Bind a pane to a role — the only way a role is bound (it writes the launch record) |
 | `rein account list\|add\|remove\|sync` | The Claude account registry ([Accounts](accounts.md)) |
-| `rein gate on\|status` | The command gate override's state (`off` is the operator's, in their own terminal) |
 | `rein digest build\|check` | Rebuild `.ai/DIGEST.md` from its tracked inputs, or exit 1 `[DIGEST_STALE]` when it is out of date |
 
 ## 5. The doctor document

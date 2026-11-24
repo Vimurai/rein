@@ -16,10 +16,6 @@ export const DOMAINS = {
     description: "The task ledger — state.sqlite, the generated views, stamps (D-170 r4).",
     servers: ["task-synchronizer-mcp"],
   },
-  Safety: {
-    description: "The pre-execution command gate (held until E-463).",
-    servers: ["safe-exec-mcp"],
-  },
 };
 
 // E-52: classify a server by domain. Servers not in any DOMAINS list are

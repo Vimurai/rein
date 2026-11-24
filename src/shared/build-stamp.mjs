@@ -138,7 +138,7 @@ export function bootedBuild(serverName, entryFile = process.argv[1], runDir = RU
 }
 
 // Only a LONG-LIVED stdio server gets a run-dir record. Several servers double as one-shot
-// CLIs — safe-exec-mcp's `--check` runs on every Bash tool call through the PreToolUse hook —
+// CLIs — a hook may start one per tool call —
 // and those processes are gone microseconds later. Recording them would put a file write on
 // the hook's hot path and fill the run dir with records the next scan only has to reap.
 //

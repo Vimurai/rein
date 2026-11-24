@@ -13,8 +13,8 @@
  * once per call; an unresolved trunk is a [NO_TRUNK] refusal, never a guess.
  *
  * Release and DONE clear the claim the same way. Offline nothing is published: the claim is
- * pending, and a pending claim does not satisfy the claim gate (claimGate below, called by
- * safe-exec for an Engineer writing on an engineer/e<N>-* branch).
+ * pending, and a pending claim does not satisfy the claim gate (claimGate below; its write-time
+ * caller went with the command gate in E-463, so it is checked where a caller asks for it).
  *
  * Without .ai/team.json none of this applies: no fetch, no gate, claim_task refuses.
  */

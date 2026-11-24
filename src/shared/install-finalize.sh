@@ -68,16 +68,9 @@ rein_fin_record_toolchain() {  # <rein> <toolchain-record.sh> [root…]
   fi
   if [[ "$ok" -eq 1 ]] && rein_tc_write "${rein}/shared/toolchain.sh" "$rn" "$rp" "$rnc" "$rt"; then
     echo "✓ Hook toolchain pinned: node ${rn} · python3 ${rp}${rt:+ · tmux ${rt}}"
-    # E-305 (D-089 r3): the gate path's pinned dependencies, recorded beside the interpreters
-    # (readers skip any line they do not recognise; `rein doctor` prints the set).
-    if command -v node >/dev/null 2>&1 && [[ -f "${rein}/shared/gate-pins.mjs" ]]; then
-      node --no-warnings "${rein}/shared/gate-pins.mjs" list "${rein}/mcp" 2>/dev/null \
-        | sed 's/^/REIN_TC_GATEDEP=/' >> "${rein}/shared/toolchain.sh" || true
-    fi
   else
     rm -f "${rein}/shared/toolchain.sh"
-    echo "! Hook toolchain NOT pinned — the hooks fall back to a fixed system PATH and the gate" >&2
-    echo "  blocks with [TOOLCHAIN_STALE] if it finds no interpreter there. Fix the path above and re-run." >&2
+    echo "! Hook toolchain NOT pinned — the hooks fall back to a fixed system PATH. Fix the path above and re-run." >&2
   fi
   return 0
 }

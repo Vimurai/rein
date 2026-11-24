@@ -13,7 +13,7 @@ final report — so the rule cannot drift between them.
         MISSING   <event> <path>  a Rein-named entry whose script does not exist
         FOREIGN   <event> <path>  a Rein-named script outside the install's hooks dir
         FORM      <event> <name>  ours, but not the exec form /bin/bash -p <absolute path>
-        UNREGISTERED              no PreToolUse entry runs the install's pre-tool-use.sh in exec form
+        UNREGISTERED              no PreToolUse entry runs the install's pre-tool-use.sh (the seatbelt) in exec form
                                   under a matcher that covers Bash
         DISABLED                  the file sets disableAllHooks: no hook runs at all
         UNPARSEABLE               the file is not JSON (doctor reports it; nothing else said)
@@ -50,7 +50,7 @@ _SHELL_FLAGS = ("-p", "-e", "-u", "-x", "-l", "--norc", "--noprofile")
 _OPERATORS = re.compile(r"[;&|<>`]|\$\(")
 # The tools the shipped gate matcher covers (src/bin/rein _SPECS): a matcher missing one
 # leaves that tool ungated — the Architect's write gate lives in the same hook (M3).
-_GATE_TOOLS = {"Bash", "Write", "Edit", "MultiEdit", "NotebookEdit"}
+_GATE_TOOLS = {"Bash"}   # the seatbelt reads Bash commands only (E-463)
 # Control (C0, DEL, C1) and bidi characters: a path carrying one is never printed (N5).
 _UNSAFE = re.compile("[\x00-\x1f\x7f-\x9f‎‏‪-‮⁦-⁩]")
 _LINE, _FILE = 1 << 20, 4 << 20   # per-line and per-file read caps for a transcript (N4)

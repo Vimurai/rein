@@ -42,13 +42,13 @@ test("the Architect: sandbox on, no escape hatch, no network, dontAsk with only 
   } finally { rmSync(p, { recursive: true, force: true }); }
 });
 
-test("the Architect's file carries the command gate's hook, which a session in .ai/ does not read from the project (E-463 held)", () => {
+test("the Architect's file carries the seatbelt's hook (Bash only), which a session in .ai/ does not read from the project (E-463)", () => {
   const p = project();
   const home = realpathSync(mkdtempSync(join(tmpdir(), "rs-gate-")));
   try {
     mkdirSync(join(home, "hooks")); writeFileSync(join(home, "hooks", "pre-tool-use.sh"), "#!/bin/bash\n");
     const h = architectSettings(p, home).hooks;
-    assert.deepEqual(h, { PreToolUse: [{ matcher: "Bash|Write|Edit|MultiEdit|NotebookEdit",
+    assert.deepEqual(h, { PreToolUse: [{ matcher: "Bash",
       hooks: [{ type: "command", command: "/bin/bash", args: ["-p", join(home, "hooks", "pre-tool-use.sh")], timeout: 30 }] }] });
     // The Engineer runs at the root and reads the project's settings, so its file registers none
     // (E-208 double-run guard).

@@ -342,7 +342,7 @@ test("rein handoff commits COMM.md with the turn's dirty .ai/ paths and passes t
     // An Engineer mid-task: source staged, then a handoff entry written.
     writeFileSync(join(f.dir, "src", "a.js"), "x\ny\n"); f.git("add", "src/a.js");
     const entry = join(t.d, "entry.md");   // outside the repository: never part of a commit
-    writeFileSync(entry, "---\n## Handoff — 2026-10-23 14:00 UTC\n**Trigger**: E-1 shipped\n### Next action needed\n- Review.\n---\n");
+    writeFileSync(entry, "**Trigger**: E-1 shipped\n### Next action needed\n- Review.\n");   // rein handoff writes the heading (E-475)
     writeFileSync(join(f.dir, ".ai", "DIGEST.md"), "# DIGEST\n- refreshed this turn\n");   // a tracked .ai/ file the turn dirtied
     f.git("add", "--", ".ai/DIGEST.md");   // D-147 addendum r1: already staged (a retried add) — an index diff would skip it
     const r = spawnSync("node", ["--no-warnings", join(ROOT, "src", "shared", "cli-bookkeeping.mjs"), "handoff", "--to", "architect", "--file", entry],

@@ -115,17 +115,27 @@ export function runHandoff(aiDir, { to, file } = {}, { cwd = process.cwd() } = {
   if (!/Next action needed/.test(entry.text)) {
     return { code: 1, out: `✗ [HANDOFF_INCOMPLETE] ${file} has no "Next action needed" section — say what the ${target} does next` };
   }
+  // E-475 (D-174 r7): the command writes the heading; an entry that carries its own is refused.
+  if (/^## Handoff/m.test(entry.text)) {
+    return { code: 1, out: `✗ [HANDOFF_HEADING] ${file} has its own "## Handoff" line — remove it (and its **From** line): rein handoff writes the heading` };
+  }
   const root = dirname(resolve(aiDir));
   if (!git(root, ["rev-parse", "--git-dir"]).ok) return { code: 1, out: `✗ [NOT_A_REPO] ${root} is not a git work tree` };
   // D-104 r2/r4: an un-synced clone still ignores COMM.md. Refuse before writing — never add -f.
   if (git(root, ["check-ignore", "-q", ".ai/COMM.md"]).ok) {
     return { code: 1, out: "✗ [COMM_IGNORED] .ai/COMM.md is gitignored in this clone — run: rein sync" };
   }
+  const from = target === "Architect" ? "Engineer" : "Architect";
+  const when = stampUtc();
   const comm = resolve(aiDir, "COMM.md");
   const prev = existsSync(comm) ? readFileSync(comm, "utf8") : "";
   const sep = prev && !prev.endsWith("\n") ? "\n" : "";
+  // A `---` line opens the entry unless COMM.md already ends with one; the heading's time is
+  // the commit message's.
+  const rule = /(^|\n)---\s*$/.test(prev) ? "" : "---\n";
   const body = entry.text.endsWith("\n") ? entry.text : entry.text + "\n";
-  if (prev) appendFileSync(comm, sep + body); else writeFileSync(comm, body);
+  const head = `${rule}## Handoff — ${when}\n**From**: ${from} → ${target}\n`;
+  if (prev) appendFileSync(comm, sep + head + body); else writeFileSync(comm, head + body);
 
   // E-466: the record is archived before the commit; the archive files ride it when tracked.
   const notes = [];
@@ -142,8 +152,6 @@ export function runHandoff(aiDir, { to, file } = {}, { cwd = process.cwd() } = {
     notes.push(`[ARCHIVE_FAILED] ${String(e.message).slice(0, 300)} — the handoff goes on; run: rein archive`);
   }
 
-  const from = target === "Architect" ? "Engineer" : "Architect";
-  const when = stampUtc();
   const add = git(root, ["add", "--", ".ai/COMM.md", ...archived]);
   if (!add.ok) return { code: 1, out: `✗ [HANDOFF_COMMIT_FAILED] git add .ai/COMM.md: ${add.err.slice(0, 300)}` };
   // D-147 r1 / addendum r1: every tracked .ai/ path that differs from HEAD rides the commit,

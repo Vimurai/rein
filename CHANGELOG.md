@@ -68,6 +68,9 @@ is held for the operator.
 
 ### Changed
 
+- **`rein handoff` writes the entry's heading** (E-475, D-174 r7): a `---` line, then
+  `## Handoff — <time> UTC` (the commit message's time) and `**From**`. An entry file that
+  carries its own `## Handoff` line is refused with `[HANDOFF_HEADING]`.
 - The documentation describes the lean core only (E-468): new pages for the commands and the
   role sandbox; the MCP and agents pages cut to what ships.
 - `[BUILD_STALE]` is a note at DONE, not a refusal (E-461).

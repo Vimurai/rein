@@ -10,11 +10,13 @@
 //     same path as `rein task done`), then the LOG line is appended and the digest rebuilt.
 //     Exit 1 names the missing stamp. A stale build prints one [BUILD_STALE] line, not a refusal.
 //   rein handoff --to architect|engineer --file <entry>
-//     Appends the entry to .ai/COMM.md and commits it with every dirty tracked .ai/ path
+//     Writes `---`, `## Handoff — <time> UTC` and `**From**`, then the entry, to .ai/COMM.md
+//     (E-475; the time is the commit message's), and commits it with every dirty tracked .ai/ path
 //     (D-104, D-147 r1: `git commit --only`, the list taken against HEAD), then prints the
 //     short sha and the wake line for SendMessage. It runs `rein archive` first (E-466), and
 //     the archive files it writes ride the same commit. Exit 1 when the entry lacks
-//     "Next action needed", or when COMM.md is gitignored (nothing is written then).
+//     "Next action needed", holds its own `## Handoff` line ([HANDOFF_HEADING]), or when
+//     COMM.md is gitignored (nothing is written then).
 //   rein decide --file <entry>
 //     Assigns the next D-number, requires a decision, a reason and a rollback, and appends the
 //     entry to .ai/DECISIONS.md. Prints the D-###.

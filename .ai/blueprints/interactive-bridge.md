@@ -2,7 +2,7 @@
 
 > [!WARNING]
 > **SUPERSEDED by D-099 (2026-10-14).** The Triad wake path is `SendMessage` from the
-> skills (`native-first.md` §Component 9). `ai watch`, `ai handoff`, `handoff_control` and
+> skills (`native-first.md` §Component 9). `ai watch`, its `handoff` subcommand, `handoff_control` and
 > `.ai/signal.json` are removed by E-322. Kept for history; do not implement against it.
 
 ## Goal & Architecture
@@ -21,7 +21,7 @@ Because interactive REPLs block on standard input, they cannot natively listen t
    - **Single-Writer Lock**: Uses a cross-process lock to safely mutate signal statuses.
 3. **Automated Handoff Enforcement**
    - Responsibility: Agents (via prompts or framework scripts) are strictly mandated to invoke `handoff_control` automatically when their task queue is exhausted or planning is complete.
-   - **Cross-Role Auto-Handoff (E-204)**: When a role creates a task for a different role via the shell primitive `rein add-task` (e.g., Architect creates a task for the Engineer), the tool automatically triggers `ai handoff` to wake the target role. This eliminates manual signaling when delegating work. Can be bypassed via `REIN_NO_AUTO_HANDOFF=1`.
+   - **Cross-Role Auto-Handoff (E-204)**: When a role creates a task for a different role via the shell primitive `rein add-task` (e.g., Architect creates a task for the Engineer), the tool automatically triggers the signal `handoff` subcommand (retired, D-099) to wake the target role. This eliminates manual signaling when delegating work. Can be bypassed via `REIN_NO_AUTO_HANDOFF=1`.
 
 ## Data Model
 **`.ai/signal.json` Payload (Queue Array):**
@@ -92,7 +92,7 @@ maps both roles to that provider.
 - **E-118**: Refactor `handoff_control` and `ai-watch` to support a signal queue (array) and busy-state detection before injection.
 - **E-119**: Enforce automatic handoff in Claude and Gemini workflows by updating prompt instructions (e.g., `rein-handoff` and `rein-task` skills) to mandate calling `handoff_control`.
 - **E-124**: Implement the smart ai-watch delivery model: stateful persistence using a `delivered` flag, startup backlog drain, single-writer lock, and per-target independent FIFOs.
-- **E-204**: Auto-trigger `ai handoff` on cross-role task creation. `rein add-task` automatically signals the target role (prefix E -> engineer, P -> architect) unless `REIN_NO_AUTO_HANDOFF=1` is set.
+- **E-204**: Auto-trigger the signal `handoff` subcommand (retired, D-099) on cross-role task creation. `rein add-task` automatically signals the target role (prefix E -> engineer, P -> architect) unless `REIN_NO_AUTO_HANDOFF=1` is set.
 - **E-209**: Re-order `resolve_pane` for semantic targets per §Pane Resolution Precedence (D-054): exact title → roles.json ordinal → fuzzy title → window name.
 - **E-211**: Deprecate legacy `claude`/`gemini` targets — stderr warning; fail closed when both roles map to the same provider.
 

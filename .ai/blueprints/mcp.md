@@ -7,14 +7,9 @@
 > [!IMPORTANT]
 > This document maps every Rein Model Context Protocol (MCP) server, grouped by routing domain. It is generated from `src/config/registry.json` — edit the registry, then re-run the generator. Never edit this file directly.
 
-Total registered servers: **2**. The Architect curates DOMAINS; the Engineer wires them into the registry.
+Total registered servers: **1**. The Architect curates DOMAINS; the Engineer wires them into the registry.
 
 ## State
 The task ledger — state.sqlite, the generated views, stamps (D-170 r4).
 
 - **`task-synchronizer-mcp`** (WRITE) — Exclusive State Mutator (P-39): manages .ai/state.json, regenerates TASKS.md and REVIEWS.md as views.
-
-## Safety
-The pre-execution command gate (held until E-463).
-
-- **`safe-exec-mcp`** (READ) — disable-model-invocation: true — Claude cannot self-authorize execution bypass.

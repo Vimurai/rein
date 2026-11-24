@@ -2474,6 +2474,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-23T21:37:09.919Z"
+    },
+    {
+      "id": "E-471",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 3,
+      "description": "Print the role source and the reason in the Architect git lane block of hooks/pre-commit.sh. Today `_resolve_commit_role` runs `launch-record.py walk` with `2>/dev/null` and matches only `\"result\": \"union\"`, so a session that falls back to `union:architect` (record for another project, bad record, launch directory unreadable, process table unreadable) sees only \"Session role: architect\" and cannot tell a real Architect from a fail-closed fallback (seen 2026-11-24: an Engineer pane committing in another project was blocked with no cause shown). Change: carry the walk's `why` out of `_resolve_commit_role` alongside `<source>:<role>` and print both in the [SOVEREIGNTY_BLOCK] message, e.g. \"Session role: architect (source: union — record 1234 is for another project)\"; for `chain` and `env` print the source alone. When the source is `union`, add one line naming the fix for the another-project case (relaunch with `rein pane <role>` from the repo being committed in). Sanitise `why` before printing (single line, control characters stripped, length capped) since a record's content reaches it. Resolution itself must not change: union still resolves to architect, restrict-only (D-087), and REIN_SKIP_GIT_LANE behaves as before. Acceptance: (1) a test under tests/ stages a path outside .ai/ with a live launch record naming another project on the chain and asserts the hook exits 1 and stderr contains both `source: union` and `is for another project`; (2) a test with a live architect record for the same project asserts stderr contains `source: chain` and no `why` text; (3) a test asserts a `why` holding a newline or escape sequence is printed on one line with the control characters removed; (4) the existing git lane tests pass unchanged under the project's test command.",
+      "created_at": "2026-11-24T11:02:12.618Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T11:02:12.631Z"
     }
   ],
   "stamps": [
@@ -7673,84 +7687,6 @@
       "summary": "D-172 a1 r25 (LANE_CODE exemptions); no review per the ruling. Satisfies the stale installed pre-commit hook only.",
       "sha": "9e601f2d931aa22dcac65bdf7bedcb78993f5be8",
       "author": "32126521+Vimurai@users.noreply.github.com"
-    }
-  ],
-  "deltas": [
-    {
-      "task_id": "E-59",
-      "summary": "E-59: CI hotfix (Tier 1). _wal_checkpoint_state_db() in src/bin/ai now resolves wal-flusher.mjs via a SELF_DIR-derived path (third candidate, between cwd-relative and ${AIOS}/shared). Root cause: sqlite_wal_checkpoint_test.sh T-WAL-S04 sources bin/ai inside a mktemp SBOX where neither `src/shared/wal-flusher.mjs` (cwd-relative) nor `${AIOS}/shared/wal-flusher.mjs` (=~/.ai-os, unpopulated in CI) exists, so the helper printed \"wal-flusher.mjs not found\" instead of \"WAL checkpoint complete\". Fix uses BASH_SOURCE[0] of the function to derive `${SELF_DIR}/../shared/wal-flusher.mjs`, which resolves the dev-tree script regardless of cwd or install state. SBOX repro under simulated empty AIOS now emits the success line and exits 0. Local: 1123/1123 PASS, sqlite_wal_checkpoint_test.sh 13/13. Files: src/bin/ai (+6 lines, locator chain only). Commit: f4d54bf, pushed to origin/master, fresh CI run 25612953667 in flight. | Files: .ai/DIGEST.md, .ai/TASKS.md, .ai/state.json",
-      "files": [
-        ".ai/DIGEST.md",
-        ".ai/TASKS.md",
-        ".ai/state.json"
-      ],
-      "read": true,
-      "created_at": "2026-05-09 22:07:57"
-    },
-    {
-      "task_id": "E-60",
-      "summary": "E-60: Per-task anomaly detection in verify_markdown_sync (Tier 2). Replaced count-based check in src/mcp/task-synchronizer-mcp/index.js with per-task cross-reference of TASKS.md checkboxes vs state.sqlite. Detects 4 drift types: (1) id in md but missing from state, (2) [x] in md but status != DONE in state, (3) [ ] in md but status == DONE in state, (4) id in state but missing from md. Auto-regenerates TASKS.md only on missing-row drift (1 and 4); checkbox-mismatch drift (2 and 3) is human-decision territory and surfaces verbatim. Header tampering still flagged. Emits structured `__SYNC_RESULT__ {status, anomalies, auto_fixes}` JSON tail for programmatic consumers (skills, CI, hooks). Mirrored to ~/.ai-os/mcp/task-synchronizer-mcp/index.js for live process pickup on restart. New behavioral test tests/suites/verify_sync_per_task_test.sh (16 assertions) drives the real MCP via stdio JSON-RPC across all 4 drift cases + clean state + header tamper + JSON-tail parse. Tests: 1123→1139 PASS (+16). Files: src/mcp/task-synchronizer-mcp/index.js (-37 +91), tests/suites/verify_sync_per_task_test.sh (new, 200 lines), ~/.ai-os/mcp/task-synchronizer-mcp/index.js (mirror). | Files: .ai/TASKS.md, .ai/state.json, src/mcp/task-synchronizer-mcp/index.js, src/shared/skills/ai-handoff/SKILL.md, src/shared/skills/ai-preflight/SKILL.md",
-      "files": [
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        "src/mcp/task-synchronizer-mcp/index.js",
-        "src/shared/skills/ai-handoff/SKILL.md",
-        "src/shared/skills/ai-preflight/SKILL.md"
-      ],
-      "read": true,
-      "created_at": "2026-05-10 19:44:43"
-    },
-    {
-      "task_id": "E-61",
-      "summary": "E-61: Wire verify_markdown_sync into ai-preflight + ai-handoff skills (Tier 1). src/shared/skills/ai-preflight/SKILL.md gains \"Step 4 — Verify markdown↔state sync\" between Step 3 (TASKS.md) and Step 5 (deltas) with explicit guidance on resolving each anomaly class. src/shared/skills/ai-handoff/SKILL.md gains \"Step 0 — Verify state is consistent before packaging\" with rationale (next agent plans against COMM.md, fiction here propagates downstream). Both skills add `mcp__task-synchronizer-mcp__verify_markdown_sync` to allowed-tools frontmatter. Mirrored to ~/.ai-os/shared/skills/ai-preflight/SKILL.md and ~/.ai-os/shared/skills/ai-handoff/SKILL.md. Registry already permits the tool (no change needed). Files: src/shared/skills/ai-preflight/SKILL.md (+18 lines), src/shared/skills/ai-handoff/SKILL.md (+17 lines), 2 ~/.ai-os mirrors. Tests: 1139/1139 PASS (no test added — wiring is documentation-only and covered by skill/agent end-to-end behavior). | Files: .ai/TASKS.md, .ai/state.json, src/mcp/task-synchronizer-mcp/index.js, src/shared/skills/ai-handoff/SKILL.md, src/shared/skills/ai-preflight/SKILL.md",
-      "files": [
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        "src/mcp/task-synchronizer-mcp/index.js",
-        "src/shared/skills/ai-handoff/SKILL.md",
-        "src/shared/skills/ai-preflight/SKILL.md"
-      ],
-      "read": true,
-      "created_at": "2026-05-10 19:44:49"
-    },
-    {
-      "task_id": "E-77",
-      "summary": "E-77: E-77 Keyword-Multiplier-Manager (Tier 2) — new src/gemini/agents/seo_manager.md (160 lines) + 44-assertion test suite; 1523/1523 PASS; unblocks E-78 (SEO-Content-Generator) + E-79 (Multi-Variation-State-Tracker). | Files: .ai/TASKS.md, .ai/state.json, .mcp.json",
-      "files": [
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        ".mcp.json"
-      ],
-      "read": true,
-      "created_at": "2026-05-19 09:44:16"
-    },
-    {
-      "task_id": "E-79",
-      "summary": "E-79: E-79 Multi-Variation-State-Tracker (Tier 2) — new seo-approach-types.mjs + state-db.js schema bump (2 tables + FK + indices) + 4 new MCP tools (add_keyword_seed/add_content_variation/report_performance/get_seed_cohort) + 64-assertion test suite; 1638/1638 PASS; seo-keyword-multiplier blueprint complete. | Files: .ai/TASKS.md, .ai/state.json, .mcp.json, src/mcp/shared/state-db.js, src/mcp/task-synchronizer-mcp/index.js",
-      "files": [
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        ".mcp.json",
-        "src/mcp/shared/state-db.js",
-        "src/mcp/task-synchronizer-mcp/index.js"
-      ],
-      "read": true,
-      "created_at": "2026-05-19 10:51:33"
-    },
-    {
-      "task_id": "P-2",
-      "summary": "P-2: Accepted Claude's token-bottleneck proposals; authored .ai/blueprints/token-optimization.md and registered E-107, E-108, E-109. Updated GEMINI.md with the Subagent-Audit-First pattern. Project focus updated to sovereignty + telemetry hardening. | Files: .ai/DECISIONS.md, .ai/DIGEST.md, .ai/REVIEWS.md, .ai/RULES.md, .ai/TASKS.md",
-      "files": [
-        ".ai/DECISIONS.md",
-        ".ai/DIGEST.md",
-        ".ai/REVIEWS.md",
-        ".ai/RULES.md",
-        ".ai/TASKS.md",
-        ".ai/state.json",
-        "GEMINI.md"
-      ],
-      "read": true,
-      "created_at": "2026-06-02 12:38:06"
     }
   ]
 }

@@ -7714,6 +7714,33 @@
       "summary": "[ACCEPT_PASS] E-471 at 5be05d9 — 4 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | git_lane_test.sh E-471.1a-d green (rc 1, source: union, is for another project); scratch rerun: role line has 'union — record 123 is for another project' on stderr ‖ 2 | PASS | E-471.2a/2b green; scratch rerun with architect record prints 'Session role: architect (source: chain).' with no reason ‖ 3 | PASS | E-471.3a-c green: stub why with \\n, ESC, BEL, C1 printed on one line, no [[:cntrl:]] or C2 80-9F bytes ‖ 4 | PASS | git show --numstat: test file 31 added/0 deleted; `bash tests/run.sh git_lane_test.sh` (npm test) exit 0, 121 pass 0 fail",
       "sha": "5be05d9cf625568188a1acd8f406c1ba35f83008",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T11:36:52.993Z",
+      "summary": "[REVIEW_PASS] E-471 at 36632fe — 0 FAIL, 3 notes ‖ hooks/pre-commit.sh:218-221 F-471-1 fixed: C1 removal loops (:a/ta), nested-C1 row added to E-471.3; resolution unchanged (union→architect, <role>\\trecord→chain, unverified→env, SKIP untouched) ‖ tests/suites/git_lane_test.sh:159,173 new $(test_tmpdir) calls register cleanup in a subshell (E-241), so 3 of the 17 dirs the runner reports leaked are new; same pattern as the existing _mkrepo ‖ tests/suites/git_lane_test.sh:161,168,175 still asserts on 2>&1 >/dev/null, i.e. stderr only: OK ‖ the earlier notes are handled: 2a/2b capture once, 3 asserts rc 1. git_lane_test.sh: 122 pass, 0 fail",
+      "sha": "36632fed88aaa4b13b0df60e42cac0149c963a0f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T11:36:58.814Z",
+      "summary": "[ACCEPT_PASS] E-471 at 36632fe — 4 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | git_lane_test.sh E-471.1a-d pass: another-project record, hook rc 1, stderr has `source: union` + `is for another project` ‖ 2 | PASS | E-471.2a/2b pass: same-project architect record prints `source: chain)` (paren follows, no why), no reason text ‖ 3 | PASS | E-471.3/3a-c pass: stub why with \\n, ESC, BEL, C1 prints on one Session-role line, no C0/C1 controls ‖ 4 | PASS | `bash tests/run.sh git_lane_test.sh` exit 0, 122 pass 0 fail; test diff 508969b..HEAD is +32/-0 (existing rows unchanged)",
+      "sha": "36632fed88aaa4b13b0df60e42cac0149c963a0f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T11:37:27.928Z",
+      "summary": "HEAD 36632fe: looped _lane_why resists F-471-1 (nested/triple/10-deep C1, C and C.UTF-8) and all earlier (b) payloads in harness rc 0; role resolution restrict-only, unchanged except bare union (still architect); git_lane 122/0; T-LANEWHY-001 closed",
+      "sha": "36632fed88aaa4b13b0df60e42cac0149c963a0f",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]
 }

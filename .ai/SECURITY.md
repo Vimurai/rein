@@ -3332,3 +3332,4 @@ F-471-1 (P3, gating by rule: EXPLOITED): fix is to loop the C1 removal until sta
 `sed -e ':a' -e $'s/\xc2[\x80-\x9f]//' -e 'ta' ...` (verified in the harness: nested, triple-nested
 and plain inputs come out clean), plus a nested-C1 case in E-471.3. Residual, not gating: Unicode
 bidi/format characters (e.g. U+202E) pass; the producer's repr leaves printable non-ASCII as is.
+Re-check at 36632fe (2026-11-24): F-471-1 RESISTED — the looped `_lane_why`, extracted into the harness (rc 0), strips nested, triple and 10-deep `\xc2…\x9b…` in C and C.UTF-8, and every earlier payload (C0/DEL/ESC, plain C1, tr-before-sed joins, 160 cap incl. a cap landing on `\xc2`, format strings) still resists; role resolution is restrict-only as at 5be05d9 (only a bare `union` changed: still union→architect, empty reason); git_lane_test.sh 122 PASS, 0 FAIL. T-LANEWHY-001 closed.

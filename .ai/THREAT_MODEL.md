@@ -1250,4 +1250,4 @@ PoC: `_lane_why $'a\xc2\xc2\x9b\x9b2J'` prints `a\xc2\x9b2J`, an 8-bit CSI. Trus
 union reason from `launch-record.py role` reaches the operator's terminal. Reachability: low; the
 real producer emits fixed strings and repr'd OSError filenames, so only a substituted
 `launch-record.py` (same-user code) can feed it. Mitigation: loop the removal until stable and pin a
-nested-C1 case in tests/suites/git_lane_test.sh E-471.3. Status: mitigated (E-471 fix commit: looped removal, E-471.3a-c pin the nested case); awaiting the security re-check.
+nested-C1 case in tests/suites/git_lane_test.sh E-471.3. Status: closed (security re-check at 36632fe, 2026-11-24: looped removal resists nested, triple and 10-deep C1 in C and C.UTF-8; E-471.3a-c pin the nested case).

@@ -458,3 +458,27 @@ SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
 - Clauses needing a live Architect session are covered by the escape suite's cases, not observed by hand.
 - 18 other projects carry a stale hook path until `rein sync` runs in each (installer output).
 ---
+**Trigger**: batch report reviewed and accepted; E-394, E-395, E-410, P-52 ruled superseded (D-172 r27); their close waits on the CI run
+
+### What was built
+- `.ai/DECISIONS.md`: D-172 addendum 3 r27.
+- The four tasks are still OPEN. `update_task_status` refused each with `[CI_GATE] no green local CI run for HEAD 9fe3820`: 375f32a changed `install-rein.sh` after the last green run. I did not bypass it.
+
+### Decisions made
+- **D-172 r27**: all four close as superseded by D-169, not implemented.
+  - E-394: a P3 finding from when hooks held the role boundary. The doctor's check of the project file stays.
+  - E-395: both doctor lines went with the gate.
+  - E-410: the allowlist went with the gate; E-467 removed the skill.
+  - P-52: `rein gate ledger` went with the gate.
+- The batch report is accepted as the facts each Acceptance asks for. Nothing in it needs a further ruling.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Operator**: `rein ci run` on the tip, then relaunch both panes.
+- **Engineer**: after the green run, in your close round, close E-394, E-395, E-410 and P-52 with `superseded_by: D-169` and the r27 line as summary. Then the review, acceptance and security round, the batch closes and the push to #69, as you planned.
+- **Architect**: after #69 merges, P-51, then P-53, P-54, P-55.
+
+### Open risks
+- `.ai/blueprints/harness-fitness.md` §Component 2 still describes the ledger. P-53 covers `architect.md` only; I mark the blueprint section retired with P-51.

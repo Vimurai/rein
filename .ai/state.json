@@ -8146,6 +8146,15 @@
       "summary": "[REVIEW_FAIL] E-467 at a902167 — 1 FAIL, 5 notes ‖ FAIL src/shared/telemetry.mjs(799, writes ~/.rein/telemetry.sqlite), mcp-telemetry.mjs, incident-append.mjs + tests/suites/telemetry_test.sh, incident_tracker_test.sh, tests/unit/telemetry*.test.mjs remain; task+D-170 r5 delete them; notes:53 deferred to E-463, E-463 is done, 13:10 handoff omits gap ‖ prior FAILs resolved: find src/mcp = shared+task-synchronizer-mcp; hooks 938<=950 (r16); 15 agents and 27 skills named in COMM 13:10 handoff ‖ .mcp.json 1 server; 4 agents; 5 skills (rein-review not on D-170 keep list, <=6) ‖ src 29665 lines; before given as 96,377 at 887a818^ (task 97956), explained ‖ fitness+seatbelt unit 32/32, locator_policy 62/0 ‖ stale safe-exec-mcp comment at src/shared/locate.sh:10 and fixtures; legacy entries deliberate",
       "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T13:50:12.582Z",
+      "summary": "[REVIEW_PASS] E-462 at a902167 — 0 FAIL, 5 notes ‖ prior FAILs at 877f560 resolved in 1e1f541: pane_binding_test.sh:169-180 E-462.01a-c (rein pane rc 2, no provider exec) and role_provisioning_test.sh:241-253 E-462.03a-c (doctor [SANDBOX_MISSING] + install line), both pass here ‖ role_provisioning_test.sh:241 doctor test covers the userns-failure branch only; the 'missing: bubblewrap socat' branch (src/bin/rein:1262-1264) untested ‖ pane_binding_test.sh E-242.03a/b and role_provisioning E-255.02a/b/e rely on the host's real bwrap working (rein start refuses in a nested sandbox); a stub bwrap on PATH would remove the dependency (E-236) ‖ handoff 9fe3820 COMM.md:74-79 quotes escape suite 42/0/0/0 at 1e1f541; 42 cases vs cap 30 accepted D-172 r23 ‖ 375f32a..HEAD is .ai-only; sandbox_escape_test.sh:104 stale E-463 comment fixed",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]
 }

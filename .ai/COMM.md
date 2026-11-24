@@ -482,3 +482,23 @@ SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
 
 ### Open risks
 - `.ai/blueprints/harness-fitness.md` §Component 2 still describes the ledger. P-53 covers `architect.md` only; I mark the blueprint section retired with P-51.
+**Trigger**: the operator ordered v0.6.0 after #69 merges: D-173 and E-472 (BLOCKED on E-470)
+
+### What was built
+- `.ai/DECISIONS.md`: D-173. Task E-472, Tier 2, depends on E-470.
+
+### Decisions made
+- **D-173**: the lean core is released as v0.6.0 by the path v0.5.0 took.
+  - The bump is its own pull request after #69, not a commit inside #69 (it would void the branch's stamps).
+  - The operator creates and pushes the tag. The escape suite passes at the commit to be tagged, or no tag.
+  - The demo recording does not hold the release.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Engineer**: nothing changes now. Finish E-470 as planned; E-472 opens when it closes.
+- **Operator**: for E-472, confirm the `release` environment still holds REIN_RELEASE_KEY and the `v*` ruleset; run the escape suite when asked; create the tag `v0.6.0` on the merge commit the Engineer names.
+
+### Open risks
+- `release.yml` has not run since the strip. If it calls anything E-467 removed, E-472 stops and becomes Tier 3. The workflow's dry run (`workflow_dispatch`) on main after #69 shows this before the tag.

@@ -3,42 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 13:40 UTC
-**From**: Engineer → Architect
-**Trigger**: batch close — one clause conflict that only you can settle (seatbelt location)
-
-### What was built
-- Review and acceptance ran for every batch task at 877f560. Clean: E-458, E-459, E-460, E-464, E-469. The rest fail on fixable gaps (being fixed in one commit: hook lines 937, README 200, E-462 refusal tests, census baseline) or on clauses your rulings already amend (r13, r16, r20, r22; D-170 r8 supersedes E-465).
-
-### Next action needed
-- **Architect**: E-463 clause 1 measures `wc -l src/mcp/safe-exec-mcp/*` (the seatbelt lives there). E-467 clause 1 says `find src/mcp` lists only shared and task-synchronizer-mcp, and E-468's grep forbids `safe-exec` in CONTRIBUTING.md and docs/ (two lines name `safe-exec-mcp/seatbelt.mjs`). They cannot all hold. Rule one:
-  - (a) move the seatbelt to `src/shared/seatbelt.mjs` (my recommendation: no MCP server is left there; E-463's clause then reads that path); or
-  - (b) keep `src/mcp/safe-exec-mcp/` and amend E-467 clause 1 and E-468's grep to allow it.
-- Reply in one line; I build it in the same commit as the other fixes.
-
-### Open risks
-- Each code commit voids every task's stamps (they bind to HEAD). The fixes go in one commit, then one CI run, then one re-stamp round.
----
-**Trigger**: seatbelt location ruled: (a), `src/shared/seatbelt.mjs` (D-172 addendum 2 r26)
-
-### Decisions made
-- **D-172 r26**: move the seatbelt to `src/shared/seatbelt.mjs` and delete `src/mcp/safe-exec-mcp/`.
-  - E-463 clause 1 reads `wc -l src/shared/seatbelt.mjs`. E-467 clause 1 and E-468's grep stand as written.
-  - The fitness row `command_text_lines` counts that one file, not `src/shared/`.
-  - Installed copy: `~/.rein/shared/seatbelt.mjs`. The hook, `install-rein.sh`, CONTRIBUTING.md and docs/gates-and-review.md name the new path. `~/.rein/mcp/safe-exec-mcp/` becomes a legacy artefact for `rein clean`.
-  - `locator_policy_test.sh` keeps every case, at the new path.
-  - No extra security round; E-470's one round reads the move.
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Engineer**: build r26 in the same commit as the other fixes, then one CI run on the operator's word, then one re-stamp round.
-- **Operator**: after that commit, `rein ci run`; `bash install-rein.sh` again, since the installed seatbelt path changes.
-
-### Open risks
-- Between the commit and the operator's reinstall, the installed hook still finds the old `~/.rein/mcp/safe-exec-mcp/seatbelt.mjs`. `rein clean` must not remove it before the new copy is installed.
----
 ## Handoff — 2026-11-24 13:10 UTC
 **From**: Engineer → Architect
 **Trigger**: lean-core batch report — PR #69 is up; the facts each batch task's Acceptance asks the handoff to carry
@@ -396,3 +360,32 @@ Adoptability   steps from install to a first closed task                     UNK
 
 ### Open risks
 - `git status` shows untracked `.bash_profile`, `.gitmodules`, `.idea`, `.profile`, `.ripgreprc` and `.vscode` at the project root, and the same kind of names under `.ai/`. They look like the sandbox's own placeholders, not anyone's work. Do not commit them; I rule on the `[LANE_CODE]` noise they cause with P-53.
+---
+## Handoff — 2026-11-24 20:09 UTC
+**From**: Engineer → Architect
+**Trigger**: PR #71 merged as 27ebc09, but `rein done` refuses E-473/474/475: the stamps at 47e7e15 do not cover the merge commit (needs your call)
+
+### What was built
+- PR #71 was merged into main as 27ebc09, and the branch is deleted. After one re-run of 3 failed jobs, hosted CI was 18/18 green. The failures were unrelated to the branch:
+  - ubuntu node 24 shard 3: the tmux pane-title rows E-227.06c–e, in code the branch does not touch.
+  - two macOS shards hit the 15-minute timeout. Main's own run at 44b0146 also had a macOS shard cancelled.
+- Local `rein ci run` was green at 0f60282 (the branch tip) and at 27ebc09 (main).
+- All stamps were recorded at 47e7e15 or e97a72d:
+  - E-473: REVIEW_PASS, SEC_CLEARED and ACCEPT_PASS.
+  - E-474 and E-475: REVIEW_PASS and ACCEPT_PASS.
+  - From there to the branch tip 0f60282, only `.ai/` changed.
+
+### Decisions needed
+- `rein done E-473` → `[REVIEW_GATE] … no [REVIEW_PASS] stamp for HEAD 27ebc09 or an ancestor that differs only in .ai/`. The merge commit's first parent is main's 44b0146. The branch did not contain #70, so `git diff 47e7e15 27ebc09 -- . ':!.ai'` is exactly #70's four workflow files (codeql, dependency-review, privacy, scorecard; 7+/7−), and those were merged and checked on main before. The gates (src/shared/completion-gates.mjs `_stampGate`) accept only an ancestor that differs in `.ai/` alone, so no stamp on the branch covers the merge.
+- Choose one:
+  - (a) Re-stamp at 27ebc09: reviewer ×3, critic_acceptance ×3 and security_engineer ×1 for E-473, each scoped to the #70 diff. That is seven agent runs for 7 lines that main already had, and a fourth security dispatch after r17 said "no fourth round".
+  - (b) A gate change as a new task: a stamp also covers a merge commit when the merge's diff against its stamped parent equals the diff its other parent (the trunk) brought in, i.e. the merge adds nothing of its own outside `.ai/`. Close E-473/474/475 after that lands.
+  - (c) A ruling that these three close on the 47e7e15/e97a72d stamps, by a route `rein done` already has, if there is one. I found none.
+- Engineer's recommendation: (b). Every PR branch that is not rebased onto the latest main will hit this.
+
+### Next action needed
+- **Architect**: rule on (a), (b) or (c).
+- **Engineer**: then close E-473, E-474 and E-475, then E-472.
+
+### Open risks
+- Until this is ruled, E-472 (v0.6.0) waits on the three closes.

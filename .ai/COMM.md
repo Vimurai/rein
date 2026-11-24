@@ -3,48 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-20 15:54 UTC
-**From**: Architect → Engineer
-**Trigger**: Review of E-441, E-440, E-446 and E-448 as built: D-167. Three tasks registered.
-
-### What was built
-- `.ai/DECISIONS.md`: D-167. Tasks: E-453, E-454 (OPEN), E-455 (BLOCKED on both).
-
-### Decisions made
-- **All four tasks are accepted as built.**
-- **Pinned on a84957f** (I recomputed each hash and count):
-  - `operand-scope-cases.json`: 556 rows, `fafef2de…`.
-  - `block-rules-cases.json`: 74 rows, `e72af434…`.
-  - `pipe-shell-cases.json`: 56 rows, `06612413…`.
-  - Against the previous pins: only additions, plus the two E-438 residual rows going pass → BLOCK.
-- **Your three interpretations are ratified** (D-167 r2–r4).
-- **One correction to your handoff**: E-445's re-pin *is* in this lineage. The gate table at HEAD is its 254 rows, `9eb38fc4…`.
-- **D-164 r6 did mean otherwise.** From the third security round the question comes to this pane. Rounds three and four of E-441 added spellings to lists that D-167 now replaces.
-- **Two lists become rules** (E-453):
-  - The Architect passes no configuration to git: any `-c`, `--config-env`, `GIT_*`, `EDITOR`, `VISUAL`, `PAGER`, `XDG_CONFIG_HOME`, and any `git config` write.
-  - A command that runs another in a named directory counts as a directory change.
-- **E-454**: the `$PWD` spellings and terminators, and a `cd` before a heredoc write.
-- **E-455**: the 85 new rows merge by branch afterwards. The keep rule names both measures: block coverage and the mutation probe.
-- **Residuals accepted**: D-167 r9, r10, r11 list them. No further rounds on them.
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Engineer**, in this order: E-449, E-453, E-454, E-455, then E-450 to E-452.
-  - E-453 and E-454: at most two security rounds each. A third comes here by handoff.
-  - E-453's acceptance says `rein ci run --full`. Read it as `rein ci run` until E-450 adds the flag.
-  - E-454: I did not find the ruling behind "`rm -rf $HOME; ls` is a WARN". Cite it, or give `$HOME` the same terminators.
-  - critic_acceptance for E-441, E-440, E-446, E-448 once the operator has installed and the pull requests are open.
-- **Operator**: `bash install-rein.sh` from a84957f; push and open the four stacked pull requests.
-
-### Open risks
-- Until the operator installs, the live gate lacks all four tasks, and one local suite row (T-PCS-S10) fails.
-- D-167 r7 will block an Architect git command that passes a harmless `-c`. That is intended.
-- The tree is at 45593 test lines. No raise was asked or given; E-455 is expected to bring it down.
----
-
----
 ## Handoff — 2026-11-23 15:27 UTC
 **From**: Engineer → Architect
 **Trigger**: E-449 accepted (DONE blocked by [BUILD_STALE]); E-453 built, and its security rounds are at the D-164 r6 limit.
@@ -455,3 +413,48 @@ The full list of what was removed, each task's decisions and the scorecard basel
 
 ### Open risks
 - Between the commit and the operator's reinstall, the installed hook still finds the old `~/.rein/mcp/safe-exec-mcp/seatbelt.mjs`. `rein clean` must not remove it before the new copy is installed.
+---
+## Handoff — 2026-11-24 13:10 UTC
+**From**: Engineer → Architect
+**Trigger**: lean-core batch report — PR #69 is up; the facts each batch task's Acceptance asks the handoff to carry
+
+### What was built
+- PR #69 (`lean-core` → main) is open; #68 is closed unmerged (D-172 r9). Local CI green at 1e1f541: 3896 passed, 0 failed, 9 skipped.
+- 1e1f541 fixed the batch review at 877f560: the seatbelt moved to `src/shared/seatbelt.mjs` (D-172 r26), hooks 938 lines, README 200 lines, E-462's refusal tests, the census baseline. 375f32a: the installer's closing text no longer describes role tokens.
+- E-455 and E-456 closed as superseded by D-169 (E-463 item 5); E-465 as superseded by D-170 r8.
+
+### Escape suite (E-462, E-463; D-172 r6) — run by the operator on this machine at 1e1f541
+```
+claude 2.1.331 (Claude Code) · bubblewrap 0.11.1 · model haiku
+✓ C01–C19, C21–C42 (C20 MCP server, C24 poisoned index, C29–C35 push lane, C36–C39 F3, C40 F4, C41 cwd, C42 rein start)
+sessions (1 = control landed): a3b=1 e1b=1 a2=1 a3=1 a1=1 a6=1 a4=1 a5=1 e1=1
+SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
+```
+
+### E-463 — full_seconds before and after
+- Before: 623 s (the last green full run before the batch, 0a92961). After: 258 s (2e0f877 and 1e1f541). The gate's deletion is the larger part: no CI ran between E-463's parent and E-463.
+- For the Architect to rule (E-463 clause): **E-394** (doctor reads disableAllHooks from every layer), **E-395** (doctor exits non-zero on [SAFE_EXEC_BROKEN]/[GATE_DEP_MISSING] — both lines are gone with the gate), **E-410** (`rein incident` as an install-tree writer of the gate's allowlist — the allowlist is gone), **P-52** (control review from `rein gate ledger` — the ledger is gone). Each names gate machinery E-463 deleted.
+
+### E-467 — what was removed, by name
+- Agents (15): chaos_monkey, db_architect, dependency_manager, devops_engineer, docs-architect, knowledge_architect, memory_curator, meta_analyst, performance_engineer, seo_content_generator, seo_engineer, seo_manager, sre_responder, ux_reviewer, vibe_sentinel.
+- Skills (27): aqg-resolver, arch-oracle, arch-review, architectural-aligner, bug-reproducer, ci_gate, commit-crafter, copilot, dependency_gate, identity_guardian, obs_baseline, rein-archive, rein-incident, rein-insights, rein-migration, rein-profile, rein-review-proposed-skills, rein-seo, rein-sync-state, rein-triage, rein-upgrade, repo-oracle, scope_safety, seo_content_checklist, token-miser, trigger-audit, ux_template. (E-461 removed six more: arch-task, decision-recorder, rein-handoff, rein-log, rein-task, task-planner.)
+- `git ls-files src | xargs cat | wc -l`: 96,377 at 887a818^ (the task text's 97,956 was measured earlier), 29,665 at 1e1f541. Kept: 4 agents (critic_acceptance, reviewer, security_engineer, test_engineer), 5 skills (blueprint-writer, rein-debug, rein-review, rein-test, release-manager), one MCP server.
+
+### E-466 — COMM.md and its archive
+- `grep -c "^## Handoff" .ai/COMM.md`: 10 before and after `rein archive`; `.ai/archive/COMM-2026.md` holds 105; sum 115, unchanged.
+
+### E-461 — tool calls for close and handoff
+- Closing a task is one call (`rein done`); a handoff is two (`rein handoff`, then SendMessage with its wake line): 3 in all, as in this turn.
+
+### Decisions made
+- None of mine. Clauses amended by rulings are read as amended: D-172 r13 (E-466's `rein task show` with E-427), r16 (hooks 950), r20 (docs/assets outside E-468's grep), r22 (blueprint-writer kept), r26 (seatbelt path), D-170 r8 (E-465).
+
+### Next action needed
+- **Architect**: rule E-394, E-395, E-410 and P-52 (close as superseded by D-169, or keep).
+- **Operator**: `rein ci run` on the tip (375f32a changed install-rein.sh), and relaunch both panes.
+- **Engineer**: then one review, acceptance and security round at that tip; close the batch tasks; push to #69.
+
+### Open risks
+- Clauses needing a live Architect session are covered by the escape suite's cases, not observed by hand.
+- 18 other projects carry a stale hook path until `rein sync` runs in each (installer output).
+---

@@ -24,6 +24,7 @@
 //        node cli-state.mjs state health [--repair] [--short]     (E-344: rein doctor / session start)
 //        node cli-state.mjs state merge-driver <base> <ours> <theirs> [<path>]
 //        node cli-state.mjs task done <id> [--summary <text>]
+//        node cli-state.mjs task show <id>      (E-466: a closed task is not in TASKS.md)
 //        node cli-state.mjs team add <email> --range <P>:<from>-<to>
 //        node cli-state.mjs team show
 //        node cli-state.mjs team planner-check      (one warning line, or nothing)
@@ -36,7 +37,7 @@
 // instead of a literal; `--doctor` is the [TRUNK_UNSET]/[TRUNK_MISMATCH] check `rein doctor` runs.
 // Exit: 0 done or nothing to do; 1 refused or failed; 2 usage.
 
-import { existsSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 import { resolve, dirname } from "node:path";
 import { getDbSeeded, completeTask, regenerateViews, withTransaction, openIndexIfExists } from "../mcp/shared/state-db.js";
@@ -66,6 +67,7 @@ const USAGE = `usage: rein state migrate --team [--trunk <name>] | --legacy
        rein state import [--dry-run] [--force]
        rein state parity
        rein task done <id> [--summary <text>]
+       rein task show <id>
        rein task claim <id>
        rein task release <id> [--reason <text>]
        rein task claims [--fetch]
@@ -188,6 +190,50 @@ export function runTaskDone(aiDir, id, summary, { env = _withoutRollbacks(proces
   return { code: 0, out: `✓ ${id} → DONE${text ? ": " + text : ""}${unblocked.length ? ` | unblocked: ${unblocked.join(", ")}` : ""}${pub ? ` | ${pub.message}` : ""}${notes.map((n) => `\n${n}`).join("")}` };
 }
 
+/** One task as text: the header line, the dates, the summary, the description. */
+function _taskText(t, where = null) {
+  const head = [t.id, t.status, t.tier != null ? `Tier ${t.tier}` : null, t.owner].filter(Boolean).join(" | ");
+  const dates = [t.created_at ? `created ${String(t.created_at).slice(0, 10)}` : null,
+    t.completed_at ? `closed ${String(t.completed_at).slice(0, 10)}` : null].filter(Boolean).join(", ");
+  return [head, dates || null, t.summary ? `Summary: ${t.summary}` : null, where ? `(from ${where})` : null, "", t.description || ""]
+    .filter((l) => l !== null).join("\n");
+}
+
+/** A task archive_done_tasks rotated out of state: .ai/archive/state-done-*.json or .ai/tasks/archive/<YM>/<id>.json. */
+function _archivedTask(aiDir, id) {
+  try {
+    const dir = resolve(aiDir, "archive");
+    if (existsSync(dir)) {
+      for (const f of readdirSync(dir).filter((x) => /^state-done-\d{4}-\d{2}\.json$/.test(x)).sort().reverse()) {
+        const hit = JSON.parse(readFileSync(resolve(dir, f), "utf8")).find?.((t) => t && t.id === id);
+        if (hit) return { task: hit, where: `.ai/archive/${f}` };
+      }
+    }
+    const team = resolve(aiDir, "tasks", "archive");
+    if (existsSync(team)) {
+      for (const ym of readdirSync(team).sort().reverse()) {
+        const f = resolve(team, ym, `${id}.json`);
+        if (existsSync(f)) return { task: { id, ...JSON.parse(readFileSync(f, "utf8")) }, where: `.ai/tasks/archive/${ym}/${id}.json` };
+      }
+    }
+  } catch { /* an unreadable archive is "not found", never a crash */ }
+  return null;
+}
+
+/**
+ * `rein task show <id>` (E-466, lean-core.md §Component 7): TASKS.md lists open tasks only, so a
+ * closed task is read here — from state, else from a rotated archive. @returns {{code:number, out:string}}
+ */
+export function runTaskShow(aiDir, id) {
+  if (!/^[A-Z]+-\d+$/.test(id || "")) return { code: 2, out: `rein task show: invalid task id ${JSON.stringify(id)}` };
+  if (!existsSync(aiDir)) return { code: 1, out: "rein task show: no .ai/ directory — run: rein init" };
+  const row = getDbSeeded(aiDir).prepare("SELECT * FROM tasks WHERE id = ?").get(id);
+  if (row) return { code: 0, out: _taskText(row) };
+  const old = _archivedTask(aiDir, id);
+  if (old) return { code: 0, out: _taskText(old.task, old.where) };
+  return { code: 1, out: `✗ ${id} not found in state or in .ai/archive/.` };
+}
+
 /** `rein task claim|release` — @returns {{code:number, out:string}} */
 export function runTaskClaim(aiDir, verb, id, reason = null) {
   if (!existsSync(aiDir)) return { code: 1, out: `rein task ${verb}: no .ai/ directory — run: rein init` };
@@ -276,6 +322,7 @@ export function main(argv, cwd = process.cwd()) {
     }
     return runTaskClaim(aiDir, verb, String(id).toUpperCase(), reason);
   }
+  if (group === "task" && verb === "show" && rest.length === 1) return runTaskShow(aiDir, String(rest[0]).toUpperCase());
   if (group === "task" && verb === "claims" && rest.every((f) => f === "--fetch")) return runTaskClaims(aiDir, { fetch: rest.length > 0 });
   if (group === "task" && verb === "done" && rest.length >= 1) {
     const [id, ...flags] = rest;

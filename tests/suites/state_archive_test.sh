@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# state_archive_test.sh — rotating finished state out of the live store, and finding it again.
+# state_archive_test.sh — `rein archive`, the rotated task archives, and finding them again.
 #
 # One suite for the state-archive behaviours (E-302, wave 2 of the D-088 consolidation):
-# `rein archive` (E-111 → E-467, below), then the sections absorbed from archive_pointer (E-245),
+# `rein archive` (E-111 → E-467 → E-466, below), then the sections absorbed from archive_pointer (E-245),
 # archive_tasks (E-112) and sqlite_wal_checkpoint (E-53).
 #
-# ── E-111 → E-467 (D-170 r4-r5): `rein archive` rotates SQLite state (DONE tasks + audit
-# stamps) through the shared, ACID-safe owner. The rotation was archive-manager-mcp's
-# execute_archive until E-467 retired the server and moved it into the kept command;
-# --logs takes over the retired rein-archive skill's LOG.md / SESSION.md move.
+# ── E-111 → E-467 → E-466: `rein archive` no longer rotates SQLite state. E-466 (D-169,
+# lean-core.md §Component 7) keeps every task and stamp in state — a closed task is read with
+# `rein task show`, and the DONE gates read the stamps — and moves record text instead
+# (COMM/SECURITY/REVIEWS → .ai/archive/<FILE>-<year>.md; tests/unit/bookkeeping-commands.test.mjs).
+# This suite keeps the process boundary: the CLI exit codes and the --logs move.
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/../lib/assert.sh"
@@ -29,19 +30,12 @@ node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mcp/shared/
 
 r="$(bash "$AI_BIN" archive 2>&1)"; rc=$?
 assert_status 0 "E-467.01: rein archive exits 0 (rc=${rc})" test "$rc" -eq 0
-assert_contains "E-111.01: reports the state archive"      "[STATE-ARCHIVE]"   "$r"
-assert_contains "E-111.01b: 50 stamps rotated (60-10)"     "50 stamps"         "$r"
-# Archive file is dated by the current month (rotation stamp), not the row timestamp.
+assert_contains "E-466.01: reports the record archive" "[RECORD-ARCHIVE]" "$r"
 YM="$(date -u +%Y-%m)"
-assert_exists "${PROJECT}/.ai/archive/stamps-${YM}.json"
-
 REMAIN=$(node --input-type=module -e "import { getDb } from '${REPO_ROOT}/src/mcp/shared/state-db.js'; console.log(getDb('${PROJECT}/.ai').prepare('SELECT COUNT(*) n FROM stamps').get().n);" 2>/dev/null)
-assert_status 0 "E-111.03: 10 most-recent stamps kept in active SQLite state" \
-  bash -c "[ \"$REMAIN\" -eq 10 ]"
-
-# A second run below threshold is a clean no-op.
-r="$(bash "$AI_BIN" archive 2>&1)"
-assert_contains "E-111.04: below-threshold run reports no rotation needed" "No state rotation needed" "$r"
+assert_status 0 "E-466.02: every stamp stays in state (60, was rotated to 10 before E-466)" \
+  bash -c "[ \"$REMAIN\" -eq 60 ]"
+assert_status 1 "E-466.03: no stamps-<month>.json rotation file is written" test -e "${PROJECT}/.ai/archive/stamps-${YM}.json"
 
 # ── E-467.02: --logs moves LOG.md and SESSION.md, never overwrites, starts a fresh LOG.md ──
 printf '# LOG\nold line\n' > "${PROJECT}/.ai/LOG.md"

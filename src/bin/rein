@@ -145,16 +145,19 @@ Commands:
                  Close a task: DONE through the completion gates (exit 1 names the
                  missing stamp), the LOG line, the digest rebuilt
   rein handoff --to architect|engineer --file <entry>
-                 Append the entry to .ai/COMM.md, commit it with the dirty tracked .ai/
-                 paths, print the sha and the SendMessage wake line
+                 Append the entry to .ai/COMM.md, run rein archive, commit it with the
+                 dirty tracked .ai/ paths, print the sha and the SendMessage wake line
   rein decide --file <entry>
                  Number the entry D-### and append it to .ai/DECISIONS.md; it needs a
                  decision, a reason and a rollback
   rein archive [--logs]
-                 Move DONE tasks and stamps over their thresholds to .ai/archive/*.json;
+                 Move COMM.md handoffs older than the last ten, and SECURITY.md and
+                 REVIEWS.md sections older than 90 days, to .ai/archive/<FILE>-<year>.md;
                  --logs also moves LOG.md and SESSION.md to .ai/archive/YYYY-MM/
   rein task done <id> [--summary <text>]
                  Mark a task DONE through the same completion gates as the MCP tool
+  rein task show <id>
+                 Print one task, open or closed (TASKS.md lists open tasks only)
   rein task claim <id> | release <id> [--reason <text>] | claims [--fetch]
                  Team projects (D-102): claim a task on origin/<trunk> before writing
                  source for it, release it on abandon, list who holds what
@@ -6922,7 +6925,7 @@ case "$cmd" in
   # verify_markdown_sync. Usage: rein add-task [flags] <description>.
   add-task)      do_add_task "${@:2}" ;;
   # E-325 (D-102, team-collaboration.md §Component 1): `rein state migrate --team|--legacy` and
-  # `rein task done <id>` — one node helper, writing through the same library as the MCP server.
+  # `rein task done|show <id>` — one node helper, writing through the same library as the MCP server.
   # E-333: `rein log path|recent` — the LOG file (shared per developer when team.json says so).
   # E-341 (D-105 r2): `rein trunk` — the project's trunk (team.json → origin/HEAD → main|master).
   state|task|team|log|trunk)

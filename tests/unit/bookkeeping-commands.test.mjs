@@ -7,6 +7,11 @@
 // codes the blueprint's API names. Each command runs in a scratch git project; nothing reads
 // ~/.rein (the build check gets a fixture mirror and run dir).
 //
+// E-466 extends it with `rein archive` (record-archive.mjs: COMM, SECURITY and REVIEWS moved to
+// .ai/archive/<FILE>-<year>.md), the archive run inside `rein handoff`, the open-only TASKS.md
+// and `rein task show`. They replace state_archive_test's E-111 rows, whose state rotation
+// `rein archive` no longer does.
+//
 // Run standalone: node --test tests/unit/bookkeeping-commands.test.mjs
 
 import { test } from "node:test";
@@ -19,6 +24,9 @@ import { execFileSync } from "node:child_process";
 import { runDone, runHandoff, runDecide, main, nextDecisionId, missingDecisionParts, handoffLine } from "../../src/shared/cli-bookkeeping.mjs";
 import { getDb, regenerateViews } from "../../src/mcp/shared/state-db.js";
 import { writeDigest } from "../../src/shared/digest-build.mjs";
+import { runTaskShow } from "../../src/shared/cli-state.mjs";
+import { runArchive } from "../../src/shared/cli-bookkeeping.mjs";
+import { splitSections, planComm, cutoffDay } from "../../src/shared/record-archive.mjs";
 
 function project(t) {
   const root = mkdtempSync(join(tmpdir(), "rein-bookkeeping-"));
@@ -59,6 +67,15 @@ test("rein done: exit 0, one line; the task is DONE, the LOG line written, the d
   assert.match(readFileSync(join(p.ai, "LOG.md"), "utf8"), /^\d{4}-\d{2}-\d{2} \| Claude \| E-500 \| text fixed$/m);
   assert.match(readFileSync(join(p.ai, "DIGEST.md"), "utf8"), /^- E-500 \(\d{4}-\d{2}-\d{2}\): text fixed$/m);
   assert.equal(runDone(p.ai, "E-500", "again", p.opts).out, "E-500 is already DONE.", "a second close writes nothing");
+  // E-466: TASKS.md lists open tasks only; the closed one is in state and in `rein task show`.
+  const view = readFileSync(join(p.ai, "TASKS.md"), "utf8");
+  assert.doesNotMatch(view, /E-500:/);
+  assert.match(view, /^- \[ \] E-501: /m);
+  assert.doesNotMatch(view, /^- \[x\]/m);
+  const show = runTaskShow(p.ai, "E-500");
+  assert.equal(show.code, 0, show.out);
+  assert.match(show.out, /^E-500 \| DONE \| Tier 1 \| Engineer \(Claude\)\ncreated 2026-11-23, closed \d{4}-\d{2}-\d{2}\nSummary: text fixed\n\nFix the text\./);
+  assert.equal(runTaskShow(p.ai, "E-999").code, 1);
 });
 
 test("rein done: exit 1 names the missing stamp; nothing is written", (t) => {
@@ -123,6 +140,7 @@ test("rein handoff: appends the entry, commits COMM.md with the dirty tracked .a
   const files = p.g("show", "--name-only", "--format=", "HEAD").split("\n").sort();
   assert.ok(files.includes(".ai/COMM.md") && files.includes(".ai/TASKS.md") && files.includes(".ai/LOG.md"), files.join(","));
   assert.ok(!files.includes("src.js"), "staged source stays out of the handoff commit");
+  assert.ok(!files.some((f) => f.startsWith(".ai/archive/")), "one handoff: nothing to archive");
   assert.match(p.g("status", "--short", "--", "src.js"), /^A  src\.js$/);
 });
 
@@ -173,6 +191,7 @@ Revert the commit.
 `;
 
 test("rein decide: numbers the entry after the highest D-, adds the date, appends it, prints the id", (t) => {
+  // E-466 (3): DECISION has a decision, a reason and a rollback and no Alternatives: accepted.
   const p = project(t);
   const r = runDecide(p.ai, { file: p.entry("d.md", DECISION) }, { cwd: p.root });
   assert.equal(r.code, 0, r.out);
@@ -206,4 +225,85 @@ test("nextDecisionId and missingDecisionParts are pure", () => {
   assert.equal(nextDecisionId(""), "D-001");
   assert.equal(nextDecisionId("## D-171 — x\n## D-99 — y\n"), "D-172");
   assert.deepEqual(missingDecisionParts(DECISION), []);
+});
+
+// ── rein archive (E-466, lean-core.md §Component 7) ─────────────────────────────────
+
+const NOW = new Date("2026-11-24T12:00:00Z");           // cutoff: 2026-08-26
+const handoff = (i) => `## Handoff — 2026-${String(1 + (i % 12)).padStart(2, "0")}-10 10:${String(i).padStart(2, "0")} UTC\n**From**: Engineer\n\n### Next action needed\n- step ${i}\n\n---\n\n`;
+
+test("splitSections: the parts join back to the input; a ## line inside a fence is not a heading", () => {
+  const text = "# COMM\n\nintro\n\n## Handoff — 2026-01-01\n```\n## not a heading\n```\n## Note\nx\n";
+  const { preamble, sections } = splitSections(text);
+  assert.equal(preamble + sections.map((s) => s.text).join(""), text);
+  assert.deepEqual(sections.map((s) => s.heading), ["## Handoff — 2026-01-01", "## Note"]);
+  assert.equal(cutoffDay(NOW), "2026-08-26");
+});
+
+test("planComm: the last ten handoffs stay; older handoffs and the notes among them move; the preamble stays", () => {
+  const text = "# COMM\n\n" + handoff(0) + "## WIP note — 2026-01-11\nwip\n\n" + Array.from({ length: 11 }, (_, i) => handoff(i + 1)).join("");
+  const { moved, kept } = planComm(text);
+  assert.deepEqual(moved.map((s) => s.heading.slice(0, 13)), ["## Handoff — ", "## WIP note —", "## Handoff — "]);
+  assert.equal((kept.match(/^## Handoff/gm) || []).length, 10);
+  assert.ok(kept.startsWith("# COMM\n\n## Handoff"));
+  assert.equal(planComm(kept).moved.length, 0, "a second plan moves nothing");
+});
+
+test("rein archive: COMM, SECURITY and REVIEWS move byte for byte to .ai/archive/<FILE>-<year>.md; state keeps every task and stamp", (t) => {
+  const p = project(t);
+  const comm = "# COMM\n\n" + Array.from({ length: 13 }, (_, i) => handoff(i)).join("");
+  writeFileSync(join(p.ai, "COMM.md"), comm);
+  const oldSec = "## E-1 / D-1 — a review (security_engineer, 2025-12-01)\n\n### Pen-Test Results\nok\n\n";
+  const sec = "# SECURITY\n\n## 1. Secrets Handling\npolicy\n\n" + oldSec + "## E-2 — recent (2026-11-01)\nfine\n";
+  writeFileSync(join(p.ai, "SECURITY.md"), sec);
+  const db = getDb(p.ai);
+  const st = db.prepare("INSERT INTO stamps(type, agent, task_id, timestamp, summary) VALUES (?, 'a', 'E-500', ?, ?)");
+  st.run("REVIEW_PASS", "2025-12-31T23:00:00Z", "old one");
+  st.run("REVIEW_PASS", "2026-03-01T00:00:00Z", "old two");
+  st.run("ACCEPT_PASS", "2026-11-20T00:00:00Z", "recent");
+  regenerateViews(p.ai, db);
+  const reviews = readFileSync(join(p.ai, "REVIEWS.md"), "utf8");
+  const oldLines = reviews.split("\n").filter((l) => / 2025-12-31 | 2026-03-01 /.test(l));
+  assert.equal(oldLines.length, 2);
+
+  const r = runArchive(p.ai, {}, NOW);
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /COMM\.md: 3 sections → \.ai\/archive\/COMM-2026\.md/);
+
+  // COMM: ten stay, the three oldest are the archive's body, byte for byte.
+  const kept = readFileSync(join(p.ai, "COMM.md"), "utf8");
+  assert.equal((kept.match(/^## Handoff/gm) || []).length, 10);
+  const commArchive = readFileSync(join(p.ai, "archive", "COMM-2026.md"), "utf8");
+  assert.ok(commArchive.endsWith(handoff(0) + handoff(1) + handoff(2)));
+  assert.equal((commArchive.match(/^## Handoff/gm) || []).length + 10, 13, "nothing lost: the counts sum to the old count");
+
+  // SECURITY: the dated old section moves; undated policy and the recent one stay.
+  assert.equal(readFileSync(join(p.ai, "SECURITY.md"), "utf8"), sec.replace(oldSec, ""));
+  assert.ok(readFileSync(join(p.ai, "archive", "SECURITY-2025.md"), "utf8").endsWith(oldSec));
+
+  // REVIEWS: the old lines move per year; the view keeps the recent one; state keeps all three.
+  assert.ok(readFileSync(join(p.ai, "archive", "REVIEWS-2025.md"), "utf8").endsWith(oldLines[0] + "\n"));
+  assert.ok(readFileSync(join(p.ai, "archive", "REVIEWS-2026.md"), "utf8").endsWith(oldLines[1] + "\n"));
+  assert.equal(readFileSync(join(p.ai, "REVIEWS.md"), "utf8"), reviews.split("\n").filter((l) => !oldLines.includes(l)).join("\n"));
+  assert.equal(getDb(p.ai).prepare("SELECT COUNT(*) n FROM stamps").get().n, 3, "the stamps stay in state");
+  regenerateViews(p.ai, getDb(p.ai));
+  assert.doesNotMatch(readFileSync(join(p.ai, "REVIEWS.md"), "utf8"), /old one|old two/, "a later render keeps the window");
+
+  // A second run moves nothing and changes no file.
+  const again = runArchive(p.ai, {}, NOW);
+  assert.match(again.out, /Nothing to move/);
+  assert.equal(readFileSync(join(p.ai, "COMM.md"), "utf8"), kept);
+});
+
+test("rein handoff runs rein archive; the archive file rides the handoff commit", (t) => {
+  const p = project(t);
+  writeFileSync(join(p.ai, "COMM.md"), "# COMM\n\n" + Array.from({ length: 10 }, (_, i) => handoff(i)).join(""));
+  p.g("add", "-A"); p.g("commit", "-q", "-m", "ten handoffs");
+  const r = runHandoff(p.ai, { to: "architect", file: p.entry("entry.md", ENTRY) }, { cwd: p.root });
+  assert.equal(r.code, 0, r.out);
+  assert.match(r.out, /\[RECORD-ARCHIVE\]\n  COMM\.md: 1 sections → \.ai\/archive\/COMM-2026\.md/);
+  assert.equal((readFileSync(join(p.ai, "COMM.md"), "utf8").match(/^## Handoff/gm) || []).length, 10);
+  const files = p.g("show", "--name-only", "--format=", "HEAD").split("\n");
+  assert.ok(files.includes(".ai/archive/COMM-2026.md") && files.includes(".ai/COMM.md"), files.join(","));
+  assert.equal(p.g("status", "--short", "--", ".ai/"), "");
 });

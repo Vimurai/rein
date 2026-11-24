@@ -28,7 +28,7 @@ import { readFileSync, existsSync } from "fs";
 import { resolve, dirname } from "path";
 import { getDbSeeded, readState as _readState, regenerateViews as _regenerateViews, nextId as _nextId, addTask as _addTask, validateDag as _validateDag, parseDeps as _parseDeps, archiveDoneTasks as _archiveDoneTasks, archiveStamps as _archiveStamps, completeTask as _completeTask, DONE_ARCHIVE_THRESHOLD, DONE_KEEP_RECENT, STAMP_ARCHIVE_THRESHOLD } from "../shared/state-db.js";
 // E-325 (D-102): the single writer — record file first in a team project, then the row.
-import { updateTask as _updateTask, insertStamp as _insertStamp, setProject as _setProject } from "../shared/record-store.mjs";
+import { updateTask as _updateTask, insertStamp as _insertStamp, setProject as _setProject, reviewsArchivedThrough, reviewsLineArchived } from "../shared/record-store.mjs";
 // E-326: a team project's pulled records are imported before the views are compared.
 import { importRecords as _importRecords } from "../shared/record-import.mjs";
 import { checkBehindHead as _checkBehindHead } from "../shared/legacy-import.mjs";
@@ -616,12 +616,15 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
             anomalies.push(`${id} is [x] in TASKS.md but ${dbStatus} in state`);
           } else if (mdStatus === "OPEN" && dbStatus === "DONE") {
             anomalies.push(`${id} is [ ] in TASKS.md but DONE in state`);
+          } else if (mdStatus === "DONE") {
+            // E-466: the view lists open tasks only; a closed row is a view from before it.
+            anomalies.push(`${id} is closed and listed in TASKS.md, which lists open tasks only`);
           }
         }
 
-        // Drift type 3: in state, missing from TASKS.md
-        for (const id of dbTasks.keys()) {
-          if (!mdTasks.has(id)) {
+        // Drift type 3: an open task in state, missing from TASKS.md (E-466: closed ones are not listed)
+        for (const [id, dbStatus] of dbTasks) {
+          if (dbStatus !== "DONE" && !mdTasks.has(id)) {
             anomalies.push(`${id} exists in state but is missing from TASKS.md`);
           }
         }
@@ -632,8 +635,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       if (existsSync(reviewsPath) && stampCount > 0) {
         const reviewsContent = readFileSync(reviewsPath, "utf8");
         const mdStampCount   = (reviewsContent.match(/^\[[\w_]+\]/gm) || []).length;
-        if (mdStampCount < stampCount) {
-          autoFixes.push(`REVIEWS.md had ${mdStampCount} stamps but state has ${stampCount} — regenerated`);
+        // E-466: stamps dated on or before the REVIEWS archive's newest line are not in the view.
+        const through = reviewsArchivedThrough(aiDir);
+        const shown = through
+          ? db.prepare("SELECT timestamp FROM stamps").all().filter((r) => !reviewsLineArchived(String(r.timestamp || "").split("T")[0], through)).length
+          : stampCount;
+        if (mdStampCount < shown) {
+          autoFixes.push(`REVIEWS.md had ${mdStampCount} stamps but state has ${shown} to show — regenerated`);
           _regenerateViews(aiDir, db);
         }
       }
@@ -644,7 +652,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       // auto-fixed — they signal the engineer forgot to call
       // update_task_status, which is human/agent-decision territory.
       const hasMarkdownDrift = anomalies.some(a =>
-        /missing from TASKS\.md|missing from state/.test(a)
+        /missing from TASKS\.md|missing from state|lists open tasks only/.test(a)
       );
       if (hasMarkdownDrift) {
         _regenerateViews(aiDir, db);

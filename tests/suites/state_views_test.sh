@@ -13,6 +13,8 @@
 #   2. id checkbox [x] in TASKS.md but status != DONE in state
 #   3. id checkbox [ ] in TASKS.md but status == DONE in state
 #   4. id in state but missing from TASKS.md
+#   E-466: TASKS.md lists open tasks only — 4 applies to open tasks, and a closed task listed
+#   in the view is drift that the regeneration fixes (E-466.V1).
 #
 # Each case spawns the real MCP server via stdio JSON-RPC (no inline
 # reimplementation) so the test fails if the algorithm drifts from spec.
@@ -152,10 +154,10 @@ const now = new Date().toISOString();
 db.prepare("INSERT INTO tasks(id,owner,status,tier,description,created_at,completed_at,summary) VALUES (?,?,?,?,?,?,?,?)")
   .run("E-4","Engineer (Claude)","DONE",2,"shipped already",now,now,"summary");
 regenerateViews(aiDir, db);
-// Force the checkbox back to [ ] without updating state.
+// List the closed task as open by hand (E-466: the view does not list closed tasks at all).
 const tp = resolve(aiDir, "TASKS.md");
 const cur = readFileSync(tp, "utf8");
-writeFileSync(tp, cur.replace("- [x] E-4:", "- [ ] E-4:"));
+writeFileSync(tp, cur + "\n## Engineer\n- [ ] E-4: shipped already | Tier: 2\n");
 JS
 OUT="$(_run_verify_in_sbox "$DRIFT3_SEED")"
 rm -f "$DRIFT3_SEED"
@@ -163,6 +165,35 @@ assert_status 0 "T-VS-S04a: emits [SYNC_FAIL]" \
   grep -qE '\[SYNC_FAIL\]' <<<"$OUT"
 assert_status 0 "T-VS-S04b: anomaly E-4 [ ] but DONE in state" \
   grep -qE 'E-4 is \[ \] in TASKS\.md but DONE in state' <<<"$OUT"
+
+# ── E-466.V1: a closed task listed in TASKS.md (a view from before E-466) is regenerated away ──
+echo ""
+echo "  [E-466.V1] A closed task listed [x] — TASKS.md lists open tasks only"
+
+CLOSED_SEED="$(mktemp).mjs"
+cat > "$CLOSED_SEED" <<'JS'
+const { getDb, regenerateViews } = await import(`${process.env.REPO_ROOT}/src/mcp/shared/state-db.js`);
+const { readFileSync, writeFileSync } = await import("fs");
+const { resolve }                     = await import("path");
+const aiDir = process.env.AIDIR;
+const db = getDb(aiDir);
+const now = new Date().toISOString();
+db.prepare("INSERT INTO tasks(id,owner,status,tier,description,created_at,completed_at,summary) VALUES (?,?,?,?,?,?,?,?)")
+  .run("E-11","Engineer (Claude)","DONE",1,"closed long ago",now,now,"done");
+db.prepare("INSERT INTO tasks(id,owner,status,tier,description,created_at,completed_at,summary) VALUES (?,?,?,?,?,?,?,?)")
+  .run("E-12","Engineer (Claude)","OPEN",1,"still open",now,null,null);
+regenerateViews(aiDir, db);
+const tp = resolve(aiDir, "TASKS.md");
+writeFileSync(tp, readFileSync(tp, "utf8") + "\n## Engineer\n- [x] E-11: closed long ago | Tier: 1\n");
+JS
+OUT="$(_run_verify_in_sbox "$CLOSED_SEED")"
+rm -f "$CLOSED_SEED"
+assert_status 0 "E-466.V1a: the closed row is an anomaly" \
+  grep -qE 'E-11 is closed and listed in TASKS\.md, which lists open tasks only' <<<"$OUT"
+assert_status 0 "E-466.V1b: and is auto-fixed by regenerating the view" \
+  grep -qE 'TASKS\.md regenerated' <<<"$OUT"
+assert_status 1 "E-466.V1c: a closed task missing from the view is not drift" \
+  grep -qE 'E-11 exists in state but is missing' <<<"$OUT"
 
 # ── T-VS-S05: drift 4 — id in state but missing from TASKS.md ────────────
 echo ""

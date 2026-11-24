@@ -460,7 +460,7 @@ export function archivePointerLines(aiDir) {
       return [
         "## Archived",
         "",
-        "Completed tasks beyond the most recent ten are rotated out of this view.",
+        "Closed tasks rotated out of state by archive_done_tasks (E-466: `rein task show` reads them too).",
         "Each one's full record — description, summary and completion date — is a tracked file in:",
         "",
         ...months.map((m) => `- \`.ai/tasks/archive/${m}/\` (${readdirSync(resolve(base, m)).filter((f) => f.endsWith(".json")).length} tasks)`),
@@ -480,7 +480,7 @@ export function archivePointerLines(aiDir) {
     return [
       "## Archived",
       "",
-      "Completed tasks beyond the most recent ten are rotated out of this view.",
+      "Closed tasks rotated out of state by archive_done_tasks (E-466: `rein task show` reads them too).",
       "The full record — description, summary and completion date — is in:",
       "",
       ...files.map((f) => `- \`.ai/archive/${f}\``),

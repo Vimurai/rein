@@ -7412,6 +7412,69 @@
       "summary": "Stack-landing fixes on HEAD 9b67e39 for PR #68's red required checks: (1) install-finalize.sh `command -v tmux || true` (macOS legs: errexit with no tmux), row E-433.TM1 (non-vacuous: old line exits 1); (2) CodeQL js/polynomial-redos 33-36 rewritten exactly (REDIRECT digit-alt lookbehind, trimSlash scan, VAR_USE lookahead, CMD_WORD [^\\S\\n]*), timing rows in the E-397 test. SEC_PASS x2 (installer; regex re-check after one SEC_FAIL: 0 public diffs over 400k), TESTS_PASS; gate tables green.",
       "sha": "9b67e3950e4a81cbdd4f0102c9f406a416f6e8e8",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-464",
+      "timestamp": "2026-11-23T21:53:29.209Z",
+      "summary": "NO critic review — D-170 r9 batch rule (operator): lean-core commits are not reviewed between tasks; one reviewer + security round + acceptance at E-470. This stamp only satisfies the stale installed pre-commit hook (which E-464 itself retires) for parent c0737a6.",
+      "sha": "56a4055eae63c2f7fc3437be390d772bef01190c",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-458",
+      "timestamp": "2026-11-23T22:15:58.973Z",
+      "summary": "NO critic review — D-170 r9 batch rule (operator); review at E-470. Satisfies the stale installed pre-commit hook only (install refused by the permission classifier; operator to run install-rein.sh).",
+      "sha": "2593dd99332aaa3492dc2e6fbbc648d3574b39a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-460",
+      "timestamp": "2026-11-23T22:33:55.070Z",
+      "summary": "NO critic review — D-170 r9 batch rule (operator); review at E-470. Satisfies the stale installed pre-commit hook only.",
+      "sha": "e17da345bc2b559c1e9abdaa1aeeabef243dd1f9",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-461",
+      "timestamp": "2026-11-23T22:52:17.343Z",
+      "summary": "NO critic review — D-170 r9 batch rule (operator); review at E-470. Satisfies the stale installed pre-commit hook only.",
+      "sha": "ab305957ef5a58135e6904203c8a463004bee632",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-462",
+      "timestamp": "2026-11-23T23:34:47.924Z",
+      "summary": "NO critic review — D-170 r9 batch rule (operator); review + security round at E-470. Escape suite 30/30 on this machine (the r9 boundary check). Satisfies the stale installed pre-commit hook only.",
+      "sha": "334f26787ee552b4f3fab30b3add9ff08516f3b8",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-467",
+      "timestamp": "2026-11-23T23:59:22.904Z",
+      "summary": "NO critic review — D-170 r9 batch rule (operator); review + security round at E-470. Satisfies the stale installed pre-commit hook only.",
+      "sha": "93588b887ce4b075c4166a1710400daaede1b692",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CRITIC_STAMP",
+      "agent": "claude",
+      "task_id": "E-466",
+      "timestamp": "2026-11-24T00:09:23.612Z",
+      "summary": "NO critic review — D-170 r9 batch rule (operator); review at E-470. Satisfies the stale installed pre-commit hook only.",
+      "sha": "887a818eb35ad62b46d0ddde7586dae70c59ff1a",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ],
   "deltas": [

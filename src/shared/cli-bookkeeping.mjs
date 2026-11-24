@@ -12,17 +12,20 @@
 //   rein handoff --to architect|engineer --file <entry>
 //     Appends the entry to .ai/COMM.md and commits it with every dirty tracked .ai/ path
 //     (D-104, D-147 r1: `git commit --only`, the list taken against HEAD), then prints the
-//     short sha and the wake line for SendMessage. Exit 1 when the entry lacks
+//     short sha and the wake line for SendMessage. It runs `rein archive` first (E-466), and
+//     the archive files it writes ride the same commit. Exit 1 when the entry lacks
 //     "Next action needed", or when COMM.md is gitignored (nothing is written then).
 //   rein decide --file <entry>
 //     Assigns the next D-number, requires a decision, a reason and a rollback, and appends the
 //     entry to .ai/DECISIONS.md. Prints the D-###.
 //   rein archive [--logs]
-//     Rotates finished state out of the live store: DONE tasks and stamps over their
-//     thresholds go to .ai/archive/*.json through the shared state-db owner (moved here from
-//     archive-manager-mcp's execute_archive, E-467, D-170 r5). --logs also moves a non-empty
-//     LOG.md and SESSION.md to .ai/archive/YYYY-MM/<name>.<YYYYMMDD_HHMM>.md and starts a
-//     fresh LOG.md (from the retired rein-archive skill). Nothing is deleted.
+//     Keeps the record small (E-466, lean-core.md §Component 7; record-archive.mjs): COMM.md
+//     handoffs older than the last ten, and SECURITY.md and REVIEWS.md sections older than 90
+//     days, move to .ai/archive/<FILE>-<year>.md byte for byte. `rein handoff` runs it. Tasks
+//     and stamps stay in state: a closed task is printed by `rein task show <id>`, and the DONE
+//     gates read the stamps. --logs also moves a non-empty LOG.md and SESSION.md to
+//     .ai/archive/YYYY-MM/<name>.<YYYYMMDD_HHMM>.md and starts a fresh LOG.md (from the retired
+//     rein-archive skill). Nothing is deleted.
 //
 // Exit: 0 done; 1 refused (the reason is printed); 2 usage.
 
@@ -34,7 +37,8 @@ import { runTaskDone, GATE_ROLLBACK_VARS } from "./cli-state.mjs";
 import { findAiDir } from "./cli-add-task.mjs";
 import { appendLog } from "../mcp/shared/team.mjs";
 import { writeDigest } from "./digest-build.mjs";
-import { getDbSeeded, archiveDoneTasks, archiveStamps, DONE_ARCHIVE_THRESHOLD, STAMP_ARCHIVE_THRESHOLD } from "../mcp/shared/state-db.js";
+import { archiveRecord } from "./record-archive.mjs";
+import { getDbSeeded, regenerateViews } from "../mcp/shared/state-db.js";
 
 const USAGE = `usage: rein done <id> --summary <text>
        rein handoff --to architect|engineer --file <entry>
@@ -122,9 +126,24 @@ export function runHandoff(aiDir, { to, file } = {}, { cwd = process.cwd() } = {
   const body = entry.text.endsWith("\n") ? entry.text : entry.text + "\n";
   if (prev) appendFileSync(comm, sep + body); else writeFileSync(comm, body);
 
+  // E-466: the record is archived before the commit; the archive files ride it when tracked.
+  const notes = [];
+  const archived = [];
+  try {
+    const res = archiveRecord(aiDir);
+    for (const f of res.files) {
+      const rel = `.ai/archive/${basename(f)}`;
+      if (git(root, ["check-ignore", "-q", rel]).ok) notes.push(`[ARCHIVE_IGNORED] ${rel} is gitignored here and stays on disk only — run: rein sync`);
+      else archived.push(rel);
+    }
+    if (res.files.length) notes.push("[RECORD-ARCHIVE]", ...res.lines);
+  } catch (e) {
+    notes.push(`[ARCHIVE_FAILED] ${String(e.message).slice(0, 300)} — the handoff goes on; run: rein archive`);
+  }
+
   const from = target === "Architect" ? "Engineer" : "Architect";
   const when = stampUtc();
-  const add = git(root, ["add", "--", ".ai/COMM.md"]);
+  const add = git(root, ["add", "--", ".ai/COMM.md", ...archived]);
   if (!add.ok) return { code: 1, out: `✗ [HANDOFF_COMMIT_FAILED] git add .ai/COMM.md: ${add.err.slice(0, 300)}` };
   // D-147 r1 / addendum r1: every tracked .ai/ path that differs from HEAD rides the commit,
   // staged or not; --only commits exactly these, whatever else the index holds.
@@ -133,12 +152,13 @@ export function runHandoff(aiDir, { to, file } = {}, { cwd = process.cwd() } = {
     ? git(root, ["diff", "--name-only", "HEAD", "--", ".ai/", ":(exclude).ai/COMM.md"]).out.split("\n").filter(Boolean)
     : [];
   const msg = `chore(.ai): COMM handoff ${when} (${from})`;
-  const commit = git(root, ["commit", "-q", "--only", ".ai/COMM.md", ...dirty, "-m", msg]);
+  const only = [...new Set([".ai/COMM.md", ...archived, ...dirty])];
+  const commit = git(root, ["commit", "-q", "--only", ...only, "-m", msg]);
   if (!commit.ok) return { code: 1, out: `✗ [HANDOFF_COMMIT_FAILED] ${(commit.err || commit.out).slice(0, 600)}` };
   const sha = git(root, ["rev-parse", "--short", "HEAD"]).out;
   const verb = target === "Architect" ? "review and plan next" : "execute the OPEN queue";
   const wake = `SendMessage to "${basename(root)} · ${target}": ${handoffLine(entry.text)} — ${verb}. Details: .ai/COMM.md handoff ${when}, commit ${sha}.`;
-  return { code: 0, out: `${sha}\n${wake}` };
+  return { code: 0, out: [sha, wake, ...notes].join("\n") };
 }
 
 // ── rein decide ─────────────────────────────────────────────────────────────────────
@@ -186,15 +206,9 @@ const ROTATED_LOGS = ["LOG.md", "SESSION.md"];
 /** @returns {{code:number, out:string}} */
 export function runArchive(aiDir, { logs = false } = {}, now = new Date()) {
   if (!aiDir || !existsSync(aiDir)) return { code: 1, out: "✗ No .ai/ directory found. Run: rein init" };
-  const db = getDbSeeded(aiDir);
-  const tasks = archiveDoneTasks(aiDir, db);
-  const stamps = archiveStamps(aiDir, db);
-  const lines = ["✓ [STATE-ARCHIVE]"];
-  if (tasks) lines.push(`  ${tasks.archived} DONE tasks → ${tasks.archivePath} (${tasks.kept} recent kept)`);
-  if (stamps) lines.push(`  ${stamps.archived} stamps → ${stamps.archivePath} (${stamps.kept} recent kept)`);
-  if (!tasks && !stamps) {
-    lines.push(`  No state rotation needed (DONE-task threshold ${DONE_ARCHIVE_THRESHOLD}, stamp threshold ${STAMP_ARCHIVE_THRESHOLD}).`);
-  }
+  // The views are rebuilt first, so TASKS.md is open-only and REVIEWS.md current (E-466).
+  if (existsSync(resolve(aiDir, "state.json")) || existsSync(resolve(aiDir, "state.sqlite"))) regenerateViews(aiDir, getDbSeeded(aiDir));
+  const lines = ["✓ [RECORD-ARCHIVE]", ...archiveRecord(aiDir, now).lines];
   if (logs) {
     const iso = now.toISOString();
     const month = iso.slice(0, 7);

@@ -145,3 +145,55 @@ permission classifier refused `bash install-rein.sh` twice, so the operator runs
 - src/claude/CLAUDE.md (3,995 bytes, "Rein v2 Principal Software Engineer") is loaded by no
   session (only `rein doctor --compliance` reads ~/.rein/claude/CLAUDE.md); it is not counted. It
   looks like a leftover for E-468 or E-467's list. Left in place.
+
+## E-469 — the rein plugin (uncommitted; left unstaged)
+- **What a plugin can declare** (code.claude.com plugins reference, components and loading pages,
+  read 2026-11-24; Claude Code 2.1.331): agents (`agents/*.md`; `permissionMode`, `hooks`,
+  `mcpServers` in their frontmatter are ignored), skills, Claude Code hooks (`hooks/hooks.json`,
+  any event, exec form with `args`), MCP servers (tools renamed `mcp__plugin_<plugin>_<server>__*`),
+  LSP servers, output styles, monitors, `bin/` executables, `userConfig`. It cannot carry settings
+  (sandbox, permissions, env), git hooks, or a CLAUDE.md that loads as context.
+- **Each kept hook**: session-start.sh and waiting-signal.sh → the PLUGIN (hooks/hooks.json, exec
+  form `/bin/bash -p <~/.rein/hooks/…>`, the 11 entries rein sync used to write). pre-tool-use.sh
+  (the gate / seatbelt) → the INSTALLER (project .claude/settings.json by rein init/sync): a plugin
+  can declare it, but E-463 is held, so its wiring and its tests stay put. pre-commit.sh,
+  pre-push.sh, post-commit.sh, state-import.sh → the INSTALLER (git hooks; a plugin cannot).
+- **MCP**: task-synchronizer-mcp stays in the project .mcp.json (a plugin server renames every
+  tool, which every allow rule, agent tool list and mcp.architect.json name).
+- **Shape**: `rein install` builds `~/.rein/plugin/` (src/shared/plugin-build.mjs; manifest
+  templates src/claude/plugin/) and adds it as a local-directory marketplace `rein` (loaded in
+  place) to the config dir in force and each `rein account` dir — only dirs under HOME.
+  `rein init` / `rein sync` enable `rein@rein` at PROJECT scope (`claude plugin install --scope
+  project`), so its hooks run only in Rein projects as before; sync then prunes the agent/skill
+  copies it wrote into .claude/ (E-220 evidence rule). `rein init` also writes the role settings
+  files. `rein review` prints `rein:reviewer` etc. (plugin-scoped subagent names).
+  `REIN_PLUGIN_INSTALL=0` skips every `claude plugin` call; tests/lib/assert.sh sets it for suites.
+- **Removed**: from src/bin/rein `_provider_source_dirs`, `_provision_workspace`,
+  `_sync_skills_no_clobber`, `sync_skills_20`, `_generate_skills_index` (`_SKILLS_INDEX.md`) and
+  sync's collision exit (the collision check moved into the plugin build); the project-settings
+  entries for session-start.sh and waiting-signal.sh (sync removes old ones: "Moved … to the rein
+  plugin"). fitness.mjs's private `provisioned()` (now plugin-build's). Tests: mirror_hygiene
+  E-273.02a-e, rein_sync E-220.10b, role_provisioning E-212.06b-d and E-217.04a-c (LOG lines).
+- **Acceptance, observed in a scratch HOME** (a committed copy of this tree, so no --allow-dirty):
+  install-rein.sh, then `rein init` in an empty git repo: `claude plugin details rein@rein` lists
+  4 agents, 5 skills, the hooks; `claude plugin list --json` shows it projectEnabled; .claude/ has
+  no agents/skills; `rein doctor` exits 0. `claude plugin uninstall rein@rein --scope project` →
+  doctor adds exactly one line, `✗ [PLUGIN_NOT_ENABLED] …`. NOT observed: an interactive session
+  (the scratch HOME has no login) — E-470's critic_acceptance should open one.
+  **NOT MET: "exactly one MCP server"**: `claude mcp list` shows task-synchronizer-mcp and
+  safe-exec-mcp; safe-exec leaves with E-463 (held). The Architect's session already loads one
+  (--strict-mcp-config).
+- **For E-470**: once the operator reinstalls and runs `rein sync` in THIS repo, the tracked
+  .claude/agents and .claude/skills copies are pruned (sync recorded them), and the suites that
+  compare them with src/ fail (agent_contracts, skill_lines, skill_evals, hooks_surface E-284.04c,
+  rein_ci 867, task_synchronizer 1418, harness_isolation 799, role_provisioning E-255.08f). To rule:
+  untrack them and point those checks at ~/.rein/plugin or src/, or keep them (sync then keeps
+  nothing it did not write — set REIN_NO_PRUNE=1). The repo-root .claude-plugin/plugin.json (the
+  idle eval harness, also named "rein") is unchanged.
+- Pre-existing failures seen while running the edited suites: rein_sync "generator output matches
+  committed .ai/blueprints/mcp.md" (E-467), role_provisioning E-215.06f (fails at HEAD too).
+  exec_form E-290.06b/d and mirror_hygiene fail in a dirty tree (the installer refuses it) and
+  pass on the committed copy.
+- docs/app-contract.md: the contract is unchanged (the gate's hooks are still in project settings;
+  the waiting signal still reports from the first session after `rein sync`, which now enables the
+  plugin). `~/.rein/plugin/` is a generated entry like `roles/`.

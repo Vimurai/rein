@@ -55,15 +55,15 @@ PY
 }
 E="$(_entries "$SET")"
 # E-467 (D-170 r5): stop-hook, post-tool-log, post-tool-use and permission-denied are retired.
-for spec in "PreToolUse:pre-tool-use.sh" "SessionStart:session-start.sh" \
-            "PermissionRequest:waiting-signal.sh" "Notification:waiting-signal.sh" "PreToolUse:waiting-signal.sh" \
-            "PostToolUse:waiting-signal.sh" "PostToolUseFailure:waiting-signal.sh" "UserPromptSubmit:waiting-signal.sh" \
-            "Stop:waiting-signal.sh" "SessionStart:waiting-signal.sh" "SessionEnd:waiting-signal.sh" \
-            "PermissionDenied:waiting-signal.sh"; do   # E-433 (D-160): the waiting signal's ten entries
+# E-469 (D-170 r4): session-start.sh and the waiting signal's ten entries are the rein plugin's
+# (tests/unit/plugin-build.test.mjs pins their exec form); the gate is the one Rein entry here.
+for spec in "PreToolUse:pre-tool-use.sh"; do
   ev="${spec%%:*}"; sc="${spec#*:}"
   assert_match "E-290.01a: ${sc} is exec-form /bin/bash -p <absolute path> with timeout 30" \
     "^${ev}	[^	]*	/bin/bash	-p\|/[^	]*/\.rein/hooks/${sc}(\|engineer)?	30$" "$E"
 done
+assert_not_contains "E-469.01e: project settings register no session-start.sh (the plugin does)" "session-start.sh" "$E"
+assert_not_contains "E-469.01f: nor waiting-signal.sh" "waiting-signal.sh" "$E"
 assert_status 1 "E-290.01b: no shell-form Rein line survives (incl. a quoted path)" bash -c "grep -q 'bash .*HOME/.rein/hooks' <<< \"\$1\"" _ "$E"
 assert_contains "E-290.01c: the user's own hook entry is untouched" "echo users-own-stop-hook" "$E"
 assert_status 1 "E-290.01d: no Rein hook line mentions \$HOME" bash -c "grep < <(printf '%s\n' \"\$1\" | grep '.rein/hooks') -qF '\$HOME'" _ "$E"
@@ -146,7 +146,7 @@ assert_contains "E-290.04b: doctor reports the exec form" "Rein hooks in exec fo
 python3 - "$G/.claude/settings.json" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p))
-d["hooks"]["Stop"].append({"matcher": ".*", "hooks": [{"type": "command", "command": "bash $HOME/.rein/hooks/waiting-signal.sh"}]})
+d["hooks"].setdefault("Stop", []).append({"matcher": ".*", "hooks": [{"type": "command", "command": "bash $HOME/.rein/hooks/waiting-signal.sh"}]})  # E-469: an old entry; sync writes no Stop now
 json.dump(d, open(p, "w"))
 PY
 _d="$(cd "$G" && bash "$AI_BIN" doctor 2>&1)"
@@ -162,8 +162,11 @@ for h in "${REPO_ROOT}"/hooks/*.sh; do
   assert_status 0 "E-290.05: ${h##*/} unsets POSIXLY_CORRECT and BASH_COMPAT" grep -q 'POSIXLY_CORRECT|BASH_COMPAT) unset' "$h"
 done
 
-# ── E-433.04 (D-160; extends E-290.1): sync registers the waiting signal, doctor reports it ──
+# ── E-433.04 (D-160; extends E-290.1): the plugin registers the waiting signal, doctor reports it ──
 # The fake HOME above holds the checkout's hooks, so the entries name a script that exists.
+# E-469: the entries are the rein plugin's hooks.json, which `rein install` builds; built here.
+cp -R "${REPO_ROOT}/src/claude" "$FH/.rein/claude"; cp -R "${REPO_ROOT}/src/config" "$FH/.rein/config"
+node --no-warnings "${REPO_ROOT}/src/shared/plugin-build.mjs" build --rein-home "$FH/.rein" >/dev/null
 W="$T/wproj"; mkdir -p "$W/.ai"
 cp "$P/.ai/roles.json" "$W/.ai/roles.json" 2>/dev/null || printf '{"roles":{}}\n' > "$W/.ai/roles.json"
 ( cd "$W" && HOME="$FH" bash "$AI_BIN" sync >/dev/null 2>&1 )
@@ -177,8 +180,8 @@ except Exception:
 recs = [c for c in d.get("checks", []) if c.get("id") == "waiting_signal_registered"]
 print(recs[0].get("status") if recs else "absent")'
 }
-assert_contains "E-433.04a: after rein sync, doctor --json has waiting_signal_registered ok" "ok" "$(_wcheck)"
-python3 - "$W/.claude/settings.json" <<'PY'
+assert_contains "E-433.04a: with the plugin built, doctor --json has waiting_signal_registered ok" "ok" "$(_wcheck)"
+python3 - "$FH/.rein/plugin/hooks/hooks.json" <<'PY'
 import json, sys
 p = sys.argv[1]; d = json.load(open(p))
 for ev, lst in d.get("hooks", {}).items():

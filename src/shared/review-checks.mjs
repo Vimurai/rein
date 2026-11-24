@@ -17,6 +17,7 @@ import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { classifyDiffTraversal } from "./traversal-policy.mjs";
+import { PLUGIN_NAME } from "./plugin-build.mjs";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 
 /** The agents a tier dispatches, in order (lean-core.md §Component 5). */
@@ -122,7 +123,8 @@ export function reviewReport(tier, diff, opts = {}) {
   } else if (TIER_DISPATCH[tier].length === 0) {
     lines.push("  none — Tier 1 needs no review and no stamp");
   } else {
-    TIER_DISPATCH[tier].forEach((a, i) => lines.push(`  ${i + 1}. ${a} on <task id> → ${AGENT_STAMP[a]}`));
+    // E-469: the agents are the rein plugin's, so the Agent tool's subagent_type is plugin-scoped.
+    TIER_DISPATCH[tier].forEach((a, i) => lines.push(`  ${i + 1}. ${PLUGIN_NAME}:${a} on <task id> → ${AGENT_STAMP[a]}`));
     lines.push("", "The task is refused DONE until each PASS stamp stands for HEAD ([REVIEW_GATE], [ACCEPT_GATE]" +
       `${tier === 3 ? ", [SEC_GATE]" : ""}).`);
   }

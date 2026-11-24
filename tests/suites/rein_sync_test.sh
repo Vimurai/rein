@@ -441,50 +441,74 @@ _o="$(cd "$T8" && REIN_HOME="${REIN:-$HOME/.rein}" bash "$AI_BIN" sync 2>&1)"; _
 _x="$(printf '%s\n' "$_o" | grep '✗' | tr '\n' ' ' | cut -c1-400)"
 assert_status 0 "E-220.09a: sync exits 0 in a fresh non-git dir${_x:+ — $_x}" test "$_rc" -eq 0
 assert_not_contains "E-220.09b: no unbound-variable abort" "unbound variable" "$_o"
-assert_status 0 "E-220.09c: the workspace was still provisioned" test -d "$T8/.claude/skills"
+assert_status 0 "E-220.09c: the workspace was still provisioned" test -f "$T8/.claude/settings.json"
+# E-469 (D-170 r4): no skill or agent is copied into .claude/ — they are the rein plugin's — and
+# with the plugin calls off (every suite, tests/lib/assert.sh) sync says it did not enable it.
+assert_status 1 "E-469.S0a: sync copies no skills or agents into .claude/" \
+  test -e "$T8/.claude/skills" -o -e "$T8/.claude/agents"
+assert_contains "E-469.S0b: and names why the plugin was not enabled" \
+  "plugin rein@rein not enabled: REIN_PLUGIN_INSTALL=0" "$_o"
 
-# ── E-220.11: the REAL `rein sync` prunes end-to-end ───────────────────────────
-# Case 09 asserts exit 0, and a silently SKIPPED prune satisfies that just as well as a
-# working one — which is how the first cut shipped a locator that resolved
-# `git rev-parse --show-toplevel` (the USER's repo, not the Rein install) and never ran
-# at all. These assertions pin the observable effect, not the exit code.
-TA="$(mktemp -d)"; mkdir -p "$TA/.ai"
-# The fixture decides its own binding rather than copying this repo's roles.json.
-# (E-254: v4 provisions .claude/ only, so the former "every provisioned workspace is
-# covered" case 11b has no second workspace to cover and was removed.)
+# ── E-469 (D-170 r4; was E-220.11): `rein sync` enables the rein plugin, then prunes ────────
+# The agents and skills sync used to copy into .claude/ are the rein plugin's now. Once the plugin
+# is enabled for the project, the REAL sync removes the old copies by the E-220 evidence rule
+# (written by sync, unedited) and keeps everything else. A fixture HOME carries a built plugin and
+# a stub `claude` on PATH records each call (rule 7c's pattern) — no real Claude config is touched.
+_PF="$(test_tmpdir plugfix)"; _PH="${_PF}/home"; _PB="${_PF}/bin"; mkdir -p "$_PB" "${_PF}/st"
+tc_link_shared "$_PH"
+for _n in claude config templates copilot contracts mcp; do ln -s "${REPO_ROOT}/src/${_n}" "${_PH}/.rein/${_n}"; done
+ln -s "${REPO_ROOT}/hooks" "${_PH}/.rein/hooks"
+node --no-warnings "${REPO_ROOT}/src/shared/plugin-build.mjs" build --rein-home "${_PH}/.rein" >/dev/null
+cat > "${_PB}/claude" <<STUB
+#!/bin/bash
+st="${_PF}/st"
+key="\$(printf '%s|%s' "\${CLAUDE_CONFIG_DIR:-}" "\$(pwd -P)" | cksum | cut -d' ' -f1)"
+printf '%s\t%s\t%s\n' "\${CLAUDE_CONFIG_DIR:-}" "\$(pwd -P)" "\$*" >> "\$st/calls"
+case "\$*" in
+  "plugin list --json") if [[ -f "\$st/on.\$key" ]]; then echo '[{"id":"rein@rein","enabled":true,"scope":"project"}]'; else echo '[]'; fi ;;
+  "plugin marketplace add "*) ;;
+  "plugin install rein@rein --scope project") : > "\$st/on.\$key" ;;
+  *) exit 1 ;;
+esac
+STUB
+chmod +x "${_PB}/claude"
+_psync() { ( cd "$TA" && env HOME="$_PH" PATH="${_PB}:${PATH}" REIN_PLUGIN_INSTALL=1 "$@" bash "$AI_BIN" sync 2>&1 ); }
+TA="${_PF}/proj"; mkdir -p "$TA/.ai" "$TA/.claude/agents"
 cat > "$TA/.ai/roles.json" <<'JSON'
 { "roles": { "architect": {"provider":"claude","pane_identifier":"1","model":"fable"},
              "engineer":  {"provider":"claude","pane_identifier":"0","model":"opus"} } }
 JSON
-(cd "$TA" && bash "$AI_BIN" sync >/dev/null 2>&1)
-assert_status 0 "E-220.11a: the first real sync records a manifest" \
-  test -f "$TA/.claude/skills/_SYNC_MANIFEST.json"
-# A renamed-away skill: a copy sync itself recorded, now absent upstream.
-_seed="$(find "$TA/.claude/skills" -maxdepth 1 -mindepth 1 -type d | head -1)"
-cp -R "$_seed" "$TA/.claude/skills/zz-renamed-away"
-mkdir -p "$TA/.claude/skills/zz-user-authored"
-printf -- "---\nname: zz-user-authored\n---\nmine\n" > "$TA/.claude/skills/zz-user-authored/SKILL.md"
+_TA="$(cd "$TA" && pwd -P)"
+# What an earlier sync left: copies it recorded, beside a skill the user wrote.
+_mkskill "$TA/.claude/skills" rein-debug; _mkskill "$TA/.claude/skills" zz-renamed-away
+cp "${REPO_ROOT}/src/claude/agents/reviewer.md" "$TA/.claude/agents/reviewer.md"
 node --no-warnings "$SM" record "$TA/.claude/skills" >/dev/null 2>&1
-python3 - "$TA/.claude/skills/_SYNC_MANIFEST.json" <<'PYX'
-import json,sys
-p=sys.argv[1]; m=json.load(open(p))
-m["entries"].pop("zz-user-authored", None)   # sync never wrote this one
-json.dump(m, open(p,"w"))
-PYX
-_o="$(cd "$TA" && bash "$AI_BIN" sync 2>&1)"
-assert_status 1 "E-220.11c: the real sync prunes the renamed-away copy" \
-  test -d "$TA/.claude/skills/zz-renamed-away"
-assert_status 0 "E-220.11d: it keeps the user-authored skill beside it" \
-  test -d "$TA/.claude/skills/zz-user-authored"
+node --no-warnings "$SM" record "$TA/.claude/agents" >/dev/null 2>&1
+_mkskill "$TA/.claude/skills" zz-user-authored mine
+# Not enabled, nothing pruned: the calls off leave every copy where it was.
+( cd "$TA" && env HOME="$_PH" PATH="${_PB}:${PATH}" bash "$AI_BIN" sync >/dev/null 2>&1 )
+assert_status 0 "E-469.S1a: with the plugin not enabled, the old copies stay" test -d "$TA/.claude/skills/zz-renamed-away"
+assert_status 1 "E-469.S1b: and claude is never called" test -s "${_PF}/st/calls"
+_o="$(_psync env -u CLAUDE_CONFIG_DIR)"
+assert_contains "E-469.S2a: sync enables the plugin for the project" "✓ plugin rein@rein enabled for this project (~/.claude)" "$_o"
+assert_contains "E-469.S2b: with a project-scope install run in the project, in ~/.claude" \
+  "${_PH}/.claude	${_TA}	plugin install rein@rein --scope project" "$(cat "${_PF}/st/calls")"
+assert_status 1 "E-220.11c: the real sync prunes the copies it wrote" test -e "$TA/.claude/skills/zz-renamed-away" -o -e "$TA/.claude/skills/rein-debug"
+assert_status 1 "E-469.S2c: and the agents directory, which held only its copies" test -e "$TA/.claude/agents"
+assert_status 0 "E-220.11d: it keeps the user-authored skill beside them" test -d "$TA/.claude/skills/zz-user-authored"
 assert_contains "E-220.11e: the prune is reported to the user" "pruned zz-renamed-away" "$_o"
 assert_contains "E-220.11f: the kept orphan is reported too" "orphan (kept) zz-user-authored" "$_o"
 # The rollback flag must reach the real command path, not just the helper.
-cp -R "$_seed" "$TA/.claude/skills/zz-renamed-again"
+_mkskill "$TA/.claude/skills" zz-renamed-again
 node --no-warnings "$SM" record "$TA/.claude/skills" >/dev/null 2>&1
-(cd "$TA" && REIN_NO_PRUNE=1 bash "$AI_BIN" sync >/dev/null 2>&1)
-assert_status 0 "E-220.11g: REIN_NO_PRUNE=1 leaves the leftover in place" \
-  test -d "$TA/.claude/skills/zz-renamed-again"
-rm -rf "$TA"
+_n0="$(grep -c 'plugin install' "${_PF}/st/calls")"
+_psync env -u CLAUDE_CONFIG_DIR REIN_NO_PRUNE=1 >/dev/null
+assert_status 0 "E-220.11g: REIN_NO_PRUNE=1 leaves the leftover in place" test -d "$TA/.claude/skills/zz-renamed-again"
+assert_status 0 "E-469.S3: an enabled plugin is not installed again" test "$(grep -c 'plugin install' "${_PF}/st/calls")" -eq "$_n0"
+# A config dir outside HOME (an inherited CLAUDE_CONFIG_DIR under a moved HOME) is never written.
+_o="$(_psync CLAUDE_CONFIG_DIR="${_PF}/elsewhere")"
+assert_not_contains "E-469.S4a: no claude call names a config dir outside HOME" "${_PF}/elsewhere" "$(cat "${_PF}/st/calls")"
+assert_contains "E-469.S4b: and sync says so" "plugin rein@rein not enabled: no Claude config dir under HOME" "$_o"
 
 # ── D-099 (E-322): sync reaps the removed watcher's project leftovers ─────────
 # The watcher lock, its signal queue and the queue's write lock are registry entries
@@ -523,8 +547,8 @@ _sm record "$D9" >/dev/null
 printf '["alpha"]' > "$T9/names.json"
 assert_status 0 "E-220.10a: REIN_NO_PRUNE=1 is honoured by the shell caller" \
   bash -c "grep -q 'REIN_NO_PRUNE' '$AI_BIN'"
-assert_status 0 "E-220.10b: pruning is wired into the provisioner, not one workspace" \
-  bash -c "grep -q '_prune_workspace_dir \"\${ws}/skills\"' '$AI_BIN'"
+# E-220.10b (a source grep for the provisioner's prune call) went with the provisioner (E-469);
+# the real sync's prune is E-220.11c/E-469.S2 below.
 
 # ── E-254 (D-069 §Components 2): legacy v3 workspaces are pruned on evidence ──
 # A v3 project still carries the two retired provider workspaces and their shims. `ai

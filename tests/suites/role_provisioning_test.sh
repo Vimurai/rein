@@ -79,12 +79,8 @@ assert_contains "E-212.05b: absent roles.json degrades to shared" "shared/skills
 # empty list, so this is the common path. Caught live: sync aborted mid-run and left
 # workspaces unprovisioned.
 assert_status 0 "E-212.06a: src/bin/rein parses under bash 3.2" /bin/bash -n "$AI_BIN"
-assert_status 0 "E-212.06b: array expansions are count-guarded, not bare" \
-  grep -q 'NOTE ON BASH 3.2' "$AI_BIN"
-assert_status 0 "E-212.06c: agent_dirs expansion is count-guarded" \
-  grep -q 'agent_dirs\[@\]}" -gt 0' "$AI_BIN"
-assert_status 0 "E-212.06d: skill_dirs expansion is count-guarded" \
-  grep -q 'skill_dirs\[@\]}" -gt 0' "$AI_BIN"
+# E-212.06b-d (source greps for the provisioner's count-guarded array expansions) went with the
+# provisioner (E-469): sync copies no skills or agents. 06e below still runs the real sync.
 
 # BEHAVIOURAL: a real sync in a project where claude serves only ONE role. This is the
 # shape of the original abort — a source-text assertion alone would not catch it,
@@ -106,9 +102,10 @@ assert_not_contains "E-212.06e: sync completes with no unbound-variable abort (b
   "unbound variable" "$_e212_out"
 assert_status 0 "E-212.06e2: and exits 0" test "$_e212_rc" -eq 0
 assert_status 0 "E-212.06g: the Engineer's workspace is still provisioned" \
-  test -f "$_e212_ws/.claude/skills/rein-debug/SKILL.md"
-assert_contains "E-212.06h: and it reports serving the Engineer role" \
-  ".claude/ serves role(s): engineer" "$_e212_out"
+  test -f "$_e212_ws/.claude/settings.json"
+# E-469 (D-170 r4): the skills reach the session through the rein plugin, which sync names.
+assert_contains "E-469.06h: and it names the plugin that carries the skills and agents" \
+  "plugin rein@rein" "$_e212_out"
 
 # E-212.7 (the 7 advisory Architect agents' frontmatter) went with those agents (E-467, D-170 r5);
 # E-217.03b below still checks every kept agent.
@@ -127,7 +124,7 @@ echo "  [E-217] skill-name collision resolution"
 # E-217.02a and 02c (ARCHITECT.md and task-planner point at arch-task) were deleted by E-461:
 # the rulefile points at `rein done` / `rein handoff`, pinned by pre_commit_hook_test E-461.*.
 # E-217.02b (ARCHITECT.md explained the arch-* names) was deleted by E-460: the 2 KB rulefile
-# has no room for it; sync's collision error still names the rename precedent (E-217.04b).
+# has no room for it; the plugin build's collision error names the rename precedent (E-469).
 assert_status 0 "E-217.02d: root ARCHITECT.md matches its template" \
   diff -q "${REPO_ROOT}/src/templates/ARCHITECT.md" "${REPO_ROOT}/ARCHITECT.md"
 
@@ -140,16 +137,8 @@ for _f in "${REPO_ROOT}"/src/claude/agents/*.md; do
 done
 assert_contains "E-217.03b: every agent satisfies the frontmatter contract" "0" "$_E217_BAD"
 
-# The guard is FATAL in a multi-role workspace and inert in a single-role one.
-assert_status 0 "E-217.04a: sync returns non-zero on an unresolved collision" \
-  grep -q 'unresolved skill-name collision' "$AI_BIN"
-assert_status 0 "E-217.04b: the error names the rename precedent" \
-  grep -q 'D-055 R2 precedent: arch-oracle, arch-review' "$AI_BIN"
-# A name already on DISK is not a collision — it may be a stale copy from an earlier
-# sync. Only a name claimed by ANOTHER SOURCE in the same run counts; comparing against
-# disk residue reported task-planner, which exists in exactly one source dir.
-assert_status 0 "E-217.04c: collisions compare sources within a run, not disk residue" \
-  grep -q '_SKILL_CLAIMS' "$AI_BIN"
+# E-217.04a-c (source greps for sync's skill-name collision guard) went with the provisioner
+# (E-469). The plugin build refuses the same collision: tests/unit/plugin-build.test.mjs.
 assert_status 0 "E-217.04d: sync returns success explicitly (no stray git status)" \
   grep -q 'Explicit success: without it do_sync returns' "$AI_BIN"
 

@@ -273,7 +273,7 @@ assert_status 0 "R11 P2-3: caller-role spawns the verifier with process.execPath
 
 # ── R10: wiring and the env inventory ─────────────────────────────────────────────────────
 assert_status 0 "R10: SessionStart fires on startup|resume|clear|compact (a /clear issues a new session id) with no role arg" \
-  grep -qF '("SessionStart", "startup|resume|clear|compact", "session-start.sh", [])' "$AI_BIN"
+  grep -qF '["SessionStart", "startup|resume|clear|compact", "session-start.sh"]' "${REPO_ROOT}/src/shared/plugin-build.mjs"   # E-469: the plugin's hooks
 assert_status 0 "R10: pre-tool-use passes its own PPID as --session-pid" grep -qF -- '--session-pid "$PPID"' "$PTU"
 assert_status 0 "R10: session-start mints with its own PPID and no role" grep -qF -- '--mint-token "$_SID" "$PPID"' "$SSH_HOOK"
 assert_status 1 "R10: no gate file reads REIN_CALLER_ROLE / REIN_PANE_ROLE" \

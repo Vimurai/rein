@@ -40,7 +40,8 @@ import sys
 HOOK_NAMES = ("stop-hook.sh", "pre-tool-use.sh", "session-start.sh",
               "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh",
               "waiting-signal.sh")
-# E-433 (D-160): the events `rein sync` registers waiting-signal.sh on (src/bin/rein _SPECS).
+# E-433 (D-160): the events waiting-signal.sh is registered on — the rein plugin's hooks.json
+# since E-469 (src/shared/plugin-build.mjs PLUGIN_HOOKS).
 WAITING_EVENTS = ("PermissionRequest", "Notification", "PreToolUse", "PostToolUse",
                   "PostToolUseFailure", "UserPromptSubmit", "Stop", "SessionStart",
                   "SessionEnd", "PermissionDenied")

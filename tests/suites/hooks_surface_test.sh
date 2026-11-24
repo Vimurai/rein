@@ -193,17 +193,19 @@ _DG_BASE="$(_node_min)"
 assert_perf "E-430.S01e: digest build on this repo's inputs above a bare node start" "$(_dg_min)" 400 "$_DG_BASE" 1 60 _dg_min
 }
 
-# ── S06: `rein install` registers the SessionStart hook (canonical wiring) ──────
-assert_status 0 "S06: rein install registers SessionStart"   grep -qF 'SessionStart' "$AI_BIN"
-assert_status 0 "S06: registers session-start.sh"          grep -qF 'session-start.sh' "$AI_BIN"
-assert_status 0 "S06: matcher covers startup|resume"       grep -qF 'startup|resume' "$AI_BIN"
+# ── S06: the rein plugin registers the SessionStart hook (canonical wiring; E-469 moved it
+# from the project settings `rein sync` writes to the plugin `rein install` builds) ──────
+_PBM="${REPO_ROOT}/src/shared/plugin-build.mjs"
+assert_status 0 "S06: the plugin registers SessionStart"   grep -qF '"SessionStart"' "$_PBM"
+assert_status 0 "S06: registers session-start.sh"          grep -qF 'session-start.sh' "$_PBM"
+assert_status 0 "S06: matcher covers startup|resume"       grep -qF 'startup|resume' "$_PBM"
 # E-294 (D-087 r2): SessionStart re-fires on resume, clear AND compact — the mint table's
 # row 2 makes the re-fire a no-op — and the entry carries NO role argument (the role is the
 # launch-record walk's; the old positional "engineer" became an env-free default the mint
-# no longer accepts). Asserted on the settings `rein sync` actually generates.
-source "${SCRIPT_DIR}/../lib/generated-settings.sh"
+# no longer accepts). Asserted on the hooks.json the plugin build actually generates (E-469).
 _S06G="$(test_tmpdir ssgen)"
-_S06SET="$(gen_project_settings "$_S06G/proj")"
+_S06SET="${_S06G}/hooks.json"
+node --no-warnings --input-type=module -e 'import { hooksDoc } from "'"$_PBM"'"; process.stdout.write(JSON.stringify(hooksDoc(process.argv[1])))' "${_S06G}/hooks" > "$_S06SET" 2>/dev/null
 assert_status 0 "E-294.S06a: generated SessionStart matcher is exactly startup|resume|clear|compact, args carry no role" \
   python3 - "${_S06SET:-/nonexistent}" <<'PY'
 import json, sys
@@ -318,8 +320,12 @@ done
 # Non-vacuity: the same generation does register the kept gate and brief.
 assert_status 0 "E-467.H01b: …while it registers pre-tool-use.sh" \
   test "$(_hooks_named "${SANDBOX}/fresh/settings.json" pre-tool-use.sh)" -ge 1
-assert_status 0 "E-467.H01c: …and session-start.sh" \
-  test "$(_hooks_named "${SANDBOX}/fresh/settings.json" session-start.sh)" -ge 1
+# E-469 (D-170 r4): session-start.sh and waiting-signal.sh are the rein plugin's; the project
+# settings register neither (S06a above pins the plugin's entry).
+for h in session-start.sh waiting-signal.sh; do
+  assert_status 0 "E-469.H01c: a fresh settings.json registers no ${h} (the plugin does)" \
+    test "$(_hooks_named "${SANDBOX}/fresh/settings.json" "$h")" -eq 0
+done
 
 # ── E-467.H02: an older settings.json loses its retired Rein entries, keeps the user's own ──
 mkdir -p "${SANDBOX}/stale"
@@ -336,13 +342,17 @@ cat > "${SANDBOX}/stale/settings.json" <<'JSON'
     ],
     "PermissionDenied": [
       { "matcher": ".*", "hooks": [{ "type": "command", "command": "bash $HOME/.rein/hooks/permission-denied.sh" }] }
+    ],
+    "SessionStart": [
+      { "matcher": "startup", "hooks": [{ "type": "command", "command": "/bin/bash", "args": ["-p", "/nope/.rein/hooks/session-start.sh"] },
+                                       { "type": "command", "command": "/bin/bash", "args": ["-p", "/nope/.rein/hooks/waiting-signal.sh"] }] }
     ]
   }
 }
 JSON
 run_gen "stale"
-for h in stop-hook.sh post-tool-log.sh post-tool-use.sh permission-denied.sh; do
-  assert_status 0 "E-467.H02a: the retired ${h} entry is removed" \
+for h in stop-hook.sh post-tool-log.sh post-tool-use.sh permission-denied.sh session-start.sh waiting-signal.sh; do
+  assert_status 0 "E-467.H02a: the retired (or, E-469, moved to the plugin) ${h} entry is removed" \
     test "$(_hooks_named "${SANDBOX}/stale/settings.json" "$h")" -eq 0
 done
 assert_status 0 "E-467.H02b: the user's own hook on the same event is kept" \

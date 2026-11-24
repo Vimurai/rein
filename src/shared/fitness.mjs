@@ -23,6 +23,7 @@ import { basename, join, resolve } from "node:path";
 import { architectSettings, engineerSettings, gitDirs, ARCHITECT_LANE, ENGINEER_REIN_WRITABLE } from "./role-settings.mjs";
 import { TIER_DISPATCH } from "./review-checks.mjs";
 import { DEFAULT_ADAPTERS } from "./provider-adapter.mjs";
+import { provisioned } from "./plugin-build.mjs";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
 
 /** Targets (D-169 r11 table; D-170 r15 replaces the MCP and skills targets, adds agents and hooks). */
@@ -149,25 +150,7 @@ function sessionBytes(root, hooksDir, opts) {
     `engineer ${per.engineer}, architect ${per.architect}: ${files} (${autoBytes})${how} + the brief (${brief.bytes}, measured by running the hook once; cap 2048)`);
 }
 
-/** Skill and agent directories the registry provisions to every role (union, as rein sync does). */
-function provisioned(tree) {
-  const reg = readJson(join(tree, "config", "registry.json"));
-  if (!reg?.roles) return null;
-  const skillDirs = new Set(), agentDirs = new Set();
-  for (const [k, r] of Object.entries(reg.roles)) {
-    if (k.startsWith("_") || !r || typeof r !== "object") continue;
-    for (const d of r.skill_dirs || []) skillDirs.add(d);
-    for (const d of r.agent_dirs || []) agentDirs.add(d);
-  }
-  const skills = new Set(), agents = new Set();
-  for (const d of skillDirs) {
-    for (const e of (isDir(join(tree, d)) ? readdirSync(join(tree, d)) : [])) if (isFile(join(tree, d, e, "SKILL.md"))) skills.add(e);
-  }
-  for (const d of agentDirs) {
-    for (const e of (isDir(join(tree, d)) ? readdirSync(join(tree, d)) : [])) if (e.endsWith(".md") && isFile(join(tree, d, e))) agents.add(e.slice(0, -3));
-  }
-  return { skills: [...skills].sort(), agents: [...agents].sort(), mcp: reg.mcp_servers || {} };
-}
+// The skill and agent union is plugin-build.mjs's provisioned() (E-469): the plugin carries it.
 
 function provisionRows(tree) {
   const p = provisioned(tree);
@@ -353,7 +336,7 @@ function waiting(root) {
 
 function adoptability() {
   return unknown("Adoptability", "install_steps", "steps from install to a first closed task", `≤ ${TARGETS.install_steps}, nothing to read first`,
-    "not computable from the tree: it needs a timed run in a scratch HOME from install-rein.sh to `rein done` (the plugin install of E-469)");
+    "not computable from the tree: it needs a run in a scratch HOME from install-rein.sh to `rein done` (install-rein.sh and `rein init` install the plugin since E-469; docs/getting-started.md counts the steps, E-468)");
 }
 
 // ── The scorecard ────────────────────────────────────────────────────────────────────────────

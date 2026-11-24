@@ -103,13 +103,15 @@ building run inside Claude Code (D-170).
 
 Commands:
   rein install     Install configs to ~/.claude + ~/.config/github-copilot;
-                 enable agent teams; install hooks
+                 build the rein plugin (agents, skills, session hooks) and add
+                 its local marketplace to Claude Code
   rein init        Create .ai/ in a new repo, or UPGRADE an existing one to the installed
                  version: refresh generated files, merge roles/providers, never touch
-                 BRIEF/RULES/SEED/DIGEST/TASKS/LOG/architect.md/blueprints
+                 BRIEF/RULES/SEED/DIGEST/TASKS/LOG/architect.md/blueprints;
+                 enable the rein plugin here; write the role settings files
   rein init --check  Dry run: list what rein init would change (exit 1 when anything would)
-  rein sync        Re-sync agents, skills, bootloaders (ENGINEER.md, ARCHITECT.md +
-                 CLAUDE.md shim, .mcp.json) and hooks into the project
+  rein sync        Re-sync bootloaders (ENGINEER.md, ARCHITECT.md + CLAUDE.md shim),
+                 .mcp.json, settings, rules and git hooks; enable the rein plugin
   rein sync --github   Fetch assigned GitHub issues for the Architect cycle (§28)
   rein sync --prune-providers
                  Remove the workspace directories of
@@ -558,173 +560,8 @@ _locate_role_manifest() {
   return 1
 }
 
-# _provider_source_dirs <provider> [--agents|--roles] → one source dir per line.
-# Unions the `shared` role with every role .ai/roles.json binds to <provider>, per the
-# registry.json manifest. Empty output is a NORMAL state (a provider serving no role).
-# Fail-open: if the resolver or node is unavailable, prints nothing and the caller
-# falls back to its legacy hardcoded set, so sync never breaks on a missing helper.
-_provider_source_dirs() {
-  local provider="$1" flag="${2:-}"
-  local rm; rm="$(_locate_role_manifest || true)"
-  [[ -z "$rm" ]] && return 0
-  command -v node >/dev/null 2>&1 || return 0
-  node --no-warnings "$rm" ".ai" "${REIN}/config/registry.json" "$provider" "$flag" 2>/dev/null || true
-}
-
-# _provision_workspace <provider> <workspace_dir> <copy_agents:yes|no> [legacy_skill_dirs...]
-# Copies every source skill dir the provider serves into <workspace_dir>/skills, and
-# (when copy_agents=yes) every agent dir into <workspace_dir>/agents. Falls back to the
-# caller-supplied legacy dirs when the manifest yields nothing, so a project whose
-# registry.json predates E-212 provisions exactly as before.
-#
-# Additive by design (sync_skills_20 is cp -rf, never a prune) — matches existing
-# behaviour: rebinding a role leaves the previous provider's copies until it re-syncs.
-# NOTE ON BASH 3.2 (macOS ships 3.2.57, and this script runs under `set -u`):
-# expanding an EMPTY array as "${arr[@]}" raises "unbound variable" on 3.2 — it only
-# became safe in bash 4.4. Every array expansion below is therefore either guarded by
-# a ${#arr[@]} count or written as ${arr[@]+"${arr[@]}"}. An unserved provider yields
-# an empty list, which is a NORMAL state, so this is the common path, not an edge case.
-# _sync_skills_no_clobber <src_dir> <dst_dir> <label> — E-212 collision guard.
-#
-# WHY: two roles can ship DIFFERENT skills under the SAME name. `rein-task` was the first
-# case — one for the Engineer's E-## lifecycle, one for the Architect's P-## lifecycle —
-# until E-217 renamed the Architect's to arch-task (E-461 then replaced both with
-# `rein done`). (`repo-oracle` was the second.)
-#
-# THE OVERRIDE RULE DEPENDS ON HOW MANY ROLES THE WORKSPACE SERVES:
-#   - SINGLE-role workspace: a role skill legitimately OVERRIDES the shared baseline.
-#     That is the historical behaviour (an Architect pane gets the Architect's rein-task)
-#     and it is preserved exactly — changing it would regress every split Triad.
-#   - MULTI-role workspace (the D-054 same-provider case): the "override" is no longer
-#     meaningful, because the shared copy is what the OTHER role in the same directory
-#     reads. A flat skills dir cannot hold both, and do_sync cannot know which role the
-#     reading pane will hold — so the shared baseline is KEPT and the role variant is
-#     reported rather than silently swapped in. Without this, the Engineer pane loaded
-#     the Architect's task skill; verified live, it did.
-#
-# The real fix — role-scoped skill directories, or renaming the colliding Architect
-# skills — changes the skill-discovery contract and is an Architect ruling
-# (architect-provider-parity.md §Components 2 does not cover same-name collisions).
-# Escalated 2026-09-07.
-_sync_skills_no_clobber() {
-  local src_dir="$1" dst_dir="$2" label="$3"
-  local count=0 skipped=0 skill_dir name
-  for skill_dir in "${src_dir}"/*/; do
-    [[ -d "$skill_dir" && -f "${skill_dir}SKILL.md" ]] || continue
-    name="$(basename "$skill_dir")"
-    # A name already on DISK is not evidence of a collision: it may simply be a stale
-    # copy this same source wrote on an earlier sync. Only a name PROVIDED BY ANOTHER
-    # SOURCE IN THIS RUN is a real two-role collision. Comparing against disk residue
-    # reported `task-planner` — a skill that exists in exactly one source dir — the
-    # moment its content was edited. bash 3.2 has no associative arrays, so the claim
-    # set is a delimited string.
-    if [[ -e "${dst_dir}/${name}" ]] && [[ "${_SKILL_CLAIMS:-}" == *"|${name}|"* ]]; then
-      # Identical content is not a collision — it is the same skill shipped twice.
-      if ! diff -rq "${skill_dir%/}" "${dst_dir}/${name}" >/dev/null 2>&1; then
-        # E-217 (D-055 R2): a collision in a MULTI-ROLE workspace is now an ERROR, not
-        # a warning. The Architect ruled the resolution is renaming (arch-task /
-        # arch-oracle), so a remaining collision means a skill was added without one —
-        # and silently keeping the older copy is exactly how the Engineer pane ended up
-        # loading the Architect's rein-task. Single-role workspaces never reach here:
-        # they keep the historical role-overrides-shared behaviour.
-        echo "  ✗ COLLISION: '${name}' from ${label} differs from the copy already in ${dst_dir}." >&2
-        echo "    A multi-role workspace cannot hold two different skills under one name." >&2
-        echo "    Rename the role-specific one (see arch-oracle / arch-review, D-055 R2)." >&2
-        skipped=$((skipped + 1))
-        SKILL_COLLISIONS=$((${SKILL_COLLISIONS:-0} + 1))
-      fi
-      continue
-    fi
-    cp -rf "${skill_dir%/}" "${dst_dir}/"
-    _SKILL_CLAIMS="${_SKILL_CLAIMS:-|}${name}|"
-    count=$((count + 1))
-  done
-  # Legacy flat .md files: same first-wins rule.
-  local f
-  for f in "${src_dir}"/*.md; do
-    [[ -f "$f" ]] || continue
-    [[ -e "${dst_dir}/$(basename "$f")" ]] && continue
-    cp -f "$f" "${dst_dir}/"
-  done
-  echo "  $count Skills 2.0 folder(s) synced from ${src_dir}$([[ "$skipped" -gt 0 ]] && echo " (${skipped} name collision(s) — see errors above)")"
-  _generate_skills_index "${dst_dir}"
-}
-
-# _provision_workspace <provider> <ws> <copy_skills:yes|no> <copy_agents:yes|no> [legacy_skill_dirs...]
-_provision_workspace() {
-  local provider="$1" ws="$2" copy_skills="$3" copy_agents="$4"; shift 4
-  local -a legacy=()
-  [[ "$#" -gt 0 ]] && legacy=("$@")
-  local -a skill_dirs=() agent_dirs=()
-  local line
-
-  while IFS= read -r line; do [[ -n "$line" ]] && skill_dirs+=("$line"); done < <(_provider_source_dirs "$provider")
-  # A provider bound to NO role keeps its historical provisioning rather than being
-  # stripped back to `shared` only. Rebinding a role
-  # must not quietly empty the other provider's workspace: the user may switch back,
-  # and sync is additive everywhere else. The manifest always yields at least
-  # `shared/skills`, so the emptiness test is on SERVED ROLES, not on the dir list.
-  if [[ "${#legacy[@]}" -gt 0 ]]; then
-    local _served_probe; _served_probe="$(_provider_source_dirs "$provider" --roles)"
-    [[ -z "$_served_probe" ]] && skill_dirs=("${legacy[@]}")
-  fi
-
-  # How many roles this workspace serves decides the override rule (see the comment
-  # on _sync_skills_no_clobber). One role → historical overwrite semantics; two or
-  # more → keep the shared baseline and report the collision.
-  local -a served_roles=()
-  while IFS= read -r line; do [[ -n "$line" ]] && served_roles+=("$line"); done < <(_provider_source_dirs "$provider" --roles)
-  local multi_role=0
-  [[ "${#served_roles[@]}" -gt 1 ]] && multi_role=1
-
-  if [[ "$copy_skills" == "yes" ]]; then
-  # Names claimed by an earlier SOURCE while provisioning THIS workspace.
-  _SKILL_CLAIMS="|"
-  mkdir -p "${ws}/skills"
-  if [[ "${#skill_dirs[@]}" -gt 0 ]]; then
-    local first=1
-    for line in "${skill_dirs[@]}"; do
-      [[ -d "${REIN}/${line}" ]] || continue
-      if [[ "$first" -eq 1 || "$multi_role" -eq 0 ]]; then
-        sync_skills_20 "${REIN}/${line}" "${ws}/skills"
-        first=0
-      else
-        _sync_skills_no_clobber "${REIN}/${line}" "${ws}/skills" "$line"
-      fi
-    done
-    # Prune with the SAME source array the copy above just consumed. Deriving the
-    # canonical list a second way would let provisioning and pruning disagree about
-    # what is canonical — which is precisely how a "cleanup" deletes something real.
-    local -a _abs=()
-    for line in "${skill_dirs[@]}"; do
-      [[ -d "${REIN}/${line}" ]] && _abs+=("${REIN}/${line}")
-    done
-    [[ "${#_abs[@]}" -gt 0 ]] && _prune_workspace_dir "${ws}/skills" "${_abs[@]}"
-  fi
-  fi
-
-  if [[ "$copy_agents" == "yes" ]]; then
-    while IFS= read -r line; do [[ -n "$line" ]] && agent_dirs+=("$line"); done < <(_provider_source_dirs "$provider" --agents)
-    mkdir -p "${ws}/agents"
-    if [[ "${#agent_dirs[@]}" -gt 0 ]]; then
-      for line in "${agent_dirs[@]}"; do
-        [[ -d "${REIN}/${line}" ]] && cp -f "${REIN}/${line}/"*.md "${ws}/agents/" 2>/dev/null || true
-      done
-      # E-273 (D-074 §Components 5): agents get the skills' manifest treatment. An agent
-      # sync wrote, nobody edited, and the role manifest no longer provides is pruned; an
-      # agent the user added was never recorded and is kept (E-220 evidence rule).
-      local -a _aabs=()
-      for line in "${agent_dirs[@]}"; do
-        [[ -d "${REIN}/${line}" ]] && _aabs+=("${REIN}/${line}")
-      done
-      [[ "${#_aabs[@]}" -gt 0 ]] && _prune_workspace_dir "${ws}/agents" "${_aabs[@]}"
-    fi
-  fi
-
-  local served; served="$(_provider_source_dirs "$provider" --roles | tr '\n' ' ')"
-  [[ -n "$served" ]] && echo "  ${ws}/ serves role(s): ${served}"
-  return 0
-}
+# E-469: _provider_source_dirs, _provision_workspace and _sync_skills_no_clobber are removed —
+# the agents and skills are the rein plugin's (shared/plugin-build.mjs), not copied into .claude/.
 
 
 # ── E-220 (D-056 R2): manifest-scoped pruning ────────────────────────────────
@@ -1182,6 +1019,35 @@ _doctor_toolchain_report() {
 # is generated (absolute exec-form hook paths) and gitignored, so a project can be missing
 # it, still track it, or carry entries from before E-290 that keep the shell-form line
 # running; and the git stubs in an existing clone are only refreshed by `rein sync`/`rein init`.
+# E-469 (D-170 r4): the rein plugin carries the agents, the skills and the session-start and
+# waiting-signal hooks. What it holds is read from ${REIN}/plugin; whether Claude Code loads it in
+# this project is `claude plugin list` in the config dir in force. One ✗ line names what is
+# missing, so a removed plugin is one line, not a line per unit it carries.
+_doctor_plugin_report() {
+  local pb u n_ag n_sk ag sk hk cfg
+  pb="$(_rein_helper shared/plugin-build.mjs || true)"
+  [[ -n "$pb" ]] && command -v node >/dev/null 2>&1 && u="$(node --no-warnings "$pb" units --rein-home "$REIN" 2>/dev/null || true)"
+  if [[ -z "${u:-}" || "$u" == "null" ]]; then
+    _dr claude_plugin - "  ✗ [PLUGIN_MISSING] ${REIN}/plugin is not built — the agents, skills and session hooks of ${_PLUGIN_ID} are missing; run: bash install-rein.sh" "bash install-rein.sh"
+    return 0
+  fi
+  IFS=$'\t' read -r n_ag ag n_sk sk hk < <(printf '%s' "$u" | python3 -c '
+import json, sys
+u = json.load(sys.stdin)
+print("\t".join([str(len(u["agents"])), ", ".join(u["agents"]), str(len(u["skills"])), ", ".join(u["skills"]), " ".join(u["hooks"])]))')
+  _dr claude_agents - "  ✓ plugin agents: ${n_ag} (${ag})"
+  _dr claude_skills - "  ✓ plugin skills: ${n_sk} (${sk})"
+  cfg="${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"
+  if ! command -v claude >/dev/null 2>&1; then
+    _dr claude_plugin warn "  ⚠ plugin ${_PLUGIN_ID}: cannot check — the claude CLI is not on PATH"
+  elif _plugin_enabled "$cfg"; then
+    _dr claude_plugin - "  ✓ plugin ${_PLUGIN_ID} enabled here (${cfg/#"$HOME"/\~}; hooks: ${hk})"
+  else
+    _dr claude_plugin - "  ✗ [PLUGIN_NOT_ENABLED] plugin ${_PLUGIN_ID} is not enabled in this project (${cfg/#"$HOME"/\~}) — its ${n_ag} agents, ${n_sk} skills and the ${hk} hooks do not load; run: rein sync" "rein sync"
+  fi
+  return 0
+}
+
 _doctor_hook_form_report() {
   local f=".claude/settings.json"
   if [[ ! -f "$f" ]]; then
@@ -1208,14 +1074,18 @@ _doctor_hook_form_report() {
       done <<< "$findings"
       # E-433 (D-160, release-artifact.md §Component 7): the waiting-on-the-operator signal is
       # registered on every event of its table. Missing is a warning: no gate depends on it.
-      local wmiss wrc=0
-      wmiss="$(python3 -I "$hp" waiting "$f" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)" || wrc=$?
-      if [[ "$wrc" -ne 0 ]]; then
-        _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNKNOWN] hook-paths.py could not check the waiting signal — run: rein sync" "rein sync"
+      # E-469: the entries are the rein plugin's hooks/hooks.json (whether the plugin loads in
+      # this project is the claude_plugin line); rein install builds them.
+      local wmiss wrc=0 wf="${REIN}/plugin/hooks/hooks.json"
+      wmiss="$(python3 -I "$hp" waiting "$wf" "$(cd "${REIN}/hooks" 2>/dev/null && pwd -P)" 2>/dev/null)" || wrc=$?
+      if [[ ! -f "$wf" ]]; then
+        :   # the plugin is not built: the claude_plugin line says so, once
+      elif [[ "$wrc" -ne 0 ]]; then
+        _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNKNOWN] hook-paths.py could not check the waiting signal — run: bash install-rein.sh" "bash install-rein.sh"
       elif [[ -z "$wmiss" ]]; then
-        _dr waiting_signal_registered - "  ✓ waiting signal: waiting-signal.sh registered on every event"
+        _dr waiting_signal_registered - "  ✓ waiting signal: waiting-signal.sh registered on every event (plugin ${_PLUGIN_ID})"
       else
-        _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNREGISTERED] no waiting-signal.sh entry on: ${wmiss} — run: rein sync" "rein sync"
+        _dr waiting_signal_registered warn "  ⚠ [WAITING_SIGNAL_UNREGISTERED] the plugin's hooks.json has no waiting-signal.sh entry on: ${wmiss} — run: bash install-rein.sh" "bash install-rein.sh"
       fi
       if [[ -n "$stale" ]]; then
         _dr hook_form - "  ✗ .claude/settings.json: stale Rein hook entries (not exec-form /bin/bash -p under ${REIN}/hooks): ${stale} — run: rein sync"
@@ -1316,22 +1186,21 @@ _doctor_rules_report() {
 
 _sync_workspace_dirs() {
   local mode="${1:-sync}"
-  # E-217: counts unresolved multi-role skill-name collisions across every workspace.
-  SKILL_COLLISIONS=0
 
-  mkdir -p ".claude/agents" ".claude/skills" ".claude/commands"
-  # E-212: role-aware. Under an all-Claude Triad (D-054) this pulls in the Architect's
-  # skills and agents too, instead of only the Engineer-side src/claude/* dirs.
-  _provision_workspace "claude" ".claude" "yes" "yes" "shared/skills" "claude/skills"
+  mkdir -p ".claude"
+  # E-469 (D-170 r4): the agents and skills are the rein plugin's (${REIN}/plugin), no longer
+  # copied into .claude/. The settings first (the plugin install adds enabledPlugins beside them),
+  # then the plugin; the old copies go only once the plugin is enabled here.
   _configure_project_claude_settings ".claude"
+  if _plugin_enable_project; then _prune_plugin_copies; fi
   # E-462: no role settings here. They live in ~/.rein/roles/ and `rein pane` / `rein start`
   # write them at every launch — a copy written at sync time would only be older, and a sync
   # inside a role's sandbox (or a test's temp project) has no business in ~/.rein.
   _provision_rules ".claude/rules"                 # E-282: path-scoped rules
   if [[ "$mode" == "init" ]]; then
-    echo "Created .claude/ (project-scoped agents + skills + settings.json)"
+    echo "Created .claude/ (settings.json + rules; agents, skills and session hooks: plugin ${_PLUGIN_ID})"
   else
-    echo "  .claude/ synced (agents + skills + _SKILLS_INDEX.md + settings.json)"
+    echo "  .claude/ synced (settings.json + rules; agents, skills and session hooks: plugin ${_PLUGIN_ID})"
   fi
 
   # E-254 (D-069): v4 is Claude-native — one provider, three Claude roles — so there is
@@ -1503,6 +1372,125 @@ _sandbox_install_line() {
   esac
 }
 
+# ── E-469 (D-170 r4, lean-core.md §Revision 2 Packaging): the Rein Claude Code plugin ─────────
+# The kept agents, skills and the session-start and waiting-signal hooks ship as one plugin,
+# rein@rein, built into ${REIN}/plugin by `rein install` (shared/plugin-build.mjs) and loaded in
+# place from a local-directory marketplace. `rein install` adds the marketplace to each Claude
+# config dir; `rein init` and `rein sync` enable the plugin for the project (scope project, so its
+# hooks run in Rein projects only, as the settings entries they replace did). The command gate
+# (pre-tool-use.sh, E-463 held), the git hooks, the MCP server and the role settings stay here.
+# REIN_PLUGIN_INSTALL=0 skips every `claude plugin` call.
+_PLUGIN_ID="rein@rein"
+
+# The Claude config dirs the plugin is registered in, one per line: the one in force
+# (CLAUDE_CONFIG_DIR, else ~/.claude), then each `rein account` dir. Only dirs under HOME: a test
+# that moves HOME never registers into the operator's config through an inherited variable.
+_plugin_config_dirs() {
+  local d name _rest home; home="$(cd "$HOME" 2>/dev/null && pwd -P)" || return 0
+  local -a out=()
+  _plugin_under_home() {   # a dir not created yet is judged by its parent's real path
+    local r
+    r="$(cd "$1" 2>/dev/null && pwd -P)" || r="$(cd "$(dirname "$1")" 2>/dev/null && pwd -P)/$(basename "$1")" || r="$1"
+    [[ "$r" == "$home"/* ]]
+  }
+  d="${CLAUDE_CONFIG_DIR:-${HOME}/.claude}"
+  _plugin_under_home "$d" && out+=("$d")
+  if declare -F _account_rows >/dev/null; then
+    while IFS=$'\t' read -r name d _rest; do
+      [[ -n "$name" && -n "$d" ]] && _plugin_under_home "$d" || continue
+      [[ " ${out[*]-} " == *" ${d} "* ]] || out+=("$d")
+    done <<< "$(_account_rows)"
+  fi
+  [[ "${#out[@]}" -gt 0 ]] && printf '%s\n' "${out[@]}"
+  return 0
+}
+
+# _plugin_skip_reason → prints why no `claude plugin` call may run here; nothing when they may.
+_plugin_skip_reason() {
+  if [[ "${REIN_PLUGIN_INSTALL:-1}" == "0" ]]; then echo "REIN_PLUGIN_INSTALL=0"
+  elif ! command -v claude >/dev/null 2>&1; then echo "the claude CLI is not on PATH — install Claude Code, then: rein sync"
+  elif [[ ! -f "${REIN}/plugin/.claude-plugin/marketplace.json" ]]; then echo "${REIN}/plugin is not built — run: bash install-rein.sh"
+  fi
+}
+
+# _plugin_enabled <config dir> → 0 when `claude plugin list` in the current directory shows
+# rein@rein enabled (project scope here, or user scope).
+_plugin_enabled() {
+  CLAUDE_CONFIG_DIR="$1" claude plugin list --json 2>/dev/null | python3 -c '
+import json, sys
+try:
+    rows = json.load(sys.stdin)
+except Exception:
+    sys.exit(1)
+sys.exit(0 if any(isinstance(r, dict) and r.get("id") == sys.argv[1] and r.get("enabled") is True for r in rows) else 1)' "$_PLUGIN_ID"
+}
+
+# `rein install`: build the plugin folder, then add its marketplace to every config dir.
+_plugin_install_global() {
+  local pb out why d
+  pb="$(_rein_helper shared/plugin-build.mjs || true)"
+  if [[ -z "$pb" ]] || ! command -v node >/dev/null 2>&1; then
+    echo "  ✗ plugin: shared/plugin-build.mjs or node not found — $(_rein_fix_install)"; return 1
+  fi
+  if ! out="$(node --no-warnings "$pb" build --rein-home "$REIN" 2>&1)"; then
+    echo "  ✗ ${out}"; return 1
+  fi
+  echo "✓ ${out}"
+  why="$(_plugin_skip_reason)"
+  if [[ -n "$why" ]]; then echo "  ○ plugin marketplace not added: ${why}"; return 0; fi
+  while IFS= read -r d; do
+    [[ -n "$d" ]] || continue
+    if CLAUDE_CONFIG_DIR="$d" claude plugin marketplace add "${REIN}/plugin" >/dev/null 2>&1; then
+      echo "✓ plugin marketplace rein → ${d/#"$HOME"/\~} (enable per project: rein init)"
+    else
+      echo "  ✗ plugin marketplace rein: \`claude plugin marketplace add ${REIN}/plugin\` failed in ${d/#"$HOME"/\~}"
+    fi
+  done <<< "$(_plugin_config_dirs)"
+  return 0
+}
+
+# `rein init` / `rein sync`, in the project root: enable rein@rein for this project in every
+# config dir. Returns 0 when it is enabled in the config dir in force, 1 otherwise.
+_plugin_enable_project() {
+  local why d rc=1 first=1 shown
+  why="$(_plugin_skip_reason)"
+  if [[ -n "$why" ]]; then echo "  ○ plugin ${_PLUGIN_ID} not enabled: ${why}"; return 1; fi
+  while IFS= read -r d; do
+    [[ -n "$d" ]] || continue
+    shown="${d/#"$HOME"/\~}"
+    if _plugin_enabled "$d"; then
+      [[ "$first" -eq 1 ]] && rc=0
+    else
+      CLAUDE_CONFIG_DIR="$d" claude plugin marketplace add "${REIN}/plugin" >/dev/null 2>&1 || true
+      if CLAUDE_CONFIG_DIR="$d" claude plugin install "$_PLUGIN_ID" --scope project >/dev/null 2>&1 && _plugin_enabled "$d"; then
+        echo "  ✓ plugin ${_PLUGIN_ID} enabled for this project (${shown})"
+        [[ "$first" -eq 1 ]] && rc=0
+      else
+        echo "  ✗ plugin ${_PLUGIN_ID}: \`claude plugin install ${_PLUGIN_ID} --scope project\` failed (${shown})"
+      fi
+    fi
+    first=0
+  done <<< "$(_plugin_config_dirs)"
+  [[ "$first" -eq 1 ]] && echo "  ○ plugin ${_PLUGIN_ID} not enabled: no Claude config dir under HOME"
+  return "$rc"
+}
+
+# E-469: what the project still holds of the agents and skills `rein sync` used to copy into
+# .claude/ — removed by the E-220 evidence rule (written by sync, unedited); the rest is kept.
+# Only once the plugin is enabled here, so a project never loses its copies to nothing.
+_prune_plugin_copies() {
+  local d
+  for d in .claude/agents .claude/skills; do
+    [[ -d "$d" ]] || continue
+    _prune_workspace_dir "$d"
+    rm -f "${d}/_SKILLS_INDEX.md"
+    # Nothing left but the (now empty) manifest: the directory was sync's alone.
+    if [[ "$(ls -A "$d" 2>/dev/null)" == "_SYNC_MANIFEST.json" ]]; then rm -f "${d}/_SYNC_MANIFEST.json"; fi
+    rmdir "$d" 2>/dev/null || true
+  done
+  return 0
+}
+
 _configure_project_claude_settings() {
   local TARGET_DIR="${1:-.claude}"
   local REGISTRY="${REIN}/config/registry.json"
@@ -1655,34 +1643,22 @@ hooks = data.setdefault("hooks", {})
 # project's settings `env` BEFORE `/bin/bash -p` starts (probed). `args` carries the
 # install-time ABSOLUTE path, so `$HOME` is gone from the hook lines; that makes this file
 # machine-specific, so it is gitignored (E-233 mechanism) and regenerated here.
-# Before writing, EVERY Rein-owned entry for the six hooks is removed in ANY older form
+# Before writing, EVERY Rein-owned entry for these hooks is removed in ANY older form
 # (shell form, stale path) — appending beside an old entry would leave the vulnerable line
 # running. User entries are never touched. History kept from the entries this replaces:
 #   E-125/E-208 pre-tool-use is the fail-closed gate on Bash + the write tools;
-#   E-460/E-129/E-294 session-start injects the session brief and mints the role token; the
-#     role comes from the launch-record walk (D-087), never from an argument or the env. It
-#     fires on clear and compact too: `/clear` issues a NEW session id in the same process
-#     (measured 2026-10-04), which needs its own token or the session falls into the union;
+#   E-460/E-129/E-294 session-start (brief + role token) and E-433 waiting-signal are the rein
+#     plugin's since E-469 (plugin-build.mjs carries their matchers and history);
 #   E-467 (D-170 r5): stop-hook, post-tool-log, post-tool-use and permission-denied are
 #     retired; their Rein-owned entries are removed below on every event (_RETIRED).
 import re as _re
 _HOOKS_DIR = os.path.realpath(os.path.join(os.path.expanduser("~"), ".rein", "hooks"))
 _SPECS = [  # (event, matcher, script, extra args)
     ("PreToolUse", "Bash|Write|Edit|MultiEdit|NotebookEdit", "pre-tool-use.sh", []),
-    ("SessionStart", "startup|resume|clear|compact", "session-start.sh", []),
-    # E-433 (D-160, release-artifact.md §Component 7): the waiting-on-the-operator pane signal.
-    # Its own entry on every event of the table; pre-tool-use.sh is not touched. Fail-open.
-    ("PermissionRequest", ".*", "waiting-signal.sh", []),
-    ("Notification", "permission_prompt|elicitation_dialog", "waiting-signal.sh", []),
-    ("PreToolUse", "AskUserQuestion|ExitPlanMode", "waiting-signal.sh", []),
-    ("PostToolUse", ".*", "waiting-signal.sh", []),
-    ("PostToolUseFailure", ".*", "waiting-signal.sh", []),
-    ("UserPromptSubmit", ".*", "waiting-signal.sh", []),
-    ("Stop", ".*", "waiting-signal.sh", []),
-    ("SessionStart", "startup|resume|clear|compact", "waiting-signal.sh", []),
-    ("SessionEnd", ".*", "waiting-signal.sh", []),
-    ("PermissionDenied", ".*", "waiting-signal.sh", []),
 ]
+# E-469 (D-170 r4): session-start.sh and waiting-signal.sh moved to the rein plugin
+# (${REIN}/plugin/hooks/hooks.json, shared/plugin-build.mjs PLUGIN_HOOKS); their Rein-owned
+# entries here are removed below like the retired ones, so neither runs twice.
 # E-391 (D-132 addendum 4 r2): an entry is ours by the hook's FILE NAME when its script is in
 # the install's hooks dir OR no longer exists (an earlier install's path) — the same rule
 # `rein doctor` reports with (shared/hook-paths.py). An existing script elsewhere is the
@@ -1722,7 +1698,9 @@ for _event, _matcher, _script, _extra in _SPECS:
                 print(f"Replaced {_event} hook entry: {_txt[:200]}")
     _lst[:] = [e for e in _lst if e.get("hooks")]
     _lst.append({"matcher": _matcher, "hooks": [_want]})
-_RETIRED = ("stop-hook.sh", "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh")
+_RETIRED = ("stop-hook.sh", "post-tool-log.sh", "post-tool-use.sh", "permission-denied.sh",
+            "session-start.sh", "waiting-signal.sh")
+_MOVED = ("session-start.sh", "waiting-signal.sh")
 for _event, _lst in list(hooks.items()):
     if not isinstance(_lst, list):
         continue
@@ -1732,7 +1710,8 @@ for _event, _lst in list(hooks.items()):
         for _script in _RETIRED:
             _keep = [h for h in _e.get("hooks", []) if not (isinstance(h, dict) and _is_rein_hook(h, _script))]
             if len(_keep) != len(_e.get("hooks", [])):
-                print(f"Removed retired {_event} hook: {_script} (E-467)")
+                print(f"Moved {_event} hook {_script} to the rein plugin (E-469)" if _script in _MOVED
+                      else f"Removed retired {_event} hook: {_script} (E-467)")
             _e["hooks"] = _keep
     _lst[:] = [e for e in _lst if not isinstance(e, dict) or e.get("hooks")]
     if not _lst:
@@ -1863,6 +1842,11 @@ install_global() {
   fi
   echo "✓ Role-token key ready → ~/.rein/secrets (E-129)"
 
+  # E-469 (D-170 r4): the rein plugin — the agents, skills and session hooks — built into
+  # ${REIN}/plugin and offered to Claude Code; `rein init` enables it per project. A failure is
+  # reported and never stops the install (rein doctor names what is missing).
+  _plugin_install_global || :
+
   # MCP servers
   if [[ -d "${REIN}/mcp" ]]; then
     echo "✓ MCP servers available → ${REIN}/mcp"
@@ -1899,7 +1883,7 @@ install_global() {
 
   echo ""
   echo "✓ Rein global installation complete → ${REIN}"
-  echo "  Run 'rein init' inside any project to scaffold .ai/ and .claude/."
+  echo "  Run 'rein init' inside any project to scaffold .ai/ and .claude/ and enable the rein plugin there."
   # E-420: as the installer does — the hooks were refused (no privileged /bin/bash); say so last.
   if [[ "$_REIN_ARTIFACT" -eq 1 && "${_HOOKS_REFUSED:-0}" -eq 1 ]]; then
     echo "" >&2
@@ -2611,7 +2595,8 @@ _init_check() {
     cp -f "${REIN}/templates/ENGINEER.md"  "ENGINEER.md"
     cp -f "${REIN}/templates/ARCHITECT.md" "ARCHITECT.md"
     cp -f "${REIN}/templates/CLAUDE.md"    "CLAUDE.md"
-    _sync_workspace_dirs sync >/dev/null 2>&1
+    # E-469: a dry run registers no plugin for its scratch copy in the operator's Claude config.
+    REIN_PLUGIN_INSTALL=0 _sync_workspace_dirs sync >/dev/null 2>&1
   ) || true
   local proj_digest scratch_digest
   proj_digest="$(mktemp "${TMPDIR:-/tmp}/rein-dig.XXXXXX")"; scratch_digest="$(mktemp "${TMPDIR:-/tmp}/rein-dig.XXXXXX")"
@@ -2669,6 +2654,13 @@ do_init() {
   ensure_ai_templates
   migrate_legacy_ai_if_present
   install_git_hooks
+
+  # E-469 (D-170 r4): the role settings files — the sandbox boundary a plugin cannot carry —
+  # under ~/.rein/roles/<project key>/. rein pane and rein start rewrite them at every launch;
+  # inside a role's sandbox ~/.rein is read-only, so a refusal here is reported, never fatal.
+  echo ""
+  echo "Role settings (the boundary of each pane role):"
+  _write_role_settings_overlays "" ".ai" || echo "  ⚠ role settings not written — rein pane and rein start write them at launch"
 
   # E-33: Auto-setup MCP server dependencies (Battery-Included onboarding)
   if command -v node &>/dev/null && [[ -d "${REIN}/mcp" ]]; then
@@ -2989,96 +2981,6 @@ PY
 }
 
 
-
-sync_skills_20() {
-  # Copy Skills 2.0 folder-based skills (skill-name/SKILL.md structure)
-  local src_dir="$1" dst_dir="$2"
-  local count=0
-  for skill_dir in "${src_dir}"/*/; do
-    if [[ -d "$skill_dir" && -f "${skill_dir}SKILL.md" ]]; then
-      local skill_name
-      skill_name=$(basename "$skill_dir")
-      cp -rf "${skill_dir%/}" "${dst_dir}/"
-      _SKILL_CLAIMS="${_SKILL_CLAIMS:-|}${skill_name}|"
-      count=$((count + 1))
-    fi
-  done
-  # Also copy any remaining legacy flat .md files
-  cp -f "${src_dir}"/*.md "${dst_dir}/" 2>/dev/null || true
-  echo "  $count Skills 2.0 folder(s) + legacy flat files synced from ${src_dir}"
-  # Regenerate _SKILLS_INDEX.md in dst_dir (metadata-only manifest for §29 Level 1 loading)
-  _generate_skills_index "${dst_dir}"
-}
-
-_generate_skills_index() {
-  # Generate _SKILLS_INDEX.md — name + one-line description for each skill.
-  # Agents use this for Level 1 (metadata-only) discovery without loading full SKILL.md content.
-  # E-31: deterministic across locales/filesystems — entries sorted with LC_ALL=C
-  # so the same set of skills always produces byte-identical output. The file
-  # itself is gitignored (regenerated on every `rein sync`), but determinism still
-  # matters for cross-machine consistency and reproducible installs.
-  local dir="$1"
-  local index_file="${dir}/_SKILLS_INDEX.md"
-  {
-    echo "# Skills Index (metadata-only — §29 JIT Skill Loading)"
-    echo "# Invoke with the Skill tool (skill: \"<name>\") to load full content."
-    echo ""
-    # Skills 2.0: folder-based — collect, sort with LC_ALL=C, then emit
-    local skill_dirs
-    skill_dirs=$(find "${dir}" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | LC_ALL=C sort)
-    while IFS= read -r skill_dir; do
-      [[ -n "$skill_dir" && -f "${skill_dir}/SKILL.md" ]] || continue
-      local name desc
-      name=$(basename "$skill_dir")
-      desc=$(python3 -c "
-import re, sys
-try:
-    c = open('${skill_dir}/SKILL.md').read()
-    m = re.match(r'^---\n(.*?)\n---', c, re.DOTALL)
-    if m:
-        for line in m.group(1).splitlines():
-            if line.startswith('description:'):
-                print(line.split(':', 1)[1].strip())
-                sys.exit(0)
-except: pass
-print('')
-" 2>/dev/null)
-      if [[ -n "$desc" ]]; then
-        echo "- ${name}: ${desc}"
-      else
-        echo "- ${name}"
-      fi
-    done <<< "$skill_dirs"
-    # Legacy flat .md files — collect, sort with LC_ALL=C, then emit
-    local skill_files
-    skill_files=$(find "${dir}" -mindepth 1 -maxdepth 1 -type f -name '*.md' 2>/dev/null | LC_ALL=C sort)
-    while IFS= read -r skill_file; do
-      [[ -n "$skill_file" && -f "$skill_file" ]] || continue
-      local fname
-      fname=$(basename "$skill_file" .md)
-      [[ "$fname" == "_SKILLS_INDEX" ]] && continue
-      local desc
-      desc=$(python3 -c "
-import re, sys
-try:
-    c = open('${skill_file}').read()
-    m = re.match(r'^---\n(.*?)\n---', c, re.DOTALL)
-    if m:
-        for line in m.group(1).splitlines():
-            if line.startswith('description:'):
-                print(line.split(':', 1)[1].strip())
-                sys.exit(0)
-except: pass
-print('')
-" 2>/dev/null)
-      if [[ -n "$desc" ]]; then
-        echo "- ${fname}: ${desc}"
-      else
-        echo "- ${fname}"
-      fi
-    done <<< "$skill_files"
-  } > "$index_file"
-}
 
 do_sync_github() {
   # §28 GitHub Bridge: fetch assigned issues.
@@ -3596,14 +3498,6 @@ do_sync() {
 
     # .claude/ — the project-scoped workspace (v3.0 W3-T3: shared helper).
     _sync_workspace_dirs sync
-    if [[ "${SKILL_COLLISIONS:-0}" -gt 0 ]]; then
-      echo "" >&2
-      echo "rein sync: ${SKILL_COLLISIONS} unresolved skill-name collision(s) — see the errors above." >&2
-      echo "  A provider serving BOTH roles cannot hold two different skills under one name," >&2
-      echo "  and sync cannot know which role the reading pane holds. Rename the role-specific" >&2
-      echo "  skill (D-055 R2 precedent: arch-oracle, arch-review)." >&2
-      return 1
-    fi
     # E-244: explicit provider-workspace pruning, after provisioning so a workspace that
     # was just (re)synced for a live binding is never a candidate. Reporting is the
     # default; deleting requires the flag.
@@ -3731,22 +3625,20 @@ import(pathToFileURL(process.argv[1]).href).then(m =>
       continue
     fi
 
-    # Skills: does the workspace hold this role's skill set?
-    skills_dir="${ws}/skills"
+    # Skills and agents (E-469): the rein plugin's, the same for both roles.
+    skills_dir="${REIN}/plugin/skills"
     if [[ -d "$skills_dir" ]]; then
       n_sk="$(find "$skills_dir" -maxdepth 1 -mindepth 1 -type d 2>/dev/null | wc -l | tr -d " ")"
-      _dr role_skills - "      ✓ skills   ${skills_dir} (${n_sk})" "" "$role"
+      _dr role_skills - "      ✓ skills   plugin ${_PLUGIN_ID} (${n_sk})" "" "$role"
     else
-      _dr role_skills - "      ✗ skills   ${skills_dir} missing — run: rein sync" "" "$role"
+      _dr role_skills - "      ✗ skills   plugin ${_PLUGIN_ID} not built — run: bash install-rein.sh" "" "$role"
     fi
-
-    # Agents
-    agents_dir="${ws}/agents"
+    agents_dir="${REIN}/plugin/agents"
     if [[ -d "$agents_dir" ]]; then
       n_ag="$(find "$agents_dir" -maxdepth 1 -name "*.md" 2>/dev/null | wc -l | tr -d " ")"
-      _dr role_agents - "      ✓ agents   ${agents_dir} (${n_ag})" "" "$role"
+      _dr role_agents - "      ✓ agents   plugin ${_PLUGIN_ID} (${n_ag})" "" "$role"
     else
-      _dr role_agents - "      ✗ agents   ${agents_dir} missing — run: rein sync" "" "$role"
+      _dr role_agents - "      ✗ agents   plugin ${_PLUGIN_ID} not built — run: bash install-rein.sh" "" "$role"
     fi
 
     # Role settings (E-462) — only meaningful for a claude-hosted pane role. They live in
@@ -4160,19 +4052,10 @@ _doctor_text() {
     fi
     echo ""
 
-    echo "Project-Scoped (.claude/):"
-    if [[ -d ".claude/agents" ]]; then
-      _dr claude_agents - "  ✓ .claude/agents: $(ls ".claude/agents" | wc -l | tr -d ' ') files"
-    else
-      _dr claude_agents - "  ✗ .claude/agents: missing — run: rein init"
-    fi
+    echo "Project-Scoped (.claude/ and the rein plugin):"
+    _doctor_plugin_report
     _doctor_rules_report
     _doctor_hook_form_report
-    if [[ -d ".claude/skills" ]]; then
-      _dr claude_skills - "  ✓ .claude/skills: $(ls ".claude/skills" | wc -l | tr -d ' ') entries"
-    else
-      _dr claude_skills - "  ✗ .claude/skills: missing — run: rein init"
-    fi
     echo ""
   fi
 
@@ -4680,7 +4563,8 @@ if Path(".ai").exists():
         Path("src/claude/agents"),
         Path("src/claude/skills"),
         Path("src/shared/skills"),
-        # E-118: project-scoped dirs (populated by rein init / rein sync)
+        # E-118: project-scoped dirs — the project's own units; since E-469 rein sync copies
+        # none (the shipped ones are the rein plugin's, the same files as claude/ above)
         Path(".claude/agents"),
         Path(".claude/skills"),
     ]

@@ -6,6 +6,7 @@
     "classifier_info": "host",
     "claude_agents": "project",
     "claude_home": "host",
+    "claude_plugin": "project",
     "claude_rules": "project",
     "claude_skills": "project",
     "comm_channel": "project",

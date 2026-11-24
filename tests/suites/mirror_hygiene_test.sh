@@ -9,8 +9,9 @@
 #     LIVE server survive, and so does config/rein-workspace.txt (installer-written);
 #     `rein doctor` reported the orphans beforehand; REIN_INSTALL_NO_DELETE=1 keeps them;
 #   * the installer's "Next steps" no longer names deprecated commands;
-#   * .claude/agents is pruned by the E-220 evidence rule: an agent sync wrote and the
-#     manifest no longer provides goes, an agent the user added stays;
+#   * (E-273.2, .claude/agents pruned by the E-220 evidence rule, moved with E-469: sync copies
+#     no agents into a project now; the plugin rebuild is tests/unit/plugin-build.test.mjs, the
+#     prune of old copies rein_sync_test E-469.S2);
 #   * settings.json loses mcp__<server>__* allows for a server in registry_history but not
 #     registry.json, and keeps allows for a server name never shipped (the user's own);
 #   * `rein sync` reaps dead-pid build records and week-old role locks, keeping live ones.
@@ -79,22 +80,6 @@ assert_status 0 "E-273.01l: config/rein-workspace.txt (installer-written) surviv
 assert_status 0 "E-273.01m: the live servers are all still mirrored" \
   test -f "${M}/mcp/task-synchronizer-mcp/index.js" -a -f "${M}/mcp/shared/state-db.js"
 assert_contains "E-273.01n: doctor is clean afterwards" "✓ mirror orphans: none" "$(_ai doctor)"
-
-# ── E-273.2: .claude/agents pruned by evidence ────────────────────────────────
-printf -- '---\nname: zz_retiring\n---\nbody\n' > "${M}/claude/agents/zz_retiring.md"
-_ai sync >/dev/null
-assert_status 0 "E-273.02a: a new source agent is provisioned" test -f "${PROJ}/.claude/agents/zz_retiring.md"
-printf -- '---\nname: my_agent\n---\nmine\n' > "${PROJ}/.claude/agents/my_agent.md"
-_ai sync >/dev/null
-rm -f "${M}/claude/agents/zz_retiring.md"      # removed from the role manifest's source
-_ai sync >/dev/null
-assert_status 1 "E-273.02b: the agent sync wrote and upstream dropped is pruned" \
-  test -e "${PROJ}/.claude/agents/zz_retiring.md"
-_ai sync >/dev/null
-assert_status 0 "E-273.02c: the user's own agent survives repeated syncs" test -f "${PROJ}/.claude/agents/my_agent.md"
-assert_status 0 "E-273.02d: the canonical agents are still there" test -f "${PROJ}/.claude/agents/critic_acceptance.md"
-assert_status 1 "E-273.02e: the agents manifest never claims the user's agent" \
-  grep -q '"my_agent.md"' "${PROJ}/.claude/agents/_SYNC_MANIFEST.json"
 
 # ── E-273.3: settings.json allows for retired servers ─────────────────────────
 python3 - "${PROJ}/.claude/settings.json" <<'P'

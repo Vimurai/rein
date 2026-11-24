@@ -660,7 +660,7 @@
       "since": "0.5.0",
       "rule": "not-in-src",
       "src_root": "src/mcp/safe-exec-mcp",
-      "note": "E-463 (D-169 r2): a module of the retired command-text gate. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+      "note": "E-463 (D-169 r2): a module of the retired command-text gate, and since D-172 r26 the seatbelt's old place (now ~/.rein/shared/seatbelt.mjs). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback. Reinstall before rein clean, or the installed old hook loses its seatbelt (fail-open)."
     }
   ]
 }

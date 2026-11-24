@@ -9,11 +9,11 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { RULES, answer, check } from "../../src/mcp/safe-exec-mcp/seatbelt.mjs";
+import { RULES, answer, check } from "../../src/shared/seatbelt.mjs";
 import { tcFixtureHome } from "../lib/toolchain-fixture.mjs";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const CLI = join(repo, "src/mcp/safe-exec-mcp/seatbelt.mjs");
+const CLI = join(repo, "src/shared/seatbelt.mjs");
 const HOOK = join(repo, "hooks/pre-tool-use.sh");
 const ctx = { home: "/u/op", cwd: "/work/proj", root: "/work/proj" };
 const R = "r" + "m";   // keeps the literal command words out of this file's own tool calls

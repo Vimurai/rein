@@ -27,9 +27,9 @@ echo "── Suite: locator_policy_test (E-223) ──────────�
 # ── the exact filenames the old locators would have reached for.
 _decoy() {
   local d; d="$(mktemp -d)"
-  mkdir -p "$d/src/mcp/safe-exec-mcp" "$d/src/mcp/task-synchronizer-mcp" "$d/src/shared" "$d/.ai"
+  mkdir -p "$d/src/shared" "$d/src/mcp/task-synchronizer-mcp" "$d/src/shared" "$d/.ai"
   local marker="$d/CANARY_EXECUTED"
-  for f in "src/mcp/safe-exec-mcp/seatbelt.mjs" "src/mcp/task-synchronizer-mcp/index.js" \
+  for f in "src/shared/seatbelt.mjs" "src/mcp/task-synchronizer-mcp/index.js" \
            "src/shared/telemetry.mjs" "src/shared/provider-adapter.mjs" \
            "src/shared/sync-manifest.mjs" "src/shared/role-manifest.mjs" \
            "src/shared/resolve-launch.mjs"; do
@@ -131,7 +131,7 @@ _env_canary() {  # <env assignment...> → the marker content, or "not executed"
 # the decoy's locate.sh, which is arbitrary shell inside a fail-closed gate process.
 mkdir -p "$_D/shared"
 printf 'printf "SH_SOURCED_DECOY\\n" >> "%s"\nrein_locate() { printf "%%s" "%s"; return 0; }\n' \
-  "$_D/CANARY_EXECUTED" "$_D/src/mcp/safe-exec-mcp/seatbelt.mjs" > "$_D/shared/locate.sh"
+  "$_D/CANARY_EXECUTED" "$_D/src/shared/seatbelt.mjs" > "$_D/shared/locate.sh"
 
 assert_contains "E-223.08a: REIN_LOCATE_DEV=1 is ignored inside hooks" "not executed" \
   "$(_env_canary REIN_LOCATE_DEV=1)"
@@ -164,10 +164,10 @@ PYX"
 # the grep. Two implementations of one policy must not diverge — and when they do, the
 # permissive one is the one that decides.
 _SB="$(mktemp -d)"; _LIAR="$_SB/liar"
-mkdir -p "$_LIAR/src/mcp/safe-exec-mcp" "$_SB/home/.rein/mcp/safe-exec-mcp" "$_SB/home/.rein/config"
+mkdir -p "$_LIAR/src/shared" "$_SB/home/.rein/shared" "$_SB/home/.rein/config"
 tc_fixture_home "$_SB/home"   # E-345 (D-109 r1): the toolchain record the hooks pin
-echo 'x' > "$_LIAR/src/mcp/safe-exec-mcp/seatbelt.mjs"
-echo 'x' > "$_SB/home/.rein/mcp/safe-exec-mcp/seatbelt.mjs"
+echo 'x' > "$_LIAR/src/shared/seatbelt.mjs"
+echo 'x' > "$_SB/home/.rein/shared/seatbelt.mjs"
 printf '{ "name": "totally-innocent-app", "bundledMeta": { "vendored": { "name": "@vimurai/rein" } } }\n' \
   > "$_LIAR/package.json"
 ( cd "$_LIAR" && git init -q . && git add -A >/dev/null 2>&1 &&
@@ -190,12 +190,12 @@ rm -rf "$_SB"
 # retyped: a hand-copied bootstrap is how the first version of this probe kept
 # "reproducing" a bug that was already fixed.
 _SB2="$(mktemp -d)"; _DEC="$_SB2/decoy"
-mkdir -p "$_DEC/src/mcp/safe-exec-mcp" "$_DEC/mcp/safe-exec-mcp" \
-         "$_SB2/home/.rein/mcp/safe-exec-mcp" "$_SB2/home/.rein/config" "$_SB2/home/.rein/shared"
+mkdir -p "$_DEC/src/shared" "$_DEC/shared" \
+         "$_SB2/home/.rein/shared" "$_SB2/home/.rein/config" "$_SB2/home/.rein/shared"
 tc_fixture_home "$_SB2/home"   # E-345 (D-109 r1): the toolchain record the hooks pin
-echo x > "$_DEC/src/mcp/safe-exec-mcp/seatbelt.mjs"
-echo x > "$_DEC/mcp/safe-exec-mcp/seatbelt.mjs"
-echo x > "$_SB2/home/.rein/mcp/safe-exec-mcp/seatbelt.mjs"
+echo x > "$_DEC/src/shared/seatbelt.mjs"
+echo x > "$_DEC/shared/seatbelt.mjs"
+echo x > "$_SB2/home/.rein/shared/seatbelt.mjs"
 mkdir -p "$_DEC/src/mcp/task-synchronizer-mcp" "$_DEC/mcp/task-synchronizer-mcp" "$_SB2/home/.rein/mcp/task-synchronizer-mcp"
 echo x > "$_DEC/src/mcp/task-synchronizer-mcp/index.js"
 echo x > "$_DEC/mcp/task-synchronizer-mcp/index.js"

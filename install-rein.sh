@@ -231,7 +231,7 @@ fi
 _verify_stage() {  # → 0 when the staged tree is complete and parses; prints what is wrong
   local bad=0 f
   for f in bin/rein bin/rein-account.sh shared/accounts.py shared/hook-paths.py shared/locate.sh shared/toolchain-pin.sh shared/launch-record.py shared/node-version.sh \
-           mcp/safe-exec-mcp/seatbelt.mjs mcp/task-synchronizer-mcp/index.js; do
+           shared/seatbelt.mjs mcp/task-synchronizer-mcp/index.js; do
     [[ -f "${_STAGE}/${f}" ]] || { echo "  missing: ${f}"; bad=1; }
   done
   if [[ "$_HOOKS_REFUSED" -eq 0 ]]; then
@@ -244,7 +244,7 @@ _verify_stage() {  # → 0 when the staged tree is complete and parses; prints w
     bash -n "$f" 2>/dev/null || { echo "  does not parse (bash): ${f#${_STAGE}/}"; bad=1; }
   done
   if command -v node >/dev/null 2>&1; then
-    for f in "${_STAGE}"/mcp/*/index.js "${_STAGE}"/mcp/safe-exec-mcp/*.mjs; do
+    for f in "${_STAGE}"/mcp/*/index.js "${_STAGE}"/shared/seatbelt.mjs; do
       [[ -f "$f" ]] || continue
       node --check "$f" 2>/dev/null || { echo "  does not parse (node): ${f#${_STAGE}/}"; bad=1; }
     done

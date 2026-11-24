@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # pre-tool-use.sh — the seatbelt (E-463, D-169 r2/r5, lean-core.md §Component 2).
-# Runs every Bash tool call through mcp/safe-exec-mcp/seatbelt.mjs, which asks the operator
+# Runs every Bash tool call through shared/seatbelt.mjs (D-172 r26), which asks the operator
 # (`permissionDecision: "ask"`) on a recursive rm of home, root or the project root, a download
 # piped into a shell, or a secret in the command. ADVICE, not a security boundary: the role
 # sandbox is the boundary (docs/role-sandbox.md). Contract: FAIL-OPEN — every path exits 0, and
@@ -25,7 +25,7 @@ done
 
 # E-223: install mirror first, this script's own tree second — never the visited repo.
 _sb=""
-for _c in "${HOME}/.rein/mcp/safe-exec-mcp/seatbelt.mjs" "${_here}/../src/mcp/safe-exec-mcp/seatbelt.mjs"; do
+for _c in "${HOME}/.rein/shared/seatbelt.mjs" "${_here}/../src/shared/seatbelt.mjs"; do
   [[ -f "$_c" ]] && { _sb="$_c"; break; }
 done
 [[ -n "$_sb" ]] && command -v node >/dev/null 2>&1 || exit 0

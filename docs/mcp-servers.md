@@ -17,7 +17,7 @@ through the same library, so a session that has no MCP connection can still keep
 
 The Architect's session loads this server only (`--strict-mcp-config`).
 
-A `.mcp.json` written before E-463 may still list `safe-exec-mcp`; `rein sync` regenerates it
+A `.mcp.json` written before E-463 may still list the old command gate's server; `rein sync` regenerates it
 with the one server.
 
 ## When it misbehaves

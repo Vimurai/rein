@@ -59,8 +59,8 @@ function fixture({ fat = false } = {}) {
   put(root, "src/bin/rein", 'gen="$(_rein_helper shared/role-settings.mjs)"\ncd "${_proj}/.ai"\ncase "$cmd" in\n  done|handoff|decide|archive) ;;\nesac\n');
   put(root, "src/shared/cli-bookkeeping.mjs", "// SendMessage wake line\n");
   put(root, "src/shared/resolve-launch.mjs", 'const i = argv.indexOf("--settings"); roleDir(x);\n');
-  if (fat) put(root, "src/mcp/safe-exec-mcp/index.js", nLines(400));
-  put(root, "src/mcp/safe-exec-mcp/node_modules/dep/index.js", nLines(5000));
+  if (fat) put(root, "src/shared/seatbelt.mjs", nLines(400));   // D-172 r26: the one seatbelt file
+  put(root, "src/shared/other-helper.mjs", nLines(5000));           // not counted: only seatbelt.mjs is
 
   put(root, "tests/unit/other.test.mjs", nLines(fat ? 100 : 990));
   put(root, "tests/unit/gate-rules.test.mjs", nLines(fat ? 900 : 10));
@@ -113,7 +113,7 @@ test("E-459.01 a lean tree: every computable row PASSes; adoptability is UNKNOWN
     assert.equal(m.agents.value, "2");
     assert.equal(m.hook_lines.value, "101");
     assert.equal(m.role_guarantees.value, "5 of 5");
-    assert.equal(m.command_text_lines.value, "0", "node_modules is not counted");
+    assert.equal(m.command_text_lines.value, "0", "only src/shared/seatbelt.mjs is counted");
     assert.equal(m.open_gate_task_share.value, "1 of 20 (5.0%)", "a DONE task is not open");
     assert.equal(m.gate_test_share.value, "0.7% (10 of 1500 lines)", "sandbox_escape is not a gate test");
     assert.equal(m.unmerged_branches.value, "0");

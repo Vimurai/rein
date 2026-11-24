@@ -3,7 +3,7 @@
 # and answers real JSON-RPC (E-49, E-27); a long-running server announces a stale build (E-249)
 # and reloads a changed policy (E-237); the P-7 bounded read. E-302 merged these suites here;
 # each section names its source. E-467 (D-170 r5) retired every server but task-synchronizer-mcp,
-# and E-463 retired safe-exec-mcp as a server (its directory holds the seatbelt CLI only).
+# and E-463 retired safe-exec-mcp as a server (the seatbelt CLI is src/shared/seatbelt.mjs, D-172 r26).
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -159,26 +159,13 @@ check_record_parity() {
 # A team project: every task record file agrees with state.sqlite (team mode, D-170 r7).
 if [[ -f "${AI_DIR}/project.json" ]]; then check_record_parity; fi
 
-# ── E-214: Architect-scoped Git Lane (architect-provider-parity.md §Git Lane) ──
-# The Architect HAS git — so the D-053 proxy-commit workaround (the Engineer commits the
-# Architect's .ai/ edits) is no longer needed. The ruling: an Architect may commit ONLY when every staged path is under
-# .ai/ or plans/. Anything else is implementation work and belongs to the Engineer.
-#
-# ROLE RESOLUTION — E-294 (D-087 r5, sovereignty-hardening.md Component 8g). A git hook gets
-# no PreToolUse payload. Two sources, in order (E-463 retired the session token with the gate):
-#   1. A live launch record on THIS process's ancestor chain (launch-record.py walk) →
-#      `chain:<most restricted role>`. Restrict-only, and it needs no environment at all.
-#   2. The advisory env (restrict-only), then `engineer` — the operator's own terminal (no
-#      session id, no record) keeps today's behaviour.
-#
-# Residual (D-087 r3): REIN_SKIP_GIT_LANE=1 skips the lane — same strength as --no-verify
-# (D-081 r5) — and says so on stderr.
-# Prints "<source>:<role>" (chain | union | env), then a TAB and the walk's reason when the
-# source is union (E-471): a fail-closed fallback must not read as a real Architect.
-#
-# It PRINTS both rather than setting a global: the caller invokes this in a command
-# substitution, so any variable assigned inside is set in the SUBSHELL and lost.
-# The path-scope BLOCK may act on any source — restricting is safe in the strict direction.
+# ── E-214: the Architect git lane — an Architect commits only paths under .ai/ or plans/ ──
+# The role (E-294, D-087 r5; E-463 retired the session token): (1) a live launch record on this
+# process's chain, most restricted wins (chain), an untrusted record failing closed to architect
+# (union); (2) the advisory env, restrict-only, then engineer. REIN_SKIP_GIT_LANE=1 skips the
+# lane, as loud as --no-verify (D-087 r3). Prints "<source>:<role>", then a TAB and the walk's
+# reason for union (E-471). It prints rather than sets a global: a variable assigned inside the
+# caller's command substitution is set in the SUBSHELL and lost.
 _resolve_commit_role() {
   if [[ "${REIN_SKIP_GIT_LANE:-0}" == "1" ]]; then
     echo "[GATE_SKIPPED] REIN_SKIP_GIT_LANE=1 — Architect git lane skipped for this commit (D-087 r3 residual)" >&2
@@ -237,14 +224,8 @@ check_architect_git_lane() {
   role="$(printf '%s' "$role" | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]')"
   [[ "$role" == "architect" ]] || return 0
 
-  # Every staged path must be under .ai/ or plans/. --name-status is used (rather than
-  # --name-only) so a RENAME's BOTH sides are checked: moving a file OUT of .ai/ is
-  # exactly the escape a name-only check would miss.
-  # FAIL CLOSED on a broken diff. Reading straight from a process substitution meant
-  # git's exit status was never seen: a failed `git diff` produced ZERO records, the
-  # out-of-scope list stayed empty, and the lane passed — so any diff hiccup silently
-  # let arbitrary staged content through. Proven with a stubbed non-zero `git diff`.
-  # An error must BLOCK, never allow.
+  # --name-status checks BOTH sides of a rename (a move out of .ai/). A failed `git diff`
+  # blocks: zero records would otherwise pass the lane (fail closed).
   local records
   if ! records="$(git diff --cached --name-status -M 2>/dev/null)"; then
     {
@@ -262,12 +243,8 @@ check_architect_git_lane() {
   local out_of_scope="" classified=0
   while IFS=$'\t' read -r _status path1 path2 rest; do
     [[ -z "${_status:-}" ]] && continue
-    # `read` folds every EXTRA tab field into the last variable, so a 4-field record
-    # would hide a path inside path2 — `.ai/b<TAB>src/c` matches the .ai/* arm and the
-    # src/ path is never classified, while the counter still reports progress. git's
-    # --name-status emits at most 3 fields today (renames/copies), so this is not
-    # reachable from git — but an unexpected shape is exactly what this loop must not
-    # wave through, and the counter cannot catch it because it counts fields, not paths.
+    # A 4th field would hide a path inside path2 (`read` folds extras into the last
+    # variable); git emits at most 3, so any other shape blocks.
     if [[ -n "${rest:-}" ]]; then
       echo "[GIT_LANE] Unexpected diff record shape — blocking (fail-closed)." >&2
       exit 1
@@ -277,10 +254,7 @@ check_architect_git_lane() {
       [[ -z "$p" ]] && continue
       classified=$((classified + 1))
       case "$p" in
-        # NOTE: no bare `.ai` / `plans` arms. Git emits a bare entry only when the
-        # path is NOT a directory — i.e. .ai/ was replaced by a file or a symlink,
-        # which stages the deletion of every .ai/ file at once. That is precisely the
-        # change that must NOT ride through the lane.
+        # No bare `.ai` / `plans` arm: a bare entry means .ai/ became a file or a symlink.
         .ai/*|plans/*) ;;
         *) out_of_scope="${out_of_scope}  ${p}"$'\n' ;;
       esac

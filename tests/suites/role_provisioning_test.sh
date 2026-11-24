@@ -238,6 +238,20 @@ assert_contains "E-215.06h: the report completes through the engineer's rulefile
 assert_contains "E-215.06i: and the architect's rulefile" "ARCHITECT.md" "$_DOC"
 assert_contains "E-215.06j: doctor continues past the report" "Project-Scoped" "$_DOC"
 
+# ── E-462 item 3: doctor names a missing sandbox and the install line ──────────
+# A bwrap that cannot create a user namespace (present, exits 1); Linux only, like the check.
+if [[ "$(uname -s)" == Linux ]]; then
+  _SBXB="$(test_tmpdir sbxbad)"
+  printf '#!/bin/sh\nexit 1\n' > "$_SBXB/bwrap"; printf '#!/bin/sh\nexit 0\n' > "$_SBXB/socat"; chmod +x "$_SBXB/bwrap" "$_SBXB/socat"
+  _SBXJ="$(cd "$REPO_ROOT" && PATH="$_SBXB:$PATH" bash "$AI_BIN" doctor --json 2>/dev/null \
+           | python3 -c 'import json,sys; d=json.load(sys.stdin); r=[x for x in (d if isinstance(d,list) else d.get("checks",[])) if x.get("id")=="sandbox"]; print(json.dumps(r[0]) if r else "")')"
+  assert_contains "E-462.03a: doctor fails the sandbox row with [SANDBOX_MISSING]" "[SANDBOX_MISSING]" "$_SBXJ"
+  assert_contains "E-462.03b: …naming the cause" "cannot create a user namespace" "$_SBXJ"
+  assert_contains "E-462.03c: …and the install line as its fix" "bubblewrap socat" "$_SBXJ"
+else
+  _skip "E-462.03: doctor's sandbox row — the bubblewrap check runs on Linux only"
+fi
+
 # It is diagnostic only — it must never change the tree.
 _BEFORE="$(cd "$REPO_ROOT" && git status --porcelain | md5 -q)"
 ( cd "$REPO_ROOT" && bash "$AI_BIN" doctor >/dev/null 2>&1 )

@@ -101,9 +101,8 @@ RD="$(node "$GEN" dir --ai-dir "$P/.ai")"
 register_cleanup "rm -rf '${RD}'"
 node "$GEN" write --ai-dir "$P/.ai" >/dev/null || { _fail "setup: role settings in $RD"; assert_summary; exit 1; }
 ARCH_FILE="$RD/settings.architect.json"; ENG_FILE="$RD/settings.engineer.json"
-# The Architect's file carries the command gate's PreToolUse hook while E-463 is held. This suite
-# measures the SANDBOX, so the hook is taken out: a refusal by the gate's text check would hide
-# whether the sandbox holds (the gate has its own suites).
+# The Architect's file may carry the seatbelt's PreToolUse hook (E-463). This suite measures the
+# SANDBOX, so any hook is taken out: an `ask` from the seatbelt would hide whether the sandbox holds.
 python3 -c 'import json,sys; p=sys.argv[1]; s=json.load(open(p)); s.pop("hooks",None); json.dump(s,open(p,"w"),indent=2)' "$ARCH_FILE"
 # The launch flags `rein pane` adds, read from the same resolver it uses.
 mapfile -t ARCH_LAUNCH < <(node "$RESOLVE" architect "$P/.ai" "$RD" | tail -n +2 | grep -A1 -e '^--settings$' -e '^--mcp-config$' -e '^--strict-mcp-config$' | grep -v '^--$')

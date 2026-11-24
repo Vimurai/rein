@@ -166,6 +166,18 @@ _e288_eq "E-288.04d: exactly one --name reaches the CLI" "1" \
 E288_OUT="$(_e288_pane -- -n Y)"
 assert_contains "E-288.04e: the short -n form also wins" "ARG:Y" "$E288_OUT"
 assert_not_contains "E-288.04f: no derived --name alongside an operator -n" "ARG:--name" "$E288_OUT"
+# E-462: without a working sandbox `rein pane` refuses (rc 2) and never execs the provider.
+if [[ "$(uname -s)" == Linux ]]; then
+  E462_BIN="$(test_tmpdir pbsbxbad)"; cp "$E288_BIN/claude" "$E288_BIN/socat" "$E462_BIN/"
+  printf '#!/bin/sh\nexit 1\n' > "$E462_BIN/bwrap"; chmod +x "$E462_BIN/bwrap"
+  E462_OUT="$(cd "$E288_PROJ" && env -u TMUX -u TMUX_PANE HOME="$E288_HOME" PATH="$E462_BIN:$PATH" \
+              bash "$AI_BIN" pane architect 2>&1; echo "RC:$?")"
+  assert_contains "E-462.01a: rein pane refuses without a working sandbox (rc 2)" "RC:2" "$E462_OUT"
+  assert_contains "E-462.01b: …saying [SANDBOX_MISSING]" "[SANDBOX_MISSING] rein pane:" "$E462_OUT"
+  assert_not_contains "E-462.01c: …and the provider never runs" "ARG:" "$E462_OUT"
+else
+  _skip "E-462.01: rein pane's sandbox refusal — the bubblewrap check runs on Linux only"
+fi
 
 # ── E-294 (Component 8b): `rein pane` is the one writer of launch records ─────────
 # The record is written for `rein pane`'s own pid immediately before exec, so the PROVIDER

@@ -16,7 +16,7 @@
 import { readFileSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { containsCredentialToken, containsSecret } from "../../shared/secret-rule.mjs";
+import { containsCredentialToken, containsSecret } from "./secret-rule.mjs";
 
 const MAX = 256 * 1024;   // a larger command is not read (advice, not a boundary)
 

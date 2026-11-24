@@ -259,11 +259,11 @@ function enforcementRow(root, tree, reinHome) {
 
 function commandTextLines(tree) {
   const M = "lines of command-text rules", T = `≤ ${TARGETS.command_text_lines}`;
-  const dir = join(tree, "mcp", "safe-exec-mcp");
-  if (!isDir(dir)) return row("Enforcement", "command_text_lines", M, T, 0, true, `no ${dir}`);
-  const files = walk(dir).filter((f) => /\.(m?js|json)$/.test(f) && basename(f) !== "package-lock.json");
-  const n = files.reduce((a, f) => a + lines(f), 0);
-  return row("Enforcement", "command_text_lines", M, T, n, n <= TARGETS.command_text_lines, `${files.length} files under src/mcp/safe-exec-mcp (node_modules excluded)`);
+  // D-172 r26: the seatbelt is one file, src/shared/seatbelt.mjs — this row counts that file only.
+  const f = join(tree, "shared", "seatbelt.mjs");
+  if (!existsSync(f)) return row("Enforcement", "command_text_lines", M, T, 0, true, `no ${f}`);
+  const n = lines(f);
+  return row("Enforcement", "command_text_lines", M, T, n, n <= TARGETS.command_text_lines, "src/shared/seatbelt.mjs");
 }
 
 // ── Self-policing ────────────────────────────────────────────────────────────────────────────

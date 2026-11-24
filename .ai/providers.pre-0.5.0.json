@@ -1,0 +1,26 @@
+{
+  "providers": {
+    "claude": {
+      "mcp_config_path": ".claude.json",
+      "workspace_dir": ".claude",
+      "mcp_key": "mcpServers",
+      "launch": ["--settings", ".claude/settings.{role}.json", "--append-system-prompt-file", "{rulefile}", "--model", "{model}"],
+      "print_mode": ["-p", "--append-system-prompt-file", "{rulefile}", "{prompt}"],
+      "child_env_unset": ["CLAUDECODE"]
+    },
+    "agy": {
+      "mcp_config_path": ".agents/mcp_config.json",
+      "workspace_dir": ".agents",
+      "mcp_key": "mcpServers",
+      "launch": [],
+      "print_mode": ["--print-timeout", "90s", "-p", "{prompt}"]
+    },
+    "gemini": {
+      "mcp_config_path": ".gemini/settings.json",
+      "workspace_dir": ".gemini",
+      "mcp_key": "mcp_servers",
+      "launch": [],
+      "print_mode": ["-p", "{prompt}"]
+    }
+  }
+}

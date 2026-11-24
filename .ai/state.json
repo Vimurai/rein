@@ -2488,6 +2488,24 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-24T12:03:19.190Z"
+    },
+    {
+      "id": "E-472",
+      "owner": "Engineer (Claude)",
+      "status": "BLOCKED",
+      "tier": 2,
+      "description": "Release v0.6.0, the lean core, per D-173 (after E-470), by the path of E-424; skill release-manager for the bump and the CHANGELOG only. (1) First ask the operator to confirm the GitHub environment `release` holds REIN_RELEASE_KEY and the `v*` tag ruleset is in place; if not, stop. (2) On a branch from merged main: bump package.json, package-lock.json and every mirror that states the current version (check NOTICE, docs/app-contract.md, tests/unit/doctor-json.test.mjs, tests/unit/release-manifest.test.mjs); leave each sentence naming v0.5.0 as the tag that holds what was removed, and README's demo sentence (D-173 r5). (3) CHANGELOG.md: `[Unreleased] — Lean core` becomes `[0.6.0] — Lean core` with the date; replace the sentence saying the command gate is still present with what was built (E-463, D-172 r26); add a BREAKING list (removed commands, agents, skills, MCP servers, the gate); say how docs/app-contract.md changed. (4) Ask the operator to run the escape suite at the branch tip (D-173 r4); quote its SUITE_RESULT line in the pull request. (5) One pull request, merge on green hosted CI, then STOP: name the merge commit and ask the operator to create and push the signed tag `v0.6.0`. Never create the tag, read the key, or sign with any key but the throwaway fixture; a change to release.yml or the release scripts makes this Tier 3: stop and hand off. (6) After the workflow publishes, download the assets and run `rein release verify --pubkey docs/contract/release-key.pub`. Acceptance: `grep '\"version\"' package.json` on main prints 0.6.0; `grep -c \"^## \\[0.6.0\\]\" CHANGELOG.md` prints 1; `grep -c \"is still present\" CHANGELOG.md` prints 0; the pull request quotes SUITE_RESULT with FAIL=0 and UNKNOWN=0; `gh release view v0.6.0 --json assets` lists exactly rein-0.6.0.tar.gz, its .minisig and manifest.json; `rein release verify` exits 0; manifest.json says version 0.6.0; the closing handoff gives the release URL, the tarball sha256 and the tagged commit.",
+      "created_at": "2026-11-24T13:50:05.027Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [
+        "E-470"
+      ],
+      "ready": false,
+      "blocked_by": [
+        "E-470"
+      ],
+      "updated_at": "2026-11-24T13:50:05.040Z"
     }
   ],
   "stamps": [
@@ -8010,6 +8028,123 @@
       "timestamp": "2026-11-24T12:41:19.123Z",
       "summary": "[ACCEPT_PASS] E-458 at 877f560 — 5 PASS, 0 FAIL, 1 UNVERIFIED ‖ 1 | UNVERIFIED | budget: `bash tests/tools/sandbox-probe.sh` killed at 590 s (exit 124), only header printed; critic sandbox denied api.anthropic.com ‖ 2 | PASS | .ai/COMM.md:349 E-458 row -> plans/e-458-sandbox-measurement.md, table M1..M10 at lines 17-26 (M8 UNKNOWN, M9 FAIL) ‖ 3 | PASS | plans/e-458-sandbox-measurement.md §Configuration measured: Architect and Engineer settings JSON ‖ 4 | PASS | plan line 3 \"Claude Code 2.1.331\"; probe header printed today: 2.1.331 ‖ 5 | PASS | plan \"Verdict (D-170 r10): yes\"; COMM.md:349 \"verdict yes\" ‖ 6 | PASS | `git show --stat e17da34`: plans/, tests/tools/README.md, tests/tools/sandbox-probe.sh only; nothing under src/ or hooks/",
       "sha": "877f5602b4c92be543dcec6596b282f0509dea59",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-458",
+      "timestamp": "2026-11-24T13:47:08.629Z",
+      "summary": "[REVIEW_PASS] E-458 at a902167 — 0 FAIL, 3 notes ‖ tests/tools/sandbox-probe.sh and plans/e-458-sandbox-measurement.md unchanged since 877f560 (prior rounds PASS, no FAIL to resolve); bash -n ok; e17da34 touches no src/ or hooks/ ‖ plans/e-458-sandbox-measurement.md:17-26 M1..M10 table, settings JSON, CC 2.1.331, verdict yes; M9 FAIL + 3 gaps handed to E-462 ‖ sandbox-probe.sh:30-38 mktemp work dir, EXIT cleanup; M8 UNKNOWN by default (D-170 r1); M7 reaches real origin/gh by design (standalone tool, not in CI)",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-459",
+      "timestamp": "2026-11-24T13:47:17.023Z",
+      "summary": "[REVIEW_PASS] E-459 at a902167 — 0 FAIL, 5 notes ‖ prior round 877f560 was PASS (no FAIL to resolve); 1e1f541 moves command_text_lines to src/shared/seatbelt.mjs per D-172 r26, unit test 5/5 ‖ src/shared/fitness.mjs:264 a missing seatbelt.mjs reads 0/PASS, not UNKNOWN ‖ fitness.mjs:120 session-bytes row runs session-start.sh, which can rebuild .ai/DIGEST.md (open note) ‖ plans/lean-core-batch-notes.md:103,106 says hook lines ≤ 900 and a pre-E-463 baseline; code has 950 (r16) ‖ tests/unit/fitness.test.mjs:35 fixture mkdtemp before try leaks on a mid-build throw (open note)",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-462",
+      "timestamp": "2026-11-24T13:47:18.068Z",
+      "summary": "HEAD a902167: refusal tests added (pane rc2 / doctor SANDBOX_MISSING); operator escape run 42/0/0/0 at 1e1f541 quoted in 9fe3820 handoff; no EXPLOITED/INCONCLUSIVE",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-463",
+      "timestamp": "2026-11-24T13:47:19.564Z",
+      "summary": "HEAD a902167: seatbelt move to src/shared opens no route (install-first, own tree, never visited repo; locator 51/51 cases kept); pre-commit.sh code identical to 877f560",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-467",
+      "timestamp": "2026-11-24T13:47:20.717Z",
+      "summary": "HEAD a902167: no change to E-467 surface since SEC_CLEARED at 877f560 beyond installer text (375f32a) and .ai; no finding",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-461",
+      "timestamp": "2026-11-24T13:47:21.319Z",
+      "summary": "[REVIEW_PASS] E-461 at a902167 — 0 FAIL, 4 notes ‖ src/shared/cli-bookkeeping.mjs, task-quality.mjs unchanged since 877f560 PASS; bookkeeping-commands + task-quality 31/31 pass ‖ src/claude/skills/blueprint-writer kept per D-172 r22 (clause read as amended); other six gone, only historical comments name them ‖ .ai/COMM.md:446 close+handoff = 3 tool calls (done 1, handoff+SendMessage 2), stated not traced ‖ docs/assets/demo.cast names removed skills (outside grep, D-172 r20); a902167 diff vs 4db5ec2 is .ai-only, CI green at 4db5ec2",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-460",
+      "timestamp": "2026-11-24T13:47:22.060Z",
+      "summary": "[REVIEW_PASS] E-460 at a902167 — 0 FAIL, 3 notes ‖ no prior FAIL open: 2bcaf5d BRIEF.md FAIL resolved, PASS at 2e0f877; session-start.sh, ARCHITECT.md, ENGINEER.md unchanged 2e0f877..HEAD ‖ acceptance at HEAD: rulefiles 1859/1916 B, hook additionalContext 1195 B (scratch clone), no emit-context, grep rein-preflight empty, fitness session 3387<=4096 and skills 5<=6 PASS ‖ note architect-role brief not observed in a live pane; hook caps at 2048 in code ‖ note ENGINEER.md write-scope line still omits .ai/BRIEF.md ‖ note item (4) 12-skill cap superseded by D-170 (6, E-467)",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-469",
+      "timestamp": "2026-11-24T13:47:26.721Z",
+      "summary": "[REVIEW_PASS] E-469 at a902167 — 0 FAIL, 4 notes ‖ no E-469 REVIEW_FAIL at 877f560; the 2bcaf5d FAIL (traversal-policy E-464.R1) stays resolved, 55/55 ‖ since 2e0f877 only seatbelt path moves to src/shared (D-172 r26): hooks/pre-tool-use.sh:28, install-rein.sh:234,247; plugin-build.mjs:17 keeps it installer-side ‖ plugin-build+seatbelt+fitness+traversal 93/93 pass ‖ plans/lean-core-batch-notes.md:149-181 names plugin vs installer per hook; live session listing left to critic_acceptance",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-464",
+      "timestamp": "2026-11-24T13:47:28.090Z",
+      "summary": "[REVIEW_PASS] E-464 at a902167 — 0 FAIL, 4 notes ‖ prior round at 877f560 was PASS; its note tests/census-baseline.tsv critic_clean_code fixed (1e1f541 regenerated, grep 0) ‖ 877f560..HEAD hooks/pre-commit.sh diff is comment-only; completion-gates+fitness+seatbelt units 39/39 ‖ acceptance re-checked: 1 critic_ agent, ci budget 0 test_lines rows, fitness review row 2=2 PASS, rein review 2 dispatches reviewer+critic_acceptance; tier table 5 lines in ENGINEER/ARCHITECT.md and templates ‖ .ai/COMM.md has no E-464 stamp quote yet (written at close); removed critic names remain only in historical comments (src/shared/telemetry.mjs:67, src/bin/rein:1483)",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-463",
+      "timestamp": "2026-11-24T13:47:33.746Z",
+      "summary": "[REVIEW_PASS] E-463 at a902167 — 0 FAIL, 5 notes ‖ .ai/state.json E-455/E-456 DONE \"superseded by D-169\" (b7ce36a): previous round's item-5 FAIL resolved ‖ src/shared/seatbelt.mjs 133 lines (D-172 r26), src/mcp = shared+task-synchronizer-mcp; fixtures grep 0; fitness command-text 133<=300, gate share 0.0%, hooks 938<=950 PASS ‖ COMM.md 13:39 Engineer handoff: escape 42/0/0/0 at 1e1f541, full_seconds 623->258, E-394/E-395/E-410/P-52 listed; census-baseline.tsv no deleted suites ‖ seatbelt+fitness units 32/32, locator_policy 62/0 ‖ legacy safe-exec names remain as data only (legacy-artefacts.json, telemetry tests, mirror_hygiene:180); .ai/SECURITY.md SEC_CLEARED edit uncommitted",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-466",
+      "timestamp": "2026-11-24T13:47:40.775Z",
+      "summary": "[REVIEW_PASS] E-466 at a902167 — 0 FAIL, 4 notes ‖ no reviewer FAIL for E-466 at 877f560; ACCEPT_FAIL item 5 (E-449 OPEN) resolved by D-172 r13: rein task show E-427 prints DONE with closed date ‖ E-466 source (record-archive.mjs, cli-bookkeeping/cli-state, record-store, index.js) unchanged since 877f560; 83/83 pass on bookkeeping-commands, record-store, privacy-cases units ‖ acceptance at HEAD: TASKS.md 21885 B, 0 \"- [x]\", COMM.md 10 handoffs, archive/COMM-2026.md 107 (sum 117; handoff 9fe3820 says 105/115, two later handoffs archived by rein handoff); 2026-11-20 15:51/15:54 sections byte-identical in archive, archive has no deleted lines ‖ carried: task-synchronizer-mcp/index.js EMPTY_STATE_DB guard counts open rows only; verify_markdown_sync not re-run here (PASS at 877f560)",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_FAIL",
+      "agent": "reviewer",
+      "task_id": "E-468",
+      "timestamp": "2026-11-24T13:47:50.326Z",
+      "summary": "[REVIEW_FAIL] E-468 at a902167 — 1 FAIL, 5 notes ‖ .ai/COMM.md batch handoff (9fe3820) never says whether docs/app-contract.md changed; task requires it — it did (5b343c4, 2bcaf5d: rein gate row gone) ‖ CONTRIBUTING.md:121 puts seatbelt.mjs under src/mcp/shared/; it is src/shared/seatbelt.mjs (D-172 r26) ‖ prior FAILs resolved: README.md 200 lines; acceptance grep prints only docs/assets/demo.cast (outside per r20) ‖ all 16 rein commands in README/getting-started are in rein help; getting-started has 4 steps ‖ CHANGELOG [Unreleased] present, version 0.5.0 unbumped ‖ install-rein.sh:524 text-only change, bash -n ok, no test pins it",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_FAIL",
+      "agent": "reviewer",
+      "task_id": "E-467",
+      "timestamp": "2026-11-24T13:48:02.021Z",
+      "summary": "[REVIEW_FAIL] E-467 at a902167 — 1 FAIL, 5 notes ‖ FAIL src/shared/telemetry.mjs(799, writes ~/.rein/telemetry.sqlite), mcp-telemetry.mjs, incident-append.mjs + tests/suites/telemetry_test.sh, incident_tracker_test.sh, tests/unit/telemetry*.test.mjs remain; task+D-170 r5 delete them; notes:53 deferred to E-463, E-463 is done, 13:10 handoff omits gap ‖ prior FAILs resolved: find src/mcp = shared+task-synchronizer-mcp; hooks 938<=950 (r16); 15 agents and 27 skills named in COMM 13:10 handoff ‖ .mcp.json 1 server; 4 agents; 5 skills (rein-review not on D-170 keep list, <=6) ‖ src 29665 lines; before given as 96,377 at 887a818^ (task 97956), explained ‖ fitness+seatbelt unit 32/32, locator_policy 62/0 ‖ stale safe-exec-mcp comment at src/shared/locate.sh:10 and fixtures; legacy entries deliberate",
+      "sha": "a902167025fe7362a98f15c69a1f398e864c78a3",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

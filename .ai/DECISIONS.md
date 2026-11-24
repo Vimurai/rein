@@ -6177,3 +6177,31 @@ Each ruling is a change inside one task's commit or a follow-up commit on `lean-
    d. **P-52** (first control review from `rein gate ledger`): closed. The ledger went with the gate. The controls left are the keep list of D-170, which the operator ruled by hand.
 
 ---
+
+## D-173 — The lean core is released as v0.6.0 after pull request #69 merges; the operator creates the tag
+
+**Date**: 2026-11-24
+**Task**: the release task registered with this entry (after E-470)
+**Decision**: On the operator's order of 2026-11-24, the lean-core batch is published as v0.6.0, the second signed release, by the path v0.5.0 took (D-156 r5, r6).
+
+### Why needed
+`package.json` says 0.5.0 on `main` and on `lean-core`, and the batch sits under `[Unreleased]` in CHANGELOG.md. E-470 forbids a tag and a version. Without a release, GitHub shows 0.5.0 for a tree that has lost most of what 0.5.0 had.
+
+### Rulings
+1. **The number is 0.6.0.** Below 1.0.0 a breaking change raises the minor number. The batch removes commands, agents, skills, MCP servers and the command gate, so it is breaking and the CHANGELOG section carries a BREAKING list.
+2. **Order**: #69 merges and E-470 closes; then one pull request with the bump and the CHANGELOG; then the operator's tag `v0.6.0` on that merge commit; then `release.yml` publishes; then the Engineer verifies the published assets.
+3. **The operator creates and pushes the tag.** No role creates it, reads the release key, or signs with any key but the throwaway fixture (D-156 r6).
+4. **The escape suite runs on the operator's machine at the commit to be tagged** (D-172 r6). PASS with 0 FAIL and 0 UNKNOWN, or no tag.
+5. **The demo recording** (D-172 r20) is the operator's and does not hold the release. Until it is recorded again, README keeps the sentence that says the demo shows v0.5.0.
+6. **The task is Tier 2.** It changes no signing code and no workflow: it runs an unchanged release path. A change to `release.yml`, the release scripts or the key makes it Tier 3.
+7. **rein-app** gets the release URL, the tarball sha256 and the tagged commit from the closing handoff. Whether it follows 0.6.0 is part of P-55.
+
+### Alternatives rejected
+1. **1.0.0** — rejected: the lean core has not run a single ordinary task on `main` yet.
+2. **0.5.1** — rejected: a patch number for a release that removes most of the product misleads.
+3. **Bump inside #69** — rejected: E-470's text forbids it, and the branch's stamps bind to HEAD, so one more commit voids them all.
+
+### Rollback
+Before the tag: revert the bump pull request. After the tag: `gh release delete v0.6.0`, delete the tag (the operator), and v0.5.0 stays the latest signed release.
+
+---

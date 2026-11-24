@@ -17,6 +17,11 @@
 // `record` therefore refuses to record a commit whose out-of-lane paths differ from the working
 // tree — which the Architect cannot write outside its lane.
 //
+// Forged refs (SECURITY.md lean-core round F2): the Architect can also write refs/remotes,
+// packed-refs and refs/replace, so `check` trusts no local ref. It stops its walk only at the
+// remote sha git supplies and at the trusted bases (<ledger>/bases), and runs git with replace
+// objects and grafts off.
+//
 // Usage (all exit 0 unless stated):
 //   node lane-ledger.mjs seed   --root <repo>   create the ledger; trust the unpushed history
 //   node lane-ledger.mjs record --root <repo>   post-commit: record HEAD (silent where read-only)
@@ -36,18 +41,45 @@ export function isLanePath(p) {
   return LANE_PREFIXES.some((pre) => p.startsWith(pre));
 }
 
+// Replace objects and grafts are off for every git call here (SECURITY.md lean-core round F2):
+// the Architect can write refs/replace and info/grafts, and with them on, the check would diff a
+// lane-only lookalike while the push sends the real commit.
+const GIT_ENV = { GIT_NO_REPLACE_OBJECTS: "1", GIT_GRAFT_FILE: "/dev/null" };
+
 function git(root, args, input) {
-  return execFileSync("git", args, { cwd: root, encoding: "utf8", input, stdio: ["pipe", "pipe", "pipe"], maxBuffer: 64 << 20 });
+  return execFileSync("git", args, { cwd: root, encoding: "utf8", input, env: { ...process.env, ...GIT_ENV }, stdio: ["pipe", "pipe", "pipe"], maxBuffer: 64 << 20 });
 }
 
 export function ledgerFile(root) {
   return join(ledgerDir(root), "commits");
 }
 
-function readLedger(root) {
+/**
+ * Trusted bases: commits whose WHOLE ancestry is trusted, so `check` may stop its walk there.
+ * Written only where the ledger is writable (never the Architect's lane): the remote-tracking
+ * tips when the ledger is seeded, and every tip `check` has passed since — its ancestry was
+ * checked commit by commit. No ref under .git/refs is ever trusted: the Architect can write
+ * refs/remotes, packed-refs and refs/replace (F2), so `--not --remotes` would exclude a forged
+ * commit.
+ */
+export function basesFile(root) {
+  return join(ledgerDir(root), "bases");
+}
+
+const SHA = /^[0-9a-f]{40,64}$/;
+
+function readShas(file) {
   try {
-    return new Set(readFileSync(ledgerFile(root), "utf8").split("\n").map((l) => l.trim()).filter((l) => /^[0-9a-f]{40,64}$/.test(l)));
+    return new Set(readFileSync(file, "utf8").split("\n").map((l) => l.trim()).filter((l) => SHA.test(l)));
   } catch { return new Set(); }
+}
+
+function remoteTips(root) {
+  try { return git(root, ["for-each-ref", "--format=%(objectname)", "refs/remotes"]).split("\n").filter((l) => SHA.test(l)); } catch { return []; }
+}
+
+function readLedger(root) {
+  return readShas(ledgerFile(root));
 }
 
 /** Paths a commit changes. A merge lists only what differs from every parent (--cc). */
@@ -66,10 +98,20 @@ export function outOfLane(root, sha) {
 export function seed(root) {
   mkdirSync(ledgerDir(root), { recursive: true });
   const f = ledgerFile(root);
-  if (existsSync(f)) return { seeded: false, file: f };
+  const b = basesFile(root);
+  // Seeding runs before the first sandboxed Architect session (rein pane, the operator's
+  // terminal), so the local refs it reads are the last ones nobody in the Architect's lane wrote.
+  const writeBases = () => writeFileSync(b, `# lane ledger — trusted bases: whole ancestry trusted (F2); seeded ${new Date().toISOString()}\n${remoteTips(root).map((x) => x + "\n").join("")}`);
+  if (existsSync(f)) {
+    // A ledger seeded before the bases existed: take them now. Residual: refs an Architect
+    // session forged between that seed and this one are trusted once (SECURITY.md F2).
+    if (!existsSync(b)) writeBases();
+    return { seeded: false, file: f };
+  }
   let shas = "";
   try { shas = git(root, ["rev-list", "--branches", "--not", "--remotes"]); } catch { shas = ""; }
   writeFileSync(f, `# lane ledger — commits made outside the Architect's lane (E-462); seeded ${new Date().toISOString()}\n${shas}`);
+  writeBases();
   return { seeded: true, file: f, count: shas.split("\n").filter(Boolean).length };
 }
 
@@ -97,26 +139,49 @@ export function trust(root, sha) {
   return full;
 }
 
-/** pre-push. `refs` is git's stdin. Returns the refusal lines (empty: allowed). */
+/**
+ * pre-push. `refs` is git's stdin ("<local ref> <local sha> <remote ref> <remote sha>" per line).
+ * Returns the refusal lines (empty: allowed).
+ *
+ * The walk excludes ONLY what the Architect cannot forge (SECURITY.md lean-core round F2): the
+ * remote sha git read from the remote for this ref, and the trusted bases in the ledger. Never
+ * `--remotes`, `--branches` or any other local ref. A tip that passes becomes a base.
+ */
 export function check(root, refs) {
   if (!existsSync(ledgerDir(root))) return { refused: [], note: "[LANE_CHECK] no lane ledger here (no sandboxed Architect has run): not checked" };
   const ledger = readLedger(root);
+  const bases = [...readShas(basesFile(root))].filter((b) => {
+    try { git(root, ["cat-file", "-e", `${b}^{commit}`]); return true; } catch { return false; }
+  });
   const refused = [];
+  const passed = [];
   for (const line of refs.split("\n")) {
     const [localRef, localSha, , remoteSha] = line.trim().split(/\s+/);
     if (!localRef || !localSha || ZERO.test(localSha)) continue;
-    const args = ["rev-list", localSha, "--not", "--remotes"];
+    if (!SHA.test(localSha)) { refused.push(`[ARCH_LANE_COMMIT] ${localRef}: "${localSha.slice(0, 64)}" is not a commit id — refused.`); continue; }
+    const not = [...bases];
     if (remoteSha && !ZERO.test(remoteSha)) {
-      try { git(root, ["cat-file", "-e", `${remoteSha}^{commit}`]); args.push(remoteSha); } catch { /* unknown here */ }
+      try { git(root, ["cat-file", "-e", `${remoteSha}^{commit}`]); not.push(remoteSha); } catch { /* unknown here */ }
     }
-    for (const c of git(root, args).split("\n").filter(Boolean)) {
+    // --stdin: the exclusions go in as data, never as arguments git could read as an option.
+    const input = not.map((x) => `^${x}\n`).join("");
+    let bad = 0;
+    for (const c of git(root, ["rev-list", "--stdin", localSha], input).split("\n").filter(Boolean)) {
       if (ledger.has(c)) continue;
       const outside = outOfLane(root, c);
       if (outside.length === 0) continue;
+      bad++;
       const subject = git(root, ["log", "-1", "--format=%s", c]).trim();
       const shown = outside.slice(0, 3).join(", ") + (outside.length > 3 ? ` (+${outside.length - 3})` : "");
       refused.push(`[ARCH_LANE_COMMIT] ${c.slice(0, 7)} "${subject}" changes ${shown} but was not committed in the Engineer's lane — refused. An Architect commit may change only .ai/ and plans/. If you made it: node ~/.rein/shared/lane-ledger.mjs trust ${c.slice(0, 7)}`);
     }
+    if (!bad) passed.push(git(root, ["rev-parse", "--verify", `${localSha}^{commit}`]).trim());
+  }
+  // A passed tip's ancestry is checked: record it so the next new branch stops its walk there.
+  // Silent where the ledger is read-only (the Architect's lane).
+  const fresh = passed.filter((p) => !bases.includes(p));
+  if (fresh.length) {
+    try { appendFileSync(basesFile(root), fresh.map((p) => p + "\n").join("")); } catch { /* read-only lane */ }
   }
   return { refused, note: "" };
 }

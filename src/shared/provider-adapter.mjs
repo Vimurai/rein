@@ -65,10 +65,41 @@ export function roleProvider(aiDir, role) {
   return (typeof p === "string" && p.trim()) ? p.trim() : (DEFAULT_ROLE_PROVIDERS[role] ?? "");
 }
 
-/** Optional per-role model override ("" when unset). */
+/**
+ * A model name, as `--model` takes it: an alias (`opus`), a full id (`claude-opus-4-1`), a
+ * context suffix (`opus[1m]`) or a vendor-prefixed id (`us.anthropic.claude-…:0`). It starts
+ * with a letter or digit, so it can never be read as a flag.
+ *
+ * WHY STRICT (SECURITY.md lean-core round F1, T-SANDBOXLANE-001): .ai/roles.json is in the
+ * Architect's lane and `model` reaches the operator's launch argv. resolve-launch prints argv one
+ * element per line and `rein pane` reads it back line by line, so a newline in `model` added
+ * `--mcp-config` to the next launch and an MCP server ran outside the sandbox.
+ */
+export const MODEL_RE = /^[A-Za-z0-9][A-Za-z0-9._:[\]-]{0,63}$/;
+
+/** Thrown for a roles.json value that must not reach a launch line. Never a silent fallback. */
+export class RoleConfigError extends Error {
+  constructor(message) { super(message); this.name = "RoleConfigError"; this.code = "ROLE_CONFIG_INVALID"; }
+}
+
+/**
+ * Optional per-role model override ("" when unset). An invalid value THROWS RoleConfigError:
+ * falling back to the default would hide an injection attempt and start a session on a model
+ * nobody configured.
+ */
 export function roleModel(aiDir, role) {
   const m = roleEntry(aiDir, role).model;
-  return (typeof m === "string" && m.trim()) ? m.trim() : "";
+  if (m === undefined || m === null) return "";
+  if (typeof m !== "string") {
+    throw new RoleConfigError(`[ROLE_MODEL_INVALID] .ai/roles.json roles.${role}.model must be a string, got ${typeof m} — refusing.`);
+  }
+  const t = m.trim();
+  if (!t) return "";
+  if (!MODEL_RE.test(t)) {
+    const shown = JSON.stringify(m.length > 80 ? `${m.slice(0, 80)}…` : m);
+    throw new RoleConfigError(`[ROLE_MODEL_INVALID] .ai/roles.json roles.${role}.model ${shown} is not a model name (expected ${MODEL_RE.source}) — refusing. Fix the value or remove the key.`);
+  }
+  return t;
 }
 
 /** True when `role` has no pane: an explicit `headless` in roles.json wins over the default. */
@@ -86,7 +117,12 @@ export function roleLabel(aiDir, role) {
   const name = String(role || "");
   const title = name.charAt(0).toUpperCase() + name.slice(1);
   const provider = roleProvider(aiDir, name);
-  const model = roleModel(aiDir, name) || (provider === "claude" ? (DEFAULT_ROLE_MODELS[name] ?? "") : "");
+  let model;
+  try {
+    model = roleModel(aiDir, name) || (provider === "claude" ? (DEFAULT_ROLE_MODELS[name] ?? "") : "");
+  } catch {
+    model = "invalid model"; // a label is display only; the launch and the Tester refuse
+  }
   if (!provider) return title;
   return model ? `${title} (${provider} · ${model})` : `${title} (${provider})`;
 }

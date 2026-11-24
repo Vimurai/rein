@@ -6,7 +6,8 @@
 //   - the Architect's Bash runs in the sandbox with every top-level entry of the project
 //     write-denied except .ai, plans and .git; its file tools may write only .ai/ and plans/
 //     (dontAsk + allow Edit(.ai/**), Edit(plans/**) — no Edit(!…) shape works); no network
-//     domain; .git/HEAD write-denied, so it can commit on the branch but not switch it;
+//     domain; .git/HEAD write-denied, so it can commit on the branch but not switch it; also
+//     .git/refs/remotes, refs/replace, packed-refs and info (F2 of the lean-core round);
 //   - the Engineer's Bash runs in the sandbox with every entry of ~/.rein but ci/ (where
 //     `rein ci run` keeps its logs) and the project's .claude/ write-denied, and the network
 //     domains CI and the registry need;
@@ -106,7 +107,31 @@ export function architectDenyList(project) {
   // M3: HEAD write-denied keeps a commit on the branch working and stops a branch switch.
   out.push(join(gitDir, "HEAD"));
   out.push(join(commonDir, "rein"));
+  // SECURITY.md lean-core round F2/F3: refs the Architect could forge to hide a commit from the
+  // lane check (remote-tracking refs, packed-refs, replace objects) and info/ (grafts, and the
+  // exclude file that hid a planted entry). A commit on the branch writes none of them.
+  for (const p of ARCHITECT_GIT_DENY) out.push(join(commonDir, p));
   return out;
+}
+
+/** Paths under the git common dir write-denied to the Architect (beyond HEAD and rein/). */
+export const ARCHITECT_GIT_DENY = ["refs/remotes", "refs/replace", "packed-refs", "info"];
+/** Of those, the directories. Each denied path is made before launch if it does not exist: the
+ *  sandbox puts an unreadable placeholder at a denied path that is absent, and git then fails on
+ *  it (an absent packed-refs stopped every `git status` and `git commit` in the escape suite), or a
+ *  file at refs/replace would read as a broken ref. */
+const ARCHITECT_GIT_DENY_DIRS = ["refs/remotes", "refs/replace", "info"];
+/** An empty packed-refs as git writes it: valid, and holds no ref. */
+const PACKED_REFS_HEADER = "# pack-refs with: peeled fully-peeled sorted \n";
+
+/** Create the denied git paths that do not exist yet (best effort; no .git/refs: nothing). */
+export function ensureGitDenyPaths(project) {
+  const { commonDir } = gitDirs(project);
+  if (!existsSync(join(commonDir, "refs"))) return;
+  for (const d of ARCHITECT_GIT_DENY_DIRS) {
+    try { mkdirSync(join(commonDir, d), { recursive: true }); } catch { /* the launch reports a sandbox failure */ }
+  }
+  try { writeFileSync(join(commonDir, "packed-refs"), PACKED_REFS_HEADER, { flag: "wx", mode: 0o644 }); } catch { /* exists */ }
 }
 
 function sandbox(filesystem, allowedDomains) {
@@ -201,6 +226,7 @@ export function writeRoleFiles({ aiDir, out, reinHome = join(homedir(), ".rein")
   const written = [];
   for (const role of roles?.length ? roles.filter((r) => paneRoles(aiDir).includes(r)) : paneRoles(aiDir)) {
     const p = join(dir, `settings.${role}.json`);
+    if (role === "architect") ensureGitDenyPaths(project);
     writeJsonAtomic(p, role === "architect" ? architectSettings(project) : engineerSettings(project, reinHome));
     written.push(p);
     if (role === "architect") {

@@ -10,7 +10,7 @@ import { analyse, commandOf, gateInProcess, repo, tableTests } from "../lib/chec
 
 const { runAnalysis } = await gateInProcess();
 const rows = tableTests(runAnalysis, "secret");
-const { containsSecret, SCAN_LIMIT } = await import(resolve(repo, "src/mcp/safe-exec-mcp/secret-rule.mjs"));
+const { containsSecret, SCAN_LIMIT } = await import(resolve(repo, "src/shared/secret-rule.mjs"));
 
 test("E-287.02/03: the over-block ratio is printed and zero; the table is not vacuous", () => {
   const allow = rows.filter((c) => c.want === "pass");

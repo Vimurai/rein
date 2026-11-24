@@ -5621,8 +5621,16 @@ do_pane() {
   # provider-adapter.mjs), the same module advisor-mcp uses (E-210). One code path, so
   # the A2A bridge, the launcher and the tests cannot drift apart about which provider
   # owns a role. Output: line 1 = provider, remaining lines = argv.
-  local resolved rc
-  resolved="$(node --no-warnings "$helper" "$role" "$ai_dir" "$_rd" 2>/dev/null)"; rc=$?
+  local resolved rc=0
+  # stderr is NOT discarded: exit 4 is a refusal whose reason the resolver prints there (an invalid
+  # roles.json model, an argv element with a line break — SECURITY.md lean-core round F1).
+  # `|| rc=$?`: under `set -e` a failing assignment would otherwise end the script right here,
+  # with the resolver's code and without the line below.
+  resolved="$(node --no-warnings "$helper" "$role" "$ai_dir" "$_rd")" || rc=$?
+  if [[ "$rc" -eq 4 ]]; then
+    echo "rein pane: refusing to launch ${role} — the launch line from ${ai_dir} is invalid (reason above)." >&2
+    return 2
+  fi
   if [[ "$rc" -ne 0 || -z "$resolved" ]]; then
     echo "rein pane: role '${role}' is not mapped to a provider in ${ai_dir}/roles.json." >&2
     return 2

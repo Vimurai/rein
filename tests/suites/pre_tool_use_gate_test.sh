@@ -293,7 +293,7 @@ touch "$_AWG_STOP"
 # when the analyzer is located but produces no verdict. Before E-289 only `--check` exit 2
 # blocked; a mirror missing a sibling module (exit 1 on load), a killed analyzer (137) or a
 # vanished interpreter (126/127) all ALLOWED the call. The fixture is a HOME whose install
-# mirror carries the checkout's analyzer with secret-rule.mjs removed, and a copy of the hook
+# mirror carries the checkout's analyzer with its shared/secret-rule.mjs removed, and a copy of the hook
 # OUTSIDE the repo, so the hook can only resolve that mirror.
 # The hook before E-289 (E-286 tip): the same fixture must ALLOW on it (proves the gap).
 PRE_E289_REF="5cf1fcd"
@@ -326,7 +326,7 @@ assert_status 0 "E-289.01b: and a destructive one blocks with a verdict (rc=${rc
 assert_contains "E-289.01c: …from the analyzer, not the unavailable branch" "[SAFE_EXEC_BLOCK]" "$(cat "$UT/err")"
 
 # ── E-289.2: a mirror missing secret-rule.mjs (exit 1 on load) blocks ─────────
-mv "$UM/mcp/safe-exec-mcp/secret-rule.mjs" "$UT/secret-rule.mjs.bak"
+mv "$UM/shared/secret-rule.mjs" "$UT/secret-rule.mjs.bak"
 _probe_rc=0; node --no-warnings "$UM/mcp/safe-exec-mcp/index.js" --check "ls" >/dev/null 2>&1 || _probe_rc=$?
 assert_status 0 "E-289.02a: the broken mirror really exits non-0/2 (got ${_probe_rc})" test "$_probe_rc" -ne 0 -a "$_probe_rc" -ne 2
 rc="$(_urun "$UHOOK" "ls -la")"
@@ -364,7 +364,7 @@ if git -C "$REPO_ROOT" show "${PRE_E289_REF}:hooks/pre-tool-use.sh" > "$OLDT/pre
 else
   _skip "E-289.03a: pre-change hook (${PRE_E289_REF}) not in this checkout's history"
 fi
-mv "$UT/secret-rule.mjs.bak" "$UM/mcp/safe-exec-mcp/secret-rule.mjs"
+mv "$UT/secret-rule.mjs.bak" "$UM/shared/secret-rule.mjs"
 
 # ── E-289.4: a killed analyzer (137) blocks; exit 2 still means BLOCK ─────────
 cp "$UM/mcp/safe-exec-mcp/index.js" "$UT/index.js.bak"
@@ -387,7 +387,7 @@ assert_status 0 "E-289.05a: the unavailable branch uses the shared helper" \
 # E-291 (D-083: E-289 escape hatch #2 is the override FILE, not an env switch): with the
 # analyzer broken AND an operator override active, an ordinary command passes LOUDLY and a
 # catastrophic one still blocks.
-mv "$UM/mcp/safe-exec-mcp/secret-rule.mjs" "$UT/secret-rule.mjs.bak"
+mv "$UM/shared/secret-rule.mjs" "$UT/secret-rule.mjs.bak"
 # Non-vacuity (critic_tests): prove the analyzer really gives no verdict here, so 05b/c
 # exercise the override's broken-analyzer path and not an ordinary analyzer PASS.
 _probe_rc=0; node --no-warnings "$UM/mcp/safe-exec-mcp/index.js" --check "ls" >/dev/null 2>&1 || _probe_rc=$?
@@ -399,7 +399,7 @@ assert_status 0 "E-289.05b: a broken analyzer + an active override lets an ordin
 assert_contains "E-289.05c: …loudly (systemMessage)" "[GATE_OVERRIDE] safe-exec bypassed" "$out"
 rc="$(_urun "$UHOOK" "rm -rf /")"
 assert_status 0 "E-289.05d: …while a catastrophic command still BLOCKS (rc=${rc})" test "$rc" -eq 2
-rm -f "$UH/.rein/gate-override.json"; mv "$UT/secret-rule.mjs.bak" "$UM/mcp/safe-exec-mcp/secret-rule.mjs"
+rm -f "$UH/.rein/gate-override.json"; mv "$UT/secret-rule.mjs.bak" "$UM/shared/secret-rule.mjs"
 
 # ── S15 (E-286, from hook_toolchain — E-301; T-HOOKENV-001): hook toolchain pinning ──
 # A project's `.claude/settings.json` `env` reaches every hook. Before E-286 the hooks ran

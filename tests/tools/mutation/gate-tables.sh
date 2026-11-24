@@ -46,7 +46,7 @@ if [[ -n "$inproc" ]]; then
   _done $?
 fi
 
-rule="$(dirname "$se")/secret-rule.mjs"
+rule="$(dirname "$se")/../../shared/secret-rule.mjs"
 for t in secret pipe-shell gate-relative-home arch-write; do
   rc=0
   if [[ "$t" == "arch-write" ]]; then

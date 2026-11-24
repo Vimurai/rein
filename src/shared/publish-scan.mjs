@@ -19,7 +19,7 @@ import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "no
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
-import { containsCredentialToken, containsSecret } from "../mcp/safe-exec-mcp/secret-rule.mjs";
+import { containsCredentialToken, containsSecret } from "./secret-rule.mjs";
 
 export const CLASSES = ["personal_email", "home_path", "session_socket", "client_name", "operator_name"];
 

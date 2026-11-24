@@ -31,7 +31,7 @@ for (const a of rest) {
 const dir = dirname(indexJs);
 const { __probeRunAnalysis: runAnalysis } = await import(pathToFileURL(indexJs).href);
 const { verifyToken, ARCHITECT } = await import(pathToFileURL(join(dir, "role-token.mjs")).href);
-const { containsSecret, SCAN_LIMIT } = await import(pathToFileURL(join(dir, "secret-rule.mjs")).href);
+const { containsSecret, SCAN_LIMIT } = await import(pathToFileURL(join(dir, "..", "..", "shared", "secret-rule.mjs")).href);
 
 const verdict = (cmd, sid, sessionPid = null) => {
   try {

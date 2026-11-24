@@ -12,12 +12,14 @@
 //         roleDir: where the role settings were generated (role-settings.mjs); default
 //         ~/.rein/roles/<project key>.
 // Output: line 1 = provider name, remaining lines = argv (one element per line).
-// Exit:   0 ok | 2 role not mapped to a provider | 3 bad usage.
+// Exit:   0 ok | 2 role not mapped to a provider | 3 bad usage
+//         | 4 refused: an invalid roles.json value, or an argv element holding a line break
+//           (the reason is on stderr).
 //
 // One element per line (not JSON) so the bash caller can read it with a plain
 // `while read` loop and keep argv elements intact even when they contain spaces.
 
-import { roleProvider, roleModel, providerAdapter, buildArgv, absolutisePathOperands, DEFAULT_ADAPTERS } from "./provider-adapter.mjs";
+import { roleProvider, roleModel, RoleConfigError, providerAdapter, buildArgv, absolutisePathOperands, DEFAULT_ADAPTERS } from "./provider-adapter.mjs";
 import { roleDir, projectRoot as physicalRoot } from "./role-settings.mjs";
 import { basename, dirname, join, resolve } from "node:path";
 
@@ -40,7 +42,15 @@ const projectRoot = resolve(dirname(resolve(aiDir)));
 // tell the Architect from the Engineer. The PROJECT is part of the name because the remote
 // list spans every project (the "phantom E-292" incident was another project's sessions).
 const sessionName = `${basename(projectRoot)} · ${role.charAt(0).toUpperCase()}${role.slice(1)}`;
-const subs = { role, rulefile, model: roleModel(aiDir, role), session_name: sessionName };
+let model;
+try {
+  model = roleModel(aiDir, role);
+} catch (e) {
+  if (!(e instanceof RoleConfigError)) throw e;
+  process.stderr.write(`${e.message}\n`);
+  process.exit(4);
+}
+const subs = { role, rulefile, model, session_name: sessionName };
 // E-462 (D-169 r3): a claude role session is launched from the install tree's template, never
 // from .ai/providers.json — the Architect can write that file, and a launch line without
 // --settings would start the next pane outside the sandbox. The settings operand is the role
@@ -71,5 +81,17 @@ if (provider === "claude" && !argv.some(NAME_FLAG)) argv.push("--name", sessionN
 // whose .ai/providers.json predates this change and still carries the relative form —
 // editing the default template alone would leave those broken.
 const anchored = absolutisePathOperands(argv, projectRoot);
+
+// SECURITY.md lean-core round F1: the output is line-framed, so an element holding a line break
+// would become several argv elements in `rein pane` — a flag nobody configured. Whatever value
+// carried it (roles.json, a providers.json template, the project directory's name), refuse the
+// whole launch rather than drop or rewrite the element. NUL cannot reach here (argv is C strings)
+// but is refused too, so the check does not depend on that.
+const BREAK = /[\n\r\0]/;
+const bad = [provider, ...anchored].find((a) => typeof a !== "string" || BREAK.test(a));
+if (bad !== undefined) {
+  process.stderr.write(`[LAUNCH_ARG_INVALID] the ${role} launch line has an element with a line break (${JSON.stringify(String(bad).slice(0, 80))}) — refusing. Check .ai/roles.json and .ai/providers.json.\n`);
+  process.exit(4);
+}
 
 process.stdout.write([provider, ...anchored].join("\n"));

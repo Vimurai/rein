@@ -134,10 +134,8 @@ _prepare_live_tree() {
   cp -R "${REPO_ROOT}/src/shared"  "$d/shared"
   cp -R "${REPO_ROOT}/src/mcp/shared" "$d/mcp/shared"
   cp -R "${REPO_ROOT}/src/mcp/task-synchronizer-mcp" "$d/mcp/task-synchronizer-mcp"
-  # E-379 (D-130): the task store redacts through shared/publish-scan.mjs, which reads the
-  # credential detector from safe-exec-mcp — a self-contained module with no imports.
-  mkdir -p "$d/mcp/safe-exec-mcp"
-  cp "${REPO_ROOT}/src/mcp/safe-exec-mcp/secret-rule.mjs" "$d/mcp/safe-exec-mcp/"
+  # E-379 (D-130): the task store redacts through shared/publish-scan.mjs, whose credential
+  # detector (shared/secret-rule.mjs) came over with the shared/ copy above.
   rm -rf "$d/mcp/task-synchronizer-mcp/node_modules"
   # The SDK is hoisted to the workspace root (npm workspaces), so the copy needs a
   # node_modules at ITS root — Node walks up from the importing file, and a per-server link

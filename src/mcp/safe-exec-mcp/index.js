@@ -21,7 +21,7 @@ import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { instrument } from "../../shared/mcp-telemetry.mjs";
-import { containsSecret } from "./secret-rule.mjs";
+import { containsSecret } from "../../shared/secret-rule.mjs";
 import { selfDisableHits } from "./gate-guard.mjs";
 import { stripInertHeredocs } from "./heredoc.mjs";
 import { ARCHITECT, ENGINEER, mintToken, verifyToken, ROLE_UNVERIFIED_LINE } from "./role-token.mjs";

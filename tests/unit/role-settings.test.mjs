@@ -37,13 +37,15 @@ test("the Architect: sandbox on, no escape hatch, no network, dontAsk with only 
   } finally { rmSync(p, { recursive: true, force: true }); }
 });
 
-test("the Architect's deny list: every top-level entry but .ai, plans and .git, HEAD, the lane ledger, CLAUDE.local.md", () => {
+test("the Architect's deny list: every top-level entry but .ai, plans and .git, HEAD, the lane ledger, forgeable refs, CLAUDE.local.md", () => {
   const p = project();
   try {
     const deny = architectDenyList(p);
     for (const e of [".claude", "README.md", "src", "CLAUDE.local.md"]) assert.ok(deny.includes(join(p, e)), e);
     for (const e of [".ai", "plans", ".git"]) assert.ok(!deny.includes(join(p, e)), e);
     assert.ok(deny.includes(join(p, ".git", "HEAD")) && deny.includes(join(p, ".git", "rein")));
+    // F2 of the lean-core round: refs that could hide a commit from the lane check, and info/.
+    for (const g of ["refs/remotes", "refs/replace", "packed-refs", "info"]) assert.ok(deny.includes(join(p, ".git", g)), g);
     assert.ok(deny.every((d) => d.startsWith(p + "/")), "absolute, inside the project");
   } finally { rmSync(p, { recursive: true, force: true }); }
 });
@@ -92,7 +94,12 @@ test("files go to ~/.rein/roles/<project key>; only claude pane roles; a travers
       architect: { provider: "claude" }, engineer: { provider: "claude" }, tester: { provider: "claude", headless: true },
       "../../escape": { provider: "claude" } } }));
     assert.deepEqual(paneRoles(join(p, ".ai")), ["architect", "engineer"]);
+    mkdirSync(join(p, ".git", "refs"));
     const written = writeRoleFiles({ aiDir: join(p, ".ai"), reinHome: home });
+    // F2: the paths denied to the Architect exist before launch, so the sandbox puts no
+    // placeholder there (an absent packed-refs broke git status and git commit).
+    for (const g of ["refs/remotes", "refs/replace", "info", "packed-refs"]) assert.ok(existsSync(join(p, ".git", g)), g);
+    assert.match(readFileSync(join(p, ".git", "packed-refs"), "utf8"), /^# pack-refs with:/);
     const dir = roleDir(p, home);
     assert.ok(dir.startsWith(join(home, "roles") + "/"));
     assert.deepEqual(written, [join(dir, "settings.architect.json"), join(dir, "mcp.architect.json"), join(dir, "settings.engineer.json")]);

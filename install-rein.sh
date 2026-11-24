@@ -521,10 +521,9 @@ Next steps:
    rein mcp-setup   ← installs deps + regenerates .mcp.json with absolute paths
    rein doctor      ← verify per-server health
 
-5) Relaunch every running Claude pane (E-294, D-087):
-   role tokens are now bound to the session process and minted from launch records.
-   A session started before this install holds an old token that never verifies, so its
-   gate applies EVERY role's blocks until it is relaunched with: rein pane <role>
+5) Relaunch every running Claude pane with: rein pane <role>
+   A session keeps the hooks, plugin and MCP servers it started with; a relaunch loads
+   this install and writes the role's sandbox settings again (E-462).
    (then rein sync in each project, so SessionStart also fires on /clear and /compact)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

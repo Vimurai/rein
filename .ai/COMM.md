@@ -3,41 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-20 15:28 UTC
-**From**: Architect → Engineer
-**Trigger**: Smart CI planned on an operator request: D-166, a new blueprint, four tasks. One correction to r16.
-
-### What was built
-- `.ai/blueprints/smart-ci.md` (new).
-- `.ai/DECISIONS.md`: D-166, and "D-163 addendum 2 r16 — correction to (c)".
-- Tasks: E-449 (OPEN), E-450, E-451, E-452 (BLOCKED on their dependencies).
-
-### Decisions made
-- **D-166**: one planner decides from the diff what must run: `none`, `fast`, `affected` or `full`.
-  - Full is the default: the planner returns it whenever it cannot prove less.
-  - Evidence is keyed by tree and level; a tree that is already green is not run again.
-  - With a hosted merge gate, the local gate asks for at most `affected`. A `[TIER_3]` range stays full.
-  - Pull requests run Linux × Node 22 only. macOS runs on a trunk push.
-  - One required check, `ci-result`. The operator changes the ruleset when E-451 says so.
-- **Correction to r16 (c)**: I wrote "there is no mutation run in the harness". That is false: `tests/tools/mutation/` exists.
-  - E-447 does not close on (c). Before DONE, run the mutation probe that covers `operand-scope-cases.json` on the 490-row table and report whether a mutant killed at 501 rows survives at 490.
-  - If the tool does not cover that table, report that instead.
-
-### Blueprint divergence (if any)
-- NONE. `smart-ci.md` amends `ci-throughput.md` (when each lever is used) and does not change its components.
-
-### Next action needed
-- **Engineer**: your current task, then E-448, then E-449. E-450 is Tier 3: `security_engineer` before `critic_security`.
-  - E-451 item 5 (reuse on a trunk push) is unverified: observe first, report if neither the cache scope nor the API allows it.
-- **Operator**: nothing until E-451 names the ruleset change.
-
-### Open risks
-- An `affected` run is only as good as the census footprints. The nightly audit (E-452) lands last, so between E-450 and E-452 an escape is seen only as a red nightly without a `[PLAN_ESCAPE]` line.
-- Until E-451 merges, the hosted run is unchanged and still full. E-450 alone already lowers the local gate where `ci.required` is true; Rein's `team.json` does not set it yet, so nothing changes for Rein until someone does.
-- GitHub cache scope and the `actions/cache` behaviour in the blueprint are written from memory, not checked against current documentation.
----
-
----
 ## Handoff — 2026-11-20 15:51 UTC
 **From**: Engineer → Architect
 **Trigger**: E-441, E-440, E-446 and E-448 built and committed (stacked on e-442-safe-exec-split); full CI green on the top of the stack.
@@ -465,4 +430,20 @@ The full list of what was removed, each task's decisions and the scorecard basel
 - I did not run `verify_markdown_sync` for this handoff: the installed server predates E-466 and would rewrite TASKS.md in the old format (your note). No task was added, so state is unchanged by this turn.
 - Option 2a moves where the Architect's session runs. Relative paths in ARCHITECT.md and in the handoff commit line assume the project root; check them in the probe.
 - `lean-core` is still on one disk only.
+---
+---
+## Handoff — 2026-11-24 12:05 UTC
+**From**: Engineer → Architect
+**Trigger**: the batch's first CI run (f7d94fd) — one failure left that is yours
+
+### What was built
+- E-471 built; review, acceptance and security PASS at 36632fe (F-471-1, a nested C1 past the sanitiser, fixed and re-cleared). Not DONE: `rein done` needs a green CI run.
+- CI at f7d94fd failed 9 tests; 7 were stale expectations against D-172 r2a, r3, r19 and E-462, fixed in 95db200.
+
+### Next action needed
+- **Architect**: tests/unit/rename-gate.test.mjs fails on 12 lines. E-461 made `handoff` a `rein` subcommand, so the retired `ai handoff` (D-099) now reads as an old spelling of the command. The lines are in your files: .ai/blueprints/architect-provider-parity.md:24,49; interactive-bridge.md:5,24,95; native-first.md:101,104,118,189; role-abstraction.md:93; structured-outputs.md:32; plans/native-vs-rein-audit.md:19. D-132 says no line outside the exclusions is exempt. Rule one of: move the retired blueprints to .ai/archive/ (already excluded), reword the lines, or name the files in tests/fixtures/rename-exclusions.json (I write it on your word).
+- **Operator**: after that, `rein ci run` once more.
+
+### Open risks
+- Running the tmux and `rein start` suites from inside an Engineer pane fails on the sandbox; the CI run passes them. Not a code fault.
 ---

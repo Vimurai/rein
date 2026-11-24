@@ -300,10 +300,10 @@ _use="$(cd "$AC_PROJ" && HOME="$AC_HOME" bash "$AI_BIN" account use nope 2>&1; e
 assert_contains "E-333.P08f: rein account use refuses an unregistered name" "RC:2" "$_use"
 # A team project: rein start --account binds the developer's local file, not the committed one.
 echo '{"schema":1,"planner":"a@example.com","claim_ttl_days":7,"shared_log":false,"members":{"a@example.com":{"ranges":{"E":[[1,9]]}}}}' > "$AC_PROJ/.ai/team.json"
-_st="$(cd "$AC_PROJ" && HOME="$AC_HOME" bash "$AI_BIN" start --account work --dry-run 2>&1)"
+_st="$(cd "$AC_PROJ" && PATH="${AC_BIN}:$PATH" HOME="$AC_HOME" bash "$AI_BIN" start --account work --dry-run 2>&1)"
 assert_contains "E-333.P08g: in a team project rein start --account targets start.local.json" "would bind account 'work' in .ai/start.local.json" "$_st"
 rm -f "$AC_PROJ/.ai/team.json"
-_st="$(cd "$AC_PROJ" && HOME="$AC_HOME" bash "$AI_BIN" start --account work --dry-run 2>&1)"
+_st="$(cd "$AC_PROJ" && PATH="${AC_BIN}:$PATH" HOME="$AC_HOME" bash "$AI_BIN" start --account work --dry-run 2>&1)"
 assert_contains "E-333.P08g2: a single-operator project keeps start.json (unchanged)" "would bind account 'work' in .ai/start.json" "$_st"
 rm -f "$AC_PROJ/.ai/start.local.json"; echo '{"account":"work"}' > "$AC_PROJ/.ai/start.json"
 # rein init / rein sync keep the override out of git.
@@ -475,6 +475,7 @@ JSON
   # A stand-in provider: `rein pane` execs it, and it must keep the pane alive while we look.
   printf '#!/usr/bin/env bash\nexec sleep 30\n' > "${BIN}/claude"   # REIN_SLEEP_ALLOWED: a stand-in claude binary, not a wait
   chmod +x "${BIN}/claude"
+  _sbx_stub "$BIN"   # rein pane refuses without a usable sandbox (E-462); the host's may lack userns
   # tmux resolves `tmux` inside the pane through PATH, so the pane must reach THIS server.
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$(command -v tmux)" "$SOCK" > "${BIN}/tmux"
   chmod +x "${BIN}/tmux"
@@ -622,13 +623,14 @@ assert_status 1 "E-242.02e: a prompt is not rewritten either" \
 _h="$(_proj)"
 _hrd="$(node "${REPO_ROOT}/src/shared/role-settings.mjs" dir --ai-dir "$_h/.ai")"
 register_cleanup "rm -rf '${_hrd}'"
-if skip_unless_cmd tmux "E-242.03 regeneration (needs a real rein start)" && skip_unless_cmd bwrap "E-242.03 (rein start refuses without the sandbox)"; then
+if skip_unless_cmd tmux "E-242.03 regeneration (needs a real rein start)"; then
   _hs="$(test_tmux_socket e242)"
   _hshim="$(test_tmpdir e242shim)"
   printf '#!/usr/bin/env bash\nexec %s -L %s "$@"\n' "$(command -v tmux)" "$_hs" > "${_hshim}/tmux"
   # The panes run `rein pane`, which would exec a real claude: a stub stands in (no session).
   printf '#!/bin/sh\nexec sleep 30\n' > "${_hshim}/claude"   # REIN_SLEEP_ALLOWED: the stub claude idles; nothing waits on it
   chmod +x "${_hshim}/tmux" "${_hshim}/claude"
+  _sbx_stub "$_hshim"   # rein start refuses without a usable sandbox (E-462); the host's may lack userns
   mkdir -p "$_hrd"; echo '{"tampered":true}' > "$_hrd/settings.architect.json"
   _out="$( cd "$_h" && PATH="${_hshim}:$PATH" bash "$AI" start --detach 2>&1 )"
   assert_contains "E-242.03a: a real rein start regenerates the role settings" \
@@ -636,13 +638,14 @@ if skip_unless_cmd tmux "E-242.03 regeneration (needs a real rein start)" && ski
   assert_contains "E-242.03b: and a tampered role file is overwritten with the sandbox shape" \
     '"failIfUnavailable": true' "$(cat "$_hrd/settings.architect.json" 2>/dev/null)"
 else
-  _skip "E-242.03b: regeneration check (tmux or bubblewrap not installed)"
+  _skip "E-242.03b: regeneration check (tmux not installed)"
 fi
 
 # --dry-run DESCRIBES and must never write.
 _dr="$(_proj)"
 _drd="$(node "${REPO_ROOT}/src/shared/role-settings.mjs" dir --ai-dir "$_dr/.ai")"
-_dout="$( cd "$_dr" && bash "$AI" start --dry-run 2>&1 )"
+_drb="$(test_tmpdir e242drb)"; _sbx_stub "$_drb"
+_dout="$( cd "$_dr" && PATH="${_drb}:$PATH" bash "$AI" start --dry-run 2>&1 )"
 assert_contains "E-242.03a-dry: a dry run SAYS the role settings would be regenerated" \
   "(dry run) the role settings would be regenerated" "$_dout"
 assert_status 1 "E-242.03b-dry: and does NOT write them" test -f "$_drd/settings.architect.json"

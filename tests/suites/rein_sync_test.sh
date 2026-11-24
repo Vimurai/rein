@@ -122,7 +122,7 @@ assert_status 0 "E-339.04c: and exits 1 (D-107 r1 — a failed step is not a suc
 assert_match "E-247.04d: the summary counts the failure as FAILED" \
   'steps: [0-9]+ ok, [0-9]+ skipped, 1 FAILED — see the ✗ lines' "$_fout"
 # Every other step still ran: the forced run accounts for as many steps as the clean run.
-_steps() { grep -oE 'steps: [0-9]+ ok, [0-9]+ skipped(, [0-9]+ FAILED)?' <<< "$1" | grep -oE '[0-9]+' | paste -sd+ | bc; }
+_steps() { grep -oE 'steps: [0-9]+ ok, [0-9]+ skipped(, [0-9]+ FAILED)?' <<< "$1" | grep -oE '[0-9]+' | paste -sd+ - | bc; }
 _n_clean="$(_steps "$_out")"; _n_forced="$(_steps "$_fout")"
 assert_status 0 "E-339.04f: every step AFTER the failed one still ran (${_n_forced:-?} steps = ${_n_clean:-?})" \
   bash -c "[[ -n '${_n_clean}' && '${_n_forced}' == '${_n_clean}' ]]"

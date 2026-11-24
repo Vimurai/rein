@@ -972,9 +972,9 @@ print("\t".join([str(len(u["agents"])), ", ".join(u["agents"]), str(len(u["skill
   if ! command -v claude >/dev/null 2>&1; then
     _dr claude_plugin warn "  ⚠ plugin ${_PLUGIN_ID}: cannot check — the claude CLI is not on PATH"
   elif _plugin_enabled "$cfg"; then
-    _dr claude_plugin - "  ✓ plugin ${_PLUGIN_ID} enabled here (${cfg/#"$HOME"/\~}; hooks: ${hk})"
+    _dr claude_plugin - "  ✓ plugin ${_PLUGIN_ID} enabled here ($(_acct_tilde "$cfg"); hooks: ${hk})"
   else
-    _dr claude_plugin - "  ✗ [PLUGIN_NOT_ENABLED] plugin ${_PLUGIN_ID} is not enabled in this project (${cfg/#"$HOME"/\~}) — its ${n_ag} agents, ${n_sk} skills and the ${hk} hooks do not load; run: rein sync" "rein sync"
+    _dr claude_plugin - "  ✗ [PLUGIN_NOT_ENABLED] plugin ${_PLUGIN_ID} is not enabled in this project ($(_acct_tilde "$cfg")) — its ${n_ag} agents, ${n_sk} skills and the ${hk} hooks do not load; run: rein sync" "rein sync"
   fi
   return 0
 }
@@ -1239,7 +1239,7 @@ _write_role_settings_overlays() {
   local f rc=0
   while IFS= read -r f; do
     [[ "$f" == "__FAILED__" ]] && { rc=1; continue; }
-    [[ -n "$f" ]] && echo "  role settings written: ${f/#"$HOME"/\~}"
+    [[ -n "$f" ]] && echo "  role settings written: $(_acct_tilde "$f")"
   done < <(node --no-warnings "$gen" "${a[@]}" || echo "__FAILED__")
   return "$rc"
 }
@@ -1353,9 +1353,9 @@ _plugin_install_global() {
   while IFS= read -r d; do
     [[ -n "$d" ]] || continue
     if CLAUDE_CONFIG_DIR="$d" claude plugin marketplace add "${REIN}/plugin" >/dev/null 2>&1; then
-      echo "✓ plugin marketplace rein → ${d/#"$HOME"/\~} (enable per project: rein init)"
+      echo "✓ plugin marketplace rein → $(_acct_tilde "$d") (enable per project: rein init)"
     else
-      echo "  ✗ plugin marketplace rein: \`claude plugin marketplace add ${REIN}/plugin\` failed in ${d/#"$HOME"/\~}"
+      echo "  ✗ plugin marketplace rein: \`claude plugin marketplace add ${REIN}/plugin\` failed in $(_acct_tilde "$d")"
     fi
   done <<< "$(_plugin_config_dirs)"
   return 0
@@ -1369,7 +1369,7 @@ _plugin_enable_project() {
   if [[ -n "$why" ]]; then echo "  ○ plugin ${_PLUGIN_ID} not enabled: ${why}"; return 1; fi
   while IFS= read -r d; do
     [[ -n "$d" ]] || continue
-    shown="${d/#"$HOME"/\~}"
+    shown="$(_acct_tilde "$d")"
     if _plugin_enabled "$d"; then
       [[ "$first" -eq 1 ]] && rc=0
     else
@@ -3371,9 +3371,9 @@ import(pathToFileURL(process.argv[1]).href).then(m =>
     if [[ "$provider" == "claude" ]]; then
       local _rsd; _rsd="$(_role_settings_dir "$(pwd)/.ai")"
       if [[ -f "${_rsd}/settings.${role}.json" ]]; then
-        _dr role_overlay - "      ✓ settings ${_rsd/#"$HOME"/\~}/settings.${role}.json" "" "$role"
+        _dr role_overlay - "      ✓ settings $(_acct_tilde "$_rsd")/settings.${role}.json" "" "$role"
       else
-        _dr role_overlay - "      ○ settings ${_rsd/#"$HOME"/\~}/settings.${role}.json not written yet — rein pane writes it at launch" "" "$role"
+        _dr role_overlay - "      ○ settings $(_acct_tilde "$_rsd")/settings.${role}.json not written yet — rein pane writes it at launch" "" "$role"
       fi
     else
       _dr role_overlay ok "      - overlay  n/a for provider '${provider}'" "" "$role"
@@ -4824,7 +4824,7 @@ do_start() {
   fi
   local _rd; _rd="$(_role_settings_dir "$ai_dir")"
   if [[ "$dry" -eq 1 ]]; then
-    echo "rein start: (dry run) the role settings would be regenerated in ${_rd/#"$HOME"/\~}."
+    echo "rein start: (dry run) the role settings would be regenerated in $(_acct_tilde "$_rd")."
   else
     echo "rein start: regenerating the role settings..."
     _write_role_settings_overlays "" "$ai_dir" \

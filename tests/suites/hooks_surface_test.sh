@@ -172,13 +172,19 @@ fi
 _TM="$(mktemp -d)"; on_exit "rm -rf '$_TM'"
 # The host's /usr/bin and /bin are linked in without tmux (a host may ship it there).
 mkdir -p "$_TM/bin" "$_TM/rein/shared"
-for _f in /usr/bin/* /bin/*; do [[ "${_f##*/}" == tmux || -e "$_TM/bin/${_f##*/}" ]] || ln -s "$_f" "$_TM/bin/${_f##*/}"; done
+for _f in /usr/bin/* /bin/*; do [[ "${_f##*/}" == tmux || -e "$_TM/bin/${_f##*/}" || -L "$_TM/bin/${_f##*/}" ]] || ln -s "$_f" "$_TM/bin/${_f##*/}"; done
 for _b in node python3; do _p="$(command -v "$_b")" && ln -sf "$_p" "$_TM/bin/$_b"; done
-assert_status 0 "E-433.TM1: with no tmux on PATH the installer's toolchain record completes under set -e" bash -c \
-  "set -euo pipefail; cd '$_TM'; PATH='$_TM/bin'; command -v tmux >/dev/null 2>&1 && exit 3
-   . '${REPO_ROOT:-$PWD}/src/shared/install-finalize.sh'
-   rein_fin_record_toolchain '$_TM/rein' '${REPO_ROOT:-$PWD}/src/shared/toolchain-record.sh' >/dev/null 2>&1
-   grep -q '^REIN_TC_NODE=' '$_TM/rein/shared/toolchain.sh' && ! grep -q '^REIN_TC_TMUX=' '$_TM/rein/shared/toolchain.sh'"
+# The record refuses an interpreter under a group/world-writable ancestor (the hosted runner's
+# /opt/hostedtoolcache node is one): then there is nothing to record, and the row is a SKIP (E-236).
+if ( . "${REPO_ROOT:-$PWD}/src/shared/toolchain-record.sh"; rein_tc_check "$(command -v node)" >/dev/null 2>&1 ); then
+  assert_status 0 "E-433.TM1: with no tmux on PATH the installer's toolchain record completes under set -e" bash -c \
+    "set -euo pipefail; cd '$_TM'; PATH='$_TM/bin'; command -v tmux >/dev/null 2>&1 && exit 3
+     . '${REPO_ROOT:-$PWD}/src/shared/install-finalize.sh'
+     rein_fin_record_toolchain '$_TM/rein' '${REPO_ROOT:-$PWD}/src/shared/toolchain-record.sh' >/dev/null 2>&1
+     grep -q '^REIN_TC_NODE=' '$_TM/rein/shared/toolchain.sh' && ! grep -q '^REIN_TC_TMUX=' '$_TM/rein/shared/toolchain.sh'"
+else
+  _skip "E-433.TM1: the host's node is refused by the toolchain check (unsafe ancestor), so nothing to record"
+fi
 
 # ── E-430 (D-159 r3; extends S03-S05): the hook rebuilds .ai/DIGEST.md before it emits ──
 # A fixture project and a fixture HOME whose shared/ links src/shared, so the builder comes

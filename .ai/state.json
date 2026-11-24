@@ -2240,16 +2240,16 @@
     {
       "id": "E-457",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Land the built stack under the operator's delegation per D-169 r1, r6 and .ai/blueprints/lean-core.md §Component 4 (first lean-core task). For every built branch that is not on main, in stack order (e-441, e-440, e-446, e-448, e-449-ci-planner, e-453-git-config-rule, e-454 once its own review has passed, and any earlier branch still unmerged): push, open the pull request, wait for green CI, merge with `gh pr merge <n> --merge --delete-branch`. Then run `bash install-rein.sh`, restart the MCP servers, and close through skill rein-task every task whose work is on main and whose acceptance is recorded. Do not tag and do not publish a version. Do not start E-455 or E-456. Acceptance: `git log origin/main --oneline` contains the commits of each listed branch; `gh pr list --state open` shows none of them; `rein doctor` prints no [BUILD_STALE]; the handoff lists every task closed here with its merge commit and every listed task left open with the reason; verify_markdown_sync returns [SYNC_PASS]. Framework task.",
       "created_at": "2026-11-23T16:22:35.630Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:08:55.846Z",
+      "summary": "Stack landed on main via #69 (82f9521); stack tasks left open pending Architect ruling (handoff)",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T16:22:35.632Z"
+      "updated_at": "2026-11-24T15:08:55.852Z"
     },
     {
       "id": "E-458",
@@ -2422,16 +2422,16 @@
     {
       "id": "E-470",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Close the lean-core batch per D-170 r12 and .ai/blueprints/lean-core.md §Revision 2 (last task; the only one that runs CI). On the tip of branch lean-core: run `rein ci run` once; run `reviewer` once over the whole branch diff and one `security_engineer` round over E-462, E-463 and E-467 together; run `critic_acceptance` for each of E-458 to E-469; fix what fails on the branch and repeat only the failed check. Then push, open one pull request, merge on green hosted CI under D-169 r1 with `gh pr merge <n> --merge --delete-branch`, run `bash install-rein.sh`, and close every batch task through the installed close path. Close E-455, E-456 and E-465 as superseded (D-169 r6, D-170 r8). Do not tag and do not publish a version. Acceptance: `rein ci run` prints PASS for the merged tip; `gh pr list --state open` shows no lean-core pull request; `git log origin/main --oneline` contains one commit per batch task; `rein doctor --fitness` prints the scorecard and the handoff quotes it whole, PASS and FAIL rows alike; verify_markdown_sync returns [SYNC_PASS]; the handoff names the merge commit, every task closed, and every task left open with the reason. Framework task.",
       "created_at": "2026-11-23T21:22:46.613Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T15:08:56.029Z",
+      "summary": "Lean-core batch merged as 82f9521 (PR #69); CI PASS, review, security, acceptance at 82f9521; fitness quoted whole",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T21:22:46.613Z"
+      "updated_at": "2026-11-24T15:08:56.035Z"
     },
     {
       "id": "P-53",
@@ -2504,7 +2504,6 @@
       ],
       "ready": false,
       "blocked_by": [
-        "E-470",
         "E-473"
       ],
       "updated_at": "2026-11-24T13:57:56.285Z"
@@ -2512,7 +2511,7 @@
     {
       "id": "E-473",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "OPEN",
       "tier": 3,
       "description": "Remove telemetry and the incident tracker per D-170 r5 and D-172 r28 (after E-470; before E-472; one pull request on a branch from merged main). (1) Delete src/shared/telemetry.mjs, src/shared/incident-append.mjs, the incident writer in the hooks, and every call that records a telemetry row or an incident (the files `git grep -l \"telemetry\\|incident-append\" -- src hooks install-rein.sh` prints). (2) Split src/shared/mcp-telemetry.mjs: keep only what stamps the booted build on a result (`rein doctor` reads it for a stale server), under a name that does not say telemetry; delete the recording half. (3) Nothing creates or writes ~/.rein/telemetry.sqlite or the incident log; both become legacy artefacts that `rein clean` removes; install-rein.sh and the release layout stop listing the removed files. (4) Tests: delete tests/suites/telemetry_test.sh, incident_tracker_test.sh, tests/unit/telemetry-naming.test.mjs and the rows that test removed code; keep tests/unit/build-stamp.test.mjs. Rewrite the isolation guard in tests/run.sh and the E-257 rows of harness_isolation_test.sh: a test that writes under the operator's ~/.rein still fails the run, and the guard no longer names telemetry. Update tests/census-baseline.tsv. (5) Rules and docs describe only what is left; CHANGELOG `[Unreleased]` names the removal. Acceptance: `git grep -il \"telemetry\" -- src hooks install-rein.sh` prints nothing except src/config/legacy-artefacts.json; `git ls-files | grep -c \"incident\"` prints 0; `node --test tests/unit/build-stamp.test.mjs` passes; the harness_isolation suite has a row where a write under the real ~/.rein fails the run; `rein doctor` still prints the stale-server line in its suite; `rein ci run` green; security_engineer [SEC_CLEARED]; the handoff gives `git ls-files src | xargs cat | wc -l` before and after.",
       "created_at": "2026-11-24T13:57:54.489Z",
@@ -2521,11 +2520,9 @@
       "depends_on": [
         "E-470"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-470"
-      ],
-      "updated_at": "2026-11-24T13:57:54.494Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-24T15:08:56.039Z"
     }
   ],
   "stamps": [
@@ -8345,6 +8342,60 @@
       "timestamp": "2026-11-24T14:22:51.467Z",
       "summary": "[REVIEW_PASS] E-470 at d0ae140 — 0 FAIL, 6 notes ‖ tests/suites/pane_binding_test.sh:478,633 E-269.L1/L3/L4/L7 + E-242.03b FAIL in reviewer sandbox only (tmux socket EPERM, ~/.rein/roles write-denied); hosted CI must confirm ‖ pane_binding_test.sh:626 dropping skip_unless_cmd bwrap loses no check: row tests regeneration; refusal covered by rein_start_test D-172.r22, sandbox_escape C42 ‖ pane_binding_test.sh:629-639 E-242.03 writes real ~/.rein/roles (rule 6, pre-existing), now runs on bwrap-less hosts too ‖ role_provisioning_test.sh:411 third inline copy of the bwrap/socat stub (also rein_start_test.sh:48); belongs in tests/lib ‖ hooks_surface_test.sh:179 TM1 SKIP honest (precondition absent), but SKIPs on every hosted ubuntu run; rein_tc_check refusing all would also SKIP ‖ src/bin/rein:1372 _acct_tilde: exact $HOME now printed in full, was ~ (harmless) ‖ record-import.test.mjs:156 ubuntu/node24 failure unaddressed; D-062: read log before merge",
       "sha": "d0ae14095ac3e54d90075e192b9cfbefb928128e",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-470",
+      "timestamp": "2026-11-24T14:52:10.829Z",
+      "summary": "[REVIEW_PASS] E-470 at 82f9521 — 0 FAIL, 3 notes ‖ tests/suites/node_unit_test.sh:51 a multi-line TAP error (YAML block `error: |-`, e.g. assert.strictEqual diff) prints only \"    |-\"; single-line timing messages print fully as intended ‖ tests/suites/node_unit_test.sh:51 no test pins the runner's new failure output (harness diagnostic, not product behaviour; noted, not failed) ‖ suite run in the reviewer sandbox: 1012 pass, 1 fail E-433.03 (real tmux server, sandbox-bound; local CI PASS at a2f4e81)",
+      "sha": "82f9521d2e6e76510bcce2d28a17ea277ce14870",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_CLEARED",
+      "agent": "security_engineer",
+      "task_id": "E-470",
+      "timestamp": "2026-11-24T14:52:21.960Z",
+      "summary": "SEC_CLEARED at 82f9521: 237b619..82f9521 outside .ai/ is rein display-only _acct_tilde (printf arg, not format) + tests; bwrap/socat stubs confined to layout/dry-run rows, refusal rows (r22a/b, E-462.01a-c, C42) use failing bwrap, no masking; 9 CodeQL tests/unit alerts confirmed test-only FPs (array includes; argv/positional exec). No new surface, no EXPLOITED/INCONCLUSIVE.",
+      "sha": "82f9521d2e6e76510bcce2d28a17ea277ce14870",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_FAIL",
+      "agent": "critic_acceptance",
+      "task_id": "E-457",
+      "timestamp": "2026-11-24T14:54:42.534Z",
+      "summary": "[ACCEPT_FAIL] E-457 at 82f9521 — 3 PASS, 1 FAIL, 1 UNVERIFIED ‖ 1 | PASS | git log origin/main has E-441 ffed1e8, E-440 57d1684, E-446 e685418, E-448 183b151/a84957f, E-449 abff55c, E-453 e68b40f, E-454 5aa7634 ‖ 2 | PASS | gh pr list --state open exit 0: only #70 dependabot, #50 e-429, #49 e-428, #23 e-409; none of the listed branches ‖ 3 | PASS | rein doctor exit 0, grep -c BUILD_STALE = 0; \"every running server booted the build that is on disk\" ‖ 4 | FAIL | handoff-e470.md never names E-440/441/446/448/449/453/454 (grep exit 1), but state.json has all 7 OPEN: listed tasks left open, no reason given ‖ 5 | UNVERIFIED | MCP tool verify_markdown_sync is not exposed to this agent; calling the handler via node runs its auto-fix writes (side effect)",
+      "sha": "82f9521d2e6e76510bcce2d28a17ea277ce14870",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_FAIL",
+      "agent": "critic_acceptance",
+      "task_id": "E-470",
+      "timestamp": "2026-11-24T14:54:49.939Z",
+      "summary": "[ACCEPT_FAIL] E-470 at 82f9521 — 6 PASS, 1 FAIL, 2 UNVERIFIED ‖ 1 | UNVERIFIED | sandbox block: `rein ci run` exit 2, git worktree add failed (.git/worktrees read-only); a2f4e81 PASS, diff .ai only ‖ 2 | PASS | `gh pr list --state open` exit 0: #70, #50, #49, #23 — no lean-core PR ‖ 3 | PASS | `git log origin/main --oneline` (=82f9521) has ≥1 commit naming each of E-455..E-471 ‖ 4 | PASS | `rein doctor --fitness` exit 0, 13 rows, 10 PASS · 2 FAIL · 1 UNKNOWN ‖ 5 | FAIL | handoff \"(whole)\" quote keeps 13 rows + total but drops the header line and all 13 ↳ detail lines ‖ 6 | UNVERIFIED | tool absent: verify_markdown_sync not exposed to this agent, no CLI equivalent ‖ 7 | PASS | handoff names merge commit 82f9521 = HEAD = origin/main ‖ 8 | PASS | handoff lists E-455..E-471 closed; state.json DONE except E-457, E-470 (close on this entry) ‖ 9 | PASS | handoff names E-473, E-472 open with reasons; both BLOCKED in state.json",
+      "sha": "82f9521d2e6e76510bcce2d28a17ea277ce14870",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-470",
+      "timestamp": "2026-11-24T15:03:28.003Z",
+      "summary": "[ACCEPT_PASS] E-470 at 82f9521 — 7 PASS, 0 FAIL, 2 UNVERIFIED ‖ 1 | UNVERIFIED | rein ci run for merged tip: sandbox, .git/worktrees read-only; operator-triggered run (not observed here) ‖ 2 | PASS | gh pr list --state open exit 0: #70 dependabot, #50, #49, #23; no lean-core head ‖ 3 | PASS | origin/main=82f9521; git log origin/main --oneline greps E-457..E-471 each >=1 commit (E-465 1) ‖ 4 | PASS | rein doctor --fitness exit 0: 13 rows, 10 PASS 2 FAIL 1 UNKNOWN ‖ 5 | PASS | handoff fitness block diff vs live rein doctor --fitness: IDENTICAL (header, rows, ↳ lines, total; FAIL rows incl.) ‖ 6 | UNVERIFIED | verify_markdown_sync: tool not exposed to critic (Engineer reports SYNC_PASS at 82f9521) ‖ 7 | PASS | handoff names merge commit 82f9521 (PR #69) ‖ 8 | PASS | handoff lists closed E-457..E-471 + superseded E-455/456/465; state.json: all DONE but E-457/E-470 (close on entry) ‖ 9 | PASS | handoff lists left open E-472, E-473 (BLOCKED in state) and E-428..E-454 stack, each with reason",
+      "sha": "82f9521d2e6e76510bcce2d28a17ea277ce14870",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-457",
+      "timestamp": "2026-11-24T15:03:29.431Z",
+      "summary": "[ACCEPT_PASS] E-457 at 82f9521 — 4 PASS, 0 FAIL, 1 UNVERIFIED ‖ 1 | PASS | git log origin/main has E-441 ffed1e8, E-440 57d1684, E-446 e685418, E-448 183b151/a84957f, E-449 abff55c, E-453 e68b40f, E-454 5aa7634 ‖ 2 | PASS | gh pr list --state open exit 0: only #70 dependabot, #50 e-429, #49 e-428, #23 e-409; no listed branch ‖ 3 | PASS | rein doctor exit 0, grep -c BUILD_STALE = 0; \"every running server booted the build that is on disk\" ‖ 4 | PASS | handoff-e470.md: Tasks closed lists 14 ids with merge 82f9521; Tasks left open names E-440/441/446/448/449/453/454 with reasons ‖ 5 | UNVERIFIED | tool absent: verify_markdown_sync not exposed to this agent; Engineer's quoted SYNC_PASS not observed here",
+      "sha": "82f9521d2e6e76510bcce2d28a17ea277ce14870",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

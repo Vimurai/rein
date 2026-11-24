@@ -1266,34 +1266,34 @@
     {
       "id": "E-394",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Make `rein doctor` read disableAllHooks from every settings layer per .ai/SECURITY.md \"E-391 / D-132 addendum 2–3\" finding M5 (P3, after E-391; behind E-393 and the identity tasks unless the operator reorders): today the doctor reads disableAllHooks only from the project's .claude/settings.json. Extend the check to .claude/settings.local.json, the user-level ~/.claude/settings.json and every registered account's <config_dir>/settings.json (the config_dir entries in ~/.rein/accounts.json), applying Claude Code's precedence so the effective value is what is reported; a non-boolean value (string \"true\", 1, null) is reported as `[HOOKS_DISABLED_INVALID] <file>` rather than treated as false; any layer that disables hooks is `✗ [HOOKS_DISABLED] <file>` and sets the doctor's hard-fail flag. Reuse the settings reader the classifier refresh already uses for the account directories (engineering-standards: no second reader). Extend the doctor suite (named) with one row per layer and one for the non-boolean value. Acceptance: each layer's disableAllHooks is detected in a throwaway HOME; the effective value follows precedence; doctor exit non-zero when any layer disables hooks; full rein ci run green.",
       "created_at": "2026-10-29T22:59:43.479Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T13:46:29.021Z",
+      "summary": "superseded by D-169 — not implemented. D-172 r27: the disableAllHooks check belonged to the command-text gate, deleted by E-463.",
       "depends_on": [
         "E-391"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T14:27:26.193Z"
+      "updated_at": "2026-11-24T13:46:29.022Z"
     },
     {
       "id": "E-395",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Make `rein doctor` exit non-zero on [SAFE_EXEC_BROKEN] and [GATE_DEP_MISSING] per the security_engineer's E-391 third pass (P3, after E-391): src/bin/rein's _doctor_gate_report prints both lines but never sets _DOCTOR_HARD_FAIL (the flag E-391 added under D-132 addendum 4 r2), so a doctor run whose gate cannot execute still exits 0 and a scripted check (CI install proof, the operator's migration step 3) reads it as healthy. Set the flag for both lines, and audit every other `✗` line the doctor prints for the same omission — each ✗ either sets the flag or is documented in the doctor's help text as advisory, with a reason; list the audit in the handover. Extend the doctor suite (named): a HOME whose safe-exec dependency is missing → exit non-zero with [GATE_DEP_MISSING]; a broken gate script → exit non-zero with [SAFE_EXEC_BROKEN]; the advisory lines keep exit 0. Acceptance: both lines fail the doctor; the ✗ audit table is in the handover; the CI install proof asserts doctor exit 0 still passes on a healthy install; full rein ci run green.",
       "created_at": "2026-10-29T22:59:50.395Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T13:46:30.196Z",
+      "summary": "superseded by D-169 — not implemented. D-172 r27: [SAFE_EXEC_BROKEN] and [GATE_DEP_MISSING] went with the command-text gate (E-463).",
       "depends_on": [
         "E-391"
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-10-30T14:27:26.195Z"
+      "updated_at": "2026-11-24T13:46:30.196Z"
     },
     {
       "id": "E-396",
@@ -1494,16 +1494,16 @@
     {
       "id": "E-410",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 3,
       "description": "Add `rein incident` as the fifth allowlisted install-tree writer per D-142 and .ai/blueprints/incident-tracker.md §Security (gate surface: Tier 3, security_engineer then critic_security; after E-409 lands on main, before E-404): (1) src/bin/rein gains `rein incident '<json>'` and `rein incident --type <T> --message <m> --signature <s> [--agent <a>]`, both calling src/shared/incident-append.mjs unchanged (validation, sanitisation, atomic append, rotation); no path, output or HOME flag; a rejected record prints `[INCIDENT_REJECTED] <field>: <reason>` and exits non-zero; (2) src/mcp/safe-exec-mcp/gate-guard.mjs allows exactly the `rein incident` command form by the same literal mechanism as `rein doctor` (D-083 r6); the GATE_SELF_DISABLE message lists it as the fifth writer; the D-083 r5 (iii) classifier hard_deny entries are untouched; (3) fixture rows: block-rules / self-disable cases — `rein incident '{…}'` PASS for both roles; `node ~/.rein/shared/incident-append.mjs …` still BLOCK; `rein incident … > ~/.rein/x` BLOCK; `rein incident --home …` rejected by the CLI; report the new sha256 of each fixture touched and of tests/fixtures/role-verdict-cases.json in the closing handoff so the Architect pins them; (4) rewrite the rein-incident skill (both .claude/skills and src/shared/skills copies, and the _SKILLS_INDEX line) to call `rein incident`; its fallback prints the command for the operator when rein is missing; (5) file the 2026-11-01 outage as the first record: type ENV_ERROR, signature mcp-json/foreign-install-rewrite, message naming E-402's smoke run and E-409's fix, no home path; (6) tests (name what each extends, D-088): cli_test — both invocation forms append one sanitised line, a record with a home path is rejected with the line, the subcommand refuses unknown flags; gate suites — the fixture rows above; skill_surface — the skill names `rein incident` and not the helper path. Acceptance: `rein incident` from an Engineer pane appends one line with the gate on; `node <helper>` from the same pane is still blocked; security_engineer PASS in .ai/SECURITY.md; critic_security stamp; full `rein ci run` green; all required checks green. One PR.",
       "created_at": "2026-11-01T21:23:10.025Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T13:46:31.444Z",
+      "summary": "superseded by D-169 — not implemented. D-172 r27: the gate's install-tree writer allowlist is gone with the gate (E-463); the sandbox write-denies ~/.rein instead.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-01T21:23:10.040Z"
+      "updated_at": "2026-11-24T13:46:31.444Z"
     },
     {
       "id": "E-411",
@@ -1872,16 +1872,16 @@
     {
       "id": "P-52",
       "owner": "Architect (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Run the first control review per D-159 r8 and .ai/blueprints/harness-fitness.md §Component 2. Ordering by text (not chained: DAG depth cap): 30 days after E-432 merges, not before. Run `rein gate ledger --days 30 --json`, and for every row flagged [CONTROL_QUIET] or [CONTROL_NOISY] record in one D-ruling whether Claude Code now does it natively (native-first.md), what it caught in the window that nothing else would have, its cost per task, and the verdict keep, change or retire; rules guarding a catastrophic or sovereignty class are kept without argument; register one E-task per retire or change verdict. Acceptance: the D-entry names every flagged row with its verdict and quotes its ledger numbers; each retire or change verdict has an E-task id beside it.",
       "created_at": "2026-11-17T16:51:18.570Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-24T13:46:32.298Z",
+      "summary": "superseded by D-169 — not implemented. D-172 r27: the control review read `rein gate ledger`, removed with the gate (E-463).",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-17T16:51:18.570Z"
+      "updated_at": "2026-11-24T13:46:32.298Z"
     },
     {
       "id": "E-433",

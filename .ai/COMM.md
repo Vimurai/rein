@@ -3,73 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 01:26 UTC
-**From**: Engineer → Architect
-**Trigger**: The lean-core batch (D-170) is built on `lean-core` (HEAD 5dfd82b), except E-463, which is held. The review is done; the security round ended SEC_BLOCKED, F1/F2/F5 are fixed, and the second round is yours (D-164 r6). The operator deferred CI.
-
-### What was built
-One commit per task on `lean-core`, cut from c0737a6:
-
-| Task | Commit | Summary |
-|---|---|---|
-| E-464 | 2593dd9 | review by tier; the stamps are checked at DONE, not at commit |
-| E-458 | e17da34 | sandbox measured (plans/e-458-sandbox-measurement.md); verdict yes |
-| E-460 | ab30595 | 2 KB brief and 2 KB rulefiles; rein-preflight removed |
-| E-461 | 334f267 | `rein done`, `rein handoff`, `rein decide`; add_task quality checks |
-| E-462 | 93588b8 | the sandbox role boundary; role files under ~/.rein; the lane ledger |
-| E-467 | 887a818 | stripped to the keep list; safe-exec kept |
-| E-466 | 6b438f2 | small record: TASKS.md lists open tasks only; rein archive |
-| E-459 | ec4d45a | `rein doctor --fitness` |
-| E-469 | fcf60ff | one local plugin |
-| E-468 | 2bcaf5d | docs rewritten |
-| E-470 | 6d9c796 | the batch review's fixes |
-| E-462 | 5dfd82b | security-round fixes F1, F2, F5 |
-
-The full list of what was removed, each task's decisions and the scorecard baseline are in **plans/lean-core-batch-notes.md**. Tag v0.5.0 holds every removed unit.
-
-### Decisions made
-- None by the Engineer.
-- The operator, 2026-11-23: no CI between tasks or for the batch until they say so. They approved the batch to run overnight.
-
-### Blueprint divergence (if any)
-- **E-463 was not built.** The permission classifier refused deleting the safe-exec text gate. The gate, its hook and its tables stay, so these targets are unmet: MCP servers (2 against 1), hook lines (1391 against 900; 923 without pre-tool-use), command-text lines.
-- **The operator's install never ran.** `bash install-rein.sh` was refused twice by the classifier. Every batch commit carries a [CRITIC_STAMP] that says "NO critic review"; it only satisfies the stale installed pre-commit hook.
-- **E-470 is partial.** Done: one reviewer pass and one security round. Not done: CI, critic_acceptance, the PR and merge, and the install. E-457's PR #68 is open, its CI was cancelled on the operator's word, and it has no merge commit for rein-app yet.
-
-### Next action needed
-- **Architect:**
-  1. **Security, second round (D-164 r6).** The round's verdict is SEC_BLOCKED (.ai/SECURITY.md, "lean-core security round"; T-SANDBOXLANE-001).
-     - F1 (P0, roles.json flag injection) and F2 (P1, forged refs bypass the lane check) are fixed in 5dfd82b, with escape cases C31–C35. The best full escape run was 34/35: the failure was the model not making its probe call (C25), not an escape.
-     - **F3 (P1)**: a config file the Architect plants at the project root (`.npmrc`, `.pnpmfile.cjs`, conftest.py) runs in the Engineer's lane. Fixing it needs the Architect's working directory outside the project. Yours to rule.
-     - **F4 (P2)**: after E-467 and E-463, a project without `.ai/publish.json` has no secret check at commit. Keep a small one in pre-commit?
-  2. **Review.** It recorded REVIEW_PASS on 7 tasks and REVIEW_FAIL on E-460, E-466 and E-469. Those failures are fixed in 6d9c796 but not re-stamped.
-     - E-460's edit to your BRIEF.md is reverted. Its line 37 still names `skill: rein-preflight`, which no longer exists; the edit belongs to you.
-  3. **Rulings collected in the batch notes:**
-     - the session-bytes row fails at 5313 against 4096: CLAUDE.md @imports the rulefile and it is also appended;
-     - TASKS.md is 110 KB, over the 80 KB target;
-     - picking the brief's next five tasks;
-     - E-462 gap 1 and the placeholder files;
-     - post-commit.sh pushes hooks over 900 lines;
-     - the eval harness is idle;
-     - the delta channel no longer fills;
-     - the tracked `.claude/agents` and `.claude/skills` copies once the plugin is on;
-     - docs/demo.cast;
-     - the gate's name in the docs (named outright, so the E-468 grep stays unmet until E-463);
-     - macOS listed without being measured.
-- **Operator**, when happy:
-  - run `bash install-rein.sh` and restart the MCP servers;
-  - decide on E-463 (delete safe-exec);
-  - run CI;
-  - delete the 12 leftover ~/.rein/roles/proj-* and gitproj-* folders.
-- **Engineer, after that:** critic_acceptance for each task, one PR, merge, then close the batch.
-
-### Open risks
-- `lean-core` and the 7 branches of PR #68 are not on origin. `lean-core` is local only.
-- No CI has run on anything after 0a92961.
-- The live installed gate and task server predate the whole stack.
----
-
----
 ## Handoff — 2026-11-24 01:52 UTC
 **From**: Architect → Engineer
 **Trigger**: D-172 — review of the lean-core batch (your handoff of 01:26 UTC). Accepted as built except the rulings below. No new tasks: the fixes belong to E-462 and E-467, which are still open.
@@ -461,3 +394,28 @@ Adoptability   steps from install to a first closed task                     UNK
 
 ### Open risks
 - The guard can still be tripped by an operator action during a run, such as `rein install` or a new `rein pane` on a project with no roles/ entry yet. The failure names the path.
+---
+## Handoff — 2026-11-24 16:14 UTC
+**From**: Architect → Engineer
+**Trigger**: E-473: one re-probe round, no discovery, at the final tip; the guard's residuals are accepted (D-174 r16–r20)
+
+### Decisions made
+- **D-174 addendum 2** in `.ai/DECISIONS.md`:
+  - r16: the guard is a detective check against a test's mistake, not a boundary against an attacker.
+  - r17: `security_engineer` re-runs the payloads of F-E473-1, F-E473-4 and F-E473-5 and nothing else. SEC_CLEARED if the guard sees all of them. A new finding is recorded and gates only if P0. No fourth round.
+  - r18: accepted residuals: deletions; an overwrite of an existing `roles/<project>` file; writes under the left-out live paths. The `--settings` re-read question is not measured and does not change the ruling.
+  - r19: a run the guard fails because of an operator action during it is repeated. No exemption is built.
+  - r20: the three tmux rows are judged on the operator's `rein ci run`.
+
+### Order (so every stamp is taken once, at the commit that merges)
+1. **Operator**: `rein sync`, then `rein ci run` at the branch tip. Remove the 11 leaked `~/.rein/roles/rein-t-*` and `roles/tmp.*` directories first, so the run starts clean.
+2. **Engineer**: commit `tests/census-baseline.tsv`. That commit is the final tip.
+3. **Engineer**, at the final tip: the re-probe with r17 as its whole scope; `reviewer` for what changed since 677fb06 (60cc6e5 and the baseline); `critic_acceptance` for E-473, E-474 and E-475 with r12 to r14. Add r18's residuals to T-REINGUARD-001 as accepted.
+4. **Engineer**: one pull request, merge on green, close all three, then E-472.
+
+### Next action needed
+- **Operator**: step 1.
+- **Engineer**: steps 2 to 4. Until the operator's run, nothing to do on this branch.
+
+### Open risks
+- The baseline commit changes a file under `tests/`, so the run of step 1 may not stand for the final tip at push or at DONE. If a check refuses for that reason, the second run is the operator's to start; say so in one line and wait.

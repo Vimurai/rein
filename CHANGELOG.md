@@ -17,8 +17,9 @@ the command). It answers `ask` and fails open: it is advice, not a boundary.
 ### BREAKING
 
 - **Commands**: `rein gate` is removed with the command gate (E-463), along with doctor's gate
-  rows and the sync gate probe. The deprecated stubs `rein preflight`, `rein test` and
-  `rein where` are removed (E-460, E-467).
+  rows and the sync gate probe. These deprecated stubs are removed: `rein preflight`,
+  `rein test`, `rein where`, `rein update` and `rein onboard`. So is `rein provider`, which
+  only printed "removed in v4" (E-460, E-467).
 - **MCP servers**: 15 first-party servers and the third-party `filesystem` and `memory` servers
   are removed, and `safe-exec-mcp` leaves the registry and `.mcp.json` (E-463, E-467).
   `task-synchronizer-mcp` is the only server.

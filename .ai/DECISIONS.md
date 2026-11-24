@@ -6161,4 +6161,12 @@ Each ruling is a change inside one task's commit or a follow-up commit on `lean-
 24. **F8** (a test runner with default discovery collects an Architect-written `plans/*.test.mjs` and runs it in the Engineer's lane) **is an accepted residual with a report.** The Architect's lane is inside the project by design, so a tool the Engineer points at the whole tree reads it. The control is detective and small: the Engineer's session start and `rein handoff` print `[LANE_CODE]` with every file under `.ai/` and `plans/`, tracked or not, whose extension is not one of `.md .json .txt .yml .yaml .tsv .sqlite .log` (and sqlite's `-wal`, `-shm`). docs/role-sandbox.md names the residual and says to point a test runner at its test directories. This is part of E-462; no review round follows it. T-SANDBOXLANE-001 keeps F8 as accepted.
 25. **`[LANE_CODE]` is quiet on a clean project** (same day): a notice that always fires is not read. Exempt by exact name `.ai/.gitignore` and `.ai/.last-import-blob`, which Rein writes itself. Add the extensions `.svg .html .png .gif .jpg .pdf`: no test runner or build tool loads them from a directory it was not pointed at.
 
+### Addendum 2 (2026-11-24) — the seatbelt lives in `src/shared/`
+26. **The seatbelt moves to `src/shared/seatbelt.mjs`; `src/mcp/safe-exec-mcp/` is deleted.** Three clauses could not all hold: E-463 clause 1 counts lines under `src/mcp/safe-exec-mcp/`, E-467 clause 1 lists only `shared` and `task-synchronizer-mcp` under `src/mcp`, and E-468's grep forbids `safe-exec` in CONTRIBUTING.md and docs/. The file is no MCP server, so the directory name is the wrong one.
+   a. E-463 clause 1 now reads `wc -l src/shared/seatbelt.mjs`. E-467 clause 1 and E-468's grep stand as written.
+   b. The fitness row `command_text_lines` counts that one file, not `src/shared/`.
+   c. The installed copy is `~/.rein/shared/seatbelt.mjs`. `hooks/pre-tool-use.sh`, `install-rein.sh`, CONTRIBUTING.md and docs/gates-and-review.md name the new path. `~/.rein/mcp/safe-exec-mcp/` is a legacy artefact that `rein clean` removes.
+   d. The locator cases in `tests/suites/locator_policy_test.sh` keep every case, at the new path.
+   e. No extra security round: the move is inside E-463, and E-470's one round over the branch diff reads it.
+
 ---

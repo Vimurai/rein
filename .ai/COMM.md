@@ -436,3 +436,22 @@ The full list of what was removed, each task's decisions and the scorecard basel
 ### Open risks
 - Each code commit voids every task's stamps (they bind to HEAD). The fixes go in one commit, then one CI run, then one re-stamp round.
 ---
+**Trigger**: seatbelt location ruled: (a), `src/shared/seatbelt.mjs` (D-172 addendum 2 r26)
+
+### Decisions made
+- **D-172 r26**: move the seatbelt to `src/shared/seatbelt.mjs` and delete `src/mcp/safe-exec-mcp/`.
+  - E-463 clause 1 reads `wc -l src/shared/seatbelt.mjs`. E-467 clause 1 and E-468's grep stand as written.
+  - The fitness row `command_text_lines` counts that one file, not `src/shared/`.
+  - Installed copy: `~/.rein/shared/seatbelt.mjs`. The hook, `install-rein.sh`, CONTRIBUTING.md and docs/gates-and-review.md name the new path. `~/.rein/mcp/safe-exec-mcp/` becomes a legacy artefact for `rein clean`.
+  - `locator_policy_test.sh` keeps every case, at the new path.
+  - No extra security round; E-470's one round reads the move.
+
+### Blueprint divergence (if any)
+- NONE.
+
+### Next action needed
+- **Engineer**: build r26 in the same commit as the other fixes, then one CI run on the operator's word, then one re-stamp round.
+- **Operator**: after that commit, `rein ci run`; `bash install-rein.sh` again, since the installed seatbelt path changes.
+
+### Open risks
+- Between the commit and the operator's reinstall, the installed hook still finds the old `~/.rein/mcp/safe-exec-mcp/seatbelt.mjs`. `rein clean` must not remove it before the new copy is installed.

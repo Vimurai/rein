@@ -3309,3 +3309,26 @@ Architect in `<project>/.ai` and the Engineer at the root.
 | # | Sev | Gating | Finding |
 |---|-----|--------|---------|
 | F8 | P1 | no (not P0) | **The Architect's own lane holds files that a test runner loads.** D-172 r2a closes the project root, but `plans/` is in the Architect's lane and the root is not. A runner started at the root with default discovery collects files from `plans/`. Proven: `plans/zz.test.mjs` was executed by `node --test` and wrote `src/`. That is the F3 effect: Architect code runs with the Engineer's src/ write and network. Jest, vitest and mocha with recursive globs, and pytest (`plans/conftest.py`, `plans/test_*.py`; pytest was not installed here, so not run), use the same default discovery. `.ai/` was not collected by `node --test`, and pytest's default `norecursedirs` skips dot dirs. The file is visible in the Architect's lane, but a `plans/.gitignore` (lane-writable) can keep it out of `git status`. Rein's own `npm test` (tests/run.sh) names its files and is not affected. Preconditions: the downstream project's runner uses default discovery from the root, and the Engineer runs it. Fix direction (Architect): say in docs/role-sandbox.md that the Engineer's test runner must exclude `plans/` and `.ai/` (for example `node --test` with explicit globs, jest `testPathIgnorePatterns`, pytest `norecursedirs`). Or have the Engineer's session start and `rein handoff` print `[LANE_STRAY]` for executable or test-named files under `plans/`, as in r2b. Not run: a forged `objects/info/commit-graph` (parents and root tree read from the graph) against the lane check. It is noted for completeness only; push packing reads the same graph, so the remote's connectivity check is expected to refuse it. |
+
+## E-471 round — Architect git lane prints the union reason (security_engineer, 5be05d9, 2026-11-24)
+
+Scope: `_resolve_commit_role` now reads `launch-record.py role`; `_lane_why` sanitises the union
+reason printed in `[SOVEREIGNTY_BLOCK]`. Resolution reviewed by reading: `walk` and `role` call the
+same `walk()`; the mapping union→architect, `<role>\trecord`→chain, `unverified`/empty→env is the
+old one, and REIN_SKIP_GIT_LANE is untouched. tests/suites/git_lane_test.sh: 121 PASS, 0 FAIL.
+
+### Pen-Test Results
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|-------|---------|---------------------|---------|--------------|-------|
+| A03 | `_lane_why` (extracted) | `a\nb\r\nc`, `\e[31m`, `\e]0;t\a`, `\e[2J`, DEL, `\001` | RESISTED | 0 | one line, no C0/DEL; C and C.UTF-8 locales |
+| A03 | `_lane_why` (extracted) | `\xc2\x9b2J`, `\xc2\x9d0;t\xc2\x9c` (C1 as UTF-8) | RESISTED | 0 | removed |
+| A03 | `_lane_why` (extracted) | `a\xc2\xc2\x9b\x9b2J` (nested C1) | EXPLOITED (F-471-1) | 0 | one `sed s///g` pass does not rescan: the inner pair is removed and the outer bytes rejoin into `\xc2\x9b` (8-bit CSI) |
+| A03 | `_lane_why` (extracted) | `\xc2\x1b\x9b`, `\xc2\n\x9b`, `\xc2\t\x9b` | RESISTED | 0 | `tr` runs before `sed`; newline/tab become a space, so no pair forms |
+| A03 | `_lane_why` (extracted) | 500 x `x`, 300 x `é`, `%s%n $(id) \`id\`` | RESISTED | 0 | capped at 160 (characters in UTF-8, bytes in C); printed literally |
+| A04 | `launch-record.py role` producer | OSError on `/nonexist/\x9b2J\x1b[31m\n`, fsdecoded `\xc2\x9b\xff` path | RESISTED | 0 | `str(OSError)` reprs the filename, so the real producer emits no control chars; F-471-1 is reachable only with a substituted `launch-record.py` (already same-user code execution) |
+
+F-471-1 (P3, gating by rule: EXPLOITED): fix is to loop the C1 removal until stable, e.g.
+`sed -e ':a' -e $'s/\xc2[\x80-\x9f]//' -e 'ta' ...` (verified in the harness: nested, triple-nested
+and plain inputs come out clean), plus a nested-C1 case in E-471.3. Residual, not gating: Unicode
+bidi/format characters (e.g. U+202E) pass; the producer's repr leaves printable non-ASCII as is.

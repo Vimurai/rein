@@ -194,7 +194,8 @@ _resolve_commit_role() {
   if [[ -n "$lr" ]] && command -v python3 >/dev/null 2>&1; then
     line="$(python3 -I "$lr" role 2>/dev/null)"
     case "$line" in
-      union$'\t'*|union) printf 'union:architect\t%s' "${line#union$'\t'}"; return 0 ;;
+      union$'\t'*|union) [[ "$line" == union ]] && line=$'union\t'
+                                printf 'union:architect\t%s' "${line#union$'\t'}"; return 0 ;;
       architect$'\t'record) printf 'chain:architect'; return 0 ;;
       engineer$'\t'record)  printf 'chain:engineer';  return 0 ;;
     esac
@@ -211,12 +212,13 @@ _resolve_commit_role() {
   printf 'env:engineer'
 }
 
-# The walk's reason, fit to print (E-471): a record's content can reach it, so it is one line,
-# with no control characters (C0, DEL, C1 as UTF-8) and at most 160 characters.
+# The walk's reason, fit to print (E-471): it comes from another program's output, so it is one
+# line, with no control characters (C0, DEL, C1 as UTF-8) and at most 160 characters. The C1
+# removal loops: one pass would rejoin `\xc2\xc2\x9b\x9b` into a C1 (F-471-1).
 _lane_why() {
   local w
   w="$(printf '%s' "$1" | LC_ALL=C tr '\n\r\t' '   ' | LC_ALL=C tr -d '\000-\037\177' \
-       | LC_ALL=C sed -e $'s/\xc2[\x80-\x9f]//g' -e 's/  */ /g' -e 's/^ //' -e 's/ $//')" || w=""
+       | LC_ALL=C sed -e ':a' -e $'s/\xc2[\x80-\x9f]//' -e 'ta' -e 's/  */ /g' -e 's/^ //' -e 's/ $//')" || w=""
   printf '%s' "${w:0:160}"
 }
 

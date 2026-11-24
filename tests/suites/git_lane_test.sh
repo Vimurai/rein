@@ -159,26 +159,27 @@ assert_contains "E-214.07a: the launch record beats a forged REIN_CALLER_ROLE=en
 R10b="$(_mkrepo)"; OTHER="$(test_tmpdir glother)"; mkdir -p "$OTHER/.ai"
 ( cd "$R10b" && echo z > src/impl.js && git add src/impl.js )
 _OUT="$( cd "$OTHER" && HOME="$GH" bash "$AS" engineer e471-u -- \
-         bash -c 'cd "$1" && exec bash "$2"' _ "$R10b" "$HOOK" 2>&1 )"; _RC=$?
+         bash -c 'cd "$1" && exec bash "$2"' _ "$R10b" "$HOOK" 2>&1 >/dev/null )"; _RC=$?
 assert_status 0 "E-471.1a: a record for another project blocks out-of-scope paths (rc 1)" test "$_RC" -eq 1
 assert_contains "E-471.1b: …naming the source" "source: union" "$_OUT"
 assert_contains "E-471.1c: …and the walk's reason" "is for another project" "$_OUT"
 assert_contains "E-471.1d: …and the fix" "rein pane <role>" "$_OUT"
 # (2) a live architect record for this project → chain, with no reason text.
-assert_contains "E-471.2a: an architect record prints source: chain" "source: chain)" "$( cd "$R10" && HOME="$GH" \
-  bash "$AS" architect e471-c -- bash "$HOOK" 2>&1 )"
-assert_not_contains "E-471.2b: …and no reason" "is for another project" "$( cd "$R10" && HOME="$GH" \
-  bash "$AS" architect e471-c -- bash "$HOOK" 2>&1 )"
-# (3) a reason holding a newline and escape sequences prints on one line, controls removed.
+_OUT="$( cd "$R10" && HOME="$GH" bash "$AS" architect e471-c -- bash "$HOOK" 2>&1 >/dev/null )"
+assert_contains "E-471.2a: an architect record prints source: chain (on stderr)" "source: chain)" "$_OUT"
+assert_not_contains "E-471.2b: …and no reason" "is for another project" "$_OUT"
+# (3) a reason holding a newline and escape sequences prints on one line, controls removed —
+# including a C1 nested inside another (\xc2 \xc2\x9b \x9b, F-471-1).
 # A stub launch-record.py stands in for a record whose content reaches the reason.
 GH3="$(test_tmpdir glhome3)"; mkdir -p "$GH3/.rein/shared"
 printf '%s\n' 'import sys' \
-  'sys.stdout.write("union\tline-one\nline-two \x1b[31mRED\x07 \u009b2J end")' \
+  'sys.stdout.buffer.write(b"union\tline-one\nline-two \x1b[31mRED\x07 \xc2\x9b2J \xc2\xc2\x9b\x9b2K end")' \
   > "$GH3/.rein/shared/launch-record.py"
 tc_link_shared "$GH3"; ln -s "${REPO_ROOT}/src/mcp" "${GH3}/.rein/mcp"
-_OUT="$( cd "$R10" && env HOME="$GH3" REIN_CALLER_ROLE= bash "$HOOK" 2>&1 )"; _RC=$?
+_OUT="$( cd "$R10" && env HOME="$GH3" REIN_CALLER_ROLE= bash "$HOOK" 2>&1 >/dev/null )"; _RC=$?
 _why_line="$(grep -a 'Session role:' <<< "$_OUT")"
-assert_contains "E-471.3a: the reason is printed on the role line" "line-one line-two [31mRED 2J end" "$_why_line"
+assert_status 0 "E-471.3: the union fallback blocks (rc 1)" test "$_RC" -eq 1
+assert_contains "E-471.3a: the reason is printed on the role line" "line-one line-two [31mRED 2J 2K end" "$_why_line"
 assert_status 1 "E-471.3b: no control character reaches the output" \
   bash -c 'LC_ALL=C grep -aq "[[:cntrl:]]" <<< "$1"' _ "$_why_line"
 assert_status 1 "E-471.3c: no C1 control (UTF-8) reaches the output" \

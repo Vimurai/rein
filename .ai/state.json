@@ -7687,6 +7687,33 @@
       "summary": "D-172 a1 r25 (LANE_CODE exemptions); no review per the ruling. Satisfies the stale installed pre-commit hook only.",
       "sha": "9e601f2d931aa22dcac65bdf7bedcb78993f5be8",
       "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T11:34:06.328Z",
+      "summary": "[REVIEW_PASS] E-471 at 5be05d9 — 0 FAIL, 4 notes ‖ tests/suites/git_lane_test.sh:167-170 E-471.2a/2b run the hook twice for one fixture; capture once ‖ tests/suites/git_lane_test.sh:161,178 asserts on 2>&1 not stderr alone (block does go to >&2, so the acceptance is still met) ‖ tests/suites/git_lane_test.sh:178 E-471.3 sets _RC but never asserts the block (rc 1) ‖ hooks/pre-commit.sh:220 ${w:0:160} counts by locale; under C it can split a UTF-8 char (harmless). Suite run: PASS=121 FAIL=0; resolution same as walk (union→architect, unverified→env)",
+      "sha": "5be05d9cf625568188a1acd8f406c1ba35f83008",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "SEC_BLOCKED",
+      "agent": "security_engineer",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T11:35:18.737Z",
+      "summary": "5be05d9: resolution unchanged (union->architect, restrict-only, REIN_SKIP_GIT_LANE untouched; git_lane 121/0). EXPLOITED F-471-1: _lane_why single-pass sed lets nested C1 rejoin ($'a\\xc2\\xc2\\x9b\\x9b2J' -> \\xc2\\x9b CSI). Reachable only via substituted launch-record.py (P3). Fix: loop sed until stable + nested-C1 test (T-LANEWHY-001)",
+      "sha": "5be05d9cf625568188a1acd8f406c1ba35f83008",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-471",
+      "timestamp": "2026-11-24T11:35:39.571Z",
+      "summary": "[ACCEPT_PASS] E-471 at 5be05d9 — 4 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | git_lane_test.sh E-471.1a-d green (rc 1, source: union, is for another project); scratch rerun: role line has 'union — record 123 is for another project' on stderr ‖ 2 | PASS | E-471.2a/2b green; scratch rerun with architect record prints 'Session role: architect (source: chain).' with no reason ‖ 3 | PASS | E-471.3a-c green: stub why with \\n, ESC, BEL, C1 printed on one line, no [[:cntrl:]] or C2 80-9F bytes ‖ 4 | PASS | git show --numstat: test file 31 added/0 deleted; `bash tests/run.sh git_lane_test.sh` (npm test) exit 0, 121 pass 0 fail",
+      "sha": "5be05d9cf625568188a1acd8f406c1ba35f83008",
+      "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]
 }

@@ -1243,3 +1243,11 @@ Claude Code 2.1.331 with haiku sessions running the generated role files.
   itself named. docs/role-sandbox.md names the residual and tells the reader to point a test
   runner at its test directories. Pins: tests/unit/lane-code.test.mjs, hooks_surface
   D-172.a1r24, bookkeeping-commands "prints [LANE_CODE]". No review round follows (r24).
+
+### T-LANEWHY-001 — nested C1 survives the lane-reason sanitiser (security_engineer, E-471 review 5be05d9, 2026-11-24)
+`_lane_why` (hooks/pre-commit.sh) removes UTF-8 C1 with one `sed 's/\xc2[\x80-\x9f]//g'` pass.
+PoC: `_lane_why $'a\xc2\xc2\x9b\x9b2J'` prints `a\xc2\x9b2J`, an 8-bit CSI. Trust boundary: the
+union reason from `launch-record.py role` reaches the operator's terminal. Reachability: low; the
+real producer emits fixed strings and repr'd OSError filenames, so only a substituted
+`launch-record.py` (same-user code) can feed it. Mitigation: loop the removal until stable and pin a
+nested-C1 case in tests/suites/git_lane_test.sh E-471.3. Status: mitigated (E-471 fix commit: looped removal, E-471.3a-c pin the nested case); awaiting the security re-check.

@@ -529,6 +529,16 @@
       "note": "E-473 (D-170 r5, D-172 r28): the module of retired telemetry or the incident tracker. The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
     },
     {
+      "id": "retired-shared-ci-plan",
+      "path": "~/.rein/shared/ci-plan.mjs",
+      "kind": "file",
+      "class": "safe",
+      "since": "0.6.0",
+      "rule": "not-in-src",
+      "src_root": "src/shared",
+      "note": "E-474 (D-174 r4): the module of the removed CI planner (`rein ci plan`). The installer's rsync --delete removes it; this entry covers a mirror built by the cp fallback."
+    },
+    {
       "id": "retired-data-telemetry",
       "path": "~/.rein/telemetry.sqlite*",
       "kind": "file",

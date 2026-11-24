@@ -118,8 +118,8 @@ as a `SKIPPED` run; a skip without a reason is refused. The hosted pipeline: [CI
 ```
 src/
   bin/            # rein (the CLI), rein-account.sh, rein-exec
-  mcp/            # task-synchronizer-mcp (the ledger), shared/ (incl. seatbelt.mjs, advice)
-  shared/         # the helpers the CLI and hooks use; skills/ shared by both roles
+  mcp/            # task-synchronizer-mcp (the ledger) and its shared/ modules
+  shared/         # the helpers the CLI and hooks use, seatbelt.mjs (advice); skills/ shared by both roles
   claude/         # agents/, skills/, plugin/ (the plugin manifest templates)
   config/         # registry.json (the MCP server, the roles)
   templates/      # ENGINEER.md, ARCHITECT.md, CLAUDE.md, roles.json and the .ai/ seeds

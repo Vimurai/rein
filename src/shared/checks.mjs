@@ -96,3 +96,23 @@ export function checkStampSummary(type, summary, taskId) {
   const r = parse(summary, taskId ?? null);
   return r.ok ? null : `[CHECK_MALFORMED] ${type}: ${r.reason}`;
 }
+
+/**
+ * E-479: compare one run with its expect. `run` is { code, stdout }. → { holds, got } where `got`
+ * says what the run gave, in the expect's own terms (`exit 1`, `2 lines`, `out=…`).
+ */
+export function evaluate(expect, { code, stdout }) {
+  const lines = String(stdout ?? "").split("\n").filter((l) => l.trim()).length;
+  const nl = (n) => `${n} line${n === 1 ? "" : "s"}`;
+  switch (expect.kind) {
+    case "exit": return { holds: code === expect.value, got: `exit ${code}` };
+    case "empty": return { holds: lines === 0, got: nl(lines) };
+    case "lines": return { holds: lines === expect.value, got: nl(lines) };
+    case "lines>=": return { holds: lines >= expect.value, got: nl(lines) };
+    case "out": {
+      const out = String(stdout ?? "").trim();
+      return { holds: out === expect.value, got: `out=${out.length > 80 ? `${out.slice(0, 80)}…` : out.replace(/\n/g, "⏎")}` };
+    }
+    default: return { holds: false, got: `unknown expect ${expect.kind}` };
+  }
+}

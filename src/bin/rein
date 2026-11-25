@@ -149,6 +149,12 @@ Commands:
   rein done <id> --summary <text>
                  Close a task: DONE through the completion gates (exit 1 names the
                  missing stamp), the LOG line, the digest rebuilt
+  rein recheck [--list] [--json]
+                 Replay the recorded acceptance checks of DONE tasks at HEAD and record
+                 CHECKS_PASS or CHECKS_FAIL (exit 1 names each broken check); --list
+                 prints them and runs nothing. Read --list first in a project you do not trust
+  rein recheck --retire <task>#<n> --by <D-###|E-###|P-##> --reason <text>
+                 End a check on purpose; the CHECK_RETIRED stamp names who and why
   rein handoff --to architect|engineer --file <entry>
                  Append the entry to .ai/COMM.md, run rein archive, commit it with the
                  dirty tracked .ai/ paths, print the sha and the SendMessage wake line
@@ -6502,6 +6508,13 @@ case "$cmd" in
     [[ -n "$_bk" ]] || { echo "rein ${cmd}: cli-bookkeeping.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
     command -v node >/dev/null 2>&1 || { echo "rein ${cmd}: node not found" >&2; exit 1; }
     node --no-warnings "$_bk" "$cmd" "${@:2}" ;;
+  # E-479 (D-176, acceptance-replay.md §Component 2): replay the recorded acceptance checks.
+  # It runs ledger command text in THIS shell (a pane's sandbox bounds it); never from src/mcp/.
+  recheck)
+    _rc="$(_rein_helper shared/recheck.mjs || true)"
+    [[ -n "$_rc" ]] || { echo "rein recheck: recheck.mjs not found ($(_rein_fix_install))" >&2; exit 1; }
+    command -v node >/dev/null 2>&1 || { echo "rein recheck: node not found" >&2; exit 1; }
+    node --no-warnings "$_rc" "${@:2}" ;;
   # E-208 (role-abstraction.md §Same-Provider Triad): bind THIS tmux pane to a role
   # and launch that role's provider CLI. Usage: rein pane <architect|engineer>.
   pane)          do_pane "${@:2}" ;;

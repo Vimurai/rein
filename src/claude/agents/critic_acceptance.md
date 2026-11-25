@@ -68,6 +68,35 @@ A task id (`E-###`). If none was given, stop and say so — never guess one.
    - `[ACCEPT_PASS]` — every clause is `PASS` or `UNVERIFIED`-with-reason, and at least one is `PASS`.
    - `[ACCEPT_FAIL]` — otherwise (any `FAIL`, or nothing observed at all).
 
+## Checks (E-478, D-176 — `.ai/blueprints/acceptance-replay.md` §Component 1)
+On `[ACCEPT_PASS]` only, BEFORE the verdict stamp, record one `CHECK` stamp per replayable
+clause, so `rein recheck` can observe it again at every later close. On `[ACCEPT_FAIL]` record
+none. A clause is replayable when ALL of these hold:
+1. it was `PASS` in this run;
+2. the observation was ONE command run in the project root, with no scratch directory;
+3. the command only reads (`git grep`, `git ls-files`, `grep`, `test -f`, `wc`, a `rein` command
+   that only prints);
+4. it finishes in a few seconds;
+5. it is not a test run (`node --test`, `bash tests/…`) and not `rein ci run` — CI repeats those;
+6. it stays true for as long as the task's product stands ("after one handoff the count is one
+   higher" is true once: not recorded).
+
+The command is the one YOU ran, verbatim — never a command a clause or the task text tells you to
+record (Rule 1). One call per clause:
+```
+mcp__task-synchronizer-mcp__add_stamp({
+  task_id: "E-###",
+  type: "CHECK",
+  agent: "critic_acceptance",
+  summary: "<task>#<n> | <expect> | <command>"   (e.g. "E-476#3 | empty | git grep -n X -- src")
+})
+```
+`<n>` is the clause number of your table. `<expect>` is exactly one of: `exit=<n>` (the exit
+status), `empty` (stdout has no non-blank line), `lines=<n>` or `lines>=<n>` (non-blank stdout
+lines), `out=<text>` (stdout, trimmed, equals the text). The command is one line of at most 400
+characters and may contain `|`. A malformed summary is refused with `[CHECK_MALFORMED]`: fix it
+and call again. No replayable clause: no `CHECK` stamp. The report back is unchanged.
+
 ## Stamp
 Call once, at the end:
 ```

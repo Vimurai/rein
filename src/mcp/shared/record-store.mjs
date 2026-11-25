@@ -23,6 +23,7 @@ import { execFileSync } from "child_process";
 import { readState, roleFromOwner, archivePointerLines, parseDeps, recordIdHighWater, withTransaction, oneLineSummary } from "./state-db.js";
 import { assertNotBehindHead } from "./legacy-import.mjs";
 import { redact } from "../../shared/publish-scan.mjs";
+import { parseCheck } from "../../shared/checks.mjs";
 
 export const PROJECT_SCHEMA = 2;
 
@@ -576,6 +577,23 @@ export function writeStateFile(aiDir, state) {
   writeFileSync(resolve(aiDir, "state.json"), JSON.stringify(state, null, 2) + "\n", "utf8");
 }
 
+const stampDate = (s) => (s.timestamp ? s.timestamp.split("T")[0] : "unknown");
+
+/**
+ * E-478 (D-176): the REVIEWS.md line of a task's CHECK stamps counts its distinct clause numbers
+ * (a clause recorded again at a later close is one check). → Map task_id → { n, shown: false }.
+ */
+export function checksPerTask(stamps, keep = () => true) {
+  const clauses = new Map();
+  for (const s of stamps) {
+    if (s.type !== "CHECK" || !keep(s)) continue;
+    const n = parseCheck(s.summary).check?.n ?? s.summary;
+    if (!clauses.has(s.task_id)) clauses.set(s.task_id, new Set());
+    clauses.get(s.task_id).add(n);
+  }
+  return new Map([...clauses].map(([id, set]) => [id, { n: set.size, shown: false }]));
+}
+
 /** Write only the state.json view (the provisioning stamp leaves TASKS.md/REVIEWS.md alone). */
 export function renderStateJson(aiDir, db) {
   assertNotBehindHead(aiDir, db);
@@ -639,9 +657,16 @@ export function renderViews(aiDir, db) {
     // E-466: `rein archive` moves the lines of stamps older than 90 days to
     // .ai/archive/REVIEWS-<year>.md; the view shows only the stamps dated after the newest of them.
     const through = reviewsArchivedThrough(aiDir);
+    const checks = checksPerTask(state.stamps, (s) => !(through && reviewsLineArchived(stampDate(s), through)));
     for (const s of state.stamps) {
-      const date = s.timestamp ? s.timestamp.split("T")[0] : "unknown";
+      const date = stampDate(s);
       if (through && reviewsLineArchived(date, through)) continue;
+      // E-478 (D-176): CHECK stamps are one line per task, where its first one stands.
+      if (s.type === "CHECK") {
+        const c = checks.get(s.task_id);
+        if (c && !c.shown) { c.shown = true; stampLines.push(`[CHECK] ${date} | ${s.task_id}: ${c.n} checks recorded`); }
+        continue;
+      }
       // E-329: the reviewed commit and who stamped it, when the stamp carries them.
       const at = s.sha ? `${s.sha.slice(0, 7)}${s.author ? ` ${s.author}` : ""} | ` : "";
       stampLines.push(`[${s.type}] ${date} | ${at}${s.summary || s.agent || ""}`);

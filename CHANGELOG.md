@@ -3,13 +3,50 @@
 All notable changes to **@vimurai/rein** are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased] — Lean core
+## [0.6.0] — Lean core — 2026-11-24
 
 D-169 and D-170 cut Rein to what Claude Code does not have: a task ledger, DONE by observed
 acceptance, a decision record, and two roles held to their lanes (`.ai/blueprints/lean-core.md`).
-Built as one batch on `lean-core` (E-458 to E-469); tag `v0.5.0` holds everything removed. The
-command gate (`hooks/pre-tool-use.sh` and its MCP server) is still present: its removal, E-463,
-is held for the operator.
+Built as one batch on `lean-core` (E-458 to E-469), then E-470 and E-473 to E-475; tag `v0.5.0`
+holds everything removed. The command gate is gone (E-463, D-169 r2 and r5; D-172 r26): the
+role sandbox is the boundary. What stays is a seatbelt, `src/shared/seatbelt.mjs`, which
+`hooks/pre-tool-use.sh` calls for Bash. Its one table of five rows covers three classes (a
+recursive `rm` of home, root or the project root; a download piped into a shell; a secret in
+the command). It answers `ask` and fails open: it is advice, not a boundary.
+
+### BREAKING
+
+- **Commands**: `rein gate` is removed with the command gate (E-463), along with doctor's gate
+  rows and the sync gate probe. These deprecated stubs are removed: `rein preflight`,
+  `rein test`, `rein where`, `rein update` and `rein onboard`. So is `rein provider`, which
+  only printed "removed in v4" (E-460, E-467).
+- **MCP servers**: 15 first-party servers and the third-party `filesystem` and `memory` servers
+  are removed, and `safe-exec-mcp` leaves the registry and `.mcp.json` (E-463, E-467).
+  `task-synchronizer-mcp` is the only server.
+- **Agents**: 19 agents are removed. Agents now come from the `rein` plugin and are named
+  `rein:reviewer`, `rein:critic_acceptance`, `rein:security_engineer` and `rein:test_engineer`
+  (E-464, E-467, E-469).
+- **Skills**: 35 skills are removed (E-460, E-461, E-464, E-467). Five remain, and the plugin
+  ships them.
+- **The command gate** (E-463): the role token, caller-role and policy loading, the gate's rules,
+  ledger, pins, probe and override, and the classifier backstop are removed. The role comes from
+  the launch record that `rein pane` writes; a plain launch is engineer.
+- **Telemetry and the incident tracker** (E-473): nothing writes `~/.rein/telemetry.sqlite` or
+  `~/.rein/incidents.ndjson` any more.
+- **`.claude/`**: `rein sync` no longer copies agents and skills into the project. Enable the
+  plugin `rein@rein` instead (`rein init` and `rein sync` do this).
+
+### App contract (`docs/app-contract.md`)
+
+- The `rein gate` row is gone. `rein digest build|check` joined the stable entry points, which
+  are now nine.
+- `rein pane` no longer mints a role token; it writes the launch record.
+- `rein start` on a live session restarts only the agents that have exited.
+- A new section 6, Pane options, documents `@rein_role`, `@rein_account`, `@rein_signals`,
+  `@rein_waiting` and `@rein_waiting_since`, and the accuracy an app may rely on.
+- The examples state version 0.6.0. The `rein doctor --json` example uses a check that still
+  exists (`hook_path_missing`).
+- The manifest schema (1) and the verify steps are unchanged.
 
 ### Removed
 
@@ -38,8 +75,11 @@ is held for the operator.
   recording half of `mcp-telemetry.mjs` and `incident-append.mjs`, the hooks' abort record and
   the test runner's telemetry store. Nothing writes `~/.rein/telemetry.sqlite` or
   `~/.rein/incidents.ndjson`; `rein clean --all` removes them. The booted-build stamp
-  `rein doctor` reads stays, in `src/shared/mcp-result.mjs`. `tests/run.sh` now fails a run that
-  writes any file under the operator's `~/.rein` outside `run/` and `ci/` (`[REIN_HOME_WRITTEN]`).
+  `rein doctor` reads stays, in `src/shared/mcp-result.mjs`. `tests/run.sh` now fails a run
+  (`[REIN_HOME_WRITTEN]`) that changes a path under the account's real `~/.rein` (judged by
+  ctime) or adds a `roles/` entry. It does not check the paths that live processes write
+  (`run/`, `ci/`, `trash/`, `clean.log`, the top-level SQLite stores) or deletions
+  (D-174 r18).
 - **The `test_lines` ratchet** (E-464, D-169 r9). The time budgets stay.
 
 ### Added

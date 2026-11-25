@@ -29,9 +29,9 @@ test("E-421.04: the document — order kept, continuations joined, (id, subject)
   const raw = rec("a", "-", "  ✓ one", "", "") + rec("b", "-", "  ✗ two — run: rein sync", "", "") +
     rec("+", "-", "      detail", "", "") + rec("c", "warn", "  [COMM_IGNORED] x", "", "") +
     rec("s", "-", "  ✓ srv", "", "x") + rec("s", "-", "  ✓ srv", "", "x") + rec("s", "-", "  ✓ s", "", "");
-  const d = render(raw, "0.5.0");
+  const d = render(raw, "0.6.0");
   assert.equal(d.schema, 1);
-  assert.equal(d.version, "0.5.0");
+  assert.equal(d.version, "0.6.0");
   assert.equal(d.status, "fail");
   assert.deepEqual(d.checks.map((c) => c.id), ["a", "b", "c", "s", "s", "s"]);
   assert.equal(d.checks[1].line, "✗ two — run: rein sync\ndetail", "indentation removed, glyph kept, continuation joined");

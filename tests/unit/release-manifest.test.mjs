@@ -88,7 +88,7 @@ test("E-418.03: the manifest is schema 1 in canonical form; mode by the stated r
   const files = M.collectTree(root);
   const keyId = M.keyIdFromPubkey(readFileSync(resolve(repo, "docs/contract/release-key.pub"), "utf8"));
   assert.equal(keyId, "5C9C75A7C8FA8056", "as minisign prints it in the key file's comment");
-  const { manifest, text } = M.buildManifest(files, { version: "0.5.0", minNode: M.minNodeFromTree(root), keyId });
+  const { manifest, text } = M.buildManifest(files, { version: "0.6.0", minNode: M.minNodeFromTree(root), keyId });
   assert.deepEqual(Object.keys(manifest), ["schema", "version", "min_node", "key_id", "layout", "files"]);
   assert.equal(manifest.min_node, "22.5.0");
   assert.equal(manifest.layout.operator_owned.length, 14);
@@ -103,7 +103,7 @@ test("E-418.03: the manifest is schema 1 in canonical form; mode by the stated r
 
 // A good tarball, then each way verify must catch.
 const goodFiles = M.collectTree(tree({ "bin/rein": "#!/bin/bash\necho rein\n", "shared/x.mjs": "x\n", "shared/node-version.sh": 'REIN_NODE_FLOOR="22.5"\n' }));
-const goodText = M.buildManifest(goodFiles, { version: "0.5.0", minNode: "22.5.0", keyId: "0000000000000000" }).text;
+const goodText = M.buildManifest(goodFiles, { version: "0.6.0", minNode: "22.5.0", keyId: "0000000000000000" }).text;
 const members = () => [{ path: "manifest.json", mode: 0o644, data: Buffer.from(goodText) },
   ...goodFiles.map((f) => ({ path: f.path, mode: parseInt(f.mode, 8), data: f.data }))];
 const reasons = (gz) => M.verifyTarball(gz).findings.map((f) => `${f.path}: ${f.reason}`);
@@ -147,9 +147,9 @@ function home(extra = {}) {
   const files = Object.fromEntries(M.INSTALL_REQUIRED.map((p) => [p, `# ${p}\n`]));
   files["shared/node-version.sh"] = 'REIN_NODE_FLOOR="22.5"\n';
   const root = tree({ ...files, "mcp/a-mcp/index.js": "a\n", ...extra });
-  const { text } = M.buildManifest(M.collectTree(root), { version: "0.5.0", minNode: "22.5.0", keyId: "5C9C75A7C8FA8056" });
+  const { text } = M.buildManifest(M.collectTree(root), { version: "0.6.0", minNode: "22.5.0", keyId: "5C9C75A7C8FA8056" });
   writeFileSync(join(root, "manifest.json"), text);
-  writeFileSync(join(root, "VERSION"), "0.5.0\n");
+  writeFileSync(join(root, "VERSION"), "0.6.0\n");
   return root;
 }
 const editManifest = (root, fn) => {
@@ -188,7 +188,7 @@ test("E-420.05: checkInstalled refuses links, unlisted and unsafe entries, and a
   const badKey = home(); editManifest(badKey, (m) => { m.key_id = "5C9C75A7C8FA8056\nserver\tx"; });
   assert.match(why(badKey), /key_id .* is not 16 hex digits/, "F2: key_id cannot inject lines");
   const vers = home(); writeFileSync(join(vers, "VERSION"), "0.4.0\n");
-  assert.match(why(vers), /manifest\.json says "0\.5\.0", VERSION says "0\.4\.0"/, "[INSTALL_INCOMPLETE]: version differs");
+  assert.match(why(vers), /manifest\.json says "0\.6\.0", VERSION says "0\.4\.0"/, "[INSTALL_INCOMPLETE]: version differs");
   const nullEntry = home(); editManifest(nullEntry, (m) => m.files.push(null));
   assert.match(why(nullEntry), /null: not a path a release may carry/, "a malformed entry is a finding, not a crash");
 });
@@ -231,8 +231,8 @@ test("E-419.01: sign, then verify --pubkey; a flipped byte, another key's signat
   const work = join(tmp, `sign-${n++}`); mkdirSync(work);
   const ktmp = join(work, "tmp"); mkdirSync(ktmp);   // TMPDIR of every child: must end empty
   const files = M.collectTree(tree({ "bin/rein": "#!/bin/bash\n", "shared/node-version.sh": 'REIN_NODE_FLOOR="22.5"\n' }));
-  const { text } = M.buildManifest(files, { version: "0.5.0", minNode: "22.5.0", keyId: "0000000000000000" });
-  const tgz = join(work, "rein-0.5.0.tar.gz");
+  const { text } = M.buildManifest(files, { version: "0.6.0", minNode: "22.5.0", keyId: "0000000000000000" });
+  const tgz = join(work, "rein-0.6.0.tar.gz");
   writeFileSync(tgz, M.buildTarball(files, text));
   const run = (mod, args, key) => spawnSync(process.execPath, [mod, ...args], {
     encoding: "utf8", env: { PATH: process.env.PATH, TMPDIR: ktmp, ...(key === undefined ? {} : { REIN_RELEASE_KEY: key }) } });
@@ -240,7 +240,7 @@ test("E-419.01: sign, then verify --pubkey; a flipped byte, another key's signat
   const s = run(SIGN, ["sign", tgz, "--pubkey", PUB], KEY);
   assert.equal(s.status, 0, s.stderr);
   const sig = readFileSync(`${tgz}.minisig`, "utf8");
-  assert.match(sig, /trusted comment: .*file:rein-0\.5\.0\.tar\.gz version:0\.5\.0/, "the trusted comment names file and version");
+  assert.match(sig, /trusted comment: .*file:rein-0\.6\.0\.tar\.gz version:0\.6\.0/, "the trusted comment names file and version");
   assert.equal(Buffer.from(sig.split("\n")[1], "base64").subarray(0, 2).toString("latin1"), "ED", "the prehashed form");
   assert.doesNotMatch(s.stdout + s.stderr, /RWQ|untrusted comment: THROWAWAY/, "no key material in the output");
   assert.deepEqual(readdirSync(ktmp), [], "the key's temp directory is gone after a signature");
@@ -276,8 +276,8 @@ test("E-419.02: with no minisign on PATH, sign and verify --pubkey refuse (exit 
   const empty = join(work, "bin"); mkdirSync(empty);
   const ktmp = join(work, "tmp"); mkdirSync(ktmp);
   const files = M.collectTree(tree({ "bin/rein": "#!/bin/bash\n", "shared/node-version.sh": 'REIN_NODE_FLOOR="22.5"\n' }));
-  const tgz = join(work, "rein-0.5.0.tar.gz");
-  writeFileSync(tgz, M.buildTarball(files, M.buildManifest(files, { version: "0.5.0", minNode: "22.5.0", keyId: "0000000000000000" }).text));
+  const tgz = join(work, "rein-0.6.0.tar.gz");
+  writeFileSync(tgz, M.buildTarball(files, M.buildManifest(files, { version: "0.6.0", minNode: "22.5.0", keyId: "0000000000000000" }).text));
   const env = { PATH: empty, TMPDIR: ktmp, REIN_RELEASE_KEY: KEY };
   const s = spawnSync(process.execPath, [SIGN, "sign", tgz, "--pubkey", PUB], { encoding: "utf8", env });
   assert.equal(s.status, 3, s.stderr);

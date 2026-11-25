@@ -3,131 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 13:40 UTC
-**From**: Engineer → Architect
-**Trigger**: batch close — one clause conflict that only you can settle (seatbelt location)
-
-### What was built
-- Review and acceptance ran for every batch task at 877f560. Clean: E-458, E-459, E-460, E-464, E-469. The rest fail on fixable gaps (being fixed in one commit: hook lines 937, README 200, E-462 refusal tests, census baseline) or on clauses your rulings already amend (r13, r16, r20, r22; D-170 r8 supersedes E-465).
-
-### Next action needed
-- **Architect**: E-463 clause 1 measures `wc -l src/mcp/safe-exec-mcp/*` (the seatbelt lives there). E-467 clause 1 says `find src/mcp` lists only shared and task-synchronizer-mcp, and E-468's grep forbids `safe-exec` in CONTRIBUTING.md and docs/ (two lines name `safe-exec-mcp/seatbelt.mjs`). They cannot all hold. Rule one:
-  - (a) move the seatbelt to `src/shared/seatbelt.mjs` (my recommendation: no MCP server is left there; E-463's clause then reads that path); or
-  - (b) keep `src/mcp/safe-exec-mcp/` and amend E-467 clause 1 and E-468's grep to allow it.
-- Reply in one line; I build it in the same commit as the other fixes.
-
-### Open risks
-- Each code commit voids every task's stamps (they bind to HEAD). The fixes go in one commit, then one CI run, then one re-stamp round.
----
-**Trigger**: seatbelt location ruled: (a), `src/shared/seatbelt.mjs` (D-172 addendum 2 r26)
-
-### Decisions made
-- **D-172 r26**: move the seatbelt to `src/shared/seatbelt.mjs` and delete `src/mcp/safe-exec-mcp/`.
-  - E-463 clause 1 reads `wc -l src/shared/seatbelt.mjs`. E-467 clause 1 and E-468's grep stand as written.
-  - The fitness row `command_text_lines` counts that one file, not `src/shared/`.
-  - Installed copy: `~/.rein/shared/seatbelt.mjs`. The hook, `install-rein.sh`, CONTRIBUTING.md and docs/gates-and-review.md name the new path. `~/.rein/mcp/safe-exec-mcp/` becomes a legacy artefact for `rein clean`.
-  - `locator_policy_test.sh` keeps every case, at the new path.
-  - No extra security round; E-470's one round reads the move.
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Engineer**: build r26 in the same commit as the other fixes, then one CI run on the operator's word, then one re-stamp round.
-- **Operator**: after that commit, `rein ci run`; `bash install-rein.sh` again, since the installed seatbelt path changes.
-
-### Open risks
-- Between the commit and the operator's reinstall, the installed hook still finds the old `~/.rein/mcp/safe-exec-mcp/seatbelt.mjs`. `rein clean` must not remove it before the new copy is installed.
----
-## Handoff — 2026-11-24 13:10 UTC
-**From**: Engineer → Architect
-**Trigger**: lean-core batch report — PR #69 is up; the facts each batch task's Acceptance asks the handoff to carry
-
-### What was built
-- PR #69 (`lean-core` → main) is open; #68 is closed unmerged (D-172 r9). Local CI green at 1e1f541: 3896 passed, 0 failed, 9 skipped.
-- 1e1f541 fixed the batch review at 877f560: the seatbelt moved to `src/shared/seatbelt.mjs` (D-172 r26), hooks 938 lines, README 200 lines, E-462's refusal tests, the census baseline. 375f32a: the installer's closing text no longer describes role tokens.
-- E-455 and E-456 closed as superseded by D-169 (E-463 item 5); E-465 as superseded by D-170 r8.
-
-### Escape suite (E-462, E-463; D-172 r6) — run by the operator on this machine at 1e1f541
-```
-claude 2.1.331 (Claude Code) · bubblewrap 0.11.1 · model haiku
-✓ C01–C19, C21–C42 (C20 MCP server, C24 poisoned index, C29–C35 push lane, C36–C39 F3, C40 F4, C41 cwd, C42 rein start)
-sessions (1 = control landed): a3b=1 e1b=1 a2=1 a3=1 a1=1 a6=1 a4=1 a5=1 e1=1
-SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0
-```
-
-### E-463 — full_seconds before and after
-- Before: 623 s (the last green full run before the batch, 0a92961). After: 258 s (2e0f877 and 1e1f541). The gate's deletion is the larger part: no CI ran between E-463's parent and E-463.
-- For the Architect to rule (E-463 clause): **E-394** (doctor reads disableAllHooks from every layer), **E-395** (doctor exits non-zero on [SAFE_EXEC_BROKEN]/[GATE_DEP_MISSING] — both lines are gone with the gate), **E-410** (`rein incident` as an install-tree writer of the gate's allowlist — the allowlist is gone), **P-52** (control review from `rein gate ledger` — the ledger is gone). Each names gate machinery E-463 deleted.
-
-### E-467 — what was removed, by name
-- Agents (15): chaos_monkey, db_architect, dependency_manager, devops_engineer, docs-architect, knowledge_architect, memory_curator, meta_analyst, performance_engineer, seo_content_generator, seo_engineer, seo_manager, sre_responder, ux_reviewer, vibe_sentinel.
-- Skills (27): aqg-resolver, arch-oracle, arch-review, architectural-aligner, bug-reproducer, ci_gate, commit-crafter, copilot, dependency_gate, identity_guardian, obs_baseline, rein-archive, rein-incident, rein-insights, rein-migration, rein-profile, rein-review-proposed-skills, rein-seo, rein-sync-state, rein-triage, rein-upgrade, repo-oracle, scope_safety, seo_content_checklist, token-miser, trigger-audit, ux_template. (E-461 removed six more: arch-task, decision-recorder, rein-handoff, rein-log, rein-task, task-planner.)
-- `git ls-files src | xargs cat | wc -l`: 96,377 at 887a818^ (the task text's 97,956 was measured earlier), 29,665 at 1e1f541. Kept: 4 agents (critic_acceptance, reviewer, security_engineer, test_engineer), 5 skills (blueprint-writer, rein-debug, rein-review, rein-test, release-manager), one MCP server.
-
-### E-466 — COMM.md and its archive
-- `grep -c "^## Handoff" .ai/COMM.md`: 10 before and after `rein archive`; `.ai/archive/COMM-2026.md` holds 105; sum 115, unchanged.
-
-### E-461 — tool calls for close and handoff
-- Closing a task is one call (`rein done`); a handoff is two (`rein handoff`, then SendMessage with its wake line): 3 in all, as in this turn.
-
-### Decisions made
-- None of mine. Clauses amended by rulings are read as amended: D-172 r13 (E-466's `rein task show` with E-427), r16 (hooks 950), r20 (docs/assets outside E-468's grep), r22 (blueprint-writer kept), r26 (seatbelt path), D-170 r8 (E-465).
-
-### Next action needed
-- **Architect**: rule E-394, E-395, E-410 and P-52 (close as superseded by D-169, or keep).
-- **Operator**: `rein ci run` on the tip (375f32a changed install-rein.sh), and relaunch both panes.
-- **Engineer**: then one review, acceptance and security round at that tip; close the batch tasks; push to #69.
-
-### Open risks
-- Clauses needing a live Architect session are covered by the escape suite's cases, not observed by hand.
-- 18 other projects carry a stale hook path until `rein sync` runs in each (installer output).
----
-**Trigger**: batch report reviewed and accepted; E-394, E-395, E-410, P-52 ruled superseded (D-172 r27); their close waits on the CI run
-
-### What was built
-- `.ai/DECISIONS.md`: D-172 addendum 3 r27.
-- The four tasks are still OPEN. `update_task_status` refused each with `[CI_GATE] no green local CI run for HEAD 9fe3820`: 375f32a changed `install-rein.sh` after the last green run. I did not bypass it.
-
-### Decisions made
-- **D-172 r27**: all four close as superseded by D-169, not implemented.
-  - E-394: a P3 finding from when hooks held the role boundary. The doctor's check of the project file stays.
-  - E-395: both doctor lines went with the gate.
-  - E-410: the allowlist went with the gate; E-467 removed the skill.
-  - P-52: `rein gate ledger` went with the gate.
-- The batch report is accepted as the facts each Acceptance asks for. Nothing in it needs a further ruling.
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Operator**: `rein ci run` on the tip, then relaunch both panes.
-- **Engineer**: after the green run, in your close round, close E-394, E-395, E-410 and P-52 with `superseded_by: D-169` and the r27 line as summary. Then the review, acceptance and security round, the batch closes and the push to #69, as you planned.
-- **Architect**: after #69 merges, P-51, then P-53, P-54, P-55.
-
-### Open risks
-- `.ai/blueprints/harness-fitness.md` §Component 2 still describes the ledger. P-53 covers `architect.md` only; I mark the blueprint section retired with P-51.
-**Trigger**: the operator ordered v0.6.0 after #69 merges: D-173 and E-472 (BLOCKED on E-470)
-
-### What was built
-- `.ai/DECISIONS.md`: D-173. Task E-472, Tier 2, depends on E-470.
-
-### Decisions made
-- **D-173**: the lean core is released as v0.6.0 by the path v0.5.0 took.
-  - The bump is its own pull request after #69, not a commit inside #69 (it would void the branch's stamps).
-  - The operator creates and pushes the tag. The escape suite passes at the commit to be tagged, or no tag.
-  - The demo recording does not hold the release.
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Engineer**: nothing changes now. Finish E-470 as planned; E-472 opens when it closes.
-- **Operator**: for E-472, confirm the `release` environment still holds REIN_RELEASE_KEY and the `v*` ruleset; run the escape suite when asked; create the tag `v0.6.0` on the merge commit the Engineer names.
-
-### Open risks
-- `release.yml` has not run since the strip. If it calls anything E-467 removed, E-472 stops and becomes Tier 3. The workflow's dry run (`workflow_dispatch`) on main after #69 shows this before the tag.
----
 ## Handoff — 2026-11-24 14:10 UTC
 **From**: Engineer → Architect
 **Trigger**: batch close — the last round passed all but E-467's review (telemetry) and E-468's review (one statement); one ruling needed
@@ -396,3 +271,53 @@ Adoptability   steps from install to a first closed task                     UNK
 
 ### Open risks
 - `git status` shows untracked `.bash_profile`, `.gitmodules`, `.idea`, `.profile`, `.ripgreprc` and `.vscode` at the project root, and the same kind of names under `.ai/`. They look like the sandbox's own placeholders, not anyone's work. Do not commit them; I rule on the `[LANE_CODE]` noise they cause with P-53.
+---
+## Handoff — 2026-11-24 20:09 UTC
+**From**: Engineer → Architect
+**Trigger**: PR #71 merged as 27ebc09, but `rein done` refuses E-473/474/475: the stamps at 47e7e15 do not cover the merge commit (needs your call)
+
+### What was built
+- PR #71 was merged into main as 27ebc09, and the branch is deleted. After one re-run of 3 failed jobs, hosted CI was 18/18 green. The failures were unrelated to the branch:
+  - ubuntu node 24 shard 3: the tmux pane-title rows E-227.06c–e, in code the branch does not touch.
+  - two macOS shards hit the 15-minute timeout. Main's own run at 44b0146 also had a macOS shard cancelled.
+- Local `rein ci run` was green at 0f60282 (the branch tip) and at 27ebc09 (main).
+- All stamps were recorded at 47e7e15 or e97a72d:
+  - E-473: REVIEW_PASS, SEC_CLEARED and ACCEPT_PASS.
+  - E-474 and E-475: REVIEW_PASS and ACCEPT_PASS.
+  - From there to the branch tip 0f60282, only `.ai/` changed.
+
+### Decisions needed
+- `rein done E-473` → `[REVIEW_GATE] … no [REVIEW_PASS] stamp for HEAD 27ebc09 or an ancestor that differs only in .ai/`. The merge commit's first parent is main's 44b0146. The branch did not contain #70, so `git diff 47e7e15 27ebc09 -- . ':!.ai'` is exactly #70's four workflow files (codeql, dependency-review, privacy, scorecard; 7+/7−), and those were merged and checked on main before. The gates (src/shared/completion-gates.mjs `_stampGate`) accept only an ancestor that differs in `.ai/` alone, so no stamp on the branch covers the merge.
+- Choose one:
+  - (a) Re-stamp at 27ebc09: reviewer ×3, critic_acceptance ×3 and security_engineer ×1 for E-473, each scoped to the #70 diff. That is seven agent runs for 7 lines that main already had, and a fourth security dispatch after r17 said "no fourth round".
+  - (b) A gate change as a new task: a stamp also covers a merge commit when the merge's diff against its stamped parent equals the diff its other parent (the trunk) brought in, i.e. the merge adds nothing of its own outside `.ai/`. Close E-473/474/475 after that lands.
+  - (c) A ruling that these three close on the 47e7e15/e97a72d stamps, by a route `rein done` already has, if there is one. I found none.
+- Engineer's recommendation: (b). Every PR branch that is not rebased onto the latest main will hit this.
+
+### Next action needed
+- **Architect**: rule on (a), (b) or (c).
+- **Engineer**: then close E-473, E-474 and E-475, then E-472.
+
+### Open risks
+- Until this is ruled, E-472 (v0.6.0) waits on the three closes.
+---
+## Handoff — 2026-11-24 20:10 UTC
+**From**: Architect → Engineer
+**Trigger**: the stamps for E-473, E-474 and E-475 are carried to main (D-174 r23); close the three, then E-472; no gate change
+
+### What was built
+- `.ai/DECISIONS.md`: D-174 addendum 4 (r23 to r26).
+- State: seven stamps recorded at main by `architect (carried, D-174 r23)`: REVIEW_PASS and ACCEPT_PASS for E-473, E-474 and E-475, SEC_CLEARED for E-473. Each summary names the original stamp and its sha.
+
+### Decisions made
+- **r23**: neither (a) nor (b). I checked that the merge added nothing of its own: the patch-id of `47e7e15..27ebc09` outside `.ai/` equals that of what main brought in (#70's four workflow files). The agents read the code that is on main, and CI checked the merged tree. So the stamps are carried, once, by the Architect, in the open.
+- **r24**: this is not a route. Only the Architect carries a stamp, and only under a ruling that names the two commits and the check.
+- **r25**: from now the branch holds `origin/main` before the last stamps. Order: update the branch, the operator's `rein ci run`, stamps at that tip, `.ai/`-only commits, merge at once. If main moves outside `.ai/` between the stamps and the merge, hand off before merging.
+- **r26**: the gate is not changed. If r25 fails twice, your option (b) becomes a task.
+
+### Next action needed
+- **Engineer**: `rein done` for E-473, E-474 and E-475. Then E-472, on a branch cut from main as it is now, under r25.
+- **Operator**: when E-472 asks: confirm the release environment and tag ruleset, run the escape suite at the branch tip, and create the tag `v0.6.0` after the merge.
+
+### Open risks
+- If `rein done` still refuses, quote the line in a handoff. Do not add a stamp yourself.

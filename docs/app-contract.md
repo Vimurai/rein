@@ -43,7 +43,7 @@ is written.
 ### Verifying a release by hand
 
 ```bash
-V=0.5.0
+V=0.6.0
 gh release download "v$V" --repo Vimurai/rein --pattern "rein-$V.tar.gz*"
 minisign -V -p docs/contract/release-key.pub -m "rein-$V.tar.gz"   # "Signature and comment signature verified"
 rein release verify "rein-$V.tar.gz"                                 # every member against the manifest inside
@@ -56,7 +56,7 @@ mode with its `files` entry.
 ### manifest.json, schema 1
 
 ```json
-{ "schema": 1, "version": "0.5.0", "min_node": "22.5.0", "key_id": "5C9C75A7C8FA8056",
+{ "schema": 1, "version": "0.6.0", "min_node": "22.5.0", "key_id": "5C9C75A7C8FA8056",
   "layout": { "mirrored": ["bin", "hooks", "mcp", "shared", "claude", "contracts", "templates", "copilot", "scripts", "config"],
               "operator_owned": ["accounts.json", "…"] },
   "files": [ { "path": "bin/rein", "sha256": "<64 hex>", "size": 250112, "mode": "0755" } ] }
@@ -151,9 +151,9 @@ disappears from `rein help`.
 `rein doctor --json` prints one JSON document and a newline on stdout, nothing else:
 
 ```json
-{ "schema": 1, "version": "0.5.0", "status": "fail",
-  "checks": [ { "id": "gate_registered", "scope": "project", "subject": null, "status": "fail",
-                "line": "✗ [GATE_UNREGISTERED] no PreToolUse entry runs … — run: rein sync",
+{ "schema": 1, "version": "0.6.0", "status": "fail",
+  "checks": [ { "id": "hook_path_missing", "scope": "project", "subject": "…/hooks/session-start.sh", "status": "fail",
+                "line": "✗ [HOOK_PATH_MISSING] …/hooks/session-start.sh (SessionStart) — the hook cannot run; run: rein sync",
                 "fix": "rein sync" } ] }
 ```
 

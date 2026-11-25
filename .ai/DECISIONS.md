@@ -6299,3 +6299,34 @@ Pull request #71 merged as 27ebc09. `rein done` refuses E-473, E-474 and E-475: 
 30. **E-476's unit row for "a character device" may use a FIFO made with `mkfifo`**, since a test cannot create a device without root. The clause run in the Architect's pane is the observation for the device itself.
 
 ---
+
+## D-175 — `rein handoff` works where `.ai/` is gitignored: the entry is written, the commit is skipped
+
+**Date**: 2026-11-25
+**Task**: the task registered with this entry (amends D-104 r2 and r4)
+**Decision**: On the operator's order of 2026-11-25, a project that ignores `.ai/` keeps its handoffs on disk only: `rein handoff` appends the entry to `COMM.md`, makes no commit, and prints the wake line.
+
+### Why needed
+In the operator's project `em-locize`, line 46 of the project `.gitignore` ignores the whole `.ai/` directory. `rein handoff` refused with `[COMM_IGNORED]` and told the Architect to run `rein sync`, which does not and should not edit the project's own `.gitignore`. The Architect there could not record a handoff and woke the Engineer with a direct message that pointed at a loose entry file. D-104 made the refusal for a clone that had not been synced yet. It did not foresee a project where keeping Rein's records out of the repository is the owner's choice.
+
+### Rulings
+1. **`rein handoff` never refuses because `COMM.md` is ignored.** When `git check-ignore -q .ai/COMM.md` succeeds, the command appends the entry with its heading, runs the archive step, makes no commit and no `git add`, and exits 0. It never adds with `-f` (D-104 r2 stands on that).
+2. **The wake line says so.** It ends `Details: .ai/COMM.md handoff <time> (not committed: .ai/ is gitignored here).` in place of the commit sha. One note line follows: `[COMM_LOCAL] .ai/COMM.md is gitignored here; the handoff is on this disk only`.
+3. **Both roles read the same disk**, so the handoff still reaches the other role. What is lost is the history and a second clone, and that is the owner's choice. The session-start line `[COMM_IGNORED] … a handoff never reaches the other role` is false for such a project and is not printed there. `rein doctor` prints one line that is not a warning: `.ai/ records are local only (gitignored)`.
+4. **Which case is which.** If the project's ignore rules cover the whole `.ai/` directory (`git check-ignore -q .ai/` succeeds), it is the owner's choice: rulings 1 to 3, quiet. If only `COMM.md` is ignored, by a leftover line in `.ai/.gitignore`, `rein sync` still removes that line and doctor still warns `[COMM_IGNORED]`; the handoff is written without a commit all the same (ruling 1).
+5. **A project that tracks `.ai/` is unchanged**: D-104 stands. The entry is committed with every changed `.ai/` path before the wake.
+6. **Not changed here**: the other commands. `rein done` and `rein decide` make no commit. The DONE gates read stamps by commit sha of the project's code, which does not depend on `.ai/` being tracked.
+
+### Alternatives considered
+1. **Tell the owner to track `.ai/`** — rejected by the operator: some repositories are not theirs to fill with Rein's records.
+2. **`git add -f`** — rejected: it overrides the owner's ignore rule, and D-104 r2 already forbids it.
+3. **Keep the refusal and document the loose entry file** — rejected: the record then lives outside `COMM.md` and the brief's "last handoff" is wrong.
+
+### Impact
+- Unlocks: Rein in a repository that does not carry `.ai/`.
+- Risk if wrong: a clone that should track `COMM.md` but ignores it by mistake now hands off without a commit. Ruling 4 keeps the doctor warning for that case, and the wake line says "not committed" every time.
+
+### Rollback
+Revert the task's one commit; the refusal returns.
+
+---

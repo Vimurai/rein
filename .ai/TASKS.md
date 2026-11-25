@@ -7,7 +7,8 @@
 
 ## Engineer
 - [ ] E-476: Make `[LANE_CODE]` quiet inside a role sandbox and document the bot-commit push refusal, per D-174 addendum 5 (r27 to r29). (1) In src/shared/lane-code.mjs report only regular files and symbolic links: skip every other entry type (character devices, sockets, pipes). Inside a role sandb…
+- [ ] E-477: Make `rein handoff` work in a project that gitignores `.ai/`, per D-175 r1 to r5, which carry the detail (before E-476; the two may share one branch and pull request, one commit each). (1) In runHandoff of src/shared/cli-bookkeeping.mjs remove the `[COMM_IGNORED]` refusal. When COMM.md…
 
 170 closed tasks are not listed. Print one with: rein task show <id>
 
-4 task lines are cut at 300 characters (they end in "…"). Print one in full with: rein task show <id>
+5 task lines are cut at 300 characters (they end in "…"). Print one in full with: rein task show <id>

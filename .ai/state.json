@@ -2549,6 +2549,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-25T10:45:47.539Z"
+    },
+    {
+      "id": "E-477",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make `rein handoff` work in a project that gitignores `.ai/`, per D-175 r1 to r5, which carry the detail (before E-476; the two may share one branch and pull request, one commit each). (1) In runHandoff of src/shared/cli-bookkeeping.mjs remove the `[COMM_IGNORED]` refusal. When COMM.md is ignored: append the entry with its heading, run the archive step, make no `git add` and no commit (never `-f`), exit 0, and print the wake line and the `[COMM_LOCAL]` note of D-175 r2. A project that tracks COMM.md behaves as today. (2) In src/shared/comm-status.sh print a new value `local` when the rules ignore the whole directory (`git check-ignore -q --no-index .ai/`), checked before `IGNORED`. (3) `rein doctor` prints for `local` the one line of D-175 r3, not a warning; the session-start brief prints nothing for `local`. If hooks/session-start.sh must change for that, stop and say so in a handoff: it makes the task Tier 3. (4) The command reference and docs/troubleshooting.md say what a handoff does in such a project. Tests: extend tests/unit/bookkeeping-commands.test.mjs (replace the refusal row) and the file that covers rein_comm_status; no new suite. Rows: with `.ai/` in the project .gitignore a handoff exits 0, COMM.md ends with the new entry under its heading, no commit is made and nothing is staged, and the wake line holds `not committed`; with only COMM.md ignored the entry is written without a commit and the status is IGNORED; with `.ai/` ignored the status is `local`; a tracked project commits as before. Acceptance: those rows pass under `node --test` and in the comm-status suite; in a scratch repository whose .gitignore holds `.ai/`, `rein handoff --to engineer --file <entry>` exits 0 and `grep -c \"^## Handoff — \" .ai/COMM.md` prints 1; `git grep -n \"COMM_IGNORED\" -- src/shared/cli-bookkeeping.mjs` prints nothing; `rein ci run` is green at the branch tip.",
+      "created_at": "2026-11-25T11:10:12.866Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-25T11:10:12.867Z"
     }
   ],
   "stamps": [
@@ -8638,6 +8652,15 @@
       "timestamp": "2026-11-25T10:43:13.765Z",
       "summary": "[ACCEPT_PASS] E-472 at 5e1c09b — 8 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | grep '\"version\"' package.json on main prints \"version\": \"0.6.0\" ‖ 2 | PASS | grep -c \"^## \\[0.6.0\\]\" CHANGELOG.md printed 1 ‖ 3 | PASS | grep -c \"is still present\" CHANGELOG.md printed 0 ‖ 4 | PASS | gh pr view 72 body: SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0; PR MERGED as 55ff424 ‖ 5 | PASS | gh release view v0.6.0 assets: exactly manifest.json, rein-0.6.0.tar.gz, rein-0.6.0.tar.gz.minisig ‖ 6 | PASS | rein release verify --pubkey docs/contract/release-key.pub on downloaded tarball exit 0, sig ok, 141 files match ‖ 7 | PASS | downloaded manifest.json: version 0.6.0, schema 1, key_id 5C9C75A7C8FA8056 ‖ 8 | PASS | COMM.md 10:42 handoff has release URL, sha256 8d51459b…6fa7 (= sha256sum of download), tagged commit 55ff424 (= ls-remote v0.6.0)",
       "sha": "5e1c09b5874935a7eaf4794bfef05d116fc6cb21",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-476",
+      "timestamp": "2026-11-25T10:48:30.249Z",
+      "summary": "[REVIEW_PASS] E-476 at dd7bc3f — 0 FAIL, 4 notes ‖ tests 29/29 pass (lane-code, bookkeeping-commands); `lane-code.mjs --root .` silent rc 0; GATE_UNREGISTERED grep empty; ls-remote in docs ‖ src/shared/lane-code.mjs:52 readdir seam ok under D-088 (pure-fn unit row); E-476.01 non-vacuous: \".bashrc\" fails laneAllowed and is not exempt ‖ docs/role-sandbox.md:76 `trust --root . <commit>` matches lane-ledger.mjs:28/216; note: trust exits 1 in the read-only Architect lane, doc does not say to run it from the Engineer lane or operator shell ‖ src/shared/lane-code.mjs:95 every `--root` token dropped, so a bare `--root` falls back to cwd (harmless) ‖ tests/unit/lane-code.test.mjs:70 new rows do not name the test they extend (D-088 #10); CHANGELOG entry not asked for, customary",
+      "sha": "dd7bc3f651c4e7cce17c61b64ab8863ef3d79ee4",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

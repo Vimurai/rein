@@ -1259,3 +1259,20 @@ nested-C1 case in tests/suites/git_lane_test.sh E-471.3. Status: closed (securit
 - **Residual**: deletions; writes under the pruned `run/` and `ci/`; writes through a symlinked subdirectory, which land outside `~/.rein`.
 - **Round 2 (HEAD 677fb06, fix 1beb950)**: the `-cnewer` fix landed. All round-1 payloads re-resist, and REIN_TEST_GUARD_HOME is honoured only under the physical TMPDIR. **New exposure (F-E473-4, P2)**: the fix also prunes `roles/`, `trash/`, `clean.log` and `*.sqlite*`. The `roles/` prune hides a suite leak that has already happened on this host. `~/.rein/roles/rein-t-e244ng-Pvvl2Z-16447e19341c/` was created on 2026-11-24 at 01:40 for a tests/run.sh temp project, and ten `roles/tmp.*` dirs followed at 02:41-02:56. roles/ holds the E-462 role sandbox settings and MCP command lines. **PoC** (harness): take the stamp, then create `roles/tmp.X-<hash>/settings.engineer.json`. The guard prints `untouched`. **Mitigation (verified)**: save the list of roles/ keys at the stamp and report any new key, and add `-mindepth 1 -type d` so directory moves and renames are seen too (F-E473-5). **Residual**: overwriting an existing key's settings/mcp file is not seen. `rein pane`/`rein start` regenerate those files at every launch. Open question: does a live session re-read `--settings`? Also residual: a TMPDIR set to an ancestor of the account home can admit a REIN_TEST_GUARD_HOME override (P3).
 - **Accepted residuals (Architect, D-174 addendum 2 r16 and r18)**: the guard is a detective check against a test's mistake, not a boundary against an attacker. In the Engineer's lane the sandbox already write-denies `~/.rein` (D-172 r8). These stay unseen by design: (1) a deletion under `~/.rein`; (2) an overwrite of an existing `roles/<project>` settings or MCP file — a test would have to name the operator's real project folder, tests that create role folders use a scratch Rein home (D-172 r22), and `rein pane` rewrites both files at every launch; the ruling assumes a live session re-reads `--settings` and stands either way; (3) a write under the left-out live paths `run/`, `ci/`, `trash/`, `clean.log` and the top-level SQLite stores. A run failed because the operator installed or opened a pane on a new project during it is repeated (r19). Leaked entries found by round 2 (1 `roles/rein-t-*`, 10 `roles/tmp.*`, and 12 `roles/proj-*`/`gitproj-*` for `/tmp/rein-t-efh-*` and `/tmp/tmp.*` projects, created 2026-11-24 00:20-02:56) were removed by the operator before the run at 404a8c8, which printed `Operator ~/.rein: untouched`.
+
+### T-RECHECK-001 — ledger command text reaches the operator's shell (security_engineer, E-479 review 3c9da41 / HEAD 01677f0, 2026-11-25)
+- **Trust boundary**: CHECK stamps (any session's `add_stamp`, or a cloned project's tracked
+  `.ai/`) → `rein recheck` → `bash -c` in the caller's shell. Inside a pane the role sandbox
+  bounds it; in the operator's own shell nothing does. Accepted trust level: that of a test
+  (acceptance-replay.md §Security). The compensating control is "read `rein recheck --list`
+  first".
+- **F-E479-1 (P1)**: the grammar admits ESC, C1 and bidi characters, so `--list` can render a
+  command other than the one run. PoC: `touch PWNED; true \e[2K\e[1GE-10#1 | exit=0 | true` shows
+  `true`, runs `touch`. Mitigation: refuse control and bidi/format characters in `_head`
+  (checks.mjs) so `add_stamp` refuses and `liveSet` drops them.
+- **F-E479-2 (P2)**: a `setsid` descendant holding stdout outlives the group kill; the run waits
+  for it and keeps buffering past 64 KB. Mitigation: destroy the stdout stream and resolve in
+  `stop`.
+- **Residual (accepted, blueprint)**: forged CHECKS_PASS / CHECK_RETIRED via `add_stamp`; `rein
+  review 2|3` (E-480) replays without a `--list` step.
+- **Status**: open (E-479 SEC_BLOCKED, 2026-11-25).

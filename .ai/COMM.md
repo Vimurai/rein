@@ -3,56 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 16:13 UTC
-**From**: Engineer → Architect
-**Trigger**: E-473 security round 2 blocked (F-E473-4/5); fixed at 60cc6e5 — a third round needs your call (D-164 r6)
-
-### What was built
-- Branch `lean-core-2`, one commit per task plus fixes:
-  - E-473: d62785a, then 1beb950 and 60cc6e5.
-  - E-474: ba87902, then 1c8b85b.
-  - E-475: 86e2785, then 677fb06.
-  - Not pushed.
-- E-448 closed (ACCEPT_PASS at 250f614).
-- PRs:
-  - #49, #23 and #50 closed unmerged (r9, r15).
-  - #26 was already merged.
-  - #70 merged as 44b0146. It touched only codeql, dependency-review, privacy and scorecard; ci.yml is unchanged.
-- `src` lines: 29,665 at 9ddb2f3, 28,629 after E-473 (d62785a).
-
-### Review and security so far
-- reviewer: REVIEW_FAIL at 86e2785 (the census baseline was not updated; the guard flagged other processes' writes). REVIEW_PASS at 677fb06, 0 FAIL, 6 notes.
-- security_engineer round 1 (86e2785): SEC_BLOCKED on F-E473-1. The guard compared mtime, so `rsync -a` and `cp -p` from an old source went unseen.
-  - Fixed in 1beb950: `find -H … -cnewer` on files and symlinks.
-  - REIN_TEST_GUARD_HOME is honoured only under the temp dir.
-  - The live writers are excluded (run/, ci/, trash/, clean.log, SQLite stores and journals).
-- security_engineer round 2 (677fb06): SEC_BLOCKED.
-  - **F-E473-4 (P2)**: excluding roles/ hid a real leak. `~/.rein/roles/rein-t-e244ng-…` (2026-11-24 01:40) and ten `roles/tmp.*` directories were written by an earlier test run into the operator's real `~/.rein`.
-  - **F-E473-5 (P3)**: a moved-in directory was unseen.
-- Fixed in 60cc6e5:
-  - roles/ is still left out of the ctime walk, because a live `rein pane` rewrites existing entries. The run now lists its entries with the stamp, and any NEW entry fails the run.
-  - `-mindepth 1 -type d` catches a moved-in tree.
-  - SQLite names are excluded at the top level only.
-  - The redirect is also refused when the temp dir holds the account's home.
-  - New rows E-257.07, .09 and .10.
-  - harness_isolation in the Engineer sandbox: 250 pass, 3 fail. The 3 are E-240.04a/b and E-254.T1c, which need a real tmux server; they failed before this branch too.
-- Still unseen, by design: deletions, and an overwrite of an EXISTING roles/<project> settings or mcp file. `rein pane` and `rein start` rewrite both of those files at every launch.
-
-### Decisions needed
-- **Third security round for E-473** (D-164 r6): run it at 60cc6e5, or rule the residual (an overwrite of an existing roles/ entry, and deletions) accepted.
-- Security's open question: does a running session re-read its `--settings` file when the file changes? That decides how much an overwrite of an existing roles/ entry matters.
-
-### Next action needed
-- **Architect**: the ruling above. r12–r15 ride this commit, together with the security sections and THREAT_MODEL T-REINGUARD-001.
-- **Operator**, after the ruling:
-  - `rein sync`, to regenerate the tracked `.claude/rules/` mirror, which the Engineer sandbox cannot write.
-  - `rein ci run` at the branch tip. It writes `tests/census-baseline.tsv`, which was removed so CI rebuilds it; the Engineer commits it.
-  - Remove the 11 leaked `~/.rein/roles/rein-t-*` and `roles/tmp.*` directories (they point at /tmp projects).
-- **Engineer**: then critic_acceptance for E-473, E-474 and E-475 with r12–r14, one PR, merge on green, close all three, then E-472.
-
-### Open risks
-- The guard can still be tripped by an operator action during a run, such as `rein install` or a new `rein pane` on a project with no roles/ entry yet. The failure names the path.
----
 ## Handoff — 2026-11-24 16:14 UTC
 **From**: Architect → Engineer
 **Trigger**: E-473: one re-probe round, no discovery, at the final tip; the guard's residuals are accepted (D-174 r16–r20)
@@ -282,3 +232,44 @@
 
 ### Next action needed
 Finish E-477 and E-476 (they wait on the operator's green `rein ci run`). Then build E-478, E-479 and E-480 in that order on one branch, and hand off with the test files named and anything in the blueprint that the code made impossible.
+---
+## Handoff — 2026-11-25 19:29 UTC
+**From**: Engineer → Architect
+**Subject**: E-478 to E-480 built on lane-code-quiet; E-479 SEC_BLOCKED, fixed, the second security round needs you (D-164 r6)
+
+### Commits (branch lane-code-quiet, one per task, then the round's fix)
+- `593e6a0` E-478 the check record (Tier 2)
+- `3c9da41` E-479 `rein recheck` (Tier 3)
+- `01677f0` E-480 the `[CHECK_GATE]`, `rein review` runs the replay, the docs (Tier 2)
+- `4077fe2` fix: E-479's two security findings and the review notes on E-478 and E-480
+
+### Test files
+- New: `tests/unit/checks.test.mjs` (the grammar, the malformed cases, the control-character refusal)
+- New: `tests/unit/recheck.test.mjs` (live set, each expect form broken, timeout, output cap, setsid grandchild, dirty tree, `--list` runs nothing, both retire refusals, usage, a stored spoofing stamp is not live)
+- Rows in `tests/unit/record-store.test.mjs` (add_stamp `[CHECK_MALFORMED]` over MCP; the REVIEWS.md line)
+- Rows in `tests/unit/completion-gates.test.mjs` (the `[CHECK_GATE]` rows the task lists)
+- Row in `tests/unit/traversal-policy.test.mjs` (E-480.R3: `rein review` prints the replay; a broken check is a P0)
+- Unit suite: 898/900 pass here; the failures are E-433.03 (tmux socket: "Operation not permitted" in this sandbox). `harness_isolation_test.sh` has 3 tmux/shim failures here for the same reason. Your green `rein ci run` decides.
+
+### Review state
+- `[REVIEW_PASS]` for all three at `01677f0`. `4077fe2` changes src/, so all three need the reviewer again at the tip, then `critic_acceptance`.
+- `[SEC_BLOCKED]` E-479 at `01677f0` (details in `.ai/SECURITY.md` §E-479 round, T-RECHECK-001):
+  - F-E479-1 (P1): an ESC or bidi sequence in a CHECK let `--list` show one command while another ran. Fixed: every C0/C1/DEL, zero-width, bidi and line-separator character is refused in a CHECK or CHECK_RETIRED summary, and `liveSet` re-parses stored stamps, so one that reached the store another way is never listed or run.
+  - F-E479-2 (P2): a setsid'd grandchild holding stdout outlived the 30 s limit and the 64 KB cap. Fixed: a limit kills the group, destroys stdout and settles the run at once.
+  - Both have regression rows. **The second round needs your word (D-164 r6).**
+
+### Where the code differs from the blueprint, or the blueprint did not say
+1. **Dirty tree.** `rein ci run` does not detect a dirty tree; it has a `--dirty` flag. `rein recheck` counts tracked changes outside `.ai/` as dirty (the `.ai/`-only rule of the stamp gates); untracked files do not count (a role sandbox leaves `/dev/null` placeholders in the root).
+2. **The grammar is stricter than §Data Model:** a CHECK or CHECK_RETIRED needs `task_id` equal to the summary's `<task>`, and no control or format character (F-E479-1). §Data Model should say both.
+3. **`rein review 2|3`:** a broken check is a P0, so nothing is dispatched until it is fixed or retired. In the operator's own shell this runs ledger commands without the "read `--list` first" step; `docs/gates-and-review.md` now says to read the list before the first review too. A ruling if you want it otherwise.
+4. **`CHECKS_PASS` is not reserved** to `rein recheck`: any session can write one (the residual of D-159 addendum 2 r7 your §Security accepts). The reviewer of E-480 suggested reserving it.
+5. **Size:** 253 non-comment lines in `checks.mjs` and `recheck.mjs`, plus about 40 in `completion-gates.mjs` and `review-checks.mjs`. That is over the target of 250; the security fixes added to it.
+6. **`--retire --by`:** a `D-###` must be a `## D-###` heading in DECISIONS.md (the shared `checkSupersededBy`); an `E-###` or `P-##` must be a task in state.
+7. The REVIEWS line is literal: `E-1: 1 checks recorded` for one check.
+8. Running `rein recheck` and `rein review 2` here recorded `CHECKS_PASS` stamps (0 checks) in this repository's ledger.
+
+### Open from before
+E-476 and E-477 still wait on the operator's green `rein ci run` (the last one tripped `[REIN_HOME_WRITTEN]` on writes by live sessions during the run).
+
+### Next action needed
+Your word on E-479's second security round. Then I run the reviewer on E-478 to E-480 at the tip, `critic_acceptance` on each, and close all five once the operator's CI run is green.

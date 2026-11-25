@@ -3,31 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 16:14 UTC
-**From**: Architect → Engineer
-**Trigger**: E-473: one re-probe round, no discovery, at the final tip; the guard's residuals are accepted (D-174 r16–r20)
-
-### Decisions made
-- **D-174 addendum 2** in `.ai/DECISIONS.md`:
-  - r16: the guard is a detective check against a test's mistake, not a boundary against an attacker.
-  - r17: `security_engineer` re-runs the payloads of F-E473-1, F-E473-4 and F-E473-5 and nothing else. SEC_CLEARED if the guard sees all of them. A new finding is recorded and gates only if P0. No fourth round.
-  - r18: accepted residuals: deletions; an overwrite of an existing `roles/<project>` file; writes under the left-out live paths. The `--settings` re-read question is not measured and does not change the ruling.
-  - r19: a run the guard fails because of an operator action during it is repeated. No exemption is built.
-  - r20: the three tmux rows are judged on the operator's `rein ci run`.
-
-### Order (so every stamp is taken once, at the commit that merges)
-1. **Operator**: `rein sync`, then `rein ci run` at the branch tip. Remove the 11 leaked `~/.rein/roles/rein-t-*` and `roles/tmp.*` directories first, so the run starts clean.
-2. **Engineer**: commit `tests/census-baseline.tsv`. That commit is the final tip.
-3. **Engineer**, at the final tip: the re-probe with r17 as its whole scope; `reviewer` for what changed since 677fb06 (60cc6e5 and the baseline); `critic_acceptance` for E-473, E-474 and E-475 with r12 to r14. Add r18's residuals to T-REINGUARD-001 as accepted.
-4. **Engineer**: one pull request, merge on green, close all three, then E-472.
-
-### Next action needed
-- **Operator**: step 1.
-- **Engineer**: steps 2 to 4. Until the operator's run, nothing to do on this branch.
-
-### Open risks
-- The baseline commit changes a file under `tests/`, so the run of step 1 may not stand for the final tip at push or at DONE. If a check refuses for that reason, the second run is the operator's to start; say so in one line and wait.
----
 ## Handoff — 2026-11-24 18:58 UTC
 **From**: Engineer → Architect
 **Trigger**: E-473 cleared and E-474 and E-475 reviewed at 47e7e15; the E-475 acceptance clause cannot pass as written (needs your ruling)
@@ -273,3 +248,22 @@ E-476 and E-477 still wait on the operator's green `rein ci run` (the last one t
 
 ### Next action needed
 Your word on E-479's second security round. Then I run the reviewer on E-478 to E-480 at the tip, `critic_acceptance` on each, and close all five once the operator's CI run is green.
+---
+## Handoff — 2026-11-25 19:30 UTC
+**From**: Architect → Engineer
+**Subject**: D-176 addendum 1 — the second round for E-479 is ordered as a re-probe; one more commit first (`[STAMP_RESERVED]`)
+
+### Rulings (D-176 addendum 1, r15 to r22)
+- **r15**: one re-probe round for E-479, no discovery. `security_engineer` re-runs the payloads of F-E479-1 (the ESC sequence and the U+202E form through `add_stamp`; the same summary written to the store without `add_stamp`) and F-E479-2 (`setsid sleep` past the limit; `setsid` with endless output past the cap), and one payload for r16. SEC_CLEARED if all are RESISTED. A new finding goes into T-RECHECK-001 and does not gate unless it is P0. No third round.
+- **r16**: `add_stamp` refuses the types `CHECKS_PASS`, `CHECKS_FAIL` and `CHECK_RETIRED` with `[STAMP_RESERVED]`. `rein recheck` keeps writing them to the store itself. The refusal text must not hold the word `recheck` (E-479's clause on `src/mcp`). `CHECK` stays open. One commit on the branch, as a fix under E-479; one row in `tests/unit/record-store.test.mjs`.
+- **r17 to r21**: the dirty-tree rule, the stricter grammar, the P0 in `rein review`, the size and your points 6 to 8 are ratified as built. I updated `acceptance-replay.md` §Data Model, §API and §Security to match.
+
+### Order (r22)
+1. The commit of r16.
+2. Bring the branch up to date with `origin/main` (D-174 r25).
+3. The operator's `rein ci run` at that tip.
+4. At that tip: the re-probe of r15, the reviewer on E-478 to E-480, `critic_acceptance` on E-476, E-477, E-478, E-479 and E-480.
+5. Close the five. E-480's floor keeps the `[CHECK_GATE]` away from them.
+
+### Next action needed
+Build r16's commit, then tell the operator the tip is ready for `rein ci run`. After the green run, do steps 4 and 5 and hand off with the stamps and anything the re-probe recorded.

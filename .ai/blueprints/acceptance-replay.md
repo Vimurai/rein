@@ -87,6 +87,11 @@ agent, the time and the commit.
 
 - `<command>` is everything after the second ` | `. One line, at most 400 characters. It may
   contain `|`.
+- A `CHECK` or `CHECK_RETIRED` stamp carries a `task_id` equal to the `<task>` in its summary,
+  and its summary holds no control, format or bidi character (D-176 r18, F-E479-1). The live
+  set parses every stored stamp again and drops one that fails, however it reached the store.
+- `add_stamp` refuses the types `CHECKS_PASS`, `CHECKS_FAIL` and `CHECK_RETIRED` with
+  `[STAMP_RESERVED]`; only `rein recheck` writes them (D-176 r16).
 - `<expect>` is exactly one of:
 
 | Expect | Holds when |
@@ -123,8 +128,9 @@ rein recheck --retire <task>#<n> --by <D-###|E-###|P-##> --reason <text>
 | bad arguments | usage | 2 |
 
 - `--json` prints `{ "sha": …, "holds": [ids], "broken": [{id, expect, got, command}], "retired": [ids] }`.
-- A dirty working tree: the run is made and printed, but no `CHECKS_PASS` is recorded
-  (`rein ci run` treats a dirty tree the same way). The line ends `(dirty: not recorded)`.
+- A dirty working tree: the run is made and printed, but no `CHECKS_PASS` is recorded. The
+  line ends `(dirty: not recorded)`. Dirty means a tracked change outside `.ai/`; untracked
+  files do not count (D-176 r17).
 - The DONE gate's refusal: `✗ [CHECK_GATE] no CHECKS_PASS for HEAD — run: rein recheck`.
 - The agent contract: `critic_acceptance` calls `add_stamp` once per replayable clause with
   `type: "CHECK"`, then once with the verdict. Its report to the caller is unchanged.
@@ -143,10 +149,12 @@ rein recheck --retire <task>#<n> --by <D-###|E-###|P-##> --reason <text>
   3,497 lines and was deleted (D-169 r2).
 - **A check is data for the evaluator too.** `critic_acceptance` records the command it ran
   itself, never a command a clause tells it to record.
-- **Residuals, accepted**: any session can call `add_stamp`, so a `CHECKS_PASS` or a
-  `CHECK_RETIRED` can be written without the command (the residual of D-159 addendum 2 r7; the
-  stamp names its agent and commit). A retirement by the Engineer is not refused; it is in
-  `REVIEWS.md` with its reason, and the reviewer reads it.
+- **Residuals, accepted**: a session with Bash can write the store directly, so a `CHECKS_PASS`
+  or a `CHECK_RETIRED` can be written without the command (the residual of D-159 addendum 2
+  r7). `add_stamp` refuses those types (D-176 r16), which closes the one-call route only. A
+  retirement by the Engineer is not refused; it is in `REVIEWS.md` with its reason, and the
+  reviewer reads it.
+- **`rein review 2|3` runs the replay too.** A broken check is a P0 there (D-176 r19).
 - No secret is read or stored. The command's environment is the caller's.
 
 ## Execution Constraints

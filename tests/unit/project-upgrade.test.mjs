@@ -380,3 +380,22 @@ test("doctor: [COMM_IGNORED] with the pattern, [COMM_UNCOMMITTED] when dirty, no
     assert.equal(probe(), "IGNORED");
   } finally { f.cleanup(); t.done(); }
 });
+
+// E-477 (D-175 r3/r4): a project whose rules ignore the whole .ai/ keeps its records on disk by
+// choice — the probe says `local` (checked before IGNORED) and doctor prints one plain line.
+test("E-477.03 comm-status: `.ai/` ignored → local and doctor's plain line; only COMM.md ignored → IGNORED", () => {
+  const t = tmp("comm-local");
+  const f = fixtureRepo(t);
+  try {
+    const doctor = () => f.bash(`${LOCATE_STUB}\n${liftFn("_dr")}\n${liftFn("_doctor_comm_report")}\n_doctor_comm_report`).stdout;
+    const probe = () => f.bash(`${PROBE}; rein_comm_status .`).stdout.trim();
+    writeFileSync(join(f.dir, ".ai", "COMM.md"), "a\n");
+    writeFileSync(join(f.dir, ".gitignore"), ".ai/\n");
+    assert.equal(probe(), "local");
+    assert.match(doctor(), /✓ \.ai\/ records are local only \(gitignored\)/);
+    assert.doesNotMatch(doctor(), /\[COMM_/, "not a warning");
+    writeFileSync(join(f.dir, ".gitignore"), ".ai/COMM.md\n");
+    assert.equal(probe(), "IGNORED", "a leftover COMM.md line is still the warning case (D-175 r4)");
+    assert.match(doctor(), /\[COMM_IGNORED\]/);
+  } finally { f.cleanup(); t.done(); }
+});

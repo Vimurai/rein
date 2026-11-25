@@ -1056,6 +1056,7 @@ _doctor_comm_report() {
   . "$cs"
   st="$(rein_comm_status .)"
   case "$st" in
+    local)         _dr comm_channel - "  ✓ .ai/ records are local only (gitignored)" ;;
     IGNORED)       _dr comm_channel warn "  [COMM_IGNORED] .ai/COMM.md is gitignored — run: rein sync" ;;
     UNCOMMITTED*)  _dr comm_channel warn "  [COMM_UNCOMMITTED] .ai/COMM.md has uncommitted changes — commit it: git add .ai/COMM.md && git commit --only .ai/COMM.md" ;;
     tracked)       _dr comm_channel - "  ✓ tracked and committed" ;;

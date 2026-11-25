@@ -204,14 +204,39 @@ test("rein handoff: exit 1 when the entry lacks \"Next action needed\"; nothing 
   assert.equal(p.g("rev-parse", "HEAD"), head);
 });
 
-test("rein handoff: exit 1 with [COMM_IGNORED] when COMM.md is gitignored; nothing is written", (t) => {
+// E-477 (D-175): where the ignore rules cover COMM.md the entry is written and nothing is staged
+// or committed. This replaces the [COMM_IGNORED] refusal row (D-104 r2/r4).
+test("E-477.01 rein handoff with .ai/ gitignored: exit 0, the entry under its heading, no commit, nothing staged, 'not committed'", (t) => {
+  const p = project(t);
+  p.g("rm", "-r", "-q", "--cached", ".ai");
+  writeFileSync(join(p.root, ".gitignore"), ".ai/\n");
+  p.g("add", ".gitignore"); p.g("commit", "-q", "--no-verify", "-m", "ignore .ai/");
+  const head = p.g("rev-parse", "HEAD");
+  const r = runHandoff(p.ai, { to: "architect", file: p.entry("entry.md", ENTRY) }, { cwd: p.root });
+  assert.equal(r.code, 0, r.out);
+  const comm = readFileSync(join(p.ai, "COMM.md"), "utf8");
+  assert.match(comm, /## Handoff — [^\n]+ UTC\n\*\*From\*\*: Engineer → Architect\n[\s\S]*Next action needed[\s\S]*$/);
+  assert.ok(comm.endsWith(ENTRY.endsWith("\n") ? ENTRY : ENTRY + "\n"), "COMM.md ends with the new entry");
+  assert.equal(p.g("rev-parse", "HEAD"), head, "no commit");
+  assert.equal(p.g("diff", "--cached", "--name-only"), "", "nothing staged");
+  assert.match(r.out, /^SendMessage to .* \(not committed: \.ai\/ is gitignored here\)\.$/m);
+  assert.match(r.out, /^\[COMM_LOCAL\] \.ai\/COMM\.md is gitignored here; the handoff is on this disk only$/m);
+  assert.doesNotMatch(r.out, /\[ARCHIVE_IGNORED\]|run: rein sync/, "the owner's choice gets no advice to sync it away");
+});
+
+test("E-477.02 rein handoff with only COMM.md gitignored: the entry is written without a commit", (t) => {
   const p = project(t);
   p.g("rm", "-q", "--cached", ".ai/COMM.md");
   writeFileSync(join(p.root, ".gitignore"), ".ai/state.sqlite*\n.ai/COMM.md\n");
+  const head = p.g("rev-parse", "HEAD");
+  const staged = p.g("diff", "--cached", "--name-status");   // the rm --cached above
   const r = runHandoff(p.ai, { to: "architect", file: p.entry("entry.md", ENTRY) }, { cwd: p.root });
-  assert.equal(r.code, 1);
-  assert.match(r.out, /\[COMM_IGNORED\]/);
-  assert.equal(readFileSync(join(p.ai, "COMM.md"), "utf8"), "# COMM\n");
+  assert.equal(r.code, 0, r.out);
+  assert.match(readFileSync(join(p.ai, "COMM.md"), "utf8"), /^# COMM\n---\n## Handoff — /);
+  assert.equal(p.g("rev-parse", "HEAD"), head, "no commit");
+  assert.equal(p.g("diff", "--cached", "--name-status"), staged, "the handoff staged nothing");
+  assert.match(r.out, /\(not committed: \.ai\/COMM\.md is gitignored here\)/);
+  assert.match(r.out, /\[COMM_LOCAL\] .*run: rein sync/);
 });
 
 test("rein handoff: usage errors exit 2 (unknown role, no file); a missing file exits 1", (t) => {

@@ -26,7 +26,7 @@ Claude Code panes. `rein help` prints every command with its flags.
 | :--- | :--- |
 | `rein add-task [--tier N] [--prefix E\|P] <description>` | Add a task from the shell. The description needs an `Acceptance:` clause. |
 | `rein done <id> --summary <text>` | Close a task through the completion gates; write the LOG line; rebuild the digest. Exit 1 names the missing stamp. |
-| `rein handoff --to architect\|engineer --file <entry>` | Write the `## Handoff — <time> UTC` heading and `**From**` line, append the entry to `.ai/COMM.md`, run `rein archive`, commit the `.ai/` changes, print the wake line. An entry with its own `## Handoff` line is refused (`[HANDOFF_HEADING]`). |
+| `rein handoff --to architect\|engineer --file <entry>` | Write the `## Handoff — <time> UTC` heading and `**From**` line, append the entry to `.ai/COMM.md`, run `rein archive`, commit the `.ai/` changes, print the wake line. Where `.ai/COMM.md` is gitignored, nothing is committed: the wake line says `not committed` and a `[COMM_LOCAL]` note follows (D-175). An entry with its own `## Handoff` line is refused (`[HANDOFF_HEADING]`). |
 | `rein decide --file <entry>` | Number the entry `D-###` and append it to `.ai/DECISIONS.md`. |
 | `rein review <1\|2\|3> [--base <ref>]` | The deterministic checks on the diff and the agents to dispatch for the tier ([Review by tier](gates-and-review.md)). |
 | `rein task show <id>` | Print one task, open or closed. |

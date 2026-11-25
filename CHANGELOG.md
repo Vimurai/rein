@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/); this project adh
 
 ## [Unreleased]
 
+### Changed
+
+- **`rein handoff` works where `.ai/` is gitignored** (E-477, D-175). The entry is written to
+  `.ai/COMM.md` and nothing is staged or committed; the wake line says `not committed` and a
+  `[COMM_LOCAL]` note follows. It never runs `git add -f`. The comm-status probe reports
+  `local` for a project that ignores the whole `.ai/` directory; `rein doctor` prints
+  `✓ .ai/ records are local only (gitignored)`, and the session brief prints nothing. A
+  project that tracks `.ai/` is unchanged.
+
 ### Fixed
 
 - **`[LANE_CODE]` is quiet inside a role sandbox** (E-476, D-174 r27). It now reports only

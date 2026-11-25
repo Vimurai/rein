@@ -14,9 +14,10 @@
 //     (E-475; the time is the commit message's), and commits it with every dirty tracked .ai/ path
 //     (D-104, D-147 r1: `git commit --only`, the list taken against HEAD), then prints the
 //     short sha and the wake line for SendMessage. It runs `rein archive` first (E-466), and
-//     the archive files it writes ride the same commit. Exit 1 when the entry lacks
-//     "Next action needed", holds its own `## Handoff` line ([HANDOFF_HEADING]), or when
-//     COMM.md is gitignored (nothing is written then).
+//     the archive files it writes ride the same commit. Where COMM.md is gitignored (D-175)
+//     the entry is written, nothing is staged or committed, the wake line says "not
+//     committed" and a [COMM_LOCAL] note follows. Exit 1 when the entry lacks
+//     "Next action needed" or holds its own `## Handoff` line ([HANDOFF_HEADING]).
 //   rein decide --file <entry>
 //     Assigns the next D-number, requires a decision, a reason and a rollback, and appends the
 //     entry to .ai/DECISIONS.md. Prints the D-###.
@@ -123,10 +124,11 @@ export function runHandoff(aiDir, { to, file } = {}, { cwd = process.cwd() } = {
   }
   const root = dirname(resolve(aiDir));
   if (!git(root, ["rev-parse", "--git-dir"]).ok) return { code: 1, out: `✗ [NOT_A_REPO] ${root} is not a git work tree` };
-  // D-104 r2/r4: an un-synced clone still ignores COMM.md. Refuse before writing — never add -f.
-  if (git(root, ["check-ignore", "-q", ".ai/COMM.md"]).ok) {
-    return { code: 1, out: "✗ [COMM_IGNORED] .ai/COMM.md is gitignored in this clone — run: rein sync" };
-  }
+  // D-175 r1/r4: where the ignore rules cover COMM.md the entry is written and nothing is
+  // committed — never add -f (D-104 r2). Whole .ai/ ignored is the owner's choice (quiet);
+  // COMM.md alone is a leftover line that `rein sync` removes.
+  const commIgnored = git(root, ["check-ignore", "-q", ".ai/COMM.md"]).ok;
+  const dirIgnored = commIgnored && git(root, ["check-ignore", "-q", "--no-index", ".ai/"]).ok;
   const from = target === "Architect" ? "Engineer" : "Architect";
   const when = stampUtc();
   const comm = resolve(aiDir, "COMM.md");
@@ -146,12 +148,27 @@ export function runHandoff(aiDir, { to, file } = {}, { cwd = process.cwd() } = {
     const res = archiveRecord(aiDir);
     for (const f of res.files) {
       const rel = `.ai/archive/${basename(f)}`;
-      if (git(root, ["check-ignore", "-q", rel]).ok) notes.push(`[ARCHIVE_IGNORED] ${rel} is gitignored here and stays on disk only — run: rein sync`);
-      else archived.push(rel);
+      if (!git(root, ["check-ignore", "-q", rel]).ok) archived.push(rel);
+      // D-175 r3: a gitignored .ai/ is the owner's choice — no advice to sync it away.
+      else if (!dirIgnored) notes.push(`[ARCHIVE_IGNORED] ${rel} is gitignored here and stays on disk only — run: rein sync`);
     }
     if (res.files.length) notes.push("[RECORD-ARCHIVE]", ...res.lines);
   } catch (e) {
     notes.push(`[ARCHIVE_FAILED] ${String(e.message).slice(0, 300)} — the handoff goes on; run: rein archive`);
+  }
+
+  const verb = target === "Architect" ? "review and plan next" : "execute the OPEN queue";
+  const to_ = `SendMessage to "${basename(root)} · ${target}": ${handoffLine(entry.text)} — ${verb}.`;
+  // D-172 addendum 1 r24 (F8): name any file in the lanes that is not a record.
+  const laneNote = () => { try { const lc = laneCodeLine(root); if (lc) notes.push(lc); } catch { /* never fails the handoff */ } };
+  if (commIgnored) {
+    const what = dirIgnored ? ".ai/" : ".ai/COMM.md";
+    const wake = `${to_} Details: .ai/COMM.md handoff ${when} (not committed: ${what} is gitignored here).`;
+    const local = dirIgnored
+      ? "[COMM_LOCAL] .ai/COMM.md is gitignored here; the handoff is on this disk only"
+      : "[COMM_LOCAL] .ai/COMM.md alone is gitignored in this clone; the handoff is on this disk only — run: rein sync to track it";
+    laneNote();
+    return { code: 0, out: [wake, local, ...notes].join("\n") };
   }
 
   const add = git(root, ["add", "--", ".ai/COMM.md", ...archived]);
@@ -167,10 +184,8 @@ export function runHandoff(aiDir, { to, file } = {}, { cwd = process.cwd() } = {
   const commit = git(root, ["commit", "-q", "--only", ...only, "-m", msg]);
   if (!commit.ok) return { code: 1, out: `✗ [HANDOFF_COMMIT_FAILED] ${(commit.err || commit.out).slice(0, 600)}` };
   const sha = git(root, ["rev-parse", "--short", "HEAD"]).out;
-  const verb = target === "Architect" ? "review and plan next" : "execute the OPEN queue";
-  const wake = `SendMessage to "${basename(root)} · ${target}": ${handoffLine(entry.text)} — ${verb}. Details: .ai/COMM.md handoff ${when}, commit ${sha}.`;
-  // D-172 addendum 1 r24 (F8): name any file in the lanes that is not a record.
-  try { const lc = laneCodeLine(root); if (lc) notes.push(lc); } catch { /* a report never fails the handoff */ }
+  const wake = `${to_} Details: .ai/COMM.md handoff ${when}, commit ${sha}.`;
+  laneNote();
   return { code: 0, out: [sha, wake, ...notes].join("\n") };
 }
 

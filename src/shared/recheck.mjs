@@ -58,22 +58,27 @@ export function liveSet(db) {
  * killed at the time limit or past STDOUT_MAX bytes. → Promise<{ code, stdout, error }>
  */
 export function runCommand(command, { cwd, timeoutMs = TIME_LIMIT_MS, maxBytes = STDOUT_MAX } = {}) {
-  return new Promise((done) => {
+  return new Promise((resolveRun) => {
     const child = spawn("bash", ["-c", command], { cwd, stdio: ["ignore", "pipe", "ignore"], detached: true });
     let out = Buffer.alloc(0);
-    let error = null;
+    let settled = false;
+    const finish = (r) => { if (!settled) { settled = true; clearTimeout(timer); resolveRun(r); } };
+    // E-479 security round (F-E479-2): a limit settles the run AT ONCE. Waiting for `close` let a
+    // setsid'd grandchild that holds stdout outlive the group kill, the limit and the cap.
     const stop = (why) => {
-      if (error) return;
-      error = why;
+      if (settled) return;
       try { process.kill(-child.pid, "SIGKILL"); } catch { /* already gone */ }
+      child.stdout.destroy();
+      finish({ code: null, stdout: "", error: why });
     };
-    const timer = setTimeout(() => stop(`timed out after ${Math.round(timeoutMs / 1000)} s`), timeoutMs);
+    const timer = setTimeout(() => stop(`timed out after ${timeoutMs / 1000} s`), timeoutMs);
     child.stdout.on("data", (d) => {
+      if (settled) return;
       out = Buffer.concat([out, d]);
       if (out.length > maxBytes) stop("output too large");
     });
-    child.on("error", (e) => { clearTimeout(timer); done({ code: null, stdout: "", error: e.message }); });
-    child.on("close", (code) => { clearTimeout(timer); done({ code, stdout: out.toString("utf8"), error }); });
+    child.on("error", (e) => finish({ code: null, stdout: "", error: e.message }));
+    child.on("close", (code) => finish({ code, stdout: out.toString("utf8"), error: null }));
   });
 }
 

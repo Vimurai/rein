@@ -109,7 +109,8 @@ The retirement is listed in full in `REVIEWS.md`, where the reviewer reads it.
 **The commands come from the ledger.** `rein recheck` runs them in your shell, at the trust level
 of the project's test suite. In a role pane, the role's sandbox bounds them; your own shell has
 none. In a project you do not trust, read `rein recheck --list` before the first run: it prints
-every command and runs nothing. The DONE gate never runs a check; it reads the stamp.
+every command and runs nothing. `rein review 2` and `rein review 3` run the checks too, so read
+the list before your first review there as well. The DONE gate never runs a check; it reads the stamp.
 
 ## The hooks
 

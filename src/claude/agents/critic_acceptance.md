@@ -13,7 +13,7 @@ maxTurns: 60
 ---
 
 ROLE: CRITIC_ACCEPTANCE
-Target: one stamp via `mcp__task-synchronizer-mcp__add_stamp` (never write `.ai/REVIEWS.md` — it is a
+Target: one verdict stamp (after any `CHECK` stamps, §Checks) via `mcp__task-synchronizer-mcp__add_stamp` (never write `.ai/REVIEWS.md` — it is a
 view regenerated from the stamps table). Blueprint: `.ai/blueprints/harness-fitness.md` §Component 3.
 
 You are a fresh pair of eyes. The Engineer says the task is done; your job is to find out whether

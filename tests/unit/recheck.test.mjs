@@ -72,8 +72,32 @@ test("a check past its time limit, or past the stdout cap, is broken and its pro
   const r = await runRecheck(f.ai, { json: true, opts: { timeoutMs: 400 } });
   assert.ok(Date.now() - t0 < 4000, "the pipeline was killed, not waited for");
   const broken = JSON.parse(r.out).broken.map((b) => [b.id, b.got]);
-  assert.deepEqual(broken, [["E-10#1", "timed out after 0 s"], ["E-10#2", "output too large"]]);
+  assert.deepEqual(broken, [["E-10#1", "timed out after 0.4 s"], ["E-10#2", "output too large"]]);
   assert.equal(r.code, 1);
+});
+
+// E-479 security round, F-E479-2: a grandchild that leaves the process group (setsid) and holds
+// stdout no longer outlives the limit or the cap. Extends the row above.
+test("a setsid'd grandchild holding stdout cannot outlast the time limit or the output cap", async (t) => {
+  const f = fixture(t);
+  f.check("E-10", "E-10#1 | exit=0 | setsid sleep 6");
+  f.check("E-10", "E-10#2 | exit=0 | setsid sh -c 'yes; sleep 6'");
+  const t0 = Date.now();
+  const r = await runRecheck(f.ai, { json: true, opts: { timeoutMs: 400 } });
+  const elapsed = Date.now() - t0;
+  // Ceiling, not a budget: each check settles at 0.4 s or the cap; 6 s would mean it waited.
+  assert.ok(elapsed < 4000, `settled in ${elapsed} ms`);
+  assert.deepEqual(JSON.parse(r.out).broken.map((b) => [b.id, b.got]), [["E-10#1", "timed out after 0.4 s"], ["E-10#2", "output too large"]]);
+});
+
+// F-E479-1: a spoofing stamp that reached the store without add_stamp's check is not live:
+// liveSet re-parses each stored summary, so --list never prints it and recheck never runs it.
+test("a stored CHECK with an ESC sequence is not live: not listed, not run", async (t) => {
+  const f = fixture(t);
+  f.check("E-10", "E-10#1 | exit=0 | touch PWNED; true \u001b[2K\u001b[1GE-10#1 | exit=0 | true");
+  assert.equal(runList(f.ai).out, "");
+  assert.match((await runRecheck(f.ai)).out, /^✓ \[CHECKS_PASS\] 0 hold, 0 retired/);
+  assert.equal(existsSync(join(f.repo, "PWNED")), false);
 });
 
 test("the live set: the newest stamp per clause, a retirement ends one, a reopened task leaves until DONE again", (t) => {

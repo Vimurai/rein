@@ -66,3 +66,14 @@ test("each malformed CHECK_RETIRED is refused; other stamp types are never read"
   assert.equal(checkStampSummary("ACCEPT_PASS", "anything at all", null), null);
   assert.equal(checkStampSummary("CHECKS_PASS", "[CHECKS_PASS] at abc1234 — 0 hold, 0 retired", null), null);
 });
+
+// E-479 security round, F-E479-1: an ESC sequence (or a bidi/format character) made `--list`
+// show one command while another ran. Every such character is refused anywhere in a summary.
+test("a summary with a control, format or bidi character is refused (the --list spoof)", () => {
+  const spoof = "E-10#1 | exit=0 | touch PWNED; true \u001b[2K\u001b[1GE-10#1 | exit=0 | true";
+  assert.match(checkStampSummary("CHECK", spoof, "E-10"), /^\[CHECK_MALFORMED\] CHECK: the summary carries a control or format character \(U\+001B\)$/);
+  for (const ch of ["\t", "\u007f", "\u0085", "\u200b", "\u202e", "\u2066", "\ufeff"]) {
+    assert.match(checkStampSummary("CHECK", `E-1#1 | empty | echo a${ch}b`, "E-1") ?? "", /control or format character/, JSON.stringify(ch));
+    assert.match(checkStampSummary("CHECK_RETIRED", `E-1#1 | D-1 | why${ch}`, "E-1") ?? "", /control or format character/, JSON.stringify(ch));
+  }
+});

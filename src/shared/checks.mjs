@@ -15,6 +15,10 @@ export const CHECK_ID_RE = /^([A-Z]+-\d+)#([1-9]\d*)$/;
 export const RETIRED_BY_RE = /^[DEP]-\d+$/;
 
 const SEP = " | ";
+// E-479 security round (F-E479-1): a control, format or bidi character lets `--list` show one
+// command while another runs (an ESC sequence redraws the line). Refused anywhere in a summary;
+// liveSet re-parses every stored stamp, so one that reached the store another way drops out too.
+export const UNSAFE_CHAR_RE = /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u206f\ufeff]/;
 
 /** "E-476#3" → { id, task: "E-476", n: 3 }, or null. */
 export function parseCheckId(s) {
@@ -50,6 +54,8 @@ function _split3(summary) {
 
 function _head(summary, taskId) {
   if (/[\r\n]/.test(String(summary ?? ""))) return { reason: "the summary must be one line" };
+  const bad = UNSAFE_CHAR_RE.exec(String(summary ?? ""));
+  if (bad) return { reason: `the summary carries a control or format character (U+${bad[0].codePointAt(0).toString(16).toUpperCase().padStart(4, "0")})` };
   const parts = _split3(summary);
   if (!parts) return { reason: `the summary must be "<task>#<n>${SEP}…${SEP}…"` };
   const id = parseCheckId(parts[0]);

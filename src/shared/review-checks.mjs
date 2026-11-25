@@ -19,8 +19,8 @@
 // the unstaged one, else the last commit (`git diff HEAD~1`) — the batch commits each task.
 
 import { spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { classifyDiffTraversal } from "./traversal-policy.mjs";
 import { PLUGIN_NAME } from "./plugin-build.mjs";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
@@ -144,6 +144,13 @@ export function reviewReport(tier, diff, opts = {}) {
   return { text: lines.join("\n"), p0: p0.length };
 }
 
+/** The replay for Tier 2/3: none outside a Rein project (never create an .ai/ there); an error is one line. */
+async function _replay(cwd) {
+  const aiDir = findAiDir(cwd);
+  if (!["state.sqlite", "state.json", "project.json"].some((f) => existsSync(join(aiDir, f)))) return null;
+  try { return await runRecheck(aiDir); } catch (e) { return { code: 1, out: `✗ [CHECKS_FAIL] rein recheck failed: ${e.message}` }; }
+}
+
 if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const tier = Number(argv[0]);
@@ -153,7 +160,7 @@ if (isMainModule(import.meta.url)) {
     process.exitCode = 2;
   } else {
     const cwd = resolve(opt("--cwd") || process.cwd());
-    const recheck = tier >= 2 ? await runRecheck(findAiDir(cwd)) : null;
+    const recheck = tier >= 2 ? await _replay(cwd) : null;
     const { text, p0 } = reviewReport(tier, reviewDiff(cwd, opt("--base")), { cwd, recheck });
     process.stdout.write(`${text}\n`);
     process.exitCode = p0 > 0 ? 1 : 0;

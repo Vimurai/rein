@@ -3,30 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 13:58 UTC
-**From**: Architect → Engineer
-**Trigger**: telemetry removal ruled out of E-467 into E-473 (D-172 r28); E-472 now waits on it
-
-### What was built
-- `.ai/DECISIONS.md`: D-172 addendum 4 r28. Task E-473 (Tier 3, BLOCKED on E-470). E-472 depends on E-470 and E-473.
-- Also since your last read: D-173 and E-472 (v0.6.0 after #69; handoff of 13:50 UTC, whose wake line was not sent).
-
-### Decisions made
-- **D-172 r28**: E-467's review and acceptance read "telemetry and insights, the incident tracker" (D-170 r5) as moved to E-473. Their presence at the batch tip is not a FAIL of E-467.
-  - E-473 keeps the build stamp `rein doctor` reads, and a test-runner guard against writes under the real `~/.rein`.
-  - E-473 lands before the v0.6.0 bump, so the release is the lean core as D-170 ruled it.
-- The app-contract statement for E-468 is accepted: the document changed, the contract did not.
-
-### Blueprint divergence (if any)
-- NONE.
-
-### Next action needed
-- **Operator**: `rein ci run` on the tip.
-- **Engineer**: review, acceptance and security for E-467 against r28; review and acceptance for E-468; close both, E-462 and E-470; push to #69. After the merge: E-473, then E-472.
-
-### Open risks
-- E-473 touches the test runner's isolation guard. A mistake there lets a suite write into the operator's `~/.rein` unseen; the task keeps one row that proves the guard still fails the run.
----
 ## Handoff — 2026-11-24 15:09 UTC
 **From**: Engineer → Architect
 **Trigger**: lean-core batch closed — PR #69 merged, installed; E-457 and E-470 close on this entry
@@ -335,3 +311,28 @@ Adoptability   steps from install to a first closed task                     UNK
 - `src/bin/rein:3633` has a comment that still names `[GATE_UNREGISTERED]`, which E-463 removed (reviewer note; comment only).
 - The lane ledger refused Dependabot's a86d100 (from #70, already on origin/main) when the release branch was pushed. I trusted it by hand. Every branch cut from a main that holds a bot commit will hit this; it is a candidate for P-53.
 - The escape suite's C25 depends on the model making the call. One UNKNOWN in two runs at 444e3c9.
+---
+## Handoff — 2026-11-25 10:46 UTC
+**From**: Architect → Engineer
+**Trigger**: v0.6.0 accepted; the plain tag is right (D-173 r9); one small task, E-476; architect.md is rewritten (P-53)
+
+### What was built
+- `.ai/DECISIONS.md`: D-173 addendum 1 (r8 to r10) and D-174 addendum 5 (r27 to r30).
+- `.ai/architect.md`: rewritten for the lean core, 126 lines. §9 lists every blueprint as current, not re-read, or historical. P-53 is closed.
+- State: E-476 (Tier 2).
+
+### Decisions made
+- **D-173 r9**: "the signed tag" in E-472 was my loose wording. The signature is minisign on the tarball. No signed git tag is built. What you told the operator was right.
+- **D-173 r10**: C25's UNKNOWN is handled by the existing rule (run the suite again). A task only if it recurs at the next release.
+- **D-174 r27**: `[LANE_CODE]` reports regular files and symbolic links only. The 17 entries it prints in my pane are the sandbox's character-device placeholders.
+- **D-174 r28**: a commit made on GitHub is trusted in the ledger by hand, after `git ls-remote` confirms it is on the remote's main. No automatic trust is built. Your hand trust of a86d100 was the right step.
+- **D-174 r29**: no blueprint is moved or deleted.
+
+### Next action needed
+- **Engineer**: E-476, on a branch that holds `origin/main` (r25). It is not urgent. Do not ask for CI for it alone if another task is about to join: P-54 will add one for model routing, and the two can share a pull request and one run.
+- **Operator**: `bash install-rein.sh` to move `~/.rein` to 0.6.0, then restart the panes. `rein done` printed `[BUILD_STALE]` for 3 files today.
+- **Architect**: P-55 (rein-app review), then P-54 (model routing), then P-43.
+
+### Open risks
+- Seen while listing `src/` and not checked against the keep list: `src/shared/managed-agents-client.mjs`, `src/shared/provider-adapter.mjs`, `src/shared/wal-flusher.mjs`, `src/copilot/` and `src/contracts/`. If you know one is unused, name it in your next handoff; I rule on a sweep then.
+- a000a27 (the close of E-472) is on local main only. It is `.ai/`-only and rides the next pull request.

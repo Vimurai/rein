@@ -6211,6 +6211,11 @@ Each ruling is a change inside one task's commit or a follow-up commit on `lean-
 ### Rollback
 Before the tag: revert the bump pull request. After the tag: `gh release delete v0.6.0`, delete the tag (the operator), and v0.5.0 stays the latest signed release.
 
+### Addendum 1 (2026-11-25) — v0.6.0 is released; the git tag is a plain tag
+8. **v0.6.0 is accepted as released**: tag on 55ff424 (the merge of #72), tarball sha256 `8d51459b…2706fa7`, three assets, `rein release verify` exit 0, escape suite 42 PASS with 0 FAIL and 0 UNKNOWN at 444e3c9.
+9. **"The signed tag" in E-472 was the Architect's loose wording.** No decision asks for a signed git tag: D-156 and r3 say the operator creates and pushes the tag. The signature of a release is the minisign signature on the tarball, made by `release.yml` and checked by `rein release verify`. `v0.6.0` is a plain tag, as `v0.5.0` is, and that is accepted. A signed git tag would need an operator key that is not set up and would add nothing an installer checks. It is not built.
+10. **The escape suite's case C25 gave UNKNOWN once in two runs**, because the model made no call. D-172 r6 stands: the suite is run again. If it happens at the next release too, the case gets a task.
+
 ---
 
 ## D-174 — The open tasks after the strip: 43 closed as overtaken, 9 closed as built, one waits on its acceptance run; the CI planner goes; `rein handoff` writes its own heading
@@ -6286,5 +6291,11 @@ Pull request #71 merged as 27ebc09. `rein done` refuses E-473, E-474 and E-475: 
 24. **This is not a route.** A carried stamp needs a ruling that names the two commits and the check, and only the Architect records it. The residual of D-159 addendum 2 r7 (a stamp is not tied to a dispatch) is what makes it possible; it is used here in the open.
 25. **From now: the branch holds `origin/main` before the last stamps.** Order for a pull request: bring the branch up to date with main (merge or rebase); the operator's `rein ci run`; the stamps at that tip; `.ai/`-only commits after; merge at once. The merge commit then differs from the stamped tip in `.ai/` only and the existing rule covers it. If main moves outside `.ai/` between the stamps and the merge, the Engineer says so in a handoff before merging.
 26. **The gate is not changed** (the Engineer's option b). One operator and one bot write to main, so r25 costs nothing and a merge-aware stamp rule is code in the DONE gate that would rarely run. If r25 fails twice, option b becomes a task.
+
+### Addendum 5 (2026-11-25) — After v0.6.0: `[LANE_CODE]` skips what is not a file; a bot commit is trusted by hand; the blueprints stay in place
+27. **`[LANE_CODE]` reports regular files and symbolic links only** (E-476). Seen in the Architect's pane: the 17 entries it reports at every handoff are character devices (`1, 3`, owner `nobody`) that the platform's sandbox puts in the working directory as placeholders for paths it protects. No test runner loads a device. D-172 r25 asked for a notice that is quiet on a clean project; this is the same ruling for a case it did not know. A symbolic link is still reported, whatever it points at.
+28. **A commit made on GitHub is trusted in the lane ledger by hand, after asking the remote** (E-476 documents it). A Dependabot merge reaches the clone by a pull, so no lane recorded it, and the push of a branch cut from it is refused. The Engineer confirms the commit is an ancestor of what `git ls-remote origin main` answers, then records it with the ledger's `trust` command. A local `origin/main` ref is not the proof (D-172 r1, F2). No automatic trust is built: it would put a network call and a new trust rule into the push check to save one command a few times a month.
+29. **No blueprint is moved or deleted** (the question r13 left for P-53). `.ai/architect.md` §9 lists each as current, not re-read, or historical. Decisions cite blueprints by path, and git holds them either way.
+30. **E-476's unit row for "a character device" may use a FIFO made with `mkfifo`**, since a test cannot create a device without root. The clause run in the Architect's pane is the observation for the device itself.
 
 ---

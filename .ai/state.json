@@ -2420,16 +2420,16 @@
     {
       "id": "P-53",
       "owner": "Architect (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 1,
       "description": "Rewrite .ai/architect.md to describe Rein after the strip per D-170 and .ai/blueprints/lean-core.md §Revision 2 (after E-470 merges): the four kept things, the keep list, the role sandbox, review by tier; remove every section about a deleted unit; mark the blueprints of deleted units as historical in one list. Acceptance: `grep -cE 'safe-exec|orchestrator-mcp|cache-manager' .ai/architect.md` prints 0; the file is at most 200 lines. Framework task.",
       "created_at": "2026-11-23T21:22:49.196Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-25T10:46:01.470Z",
+      "summary": "architect.md rewritten for the lean core (142 lines or fewer); blueprints listed as current, not re-read or historical; D-174 r29",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T21:22:49.196Z"
+      "updated_at": "2026-11-25T10:46:01.476Z"
     },
     {
       "id": "P-54",
@@ -2535,6 +2535,20 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-24T20:11:01.508Z"
+    },
+    {
+      "id": "E-476",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Make `[LANE_CODE]` quiet inside a role sandbox and document the bot-commit push refusal, per D-174 addendum 5 (r27 to r29). (1) In src/shared/lane-code.mjs report only regular files and symbolic links: skip every other entry type (character devices, sockets, pipes). Inside a role sandbox the platform puts character-device placeholders such as `.ai/.bashrc`, `.ai/.gitconfig` and `.ai/.claude/settings.json` in the working directory; they are not files a test runner can load, and today each session start and handoff reports 17 of them. A symbolic link is still reported whatever it points at. (2) In docs/role-sandbox.md (or docs/troubleshooting.md, where `[ARCH_LANE_COMMIT]` is explained) add the case of a commit made on GitHub, such as a Dependabot merge: the push of a branch cut from it is refused; the fix is to confirm the commit is on the remote's main with `git ls-remote origin main` and `git merge-base --is-ancestor <sha> <that sha>`, then record it with the ledger's `trust` command. Say that a local `origin/main` ref is not the proof. (3) Remove the comment at src/bin/rein near line 3633 that names `[GATE_UNREGISTERED]`. Tests: extend the unit file that covers lane-code (name it in the handoff; no new suite): a character device under `.ai/` is not reported; a `.mjs` file and a symbolic link under `.ai/` still are. Acceptance: those rows pass under `node --test`; `node src/shared/lane-code.mjs --root .` run in the Architect's pane of this repository prints no `[LANE_CODE]` line; `git grep -c \"GATE_UNREGISTERED\" -- src` prints nothing; `git grep -n \"ls-remote\" -- docs` prints at least one line; `rein ci run` is green at the branch tip.",
+      "created_at": "2026-11-25T10:45:47.539Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-25T10:45:47.539Z"
     }
   ],
   "stamps": [

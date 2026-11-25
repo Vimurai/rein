@@ -3,29 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 14:10 UTC
-**From**: Engineer → Architect
-**Trigger**: batch close — the last round passed all but E-467's review (telemetry) and E-468's review (one statement); one ruling needed
-
-### What was built
-- Closed: E-458, E-459, E-460, E-461, E-463, E-464, E-466, E-469 (review, acceptance and, Tier 3, security at a902167/2c3f78c; CI green at 4db5ec2). E-462 waits on one acceptance stamp that did not land (re-dispatched).
-- 5f9eb96: CONTRIBUTING.md puts seatbelt.mjs under src/shared/ (E-468 review note).
-
-### E-468 — the app contract (the task asks the handoff to say whether it changed)
-- **docs/app-contract.md changed, the contract did not.** 2bcaf5d: an example that named the removed orchestrator-mcp is generic now; the `rein pane` row says it writes the launch record instead of "never mints a role token". 5b343c4: the `rein gate on|status` row is removed with the gate (E-463). No command an app may call changed its arguments or output.
-
-### Decisions needed
-- **E-467's review FAILs on D-170 r5**: telemetry (src/shared/telemetry.mjs 799 lines, mcp-telemetry.mjs 181, incident-append.mjs 148) and the incident tracker remain, with their tests. The batch notes kept them for the gate, which is gone. Removing them needs a split (mcp-telemetry.mjs also holds the build stamp `rein doctor` uses for stale servers), a rewrite of tests/run.sh's telemetry-isolation guard (E-257) and harness_isolation's E-257 rows, and ~15 files.
-- **The operator chose a follow-up task**: please register it (removal of telemetry, mcp-telemetry's recording half, incident-append and the hook incident writer, their tests and the run.sh guard; keep the build stamp) and amend E-467 so its review reads that removal as moved to the new task.
-
-### Next action needed
-- **Architect**: the ruling and the task above.
-- **Operator**: `rein ci run` on the tip after that.
-- **Engineer**: then review, acceptance and security for E-467, review and acceptance for E-468; close both and E-462; close E-470; push to #69.
-
-### Open risks
-- None new.
----
 ## Handoff — 2026-11-24 13:58 UTC
 **From**: Architect → Engineer
 **Trigger**: telemetry removal ruled out of E-467 into E-473 (D-172 r28); E-472 now waits on it
@@ -321,3 +298,40 @@ Adoptability   steps from install to a first closed task                     UNK
 
 ### Open risks
 - If `rein done` still refuses, quote the line in a handoff. Do not add a stamp yourself.
+---
+## Handoff — 2026-11-25 10:42 UTC
+**From**: Engineer → Architect
+**Trigger**: v0.6.0 is released and verified (E-472); the OPEN queue is empty
+
+### What was built
+- **Release**: https://github.com/Vimurai/rein/releases/tag/v0.6.0
+  - Tagged commit: `55ff424273e5eb372312f4f2d3eb8c4652807657`, the merge of PR #72. The operator pushed the tag; the ruleset logged the operator's bypass.
+  - Tarball sha256: `8d51459bc94cad200aaa47b369700593e942671ed10eb00fb5571e8752706fa7` (`rein-0.6.0.tar.gz`).
+  - Assets: exactly `rein-0.6.0.tar.gz`, `rein-0.6.0.tar.gz.minisig` and `manifest.json`.
+  - `rein release verify --pubkey docs/contract/release-key.pub rein-0.6.0.tar.gz` exits 0: the signature is verified and 141 files match the manifest.
+  - manifest.json: version 0.6.0, schema 1, key_id 5C9C75A7C8FA8056.
+  - The release workflow run 45595673966 succeeded.
+- **PR #72** was merged on 18/18 green hosted CI. Main had not moved since the stamps (r25). It contains:
+  - 1407e07: the bump of package.json, package-lock.json, the app-contract examples and the doctor-json and release-manifest fixtures to 0.6.0.
+  - 1407e07: CHANGELOG `[0.6.0] — Lean core — 2026-11-24`. What E-463 built replaces the "still present" sentence; BREAKING and App contract sections are added.
+  - 444e3c9: the review fix. BREAKING now also names update, onboard and provider.
+  - The app-contract `rein doctor --json` example now uses `hook_path_missing`, because `gate_registered` left with E-463.
+  - `release.yml` and the release scripts are unchanged.
+- **Checks**:
+  - The operator's `rein ci run` at 444e3c9: PASS, 3697/0.
+  - The escape suite at 444e3c9: `SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0`, quoted in PR #72. A first run gave UNKNOWN=1 on C25: the model made no call even after the one repeat, and the file was unchanged.
+  - REVIEW_PASS at 444e3c9.
+- **docs/app-contract.md changed**: the doctor example's check and the version strings. The schema and the verify steps are unchanged.
+- E-473, E-474 and E-475 are closed on the stamps carried by r23.
+
+### Decisions needed
+- None.
+
+### Next action needed
+- **Architect**: plan the next batch; the OPEN queue is empty after E-472.
+- **Operator**: run `bash install-rein.sh` (or `rein install`) to move `~/.rein` to 0.6.0. Until then the install predates the strip: `rein ci plan` still runs from it, and `rein sync` mirrors the old rules.
+
+### Open risks
+- `src/bin/rein:3633` has a comment that still names `[GATE_UNREGISTERED]`, which E-463 removed (reviewer note; comment only).
+- The lane ledger refused Dependabot's a86d100 (from #70, already on origin/main) when the release branch was pushed. I trusted it by hand. Every branch cut from a main that holds a bot commit will hit this; it is a candidate for P-53.
+- The escape suite's C25 depends on the model making the call. One UNKNOWN in two runs at 444e3c9.

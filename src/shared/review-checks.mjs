@@ -10,6 +10,11 @@
 //     exit 1 — a P0 finding; nothing is dispatched until it is fixed
 //     exit 2 — bad arguments
 //
+// E-480 (D-176, acceptance-replay.md §Component 3): Tier 2 and 3 also run `rein recheck` (the
+// recorded acceptance checks of DONE tasks) and print its lines. A broken check is a P0: the
+// DONE gate ([CHECK_GATE]) would refuse anyway, so no agent is dispatched until it is fixed or
+// retired. The replay runs here, in the caller's shell — never in an MCP server.
+//
 // The diff: `--base <ref>` diffs <ref> against the working tree; otherwise the staged diff, else
 // the unstaged one, else the last commit (`git diff HEAD~1`) — the batch commits each task.
 
@@ -19,6 +24,8 @@ import { resolve } from "node:path";
 import { classifyDiffTraversal } from "./traversal-policy.mjs";
 import { PLUGIN_NAME } from "./plugin-build.mjs";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
+import { runRecheck } from "./recheck.mjs";
+import { findAiDir } from "./cli-add-task.mjs";
 
 /** The agents a tier dispatches, in order (lean-core.md §Component 5). */
 export const TIER_DISPATCH = Object.freeze({
@@ -109,24 +116,30 @@ export function reviewChecks(diff, { cwd = process.cwd(), env = process.env } = 
   return checks;
 }
 
-/** The report `rein review <tier>` prints. → { text, p0 } */
+/**
+ * The report `rein review <tier>` prints. → { text, p0 }
+ * `opts.recheck` — the result of runRecheck ({ code, out }) for Tier 2 and 3; its lines are printed.
+ */
 export function reviewReport(tier, diff, opts = {}) {
   const checks = reviewChecks(diff, opts);
   const p0 = checks.filter((c) => c.severity === "P0");
+  const replay = opts.recheck || null;
+  if (replay && replay.code !== 0) p0.push({ id: "CHECKS_FAIL" });
   const files = [...diff.matchAll(/^\+\+\+ b\/(.+)$/gm)].length;
   const lines = [`rein review — Tier ${tier} (${files} file(s) in the diff)`, "", "Deterministic checks:"];
   if (checks.length === 0) lines.push("  ✓ no finding");
   for (const c of checks) lines.push(`  [${c.id}] ${c.severity} ${c.status}: ${c.detail}`);
+  if (replay) lines.push("", "Recorded checks (rein recheck):", ...replay.out.split("\n").map((l) => `  ${l}`));
   lines.push("", "Dispatch:");
   if (p0.length > 0) {
-    lines.push(`  none yet — fix the ${p0.length} P0 finding(s) above, then run rein review ${tier} again`);
+    lines.push(`  none yet — fix the ${p0.length} P0 finding(s) above${replay && replay.code !== 0 ? " (a broken check: fix the code, or retire it with rein recheck --retire)" : ""}, then run rein review ${tier} again`);
   } else if (TIER_DISPATCH[tier].length === 0) {
     lines.push("  none — Tier 1 needs no review and no stamp");
   } else {
     // E-469: the agents are the rein plugin's, so the Agent tool's subagent_type is plugin-scoped.
     TIER_DISPATCH[tier].forEach((a, i) => lines.push(`  ${i + 1}. ${PLUGIN_NAME}:${a} on <task id> → ${AGENT_STAMP[a]}`));
     lines.push("", "The task is refused DONE until each PASS stamp stands for HEAD ([REVIEW_GATE], [ACCEPT_GATE]" +
-      `${tier === 3 ? ", [SEC_GATE]" : ""}).`);
+      `${tier === 3 ? ", [SEC_GATE]" : ""}, [CHECK_GATE]).`);
   }
   return { text: lines.join("\n"), p0: p0.length };
 }
@@ -140,7 +153,8 @@ if (isMainModule(import.meta.url)) {
     process.exitCode = 2;
   } else {
     const cwd = resolve(opt("--cwd") || process.cwd());
-    const { text, p0 } = reviewReport(tier, reviewDiff(cwd, opt("--base")), { cwd });
+    const recheck = tier >= 2 ? await runRecheck(findAiDir(cwd)) : null;
+    const { text, p0 } = reviewReport(tier, reviewDiff(cwd, opt("--base")), { cwd, recheck });
     process.stdout.write(`${text}\n`);
     process.exitCode = p0 > 0 ? 1 : 0;
   }

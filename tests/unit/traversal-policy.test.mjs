@@ -104,3 +104,13 @@ test("E-464.R2 (E-169): an Architect-owned file or any blueprint is a P0, and a 
   assert.match(r.text, /none yet — fix the 1 P0 finding/);
   assert.doesNotMatch(r.text, /1\. reviewer/);
 });
+// E-480 (D-176): Tier 2 and 3 print the replay's lines; a broken check is a P0 like R2's.
+test("E-480.R3: rein review prints the recheck lines, and a broken check dispatches nothing", () => {
+  const pass = reviewReport(2, "", { env: {}, recheck: { code: 0, out: "✓ [CHECKS_PASS] 3 hold, 0 retired (0.4 s)" } });
+  assert.match(pass.text, /Recorded checks \(rein recheck\):\n {2}✓ \[CHECKS_PASS\] 3 hold/);
+  assert.equal(pass.p0, 0);
+  const fail = reviewReport(2, "", { env: {}, recheck: { code: 1, out: "✗ [CHECK_BROKEN] E-1#1 expected empty, got 1 line: x\n✗ [CHECKS_FAIL] 1 broken of 3 (0.4 s)" } });
+  assert.equal(fail.p0, 1);
+  assert.match(fail.text, / {2}✗ \[CHECKS_FAIL\] 1 broken of 3/);
+  assert.match(fail.text, /none yet — fix the 1 P0 finding\(s\) above \(a broken check: fix the code, or retire it with rein recheck --retire\)/);
+});

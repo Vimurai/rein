@@ -67,7 +67,8 @@ test("laneCodeFiles: the two exempt .ai files and the r25 extensions are quiet; 
   assert.deepEqual(laneCodeFiles(root).files, [".ai/.envrc", "plans/.gitignore"]);
 });
 
-// E-476 (D-174 r27): only regular files and symbolic links are reported. A role sandbox puts
+// E-476 (D-174 r27) extends "laneCodeFiles: a .mjs under plans/ is named …" above: only regular
+// files and symbolic links are reported. A role sandbox puts
 // character-device placeholders in the working directory; an unprivileged test cannot mknod
 // one, so the device row stubs readdir's entry type and the FIFO row is a real non-regular file.
 test("E-476.01: a character device under .ai/ is not reported; a .mjs and a symlink beside it are", (t) => {

@@ -76,8 +76,9 @@ git merge-base --is-ancestor <commit> <remote-sha> && echo on-main
 node ~/.rein/shared/lane-ledger.mjs trust --root . <commit>  # record it by hand
 ```
 
-Then push again. Trust a commit only after this check (D-174 r28). Nothing trusts one
-automatically.
+Run these in the Engineer's pane or your own terminal. The Architect's pane can't write the
+ledger, so `trust` exits 1 there. Then push again. Trust a commit only after this check
+(D-174 r28). Nothing trusts one automatically.
 
 ## Requirements
 

@@ -92,6 +92,18 @@ export function parseRetire(summary, taskId) {
   return { ok: true, retire: { id: h.id.id, task: h.id.task, n: h.id.n, by, reason } };
 }
 
+// D-176 addendum 1 r16: these types are written to the store by their own command only. Through
+// add_stamp a retirement would skip the --by check, and a CHECKS_PASS would open the DONE gate in
+// one tool call. CHECK stays open: critic_acceptance writes it.
+export const RESERVED_STAMP_TYPES = Object.freeze(["CHECKS_PASS", "CHECKS_FAIL", "CHECK_RETIRED"]);
+
+/** add_stamp's refusal of a reserved type, or null. The text names no command (E-479's src/mcp clause). */
+export function reservedStampType(type) {
+  return RESERVED_STAMP_TYPES.includes(type)
+    ? `[STAMP_RESERVED] ${type} is written only by the command that runs the recorded checks, not by add_stamp`
+    : null;
+}
+
 /**
  * add_stamp's check (E-478): null when `type` is not CHECK or CHECK_RETIRED or the summary is
  * well formed, else the one refusal line `[CHECK_MALFORMED] <type>: <reason>`.

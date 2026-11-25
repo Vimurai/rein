@@ -35,7 +35,7 @@ import { buildToolSchemas } from "./tool-schemas.mjs";
 import { getCiStatus } from "../shared/ci-runs.js";
 import { completionGates, checkSupersededBy } from "../../shared/completion-gates.mjs";
 import { checkTaskQuality } from "../../shared/task-quality.mjs";
-import { checkStampSummary } from "../../shared/checks.mjs";
+import { checkStampSummary, reservedStampType } from "../../shared/checks.mjs";
 import { validateNamed, loadSchemas } from "../../shared/schema-validator.js";
 // E-249: instrument() stamps every CallTool result with the build this process booted.
 import { instrument, rejection } from "../../shared/mcp-result.mjs";
@@ -439,7 +439,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       const _stampErr = _assertSchema("stamp_add", args);
       if (_stampErr) return _stampErr;
       // E-478 (D-176): a CHECK or CHECK_RETIRED summary is a check record; a malformed one is refused.
-      const _checkErr = checkStampSummary(args.type, args.summary, args.task_id);
+      // D-176 addendum 1 r16: CHECKS_PASS, CHECKS_FAIL and CHECK_RETIRED are reserved.
+      const _checkErr = reservedStampType(args.type) ?? checkStampSummary(args.type, args.summary, args.task_id);
       if (_checkErr) return rejection(`✗ ${_checkErr}`);
       _insertStamp(aiDir, db, {
         type: args.type, agent: args.agent ?? null, task_id: args.task_id ?? null,

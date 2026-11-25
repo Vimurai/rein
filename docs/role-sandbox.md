@@ -55,6 +55,30 @@ the content of a commit:
   Engineer's lane ledger recorded it (the post-commit hook writes the ledger). There is no skip
   variable.
 
+### A commit made on GitHub: `[ARCH_LANE_COMMIT]` at push
+
+A commit made on GitHub never passed through the post-commit hook, so it isn't in the ledger.
+That includes a pull request merged in the web UI and a Dependabot update. When you push a new
+branch cut from a main that holds one, pre-push refuses it:
+
+```
+[ARCH_LANE_COMMIT] a86d100 "chore(deps): bump …" changes .github/workflows/… but was not committed in the Engineer's lane — refused.
+```
+
+Before you record it, check that the commit really is on the remote's main. A local
+`origin/main` ref doesn't prove it: anything that can write `.git` can move that ref. Ask the
+remote, then check ancestry against the sha it returns:
+
+```bash
+git fetch origin main                                      # brings the remote commit objects in
+git ls-remote origin main                                  # <remote-sha>  refs/heads/main
+git merge-base --is-ancestor <commit> <remote-sha> && echo on-main
+node ~/.rein/shared/lane-ledger.mjs trust --root . <commit>  # record it by hand
+```
+
+Then push again. Trust a commit only after this check (D-174 r28). Nothing trusts one
+automatically.
+
 ## Requirements
 
 - **Linux and WSL2**: `bubblewrap` and `socat`, and user namespaces that work.

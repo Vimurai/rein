@@ -3,6 +3,17 @@
 All notable changes to **@vimurai/rein** are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+
+- **`[LANE_CODE]` is quiet inside a role sandbox** (E-476, D-174 r27). It now reports only
+  regular files and symbolic links under `.ai/` and `plans/`. Before this, the sandbox's
+  character-device placeholders produced 17 false entries at every session start and handoff.
+  `node src/shared/lane-code.mjs` also accepts `--root <dir>`.
+- `docs/role-sandbox.md` explains the `[ARCH_LANE_COMMIT]` refusal of a commit made on GitHub,
+  such as a Dependabot merge, and how to check it against the remote before trusting it (D-174 r28).
+
 ## [0.6.0] — Lean core — 2026-11-24
 
 D-169 and D-170 cut Rein to what Claude Code does not have: a task ledger, DONE by observed

@@ -7,13 +7,15 @@
 //   an accepted residual; this is its detective control. Every file under .ai/ and plans/,
 //   tracked or not (untracked and git-ignored files count, and no sub-directory is skipped),
 //   whose extension is not a record's is named in one line. Nothing is printed when there are
-//   none.
+//   none. Only regular files and symbolic links count (D-174 r27, E-476): a role sandbox puts
+//   character-device placeholders (`.ai/.bashrc`, `.ai/.claude/settings.json`) in the working
+//   directory, and no test runner loads a device, socket or pipe.
 //
 // Callers (one copy of the rule, two places it is shown):
 //   hooks/session-start.sh  — the Engineer's session brief, as an anomaly line
 //   src/shared/cli-bookkeeping.mjs — `rein handoff`, as a note under the wake line
 //
-// CLI: node lane-code.mjs [<project root>]   → the line on stdout, or nothing; always exit 0.
+// CLI: node lane-code.mjs [--root] [<project root>]   → the line on stdout, or nothing; always exit 0.
 import { readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { isMainModule } from "../mcp/shared/is-main.mjs";
@@ -42,20 +44,23 @@ export function laneAllowed(name) {
 
 /**
  * Every file under <root>/.ai and <root>/plans whose name is not a record, as paths relative
- * to root (forward slashes), sorted. Symlinks are reported by name and never followed.
+ * to root (forward slashes), sorted. Symlinks are reported by name and never followed; other
+ * non-regular entries (devices, sockets, pipes) are skipped. `readdir` is a test seam: an
+ * unprivileged test cannot create a character device.
  * @returns {{files: string[], partial: boolean}} partial: the walk hit MAX_ENTRIES.
  */
-export function laneCodeFiles(root) {
+export function laneCodeFiles(root, { readdir = readdirSync } = {}) {
   const files = [];
   let seen = 0;
   let partial = false;
   const walk = (abs, rel) => {
     let ents;
-    try { ents = readdirSync(abs, { withFileTypes: true }); } catch { return; }
+    try { ents = readdir(abs, { withFileTypes: true }); } catch { return; }
     for (const e of ents) {
       if (++seen > MAX_ENTRIES) { partial = true; return; }
       const r = `${rel}/${e.name}`;
       if (e.isDirectory()) walk(join(abs, e.name), r);
+      else if (!(e.isFile() || e.isSymbolicLink())) continue;   // D-174 r27: devices, sockets, pipes
       else if (!laneAllowed(e.name) && !LANE_EXEMPT_PATHS.includes(r)) files.push(r);
       if (partial) return;
     }
@@ -87,7 +92,8 @@ export function laneCodeLine(root, { show = 10, width = 380 } = {}) {
 
 if (isMainModule(import.meta.url)) {
   try {
-    const line = laneCodeLine(process.argv[2] || process.cwd());
+    const args = process.argv.slice(2).filter((a) => a !== "--root");
+    const line = laneCodeLine(args[0] || process.cwd());
     if (line) process.stdout.write(line + "\n");
   } catch { /* a report never fails its caller */ }
   process.exit(0);

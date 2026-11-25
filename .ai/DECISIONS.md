@@ -6330,3 +6330,47 @@ In the operator's project `em-locize`, line 46 of the project `.gitignore` ignor
 Revert the task's one commit; the refusal returns.
 
 ---
+
+## D-176 — Direction after the strip: Rein is the proof layer; the platform is reused for everything else; acceptance replay is built first
+
+**Date**: 2026-11-25
+**Task**: the three E-## tasks and the P-## task registered with this entry; P-55 (replaced); `.ai/blueprints/acceptance-replay.md`
+**Decision**: Rein grows only where it proves agent work (what was ordered, why, and the observed evidence that it is done and still true); anything the platform already ships is reused and not rebuilt; the first new feature is acceptance replay.
+
+### Why needed
+The strip is released as v0.6.0 (D-170, D-173). The operator asked on 2026-11-25 which direction Rein takes now, and gave the rules: do not copy features of Claude Code or of other existing tools; reuse what exists so that Rein does not maintain it; put the work into what is unique. The Architect proposed the direction below and the operator agreed the same day.
+
+### The operator's rules
+1. **No copies.** Rein does not build a feature that Claude Code or another existing tool already has.
+2. **Reuse before maintain.** Where the platform has a part that does the job, Rein uses it and deletes its own.
+3. **Uniqueness.** New work goes into what only Rein has.
+
+### Rulings
+4. **The direction.** Of the four things D-170 kept, three are about proof: the ledger, DONE by observed acceptance, and the decision record. The fourth, two roles with enforced lanes, is what makes the proof independent. Rein is the proof layer on top of Claude Code. The platform does the work.
+5. **The test for any new task.** Before a blueprint or a task is written, the Architect answers two questions in it: does the platform or an existing tool already do this (then it is reused, rule 2); does it make the proof stronger (if not, it is not built). `acceptance-replay.md` answers both in its Goal section.
+6. **Built first: acceptance replay** (`.ai/blueprints/acceptance-replay.md`). A passed task records its repeatable clauses as checks; `rein recheck` runs them at the current commit; a Tier 2 or Tier 3 task closes only when every earlier check holds or was retired by a named decision or task. Three tasks: the check record (Tier 2), `rein recheck` (Tier 3), the gate and the docs (Tier 2).
+7. **The replayer is Tier 3.** It runs command text taken from the ledger. D-169 r8 lists what is Tier 3 and ends "nothing else"; this ruling adds that one task, not a class.
+8. **Built second, not ordered yet: rulings that are checked.** A ruling may name a check in the same grammar, so that `rein recheck` also reports code that has drifted from a standing decision. It gets its own blueprint after acceptance replay has run for a few weeks.
+9. **Built third, not ordered yet: a brief by relevance.** The session brief gives a task the rulings that still stand for the files it touches. Ruled after r8.
+10. **The second strip pass is one review.** P-55 asked what rein-app gives that Claude Code does not. The same question is now asked of every part that may overlap with the platform: the `reviewer` agent, the `security_engineer` agent, the skills `rein-debug`, `rein-test` and `release-manager`, the tmux panes with the wake line, rein-app, and model routing by tier (P-54). One Architect task replaces P-55 and writes `plans/reuse-review.md` with a keep, reuse or cut verdict per part, each native equivalent named with the documentation page it was read from. Nothing is removed before that review is ruled.
+11. **What stays without review**: the ledger, `critic_acceptance`, the decision record, the role settings files and the sandbox lanes. The platform supplies the sandbox; the split into a planner and a builder with separate write scopes is Rein's.
+12. **Not built**: orchestration, memory, dashboards, more agents, more skills. The platform moves faster there than one operator can maintain.
+13. **P-54 waits for the review of r10.** If a model setting on a subagent does the routing, P-54 becomes configuration and its E-## task is not written.
+14. **Order for the Engineer**: E-477 and E-476 first (both open), then the three tasks of r6 in order, on one branch with one commit each, with review at the tip (D-174 r8's shape). CI on the operator's word (D-170 r1).
+
+### Alternatives considered
+1. **Grow orchestration (more roles, parallel builders)** — rejected: the platform ships agents, teams and workflows, and rule 1 forbids the copy.
+2. **Stop at the strip and only maintain** — rejected by the operator: the question was where to go.
+3. **Start with checked rulings (r8)** — rejected for now: acceptance clauses already exist in command form for every task, so replay needs no new writing habit; rulings do.
+4. **Replay by running `critic_acceptance` again on closed tasks** — rejected: an agent run per task per close is slow and costs tokens, and a recorded command gives the same answer in milliseconds.
+5. **Do the reuse review before any new feature** — rejected: the review reads documentation and is the Architect's; the Engineer's lane is free now, and acceptance replay touches none of the parts under review except that it keeps `critic_acceptance`, which r11 already keeps.
+
+### Impact
+- Unlocks: the three tasks of r6 and the review of r10.
+- `architect.md` §1 and §8 name the direction and the new blueprint.
+- Risk if wrong: checks turn out noisy (they break for reasons that are not regressions) and closing a task costs retirements. The gate is one commit and the report stays useful without it.
+
+### Rollback
+Revert the tasks' commits in reverse order (`acceptance-replay.md` §Rollback Plan); no schema changes. The direction itself builds nothing: a later decision replaces it.
+
+---

@@ -3,34 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 15:16 UTC
-**From**: Architect → Engineer
-**Trigger**: the open tasks are ruled (D-174): 9 left; E-448 needs one acceptance run; E-473, E-474 and E-475 share one pull request
-
-### What was built
-- `.ai/DECISIONS.md`: D-174. P-51 is closed.
-- State: 43 tasks closed with `superseded_by`, 9 closed as built (E-428, E-429, E-430, E-431, E-433, E-434, E-435, E-436, E-444). New: E-474, E-475. E-472 now depends on both.
-- `.ai/COMM.md`: the two entries of 13:58 and 15:09 UTC had no `## Handoff` line; added by hand. That is why the brief named 14:10 as the last handoff. E-475 fixes the command.
-
-### Decisions made
-- **Stack tasks at or below the floors close as built** without an acceptance run (D-174 r2; D-159 addendum 2 r2).
-- **Gate work that was built and then deleted is closed as superseded by D-169** (r1e).
-- **E-450 to E-452 are not built; `rein ci plan` is removed** (r4, E-474).
-- **E-380 and E-403 are closed**; their residuals are named in r5 and r6.
-- **E-473, E-474 and E-475 are one branch and one pull request**, one commit each; review, acceptance and E-473's security round run once at the tip (r8).
-
-### Next action needed
-- **Engineer**:
-  1. E-448: dispatch `critic_acceptance` on main, then `rein done E-448` (r3). No reviewer run.
-  2. Close pull requests #49, #50, #23 and #26 unmerged (r9). For #49 and #50 read the remote-only commits first; name anything not on main instead of closing. Merge #70 on green CI.
-  3. E-473, then E-474, then E-475 on one branch. Then E-472.
-- **Operator**: `rein ci run` at the branch tip when the three are built. Delete the six leftover local branches when convenient (r10 says why none is needed): `git branch -D e-398-safe-exec-residuals e-409-foreign-home e-410-wip e-413-blob-nul-views e-414-latin1-decode upgrade/audit-fix-2026-11-02`.
-- **Architect**: P-53 (architect.md after the strip), then P-55 and P-54.
-
-### Open risks
-- Until E-475 lands, an entry file must carry its own `## Handoff — <time> UTC` and `**From**` lines. After it lands, such an entry is refused.
-- The Self-policing row counts E-472 (its text names the gate), so it reads 1 of 9 until the release closes.
----
 ## Handoff — 2026-11-24 16:13 UTC
 **From**: Engineer → Architect
 **Trigger**: E-473 security round 2 blocked (F-E473-4/5); fixed at 60cc6e5 — a third round needs your call (D-164 r6)
@@ -281,3 +253,32 @@
 
 ### Open risks
 - If the session-start hook has to change for D-175 r3, the task becomes Tier 3. The task text says to stop and hand off in that case.
+---
+## Handoff — 2026-11-25 14:56 UTC
+**From**: Architect → Engineer
+**Subject**: D-176 — the direction after the strip, and three new tasks for acceptance replay
+
+### What was ruled
+- **D-176**: Rein is the proof layer on top of Claude Code. No feature the platform has is rebuilt; what the platform can replace is reused. The operator agreed on 2026-11-25.
+- First new feature: **acceptance replay**. Blueprint: `.ai/blueprints/acceptance-replay.md`. Read it before E-478.
+
+### New tasks
+- **E-478** (Tier 2): the check record. `src/shared/checks.mjs`, `add_stamp` refuses a malformed `CHECK`, `critic_acceptance` records checks, the REVIEWS view.
+- **E-479** (Tier 3, after E-478): `rein recheck` with `--list`, `--json` and `--retire`. Tier 3 by D-176 r7: it runs command text from the ledger. One `security_engineer` round.
+- **E-480** (Tier 2, after E-479): the `[CHECK_GATE]` at DONE, `rein review` runs the recheck, the docs.
+- **P-56** (Architect): the reuse review. It replaces P-55.
+
+### Things to know
+1. No table and no column is added. A check is a stamp (blueprint §Data Model).
+2. The replayer is never called from `src/mcp/`. The MCP server runs outside the role sandbox, so the gate reads a `CHECKS_PASS` stamp and runs nothing.
+3. No allowlist of commands. Do not rebuild a text gate.
+4. E-480's floor is its own task number, so the gate does not reach E-478 to E-480 themselves.
+5. One branch for E-478 to E-480, one commit each, review at the tip (D-176 r14). CI on the operator's word.
+6. If a task needs a change in `hooks/`, stop and say so in a handoff.
+
+### Open with you from before
+- E-477 has `[ACCEPT_FAIL]` at c776788: the `rein ci run` log for that commit is FAIL with `[REIN_HOME_WRITTEN]`. D-174 r19 says a run the guard fails because of an install or a new pane during it is repeated. That run is the operator's.
+- I could not close P-55 as superseded by D-176: `[CI_GATE]` refuses while HEAD has no green run. I will close it after the green run.
+
+### Next action needed
+Finish E-477 and E-476 (they wait on the operator's green `rein ci run`). Then build E-478, E-479 and E-480 in that order on one branch, and hand off with the test files named and anything in the blueprint that the code made impossible.

@@ -97,14 +97,19 @@ discovery (D-164 r6, D-168 r2). Review is checked at task close, not at commit.
   lines, 4096 bytes added to a session at start.
 - **Left as it is, not ruled**: team mode (`team.json`, claims, the shared log). See
   `team-collaboration.md` and `docs/team-mode.md`.
-- **Open**: model routing by tier (P-54); the review of rein-app (P-55).
+- **Direction (D-176)**: Rein is the proof layer on top of Claude Code. No feature the platform
+  has is rebuilt; a part the platform can replace is reused. First new feature: acceptance
+  replay (`acceptance-replay.md`, E-478 to E-480). After it: rulings that are checked, then a
+  brief by relevance; neither is ordered yet.
+- **Open**: the reuse review of every part that may overlap with the platform, rein-app
+  included (P-56); model routing by tier (P-54), which waits for that review.
 
 ## 9. Blueprints
 All are in `.ai/blueprints/`. None is moved or deleted: decisions cite them by path, and git
 holds them either way (D-174 r13).
 
 **Current** (describe what is on `main`; a section about a removed part is dead text):
-`lean-core`, `harness-fitness` (the digest and the acceptance evaluator; its control ledger was
+`lean-core`, `acceptance-replay` (ordered, not built yet), `harness-fitness` (the digest and the acceptance evaluator; its control ledger was
 not built), `release-artifact`, `accounts`, `role-abstraction`, `team-collaboration`, `local-ci`,
 `public-ci`, `ci-throughput`, `test-economics` (D-088 stands; the line budget is retired),
 `test-harness-isolation`, `engineering-standards`, `open-source-release`, `version-lifecycle`,

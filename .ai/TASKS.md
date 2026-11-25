@@ -6,9 +6,6 @@
 - [ ] P-54: Rule tier-based model routing per D-171 r2 (after E-470 merges): take the cost baseline (one ordinary Tier 2 task, usage by session as Claude Code reports it), then write the ruling and the E-## task for Tier 1 routing by subagent with a set model, with the escalation rule and the Tier …
 - [ ] P-55: Review what rein-app gives that Claude Code does not, per D-171 r3 (after E-470 merges): read rein-app's blueprints and docs/app-contract.md, check the current Claude Code documentation for its own multi-session views, and write plans/rein-app-value-review.md with one row per rein-app f…
 
-## Engineer
-- [ ] E-472: Release v0.6.0, the lean core, per D-173 (after E-470), by the path of E-424; skill release-manager for the bump and the CHANGELOG only. (1) First ask the operator to confirm the GitHub environment `release` holds REIN_RELEASE_KEY and the `v*` tag ruleset is in place; if not, stop. (2)…
+169 closed tasks are not listed. Print one with: rein task show <id>
 
-168 closed tasks are not listed. Print one with: rein task show <id>
-
-5 task lines are cut at 300 characters (they end in "…"). Print one in full with: rein task show <id>
+4 task lines are cut at 300 characters (they end in "…"). Print one in full with: rein task show <id>

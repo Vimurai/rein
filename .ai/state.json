@@ -2476,12 +2476,12 @@
     {
       "id": "E-472",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Release v0.6.0, the lean core, per D-173 (after E-470), by the path of E-424; skill release-manager for the bump and the CHANGELOG only. (1) First ask the operator to confirm the GitHub environment `release` holds REIN_RELEASE_KEY and the `v*` tag ruleset is in place; if not, stop. (2) On a branch from merged main: bump package.json, package-lock.json and every mirror that states the current version (check NOTICE, docs/app-contract.md, tests/unit/doctor-json.test.mjs, tests/unit/release-manifest.test.mjs); leave each sentence naming v0.5.0 as the tag that holds what was removed, and README's demo sentence (D-173 r5). (3) CHANGELOG.md: `[Unreleased] — Lean core` becomes `[0.6.0] — Lean core` with the date; replace the sentence saying the command gate is still present with what was built (E-463, D-172 r26); add a BREAKING list (removed commands, agents, skills, MCP servers, the gate); say how docs/app-contract.md changed. (4) Ask the operator to run the escape suite at the branch tip (D-173 r4); quote its SUITE_RESULT line in the pull request. (5) One pull request, merge on green hosted CI, then STOP: name the merge commit and ask the operator to create and push the signed tag `v0.6.0`. Never create the tag, read the key, or sign with any key but the throwaway fixture; a change to release.yml or the release scripts makes this Tier 3: stop and hand off. (6) After the workflow publishes, download the assets and run `rein release verify --pubkey docs/contract/release-key.pub`. Acceptance: `grep '\"version\"' package.json` on main prints 0.6.0; `grep -c \"^## \\[0.6.0\\]\" CHANGELOG.md` prints 1; `grep -c \"is still present\" CHANGELOG.md` prints 0; the pull request quotes SUITE_RESULT with FAIL=0 and UNKNOWN=0; `gh release view v0.6.0 --json assets` lists exactly rein-0.6.0.tar.gz, its .minisig and manifest.json; `rein release verify` exits 0; manifest.json says version 0.6.0; the closing handoff gives the release URL, the tarball sha256 and the tagged commit.",
       "created_at": "2026-11-24T13:50:05.027Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-25T10:43:27.982Z",
+      "summary": "v0.6.0 released: https://github.com/Vimurai/rein/releases/tag/v0.6.0, tag on 55ff424, tarball sha256 8d51459bc94cad200aaa47b369700593e942671ed10eb00fb5571e8752706fa7; rein release verify exit 0 (141 f",
       "depends_on": [
         "E-470",
         "E-473",
@@ -2490,7 +2490,7 @@
       ],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-24T20:11:01.511Z"
+      "updated_at": "2026-11-25T10:43:27.989Z"
     },
     {
       "id": "E-473",
@@ -8615,6 +8615,15 @@
       "timestamp": "2026-11-24T20:16:25.897Z",
       "summary": "[REVIEW_PASS] E-472 at 444e3c9 — 0 FAIL, 3 notes ‖ CHANGELOG.md:19-22 BREAKING/Commands now complete vs v0.5.0 dispatch: gate, preflight, test, where, update, onboard, provider removed; digest/archive/review became real commands ‖ CHANGELOG.md:78-82 note REIN_HOME_WRITTEN rewording outside steps 2-3, accurate per D-174 r18 ‖ 1407e07 commit msg note cites D-173 r5 for legacy \"since\" values (r5 is README demo only); harmless ‖ src/bin/rein:3633 note stale [GATE_UNREGISTERED] comment, pre-existing",
       "sha": "444e3c9fd7f6816f317f064c9db43bea6bbabf0d",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-472",
+      "timestamp": "2026-11-25T10:43:13.765Z",
+      "summary": "[ACCEPT_PASS] E-472 at 5e1c09b — 8 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | grep '\"version\"' package.json on main prints \"version\": \"0.6.0\" ‖ 2 | PASS | grep -c \"^## \\[0.6.0\\]\" CHANGELOG.md printed 1 ‖ 3 | PASS | grep -c \"is still present\" CHANGELOG.md printed 0 ‖ 4 | PASS | gh pr view 72 body: SUITE_RESULT PASS=42 FAIL=0 SKIP=0 UNKNOWN=0; PR MERGED as 55ff424 ‖ 5 | PASS | gh release view v0.6.0 assets: exactly manifest.json, rein-0.6.0.tar.gz, rein-0.6.0.tar.gz.minisig ‖ 6 | PASS | rein release verify --pubkey docs/contract/release-key.pub on downloaded tarball exit 0, sig ok, 141 files match ‖ 7 | PASS | downloaded manifest.json: version 0.6.0, schema 1, key_id 5C9C75A7C8FA8056 ‖ 8 | PASS | COMM.md 10:42 handoff has release URL, sha256 8d51459b…6fa7 (= sha256sum of download), tagged commit 55ff424 (= ls-remote v0.6.0)",
+      "sha": "5e1c09b5874935a7eaf4794bfef05d116fc6cb21",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

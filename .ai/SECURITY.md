@@ -3550,3 +3550,140 @@ Scope per D-174 addendum 2 r17: only the payloads of F-E473-1, F-E473-4 and F-E4
 | — | control | idle suite | RESISTED | 0 | `Operator ~/.rein: untouched`, so the idle tree gives no false positive |
 
 **Gate**: SEC_CLEARED. All 11 payloads are reported. There are no EXPLOITED or INCONCLUSIVE rows and nothing new was observed. The accepted residuals of D-174 r18 are unchanged and were not probed.
+
+## E-479 round — `rein recheck` runs ledger command text (security_engineer, HEAD 01677f0, E-479 = 3c9da41, E-478 = 593e6a0, 2026-11-25) — SEC_BLOCKED
+
+Judged against .ai/blueprints/acceptance-replay.md §Security and §Execution Constraints. The
+accepted trust level (a check equals a test the suite runs) and the accepted residuals (any
+session can `add_stamp` a CHECKS_PASS or CHECK_RETIRED; an Engineer retirement is not refused)
+were not re-litigated. Two of the blueprint's own controls do not hold as built.
+
+### Findings
+- **F-E479-1 (P1, EXPLOITED): `--list` can be spoofed with terminal control bytes.** The
+  blueprint's one control for the operator's unsandboxed shell is "`rein recheck --list` shows
+  every command before anything runs; read it first in a project you do not trust". The grammar
+  (`parseCheck`/`_head`, src/shared/checks.mjs) refuses only `\r` and `\n`; ESC, other C0, C1 and
+  bidi format characters (U+202A-202E, U+2066-2069) are accepted by `checkStampSummary`, so
+  `add_stamp` stores them, and `runList` prints the command raw. PoC (harness):
+  `E-10#1 | exit=0 | touch PWNED; true \e[2K\e[1GE-10#1 | exit=0 | true` is accepted; a terminal
+  renders the `--list` line as `E-10#1 | exit=0 | true`; the replay runs `touch PWNED` (file
+  created, exit 0, check holds). A cloned project whose tracked `.ai/` carries the stamp is the
+  vector. The same raw command is printed in `[CHECK_BROKEN]` lines and in REVIEWS.md.
+  **Fix**: refuse every C0 character (TAB included), DEL, C1 and the bidi/format
+  characters (`/[\x00-\x1f\x7f-\x9f​-‏‪-‮⁦-⁩]/`) in `_head`, so both
+  `add_stamp` and `liveSet` (which re-parses every stored stamp) reject them — a stamp that
+  reached the DB by another route is then dropped from the live set, not run. Pin the PoC in
+  tests/unit/checks.test.mjs and recheck.test.mjs.
+- **F-E479-2 (P2, EXPLOITED): a `setsid` descendant defeats both the 30 s limit and the 64 KB
+  cap.** `runCommand` kills the process group, then waits for the child's `close`, which only
+  fires when every holder of the stdout pipe exits; the `data` handler keeps concatenating after
+  `stop`. PoC: `setsid sleep 6` with a 1 s limit returns after 6.0 s (`setsid sleep 1e9` never
+  returns); `setsid sh -c 'yes AAAA…'` with a 1 s limit had not returned after 5 s and RSS had
+  reached 260 MB and was climbing. Availability only, within the accepted trust level for code
+  execution, but §Execution Constraints states both limits. **Fix**: in `stop`, call
+  `child.stdout.destroy()` and resolve at once (`done({ code: null, stdout: <first maxBytes>, error })`,
+  guarded so `close` does not resolve twice); stop appending once `error` is set.
+
+### Surfaces cleared
+- MCP import graph: a static walk of every `src/mcp/*/index.js` import (24 modules) reaches
+  neither recheck.mjs nor review-checks.mjs; `git grep -ln recheck -- src/mcp` is empty. The
+  `[CHECK_GATE]` (completion-gates.mjs) reads stamps only.
+- Live set: a CHECK whose summary id names another task than its `task_id` is dropped; a CHECK of
+  an OPEN task is not run.
+- Retire: `--by` and the id are anchored by regex before any DB or DECISIONS.md lookup (no
+  `|` injection, `D-1` does not match `## D-17`); the reason is folded to one line.
+- Run: stdin is closed (`cat` returns at once), stderr dropped, the process group is killed at the
+  limit for ordinary children; a dirty tree records no stamp. No secret is read; the command's
+  environment is the caller's, as the blueprint states.
+
+### Observation for the Architect (not gating)
+- E-480 makes `rein review 2|3` run the replay automatically. In the operator's own shell that
+  executes ledger text without the "read `--list` first" step the docs ask for. Inside a pane the
+  sandbox bounds it; outside, it is the same exposure as `rein recheck`. Worth a line in
+  docs/gates-and-review.md, or a ruling.
+
+### Pen-Test Results
+Harness: `mktemp -d` scratch git repo with its own `.ai/` (state.sqlite via getDb), `env -i
+PATH=/usr/bin:/bin HOME=$T`, `ulimit -t 20 -u 128..256 -f 10240 -v 2 GB`, 40 s wall kill. The real
+modules were imported read-only from the working tree; every command run was a local probe
+(`touch`, `sleep`, `yes`, `cat`). No network. This repository's `.ai/` was not touched.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A03 | checks.mjs grammar / `--list` | `touch PWNED; true \e[2K\e[1GE-10#1 \| exit=0 \| true` | EXPLOITED | 0 | F-E479-1: accepted, renders as `true`, runs `touch` |
+| A03 | checks.mjs grammar | U+202E / U+202C in the command | EXPLOITED | 0 | accepted; same class as F-E479-1 |
+| A03 | checks.mjs grammar | `\r` in the summary | RESISTED | 0 | `[CHECK_MALFORMED] … must be one line` |
+| A01 | liveSet | CHECK `E-11#1` stored with task_id E-10 | RESISTED | 0 | dropped from the live set |
+| A01 | liveSet | CHECK of an OPEN task | RESISTED | 0 | not run |
+| A04 | `--list` | commands that `touch` | RESISTED | 0 | runs nothing |
+| A03 | `--retire` id | `E-10#1 \| D-176` | RESISTED | 0 | `[CHECK_UNKNOWN]` |
+| A03 | `--retire --by` | `D-176 \| E-10#2` | RESISTED | 0 | `[RETIRE_UNKNOWN]` |
+| A04 | `--retire --by` | `D-999`; `D-1` against `## D-17` | RESISTED | 0 | `[RETIRE_UNKNOWN]` both |
+| A04 | `--retire` | `E-1#99` | RESISTED | 0 | `[CHECK_UNKNOWN]` |
+| A05 | parseArgs | `--retire … --json`, `--foo`, `--list --json` | RESISTED | 0 | usage (null) each |
+| A04 | runCommand stdin | `cat; echo done` | RESISTED | 0 | returns at once |
+| A04 | runCommand cap | `yes AAAAAAAA` | RESISTED | 0 | `output too large`, group killed |
+| A04 | runCommand limit | `sleep 30 & sleep 30` (1 s) | RESISTED | 0 | `timed out after 1 s` |
+| A04 | runCommand limit | `setsid sleep 6` (1 s) | EXPLOITED | 0 | F-E479-2: returned after 6.0 s |
+| A04 | runCommand cap | `setsid sh -c 'yes …'` (1 s) | EXPLOITED | 0 | F-E479-2: no return after 5 s, RSS 260 MB rising |
+| A08 | runRecheck | dirty tracked file | RESISTED | 0 | prints `(dirty: not recorded)`, 0 stamps |
+| A05 | runRecheck env | `env \| wc -l` under env -i | RESISTED | 0 | 5 lines: the caller's env only, as designed |
+| A02, A06, A07, A10 | — | not applicable | — | — | no crypto, no new dependency, no auth, no URL |
+
+Gate: two EXPLOITED rows block Tier 3 sign-off for E-479 until F-E479-1 and F-E479-2 are fixed
+and their payloads re-resist.
+
+## E-479 re-probe (D-176 addendum 1 r15, r16) — `rein recheck` fixes (security_engineer, HEAD a8e798d, fixes 4077fe2 + a8e798d, 2026-11-26) — SEC_CLEARED
+No discovery. Only the round-1 payloads of F-E479-1 and F-E479-2 were re-run, plus one for r16.
+
+### Result
+- **F-E479-1 re-resists.** `add_stamp` (the real task-synchronizer-mcp server, spawned in the
+  fixture over stdio) refuses the ESC form with `[CHECK_MALFORMED] … (U+001B)` and the bidi form
+  with `… (U+202E)`. Nothing is written. Written to the store without `add_stamp`, both are left
+  out of the live set. The ESC summary went in through `insertStamp`, and both forms went in by a
+  raw SQL `INSERT` that skips every writer. `rein recheck --list` prints neither and the replay
+  runs neither (`PWNED`, `PWNED4` and `PWNED5` were not created).
+  Side note: `insertStamp` itself strips U+202E/U+202C, though not ESC. A bidi check written
+  through it is stored without those characters. `--list` then shows exactly the command that
+  runs (`touch PWNED2; true #eurt`), so the list stays truthful and this is not a spoof.
+- **F-E479-2 re-resists.** With a 1 s limit, `setsid sleep 6` and `setsid sleep 1000000` both
+  settle after 1.0 s (`timed out after 1 s`). `setsid sh -c 'yes …'` stops at the 64 KB cap in
+  0.005 s (`output too large`) with no RSS growth. When it reaches the cap before the limit
+  (`sleep 0.5; yes`, 5 s limit), it stops at 0.51 s.
+- **r16 resists.** `add_stamp` refuses `CHECKS_PASS`, `CHECKS_FAIL` and `CHECK_RETIRED` with
+  `[STAMP_RESERVED] <type> is written only by the command that runs the recorded checks, not by
+  add_stamp`. None of the three texts contains `recheck`, and nothing is written. A well-formed
+  `CHECK` is still accepted.
+- **New, not gating (P3, recorded in T-RECHECK-001).** Once a run settles, a `setsid`
+  descendant that holds no pipe keeps running. In the fixture, `sleep 1000000` was still alive
+  after `runCommand` returned, because it is in its own session and the group kill does not
+  reach it. The run settles, so the limit holds, but the process is left behind until it exits.
+  A `yes` descendant dies on SIGPIPE once stdout is destroyed. This is availability within the
+  accepted trust level of the code being run, since the command could have daemonised anyway.
+- Also seen: `add_stamp` accepts the type `checks_pass` in lowercase. This is not a bypass,
+  because the `[CHECK_GATE]` matches `type IN ('CHECKS_PASS','CHECKS_FAIL')` exactly; 0 rows
+  matched.
+
+### Pen-Test Results
+Harness: `mktemp -d` throwaway git project with its own `.ai/` (getDb, ten tasks, E-10 DONE),
+`env -i PATH=/usr/bin:/bin HOME=$T`, `ulimit -t 20 -u 256 -f 10240 -v 2 GB`, 40 s wall kill. The
+real modules and the MCP server were run read-only from the working tree (server cwd = the
+fixture project, HOME = a fixture dir). Probe commands were local (`touch`, `sleep`, `yes`). No
+network. `rein ci run` was not used. This repo's `.ai/` store and `~/.rein` were not touched.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A03 | add_stamp (MCP) | CHECK `touch PWNED; true \e[2K\e[1GE-10#1 \| exit=0 \| true` | RESISTED | 0 | `[CHECK_MALFORMED] … (U+001B)`, nothing written |
+| A03 | add_stamp (MCP) | CHECK `touch PWNED2; true #‮eurt‬` | RESISTED | 0 | `[CHECK_MALFORMED] … (U+202E)`, nothing written |
+| A08 | liveSet / `--list` / replay | ESC summary via `insertStamp` | RESISTED | 0 | stored raw, dropped: not listed, not run |
+| A08 | liveSet / `--list` / replay | ESC and bidi summaries via raw SQL INSERT | RESISTED | 0 | dropped: not listed, not run (PWNED4/5 absent) |
+| A08 | `--list` / replay | bidi summary via `insertStamp` | RESISTED | 0 | writer strips U+202E/U+202C; listed text = run text |
+| A04 | runCommand limit | `setsid sleep 6` (1 s) | RESISTED | 0 | settles 1.005 s, `timed out after 1 s` |
+| A04 | runCommand limit | `setsid sleep 1000000` (1 s) | RESISTED | 0 | settles 1.003 s; descendant outlives the run (P3, T-RECHECK-001) |
+| A04 | runCommand cap | `setsid sh -c 'yes AAAA…'` (1 s) | RESISTED | 0 | `output too large` in 0.005 s, RSS +0 MB |
+| A04 | runCommand cap | `setsid sh -c 'sleep 0.5; yes BBBB'` (5 s) | RESISTED | 0 | `output too large` at 0.51 s |
+| A01 | add_stamp (MCP) r16 | type CHECKS_PASS / CHECKS_FAIL / CHECK_RETIRED | RESISTED | 0 | `[STAMP_RESERVED]` each; no `recheck` in the text; 0 rows |
+| A01 | add_stamp (MCP) r16 | type CHECK, well formed | RESISTED | 0 | accepted, as r16 requires |
+| A01 | `[CHECK_GATE]` | type `checks_pass` (lowercase) | RESISTED | 0 | stored, but the gate's exact match finds 0 rows |
+
+Gate: no row is EXPLOITED or INCONCLUSIVE. F-E479-1 and F-E479-2 are closed, and E-479 is SEC_CLEARED at a8e798d.

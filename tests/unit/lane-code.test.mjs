@@ -7,7 +7,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { execFileSync } from "node:child_process";
@@ -65,4 +65,33 @@ test("laneCodeFiles: the two exempt .ai files and the r25 extensions are quiet; 
   const root = tree(t, [".ai/.gitignore", ".ai/.last-import-blob", "plans/icon/a.svg", "plans/icon/a.dc.html",
     "plans/x.png", "plans/x.gif", "plans/x.jpg", "plans/x.pdf", ".ai/.envrc", "plans/.gitignore"]);
   assert.deepEqual(laneCodeFiles(root).files, [".ai/.envrc", "plans/.gitignore"]);
+});
+
+// E-476 (D-174 r27) extends "laneCodeFiles: a .mjs under plans/ is named …" above: only regular
+// files and symbolic links are reported. A role sandbox puts
+// character-device placeholders in the working directory; an unprivileged test cannot mknod
+// one, so the device row stubs readdir's entry type and the FIFO row is a real non-regular file.
+test("E-476.01: a character device under .ai/ is not reported; a .mjs and a symlink beside it are", (t) => {
+  const root = tree(t, [".ai/run.mjs"]);
+  symlinkSync("/etc/hostname", join(root, ".ai", "ln"));
+  const dev = { name: ".bashrc", isDirectory: () => false, isFile: () => false, isSymbolicLink: () => false,
+    isCharacterDevice: () => true };
+  const readdir = (abs, opts) => {
+    const ents = readdirSync(abs, opts);
+    return abs === join(root, ".ai") ? [...ents, dev] : ents;
+  };
+  assert.deepEqual(laneCodeFiles(root, { readdir }).files, [".ai/ln", ".ai/run.mjs"]);
+});
+
+test("E-476.02: a FIFO under .ai/ (a real non-regular entry) is not reported", (t) => {
+  const root = tree(t, [".ai/x.mjs"]);
+  try { execFileSync("mkfifo", [join(root, ".ai", "pipe")]); } catch { t.skip("no mkfifo"); return; }
+  assert.deepEqual(laneCodeFiles(root).files, [".ai/x.mjs"]);
+});
+
+test("E-476.03: the CLI takes --root <dir> as well as a bare root", (t) => {
+  const root = tree(t, ["plans/z.test.mjs"]);
+  const cli = join(import.meta.dirname, "../../src/shared/lane-code.mjs");
+  for (const args of [["--root", root], [root]])
+    assert.match(execFileSync(process.execPath, [cli, ...args], { encoding: "utf8" }), /\[LANE_CODE\] 1 file\(s\).*plans\/z\.test\.mjs/);
 });

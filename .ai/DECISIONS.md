@@ -6211,6 +6211,11 @@ Each ruling is a change inside one task's commit or a follow-up commit on `lean-
 ### Rollback
 Before the tag: revert the bump pull request. After the tag: `gh release delete v0.6.0`, delete the tag (the operator), and v0.5.0 stays the latest signed release.
 
+### Addendum 1 (2026-11-25) — v0.6.0 is released; the git tag is a plain tag
+8. **v0.6.0 is accepted as released**: tag on 55ff424 (the merge of #72), tarball sha256 `8d51459b…2706fa7`, three assets, `rein release verify` exit 0, escape suite 42 PASS with 0 FAIL and 0 UNKNOWN at 444e3c9.
+9. **"The signed tag" in E-472 was the Architect's loose wording.** No decision asks for a signed git tag: D-156 and r3 say the operator creates and pushes the tag. The signature of a release is the minisign signature on the tarball, made by `release.yml` and checked by `rein release verify`. `v0.6.0` is a plain tag, as `v0.5.0` is, and that is accepted. A signed git tag would need an operator key that is not set up and would add nothing an installer checks. It is not built.
+10. **The escape suite's case C25 gave UNKNOWN once in two runs**, because the model made no call. D-172 r6 stands: the suite is run again. If it happens at the next release too, the case gets a task.
+
 ---
 
 ## D-174 — The open tasks after the strip: 43 closed as overtaken, 9 closed as built, one waits on its acceptance run; the CI planner goes; `rein handoff` writes its own heading
@@ -6286,5 +6291,122 @@ Pull request #71 merged as 27ebc09. `rein done` refuses E-473, E-474 and E-475: 
 24. **This is not a route.** A carried stamp needs a ruling that names the two commits and the check, and only the Architect records it. The residual of D-159 addendum 2 r7 (a stamp is not tied to a dispatch) is what makes it possible; it is used here in the open.
 25. **From now: the branch holds `origin/main` before the last stamps.** Order for a pull request: bring the branch up to date with main (merge or rebase); the operator's `rein ci run`; the stamps at that tip; `.ai/`-only commits after; merge at once. The merge commit then differs from the stamped tip in `.ai/` only and the existing rule covers it. If main moves outside `.ai/` between the stamps and the merge, the Engineer says so in a handoff before merging.
 26. **The gate is not changed** (the Engineer's option b). One operator and one bot write to main, so r25 costs nothing and a merge-aware stamp rule is code in the DONE gate that would rarely run. If r25 fails twice, option b becomes a task.
+
+### Addendum 5 (2026-11-25) — After v0.6.0: `[LANE_CODE]` skips what is not a file; a bot commit is trusted by hand; the blueprints stay in place
+27. **`[LANE_CODE]` reports regular files and symbolic links only** (E-476). Seen in the Architect's pane: the 17 entries it reports at every handoff are character devices (`1, 3`, owner `nobody`) that the platform's sandbox puts in the working directory as placeholders for paths it protects. No test runner loads a device. D-172 r25 asked for a notice that is quiet on a clean project; this is the same ruling for a case it did not know. A symbolic link is still reported, whatever it points at.
+28. **A commit made on GitHub is trusted in the lane ledger by hand, after asking the remote** (E-476 documents it). A Dependabot merge reaches the clone by a pull, so no lane recorded it, and the push of a branch cut from it is refused. The Engineer confirms the commit is an ancestor of what `git ls-remote origin main` answers, then records it with the ledger's `trust` command. A local `origin/main` ref is not the proof (D-172 r1, F2). No automatic trust is built: it would put a network call and a new trust rule into the push check to save one command a few times a month.
+29. **No blueprint is moved or deleted** (the question r13 left for P-53). `.ai/architect.md` §9 lists each as current, not re-read, or historical. Decisions cite blueprints by path, and git holds them either way.
+30. **E-476's unit row for "a character device" may use a FIFO made with `mkfifo`**, since a test cannot create a device without root. The clause run in the Architect's pane is the observation for the device itself.
+
+---
+
+## D-175 — `rein handoff` works where `.ai/` is gitignored: the entry is written, the commit is skipped
+
+**Date**: 2026-11-25
+**Task**: the task registered with this entry (amends D-104 r2 and r4)
+**Decision**: On the operator's order of 2026-11-25, a project that ignores `.ai/` keeps its handoffs on disk only: `rein handoff` appends the entry to `COMM.md`, makes no commit, and prints the wake line.
+
+### Why needed
+In the operator's project `em-locize`, line 46 of the project `.gitignore` ignores the whole `.ai/` directory. `rein handoff` refused with `[COMM_IGNORED]` and told the Architect to run `rein sync`, which does not and should not edit the project's own `.gitignore`. The Architect there could not record a handoff and woke the Engineer with a direct message that pointed at a loose entry file. D-104 made the refusal for a clone that had not been synced yet. It did not foresee a project where keeping Rein's records out of the repository is the owner's choice.
+
+### Rulings
+1. **`rein handoff` never refuses because `COMM.md` is ignored.** When `git check-ignore -q .ai/COMM.md` succeeds, the command appends the entry with its heading, runs the archive step, makes no commit and no `git add`, and exits 0. It never adds with `-f` (D-104 r2 stands on that).
+2. **The wake line says so.** It ends `Details: .ai/COMM.md handoff <time> (not committed: .ai/ is gitignored here).` in place of the commit sha. One note line follows: `[COMM_LOCAL] .ai/COMM.md is gitignored here; the handoff is on this disk only`.
+3. **Both roles read the same disk**, so the handoff still reaches the other role. What is lost is the history and a second clone, and that is the owner's choice. The session-start line `[COMM_IGNORED] … a handoff never reaches the other role` is false for such a project and is not printed there. `rein doctor` prints one line that is not a warning: `.ai/ records are local only (gitignored)`.
+4. **Which case is which.** If the project's ignore rules cover the whole `.ai/` directory (`git check-ignore -q .ai/` succeeds), it is the owner's choice: rulings 1 to 3, quiet. If only `COMM.md` is ignored, by a leftover line in `.ai/.gitignore`, `rein sync` still removes that line and doctor still warns `[COMM_IGNORED]`; the handoff is written without a commit all the same (ruling 1).
+5. **A project that tracks `.ai/` is unchanged**: D-104 stands. The entry is committed with every changed `.ai/` path before the wake.
+6. **Not changed here**: the other commands. `rein done` and `rein decide` make no commit. The DONE gates read stamps by commit sha of the project's code, which does not depend on `.ai/` being tracked.
+
+### Alternatives considered
+1. **Tell the owner to track `.ai/`** — rejected by the operator: some repositories are not theirs to fill with Rein's records.
+2. **`git add -f`** — rejected: it overrides the owner's ignore rule, and D-104 r2 already forbids it.
+3. **Keep the refusal and document the loose entry file** — rejected: the record then lives outside `COMM.md` and the brief's "last handoff" is wrong.
+
+### Impact
+- Unlocks: Rein in a repository that does not carry `.ai/`.
+- Risk if wrong: a clone that should track `COMM.md` but ignores it by mistake now hands off without a commit. Ruling 4 keeps the doctor warning for that case, and the wake line says "not committed" every time.
+
+### Rollback
+Revert the task's one commit; the refusal returns.
+
+---
+
+## D-176 — Direction after the strip: Rein is the proof layer; the platform is reused for everything else; acceptance replay is built first
+
+**Date**: 2026-11-25
+**Task**: the three E-## tasks and the P-## task registered with this entry; P-55 (replaced); `.ai/blueprints/acceptance-replay.md`
+**Decision**: Rein grows only where it proves agent work (what was ordered, why, and the observed evidence that it is done and still true); anything the platform already ships is reused and not rebuilt; the first new feature is acceptance replay.
+
+### Why needed
+The strip is released as v0.6.0 (D-170, D-173). The operator asked on 2026-11-25 which direction Rein takes now, and gave the rules: do not copy features of Claude Code or of other existing tools; reuse what exists so that Rein does not maintain it; put the work into what is unique. The Architect proposed the direction below and the operator agreed the same day.
+
+### The operator's rules
+1. **No copies.** Rein does not build a feature that Claude Code or another existing tool already has.
+2. **Reuse before maintain.** Where the platform has a part that does the job, Rein uses it and deletes its own.
+3. **Uniqueness.** New work goes into what only Rein has.
+
+### Rulings
+4. **The direction.** Of the four things D-170 kept, three are about proof: the ledger, DONE by observed acceptance, and the decision record. The fourth, two roles with enforced lanes, is what makes the proof independent. Rein is the proof layer on top of Claude Code. The platform does the work.
+5. **The test for any new task.** Before a blueprint or a task is written, the Architect answers two questions in it: does the platform or an existing tool already do this (then it is reused, rule 2); does it make the proof stronger (if not, it is not built). `acceptance-replay.md` answers both in its Goal section.
+6. **Built first: acceptance replay** (`.ai/blueprints/acceptance-replay.md`). A passed task records its repeatable clauses as checks; `rein recheck` runs them at the current commit; a Tier 2 or Tier 3 task closes only when every earlier check holds or was retired by a named decision or task. Three tasks: the check record (Tier 2), `rein recheck` (Tier 3), the gate and the docs (Tier 2).
+7. **The replayer is Tier 3.** It runs command text taken from the ledger. D-169 r8 lists what is Tier 3 and ends "nothing else"; this ruling adds that one task, not a class.
+8. **Built second, not ordered yet: rulings that are checked.** A ruling may name a check in the same grammar, so that `rein recheck` also reports code that has drifted from a standing decision. It gets its own blueprint after acceptance replay has run for a few weeks.
+9. **Built third, not ordered yet: a brief by relevance.** The session brief gives a task the rulings that still stand for the files it touches. Ruled after r8.
+10. **The second strip pass is one review.** P-55 asked what rein-app gives that Claude Code does not. The same question is now asked of every part that may overlap with the platform: the `reviewer` agent, the `security_engineer` agent, the skills `rein-debug`, `rein-test` and `release-manager`, the tmux panes with the wake line, rein-app, and model routing by tier (P-54). One Architect task replaces P-55 and writes `plans/reuse-review.md` with a keep, reuse or cut verdict per part, each native equivalent named with the documentation page it was read from. Nothing is removed before that review is ruled.
+11. **What stays without review**: the ledger, `critic_acceptance`, the decision record, the role settings files and the sandbox lanes. The platform supplies the sandbox; the split into a planner and a builder with separate write scopes is Rein's.
+12. **Not built**: orchestration, memory, dashboards, more agents, more skills. The platform moves faster there than one operator can maintain.
+13. **P-54 waits for the review of r10.** If a model setting on a subagent does the routing, P-54 becomes configuration and its E-## task is not written.
+14. **Order for the Engineer**: E-477 and E-476 first (both open), then the three tasks of r6 in order, on one branch with one commit each, with review at the tip (D-174 r8's shape). CI on the operator's word (D-170 r1).
+
+### Alternatives considered
+1. **Grow orchestration (more roles, parallel builders)** — rejected: the platform ships agents, teams and workflows, and rule 1 forbids the copy.
+2. **Stop at the strip and only maintain** — rejected by the operator: the question was where to go.
+3. **Start with checked rulings (r8)** — rejected for now: acceptance clauses already exist in command form for every task, so replay needs no new writing habit; rulings do.
+4. **Replay by running `critic_acceptance` again on closed tasks** — rejected: an agent run per task per close is slow and costs tokens, and a recorded command gives the same answer in milliseconds.
+5. **Do the reuse review before any new feature** — rejected: the review reads documentation and is the Architect's; the Engineer's lane is free now, and acceptance replay touches none of the parts under review except that it keeps `critic_acceptance`, which r11 already keeps.
+
+### Impact
+- Unlocks: the three tasks of r6 and the review of r10.
+- `architect.md` §1 and §8 name the direction and the new blueprint.
+- Risk if wrong: checks turn out noisy (they break for reasons that are not regressions) and closing a task costs retirements. The gate is one commit and the report stays useful without it.
+
+### Rollback
+Revert the tasks' commits in reverse order (`acceptance-replay.md` §Rollback Plan); no schema changes. The direction itself builds nothing: a later decision replaces it.
+
+### Addendum 1 (2026-11-25) — E-478 to E-480 as built: one re-probe round for E-479, no discovery; three stamp types are reserved to the command; the differences from the blueprint are ratified
+The Engineer's handoff of 19:29 UTC (13b40fd) reports the three tasks built, `[SEC_BLOCKED]` for E-479 at 01677f0 with two findings, and the fix at 4077fe2. A further round is the Architect's to order (D-164 r6). Read by the Architect: the handoff, `.ai/SECURITY.md` §E-479 round, the stat and message of 4077fe2, `UNSAFE_CHAR_RE` in `src/shared/checks.mjs`, and the stamp writes in `src/shared/recheck.mjs`. Nothing was run.
+15. **One re-probe round, no discovery** (the shape of D-168 r2 to r4, D-172 r4 and D-174 r17), at the tip that holds r16's commit. `security_engineer` re-runs the payloads of F-E479-1 (the ESC sequence and the U+202E form through `add_stamp`, and the same summary written to the store without `add_stamp`, which the live set must drop) and of F-E479-2 (`setsid sleep` past the limit, `setsid` with endless output past the cap), and one payload for r16. SEC_CLEARED if all are RESISTED. A new finding is recorded in T-RECHECK-001 and does not gate unless it is P0. There is no third round.
+16. **`CHECKS_PASS`, `CHECKS_FAIL` and `CHECK_RETIRED` are refused by `add_stamp`** with `[STAMP_RESERVED]` (the handoff's point 4, the reviewer's suggestion). `rein recheck` writes them to the store itself and is not changed. A retirement through `add_stamp` would skip the `--by` check, and a `CHECKS_PASS` through it is one tool call for an agent that wants to pass the gate. The refusal text does not name the command, so E-479's clause on `src/mcp` holds. `CHECK` stays open to `add_stamp`: `critic_acceptance` writes it. One commit on the same branch, one test row in `tests/unit/record-store.test.mjs`. The residual that remains: a session with Bash can write the store directly, as it can for every stamp (D-159 addendum 2 r7).
+17. **The dirty-tree rule as built is ratified**: tracked changes outside `.ai/` make the tree dirty; untracked files do not. Accepted residual: a check that reads an untracked file is recorded for a commit that does not hold that file.
+18. **The stricter grammar is ratified**: a `CHECK` or `CHECK_RETIRED` stamp carries a `task_id` equal to the `<task>` in its summary, and no control, format or bidi character. `acceptance-replay.md` §Data Model now says both.
+19. **A broken check is a P0 in `rein review 2|3`** and nothing is dispatched until it is fixed or retired: ratified. For the operator's own shell the line in `docs/gates-and-review.md` is enough; no prompt and no flag is built.
+20. **The size is accepted as measured** (253 lines in the two modules, about 40 in the two it touches). The 250 was a target for the design, not a budget, and no ratchet is made of it (D-169 r9).
+21. **Ratified as built**: `--by` resolves a `D-###` through the shared `checkSupersededBy` and a task through state; the REVIEWS line stays literal (`1 checks recorded`); the `CHECKS_PASS` stamps with 0 checks already in this ledger stay, since they are true.
+22. **Order**: r16's commit; the branch holds `origin/main` (D-174 r25); the operator's `rein ci run`; then at that tip the re-probe of r15, the reviewer on E-478 to E-480, and `critic_acceptance` on each and on E-476 and E-477; then the five closes. E-480's floor keeps the `[CHECK_GATE]` away from these five.
+
+---
+
+## D-177 — An ERROR run is not a verdict; the acceptance agent reads CI from the record; `[UNAPPROVED_DEP]` looks only at manifests
+
+**Date**: 2026-11-26
+**Task**: the three E-## tasks registered with this entry
+**Decision**: three small fixes from the Engineer's handoff of 2026-11-26 12:34 UTC (findings 1 and 2), ordered on a new branch after lane-code-quiet merges.
+
+### Why needed
+At `a8e798d` the acceptance agent for E-476 ran `rein ci run` inside its sandbox. `git worktree add` failed on the read-only `.git/worktrees`, and an ERROR row (0 ms, nothing tested) became the newest certifying row for that sha. `certifyingRunFor` takes the newest `dirty = 0` row, so `[CI_GATE]` would have refused DONE at a commit the operator's run 157 had passed. In the same round `rein review` printed `[UNAPPROVED_DEP]` for stamp records added to `.ai/state.json`: the pattern matches any added `"key":` line in any file.
+
+### Rulings
+1. **An ERROR run is not a verdict.** A run that ends in ERROR tested nothing to its end. For a sha, the newest certifying row with status PASS, FAIL or SKIPPED decides. An ERROR row neither certifies nor hides an older row for the same sha. A later FAIL still overrides an earlier PASS. When ERROR rows are the only rows for a sha, the ancestor rule applies as if there were none, and a refusal names the ERROR run.
+2. **The acceptance agent does not run CI.** `critic_acceptance` observes a clause about CI with `rein ci status <sha>` and never runs `rein ci run`. CI runs on the operator's word (D-170 r1); an agent's own run in a sandbox cannot make a worktree and only writes a false row.
+3. **`[UNAPPROVED_DEP]` reads manifests only.** The check counts an added `"name":` line only inside the diff section of a `package.json` (at any depth). Other files do not trigger it.
+4. **Order.** lane-code-quiet (E-476 to E-480) goes to its pull request as it is; none of the three gates it. The three tasks go on one new branch from `main` after the merge, one commit each, review at the tip.
+5. **Not ordered**: findings 3 to 7 of the same handoff. T-RECHECK-001 stays a P3 record; the test notes and the small points are taken with the next task that touches those files.
+
+### Alternatives considered
+1. **Delete the ERROR row by hand** — rejected: the ledger is not edited to pass a gate.
+2. **Keep `rein ci run` in the agent and fix the sandbox** — rejected: the sandbox limit is the platform's, and the operator's run is the one that counts.
+
+### Rollback
+Revert the commit of the task concerned; each of the three is one commit and none changes the store's schema. Reverting ruling 1 brings back the newest-row rule, ruling 2 the agent's old text, ruling 3 the old pattern.
 
 ---

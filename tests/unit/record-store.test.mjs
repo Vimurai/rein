@@ -400,6 +400,53 @@ test("every task-synchronizer mutation lands in a record file that rebuilds the 
   assert.equal(stateOf(cai), viewAfterServer);
 });
 
+// E-478 (D-176): add_stamp reads a CHECK / CHECK_RETIRED summary through src/shared/checks.mjs
+// (the grammar's own rows are tests/unit/checks.test.mjs). Extends the MCP write path above.
+test("add_stamp refuses a malformed CHECK with [CHECK_MALFORMED] and a reserved type with [STAMP_RESERVED], writing nothing; a good CHECK is stored", async (t) => {
+  const { root, ai } = repo(t, "check");
+  seedLegacy(ai); commitAll(root, "seed");
+  const before = getDb(ai).prepare("SELECT COUNT(*) AS n FROM stamps").get().n;
+  const res = await callTools(root, tmp(t, "home"), [
+    ["add_stamp", { type: "CHECK", agent: "critic_acceptance", task_id: "E-1", summary: "E-1#1 | maybe | true" }],
+    ["add_stamp", { type: "CHECK", agent: "critic_acceptance", task_id: "E-1", summary: "E-1#1 | empty | git grep -n X -- src\u001b[2K | head" }],
+    ["add_stamp", { type: "CHECK", agent: "critic_acceptance", task_id: "E-1", summary: "E-1#1 | empty | git grep -n X -- src | head" }],
+    // D-176 addendum 1 r16: the replay's own stamp types are reserved, even well formed.
+    ["add_stamp", { type: "CHECKS_PASS", agent: "anyone", summary: "[CHECKS_PASS] at abc1234 — 0 hold, 0 retired" }],
+    ["add_stamp", { type: "CHECKS_FAIL", agent: "anyone", summary: "[CHECKS_FAIL] at abc1234 — 1 broken of 1: E-1#1" }],
+    ["add_stamp", { type: "CHECK_RETIRED", agent: "anyone", task_id: "E-1", summary: "E-1#1 | D-1 | why" }],
+  ]);
+  assert.equal(res[0].isError, true);
+  assert.equal(res[0]._meta?.expected_rejection, true, "bad input, not a malfunction");
+  assert.match(res[0].content[0].text, /^✗ \[CHECK_MALFORMED\] CHECK: "maybe" is not an expect form/);
+  assert.match(res[1].content[0].text, /^✗ \[CHECK_MALFORMED\] CHECK: the summary carries a control or format character \(U\+001B\)/);
+  for (const [i, type] of [[3, "CHECKS_PASS"], [4, "CHECKS_FAIL"], [5, "CHECK_RETIRED"]]) {
+    assert.equal(res[i].isError, true, type);
+    assert.equal(res[i].content[0].text, `✗ [STAMP_RESERVED] ${type} is written only by the command that runs the recorded checks, not by add_stamp`);
+  }
+  assert.notEqual(res[2].isError, true, JSON.stringify(res[2]));
+  const rows = getDb(ai).prepare("SELECT type, summary FROM stamps").all();
+  assert.equal(rows.length, before + 1, "the five refused stamps wrote nothing");
+  assert.deepEqual({ ...rows.at(-1) }, { type: "CHECK", summary: "E-1#1 | empty | git grep -n X -- src | head" });
+});
+
+test("REVIEWS.md prints one line per task for its CHECK stamps and every CHECK_RETIRED in full", (t) => {
+  const { ai } = repo(t, "checkview");
+  const db = seedLegacy(ai);
+  const s = (type, task_id, summary) => insertStamp(ai, db, { type, agent: "critic_acceptance", task_id, timestamp: "2026-11-25T10:00:00.000Z", summary });
+  s("CHECK", "E-1", "E-1#1 | empty | git grep -n A -- src");
+  s("CHECK", "E-1", "E-1#3 | exit=0 | test -f README.md");
+  s("CHECK", "E-2", "E-2#2 | lines=1 | git ls-files x");
+  s("CHECK", "E-1", "E-1#1 | empty | git grep -n A -- src lib");   // clause 1 again: still two checks
+  s("CHECK_RETIRED", "E-2", "E-2#2 | D-176 | x was renamed");
+  regenerateViews(ai, db);
+  const view = readFileSync(join(ai, "REVIEWS.md"), "utf8").split("\n").filter((l) => l.startsWith("[CHECK"));
+  assert.deepEqual(view, [
+    "[CHECK] 2026-11-25 | E-1: 2 checks recorded",
+    "[CHECK] 2026-11-25 | E-2: 1 checks recorded",
+    "[CHECK_RETIRED] 2026-11-25 | E-2#2 | D-176 | x was renamed",
+  ]);
+});
+
 // E-342 (D-106 r4): the guard on the MCP path. Extends the case above to a legacy project whose
 // HEAD:.ai/state.json holds a task the index lacks (finding 5's shape, written by hand).
 test("a legacy index behind HEAD: verify_markdown_sync is [SYNC_FAIL] and add_task refused, nothing written, until the import", async (t) => {

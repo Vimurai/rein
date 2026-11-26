@@ -17,6 +17,7 @@ can.
 | The MCP server fails to start | `node --version` is 22 or later? | `rein mcp-setup`, then `rein doctor --env`. |
 | The server answers with old behaviour after an upgrade | Was the pane started before the upgrade? | Restart both panes. |
 | The other pane never wakes | Is it open? A closed pane gets "not reachable". | Relaunch it; the handoff note is in `.ai/COMM.md`. |
+| `rein handoff` says `not committed` and `[COMM_LOCAL]` | Does the project's `.gitignore` cover `.ai/`? (`git check-ignore -v .ai/`) | Nothing to fix if you chose that. The entry is in `.ai/COMM.md` on this disk, and both panes read it there. There's no commit, so it has no history and no other clone sees it. If only `.ai/COMM.md` is ignored (doctor warns `[COMM_IGNORED]`), `rein sync` removes that line. |
 | `rein done` refuses: `[REVIEW_GATE]` / `[ACCEPT_GATE]` / `[SEC_GATE]` | `.ai/REVIEWS.md`: is there a PASS for HEAD? | `rein review <tier>` and dispatch the agents it prints; a source commit after a stamp needs it again. |
 | `rein done` refuses: `[CI_GATE]` | `rein ci status --short` | `rein ci run` on HEAD. |
 | `add_task` refuses a task | The message names the missing part. | Add a tier, start with an imperative verb, end with `Acceptance:` naming a command, a file or a count. |

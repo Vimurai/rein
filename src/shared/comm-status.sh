@@ -7,6 +7,8 @@
 #
 #   rein_comm_status [root]   → prints exactly one of
 #       tracked            committed and clean
+#       local              the rules ignore the whole .ai/ directory: the owner keeps the
+#                          records on disk only (D-175 r4); checked before IGNORED
 #       IGNORED            a .gitignore rule matches it (checked with --no-index, so a rule
 #                          still counts when the file is already tracked)
 #       UNCOMMITTED <n>    <n> lines not in HEAD (untracked: the whole file)
@@ -18,6 +20,9 @@
 rein_comm_status() {
   local root="${1:-.}" f=".ai/COMM.md" n
   git -C "$root" rev-parse --is-inside-work-tree >/dev/null 2>&1 || { echo nogit; return 0; }
+  if git -C "$root" check-ignore -q --no-index -- ".ai/" 2>/dev/null; then
+    echo local; return 0
+  fi
   if git -C "$root" check-ignore -q --no-index -- "$f" 2>/dev/null; then
     echo IGNORED; return 0
   fi

@@ -3,6 +3,26 @@
 All notable changes to **@vimurai/rein** are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/); this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- **`rein handoff` works where `.ai/` is gitignored** (E-477, D-175). The entry is written to
+  `.ai/COMM.md` and nothing is staged or committed; the wake line says `not committed` and a
+  `[COMM_LOCAL]` note follows. It never runs `git add -f`. The comm-status probe reports
+  `local` for a project that ignores the whole `.ai/` directory; `rein doctor` prints
+  `✓ .ai/ records are local only (gitignored)`, and the session brief prints nothing. A
+  project that tracks `.ai/` is unchanged.
+
+### Fixed
+
+- **`[LANE_CODE]` is quiet inside a role sandbox** (E-476, D-174 r27). It now reports only
+  regular files and symbolic links under `.ai/` and `plans/`. Before this, the sandbox's
+  character-device placeholders produced 17 false entries at every session start and handoff.
+  `node src/shared/lane-code.mjs` also accepts `--root <dir>`.
+- `docs/role-sandbox.md` explains the `[ARCH_LANE_COMMIT]` refusal of a commit made on GitHub,
+  such as a Dependabot merge, and how to check it against the remote before trusting it (D-174 r28).
+
 ## [0.6.0] — Lean core — 2026-11-24
 
 D-169 and D-170 cut Rein to what Claude Code does not have: a task ledger, DONE by observed

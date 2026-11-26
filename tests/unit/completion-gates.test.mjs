@@ -10,6 +10,9 @@
 // E-464 (D-169 r8, D-170 r9): the review-by-tier rows extend the same fixture — the stamp check
 // moved from pre-commit to this gate list (Tier 2: REVIEW_PASS + ACCEPT_PASS; Tier 3: + SEC_CLEARED).
 //
+// E-480 (D-176): the check gate's rows extend the same fixture — a [CHECKS_PASS] recorded by
+// `rein recheck` (tests/unit/recheck.test.mjs covers the replay that writes it) for HEAD.
+//
 // Run standalone: node --test tests/unit/completion-gates.test.mjs
 
 import { test } from "node:test";
@@ -19,7 +22,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 
-import { checkAcceptGate, checkReviewGate, checkSecGate, checkSupersededBy, completionGates, ACCEPT_GATE_FLOOR, REVIEW_GATE_FLOOR } from "../../src/shared/completion-gates.mjs";
+import { checkAcceptGate, checkReviewGate, checkSecGate, checkChecksGate, checkSupersededBy, completionGates, ACCEPT_GATE_FLOOR, REVIEW_GATE_FLOOR, CHECK_GATE_FLOOR } from "../../src/shared/completion-gates.mjs";
 import { getDb } from "../../src/mcp/shared/state-db.js";
 import { insertStamp } from "../../src/mcp/shared/record-store.mjs";
 
@@ -36,7 +39,7 @@ function fixture(t) {
   const ai = join(repo, ".ai");
   const db = getDb(ai);
   const add = db.prepare("INSERT INTO tasks(id, owner, status, tier, description, created_at) VALUES (?, 'Engineer (Claude)', 'OPEN', ?, 'fixture', '2026-11-18T00:00:00Z')");
-  for (const [id, tier] of [["E-445", 2], ["E-446", 3], ["E-447", 1], ["E-444", 2], ["P-500", 2], ["E-470", 2], ["E-471", 3], ["E-472", 1]]) add.run(id, tier);
+  for (const [id, tier] of [["E-445", 2], ["E-446", 3], ["E-447", 1], ["E-444", 2], ["P-500", 2], ["E-470", 2], ["E-471", 3], ["E-472", 1], ["E-480", 2], ["E-481", 2], ["E-482", 3], ["E-483", 1], ["P-600", 3]]) add.run(id, tier);
   const commit = (msg) => { g("add", "-A"); g("commit", "-q", "-m", msg); return g("rev-parse", "HEAD"); };
   const stamp = (id, type) => insertStamp(ai, db, { type, agent: "critic_acceptance", task_id: id, timestamp: new Date().toISOString(), summary: "1 | PASS | fixture" });
   // The build gate reads a run dir and a mirror: both point into the fixture, never ~/.rein.
@@ -138,4 +141,44 @@ test("E-464: Tier 3 also needs [SEC_CLEARED] for HEAD; a later [SEC_BLOCKED] voi
   assert.equal(completionGates({ ...f.gateOpts, id: "E-471" }), null);
   f.stamp("E-471", "SEC_BLOCKED");
   assert.match(completionGates({ ...f.gateOpts, id: "E-471" })?.content?.[0]?.text ?? "", /^\[SEC_GATE\] E-471 /);
+});
+
+// E-480 (D-176): the check gate. A [CHECKS_PASS] belongs to no task (task_id null): it is the
+// replay of the whole ledger at a commit, written by `rein recheck`.
+const replayStamp = (f, type) => insertStamp(f.ai, f.db, { type, agent: "rein recheck", task_id: null,
+  timestamp: new Date().toISOString(), summary: `[${type}] fixture` });
+
+test("E-480: a Tier 2 task above the floor without [CHECKS_PASS] is refused with [CHECK_GATE]; with one for HEAD it closes", (t) => {
+  const f = fixture(t);
+  f.commit("one");
+  for (const type of ["REVIEW_PASS", "ACCEPT_PASS"]) f.stamp("E-481", type);
+  const close = () => completionGates({ ...f.gateOpts, id: "E-481" })?.content?.[0]?.text ?? null;
+  assert.equal(close(), "[CHECK_GATE] no CHECKS_PASS for HEAD — run: rein recheck");
+  assert.equal(checkChecksGate(f.db, f.repo, "E-482").ok, false, "Tier 3 too");
+  replayStamp(f, "CHECKS_PASS");
+  assert.equal(close(), null);
+  replayStamp(f, "CHECKS_FAIL");
+  assert.equal(close(), "[CHECK_GATE] no CHECKS_PASS for HEAD — run: rein recheck", "a later [CHECKS_FAIL] voids the pass");
+});
+
+test("E-480: [CHECKS_PASS] at an ancestor that differs only in .ai/ opens the gate; a code change closes it", (t) => {
+  const f = fixture(t);
+  f.commit("one");
+  replayStamp(f, "CHECKS_PASS");
+  f.write(".ai/LOG.md", "bookkeeping\n");
+  f.commit("ai only");
+  assert.equal(checkChecksGate(f.db, f.repo, "E-481").ok, true);
+  f.write("src/a.js", "// v2\n");
+  f.commit("code");
+  assert.equal(checkChecksGate(f.db, f.repo, "E-481").ok, false);
+});
+
+test("E-480: a task at or below the floor, a Tier 1 task and a P-## task close without [CHECKS_PASS]", (t) => {
+  const f = fixture(t);
+  f.commit("one");
+  assert.equal(CHECK_GATE_FLOOR, 480, "the floor is the task that built the gate");
+  for (const id of ["E-480", "E-483", "P-600"]) {
+    const r = checkChecksGate(f.db, f.repo, id);
+    assert.deepEqual([r.ok, r.active], [true, false], id);
+  }
 });

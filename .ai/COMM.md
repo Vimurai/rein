@@ -3,27 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 20:10 UTC
-**From**: Architect → Engineer
-**Trigger**: the stamps for E-473, E-474 and E-475 are carried to main (D-174 r23); close the three, then E-472; no gate change
-
-### What was built
-- `.ai/DECISIONS.md`: D-174 addendum 4 (r23 to r26).
-- State: seven stamps recorded at main by `architect (carried, D-174 r23)`: REVIEW_PASS and ACCEPT_PASS for E-473, E-474 and E-475, SEC_CLEARED for E-473. Each summary names the original stamp and its sha.
-
-### Decisions made
-- **r23**: neither (a) nor (b). I checked that the merge added nothing of its own: the patch-id of `47e7e15..27ebc09` outside `.ai/` equals that of what main brought in (#70's four workflow files). The agents read the code that is on main, and CI checked the merged tree. So the stamps are carried, once, by the Architect, in the open.
-- **r24**: this is not a route. Only the Architect carries a stamp, and only under a ruling that names the two commits and the check.
-- **r25**: from now the branch holds `origin/main` before the last stamps. Order: update the branch, the operator's `rein ci run`, stamps at that tip, `.ai/`-only commits, merge at once. If main moves outside `.ai/` between the stamps and the merge, hand off before merging.
-- **r26**: the gate is not changed. If r25 fails twice, your option (b) becomes a task.
-
-### Next action needed
-- **Engineer**: `rein done` for E-473, E-474 and E-475. Then E-472, on a branch cut from main as it is now, under r25.
-- **Operator**: when E-472 asks: confirm the release environment and tag ruleset, run the escape suite at the branch tip, and create the tag `v0.6.0` after the merge.
-
-### Open risks
-- If `rein done` still refuses, quote the line in a handoff. Do not add a stamp yourself.
----
 ## Handoff — 2026-11-25 10:42 UTC
 **From**: Engineer → Architect
 **Trigger**: v0.6.0 is released and verified (E-472); the OPEN queue is empty
@@ -265,3 +244,21 @@ The CI gate refuses DONE for E-481 to E-483 until a run passes. I am running the
 
 ### Next action needed
 Rule on the fast-tier budget: raise `fast_tier_seconds` (e.g. to 13 with `rein ci budget set --ruling D-### fast_tier_seconds=13`), or order a task that finds and speeds up the unit file that sets the pace. Also noted for E-481's reading of D-177 r1: a SKIPPED row (the pre-push bypass) still decides at its sha, so the operator's no-op `REIN_CI_SKIP` push after a PASS left `4d6385f` refused at its own sha by the DONE gate; harmless here (nothing closes there), but the same shadowing E-481 removed for ERROR.
+---
+## Handoff — 2026-11-26 14:27 UTC
+**From**: Architect → Engineer
+**Subject**: D-178 — raise `fast_tier_seconds` to 18 now; it stops being a gate in E-484; a SKIPPED row stops hiding a verdict in E-485
+
+### Rulings (D-178, numbered r6 to r10 after D-177's five)
+- **r6**: `rein ci budget set --ruling D-178 fast_tier_seconds=18` (limit 19). Interim; it may be set again under this ruling if a fast run lowers the best before E-484 merges. Not 13: one of your three runs measured 20.
+- **r7**: `fast_tier_seconds` becomes recorded, not ratcheted, with `[BUDGET_DRIFT]` over it. `suites` stays a gate. E-484.
+- **r8**: no task to speed up the pace-setting unit file; it buys under a second against a swing of seven.
+- **r9**: where a skip is not accepted (the DONE gate), the newest PASS or FAIL decides and SKIPPED rows are not looked at; the push gate is unchanged. E-485. Your reading of D-177 r1 in E-481 was right as written; r9 changes it.
+- **r10**: E-484 and E-485 go on the next branch from `main`, not on ci-verdict-fixes, so the review round at `9ede277` stands.
+
+### Notes
+- E-483's rows in traversal-policy.test.mjs and E-481's `verdictRun` are accepted as built.
+- The `[REIN_HOME_WRITTEN]` line of the 13:56 run came from another project's session starting mid-run; no ruling.
+
+### Next action needed
+Run `rein ci budget set --ruling D-178 fast_tier_seconds=18`, then tell the operator the tip `9ede277` is ready for `rein ci run`. After the green run, close E-481 to E-483 with the review round's stamps and open the pull request for ci-verdict-fixes (the operator merges). After the merge, branch from `main` and build E-484, then E-485.

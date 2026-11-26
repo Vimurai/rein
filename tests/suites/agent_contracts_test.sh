@@ -38,6 +38,9 @@ assert_status 0 "applies D-088 (one test per behaviour, cheapest layer)" \
 # D-172 r19: the tracked .claude/ copy is untracked; the persona is read from src/ only.
 assert_contains "only critic_acceptance keeps the critic_ prefix" "critic_acceptance.md" \
   "$(cd "${REPO_ROOT}/src/claude/agents" && ls critic_*)"
+# E-482 (D-177 r2): the acceptance agent reads CI from the record and never runs it.
+assert_status 0 "critic_acceptance forbids rein ci run" \
+  grep -q 'Never run `rein ci run`' "${REPO_ROOT}/src/claude/agents/critic_acceptance.md"
 assert_match "exactly one critic_ agent" '^1$' "$(cd "${REPO_ROOT}/src/claude/agents" && ls | grep -c critic_)"
 
 echo ""

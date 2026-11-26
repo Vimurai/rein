@@ -11,7 +11,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 
 import { runRecheck, runList, runRetire, liveSet, parseArgs, main } from "../../src/shared/recheck.mjs";
 import { getDb } from "../../src/mcp/shared/state-db.js";
@@ -77,8 +77,11 @@ test("a check past its time limit, or past the stdout cap, is broken and its pro
 });
 
 // E-479 security round, F-E479-2: a grandchild that leaves the process group (setsid) and holds
-// stdout no longer outlives the limit or the cap. Extends the row above.
-test("a setsid'd grandchild holding stdout cannot outlast the time limit or the output cap", async (t) => {
+// stdout no longer outlives the limit or the cap. Extends the row above. macOS ships no setsid:
+// the row skips there rather than fail on exit 127.
+const HAS_SETSID = spawnSync("setsid", ["true"], { stdio: "ignore" }).status === 0;
+test("a setsid'd grandchild holding stdout cannot outlast the time limit or the output cap",
+  { skip: HAS_SETSID ? false : "setsid is not installed (macOS)" }, async (t) => {
   const f = fixture(t);
   f.check("E-10", "E-10#1 | exit=0 | setsid sleep 6");
   f.check("E-10", "E-10#2 | exit=0 | setsid sh -c 'yes; sleep 6'");

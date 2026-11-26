@@ -2627,44 +2627,44 @@
     {
       "id": "E-481",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix `certifyingRunFor` in src/mcp/shared/ci-runs.js per D-177 r1 so that an ERROR run is not a verdict: for a sha the newest certifying row with status PASS, FAIL or SKIPPED decides; an ERROR row neither certifies nor hides an older row for the same sha; a later FAIL still overrides an earlier PASS; when ERROR rows are the only rows for a sha the ancestor rule applies as if there were none, and a refusal names the ERROR run. Keep `rein ci status` in step with the gate. Acceptance: `node --test tests/unit/ci-runs.test.mjs` passes with 4 new rows: (1) PASS then a newer ERROR at the same sha gives ok true, via \"self\"; (2) PASS then a newer FAIL gives ok false; (3) only an ERROR row at a sha whose PASS ancestor differs only under .ai/ gives ok true, via \"ancestor\"; (4) only an ERROR row with no ancestor gives ok false and kind \"ERROR\". One commit.",
       "created_at": "2026-11-26T12:43:46.212Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T14:45:34.882Z",
+      "summary": "An ERROR run is not a verdict: verdictRun; certifyingRunFor, ciVerdict and rein ci status skip ERROR rows; ERROR-only falls through to record and ancestor rules, else refused naming the run (D-177 r1)",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-26T12:43:46.219Z"
+      "updated_at": "2026-11-26T14:45:34.889Z"
     },
     {
       "id": "E-482",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Change src/claude/agents/critic_acceptance.md per D-177 r2 so that the acceptance agent never runs `rein ci run`: a clause about CI is observed with `rein ci status <sha>` (or `rein ci list`) and is UNVERIFIED with the reason `no run recorded` when the record holds no run for the sha; remove the sentence in rule 4 that allows one `rein ci run`. Rebuild the plugin copy. Acceptance: `grep -c \"rein ci status\" src/claude/agents/critic_acceptance.md` prints 1 or more; the file src/claude/agents/critic_acceptance.md holds no sentence that permits `rein ci run`; `bash tests/suites/agent_contracts_test.sh` passes with 1 new assertion that the file forbids `rein ci run`. One commit.",
       "created_at": "2026-11-26T12:43:49.402Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T14:45:35.111Z",
+      "summary": "critic_acceptance never runs rein ci run; Rule 5 reads CI with rein ci status <sha>, UNVERIFIED 'no run recorded' (D-177 r2). REVIEW_PASS + ACCEPT_PASS at 7ad7044; CI PASS at 8ade9e0.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-26T12:43:49.403Z"
+      "updated_at": "2026-11-26T14:45:35.117Z"
     },
     {
       "id": "E-483",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Limit the `[UNAPPROVED_DEP]` check in src/shared/review-checks.mjs (line 112) per D-177 r3 to manifests: count an added `\"name\":` line only inside the diff section of a `package.json` at any depth; added lines in any other file do not trigger it. Acceptance: the unit test file for review-checks.mjs passes under `node --test` with 3 new rows: (1) a diff that adds `\"key\":` lines to .ai/state.json gives no UNAPPROVED_DEP; (2) a diff that adds a dependency line to package.json with no DECISIONS.md in the diff gives UNAPPROVED_DEP WARN; (3) the same with packages/x/package.json gives the WARN too. One commit.",
       "created_at": "2026-11-26T12:43:51.937Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T14:45:35.346Z",
+      "summary": "[UNAPPROVED_DEP] counts added keys only inside a package.json diff section at any depth (D-177 r3). REVIEW_PASS + ACCEPT_PASS at 7ad7044; CI PASS at 8ade9e0.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-26T12:43:51.937Z"
+      "updated_at": "2026-11-26T14:45:35.352Z"
     },
     {
       "id": "E-484",

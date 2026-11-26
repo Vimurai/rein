@@ -3,35 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 20:09 UTC
-**From**: Engineer → Architect
-**Trigger**: PR #71 merged as 27ebc09, but `rein done` refuses E-473/474/475: the stamps at 47e7e15 do not cover the merge commit (needs your call)
-
-### What was built
-- PR #71 was merged into main as 27ebc09, and the branch is deleted. After one re-run of 3 failed jobs, hosted CI was 18/18 green. The failures were unrelated to the branch:
-  - ubuntu node 24 shard 3: the tmux pane-title rows E-227.06c–e, in code the branch does not touch.
-  - two macOS shards hit the 15-minute timeout. Main's own run at 44b0146 also had a macOS shard cancelled.
-- Local `rein ci run` was green at 0f60282 (the branch tip) and at 27ebc09 (main).
-- All stamps were recorded at 47e7e15 or e97a72d:
-  - E-473: REVIEW_PASS, SEC_CLEARED and ACCEPT_PASS.
-  - E-474 and E-475: REVIEW_PASS and ACCEPT_PASS.
-  - From there to the branch tip 0f60282, only `.ai/` changed.
-
-### Decisions needed
-- `rein done E-473` → `[REVIEW_GATE] … no [REVIEW_PASS] stamp for HEAD 27ebc09 or an ancestor that differs only in .ai/`. The merge commit's first parent is main's 44b0146. The branch did not contain #70, so `git diff 47e7e15 27ebc09 -- . ':!.ai'` is exactly #70's four workflow files (codeql, dependency-review, privacy, scorecard; 7+/7−), and those were merged and checked on main before. The gates (src/shared/completion-gates.mjs `_stampGate`) accept only an ancestor that differs in `.ai/` alone, so no stamp on the branch covers the merge.
-- Choose one:
-  - (a) Re-stamp at 27ebc09: reviewer ×3, critic_acceptance ×3 and security_engineer ×1 for E-473, each scoped to the #70 diff. That is seven agent runs for 7 lines that main already had, and a fourth security dispatch after r17 said "no fourth round".
-  - (b) A gate change as a new task: a stamp also covers a merge commit when the merge's diff against its stamped parent equals the diff its other parent (the trunk) brought in, i.e. the merge adds nothing of its own outside `.ai/`. Close E-473/474/475 after that lands.
-  - (c) A ruling that these three close on the 47e7e15/e97a72d stamps, by a route `rein done` already has, if there is one. I found none.
-- Engineer's recommendation: (b). Every PR branch that is not rebased onto the latest main will hit this.
-
-### Next action needed
-- **Architect**: rule on (a), (b) or (c).
-- **Engineer**: then close E-473, E-474 and E-475, then E-472.
-
-### Open risks
-- Until this is ruled, E-472 (v0.6.0) waits on the three closes.
----
 ## Handoff — 2026-11-24 20:10 UTC
 **From**: Architect → Engineer
 **Trigger**: the stamps for E-473, E-474 and E-475 are carried to main (D-174 r23); close the three, then E-472; no gate change
@@ -269,3 +240,28 @@ Open the pull request for lane-code-quiet (E-476 to E-480), or rule on findings 
 
 ### Next action needed
 Open the pull request for lane-code-quiet (E-476 to E-480) against `main`. Do not merge it; the operator merges. After the merge, branch from `main` and build E-481, E-482 and E-483 in that order, then tell the operator the tip is ready for `rein ci run`.
+---
+## Handoff — 2026-11-26 14:26 UTC
+**From**: Engineer → Architect
+**Subject**: PR #73 merged; E-481 to E-483 built on ci-verdict-fixes; the fast-tier budget refuses the tip — a ruling is needed
+
+### Done
+1. PR #73 (lane-code-quiet) merged at `1030a32` on the operator's word. Hosted CI first failed on macOS shard 1/4: the E-479 setsid row (reviewer finding 4). Fixed in `4d6385f` (the row skips where setsid is absent); the operator's `rein ci run` at `4d6385f` PASSED. An Ubuntu perf row (`record-import.test.mjs`, 370 ms over a 300 ms limit) was a slow hosted runner and passed on the re-run.
+2. Branch `ci-verdict-fixes` from `main`, one commit each:
+   - E-481 `13fc263`: `verdictRun` (newest certifying PASS/FAIL/SKIPPED); `certifyingRunFor` and `ciVerdict` use it; ERROR-only falls through to the record and ancestor rules, else kind ERROR via self; `ownRunWhy` names the run by id in the DONE and push gates; `rein ci status` takes a record for an ERROR-only sha. 4 rows in ci-runs.test.mjs (rows 1, 3 and 4 fail on the old code).
+   - E-482 `e051cee`: critic_acceptance Rule 4 loses the one-run allowance; new Rule 5 reads CI with `rein ci status <sha>`, UNVERIFIED `no run recorded`; 1 assertion in agent_contracts_test.sh.
+   - E-483 `9ede277`: `manifestAddedKeys` keeps only added `"name":` lines inside a package.json section; 3 rows (E-483.R4 to R6) in traversal-policy.test.mjs, where reviewChecks' unit rows live.
+
+### Blocked: the fast-tier budget
+Three operator runs at `9ede277`: the suite is green every time (3732/0/9, leaked 0), the budget FAILs every time.
+| run | load start → end | fast_tier_seconds |
+|---|---|---|
+| 13:50 | 13.0 → 4.8 | 13 |
+| 13:56 | 3.0 → 5.8 | 13 (and `[REIN_HOME_WRITTEN]`: a pi-market session started mid-run — new roles/ entry and the MCP's npm lock; no test writes those) |
+| 14:18 | 4.0 → 18.2 | 20 |
+`main` at `4d6385f` measured 11.55 s (shown 12) against a limit of 12 (recorded 11 + 10 %); the tip measures 12.31 s. In the sandbox, three runs each of the whole unit tier: about 13.3 s with the branch's test files, about 12.6 s with main's. `main` has under half a second of headroom, so any new unit row tips it, and host load swings it by several seconds.
+
+The CI gate refuses DONE for E-481 to E-483 until a run passes. I am running the review round at the tip meanwhile.
+
+### Next action needed
+Rule on the fast-tier budget: raise `fast_tier_seconds` (e.g. to 13 with `rein ci budget set --ruling D-### fast_tier_seconds=13`), or order a task that finds and speeds up the unit file that sets the pace. Also noted for E-481's reading of D-177 r1: a SKIPPED row (the pre-push bypass) still decides at its sha, so the operator's no-op `REIN_CI_SKIP` push after a PASS left `4d6385f` refused at its own sha by the DONE gate; harmless here (nothing closes there), but the same shadowing E-481 removed for ERROR.

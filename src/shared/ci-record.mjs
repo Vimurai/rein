@@ -33,7 +33,7 @@ import { resolve } from "node:path";
 import { getDbSeeded } from "../mcp/shared/state-db.js";
 import {
   recordCiRunFromLog, ciVerdict, shortLine, listCiRuns, latestCiRun, failedSections,
-  pruneCiLogs, ageOf, certifyingRunFor, certifiedBy, ciAdopted, recordCiSkip, cargoView,
+  pruneCiLogs, ageOf, certifyingRunFor, certifiedBy, ownRunWhy, ciAdopted, recordCiSkip, cargoView,
 } from "../mcp/shared/ci-runs.js";
 import { writeCiRecord, readCiRecord } from "../mcp/shared/ci-evidence.mjs";
 import { budgetBest, budgetCheck, budgetDrift, budgetSet, budgetSummary, driftLine, gitContains, parseBudgetLine, regressionLine } from "../mcp/shared/ci-budget.js";
@@ -136,7 +136,8 @@ export function run(argv) {
       let v = ciVerdict(db, o.sha);
       // E-328: no local certifying row → a teammate's .ai/ci/<sha>.json may answer.
       let rec = null;
-      if (v.kind === "NONE" || v.kind === "DIRTY" || v.kind === "SHARD") {
+      // E-481: an ERROR-only sha is "no verdict" to the gate, so a record answers it here too.
+      if (v.kind === "NONE" || v.kind === "DIRTY" || v.kind === "SHARD" || v.kind === "ERROR") {
         const warnings = [];
         rec = readCiRecord(resolve(o["ai-dir"]), o.sha, { warnings });
         for (const w of warnings) process.stderr.write(`${w}\n`);
@@ -239,7 +240,7 @@ export function run(argv) {
       }
       let why;
       const near = c.row || c.record;
-      if (c.via === "self") why = `its run is ${c.kind}`;
+      if (c.via === "self") why = ownRunWhy(c);
       else if (c.via === "record") why = `its record from ${c.record.runner} is ${c.kind}`;
       else if (near) why = `nearest tested ancestor ${near.sha.slice(0, 7)} differs outside .ai/: ${c.differs.slice(0, 3).join(", ")}${c.differs.length > 3 ? ", …" : ""}`;
       else why = "no run for it or for a tested ancestor";

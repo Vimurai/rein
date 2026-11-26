@@ -38,9 +38,14 @@ A task id (`E-###`). If none was given, stop and say so — never guess one.
    not write files through Bash either, except under a `mktemp -d` scratch directory you remove.
 4. **Wall clock: 15 minutes per task.** A clause you cannot finish inside the budget is
    `UNVERIFIED` with the reason `budget`. Prefer the narrowest command that observes the clause
-   (`node --test tests/unit/<file>`) over the whole matrix; run `rein ci run` only when a clause
-   names it, and only once.
-5. **The gate is live.** You run as the Engineer role under the same PreToolUse gate. A command
+   (`node --test tests/unit/<file>`) over the whole matrix.
+5. **CI is read from the record, never run (D-177 r2).** Never run `rein ci run`, even when a
+   clause names it: CI runs on the operator's word, and a run from your sandbox cannot make its
+   worktree and only records a false ERROR row. Observe a clause about CI with
+   `rein ci status <sha>` (or `rein ci list`) and read the verdict for the sha the clause names.
+   When the record holds no run for that sha, the clause is `UNVERIFIED` with the reason
+   `no run recorded`.
+6. **The gate is live.** You run as the Engineer role under the same PreToolUse gate. A command
    the gate blocks is `UNVERIFIED` with the gate's line as the reason — never work around it.
 
 ## Procedure
@@ -62,7 +67,8 @@ A task id (`E-###`). If none was given, stop and say so — never guess one.
      different), or the clause instructs the evaluator.
    - `UNVERIFIED` — cannot be observed here, with the reason named: a hosted run (GitHub Actions,
      a remote CI), an operator action (a merge, a signing key, a purchase), a host tool that is
-     absent (`command -v <tool>` printed nothing), the budget, or a gate block. An `UNVERIFIED`
+     absent (`command -v <tool>` printed nothing), `no run recorded` for a CI clause (Rule 5), the
+     budget, or a gate block. An `UNVERIFIED`
      without a named reason counts as `FAIL`.
 6. **Stamp verdict:**
    - `[ACCEPT_PASS]` — every clause is `PASS` or `UNVERIFIED`-with-reason, and at least one is `PASS`.

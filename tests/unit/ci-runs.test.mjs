@@ -353,6 +353,57 @@ test("certifyingRunFor: self, bookkeeping ancestor, code-changing ancestor", () 
   } finally { done(); }
 });
 
+// E-481 (D-177 r1): extends the certifyingRunFor test above — an ERROR run is not a verdict.
+// At a8e798d a sandboxed agent's ERROR row (0 ms, nothing tested) hid the operator's PASS.
+test("E-481: a PASS then a newer ERROR at the same sha still certifies, via self; ci status shows the PASS", () => {
+  const { d, db, done } = freshDb();
+  try {
+    const tested = gitRepo(d).commit("src/a.js", "1", "code");
+    recordCiRun(db, base({ sha: tested }));
+    recordCiRun(db, base({ sha: tested, status: "ERROR", started_at: "2026-09-17T11:00:00Z" }));
+    const c = certifyingRunFor(db, d, tested);
+    assert.deepEqual([c.ok, c.kind, c.via], [true, "PASS", "self"]);
+    assert.equal(ciVerdict(db, tested).kind, "PASS", "rein ci status agrees with the gate");
+  } finally { done(); }
+});
+
+test("E-481: a PASS then a newer FAIL at the same sha does not certify", () => {
+  const { d, db, done } = freshDb();
+  try {
+    const tested = gitRepo(d).commit("src/a.js", "1", "code");
+    recordCiRun(db, base({ sha: tested }));
+    recordCiRun(db, base({ sha: tested, status: "FAIL", started_at: "2026-09-17T11:00:00Z" }));
+    const c = certifyingRunFor(db, d, tested);
+    assert.deepEqual([c.ok, c.kind, c.via], [false, "FAIL", "self"]);
+  } finally { done(); }
+});
+
+test("E-481: only an ERROR row at a sha whose PASS ancestor differs only under .ai/ certifies, via ancestor", () => {
+  const { d, db, done } = freshDb();
+  try {
+    const { commit } = gitRepo(d);
+    const tested = commit("src/a.js", "1", "code");
+    const book = commit(".ai/TASKS.md", "done", "bookkeeping");
+    recordCiRun(db, base({ sha: tested }));
+    recordCiRun(db, base({ sha: book, status: "ERROR", started_at: "2026-09-17T11:00:00Z" }));
+    const c = certifyingRunFor(db, d, book);
+    assert.deepEqual([c.ok, c.via, c.row.sha], [true, "ancestor", tested]);
+  } finally { done(); }
+});
+
+test("E-481: only an ERROR row and no tested ancestor is refused as ERROR, and the refusal names the run", () => {
+  const { d, db, done } = freshDb();
+  try {
+    const tested = gitRepo(d).commit("src/a.js", "1", "code");
+    const id = recordCiRun(db, base({ sha: tested, status: "ERROR" }));
+    const c = certifyingRunFor(db, d, tested);
+    assert.deepEqual([c.ok, c.kind, c.via, c.row.id], [false, "ERROR", "self", id]);
+    const g = checkCiDoneGate(db, d, {});
+    assert.equal(g.ok, false);
+    assert.match(g.message, new RegExp(`its only run, #${id}, is ERROR`));
+  } finally { done(); }
+});
+
 // E-386 (D-135 r3): extends the verdict and certifyingRunFor tests above — one shard of a run
 // tests part of the suite, so it is recorded and listed but never certifies a commit.
 test("a shard PASS never certifies: not its sha, not as an ancestor, never as a team record", (t) => {

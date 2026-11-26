@@ -6410,3 +6410,30 @@ At `a8e798d` the acceptance agent for E-476 ran `rein ci run` inside its sandbox
 Revert the commit of the task concerned; each of the three is one commit and none changes the store's schema. Reverting ruling 1 brings back the newest-row rule, ruling 2 the agent's old text, ruling 3 the old pattern.
 
 ---
+
+## D-178 — D-177 addendum 1 — `fast_tier_seconds` is raised to 18 now and stops being a gate; a SKIPPED row does not hide a verdict where a skip is not accepted
+
+**Date**: 2026-11-26
+**Task**: E-481, E-482, E-483 (unblocked); the two E-## tasks registered with this entry
+**Decision**: rulings r6 to r10 on the Engineer's handoff of 2026-11-26 14:26 UTC.
+
+### Why needed
+Three operator runs at `9ede277` were green in the suite (3732/0/9, leaked 0) and failed on the budget alone: `fast_tier_seconds` measured 13, 13 and 20 against a limit of 12 (best 11 plus 10 %). `main` at `4d6385f` measured 11.55 s. The host load during those runs moved between 3 and 18. D-ruling "E-303 timing ratchet" kept this one timing field as a gate because no spread had been seen; the spread is now on record, 13 to 20 on one commit. The same ruling's reason applies: a ratchet that cannot tell load from regression is noise, and noise trains the operator to re-run until green.
+The handoff also notes that a SKIPPED row (the pre-push bypass) after a PASS left `4d6385f` refused at its own sha by the DONE gate. That is the shadowing r1 removed for ERROR.
+
+### Rulings
+6. **Raised now.** `rein ci budget set --ruling D-178 fast_tier_seconds=18`. The limit becomes 19. This is an interim value; it may be set again under this ruling if a fast run lowers the best before r7 is merged.
+7. **`fast_tier_seconds` is recorded, not ratcheted.** It leaves `RATCHET` in src/mcp/shared/ci-budget.js and joins `full_seconds` and the two memory fields: recorded in every run, never a FAIL. `[BUDGET_DRIFT]` covers it as it covers the other timing fields (latest green run more than 25 % over the median of the last five). `suites` stays a gate at +0. This amends the "E-303 timing ratchet" ruling for this one field.
+8. **Not ordered: a task to speed up the pace-setting unit file.** It buys under a second against a swing of seven. If `[BUDGET_DRIFT]` shows a real rise, that is the time to order it.
+9. **A SKIPPED row is a bypass, not a verdict on the tree.** Where a skip is not accepted (the DONE gate), the newest PASS or FAIL row for the sha decides and SKIPPED rows are not looked at; with only SKIPPED rows the gate refuses as today and names the skip. Where a skip is accepted (the push gate), nothing changes: the newest of PASS, FAIL and SKIPPED decides. This completes r1.
+10. **Order.** The Engineer sets r6, the operator runs `rein ci run` at `9ede277`, E-481 to E-483 close with the stamps of the review round, and the branch goes to its pull request. r7 and r9 are two tasks on the next branch from `main`, one commit each.
+
+### Alternatives considered
+1. **Raise to 13 as proposed** — rejected: the limit would be 14, and one of the three runs measured 20.
+2. **Add r7 to ci-verdict-fixes as a fourth commit** — rejected: it changes src/ after the review round and makes the three tasks be reviewed again.
+3. **Keep the gate with a wider slack** — rejected: the swing is 50 % on one commit; a slack that wide catches nothing.
+
+### Rollback
+r6: `rein ci budget set --ruling D-178 fast_tier_seconds=<old>`. r7 and r9: revert the task's commit; each is one commit and neither changes the store's schema.
+
+---

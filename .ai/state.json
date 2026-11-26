@@ -2627,44 +2627,72 @@
     {
       "id": "E-481",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Fix `certifyingRunFor` in src/mcp/shared/ci-runs.js per D-177 r1 so that an ERROR run is not a verdict: for a sha the newest certifying row with status PASS, FAIL or SKIPPED decides; an ERROR row neither certifies nor hides an older row for the same sha; a later FAIL still overrides an earlier PASS; when ERROR rows are the only rows for a sha the ancestor rule applies as if there were none, and a refusal names the ERROR run. Keep `rein ci status` in step with the gate. Acceptance: `node --test tests/unit/ci-runs.test.mjs` passes with 4 new rows: (1) PASS then a newer ERROR at the same sha gives ok true, via \"self\"; (2) PASS then a newer FAIL gives ok false; (3) only an ERROR row at a sha whose PASS ancestor differs only under .ai/ gives ok true, via \"ancestor\"; (4) only an ERROR row with no ancestor gives ok false and kind \"ERROR\". One commit.",
       "created_at": "2026-11-26T12:43:46.212Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T14:45:34.882Z",
+      "summary": "An ERROR run is not a verdict: verdictRun; certifyingRunFor, ciVerdict and rein ci status skip ERROR rows; ERROR-only falls through to record and ancestor rules, else refused naming the run (D-177 r1)",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-26T12:43:46.219Z"
+      "updated_at": "2026-11-26T14:45:34.889Z"
     },
     {
       "id": "E-482",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Change src/claude/agents/critic_acceptance.md per D-177 r2 so that the acceptance agent never runs `rein ci run`: a clause about CI is observed with `rein ci status <sha>` (or `rein ci list`) and is UNVERIFIED with the reason `no run recorded` when the record holds no run for the sha; remove the sentence in rule 4 that allows one `rein ci run`. Rebuild the plugin copy. Acceptance: `grep -c \"rein ci status\" src/claude/agents/critic_acceptance.md` prints 1 or more; the file src/claude/agents/critic_acceptance.md holds no sentence that permits `rein ci run`; `bash tests/suites/agent_contracts_test.sh` passes with 1 new assertion that the file forbids `rein ci run`. One commit.",
       "created_at": "2026-11-26T12:43:49.402Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T14:45:35.111Z",
+      "summary": "critic_acceptance never runs rein ci run; Rule 5 reads CI with rein ci status <sha>, UNVERIFIED 'no run recorded' (D-177 r2). REVIEW_PASS + ACCEPT_PASS at 7ad7044; CI PASS at 8ade9e0.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-26T12:43:49.403Z"
+      "updated_at": "2026-11-26T14:45:35.117Z"
     },
     {
       "id": "E-483",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Limit the `[UNAPPROVED_DEP]` check in src/shared/review-checks.mjs (line 112) per D-177 r3 to manifests: count an added `\"name\":` line only inside the diff section of a `package.json` at any depth; added lines in any other file do not trigger it. Acceptance: the unit test file for review-checks.mjs passes under `node --test` with 3 new rows: (1) a diff that adds `\"key\":` lines to .ai/state.json gives no UNAPPROVED_DEP; (2) a diff that adds a dependency line to package.json with no DECISIONS.md in the diff gives UNAPPROVED_DEP WARN; (3) the same with packages/x/package.json gives the WARN too. One commit.",
       "created_at": "2026-11-26T12:43:51.937Z",
+      "completed_at": "2026-11-26T14:45:35.346Z",
+      "summary": "[UNAPPROVED_DEP] counts added keys only inside a package.json diff section at any depth (D-177 r3). REVIEW_PASS + ACCEPT_PASS at 7ad7044; CI PASS at 8ade9e0.",
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-26T14:45:35.352Z"
+    },
+    {
+      "id": "E-484",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Move `fast_tier_seconds` from ratcheted to recorded per D-178 r7: remove it from `RATCHET` in src/mcp/shared/ci-budget.js so that it never fails a run, keep it in every run's budget block and in `rein ci budget`, let `[BUDGET_DRIFT]` cover it like the other timing fields (latest green run more than 25 % over the median of the last five), and bring the header comment and .ai-free docs that call it a gate in step; `suites` stays a gate at +0. Acceptance: the unit test file for ci-budget.js passes under `node --test` with 2 new or changed rows: (1) a run whose fast_tier_seconds is 2 times the best gives no `[BUDGET_REGRESSION]`; (2) a run with one more suite than the best still gives `[BUDGET_REGRESSION] suites`; `grep -c \"fast_tier_seconds\" src/mcp/shared/ci-budget.js` still prints 1 or more (the field is recorded). One commit.",
+      "created_at": "2026-11-26T14:27:34.368Z",
       "completed_at": null,
       "summary": null,
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-26T12:43:51.937Z"
+      "updated_at": "2026-11-26T14:27:34.372Z"
+    },
+    {
+      "id": "E-485",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Change `verdictRun` and its callers in src/mcp/shared/ci-runs.js per D-178 r9 so that a SKIPPED row does not hide a verdict where a skip is not accepted: without `allowSkipped` the newest certifying PASS or FAIL row for the sha decides and SKIPPED rows are not looked at; with only SKIPPED rows the gate refuses as today and its line names the skip; with `allowSkipped` nothing changes (the newest of PASS, FAIL and SKIPPED decides). Acceptance: `node --test tests/unit/ci-runs.test.mjs` passes with 4 new rows: (1) PASS then a newer SKIPPED, allowSkipped false, gives ok true via \"self\"; (2) FAIL then a newer SKIPPED, allowSkipped false, gives ok false with kind \"FAIL\"; (3) only SKIPPED, allowSkipped false, gives ok false with kind \"SKIPPED\"; (4) FAIL then a newer SKIPPED, allowSkipped true, gives ok true. One commit.",
+      "created_at": "2026-11-26T14:27:37.463Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-26T14:27:37.464Z"
     }
   ],
   "stamps": [
@@ -8979,6 +9007,96 @@
       "timestamp": "2026-11-26T12:33:51.341Z",
       "summary": "[REVIEW_PASS] E-477 at 676c75d — 0 FAIL, 1 note ‖ c776788..HEAD leaves src/shared/cli-bookkeeping.mjs, src/shared/comm-status.sh, hooks/, both E-477 test files untouched ‖ docs/commands.md:29 handoff [COMM_LOCAL] text intact; later edits add recheck rows only ‖ node --test bookkeeping-commands + project-upgrade: 41/41 pass; no COMM_IGNORED in cli-bookkeeping.mjs",
       "sha": "676c75d993178857abeaaf39b76f63f6286542ba",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CHECKS_PASS",
+      "agent": "rein recheck",
+      "task_id": null,
+      "timestamp": "2026-11-26T14:26:13.970Z",
+      "summary": "[CHECKS_PASS] at 7ad7044 — 0 hold, 0 retired",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-483",
+      "timestamp": "2026-11-26T14:26:38.593Z",
+      "summary": "[REVIEW_PASS] E-483 at 7ad7044 — 0 FAIL, 2 notes ‖ src/shared/review-checks.mjs:121-132 manifestAddedKeys keys on '+++ b/<path>' headers; a diff made with --no-prefix/mnemonicprefix would count nothing (fine for rein review's own git diff) ‖ tests/unit/traversal-policy.test.mjs:117-130 R4-R6 are three tests of one rule where D-088 #9 prefers table rows; R6 also proves the state.json section is excluded beside a nested manifest; 59/59 pass",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-482",
+      "timestamp": "2026-11-26T14:26:41.351Z",
+      "summary": "[REVIEW_PASS] E-482 at 7ad7044 — 0 FAIL, 3 notes ‖ src/claude/agents/critic_acceptance.md:42-47 new Rule 5 matches D-177 r2; one-run allowance removed; grep -c 'rein ci status' = 1 ‖ tests/suites/agent_contracts_test.sh:41-43 one new assertion; suite run PASS=75 FAIL=0 ‖ critic_acceptance.md:70-71 rewrap leaves a short line (cosmetic); :86 replay rule still names rein ci run, now redundant but consistent ‖ plugin rebuild is out of repo (install-rein.sh into ~/.rein/plugin), not checked by this review",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-481",
+      "timestamp": "2026-11-26T14:26:54.315Z",
+      "summary": "[REVIEW_PASS] E-481 at 7ad7044 — 0 FAIL, 3 notes ‖ src/shared/ci-record.mjs:140 `ci status` now lets a team record answer an ERROR-only sha; no test row covers this branch (the 4 acceptance rows test the gate and ciVerdict) ‖ src/mcp/shared/ci-runs.js:496 ownRunWhy says \"its only run, #id\" but names only the newest of several ERROR rows; \"only\" is loose wording ‖ src/mcp/shared/ci-runs.js:486 an ERROR refusal replaces the nearest-ancestor differs, so the refusal no longer lists the files outside .ai/ (D-177 r1 asks for the ERROR run to be named, so this is allowed) ‖ tests/unit/ci-runs.test.mjs 48/48 pass, 4 new rows match the acceptance",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CHECK",
+      "agent": "critic_acceptance",
+      "task_id": "E-483",
+      "timestamp": "2026-11-26T14:27:07.846Z",
+      "summary": "E-483#2 | out=3 | grep -c 'test(\"E-483.R' tests/unit/traversal-policy.test.mjs",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-483",
+      "timestamp": "2026-11-26T14:27:10.846Z",
+      "summary": "[ACCEPT_PASS] E-483 at 7ad7044 — 6 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | node --test tests/unit/traversal-policy.test.mjs exit 0, 59 pass 0 fail ‖ 2 | PASS | grep -c 'test(\"E-483.R' = 3 (R4, R5, R6), all passing ‖ 3 | PASS | E-483.R4: diffOf(.ai/state.json, \"summary\": line) -> UNAPPROVED_DEP undefined, passes ‖ 4 | PASS | E-483.R5: package.json \"left-pad\" line, no DECISIONS.md -> [P1, WARN], passes ‖ 5 | PASS | E-483.R6: packages/x/package.json \"left-pad\" -> WARN with that detail, passes ‖ 6 | PASS | git log --grep=E-483: one commit 9ede277 (review-checks.mjs + test file)",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CHECK",
+      "agent": "critic_acceptance",
+      "task_id": "E-482",
+      "timestamp": "2026-11-26T14:27:17.858Z",
+      "summary": "E-482#1 | lines>=1 | grep -n \"rein ci status\" src/claude/agents/critic_acceptance.md",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-482",
+      "timestamp": "2026-11-26T14:27:21.882Z",
+      "summary": "[ACCEPT_PASS] E-482 at 7ad7044 — 5 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | grep -c \"rein ci status\" critic_acceptance.md printed 1 (line 45, Rule 5) ‖ 2 | PASS | grep -n \"rein ci run\": only l.42 \"Never run `rein ci run`\" and l.86 check-exclusion; no permitting sentence; Rule 4 allowance gone ‖ 3 | PASS | bash tests/suites/agent_contracts_test.sh exit 0, SUITE_RESULT PASS=75 FAIL=0 ‖ 4 | PASS | e051cee adds 1 assert_status \"critic_acceptance forbids rein ci run\" (grep 'Never run `rein ci run`') ‖ 5 | PASS | git log --all --grep=E-482 shows one commit e051cee (2 files)",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "CHECK",
+      "agent": "critic_acceptance",
+      "task_id": "E-481",
+      "timestamp": "2026-11-26T14:27:27.688Z",
+      "summary": "E-481#2 | out=4 | grep -c '^test(\"E-481: ' tests/unit/ci-runs.test.mjs",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "ACCEPT_PASS",
+      "agent": "critic_acceptance",
+      "task_id": "E-481",
+      "timestamp": "2026-11-26T14:27:31.097Z",
+      "summary": "[ACCEPT_PASS] E-481 at 7ad7044 — 7 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | node --test tests/unit/ci-runs.test.mjs exit 0, 48 pass 0 fail ‖ 2 | PASS | 4 new rows: grep -c '^test(\"E-481: ' = 4, all four pass ‖ 3 | PASS | row 1 asserts [ok,kind,via]=[true,PASS,self] for PASS then newer ERROR; passes ‖ 4 | PASS | row 2 asserts [false,FAIL,self] for PASS then newer FAIL; passes ‖ 5 | PASS | row 3 asserts [true,ancestor,tested] for ERROR-only sha with .ai/-only PASS ancestor; passes ‖ 6 | PASS | row 4 asserts ok false, kind ERROR, refusal names run #id; passes ‖ 7 | PASS | git log --grep=E-481 shows one commit 13fc263 (ci-runs.js, ci-record.mjs, test)",
+      "sha": "7ad704488e00e36c6a3a934de9f3adf77aa36faa",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

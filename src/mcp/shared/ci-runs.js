@@ -137,6 +137,16 @@ export function latestCiRun(db, sha, { certifying = false } = {}) {
   return db.prepare(`SELECT * FROM ci_runs WHERE ${where} ORDER BY started_at DESC, id DESC LIMIT 1`).get(sha) || null;
 }
 
+/**
+ * E-481 (D-177 r1): the newest certifying row that is a verdict. An ERROR run tested nothing to
+ * its end, so it neither certifies nor hides an older PASS, FAIL or SKIPPED row for the sha.
+ */
+export function verdictRun(db, sha) {
+  return db.prepare(
+    `SELECT * FROM ci_runs WHERE sha = ? AND ${CERTIFYING_SQL} AND status != 'ERROR' ORDER BY started_at DESC, id DESC LIMIT 1`,
+  ).get(sha) || null;
+}
+
 /** Newest `n` rows across all commits. */
 export function listCiRuns(db, n = 10) {
   return db.prepare("SELECT * FROM ci_runs ORDER BY started_at DESC, id DESC LIMIT ?").all(Math.max(1, n | 0));
@@ -151,10 +161,11 @@ export function ciRunCount(db) {
  * The short view a status line or a gate prints for `sha`:
  *   { kind: "PASS"|"FAIL"|"ERROR"|"SKIPPED"|"DIRTY"|"NONE", row }
  * DIRTY = only dirty rows exist; it never certifies a commit. SHARD (E-386) = the newest
- * non-certifying row is one shard of a run — it never certifies a commit either.
+ * non-certifying row is one shard of a run — it never certifies a commit either. ERROR
+ * (E-481, D-177 r1) shows only when no PASS, FAIL or SKIPPED row exists for the sha.
  */
 export function ciVerdict(db, sha) {
-  const cert = latestCiRun(db, sha, { certifying: true });
+  const cert = verdictRun(db, sha) || latestCiRun(db, sha, { certifying: true });
   if (cert) return { kind: cert.status, row: cert };
   const any = latestCiRun(db, sha);
   if (any && any.shard && !any.dirty) return { kind: "SHARD", row: any };
@@ -427,8 +438,11 @@ export function aiOnlyAncestor(repoRoot, ancestor, sha) {
 /**
  * Is `sha` certified by CI?
  *
- *   1. its own newest non-dirty row decides, if it has one (PASS → ok; anything else → no;
- *      a SKIPPED row counts only with allowSkipped — the pre-push bypass);
+ *   1. its own newest non-dirty PASS, FAIL or SKIPPED row decides, if it has one (PASS → ok;
+ *      anything else → no; a SKIPPED row counts only with allowSkipped — the pre-push bypass).
+ *      E-481 (D-177 r1): an ERROR row is not a verdict — it neither certifies nor hides an
+ *      older row, and with only ERROR rows the sha is treated as having none; a refusal then
+ *      reports kind "ERROR", via "self", with the ERROR row;
  *   2. E-328 (D-102 §5a): otherwise, in a team project (`aiDir` given and .ai/team.json
  *      present), its own .ai/ci/<sha>.json record from any member decides — a PASS
  *      certifies, a FAIL or SKIPPED record never does;
@@ -445,7 +459,7 @@ export function aiOnlyAncestor(repoRoot, ancestor, sha) {
  */
 export function certifyingRunFor(db, repoRoot, sha, { allowSkipped = false, aiDir = null } = {}) {
   const warnings = [];
-  const own = latestCiRun(db, sha, { certifying: true });
+  const own = verdictRun(db, sha);
   if (own) {
     const ok = own.status === "PASS" || (allowSkipped && own.status === "SKIPPED");
     return { ok, kind: own.status, via: "self", row: own, record: null, differs: [], warnings };
@@ -469,10 +483,18 @@ export function certifyingRunFor(db, repoRoot, sha, { allowSkipped = false, aiDi
     if (a.ok) return { ok: true, kind: "PASS", via, row: c.row, record: c.record, differs: a.differs, warnings };
     if (!nearest) nearest = { ...c, differs: a.outside };
   }
+  const errored = latestCiRun(db, sha, { certifying: true });
+  if (errored) return { ok: false, kind: "ERROR", via: "self", row: errored, record: null, differs: [], warnings };
   return {
     ok: false, kind: "NONE", via: null, row: nearest ? nearest.row : null, record: nearest ? nearest.record : null,
     differs: nearest ? nearest.differs : [], warnings,
   };
+}
+
+/** Why a refusal's own run does not certify: "its run is FAIL", or the ERROR run by id (E-481). */
+export function ownRunWhy(c) {
+  if (c.kind === "ERROR") return `its only run, #${c.row.id}, is ERROR — it tested nothing to its end`;
+  return `its run is ${c.kind}`;
 }
 
 /** Which source certified (E-328): "local PASS run", "PASS record from <runner>", or the ancestor. */
@@ -503,7 +525,7 @@ export function checkCiDoneGate(db, repoRoot, env = process.env) {
   const c = certifyingRunFor(db, repoRoot, head, { aiDir });
   if (c.ok) return { ok: true, active: true, message: `CI gate: ${head.slice(0, 7)} certified (${certifiedBy(c)})` };
   let why = "no run for it or for an ancestor that differs only in .ai/";
-  if (c.via === "self") why = `its run is ${c.kind}`;
+  if (c.via === "self") why = ownRunWhy(c);
   else if (c.via === "record") why = `its record from ${c.record.runner} is ${c.kind}`;
   return {
     ok: false, active: true,

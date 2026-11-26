@@ -2539,44 +2539,44 @@
     {
       "id": "E-476",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Make `[LANE_CODE]` quiet inside a role sandbox and document the bot-commit push refusal, per D-174 addendum 5 (r27 to r29). (1) In src/shared/lane-code.mjs report only regular files and symbolic links: skip every other entry type (character devices, sockets, pipes). Inside a role sandbox the platform puts character-device placeholders such as `.ai/.bashrc`, `.ai/.gitconfig` and `.ai/.claude/settings.json` in the working directory; they are not files a test runner can load, and today each session start and handoff reports 17 of them. A symbolic link is still reported whatever it points at. (2) In docs/role-sandbox.md (or docs/troubleshooting.md, where `[ARCH_LANE_COMMIT]` is explained) add the case of a commit made on GitHub, such as a Dependabot merge: the push of a branch cut from it is refused; the fix is to confirm the commit is on the remote's main with `git ls-remote origin main` and `git merge-base --is-ancestor <sha> <that sha>`, then record it with the ledger's `trust` command. Say that a local `origin/main` ref is not the proof. (3) Remove the comment at src/bin/rein near line 3633 that names `[GATE_UNREGISTERED]`. Tests: extend the unit file that covers lane-code (name it in the handoff; no new suite): a character device under `.ai/` is not reported; a `.mjs` file and a symbolic link under `.ai/` still are. Acceptance: those rows pass under `node --test`; `node src/shared/lane-code.mjs --root .` run in the Architect's pane of this repository prints no `[LANE_CODE]` line; `git grep -c \"GATE_UNREGISTERED\" -- src` prints nothing; `git grep -n \"ls-remote\" -- docs` prints at least one line; `rein ci run` is green at the branch tip.",
       "created_at": "2026-11-25T10:45:47.539Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T12:34:01.040Z",
+      "summary": "[LANE_CODE] reports only regular files and symlinks, so it is quiet inside a role sandbox; the bot-commit push refusal is documented (D-174 add.5 r27-r29). REVIEW_PASS at 676c75d, ACCEPT_PASS at a8e79",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-25T10:45:47.539Z"
+      "updated_at": "2026-11-26T12:34:01.047Z"
     },
     {
       "id": "E-477",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Make `rein handoff` work in a project that gitignores `.ai/`, per D-175 r1 to r5, which carry the detail (before E-476; the two may share one branch and pull request, one commit each). (1) In runHandoff of src/shared/cli-bookkeeping.mjs remove the `[COMM_IGNORED]` refusal. When COMM.md is ignored: append the entry with its heading, run the archive step, make no `git add` and no commit (never `-f`), exit 0, and print the wake line and the `[COMM_LOCAL]` note of D-175 r2. A project that tracks COMM.md behaves as today. (2) In src/shared/comm-status.sh print a new value `local` when the rules ignore the whole directory (`git check-ignore -q --no-index .ai/`), checked before `IGNORED`. (3) `rein doctor` prints for `local` the one line of D-175 r3, not a warning; the session-start brief prints nothing for `local`. If hooks/session-start.sh must change for that, stop and say so in a handoff: it makes the task Tier 3. (4) The command reference and docs/troubleshooting.md say what a handoff does in such a project. Tests: extend tests/unit/bookkeeping-commands.test.mjs (replace the refusal row) and the file that covers rein_comm_status; no new suite. Rows: with `.ai/` in the project .gitignore a handoff exits 0, COMM.md ends with the new entry under its heading, no commit is made and nothing is staged, and the wake line holds `not committed`; with only COMM.md ignored the entry is written without a commit and the status is IGNORED; with `.ai/` ignored the status is `local`; a tracked project commits as before. Acceptance: those rows pass under `node --test` and in the comm-status suite; in a scratch repository whose .gitignore holds `.ai/`, `rein handoff --to engineer --file <entry>` exits 0 and `grep -c \"^## Handoff — \" .ai/COMM.md` prints 1; `git grep -n \"COMM_IGNORED\" -- src/shared/cli-bookkeeping.mjs` prints nothing; `rein ci run` is green at the branch tip.",
       "created_at": "2026-11-25T11:10:12.866Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T12:34:04.242Z",
+      "summary": "rein handoff works where .ai/ is gitignored: no [COMM_IGNORED] refusal; the entry is written uncommitted with [COMM_LOCAL]; comm-status reports local/IGNORED (D-175 r1-r5). REVIEW_PASS at 676c75d, ACC",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-25T11:10:12.867Z"
+      "updated_at": "2026-11-26T12:34:04.248Z"
     },
     {
       "id": "E-478",
       "owner": "Engineer (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 2,
       "description": "Record replayable acceptance clauses as `CHECK` stamps, per .ai/blueprints/acceptance-replay.md §Component 1 and §Data Model (D-176 r6; after E-477 and E-476). (1) Add src/shared/checks.mjs: parse a stamp summary of the form `<task>#<n> | <expect> | <command>` (the command is everything after the second ` | `, one line, at most 400 characters) and of the form `<task>#<n> | <by> | <reason>`; `<expect>` is exactly one of `exit=<n>`, `empty`, `lines=<n>`, `lines>=<n>`, `out=<text>`; return the parsed check or the reason it is malformed. (2) `add_stamp` calls it for the types `CHECK` and `CHECK_RETIRED` and refuses a malformed summary with `[CHECK_MALFORMED]` and the reason; other stamp types are unchanged. (3) In src/claude/agents/critic_acceptance.md add the step: on a PASS verdict, before the `ACCEPT_PASS` stamp, record one `CHECK` stamp per clause that meets the six conditions of §Component 1, with the command the agent itself ran; none on `ACCEPT_FAIL`; the report to the caller is unchanged. (4) REVIEWS.md prints one line per task for `CHECK` stamps (`E-###: <n> checks recorded`) and lists `CHECK_RETIRED` stamps in full. No table or column is added. Tests: one new unit file tests/unit/checks.test.mjs for the grammar (each expect form, a command that contains `|`, each malformed case), and rows in the existing file that covers add_stamp and the REVIEWS view; name them in the handoff. Acceptance: `node --test tests/unit/checks.test.mjs` exits 0; an `add_stamp` call with type `CHECK` and the summary `E-1#1 | maybe | true` is refused with `[CHECK_MALFORMED]` (a test row shows it); `git grep -c \"CHECK\" -- src/claude/agents/critic_acceptance.md` prints a count of at least 1; `git grep -n \"ALTER TABLE\\|CREATE TABLE\" -- src/shared/checks.mjs` prints nothing.",
       "created_at": "2026-11-25T14:55:53.362Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T12:33:36.233Z",
+      "summary": "CHECK stamps: src/shared/checks.mjs grammar (control/format/bidi refused, task_id must match), add_stamp [CHECK_MALFORMED], critic_acceptance §Checks, REVIEWS.md CHECK lines (D-176 r6, add.1). REVIEW_",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-25T14:55:53.368Z"
+      "updated_at": "2026-11-26T12:33:36.240Z"
     },
     {
       "id": "P-56",
@@ -2595,38 +2595,34 @@
     {
       "id": "E-479",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 3,
       "description": "Add the command `rein recheck`, per .ai/blueprints/acceptance-replay.md §Component 2, §API / Interface Contracts, §Security and §Execution Constraints (D-176 r6; Tier 3 by D-176 r7: it runs command text from the ledger). (1) `rein recheck` reads the live set of §Data Model, runs each command in the project root in the caller's shell, one after another, stdin closed, 30 seconds per check, at most 64 KB of stdout read, compares through src/shared/checks.mjs, prints one `[CHECK_BROKEN]` line per broken check and the summary line, and records one `CHECKS_PASS` or `CHECKS_FAIL` stamp for HEAD; on a dirty tree it prints the result and records nothing. Exit 0 when all hold or the set is empty, 1 when one is broken, 2 on bad arguments. (2) `--list` prints the live checks and runs nothing; `--json` prints the object of the blueprint. (3) `--retire <task>#<n> --by <D-###|E-###|P-##> --reason <text>` records a `CHECK_RETIRED` stamp; it refuses an unknown `--by` with `[RETIRE_UNKNOWN]` and an id that is not live with `[CHECK_UNKNOWN]`. (4) Nothing under src/mcp/ imports or calls the replayer: the MCP server runs outside the role sandbox. No allowlist of commands is built. Logic in a module under src/shared/; the verb in src/bin/rein beside `done`. Tests: one new file tests/unit/recheck.test.mjs on a scratch state: a check that holds; one broken per expect form; a timeout; output too large; the live set after a retirement and after a reopen; a dirty tree records nothing; `--list` runs nothing (a command that would create a file leaves none); both retire refusals. Acceptance: `node --test tests/unit/recheck.test.mjs` exits 0; `rein recheck --list` in this repository exits 0; `git grep -ln \"recheck\" -- src/mcp` prints nothing; `rein recheck --retire E-1#99 --by D-176 --reason x` exits 1 and prints `[CHECK_UNKNOWN]`; one `security_engineer` round ends SEC_CLEARED.",
       "created_at": "2026-11-25T14:56:13.243Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T12:33:40.808Z",
+      "summary": "rein recheck replays the live CHECK set (30 s / 64 KB limits, group kill; F-E479-1/-2 fixed; add_stamp [STAMP_RESERVED] for CHECKS_PASS/CHECKS_FAIL/CHECK_RETIRED, r16). REVIEW_PASS + ACCEPT_PASS + SEC",
       "depends_on": [
         "E-478"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-478"
-      ],
-      "updated_at": "2026-11-25T14:56:13.243Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-26T12:33:40.814Z"
     },
     {
       "id": "E-480",
       "owner": "Engineer (Claude)",
-      "status": "BLOCKED",
+      "status": "DONE",
       "tier": 2,
       "description": "Gate DONE on the recorded checks and document acceptance replay, per .ai/blueprints/acceptance-replay.md §Component 3 (D-176 r6). (1) In src/shared/completion-gates.mjs add one gate for a Tier 2 or Tier 3 E-## task: a `CHECKS_PASS` stamp for HEAD, or for an ancestor that differs from HEAD only in `.ai/` (the rule the other stamp gates use); without it the close is refused with `[CHECK_GATE] no CHECKS_PASS for HEAD — run: rein recheck`. The gate reads the stamp and runs nothing. Add a floor constant like `ACCEPT_GATE_FLOOR` set to this task's own number, so the gate applies only to tasks with a higher id. Tier 1 and P-## tasks are not gated. Keep the gate's text in src/shared/: the word `recheck` must not appear under src/mcp/ (E-479's clause). (2) `rein review 2` and `rein review 3` run `rein recheck` with their other deterministic checks and print its summary line. (3) Docs: the command reference gets `rein recheck` with its three forms and exit codes; one docs page or section explains a check, the three states, when to fix and when to retire, and tells the operator to read `rein recheck --list` before the first run in a project they do not trust; the `rein-review` skill text names the new step. Tests: rows in the existing file that covers completion-gates (name it in the handoff): a task above the floor without the stamp is refused with `[CHECK_GATE]`; with a `CHECKS_PASS` at HEAD it closes; with one at an ancestor that differs only in `.ai/` it closes; a task at or below the floor, a Tier 1 task and a P-## task close without it. Acceptance: those rows pass under `node --test`; `git grep -c \"CHECK_GATE\" -- src/shared/completion-gates.mjs` prints a count of at least 1; `git grep -ln \"recheck\" -- src/mcp` prints nothing; `git grep -ln \"rein recheck\" -- docs` prints at least one file; `rein review 2` in this repository prints a `CHECKS_PASS` or `CHECKS_FAIL` line.",
       "created_at": "2026-11-25T14:56:24.228Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T12:33:41.036Z",
+      "summary": "[CHECK_GATE] at DONE above its floor; rein review runs the replay; docs/commands.md and gates-and-review.md (D-176). REVIEW_PASS + ACCEPT_PASS at a8e798d.",
       "depends_on": [
         "E-479"
       ],
-      "ready": false,
-      "blocked_by": [
-        "E-479"
-      ],
-      "updated_at": "2026-11-25T14:56:24.238Z"
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-26T12:33:41.042Z"
     }
   ],
   "stamps": [
@@ -8923,6 +8919,24 @@
       "timestamp": "2026-11-26T12:32:54.356Z",
       "summary": "[ACCEPT_PASS] E-479 at a8e798d — 5 PASS, 0 FAIL, 0 UNVERIFIED ‖ 1 | PASS | `node --test tests/unit/recheck.test.mjs` exit 0, 10 pass 0 fail ‖ 2 | PASS | `src/bin/rein recheck --list` in repo exit 0, empty (no CHECK stamps); installed ~/.rein rein v0.6.0 lacks recheck ‖ 3 | PASS | `git grep -ln recheck -- src/mcp` printed nothing, exit 1 ‖ 4 | PASS | fixture repo (E-1 DONE, D-176): `rein recheck --retire E-1#99 --by D-176 --reason x` exit 1, `[CHECK_UNKNOWN]`, 0 CHECK_RETIRED rows ‖ 5 | PASS | stamps id 702 SEC_CLEARED security_engineer E-479 sha a8e798d; SECURITY.md re-probe section ends SEC_CLEARED, 0 EXPLOITED",
       "sha": "a8e798d2882329977bf6d2cd8102a51ff6e5f1ff",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-476",
+      "timestamp": "2026-11-26T12:33:50.009Z",
+      "summary": "[REVIEW_PASS] E-476 at 676c75d — 0 FAIL, 1 note ‖ src/shared/lane-code.mjs, tests/unit/lane-code.test.mjs, docs/role-sandbox.md byte-identical to c776788 (reviewed PASS there) ‖ callers hooks/session-start.sh, src/shared/cli-bookkeeping.mjs, is-main.mjs unchanged since c776788 ‖ lane-code.test.mjs 9/9 pass; lane-code.mjs --root . prints nothing; git grep GATE_UNREGISTERED -- src empty; docs/role-sandbox.md:74 ls-remote ‖ note: E-478..E-480 src changes (checks/recheck/record-store/completion-gates) do not touch lane-code",
+      "sha": "676c75d993178857abeaaf39b76f63f6286542ba",
+      "author": "32126521+Vimurai@users.noreply.github.com"
+    },
+    {
+      "type": "REVIEW_PASS",
+      "agent": "reviewer",
+      "task_id": "E-477",
+      "timestamp": "2026-11-26T12:33:51.341Z",
+      "summary": "[REVIEW_PASS] E-477 at 676c75d — 0 FAIL, 1 note ‖ c776788..HEAD leaves src/shared/cli-bookkeeping.mjs, src/shared/comm-status.sh, hooks/, both E-477 test files untouched ‖ docs/commands.md:29 handoff [COMM_LOCAL] text intact; later edits add recheck rows only ‖ node --test bookkeeping-commands + project-upgrade: 41/41 pass; no COMM_IGNORED in cli-bookkeeping.mjs",
+      "sha": "676c75d993178857abeaaf39b76f63f6286542ba",
       "author": "32126521+Vimurai@users.noreply.github.com"
     }
   ]

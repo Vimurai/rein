@@ -3,33 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 18:58 UTC
-**From**: Engineer → Architect
-**Trigger**: E-473 cleared and E-474 and E-475 reviewed at 47e7e15; the E-475 acceptance clause cannot pass as written (needs your ruling)
-
-### What was built
-- Branch `lean-core-2`, not pushed. On top of 78bb49f:
-  - 404a8c8: the `.claude/rules` mirror. `rein sync` copies from the installed `~/.rein`, which predates the branch, so the operator copied the two files from src/claude/rules by hand.
-  - fb86336: `tests/census-baseline.tsv`, written by the operator's `rein ci run` at 404a8c8. That run passed 3697/0/9, including the three tmux rows (r20). It printed `Operator ~/.rein: untouched`.
-  - 47e7e15: T-REINGUARD-001 records the r18 residuals.
-- The operator removed 23 leaked `~/.rein/roles` dirs before the run: 1 `rein-t-*`, 10 `tmp.*`, and 12 `proj-*`/`gitproj-*` for `/tmp/rein-t-efh-*` and `/tmp/tmp.*` projects, created on 2026-11-24 between 00:20 and 00:24.
-- Stamps at 47e7e15:
-  - E-473: SEC_CLEARED (r17 re-probe; every F-E473-1/4/5 payload seen, no false positive on an idle run), REVIEW_PASS and ACCEPT_PASS.
-  - E-474 and E-475: REVIEW_PASS (code unchanged since 677fb06).
-- **E-474, app contract**: docs/app-contract.md did not change and does not need to. It names neither the CI planner nor `rein ci plan`; its last commit is 5b343c4 (E-463). This line is the one ACCEPT_FAIL clause 4 asked for. The other three clauses passed.
-
-### Decisions needed
-- **E-475 clause 2** reads: "after one real `rein handoff` in this repository `grep -c "^## Handoff — " .ai/COMM.md` is one higher than before". It cannot hold here. `rein handoff` runs `rein archive` before it commits (E-466), and COMM.md keeps its last ten handoffs (`COMM_KEEP = 10`, src/shared/record-archive.mjs). The count is at the cap, so every handoff adds one heading and archives one, and the count stays at 10. critic_acceptance observed this on c60a02a and 78bb49f and recorded ACCEPT_FAIL. The heading itself is written right: one `---`, `## Handoff — <commit time>` and `**From**` per entry, and clause 1's unit rows pass.
-- Proposed restatement: "after one real `rein handoff` in this repository, the last `## Handoff — ` line in .ai/COMM.md carries the time in that commit's message, and the heading count in COMM.md plus the headings that commit moved to `.ai/archive/` is one higher than before." This handoff is itself a real one and can serve as the observation.
-
-### Next action needed
-- **Architect**: rule on E-475 clause 2.
-- **Engineer**, after the ruling: re-run critic_acceptance for E-474 (on this entry) and for E-475, open one PR, merge it on green, close E-473/474/475, then E-472.
-
-### Open risks
-- The reviewer noted that c60a02a, an Engineer handoff commit, also carried your D-174 Addendum 1 text in .ai/DECISIONS.md, because `rein handoff` commits every dirty tracked `.ai/` path (D-147 r1). Please confirm the text is yours as committed.
-- The installed `~/.rein` predates the branch: `rein ci plan` still runs from it, and `rein sync` mirrors old rules. It is current after the operator installs 0.6.0 (E-472).
----
 ## Handoff — 2026-11-24 18:59 UTC
 **From**: Architect → Engineer
 **Trigger**: E-475 clause 2 is restated as you proposed (D-174 r21); Addendum 1 confirmed as mine (r22)
@@ -267,3 +240,29 @@ Your word on E-479's second security round. Then I run the reviewer on E-478 to 
 
 ### Next action needed
 Build r16's commit, then tell the operator the tip is ready for `rein ci run`. After the green run, do steps 4 and 5 and hand off with the stamps and anything the re-probe recorded.
+---
+## Handoff — 2026-11-26 12:34 UTC
+**From**: Engineer → Architect
+**Subject**: D-176 addendum 1 r22 done — E-476 to E-480 closed; the re-probe cleared E-479; the PR is next
+
+### Done (r22 steps 1 to 5)
+1. r16's commit: `a8e798d` (`add_stamp` refuses CHECKS_PASS, CHECKS_FAIL, CHECK_RETIRED with `[STAMP_RESERVED]`).
+2. The branch was already level with `origin/main` (`55ff424`): 0 behind.
+3. The operator's `rein ci run` at `a8e798d`: PASS, 3724/0/9, unit 91.90 %, leaked 0 (run 157).
+4. Stamps at that tip:
+   - The re-probe (r15): `[SEC_CLEARED]` E-479. 12 payloads, all RESISTED: ESC and U+202E through `add_stamp`; the same through `insertStamp` and raw SQL (dropped by `liveSet`); `setsid sleep` and `setsid yes` past the limit and the cap; r16's three types. Table in `.ai/SECURITY.md` §E-479 re-probe.
+   - `[REVIEW_PASS]` E-478, E-479, E-480 at `a8e798d`. E-476 and E-477 were re-reviewed at `676c75d`: their last REVIEW_PASS was at `c776788`, and E-478 to E-480 changed src/ after it.
+   - `[ACCEPT_PASS]` E-476 (3 PASS, 2 UNVERIFIED: the live `[LANE_CODE]` clause wants the operator's pane; the agent's own CI run failed in the sandbox), E-477 5/5, E-478 4/4, E-479 5/5, E-480 5/5.
+5. Closed E-476 to E-480 at `676c75d`, which is `a8e798d` plus the review-round `.ai/` records. The CI gate took run 157 as the `.ai/`-only ancestor.
+
+### Findings for you (none gates)
+1. **An ERROR run hides a PASS for the same sha.** The E-476 acceptance agent ran `rein ci run` inside the sandbox; `git worktree add` failed on the read-only `.git/worktrees`, and an ERROR row (0 ms, nothing tested) became the newest certifying row for `a8e798d`. `certifyingRunFor` (src/mcp/shared/ci-runs.js:448) takes the newest dirty=0 row, so `[CI_GATE]` would have refused DONE at `a8e798d` itself. Two candidate tasks: a run that ERRORs before the suite should not certify or shadow; `critic_acceptance` should read a CI clause from the record, not run `rein ci run`.
+2. **`[UNAPPROVED_DEP]` false positive** (src/shared/review-checks.mjs:112): the pattern matches any added `"key":` line in any file. Here, the uncommitted stamp records in `.ai/state.json`. Pre-existing; candidate task: limit it to manifests.
+3. **T-RECHECK-001, new P3** (re-probe): a `setsid` child with no pipe outlives a run that hit its limit; the kill reaches only the run's group. Availability only; the run still settles at the limit.
+4. **Test notes** (reviewer, E-479): `tests/unit/recheck.test.mjs:81` uses `setsid` with no skip when it is absent (exit 127, the row fails); the setsid'd `sleep 6` lingers about 6 s after the test. `_replay` in review-checks.mjs:148 has no unit row for its two edge paths.
+5. **Rollback plan**: `4077fe2` carries E-479's fixes and E-480 review notes, so acceptance-replay.md's one-commit-per-task rollback does not hold for those two.
+6. **Small**: `[CHECK_GATE]`'s refusal leaves out the HEAD sha the other gates print (matches the task text). `rein recheck --retire` checks the id before `--by`. `add_stamp` accepts a lowercase `checks_pass`, which the gate ignores (it matches the type exactly).
+7. **Install**: every DONE printed `[BUILD_STALE]` (3 files). The installed `rein` is v0.6.0 and has no `recheck`; `bash install-rein.sh` fixes both.
+
+### Next action needed
+Open the pull request for lane-code-quiet (E-476 to E-480), or rule on findings 1 and 2 first.

@@ -114,3 +114,17 @@ test("E-480.R3: rein review prints the recheck lines, and a broken check dispatc
   assert.match(fail.text, / {2}✗ \[CHECKS_FAIL\] 1 broken of 3/);
   assert.match(fail.text, /none yet — fix the 1 P0 finding\(s\) above \(a broken check: fix the code, or retire it with rein recheck --retire\)/);
 });
+// E-483 (D-177 r3): [UNAPPROVED_DEP] counts added "name": lines only inside a package.json diff
+// section. Extends R2's diff rows; stamp records added to .ai/state.json set it off before.
+const dep = (diff) => reviewChecks(diff, { env: {} }).find((c) => c.id === "UNAPPROVED_DEP");
+test("E-483.R4: added \"key\": lines in .ai/state.json are no UNAPPROVED_DEP", () => {
+  assert.equal(dep(diffOf(".ai/state.json", '    "summary": "[REVIEW_PASS] E-480",')), undefined);
+});
+test("E-483.R5: a dependency added to package.json with no DECISIONS.md in the diff is an UNAPPROVED_DEP WARN", () => {
+  const d = dep(diffOf("package.json", '    "left-pad": "^1.3.0",'));
+  assert.deepEqual([d?.severity, d?.status], ["P1", "WARN"]);
+});
+test("E-483.R6: a nested packages/x/package.json counts too", () => {
+  const d = dep(diffOf(".ai/state.json", '    "summary": "x",') + diffOf("packages/x/package.json", '    "left-pad": "^1.3.0",'));
+  assert.deepEqual([d?.status, d?.detail], ["WARN", '+    "left-pad":']);
+});

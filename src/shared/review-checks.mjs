@@ -108,12 +108,27 @@ export function reviewChecks(diff, { cwd = process.cwd(), env = process.env } = 
     checks.push({ id: "SOVEREIGNTY_VIOLATION", severity: "P0", status: "FAIL", detail: sovereigntyViolations.join(", ") });
   }
 
-  // A new dependency with no decision in the same diff.
-  const newDeps = [...diff.matchAll(/^\+\s+"[a-z@][a-z0-9\-@/.]+"\s*:/gm)].map((m) => m[0].trim());
+  // A new dependency with no decision in the same diff. E-483 (D-177 r3): only an added
+  // `"name":` line inside a package.json section counts — other files' keys are not deps.
+  const newDeps = manifestAddedKeys(diff);
   if (newDeps.length > 0 && !diff.includes("DECISIONS.md")) {
     checks.push({ id: "UNAPPROVED_DEP", severity: "P1", status: "WARN", detail: newDeps.slice(0, 3).join(", ") });
   }
   return checks;
+}
+
+/** Added `"name":` lines in the diff sections of a package.json at any depth (E-483). */
+function manifestAddedKeys(diff) {
+  const keys = [];
+  let inManifest = false;
+  for (const line of diff.split("\n")) {
+    const header = /^\+\+\+ (?:b\/(.+)|\/dev\/null)$/.exec(line);
+    if (header) { inManifest = /(^|\/)package\.json$/.test(header[1] || ""); continue; }
+    if (line.startsWith("diff --git ")) { inManifest = false; continue; }
+    const m = inManifest && /^\+\s+"[a-z@][a-z0-9\-@/.]+"\s*:/.exec(line);
+    if (m) keys.push(m[0].trim());
+  }
+  return keys;
 }
 
 /**

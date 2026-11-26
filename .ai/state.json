@@ -2448,16 +2448,16 @@
     {
       "id": "P-55",
       "owner": "Architect (Claude)",
-      "status": "OPEN",
+      "status": "DONE",
       "tier": 1,
       "description": "Review what rein-app gives that Claude Code does not, per D-171 r3 (after E-470 merges): read rein-app's blueprints and docs/app-contract.md, check the current Claude Code documentation for its own multi-session views, and write plans/rein-app-value-review.md with one row per rein-app feature (what it does, the native equivalent or none, keep or cut, why), a recommendation to the operator, and answers to the two open asks of rein-app/plans/rein-desk-request.md. Send it to the rein-app Architect. Acceptance: plans/rein-app-value-review.md exists with a row for every feature named in rein-app's README and Desk blueprint; each native-equivalent cell names the documentation page it was read from or says none found. Framework task.",
       "created_at": "2026-11-23T21:37:09.919Z",
-      "completed_at": null,
-      "summary": null,
+      "completed_at": "2026-11-26T12:44:01.211Z",
+      "summary": "Closed as replaced: D-176 r10 moved its scope into P-56, which writes plans/reuse-review.md.",
       "depends_on": [],
       "ready": true,
       "blocked_by": [],
-      "updated_at": "2026-11-23T21:37:09.919Z"
+      "updated_at": "2026-11-26T12:44:01.219Z"
     },
     {
       "id": "E-471",
@@ -2623,6 +2623,48 @@
       "ready": true,
       "blocked_by": [],
       "updated_at": "2026-11-26T12:33:41.042Z"
+    },
+    {
+      "id": "E-481",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Fix `certifyingRunFor` in src/mcp/shared/ci-runs.js per D-177 r1 so that an ERROR run is not a verdict: for a sha the newest certifying row with status PASS, FAIL or SKIPPED decides; an ERROR row neither certifies nor hides an older row for the same sha; a later FAIL still overrides an earlier PASS; when ERROR rows are the only rows for a sha the ancestor rule applies as if there were none, and a refusal names the ERROR run. Keep `rein ci status` in step with the gate. Acceptance: `node --test tests/unit/ci-runs.test.mjs` passes with 4 new rows: (1) PASS then a newer ERROR at the same sha gives ok true, via \"self\"; (2) PASS then a newer FAIL gives ok false; (3) only an ERROR row at a sha whose PASS ancestor differs only under .ai/ gives ok true, via \"ancestor\"; (4) only an ERROR row with no ancestor gives ok false and kind \"ERROR\". One commit.",
+      "created_at": "2026-11-26T12:43:46.212Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-26T12:43:46.219Z"
+    },
+    {
+      "id": "E-482",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Change src/claude/agents/critic_acceptance.md per D-177 r2 so that the acceptance agent never runs `rein ci run`: a clause about CI is observed with `rein ci status <sha>` (or `rein ci list`) and is UNVERIFIED with the reason `no run recorded` when the record holds no run for the sha; remove the sentence in rule 4 that allows one `rein ci run`. Rebuild the plugin copy. Acceptance: `grep -c \"rein ci status\" src/claude/agents/critic_acceptance.md` prints 1 or more; the file src/claude/agents/critic_acceptance.md holds no sentence that permits `rein ci run`; `bash tests/suites/agent_contracts_test.sh` passes with 1 new assertion that the file forbids `rein ci run`. One commit.",
+      "created_at": "2026-11-26T12:43:49.402Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-26T12:43:49.403Z"
+    },
+    {
+      "id": "E-483",
+      "owner": "Engineer (Claude)",
+      "status": "OPEN",
+      "tier": 2,
+      "description": "Limit the `[UNAPPROVED_DEP]` check in src/shared/review-checks.mjs (line 112) per D-177 r3 to manifests: count an added `\"name\":` line only inside the diff section of a `package.json` at any depth; added lines in any other file do not trigger it. Acceptance: the unit test file for review-checks.mjs passes under `node --test` with 3 new rows: (1) a diff that adds `\"key\":` lines to .ai/state.json gives no UNAPPROVED_DEP; (2) a diff that adds a dependency line to package.json with no DECISIONS.md in the diff gives UNAPPROVED_DEP WARN; (3) the same with packages/x/package.json gives the WARN too. One commit.",
+      "created_at": "2026-11-26T12:43:51.937Z",
+      "completed_at": null,
+      "summary": null,
+      "depends_on": [],
+      "ready": true,
+      "blocked_by": [],
+      "updated_at": "2026-11-26T12:43:51.937Z"
     }
   ],
   "stamps": [

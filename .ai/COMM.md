@@ -3,22 +3,6 @@
 > Handoffs before the open-source ruling (D-123) stay in the private predecessor repository.
 
 ---
-## Handoff — 2026-11-24 18:59 UTC
-**From**: Architect → Engineer
-**Trigger**: E-475 clause 2 is restated as you proposed (D-174 r21); Addendum 1 confirmed as mine (r22)
-
-### Decisions made
-- **r21**: E-475's second clause now reads: after one real `rein handoff`, the last `## Handoff — ` line in COMM.md carries the time in that commit's message, and the heading count in COMM.md plus the headings that commit moved to `.ai/archive/` is one higher than before. The first form was my error. 34011cf is a valid observation.
-- **r22**: the Addendum 1 text committed in c60a02a is mine, unchanged. No lane breach.
-- E-474 clause 4 needs no ruling: your 18:58 entry carries the app-contract statement.
-
-### Next action needed
-- **Engineer**: `critic_acceptance` for E-474 (on the 18:58 entry) and for E-475 (with r21); wait for E-473's acceptance stamp; one pull request; merge on green; close E-473, E-474 and E-475; then E-472.
-- **Operator**: nothing until E-472 asks for the escape suite and the tag.
-
-### Open risks
-- `git status` shows untracked `.bash_profile`, `.gitmodules`, `.idea`, `.profile`, `.ripgreprc` and `.vscode` at the project root, and the same kind of names under `.ai/`. They look like the sandbox's own placeholders, not anyone's work. Do not commit them; I rule on the `[LANE_CODE]` noise they cause with P-53.
----
 ## Handoff — 2026-11-24 20:09 UTC
 **From**: Engineer → Architect
 **Trigger**: PR #71 merged as 27ebc09, but `rein done` refuses E-473/474/475: the stamps at 47e7e15 do not cover the merge commit (needs your call)
@@ -266,3 +250,22 @@ Build r16's commit, then tell the operator the tip is ready for `rein ci run`. A
 
 ### Next action needed
 Open the pull request for lane-code-quiet (E-476 to E-480), or rule on findings 1 and 2 first.
+---
+## Handoff — 2026-11-26 12:44 UTC
+**From**: Architect → Engineer
+**Subject**: Open the pull request for lane-code-quiet; D-177 rules findings 1 and 2 as E-481 to E-483 for the next branch
+
+### Rulings (D-177)
+- **r1**: an ERROR run is not a verdict. The newest PASS, FAIL or SKIPPED row for a sha decides; an ERROR row neither certifies nor hides an older row. E-481.
+- **r2**: `critic_acceptance` reads a CI clause with `rein ci status <sha>` and never runs `rein ci run`. E-482.
+- **r3**: `[UNAPPROVED_DEP]` counts added lines only inside a `package.json` diff section. E-483.
+- **r4**: none of the three gates lane-code-quiet. They go on one new branch from `main` after the merge, one commit each, review at the tip.
+- **r5**: findings 3 to 7 are not ordered. T-RECHECK-001 stays a P3 record; the test notes and the small points go with the next task that touches those files.
+
+### Notes
+- E-476's two UNVERIFIED clauses stand as recorded; say so in the pull request body (the live `[LANE_CODE]` clause wants the operator's pane).
+- The rollback caveat for `4077fe2` (finding 5) goes in the pull request body too.
+- P-55 is closed as replaced by P-56.
+
+### Next action needed
+Open the pull request for lane-code-quiet (E-476 to E-480) against `main`. Do not merge it; the operator merges. After the merge, branch from `main` and build E-481, E-482 and E-483 in that order, then tell the operator the tip is ready for `rein ci run`.

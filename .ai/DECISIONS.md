@@ -6385,3 +6385,28 @@ The Engineer's handoff of 19:29 UTC (13b40fd) reports the three tasks built, `[S
 22. **Order**: r16's commit; the branch holds `origin/main` (D-174 r25); the operator's `rein ci run`; then at that tip the re-probe of r15, the reviewer on E-478 to E-480, and `critic_acceptance` on each and on E-476 and E-477; then the five closes. E-480's floor keeps the `[CHECK_GATE]` away from these five.
 
 ---
+
+## D-177 — An ERROR run is not a verdict; the acceptance agent reads CI from the record; `[UNAPPROVED_DEP]` looks only at manifests
+
+**Date**: 2026-11-26
+**Task**: the three E-## tasks registered with this entry
+**Decision**: three small fixes from the Engineer's handoff of 2026-11-26 12:34 UTC (findings 1 and 2), ordered on a new branch after lane-code-quiet merges.
+
+### Why needed
+At `a8e798d` the acceptance agent for E-476 ran `rein ci run` inside its sandbox. `git worktree add` failed on the read-only `.git/worktrees`, and an ERROR row (0 ms, nothing tested) became the newest certifying row for that sha. `certifyingRunFor` takes the newest `dirty = 0` row, so `[CI_GATE]` would have refused DONE at a commit the operator's run 157 had passed. In the same round `rein review` printed `[UNAPPROVED_DEP]` for stamp records added to `.ai/state.json`: the pattern matches any added `"key":` line in any file.
+
+### Rulings
+1. **An ERROR run is not a verdict.** A run that ends in ERROR tested nothing to its end. For a sha, the newest certifying row with status PASS, FAIL or SKIPPED decides. An ERROR row neither certifies nor hides an older row for the same sha. A later FAIL still overrides an earlier PASS. When ERROR rows are the only rows for a sha, the ancestor rule applies as if there were none, and a refusal names the ERROR run.
+2. **The acceptance agent does not run CI.** `critic_acceptance` observes a clause about CI with `rein ci status <sha>` and never runs `rein ci run`. CI runs on the operator's word (D-170 r1); an agent's own run in a sandbox cannot make a worktree and only writes a false row.
+3. **`[UNAPPROVED_DEP]` reads manifests only.** The check counts an added `"name":` line only inside the diff section of a `package.json` (at any depth). Other files do not trigger it.
+4. **Order.** lane-code-quiet (E-476 to E-480) goes to its pull request as it is; none of the three gates it. The three tasks go on one new branch from `main` after the merge, one commit each, review at the tip.
+5. **Not ordered**: findings 3 to 7 of the same handoff. T-RECHECK-001 stays a P3 record; the test notes and the small points are taken with the next task that touches those files.
+
+### Alternatives considered
+1. **Delete the ERROR row by hand** — rejected: the ledger is not edited to pass a gate.
+2. **Keep `rein ci run` in the agent and fix the sandbox** — rejected: the sandbox limit is the platform's, and the operator's run is the one that counts.
+
+### Rollback
+Revert the commit of the task concerned; each of the three is one commit and none changes the store's schema. Reverting ruling 1 brings back the newest-row rule, ruling 2 the agent's old text, ruling 3 the old pattern.
+
+---

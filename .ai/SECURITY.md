@@ -3632,3 +3632,58 @@ modules were imported read-only from the working tree; every command run was a l
 
 Gate: two EXPLOITED rows block Tier 3 sign-off for E-479 until F-E479-1 and F-E479-2 are fixed
 and their payloads re-resist.
+
+## E-479 re-probe (D-176 addendum 1 r15, r16) — `rein recheck` fixes (security_engineer, HEAD a8e798d, fixes 4077fe2 + a8e798d, 2026-11-26) — SEC_CLEARED
+No discovery. Only the round-1 payloads of F-E479-1 and F-E479-2 were re-run, plus one for r16.
+
+### Result
+- **F-E479-1 re-resists.** `add_stamp` (the real task-synchronizer-mcp server, spawned in the
+  fixture over stdio) refuses the ESC form with `[CHECK_MALFORMED] … (U+001B)` and the bidi form
+  with `… (U+202E)`. Nothing is written. Written to the store without `add_stamp`, both are left
+  out of the live set. The ESC summary went in through `insertStamp`, and both forms went in by a
+  raw SQL `INSERT` that skips every writer. `rein recheck --list` prints neither and the replay
+  runs neither (`PWNED`, `PWNED4` and `PWNED5` were not created).
+  Side note: `insertStamp` itself strips U+202E/U+202C, though not ESC. A bidi check written
+  through it is stored without those characters. `--list` then shows exactly the command that
+  runs (`touch PWNED2; true #eurt`), so the list stays truthful and this is not a spoof.
+- **F-E479-2 re-resists.** With a 1 s limit, `setsid sleep 6` and `setsid sleep 1000000` both
+  settle after 1.0 s (`timed out after 1 s`). `setsid sh -c 'yes …'` stops at the 64 KB cap in
+  0.005 s (`output too large`) with no RSS growth. When it reaches the cap before the limit
+  (`sleep 0.5; yes`, 5 s limit), it stops at 0.51 s.
+- **r16 resists.** `add_stamp` refuses `CHECKS_PASS`, `CHECKS_FAIL` and `CHECK_RETIRED` with
+  `[STAMP_RESERVED] <type> is written only by the command that runs the recorded checks, not by
+  add_stamp`. None of the three texts contains `recheck`, and nothing is written. A well-formed
+  `CHECK` is still accepted.
+- **New, not gating (P3, recorded in T-RECHECK-001).** Once a run settles, a `setsid`
+  descendant that holds no pipe keeps running. In the fixture, `sleep 1000000` was still alive
+  after `runCommand` returned, because it is in its own session and the group kill does not
+  reach it. The run settles, so the limit holds, but the process is left behind until it exits.
+  A `yes` descendant dies on SIGPIPE once stdout is destroyed. This is availability within the
+  accepted trust level of the code being run, since the command could have daemonised anyway.
+- Also seen: `add_stamp` accepts the type `checks_pass` in lowercase. This is not a bypass,
+  because the `[CHECK_GATE]` matches `type IN ('CHECKS_PASS','CHECKS_FAIL')` exactly; 0 rows
+  matched.
+
+### Pen-Test Results
+Harness: `mktemp -d` throwaway git project with its own `.ai/` (getDb, ten tasks, E-10 DONE),
+`env -i PATH=/usr/bin:/bin HOME=$T`, `ulimit -t 20 -u 256 -f 10240 -v 2 GB`, 40 s wall kill. The
+real modules and the MCP server were run read-only from the working tree (server cwd = the
+fixture project, HOME = a fixture dir). Probe commands were local (`touch`, `sleep`, `yes`). No
+network. `rein ci run` was not used. This repo's `.ai/` store and `~/.rein` were not touched.
+
+| OWASP | Surface | Payload (truncated) | Verdict | Harness exit | Notes |
+|---|---|---|---|---|---|
+| A03 | add_stamp (MCP) | CHECK `touch PWNED; true \e[2K\e[1GE-10#1 \| exit=0 \| true` | RESISTED | 0 | `[CHECK_MALFORMED] … (U+001B)`, nothing written |
+| A03 | add_stamp (MCP) | CHECK `touch PWNED2; true #‮eurt‬` | RESISTED | 0 | `[CHECK_MALFORMED] … (U+202E)`, nothing written |
+| A08 | liveSet / `--list` / replay | ESC summary via `insertStamp` | RESISTED | 0 | stored raw, dropped: not listed, not run |
+| A08 | liveSet / `--list` / replay | ESC and bidi summaries via raw SQL INSERT | RESISTED | 0 | dropped: not listed, not run (PWNED4/5 absent) |
+| A08 | `--list` / replay | bidi summary via `insertStamp` | RESISTED | 0 | writer strips U+202E/U+202C; listed text = run text |
+| A04 | runCommand limit | `setsid sleep 6` (1 s) | RESISTED | 0 | settles 1.005 s, `timed out after 1 s` |
+| A04 | runCommand limit | `setsid sleep 1000000` (1 s) | RESISTED | 0 | settles 1.003 s; descendant outlives the run (P3, T-RECHECK-001) |
+| A04 | runCommand cap | `setsid sh -c 'yes AAAA…'` (1 s) | RESISTED | 0 | `output too large` in 0.005 s, RSS +0 MB |
+| A04 | runCommand cap | `setsid sh -c 'sleep 0.5; yes BBBB'` (5 s) | RESISTED | 0 | `output too large` at 0.51 s |
+| A01 | add_stamp (MCP) r16 | type CHECKS_PASS / CHECKS_FAIL / CHECK_RETIRED | RESISTED | 0 | `[STAMP_RESERVED]` each; no `recheck` in the text; 0 rows |
+| A01 | add_stamp (MCP) r16 | type CHECK, well formed | RESISTED | 0 | accepted, as r16 requires |
+| A01 | `[CHECK_GATE]` | type `checks_pass` (lowercase) | RESISTED | 0 | stored, but the gate's exact match finds 0 rows |
+
+Gate: no row is EXPLOITED or INCONCLUSIVE. F-E479-1 and F-E479-2 are closed, and E-479 is SEC_CLEARED at a8e798d.
